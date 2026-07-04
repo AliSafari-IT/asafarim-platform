@@ -1,6 +1,19 @@
-// Placeholder for the shared database package.
-// Phase 4 of the migration plan replaces this with a Prisma client backed by
-// PostgreSQL: schema in prisma/schema.prisma, migrations, and a reusable
-// `db` export consumed as `import { db } from "@asafarim/db"`.
+export { prisma } from "./client";
 
-export const DB_PACKAGE_STATUS = "placeholder" as const;
+// Alias matching the migration plan's `import { db } from "@asafarim/db"`
+export { prisma as db } from "./client";
+
+// Re-export types for convenience
+export { PrismaClient, Prisma } from "@prisma/client";
+export type {
+  User,
+  Account,
+  Session,
+  VerificationToken,
+  EmailLoginCode,
+  Role,
+  Permission,
+  UserRole,
+  RolePermission,
+  AuditLog,
+} from "@prisma/client";

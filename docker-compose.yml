@@ -9,7 +9,9 @@ services:
       POSTGRES_USER: asafarim
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-asafarim_dev}
     ports:
-      - "5432:5432"
+      # Host port 55435: 5432 (and 55432-55434) are taken by other local
+      # PostgreSQL instances on the dev machine.
+      - "55435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

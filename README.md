@@ -37,11 +37,20 @@ pnpm build      # build all apps and packages
 pnpm typecheck  # typecheck the whole workspace
 ```
 
-Optional local PostgreSQL:
+### Database
+
+Copy `.env.example` to `.env` at the repo root (apps and Prisma read it from
+there), then:
 
 ```bash
-docker compose up -d
+docker compose up -d postgres   # local PostgreSQL on port 55435
+pnpm db:migrate                 # apply Prisma migrations
+pnpm db:seed                    # seed RBAC roles/permissions (+ SEED_ADMIN_* user)
+pnpm db:studio                  # browse the database
 ```
+
+Authentication (Auth.js v5) lives in `packages/auth`; sign in at
+`hub:3001/sign-in`, admin-only area at `admin:3003`.
 
 ## Deployment
 
