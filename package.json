@@ -1,20 +1,22 @@
 {
   "name": "asafarim-platform",
   "version": "0.1.0",
-  "description": "Asafarim Platform - Unified platform for all Asafarim services",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
+  "private": true,
+  "description": "ASafarIM Platform - unified monorepo for all ASafarIM Digital apps and services",
+  "author": "Ali Safari",
   "license": "MIT",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.2.2",
-      "onFail": "download"
-    }
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write .",
+    "deploy:prod": "bash ./infra/scripts/deploy-prod.sh"
   },
-  "type": "module"
+  "devDependencies": {
+    "prettier": "^3.5.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.7.0"
+  }
 }

@@ -1,0 +1,19 @@
+asafarim.com {
+  reverse_proxy web:3000
+}
+
+www.asafarim.com {
+  reverse_proxy web:3000
+}
+
+hub.asafarim.com {
+  reverse_proxy hub:3000
+}
+
+admin.asafarim.com {
+  reverse_proxy admin:3000
+}
+
+showcase.asafarim.be {
+  reverse_proxy showcase:3000
+}

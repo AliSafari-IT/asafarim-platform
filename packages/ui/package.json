@@ -1,0 +1,21 @@
+{
+  "name": "@asafarim/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared React UI components for the ASafarIM Platform",
+  "main": "./src/index.tsx",
+  "types": "./src/index.tsx",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@asafarim/config": "workspace:*",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}
