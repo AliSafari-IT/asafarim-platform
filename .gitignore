@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# builds
+.next/
+dist/
+build/
+out/
+
+# turborepo
+.turbo/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# misc
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/

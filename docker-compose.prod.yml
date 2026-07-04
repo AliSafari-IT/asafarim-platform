@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: asafarim
+      POSTGRES_USER: asafarim
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - asafarim_net
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      NEXT_PUBLIC_APP_URL: https://asafarim.com
+    depends_on:
+      - postgres
+    networks:
+      - asafarim_net
+
+  hub:
+    build:
+      context: .
+      dockerfile: apps/hub/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      NEXT_PUBLIC_APP_URL: https://hub.asafarim.com
+    depends_on:
+      - postgres
+    networks:
+      - asafarim_net
+
+  showcase:
+    build:
+      context: .
+      dockerfile: apps/showcase/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      NEXT_PUBLIC_APP_URL: https://showcase.asafarim.be
+    depends_on:
+      - postgres
+    networks:
+      - asafarim_net
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      NEXT_PUBLIC_APP_URL: https://admin.asafarim.com
+    depends_on:
+      - postgres
+    networks:
+      - asafarim_net
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - hub
+      - showcase
+      - admin
+    networks:
+      - asafarim_net
+
+networks:
+  asafarim_net:
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
