@@ -1,0 +1,20 @@
+{
+  "name": "asafarim-platform",
+  "version": "0.1.0",
+  "description": "Asafarim Platform - Unified platform for all Asafarim services",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.2.2",
+      "onFail": "download"
+    }
+  },
+  "type": "module"
+}
