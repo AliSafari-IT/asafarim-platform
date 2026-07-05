@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Badge, Card, PageHeader } from "@asafarim/ui";
+import { PageHeader, ProjectCard } from "@asafarim/ui";
 import { projects } from "./data";
 
 export const metadata: Metadata = { title: "Projects" };
@@ -9,33 +8,23 @@ export default function ProjectsPage() {
   return (
     <>
       <PageHeader
+        kicker="Gallery"
+        kickerIndex="01"
         title="Projects"
-        description="Showcased projects from the ASafarIM ecosystem"
+        description="Every piece on the wall — tech stacks, statuses, and case studies."
       />
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(18rem, 1fr))",
-          gap: "1rem",
-        }}
-      >
+      <div className="ui-grid ui-grid--wide">
         {projects.map((project) => (
-          <Link
+          <ProjectCard
             key={project.slug}
+            title={project.title}
+            summary={project.summary}
             href={`/projects/${project.slug}`}
-            style={{ textDecoration: "none" }}
-          >
-            <Card title={project.title}>
-              <p>{project.summary}</p>
-              <p style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
-                {project.tags.map((tag) => (
-                  <Badge key={tag} tone="info">
-                    {tag}
-                  </Badge>
-                ))}
-              </p>
-            </Card>
-          </Link>
+            tags={project.tags}
+            status={project.status}
+            glyph={project.glyph}
+            index={project.index}
+          />
         ))}
       </div>
     </>

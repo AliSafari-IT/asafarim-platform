@@ -1,13 +1,16 @@
 /**
  * Placeholder showcase entries. Real project content (from the dot-be
  * showcases and asafarim-digital products) is migrated in a later PR;
- * these prove the list/detail routing structure.
+ * these prove the gallery structure.
  */
 export interface ShowcaseProject {
   slug: string;
   title: string;
   summary: string;
   tags: string[];
+  status: "live" | "beta" | "planned" | "archived";
+  glyph: string;
+  index: string;
 }
 
 export const projects: ShowcaseProject[] = [
@@ -17,6 +20,9 @@ export const projects: ShowcaseProject[] = [
     summary:
       "End-to-end task management vertical with API and web client, originally built in the asafarim.be ecosystem.",
     tags: ["React", "TypeScript", "PostgreSQL"],
+    status: "beta",
+    glyph: "TM",
+    index: "01",
   },
   {
     slug: "smart-operations",
@@ -24,6 +30,9 @@ export const projects: ShowcaseProject[] = [
     summary:
       "Operations KPI dashboard showcase with real-time views and reporting.",
     tags: ["React", "Dashboards"],
+    status: "beta",
+    glyph: "SO",
+    index: "02",
   },
   {
     slug: "testora",
@@ -31,6 +40,9 @@ export const projects: ShowcaseProject[] = [
     summary:
       "E2E test automation console orchestrating TestCafe runs with live results via SignalR.",
     tags: ["Testing", "Automation", "SignalR"],
+    status: "beta",
+    glyph: "TS",
+    index: "03",
   },
 ];
 

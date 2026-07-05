@@ -21,7 +21,7 @@ See [docs/migration-plan.md](docs/migration-plan.md) for the full plan and
 
 | Package             | Purpose                                          |
 | ------------------- | ------------------------------------------------ |
-| `packages/ui`       | Shared React UI components                       |
+| `packages/ui`       | Design system: tokens, brand, creative components (see [docs/design-system.md](docs/design-system.md)) |
 | `packages/auth`     | Shared authentication helpers (Phase 5)          |
 | `packages/db`       | Prisma client, schema, and migrations (Phase 4)  |
 | `packages/config`   | Shared TypeScript/ESLint/Tailwind configuration  |

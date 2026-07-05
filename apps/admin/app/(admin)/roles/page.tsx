@@ -6,10 +6,16 @@ export const metadata: Metadata = { title: "Roles" };
 export default function RolesPage() {
   return (
     <>
-      <PageHeader title="Roles" description="Define and assign roles" />
+      <PageHeader
+        kicker="Access control"
+        kickerIndex="ROL"
+        title="Roles"
+        description="Role definitions and their permission grants."
+      />
       <EmptyState
-        title="Role management coming soon"
-        description="System roles (superadmin, admin, standard_user, guest) are seeded; management UI arrives in a later PR."
+        glyph="[rol]"
+        title="Role management surface pending"
+        description="System roles (superadmin, admin, standard_user, guest) are seeded; the management UI arrives with the admin migration."
       />
     </>
   );

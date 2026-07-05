@@ -6,10 +6,16 @@ export const metadata: Metadata = { title: "Settings" };
 export default function AdminSettingsPage() {
   return (
     <>
-      <PageHeader title="Settings" description="Platform-wide configuration" />
+      <PageHeader
+        kicker="Configuration"
+        kickerIndex="CFG"
+        title="Settings"
+        description="Platform-wide configuration switches."
+      />
       <EmptyState
-        title="Platform settings coming soon"
-        description="Site settings (SiteSetting model) will be migrated with the CMS features."
+        glyph="[cfg]"
+        title="Control panel pending"
+        description="Site settings (SiteSetting model) migrate here with the CMS features."
       />
     </>
   );

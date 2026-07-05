@@ -1,18 +1,67 @@
-import type { ButtonHTMLAttributes, CSSProperties } from "react";
+import type { ButtonHTMLAttributes } from "react";
 
-const buttonStyle: CSSProperties = {
-  padding: "0.6rem 1.4rem",
-  borderRadius: "0.5rem",
-  border: "none",
-  backgroundColor: "#0ea5e9",
-  color: "#f8fafc",
-  fontSize: "1rem",
-  fontWeight: 600,
-  cursor: "pointer",
-};
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "danger"
+  | "console";
 
-export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: "sm" | "md";
+}
 
-export function Button({ style, ...props }: ButtonProps) {
-  return <button style={{ ...buttonStyle, ...style }} {...props} />;
+export function Button({
+  variant = "primary",
+  size = "md",
+  className,
+  ...props
+}: ButtonProps) {
+  const classes = [
+    "ui-btn",
+    `ui-btn--${variant}`,
+    size === "sm" ? "ui-btn--sm" : null,
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return <button className={classes} {...props} />;
+}
+
+export interface ButtonLinkProps {
+  href: string;
+  variant?: ButtonVariant;
+  size?: "sm" | "md";
+  newTab?: boolean;
+  children: React.ReactNode;
+}
+
+/** Link styled as a button — for navigation actions. */
+export function ButtonLink({
+  href,
+  variant = "primary",
+  size = "md",
+  newTab,
+  children,
+}: ButtonLinkProps) {
+  const classes = [
+    "ui-btn",
+    `ui-btn--${variant}`,
+    size === "sm" ? "ui-btn--sm" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <a
+      href={href}
+      className={classes}
+      target={newTab ? "_blank" : undefined}
+      rel={newTab ? "noreferrer" : undefined}
+    >
+      {children}
+    </a>
+  );
 }

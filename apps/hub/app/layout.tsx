@@ -1,14 +1,23 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { auth, signOut, hasRole, ROLES } from "@asafarim/auth";
-import { AppShell, Button, TopNav, UserMenu, getPlatformLinks } from "@asafarim/ui";
+import {
+  AppShell,
+  Button,
+  ButtonLink,
+  TopNav,
+  UserMenu,
+  getPlatformLinks,
+} from "@asafarim/ui";
+import "@asafarim/ui/styles.css";
 
 export const metadata: Metadata = {
   title: {
     default: "ASafarIM Hub",
     template: "%s | ASafarIM Hub",
   },
-  description: "Central logged-in dashboard of the ASafarIM Platform",
+  description:
+    "Your workspace for apps, showcases, and experiments — mission control for the ASafarIM Platform.",
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -32,9 +41,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="en">
-      <body style={{ margin: 0 }}>
+      <body data-app="hub">
         <AppShell
-          appName="Hub"
+          product="Hub"
           nav={<TopNav items={navItems} />}
           user={
             session?.user ? (
@@ -49,20 +58,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     await signOut({ redirectTo: "/" });
                   }}
                 >
-                  <Button
-                    type="submit"
-                    style={{ padding: "0.35rem 0.9rem", fontSize: "0.85rem" }}
-                  >
+                  <Button type="submit" variant="ghost" size="sm">
                     Sign out
                   </Button>
                 </form>
               </UserMenu>
             ) : (
-              <a href="/sign-in">
-                <Button style={{ padding: "0.35rem 0.9rem", fontSize: "0.85rem" }}>
-                  Sign in
-                </Button>
-              </a>
+              <ButtonLink href="/sign-in" size="sm">
+                Sign in
+              </ButtonLink>
             )
           }
         >
