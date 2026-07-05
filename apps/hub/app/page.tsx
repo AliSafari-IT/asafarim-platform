@@ -1,46 +1,33 @@
 import Link from "next/link";
-import { auth, signOut } from "@asafarim/auth";
-import { AppShell, Button, Card } from "@asafarim/ui";
+import { auth } from "@asafarim/auth";
+import { Card, PageHeader } from "@asafarim/ui";
 
-export default async function HubPage() {
+export default async function HubHomePage() {
   const session = await auth();
 
   return (
-    <AppShell appName="Hub">
-      <h1>ASafarIM Hub</h1>
+    <>
+      <PageHeader
+        title="ASafarIM Hub"
+        description="Your central place for apps, tools, and account settings"
+      />
       {session?.user ? (
-        <Card title="Signed in">
+        <Card title={`Welcome back, ${session.user.name ?? session.user.email}`}>
           <p>
-            Welcome, <strong>{session.user.name ?? session.user.email}</strong>
+            Head to your <Link href="/dashboard" style={{ color: "#38bdf8" }}>dashboard</Link>{" "}
+            or open the <Link href="/apps" style={{ color: "#38bdf8" }}>app launcher</Link>.
           </p>
-          <p>Email: {session.user.email}</p>
-          <p>Username: {session.user.username ?? "—"}</p>
-          <p>Roles: {session.user.roles.join(", ") || "none"}</p>
-          <p style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-            <Link href="/dashboard" style={{ color: "#38bdf8" }}>
-              Go to dashboard
-            </Link>
-          </p>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/" });
-            }}
-          >
-            <Button type="submit">Sign out</Button>
-          </form>
         </Card>
       ) : (
         <Card title="Not signed in">
-          <p>You are not signed in.</p>
           <p>
             <Link href="/sign-in" style={{ color: "#38bdf8" }}>
               Sign in
             </Link>{" "}
-            to access your dashboard.
+            to access your dashboard, apps, and settings.
           </p>
         </Card>
       )}
-    </AppShell>
+    </>
   );
 }

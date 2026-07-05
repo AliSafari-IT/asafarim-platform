@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { AppShell, Button, Card } from "@asafarim/ui";
+import { Button, Card } from "@asafarim/ui";
 
 const inputStyle = {
   display: "block",
@@ -87,11 +87,11 @@ function SignInForm() {
 
 export default function SignInPage() {
   return (
-    <AppShell appName="Admin">
-      <h1>ASafarIM Admin</h1>
+    <div style={{ maxWidth: "28rem", margin: "3rem auto", padding: "0 1rem" }}>
+      <h1 style={{ color: "#f1f5f9" }}>ASafarIM Admin</h1>
       <Suspense fallback={null}>
         <SignInForm />
       </Suspense>
-    </AppShell>
+    </div>
   );
 }
