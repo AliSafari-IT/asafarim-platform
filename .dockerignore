@@ -1,0 +1,25 @@
+.git
+.github
+.next
+**/.next
+.turbo
+**/.turbo
+node_modules
+**/node_modules
+dist
+**/dist
+build
+**/build
+
+# Envage: encrypted files and public keys are safe in Git, but neither is
+# required in application images. Plaintext environments and private keys
+# must never enter the Docker build context.
+.env
+.env.*
+**/.env
+**/.env.*
+.age
+**/.age
+
+*.log
+*.tsbuildinfo

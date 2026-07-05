@@ -21,13 +21,16 @@ Compose stack.
    git clone https://github.com/AliSafari-IT/asafarim-platform.git /srv/asafarim-platform
    ```
 
-3. Create the production env file at `/srv/asafarim-platform/.env` based on
-   [.env.production.example](../.env.production.example) — real domains,
+3. Create `.env.production` locally from
+   [.env.production.example](../.env.production.example), set the real domains,
    `AUTH_COOKIE_DOMAIN=.asafarim.com`, and the in-network database host
-   (`postgres:5432`). For local development use
-   [.env.local.example](../.env.local.example) instead (localhost URLs,
-   database on port 55435). Never commit real `.env` files.
-4. Point DNS for all domains (see docs/architecture.md) at the VPS IP. Caddy
+   (`postgres:5432`), then run `pnpm env:encrypt:production`. Commit only
+   `.env.production.age`.
+4. Provision `.age/key.txt` at `/srv/asafarim-platform/.age/key.txt` through a
+   password manager or secrets vault. Never copy it into Git, a Docker image,
+   CI logs, or email. The deploy script decrypts `.env.production.age` on the
+   VPS immediately before Docker Compose starts.
+5. Point DNS for all domains (see docs/architecture.md) at the VPS IP. Caddy
    obtains SSL certificates automatically once DNS resolves.
 
 ## Configure the deploy script
@@ -46,7 +49,11 @@ SSH key access to the VPS is required.
 ```bash
 cd /srv/asafarim-platform
 git pull origin main
-docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+corepack enable
+pnpm install --frozen-lockfile
+pnpm env:decrypt:production
+docker compose --env-file .env.production -f docker-compose.prod.yml \
+  up -d --build --remove-orphans
 ```
 
 ## Stack
@@ -54,6 +61,10 @@ docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
 - `postgres` — PostgreSQL 16 with a named volume for data.
 - `web`, `hub`, `showcase`, `admin` — Next.js standalone builds, one container
   each, built from the app Dockerfiles with the repo root as build context.
+- `.dockerignore` excludes all plaintext environments and `.age` keys from the
+  build context. Only `NEXT_PUBLIC_*` values enter builds through explicit
+  Docker build arguments. Hub and Admin receive server-side production values
+  at runtime through `.env.production`.
 - `caddy` — reverse proxy on ports 80/443, config in
   [infra/caddy/Caddyfile](../infra/caddy/Caddyfile), automatic HTTPS.
 
@@ -63,6 +74,6 @@ Once `packages/db` has a real Prisma setup (Phase 4), the deploy script will
 also run:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec -T hub \
+docker compose --env-file .env.production -f docker-compose.prod.yml exec -T hub \
   pnpm --filter @asafarim/db prisma migrate deploy
 ```

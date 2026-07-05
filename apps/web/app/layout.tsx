@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell, AppSwitcher, TopNav, getPlatformLinks } from "@asafarim/ui";
+import { site } from "../content/site";
 import "@asafarim/ui/styles.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "ASafarIM Digital — practical apps, built with care",
-    template: "%s | ASafarIM Digital",
+    default: site.title,
+    template: "%s — ASafarIM Digital",
   },
-  description:
-    "ASafarIM Digital is a personal digital studio: web platforms, tools, and experiments, designed and built end to end.",
+  description: site.description,
+  icons: { icon: "/favicon.svg" },
+  openGraph: {
+    siteName: site.name,
+    title: site.title,
+    description: site.description,
+    type: "website",
+    locale: "en_US",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -41,7 +49,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           }
           footer={
             <span>
-              <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+              <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> ·{" "}
+              <a href={site.contact.github} target="_blank" rel="noreferrer">
+                GitHub
+              </a>
             </span>
           }
         >

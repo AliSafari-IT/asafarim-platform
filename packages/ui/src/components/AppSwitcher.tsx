@@ -19,7 +19,8 @@ export function AppSwitcher({ links }: AppSwitcherProps) {
   return (
     <details className="ui-menu">
       <summary aria-label="Platform apps">
-        <span aria-hidden="true">⌘</span> Platform{" "}
+        <span aria-hidden="true">⌘</span>
+        <span className="ui-app-switcher__label">Platform</span>
         <span className="ui-menu__caret" aria-hidden="true">
           ▾
         </span>

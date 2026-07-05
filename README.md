@@ -17,6 +17,9 @@ See [docs/migration-plan.md](docs/migration-plan.md) for the full plan and
 | `apps/showcase`  | Public demos and case studies  | 3002     | showcase.asafarim.be   | Public                      |
 | `apps/admin`     | Internal admin panel           | 3003     | admin.asafarim.com     | admin / superadmin role     |
 
+Public website copy is maintained in `apps/web/content/`; PR-specific source,
+asset, and deferral records are kept in `docs/migration-notes.md`.
+
 ## Packages
 
 | Package             | Purpose                                          |
@@ -39,9 +42,24 @@ pnpm typecheck  # typecheck the whole workspace
 
 ### Environment
 
-Copy `.env.local.example` to `.env` at the repo root — apps load it via
-`next.config.ts`, Prisma via `dotenv-cli`. For the VPS, use
-`.env.production.example` as the template. Never commit a real `.env`.
+The four apps and database tooling use one root environment. Plaintext files
+remain local; [Envage](https://alisafari-it.github.io/envage/) encrypts them to
+age files that are safe to commit.
+
+```bash
+# First-time local setup
+cp .env.local.example .env
+pnpm env:key:init                 # once; back up .age/key.txt securely
+pnpm env:encrypt:local            # writes .env.age
+
+# Existing developer/machine
+pnpm env:decrypt:local
+pnpm env:status
+```
+
+Never commit `.env`, `.env.production`, or `.age/key.txt`. See
+[docs/environment-management.md](docs/environment-management.md) for local,
+production, key-distribution, rotation, and deployment procedures.
 
 ### Database
 

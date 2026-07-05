@@ -19,8 +19,26 @@ ssh "${SERVER_USER}@${SERVER_HOST}" << EOF
   git checkout ${BRANCH}
   git pull origin ${BRANCH}
 
+  echo "Installing workspace tooling..."
+  corepack enable
+  pnpm install --frozen-lockfile
+
+  if [[ ! -f .age/key.txt ]]; then
+    echo "Missing .age/key.txt. Provision the Envage private key through the secrets manager." >&2
+    exit 1
+  fi
+
+  if [[ ! -f .env.production.age ]]; then
+    echo "Missing .env.production.age. Encrypt and commit the production environment first." >&2
+    exit 1
+  fi
+
+  echo "Decrypting the production environment..."
+  printf 'y\n' | pnpm env:decrypt:production
+
   echo "Starting Docker containers..."
-  docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+  docker compose --env-file .env.production -f docker-compose.prod.yml \
+    up -d --build --remove-orphans
 
   echo "Cleaning old Docker images..."
   docker image prune -f

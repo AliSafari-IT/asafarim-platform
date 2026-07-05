@@ -104,10 +104,19 @@ root `.env` in `next.config.ts`.
 
 ## Environment files
 
-- `.env.local.example` — localhost URLs, dev database (port 55435), dev auth
-- `.env.production.example` — real domains, SSO cookie domain, VPS database
-- Copy the appropriate one to `.env` at the repo root. Apps read it via
-  `next.config.ts`; Prisma reads it via `dotenv-cli` in `packages/db` scripts.
+- `.env` — decrypted local environment, loaded by every app and by database
+  scripts; ignored by Git
+- `.env.age` — encrypted local environment, committed to Git
+- `.env.production` / `.env.production.age` — equivalent production pair
+- `.age/key.pub` — public age recipient, committed for encryption
+- `.age/key.txt` — private age identity, ignored and distributed out-of-band
+
+`@asafarim/envage` protects configuration at rest; it does not load variables
+at runtime. The existing `next.config.ts` root loader and `dotenv-cli` database
+scripts remain the runtime loading layer. A centralized root environment is
+intentional while all four apps share authentication, database, and cross-app
+URL configuration. See `docs/environment-management.md` for operations and the
+criteria for introducing isolated app-level environments.
 
 ## Data
 
