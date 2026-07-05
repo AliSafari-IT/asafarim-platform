@@ -1,0 +1,172 @@
+/* ─────────────────────────────────────────────────────────────────
+   ASafarIM Platform — design tokens
+   Shared DNA lives in :root; each app declares its mood with
+   <body data-app="web|hub|showcase|admin">.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+  /* type */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas,
+    monospace;
+
+  --text-xs: 0.72rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.45rem;
+  --text-2xl: 1.9rem;
+  --text-3xl: 2.6rem;
+  --text-4xl: 3.4rem;
+
+  /* spacing rhythm */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+
+  /* borders + radius language: soft panels, sharp technical corners */
+  --radius-xs: 2px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --dur-1: 130ms;
+  --dur-2: 240ms;
+
+  /* layers */
+  --z-nav: 50;
+  --z-overlay: 100;
+
+  /* layout widths */
+  --width-content: 74rem;
+  --width-narrow: 46rem;
+}
+
+/* ── Mood: apps/web — “The Studio” (warm paper, ink, copper) ────── */
+[data-app="web"] {
+  color-scheme: light;
+  --font-display: "Charter", "Bitstream Charter", "Sitka Text", Cambria,
+    Georgia, serif;
+
+  --bg: #f6f1e7;
+  --bg-deco: radial-gradient(
+      60rem 30rem at 85% -10%,
+      rgba(180, 83, 9, 0.07),
+      transparent 60%
+    ),
+    repeating-linear-gradient(
+      to right,
+      rgba(28, 25, 23, 0.035) 0 1px,
+      transparent 1px 7rem
+    );
+  --surface: #fdfaf3;
+  --surface-2: #f1eadb;
+  --surface-3: #e9e0cd;
+  --ink: #211d18;
+  --muted: #6e6557;
+  --line: #ddd3bd;
+  --line-strong: #c4b795;
+  --accent: #b45309;
+  --accent-ink: #fdfaf3;
+  --accent-soft: rgba(180, 83, 9, 0.1);
+  --accent-2: #0f766e;
+  --shadow-1: 0 1px 2px rgba(33, 29, 24, 0.06), 0 2px 8px rgba(33, 29, 24, 0.05);
+  --shadow-2: 0 2px 4px rgba(33, 29, 24, 0.08), 0 12px 28px rgba(33, 29, 24, 0.1);
+}
+
+/* ── Mood: apps/hub — “Mission Control” (warm charcoal, amber) ──── */
+[data-app="hub"] {
+  color-scheme: dark;
+
+  --bg: #161310;
+  --bg-deco: radial-gradient(
+      50rem 26rem at 50% -8rem,
+      rgba(245, 158, 11, 0.08),
+      transparent 65%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(236, 229, 216, 0.025) 0 1px,
+      transparent 1px 6rem
+    );
+  --surface: #1e1a15;
+  --surface-2: #262119;
+  --surface-3: #2f2920;
+  --ink: #ece5d8;
+  --muted: #a1988a;
+  --line: #332c21;
+  --line-strong: #4a4131;
+  --accent: #f59e0b;
+  --accent-ink: #1c1917;
+  --accent-soft: rgba(245, 158, 11, 0.12);
+  --accent-2: #38bdf8;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Mood: apps/showcase — “The Gallery” (cool dark, emerald) ───── */
+[data-app="showcase"] {
+  color-scheme: dark;
+
+  --bg: #0f1417;
+  --bg-deco: radial-gradient(
+      46rem 24rem at 15% -6rem,
+      rgba(16, 185, 129, 0.07),
+      transparent 60%
+    ),
+    radial-gradient(rgba(230, 237, 243, 0.05) 1px, transparent 1.5px);
+  --bg-deco-size: auto, 26px 26px;
+  --surface: #151c21;
+  --surface-2: #1b242b;
+  --surface-3: #222d36;
+  --ink: #e6edf3;
+  --muted: #8b99a6;
+  --line: #24303a;
+  --line-strong: #364755;
+  --accent: #10b981;
+  --accent-ink: #06251b;
+  --accent-soft: rgba(16, 185, 129, 0.12);
+  --accent-2: #38bdf8;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Mood: apps/admin — “The Console” (near-black, signal green) ── */
+[data-app="admin"] {
+  color-scheme: dark;
+
+  --bg: #0b0d0e;
+  --bg-deco: repeating-linear-gradient(
+      to bottom,
+      rgba(215, 222, 229, 0.02) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(
+      40rem 20rem at 80% -6rem,
+      rgba(74, 222, 128, 0.05),
+      transparent 60%
+    );
+  --surface: #111416;
+  --surface-2: #171b1e;
+  --surface-3: #1e2428;
+  --ink: #d7dee5;
+  --muted: #79848d;
+  --line: #21272c;
+  --line-strong: #333d44;
+  --accent: #4ade80;
+  --accent-ink: #052012;
+  --accent-soft: rgba(74, 222, 128, 0.1);
+  --accent-2: #d97706;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.5), 0 12px 30px rgba(0, 0, 0, 0.55);
+}

@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@asafarim/web", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "hub",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@asafarim/hub", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "showcase",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@asafarim/showcase", "dev"],
+      "port": 3002
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@asafarim/admin", "dev"],
+      "port": 3003
+    }
+  ]
+}

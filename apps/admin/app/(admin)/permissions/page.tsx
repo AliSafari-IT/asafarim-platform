@@ -6,9 +6,15 @@ export const metadata: Metadata = { title: "Permissions" };
 export default function PermissionsPage() {
   return (
     <>
-      <PageHeader title="Permissions" description="Permission catalog per group" />
+      <PageHeader
+        kicker="Access control"
+        kickerIndex="PRM"
+        title="Permissions"
+        description="The permission catalog, grouped by domain."
+      />
       <EmptyState
-        title="Permission catalog coming soon"
+        glyph="[prm]"
+        title="Permission catalog surface pending"
         description="19 foundation permissions are seeded across users, roles, content, settings, audit, and profile groups."
       />
     </>

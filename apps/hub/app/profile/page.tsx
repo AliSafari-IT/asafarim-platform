@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { requireUser } from "@asafarim/auth";
-import { Card, PageHeader } from "@asafarim/ui";
+import { Badge, Card, PageHeader } from "@asafarim/ui";
 
 export const metadata: Metadata = { title: "Profile" };
 
@@ -9,15 +9,31 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Profile" description="Your public profile information" />
-      <Card title={session.user.name ?? session.user.email ?? "Profile"}>
-        <p>Email: {session.user.email}</p>
-        <p>Username: {session.user.username ?? "—"}</p>
-        <p>
-          Profile editing (name, bio, avatar, links) will be added when the
-          profile features are migrated from the portal.
-        </p>
-      </Card>
+      <PageHeader
+        kicker="Identity card"
+        kickerIndex="01"
+        title="Profile"
+        description="Who you are across the whole platform."
+      />
+      <div className="ui-grid">
+        <Card variant="elevated" title={session.user.name ?? "Unnamed"}>
+          <p className="u-mono">@{session.user.username ?? "—"}</p>
+          <p>{session.user.email}</p>
+          <p>
+            {session.user.roles.map((role) => (
+              <span key={role} style={{ marginRight: "0.35rem" }}>
+                <Badge tone={role === "superadmin" || role === "admin" ? "info" : "neutral"}>
+                  {role}
+                </Badge>
+              </span>
+            ))}
+          </p>
+        </Card>
+        <Card title="Editing">
+          Name, bio, avatar, and links become editable when the profile
+          features are migrated from the portal.
+        </Card>
+      </div>
     </>
   );
 }

@@ -9,16 +9,17 @@ export default function ProjectsPage() {
   return (
     <>
       <PageHeader
+        kicker="The wall"
+        kickerIndex="03"
         title="Projects"
-        description="Client work and products from the ASafarIM ecosystem"
+        description="A curated wall of client work and studio products."
       />
       <EmptyState
-        title="Portfolio coming soon"
-        description="Project content will be migrated from the existing websites. Live demos are available in the Showcase."
+        glyph="[ wall ]"
+        title="The wall is being curated"
+        description="Portfolio pieces from the existing sites are being selected and rewritten. Live demos are already on display in the Showcase."
         action={
-          <a href={links.showcase} style={{ color: "#38bdf8" }}>
-            Visit the Showcase →
-          </a>
+          <a href={links.showcase}>Visit the Showcase →</a>
         }
       />
     </>
