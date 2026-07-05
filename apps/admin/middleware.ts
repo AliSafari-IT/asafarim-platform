@@ -1,11 +1,10 @@
 import { createAuthMiddleware } from "@asafarim/auth/middleware";
 
-// Everything in the admin app requires authentication except the sign-in
-// page; role gating (admin/superadmin only) happens in the pages via
-// requireRole, so non-admins get a readable "access denied" page instead of
-// a bare 403.
+// Authentication gate: everything except sign-in and denied requires a
+// session. Role gating (admin/superadmin) happens in the (admin) group
+// layout via requireRole, so non-admins get a readable /denied page.
 export const middleware = createAuthMiddleware({
-  publicRoutes: ["/sign-in", "/api/health"],
+  publicRoutes: ["/sign-in", "/denied", "/api/health"],
 });
 
 export const config = {

@@ -22,7 +22,11 @@ Compose stack.
    ```
 
 3. Create the production env file at `/srv/asafarim-platform/.env` based on
-   [.env.example](../.env.example). Never commit real `.env` files.
+   [.env.production.example](../.env.production.example) — real domains,
+   `AUTH_COOKIE_DOMAIN=.asafarim.com`, and the in-network database host
+   (`postgres:5432`). For local development use
+   [.env.local.example](../.env.local.example) instead (localhost URLs,
+   database on port 55435). Never commit real `.env` files.
 4. Point DNS for all domains (see docs/architecture.md) at the VPS IP. Caddy
    obtains SSL certificates automatically once DNS resolves.
 
