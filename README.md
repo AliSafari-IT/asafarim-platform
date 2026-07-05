@@ -10,12 +10,12 @@ See [docs/migration-plan.md](docs/migration-plan.md) for the full plan and
 
 ## Apps
 
-| App              | Purpose                        | Dev port | Target domain          |
-| ---------------- | ------------------------------ | -------- | ---------------------- |
-| `apps/web`       | Public ASafarIM Digital site   | 3000     | asafarim.com           |
-| `apps/hub`       | Logged-in user dashboard       | 3001     | hub.asafarim.com       |
-| `apps/showcase`  | Public demos and case studies  | 3002     | showcase.asafarim.be   |
-| `apps/admin`     | Internal admin panel           | 3003     | admin.asafarim.com     |
+| App              | Purpose                        | Dev port | Target domain          | Access                      |
+| ---------------- | ------------------------------ | -------- | ---------------------- | --------------------------- |
+| `apps/web`       | Public ASafarIM Digital site   | 3000     | asafarim.com           | Public                      |
+| `apps/hub`       | Logged-in user dashboard       | 3001     | hub.asafarim.com       | Login for dashboard/apps/profile/settings |
+| `apps/showcase`  | Public demos and case studies  | 3002     | showcase.asafarim.be   | Public                      |
+| `apps/admin`     | Internal admin panel           | 3003     | admin.asafarim.com     | admin / superadmin role     |
 
 ## Packages
 
@@ -37,10 +37,15 @@ pnpm build      # build all apps and packages
 pnpm typecheck  # typecheck the whole workspace
 ```
 
+### Environment
+
+Copy `.env.local.example` to `.env` at the repo root — apps load it via
+`next.config.ts`, Prisma via `dotenv-cli`. For the VPS, use
+`.env.production.example` as the template. Never commit a real `.env`.
+
 ### Database
 
-Copy `.env.example` to `.env` at the repo root (apps and Prisma read it from
-there), then:
+With the root `.env` in place:
 
 ```bash
 docker compose up -d postgres   # local PostgreSQL on port 55435

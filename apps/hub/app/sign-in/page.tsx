@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { AppShell, Button, Card } from "@asafarim/ui";
+import { Button, Card } from "@asafarim/ui";
 
 const inputStyle = {
   display: "block",
@@ -45,7 +45,6 @@ function SignInForm() {
       return;
     }
 
-    // Full navigation so the new session cookie is picked up everywhere
     if (callbackUrl.startsWith("/")) {
       router.push(callbackUrl);
       router.refresh();
@@ -88,11 +87,11 @@ function SignInForm() {
 
 export default function SignInPage() {
   return (
-    <AppShell appName="Hub">
-      <h1>Sign in to ASafarIM</h1>
+    <div style={{ maxWidth: "28rem", margin: "3rem auto" }}>
+      <h1 style={{ color: "#f1f5f9" }}>Sign in to ASafarIM</h1>
       <Suspense fallback={null}>
         <SignInForm />
       </Suspense>
-    </AppShell>
+    </div>
   );
 }

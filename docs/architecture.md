@@ -3,7 +3,9 @@
 ## Overview
 
 The ASafarIM Platform is a pnpm + Turborepo monorepo containing all
-ASafarIM Digital apps and shared packages.
+ASafarIM Digital apps and shared packages. It is the clean restructure and
+future replacement of the `asafarim-digital` repo (see
+[migration-notes.md](migration-notes.md)).
 
 ```txt
 asafarim-platform/
@@ -13,59 +15,102 @@ asafarim-platform/
 │  ├─ showcase/            # Public showcase (showcase.asafarim.be)
 │  └─ admin/               # Admin panel (admin.asafarim.com)
 ├─ packages/
-│  ├─ ui/                  # Shared React UI components
-│  ├─ auth/                # Shared authentication helpers (placeholder)
-│  ├─ db/                  # Prisma + PostgreSQL access (placeholder)
+│  ├─ ui/                  # Shared React UI components + nav shell
+│  ├─ auth/                # Auth.js v5: providers, helpers, middleware
+│  ├─ db/                  # Prisma 7 + PostgreSQL: schema, migrations, seed
 │  └─ config/              # Shared TypeScript config
 ├─ infra/
 │  ├─ caddy/               # Caddyfile for reverse proxy + HTTPS
 │  └─ scripts/             # deploy-prod.sh
-├─ docker-compose.yml      # Local dev services (PostgreSQL)
+├─ docker-compose.yml      # Local dev services (PostgreSQL on port 55435)
 ├─ docker-compose.prod.yml # Full production stack
 └─ turbo.json              # Build orchestration
 ```
 
-## Apps
+## Apps, routes, and protection
 
-All apps are Next.js (App Router, TypeScript) with `output: "standalone"` so
-each can be packaged into a small Docker image. Each app has its own
-Dockerfile at `apps/<name>/Dockerfile` that builds from the monorepo root
-context.
+All apps are Next.js (App Router, TypeScript, `output: "standalone"`), each
+with its own Dockerfile building from the monorepo root context.
 
-Dev ports: web 3000, hub 3001, showcase 3002, admin 3003.
+| App | Dev URL | Production | Routes | Protection |
+| --- | --- | --- | --- | --- |
+| web | localhost:3000 | asafarim.com | `/`, `/about`, `/services`, `/projects`, `/contact`, `/privacy`, `/terms` | Public |
+| hub | localhost:3001 | hub.asafarim.com | `/`, `/sign-in`, `/dashboard`, `/apps`, `/profile`, `/settings` | `/dashboard`, `/apps`, `/profile`, `/settings` require login |
+| showcase | localhost:3002 | showcase.asafarim.be | `/`, `/projects`, `/projects/[slug]`, `/labs` | Public |
+| admin | localhost:3003 | admin.asafarim.com | `/`, `/users`, `/roles`, `/permissions`, `/audit-logs`, `/settings`, `/denied`, `/sign-in` | Everything except `/sign-in` and `/denied` requires the **admin** or **superadmin** role |
+
+Protection is layered:
+
+1. **Middleware** (`createAuthMiddleware` from `@asafarim/auth/middleware`) —
+   redirects unauthenticated page requests to `/sign-in?callbackUrl=…` and
+   returns 401 JSON for API routes.
+2. **Layout/page guards** — `requireUser()` and `requireRole([ROLES.ADMIN])`
+   from `@asafarim/auth`. The admin app wraps all admin routes in an
+   `(admin)` route-group layout that calls `requireRole`; authenticated
+   non-admins land on `/denied`.
+
+## Auth flow
+
+- Auth.js v5, JWT session strategy (no DB adapter; the `jwt` callback syncs
+  user + roles from PostgreSQL via `ensureAuthUser`).
+- Providers: email/password credentials (bcrypt), email one-time code (OTP),
+  Google OAuth (when `AUTH_GOOGLE_ID/SECRET` set).
+- Sessions are shared across apps via the cookie domain:
+  `AUTH_COOKIE_DOMAIN=.asafarim.com` in production, `localhost` in dev
+  (works across ports — sign in on hub, be signed in on admin).
+- Roles come from the RBAC tables (`Role`, `UserRole`); `superadmin` bypasses
+  all role and permission checks.
+
+Helper surface (`@asafarim/auth`):
+
+```ts
+import {
+  auth, signIn, signOut,          // Auth.js primitives
+  getSession, requireUser, requireRole,
+  ROLES, hasRole, isAdmin,
+  hasPermission, getUserPermissions,
+} from "@asafarim/auth";
+```
 
 ## Shared packages
 
-- `@asafarim/ui` — React components shipped as TypeScript source; apps
-  transpile it via `transpilePackages` in `next.config.ts`.
-- `@asafarim/config` — shared `tsconfig` bases (`base`, `nextjs`,
-  `react-library`). ESLint and Tailwind presets will be added here later.
-- `@asafarim/db` — placeholder; Phase 4 adds Prisma schema, migrations, and a
-  reusable client (`import { db } from "@asafarim/db"`).
-- `@asafarim/auth` — placeholder; Phase 5 adds Auth.js-based shared
-  authentication (`import { authOptions } from "@asafarim/auth"`).
+- `@asafarim/ui` — layout system (`AppShell`, `TopNav`, `SideNav`,
+  `UserMenu`, `PageHeader`) + primitives (`Card`, `Button`, `Badge`,
+  `EmptyState`) + `getPlatformLinks()` for cross-app URLs. Shipped as TS
+  source; apps transpile via `transpilePackages`.
+- `@asafarim/auth` — see auth flow above.
+- `@asafarim/db` — Prisma 7 + `@prisma/adapter-pg`. Foundation models: User,
+  Account, Session, VerificationToken, EmailLoginCode, Role, Permission,
+  UserRole, RolePermission, AuditLog. Seed creates 19 permissions, 4 system
+  roles, and an optional superadmin from `SEED_ADMIN_*`.
+- `@asafarim/config` — shared `tsconfig` bases.
 
-## Domain plan
+## Cross-app navigation
 
-```txt
-asafarim.com / www.asafarim.com → apps/web
-hub.asafarim.com                → apps/hub
-admin.asafarim.com              → apps/admin
-showcase.asafarim.be            → apps/showcase
-api.asafarim.com                → future apps/api (or route handlers)
-auth.asafarim.com               → future SSO provider (Authentik)
-labs.asafarim.be                → future experimental apps
+Apps link to each other via `getPlatformLinks()`, driven by env vars with
+localhost fallbacks:
+
+```env
+NEXT_PUBLIC_WEB_URL=http://localhost:3000
+NEXT_PUBLIC_HUB_URL=http://localhost:3001
+NEXT_PUBLIC_SHOWCASE_URL=http://localhost:3002
+NEXT_PUBLIC_ADMIN_URL=http://localhost:3003
 ```
 
-## Authentication strategy
+Production values use the real domains (see `.env.production.example`).
+Because `NEXT_PUBLIC_*` values are inlined at build time, each app loads the
+root `.env` in `next.config.ts`.
 
-Phase 1 uses Auth.js inside the monorepo (single sign-on across
-`*.asafarim.com` subdomains via a shared cookie domain). True cross-domain SSO
-between `.com` and `.be` requires an OIDC provider (Authentik/Keycloak) and is
-deferred to a later phase.
+## Environment files
+
+- `.env.local.example` — localhost URLs, dev database (port 55435), dev auth
+- `.env.production.example` — real domains, SSO cookie domain, VPS database
+- Copy the appropriate one to `.env` at the repo root. Apps read it via
+  `next.config.ts`; Prisma reads it via `dotenv-cli` in `packages/db` scripts.
 
 ## Data
 
-PostgreSQL 16 is the single source of truth. Prisma manages the schema and
-migrations from `packages/db`. Planned initial models: User, Account, Session,
-Project, ShowcaseItem, App, Role, Permission, AuditLog, ContactMessage.
+PostgreSQL 16 is the single source of truth; Prisma manages schema and
+migrations from `packages/db`. Product-specific models (showcase items,
+content, contact messages, and later Vionto/EduMatch models) are added in
+later migration phases.

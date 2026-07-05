@@ -1,13 +1,33 @@
-import { AppShell, Card } from "@asafarim/ui";
+import Link from "next/link";
+import { Button, Card, PageHeader } from "@asafarim/ui";
 
-export default function ShowcasePage() {
+export default function ShowcaseHomePage() {
   return (
-    <AppShell appName="Showcase">
-      <h1>ASafarIM Showcase</h1>
-      <Card title="apps/showcase">
-        Showcase placeholder. This app will hold project cards, demo pages,
-        case studies, and links to live apps, served at showcase.asafarim.be.
-      </Card>
-    </AppShell>
+    <>
+      <PageHeader
+        title="ASafarIM Showcase"
+        description="Demos, apps, case studies, and experiments from the ASafarIM ecosystem"
+      />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(18rem, 1fr))",
+          gap: "1rem",
+        }}
+      >
+        <Card title="Projects">
+          <p>Browse showcased projects with tech stacks and case studies.</p>
+          <Link href="/projects">
+            <Button>View projects</Button>
+          </Link>
+        </Card>
+        <Card title="Labs">
+          <p>Experimental apps and works in progress.</p>
+          <Link href="/labs">
+            <Button style={{ backgroundColor: "#1e293b" }}>Enter the lab</Button>
+          </Link>
+        </Card>
+      </div>
+    </>
   );
 }
