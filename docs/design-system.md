@@ -86,8 +86,12 @@ CSS-in-JS; components are server-component friendly.
 
 All in `packages/ui` (only components that are actually used exist):
 
-- **Shell & navigation**: `AppShell` (header/side/footer slots), `TopNav`,
-  `SideNav`, `UserMenu`
+- **Shell & navigation**: `AppShell` (header/side/footer slots), `TopNav`
+  (inline on desktop, CSS-only menu button below 900px — never wraps),
+  `SideNav`, `AppSwitcher` (cross-app dropdown), `UserMenu` (avatar-chip
+  identity dropdown). Header rule: only in-app links live in the top nav;
+  cross-app links go in the AppSwitcher; identity and sign-out live in the
+  UserMenu. Dropdowns are `<details>`-based — zero client JS.
 - **Brand & rhythm**: `LogoMark`, `BrandWordmark`, `Kicker` (mono
   micro-label with index), `PageHeader`, `Hero`, `Section`
 - **Surfaces**: `Card` (variants: `default | elevated | studio | console |

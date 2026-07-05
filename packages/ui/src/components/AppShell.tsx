@@ -6,7 +6,7 @@ export interface AppShellProps {
   product: ProductName;
   /** Top navigation, usually a <TopNav />. */
   nav?: ReactNode;
-  /** Right side of the header, usually a <UserMenu /> or sign-in button. */
+  /** Header actions: <AppSwitcher />, <UserMenu />, or a sign-in button. */
   user?: ReactNode;
   /** Optional sidebar, usually a <SideNav />. */
   sideNav?: ReactNode;
@@ -31,7 +31,7 @@ export function AppShell({
           <BrandWordmark product={product} />
         </a>
         <div className="ui-shell__nav">{nav}</div>
-        {user ? <div>{user}</div> : null}
+        {user ? <div className="ui-shell__actions">{user}</div> : null}
       </header>
       <div className="ui-shell__body">
         {sideNav ? <aside className="ui-shell__side">{sideNav}</aside> : null}

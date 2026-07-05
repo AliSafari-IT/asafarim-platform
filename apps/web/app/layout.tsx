@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { AppShell, TopNav, getPlatformLinks } from "@asafarim/ui";
+import { AppShell, AppSwitcher, TopNav, getPlatformLinks } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
 
 export const metadata: Metadata = {
@@ -28,8 +28,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 { label: "Services", href: "/services" },
                 { label: "Projects", href: "/projects" },
                 { label: "Contact", href: "/contact" },
-                { label: "Showcase ↗", href: links.showcase },
-                { label: "Hub ↗", href: links.hub },
+              ]}
+            />
+          }
+          user={
+            <AppSwitcher
+              links={[
+                { label: "Showcase", href: links.showcase, meta: "gallery" },
+                { label: "Hub", href: links.hub, meta: "sign in" },
               ]}
             />
           }

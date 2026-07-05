@@ -1,6 +1,10 @@
 export { Alert, type AlertProps } from "./components/Alert";
 export { AppCard, type AppCardProps } from "./components/AppCard";
 export { AppShell, type AppShellProps } from "./components/AppShell";
+export {
+  AppSwitcher,
+  type AppSwitcherLink,
+} from "./components/AppSwitcher";
 export { Badge, type BadgeTone } from "./components/Badge";
 export {
   BrandWordmark,
