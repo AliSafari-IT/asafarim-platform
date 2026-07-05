@@ -10,7 +10,7 @@ import {
 } from "@asafarim/ui";
 
 /**
- * Protected admin layout: every route in the (admin) group requires the
+ * Protected console layout: every route in the (admin) group requires the
  * admin (or superadmin) role. Unauthenticated users are redirected to
  * /sign-in by requireUser inside requireRole; authenticated non-admins go
  * to /denied.
@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <AppShell
-      appName="Admin"
+      product="Admin"
       nav={
         <TopNav
           items={[
@@ -43,18 +43,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               await signOut({ redirectTo: "/sign-in" });
             }}
           >
-            <Button
-              type="submit"
-              style={{ padding: "0.35rem 0.9rem", fontSize: "0.85rem" }}
-            >
-              Sign out
+            <Button type="submit" variant="console" size="sm">
+              sign out
             </Button>
           </form>
         </UserMenu>
       }
       sideNav={
         <SideNav
-          title="Administration"
+          title="Console"
           items={[
             { label: "Overview", href: "/" },
             { label: "Users", href: "/users" },

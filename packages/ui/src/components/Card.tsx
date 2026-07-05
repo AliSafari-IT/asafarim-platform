@@ -1,23 +1,33 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
-const cardStyle: CSSProperties = {
-  padding: "1.5rem 2rem",
-  borderRadius: "0.75rem",
-  border: "1px solid #1e293b",
-  backgroundColor: "#111827",
-  maxWidth: "36rem",
-};
+export type CardVariant = "default" | "elevated" | "studio" | "console" | "gallery";
 
 export interface CardProps {
   title?: string;
+  variant?: CardVariant;
+  /** Adds hover lift — use when the card is wrapped in a link. */
+  interactive?: boolean;
   children: ReactNode;
 }
 
-export function Card({ title, children }: CardProps) {
+export function Card({
+  title,
+  variant = "default",
+  interactive,
+  children,
+}: CardProps) {
+  const classes = [
+    "ui-card",
+    variant !== "default" ? `ui-card--${variant}` : null,
+    interactive ? "ui-card--interactive" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <section style={cardStyle}>
-      {title ? <h2 style={{ marginTop: 0, color: "#f1f5f9" }}>{title}</h2> : null}
-      <div style={{ color: "#94a3b8", lineHeight: 1.6 }}>{children}</div>
+    <section className={classes}>
+      {title ? <h3>{title}</h3> : null}
+      <div className="ui-card__body">{children}</div>
     </section>
   );
 }

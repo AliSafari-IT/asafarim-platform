@@ -3,19 +3,14 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Button, Card } from "@asafarim/ui";
-
-const inputStyle = {
-  display: "block",
-  width: "100%",
-  padding: "0.5rem 0.75rem",
-  marginBottom: "0.75rem",
-  borderRadius: "0.4rem",
-  border: "1px solid #334155",
-  backgroundColor: "#0f172a",
-  color: "#e2e8f0",
-  fontSize: "1rem",
-} as const;
+import {
+  Alert,
+  Button,
+  FormRow,
+  Input,
+  Kicker,
+  Label,
+} from "@asafarim/ui";
 
 function SignInForm() {
   const router = useRouter();
@@ -41,7 +36,7 @@ function SignInForm() {
     setPending(false);
 
     if (result?.error) {
-      setError("Invalid email or password.");
+      setError("That email and password combination was not accepted.");
       return;
     }
 
@@ -54,44 +49,50 @@ function SignInForm() {
   }
 
   return (
-    <Card title="Admin sign in">
+    <div className="ui-card ui-card--console">
       <form onSubmit={handleSubmit}>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={inputStyle}
-        />
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={inputStyle}
-        />
-        {error ? <p style={{ color: "#f87171" }}>{error}</p> : null}
-        <Button type="submit" disabled={pending}>
-          {pending ? "Signing in..." : "Sign in"}
+        {error ? <Alert tone="error">{error}</Alert> : null}
+        <FormRow>
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </FormRow>
+        <FormRow>
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </FormRow>
+        <Button type="submit" variant="console" disabled={pending}>
+          {pending ? "authenticating..." : "authenticate"}
         </Button>
       </form>
-    </Card>
+    </div>
   );
 }
 
 export default function SignInPage() {
   return (
-    <div style={{ maxWidth: "28rem", margin: "3rem auto", padding: "0 1rem" }}>
-      <h1 style={{ color: "#f1f5f9" }}>ASafarIM Admin</h1>
+    <div style={{ maxWidth: "26rem", margin: "4rem auto", padding: "0 1rem" }}>
+      <Kicker index="SYS">Console access</Kicker>
+      <h1 style={{ marginBottom: "var(--space-5)" }}>ASafarIM Admin</h1>
       <Suspense fallback={null}>
         <SignInForm />
       </Suspense>
+      <p className="u-mono" style={{ marginTop: "var(--space-4)" }}>
+        system access is limited to authorized roles
+      </p>
     </div>
   );
 }

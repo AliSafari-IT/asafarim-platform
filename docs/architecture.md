@@ -74,10 +74,11 @@ import {
 
 ## Shared packages
 
-- `@asafarim/ui` — layout system (`AppShell`, `TopNav`, `SideNav`,
-  `UserMenu`, `PageHeader`) + primitives (`Card`, `Button`, `Badge`,
-  `EmptyState`) + `getPlatformLinks()` for cross-app URLs. Shipped as TS
-  source; apps transpile via `transpilePackages`.
+- `@asafarim/ui` — the platform design system: CSS design tokens with
+  per-app moods (`data-app` attribute), brand components, layout shell, and
+  creative building blocks. See [design-system.md](design-system.md).
+  Shipped as TS source + `@asafarim/ui/styles.css`; apps transpile via
+  `transpilePackages`.
 - `@asafarim/auth` — see auth flow above.
 - `@asafarim/db` — Prisma 7 + `@prisma/adapter-pg`. Foundation models: User,
   Account, Session, VerificationToken, EmailLoginCode, Role, Permission,
