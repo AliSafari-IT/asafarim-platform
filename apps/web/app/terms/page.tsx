@@ -1,16 +1,29 @@
 import type { Metadata } from "next";
-import { Card, PageHeader } from "@asafarim/ui";
+import { Alert, Card, PageHeader } from "@asafarim/ui";
+import { legalDisclaimer, termsSections } from "../../content/legal";
 
-export const metadata: Metadata = { title: "Terms of Service" };
+export const metadata: Metadata = {
+  title: "Terms",
+  description:
+    "Terms of use for the ASafarIM Digital website and ASafarIM Platform accounts.",
+};
 
 export default function TermsPage() {
   return (
     <>
-      <PageHeader kicker="Legal" title="Terms of Service" />
-      <Card>
-        Placeholder for the ASafarIM Digital terms of service. The final text
-        will be added when the public website content is migrated.
-      </Card>
+      <PageHeader
+        kicker="Legal"
+        title="Terms of Service"
+        description="The ground rules for using the website and platform accounts."
+      />
+      <Alert tone="info">{legalDisclaimer}</Alert>
+      <div style={{ display: "grid", gap: "var(--space-4)", maxWidth: "46rem" }}>
+        {termsSections.map((section) => (
+          <Card key={section.title} title={section.title}>
+            {section.body}
+          </Card>
+        ))}
+      </div>
     </>
   );
 }

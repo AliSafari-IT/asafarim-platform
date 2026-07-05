@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
-import { Card, PageHeader, Section } from "@asafarim/ui";
+import { Card, Kicker, PageHeader, Section } from "@asafarim/ui";
+import { site } from "../../content/site";
 
-export const metadata: Metadata = { title: "About" };
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "ASafarIM Digital is the personal digital studio of Ali Safari — full-stack developer in Hasselt, Belgium, with a research background in engineering hydrology.",
+};
 
 export default function AboutPage() {
   return (
@@ -10,23 +15,47 @@ export default function AboutPage() {
         kicker="The studio"
         kickerIndex="01"
         title="About ASafarIM Digital"
-        description="A personal technology brand, run like a workshop."
+        description={site.about.lede}
       />
+
       <Section>
         <div className="ui-grid">
-          <Card variant="studio" title="One craftsman, full stack">
-            ASafarIM Digital is the umbrella for the products, platforms, and
-            consultancy work of Ali Safari — from database schema to deployment
-            pipeline.
-          </Card>
-          <Card variant="studio" title="Built in the open">
-            The platform you are reading this on is itself a project: a public
-            monorepo where every part of the stack is on display.
-          </Card>
-          <Card variant="studio" title="Useful over flashy">
-            The studio favors software that removes real friction. Full story
-            and background will be migrated from the existing sites.
-          </Card>
+          {site.about.story.map((chapter) => (
+            <Card key={chapter.title} variant="studio" title={chapter.title}>
+              {chapter.body}
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <Section kicker="How things get built" kickerIndex="02" title="The craft">
+        <Card variant="elevated">
+          <ul style={{ margin: 0, paddingLeft: "1.2rem", lineHeight: 2 }}>
+            {site.about.craft.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </Card>
+      </Section>
+
+      <Section kicker="Practical details" kickerIndex="03">
+        <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
+          <div>
+            <Kicker>Based in</Kicker>
+            <p>{site.contact.location}</p>
+          </div>
+          <div>
+            <Kicker>Availability</Kicker>
+            <p>{site.contact.availability}</p>
+          </div>
+          <div>
+            <Kicker>Open source</Kicker>
+            <p>
+              <a href={site.contact.github} target="_blank" rel="noreferrer">
+                github.com/AliSafari-IT
+              </a>
+            </p>
+          </div>
         </div>
       </Section>
     </>

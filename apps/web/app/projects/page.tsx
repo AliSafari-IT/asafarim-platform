@@ -1,7 +1,19 @@
 import type { Metadata } from "next";
-import { EmptyState, PageHeader, getPlatformLinks } from "@asafarim/ui";
+import {
+  Badge,
+  Card,
+  PageHeader,
+  Section,
+  StatusBadge,
+  getPlatformLinks,
+} from "@asafarim/ui";
+import { projectGroups } from "../../content/projects";
 
-export const metadata: Metadata = { title: "Projects" };
+export const metadata: Metadata = {
+  title: "Projects",
+  description:
+    "The project wall of ASafarIM Digital: the platform itself, products like Vionto and EduMatch, showcase apps like Testora and SmartOps, and open-source npm packages.",
+};
 
 export default function ProjectsPage() {
   const links = getPlatformLinks();
@@ -12,16 +24,44 @@ export default function ProjectsPage() {
         kicker="The wall"
         kickerIndex="03"
         title="Projects"
-        description="A curated wall of client work and studio products."
+        description="A curated wall of platform work, products, demos, and open source. Live demos hang in the Showcase."
+        actions={<a href={links.showcase}>Visit the Showcase →</a>}
       />
-      <EmptyState
-        glyph="[ wall ]"
-        title="The wall is being curated"
-        description="Portfolio pieces from the existing sites are being selected and rewritten. Live demos are already on display in the Showcase."
-        action={
-          <a href={links.showcase}>Visit the Showcase →</a>
-        }
-      />
+
+      {projectGroups.map((group, i) => (
+        <Section
+          key={group.title}
+          kicker={group.kicker}
+          kickerIndex={String(i + 1).padStart(2, "0")}
+          title={group.title}
+        >
+          <p className="u-muted" style={{ maxWidth: "42rem" }}>
+            {group.intro}
+          </p>
+          <div className="ui-grid">
+            {group.projects.map((project) => (
+              <Card key={project.name} variant="elevated" title={project.name}>
+                <p>
+                  <StatusBadge status={project.status} />
+                </p>
+                <p>{project.description}</p>
+                <p style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
+                  {project.tech.map((tech) => (
+                    <Badge key={tech} tone="info">
+                      {tech}
+                    </Badge>
+                  ))}
+                </p>
+                {project.href ? (
+                  <a href={project.href} target="_blank" rel="noreferrer">
+                    Visit →
+                  </a>
+                ) : null}
+              </Card>
+            ))}
+          </div>
+        </Section>
+      ))}
     </>
   );
 }

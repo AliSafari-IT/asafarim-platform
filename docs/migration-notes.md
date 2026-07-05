@@ -1,4 +1,65 @@
-# Migration Notes (Phase 1 — Discovery)
+# Migration Notes
+
+## Migration record — PR #6: public website content (2026-07-05)
+
+### Source notes
+
+- `F:\repos\asafarim-digital` supplied the current product and platform
+  vocabulary (Vionto, EduMatch, Content Generator, and Ops Hub), the portal/app
+  registry as a structural reference, and the two selected brand assets. The
+  old portal implementation was not copied.
+- `D:\repos\asafarim-dot-be` supplied the English biography, education and
+  experience facts, contact details, freelance service themes, showcase project
+  summaries (Testora, SmartOps, Task Management, and Java Study Notes), and npm
+  package descriptions. The primary reference was
+  `apps/web/src/locales/web-en.json`.
+- `D:\repos\asafarim` was reviewed for the older portfolio, project, blog, and
+  CMS model. No page copy or assets were migrated from it; it informed the
+  decision to defer database-backed content and the legacy blog system.
+
+All imported ideas were rewritten in the Studio voice and adapted to the new
+design system. The legal pages were newly written as informational placeholders
+and remain flagged for professional review. Maintained content now lives in
+`apps/web/content/` (`site.ts`, `services.ts`, `projects.ts`, and `legal.ts`)
+instead of being embedded as large page-level data sets.
+
+### Asset record
+
+Migrated:
+
+- `apps/web/public/favicon.svg`
+- `apps/web/public/brand/logo-mark.svg`
+
+Intentionally skipped:
+
+- concept logos
+- social banners
+- user uploads and profile images
+- generated and build assets
+- unused legacy images
+
+No legacy asset directory or other large asset folder was copied.
+
+### Deferred from PR #6
+
+- Hub dashboard functionality
+- Admin management features
+- Showcase project detail system
+- Vionto app functionality
+- EduMatch app functionality
+- content-generator app functionality
+- marketing-content app functionality
+- blog/Docusaurus migration
+- backend contact form handling
+- database-backed project CMS
+- resume/CV pages and publications
+
+These belong to later, app-specific PRs; no Hub, Admin, or Showcase
+functionality is included in PR #6.
+
+---
+
+# Phase 1 — Discovery
 
 Inventory of the existing codebases, reviewed on 2026-07-05. Old code is a
 reference only — nothing has been copied into the monorepo.

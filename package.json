@@ -7,11 +7,18 @@
   "license": "MIT",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "kill-port 3000 3001 3002 3003 && turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "format": "prettier --write .",
+    "env:status": "envage status",
+    "env:check": "node scripts/check-env-safety.mjs",
+    "env:key:init": "envage init-key",
+    "env:encrypt:local": "envage encrypt . --env root",
+    "env:decrypt:local": "envage decrypt . --env root",
+    "env:encrypt:production": "envage encrypt . --env production",
+    "env:decrypt:production": "envage decrypt . --env production",
     "db:generate": "pnpm --filter @asafarim/db db:generate",
     "db:migrate": "pnpm --filter @asafarim/db db:migrate",
     "db:migrate:deploy": "pnpm --filter @asafarim/db db:migrate:deploy",
@@ -21,6 +28,8 @@
     "deploy:prod": "bash ./infra/scripts/deploy-prod.sh"
   },
   "devDependencies": {
+    "@asafarim/envage": "0.3.3",
+    "kill-port": "^2.0.1",
     "prettier": "^3.5.0",
     "turbo": "^2.5.0",
     "typescript": "^5.7.0"

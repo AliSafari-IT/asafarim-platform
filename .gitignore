@@ -30,3 +30,15 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# --- envage managed ---
+# Decrypted env files — never commit
+.env*
+!.env*.age
+!.env.example
+!.env.*.example
+!.env.template
+# Age keys: commit only the public recipient, never the private identity
+.age/*
+!.age/key.pub
+# --- end envage ---

@@ -937,12 +937,12 @@ a .ui-card {
 /* ── Alert ──────────────────────────────────────────────────────── */
 
 .ui-alert {
-  display: flex;
-  gap: var(--space-3);
+  display: block;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
   border: 1px solid;
   font-size: var(--text-sm);
+  line-height: 1.55;
   margin-bottom: var(--space-4);
 }
 
@@ -1086,5 +1086,28 @@ a .ui-card {
 
   .ui-wordmark__product {
     display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .ui-shell__header {
+    gap: var(--space-2);
+  }
+
+  .ui-shell__brand {
+    gap: var(--space-2);
+  }
+
+  .ui-shell__actions {
+    gap: var(--space-1);
+  }
+
+  .ui-shell__actions .ui-app-switcher__label,
+  .ui-shell__actions .ui-menu__caret {
+    display: none;
+  }
+
+  .ui-shell__actions .ui-menu > summary {
+    padding-inline: 0.5rem;
   }
 }

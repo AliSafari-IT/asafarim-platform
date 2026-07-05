@@ -15,6 +15,15 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args: &public-build-args
+        NEXT_PUBLIC_COMPANY_NAME: ${NEXT_PUBLIC_COMPANY_NAME}
+        NEXT_PUBLIC_PLATFORM_NAME: ${NEXT_PUBLIC_PLATFORM_NAME}
+        NEXT_PUBLIC_HUB_NAME: ${NEXT_PUBLIC_HUB_NAME}
+        NEXT_PUBLIC_WEB_URL: ${NEXT_PUBLIC_WEB_URL}
+        NEXT_PUBLIC_HUB_URL: ${NEXT_PUBLIC_HUB_URL}
+        NEXT_PUBLIC_SHOWCASE_URL: ${NEXT_PUBLIC_SHOWCASE_URL}
+        NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -29,7 +38,10 @@ services:
     build:
       context: .
       dockerfile: apps/hub/Dockerfile
+      args: *public-build-args
     restart: unless-stopped
+    env_file:
+      - .env.production
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
@@ -43,6 +55,7 @@ services:
     build:
       context: .
       dockerfile: apps/showcase/Dockerfile
+      args: *public-build-args
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -57,7 +70,10 @@ services:
     build:
       context: .
       dockerfile: apps/admin/Dockerfile
+      args: *public-build-args
     restart: unless-stopped
+    env_file:
+      - .env.production
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}

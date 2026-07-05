@@ -1,22 +1,28 @@
 import {
+  Badge,
   ButtonLink,
   Card,
   Hero,
+  Metric,
   Section,
   StatusBadge,
   getPlatformLinks,
 } from "@asafarim/ui";
+import { site } from "../content/site";
+import { featuredProjects } from "../content/projects";
+import { services } from "../content/services";
 
 export default function HomePage() {
   const links = getPlatformLinks();
+  const previewServices = services.slice(0, 3);
 
   return (
     <>
       <Hero
-        kicker="A digital studio"
+        kicker={site.hero.kicker}
         kickerIndex="00"
-        title="Practical digital products, designed and built end to end."
-        lede="ASafarIM Digital is a one-person product lab: web platforms, developer tools, and experiments — taken from first sketch to running software."
+        title={site.hero.title}
+        lede={site.hero.lede}
         actions={
           <>
             <ButtonLink href={links.showcase}>Explore the Showcase</ButtonLink>
@@ -27,56 +33,74 @@ export default function HomePage() {
         }
       />
 
-      <Section kicker="From the workbench" kickerIndex="01" title="What gets made here">
-        <div className="ui-grid">
-          <Card variant="studio" title="Web platforms">
-            Full-stack applications with Next.js, TypeScript, and PostgreSQL —
-            the same stack this platform runs on.
-          </Card>
-          <Card variant="studio" title="Tools & automations">
-            Small, sharp utilities that remove friction: generators, dashboards,
-            and pipelines.
-          </Card>
-          <Card variant="studio" title="Experiments">
-            Ideas tested in the open. The promising ones graduate into products;
-            the rest teach something.
-          </Card>
-        </div>
-      </Section>
+      <div className="ui-grid ui-grid--metrics">
+        {site.stats.map((stat) => (
+          <Metric key={stat.label} label={stat.label} value={stat.value} />
+        ))}
+      </div>
 
-      <Section kicker="On the wall" kickerIndex="02" title="Currently exhibited">
-        <div className="ui-grid">
-          <Card variant="elevated" title="ASafarIM Platform">
-            <p>
-              <StatusBadge status="live" />
-            </p>
-            The monorepo powering this site, the Hub, the Showcase, and the
-            Admin console — one deploy, one identity, many apps.
-          </Card>
-          <Card variant="elevated" title="Task Management">
-            <p>
-              <StatusBadge status="beta" />
-            </p>
-            An end-to-end task vertical with its own API and client, on display
-            in the Showcase.
-          </Card>
-          <Card variant="elevated" title="Testora">
-            <p>
-              <StatusBadge status="beta" />
-            </p>
-            An E2E test console that orchestrates runs and streams results
-            live.
-          </Card>
-        </div>
-        <p style={{ marginTop: "var(--space-5)" }}>
-          <a href="/projects">See all projects →</a>
+      <Section kicker="The studio" kickerIndex="01" title={site.intro.heading}>
+        <p className="u-muted" style={{ maxWidth: "42rem" }}>
+          {site.intro.body}
+        </p>
+        <p>
+          <a href="/about">More about the studio →</a>
         </p>
       </Section>
 
-      <Section kicker="Get in touch" kickerIndex="03" title="Have something practical in mind?">
+      <Section kicker="From the workbench" kickerIndex="02" title="What gets made here">
+        <div className="ui-grid">
+          {previewServices.map((service) => (
+            <Card key={service.title} variant="studio" title={service.title}>
+              <p>{service.body}</p>
+              <span className="u-mono">{service.note}</span>
+            </Card>
+          ))}
+        </div>
+        <p style={{ marginTop: "var(--space-5)" }}>
+          <a href="/services">All services →</a>
+        </p>
+      </Section>
+
+      <Section kicker="On the wall" kickerIndex="03" title="Selected projects">
+        <div className="ui-grid">
+          {featuredProjects.map((project) => (
+            <Card key={project.name} variant="elevated" title={project.name}>
+              <p>
+                <StatusBadge status={project.status} />
+              </p>
+              <p>{project.description}</p>
+              <p style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
+                {project.tech.map((tech) => (
+                  <Badge key={tech} tone="info">
+                    {tech}
+                  </Badge>
+                ))}
+              </p>
+            </Card>
+          ))}
+        </div>
+        <p style={{ marginTop: "var(--space-5)" }}>
+          <a href="/projects">The whole wall →</a>
+        </p>
+      </Section>
+
+      <Section kicker="The platform" kickerIndex="04" title={site.platform.heading}>
+        <p className="u-muted" style={{ maxWidth: "42rem" }}>
+          {site.platform.body}
+        </p>
+        <div className="ui-grid">
+          {site.platform.items.map((item) => (
+            <Card key={item.title} title={item.title}>
+              {item.text}
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <Section kicker="Get in touch" kickerIndex="05" title="Have something practical in mind?">
         <p className="u-muted" style={{ maxWidth: "38rem" }}>
-          The studio takes on selected client work: platforms, integrations, and
-          deployments that need to actually ship.
+          {site.contact.availability}. {site.contact.responseTime}.
         </p>
         <ButtonLink href="/contact">Start a conversation</ButtonLink>
       </Section>

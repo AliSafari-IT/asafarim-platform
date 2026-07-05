@@ -1,25 +1,12 @@
 import type { Metadata } from "next";
-import { Card, PageHeader, Section, ButtonLink } from "@asafarim/ui";
+import { ButtonLink, Card, PageHeader, Section } from "@asafarim/ui";
+import { engagement, services } from "../../content/services";
 
-export const metadata: Metadata = { title: "Services" };
-
-const services = [
-  {
-    title: "Web platforms",
-    body: "Full-stack web applications with Next.js, TypeScript, and PostgreSQL — designed, built, and shipped.",
-    note: "design → build → deploy",
-  },
-  {
-    title: "APIs & integrations",
-    body: "Backend services, data models, authentication, and third-party integrations that hold up in production.",
-    note: "REST · auth · data",
-  },
-  {
-    title: "Deployment & operations",
-    body: "Dockerized deployments, reverse proxies, monitoring, and calm VPS operations.",
-    note: "docker · caddy · vps",
-  },
-];
+export const metadata: Metadata = {
+  title: "Services",
+  description:
+    "Freelance services from ASafarIM Digital: full-stack web applications, APIs and platform architecture, dashboards, deployment, test automation, and AI-assisted tools.",
+};
 
 export default function ServicesPage() {
   return (
@@ -28,8 +15,9 @@ export default function ServicesPage() {
         kicker="Studio services"
         kickerIndex="02"
         title="Services"
-        description="Selected client work, taken end to end — not staff augmentation."
+        description="The studio helps businesses and startups build robust, practical web software — taken end to end, not staff augmentation."
       />
+
       <div className="ui-grid">
         {services.map((service) => (
           <Card key={service.title} variant="studio" title={service.title}>
@@ -38,8 +26,18 @@ export default function ServicesPage() {
           </Card>
         ))}
       </div>
-      <Section>
-        <ButtonLink href="/contact">Discuss a project</ButtonLink>
+
+      <Section kicker="Working together" kickerIndex="03" title={engagement.heading}>
+        <div className="ui-grid">
+          {engagement.points.map((point) => (
+            <Card key={point.title} title={point.title}>
+              {point.body}
+            </Card>
+          ))}
+        </div>
+        <p style={{ marginTop: "var(--space-5)" }}>
+          <ButtonLink href="/contact">Discuss a project</ButtonLink>
+        </p>
       </Section>
     </>
   );
