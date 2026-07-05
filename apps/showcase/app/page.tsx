@@ -1,33 +1,40 @@
-import Link from "next/link";
-import { Button, Card, PageHeader } from "@asafarim/ui";
+import { ButtonLink, Hero, ProjectCard, Section } from "@asafarim/ui";
+import { projects } from "./projects/data";
 
 export default function ShowcaseHomePage() {
   return (
     <>
-      <PageHeader
-        title="ASafarIM Showcase"
-        description="Demos, apps, case studies, and experiments from the ASafarIM ecosystem"
+      <Hero
+        kicker="The exhibition"
+        kickerIndex="00"
+        title="Curated projects from the ASafarIM Digital lab."
+        lede="Demos, case studies, and experiments — each piece on this wall is real software you can inspect and try."
+        actions={
+          <>
+            <ButtonLink href="/projects">Walk the gallery</ButtonLink>
+            <ButtonLink href="/labs" variant="secondary">
+              Peek into Labs
+            </ButtonLink>
+          </>
+        }
       />
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(18rem, 1fr))",
-          gap: "1rem",
-        }}
-      >
-        <Card title="Projects">
-          <p>Browse showcased projects with tech stacks and case studies.</p>
-          <Link href="/projects">
-            <Button>View projects</Button>
-          </Link>
-        </Card>
-        <Card title="Labs">
-          <p>Experimental apps and works in progress.</p>
-          <Link href="/labs">
-            <Button style={{ backgroundColor: "#1e293b" }}>Enter the lab</Button>
-          </Link>
-        </Card>
-      </div>
+
+      <Section kicker="On display" kickerIndex="01" title="Featured pieces">
+        <div className="ui-grid ui-grid--wide">
+          {projects.map((project) => (
+            <ProjectCard
+              key={project.slug}
+              title={project.title}
+              summary={project.summary}
+              href={`/projects/${project.slug}`}
+              tags={project.tags}
+              status={project.status}
+              glyph={project.glyph}
+              index={project.index}
+            />
+          ))}
+        </div>
+      </Section>
     </>
   );
 }

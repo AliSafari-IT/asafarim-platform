@@ -7,12 +7,15 @@ export default function LabsPage() {
   return (
     <>
       <PageHeader
+        kicker="Experimental shelf"
+        kickerIndex="02"
         title="Labs"
-        description="Experimental apps and works in progress"
+        description="Half-built ideas, prototypes, and things that might break."
       />
       <EmptyState
-        title="Nothing brewing yet"
-        description="Future experiments (labs.asafarim.be) will appear here."
+        glyph="( ~ )"
+        title="The shelf is empty — for now"
+        description="Experiments from labs.asafarim.be will appear here as they are dusted off and rebuilt on the platform."
       />
     </>
   );

@@ -1,14 +1,24 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { auth, signOut, hasRole, ROLES } from "@asafarim/auth";
-import { AppShell, Button, TopNav, UserMenu, getPlatformLinks } from "@asafarim/ui";
+import {
+  AppShell,
+  AppSwitcher,
+  Button,
+  ButtonLink,
+  TopNav,
+  UserMenu,
+  getPlatformLinks,
+} from "@asafarim/ui";
+import "@asafarim/ui/styles.css";
 
 export const metadata: Metadata = {
   title: {
     default: "ASafarIM Hub",
     template: "%s | ASafarIM Hub",
   },
-  description: "Central logged-in dashboard of the ASafarIM Platform",
+  description:
+    "Your workspace for apps, showcases, and experiments — mission control for the ASafarIM Platform.",
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -16,54 +26,57 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const links = getPlatformLinks();
   const isAdminUser = hasRole(session, [ROLES.ADMIN]);
 
-  const navItems = [
-    { label: "Home", href: "/" },
-    ...(session?.user
-      ? [
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Apps", href: "/apps" },
-          { label: "Profile", href: "/profile" },
-          { label: "Settings", href: "/settings" },
-        ]
-      : []),
-    { label: "Website ↗", href: links.web },
-    ...(isAdminUser ? [{ label: "Admin ↗", href: links.admin }] : []),
-  ];
-
   return (
     <html lang="en">
-      <body style={{ margin: 0 }}>
+      <body data-app="hub">
         <AppShell
-          appName="Hub"
-          nav={<TopNav items={navItems} />}
-          user={
+          product="Hub"
+          nav={
             session?.user ? (
-              <UserMenu
-                name={session.user.name}
-                email={session.user.email}
-                roles={session.user.roles}
-              >
-                <form
-                  action={async () => {
-                    "use server";
-                    await signOut({ redirectTo: "/" });
-                  }}
+              <TopNav
+                items={[
+                  { label: "Dashboard", href: "/dashboard" },
+                  { label: "Apps", href: "/apps" },
+                  { label: "Profile", href: "/profile" },
+                  { label: "Settings", href: "/settings" },
+                ]}
+              />
+            ) : null
+          }
+          user={
+            <>
+              <AppSwitcher
+                links={[
+                  { label: "ASafarIM Digital", href: links.web, meta: "public" },
+                  { label: "Showcase", href: links.showcase, meta: "public" },
+                  ...(isAdminUser
+                    ? [{ label: "Admin Console", href: links.admin, meta: "restricted" }]
+                    : []),
+                ]}
+              />
+              {session?.user ? (
+                <UserMenu
+                  name={session.user.name}
+                  email={session.user.email}
+                  roles={session.user.roles}
                 >
-                  <Button
-                    type="submit"
-                    style={{ padding: "0.35rem 0.9rem", fontSize: "0.85rem" }}
+                  <form
+                    action={async () => {
+                      "use server";
+                      await signOut({ redirectTo: "/" });
+                    }}
                   >
-                    Sign out
-                  </Button>
-                </form>
-              </UserMenu>
-            ) : (
-              <a href="/sign-in">
-                <Button style={{ padding: "0.35rem 0.9rem", fontSize: "0.85rem" }}>
+                    <Button type="submit" variant="secondary" size="sm">
+                      Sign out
+                    </Button>
+                  </form>
+                </UserMenu>
+              ) : (
+                <ButtonLink href="/sign-in" size="sm">
                   Sign in
-                </Button>
-              </a>
-            )
+                </ButtonLink>
+              )}
+            </>
           }
         >
           {children}

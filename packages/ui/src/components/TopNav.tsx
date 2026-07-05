@@ -1,5 +1,3 @@
-import type { CSSProperties } from "react";
-
 export interface NavItem {
   label: string;
   href: string;
@@ -9,42 +7,51 @@ export interface NavItem {
   newTab?: boolean;
 }
 
-const listStyle: CSSProperties = {
-  display: "flex",
-  gap: "1.1rem",
-  listStyle: "none",
-  margin: 0,
-  padding: 0,
-  flexWrap: "wrap",
-  alignItems: "center",
-};
-
 export interface TopNavProps {
   items: NavItem[];
 }
 
+/**
+ * Primary in-app navigation. Renders an inline list on desktop and a
+ * CSS-only menu button below 900px — never wraps.
+ */
 export function TopNav({ items }: TopNavProps) {
+  if (items.length === 0) return null;
+
   return (
-    <nav>
-      <ul style={listStyle}>
+    <nav aria-label="Primary">
+      <ul className="ui-topnav">
         {items.map((item) => (
           <li key={item.href + item.label}>
             <a
               href={item.href}
               target={item.newTab ? "_blank" : undefined}
               rel={item.newTab ? "noreferrer" : undefined}
-              style={{
-                color: item.active ? "#38bdf8" : "#cbd5e1",
-                textDecoration: "none",
-                fontSize: "0.95rem",
-                fontWeight: item.active ? 600 : 400,
-              }}
+              aria-current={item.active ? "true" : undefined}
             >
               {item.label}
             </a>
           </li>
         ))}
       </ul>
+      <details className="ui-menu ui-topnav-mobile">
+        <summary>
+          Menu <span className="ui-menu__caret">▾</span>
+        </summary>
+        <div className="ui-menu__panel" style={{ left: 0, right: "auto" }}>
+          {items.map((item) => (
+            <a
+              key={item.href + item.label}
+              href={item.href}
+              className="ui-menu__item"
+              target={item.newTab ? "_blank" : undefined}
+              rel={item.newTab ? "noreferrer" : undefined}
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+      </details>
     </nav>
   );
 }
