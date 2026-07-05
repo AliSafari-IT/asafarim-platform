@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { auth, signOut, hasRole, ROLES } from "@asafarim/auth";
 import {
   AppShell,
+  AppSwitcher,
   Button,
   ButtonLink,
   TopNav,
@@ -25,49 +26,57 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const links = getPlatformLinks();
   const isAdminUser = hasRole(session, [ROLES.ADMIN]);
 
-  const navItems = [
-    { label: "Home", href: "/" },
-    ...(session?.user
-      ? [
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Apps", href: "/apps" },
-          { label: "Profile", href: "/profile" },
-          { label: "Settings", href: "/settings" },
-        ]
-      : []),
-    { label: "Website ↗", href: links.web },
-    ...(isAdminUser ? [{ label: "Admin ↗", href: links.admin }] : []),
-  ];
-
   return (
     <html lang="en">
       <body data-app="hub">
         <AppShell
           product="Hub"
-          nav={<TopNav items={navItems} />}
-          user={
+          nav={
             session?.user ? (
-              <UserMenu
-                name={session.user.name}
-                email={session.user.email}
-                roles={session.user.roles}
-              >
-                <form
-                  action={async () => {
-                    "use server";
-                    await signOut({ redirectTo: "/" });
-                  }}
+              <TopNav
+                items={[
+                  { label: "Dashboard", href: "/dashboard" },
+                  { label: "Apps", href: "/apps" },
+                  { label: "Profile", href: "/profile" },
+                  { label: "Settings", href: "/settings" },
+                ]}
+              />
+            ) : null
+          }
+          user={
+            <>
+              <AppSwitcher
+                links={[
+                  { label: "ASafarIM Digital", href: links.web, meta: "public" },
+                  { label: "Showcase", href: links.showcase, meta: "public" },
+                  ...(isAdminUser
+                    ? [{ label: "Admin Console", href: links.admin, meta: "restricted" }]
+                    : []),
+                ]}
+              />
+              {session?.user ? (
+                <UserMenu
+                  name={session.user.name}
+                  email={session.user.email}
+                  roles={session.user.roles}
                 >
-                  <Button type="submit" variant="ghost" size="sm">
-                    Sign out
-                  </Button>
-                </form>
-              </UserMenu>
-            ) : (
-              <ButtonLink href="/sign-in" size="sm">
-                Sign in
-              </ButtonLink>
-            )
+                  <form
+                    action={async () => {
+                      "use server";
+                      await signOut({ redirectTo: "/" });
+                    }}
+                  >
+                    <Button type="submit" variant="secondary" size="sm">
+                      Sign out
+                    </Button>
+                  </form>
+                </UserMenu>
+              ) : (
+                <ButtonLink href="/sign-in" size="sm">
+                  Sign in
+                </ButtonLink>
+              )}
+            </>
           }
         >
           {children}
