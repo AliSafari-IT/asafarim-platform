@@ -12,6 +12,12 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "format": "prettier --write .",
+    "db:generate": "pnpm --filter @asafarim/db db:generate",
+    "db:migrate": "pnpm --filter @asafarim/db db:migrate",
+    "db:migrate:deploy": "pnpm --filter @asafarim/db db:migrate:deploy",
+    "db:push": "pnpm --filter @asafarim/db db:push",
+    "db:studio": "pnpm --filter @asafarim/db db:studio",
+    "db:seed": "pnpm --filter @asafarim/db db:seed",
     "deploy:prod": "bash ./infra/scripts/deploy-prod.sh"
   },
   "devDependencies": {

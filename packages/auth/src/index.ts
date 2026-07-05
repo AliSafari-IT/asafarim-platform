@@ -1,6 +1,8 @@
-// Placeholder for the shared authentication package.
-// Phase 5 of the migration plan implements Auth.js here (login, logout,
-// sessions, role-based access) consumed as
-// `import { authOptions } from "@asafarim/auth"`.
+import "./types";
 
-export const AUTH_PACKAGE_STATUS = "placeholder" as const;
+export { handlers, auth, signIn, signOut } from "./auth";
+export { authConfig } from "./config";
+export { hashPassword, verifyPassword } from "./providers";
+export { ROLES, hasRole, isAdmin, type RoleName } from "./roles";
+export { hasPermission, getUserPermissions } from "./permissions";
+export { getSession, requireUser, requireRole } from "./session";
