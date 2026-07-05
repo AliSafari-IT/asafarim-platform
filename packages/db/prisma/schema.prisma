@@ -1,0 +1,203 @@
+// ASafarIM Platform — Prisma Schema
+// Foundation only: Auth.js v5 required tables + RBAC + audit log.
+// Migrated from asafarim-digital (source of truth); product-specific models
+// (Edu*, Vionto*, Content*, Marketing*, Tenant/billing) follow in later PRs.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth.js Required Models ───────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  username      String?   @unique
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  jobTitle      String?
+  company       String?
+  website       String?
+  location      String?
+  bio           String?   @db.Text
+
+  isActive      Boolean   @default(true)
+  deactivatedAt DateTime?
+
+  // Auth.js relations
+  accounts Account[]
+  sessions Session[]
+
+  // RBAC: many-to-many roles
+  userRoles UserRole[]
+
+  // Audit trail
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([username])
+  @@index([isActive])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Email One-Time Login Code ──────────────────────────────────
+
+/// Short-lived 6-character OTP used for passwordless email-code login.
+/// Codes are single-use and expire after EMAIL_LOGIN_CODE_TTL_MINUTES (default 10).
+/// Rate limits: max 5 requests per email per 15 min; max 5 failed verify attempts.
+model EmailLoginCode {
+  id        String    @id @default(cuid())
+  /// The email address the code was sent to (lowercased)
+  email     String
+  /// SHA-256 hex digest of the uppercased 6-character code
+  codeHash  String
+  /// When this code expires
+  expiresAt DateTime
+  /// Set when the code is successfully consumed
+  usedAt    DateTime?
+  /// Number of failed verification attempts against this code
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([email, createdAt])
+  @@index([expiresAt])
+}
+
+// ─── RBAC Models ───────────────────────────────────────────────
+
+model Role {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  displayName String
+  description String? @db.Text
+  isSystem    Boolean @default(false)
+  isDefault   Boolean @default(false)
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([isDefault])
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  displayName String
+  description String?
+  group       String
+
+  rolePermissions RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([group])
+}
+
+model UserRole {
+  id         String   @id @default(cuid())
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// ─── Audit Log ─────────────────────────────────────────────────
+
+model AuditLog {
+  id        String  @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  changes   Json?
+  ipAddress String?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+}

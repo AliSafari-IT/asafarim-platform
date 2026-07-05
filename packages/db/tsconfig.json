@@ -1,5 +1,5 @@
 {
   "extends": "@asafarim/config/tsconfig/base.json",
-  "include": ["src"],
+  "include": ["src", "prisma/seed.ts", "prisma.config.ts"],
   "exclude": ["node_modules"]
 }
