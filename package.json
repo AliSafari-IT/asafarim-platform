@@ -7,7 +7,7 @@
   "license": "MIT",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "dev": "kill-port 3000 3001 3002 3003 && turbo dev",
+    "dev": "node scripts/dev-start.mjs",
     "clean": "rimraf node_modules .turbo && turbo clean",
     "build": "turbo build",
     "lint": "turbo lint",
@@ -26,6 +26,7 @@
     "db:push": "pnpm --filter @asafarim/db db:push",
     "db:studio": "pnpm --filter @asafarim/db db:studio",
     "db:seed": "pnpm --filter @asafarim/db db:seed",
+    "db:up": "docker-compose up -d",
     "deploy:prod": "bash ./infra/scripts/deploy-prod.sh"
   },
   "devDependencies": {
