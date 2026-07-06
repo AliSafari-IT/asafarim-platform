@@ -7,14 +7,94 @@
 
 export const site = {
   name: "ASafarIM Digital",
-  title: "ASafarIM Digital — Practical Digital Products and Tools",
+  title: "Ali Safari — Full-Stack & AI Application Engineer",
   description:
-    "ASafarIM Digital is the personal digital studio of Ali Safari: full-stack web platforms, developer tools, and AI-assisted products — designed and built end to end.",
+    "Ali Safari is a systems-minded full-stack and AI application engineer: from engineering hydrology research to production web platforms and AI-assisted products, built and operated end to end.",
+
+  person: {
+    name: "Ali Safari",
+    jobTitle: "Full-Stack & AI Application Engineer",
+  },
 
   hero: {
-    kicker: "A digital studio",
-    title: "Practical digital products, designed and built end to end.",
-    lede: "ASafarIM Digital is the one-person product lab of Ali Safari — full-stack developer in Hasselt, Belgium. Web platforms, developer tools, and AI-assisted products, taken from first sketch to running software.",
+    kicker: "Ali Safari · Systems engineer",
+    title: "Ali Safari builds full-stack and AI application systems that ship and stay up.",
+    lede: "From engineering hydrology research to production web platforms: I design, build, and operate systems end to end — identity and data layers, real-time dashboards, and AI-assisted tools, not slide decks.",
+  },
+
+  /** "Now" line under the hero — the ONE place Probex is named. */
+  now: {
+    label: "Now",
+    text: "AI Application Developer at Probex, Genk — building AI-assisted engineering tools by day; the ASafarIM Platform is independent, self-directed work.",
+  },
+
+  principles: [
+    {
+      title: "Measure, then build",
+      body: "A research background means claims get checked against data before they ship as features.",
+    },
+    {
+      title: "One system, not a demo",
+      body: "Production means monitored, documented, and still running next quarter — not a local screen recording.",
+    },
+    {
+      title: "Own the whole stack",
+      body: "Database schema, API, interface, and deployment are one continuous responsibility, not four hand-offs.",
+    },
+    {
+      title: "Reuse before rebuilding",
+      body: "Identity, design tokens, and deployment patterns are built once and shared — ten-plus apps run on the same foundation.",
+    },
+  ],
+
+  timeline: [
+    {
+      time: "Education",
+      title: "B.Sc. & M.Sc., Natural Resources Engineering — Tehran University",
+    },
+    {
+      time: "Education",
+      title: "PhD, Engineering Hydrology — VUB, Brussels",
+      meta: "Numerical modeling of river systems",
+    },
+    {
+      time: "2018–2019",
+      title: "Research internship — Flanders Environment Agency (VMM)",
+      meta: "Hydrologic modeling (FORTRAN, WetSpa) for river-flow simulation",
+    },
+    {
+      time: "2020",
+      title: "Internship — IRC Engineering",
+      meta: "Energy consumption visualization (C#, R.Net)",
+    },
+    {
+      time: "2020",
+      title: "Applied Information Technology — Programming, Thomas More",
+      meta: "Transition into full-stack software engineering",
+    },
+    {
+      time: "2020–2023",
+      title: "Full-stack scientific application developer — XiTechniX",
+      meta: ".NET + React applications for scientific and business domains",
+    },
+    {
+      time: "2023–2026",
+      title: "Building the ASafarIM product ecosystem",
+      meta: "10+ apps in production, 8 open-source packages",
+    },
+  ],
+
+  platformMap: {
+    heading: "How the pieces connect",
+    body: "One identity layer, four doors. Everything below shares the same auth, database, and design system.",
+    center: { name: "Identity & Data", meta: "Auth.js · PostgreSQL · RBAC" },
+    nodes: [
+      { name: "Web", meta: "public · you are here" },
+      { name: "Hub", meta: "signed-in workspace" },
+      { name: "Showcase", meta: "public gallery" },
+      { name: "Admin", meta: "role-gated console" },
+      { name: "Production apps", meta: "Vionto · EduMatch · Ops Hub · Content Gen" },
+    ],
   },
 
   intro: {

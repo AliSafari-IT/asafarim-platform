@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Services",
   description:
     "Freelance services from ASafarIM Digital: full-stack web applications, APIs and platform architecture, dashboards, deployment, test automation, and AI-assisted tools.",
+  alternates: { canonical: "/services" },
 };
 
 export default function ServicesPage() {

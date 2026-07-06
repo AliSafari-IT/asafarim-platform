@@ -26,6 +26,43 @@ Bumped all four apps from Next.js 15.5.20 to **16.2.10** (React 19.0 →
   identical to pre-upgrade behavior; all public routes on web/showcase
   still 200.
 
+## Evidence-first landing page — issue #8 (2026-07-06)
+
+Rebuilt the `apps/web` homepage around a structured evidence model instead of
+generic studio copy, per
+[GitHub issue #8](https://github.com/AliSafari-IT/asafarim-platform/issues/8).
+
+- **New content**: `apps/web/content/evidence.ts` — an `EvidenceItem` /
+  `ProblemSolved` model (claim, proof type, measurable result, public link,
+  date, status, technologies, confidentiality). `confidentiality: "described"`
+  marks real work described from experience with no public link, so no
+  employer/customer material is ever implied to be published.
+- **`site.ts` extended** with `person`, `now` (the single Probex mention),
+  `principles`, `timeline`, and `platformMap` — all data, no copy embedded in
+  page components.
+- **New shared component**: `packages/ui` gained `PlatformMap` (hub-and-spoke
+  system diagram, pure CSS, wraps to a stacked list under 480px — no SVG, no
+  JS) reused from the homepage's platform-connections section.
+- **Homepage sections**: hero (name above the fold) → Now line → stat rail →
+  evidence rail → selected work grouped by problem solved → platform map →
+  principles → personal timeline → contact CTA.
+- **SEO/metadata**: `metadataBase` + per-page `alternates.canonical`, a
+  `Person` JSON-LD block in the root layout, generated `opengraph-image.tsx`
+  / `twitter-image.tsx` (via `next/og`, edge runtime, no external image
+  assets), and `robots.ts` / `sitemap.ts`.
+- **Verified**: build 5/5, typecheck 8/8; all public routes plus
+  `/robots.txt`, `/sitemap.xml`, `/opengraph-image`, `/twitter-image` return
+  200; no horizontal overflow at 390/768/1024/1440px; "Ali Safari" appears
+  above the fold at every width; Probex appears exactly once in content
+  (confirmed by grepping the content files, not just the rendered HTML,
+  which also streams a hydration payload copy of the same string).
+- **Deferred**: this only touched `apps/web`; no Hub/Admin/Showcase
+  functionality changed. Lighthouse scoring itself needs a running
+  production build audited in CI or a browser, which is out of scope for
+  this pass — the structural choices (static content, small JSON-LD payload,
+  no client JS added, no heavy images) target the ≥90/95 thresholds from the
+  issue.
+
 ## Migration record — PR #6: public website content (2026-07-05)
 
 ### Source notes
