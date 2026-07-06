@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Privacy",
   description:
     "How ASafarIM Digital and the ASafarIM Platform handle personal data, cookies, and contact messages.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

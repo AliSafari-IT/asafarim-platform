@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Terms",
   description:
     "Terms of use for the ASafarIM Digital website and ASafarIM Platform accounts.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

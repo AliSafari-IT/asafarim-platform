@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Contact",
   description:
     "Contact ASafarIM Digital about full-stack web applications, APIs, dashboards, deployments, or data-driven software. Replies within 24–48 hours.",
+  alternates: { canonical: "/contact" },
 };
 
 export default function ContactPage() {
