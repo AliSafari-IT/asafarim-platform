@@ -3,27 +3,28 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 /**
- * Configurable auth middleware for any app in the monorepo.
+ * Configurable auth proxy (Next.js 16 `proxy.ts` convention — the renamed
+ * successor to `middleware.ts`) for any app in the monorepo.
  *
- * Usage in each app's middleware.ts:
+ * Usage in each app's proxy.ts:
  *
  * ```ts
- * export { authMiddleware as middleware } from "@asafarim/auth/middleware";
+ * export { authProxy as proxy } from "@asafarim/auth/proxy";
  * export const config = { matcher: ["/dashboard/:path*", "/api/protected/:path*"] };
  * ```
  *
  * Or with custom logic:
  *
  * ```ts
- * import { createAuthMiddleware } from "@asafarim/auth/middleware";
- * export const middleware = createAuthMiddleware({
+ * import { createAuthProxy } from "@asafarim/auth/proxy";
+ * export const proxy = createAuthProxy({
  *   publicRoutes: ["/", "/about", "/api/health"],
  *   signInUrl: "https://hub.asafarim.com/sign-in",
  * });
  * ```
  */
 
-interface AuthMiddlewareOptions {
+interface AuthProxyOptions {
   /** Routes that don't require authentication */
   publicRoutes?: string[];
   /** URL to redirect unauthenticated users to (defaults to /sign-in) */
@@ -32,7 +33,7 @@ interface AuthMiddlewareOptions {
   roleRoutes?: Record<string, string[]>;
 }
 
-export function createAuthMiddleware(options: AuthMiddlewareOptions = {}) {
+export function createAuthProxy(options: AuthProxyOptions = {}) {
   const {
     publicRoutes = ["/", "/api/health"],
     signInUrl,
@@ -129,7 +130,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions = {}) {
 }
 
 /**
- * Default middleware — protects everything except public routes.
- * Apps can override with createAuthMiddleware() for custom behavior.
+ * Default proxy — protects everything except public routes.
+ * Apps can override with createAuthProxy() for custom behavior.
  */
-export const authMiddleware = createAuthMiddleware();
+export const authProxy = createAuthProxy();

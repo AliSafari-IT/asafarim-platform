@@ -1,5 +1,31 @@
 # Migration Notes
 
+## Upgrade to Next.js 16 (2026-07-06)
+
+Bumped all four apps from Next.js 15.5.20 to **16.2.10** (React 19.0 →
+19.2.7), matching the version already in production on
+`asafarim-digital`'s portal app.
+
+- **`middleware.ts` → `proxy.ts`** (Next 16 breaking change, the file and
+  export are both renamed): `apps/hub/middleware.ts` and
+  `apps/admin/middleware.ts` renamed to `proxy.ts`; the shared helper in
+  `packages/auth` renamed from `middleware.ts`/`createAuthMiddleware` to
+  `proxy.ts`/`createAuthProxy` (package export `./middleware` → `./proxy`)
+  to match. Behavior is unchanged — same redirect/401/RBAC logic.
+- Turbopack is now the default for `next dev` and `next build` (previously
+  opt-in via `--turbopack`); no custom webpack config existed in any app,
+  so no build failure and no script changes were needed.
+- No other breaking changes from the v16 guide applied to this codebase:
+  no `next/image`, no parallel routes, no AMP, no `next lint`, no
+  `serverRuntimeConfig`, params/searchParams were already accessed async.
+- **Verified**: `pnpm install` resolved cleanly (no peer conflicts with
+  `next-auth@5.0.0-beta.28`); build 5/5 and typecheck 8/8 pass; full auth
+  regression re-run against the renamed `proxy.ts` — logged-out redirects
+  with `callbackUrl`, admin console access + live DB counts, cross-app SSO
+  session (hub login recognized on admin), roleless user denial — all
+  identical to pre-upgrade behavior; all public routes on web/showcase
+  still 200.
+
 ## Migration record — PR #6: public website content (2026-07-05)
 
 ### Source notes

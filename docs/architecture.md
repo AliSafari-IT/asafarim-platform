@@ -16,7 +16,7 @@ asafarim-platform/
 │  └─ admin/               # Admin panel (admin.asafarim.com)
 ├─ packages/
 │  ├─ ui/                  # Shared React UI components + nav shell
-│  ├─ auth/                # Auth.js v5: providers, helpers, middleware
+│  ├─ auth/                # Auth.js v5: providers, helpers, proxy (auth gate)
 │  ├─ db/                  # Prisma 7 + PostgreSQL: schema, migrations, seed
 │  └─ config/              # Shared TypeScript config
 ├─ infra/
@@ -29,8 +29,9 @@ asafarim-platform/
 
 ## Apps, routes, and protection
 
-All apps are Next.js (App Router, TypeScript, `output: "standalone"`), each
-with its own Dockerfile building from the monorepo root context.
+All apps are Next.js 16 (App Router, TypeScript, `output: "standalone"`,
+Turbopack for dev/build), each with its own Dockerfile building from the
+monorepo root context.
 
 | App | Dev URL | Production | Routes | Protection |
 | --- | --- | --- | --- | --- |
@@ -41,9 +42,10 @@ with its own Dockerfile building from the monorepo root context.
 
 Protection is layered:
 
-1. **Middleware** (`createAuthMiddleware` from `@asafarim/auth/middleware`) —
-   redirects unauthenticated page requests to `/sign-in?callbackUrl=…` and
-   returns 401 JSON for API routes.
+1. **Proxy** (`createAuthProxy` from `@asafarim/auth/proxy`, the Next.js 16
+   successor to `middleware.ts` — each app's root `proxy.ts` exports it as
+   `proxy`) — redirects unauthenticated page requests to
+   `/sign-in?callbackUrl=…` and returns 401 JSON for API routes.
 2. **Layout/page guards** — `requireUser()` and `requireRole([ROLES.ADMIN])`
    from `@asafarim/auth`. The admin app wraps all admin routes in an
    `(admin)` route-group layout that calls `requireRole`; authenticated
