@@ -24,6 +24,11 @@ export { Kicker } from "./components/Kicker";
 export { Metric } from "./components/Metric";
 export { PageHeader } from "./components/PageHeader";
 export { Panel } from "./components/Panel";
+export {
+  PlatformMap,
+  type PlatformMapNode,
+  type PlatformMapProps,
+} from "./components/PlatformMap";
 export { ProjectCard } from "./components/ProjectCard";
 export { Section } from "./components/Section";
 export { SideNav } from "./components/SideNav";
