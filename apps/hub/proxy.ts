@@ -1,6 +1,6 @@
-import { createAuthMiddleware } from "@asafarim/auth/middleware";
+import { createAuthProxy } from "@asafarim/auth/proxy";
 
-export const middleware = createAuthMiddleware({
+export const proxy = createAuthProxy({
   publicRoutes: ["/", "/sign-in", "/api/health"],
 });
 
