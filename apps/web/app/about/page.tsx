@@ -5,7 +5,8 @@ import { site } from "../../content/site";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "ASafarIM Digital is the personal digital studio of Ali Safari — full-stack developer in Hasselt, Belgium, with a research background in engineering hydrology.",
+    "Ali Safari is a full-stack and AI application engineer in Hasselt, Belgium, with a research background in engineering hydrology.",
+  alternates: { canonical: "/about" },
 };
 
 export default function AboutPage() {

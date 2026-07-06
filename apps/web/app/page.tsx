@@ -1,20 +1,25 @@
+import type { Metadata } from "next";
 import {
   Badge,
   ButtonLink,
   Card,
   Hero,
+  Kicker,
   Metric,
+  PlatformMap,
   Section,
-  StatusBadge,
+  Timeline,
   getPlatformLinks,
 } from "@asafarim/ui";
 import { site } from "../content/site";
-import { featuredProjects } from "../content/projects";
-import { services } from "../content/services";
+import { evidenceRail, workByProblem } from "../content/evidence";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default function HomePage() {
   const links = getPlatformLinks();
-  const previewServices = services.slice(0, 3);
 
   return (
     <>
@@ -25,13 +30,18 @@ export default function HomePage() {
         lede={site.hero.lede}
         actions={
           <>
-            <ButtonLink href={links.showcase}>Explore the Showcase</ButtonLink>
-            <ButtonLink href={links.hub} variant="secondary">
-              Open the Hub
+            <ButtonLink href="/projects">See the evidence</ButtonLink>
+            <ButtonLink href="/contact" variant="secondary">
+              Start a conversation
             </ButtonLink>
           </>
         }
       />
+
+      <p style={{ marginTop: "calc(var(--space-7) * -1)", marginBottom: "var(--space-6)" }}>
+        <Kicker>{site.now.label}</Kicker>
+        <span className="u-muted"> {site.now.text}</span>
+      </p>
 
       <div className="ui-grid ui-grid--metrics">
         {site.stats.map((stat) => (
@@ -39,68 +49,101 @@ export default function HomePage() {
         ))}
       </div>
 
-      <Section kicker="The studio" kickerIndex="01" title={site.intro.heading}>
-        <p className="u-muted" style={{ maxWidth: "42rem" }}>
-          {site.intro.body}
-        </p>
-        <p>
-          <a href="/about">More about the studio →</a>
-        </p>
-      </Section>
-
-      <Section kicker="From the workbench" kickerIndex="02" title="What gets made here">
-        <div className="ui-grid">
-          {previewServices.map((service) => (
-            <Card key={service.title} variant="studio" title={service.title}>
-              <p>{service.body}</p>
-              <span className="u-mono">{service.note}</span>
-            </Card>
-          ))}
-        </div>
-        <p style={{ marginTop: "var(--space-5)" }}>
-          <a href="/services">All services →</a>
-        </p>
-      </Section>
-
-      <Section kicker="On the wall" kickerIndex="03" title="Selected projects">
-        <div className="ui-grid">
-          {featuredProjects.map((project) => (
-            <Card key={project.name} variant="elevated" title={project.name}>
-              <p>
-                <StatusBadge status={project.status} />
-              </p>
-              <p>{project.description}</p>
+      <Section kicker="Evidence" kickerIndex="01" title="Shipped, not slideware">
+        <div className="ui-grid ui-grid--wide">
+          {evidenceRail.map((item) => (
+            <Card key={item.id} variant="elevated" title={item.claim}>
+              <p>{item.result}</p>
               <p style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
-                {project.tech.map((tech) => (
+                {item.technologies.map((tech) => (
                   <Badge key={tech} tone="info">
                     {tech}
                   </Badge>
                 ))}
               </p>
+              <p className="u-mono">
+                {item.date} · {item.proofType}
+                {item.confidentiality === "described" ? " · described from experience" : ""}
+              </p>
+              {item.link ? (
+                <a href={item.link} target="_blank" rel="noreferrer">
+                  {item.linkLabel ?? "Public proof"} →
+                </a>
+              ) : null}
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <Section kicker="Selected work" kickerIndex="02" title="Problems solved, not tech demos">
+        <div className="ui-grid ui-grid--wide">
+          {workByProblem.map((item) => (
+            <Card key={item.problem} variant="studio" title={item.problem}>
+              <p>{item.solution}</p>
+              <p>
+                <strong>Result:</strong> {item.result}
+              </p>
+              <p style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
+                {item.technologies.map((tech) => (
+                  <Badge key={tech} tone="info">
+                    {tech}
+                  </Badge>
+                ))}
+              </p>
+              {item.link ? (
+                <a href={item.link} target="_blank" rel="noreferrer">
+                  {item.linkLabel ?? "View"} →
+                </a>
+              ) : (
+                <span className="u-mono">described from experience</span>
+              )}
             </Card>
           ))}
         </div>
         <p style={{ marginTop: "var(--space-5)" }}>
-          <a href="/projects">The whole wall →</a>
+          <a href="/projects">The full project wall →</a>
         </p>
       </Section>
 
-      <Section kicker="The platform" kickerIndex="04" title={site.platform.heading}>
+      <Section kicker="The platform" kickerIndex="03" title={site.platformMap.heading}>
         <p className="u-muted" style={{ maxWidth: "42rem" }}>
-          {site.platform.body}
+          {site.platformMap.body}
         </p>
+        <PlatformMap
+          center={site.platformMap.center}
+          nodes={site.platformMap.nodes.map((node) => ({
+            ...node,
+            href:
+              node.name === "Hub"
+                ? links.hub
+                : node.name === "Showcase"
+                  ? links.showcase
+                  : node.name === "Admin"
+                    ? links.admin
+                    : undefined,
+          }))}
+        />
+      </Section>
+
+      <Section kicker="Principles" kickerIndex="04" title="How things get built">
         <div className="ui-grid">
-          {site.platform.items.map((item) => (
-            <Card key={item.title} title={item.title}>
-              {item.text}
+          {site.principles.map((principle) => (
+            <Card key={principle.title} title={principle.title}>
+              {principle.body}
             </Card>
           ))}
         </div>
       </Section>
 
-      <Section kicker="Get in touch" kickerIndex="05" title="Have something practical in mind?">
+      <Section kicker="Timeline" kickerIndex="05" title="From river models to production software">
+        <Timeline items={[...site.timeline]} />
+      </Section>
+
+      <Section kicker="Get in touch" kickerIndex="06" title="Have something practical in mind?">
         <p className="u-muted" style={{ maxWidth: "38rem" }}>
-          {site.contact.availability}. {site.contact.responseTime}.
+          Available for full-stack and AI application engineering: technical
+          leadership, platform architecture, or hands-on product work.{" "}
+          {site.contact.responseTime}.
         </p>
         <ButtonLink href="/contact">Start a conversation</ButtonLink>
       </Section>
