@@ -1,0 +1,12 @@
+{
+  "name": "@asafarim/ai-eval-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Evaluation Lab — a provider-neutral, fixture-mode benchmark (versioned prompts + synthetic datasets, scored offline with no API keys) that produces the evidence rendered by the read-only Showcase demo.",
+  "type": "module",
+  "scripts": {
+    "eval": "node runner/run.mjs",
+    "bench:generate": "node scripts/generate-fixtures.mjs",
+    "bench": "node runner/run.mjs && node scripts/generate-fixtures.mjs"
+  }
+}

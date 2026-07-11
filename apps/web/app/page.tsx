@@ -13,6 +13,7 @@ import {
 } from "@asafarim/ui";
 import { site } from "../content/site";
 import { evidenceRail, workByProblem } from "../content/evidence";
+import { aiEvalCard } from "../content/benchmark";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -105,7 +106,25 @@ export default function HomePage() {
         </p>
       </Section>
 
-      <Section kicker="The platform" kickerIndex="03" title={site.platformMap.heading}>
+      <Section kicker="Benchmark" kickerIndex="03" title="Reproducible AI evaluation, not a chatbot demo">
+        <Card variant="elevated" title={aiEvalCard.title}>
+          <p>{aiEvalCard.blurb}</p>
+          <div
+            className="ui-grid ui-grid--metrics"
+            style={{ margin: "var(--space-4) 0" }}
+          >
+            {aiEvalCard.stats.map((stat) => (
+              <Metric key={stat.label} label={stat.label} value={stat.value} />
+            ))}
+          </div>
+          <p className="u-mono">{aiEvalCard.note}</p>
+          <a href={`${links.showcase}${aiEvalCard.href}`}>
+            {aiEvalCard.linkLabel} →
+          </a>
+        </Card>
+      </Section>
+
+      <Section kicker="The platform" kickerIndex="04" title={site.platformMap.heading}>
         <p className="u-muted" style={{ maxWidth: "42rem" }}>
           {site.platformMap.body}
         </p>
@@ -125,7 +144,7 @@ export default function HomePage() {
         />
       </Section>
 
-      <Section kicker="Principles" kickerIndex="04" title="How things get built">
+      <Section kicker="Principles" kickerIndex="05" title="How things get built">
         <div className="ui-grid">
           {site.principles.map((principle) => (
             <Card key={principle.title} title={principle.title}>
@@ -135,11 +154,11 @@ export default function HomePage() {
         </div>
       </Section>
 
-      <Section kicker="Timeline" kickerIndex="05" title="From river models to production software">
+      <Section kicker="Timeline" kickerIndex="06" title="From river models to production software">
         <Timeline items={[...site.timeline]} />
       </Section>
 
-      <Section kicker="Get in touch" kickerIndex="06" title="Have something practical in mind?">
+      <Section kicker="Get in touch" kickerIndex="07" title="Have something practical in mind?">
         <p className="u-muted" style={{ maxWidth: "38rem" }}>
           Available for full-stack and AI application engineering: technical
           leadership, platform architecture, or hands-on product work.{" "}

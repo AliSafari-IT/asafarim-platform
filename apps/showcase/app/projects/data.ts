@@ -44,6 +44,16 @@ export const projects: ShowcaseProject[] = [
     glyph: "TS",
     index: "03",
   },
+  {
+    slug: "ai-eval",
+    title: "AI Evaluation Lab",
+    summary:
+      "A provider-neutral, fixture-mode AI benchmark: versioned prompts and synthetic datasets scored for correctness, groundedness, format compliance, latency, cost, and safety — reproducibly, with no API keys.",
+    tags: ["AI", "Evaluation", "Benchmark"],
+    status: "live",
+    glyph: "AE",
+    index: "04",
+  },
 ];
 
 export function getProject(slug: string): ShowcaseProject | undefined {

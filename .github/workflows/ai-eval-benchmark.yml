@@ -1,0 +1,46 @@
+# Example workflow: run the AI Evaluation Lab in fixture mode and gate on it.
+#
+# Fixture mode needs no API keys and no browser. The generator is the gate: it
+# validates the scored invariants (frontier tier perfect, compact tier shows the
+# seeded failures, the v1->v2 regression present) and then rewrites the committed
+# showcase fixtures; a drift means the datasets/prompts/fixtures changed without
+# regenerating, which fails the build.
+name: AI Evaluation Lab
+
+on:
+  push:
+    paths:
+      - "benchmarks/ai-eval/**"
+      - "apps/showcase/app/projects/ai-eval/**"
+      - ".github/workflows/ai-eval-benchmark.yml"
+  pull_request:
+    paths:
+      - "benchmarks/ai-eval/**"
+      - "apps/showcase/app/projects/ai-eval/**"
+  workflow_dispatch:
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the benchmark (fixture mode, no keys)
+        run: pnpm bench:ai-eval
+
+      - name: Validate invariants and regenerate fixtures
+        run: pnpm bench:ai-eval:fixtures
+
+      - name: Fail if committed fixtures drifted
+        run: git diff --exit-code -- apps/showcase/app/projects/ai-eval/_data

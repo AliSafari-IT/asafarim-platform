@@ -14,11 +14,13 @@ interface ProjectPageProps {
   params: Promise<{ slug: string }>;
 }
 
+// These slugs have their own richer static routes (e.g. /projects/testora),
+// which take precedence over this dynamic segment — don't prerender them here.
+const HAS_STATIC_ROUTE = new Set(["testora", "ai-eval"]);
+
 export function generateStaticParams() {
-  // `testora` has its own richer static route at /projects/testora, which takes
-  // precedence over this dynamic segment — so don't prerender it here too.
   return projects
-    .filter((project) => project.slug !== "testora")
+    .filter((project) => !HAS_STATIC_ROUTE.has(project.slug))
     .map((project) => ({ slug: project.slug }));
 }
 

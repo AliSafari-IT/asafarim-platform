@@ -29,6 +29,8 @@
     "db:up": "docker-compose up -d",
     "bench:testora": "pnpm --filter @asafarim/testora-benchmark test",
     "bench:testora:fixtures": "pnpm --filter @asafarim/testora-benchmark bench:generate",
+    "bench:ai-eval": "pnpm --filter @asafarim/ai-eval-benchmark eval",
+    "bench:ai-eval:fixtures": "pnpm --filter @asafarim/ai-eval-benchmark bench:generate",
     "deploy:prod": "bash ./infra/scripts/deploy-prod.sh"
   },
   "devDependencies": {
