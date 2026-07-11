@@ -1,0 +1,51 @@
+{
+  "provenance": {
+    "source": "@asafarim/ai-eval-benchmark",
+    "note": "Reproducible fixture-mode results over synthetic, openly-licensed data with provider-neutral model aliases. Latency and estimated cost are representative fixtures, not live measurements. No employer or customer data, prompts, or IP appear anywhere."
+  },
+  "version": "v2",
+  "models": [
+    {
+      "id": "frontier-a",
+      "label": "Frontier A",
+      "tier": "frontier",
+      "note": "Highest-capability tier stand-in — most accurate, most expensive, higher latency.",
+      "overall": 1,
+      "correctness": 1,
+      "groundedness": 1,
+      "format": 1,
+      "safety": 1,
+      "meanLatencyMs": 1693,
+      "costPer1kUsd": 1.694,
+      "cases": 8
+    },
+    {
+      "id": "balanced-b",
+      "label": "Balanced B",
+      "tier": "balanced",
+      "note": "Mid tier — strong accuracy at a fraction of the cost.",
+      "overall": 0.99,
+      "correctness": 0.958,
+      "groundedness": 1,
+      "format": 1,
+      "safety": 1,
+      "meanLatencyMs": 886,
+      "costPer1kUsd": 0.335,
+      "cases": 8
+    },
+    {
+      "id": "compact-c",
+      "label": "Compact C",
+      "tier": "compact",
+      "note": "Smallest/cheapest/fastest tier — trades accuracy and robustness for price and latency.",
+      "overall": 0.474,
+      "correctness": 0.646,
+      "groundedness": 0.5,
+      "format": 0.75,
+      "safety": 0,
+      "meanLatencyMs": 328,
+      "costPer1kUsd": 0.057,
+      "cases": 8
+    }
+  ]
+}
