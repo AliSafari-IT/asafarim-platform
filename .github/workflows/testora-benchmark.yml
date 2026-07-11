@@ -1,0 +1,61 @@
+# Example workflow: run the Testora benchmark and publish its evidence.
+#
+# The benchmark's sample app is seeded with intentional failures, so
+# `playwright test` is EXPECTED to exit non-zero. Success is defined by the
+# generator's validation step (bench:generate) — it exits non-zero only if the
+# live outcomes stop matching the seed catalog's ground truth, or if the
+# committed fixtures have drifted.
+name: Testora benchmark
+
+on:
+  push:
+    paths:
+      - "benchmarks/testora/**"
+      - "apps/showcase/app/projects/testora/**"
+      - ".github/workflows/testora-benchmark.yml"
+  pull_request:
+    paths:
+      - "benchmarks/testora/**"
+      - "apps/showcase/app/projects/testora/**"
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm --filter @asafarim/testora-benchmark exec playwright install --with-deps chromium
+
+      - name: Run the benchmark (seeded failures are expected)
+        run: pnpm bench:testora
+        continue-on-error: true
+
+      - name: Validate outcomes and regenerate fixtures
+        run: pnpm bench:testora:fixtures
+
+      - name: Fail if committed fixtures drifted
+        run: git diff --exit-code -- apps/showcase/app/projects/testora/_data
+
+      - name: Upload Playwright report and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testora-playwright-report
+          path: |
+            benchmarks/testora/.playwright/report
+            benchmarks/testora/.playwright/artifacts
+          retention-days: 7
+          if-no-files-found: ignore

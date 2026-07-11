@@ -27,6 +27,8 @@
     "db:studio": "pnpm --filter @asafarim/db db:studio",
     "db:seed": "pnpm --filter @asafarim/db db:seed",
     "db:up": "docker-compose up -d",
+    "bench:testora": "pnpm --filter @asafarim/testora-benchmark test",
+    "bench:testora:fixtures": "pnpm --filter @asafarim/testora-benchmark bench:generate",
     "deploy:prod": "bash ./infra/scripts/deploy-prod.sh"
   },
   "devDependencies": {

@@ -1,0 +1,231 @@
+/* Scoped styles for the Testora benchmark demo. Colors come from the shared
+   Gallery-mood tokens (var(--accent) etc.) so it stays on-theme. */
+
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 var(--space-5);
+}
+.subnavLink {
+  font: 600 var(--text-sm) / 1 var(--font-sans);
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill, 999px);
+  white-space: nowrap;
+  transition: color var(--dur-1, 130ms) var(--ease),
+    border-color var(--dur-1, 130ms) var(--ease);
+}
+.subnavLink:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.subnavLink[aria-current="page"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Score / dimension tables */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: var(--text-xs, 12px);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--line);
+  padding: 0.5rem 0.6rem;
+}
+.table td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem;
+  vertical-align: top;
+}
+.table tr:last-child td {
+  border-bottom: none;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.caseTitle {
+  font-weight: 600;
+}
+.caseId {
+  font: var(--text-xs, 12px) / 1.4 var(--font-mono);
+  color: var(--muted);
+}
+.diagnosis {
+  margin-top: 0.4rem;
+  font-size: var(--text-sm);
+  color: var(--ink);
+  border-left: 2px solid var(--line-strong);
+  padding-left: 0.6rem;
+}
+
+/* Artifact chips */
+.artifacts {
+  display: inline-flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+.chip {
+  font: 600 var(--text-xs, 11px) / 1 var(--font-mono);
+  padding: 0.25rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.chipOn {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Cluster cards */
+.clusterGrid {
+  display: grid;
+  gap: var(--space-3);
+}
+.clusterHead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.clusterHint {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin: 0 0 0.5rem;
+}
+.clusterCases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+/* Trend chart */
+.chartWrap {
+  overflow-x: auto;
+}
+.chart {
+  width: 100%;
+  min-width: 420px;
+  height: auto;
+  display: block;
+}
+.legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.swatch {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+/* Artifact viewer */
+.viewer {
+  display: grid;
+  gap: var(--space-3);
+}
+.viewerControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.tabs {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+.tab {
+  font: 600 var(--text-sm) / 1 var(--font-sans);
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tab[aria-selected="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.select {
+  font: var(--text-sm) / 1 var(--font-sans);
+  padding: 0.4rem 0.6rem;
+  background: var(--surface-2, var(--surface));
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.pane {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2, 10px);
+  padding: var(--space-3);
+  background: var(--surface-2, var(--surface));
+}
+.shot {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.log {
+  margin: 0;
+  font: var(--text-xs, 12px) / 1.6 var(--font-mono);
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.logFail {
+  color: var(--danger, #f87171);
+}
+.stepList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.step {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.6rem;
+  align-items: baseline;
+  font-size: var(--text-sm);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.stepIdx {
+  font: var(--text-xs, 12px) / 1.4 var(--font-mono);
+  color: var(--muted);
+}
+.paneCaption {
+  margin: 0.5rem 0 0;
+  font-size: var(--text-xs, 12px);
+  color: var(--muted);
+}

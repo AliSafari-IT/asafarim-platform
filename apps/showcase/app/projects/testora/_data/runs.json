@@ -1,0 +1,44 @@
+{
+  "provenance": {
+    "source": "@asafarim/testora-benchmark",
+    "note": "Fixture run history for the trend view — not production telemetry."
+  },
+  "runs": [
+    {
+      "runId": "run-2026-06-24",
+      "ref": "main@7e1f0aa",
+      "at": "2026-06-24T20:05:00.000Z",
+      "passRate": 50,
+      "detectionRate": 50,
+      "flakyIdentified": false,
+      "durationMs": null
+    },
+    {
+      "runId": "run-2026-06-29",
+      "ref": "main@3c9d211",
+      "at": "2026-06-29T12:40:00.000Z",
+      "passRate": 50,
+      "detectionRate": 100,
+      "flakyIdentified": false,
+      "durationMs": null
+    },
+    {
+      "runId": "run-2026-07-02",
+      "ref": "main@b52a8c4",
+      "at": "2026-07-02T18:22:00.000Z",
+      "passRate": 50,
+      "detectionRate": 100,
+      "flakyIdentified": true,
+      "durationMs": null
+    },
+    {
+      "runId": "run-2026-07-08",
+      "ref": "main@a1b2c3d",
+      "at": "2026-07-08T09:14:00.000Z",
+      "passRate": 50,
+      "detectionRate": 100,
+      "flakyIdentified": true,
+      "durationMs": 9550
+    }
+  ]
+}

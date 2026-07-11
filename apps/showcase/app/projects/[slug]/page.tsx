@@ -15,7 +15,11 @@ interface ProjectPageProps {
 }
 
 export function generateStaticParams() {
-  return projects.map((project) => ({ slug: project.slug }));
+  // `testora` has its own richer static route at /projects/testora, which takes
+  // precedence over this dynamic segment — so don't prerender it here too.
+  return projects
+    .filter((project) => project.slug !== "testora")
+    .map((project) => ({ slug: project.slug }));
 }
 
 export async function generateMetadata({ params }: ProjectPageProps): Promise<Metadata> {
