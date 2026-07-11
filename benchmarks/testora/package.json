@@ -1,0 +1,17 @@
+{
+  "name": "@asafarim/testora-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Testora — a deterministic Playwright test-automation benchmark (sample app + seeded pass/fail/flaky specs) that produces the evidence rendered by the read-only Showcase demo.",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "playwright show-report .playwright/report",
+    "bench:generate": "node scripts/generate-fixtures.mjs",
+    "bench": "playwright test; node scripts/generate-fixtures.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^24.0.0"
+  }
+}

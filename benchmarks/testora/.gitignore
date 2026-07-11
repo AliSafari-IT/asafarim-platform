@@ -1,0 +1,5 @@
+# Playwright run output (regenerated; not committed). The committed evidence is
+# the distilled fixture JSON under apps/showcase, produced by bench:generate.
+.playwright/
+test-results/
+node_modules/

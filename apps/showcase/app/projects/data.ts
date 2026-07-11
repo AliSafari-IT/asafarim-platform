@@ -38,9 +38,9 @@ export const projects: ShowcaseProject[] = [
     slug: "testora",
     title: "Testora",
     summary:
-      "E2E test automation console orchestrating TestCafe runs with live results via SignalR.",
-    tags: ["Testing", "Automation", "SignalR"],
-    status: "beta",
+      "A deterministic Playwright benchmark: a seeded sample app with intentional pass/fail/flaky tests, scored on detection, flake identification, and artifact completeness.",
+    tags: ["Testing", "Playwright", "Benchmark"],
+    status: "live",
     glyph: "TS",
     index: "03",
   },

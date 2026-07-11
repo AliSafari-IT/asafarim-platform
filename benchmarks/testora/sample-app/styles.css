@@ -1,0 +1,131 @@
+:root {
+  --bg: #0f1419;
+  --surface: #171d26;
+  --ink: #e6edf3;
+  --muted: #8b98a5;
+  --line: #232b36;
+  --accent: #2dd4a7;
+  --err: #f87171;
+  --ok: #34d399;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.topbar .mark {
+  font: 700 11px ui-monospace, monospace;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.topbar .title {
+  font-weight: 600;
+}
+.topbar nav {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+}
+.topbar nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.topbar nav a:hover {
+  color: var(--ink);
+}
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+.screen h1 {
+  font-size: 22px;
+  margin: 0 0 16px;
+}
+form {
+  display: grid;
+  gap: 12px;
+  max-width: 320px;
+}
+label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+input {
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 14px;
+}
+button {
+  padding: 8px 14px;
+  background: var(--accent);
+  color: #06231b;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  justify-self: start;
+}
+.status {
+  min-height: 22px;
+  margin-top: 12px;
+}
+.ok {
+  color: var(--ok);
+  font-weight: 600;
+}
+.err {
+  color: var(--err);
+  font-weight: 600;
+}
+.cart {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+}
+.cart td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.cart .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.total {
+  font-size: 16px;
+}
+.widget {
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  font-weight: 600;
+}
+footer {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+  color: var(--muted);
+  font-size: 12px;
+}
