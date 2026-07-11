@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sample App — Testora benchmark SUT</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <span class="mark">SUT</span>
+      <span class="title">Testora sample application</span>
+      <nav>
+        <a href="?screen=login" data-testid="nav-login">Login</a>
+        <a href="?screen=checkout" data-testid="nav-checkout">Checkout</a>
+        <a href="?screen=dashboard" data-testid="nav-dashboard">Dashboard</a>
+      </nav>
+    </header>
+
+    <main id="app">
+      <!-- Screens are rendered by app.js based on ?screen= -->
+    </main>
+
+    <footer>
+      Deterministic, offline system-under-test. No network, no storage, no user code.
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

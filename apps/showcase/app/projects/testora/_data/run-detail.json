@@ -1,0 +1,211 @@
+{
+  "provenance": {
+    "source": "@asafarim/testora-benchmark",
+    "note": "Distilled, reproducible snapshot of a benchmark run. Not production telemetry; fixture events are not real user events.",
+    "generatedFrom": "playwright report + seed catalog"
+  },
+  "runId": "run-2026-07-08",
+  "ref": "main@a1b2c3d",
+  "startedAt": "2026-07-08T09:14:00.000Z",
+  "durationMs": 9550,
+  "summary": {
+    "total": 6,
+    "passed": 3,
+    "failed": 2,
+    "flaky": 1,
+    "passRate": 50
+  },
+  "scores": {
+    "detectionRate": 100,
+    "seededRegressions": 2,
+    "regressionsDetected": 2,
+    "flakyIdentified": true,
+    "meanTimeToDiagnosisMs": 2297,
+    "artifactCompleteness": 100,
+    "ciReproducibility": 100
+  },
+  "suites": [
+    {
+      "suite": "Authentication",
+      "cases": [
+        {
+          "id": "auth-valid-login",
+          "suite": "Authentication",
+          "title": "valid credentials create a session",
+          "status": "passed",
+          "kind": "pass",
+          "dimension": "baseline",
+          "durationMs": 720,
+          "defect": null,
+          "diagnosis": null,
+          "cluster": null,
+          "artifacts": {
+            "trace": false,
+            "screenshot": false,
+            "video": false,
+            "log": true
+          }
+        },
+        {
+          "id": "auth-reject-bad-password",
+          "suite": "Authentication",
+          "title": "wrong password is rejected",
+          "status": "passed",
+          "kind": "pass",
+          "dimension": "baseline",
+          "durationMs": 610,
+          "defect": null,
+          "diagnosis": null,
+          "cluster": null,
+          "artifacts": {
+            "trace": false,
+            "screenshot": false,
+            "video": false,
+            "log": true
+          }
+        },
+        {
+          "id": "auth-trim-email",
+          "suite": "Authentication",
+          "title": "email with trailing whitespace still logs in",
+          "status": "failed",
+          "kind": "fail",
+          "dimension": "detection",
+          "durationMs": 2180,
+          "defect": "Email compared without trimming; a trailing space rejects a valid user.",
+          "diagnosis": "Assertion failed: expected session-badge, got login-error. Input differed from the valid email only by trailing whitespace — the comparison is not trimmed.",
+          "cluster": "input-normalization",
+          "artifacts": {
+            "trace": true,
+            "screenshot": true,
+            "video": true,
+            "log": true
+          }
+        }
+      ]
+    },
+    {
+      "suite": "Checkout",
+      "cases": [
+        {
+          "id": "checkout-item-count",
+          "suite": "Checkout",
+          "title": "cart shows the correct item count",
+          "status": "passed",
+          "kind": "pass",
+          "dimension": "baseline",
+          "durationMs": 430,
+          "defect": null,
+          "diagnosis": null,
+          "cluster": null,
+          "artifacts": {
+            "trace": false,
+            "screenshot": false,
+            "video": false,
+            "log": true
+          }
+        },
+        {
+          "id": "checkout-total-includes-tax",
+          "suite": "Checkout",
+          "title": "order total includes 10% tax",
+          "status": "failed",
+          "kind": "fail",
+          "dimension": "detection",
+          "durationMs": 2150,
+          "defect": "Displayed total omits tax; shows the $50.00 subtotal instead of $55.00.",
+          "diagnosis": "Assertion failed: expected total $55.00, got $50.00. Difference equals the 10% tax line — tax is dropped from the displayed total.",
+          "cluster": "money-math",
+          "artifacts": {
+            "trace": true,
+            "screenshot": true,
+            "video": true,
+            "log": true
+          }
+        }
+      ]
+    },
+    {
+      "suite": "Dashboard",
+      "cases": [
+        {
+          "id": "dashboard-widget-loads",
+          "suite": "Dashboard",
+          "title": "dashboard widget loads on demand",
+          "status": "flaky",
+          "kind": "flaky",
+          "dimension": "flaky-detection",
+          "durationMs": 2560,
+          "defect": "Widget mount races an initialization signal; first attempt renders nothing.",
+          "diagnosis": "Failed on attempt 1 (widget never mounted), passed on retry. Fail-then-pass within a single run — a flake, not a stable regression.",
+          "cluster": "async-race",
+          "artifacts": {
+            "trace": true,
+            "screenshot": true,
+            "video": true,
+            "log": true
+          }
+        }
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "key": "input-normalization",
+      "title": "Input normalization",
+      "hint": "User input reaches a comparison or lookup without trimming/case-folding.",
+      "caseIds": [
+        "auth-trim-email"
+      ],
+      "kind": "failure",
+      "diagnosis": "Assertion failed: expected session-badge, got login-error. Input differed from the valid email only by trailing whitespace — the comparison is not trimmed."
+    },
+    {
+      "key": "money-math",
+      "title": "Money math",
+      "hint": "A monetary total is assembled from parts and a component is dropped.",
+      "caseIds": [
+        "checkout-total-includes-tax"
+      ],
+      "kind": "failure",
+      "diagnosis": "Assertion failed: expected total $55.00, got $50.00. Difference equals the 10% tax line — tax is dropped from the displayed total."
+    },
+    {
+      "key": "async-race",
+      "title": "Async race",
+      "hint": "A UI element depends on an initialization signal that isn't awaited.",
+      "caseIds": [
+        "dashboard-widget-loads"
+      ],
+      "kind": "flaky",
+      "diagnosis": "Failed on attempt 1 (widget never mounted), passed on retry. Fail-then-pass within a single run — a flake, not a stable regression."
+    }
+  ],
+  "timeline": [
+    {
+      "time": "2026-07-08 09:14",
+      "title": "Run started",
+      "meta": "main@a1b2c3d · chromium · 1 worker"
+    },
+    {
+      "time": "2026-07-08 09:14",
+      "title": "Sample app served",
+      "meta": "http://localhost:4319 (offline SUT)"
+    },
+    {
+      "time": "2026-07-08 09:14",
+      "title": "2 seeded regression(s) detected",
+      "meta": "Input normalization, Money math"
+    },
+    {
+      "time": "2026-07-08 09:14",
+      "title": "1 flake identified",
+      "meta": "fail-then-pass on retry"
+    },
+    {
+      "time": "2026-07-08 09:14",
+      "title": "Run complete",
+      "meta": "3/6 passed · 100% detection"
+    }
+  ]
+}
