@@ -3,6 +3,7 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@asafarim/db";
+import { hashCode, getMaxVerifyAttempts } from "./email-code";
 
 /**
  * Google OAuth provider. Only active when AUTH_GOOGLE_ID/SECRET are set.
@@ -54,18 +55,6 @@ export const credentialsProvider = Credentials({
   },
 });
 
-// ─── Email-code helpers ───────────────────────────────────────────────────────
-
-function hashEmailCode(code: string): string {
-  return crypto.createHash("sha256").update(code.toUpperCase()).digest("hex");
-}
-
-function getMaxVerifyAttempts(): number {
-  const raw = Number(process.env.EMAIL_CODE_MAX_ATTEMPTS ?? "5");
-  if (!Number.isFinite(raw) || raw <= 0) return 5;
-  return Math.floor(raw);
-}
-
 /**
  * Email one-time code credentials provider.
  *
@@ -84,7 +73,7 @@ export const emailCodeProvider = Credentials({
     if (!credentials?.email || !credentials?.code) return null;
 
     const email = (credentials.email as string).toLowerCase().trim();
-    const submittedHash = hashEmailCode(credentials.code as string);
+    const submittedHash = hashCode(credentials.code as string);
     const now = new Date();
 
     // Most recent active (unused, unexpired) code for this email

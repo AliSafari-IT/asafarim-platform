@@ -10,6 +10,7 @@ import {
   UserMenu,
   getPlatformLinks,
 } from "@asafarim/ui";
+import { SessionProviderWrapper } from "./_components/SessionProviderWrapper";
 import "@asafarim/ui/styles.css";
 
 export const metadata: Metadata = {
@@ -29,58 +30,62 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en">
       <body data-app="hub">
-        <AppShell
-          product="Hub"
-          nav={
-            session?.user ? (
-              <TopNav
-                items={[
-                  { label: "Dashboard", href: "/dashboard" },
-                  { label: "Apps", href: "/apps" },
-                  { label: "Profile", href: "/profile" },
-                  { label: "Settings", href: "/settings" },
-                ]}
-              />
-            ) : null
-          }
-          user={
-            <>
-              <AppSwitcher
-                links={[
-                  { label: "ASafarIM Digital", href: links.web, meta: "public" },
-                  { label: "Showcase", href: links.showcase, meta: "public" },
-                  ...(isAdminUser
-                    ? [{ label: "Admin Console", href: links.admin, meta: "restricted" }]
-                    : []),
-                ]}
-              />
-              {session?.user ? (
-                <UserMenu
-                  name={session.user.name}
-                  email={session.user.email}
-                  roles={session.user.roles}
-                >
-                  <form
-                    action={async () => {
-                      "use server";
-                      await signOut({ redirectTo: "/" });
-                    }}
+        <SessionProviderWrapper session={session}>
+          <AppShell
+            product="Hub"
+            nav={
+              session?.user ? (
+                <TopNav
+                  items={[
+                    { label: "Dashboard", href: "/dashboard" },
+                    { label: "Apps", href: "/apps" },
+                    { label: "Profile", href: "/profile" },
+                    { label: "Settings", href: "/settings" },
+                  ]}
+                />
+              ) : null
+            }
+            user={
+              <>
+                <AppSwitcher
+                  links={[
+                    { label: "ASafarIM Digital", href: links.web, meta: "public" },
+                    { label: "Showcase", href: links.showcase, meta: "public" },
+                    ...(isAdminUser
+                      ? [{ label: "Admin Console", href: links.admin, meta: "restricted" }]
+                      : []),
+                  ]}
+                />
+                {session?.user ? (
+                  <UserMenu
+                    name={session.user.name}
+                    email={session.user.email}
+                    image={session.user.image}
+                    roles={session.user.roles}
+                    profileHref="/profile"
                   >
-                    <Button type="submit" variant="secondary" size="sm">
-                      Sign out
-                    </Button>
-                  </form>
-                </UserMenu>
-              ) : (
-                <ButtonLink href="/sign-in" size="sm">
-                  Sign in
-                </ButtonLink>
-              )}
-            </>
-          }
-        >
-          {children}
-        </AppShell>
+                    <form
+                      action={async () => {
+                        "use server";
+                        await signOut({ redirectTo: "/" });
+                      }}
+                    >
+                      <Button type="submit" variant="secondary" size="sm">
+                        Sign out
+                      </Button>
+                    </form>
+                  </UserMenu>
+                ) : (
+                  <ButtonLink href="/sign-in" size="sm">
+                    Sign in
+                  </ButtonLink>
+                )}
+              </>
+            }
+          >
+            {children}
+          </AppShell>
+        </SessionProviderWrapper>
       </body>
     </html>
   );

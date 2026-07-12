@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   description: site.description,
   alternates: { canonical: "/" },
-  icons: { icon: "/favicon.svg" },
+  icons: { icon: "/favicon.svg?v=3" },
   openGraph: {
     siteName: site.name,
     title: site.title,
