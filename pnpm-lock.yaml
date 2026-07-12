@@ -121,6 +121,9 @@ importers:
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@asafarim/vionto-benchmark':
+        specifier: workspace:*
+        version: link:../../benchmarks/vionto
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -196,6 +199,8 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.2
+
+  benchmarks/vionto: {}
 
   packages/auth:
     dependencies:

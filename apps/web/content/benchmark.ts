@@ -34,3 +34,28 @@ export const eduMatchCard = {
   /** Path under the Showcase origin (resolved via getPlatformLinks().showcase). */
   href: "/projects/edumatch",
 } as const;
+
+/** Stage labels for the homepage's compact animated pipeline diagram. */
+export const viontoPipelineStages = [
+  { label: "Brief" },
+  { label: "Script" },
+  { label: "Storyboard" },
+  { label: "Assets" },
+  { label: "Render" },
+] as const;
+
+export const viontoCard = {
+  kicker: "Benchmark",
+  title: "Vionto Studio",
+  blurb:
+    "A schema-validated AI media pipeline with explicit human approval gates, idempotent retry, and seeded stage failures — proven to recover honestly, with no live providers.",
+  stats: [
+    { label: "Structured validity", value: "93%" },
+    { label: "Failure recovery", value: "100%" },
+    { label: "Live providers", value: "0" },
+  ],
+  note: "Fixture benchmark · synthetic assets · no live providers",
+  linkLabel: "Explore Vionto Studio",
+  /** Path under the Showcase origin (resolved via getPlatformLinks().showcase). */
+  href: "/projects/vionto",
+} as const;
