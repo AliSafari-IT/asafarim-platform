@@ -7,17 +7,17 @@
   "license": "MIT",
   "packageManager": "pnpm@11.11.0",
   "scripts": {
-    "dev": "node scripts/dev-start.mjs",
+    "dev": "tsx scripts/dev-start.mts",
     "clean": "rimraf node_modules .turbo && turbo clean",
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "format": "prettier --write .",
     "env:status": "envage status",
-    "env:check": "node scripts/check-env-safety.mjs",
+    "env:check": "tsx scripts/check-env-safety.mts",
     "env:key:init": "envage init-key",
-    "env:encrypt:local": "envage encrypt --all --env root",
-    "env:decrypt:local": "envage decrypt --all --env root",
+    "env:encrypt:local": "envage encrypt --all --env local",
+    "env:decrypt:local": "envage decrypt --all --env local",
     "env:encrypt:production": "envage encrypt --all --env production",
     "env:decrypt:production": "envage decrypt --all --env production",
     "db:generate": "pnpm --filter @asafarim/db db:generate",
@@ -39,9 +39,11 @@
   },
   "devDependencies": {
     "@asafarim/envage": "^0.4.2",
+    "@types/node": "^24.0.0",
     "kill-port": "^2.0.1",
     "prettier": "^3.5.0",
     "rimraf": "^6.0.1",
+    "tsx": "^4.19.0",
     "turbo": "^2.5.0",
     "typescript": "^5.7.0"
   }
