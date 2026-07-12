@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { AppShell, AppSwitcher, TopNav, getPlatformLinks } from "@asafarim/ui";
+import { auth, signOut } from "@asafarim/auth";
+import {
+  AppShell,
+  AppSwitcher,
+  Button,
+  ButtonLink,
+  TopNav,
+  UserMenu,
+  getPlatformLinks,
+} from "@asafarim/ui";
 import { site } from "../content/site";
 import "@asafarim/ui/styles.css";
 
@@ -47,7 +56,9 @@ const personJsonLd = {
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const session = await auth();
+
   return (
     <html lang="en">
       <head>
@@ -72,12 +83,38 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             />
           }
           user={
-            <AppSwitcher
-              links={[
-                { label: "Showcase", href: links.showcase, meta: "gallery" },
-                { label: "Hub", href: links.hub, meta: "sign in" },
-              ]}
-            />
+            <>
+              <AppSwitcher
+                links={[
+                  { label: "Showcase", href: links.showcase, meta: "gallery" },
+                  { label: "Hub", href: links.hub, meta: session?.user ? "dashboard" : "sign in" },
+                ]}
+              />
+              {session?.user ? (
+                <UserMenu
+                  name={session.user.name}
+                  email={session.user.email}
+                  image={session.user.image}
+                  roles={session.user.roles}
+                  profileHref={`${links.hub}/profile`}
+                >
+                  <form
+                    action={async () => {
+                      "use server";
+                      await signOut({ redirectTo: "/" });
+                    }}
+                  >
+                    <Button type="submit" variant="secondary" size="sm">
+                      Sign out
+                    </Button>
+                  </form>
+                </UserMenu>
+              ) : (
+                <ButtonLink href={`${links.hub}/sign-in`} size="sm">
+                  Sign in
+                </ButtonLink>
+              )}
+            </>
           }
           footer={
             <span>
