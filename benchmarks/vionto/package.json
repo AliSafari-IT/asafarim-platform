@@ -1,0 +1,19 @@
+{
+  "name": "@asafarim/vionto-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vionto Studio — a deterministic AI media-pipeline benchmark: a schema-validated brief-to-render pipeline, an explicit approval-gated state machine with idempotent retry, seeded stage failures, and cost/latency estimation, all in fixture mode with no live providers.",
+  "type": "module",
+  "exports": {
+    "./engine": {
+      "types": "./engine/index.d.ts",
+      "default": "./engine/index.mjs"
+    },
+    "./fixtures/briefs": "./fixtures/briefs.json",
+    "./fixtures/assets": "./fixtures/assets.json"
+  },
+  "scripts": {
+    "test": "node --test tests/pipeline.test.mjs",
+    "bench:generate": "node scripts/generate-fixtures.mjs"
+  }
+}

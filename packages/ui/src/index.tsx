@@ -25,6 +25,11 @@ export { Metric } from "./components/Metric";
 export { PageHeader } from "./components/PageHeader";
 export { Panel } from "./components/Panel";
 export {
+  PipelineDiagram,
+  type PipelineDiagramStage,
+  type PipelineDiagramProps,
+} from "./components/PipelineDiagram";
+export {
   PlatformMap,
   type PlatformMapNode,
   type PlatformMapProps,

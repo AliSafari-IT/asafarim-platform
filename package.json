@@ -33,6 +33,8 @@
     "bench:ai-eval:fixtures": "pnpm --filter @asafarim/ai-eval-benchmark bench:generate",
     "bench:edumatch": "pnpm --filter @asafarim/edumatch-benchmark test",
     "bench:edumatch:fixtures": "pnpm --filter @asafarim/edumatch-benchmark bench:generate",
+    "bench:vionto": "pnpm --filter @asafarim/vionto-benchmark test",
+    "bench:vionto:fixtures": "pnpm --filter @asafarim/vionto-benchmark bench:generate",
     "deploy:prod": "bash ./infra/scripts/deploy-prod.sh"
   },
   "devDependencies": {

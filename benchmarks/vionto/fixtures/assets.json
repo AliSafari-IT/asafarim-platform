@@ -1,0 +1,11 @@
+[
+  { "id": "asset-launch-01", "kind": "placeholder-clip", "description": "Synthetic solid-color reveal swatch", "license": "CC0 (synthetic placeholder, no real media)" },
+  { "id": "asset-launch-02", "kind": "placeholder-clip", "description": "Synthetic gradient montage swatch", "license": "CC0 (synthetic placeholder, no real media)" },
+  { "id": "asset-launch-03", "kind": "placeholder-image", "description": "Synthetic logo-card swatch", "license": "CC0 (synthetic placeholder, no real media)" },
+  { "id": "asset-bday-01", "kind": "placeholder-image", "description": "Synthetic photo-montage swatch", "license": "CC0 (synthetic placeholder, no real media)" },
+  { "id": "asset-bday-02", "kind": "placeholder-image", "description": "Synthetic gathering swatch", "license": "CC0 (synthetic placeholder, no real media)" },
+  { "id": "asset-city-01", "kind": "placeholder-clip", "description": "Synthetic skyline timelapse swatch", "license": "CC0 (synthetic placeholder, no real media)" },
+  { "id": "asset-city-02", "kind": "placeholder-clip", "description": "Synthetic traffic timelapse swatch", "license": "CC0 (synthetic placeholder, no real media)" },
+  { "id": "asset-standup-01", "kind": "placeholder-clip", "description": "Synthetic highlight-montage swatch", "license": "CC0 (synthetic placeholder, no real media)" },
+  { "id": "asset-q3-01", "kind": "placeholder-image", "description": "Synthetic goals-overview slide swatch", "license": "CC0 (synthetic placeholder, no real media)" }
+]

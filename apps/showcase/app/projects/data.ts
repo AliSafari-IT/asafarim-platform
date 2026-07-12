@@ -64,6 +64,16 @@ export const projects: ShowcaseProject[] = [
     glyph: "EM",
     index: "05",
   },
+  {
+    slug: "vionto",
+    title: "Vionto Studio",
+    summary:
+      "A transparent AI media-pipeline benchmark: a schema-validated brief-to-render pipeline with approval-gated retry, seeded stage failures, and cost estimation — no live providers, no real media.",
+    tags: ["Pipelines", "Reliability", "Benchmark"],
+    status: "live",
+    glyph: "VS",
+    index: "06",
+  },
 ];
 
 export function getProject(slug: string): ShowcaseProject | undefined {

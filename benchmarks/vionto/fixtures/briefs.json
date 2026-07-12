@@ -1,0 +1,142 @@
+[
+  {
+    "id": "B-01",
+    "title": "Product launch teaser",
+    "brief": "A 30-second teaser announcing a new product launch, upbeat and modern.",
+    "fixtureScriptByAttempt": [
+      {
+        "title": "Launch Day",
+        "scenes": [
+          { "description": "Product silhouette reveal", "narration": "Something new is coming." },
+          { "description": "Feature close-up montage", "narration": "Built for the way you work." },
+          { "description": "Logo and call to action", "narration": "Available now." }
+        ]
+      }
+    ],
+    "fixtureStoryboardByAttempt": [
+      {
+        "shots": [
+          { "sceneIndex": 0, "shotType": "wide", "durationSeconds": 3 },
+          { "sceneIndex": 1, "shotType": "medium", "durationSeconds": 4 },
+          { "sceneIndex": 2, "shotType": "close-up", "durationSeconds": 3 }
+        ]
+      }
+    ],
+    "fixtureAssetPlanByAttempt": [
+      {
+        "assets": [
+          { "shotIndex": 0, "assetId": "asset-launch-01", "kind": "placeholder-clip" },
+          { "shotIndex": 1, "assetId": "asset-launch-02", "kind": "placeholder-clip" },
+          { "shotIndex": 2, "assetId": "asset-launch-03", "kind": "placeholder-image" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "B-02",
+    "title": "Birthday memory reel",
+    "brief": "A warm 20-second birthday memory reel from a handful of photos.",
+    "seedsFailure": true,
+    "fixtureScriptByAttempt": [
+      {
+        "title": "Happy Birthday",
+        "scenes": [
+          { "description": "Childhood photo montage", "narration": "So many years, so many memories." },
+          { "description": "Friends and family gathering", "narration": "Surrounded by the people who matter." }
+        ]
+      }
+    ],
+    "fixtureStoryboardByAttempt": [
+      {
+        "shots": [
+          { "sceneIndex": 0, "shotType": "wide", "durationSeconds": 4 },
+          { "sceneIndex": 1, "shotType": "medium", "durationSeconds": 4 }
+        ]
+      }
+    ],
+    "fixtureAssetPlanByAttempt": [
+      {
+        "assets": [
+          { "shotIndex": 0, "assetId": "asset-bday-01" },
+          { "shotIndex": 1, "assetId": "asset-bday-02", "kind": "placeholder-image" }
+        ]
+      },
+      {
+        "assets": [
+          { "shotIndex": 0, "assetId": "asset-bday-01", "kind": "placeholder-image" },
+          { "shotIndex": 1, "assetId": "asset-bday-02", "kind": "placeholder-image" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "B-03",
+    "title": "City timelapse promo",
+    "brief": "A 15-second city timelapse promo for a travel newsletter.",
+    "seedsFailure": true,
+    "fixtureScriptByAttempt": [
+      {
+        "title": "City Lights",
+        "scenes": [
+          { "description": "Skyline at dawn", "narration": "The city wakes up." },
+          { "description": "Traffic timelapse", "narration": "And never slows down." }
+        ]
+      }
+    ],
+    "fixtureStoryboardByAttempt": [
+      {
+        "shots": [
+          { "sceneIndex": 0, "shotType": "wide", "durationSeconds": 3 },
+          { "sceneIndex": 1, "shotType": "wide", "durationSeconds": 3 }
+        ]
+      }
+    ],
+    "fixtureAssetPlanByAttempt": [
+      {
+        "assets": [
+          { "shotIndex": 0, "assetId": "asset-city-01", "kind": "placeholder-clip" },
+          { "shotIndex": 1, "assetId": "asset-city-02", "kind": "placeholder-clip" }
+        ],
+        "__failsRenderOnFirstAttempt": true
+      }
+    ]
+  },
+  {
+    "id": "B-04",
+    "title": "Team standup recap",
+    "brief": "A lighthearted 10-second recap clip for a weekly team standup.",
+    "fixtureScriptByAttempt": [
+      {
+        "title": "Standup Recap",
+        "scenes": [
+          { "description": "Team highlights montage", "narration": "This week's wins, in ten seconds." }
+        ]
+      }
+    ],
+    "fixtureStoryboardByAttempt": [
+      { "shots": [{ "sceneIndex": 0, "shotType": "medium", "durationSeconds": 5 }] }
+    ],
+    "fixtureAssetPlanByAttempt": [
+      { "assets": [{ "shotIndex": 0, "assetId": "asset-standup-01", "kind": "placeholder-clip" }] }
+    ]
+  },
+  {
+    "id": "B-05",
+    "title": "Quarterly goals announcement",
+    "brief": "A short internal announcement clip for quarterly goals.",
+    "fixtureScriptByAttempt": [
+      {
+        "title": "Q3 Goals",
+        "scenes": [
+          { "description": "Goals overview slide", "narration": "Here's what we're focused on this quarter." }
+        ]
+      }
+    ],
+    "fixtureStoryboardByAttempt": [
+      { "shots": [{ "sceneIndex": 0, "shotType": "wide", "durationSeconds": 5 }] }
+    ],
+    "fixtureAssetPlanByAttempt": [
+      { "assets": [{ "shotIndex": 0, "assetId": "asset-q3-01", "kind": "placeholder-image" }] }
+    ]
+  }
+]

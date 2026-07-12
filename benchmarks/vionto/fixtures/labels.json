@@ -1,0 +1,33 @@
+{
+  "_comment": "Hand-reviewed ground truth: for each brief, the exact event sequence to replay (engine/replay.mjs) and the expected terminal state/retryCount. Derived by actually running the pipeline and reviewing the trace before committing — see docs/vionto-benchmark.md#match-methodology.",
+  "B-01": {
+    "events": ["start", "approve", "approve"],
+    "expectedState": "succeeded",
+    "expectedRetryCount": 0,
+    "note": "Happy path: no seeded failures, no rejections. Both approval gates accepted on the first pass."
+  },
+  "B-02": {
+    "events": ["start", "approve", "retry", "approve"],
+    "expectedState": "succeeded",
+    "expectedRetryCount": 1,
+    "note": "Seeded schema-validation failure: the first asset-plan is missing a required field and fails validation. Retry regenerates the asset plan (attempt 1, now valid) and the run proceeds to completion."
+  },
+  "B-03": {
+    "events": ["start", "approve", "approve", "retry"],
+    "expectedState": "succeeded",
+    "expectedRetryCount": 1,
+    "note": "Seeded transient render failure: attempt 0 fails with a simulated encode error. Retry re-attempts the render (attempt 1, succeeds) without regenerating the script, storyboard, or asset plan."
+  },
+  "B-04": {
+    "events": ["start", "reject", "retry", "approve", "approve"],
+    "expectedState": "succeeded",
+    "expectedRetryCount": 1,
+    "note": "Human rejects the generated script at the first approval gate. Retry regenerates the script (identical, since the fixture provider is deterministic) and is approved on the second pass, then proceeds to completion."
+  },
+  "B-05": {
+    "events": ["start", "reject"],
+    "expectedState": "cancelled",
+    "expectedRetryCount": 0,
+    "note": "Human rejects the generated script and the run is never retried. Cancelled is a legitimate terminal state, not a failure."
+  }
+}
