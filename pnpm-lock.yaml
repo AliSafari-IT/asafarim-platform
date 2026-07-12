@@ -121,6 +121,9 @@ importers:
 
   apps/showcase:
     dependencies:
+      '@asafarim/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@asafarim/edumatch-benchmark':
         specifier: workspace:*
         version: link:../../benchmarks/edumatch
@@ -161,6 +164,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@asafarim/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui

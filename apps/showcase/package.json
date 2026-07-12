@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@asafarim/auth": "workspace:*",
     "@asafarim/edumatch-benchmark": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "@asafarim/vionto-benchmark": "workspace:*",
