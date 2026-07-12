@@ -28,6 +28,13 @@ model User {
   location      String?
   bio           String?   @db.Text
 
+  // Cross-app profile fields — kept minimal and generic so any app can rely
+  // on them without asserting product-specific meaning (e.g. no "gradeLevel"
+  // here; that belongs on a future product-specific profile extension).
+  phone           String?
+  preferredLocale String?
+  timezone        String?
+
   isActive      Boolean   @default(true)
   deactivatedAt DateTime?
 
@@ -41,12 +48,62 @@ model User {
   // Audit trail
   auditLogs AuditLog[]
 
+  // Structured, multi-app-scoped addresses (see UserLocation below)
+  locations UserLocation[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([username])
   @@index([isActive])
+}
+
+/// Structured address, reusable across apps (e.g. a future EduMatch tutor
+/// service radius, a shipping address for a storefront). A user may have
+/// several — home/work/billing/etc — each optionally scoped to specific apps
+/// via `appScope`. Ported shape from the asafarim-digital `UserLocation`
+/// model; trimmed to what this platform actually needs today.
+model UserLocation {
+  id     String @id @default(cuid())
+  userId String
+  type   String @default("home") // home, work, billing, shipping, other
+  label  String? // custom label, e.g. "My apartment"
+
+  // Address components
+  formatted   String? // full formatted address
+  street1     String?
+  street2     String?
+  city        String?
+  state       String? // state/province/region
+  postalCode  String?
+  country     String? // ISO 3166-1 alpha-2 (e.g. "US", "NL")
+  countryName String?
+
+  // Geolocation (decimal degrees, WGS84)
+  lat      Float?
+  lng      Float?
+  accuracy Float? // GPS accuracy in meters, if from a browser
+
+  // Metadata
+  timezone   String? // IANA timezone, e.g. "Europe/Amsterdam"
+  isPrimary  Boolean @default(false)
+  isVerified Boolean @default(false) // verified via geocoding?
+  source     String  @default("manual") // manual, browser, geocoded, ip
+
+  // Optional per-app scoping — an empty array means "visible to every app".
+  appScope String[] @default([])
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, type, label])
+  @@index([userId])
+  @@index([userId, type])
+  @@index([lat, lng])
+  @@index([country, city])
 }
 
 model Account {

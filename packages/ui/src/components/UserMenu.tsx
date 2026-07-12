@@ -4,7 +4,10 @@ import { Badge } from "./Badge";
 export interface UserMenuProps {
   name?: string | null;
   email?: string | null;
+  image?: string | null;
   roles?: string[];
+  /** When set, renders a "View profile →" link inside the panel. */
+  profileHref?: string;
   /** Usually a <form> with a sign-out button (server action). */
   children?: ReactNode;
 }
@@ -23,12 +26,16 @@ function initials(name?: string | null, email?: string | null): string {
  * opens a panel with the full identity, roles, and sign-out action.
  * CSS-only (<details>), no client JS.
  */
-export function UserMenu({ name, email, roles = [], children }: UserMenuProps) {
+export function UserMenu({ name, email, image, roles = [], profileHref, children }: UserMenuProps) {
   return (
     <details className="ui-menu">
       <summary aria-label="Account menu">
         <span className="ui-avatar" aria-hidden="true">
-          {initials(name, email)}
+          {image ? (
+            <img src={image} alt="" className="ui-avatar__image" referrerPolicy="no-referrer" />
+          ) : (
+            initials(name, email)
+          )}
         </span>
         <span className="ui-usermenu__label">{name ?? email}</span>
         <span className="ui-menu__caret" aria-hidden="true">
@@ -54,6 +61,14 @@ export function UserMenu({ name, email, roles = [], children }: UserMenuProps) {
             </div>
           ) : null}
         </div>
+        {profileHref ? (
+          <>
+            <hr className="ui-menu__divider" />
+            <div className="ui-menu__section">
+              <a href={profileHref}>View profile →</a>
+            </div>
+          </>
+        ) : null}
         {children ? (
           <>
             <hr className="ui-menu__divider" />

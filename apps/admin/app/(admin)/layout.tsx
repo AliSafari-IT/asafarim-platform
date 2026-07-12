@@ -34,6 +34,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <UserMenu
             name={session.user.name}
             email={session.user.email}
+            image={session.user.image}
             roles={session.user.roles}
           >
             <form

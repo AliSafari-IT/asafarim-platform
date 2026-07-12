@@ -10,17 +10,17 @@ export interface LogoMarkProps {
   accent?: boolean;
 }
 
-/**
- * Temporary but intentional brand mark: a monospace "A/" chip.
- * Will be replaced by a designed logo without changing call sites.
- */
 export function LogoMark({ accent }: LogoMarkProps) {
   return (
     <span
       className={accent ? "ui-logomark ui-logomark--accent" : "ui-logomark"}
       aria-hidden="true"
     >
-      A/
+      <svg viewBox="0 0 32 32" focusable="false">
+        <path className="ui-logomark__circuit" d="M13.8 17.1h5.7l1.7-3.3 3.2 5.6h4.8v3h-6.6l-1.3-2.3h-7.5v-3Zm0 6.1h5.1l1.7-1.5 2.4 3h6.2v3h-7.6l-2.1-2.2h-5.7v-2.3Z" />
+        <path className="ui-logomark__a" d="M3.2 27.8 12.7 4.2h6.2l3.3 7.8-3.1 7.4-3.8-9.8-7.1 18.2h-5Z" />
+        <path className="ui-logomark__slash" d="M20.5 3.4h5.1L14.2 28.6H9.1L20.5 3.4Z" />
+      </svg>
     </span>
   );
 }

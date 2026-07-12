@@ -1,0 +1,42 @@
+.grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.locationCard {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2, 10px);
+  padding: var(--space-3);
+  background: var(--surface-2, var(--surface));
+  margin-bottom: 0.75rem;
+}
+
+.locationHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.locationActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.addToggle {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: 0;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.savedNote {
+  color: var(--accent);
+  font-size: var(--text-xs, 12px);
+  font-weight: 600;
+}
