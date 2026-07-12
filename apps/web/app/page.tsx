@@ -13,7 +13,7 @@ import {
 } from "@asafarim/ui";
 import { site } from "../content/site";
 import { evidenceRail, workByProblem } from "../content/evidence";
-import { aiEvalCard } from "../content/benchmark";
+import { aiEvalCard, eduMatchCard } from "../content/benchmark";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -106,22 +106,24 @@ export default function HomePage() {
         </p>
       </Section>
 
-      <Section kicker="Benchmark" kickerIndex="03" title="Reproducible AI evaluation, not a chatbot demo">
-        <Card variant="elevated" title={aiEvalCard.title}>
-          <p>{aiEvalCard.blurb}</p>
-          <div
-            className="ui-grid ui-grid--metrics"
-            style={{ margin: "var(--space-4) 0" }}
-          >
-            {aiEvalCard.stats.map((stat) => (
-              <Metric key={stat.label} label={stat.label} value={stat.value} />
-            ))}
-          </div>
-          <p className="u-mono">{aiEvalCard.note}</p>
-          <a href={`${links.showcase}${aiEvalCard.href}`}>
-            {aiEvalCard.linkLabel} →
-          </a>
-        </Card>
+      <Section kicker="Benchmark" kickerIndex="03" title="Reproducible evaluation, not tech demos">
+        <div className="ui-grid ui-grid--wide">
+          {[aiEvalCard, eduMatchCard].map((card) => (
+            <Card key={card.title} variant="elevated" title={card.title}>
+              <p>{card.blurb}</p>
+              <div
+                className="ui-grid ui-grid--metrics"
+                style={{ margin: "var(--space-4) 0" }}
+              >
+                {card.stats.map((stat) => (
+                  <Metric key={stat.label} label={stat.label} value={stat.value} />
+                ))}
+              </div>
+              <p className="u-mono">{card.note}</p>
+              <a href={`${links.showcase}${card.href}`}>{card.linkLabel} →</a>
+            </Card>
+          ))}
+        </div>
       </Section>
 
       <Section kicker="The platform" kickerIndex="04" title={site.platformMap.heading}>

@@ -1,0 +1,36 @@
+{
+  "provenance": {
+    "source": "@asafarim/edumatch-benchmark",
+    "note": "Distilled, reproducible snapshot from the deterministic matching engine run against synthetic fixtures. Not production telemetry; latency figures are representative reference timings, not live measurements.",
+    "runId": "run-2026-07-12",
+    "ref": "main@d4e5f6a",
+    "generatedAt": "2026-07-12T10:00:00.000Z"
+  },
+  "dimensions": {
+    "matchRelevance": {
+      "value": 100,
+      "unit": "%",
+      "method": "Share of student needs whose full ranked order exactly matches the hand-reviewed label in fixtures/labels.json."
+    },
+    "constraintSatisfaction": {
+      "value": 100,
+      "unit": "%",
+      "method": "Share of ranked results that satisfy every hard constraint (subject, level, language, availability, mode/distance) — measured across every need, not assumed."
+    },
+    "explainabilityCoverage": {
+      "value": 100,
+      "unit": "%",
+      "method": "Share of ranked results whose per-factor contributions sum exactly to the displayed composite score."
+    },
+    "fairness": {
+      "value": 0,
+      "unit": "max score delta",
+      "method": "Maximum composite-score difference between the constraint-identical twin tutors (T-01/T-04) across every need where both are eligible. 0 means the engine is blind to the only attribute that differs between them (cohort tag)."
+    },
+    "rankingStability": {
+      "value": 100,
+      "unit": "%",
+      "method": "Whether adding an unrelated, constraint-failing tutor to the candidate pool leaves the existing ranking order unchanged."
+    }
+  }
+}

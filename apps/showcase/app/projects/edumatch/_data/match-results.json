@@ -1,0 +1,1512 @@
+[
+  {
+    "needId": "N-01",
+    "label": "Secondary math, evenings, in person",
+    "subject": "Math",
+    "level": "secondary",
+    "languages": [
+      "en"
+    ],
+    "mode": "in-person",
+    "latencyMs": 4,
+    "ranked": [
+      {
+        "tutorId": "T-12",
+        "name": "Birchwood Ivy",
+        "hourlyRateCents": 4600,
+        "verified": true,
+        "composite": 0.98,
+        "factors": [
+          {
+            "key": "distance",
+            "value": 0.969,
+            "note": "1.6 km from student",
+            "weight": 0.3,
+            "contribution": 0.291
+          },
+          {
+            "key": "subject",
+            "value": 1,
+            "note": "teaches Math among 2 subject(s)",
+            "weight": 0.25,
+            "contribution": 0.25
+          },
+          {
+            "key": "level",
+            "value": 1,
+            "note": "covers secondary and other levels",
+            "weight": 0.15,
+            "contribution": 0.15
+          },
+          {
+            "key": "rating",
+            "value": 0.945,
+            "note": "4.8★ over 50 review(s), damped to 4.73",
+            "weight": 0.2,
+            "contribution": 0.189
+          },
+          {
+            "key": "verified",
+            "value": 1,
+            "note": "identity and credentials verified",
+            "weight": 0.1,
+            "contribution": 0.1
+          }
+        ],
+        "rank": 1
+      },
+      {
+        "tutorId": "T-01",
+        "name": "Rowan Ash",
+        "hourlyRateCents": 4000,
+        "verified": true,
+        "composite": 0.967,
+        "factors": [
+          {
+            "key": "distance",
+            "value": 0.937,
+            "note": "3.1 km from student",
+            "weight": 0.3,
+            "contribution": 0.281
+          },
+          {
+            "key": "subject",
+            "value": 1,
+            "note": "teaches Math among 2 subject(s)",
+            "weight": 0.25,
+            "contribution": 0.25
+          },
+          {
+            "key": "level",
+            "value": 1,
+            "note": "covers secondary and other levels",
+            "weight": 0.15,
+            "contribution": 0.15
+          },
+          {
+            "key": "rating",
+            "value": 0.931,
+            "note": "4.8★ over 40 review(s), damped to 4.66",
+            "weight": 0.2,
+            "contribution": 0.186
+          },
+          {
+            "key": "verified",
+            "value": 1,
+            "note": "identity and credentials verified",
+            "weight": 0.1,
+            "contribution": 0.1
+          }
+        ],
+        "rank": 2
+      },
+      {
+        "tutorId": "T-04",
+        "name": "Fern Hazel",
+        "hourlyRateCents": 4000,
+        "verified": true,
+        "composite": 0.967,
+        "factors": [
+          {
+            "key": "distance",
+            "value": 0.937,
+            "note": "3.1 km from student",
+            "weight": 0.3,
+            "contribution": 0.281
+          },
+          {
+            "key": "subject",
+            "value": 1,
+            "note": "teaches Math among 2 subject(s)",
+            "weight": 0.25,
+            "contribution": 0.25
+          },
+          {
+            "key": "level",
+            "value": 1,
+            "note": "covers secondary and other levels",
+            "weight": 0.15,
+            "contribution": 0.15
+          },
+          {
+            "key": "rating",
+            "value": 0.931,
+            "note": "4.8★ over 40 review(s), damped to 4.66",
+            "weight": 0.2,
+            "contribution": 0.186
+          },
+          {
+            "key": "verified",
+            "value": 1,
+            "note": "identity and credentials verified",
+            "weight": 0.1,
+            "contribution": 0.1
+          }
+        ],
+        "rank": 3
+      }
+    ],
+    "excluded": [
+      {
+        "tutorId": "T-02",
+        "name": "Sage Birch",
+        "reasons": [
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach in person"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-03",
+        "name": "Elm Cedar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "distance",
+            "detail": "86.5 km away, outside the 15 km service radius"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-05",
+        "name": "Juniper Larch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach in person"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-06",
+        "name": "Willow Maple",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-07",
+        "name": "Aspen Oak",
+        "reasons": [
+          {
+            "code": "level",
+            "detail": "does not teach at secondary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach in person"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-08",
+        "name": "Cypress Pine",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-09",
+        "name": "Reed Sorrel",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-10",
+        "name": "Thistle Bramble",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-11",
+        "name": "Hazel Poplar",
+        "reasons": [
+          {
+            "code": "level",
+            "detail": "does not teach at secondary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach in person"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "needId": "N-02",
+    "label": "Primary Spanish, mornings, online only",
+    "subject": "Spanish",
+    "level": "primary",
+    "languages": [
+      "en"
+    ],
+    "mode": "online",
+    "latencyMs": 3,
+    "ranked": [
+      {
+        "tutorId": "T-06",
+        "name": "Willow Maple",
+        "hourlyRateCents": 2800,
+        "verified": false,
+        "composite": 0.857,
+        "factors": [
+          {
+            "key": "distance",
+            "value": 1,
+            "note": "online — distance not a factor",
+            "weight": 0.3,
+            "contribution": 0.3
+          },
+          {
+            "key": "subject",
+            "value": 1,
+            "note": "teaches Spanish among 1 subject(s)",
+            "weight": 0.25,
+            "contribution": 0.25
+          },
+          {
+            "key": "level",
+            "value": 1,
+            "note": "covers primary and other levels",
+            "weight": 0.15,
+            "contribution": 0.15
+          },
+          {
+            "key": "rating",
+            "value": 0.786,
+            "note": "4.2★ over 8 review(s), damped to 3.93",
+            "weight": 0.2,
+            "contribution": 0.157
+          },
+          {
+            "key": "verified",
+            "value": 0,
+            "note": "not verified",
+            "weight": 0.1,
+            "contribution": 0
+          }
+        ],
+        "rank": 1
+      }
+    ],
+    "excluded": [
+      {
+        "tutorId": "T-01",
+        "name": "Rowan Ash",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at primary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-02",
+        "name": "Sage Birch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-03",
+        "name": "Elm Cedar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at primary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-04",
+        "name": "Fern Hazel",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at primary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-05",
+        "name": "Juniper Larch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at primary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-07",
+        "name": "Aspen Oak",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at primary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-08",
+        "name": "Cypress Pine",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-09",
+        "name": "Reed Sorrel",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-10",
+        "name": "Thistle Bramble",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at primary level"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-11",
+        "name": "Hazel Poplar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at primary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-12",
+        "name": "Birchwood Ivy",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Spanish"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at primary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "needId": "N-03",
+    "label": "Undergrad computer science, online",
+    "subject": "Computer Science",
+    "level": "undergrad",
+    "languages": [
+      "en"
+    ],
+    "mode": "online",
+    "latencyMs": 3,
+    "ranked": [
+      {
+        "tutorId": "T-07",
+        "name": "Aspen Oak",
+        "hourlyRateCents": 5500,
+        "verified": true,
+        "composite": 0.994,
+        "factors": [
+          {
+            "key": "distance",
+            "value": 1,
+            "note": "online — distance not a factor",
+            "weight": 0.3,
+            "contribution": 0.3
+          },
+          {
+            "key": "subject",
+            "value": 1,
+            "note": "teaches Computer Science among 2 subject(s)",
+            "weight": 0.25,
+            "contribution": 0.25
+          },
+          {
+            "key": "level",
+            "value": 1,
+            "note": "covers undergrad and other levels",
+            "weight": 0.15,
+            "contribution": 0.15
+          },
+          {
+            "key": "rating",
+            "value": 0.968,
+            "note": "5.0★ over 60 review(s), damped to 4.84",
+            "weight": 0.2,
+            "contribution": 0.194
+          },
+          {
+            "key": "verified",
+            "value": 1,
+            "note": "identity and credentials verified",
+            "weight": 0.1,
+            "contribution": 0.1
+          }
+        ],
+        "rank": 1
+      }
+    ],
+    "excluded": [
+      {
+        "tutorId": "T-01",
+        "name": "Rowan Ash",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-02",
+        "name": "Sage Birch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-03",
+        "name": "Elm Cedar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-04",
+        "name": "Fern Hazel",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-05",
+        "name": "Juniper Larch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-06",
+        "name": "Willow Maple",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-08",
+        "name": "Cypress Pine",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-09",
+        "name": "Reed Sorrel",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-10",
+        "name": "Thistle Bramble",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-11",
+        "name": "Hazel Poplar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-12",
+        "name": "Birchwood Ivy",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Computer Science"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "needId": "N-04",
+    "label": "Grad math, Sunday evening only, online (tight availability)",
+    "subject": "Math",
+    "level": "grad",
+    "languages": [
+      "en"
+    ],
+    "mode": "online",
+    "latencyMs": 3,
+    "ranked": [
+      {
+        "tutorId": "T-11",
+        "name": "Hazel Poplar",
+        "hourlyRateCents": 6000,
+        "verified": true,
+        "composite": 0.953,
+        "factors": [
+          {
+            "key": "distance",
+            "value": 1,
+            "note": "online — distance not a factor",
+            "weight": 0.3,
+            "contribution": 0.3
+          },
+          {
+            "key": "subject",
+            "value": 1,
+            "note": "teaches Math among 1 subject(s)",
+            "weight": 0.25,
+            "contribution": 0.25
+          },
+          {
+            "key": "level",
+            "value": 0.9,
+            "note": "covers grad only",
+            "weight": 0.15,
+            "contribution": 0.135
+          },
+          {
+            "key": "rating",
+            "value": 0.841,
+            "note": "4.6★ over 9 review(s), damped to 4.21",
+            "weight": 0.2,
+            "contribution": 0.168
+          },
+          {
+            "key": "verified",
+            "value": 1,
+            "note": "identity and credentials verified",
+            "weight": 0.1,
+            "contribution": 0.1
+          }
+        ],
+        "rank": 1
+      }
+    ],
+    "excluded": [
+      {
+        "tutorId": "T-01",
+        "name": "Rowan Ash",
+        "reasons": [
+          {
+            "code": "level",
+            "detail": "does not teach at grad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-02",
+        "name": "Sage Birch",
+        "reasons": [
+          {
+            "code": "level",
+            "detail": "does not teach at grad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-03",
+        "name": "Elm Cedar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at grad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-04",
+        "name": "Fern Hazel",
+        "reasons": [
+          {
+            "code": "level",
+            "detail": "does not teach at grad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-05",
+        "name": "Juniper Larch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-06",
+        "name": "Willow Maple",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at grad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-07",
+        "name": "Aspen Oak",
+        "reasons": [
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-08",
+        "name": "Cypress Pine",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at grad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-09",
+        "name": "Reed Sorrel",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at grad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-10",
+        "name": "Thistle Bramble",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Math"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at grad level"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-12",
+        "name": "Birchwood Ivy",
+        "reasons": [
+          {
+            "code": "level",
+            "detail": "does not teach at grad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "needId": "N-05",
+    "label": "Secondary Latin (no qualified tutor)",
+    "subject": "Latin",
+    "level": "secondary",
+    "languages": [
+      "en"
+    ],
+    "mode": "online",
+    "latencyMs": 3,
+    "ranked": [],
+    "excluded": [
+      {
+        "tutorId": "T-01",
+        "name": "Rowan Ash",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-02",
+        "name": "Sage Birch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-03",
+        "name": "Elm Cedar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-04",
+        "name": "Fern Hazel",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-05",
+        "name": "Juniper Larch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-06",
+        "name": "Willow Maple",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-07",
+        "name": "Aspen Oak",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at secondary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-08",
+        "name": "Cypress Pine",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-09",
+        "name": "Reed Sorrel",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-10",
+        "name": "Thistle Bramble",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach online"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-11",
+        "name": "Hazel Poplar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at secondary level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-12",
+        "name": "Birchwood Ivy",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Latin"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "needId": "N-06",
+    "label": "Undergrad physics, Spanish speaker, in person",
+    "subject": "Physics",
+    "level": "undergrad",
+    "languages": [
+      "es"
+    ],
+    "mode": "in-person",
+    "latencyMs": 4,
+    "ranked": [
+      {
+        "tutorId": "T-12",
+        "name": "Birchwood Ivy",
+        "hourlyRateCents": 4600,
+        "verified": true,
+        "composite": 0.989,
+        "factors": [
+          {
+            "key": "distance",
+            "value": 1,
+            "note": "0 km from student",
+            "weight": 0.3,
+            "contribution": 0.3
+          },
+          {
+            "key": "subject",
+            "value": 1,
+            "note": "teaches Physics among 2 subject(s)",
+            "weight": 0.25,
+            "contribution": 0.25
+          },
+          {
+            "key": "level",
+            "value": 1,
+            "note": "covers undergrad and other levels",
+            "weight": 0.15,
+            "contribution": 0.15
+          },
+          {
+            "key": "rating",
+            "value": 0.945,
+            "note": "4.8★ over 50 review(s), damped to 4.73",
+            "weight": 0.2,
+            "contribution": 0.189
+          },
+          {
+            "key": "verified",
+            "value": 1,
+            "note": "identity and credentials verified",
+            "weight": 0.1,
+            "contribution": 0.1
+          }
+        ],
+        "rank": 1
+      }
+    ],
+    "excluded": [
+      {
+        "tutorId": "T-01",
+        "name": "Rowan Ash",
+        "reasons": [
+          {
+            "code": "language",
+            "detail": "no shared language"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-02",
+        "name": "Sage Birch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Physics"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach in person"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-03",
+        "name": "Elm Cedar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Physics"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "distance",
+            "detail": "84.9 km away, outside the 15 km service radius"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-04",
+        "name": "Fern Hazel",
+        "reasons": [
+          {
+            "code": "language",
+            "detail": "no shared language"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-05",
+        "name": "Juniper Larch",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Physics"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach in person"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-06",
+        "name": "Willow Maple",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Physics"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-07",
+        "name": "Aspen Oak",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Physics"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach in person"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-08",
+        "name": "Cypress Pine",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Physics"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-09",
+        "name": "Reed Sorrel",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Physics"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-10",
+        "name": "Thistle Bramble",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Physics"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          }
+        ]
+      },
+      {
+        "tutorId": "T-11",
+        "name": "Hazel Poplar",
+        "reasons": [
+          {
+            "code": "subject",
+            "detail": "does not teach Physics"
+          },
+          {
+            "code": "level",
+            "detail": "does not teach at undergrad level"
+          },
+          {
+            "code": "language",
+            "detail": "no shared language"
+          },
+          {
+            "code": "availability",
+            "detail": "no overlapping availability slot"
+          },
+          {
+            "code": "mode",
+            "detail": "does not teach in person"
+          }
+        ]
+      }
+    ]
+  }
+]
