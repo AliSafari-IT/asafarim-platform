@@ -1,0 +1,227 @@
+/* Scoped styles for the EduMatch benchmark demo. Colors come from the shared
+   Gallery-mood tokens so it stays on-theme. Mirrors the Testora/AI-Eval modules. */
+
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 var(--space-5);
+}
+.subnavLink {
+  font: 600 var(--text-sm) / 1 var(--font-sans);
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill, 999px);
+  white-space: nowrap;
+  transition: color var(--dur-1, 130ms) var(--ease),
+    border-color var(--dur-1, 130ms) var(--ease);
+}
+.subnavLink:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.subnavLink[aria-current="page"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: var(--text-xs, 12px);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--line);
+  padding: 0.5rem 0.6rem;
+}
+.table td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem;
+  vertical-align: top;
+}
+.table tr:last-child td {
+  border-bottom: none;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mono {
+  font: var(--text-xs, 12px) / 1.4 var(--font-mono);
+  color: var(--muted);
+}
+.rank {
+  font: 700 var(--text-sm) / 1 var(--font-mono);
+  color: var(--accent);
+}
+
+/* Factor contribution bars */
+.factorRow {
+  display: grid;
+  grid-template-columns: 90px 1fr 48px;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-sm);
+  padding: 0.2rem 0;
+}
+.factorLabel {
+  color: var(--muted);
+  font-size: var(--text-xs, 12px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.factorTrack {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--surface-3, #232b36);
+  overflow: hidden;
+}
+.factorFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.factorVal {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs, 12px);
+  color: var(--ink);
+  text-align: right;
+}
+.factorNote {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: var(--text-xs, 12px);
+  margin: -0.1rem 0 0.3rem;
+}
+
+.compositeBig {
+  font: 700 1.4rem/1 var(--font-mono);
+  color: var(--accent);
+}
+
+/* Excluded list */
+.excludedItem {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+.excludedItem:last-child {
+  border-bottom: none;
+}
+.reasonChip {
+  display: inline-block;
+  font: 600 var(--text-xs, 11px) / 1 var(--font-mono);
+  padding: 0.2rem 0.4rem;
+  margin: 0.15rem 0.25rem 0 0;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: #f87171;
+}
+
+/* Explorer controls */
+.explorer {
+  display: grid;
+  gap: var(--space-4);
+}
+.controlsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.select {
+  font: var(--text-sm) / 1 var(--font-sans);
+  padding: 0.4rem 0.6rem;
+  background: var(--surface-2, var(--surface));
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.weightPanel {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 240px;
+}
+.weightRow {
+  display: grid;
+  grid-template-columns: 80px 1fr 40px;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-sm);
+}
+.weightRow label {
+  color: var(--muted);
+  font-size: var(--text-xs, 12px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.weightRow input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.resetBtn {
+  justify-self: start;
+}
+
+/* Journey simulator */
+.roleTabs {
+  display: inline-flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+.roleTab {
+  font: 600 var(--text-sm) / 1 var(--font-sans);
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.roleTab[aria-selected="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.journeySteps {
+  display: grid;
+  gap: 0.5rem;
+  margin: var(--space-3) 0;
+}
+.journeyStep {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.journeyStepDone {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.journeyStepIdx {
+  font: 700 var(--text-xs, 12px) / 1 var(--font-mono);
+  color: var(--accent);
+}
+.pane {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2, 10px);
+  padding: var(--space-3);
+  background: var(--surface-2, var(--surface));
+}

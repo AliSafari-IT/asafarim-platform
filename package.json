@@ -31,6 +31,8 @@
     "bench:testora:fixtures": "pnpm --filter @asafarim/testora-benchmark bench:generate",
     "bench:ai-eval": "pnpm --filter @asafarim/ai-eval-benchmark eval",
     "bench:ai-eval:fixtures": "pnpm --filter @asafarim/ai-eval-benchmark bench:generate",
+    "bench:edumatch": "pnpm --filter @asafarim/edumatch-benchmark test",
+    "bench:edumatch:fixtures": "pnpm --filter @asafarim/edumatch-benchmark bench:generate",
     "deploy:prod": "bash ./infra/scripts/deploy-prod.sh"
   },
   "devDependencies": {

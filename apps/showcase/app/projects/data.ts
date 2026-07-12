@@ -54,6 +54,16 @@ export const projects: ShowcaseProject[] = [
     glyph: "AE",
     index: "04",
   },
+  {
+    slug: "edumatch",
+    title: "EduMatch",
+    summary:
+      "An explainable tutor-matching benchmark: synthetic students and tutors, a transparent weighted-factor engine you can adjust live, and fairness/stability checks.",
+    tags: ["Matching", "Explainability", "Benchmark"],
+    status: "live",
+    glyph: "EM",
+    index: "05",
+  },
 ];
 
 export function getProject(slug: string): ShowcaseProject | undefined {

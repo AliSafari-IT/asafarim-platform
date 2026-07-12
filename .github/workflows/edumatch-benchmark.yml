@@ -1,0 +1,47 @@
+# Example workflow: run the EduMatch matching engine's test suite and gate on
+# the fixture generator.
+#
+# The engine is pure JS with no database, no network, and no secrets. The
+# generator is the gate: it re-validates match relevance against the labeled
+# fixture set, constraint safety, explainability, twin fairness, and ranking
+# stability, then rewrites the committed showcase fixtures; a drift means the
+# fixtures/engine changed without regenerating, which fails the build.
+name: EduMatch benchmark
+
+on:
+  push:
+    paths:
+      - "benchmarks/edumatch/**"
+      - "apps/showcase/app/projects/edumatch/**"
+      - ".github/workflows/edumatch-benchmark.yml"
+  pull_request:
+    paths:
+      - "benchmarks/edumatch/**"
+      - "apps/showcase/app/projects/edumatch/**"
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the matching engine test suite
+        run: pnpm bench:edumatch
+
+      - name: Validate invariants and regenerate fixtures
+        run: pnpm bench:edumatch:fixtures
+
+      - name: Fail if committed fixtures drifted
+        run: git diff --exit-code -- apps/showcase/app/projects/edumatch/_data

@@ -115,6 +115,9 @@ importers:
 
   apps/showcase:
     dependencies:
+      '@asafarim/edumatch-benchmark':
+        specifier: workspace:*
+        version: link:../../benchmarks/edumatch
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -182,6 +185,8 @@ importers:
         version: 5.9.3
 
   benchmarks/ai-eval: {}
+
+  benchmarks/edumatch: {}
 
   benchmarks/testora:
     devDependencies:

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@asafarim/edumatch-benchmark": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "dotenv": "^17.4.2",
     "next": "^16.2.10",

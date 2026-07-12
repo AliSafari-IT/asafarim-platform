@@ -1,0 +1,19 @@
+{
+  "name": "@asafarim/edumatch-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "EduMatch — a deterministic, explainable tutor-matching benchmark: synthetic students and tutors, a transparent weighted-factor engine, and fairness/stability checks.",
+  "type": "module",
+  "exports": {
+    "./engine": {
+      "types": "./engine/matching.d.ts",
+      "default": "./engine/matching.mjs"
+    },
+    "./fixtures/tutors": "./fixtures/tutors.json",
+    "./fixtures/needs": "./fixtures/needs.json"
+  },
+  "scripts": {
+    "test": "node --test tests/matching.test.mjs",
+    "bench:generate": "node scripts/generate-fixtures.mjs"
+  }
+}
