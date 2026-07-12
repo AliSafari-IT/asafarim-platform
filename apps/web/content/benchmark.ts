@@ -1,7 +1,7 @@
 /**
- * Compact homepage benchmark card for the AI Evaluation Lab (full demo lives in
- * Showcase). Numbers are the reference fixture-mode results — clearly labelled
- * as a fixture benchmark, never presented as live. No employer/customer data.
+ * Compact homepage benchmark cards (full demos live in Showcase). Numbers are
+ * the reference fixture-mode results — clearly labelled as fixture benchmarks,
+ * never presented as live. No employer/customer data in either.
  */
 export const aiEvalCard = {
   kicker: "Benchmark",
@@ -17,4 +17,20 @@ export const aiEvalCard = {
   linkLabel: "Explore the AI Evaluation Lab",
   /** Path under the Showcase origin (resolved via getPlatformLinks().showcase). */
   href: "/projects/ai-eval",
+} as const;
+
+export const eduMatchCard = {
+  kicker: "Benchmark",
+  title: "EduMatch",
+  blurb:
+    "An explainable tutor-matching benchmark: synthetic students and tutors, a transparent weighted-factor engine you can adjust live, and a provable fairness check via a constraint-identical twin pair.",
+  stats: [
+    { label: "Match relevance", value: "100%" },
+    { label: "Twin-pair delta", value: "0.000" },
+    { label: "Matching factors", value: "5" },
+  ],
+  note: "Fixture benchmark · synthetic identities · safe demo mode",
+  linkLabel: "Explore EduMatch",
+  /** Path under the Showcase origin (resolved via getPlatformLinks().showcase). */
+  href: "/projects/edumatch",
 } as const;

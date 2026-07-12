@@ -1,0 +1,62 @@
+[
+  {
+    "id": "N-01",
+    "label": "Secondary math, evenings, in person",
+    "subject": "Math",
+    "level": "secondary",
+    "languages": ["en"],
+    "mode": "in-person",
+    "availability": [{ "day": "mon", "block": "evening" }, { "day": "wed", "block": "evening" }],
+    "location": { "lat": 0.0, "lng": 0.0 }
+  },
+  {
+    "id": "N-02",
+    "label": "Primary Spanish, mornings, online only",
+    "subject": "Spanish",
+    "level": "primary",
+    "languages": ["en"],
+    "mode": "online",
+    "availability": [{ "day": "tue", "block": "morning" }],
+    "location": { "lat": 0.0, "lng": 0.0 }
+  },
+  {
+    "id": "N-03",
+    "label": "Undergrad computer science, online",
+    "subject": "Computer Science",
+    "level": "undergrad",
+    "languages": ["en"],
+    "mode": "online",
+    "availability": [{ "day": "thu", "block": "morning" }],
+    "location": { "lat": 0.0, "lng": 0.0 }
+  },
+  {
+    "id": "N-04",
+    "label": "Grad math, Sunday evening only, online (tight availability)",
+    "subject": "Math",
+    "level": "grad",
+    "languages": ["en"],
+    "mode": "online",
+    "availability": [{ "day": "sun", "block": "evening" }],
+    "location": { "lat": 0.0, "lng": 0.0 }
+  },
+  {
+    "id": "N-05",
+    "label": "Secondary Latin (no qualified tutor)",
+    "subject": "Latin",
+    "level": "secondary",
+    "languages": ["en"],
+    "mode": "online",
+    "availability": [{ "day": "wed", "block": "morning" }],
+    "location": { "lat": 0.0, "lng": 0.0 }
+  },
+  {
+    "id": "N-06",
+    "label": "Undergrad physics, Spanish speaker, in person",
+    "subject": "Physics",
+    "level": "undergrad",
+    "languages": ["es"],
+    "mode": "in-person",
+    "availability": [{ "day": "mon", "block": "evening" }, { "day": "wed", "block": "evening" }],
+    "location": { "lat": 0.01, "lng": 0.01 }
+  }
+]
