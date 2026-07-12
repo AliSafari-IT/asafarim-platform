@@ -202,7 +202,17 @@ export function retry(job, ctx) {
     return appendLog(next, "awaiting-approval", { gate: "script" });
   }
 
-  // Retrying a rejected/failed asset-plan stage: proceed straight to the render gate.
+  if (next.stage === "storyboard") {
+    // A storyboard retry must still generate the asset plan before the
+    // render gate — resuming straight to "awaiting-approval" here would
+    // leave the job without an assetPlan artifact.
+    next.stage = "asset-plan";
+    next = runStage(next, brief, provider, "asset-plan");
+    if (next.state === "failed") return next;
+  }
+
+  // asset-plan (retried directly, or reached via a storyboard retry above):
+  // proceed to the render gate.
   next.state = "awaiting-approval";
   return appendLog(next, "awaiting-approval", { gate: "render" });
 }

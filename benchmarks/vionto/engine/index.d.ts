@@ -56,6 +56,8 @@ export interface Brief {
   id: string;
   title: string;
   brief: string;
+  /** Marks a brief that deliberately seeds a stage failure (schema-invalid or transient) for the benchmark's recovery dimension. */
+  seedsFailure?: boolean;
   fixtureScriptByAttempt: Script[];
   fixtureStoryboardByAttempt: Storyboard[];
   fixtureAssetPlanByAttempt: AssetPlan[];

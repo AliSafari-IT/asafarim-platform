@@ -1,15 +1,5 @@
+import type { RenderReport } from "../_data/types";
 import styles from "./vionto.module.css";
-
-interface RenderShotReport {
-  shotIndex: number;
-  assetId: string;
-  kind: string;
-  durationSeconds: number;
-  frameCount: number;
-}
-interface RenderReport {
-  shots: RenderShotReport[];
-}
 
 const W = 140;
 const H = 90;

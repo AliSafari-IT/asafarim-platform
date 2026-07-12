@@ -88,6 +88,31 @@ test("recovery from seeded stage failures: B-02 (schema) and B-03 (transient ren
   }
 });
 
+test("retry from a storyboard-stage failure regenerates storyboard, continues through asset-plan, and reaches the render gate", () => {
+  const base = briefById("B-01");
+  const brokenBrief = {
+    ...base,
+    id: "TEST-STORYBOARD-FAIL",
+    fixtureStoryboardByAttempt: [
+      { shots: [{ sceneIndex: 0 }] }, // missing required shotType/durationSeconds -> schema-invalid
+      base.fixtureStoryboardByAttempt[0], // valid from attempt 1 on
+    ],
+  };
+
+  const { job: failedJob } = runEvents(brokenBrief, ["start", "approve"], FixtureProvider);
+  assert.equal(failedJob.state, "failed");
+  assert.equal(failedJob.stage, "storyboard");
+
+  const retried = retry(failedJob, { brief: brokenBrief, provider: FixtureProvider });
+  assert.equal(retried.state, "awaiting-approval");
+  assert.equal(retried.stage, "asset-plan");
+  assert.ok(retried.artifacts.storyboard, "storyboard artifact missing after retry");
+  assert.ok(retried.artifacts.assetPlan, "asset-plan artifact missing after a storyboard retry — this was the bug");
+
+  const finished = advance(retried, "approve", { brief: brokenBrief, provider: FixtureProvider });
+  assert.equal(finished.state, "succeeded");
+});
+
 test("human rejection with no retry ends cleanly at cancelled (B-05)", () => {
   const brief = briefById("B-05");
   const { job } = runEvents(brief, ["start", "reject"], FixtureProvider);

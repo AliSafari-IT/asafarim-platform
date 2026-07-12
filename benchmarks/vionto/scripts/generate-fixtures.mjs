@@ -128,8 +128,7 @@ function validateAndBuildRuns(briefs, labels) {
       }
     }
 
-    const isSeededFailure = brief.id === "B-02" || brief.id === "B-03";
-    if (isSeededFailure) {
+    if (brief.seedsFailure) {
       seededFailureBriefs += 1;
       if (job.state === "succeeded") seededFailureRecovered += 1;
     }

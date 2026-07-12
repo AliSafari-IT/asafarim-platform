@@ -36,6 +36,7 @@
     "id": "B-02",
     "title": "Birthday memory reel",
     "brief": "A warm 20-second birthday memory reel from a handful of photos.",
+    "seedsFailure": true,
     "fixtureScriptByAttempt": [
       {
         "title": "Happy Birthday",
@@ -72,6 +73,7 @@
     "id": "B-03",
     "title": "City timelapse promo",
     "brief": "A 15-second city timelapse promo for a travel newsletter.",
+    "seedsFailure": true,
     "fixtureScriptByAttempt": [
       {
         "title": "City Lights",
