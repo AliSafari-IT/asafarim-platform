@@ -1,0 +1,167 @@
+/* Scoped styles for the Vionto Studio benchmark demo. Colors come from the
+   shared Gallery-mood tokens so it stays on-theme. Mirrors the Testora/
+   AI-Eval/EduMatch modules. */
+
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 var(--space-5);
+}
+.subnavLink {
+  font: 600 var(--text-sm) / 1 var(--font-sans);
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill, 999px);
+  white-space: nowrap;
+  transition: color var(--dur-1, 130ms) var(--ease),
+    border-color var(--dur-1, 130ms) var(--ease);
+}
+.subnavLink:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.subnavLink[aria-current="page"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: var(--text-xs, 12px);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--line);
+  padding: 0.5rem 0.6rem;
+}
+.table td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem;
+  vertical-align: top;
+}
+.table tr:last-child td {
+  border-bottom: none;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mono {
+  font: var(--text-xs, 12px) / 1.4 var(--font-mono);
+  color: var(--muted);
+}
+
+/* Pipeline explorer */
+.explorer {
+  display: grid;
+  gap: var(--space-4);
+}
+.controlsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.select {
+  font: var(--text-sm) / 1 var(--font-sans);
+  padding: 0.4rem 0.6rem;
+  background: var(--surface-2, var(--surface));
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.jobHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.stageChip {
+  font: 600 var(--text-xs, 12px) / 1 var(--font-mono);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.stageChipActive {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.pane {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2, 10px);
+  padding: var(--space-3);
+  background: var(--surface-2, var(--surface));
+}
+.log {
+  margin: 0;
+  font: var(--text-xs, 12px) / 1.6 var(--font-mono);
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.errorText {
+  color: #f87171;
+}
+
+/* Pipeline diagram (stage chain, used above the explorer too) */
+.stageChain {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.stageArrow {
+  color: var(--muted);
+}
+
+/* Storyboard strip */
+.strip {
+  overflow-x: auto;
+}
+.stripSvg {
+  display: block;
+  height: 90px;
+  width: auto;
+}
+
+/* Artifact inspector */
+.artifactGrid {
+  display: grid;
+  gap: var(--space-3);
+}
+.artifactHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.code {
+  margin: 0;
+  font: var(--text-xs, 12px) / 1.6 var(--font-mono);
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 280px;
+  overflow-y: auto;
+}

@@ -1,0 +1,36 @@
+{
+  "provenance": {
+    "source": "@asafarim/vionto-benchmark",
+    "note": "Distilled, reproducible snapshot from the deterministic pipeline engine run against synthetic fixtures. Not production telemetry; latency figures are representative reference timings, not live measurements.",
+    "runId": "run-2026-07-16",
+    "ref": "main@f7a1c2e",
+    "generatedAt": "2026-07-16T09:00:00.000Z"
+  },
+  "dimensions": {
+    "structuredOutputValidity": {
+      "value": 93.3,
+      "unit": "%",
+      "method": "Share of schema-validated stage-generation attempts (script/storyboard/asset-plan) that passed validation, across every brief and every retry (14/15 attempts)."
+    },
+    "retryIdempotencyCorrectness": {
+      "value": 100,
+      "unit": "%",
+      "method": "Every retry produces a new, uniquely-identified job rather than mutating the failed/cancelled one, and the engine itself refuses retry from any other state."
+    },
+    "endToEndCompletionTime": {
+      "value": 9050,
+      "unit": "ms (reference)",
+      "method": "Mean representative reference latency across successfully completed runs — the engine itself runs in sub-millisecond time; this figure stands in for a live pipeline's wall-clock time."
+    },
+    "estimatedVsObservedCost": {
+      "value": 0,
+      "unit": "max $ delta",
+      "method": "Maximum difference between the pre-run cost estimate and the cost recomputed from final artifacts. Zero in fixture mode by construction — there is no live provider to introduce real variance; connecting one is where deviation would first appear."
+    },
+    "seededFailureRecovery": {
+      "value": 100,
+      "unit": "%",
+      "method": "Share of briefs seeded with a stage failure (a schema-invalid asset plan, a transient render error) that reach 'succeeded' via the documented retry path."
+    }
+  }
+}

@@ -6,6 +6,7 @@ import {
   Hero,
   Kicker,
   Metric,
+  PipelineDiagram,
   PlatformMap,
   Section,
   Timeline,
@@ -13,7 +14,7 @@ import {
 } from "@asafarim/ui";
 import { site } from "../content/site";
 import { evidenceRail, workByProblem } from "../content/evidence";
-import { aiEvalCard, eduMatchCard } from "../content/benchmark";
+import { aiEvalCard, eduMatchCard, viontoCard, viontoPipelineStages } from "../content/benchmark";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -123,6 +124,22 @@ export default function HomePage() {
               <a href={`${links.showcase}${card.href}`}>{card.linkLabel} →</a>
             </Card>
           ))}
+          <Card variant="elevated" title={viontoCard.title}>
+            <p>{viontoCard.blurb}</p>
+            <div style={{ margin: "var(--space-4) 0" }}>
+              <PipelineDiagram stages={[...viontoPipelineStages]} />
+            </div>
+            <div
+              className="ui-grid ui-grid--metrics"
+              style={{ margin: "var(--space-4) 0" }}
+            >
+              {viontoCard.stats.map((stat) => (
+                <Metric key={stat.label} label={stat.label} value={stat.value} />
+              ))}
+            </div>
+            <p className="u-mono">{viontoCard.note}</p>
+            <a href={`${links.showcase}${viontoCard.href}`}>{viontoCard.linkLabel} →</a>
+          </Card>
         </div>
       </Section>
 
