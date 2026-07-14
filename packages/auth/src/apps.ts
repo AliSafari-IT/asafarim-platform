@@ -123,18 +123,59 @@ export interface AppAccessContext {
   authenticated: boolean;
 }
 
+/** Deterministic explanation for an access decision. */
+export type AppAccessReason =
+  /* allowed */
+  | "public" // app is open to everyone
+  | "authenticated" // any signed-in active user may enter
+  | "role" // one of the user's roles grants access
+  | "superadmin" // explicit superadmin bypass
+  /* denied */
+  | "coming-soon" // app is registered but not yet built
+  | "no-access-defined" // registered with access: null — nobody may enter
+  | "not-authenticated" // app needs a session and there is none
+  | "missing-role"; // signed in, but no qualifying role
+
+export interface AppAccessDecision {
+  allowed: boolean;
+  reason: AppAccessReason;
+}
+
+/**
+ * Evaluate whether a user (described by roles + auth state) may open an
+ * app, with a deterministic reason for the decision. The superadmin
+ * bypass is intentional and reported explicitly so it stays auditable.
+ */
+export function getAppAccessDecision(
+  app: PlatformApp,
+  context: AppAccessContext
+): AppAccessDecision {
+  if (app.status !== "active") return { allowed: false, reason: "coming-soon" };
+  if (app.access === null) {
+    return { allowed: false, reason: "no-access-defined" };
+  }
+  if (app.access === "public") return { allowed: true, reason: "public" };
+  if (!context.authenticated) {
+    return { allowed: false, reason: "not-authenticated" };
+  }
+  if (app.access === "authenticated") {
+    return { allowed: true, reason: "authenticated" };
+  }
+  if (context.roles.includes(ROLES.SUPERADMIN)) {
+    return { allowed: true, reason: "superadmin" };
+  }
+  if (context.roles.some((role) => (app.access as string[]).includes(role))) {
+    return { allowed: true, reason: "role" };
+  }
+  return { allowed: false, reason: "missing-role" };
+}
+
 /** Whether a user (described by roles + auth state) may open an app. */
 export function canAccessApp(
   app: PlatformApp,
   context: AppAccessContext
 ): boolean {
-  if (app.status !== "active" || app.access === null) return false;
-  if (app.access === "public") return true;
-  if (!context.authenticated) return false;
-  if (app.access === "authenticated") return true;
-
-  if (context.roles.includes(ROLES.SUPERADMIN)) return true;
-  return context.roles.some((role) => (app.access as string[]).includes(role));
+  return getAppAccessDecision(app, context).allowed;
 }
 
 /** Registry lookup by key. */

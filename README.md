@@ -5,8 +5,10 @@ website, the ASafarIM Hub dashboard, the Showcase, the Admin panel, and shared
 packages — built with Next.js, TypeScript, PostgreSQL, pnpm workspaces, and
 Turborepo, deployed with Docker Compose behind Caddy.
 
-See [docs/migration-plan.md](docs/migration-plan.md) for the full plan and
-[docs/architecture.md](docs/architecture.md) for the current structure.
+See [docs/migration-plan.md](docs/migration-plan.md) for the full plan,
+[docs/architecture.md](docs/architecture.md) for the current structure, and
+[docs/admin-console.md](docs/admin-console.md) for the app registry,
+role/permission model, audit taxonomy, and platform settings.
 
 ## Apps
 

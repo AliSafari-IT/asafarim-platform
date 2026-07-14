@@ -11,6 +11,7 @@
     "clean": "rimraf node_modules .turbo && turbo clean",
     "build": "turbo build",
     "lint": "turbo lint",
+    "test": "turbo test --filter=./packages/*",
     "typecheck": "turbo typecheck",
     "format": "prettier --write .",
     "env:status": "envage status",

@@ -1,9 +1,21 @@
 import { auth } from "@asafarim/auth";
 import { ButtonLink, Kicker, Panel, getPlatformLinks } from "@asafarim/ui";
+import { writeAuditEvent } from "../../lib/audit";
 
 export default async function DeniedPage() {
   const session = await auth();
   const links = getPlatformLinks();
+
+  // Denied admin access is itself a security event worth recording.
+  if (session?.user?.id) {
+    await writeAuditEvent({
+      userId: session.user.id,
+      action: "admin.access_denied",
+      entity: "Admin",
+      entityId: "admin-console",
+      changes: { roles: session.user.roles },
+    });
+  }
 
   return (
     <div style={{ maxWidth: "30rem", margin: "4rem auto", padding: "0 1rem" }}>

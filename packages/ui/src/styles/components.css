@@ -1345,6 +1345,14 @@ a .ui-card {
   color: var(--muted);
 }
 
+/* Wide, matrix-style content that has no readable narrow form: hide it on
+   small screens; pair it with an always-visible list alternative. */
+@media (max-width: 768px) {
+  .u-desktop-only {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   .ui-shell__header {
     padding: var(--space-3) var(--space-4);
