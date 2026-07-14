@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { requireUser, hasRole, ROLES } from "@asafarim/auth";
+import {
+  PLATFORM_APPS,
+  canAccessApp,
+  requireUser,
+  type AppAccessContext,
+} from "@asafarim/auth";
 import { AppCard, PageHeader, getPlatformLinks } from "@asafarim/ui";
 
 export const metadata: Metadata = { title: "Apps" };
@@ -7,7 +12,20 @@ export const metadata: Metadata = { title: "Apps" };
 export default async function AppsPage() {
   const session = await requireUser({ callbackUrl: "/apps" });
   const links = getPlatformLinks();
-  const isAdminUser = hasRole(session, [ROLES.ADMIN]);
+
+  const context: AppAccessContext = {
+    roles: session.user.roles,
+    authenticated: true,
+  };
+
+  // Registry-driven launcher: accessible apps become live tiles, deferred
+  // apps show as coming-soon, and everything else stays hidden. Hub itself
+  // is skipped — you are already standing in it.
+  const tiles = PLATFORM_APPS.filter(
+    (app) =>
+      app.key !== "hub" &&
+      (canAccessApp(app, context) || app.status === "coming-soon")
+  );
 
   return (
     <>
@@ -18,29 +36,21 @@ export default async function AppsPage() {
         description="Every tool on the workbench — more arrive as products are migrated."
       />
       <div className="ui-grid">
-        <AppCard
-          glyph="WB"
-          name="ASafarIM Digital"
-          description="The public studio website: services, projects, and contact."
-          href={links.web}
-          meta="asafarim.com"
-        />
-        <AppCard
-          glyph="SC"
-          name="Showcase"
-          description="The exhibition wall: demos, case studies, and experiments."
-          href={links.showcase}
-          meta="showcase.asafarim.be"
-        />
-        {isAdminUser ? (
+        {tiles.map((app) => (
           <AppCard
-            glyph="AD"
-            name="Admin Console"
-            description="Users, roles, permissions, and the audit stream."
-            href={links.admin}
-            meta="admin.asafarim.com · restricted"
+            key={app.key}
+            glyph={app.glyph}
+            name={app.name}
+            description={app.description}
+            meta={app.meta}
+            href={
+              app.key in links
+                ? links[app.key as keyof typeof links]
+                : undefined
+            }
+            disabled={app.status === "coming-soon"}
           />
-        ) : null}
+        ))}
       </div>
     </>
   );

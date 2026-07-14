@@ -4,6 +4,16 @@ export { handlers, auth, signIn, signOut } from "./auth";
 export { authConfig, ensureDefaultRole } from "./config";
 export { hashPassword, verifyPassword } from "./providers";
 export { ROLES, hasRole, isAdmin, type RoleName } from "./roles";
+export {
+  PLATFORM_APPS,
+  canAccessApp,
+  getPlatformApp,
+  getAccessibleApps,
+  type PlatformApp,
+  type PlatformAppAccess,
+  type PlatformAppStatus,
+  type AppAccessContext,
+} from "./apps";
 export { hasPermission, getUserPermissions } from "./permissions";
 export { getSession, requireUser, requireRole } from "./session";
 export { generateUniqueUsername, slugifyUsername } from "./username";

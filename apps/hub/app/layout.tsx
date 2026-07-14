@@ -28,7 +28,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const isAdminUser = hasRole(session, [ROLES.ADMIN]);
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body data-app="hub">
         <SessionProviderWrapper session={session}>
           <AppShell

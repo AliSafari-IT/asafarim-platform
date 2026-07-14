@@ -40,10 +40,10 @@ export default function HomePage() {
         }
       />
 
-      <p style={{ marginTop: "calc(var(--space-7) * -1)", marginBottom: "var(--space-6)" }}>
+      <div style={{ marginTop: "calc(var(--space-7) * -1)", marginBottom: "var(--space-6)" }}>
         <Kicker>{site.now.label}</Kicker>
         <span className="u-muted"> {site.now.text}</span>
-      </p>
+      </div>
 
       <div className="ui-grid ui-grid--metrics">
         {site.stats.map((stat) => (
