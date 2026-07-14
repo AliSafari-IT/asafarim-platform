@@ -16,4 +16,5 @@ export type {
   UserRole,
   RolePermission,
   AuditLog,
+  PlatformSetting,
 } from "@prisma/client";

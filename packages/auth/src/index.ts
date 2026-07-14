@@ -7,12 +7,15 @@ export { ROLES, hasRole, isAdmin, type RoleName } from "./roles";
 export {
   PLATFORM_APPS,
   canAccessApp,
+  getAppAccessDecision,
   getPlatformApp,
   getAccessibleApps,
   type PlatformApp,
   type PlatformAppAccess,
   type PlatformAppStatus,
   type AppAccessContext,
+  type AppAccessDecision,
+  type AppAccessReason,
 } from "./apps";
 export { hasPermission, getUserPermissions } from "./permissions";
 export { getSession, requireUser, requireRole } from "./session";
