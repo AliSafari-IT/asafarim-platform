@@ -26,7 +26,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const links = getPlatformLinks();
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body data-app="showcase">
         <AppShell
           product="Showcase"

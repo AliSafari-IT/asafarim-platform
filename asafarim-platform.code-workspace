@@ -1,0 +1,27 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"sqltools.connections": [
+			{
+				"ssh": "Disabled",
+				"previewLimit": 50,
+				"server": "localhost",
+				"driver": "PostgreSQL",
+				"connectString": "postgresql://asafarim:K18n_T8r8_@localhost:55435/asafarim",
+				"name": "asafarim-platform"
+			},
+			{
+				"ssh": "Disabled",
+				"previewLimit": 50,
+				"server": "localhost",
+				"driver": "PostgreSQL",
+				"connectString": "postgresql://asafarim:K18n_T8r8_@localhost:55435/asafarim",
+				"name": "asafarim_plt"
+			}
+		]
+	}
+}

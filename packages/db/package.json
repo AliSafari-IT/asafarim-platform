@@ -9,11 +9,11 @@
     "postinstall": "prisma generate",
     "build": "prisma generate",
     "db:generate": "prisma generate",
-    "db:migrate": "dotenv -e ../../.env -- prisma migrate dev",
-    "db:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
-    "db:push": "dotenv -e ../../.env -- prisma db push",
-    "db:studio": "dotenv -e ../../.env -- prisma studio",
-    "db:seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
+    "db:migrate": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate dev",
+    "db:migrate:deploy": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate deploy",
+    "db:push": "dotenv -e ../../.env.local -e ../../.env -- prisma db push",
+    "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio",
+    "db:seed": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
