@@ -76,7 +76,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     </form>
                   </UserMenu>
                 ) : (
-                  <ButtonLink href="/sign-in" size="sm">
+                  <ButtonLink
+                    href={`/sign-in?callbackUrl=${encodeURIComponent(`${links.hub}/`)}`}
+                    size="sm"
+                  >
                     Sign in
                   </ButtonLink>
                 )}
