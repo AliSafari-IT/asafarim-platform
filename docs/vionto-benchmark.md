@@ -4,7 +4,9 @@ Vionto Studio scores a schema-validated, multi-stage AI media pipeline —
 brief → script → storyboard → asset plan → render — built around an explicit
 job state machine with human approval gates and idempotent retry. It ports
 the domain insight of a personal AI video-story project (its render-job
-state machine and idempotent retry rule), not its implementation.
+state machine and idempotent retry rule), not its implementation. The full
+architecture of that legacy application is documented in
+[vionto-architecture.md](vionto-architecture.md).
 
 - **Runnable harness:** [`benchmarks/vionto`](../benchmarks/vionto) — the
   pipeline engine, synthetic fixtures, hand-reviewed labels, tests, generator.
