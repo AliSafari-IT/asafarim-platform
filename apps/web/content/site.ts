@@ -1,31 +1,30 @@
 /**
  * Site-wide content for the public ASafarIM Digital website.
- * Sources: asafarim-digital portal (production copy) and the
- * asafarim-dot-be public site (bio, experience, education) — rewritten
- * for the studio voice. Keep copy changes here, not in page files.
+ * Company-facing voice: the studio builds and operates full-stack and
+ * AI application systems end to end. Keep copy changes here, not in page files.
  */
 
 export const site = {
   name: "ASafarIM Digital",
-  title: "Ali Safari — Full-Stack & AI Application Engineer",
+  title: "ASafarIM Digital — Full-Stack & AI Application Studio",
   description:
-    "Ali Safari is a systems-minded full-stack and AI application engineer: from engineering hydrology research to production web platforms and AI-assisted products, built and operated end to end.",
+    "ASafarIM Digital is a systems-minded studio that designs, builds, and operates full-stack and AI application platforms — from identity and data layers to real-time dashboards and AI-assisted tools.",
 
-  person: {
-    name: "Ali Safari",
-    jobTitle: "Full-Stack & AI Application Engineer",
+  organization: {
+    name: "ASafarIM Digital",
+    jobTitle: "Full-Stack & AI Application Studio",
   },
 
   hero: {
-    kicker: "Ali Safari · Systems engineer",
-    title: "Ali Safari builds full-stack and AI application systems that ship and stay up.",
-    lede: "From engineering hydrology research to production web platforms: I design, build, and operate systems end to end — identity and data layers, real-time dashboards, and AI-assisted tools, not slide decks.",
+    kicker: "ASafarIM Digital · Systems studio",
+    title: "ASafarIM Digital builds full-stack and AI application systems that ship and stay up.",
+    lede: "From engineering hydrology research to production web platforms: we design, build, and operate systems end to end — identity and data layers, real-time dashboards, and AI-assisted tools, not slide decks.",
   },
 
-  /** "Now" line under the hero — the ONE place Probex is named. */
+  /** "Now" line under the hero — what the studio is focused on. */
   now: {
     label: "Now",
-    text: "AI Application Developer at Probex, Genk — building AI-assisted engineering tools by day; the ASafarIM Platform is independent, self-directed work.",
+    text: "Partnering with engineering teams and product companies to ship AI-assisted tools, internal platforms, and customer-facing applications.",
   },
 
   principles: [
@@ -99,7 +98,7 @@ export const site = {
 
   intro: {
     heading: "A studio, not an agency",
-    body: "Every project here is built by the same pair of hands that designed it: database schema, API, interface, and deployment. Ten-plus apps run on this stack today — sharing one identity system, one design language, and one deploy pipeline.",
+    body: "Architecture, implementation, and operations sit under one roof. Ten-plus apps run on the ASafarIM Platform today — sharing one identity system, one design language, and one deploy pipeline.",
   },
 
   stats: [
@@ -130,7 +129,7 @@ export const site = {
   contact: {
     email: "contact@asafarim.com",
     location: "Hasselt, Belgium",
-    availability: "Available for freelance projects — remote friendly",
+    availability: "Available for project partnerships — remote friendly",
     responseTime: "Replies within 24–48 hours",
     github: "https://github.com/AliSafari-IT",
     projectTypes: [
@@ -143,15 +142,15 @@ export const site = {
   },
 
   about: {
-    lede: "ASafarIM Digital is a personal technology brand run like a workshop: one craftsman, full stack, no hand-offs.",
+    lede: "ASafarIM Digital is a software studio built on a research background: data-first engineering, full-stack ownership, and no hand-offs.",
     story: [
       {
         title: "From river models to web platforms",
-        body: "Ali's path into software ran through science: a PhD in Engineering Hydrology (VUB, Brussels) spent modeling river systems, followed by Applied IT — Programming at Thomas More. That background still shapes how the studio works — data first, measured results, no hand-waving.",
+        body: "The studio's roots are in numerical modeling and engineering hydrology — PhD-level research at VUB Brussels on river systems, followed by applied software engineering. That background still shapes how systems here are built: measure first, model carefully, then ship.",
       },
       {
         title: "Production experience",
-        body: "Years as a full-stack scientific application developer at XiTechniX delivering .NET + React applications, earlier internships building energy visualizations (IRC Engineering) and enhancing hydrologic models at the Flanders Environment Agency — and since then, a steadily growing ecosystem of self-built products.",
+        body: "Years of full-stack scientific application development across .NET + React platforms, IoT dashboards, and internal tools — and since then, a steadily growing ecosystem of self-built products on the ASafarIM Platform.",
       },
       {
         title: "Built in the open",

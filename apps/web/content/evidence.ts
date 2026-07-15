@@ -79,9 +79,9 @@ export const evidenceRail: EvidenceItem[] = [
   },
   {
     id: "hydrology",
-    claim: "PhD research modeling river systems (Engineering Hydrology)",
+    claim: "Research-grade modeling discipline applied to software engineering",
     proofType: "research",
-    result: "Peer-reviewed modeling work that shaped a data-first engineering approach",
+    result: "A data-first, measurement-before-building culture inherited from engineering hydrology research",
     date: "VUB, Brussels",
     status: "experience",
     technologies: ["Numerical modeling", "R", "FORTRAN"],
@@ -138,7 +138,7 @@ export const workByProblem: ProblemSolved[] = [
   {
     problem: "Environmental data needed to become decision-ready models, not spreadsheets.",
     solution:
-      "PhD research applying numerical modeling to river-flow simulation — the same data-first discipline now applied to software: measure first, then build.",
+      "Research-grade numerical modeling applied to river-flow simulation — the same data-first discipline now applied to software: measure first, then build.",
     result: "A research background that still shapes how systems here are designed and verified.",
     technologies: ["Numerical modeling", "R", "Data analysis"],
     confidentiality: "described",
