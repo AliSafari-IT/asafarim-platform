@@ -51,6 +51,14 @@ model User {
   // Structured, multi-app-scoped addresses (see UserLocation below)
   locations UserLocation[]
 
+  // Vionto — photo-to-story video pipeline
+  viontoProjects         ViontoProject[]
+  viontoAuditEvents      ViontoAuditEvent[]      @relation("ViontoAuditActor")
+  viontoUsageMetrics     ViontoUsageMetric[]
+  viontoSharesSent       ViontoProjectShare[]    @relation("ViontoSharesSent")
+  viontoSharesReceived   ViontoProjectShare[]    @relation("ViontoSharesReceived")
+  googlePhotosConnection GooglePhotosConnection?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -276,4 +284,595 @@ model AuditLog {
   @@index([entity])
   @@index([action])
   @@index([createdAt])
+}
+
+// ─── Vionto — Photo-to-Story Video Pipeline ──────────────────
+//
+// Ported from asafarim-digital (source of truth). Differences from the
+// legacy schema: the platform has no multi-tenancy, so Tenant relations
+// were dropped (ViontoUsageMetric keeps a plain optional tenantId column
+// for data compatibility).
+
+model ViontoProject {
+  id     String @id @default(cuid())
+  userId String
+
+  title       String
+  description String? @db.Text
+
+  // Story mode: narrative arc vs. simple slideshow
+  mode String @default("story") // story, slideshow, documentary
+
+  // Story narrative mode: genre/style of narration
+  storyMode String? @default("memory_film") // memory_film, travel_recap, family_archive, event_recap, social_reel, documentary
+
+  // Emotional tone: feeling/mood of the narration
+  emotionalTone String? @default("nostalgic") // nostalgic, joyful, calm, epic, funny, romantic, reflective
+
+  // Visual style: render treatment for filters, captions, framing, and overlays
+  visualStyle String? @default("clean_modern_slideshow") // film_grain, polaroid_memory, clean_modern_slideshow, travel_map_overlay, vhs_archive, wedding_cinematic, social_vertical_captions
+
+  // Subtitle configuration (JSON): presetId, style, timing, export options
+  subtitleSettings Json? // SubtitleConfig object — null means use default preset
+
+  // Music selection: soundtrack direction for the video
+  musicOption    String? @default("no_music") // calm_piano, cinematic_strings, travel_upbeat, family_warm_acoustic, no_music, upload_own
+  musicTrackId   String? // Pixabay track ID if a specific track was selected
+  musicUploadKey String? // Storage key for user-uploaded music
+  musicMetadata  Json? // Track metadata (title, artist, duration, tags, downloadUrl, license, etc.)
+
+  // Target locale for narration / captions
+  locale String @default("en-US")
+
+  // Lifecycle: draft -> ready -> rendering -> completed -> archived
+  status String @default("draft") // draft, ready, rendering, completed, archived
+
+  aspectRatio           String  @default("16:9") // 16:9, 9:16, 1:1, 4:3
+  resolution            String? // 720p, 1080p, 4k; null = auto
+  targetDurationSeconds Int? // User target; null = auto
+
+  // Deletion/retention policy for this project
+  retentionPolicy String @default("soft_delete") // soft_delete, hard_delete, archive
+
+  // Relations
+  assets        ViontoAsset[]
+  albums        ViontoAlbum[]
+  videoVersions ViontoVideoVersion[]
+  scripts       ViontoScript[]
+  audioTracks   ViontoAudioTrack[]
+  renderJobs    ViontoRenderJob[]
+  exports       ViontoExport[]
+  usageMetrics  ViontoUsageMetric[]
+
+  // Ownership
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Shares: who else can access this project
+  shares ViontoProjectShare[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ─── Vionto Project Sharing ──────────────────────────────────
+
+model ViontoProjectShare {
+  id               String  @id @default(cuid())
+  projectId        String
+  sharedByUserId   String
+  // Null when the invitee is not yet registered
+  sharedWithUserId String?
+  // Email used for the invite (canonical, lowercase)
+  email            String
+
+  // Permission level: viewer can access, editor can rename/upload (future)
+  permission String @default("viewer") // viewer, editor
+
+  project    ViontoProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sharedBy   User          @relation("ViontoSharesSent", fields: [sharedByUserId], references: [id], onDelete: Cascade)
+  sharedWith User?         @relation("ViontoSharesReceived", fields: [sharedWithUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, email])
+  @@index([projectId])
+  @@index([sharedWithUserId])
+  @@index([email])
+}
+
+model ViontoAsset {
+  id        String @id @default(cuid())
+  projectId String
+  userId    String
+
+  // Asset classification
+  type String @default("source_image") // source_image, thumbnail, extracted_frame, overlay
+
+  // Display / storage URLs
+  originalUrl         String?
+  thumbnailUrl        String?
+  storageKey          String? // S3 / object-store key for original
+  thumbnailStorageKey String? // S3 / object-store key for thumbnail
+
+  // Dimensions
+  width         Int?
+  height        Int?
+  fileSizeBytes Int?
+
+  // Ordering within the project timeline
+  orderIndex Int @default(0)
+
+  // AI-generated caption for vision-aware story generation
+  caption            String?   @db.Text
+  captionProvider    String? // openai, anthropic, google, manual
+  captionModel       String? // e.g. gpt-4o-mini, claude-3-haiku
+  captionGeneratedAt DateTime?
+
+  // EXIF and technical metadata (JSON blob)
+  metadata Json?
+
+  // Content safety moderation
+  moderationOutcome  String? // ALLOW, REVIEW, REFUSE
+  moderationCategory String? // NSFW, VIOLENCE, HATE, OTHER, NONE
+  moderationReason   String?   @db.Text
+  moderatedAt        DateTime?
+
+  // Ownership
+  project    ViontoProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  albumItems ViontoAlbumItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([type])
+  @@index([orderIndex])
+}
+
+model ViontoScript {
+  id        String  @id @default(cuid())
+  projectId String
+  versionId String?
+  userId    String
+
+  // Generation provenance
+  promptVersion String? // Which prompt template / version produced this
+  provider      String? // openai, anthropic, custom, manual
+  model         String? // e.g. gpt-4.1-mini, claude-haiku-4-5
+
+  // Content
+  narrationText String? @db.Text // Plain-text narration
+  srtText       String? @db.Text // SubRip subtitle text
+
+  // Music selection for this script generation
+  musicOption   String? // calm_piano, cinematic_strings, travel_upbeat, family_warm_acoustic, no_music, upload_own
+  musicTrackId  String? // Pixabay track ID if a specific track was selected
+  musicMetadata Json? // Track metadata (title, artist, duration, tags, downloadUrl, license, etc.)
+
+  // User override tracking
+  isUserEdited Boolean @default(false)
+
+  // Audit / quality metadata
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  latencyMs        Int?
+
+  // Content safety moderation
+  moderationOutcome  String? // ALLOW, REVIEW, REFUSE
+  moderationCategory String? // NSFW, VIOLENCE, HATE, OTHER, NONE
+  moderationReason   String?   @db.Text
+  moderatedAt        DateTime?
+
+  project ViontoProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version ViontoVideoVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([versionId])
+  @@index([userId])
+  @@index([isUserEdited])
+}
+
+model ViontoAudioTrack {
+  id        String  @id @default(cuid())
+  projectId String
+  versionId String?
+  userId    String
+
+  // Classification
+  type   String @default("narration") // narration, music, sfx
+  source String @default("tts") // tts, upload, generated
+
+  // Voice / instrument metadata
+  voiceId   String?
+  voiceName String?
+
+  // Duration in seconds
+  durationSeconds Int?
+
+  // Storage
+  storageKey String?
+
+  // Mix settings: volume, fadeIn, fadeOut, startOffset (JSON)
+  mixSettings Json?
+
+  // Content safety moderation
+  moderationOutcome  String? // ALLOW, REVIEW, REFUSE
+  moderationCategory String? // NSFW, VIOLENCE, HATE, OTHER, NONE
+  moderationReason   String?   @db.Text
+  moderatedAt        DateTime?
+
+  project ViontoProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version ViontoVideoVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([versionId])
+  @@index([userId])
+  @@index([type])
+}
+
+model ViontoRenderJob {
+  id        String  @id @default(cuid())
+  projectId String
+  versionId String?
+  userId    String
+
+  // External queue / worker ID (e.g. BullMQ, Celery, etc.)
+  queueId String?
+
+  // State machine
+  state String @default("queued") // queued, running, paused, completed, failed, cancelled
+
+  // Progress 0-100
+  progressPercent Int @default(0)
+
+  // Worker logs (last N lines)
+  logs String? @db.Text
+
+  // Retry handling
+  retryCount   Int     @default(0)
+  errorSummary String? @db.Text
+
+  // Timing
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Relations
+  project ViontoProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version ViontoVideoVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  exports ViontoExport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([versionId])
+  @@index([userId])
+  @@index([state])
+  @@index([queueId])
+  @@index([createdAt])
+}
+
+model ViontoExport {
+  id          String  @id @default(cuid())
+  projectId   String
+  versionId   String?
+  renderJobId String?
+  userId      String
+
+  // Output storage
+  storageKey String
+
+  // Technical metadata
+  durationSeconds Int?
+  fileSizeBytes   Int?
+  format          String  @default("mp4") // mp4, mov, webm
+  resolution      String? // 1080p, 4k, 720p
+  filename        String?
+  userMode        String? // cinematic, slideshow, social
+  renderMode      String? // worker/render manifest mode
+  aspectRatio     String? // 16:9, 9:16, 1:1
+  aspectLabel     String? // landscape, portrait, 1by1
+  visualStyle     String? // film_grain, polaroid_memory, clean_modern_slideshow, travel_map_overlay, vhs_archive, wedding_cinematic, social_vertical_captions
+  storyMode       String? // memory_film, travel_recap, family_archive, event_recap, social_reel, documentary — snapshotted at render time
+  emotionalTone   String? // nostalgic, joyful, calm, epic, funny, romantic, reflective — snapshotted at render time
+  storyKeywords   Json?
+  previewTitle    String?
+  previewSubtitle String? @db.Text
+
+  // Music selection used for this export
+  musicOption   String? // calm_piano, cinematic_strings, travel_upbeat, family_warm_acoustic, no_music, upload_own
+  musicTrackId  String? // Pixabay track ID if a specific track was selected
+  musicMetadata Json? // Track metadata (title, artist, duration, tags, downloadUrl, license, etc.)
+
+  // Signed URL for direct download (time-limited)
+  signedUrl          String?
+  signedUrlExpiresAt DateTime?
+
+  // Content safety moderation
+  moderationOutcome  String? // ALLOW, REVIEW, REFUSE
+  moderationCategory String? // NSFW, VIOLENCE, HATE, OTHER, NONE
+  moderationReason   String?   @db.Text
+  moderatedAt        DateTime?
+
+  // Relations
+  project   ViontoProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version   ViontoVideoVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  renderJob ViontoRenderJob?    @relation(fields: [renderJobId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([versionId])
+  @@index([renderJobId])
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, userMode, createdAt])
+  @@index([userId, aspectRatio, createdAt])
+  @@index([format])
+}
+
+// Domain-specific audit trail for Vionto operations.
+// Complements the generic AuditLog with render-pipeline transitions.
+model ViontoAuditEvent {
+  id        String  @id @default(cuid())
+  actorId   String? // null for system / worker events
+  actorRole String? // CREATOR, ADMIN, SYSTEM, WORKER
+  action    String // PROJECT_CREATED, ASSET_UPLOADED, SCRIPT_GENERATED, RENDER_STARTED, RENDER_COMPLETED, EXPORT_DOWNLOADED, ...
+  entity    String // ViontoProject, ViontoAsset, ViontoScript, ViontoRenderJob, ViontoExport
+  entityId  String?
+  prevState String?
+  nextState String?
+  reason    String? @db.Text
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  actor User? @relation("ViontoAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─── Vionto Video Versioning ──────────────────────────────────
+//
+// A ViontoVideoVersion is one configured video output from a project.
+// It owns the creative settings (mode, story, tone, style, music, etc.)
+// and is the parent of scripts, audio tracks, render jobs, and exports.
+// A project may have many versions, each targeting a different album or
+// creative direction.  Existing projects are migrated with one default
+// version that copies settings from the overloaded ViontoProject columns.
+
+model ViontoVideoVersion {
+  id        String @id @default(cuid())
+  projectId String
+  userId    String
+
+  /// Which album this version renders from (null = all project assets).
+  albumId String?
+
+  /// User-facing label, e.g. "Family version", "Social reel".
+  name String @default("Version 1")
+
+  /// Optional guided template used to prefill this version.
+  templateId       String?
+  templateSettings Json?
+
+  // ── Creative settings (migrated from ViontoProject) ──
+  mode                  String  @default("story") // story, slideshow, documentary
+  storyMode             String? @default("memory_film")
+  emotionalTone         String? @default("nostalgic")
+  visualStyle           String? @default("clean_modern_slideshow")
+  subtitleSettings      Json?
+  musicOption           String? @default("no_music")
+  musicTrackId          String?
+  musicUploadKey        String?
+  musicMetadata         Json?
+  aspectRatio           String  @default("16:9") // 16:9, 9:16, 1:1, 4:3
+  resolution            String? // 720p, 1080p, 4k; null = auto
+  targetDurationSeconds Int?
+
+  // ── Story structure & caption overlays ──
+  /// Narrative structure: opening title, chapters, climax, closing, dedication.
+  storyStructure         Json?
+  /// Caption overlay toggles: scene/date/location/people, placement, style.
+  captionOverlaySettings Json?
+
+  // ── Relations ──
+  project     ViontoProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  album       ViontoAlbum?       @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  scripts     ViontoScript[]
+  audioTracks ViontoAudioTrack[]
+  renderJobs  ViontoRenderJob[]
+  exports     ViontoExport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([albumId])
+  @@index([templateId])
+}
+
+// ─── Vionto Album Management ──────────────────────────────────
+//
+// ViontoAlbum is a logical collection/ordering of ViontoAssets.
+// Every project has exactly one base album (isBase = true) created automatically.
+// Users may create additional derived albums referencing subsets of the base images.
+// No image files are duplicated — albums are pure metadata/reference layers.
+
+model ViontoAlbum {
+  id        String @id @default(cuid())
+  projectId String
+  userId    String
+
+  name        String
+  description String? @db.Text
+
+  /// true for the system-managed "Base album" that mirrors all project assets.
+  isBase Boolean @default(false)
+
+  /// Optional cover image — references a ViontoAsset id.
+  coverAssetId String?
+
+  /// Album-level metadata (arbitrary JSON, e.g. tags, notes, theme).
+  metadata Json?
+
+  /// Workflow progress for the album's creation pipeline.
+  lifecycleStage String @default("draft") // draft, photos_uploaded, story_generated, audio_ready, video_rendered, published_exported
+
+  /// User-facing organization buckets. Favorites are also mirrored in isFavorite.
+  collections String[] @default([])
+  isFavorite  Boolean  @default(false)
+
+  /// Structured metadata fields for queries and indexing.
+  dateFrom     DateTime?
+  dateTo       DateTime?
+  location     String?
+  people       String[]  @default([])
+  occasion     String?
+  mood         String?
+  privacyLevel String    @default("private") // private, unlisted, public
+
+  project       ViontoProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items         ViontoAlbumItem[]
+  videoVersions ViontoVideoVersion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Enforce at most one base album per project at the DB level.
+  // Partial-index semantics are not available in all DBs via Prisma; we enforce
+  // uniqueness on (projectId, isBase) only when isBase is true via app logic.
+  @@index([projectId])
+  @@index([userId])
+  @@index([projectId, isBase])
+  @@index([lifecycleStage])
+  @@index([isFavorite])
+}
+
+/// A single image reference inside an album.
+/// orderIndex controls display/render order independently per album.
+model ViontoAlbumItem {
+  id      String @id @default(cuid())
+  albumId String
+  assetId String
+
+  /// Display/render position within this album (0-based, lower = earlier).
+  orderIndex Int @default(0)
+
+  /// Album-specific semantic metadata for this image.
+  /// Flexible JSON — field names vary per image and per album.
+  /// Examples: { "place": "Bern", "personName": "Sara", "occasion": "graduation" }
+  /// Max validated size: 8 KB.
+  metadata Json?
+
+  /// Soft-hide from this album without removing the reference.
+  hidden Boolean @default(false)
+
+  /// User-marked favourite within this album.
+  favorite Boolean @default(false)
+
+  album ViontoAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  asset ViontoAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Each image may appear at most once per album.
+  @@unique([albumId, assetId])
+  @@index([albumId, orderIndex])
+  @@index([assetId])
+}
+
+// Vionto-specific usage metrics for quota enforcement and billing.
+// tenantId is kept as a plain optional column for legacy-data compatibility;
+// the platform has no Tenant model.
+model ViontoUsageMetric {
+  id          String    @id @default(cuid())
+  tenantId    String?
+  userId      String?
+  projectId   String?
+  metric      String // images_uploaded, storage_mb, tts_seconds, render_minutes, exports
+  value       Int
+  periodStart DateTime
+  periodEnd   DateTime?
+  metadata    Json?
+
+  user    User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project ViontoProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, metric, periodStart])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([projectId])
+  @@index([metric])
+  @@index([periodStart])
+}
+
+// Vionto plan quotas - limits per plan code
+model ViontoPlanQuota {
+  id           String @id @default(cuid())
+  planCode     String // vionto_free, vionto_pro, vionto_enterprise
+  metric       String // images_per_month, storage_mb, tts_seconds_per_month, render_minutes_per_month, exports_per_month
+  limitValue   Int
+  overagePrice Int? // price per unit over limit in cents
+  currency     String @default("USD")
+
+  @@unique([planCode, metric])
+  @@index([planCode])
+  @@index([metric])
+}
+
+// ─── Google Photos Integration (Vionto) ───────────────────────
+//
+// OAuth tokens are stored encrypted at rest (AES-256-GCM). The plaintext
+// access/refresh tokens never touch the database — see
+// apps/vionto/lib/server/google-photos/crypto.ts.
+
+model GooglePhotosConnection {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Google account that granted access (may differ from the Vionto login email).
+  googleAccountEmail String?
+  googleAccountSub   String? // Google "sub" — stable account identifier
+
+  // Encrypted OAuth tokens. Format: iv.authTag.ciphertext (all base64url).
+  accessTokenEnc  String  @db.Text
+  refreshTokenEnc String? @db.Text
+
+  // Granted OAuth scopes and access-token expiry.
+  scopes    String[]  @default([])
+  expiresAt DateTime?
+
+  // Connection lifecycle.
+  status         String    @default("active") // active | revoked | error
+  lastError      String?   @db.Text
+  lastRefreshAt  DateTime?
+  lastImportedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }

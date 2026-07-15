@@ -13,12 +13,16 @@ asafarim-platform/
 │  ├─ web/                 # Public website (asafarim.com)
 │  ├─ hub/                 # Logged-in dashboard (hub.asafarim.com)
 │  ├─ showcase/            # Public showcase (showcase.asafarim.be)
-│  └─ admin/               # Admin panel (admin.asafarim.com)
+│  ├─ admin/               # Admin panel (admin.asafarim.com)
+│  └─ vionto/              # AI photo-to-story video app (vionto.asafarim.com)
 ├─ packages/
 │  ├─ ui/                  # Shared React UI components + nav shell
 │  ├─ auth/                # Auth.js v5: providers, helpers, proxy (auth gate)
 │  ├─ db/                  # Prisma 7 + PostgreSQL: schema, migrations, seed
-│  └─ config/              # Shared TypeScript config
+│  ├─ config/              # Shared TypeScript config
+│  ├─ shared-i18n/         # Locale resolution + dictionaries (Vionto)
+│  ├─ country-language-selector/  # Country/language picker UI (Vionto)
+│  └─ vionto-schemas/      # Shared Vionto validation schemas
 ├─ infra/
 │  ├─ caddy/               # Caddyfile for reverse proxy + HTTPS
 │  └─ scripts/             # deploy-prod.sh
@@ -39,6 +43,7 @@ monorepo root context.
 | hub | localhost:3001 | hub.asafarim.com | `/`, `/sign-in`, `/dashboard`, `/apps`, `/profile`, `/settings` | `/dashboard`, `/apps`, `/profile`, `/settings` require login |
 | showcase | localhost:3002 | showcase.asafarim.be | `/`, `/projects`, `/projects/[slug]`, `/labs` | Public |
 | admin | localhost:3003 | admin.asafarim.com | `/`, `/users`, `/roles`, `/permissions`, `/audit-logs`, `/settings`, `/denied`, `/sign-in` | Everything except `/sign-in` and `/denied` requires the **admin** or **superadmin** role |
+| vionto | localhost:3004 | vionto.asafarim.com | `/`, `/create`, `/projects`, `/albums`, `/organizer`, `/api/**` | Landing and `/create` shell public; all data APIs and remaining pages require login (see [vionto-architecture.md](vionto-architecture.md)) |
 
 Protection is layered:
 

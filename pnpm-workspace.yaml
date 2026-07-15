@@ -8,5 +8,13 @@ allowBuilds:
   "@prisma/client": true
   "@prisma/engines": true
   esbuild: true
+  # bullmq optional native msgpack acceleration (falls back to pure JS)
+  msgpackr-extract: true
+  # eslint-config-next resolver
+  unrs-resolver: true
 minimumReleaseAgeExclude:
   - '@asafarim/envage@0.4.2'
+overrides:
+  # Force a single ioredis instance — bullmq pins an older minor and the
+  # duplicated types are incompatible (queue connection typecheck fails).
+  ioredis: ^5.11.1
