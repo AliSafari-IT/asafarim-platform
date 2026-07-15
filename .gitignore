@@ -42,3 +42,7 @@ Thumbs.db
 .age/*
 !.age/key.pub
 # --- end envage ---
+
+# Vionto app artifacts
+apps/vionto/worker-dist/
+apps/vionto/.local-storage/

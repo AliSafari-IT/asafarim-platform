@@ -1,0 +1,15 @@
+/**
+ * Opt-in stylesheet for `@asafarim/country-language-selector`.
+ *
+ * Import this once at your app root (e.g. in `globals.css`) so Tailwind v4
+ * scans the package sources and emits the utility classes used by the
+ * selector component:
+ *
+ *   @import "@asafarim/country-language-selector/styles.css";
+ *
+ * The selector relies on CSS variables (`--color-border`, `--color-surface`,
+ * `--color-text`, `--color-accent`, …) that already exist in every
+ * asafarim-digital app's `globals.css`, so no extra theming is required.
+ */
+@source "../country-language-selector/src/**/*.{ts,tsx}";
+@source "../shared-i18n/src/**/*.{ts,tsx}";

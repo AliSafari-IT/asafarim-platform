@@ -83,6 +83,56 @@ services:
     networks:
       - asafarim_net
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - asafarim_net
+
+  vionto:
+    build:
+      context: .
+      dockerfile: apps/vionto/Dockerfile
+      args: *public-build-args
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_APP_URL: https://vionto.asafarim.com
+      AUTH_URL: https://vionto.asafarim.com
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - asafarim_net
+
+  vionto-worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.vionto-worker
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+    networks:
+      - asafarim_net
+
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -98,6 +148,7 @@ services:
       - hub
       - showcase
       - admin
+      - vionto
     networks:
       - asafarim_net
 
@@ -106,5 +157,6 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:
   caddy_data:
   caddy_config:

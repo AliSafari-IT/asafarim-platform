@@ -17,3 +17,13 @@ admin.asafarim.com {
 showcase.asafarim.be {
   reverse_proxy showcase:3000
 }
+
+vionto.asafarim.com {
+  # Media uploads can be large; give the proxy generous timeouts.
+  reverse_proxy vionto:3000 {
+    transport http {
+      read_timeout 600s
+      write_timeout 600s
+    }
+  }
+}

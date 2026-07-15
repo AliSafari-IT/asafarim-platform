@@ -1,0 +1,50 @@
+# Vionto render worker — BullMQ consumer running FFmpeg outside the
+# Next.js request lifecycle. Built from the monorepo root context:
+#   docker build -f infra/docker/Dockerfile.vionto-worker .
+FROM node:24-alpine AS base
+RUN corepack enable
+
+# FFmpeg + font libs required by the render pipeline (subtitle burn-in)
+RUN apk add --no-cache ffmpeg fontconfig ttf-liberation
+
+# ─── Builder ──────────────────────────────────────────────────────────────────
+FROM base AS builder
+WORKDIR /repo
+
+COPY . .
+
+# Full install so tsup can resolve all imports while bundling
+RUN pnpm install --frozen-lockfile
+
+# Bundle worker.ts using the package.json script which has all correct --external flags
+RUN pnpm --filter vionto run worker:build
+
+# ─── Runner ───────────────────────────────────────────────────────────────────
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 worker
+
+# Prisma schema for client generation in the runner (musl binaries)
+COPY --from=builder /repo/packages/db/prisma ./prisma
+COPY --from=builder /repo/packages/db/prisma.config.ts ./prisma.config.ts
+
+# Install external runtime deps (kept out of the bundle by tsup `external`)
+# and generate the Prisma client for Alpine (musl)
+RUN npm install \
+      @prisma/client@7.8.0 prisma@7.8.0 \
+      @prisma/adapter-pg@7.8.0 \
+      bullmq ioredis openai zod \
+      @aws-sdk/client-s3 @aws-sdk/s3-request-presigner && \
+    npx prisma generate
+
+# The fully self-contained worker bundle
+COPY --from=builder /repo/apps/vionto/worker-dist ./worker-dist
+
+RUN chown -R worker:nodejs /app
+USER worker
+
+# Plain node -- no tsx, no npx download, no symlink resolution
+CMD ["node", "worker-dist/worker.js"]

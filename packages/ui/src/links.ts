@@ -13,6 +13,7 @@ export interface PlatformLinks {
   hub: string;
   showcase: string;
   admin: string;
+  vionto: string;
 }
 
 export function getPlatformLinks(): PlatformLinks {
@@ -21,5 +22,6 @@ export function getPlatformLinks(): PlatformLinks {
     hub: process.env.NEXT_PUBLIC_HUB_URL ?? "http://localhost:3001",
     showcase: process.env.NEXT_PUBLIC_SHOWCASE_URL ?? "http://localhost:3002",
     admin: process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3003",
+    vionto: process.env.NEXT_PUBLIC_VIONTO_URL ?? "http://localhost:3004",
   };
 }
