@@ -4,18 +4,29 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
-import { Alert, Button, FormRow, Input, Kicker, Label } from "@asafarim/ui";
+import { Alert, Button, FormRow, Input, Kicker, Label, getPlatformLinks } from "@asafarim/ui";
 import { GoogleButton } from "./GoogleButton";
 import { PasswordField } from "../../_components/PasswordField";
 import { MethodTabs, type SignInMethod } from "./MethodTabs";
 import { EmailCodeForm } from "./EmailCodeForm";
 import styles from "./auth.module.css";
 
+const links = getPlatformLinks();
+const trustedOrigins = new Set(
+  [links.web, links.hub, links.showcase, links.admin].map((url) => new URL(url).origin)
+);
+
 function normalizeCallbackUrl(raw: string | null): string {
   if (!raw) return "/dashboard";
   if (raw.startsWith("/") && !raw.startsWith("//")) {
     if (raw.startsWith("/sign-in") || raw.startsWith("/sign-up")) return "/dashboard";
     return raw;
+  }
+  try {
+    const url = new URL(raw);
+    if (trustedOrigins.has(url.origin)) return raw;
+  } catch {
+    // ignore malformed URLs
   }
   return "/dashboard";
 }
@@ -57,8 +68,12 @@ function SignInPageContentInner() {
         setError("Invalid email or password.");
         return;
       }
-      router.push(callbackUrl);
-      router.refresh();
+      if (callbackUrl.startsWith("/")) {
+        router.push(callbackUrl);
+        router.refresh();
+      } else {
+        window.location.href = callbackUrl;
+      }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
