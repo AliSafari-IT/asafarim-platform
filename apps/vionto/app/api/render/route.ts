@@ -144,15 +144,14 @@ export async function POST(req: Request) {
       visualStyle: settings.visualStyle,
     });
 
-    // Validate manifest if provided; otherwise build a minimal one
-    let manifest = (body as Record<string, unknown>)?.manifest;
-    if (manifest) {
-      const parsed = safeParseManifest(manifest);
-      if (!parsed.success) {
-        return badRequest(`Invalid render manifest: ${parsed.error.message}`);
-      }
-      manifest = parsed.data;
+    // The render manifest is always built server-side from the authenticated
+    // user's own records. A client-supplied manifest is rejected outright: a
+    // validated-but-untrusted manifest could still reference another user's
+    // storage keys, job IDs, or version IDs.
+    if ((body as Record<string, unknown>)?.manifest !== undefined) {
+      return badRequest("Client-supplied render manifests are not accepted.");
     }
+    let manifest: unknown;
 
     // Create render job row
     const job = await prisma.viontoRenderJob.create({

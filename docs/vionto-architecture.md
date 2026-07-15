@@ -577,7 +577,7 @@ Production Compose currently passes OpenAI and ElevenLabs keys to web and worker
 
 These points are observable current behavior and should be considered when extending or operating the system:
 
-1. **Custom render manifest trust:** `POST /api/render` accepts an optional fully supplied manifest, validates its shape, but does not overwrite or bind its `userId`, `projectId`, `jobId`, asset keys, or version ID to the authenticated request and newly created job. The normal UI does not send a manifest, but this API path should be removed or server-bound before being treated as an external contract.
+1. **Custom render manifest trust:** in the original implementation, `POST /api/render` accepted an optional fully supplied manifest, validated its shape, but did not bind its `userId`, `projectId`, `jobId`, asset keys, or version ID to the authenticated request. **Fixed in the platform port:** client-supplied manifests are rejected with a 400 and the manifest is always built server-side.
 2. **In-memory upload sessions:** sessions disappear on restart and are unsafe across multiple web replicas. Redis is the natural durable replacement.
 3. **Shared-project coverage:** sharing grants project/version read access, not complete album/asset/script/export traversal, and `editor` does not yet enable mutations.
 4. **Manual retry is incomplete:** it queues an invalid placeholder manifest instead of the original render input.
