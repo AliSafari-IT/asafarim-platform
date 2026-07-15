@@ -18,6 +18,7 @@ role/permission model, audit taxonomy, and platform settings.
 | `apps/hub`       | Logged-in user dashboard       | 3001     | hub.asafarim.com       | Login for dashboard/apps/profile/settings |
 | `apps/showcase`  | Public demos and case studies  | 3002     | showcase.asafarim.be   | Public                      |
 | `apps/admin`     | Internal admin panel           | 3003     | admin.asafarim.com     | admin / superadmin role     |
+| `apps/vionto`    | AI photo-to-story video app    | 3004     | vionto.asafarim.com    | Login for projects/rendering (see [docs/vionto-architecture.md](docs/vionto-architecture.md)) |
 
 Public website copy is maintained in `apps/web/content/`; PR-specific source,
 asset, and deferral records are kept in `docs/migration-notes.md`.
@@ -30,6 +31,9 @@ asset, and deferral records are kept in `docs/migration-notes.md`.
 | `packages/auth`     | Shared authentication helpers (Phase 5)          |
 | `packages/db`       | Prisma client, schema, and migrations (Phase 4)  |
 | `packages/config`   | Shared TypeScript/ESLint/Tailwind configuration  |
+| `packages/shared-i18n` | Locale resolution, dictionaries, React i18n provider (used by Vionto) |
+| `packages/country-language-selector` | Country/language picker UI (used by Vionto) |
+| `packages/vionto-schemas` | Shared Vionto validation schemas |
 
 ## Getting started
 
