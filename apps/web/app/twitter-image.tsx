@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { site } from "../content/site";
 
 export const runtime = "edge";
-export const alt = "Ali Safari — Full-Stack & AI Application Engineer";
+export const alt = "ASafarIM Digital — Full-Stack & AI Application Studio";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -47,10 +47,10 @@ export default async function TwitterImage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: 64, fontWeight: 700, color: "#211d18", lineHeight: 1.15 }}>
-            {site.person.name}
+            {site.organization.name}
           </div>
           <div style={{ fontSize: 34, color: "#b45309", marginTop: 16 }}>
-            {site.person.jobTitle}
+            {site.organization.jobTitle}
           </div>
         </div>
         <div style={{ fontSize: 24, color: "#6e6557", fontFamily: "monospace" }}>

@@ -42,11 +42,11 @@ export const metadata: Metadata = {
   },
 };
 
-const personJsonLd = {
+const organizationJsonLd = {
   "@context": "https://schema.org",
-  "@type": "Person",
-  name: site.person.name,
-  jobTitle: site.person.jobTitle,
+  "@type": "Organization",
+  name: site.organization.name,
+  description: site.organization.jobTitle,
   url: siteUrl,
   sameAs: [site.contact.github],
   address: {
@@ -65,7 +65,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
       </head>
       <body data-app="web">

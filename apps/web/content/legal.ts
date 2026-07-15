@@ -15,7 +15,7 @@ export const legalDisclaimer =
 export const privacySections: LegalSection[] = [
   {
     title: "Who we are",
-    body: "ASafarIM Digital is the personal digital studio of Ali Safari, based in Hasselt, Belgium. This website and the related ASafarIM Platform apps (Hub, Showcase, Admin) are operated by the studio.",
+    body: "ASafarIM Digital is a software studio based in Hasselt, Belgium. This website and the related ASafarIM Platform apps (Hub, Showcase, Admin) are operated by the studio.",
   },
   {
     title: "What we collect",

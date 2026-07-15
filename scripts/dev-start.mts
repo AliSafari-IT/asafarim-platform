@@ -86,7 +86,7 @@ async function main(): Promise<void> {
   execSync("pnpm db:migrate:deploy", { stdio: "inherit" });
 
   console.log("Building packages...");
-  execSync("pnpm build", { stdio: "inherit" });
+  execSync("pnpm build --no-cache", { stdio: "inherit" });
 
   console.log("Killing ports...");
   execSync("kill-port 3000 3001 3002 3003", { stdio: "inherit" });
