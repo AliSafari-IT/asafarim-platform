@@ -1,171 +1,153 @@
 /**
- * Curated public project overview. Static summaries only — full apps and
- * case studies are migrated to the Showcase in a later PR.
- * Sources: asafarim-digital (products in production) and asafarim-dot-be
- * (showcase verticals, open-source packages).
+ * Projects content for the public ASafarIM Digital website.
  */
 
-import type { Status } from "@asafarim/ui";
-
-export interface ProjectEntry {
+export type Project = {
   name: string;
+  status: "live" | "beta" | "planned" | "archived";
   description: string;
-  status: Status;
   tech: string[];
-  /** Optional link (external product or platform app). */
   href?: string;
-}
+};
 
-export interface ProjectGroup {
-  kicker: string;
+export type ProjectGroup = {
   title: string;
+  kicker: string;
   intro: string;
-  projects: ProjectEntry[];
-}
+  projects: Project[];
+};
 
 export const projectGroups: ProjectGroup[] = [
   {
-    kicker: "The platform",
-    title: "ASafarIM Platform",
-    intro: "The ecosystem this site runs on — one monorepo, one identity, many apps.",
+    title: "Platform",
+    kicker: "Foundation",
+    intro:
+      "The shared layer every app runs on: identity, data, UI primitives, and deployment patterns built once and reused across the ecosystem.",
     projects: [
       {
         name: "ASafarIM Platform",
-        description:
-          "Monorepo powering the studio site, Hub, Showcase, and Admin console: shared PostgreSQL database, Auth.js SSO with roles, a token-based design system, and one-command VPS deployment.",
         status: "live",
-        tech: ["Next.js", "TypeScript", "Prisma", "PostgreSQL", "Docker"],
+        description:
+          "The monorepo backbone: auth, database schema, design system, and deployment plumbing shared by 10+ apps.",
+        tech: ["Next.js", "TypeScript", "Turborepo", "Prisma", "PostgreSQL"],
         href: "https://github.com/AliSafari-IT/asafarim-platform",
       },
       {
-        name: "ASafarIM Hub",
+        name: "@asafarim/ui",
+        status: "live",
         description:
-          "The signed-in workspace: app launcher, profile, and settings behind a single account shared across every platform app.",
-        status: "beta",
-        tech: ["Next.js", "Auth.js", "RBAC"],
+          "Shared React component library and design tokens used across every property in the platform.",
+        tech: ["React", "TypeScript", "CSS variables"],
       },
       {
-        name: "ASafarIM Showcase",
+        name: "@asafarim/auth",
+        status: "live",
         description:
-          "The public gallery of working software — demos, case studies, and experiments from the lab.",
-        status: "beta",
-        tech: ["Next.js", "Design system"],
+          "Authentication and role primitives wrapped around Auth.js and reused by web, hub, admin, and product apps.",
+        tech: ["Auth.js", "Next.js", "Prisma"],
+      },
+      {
+        name: "@asafarim/db",
+        status: "live",
+        description:
+          "Single Prisma schema and generated client shared across the monorepo for consistent data access.",
+        tech: ["Prisma", "PostgreSQL"],
       },
     ],
   },
   {
-    kicker: "Products",
-    title: "From the product lab",
-    intro: "Self-built products running in production on the current asafarim.com platform.",
+    title: "Products",
+    kicker: "Shipped",
+    intro:
+      "Customer-facing applications built to solve real workflow problems — from content generation to matching and operations.",
     projects: [
       {
         name: "Vionto",
+        status: "beta",
         description:
-          "AI video script generation with a render pipeline: projects, assets, audio tracks, background workers, and cloud storage.",
-        status: "live",
-        tech: ["Next.js", "Redis", "AI", "Object storage"],
+          "AI-assisted content generation and workflow platform for marketing and product teams.",
+        tech: ["Next.js", "OpenAI", "Prisma", "TailwindCSS"],
+        href: "https://vionto.be",
       },
       {
         name: "EduMatch",
-        description:
-          "AI-assisted tutoring platform matching students and tutors, with inquiries, quotes, bookings, wallets, and verification flows.",
         status: "live",
-        tech: ["Next.js", "PostgreSQL", "AI"],
+        description:
+          "Matching platform connecting learners, educators, and learning opportunities.",
+        tech: ["React", "Node.js", "PostgreSQL"],
       },
       {
-        name: "Content Generator",
+        name: "SmartOps / Ops Hub",
+        status: "planned",
         description:
-          "An AI writing workspace with project folders, chat sessions, saved prompts, and custom content-type definitions.",
-        status: "live",
-        tech: ["Next.js", "OpenAI", "Anthropic"],
+          "Internal operations dashboard for monitoring jobs, alerts, and team activity.",
+        tech: ["Next.js", "TypeScript", "Tremor", "Docker"],
       },
       {
-        name: "Ops Hub",
+        name: "Content Gen",
+        status: "planned",
         description:
-          "SaaS operations console: tenants, billing, feature flags, lifecycle events, and automations behind role-gated access.",
-        status: "live",
-        tech: ["Next.js", "Prisma", "RBAC"],
+          "Structured content generation pipeline for product descriptions, variants, and SEO metadata.",
+        tech: ["Next.js", "LangChain", "Zod"],
       },
     ],
   },
   {
-    kicker: "Showcase apps",
-    title: "Working demos",
-    intro: "End-to-end verticals built to prove patterns — moving into the Showcase as case studies.",
+    title: "Showcase",
+    kicker: "Demos",
+    intro:
+          "Live, interactive demos and open-source experiments that demonstrate platform capabilities.",
     projects: [
+      {
+        name: "ASafarIM Showcase",
+        status: "live",
+        description:
+          "Public gallery of working software demos and case studies hosted on the platform.",
+        tech: ["Next.js", "Turbopack", "TailwindCSS"],
+      },
       {
         name: "Testora",
+        status: "live",
         description:
-          "E2E test automation platform: generated TestCafe suites, GitHub Actions integration, and real-time run reporting over SignalR. Cut manual testing time by ~80%.",
-        status: "beta",
-        tech: [".NET 8", "React", "TestCafe", "SignalR"],
+          "Benchmarking and evaluation playground for AI models and prompts.",
+        tech: ["Next.js", "TypeScript", "AI SDK"],
       },
       {
-        name: "SmartOps Dashboard",
+        name: "AI Eval Benchmark",
+        status: "live",
         description:
-          "Real-time IoT operations dashboard with live device status for 100+ concurrent connections and role-based access.",
-        status: "beta",
-        tech: ["React", ".NET 8", "SignalR", "PostgreSQL"],
-      },
-      {
-        name: "Task Management",
-        description:
-          "Personal and team task management with SSO, permissions, filters, and dashboards.",
-        status: "beta",
-        tech: ["React", "TypeScript", "PostgreSQL"],
-      },
-      {
-        name: "Java Study Notes",
-        description:
-          "Academic note-taking with citations, bibliography management, tagging, search, and export.",
-        status: "archived",
-        tech: ["Spring Boot", "Java 21", "React"],
+          "Reusable benchmark harness for comparing model outputs across tasks and metrics.",
+        tech: ["TypeScript", "OpenAI", "evals"],
       },
     ],
   },
   {
-    kicker: "Open source",
-    title: "Published packages",
-    intro: "Utilities extracted from real projects, published under @asafarim on npm.",
+    title: "Open source",
+    kicker: "Packages",
+    intro:
+      "Reusable libraries published to npm and GitHub as the platform's foundations mature.",
     projects: [
       {
-        name: "@asafarim/navigation",
-        description: "Navigation components shared across the studio's React apps.",
+        name: "@asafarim/config",
         status: "live",
-        tech: ["React", "npm"],
-        href: "https://www.npmjs.com/package/@asafarim/navigation",
-      },
-      {
-        name: "@asafarim/toast",
         description:
-          "Lightweight, theme-aware toast notifications for React with a simple programmatic API and zero dependencies.",
-        status: "live",
-        tech: ["React", "npm"],
-        href: "https://www.npmjs.com/~asafarim",
-      },
-      {
-        name: "@asafarim/react-themes",
-        description:
-          "Preset light/dark/high-contrast theme bundles with runtime switching utilities.",
-        status: "live",
-        tech: ["React", "npm"],
-        href: "https://www.npmjs.com/~asafarim",
+          "Shared tooling configuration for ESLint, Prettier, TypeScript, and Tailwind.",
+        tech: ["TypeScript", "ESLint", "Prettier"],
       },
       {
         name: "@asafarim/shared-i18n",
-        description:
-          "A small translation module for React + TypeScript apps built on i18next, with English and Dutch defaults.",
         status: "live",
-        tech: ["i18next", "npm"],
-        href: "https://www.npmjs.com/~asafarim",
+        description:
+          "Internationalization utilities and locale dictionaries shared across apps.",
+        tech: ["TypeScript", "i18next"],
+      },
+      {
+        name: "@asafarim/country-language-selector",
+        status: "live",
+        description:
+          "React component for picking countries, regions, and languages with built-in data.",
+        tech: ["React", "TypeScript"],
       },
     ],
   },
-];
-
-/** Featured on the homepage — a slice of the wall. */
-export const featuredProjects: ProjectEntry[] = [
-  projectGroups[0].projects[0],
-  projectGroups[2].projects[0],
-  projectGroups[1].projects[0],
 ];
