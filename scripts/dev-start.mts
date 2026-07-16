@@ -1,5 +1,7 @@
 #!/usr/bin/env tsx
 import { execSync, spawn } from "node:child_process";
+import { rmSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import net from "node:net";
 
 const DB_HOST = "localhost";
@@ -90,6 +92,19 @@ async function main(): Promise<void> {
 
   console.log("Killing ports...");
   execSync("kill-port 3000 3001 3002 3003 3004", { stdio: "inherit" });
+
+  // Clean stale .next/dev directories to prevent Turbopack cache conflicts
+  // after the build step above. Build artifacts can confuse the dev server.
+  console.log("Cleaning .next/dev caches...");
+  const appsDir = join(process.cwd(), "apps");
+  for (const app of readdirSync(appsDir)) {
+    const devDir = join(appsDir, app, ".next", "dev");
+    try {
+      rmSync(devDir, { recursive: true, force: true });
+    } catch {
+      // ignore if directory doesn't exist
+    }
+  }
 
   console.log("Starting dev servers...");
   const turbo = spawn("turbo", ["dev"], { stdio: "inherit", shell: true });
