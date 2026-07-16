@@ -1,15 +1,191 @@
 /**
- * Opt-in stylesheet for `@asafarim/country-language-selector`.
+ * Stylesheet for `@asafarim/country-language-selector`.
  *
- * Import this once at your app root (e.g. in `globals.css`) so Tailwind v4
- * scans the package sources and emits the utility classes used by the
- * selector component:
+ * Plain CSS — no Tailwind required. Import it once at your app root:
  *
- *   @import "@asafarim/country-language-selector/styles.css";
+ *   - Tailwind app (vionto):  @import "@asafarim/country-language-selector/styles.css";  in globals.css
+ *   - Plain-CSS app:          import "@asafarim/country-language-selector/styles.css";   in the root layout
  *
- * The selector relies on CSS variables (`--color-border`, `--color-surface`,
- * `--color-text`, `--color-accent`, …) that already exist in every
- * asafarim-digital app's `globals.css`, so no extra theming is required.
+ * Theming resolves in this order:
+ *   1. `--color-*` variables (asafarim-digital / vionto globals.css)
+ *   2. `@asafarim/ui` design tokens (--surface, --ink, --muted, --line, --accent)
+ *   3. neutral built-in fallbacks
  */
-@source "../country-language-selector/src/**/*.{ts,tsx}";
-@source "../shared-i18n/src/**/*.{ts,tsx}";
+
+.cls-root,
+.cls-dropdown {
+  --cls-border: var(--color-border, var(--line, rgba(128, 128, 128, 0.25)));
+  --cls-surface: var(--color-surface, var(--surface, Canvas));
+  --cls-surface-soft: var(--color-surface-soft, var(--surface-2, rgba(128, 128, 128, 0.12)));
+  --cls-text: var(--color-text, var(--ink, CanvasText));
+  --cls-text-muted: var(--color-text-muted, var(--muted, #8a8a8a));
+  --cls-text-subtle: var(--color-text-subtle, var(--muted, #9a9a9a));
+  --cls-accent: var(--color-accent, var(--accent, #4a90d9));
+  --cls-font-mono: var(--font-mono, ui-monospace, Menlo, Consolas, monospace);
+}
+
+.cls-root {
+  position: relative;
+  display: inline-flex;
+}
+
+:where(.cls-root, .cls-dropdown) :where(button) {
+  font: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+/* ── Trigger ────────────────────────────────────────────────────── */
+.cls-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--cls-surface) 60%, transparent);
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--cls-text-muted);
+  transition: background 130ms ease, color 130ms ease;
+}
+
+.cls-trigger:hover {
+  background: var(--cls-surface-soft);
+  color: var(--cls-text);
+}
+
+.cls-trigger-label {
+  display: none;
+  font-family: var(--cls-font-mono);
+  font-size: 0.6875rem;
+}
+
+@media (min-width: 640px) {
+  .cls-trigger-label {
+    display: inline;
+  }
+}
+
+.cls-flag {
+  height: 1.25rem;
+  width: 1.25rem;
+  object-fit: cover;
+  border-radius: 0.125rem;
+}
+
+.cls-caret {
+  height: 0.75rem;
+  width: 0.75rem;
+  color: var(--cls-text-subtle);
+  transition: transform 130ms ease, color 130ms ease;
+}
+
+.cls-trigger:hover .cls-caret {
+  color: var(--cls-text);
+}
+
+.cls-caret.is-open {
+  transform: rotate(180deg);
+}
+
+/* ── Dropdown (portaled to <body>) ──────────────────────────────── */
+.cls-dropdown {
+  z-index: 9999;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid var(--cls-border);
+  background: var(--cls-surface);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+}
+
+.cls-countries {
+  display: flex;
+  border-bottom: 1px solid var(--cls-border);
+}
+
+.cls-country {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0;
+  font-size: 0.75rem;
+  color: var(--cls-text-muted);
+  transition: background 130ms ease, color 130ms ease;
+}
+
+.cls-country:hover {
+  background: color-mix(in srgb, var(--cls-surface-soft) 60%, transparent);
+  color: var(--cls-text);
+}
+
+.cls-country.is-active {
+  background: var(--cls-surface-soft);
+  color: var(--cls-text);
+}
+
+.cls-country-code {
+  font-weight: 500;
+}
+
+.cls-active-dot {
+  margin-left: 0.125rem;
+  height: 0.25rem;
+  width: 0.25rem;
+  border-radius: 9999px;
+  background: var(--cls-accent);
+}
+
+.cls-langs {
+  padding: 0.25rem;
+}
+
+.cls-lang-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.cls-lang {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--cls-text-muted);
+  transition: background 130ms ease, color 130ms ease;
+}
+
+.cls-lang:hover {
+  background: color-mix(in srgb, var(--cls-surface-soft) 60%, transparent);
+  color: var(--cls-text);
+}
+
+.cls-lang.is-active {
+  background: var(--cls-surface-soft);
+  color: var(--cls-accent);
+}
+
+.cls-lang-label {
+  font-weight: 500;
+}
+
+.cls-lang-code {
+  font-family: var(--cls-font-mono);
+  font-size: 0.625rem;
+  color: var(--cls-text-subtle);
+}
+
+.cls-check {
+  height: 0.875rem;
+  width: 0.875rem;
+  flex-shrink: 0;
+  color: var(--cls-accent);
+}

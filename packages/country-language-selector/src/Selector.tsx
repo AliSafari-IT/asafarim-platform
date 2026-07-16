@@ -101,12 +101,12 @@ export function CountryLanguageSelector({
     <div
       ref={dropdownRef}
       role="listbox"
-      className="z-[9999] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl shadow-black/20"
+      className="cls-dropdown"
       style={{ visibility: "hidden", ...dropdownStyle }}
     >
       {/* Countries */}
       {!lockCountry && (
-        <div className="flex border-b border-[var(--color-border)]">
+        <div className="cls-countries">
           {COUNTRY_ORDER.map((code) => {
             const c = BENELUX_COUNTRIES[code];
             const active = code === country;
@@ -115,23 +115,17 @@ export function CountryLanguageSelector({
                 key={code}
                 type="button"
                 onClick={() => pickCountry(code)}
-                className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs transition ${
-                  active
-                    ? "bg-[var(--color-surface-soft)] text-[var(--color-text)]"
-                    : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-soft)]/60 hover:text-[var(--color-text)]"
-                }`}
+                className={`cls-country${active ? " is-active" : ""}`}
                 aria-pressed={active}
               >
                 <img
                   src={c.flagUrl}
                   alt={c.name}
-                  className="h-5 w-5 object-cover rounded-sm"
+                  className="cls-flag"
                   loading="lazy"
                 />
-                <span className="font-medium">{c.code}</span>
-                {active && (
-                  <span className="ml-0.5 h-1 w-1 rounded-full bg-[var(--color-accent)]" />
-                )}
+                <span className="cls-country-code">{c.code}</span>
+                {active && <span className="cls-active-dot" />}
               </button>
             );
           })}
@@ -139,8 +133,8 @@ export function CountryLanguageSelector({
       )}
 
       {/* Languages */}
-      <div className="p-1">
-        <ul className="space-y-0.5">
+      <div className="cls-langs">
+        <ul className="cls-lang-list">
           {languages.map((lng) => {
             const active = lng === locale;
             const label = LOCALE_LABELS[lng];
@@ -151,17 +145,13 @@ export function CountryLanguageSelector({
                   onClick={() => pickLocale(lng)}
                   role="option"
                   aria-selected={active}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
-                    active
-                      ? "bg-[var(--color-surface-soft)] text-[var(--color-accent)]"
-                      : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-soft)]/60 hover:text-[var(--color-text)]"
-                  }`}
+                  className={`cls-lang${active ? " is-active" : ""}`}
                 >
-                  <span className="font-medium">{label.long}</span>
+                  <span className="cls-lang-label">{label.long}</span>
                   {active ? (
                     <svg
                       viewBox="0 0 16 16"
-                      className="h-3.5 w-3.5 shrink-0 text-[var(--color-accent)]"
+                      className="cls-check"
                       fill="none"
                       aria-hidden="true"
                     >
@@ -174,9 +164,7 @@ export function CountryLanguageSelector({
                       />
                     </svg>
                   ) : (
-                    <span className="font-mono text-[10px] text-[var(--color-text-subtle)]">
-                      {lng}
-                    </span>
+                    <span className="cls-lang-code">{lng}</span>
                   )}
                 </button>
               </li>
@@ -199,30 +187,26 @@ export function CountryLanguageSelector({
   }
 
   return (
-    <div ref={rootRef} className={`relative ${className ?? ""}`}>
+    <div ref={rootRef} className={`cls-root ${className ?? ""}`}>
       {/* Trigger */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="group inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-surface)]/60 px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface-soft)] hover:text-[var(--color-text)]"
+        className="cls-trigger"
         title={`${t("common.country")} · ${t("common.language")}`}
       >
         <img
           src={activeCountry.flagUrl}
           alt={activeCountry.name}
-          className="h-5 w-5 object-cover rounded-sm"
+          className="cls-flag"
           loading="lazy"
         />
-        {!compact && (
-          <span className="hidden font-mono text-[11px] sm:inline">
-            {activeLabel.short}
-          </span>
-        )}
+        {!compact && <span className="cls-trigger-label">{activeLabel.short}</span>}
         <svg
           viewBox="0 0 16 16"
-          className={`h-3 w-3 text-[var(--color-text-subtle)] transition group-hover:text-[var(--color-text)] ${open ? "rotate-180" : ""}`}
+          className={`cls-caret${open ? " is-open" : ""}`}
           fill="none"
           aria-hidden="true"
         >

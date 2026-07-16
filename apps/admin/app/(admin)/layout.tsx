@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { requireRole, signOut, ROLES } from "@asafarim/auth";
+import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   AppShell,
   AppSwitcher,
@@ -24,6 +25,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       product="Admin"
       user={
         <>
+          <CountryLanguageSelector lockCountry="BE" />
           <AppSwitcher
             links={[
               { label: "Hub", href: links.hub, meta: "dashboard" },

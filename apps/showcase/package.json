@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@asafarim/auth": "workspace:*",
+    "@asafarim/country-language-selector": "workspace:*",
     "@asafarim/edumatch-benchmark": "workspace:*",
+    "@asafarim/shared-i18n": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "@asafarim/vionto-benchmark": "workspace:*",
     "dotenv": "^17.4.2",
