@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { auth, signOut } from "@asafarim/auth";
+import { I18nProvider } from "@asafarim/shared-i18n";
+import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
+import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   AppShell,
   AppSwitcher,
@@ -11,6 +15,7 @@ import {
   getPlatformLinks,
 } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
+import "@asafarim/country-language-selector/styles.css";
 
 export const metadata: Metadata = {
   title: {
@@ -24,10 +29,13 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   const links = getPlatformLinks();
+  const cookieStore = await cookies();
+  const initialLocale = resolveLocaleFromCookie(cookieStore.toString());
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={initialLocale} suppressHydrationWarning>
       <body data-app="showcase">
+        <I18nProvider initialLocale={initialLocale}>
         <AppShell
           product="Showcase"
           nav={
@@ -41,6 +49,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           }
           user={
             <>
+              <CountryLanguageSelector lockCountry="BE" />
               <AppSwitcher
                 links={[
                   { label: "ASafarIM Digital", href: links.web, meta: "studio" },
@@ -79,6 +88,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         >
           {children}
         </AppShell>
+        </I18nProvider>
       </body>
     </html>
   );

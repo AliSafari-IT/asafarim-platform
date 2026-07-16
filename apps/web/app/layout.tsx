@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { auth, signOut } from "@asafarim/auth";
+import { I18nProvider } from "@asafarim/shared-i18n";
+import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
+import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   AppShell,
   AppSwitcher,
@@ -12,6 +16,7 @@ import {
 } from "@asafarim/ui";
 import { site } from "../content/site";
 import "@asafarim/ui/styles.css";
+import "@asafarim/country-language-selector/styles.css";
 
 const links = getPlatformLinks();
 const siteUrl = links.web;
@@ -58,9 +63,11 @@ const organizationJsonLd = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await auth();
+  const cookieStore = await cookies();
+  const initialLocale = resolveLocaleFromCookie(cookieStore.toString());
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={initialLocale} suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"
@@ -69,6 +76,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         />
       </head>
       <body data-app="web">
+        <I18nProvider initialLocale={initialLocale}>
         <AppShell
           product="Digital"
           nav={
@@ -84,6 +92,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           }
           user={
             <>
+              <CountryLanguageSelector lockCountry="BE" />
               <AppSwitcher
                 links={[
                   { label: "Showcase", href: links.showcase, meta: "gallery" },
@@ -130,6 +139,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         >
           {children}
         </AppShell>
+        </I18nProvider>
       </body>
     </html>
   );
