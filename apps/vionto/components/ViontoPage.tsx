@@ -303,6 +303,11 @@ function normalizeProjectMusicMetadata(
   return [];
 }
 
+function formatMusicCategory(category: string | undefined): string | null {
+  if (!category) return null;
+  return category.split("_").filter(Boolean).join(" · ");
+}
+
 type LibraryExport = {
   id: string;
   projectId: string;
@@ -4385,20 +4390,23 @@ export function ViontoPage() {
                   )}
 
                   {/* ─── AI motion (Kling image-to-video) ─────────────────── */}
-                  {selectedProjectId && selectedAlbumId && albumItems.length > 0 && (
-                    <AiMotionPanel
-                      projectId={selectedProjectId}
-                      versionId={selectedVersionId}
-                      albumId={selectedAlbumId}
-                      items={albumItems
-                        .filter((item) => !item.hidden)
-                        .map((item) => ({
-                          albumItemId: item.id,
-                          assetId: item.assetId,
-                          thumbnailUrl: item.asset.thumbnailUrl ?? item.asset.originalUrl,
-                        }))}
-                    />
-                  )}
+                  {selectedProjectId &&
+                    selectedAlbumId &&
+                    albumItems.length > 0 && (
+                      <AiMotionPanel
+                        projectId={selectedProjectId}
+                        versionId={selectedVersionId}
+                        albumId={selectedAlbumId}
+                        items={albumItems
+                          .filter((item) => !item.hidden)
+                          .map((item) => ({
+                            albumItemId: item.id,
+                            assetId: item.assetId,
+                            thumbnailUrl:
+                              item.asset.thumbnailUrl ?? item.asset.originalUrl,
+                          }))}
+                      />
+                    )}
                 </div>
               )}
 
@@ -4806,9 +4814,10 @@ export function ViontoPage() {
                                       {item.filename}
                                     </p>
                                     <p className="truncate text-xs text-[var(--color-text-muted)]">
-                                      {new Date(
-                                        item.lastModified
-                                      ).toLocaleDateString()}{" "}
+                                      {item.common
+                                        ? (formatMusicCategory(item.category) ??
+                                          t("vionto.music.commonArtist"))
+                                        : t("vionto.music.personalUpload")}{" "}
                                       ·{" "}
                                       {(item.sizeBytes / (1024 * 1024)).toFixed(
                                         2
