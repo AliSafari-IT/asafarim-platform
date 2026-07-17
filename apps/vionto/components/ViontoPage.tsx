@@ -2559,7 +2559,25 @@ export function ViontoPage() {
       return;
     }
 
-    const previewUrl = track.downloadUrl;
+    let previewUrl = track.downloadUrl;
+    if (track.storageKey) {
+      const previewRes = await fetch(
+        `/api/music/preview?key=${encodeURIComponent(track.storageKey)}`
+      );
+      const previewData = (await previewRes.json().catch(() => ({}))) as {
+        previewUrl?: string;
+        error?: string;
+      };
+      if (!previewRes.ok || !previewData.previewUrl) {
+        console.error(
+          "Failed to create music preview URL:",
+          previewData.error ?? previewRes.statusText
+        );
+        setMusicPreviewTrackId(null);
+        return;
+      }
+      previewUrl = previewData.previewUrl;
+    }
 
     // Clean up previous audio
     if (musicPreviewAudioRef.current) {
