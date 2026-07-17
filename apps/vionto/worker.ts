@@ -10,7 +10,7 @@ import Redis from "ioredis";
 import { spawn } from "node:child_process";
 import { mkdir, writeFile, rm, stat } from "node:fs/promises";
 import { createServer } from "node:http";
-import { extname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { prisma } from "@asafarim/db";
 import { Prisma } from "@asafarim/db";
@@ -29,7 +29,23 @@ if (!REDIS_URL) {
   throw new Error("REDIS_URL environment variable is required. Please set it to redis://localhost:6380 or your Redis instance URL.");
 }
 const WORKER_HEALTH_PORT = Number.parseInt(process.env.WORKER_HEALTH_PORT ?? "3007", 10);
-const FFMPEG_BIN = process.env.FFMPEG_PATH ?? "ffmpeg";
+
+// Use `|| "ffmpeg"` (not `??`) so an *empty* FFMPEG_PATH="" — which shadows the
+// real value when a blank override sits in a higher-priority .env — falls back
+// to the PATH lookup instead of spawning "" ("The argument 'file' cannot be
+// empty. Received ''").
+const FFMPEG_BIN = process.env.FFMPEG_PATH?.trim() || "ffmpeg";
+
+/** ffprobe ships beside ffmpeg; derive it from FFMPEG_PATH when unset so it
+ *  works even if the ffmpeg folder isn't on PATH. */
+function resolveFfprobeBin(): string {
+  const explicit = process.env.FFPROBE_PATH?.trim();
+  if (explicit) return explicit;
+  const ffmpeg = process.env.FFMPEG_PATH?.trim();
+  if (ffmpeg) return join(dirname(ffmpeg), `ffprobe${extname(ffmpeg)}`);
+  return "ffprobe";
+}
+const FFPROBE_BIN = resolveFfprobeBin();
 const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: null });
 let isShuttingDown = false;
 
@@ -142,7 +158,6 @@ async function isCancelled(jobId: string): Promise<boolean> {
  * Uses ffprobe (ships alongside ffmpeg) so no extra dependency is needed.
  */
 async function getAudioDurationMs(filePath: string): Promise<number> {
-  const FFPROBE_BIN = process.env.FFPROBE_PATH ?? "ffprobe";
   return new Promise((resolve, reject) => {
     const proc = spawn(FFPROBE_BIN, [
       "-v", "quiet",

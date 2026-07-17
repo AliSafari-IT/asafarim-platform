@@ -17,6 +17,13 @@ import {
   downloadClip as klingDownloadClip,
   type KlingTaskStatus,
 } from "../kling";
+import {
+  submitFalTask,
+  getFalStatus,
+  getFalResult,
+  downloadFalClip,
+  type FalQueueStatus,
+} from "../fal";
 import type {
   AlbumAnalyzer,
   GenerativeVideoProvider,
@@ -181,6 +188,97 @@ class KlingVideoProviderImpl implements GenerativeVideoProvider {
 }
 
 export const KlingVideoProvider = new KlingVideoProviderImpl();
+
+// ─── Generative video: fal.ai (LTX / WAN / Kling under one key) ──────
+
+const LTX_MODEL_PREFIX = "fal-ai/ltx-video";
+
+/** fal queue status → our clip status. COMPLETED maps to succeeded only when
+ *  a video URL is present; the caller downgrades to "failed" otherwise. */
+function mapFalStatus(status: FalQueueStatus): GeneratedClipStatus {
+  if (status === "IN_QUEUE") return "submitted";
+  if (status === "IN_PROGRESS") return "processing";
+  return "succeeded"; // COMPLETED
+}
+
+/** fal has no single result envelope — pull the first video URL + duration. */
+function extractFalVideo(result: Record<string, unknown>): { id: string; url: string; duration: number | null } | null {
+  const video = result.video as { url?: string; duration?: number } | undefined;
+  if (video?.url) return { id: "0", url: video.url, duration: video.duration ?? null };
+  const videos = result.videos as Array<{ url?: string; duration?: number }> | undefined;
+  if (videos?.[0]?.url) return { id: "0", url: videos[0].url!, duration: videos[0].duration ?? null };
+  return null;
+}
+
+/** fal encodes the model in the taskId so getClip can rebuild the queue path. */
+function encodeFalTaskId(model: string, requestId: string): string {
+  return `${model}::${requestId}`;
+}
+function decodeFalTaskId(taskId: string): { model: string; requestId: string } {
+  const idx = taskId.lastIndexOf("::");
+  if (idx === -1) throw new Error(`Malformed fal task id: ${taskId}`);
+  return { model: taskId.slice(0, idx), requestId: taskId.slice(idx + 2) };
+}
+
+class FalVideoProviderImpl implements GenerativeVideoProvider {
+  constructor(private readonly apiKey: string) {}
+
+  async generateClip(input: GeneratedClipInput) {
+    const model = input.model;
+    if (!model) throw new Error("A fal model id is required.");
+
+    // LTX takes only image_url + prompt; richer models accept duration/aspect.
+    const body: Record<string, unknown> = {
+      image_url: input.imageUrl,
+      prompt: input.prompt,
+      ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
+    };
+    if (!model.startsWith(LTX_MODEL_PREFIX)) {
+      body.duration = String(input.durationSeconds);
+      body.aspect_ratio = input.aspectRatio;
+    }
+
+    const submit = await submitFalTask(this.apiKey, model, body);
+    return {
+      task: {
+        taskId: encodeFalTaskId(model, submit.requestId),
+        status: mapFalStatus(submit.status),
+        statusMessage: null,
+        videos: [],
+        raw: { request_id: submit.requestId },
+      },
+    };
+  }
+
+  async getClip(taskId: string): Promise<GeneratedClipTask> {
+    const { model, requestId } = decodeFalTaskId(taskId);
+    const status = await getFalStatus(this.apiKey, model, requestId);
+    if (status !== "COMPLETED") {
+      return { taskId, status: mapFalStatus(status), statusMessage: null, videos: [], raw: { status } };
+    }
+    const result = await getFalResult(this.apiKey, model, requestId);
+    const video = extractFalVideo(result);
+    if (!video) {
+      return {
+        taskId,
+        status: "failed",
+        statusMessage: "fal.ai completed without a video URL.",
+        videos: [],
+        raw: result,
+      };
+    }
+    return { taskId, status: "succeeded", statusMessage: null, videos: [video], raw: result };
+  }
+
+  downloadClip(url: string): Promise<Buffer> {
+    return downloadFalClip(url);
+  }
+}
+
+/** fal is BYOK — bind the resolved key when constructing the provider. */
+export function createFalVideoProvider(apiKey: string): GenerativeVideoProvider {
+  return new FalVideoProviderImpl(apiKey);
+}
 
 // Album analysis adapter is introduced in Phase B (structured AlbumAnalysis).
 export type { AlbumAnalyzer };

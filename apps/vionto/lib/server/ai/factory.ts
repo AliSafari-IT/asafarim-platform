@@ -10,6 +10,7 @@ import {
   OpenAINarrationProvider,
   ElevenLabsNarrationProvider,
   KlingVideoProvider,
+  createFalVideoProvider,
 } from "./adapters";
 import type {
   GenerativeVideoProvider,
@@ -40,11 +41,20 @@ export function getNarrationProvider(provider: AiProviderId): NarrationProvider 
   }
 }
 
-export function getGenerativeVideoProvider(provider: AiProviderId): GenerativeVideoProvider {
+/**
+ * Resolve a generative-video provider. `fal` is BYOK and requires the resolved
+ * key in `ctx.apiKey`; `kling` currently reads its key/secret from env.
+ */
+export function getGenerativeVideoProvider(
+  provider: AiProviderId,
+  ctx?: { apiKey?: string; apiSecret?: string }
+): GenerativeVideoProvider {
   switch (provider) {
     case "kling":
       return KlingVideoProvider;
-    // "fal" adapter arrives in Phase G.
+    case "fal":
+      if (!ctx?.apiKey) throw new Error("fal.ai requires an API key (set FAL_KEY or add your key in settings).");
+      return createFalVideoProvider(ctx.apiKey);
     default:
       throw new Error(`No GenerativeVideoProvider adapter for provider "${provider}".`);
   }

@@ -116,7 +116,7 @@ export const PROVIDER_REGISTRY: readonly ProviderEntry[] = [
     auth: "api_key",
     envKey: "FAL_KEY",
     byok: true,
-    implemented: false,
+    implemented: true,
     models: [
       { id: "fal-ai/ltx-video/image-to-video", label: "LTX Video (cheap)", capability: "generative_video", tier: "economy", approxCost: { amount: 0.02, unit: "per_5s_clip" } },
       { id: "fal-ai/wan-i2v", label: "WAN 2.x", capability: "generative_video", tier: "standard", approxCost: { amount: 0.35, unit: "per_5s_clip" } },

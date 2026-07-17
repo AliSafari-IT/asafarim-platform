@@ -362,6 +362,10 @@ export const createAiClipsSchema = z.object({
   negativePrompt: z.string().trim().max(2000).optional(),
   mode: z.enum(["std", "pro"]).default("std"),
   durationSeconds: z.union([z.literal(5), z.literal(10)]).default(5),
+  /** Generative-video provider. Defaults to the cheap fal.ai path. */
+  provider: z.enum(["fal", "kling"]).default("fal"),
+  /** Provider model id. When omitted the route picks the provider default. */
+  model: z.string().trim().min(1).max(200).optional(),
 });
 
 export const updateAiClipSchema = z.object({
