@@ -9,9 +9,10 @@ import { fileURLToPath } from "node:url";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const candidates = [
-  resolve(__dir, "..", ".env"),                   // apps/vionto/.env      (highest priority)
+  resolve(__dir, "..", ".env.local"), // apps/vionto/.env.local (highest priority)
+  resolve(__dir, "..", ".env"),
   resolve(__dir, "..", "..", "..", ".env.local"), // repo root .env.local  (platform convention)
-  resolve(__dir, "..", "..", "..", ".env"),       // repo root .env        (fallback)
+  resolve(__dir, "..", "..", "..", ".env"), // repo root .env        (fallback)
 ];
 
 const seen = new Set();
@@ -26,8 +27,10 @@ for (const envPath of candidates) {
     if (seen.has(key)) continue; // first (higher-priority) file already set it
     seen.add(key);
     let val = trimmed.slice(eqIdx + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) ||
-        (val.startsWith("'") && val.endsWith("'"))) {
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
       val = val.slice(1, -1);
     }
     process.env[key] = val;
