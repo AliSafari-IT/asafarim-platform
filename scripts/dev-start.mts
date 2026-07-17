@@ -1,12 +1,14 @@
 #!/usr/bin/env tsx
-import { execSync, spawn } from "node:child_process";
+import { execSync, spawn, spawnSync } from "node:child_process";
 import { rmSync, readdirSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import net from "node:net";
 
 const DB_HOST = "localhost";
 const DB_PORT = 55435;
-const DOCKER_DESKTOP_PATH = "F:\\\\programs\\\\Docker\\\\Docker\\\\Docker Desktop.exe";
+const DOCKER_DESKTOP_PATH =
+  "F:\\\\programs\\\\Docker\\\\Docker\\\\Docker Desktop.exe";
 const MAX_WAIT_SECONDS = 90;
 
 function isDbReachable(): Promise<boolean> {
@@ -53,7 +55,7 @@ function startDockerDesktop(): void {
   console.log("Starting Docker Desktop...");
   execSync(
     `powershell -ExecutionPolicy Bypass -Command "Get-Process 'Docker Desktop' -ErrorAction SilentlyContinue | Stop-Process -Force; Get-Process 'com.docker.backend','com.docker.proxy','dockerd' -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 3; Start-Process '${DOCKER_DESKTOP_PATH}';"`,
-    { stdio: "inherit" },
+    { stdio: "inherit" }
   );
   waitForDocker();
 }
@@ -107,8 +109,44 @@ async function main(): Promise<void> {
   }
 
   console.log("Starting dev servers...");
-  const turbo = spawn("turbo", ["dev"], { stdio: "inherit", shell: true });
-  turbo.on("exit", (code) => process.exit(code ?? 0));
+  const require = createRequire(import.meta.url);
+  const turboCli = require.resolve("turbo/bin/turbo");
+  const turbo = spawn(process.execPath, [turboCli, "dev"], {
+    stdio: "inherit",
+    shell: false,
+  });
+  let shuttingDown = false;
+  let forceExitTimer: NodeJS.Timeout | undefined;
+
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    if (process.platform !== "win32") {
+      turbo.kill("SIGTERM");
+    }
+
+    forceExitTimer = setTimeout(() => {
+      if (turbo.exitCode === null && turbo.pid) {
+        if (process.platform === "win32") {
+          spawnSync("taskkill", ["/PID", String(turbo.pid), "/T", "/F"], {
+            stdio: "ignore",
+            windowsHide: true,
+          });
+        } else {
+          turbo.kill("SIGKILL");
+        }
+      }
+      process.exit(0);
+    }, 3000);
+  };
+
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+  turbo.on("exit", (code) => {
+    if (forceExitTimer) clearTimeout(forceExitTimer);
+    process.exit(shuttingDown ? 0 : (code ?? 0));
+  });
 }
 
 main().catch((err) => {
