@@ -1,11 +1,11 @@
 # Populate the shared/common Vionto music library from a local Windows folder.
 # Run from the repository root: .\apps\vionto\scripts\populate-music-library.ps1
-# Tracks end up under vionto/common/audio/immostoryai/ and are visible to every user.
+# Tracks end up under vionto/common/audio/asafarim-music-tracks/ and are visible to every user.
 # User uploads remain private under vionto/{userId}/audio/.
 
 param(
-  [string]$Dir = "C:\Users\saal\Music\immostoryai",
-  [string]$Scope = "immostoryai",
+  [string]$Dir = "C:\Users\saal\Music\categories",
+  [string]$Scope = "asafarim-music-tracks",
   [switch]$Watch,
   [switch]$DryRun,
   [switch]$Test
