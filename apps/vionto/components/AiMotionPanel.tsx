@@ -41,6 +41,29 @@ type Props = {
 
 const MAX_SELECTION = 3;
 
+type ProviderId = "fal" | "kling";
+
+type ModelOption = {
+  id: string;
+  label: string;
+  /** Rough USD per 5s clip, for the cost hint. */
+  costPer5s: number;
+  /** Whether the std/pro quality toggle applies to this model. */
+  usesMode: boolean;
+};
+
+/** Client-side mirror of the server registry's generative-video models. */
+const MODELS: Record<ProviderId, ModelOption[]> = {
+  fal: [
+    { id: "fal-ai/ltx-video/image-to-video", label: "LTX — fast & cheap", costPer5s: 0.02, usesMode: false },
+    { id: "fal-ai/wan-i2v", label: "WAN 2.x — balanced", costPer5s: 0.35, usesMode: false },
+    { id: "fal-ai/kling-video/v1.6/standard/image-to-video", label: "Kling via fal — premium", costPer5s: 0.42, usesMode: true },
+  ],
+  kling: [{ id: "kling-v1-6", label: "Kling v1.6 (direct)", costPer5s: 0.28, usesMode: true }],
+};
+
+const PROVIDER_LABELS: Record<ProviderId, string> = { fal: "fal.ai", kling: "Kling (direct)" };
+
 const DEFAULT_PROMPT =
   "Preserve every person's identity and facial appearance. Add subtle natural " +
   "movement and a slow cinematic camera push-in. Maintain the original " +
@@ -69,6 +92,8 @@ export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [duration, setDuration] = useState<5 | 10>(5);
   const [mode, setMode] = useState<"std" | "pro">("std");
+  const [provider, setProvider] = useState<ProviderId>("fal");
+  const [model, setModel] = useState<string>(MODELS.fal[0].id);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewClip, setPreviewClip] = useState<AiClip | null>(null);
@@ -136,6 +161,8 @@ export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
             albumItemId: items.find((i) => i.assetId === assetId)?.albumItemId,
           })),
           prompt: prompt.trim(),
+          provider,
+          model,
           mode,
           durationSeconds: duration,
         }),
@@ -180,6 +207,9 @@ export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
   const thumbFor = (assetId: string) =>
     items.find((i) => i.assetId === assetId)?.thumbnailUrl ?? null;
 
+  const selectedModel = MODELS[provider].find((m) => m.id === model) ?? MODELS[provider][0];
+  const estCost = selection.size * selectedModel.costPer5s * (duration / 5);
+
   return (
     <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <div className="flex items-center justify-between gap-3">
@@ -187,7 +217,7 @@ export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
           <Sparkles size={16} className="text-[var(--color-accent)]" />
           <h3 className="text-sm font-semibold text-[var(--color-text)]">AI motion</h3>
           <span className="text-xs text-[var(--color-text-muted)]">
-            Animate up to {MAX_SELECTION} hero images with Kling — the rest keep cinematic pan &amp; zoom
+            Animate up to {MAX_SELECTION} hero images (fal.ai / Kling) — the rest keep cinematic pan &amp; zoom
           </span>
         </div>
         <button
@@ -253,6 +283,30 @@ export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
             />
             <div className="flex flex-wrap items-center gap-2">
               <select
+                value={provider}
+                onChange={(e) => {
+                  const next = e.target.value as ProviderId;
+                  setProvider(next);
+                  setModel(MODELS[next][0].id);
+                }}
+                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1.5 text-xs text-[var(--color-text)]"
+                title="Provider"
+              >
+                {(Object.keys(MODELS) as ProviderId[]).map((p) => (
+                  <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
+                ))}
+              </select>
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1.5 text-xs text-[var(--color-text)]"
+                title="Model"
+              >
+                {MODELS[provider].map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+              <select
                 value={duration}
                 onChange={(e) => setDuration(Number(e.target.value) === 10 ? 10 : 5)}
                 className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1.5 text-xs text-[var(--color-text)]"
@@ -260,17 +314,19 @@ export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
                 <option value={5}>5 seconds</option>
                 <option value={10}>10 seconds</option>
               </select>
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value === "pro" ? "pro" : "std")}
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1.5 text-xs text-[var(--color-text)]"
-              >
-                <option value="std">Standard quality</option>
-                <option value="pro">Pro quality</option>
-              </select>
+              {selectedModel?.usesMode && (
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value === "pro" ? "pro" : "std")}
+                  className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1.5 text-xs text-[var(--color-text)]"
+                >
+                  <option value="std">Standard quality</option>
+                  <option value="pro">Pro quality</option>
+                </select>
+              )}
               <span className="text-[11px] text-[var(--color-text-subtle)]">
                 {selection.size > 0
-                  ? `${selection.size} clip${selection.size > 1 ? "s" : ""} × ${duration}s (${mode}) — uses Kling credits`
+                  ? `~$${estCost.toFixed(2)} — ${selection.size} clip${selection.size > 1 ? "s" : ""} × ${duration}s via ${PROVIDER_LABELS[provider]}`
                   : "Select at least one image"}
               </span>
               <button

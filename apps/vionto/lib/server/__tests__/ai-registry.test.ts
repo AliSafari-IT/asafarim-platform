@@ -23,10 +23,13 @@ describe("AI provider registry", () => {
     expect(narrators.map((p) => p.id)).not.toContain("google_tts");
   });
 
-  it("only exposes generative video that is implemented", () => {
+  it("exposes implemented generative-video providers, cheapest tier first", () => {
     const video = providersFor("generative_video");
-    expect(video.map((p) => p.id)).toContain("kling");
-    expect(video.map((p) => p.id)).not.toContain("fal"); // implemented=false until Phase G
+    const ids = video.map((p) => p.id);
+    expect(ids).toContain("fal"); // fal.ai (LTX economy) is now wired
+    expect(ids).toContain("kling");
+    // fal offers an economy model (LTX) → sorts ahead of Kling (premium only)
+    expect(ids.indexOf("fal")).toBeLessThan(ids.indexOf("kling"));
   });
 
   it("byokProviders excludes local renderers", () => {
