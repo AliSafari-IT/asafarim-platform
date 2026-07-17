@@ -46,6 +46,7 @@ import { ScriptEditor, type ScriptVersion } from "./ScriptEditor";
 import { SubtitleConfig } from "./SubtitleConfig";
 import { GooglePhotosImportPanel } from "./GooglePhotosImportPanel";
 import { AiMotionPanel } from "./AiMotionPanel";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { ViontoTopbarControls } from "./ViontoNav";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
@@ -569,6 +570,18 @@ export function ViontoPage() {
   const [albumItems, setAlbumItems] = useState<AlbumItem[]>([]);
   const [isLoadingAlbums, setIsLoadingAlbums] = useState(false);
   const [isLoadingAlbumItems, setIsLoadingAlbumItems] = useState(false);
+
+  // Professional confirm modal (replaces window.confirm) — see <ConfirmDialog>.
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    tone: "default" | "danger";
+    onConfirm: () => void;
+  }>({ open: false, title: "", message: "", confirmLabel: "Confirm", tone: "default", onConfirm: () => {} });
+
+  const closeConfirm = useCallback(() => setConfirmDialog((s) => ({ ...s, open: false })), []);
 
   // Create album modal
   const [showCreateAlbum, setShowCreateAlbum] = useState(false);
@@ -1854,6 +1867,12 @@ export function ViontoPage() {
         return;
       }
       await loadProjectAssets(selectedProjectId);
+      // Keep the album view in sync — deleting an asset removes it from every
+      // album (incl. the base album), so refresh items + album counts.
+      if (selectedAlbumId) {
+        await loadAlbumItems(selectedProjectId, selectedAlbumId);
+      }
+      await loadProjectAlbums(selectedProjectId);
     } catch (error) {
       console.error("Failed to delete asset", error);
       alert(t("vionto.alert.deleteAssetFailed"));
@@ -4366,19 +4385,27 @@ export function ViontoPage() {
                                     >
                                       <ListChecks size={13} />
                                     </button>
-                                    {!isBaseAlbumSelected && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleRemoveFromAlbum(item.id)
-                                        }
-                                        className="p-1 rounded-md bg-black/50 hover:bg-red-500/80 text-white"
-                                        aria-label="Remove from album"
-                                        title="Remove from album"
-                                      >
-                                        <Trash2 size={13} />
-                                      </button>
-                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setConfirmDialog({
+                                          open: true,
+                                          title: "Remove image",
+                                          message: `Remove this image from "${selectedAlbum?.name ?? "this album"}"?\n\nIt stays in your project and any other albums — only this album's copy is removed.`,
+                                          confirmLabel: "Remove",
+                                          tone: "default",
+                                          onConfirm: () => {
+                                            handleRemoveFromAlbum(item.id);
+                                            closeConfirm();
+                                          },
+                                        })
+                                      }
+                                      className="p-1 rounded-md bg-black/50 hover:bg-red-500/80 text-white"
+                                      aria-label="Remove from this album"
+                                      title="Remove from this album"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
                                   </div>
                                 </li>
                               </Fragment>
@@ -4409,6 +4436,17 @@ export function ViontoPage() {
                     )}
                 </div>
               )}
+
+              {/* ─── Reusable confirmation modal ───────────────────────────── */}
+              <ConfirmDialog
+                open={confirmDialog.open}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                confirmLabel={confirmDialog.confirmLabel}
+                tone={confirmDialog.tone}
+                onConfirm={confirmDialog.onConfirm}
+                onCancel={closeConfirm}
+              />
 
               {/* ─── Per-image metadata editor modal ───────────────────────── */}
               {metaEditorItemId && (
@@ -4952,27 +4990,57 @@ export function ViontoPage() {
                 <p className="text-xs font-medium text-[var(--color-text-muted)]">
                   {t("vionto.aspect.label")}
                 </p>
-                <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {ASPECT_OPTIONS.map((option) => (
-                    <label
-                      key={option.value}
-                      className={`flex cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-sm transition ${
-                        activeAspectRatio === option.value
-                          ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15 text-[var(--color-text)]"
-                          : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="vionto-aspect-ratio"
-                        className="sr-only"
-                        value={option.value}
-                        checked={activeAspectRatio === option.value}
-                        onChange={() => setActiveAspectRatio(option.value)}
-                      />
-                      {t(option.labelKey)}
-                    </label>
-                  ))}
+                <div className="mt-1 grid grid-cols-3 gap-2">
+                  {ASPECT_OPTIONS.map((option) => {
+                    const selected = activeAspectRatio === option.value;
+                    return (
+                      <label
+                        key={option.value}
+                        title={`${t(option.labelKey)} · ${option.value}`}
+                        className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 transition ${
+                          selected
+                            ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15"
+                            : "border-[var(--color-border)] bg-[var(--color-surface-soft)] hover:border-[var(--color-accent)]/50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="vionto-aspect-ratio"
+                          className="sr-only"
+                          value={option.value}
+                          checked={selected}
+                          onChange={() => setActiveAspectRatio(option.value)}
+                        />
+                        {/* Visual: a frame shaped to the actual aspect ratio. */}
+                        <span className="flex h-16 items-center justify-center">
+                          <span
+                            className={`flex items-center justify-center rounded-[3px] border-2 ${
+                              selected
+                                ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10"
+                                : "border-[var(--color-text-muted)]"
+                            }`}
+                            style={{ aspectRatio: option.value.replace(":", " / "), height: "100%" }}
+                          >
+                            <span
+                              className={`text-[9px] font-semibold tabular-nums ${
+                                selected ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"
+                              }`}
+                            >
+                              {option.value}
+                            </span>
+                          </span>
+                        </span>
+                        {/* Descriptive: the human label. */}
+                        <span
+                          className={`text-xs font-medium ${
+                            selected ? "text-[var(--color-text)]" : "text-[var(--color-text-muted)]"
+                          }`}
+                        >
+                          {t(option.labelKey)}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 

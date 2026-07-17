@@ -90,12 +90,11 @@ export async function DELETE(_req: Request, { params }: Params) {
     const item = await getOwnedItem(itemId, albumId, projectId, user.id);
     if (!item) return badRequest("Album item not found.");
 
-    if (item.album.isBase) {
-      return badRequest(
-        "Cannot remove images from the base album directly. Delete the image from the project instead."
-      );
-    }
-
+    // Removing an item only drops the album↔asset link — the ViontoAsset and its
+    // storage object are untouched, so the image stays in the project (and any
+    // other album). This is allowed for the base album too; the base album is
+    // only auto-repopulated when it is completely empty (see albums GET), so a
+    // single removal persists.
     await prisma.viontoAlbumItem.delete({ where: { id: itemId } });
 
     return NextResponse.json({ ok: true, deletedItemId: itemId });
