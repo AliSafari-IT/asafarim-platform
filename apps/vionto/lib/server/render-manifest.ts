@@ -73,6 +73,9 @@ export const visualStyleSchema = z.enum(VISUAL_STYLE_VALUES).default("clean_mode
 
 export const renderAssetSchema = z.object({
   storageKey: z.string().min(1),
+  /** Accepted AI-generated motion clip (e.g. Kling). When set, the worker
+   *  uses this video for the segment instead of the static image + zoompan. */
+  videoStorageKey: z.string().min(1).optional(),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
   durationSeconds: z.number().positive().default(5),

@@ -342,3 +342,31 @@ export type AddAlbumItemsBulkInput = z.infer<typeof addAlbumItemsBulkSchema>;
 export type UpdateAlbumItemInput = z.infer<typeof updateAlbumItemSchema>;
 export type ReorderAlbumItemsInput = z.infer<typeof reorderAlbumItemsSchema>;
 export type SortAlbumItemsInput = z.infer<typeof sortAlbumItemsSchema>;
+
+// ── AI motion clips (Kling image-to-video) ─────────────────────────
+
+export const createAiClipsSchema = z.object({
+  versionId: z.string().min(1).optional(),
+  albumId: z.string().min(1).optional(),
+  /** Hero images to animate — deliberately capped to keep cost bounded. */
+  items: z
+    .array(
+      z.object({
+        assetId: z.string().min(1),
+        albumItemId: z.string().min(1).optional(),
+      })
+    )
+    .min(1)
+    .max(3),
+  prompt: z.string().trim().min(1).max(2000),
+  negativePrompt: z.string().trim().max(2000).optional(),
+  mode: z.enum(["std", "pro"]).default("std"),
+  durationSeconds: z.union([z.literal(5), z.literal(10)]).default(5),
+});
+
+export const updateAiClipSchema = z.object({
+  accepted: z.boolean(),
+});
+
+export type CreateAiClipsInput = z.infer<typeof createAiClipsSchema>;
+export type UpdateAiClipInput = z.infer<typeof updateAiClipSchema>;

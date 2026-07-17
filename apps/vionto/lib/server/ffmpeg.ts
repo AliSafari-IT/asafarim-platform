@@ -158,6 +158,33 @@ function buildImageSegmentCmd(
   ];
 }
 
+/** Build a segment command from an AI-generated video clip.
+ *  Scales/crops to the target frame, normalizes fps and codec so the clip
+ *  concats cleanly with image segments, clones the last frame when the clip
+ *  is shorter than the requested duration, and trims when longer. */
+function buildVideoSegmentCmd(
+  asset: RenderAsset,
+  resolution: string,
+  aspectRatio: string,
+  frameRate: number,
+  outputPath: string
+): string[] {
+  const res = getTargetDimensions(resolution, aspectRatio);
+  const duration = asset.durationSeconds ?? 5;
+
+  return [
+    "-i", asset.videoStorageKey!,
+    "-vf",
+    `scale=${res.width}:${res.height}:force_original_aspect_ratio=increase,crop=${res.width}:${res.height},fps=${frameRate},tpad=stop=-1:stop_mode=clone`,
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
+    "-t", String(duration),
+    "-an",
+    "-y",
+    outputPath,
+  ];
+}
+
 /** Build the concat demuxer file list for transitions. */
 function buildConcatList(segmentPaths: string[], listPath: string): string {
   const lines = segmentPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join("\n");
@@ -251,13 +278,18 @@ export function buildRenderCommand(
   const steps: string[][] = [];
   const segmentPaths: string[] = [];
 
-  // Stage 1: generate per-image segments with motion
+  // Stage 1: generate per-image segments with motion — or normalize an
+  // accepted AI clip when the asset carries one.
   for (let i = 0; i < assets.length; i++) {
     const asset = assets[i];
-    const motion = asset.motion ?? pickMotionPreset(i, mode);
     const segPath = `${workDir}/seg_${String(i).padStart(4, "0")}.mp4`;
     segmentPaths.push(segPath);
-    steps.push(buildImageSegmentCmd(asset, motion, resolution, aspectRatio, frameRate, segPath));
+    if (asset.videoStorageKey) {
+      steps.push(buildVideoSegmentCmd(asset, resolution, aspectRatio, frameRate, segPath));
+    } else {
+      const motion = asset.motion ?? pickMotionPreset(i, mode);
+      steps.push(buildImageSegmentCmd(asset, motion, resolution, aspectRatio, frameRate, segPath));
+    }
   }
 
   // Stage 2: concat segments

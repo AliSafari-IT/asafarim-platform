@@ -201,9 +201,10 @@ async function processRenderJob(jobId: string, manifestRaw: unknown) {
   logLines.push("Manifest validated");
 
   try {
-    // --- Materialize assets: download images from storage ---
+    // --- Materialize assets: download images (and AI clips) from storage ---
     logLines.push(`Materializing ${manifest.assets.length} assets…`);
     const localAssetPaths: string[] = [];
+    const localClipPaths: (string | null)[] = [];
     for (let i = 0; i < manifest.assets.length; i++) {
       const asset = manifest.assets[i];
       const ext = extname(asset.storageKey).replace(/[^a-zA-Z0-9.]/g, "") || ".jpg";
@@ -216,6 +217,22 @@ async function processRenderJob(jobId: string, manifestRaw: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
         logLines.push(`Failed to download asset ${i}: ${msg}`);
         throw new Error(`Failed to download asset ${i}: ${msg}`);
+      }
+
+      // AI motion clip is optional — fall back to the static image on failure.
+      if (asset.videoStorageKey) {
+        const clipPath = join(workDir, `asset_${String(i).padStart(4, "0")}_clip.mp4`);
+        try {
+          await downloadObjectToLocalFile(asset.videoStorageKey, clipPath);
+          localClipPaths.push(clipPath);
+          logLines.push(`Downloaded AI clip ${i}: ${asset.videoStorageKey}`);
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          logLines.push(`AI clip ${i} unavailable, falling back to static image: ${msg}`);
+          localClipPaths.push(null);
+        }
+      } else {
+        localClipPaths.push(null);
       }
     }
     await updateState(jobId, "running", { progressPercent: 15 });
@@ -387,6 +404,7 @@ async function processRenderJob(jobId: string, manifestRaw: unknown) {
       assets: manifest.assets.map((asset, i) => ({
         ...asset,
         storageKey: localAssetPaths[i], // Replace storage key with local path
+        videoStorageKey: localClipPaths[i] ?? undefined, // Local AI clip path when materialized
       })),
     };
 

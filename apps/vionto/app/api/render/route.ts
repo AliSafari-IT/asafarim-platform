@@ -368,6 +368,33 @@ export async function POST(req: Request) {
         settings.aspectRatio ?? "16:9"
       );
 
+      // Accepted AI motion clips (Kling) replace the static zoompan segment
+      // for their asset. Newest clip per asset wins; version-scoped clips are
+      // preferred alongside version-agnostic ones.
+      const aiClips = await prisma.viontoAiClip.findMany({
+        where: {
+          projectId: project.id,
+          status: "succeeded",
+          accepted: true,
+          outputStorageKey: { not: null },
+          assetId: { in: rawAssets.map((a) => a.id) },
+          ...(resolvedVersionId
+            ? { OR: [{ versionId: resolvedVersionId }, { versionId: null }] }
+            : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        select: { assetId: true, outputStorageKey: true },
+      });
+      const aiClipByAssetId = new Map<string, string>();
+      for (const clip of aiClips) {
+        if (!aiClipByAssetId.has(clip.assetId)) {
+          aiClipByAssetId.set(clip.assetId, clip.outputStorageKey!);
+        }
+      }
+      if (aiClipByAssetId.size > 0) {
+        console.log(`[render] Using ${aiClipByAssetId.size} AI motion clip(s)`);
+      }
+
       const generatedManifest = {
         projectId: project.id,
         ...(resolvedVersionId ? { versionId: resolvedVersionId } : {}),
@@ -381,8 +408,10 @@ export async function POST(req: Request) {
         targetDurationSeconds: targetDurationSeconds,
         aspectRatio: settings.aspectRatio ?? "16:9",
         resolution: settings.resolution ?? "1080p",
-        assets: pacingAssets.map((asset) => ({
+        assets: pacingAssets.map((asset, i) => ({
           storageKey: asset.storageKey,
+          // pacingAssets preserves rawAssets order (applyPacingToAssets maps 1:1)
+          videoStorageKey: aiClipByAssetId.get(rawAssets[i]?.id ?? "") ?? undefined,
           width: asset.width ?? undefined,
           height: asset.height ?? undefined,
           durationSeconds: asset.durationSeconds,
