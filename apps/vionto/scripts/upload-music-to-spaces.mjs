@@ -7,7 +7,7 @@
  *   pnpm --filter vionto upload-music
  *   pnpm --filter vionto upload-music -- --test
  *   pnpm --filter vionto upload-music -- --dryRun
- *   pnpm --filter vionto upload-music -- --dir "C:\Users\saal\Music\immostoryai" --scope immostoryai
+ *   pnpm --filter vionto upload-music -- --dir "C:\Users\saal\Music\categories" --scope asafarim-music-tracks
  *
  * Required env vars (from root .env, loaded via dotenv-cli):
  *   DO_SPACES_ENDPOINT   e.g. https://fra1.digitaloceanspaces.com  (bucket-less, region endpoint)
@@ -53,8 +53,10 @@ function parseEnvFile(envPath) {
     const key = trimmed.slice(0, eqIdx).trim();
     let val = trimmed.slice(eqIdx + 1).trim();
     // Strip surrounding quotes (single or double) if present
-    if ((val.startsWith('"') && val.endsWith('"')) ||
-        (val.startsWith("'") && val.endsWith("'"))) {
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
       val = val.slice(1, -1);
     }
     out[key] = val;
@@ -87,12 +89,17 @@ function parseArgs(argv) {
   const appEnv = resolve(__dirname, "..", ".env");
   const rootEnv = resolve(__dirname, "..", "..", "..", ".env");
   const out = {
-    dir: "C:\\Users\\saal\\Music\\immostoryai",
-    scope: "immostoryai",
+    dir: "C:\\Users\\saal\\Music\\categories",
+    scope: "asafarim-music-tracks",
     watch: false,
     dryRun: false,
     test: false,
-    envFiles: [appEnv, rootEnv],
+    envFiles: [
+      resolve(__dirname, "..", ".env.local"),
+      appEnv,
+      resolve(__dirname, "..", "..", "..", ".env.local"),
+      rootEnv,
+    ],
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -164,8 +171,12 @@ console.log(`  raw endpoint env : ${DO_SPACES_ENDPOINT}`);
 console.log(`  using endpoint   : ${endpoint}`);
 console.log(`  region           : ${DO_SPACES_REGION}`);
 console.log(`  bucket           : ${DO_SPACES_BUCKET}`);
-console.log(`  access key       : ${DO_SPACES_KEY.slice(0, 4)}...${DO_SPACES_KEY.slice(-4)}`);
-console.log(`  secret key       : ${"*".repeat(8)} (length ${DO_SPACES_SECRET.length})`);
+console.log(
+  `  access key       : ${DO_SPACES_KEY.slice(0, 4)}...${DO_SPACES_KEY.slice(-4)}`
+);
+console.log(
+  `  secret key       : ${"*".repeat(8)} (length ${DO_SPACES_SECRET.length})`
+);
 console.log("───────────────────────────────────────────────────\n");
 
 const client = new S3Client({
@@ -189,18 +200,34 @@ const client = new S3Client({
 
 // ─── Storage helpers ─────────────────────────────────────────────────────────
 
-const AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".ogg", ".m4a", ".webm", ".aac", ".flac"]);
+const AUDIO_EXTENSIONS = new Set([
+  ".mp3",
+  ".wav",
+  ".ogg",
+  ".m4a",
+  ".webm",
+  ".aac",
+  ".flac",
+]);
 
 function inferContentType(filename) {
   switch (extname(filename).toLowerCase()) {
-    case ".mp3": return "audio/mpeg";
-    case ".wav": return "audio/wav";
-    case ".ogg": return "audio/ogg";
-    case ".m4a": return "audio/mp4";
-    case ".webm": return "audio/webm";
-    case ".aac": return "audio/aac";
-    case ".flac": return "audio/flac";
-    default: return "audio/mpeg";
+    case ".mp3":
+      return "audio/mpeg";
+    case ".wav":
+      return "audio/wav";
+    case ".ogg":
+      return "audio/ogg";
+    case ".m4a":
+      return "audio/mp4";
+    case ".webm":
+      return "audio/webm";
+    case ".aac":
+      return "audio/aac";
+    case ".flac":
+      return "audio/flac";
+    default:
+      return "audio/mpeg";
   }
 }
 
@@ -218,7 +245,10 @@ function makeCommonKey(scope, rootDir, filePath) {
   const rel = relative(rootDir, filePath);
   const relDir = dirname(rel);
   const category = relDir === "." ? "misc" : safeSegment(relDir, "misc");
-  const filename = safeSegment(basename(rel), "file");
+  const sourceFilename = basename(rel);
+  const extension = extname(sourceFilename).toLowerCase();
+  const stem = sourceFilename.slice(0, -extension.length);
+  const filename = `${safeSegment(stem, "file").slice(0, 80 - extension.length)}${extension}`;
   return `vionto/common/audio/${scope}/${category}/${randomUUID()}/${filename}`;
 }
 
@@ -271,7 +301,10 @@ async function uploadFile(scope, rootDir, filePath) {
     throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
   }
 
-  return { key, url: `${endpoint.replace(/\/+$/, "")}/${DO_SPACES_BUCKET}/${key}` };
+  return {
+    key,
+    url: `${endpoint.replace(/\/+$/, "")}/${DO_SPACES_BUCKET}/${key}`,
+  };
 }
 
 function logError(label, error) {
@@ -279,7 +312,8 @@ function logError(label, error) {
   console.error(`  name: ${error?.name}`);
   console.error(`  message: ${error?.message}`);
   if (error?.Code) console.error(`  Code: ${error.Code}`);
-  if (error?.$metadata) console.error(`  metadata: ${JSON.stringify(error.$metadata)}`);
+  if (error?.$metadata)
+    console.error(`  metadata: ${JSON.stringify(error.$metadata)}`);
   if (error?.cause) {
     console.error(`  cause: ${error.cause?.message ?? error.cause}`);
     if (error.cause?.code) console.error(`  cause.code: ${error.cause.code}`);
@@ -315,8 +349,13 @@ async function rawPresignedTest(testKey) {
     return { ok: false, status: putRes.status, body: putBody };
   }
 
-  const deleteCommand = new DeleteObjectCommand({ Bucket: DO_SPACES_BUCKET, Key: testKey });
-  const deleteUrl = await getSignedUrl(client, deleteCommand, { expiresIn: 60 });
+  const deleteCommand = new DeleteObjectCommand({
+    Bucket: DO_SPACES_BUCKET,
+    Key: testKey,
+  });
+  const deleteUrl = await getSignedUrl(client, deleteCommand, {
+    expiresIn: 60,
+  });
   const delRes = await fetch(deleteUrl, { method: "DELETE" });
   console.log(`  cleanup DELETE status: ${delRes.status}`);
 
@@ -325,26 +364,48 @@ async function rawPresignedTest(testKey) {
 
 function explainDoSpacesError(status, body) {
   if (body.includes("SignatureDoesNotMatch")) {
-    console.error("\n  → SignatureDoesNotMatch: DO_SPACES_SECRET is wrong, or has extra");
-    console.error("    whitespace/quotes, or was copied incorrectly. Re-copy the secret key");
-    console.error("    from the DigitalOcean Spaces API panel and paste it with no quotes.");
+    console.error(
+      "\n  → SignatureDoesNotMatch: DO_SPACES_SECRET is wrong, or has extra"
+    );
+    console.error(
+      "    whitespace/quotes, or was copied incorrectly. Re-copy the secret key"
+    );
+    console.error(
+      "    from the DigitalOcean Spaces API panel and paste it with no quotes."
+    );
   } else if (body.includes("InvalidAccessKeyId")) {
-    console.error("\n  → InvalidAccessKeyId: DO_SPACES_KEY does not exist or was revoked.");
-    console.error("    Generate a new Spaces access key/secret pair in the DO control panel.");
+    console.error(
+      "\n  → InvalidAccessKeyId: DO_SPACES_KEY does not exist or was revoked."
+    );
+    console.error(
+      "    Generate a new Spaces access key/secret pair in the DO control panel."
+    );
   } else if (body.includes("AccessDenied")) {
-    console.error("\n  → AccessDenied: the key exists but lacks permission for this bucket.");
-    console.error("    Check the key's scope (full access vs. restricted to another Space)");
-    console.error(`    and confirm the bucket name "${DO_SPACES_BUCKET}" is correct.`);
+    console.error(
+      "\n  → AccessDenied: the key exists but lacks permission for this bucket."
+    );
+    console.error(
+      "    Check the key's scope (full access vs. restricted to another Space)"
+    );
+    console.error(
+      `    and confirm the bucket name "${DO_SPACES_BUCKET}" is correct.`
+    );
   } else if (status === 404) {
-    console.error("\n  → 404 Not Found: the bucket name or region endpoint may be wrong.");
+    console.error(
+      "\n  → 404 Not Found: the bucket name or region endpoint may be wrong."
+    );
   } else {
-    console.error("\n  → Unrecognized error. See the raw body above for details.");
+    console.error(
+      "\n  → Unrecognized error. See the raw body above for details."
+    );
   }
 }
 
 async function testConnection() {
   const testKey = `vionto/common/audio/${args.scope}/.connectivity-test-${randomUUID()}`;
-  console.log("Testing PutObject via presigned URL (raw fetch, shows real DO Spaces error)...");
+  console.log(
+    "Testing PutObject via presigned URL (raw fetch, shows real DO Spaces error)..."
+  );
   try {
     const result = await rawPresignedTest(testKey);
     if (!result.ok) {
@@ -360,9 +421,14 @@ async function testConnection() {
   console.log("\nTesting bucket access via SDK HeadBucket...");
   try {
     await client.send(new HeadBucketCommand({ Bucket: DO_SPACES_BUCKET }));
-    console.log("✓ HeadBucket succeeded — bucket is reachable with these credentials.");
+    console.log(
+      "✓ HeadBucket succeeded — bucket is reachable with these credentials."
+    );
   } catch (error) {
-    logError("HeadBucket failed (SDK-level, non-fatal if PutObject above succeeded).", error);
+    logError(
+      "HeadBucket failed (SDK-level, non-fatal if PutObject above succeeded).",
+      error
+    );
   }
 
   return true;
@@ -377,8 +443,12 @@ async function main() {
   console.log("");
   if (!ok) {
     console.error("Aborting: credentials/endpoint/bucket are not working.");
-    console.error("Double-check DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET.");
-    console.error("Tip: DO_SPACES_ENDPOINT should be the REGION endpoint (no bucket name), e.g.");
+    console.error(
+      "Double-check DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET."
+    );
+    console.error(
+      "Tip: DO_SPACES_ENDPOINT should be the REGION endpoint (no bucket name), e.g."
+    );
     console.error("     https://fra1.digitaloceanspaces.com");
     process.exit(1);
   }
@@ -398,7 +468,9 @@ async function main() {
 
   if (args.dryRun) {
     for (const file of files) {
-      console.log(`[dry-run] ${file} -> ${makeCommonKey(args.scope, dir, file)}`);
+      console.log(
+        `[dry-run] ${file} -> ${makeCommonKey(args.scope, dir, file)}`
+      );
     }
     process.exit(0);
   }
@@ -418,7 +490,9 @@ async function main() {
       failed++;
     }
   }
-  console.log(`\nUploaded ${uploaded}/${files.length} file(s). Failed: ${failed}`);
+  console.log(
+    `\nUploaded ${uploaded}/${files.length} file(s). Failed: ${failed}`
+  );
 
   if (args.watch) {
     console.log(`\nWatching ${dir} for new audio files. Press Ctrl+C to stop.`);

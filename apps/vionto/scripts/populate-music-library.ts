@@ -9,16 +9,16 @@
  *   - DO_SPACES_* credentials in the environment (loaded from any .env by dotenv,
  *     or already set in your shell/session)
  *
- * The tracks end up under `vionto/common/audio/immostoryai/` and are available
+ * The tracks end up under `vionto/common/audio/asafarim-music-tracks/` and are available
  * to every user in the Vionto music selector. User-uploaded tracks continue to
  * be stored under `vionto/{userId}/audio/` and remain private to that user.
  *
  * Folder structure under the local directory is preserved as S3 prefixes, so
- * `immostoryai/Epic/hero.mp3` becomes `vionto/common/audio/immostoryai/Epic/{uuid}/hero.mp3`.
+ * `categories/Epic/hero.mp3` becomes `vionto/common/audio/asafarim-music-tracks/Epic/{uuid}/hero.mp3`.
  *
  * Options:
- *   --dir       optional  Local folder to scan (default: C:\Users\saal\Music\immostoryai)
- *   --scope     optional  Storage scope/key bucket name (default: immostoryai)
+ *   --dir       optional  Local folder to scan (default: C:\Users\saal\Music\categories)
+ *   --scope     optional  Storage scope/key bucket name (default: asafarim-music-tracks)
  *   --watch     optional  Keep running and upload new files that appear
  *   --dryRun    optional  List what would be uploaded without touching storage
  *   --test      optional  Verify storage credentials and list the target prefix
@@ -28,9 +28,21 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { join, relative, resolve, dirname, basename } from "node:path";
 import { parseArgs } from "node:util";
 import { randomUUID } from "node:crypto";
-import { putObjectBytes, deleteObject, getStorageStatus } from "../lib/server/storage";
+import {
+  putObjectBytes,
+  deleteObject,
+  getStorageStatus,
+} from "../lib/server/storage";
 
-const AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".ogg", ".m4a", ".webm", ".aac", ".flac"]);
+const AUDIO_EXTENSIONS = new Set([
+  ".mp3",
+  ".wav",
+  ".ogg",
+  ".m4a",
+  ".webm",
+  ".aac",
+  ".flac",
+]);
 
 function inferContentType(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase();
@@ -79,23 +91,31 @@ async function collectAudioFiles(dir: string): Promise<string[]> {
 }
 
 function safePathSegment(value: string): string {
-  return value
-    .replace(/[\\/]+/g, "_")
-    .replace(/[^a-zA-Z0-9._-]+/g, "_")
-    .replace(/\.{2,}/g, "_")
-    .replace(/^[._-]+/, "")
-    .slice(0, 80) || "misc";
+  return (
+    value
+      .replace(/[\\/]+/g, "_")
+      .replace(/[^a-zA-Z0-9._-]+/g, "_")
+      .replace(/\.{2,}/g, "_")
+      .replace(/^[._-]+/, "")
+      .slice(0, 80) || "misc"
+  );
 }
 
 function safeFilename(value: string): string {
-  return value
-    .replace(/[^a-zA-Z0-9._-]+/g, "_")
-    .replace(/\.{2,}/g, "_")
-    .replace(/^[._-]+/, "")
-    .slice(0, 80) || "file";
+  return (
+    value
+      .replace(/[^a-zA-Z0-9._-]+/g, "_")
+      .replace(/\.{2,}/g, "_")
+      .replace(/^[._-]+/, "")
+      .slice(0, 80) || "file"
+  );
 }
 
-function makeCommonKey(scope: string, rootDir: string, filePath: string): string {
+function makeCommonKey(
+  scope: string,
+  rootDir: string,
+  filePath: string
+): string {
   const rel = relative(rootDir, filePath);
   const relDir = dirname(rel);
   const category = relDir === "." ? "misc" : safePathSegment(relDir);
@@ -116,7 +136,9 @@ async function testStorageConnection(scope: string): Promise<boolean> {
   try {
     await putObjectBytes(testKey, testBody, "text/plain");
     await deleteObject(testKey);
-    console.log("✓ Storage credentials are valid. Test upload/delete succeeded.");
+    console.log(
+      "✓ Storage credentials are valid. Test upload/delete succeeded."
+    );
     return true;
   } catch (error) {
     console.error("✗ Storage credentials test failed.");
@@ -128,8 +150,8 @@ async function testStorageConnection(scope: string): Promise<boolean> {
 async function main() {
   const { values } = parseArgs({
     options: {
-      dir: { type: "string", default: "C:\\Users\\saal\\Music\\immostoryai" },
-      scope: { type: "string", default: "immostoryai" },
+      dir: { type: "string", default: "C:\\Users\\saal\\Music\\categories" },
+      scope: { type: "string", default: "asafarim-music-tracks" },
       watch: { type: "boolean", default: false },
       dryRun: { type: "boolean", default: false },
       test: { type: "boolean", default: false },
@@ -146,7 +168,9 @@ async function main() {
   const status = getStorageStatus();
   if (!status.configured) {
     console.error("Storage is not configured for Spaces.");
-    console.error("  Set VIONTO_STORAGE_DRIVER=spaces and provide DO_SPACES_* credentials.");
+    console.error(
+      "  Set VIONTO_STORAGE_DRIVER=spaces and provide DO_SPACES_* credentials."
+    );
     process.exit(1);
   }
   console.log(`Storage: ${status.publicUrl} (bucket: ${status.bucket})`);
@@ -157,7 +181,9 @@ async function main() {
     const ok = await testStorageConnection(scope);
     if (!ok) {
       console.error("\nAborting because the storage credential test failed.");
-      console.error("Check DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, and DO_SPACES_REGION in your environment.");
+      console.error(
+        "Check DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, and DO_SPACES_REGION in your environment."
+      );
       process.exit(1);
     }
   }
@@ -198,7 +224,9 @@ async function main() {
       failed++;
     }
   }
-  console.log(`\nUploaded ${uploaded}/${files.length} file(s). Failed: ${failed}`);
+  console.log(
+    `\nUploaded ${uploaded}/${files.length} file(s). Failed: ${failed}`
+  );
 
   if (watch) {
     console.log(`\nWatching ${dir} for new audio files. Press Ctrl+C to stop.`);

@@ -1,7 +1,21 @@
-import { S3Client, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile, readFile, unlink, readdir, stat } from "node:fs/promises";
+import {
+  mkdir,
+  writeFile,
+  readFile,
+  unlink,
+  readdir,
+  stat,
+} from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MAX_IMAGE_BYTES, type AllowedUploadMime } from "./validation";
@@ -39,12 +53,7 @@ export type PresignInput = {
 };
 
 export type StorageCategory =
-  | "originals"
-  | "thumbnails"
-  | "audio"
-  | "renders"
-  | "exports"
-  | "sessions";
+  "originals" | "thumbnails" | "audio" | "renders" | "exports" | "sessions";
 
 export type LocalObject = {
   body: Buffer;
@@ -55,11 +64,13 @@ const globalForStorage = globalThis as typeof globalThis & {
   __viontoLocalObjects?: Map<string, LocalObject>;
 };
 
-const localObjects = globalForStorage.__viontoLocalObjects ?? new Map<string, LocalObject>();
+const localObjects =
+  globalForStorage.__viontoLocalObjects ?? new Map<string, LocalObject>();
 globalForStorage.__viontoLocalObjects = localObjects;
 
 function getLocalStorageDir(): string {
-  if (process.env.VIONTO_LOCAL_STORAGE_DIR) return process.env.VIONTO_LOCAL_STORAGE_DIR;
+  if (process.env.VIONTO_LOCAL_STORAGE_DIR)
+    return process.env.VIONTO_LOCAL_STORAGE_DIR;
   const appDir = join(process.cwd(), "apps", "vionto");
   return existsSync(appDir)
     ? join(appDir, ".local-storage", "uploads")
@@ -72,7 +83,10 @@ async function ensureLocalStorageDir(): Promise<void> {
   } catch (error) {
     // Directory might already exist
     if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-      console.error("[storage] Failed to create local storage directory:", error);
+      console.error(
+        "[storage] Failed to create local storage directory:",
+        error
+      );
     }
   }
 }
@@ -91,7 +105,11 @@ function describeStorageError(error: unknown): string {
     const details = error as Error & {
       name?: string;
       Code?: string;
-      $metadata?: { httpStatusCode?: number; requestId?: string; extendedRequestId?: string };
+      $metadata?: {
+        httpStatusCode?: number;
+        requestId?: string;
+        extendedRequestId?: string;
+      };
     };
     const status = details.$metadata?.httpStatusCode;
     const requestId = details.$metadata?.requestId;
@@ -149,15 +167,28 @@ function readConfig(): StorageConfig | null {
     return null;
   }
 
-  if (process.env.NODE_ENV !== "production" && driver !== "spaces" && driver !== "s3") {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    driver !== "spaces" &&
+    driver !== "s3"
+  ) {
     return null;
   }
 
-  if (!DO_SPACES_ENDPOINT || !DO_SPACES_REGION || !DO_SPACES_BUCKET || !DO_SPACES_KEY || !DO_SPACES_SECRET) {
+  if (
+    !DO_SPACES_ENDPOINT ||
+    !DO_SPACES_REGION ||
+    !DO_SPACES_BUCKET ||
+    !DO_SPACES_KEY ||
+    !DO_SPACES_SECRET
+  ) {
     return null;
   }
 
-  const endpoint = normalizeSpacesEndpoint(DO_SPACES_ENDPOINT, DO_SPACES_BUCKET);
+  const endpoint = normalizeSpacesEndpoint(
+    DO_SPACES_ENDPOINT,
+    DO_SPACES_BUCKET
+  );
   let endpointUrl: URL;
   try {
     endpointUrl = new URL(endpoint);
@@ -169,7 +200,9 @@ function readConfig(): StorageConfig | null {
       bucket: DO_SPACES_BUCKET,
       accessKey: DO_SPACES_KEY,
       secretKey: DO_SPACES_SECRET,
-      publicUrl: DO_SPACES_PUBLIC_URL ?? `${endpoint.replace(/\/+$/, "")}/${DO_SPACES_BUCKET}`,
+      publicUrl:
+        DO_SPACES_PUBLIC_URL ??
+        `${endpoint.replace(/\/+$/, "")}/${DO_SPACES_BUCKET}`,
     };
   }
 
@@ -179,13 +212,21 @@ function readConfig(): StorageConfig | null {
     bucket: DO_SPACES_BUCKET,
     accessKey: DO_SPACES_KEY,
     secretKey: DO_SPACES_SECRET,
-    publicUrl: DO_SPACES_PUBLIC_URL ?? `${endpointUrl.protocol}//${DO_SPACES_BUCKET}.${endpointUrl.hostname}`,
+    publicUrl:
+      DO_SPACES_PUBLIC_URL ??
+      `${endpointUrl.protocol}//${DO_SPACES_BUCKET}.${endpointUrl.hostname}`,
   };
 }
 
 let cachedClient: { client: S3Client; config: StorageConfig } | null = null;
 
-export function getStorageStatus(): { configured: boolean; bucket?: string; region?: string; endpoint?: string; publicUrl?: string } {
+export function getStorageStatus(): {
+  configured: boolean;
+  bucket?: string;
+  region?: string;
+  endpoint?: string;
+  publicUrl?: string;
+} {
   const config = readConfig();
   if (!config) return { configured: false };
   return {
@@ -205,7 +246,10 @@ function getClient(): { client: S3Client; config: StorageConfig } | null {
   const client = new S3Client({
     endpoint: config.endpoint,
     region: config.region,
-    credentials: { accessKeyId: config.accessKey, secretAccessKey: config.secretKey },
+    credentials: {
+      accessKeyId: config.accessKey,
+      secretAccessKey: config.secretKey,
+    },
     forcePathStyle: false,
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
@@ -223,13 +267,14 @@ export function buildKey(
   userId: string,
   category: StorageCategory,
   scopeId: string, // sessionId or projectId
-  filename: string,
+  filename: string
 ): string {
-  const safe = filename
-    .replace(/[^a-zA-Z0-9._-]+/g, "_")
-    .replace(/\.{2,}/g, "_")
-    .replace(/^[._-]+/, "")
-    .slice(0, 80) || "file";
+  const safe =
+    filename
+      .replace(/[^a-zA-Z0-9._-]+/g, "_")
+      .replace(/\.{2,}/g, "_")
+      .replace(/^[._-]+/, "")
+      .slice(0, 80) || "file";
   return `vionto/${userId}/${category}/${scopeId}/${randomUUID()}/${safe}`;
 }
 
@@ -248,11 +293,18 @@ function getLocalUploadUrl(key: string): string {
   return `/api/uploads/local?key=${encodeURIComponent(key)}`;
 }
 
-export async function putLocalObject(key: string, body: Buffer, contentType: string): Promise<void> {
+export async function putLocalObject(
+  key: string,
+  body: Buffer,
+  contentType: string
+): Promise<void> {
   await ensureLocalStorageDir();
   const filePath = getLocalFilePath(key);
   await writeFile(filePath, body);
-  await writeFile(getLocalMetaPath(key), JSON.stringify({ key, contentType, sizeBytes: body.length }, null, 2));
+  await writeFile(
+    getLocalMetaPath(key),
+    JSON.stringify({ key, contentType, sizeBytes: body.length }, null, 2)
+  );
   // Also keep in memory for faster access
   localObjects.set(key, { body, contentType });
 }
@@ -268,7 +320,9 @@ export async function getLocalObject(key: string): Promise<LocalObject | null> {
     const body = await readFile(filePath);
     let contentType = "application/octet-stream";
     try {
-      const meta = JSON.parse(await readFile(getLocalMetaPath(key), "utf8")) as { contentType?: string };
+      const meta = JSON.parse(
+        await readFile(getLocalMetaPath(key), "utf8")
+      ) as { contentType?: string };
       contentType = meta.contentType ?? contentType;
     } catch {
       // Older local uploads may not have metadata.
@@ -286,7 +340,11 @@ export async function getLocalObject(key: string): Promise<LocalObject | null> {
   }
 }
 
-export async function putObjectBytes(key: string, body: Buffer, contentType: string): Promise<string> {
+export async function putObjectBytes(
+  key: string,
+  body: Buffer,
+  contentType: string
+): Promise<string> {
   const handle = getClient();
   if (!handle) {
     await putLocalObject(key, body, contentType);
@@ -301,7 +359,7 @@ export async function putObjectBytes(key: string, body: Buffer, contentType: str
         Body: body,
         ContentType: contentType,
         ContentLength: body.length,
-      }),
+      })
     );
   } catch (error) {
     throw new Error(`Storage upload failed: ${describeStorageError(error)}`);
@@ -310,12 +368,19 @@ export async function putObjectBytes(key: string, body: Buffer, contentType: str
   return `${handle.config.publicUrl.replace(/\/+$/, "")}/${key}`;
 }
 
-export async function createPresignedUploadUrl(input: PresignInput): Promise<PresignedUpload> {
+export async function createPresignedUploadUrl(
+  input: PresignInput
+): Promise<PresignedUpload> {
   if (input.sizeBytes > MAX_IMAGE_BYTES) {
     throw new Error(`File exceeds ${MAX_IMAGE_BYTES} bytes`);
   }
 
-  const key = buildKey(input.userId, input.category ?? "sessions", input.sessionId, input.filename);
+  const key = buildKey(
+    input.userId,
+    input.category ?? "sessions",
+    input.sessionId,
+    input.filename
+  );
   const headers: Record<string, string> = { "Content-Type": input.contentType };
 
   const handle = getClient();
@@ -338,7 +403,9 @@ export async function createPresignedUploadUrl(input: PresignInput): Promise<Pre
     ContentLength: input.sizeBytes,
   });
 
-  const uploadUrl = await getSignedUrl(handle.client, command, { expiresIn: PRESIGN_EXPIRES_SEC });
+  const uploadUrl = await getSignedUrl(handle.client, command, {
+    expiresIn: PRESIGN_EXPIRES_SEC,
+  });
 
   return {
     key,
@@ -365,7 +432,9 @@ export async function objectExists(key: string): Promise<boolean> {
     }
   }
   try {
-    await handle.client.send(new HeadObjectCommand({ Bucket: handle.config.bucket, Key: key }));
+    await handle.client.send(
+      new HeadObjectCommand({ Bucket: handle.config.bucket, Key: key })
+    );
     return true;
   } catch {
     return false;
@@ -387,7 +456,9 @@ export async function deleteObject(key: string): Promise<void> {
     return;
   }
   try {
-    await handle.client.send(new DeleteObjectCommand({ Bucket: handle.config.bucket, Key: key }));
+    await handle.client.send(
+      new DeleteObjectCommand({ Bucket: handle.config.bucket, Key: key })
+    );
   } catch {
     // ignore — already gone or never existed
   }
@@ -412,7 +483,10 @@ export const MAX_METADATA_FETCH_BYTES = 2 * 1024 * 1024; // 2 MB is enough for J
  * Fetch object bytes from storage for server-side metadata extraction.
  * Returns null in stub mode or if the object is missing / unreadable.
  */
-export async function getObjectBytes(key: string, maxBytes: number = MAX_METADATA_FETCH_BYTES): Promise<Buffer | null> {
+export async function getObjectBytes(
+  key: string,
+  maxBytes: number = MAX_METADATA_FETCH_BYTES
+): Promise<Buffer | null> {
   const handle = getClient();
   if (!handle) {
     const mem = localObjects.get(key);
@@ -431,9 +505,10 @@ export async function getObjectBytes(key: string, maxBytes: number = MAX_METADAT
         Bucket: handle.config.bucket,
         Key: key,
         Range: `bytes=0-${Math.max(0, maxBytes - 1)}`,
-      }),
+      })
     );
-    const body = response.Body as unknown as AsyncIterable<Uint8Array> | undefined;
+    const body = response.Body as unknown as
+      AsyncIterable<Uint8Array> | undefined;
     if (!body) return null;
     const chunks: Buffer[] = [];
     let total = 0;
@@ -453,7 +528,10 @@ export async function getObjectBytes(key: string, maxBytes: number = MAX_METADAT
  * Download an object from storage to a local file path.
  * Used by the worker to materialize assets before FFmpeg processing.
  */
-export async function downloadObjectToLocalFile(key: string, localPath: string): Promise<void> {
+export async function downloadObjectToLocalFile(
+  key: string,
+  localPath: string
+): Promise<void> {
   const handle = getClient();
   if (!handle) {
     const mem = localObjects.get(key);
@@ -475,9 +553,10 @@ export async function downloadObjectToLocalFile(key: string, localPath: string):
       new GetObjectCommand({
         Bucket: handle.config.bucket,
         Key: key,
-      }),
+      })
     );
-    const body = response.Body as unknown as AsyncIterable<Uint8Array> | undefined;
+    const body = response.Body as unknown as
+      AsyncIterable<Uint8Array> | undefined;
     if (!body) {
       throw new Error(`Object ${key} not found in storage`);
     }
@@ -495,14 +574,26 @@ export async function downloadObjectToLocalFile(key: string, localPath: string):
  * Upload a local file to storage and return the public URL.
  * Used by the worker to upload the final MP4.
  */
-export async function uploadLocalFileToStorage(localPath: string, key: string, contentType: string): Promise<string> {
+export async function uploadLocalFileToStorage(
+  localPath: string,
+  key: string,
+  contentType: string
+): Promise<string> {
   const body = await readFile(localPath);
   await putObjectBytes(key, body, contentType);
   return getPublicUrlForKey(key);
 }
 
 const MUSIC_LIBRARY_MAX_KEYS = 200;
-const AUDIO_FILE_EXTENSIONS = new Set([".mp3", ".wav", ".ogg", ".m4a", ".webm", ".aac", ".flac"]);
+const AUDIO_FILE_EXTENSIONS = new Set([
+  ".mp3",
+  ".wav",
+  ".ogg",
+  ".m4a",
+  ".webm",
+  ".aac",
+  ".flac",
+]);
 
 export type AudioLibraryItem = {
   key: string;
@@ -527,7 +618,10 @@ function extractFilenameFromKey(key: string): string {
  * List audio objects owned by a user from the configured storage backend.
  * Searches the user's prefix (`vionto/{userId}/`) and returns audio files only.
  */
-export async function listUserMusic(userId: string, maxKeys: number = MUSIC_LIBRARY_MAX_KEYS): Promise<AudioLibraryItem[]> {
+export async function listUserMusic(
+  userId: string,
+  maxKeys: number = MUSIC_LIBRARY_MAX_KEYS
+): Promise<AudioLibraryItem[]> {
   const handle = getClient();
   if (!handle) {
     return listLocalUserMusic(userId);
@@ -544,7 +638,7 @@ export async function listUserMusic(userId: string, maxKeys: number = MUSIC_LIBR
         Prefix: prefix,
         MaxKeys: Math.min(maxKeys, 1000),
         ContinuationToken: continuationToken,
-      }),
+      })
     );
 
     for (const object of response.Contents ?? []) {
@@ -554,15 +648,21 @@ export async function listUserMusic(userId: string, maxKeys: number = MUSIC_LIBR
         key,
         filename: extractFilenameFromKey(key),
         publicUrl: `${handle.config.publicUrl.replace(/\/+$/, "")}/${key}`,
-        lastModified: object.LastModified?.toISOString() ?? new Date().toISOString(),
+        lastModified:
+          object.LastModified?.toISOString() ?? new Date().toISOString(),
         sizeBytes: object.Size ?? 0,
       });
     }
 
-    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+    continuationToken = response.IsTruncated
+      ? response.NextContinuationToken
+      : undefined;
   } while (continuationToken && items.length < maxKeys);
 
-  return items.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+  return items.sort(
+    (a, b) =>
+      new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+  );
 }
 
 async function listLocalUserMusic(userId: string): Promise<AudioLibraryItem[]> {
@@ -570,16 +670,23 @@ async function listLocalUserMusic(userId: string): Promise<AudioLibraryItem[]> {
   if (!existsSync(dir)) return [];
 
   const entries = await readdir(dir, { withFileTypes: true });
-  const metaFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".json"));
+  const metaFiles = entries.filter(
+    (e) => e.isFile() && e.name.endsWith(".json")
+  );
   const items: AudioLibraryItem[] = [];
 
   for (const metaFile of metaFiles) {
     try {
       const metaPath = join(dir, metaFile.name);
       const raw = await readFile(metaPath, "utf8");
-      const meta = JSON.parse(raw) as { key?: string; contentType?: string; sizeBytes?: number };
+      const meta = JSON.parse(raw) as {
+        key?: string;
+        contentType?: string;
+        sizeBytes?: number;
+      };
       const key = meta.key;
-      if (!key || !key.startsWith(`vionto/${userId}/`) || !isAudioKey(key)) continue;
+      if (!key || !key.startsWith(`vionto/${userId}/`) || !isAudioKey(key))
+        continue;
       const filePath = join(dir, metaFile.name.replace(/\.json$/, ""));
       const fileStat = await stat(filePath).catch(() => null);
       if (!fileStat) continue;
@@ -595,7 +702,10 @@ async function listLocalUserMusic(userId: string): Promise<AudioLibraryItem[]> {
     }
   }
 
-  return items.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+  return items.sort(
+    (a, b) =>
+      new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+  );
 }
 
 /**
@@ -603,7 +713,9 @@ async function listLocalUserMusic(userId: string): Promise<AudioLibraryItem[]> {
  * Common tracks are stored under `vionto/common/` and intentionally skip
  * ownership checks so all users can preview and select them.
  */
-export async function listCommonMusic(maxKeys: number = MUSIC_LIBRARY_MAX_KEYS): Promise<AudioLibraryItem[]> {
+export async function listCommonMusic(
+  maxKeys: number = MUSIC_LIBRARY_MAX_KEYS
+): Promise<AudioLibraryItem[]> {
   const handle = getClient();
   if (!handle) {
     return listLocalCommonMusic();
@@ -620,26 +732,33 @@ export async function listCommonMusic(maxKeys: number = MUSIC_LIBRARY_MAX_KEYS):
         Prefix: prefix,
         MaxKeys: Math.min(maxKeys, 1000),
         ContinuationToken: continuationToken,
-      }),
+      })
     );
 
     for (const object of response.Contents ?? []) {
       const key = object.Key;
-      if (!key || !isAudioKey(key)) continue;
+      if (!key || (!isAudioKey(key) && !key.startsWith("vionto/common/audio/")))
+        continue;
       items.push({
         key,
         filename: extractFilenameFromKey(key),
         publicUrl: `${handle.config.publicUrl.replace(/\/+$/, "")}/${key}`,
-        lastModified: object.LastModified?.toISOString() ?? new Date().toISOString(),
+        lastModified:
+          object.LastModified?.toISOString() ?? new Date().toISOString(),
         sizeBytes: object.Size ?? 0,
         common: true,
       });
     }
 
-    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+    continuationToken = response.IsTruncated
+      ? response.NextContinuationToken
+      : undefined;
   } while (continuationToken && items.length < maxKeys);
 
-  return items.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+  return items.sort(
+    (a, b) =>
+      new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+  );
 }
 
 async function listLocalCommonMusic(): Promise<AudioLibraryItem[]> {
@@ -648,16 +767,23 @@ async function listLocalCommonMusic(): Promise<AudioLibraryItem[]> {
   if (!existsSync(dir)) return [];
 
   const entries = await readdir(dir, { withFileTypes: true });
-  const metaFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".json"));
+  const metaFiles = entries.filter(
+    (e) => e.isFile() && e.name.endsWith(".json")
+  );
   const items: AudioLibraryItem[] = [];
 
   for (const metaFile of metaFiles) {
     try {
       const metaPath = join(dir, metaFile.name);
       const raw = await readFile(metaPath, "utf8");
-      const meta = JSON.parse(raw) as { key?: string; contentType?: string; sizeBytes?: number };
+      const meta = JSON.parse(raw) as {
+        key?: string;
+        contentType?: string;
+        sizeBytes?: number;
+      };
       const key = meta.key;
-      if (!key || !key.startsWith("vionto/common/") || !isAudioKey(key)) continue;
+      if (!key || !key.startsWith("vionto/common/") || !isAudioKey(key))
+        continue;
       const filePath = join(dir, metaFile.name.replace(/\.json$/, ""));
       const fileStat = await stat(filePath).catch(() => null);
       if (!fileStat) continue;
@@ -674,14 +800,20 @@ async function listLocalCommonMusic(): Promise<AudioLibraryItem[]> {
     }
   }
 
-  return items.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+  return items.sort(
+    (a, b) =>
+      new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+  );
 }
 
 /**
  * Generate a presigned GET URL for downloading an object.
  * Used by the download endpoint to provide time-limited access.
  */
-export async function createPresignedDownloadUrl(key: string, expiresInSec: number = 15 * 60): Promise<string> {
+export async function createPresignedDownloadUrl(
+  key: string,
+  expiresInSec: number = 15 * 60
+): Promise<string> {
   const handle = getClient();
   if (!handle) {
     return getLocalUploadUrl(key);
@@ -691,8 +823,12 @@ export async function createPresignedDownloadUrl(key: string, expiresInSec: numb
       Bucket: handle.config.bucket,
       Key: key,
     });
-    return await getSignedUrl(handle.client, command, { expiresIn: expiresInSec });
+    return await getSignedUrl(handle.client, command, {
+      expiresIn: expiresInSec,
+    });
   } catch (error) {
-    throw new Error(`Failed to create presigned download URL for ${key}: ${error}`);
+    throw new Error(
+      `Failed to create presigned download URL for ${key}: ${error}`
+    );
   }
 }

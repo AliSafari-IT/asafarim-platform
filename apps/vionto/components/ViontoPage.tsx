@@ -3,7 +3,11 @@
 import { Fragment, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { NormalizedTrackMetadata } from "@/lib/server/pixabay-music";
-import { makeSpacesTrackMetadata, makeCommonTrackMetadata, type AudioLibraryItem } from "@/lib/music-library";
+import {
+  makeSpacesTrackMetadata,
+  makeCommonTrackMetadata,
+  type AudioLibraryItem,
+} from "@/lib/music-library";
 import type { SubtitleConfig as SubtitleConfigType } from "@/lib/server/render-manifest";
 import { useTranslation } from "@asafarim/shared-i18n";
 import {
@@ -43,44 +47,113 @@ import { SubtitleConfig } from "./SubtitleConfig";
 import { GooglePhotosImportPanel } from "./GooglePhotosImportPanel";
 import { ViontoTopbarControls } from "./ViontoNav";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
-import { DEFAULT_VISUAL_STYLE, VISUAL_STYLE_OPTIONS, normalizeVisualStyle, type VisualStyle } from "@/lib/visual-styles";
-import { PRIVACY_LEVELS, OCCASION_SUGGESTIONS, MOOD_SUGGESTIONS } from "@/lib/album-constants";
-import { VIDEO_TEMPLATES, getVideoTemplate, type VideoTemplateId } from "@/lib/video-templates";
+import {
+  DEFAULT_VISUAL_STYLE,
+  VISUAL_STYLE_OPTIONS,
+  normalizeVisualStyle,
+  type VisualStyle,
+} from "@/lib/visual-styles";
+import {
+  PRIVACY_LEVELS,
+  OCCASION_SUGGESTIONS,
+  MOOD_SUGGESTIONS,
+} from "@/lib/album-constants";
+import {
+  VIDEO_TEMPLATES,
+  getVideoTemplate,
+  type VideoTemplateId,
+} from "@/lib/video-templates";
 
 function ViontoMark({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 36 36" fill="none" className={className} aria-hidden="true">
+    <svg
+      viewBox="0 0 36 36"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
       <defs>
         <linearGradient id="vm-g" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#f36f56" />
           <stop offset="100%" stopColor="#e8b45d" />
         </linearGradient>
       </defs>
-      <rect x="4" y="9" width="28" height="19" rx="3" stroke="url(#vm-g)" strokeWidth="1.8" />
-      <rect x="4" y="11" width="3" height="2.5" rx="0.5" fill="url(#vm-g)" opacity="0.65" />
-      <rect x="4" y="15.5" width="3" height="2.5" rx="0.5" fill="url(#vm-g)" opacity="0.65" />
-      <rect x="29" y="11" width="3" height="2.5" rx="0.5" fill="url(#vm-g)" opacity="0.65" />
-      <rect x="29" y="15.5" width="3" height="2.5" rx="0.5" fill="url(#vm-g)" opacity="0.65" />
-      <path d="M14 14.5 L14 22 M18 12 L18 24 M22 14.5 L22 22" stroke="url(#vm-g)" strokeWidth="2" strokeLinecap="round" />
+      <rect
+        x="4"
+        y="9"
+        width="28"
+        height="19"
+        rx="3"
+        stroke="url(#vm-g)"
+        strokeWidth="1.8"
+      />
+      <rect
+        x="4"
+        y="11"
+        width="3"
+        height="2.5"
+        rx="0.5"
+        fill="url(#vm-g)"
+        opacity="0.65"
+      />
+      <rect
+        x="4"
+        y="15.5"
+        width="3"
+        height="2.5"
+        rx="0.5"
+        fill="url(#vm-g)"
+        opacity="0.65"
+      />
+      <rect
+        x="29"
+        y="11"
+        width="3"
+        height="2.5"
+        rx="0.5"
+        fill="url(#vm-g)"
+        opacity="0.65"
+      />
+      <rect
+        x="29"
+        y="15.5"
+        width="3"
+        height="2.5"
+        rx="0.5"
+        fill="url(#vm-g)"
+        opacity="0.65"
+      />
+      <path
+        d="M14 14.5 L14 22 M18 12 L18 24 M22 14.5 L22 22"
+        stroke="url(#vm-g)"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
 const NAV_ITEMS = [
-  { href: "#create",  labelKey: "vionto.nav.create",  Icon: Wand2 },
+  { href: "#create", labelKey: "vionto.nav.create", Icon: Wand2 },
   { href: "#uploads", labelKey: "vionto.nav.uploads", Icon: CloudUpload },
-  { href: "#script",  labelKey: "vionto.nav.script",  Icon: Captions },
-  { href: "#audio",   labelKey: "vionto.nav.audio",   Icon: FileAudio },
-  { href: "#export",  labelKey: "vionto.nav.export",  Icon: Download },
+  { href: "#script", labelKey: "vionto.nav.script", Icon: Captions },
+  { href: "#audio", labelKey: "vionto.nav.audio", Icon: FileAudio },
+  { href: "#export", labelKey: "vionto.nav.export", Icon: Download },
 ] as const;
 
-const UI_MODE_TO_API_MODE: Record<string, "story" | "slideshow" | "documentary"> = {
+const UI_MODE_TO_API_MODE: Record<
+  string,
+  "story" | "slideshow" | "documentary"
+> = {
   cinematic: "story",
   slideshow: "slideshow",
   social: "documentary",
 };
 
-const API_MODE_TO_UI_MODE: Record<string, "cinematic" | "slideshow" | "social"> = {
+const API_MODE_TO_UI_MODE: Record<
+  string,
+  "cinematic" | "slideshow" | "social"
+> = {
   story: "cinematic",
   slideshow: "slideshow",
   documentary: "social",
@@ -93,25 +166,84 @@ const ASPECT_OPTIONS = [
 ] as const;
 
 const STORY_MODE_OPTIONS = [
-  { labelKey: "vionto.storyMode.memory_film", descriptionKey: "vionto.storyMode.memory_film.description", value: "memory_film" },
-  { labelKey: "vionto.storyMode.travel_recap", descriptionKey: "vionto.storyMode.travel_recap.description", value: "travel_recap" },
-  { labelKey: "vionto.storyMode.family_archive", descriptionKey: "vionto.storyMode.family_archive.description", value: "family_archive" },
-  { labelKey: "vionto.storyMode.event_recap", descriptionKey: "vionto.storyMode.event_recap.description", value: "event_recap" },
-  { labelKey: "vionto.storyMode.social_reel", descriptionKey: "vionto.storyMode.social_reel.description", value: "social_reel" },
-  { labelKey: "vionto.storyMode.documentary", descriptionKey: "vionto.storyMode.documentary.description", value: "documentary" },
+  {
+    labelKey: "vionto.storyMode.memory_film",
+    descriptionKey: "vionto.storyMode.memory_film.description",
+    value: "memory_film",
+  },
+  {
+    labelKey: "vionto.storyMode.travel_recap",
+    descriptionKey: "vionto.storyMode.travel_recap.description",
+    value: "travel_recap",
+  },
+  {
+    labelKey: "vionto.storyMode.family_archive",
+    descriptionKey: "vionto.storyMode.family_archive.description",
+    value: "family_archive",
+  },
+  {
+    labelKey: "vionto.storyMode.event_recap",
+    descriptionKey: "vionto.storyMode.event_recap.description",
+    value: "event_recap",
+  },
+  {
+    labelKey: "vionto.storyMode.social_reel",
+    descriptionKey: "vionto.storyMode.social_reel.description",
+    value: "social_reel",
+  },
+  {
+    labelKey: "vionto.storyMode.documentary",
+    descriptionKey: "vionto.storyMode.documentary.description",
+    value: "documentary",
+  },
 ] as const;
 
 const EMOTIONAL_TONE_OPTIONS = [
-  { labelKey: "vionto.emotionalTone.nostalgic", descriptionKey: "vionto.emotionalTone.nostalgic.description", value: "nostalgic" },
-  { labelKey: "vionto.emotionalTone.joyful", descriptionKey: "vionto.emotionalTone.joyful.description", value: "joyful" },
-  { labelKey: "vionto.emotionalTone.calm", descriptionKey: "vionto.emotionalTone.calm.description", value: "calm" },
-  { labelKey: "vionto.emotionalTone.epic", descriptionKey: "vionto.emotionalTone.epic.description", value: "epic" },
-  { labelKey: "vionto.emotionalTone.funny", descriptionKey: "vionto.emotionalTone.funny.description", value: "funny" },
-  { labelKey: "vionto.emotionalTone.romantic", descriptionKey: "vionto.emotionalTone.romantic.description", value: "romantic" },
-  { labelKey: "vionto.emotionalTone.reflective", descriptionKey: "vionto.emotionalTone.reflective.description", value: "reflective" },
+  {
+    labelKey: "vionto.emotionalTone.nostalgic",
+    descriptionKey: "vionto.emotionalTone.nostalgic.description",
+    value: "nostalgic",
+  },
+  {
+    labelKey: "vionto.emotionalTone.joyful",
+    descriptionKey: "vionto.emotionalTone.joyful.description",
+    value: "joyful",
+  },
+  {
+    labelKey: "vionto.emotionalTone.calm",
+    descriptionKey: "vionto.emotionalTone.calm.description",
+    value: "calm",
+  },
+  {
+    labelKey: "vionto.emotionalTone.epic",
+    descriptionKey: "vionto.emotionalTone.epic.description",
+    value: "epic",
+  },
+  {
+    labelKey: "vionto.emotionalTone.funny",
+    descriptionKey: "vionto.emotionalTone.funny.description",
+    value: "funny",
+  },
+  {
+    labelKey: "vionto.emotionalTone.romantic",
+    descriptionKey: "vionto.emotionalTone.romantic.description",
+    value: "romantic",
+  },
+  {
+    labelKey: "vionto.emotionalTone.reflective",
+    descriptionKey: "vionto.emotionalTone.reflective.description",
+    value: "reflective",
+  },
 ] as const;
 
-const COLLECTION_OPTIONS = ["family", "travel", "events", "work", "archive", "favorites"] as const;
+const COLLECTION_OPTIONS = [
+  "family",
+  "travel",
+  "events",
+  "work",
+  "archive",
+  "favorites",
+] as const;
 
 const LIFECYCLE_LABELS: Record<string, { label: string; next: string }> = {
   draft: { label: "Draft", next: "Upload photos" },
@@ -141,16 +273,19 @@ type ProjectSummary = {
   createdAt: string;
 };
 
-function normalizeProjectMusicMetadata(metadata: unknown): NormalizedTrackMetadata[] {
+function normalizeProjectMusicMetadata(
+  metadata: unknown
+): NormalizedTrackMetadata[] {
   if (Array.isArray(metadata)) {
-    return metadata.filter((track): track is NormalizedTrackMetadata => (
-      !!track &&
-      typeof track === "object" &&
-      "trackId" in track &&
-      "title" in track &&
-      "artist" in track &&
-      "downloadUrl" in track
-    ));
+    return metadata.filter(
+      (track): track is NormalizedTrackMetadata =>
+        !!track &&
+        typeof track === "object" &&
+        "trackId" in track &&
+        "title" in track &&
+        "artist" in track &&
+        "downloadUrl" in track
+    );
   }
 
   if (
@@ -196,11 +331,19 @@ function cssAspectRatio(aspectRatio: string | null | undefined) {
 
 function previewFrameStyle(aspectRatio: string | null | undefined) {
   if (aspectRatio === "9:16") {
-    return { aspectRatio: cssAspectRatio(aspectRatio), width: "min(100%, 320px)", marginInline: "auto" };
+    return {
+      aspectRatio: cssAspectRatio(aspectRatio),
+      width: "min(100%, 320px)",
+      marginInline: "auto",
+    };
   }
 
   if (aspectRatio === "1:1") {
-    return { aspectRatio: cssAspectRatio(aspectRatio), width: "min(100%, 460px)", marginInline: "auto" };
+    return {
+      aspectRatio: cssAspectRatio(aspectRatio),
+      width: "min(100%, 460px)",
+      marginInline: "auto",
+    };
   }
 
   return { aspectRatio: cssAspectRatio(aspectRatio), width: "100%" };
@@ -214,7 +357,8 @@ export function ViontoPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [subtitlesCollapsed, setSubtitlesCollapsed] = useState(false);
-  const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfigType | null>(null);
+  const [subtitleConfig, setSubtitleConfig] =
+    useState<SubtitleConfigType | null>(null);
 
   useEffect(() => {
     const applyCollapsed = () => {
@@ -230,7 +374,9 @@ export function ViontoPage() {
 
     applyCollapsed();
     window.addEventListener("resize", applyCollapsed);
-    const closeMobileMenu = () => { if (window.innerWidth >= 768) setMobileMenuOpen(false); };
+    const closeMobileMenu = () => {
+      if (window.innerWidth >= 768) setMobileMenuOpen(false);
+    };
     window.addEventListener("resize", closeMobileMenu);
     return () => {
       window.removeEventListener("resize", applyCollapsed);
@@ -253,7 +399,9 @@ export function ViontoPage() {
   const [storyStructureOpen, setStoryStructureOpen] = useState(false);
   const [openingTitle, setOpeningTitle] = useState("");
   const [introNarration, setIntroNarration] = useState("");
-  const [chapters, setChapters] = useState<{ title: string; description: string }[]>([]);
+  const [chapters, setChapters] = useState<
+    { title: string; description: string }[]
+  >([]);
   const [climaxDescription, setClimaxDescription] = useState("");
   const [closingMessage, setClosingMessage] = useState("");
   const [dedicationText, setDedicationText] = useState("");
@@ -265,13 +413,22 @@ export function ViontoPage() {
   const [showDateCaptions, setShowDateCaptions] = useState(true);
   const [showLocationCaptions, setShowLocationCaptions] = useState(true);
   const [showPeopleLabels, setShowPeopleLabels] = useState(false);
-  const [captionPlacement, setCaptionPlacement] = useState<"top" | "bottom" | "lower_third" | "corner">("lower_third");
-  const [captionStylePreset, setCaptionStylePreset] = useState<"minimal" | "memory" | "social" | "documentary">("minimal");
+  const [captionPlacement, setCaptionPlacement] = useState<
+    "top" | "bottom" | "lower_third" | "corner"
+  >("lower_third");
+  const [captionStylePreset, setCaptionStylePreset] = useState<
+    "minimal" | "memory" | "social" | "documentary"
+  >("minimal");
 
-  const [selectedStoryMode, setSelectedStoryMode] = useState<string>("memory_film");
-  const [selectedEmotionalTone, setSelectedEmotionalTone] = useState<string>("nostalgic");
-  const [selectedVisualStyle, setSelectedVisualStyle] = useState<VisualStyle>(DEFAULT_VISUAL_STYLE);
-  const [selectedMusicTracks, setSelectedMusicTracks] = useState<NormalizedTrackMetadata[]>([]);
+  const [selectedStoryMode, setSelectedStoryMode] =
+    useState<string>("memory_film");
+  const [selectedEmotionalTone, setSelectedEmotionalTone] =
+    useState<string>("nostalgic");
+  const [selectedVisualStyle, setSelectedVisualStyle] =
+    useState<VisualStyle>(DEFAULT_VISUAL_STYLE);
+  const [selectedMusicTracks, setSelectedMusicTracks] = useState<
+    NormalizedTrackMetadata[]
+  >([]);
   const [musicBlobUrls, setMusicBlobUrls] = useState<Set<string>>(new Set());
   const [musicTracks, setMusicTracks] = useState<NormalizedTrackMetadata[]>([]);
   const [isMusicLoading, setIsMusicLoading] = useState(false);
@@ -280,13 +437,21 @@ export function ViontoPage() {
   const [musicFilterMinDuration, setMusicFilterMinDuration] = useState("");
   const [musicFilterMaxDuration, setMusicFilterMaxDuration] = useState("");
   const [showMusicSelector, setShowMusicSelector] = useState(false);
-  const [musicSelectorTab, setMusicSelectorTab] = useState<"library" | "upload">("library");
+  const [musicSelectorTab, setMusicSelectorTab] = useState<
+    "royaltyFree" | "library" | "upload"
+  >("royaltyFree");
   const [musicLibrary, setMusicLibrary] = useState<AudioLibraryItem[]>([]);
   const [isLoadingMusicLibrary, setIsLoadingMusicLibrary] = useState(false);
-  const [musicLibraryError, setMusicLibraryError] = useState<string | null>(null);
-  const [musicPreviewTrackId, setMusicPreviewTrackId] = useState<string | null>(null);
+  const [musicLibraryError, setMusicLibraryError] = useState<string | null>(
+    null
+  );
+  const [musicPreviewTrackId, setMusicPreviewTrackId] = useState<string | null>(
+    null
+  );
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
-  const [voices, setVoices] = useState<Array<{ id: string; name: string; locale: string; gender?: string }>>([]);
+  const [voices, setVoices] = useState<
+    Array<{ id: string; name: string; locale: string; gender?: string }>
+  >([]);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const musicUploadInputRef = useRef<HTMLInputElement>(null);
@@ -308,7 +473,9 @@ export function ViontoPage() {
   const [libraryCreatedTo, setLibraryCreatedTo] = useState("");
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryPage, setLibraryPage] = useState(1);
-  const [libraryCursors, setLibraryCursors] = useState<(string | null)[]>([null]);
+  const [libraryCursors, setLibraryCursors] = useState<(string | null)[]>([
+    null,
+  ]);
   const [libraryHasNext, setLibraryHasNext] = useState(false);
   const LIBRARY_PAGE_SIZE = 6;
 
@@ -324,25 +491,29 @@ export function ViontoPage() {
 
   // Upload state
   const [uploadSessionId, setUploadSessionId] = useState<string | null>(null);
-  const [uploadingFiles, setUploadingFiles] = useState<Array<{
-    file: File;
-    key: string;
-    status: "pending" | "uploading" | "complete" | "error";
-    progress: number;
-    error?: string;
-  }>>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<
+    Array<{
+      file: File;
+      key: string;
+      status: "pending" | "uploading" | "complete" | "error";
+      progress: number;
+      error?: string;
+    }>
+  >([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   // Assets state (persisted)
-  const [projectAssets, setProjectAssets] = useState<Array<{
-    id: string;
-    originalUrl: string;
-    thumbnailUrl: string | null;
-    width: number | null;
-    height: number | null;
-    orderIndex: number;
-  }>>([]);
+  const [projectAssets, setProjectAssets] = useState<
+    Array<{
+      id: string;
+      originalUrl: string;
+      thumbnailUrl: string | null;
+      width: number | null;
+      height: number | null;
+      orderIndex: number;
+    }>
+  >([]);
   const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [isAssetsExpanded, setIsAssetsExpanded] = useState(false);
   const dragAssetId = useRef<string | null>(null);
@@ -423,7 +594,9 @@ export function ViontoPage() {
   const [editCollections, setEditCollections] = useState<string[]>([]);
   const [editFavorite, setEditFavorite] = useState(false);
   const [isSavingAlbumDetails, setIsSavingAlbumDetails] = useState(false);
-  const [albumDetailsError, setAlbumDetailsError] = useState<string | null>(null);
+  const [albumDetailsError, setAlbumDetailsError] = useState<string | null>(
+    null
+  );
 
   // Rename album inline
   const [renamingAlbumId, setRenamingAlbumId] = useState<string | null>(null);
@@ -437,17 +610,29 @@ export function ViontoPage() {
 
   // Add images to derived album panel
   const [showAddImages, setShowAddImages] = useState(false);
-  const [addImageSelection, setAddImageSelection] = useState<Set<string>>(new Set());
+  const [addImageSelection, setAddImageSelection] = useState<Set<string>>(
+    new Set()
+  );
 
   // Auto-sort / auto-group
-  type LocationGroup = { label: string; latitude: number | null; longitude: number | null; startIndex: number; count: number };
+  type LocationGroup = {
+    label: string;
+    latitude: number | null;
+    longitude: number | null;
+    startIndex: number;
+    count: number;
+  };
   const [isSorting, setIsSorting] = useState(false);
-  const [locationGroups, setLocationGroups] = useState<LocationGroup[] | null>(null);
+  const [locationGroups, setLocationGroups] = useState<LocationGroup[] | null>(
+    null
+  );
 
   // Drag-reorder inside album
   const dragAlbumItemId = useRef<string | null>(null);
   const dragOverAlbumItemId = useRef<string | null>(null);
-  const [dragAlbumActiveId, setDragAlbumActiveId] = useState<string | null>(null);
+  const [dragAlbumActiveId, setDragAlbumActiveId] = useState<string | null>(
+    null
+  );
   const [dragAlbumOverId, setDragAlbumOverId] = useState<string | null>(null);
 
   // ─── Video version state ───────────────────────────────────────────────
@@ -484,18 +669,27 @@ export function ViontoPage() {
     _count: { scripts: number; renderJobs: number; exports: number };
   };
   const [videoVersions, setVideoVersions] = useState<VideoVersion[]>([]);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
+    null
+  );
   const lastAppliedVersionId = useRef<string | null>(null);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
-  const [renamingVersionId, setRenamingVersionId] = useState<string | null>(null);
+  const [renamingVersionId, setRenamingVersionId] = useState<string | null>(
+    null
+  );
   const [renameValue, setRenameValue] = useState("");
   const [isCreatingVersion, setIsCreatingVersion] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<VideoTemplateId | "">("");
-  const [versionTemplateId, setVersionTemplateId] = useState<VideoTemplateId | "">("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<
+    VideoTemplateId | ""
+  >("");
+  const [versionTemplateId, setVersionTemplateId] = useState<
+    VideoTemplateId | ""
+  >("");
   const [albumCollectionFilter, setAlbumCollectionFilter] = useState("");
 
   const ACCEPTED = [".jpg", ".jpeg", ".png", ".heic", ".webp", ".zip"];
-  const acceptedMime = "image/jpeg,image/png,image/heic,image/webp,application/zip,.heic,.zip";
+  const acceptedMime =
+    "image/jpeg,image/png,image/heic,image/webp,application/zip,.heic,.zip";
 
   function applyTemplateToDraft(templateId: VideoTemplateId | "") {
     setSelectedTemplateId(templateId);
@@ -507,22 +701,36 @@ export function ViontoPage() {
     setSelectedStoryMode(settings.storyMode);
     setSelectedEmotionalTone(settings.emotionalTone);
     setSelectedVisualStyle(settings.visualStyle);
-    setActiveAspectRatio(settings.aspectRatio === "4:3" ? "16:9" : settings.aspectRatio);
+    setActiveAspectRatio(
+      settings.aspectRatio === "4:3" ? "16:9" : settings.aspectRatio
+    );
     setTargetDurationSeconds(settings.targetDurationSeconds);
-    setSubtitleConfig(settings.subtitleSettings as SubtitleConfigType | null ?? null);
+    setSubtitleConfig(
+      (settings.subtitleSettings as SubtitleConfigType | null) ?? null
+    );
     if (settings.captionOverlaySettings) {
       setCaptionsEnabled(settings.captionOverlaySettings.enabled);
       setShowSceneCaptions(settings.captionOverlaySettings.showSceneCaptions);
       setShowDateCaptions(settings.captionOverlaySettings.showDateCaptions);
-      setShowLocationCaptions(settings.captionOverlaySettings.showLocationCaptions);
+      setShowLocationCaptions(
+        settings.captionOverlaySettings.showLocationCaptions
+      );
       setShowPeopleLabels(settings.captionOverlaySettings.showPeopleLabels);
       setCaptionPlacement(settings.captionOverlaySettings.placement);
       setCaptionStylePreset(settings.captionOverlaySettings.stylePreset);
     }
   }
 
-  function toggleCollection(value: string, current: string[], setter: (next: string[]) => void) {
-    setter(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
+  function toggleCollection(
+    value: string,
+    current: string[],
+    setter: (next: string[]) => void
+  ) {
+    setter(
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value]
+    );
   }
 
   // Load projects on mount
@@ -532,18 +740,26 @@ export function ViontoPage() {
   }, []);
 
   useEffect(() => {
-    setSelectedProjectId((current) => (current === queryProjectId ? current : queryProjectId));
+    setSelectedProjectId((current) =>
+      current === queryProjectId ? current : queryProjectId
+    );
   }, [queryProjectId]);
 
   useEffect(() => {
-    if (!selectedProjectId || projects.some((project) => project.id === selectedProjectId)) return;
+    if (
+      !selectedProjectId ||
+      projects.some((project) => project.id === selectedProjectId)
+    )
+      return;
 
     let cancelled = false;
     loadProject(selectedProjectId).then((project) => {
       if (cancelled || !project) return;
-      setProjects((current) => (
-        current.some((item) => item.id === project.id) ? current : [project, ...current]
-      ));
+      setProjects((current) =>
+        current.some((item) => item.id === project.id)
+          ? current
+          : [project, ...current]
+      );
     });
 
     return () => {
@@ -554,12 +770,16 @@ export function ViontoPage() {
   // Load assets when project is selected
   useEffect(() => {
     if (selectedProjectId) {
-      const selected = projects.find((project) => project.id === selectedProjectId);
+      const selected = projects.find(
+        (project) => project.id === selectedProjectId
+      );
       if (selected) {
         // Settings are now loaded from the video version (via useEffect above),
         // but we still set music tracks from the project as a fallback until
         // versions load.
-        setSelectedMusicTracks(normalizeProjectMusicMetadata(selected.musicMetadata));
+        setSelectedMusicTracks(
+          normalizeProjectMusicMetadata(selected.musicMetadata)
+        );
         setScriptStale(false);
       }
       loadProjectAssets(selectedProjectId);
@@ -590,9 +810,19 @@ export function ViontoPage() {
       setVideoVersions([]);
       setSelectedVersionId(null);
       // Reset story structure & caption overlay state
-      setOpeningTitle(""); setIntroNarration(""); setChapters([]); setClimaxDescription(""); setClosingMessage(""); setDedicationText("");
-      setCaptionsEnabled(false); setShowSceneCaptions(true); setShowDateCaptions(true); setShowLocationCaptions(true); setShowPeopleLabels(false);
-      setCaptionPlacement("lower_third"); setCaptionStylePreset("minimal");
+      setOpeningTitle("");
+      setIntroNarration("");
+      setChapters([]);
+      setClimaxDescription("");
+      setClosingMessage("");
+      setDedicationText("");
+      setCaptionsEnabled(false);
+      setShowSceneCaptions(true);
+      setShowDateCaptions(true);
+      setShowLocationCaptions(true);
+      setShowPeopleLabels(false);
+      setCaptionPlacement("lower_third");
+      setCaptionStylePreset("minimal");
       loadExportLibrary();
     }
   }, [selectedProjectId, locale, projects]);
@@ -617,7 +847,9 @@ export function ViontoPage() {
     }
   }
 
-  async function loadProject(projectId: string): Promise<ProjectSummary | null> {
+  async function loadProject(
+    projectId: string
+  ): Promise<ProjectSummary | null> {
     try {
       const res = await fetch(`/api/projects/${projectId}`);
       if (!res.ok) return null;
@@ -674,7 +906,8 @@ export function ViontoPage() {
     try {
       const params = new URLSearchParams();
       if (albumCollectionFilter === "favorites") params.set("favorite", "true");
-      else if (albumCollectionFilter) params.set("collection", albumCollectionFilter);
+      else if (albumCollectionFilter)
+        params.set("collection", albumCollectionFilter);
       const suffix = params.toString() ? `?${params.toString()}` : "";
       const res = await fetch(`/api/projects/${projectId}/albums${suffix}`);
       if (!res.ok) return;
@@ -683,8 +916,11 @@ export function ViontoPage() {
       setAlbums(loadedAlbums);
       // Auto-select base album on first load, or keep existing selection.
       setSelectedAlbumId((current) => {
-        if (current && loadedAlbums.some((a) => a.id === current)) return current;
-        return loadedAlbums.find((a) => a.isBase)?.id ?? loadedAlbums[0]?.id ?? null;
+        if (current && loadedAlbums.some((a) => a.id === current))
+          return current;
+        return (
+          loadedAlbums.find((a) => a.isBase)?.id ?? loadedAlbums[0]?.id ?? null
+        );
       });
     } catch (error) {
       console.error("Failed to load albums", error);
@@ -721,7 +957,10 @@ export function ViontoPage() {
     setIsCreatingAlbum(true);
     try {
       const peopleParsed = newAlbumPeople.trim()
-        ? newAlbumPeople.split(",").map((s) => s.trim()).filter(Boolean)
+        ? newAlbumPeople
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
         : undefined;
       const res = await fetch(`/api/projects/${selectedProjectId}/albums`, {
         method: "POST",
@@ -737,12 +976,16 @@ export function ViontoPage() {
           occasion: newAlbumOccasion.trim() || undefined,
           mood: newAlbumMood.trim() || undefined,
           privacyLevel: newAlbumPrivacy,
-          collections: newAlbumFavorite ? Array.from(new Set([...newAlbumCollections, "favorites"])) : newAlbumCollections,
+          collections: newAlbumFavorite
+            ? Array.from(new Set([...newAlbumCollections, "favorites"]))
+            : newAlbumCollections,
           isFavorite: newAlbumFavorite,
         }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Failed to create album" }));
+        const data = await res
+          .json()
+          .catch(() => ({ error: "Failed to create album" }));
         alert(data.error ?? "Failed to create album");
         return;
       }
@@ -773,13 +1016,19 @@ export function ViontoPage() {
 
   async function handleDeleteAlbum(albumId: string, albumName: string) {
     if (!selectedProjectId) return;
-    if (!confirm(`Delete album "${albumName}"? Images will not be deleted.`)) return;
+    if (!confirm(`Delete album "${albumName}"? Images will not be deleted.`))
+      return;
     try {
-      const res = await fetch(`/api/projects/${selectedProjectId}/albums/${albumId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/projects/${selectedProjectId}/albums/${albumId}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Failed to delete album" }));
+        const data = await res
+          .json()
+          .catch(() => ({ error: "Failed to delete album" }));
         alert(data.error ?? "Failed to delete album");
         return;
       }
@@ -796,17 +1045,22 @@ export function ViontoPage() {
       return;
     }
     try {
-      const res = await fetch(`/api/projects/${selectedProjectId}/albums/${albumId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: renameAlbumValue.trim() }),
-      });
+      const res = await fetch(
+        `/api/projects/${selectedProjectId}/albums/${albumId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: renameAlbumValue.trim() }),
+        }
+      );
       if (!res.ok) {
         alert("Failed to rename album");
         return;
       }
       setAlbums((prev) =>
-        prev.map((a) => (a.id === albumId ? { ...a, name: renameAlbumValue.trim() } : a))
+        prev.map((a) =>
+          a.id === albumId ? { ...a, name: renameAlbumValue.trim() } : a
+        )
       );
     } catch (error) {
       console.error("Failed to rename album", error);
@@ -837,31 +1091,43 @@ export function ViontoPage() {
     setAlbumDetailsError(null);
     try {
       const peopleParsed = editPeople.trim()
-        ? editPeople.split(",").map((s) => s.trim()).filter(Boolean)
+        ? editPeople
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
         : [];
-      const res = await fetch(`/api/projects/${selectedProjectId}/albums/${selectedAlbumId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: editDescription.trim() || null,
-          dateFrom: editDateFrom || null,
-          dateTo: editDateTo || null,
-          location: editLocation.trim() || null,
-          people: peopleParsed,
-          occasion: editOccasion.trim() || null,
-          mood: editMood.trim() || null,
-          privacyLevel: editPrivacy,
-          collections: editFavorite ? Array.from(new Set([...editCollections, "favorites"])) : editCollections,
-          isFavorite: editFavorite,
-        }),
-      });
+      const res = await fetch(
+        `/api/projects/${selectedProjectId}/albums/${selectedAlbumId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: editDescription.trim() || null,
+            dateFrom: editDateFrom || null,
+            dateTo: editDateTo || null,
+            location: editLocation.trim() || null,
+            people: peopleParsed,
+            occasion: editOccasion.trim() || null,
+            mood: editMood.trim() || null,
+            privacyLevel: editPrivacy,
+            collections: editFavorite
+              ? Array.from(new Set([...editCollections, "favorites"]))
+              : editCollections,
+            isFavorite: editFavorite,
+          }),
+        }
+      );
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Failed to save" }));
+        const data = await res
+          .json()
+          .catch(() => ({ error: "Failed to save" }));
         setAlbumDetailsError(data.error ?? "Failed to save album details");
         return;
       }
       const updated = await res.json();
-      setAlbums((prev) => prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
+      setAlbums((prev) =>
+        prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
+      );
       setShowAlbumDetails(false);
     } catch (error) {
       console.error("Failed to save album details", error);
@@ -879,13 +1145,19 @@ export function ViontoPage() {
         { method: "DELETE" }
       );
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Failed to remove image" }));
+        const data = await res
+          .json()
+          .catch(() => ({ error: "Failed to remove image" }));
         alert(data.error ?? "Failed to remove image");
         return;
       }
       setAlbumItems((prev) => prev.filter((i) => i.id !== itemId));
       setAlbums((prev) =>
-        prev.map((a) => a.id === selectedAlbumId ? { ...a, _count: { items: a._count.items - 1 } } : a)
+        prev.map((a) =>
+          a.id === selectedAlbumId
+            ? { ...a, _count: { items: a._count.items - 1 } }
+            : a
+        )
       );
     } catch (error) {
       console.error("Failed to remove from album", error);
@@ -893,7 +1165,8 @@ export function ViontoPage() {
   }
 
   async function handleAddImagesToAlbum() {
-    if (!selectedProjectId || !selectedAlbumId || addImageSelection.size === 0) return;
+    if (!selectedProjectId || !selectedAlbumId || addImageSelection.size === 0)
+      return;
     try {
       const res = await fetch(
         `/api/projects/${selectedProjectId}/albums/${selectedAlbumId}/items`,
@@ -904,7 +1177,9 @@ export function ViontoPage() {
         }
       );
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Failed to add images" }));
+        const data = await res
+          .json()
+          .catch(() => ({ error: "Failed to add images" }));
         alert(data.error ?? "Failed to add images");
         return;
       }
@@ -948,7 +1223,9 @@ export function ViontoPage() {
         }
       );
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Failed to sort" }));
+        const data = await res
+          .json()
+          .catch(() => ({ error: "Failed to sort" }));
         alert(data.error ?? "Failed to sort album");
         return;
       }
@@ -987,7 +1264,9 @@ export function ViontoPage() {
           return;
         }
       } catch {
-        setMetaEditorError("Invalid JSON — please fix the syntax before saving.");
+        setMetaEditorError(
+          "Invalid JSON — please fix the syntax before saving."
+        );
         return;
       }
     }
@@ -1003,12 +1282,16 @@ export function ViontoPage() {
         }
       );
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Failed to save metadata" }));
+        const data = await res
+          .json()
+          .catch(() => ({ error: "Failed to save metadata" }));
         setMetaEditorError(data.error ?? "Failed to save metadata");
         return;
       }
       setAlbumItems((prev) =>
-        prev.map((i) => (i.id === metaEditorItemId ? { ...i, metadata: parsed } : i))
+        prev.map((i) =>
+          i.id === metaEditorItemId ? { ...i, metadata: parsed } : i
+        )
       );
       setMetaEditorItemId(null);
     } catch (error) {
@@ -1020,11 +1303,20 @@ export function ViontoPage() {
   }
 
   const selectedAlbum = albums.find((a) => a.id === selectedAlbumId) ?? null;
-  const activeVersion = videoVersions.find((v) => v.id === selectedVersionId) ?? null;
-  const activeVersionAlbumId = activeVersion?.albumId ?? albums.find((album) => album.isBase)?.id ?? albums[0]?.id ?? null;
+  const activeVersion =
+    videoVersions.find((v) => v.id === selectedVersionId) ?? null;
+  const activeVersionAlbumId =
+    activeVersion?.albumId ??
+    albums.find((album) => album.isBase)?.id ??
+    albums[0]?.id ??
+    null;
   const isBaseAlbumSelected = selectedAlbum?.isBase ?? true;
-  const metaEditorItem = albumItems.find((i) => i.id === metaEditorItemId) ?? null;
-  const metaEditorAssetUrl = metaEditorItem?.asset.thumbnailUrl ?? metaEditorItem?.asset.originalUrl ?? null;
+  const metaEditorItem =
+    albumItems.find((i) => i.id === metaEditorItemId) ?? null;
+  const metaEditorAssetUrl =
+    metaEditorItem?.asset.thumbnailUrl ??
+    metaEditorItem?.asset.originalUrl ??
+    null;
 
   async function selectAlbumForActiveVersion(albumId: string) {
     setSelectedAlbumId(albumId);
@@ -1034,11 +1326,14 @@ export function ViontoPage() {
     if (previousAlbumId === albumId) return;
 
     try {
-      const res = await fetch(`/api/projects/${selectedProjectId}/versions/${selectedVersionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ albumId }),
-      });
+      const res = await fetch(
+        `/api/projects/${selectedProjectId}/versions/${selectedVersionId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ albumId }),
+        }
+      );
       if (!res.ok) {
         const message = await res.text().catch(() => "");
         throw new Error(message || "Failed to link album to version");
@@ -1089,7 +1384,13 @@ export function ViontoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name || `Version ${videoVersions.length + 1}`,
-          ...(template ? { ...template.settings, templateId: template.id, templateSettings: template.settings } : {}),
+          ...(template
+            ? {
+                ...template.settings,
+                templateId: template.id,
+                templateSettings: template.settings,
+              }
+            : {}),
           ...(albumId && { albumId }),
         }),
       });
@@ -1131,14 +1432,19 @@ export function ViontoPage() {
   async function renameVideoVersion(versionId: string, newName: string) {
     if (!selectedProjectId || !newName.trim()) return;
     try {
-      const res = await fetch(`/api/projects/${selectedProjectId}/versions/${versionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim() }),
-      });
+      const res = await fetch(
+        `/api/projects/${selectedProjectId}/versions/${versionId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: newName.trim() }),
+        }
+      );
       if (!res.ok) return;
       setVideoVersions((prev) =>
-        prev.map((v) => (v.id === versionId ? { ...v, name: newName.trim() } : v)),
+        prev.map((v) =>
+          v.id === versionId ? { ...v, name: newName.trim() } : v
+        )
       );
     } catch (error) {
       console.error("Failed to rename video version", error);
@@ -1149,9 +1455,12 @@ export function ViontoPage() {
     if (!selectedProjectId) return;
     if (videoVersions.length <= 1) return; // prevent deleting the last version
     try {
-      const res = await fetch(`/api/projects/${selectedProjectId}/versions/${versionId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/projects/${selectedProjectId}/versions/${versionId}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (!res.ok) return;
       await loadVideoVersions(selectedProjectId);
     } catch (error) {
@@ -1165,21 +1474,26 @@ export function ViontoPage() {
     const version = videoVersions.find((v) => v.id === selectedVersionId);
     if (!version) return;
 
-    const shouldApplySettings = lastAppliedVersionId.current !== selectedVersionId;
+    const shouldApplySettings =
+      lastAppliedVersionId.current !== selectedVersionId;
     if (shouldApplySettings) {
       setActiveMode(API_MODE_TO_UI_MODE[version.mode] ?? "cinematic");
       setSelectedStoryMode(version.storyMode ?? "memory_film");
       setSelectedEmotionalTone(version.emotionalTone ?? "nostalgic");
       setSelectedVisualStyle(normalizeVisualStyle(version.visualStyle));
-      const supportedAspect = ASPECT_OPTIONS.some((o) => o.value === version.aspectRatio);
-      setActiveAspectRatio(supportedAspect ? version.aspectRatio as AspectRatio : "16:9");
+      const supportedAspect = ASPECT_OPTIONS.some(
+        (o) => o.value === version.aspectRatio
+      );
+      setActiveAspectRatio(
+        supportedAspect ? (version.aspectRatio as AspectRatio) : "16:9"
+      );
       setTargetDurationSeconds(version.targetDurationSeconds ?? 20);
     }
     setSelectedAlbumId(
       version.albumId ??
-      albums.find((album) => album.isBase)?.id ??
-      albums[0]?.id ??
-      null
+        albums.find((album) => album.isBase)?.id ??
+        albums[0]?.id ??
+        null
     );
 
     if (shouldApplySettings) {
@@ -1226,7 +1540,11 @@ export function ViontoPage() {
       const tracks = data.tracks || data.data || [];
       const narrationTrack = tracks
         .filter((t: any) => t.type === "narration" && t.voiceId)
-        .sort((a: any, b: any) => new Date(b.updatedAt ?? b.createdAt).getTime() - new Date(a.updatedAt ?? a.createdAt).getTime())[0];
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.updatedAt ?? b.createdAt).getTime() -
+            new Date(a.updatedAt ?? a.createdAt).getTime()
+        )[0];
       setSelectedVoice(narrationTrack?.voiceId ?? null);
     } catch (error) {
       console.error("Failed to load audio settings", error);
@@ -1238,7 +1556,9 @@ export function ViontoPage() {
       const res = await fetch(`/api/exports?projectId=${projectId}`);
       if (!res.ok) return;
       const data = await res.json();
-      const latestCompletedExport = (data.data || []).find((item: any) => item.renderJob?.state === "completed");
+      const latestCompletedExport = (data.data || []).find(
+        (item: any) => item.renderJob?.state === "completed"
+      );
       if (latestCompletedExport) {
         setRenderJobId(latestCompletedExport.renderJobId ?? null);
         // Never clobber an in-progress render triggered by the user
@@ -1276,11 +1596,16 @@ export function ViontoPage() {
     }
   }
 
-  async function loadExportLibrary(overrides: { projectId?: string | null; cursor?: string | null } = {}) {
+  async function loadExportLibrary(
+    overrides: { projectId?: string | null; cursor?: string | null } = {}
+  ) {
     setIsLoadingLibrary(true);
     try {
       const params = new URLSearchParams();
-      const projectId = overrides.projectId === undefined ? selectedProjectId : overrides.projectId;
+      const projectId =
+        overrides.projectId === undefined
+          ? selectedProjectId
+          : overrides.projectId;
       if (projectId) params.set("projectId", projectId);
       if (libraryModeFilter) params.set("mode", libraryModeFilter);
       if (libraryCreatedFrom) params.set("createdFrom", libraryCreatedFrom);
@@ -1316,7 +1641,13 @@ export function ViontoPage() {
       closingMessage: closingMessage.trim(),
       dedicationText: dedicationText.trim(),
     };
-    const hasStoryStructure = storyStructure.openingTitle || storyStructure.introNarration || storyStructure.chapters.length > 0 || storyStructure.climaxDescription || storyStructure.closingMessage || storyStructure.dedicationText;
+    const hasStoryStructure =
+      storyStructure.openingTitle ||
+      storyStructure.introNarration ||
+      storyStructure.chapters.length > 0 ||
+      storyStructure.climaxDescription ||
+      storyStructure.closingMessage ||
+      storyStructure.dedicationText;
 
     const settingsData = {
       mode: apiMode,
@@ -1324,8 +1655,10 @@ export function ViontoPage() {
       emotionalTone: selectedEmotionalTone,
       visualStyle: selectedVisualStyle,
       musicOption: selectedMusicTracks.length > 0 ? "upload_own" : "no_music",
-      musicTrackId: selectedMusicTracks.map((track) => track.trackId).join(",") || null,
-      musicMetadata: selectedMusicTracks.length > 0 ? selectedMusicTracks : null,
+      musicTrackId:
+        selectedMusicTracks.map((track) => track.trackId).join(",") || null,
+      musicMetadata:
+        selectedMusicTracks.length > 0 ? selectedMusicTracks : null,
       aspectRatio: activeAspectRatio,
       targetDurationSeconds,
       storyStructure: hasStoryStructure ? storyStructure : null,
@@ -1343,11 +1676,17 @@ export function ViontoPage() {
       // Save to the video version if one is selected (preferred).
       // The version PATCH endpoint also syncs back to the project.
       if (selectedVersionId) {
-        const res = await fetch(`/api/projects/${selectedProjectId}/versions/${selectedVersionId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...settingsData, albumId: selectedAlbumId ?? null }),
-        });
+        const res = await fetch(
+          `/api/projects/${selectedProjectId}/versions/${selectedVersionId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...settingsData,
+              albumId: selectedAlbumId ?? null,
+            }),
+          }
+        );
         if (!res.ok) {
           const message = await res.text().catch(() => "");
           throw new Error(message || "Failed to save version settings");
@@ -1367,7 +1706,17 @@ export function ViontoPage() {
       setProjects((prev) =>
         prev.map((project) =>
           project.id === selectedProjectId
-            ? { ...project, mode: apiMode, storyMode: selectedStoryMode, emotionalTone: selectedEmotionalTone, visualStyle: selectedVisualStyle, musicOption: selectedMusicTracks.length > 0 ? "upload_own" : "no_music", aspectRatio: activeAspectRatio, targetDurationSeconds }
+            ? {
+                ...project,
+                mode: apiMode,
+                storyMode: selectedStoryMode,
+                emotionalTone: selectedEmotionalTone,
+                visualStyle: selectedVisualStyle,
+                musicOption:
+                  selectedMusicTracks.length > 0 ? "upload_own" : "no_music",
+                aspectRatio: activeAspectRatio,
+                targetDurationSeconds,
+              }
             : project
         )
       );
@@ -1385,7 +1734,10 @@ export function ViontoPage() {
       const res = await fetch(`/api/projects/${selectedProjectId}/subtitles`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...subtitleConfig, versionId: selectedVersionId ?? undefined }),
+        body: JSON.stringify({
+          ...subtitleConfig,
+          versionId: selectedVersionId ?? undefined,
+        }),
       });
       if (!res.ok) {
         const message = await res.text().catch(() => "");
@@ -1436,14 +1788,22 @@ export function ViontoPage() {
   }
 
   function getVoicePreviewText() {
-    const selectedVoiceLocale = voices.find((voice) => voice.id === selectedVoice)?.locale;
+    const selectedVoiceLocale = voices.find(
+      (voice) => voice.id === selectedVoice
+    )?.locale;
     const language = (selectedVoiceLocale ?? locale).split("-")[0] ?? "en";
-    if (language === "nl") return "Dit is een voorbeeld van de gekozen vertelstem voor je Vionto verhaal.";
-    if (language === "fr") return "Voici un aperçu de la voix choisie pour votre histoire Vionto.";
-    if (language === "de") return "Dies ist eine Vorschau der ausgewaehlten Stimme fuer deine Vionto Geschichte.";
-    if (language === "es") return "Esta es una vista previa de la voz narradora elegida para tu historia de Vionto.";
-    if (language === "it") return "Questa è un'anteprima della voce narrante scelta per la tua storia Vionto.";
-    if (language === "pt") return "Esta é uma prévia da voz de narração escolhida para a sua história Vionto.";
+    if (language === "nl")
+      return "Dit is een voorbeeld van de gekozen vertelstem voor je Vionto verhaal.";
+    if (language === "fr")
+      return "Voici un aperçu de la voix choisie pour votre histoire Vionto.";
+    if (language === "de")
+      return "Dies ist eine Vorschau der ausgewaehlten Stimme fuer deine Vionto Geschichte.";
+    if (language === "es")
+      return "Esta es una vista previa de la voz narradora elegida para tu historia de Vionto.";
+    if (language === "it")
+      return "Questa è un'anteprima della voce narrante scelta per la tua storia Vionto.";
+    if (language === "pt")
+      return "Esta é uma prévia da voz de narração escolhida para a sua história Vionto.";
     return t("vionto.audio.previewText");
   }
 
@@ -1477,9 +1837,12 @@ export function ViontoPage() {
   async function deleteAsset(assetId: string) {
     if (!selectedProjectId) return;
     try {
-      const res = await fetch(`/api/projects/${selectedProjectId}/assets?assetId=${assetId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/projects/${selectedProjectId}/assets?assetId=${assetId}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (!res.ok) {
         alert(t("vionto.alert.deleteAssetFailed"));
         return;
@@ -1536,11 +1899,15 @@ export function ViontoPage() {
         body: JSON.stringify({
           projectId: selectedProjectId,
           versionId: selectedVersionId ?? undefined,
-          ...(!selectedVersionId && selectedAlbumId ? { albumId: selectedAlbumId } : {}),
+          ...(!selectedVersionId && selectedAlbumId
+            ? { albumId: selectedAlbumId }
+            : {}),
         }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: t("vionto.alert.startRenderFailed") }));
+        const data = await res
+          .json()
+          .catch(() => ({ error: t("vionto.alert.startRenderFailed") }));
         const message = data.error ?? t("vionto.alert.startRenderFailed");
         alert(message);
         setRenderError(message);
@@ -1573,8 +1940,10 @@ export function ViontoPage() {
       if (data.state === "completed") {
         setRenderError(null);
         // Load export record
-        const exportRes = await fetch(`/api/exports?projectId=${selectedProjectId}`);
-      if (exportRes.ok) {
+        const exportRes = await fetch(
+          `/api/exports?projectId=${selectedProjectId}`
+        );
+        if (exportRes.ok) {
           const exportData = await exportRes.json();
           if (exportData.data && exportData.data.length > 0) {
             const latestExport = exportData.data[0];
@@ -1604,7 +1973,9 @@ export function ViontoPage() {
   async function cancelRender() {
     if (!renderJobId) return;
     try {
-      const res = await fetch(`/api/render/${renderJobId}`, { method: "DELETE" });
+      const res = await fetch(`/api/render/${renderJobId}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         alert(data.error ?? "Failed to cancel render");
@@ -1655,16 +2026,21 @@ export function ViontoPage() {
           storyMode: selectedStoryMode,
           emotionalTone: selectedEmotionalTone,
           visualStyle: selectedVisualStyle,
-          musicOption: selectedMusicTracks.length > 0 ? "upload_own" : "no_music",
-          musicTrackId: selectedMusicTracks.map((track) => track.trackId).join(",") || null,
-          musicMetadata: selectedMusicTracks.length > 0 ? selectedMusicTracks : null,
+          musicOption:
+            selectedMusicTracks.length > 0 ? "upload_own" : "no_music",
+          musicTrackId:
+            selectedMusicTracks.map((track) => track.trackId).join(",") || null,
+          musicMetadata:
+            selectedMusicTracks.length > 0 ? selectedMusicTracks : null,
           aspectRatio: activeAspectRatio,
           targetDurationSeconds,
           locale: locale.split("-")[0] ?? "en",
         }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: t("vionto.alert.createProjectFailed") }));
+        const data = await res
+          .json()
+          .catch(() => ({ error: t("vionto.alert.createProjectFailed") }));
         alert(data.error);
         return;
       }
@@ -1690,12 +2066,17 @@ export function ViontoPage() {
     });
     setUploadingFiles((prev) => {
       const names = new Set(prev.map((f) => f.file.name));
-      return [...prev, ...valid.filter((f) => !names.has(f.name)).map((f) => ({
-        file: f,
-        key: "",
-        status: "pending" as const,
-        progress: 0,
-      }))];
+      return [
+        ...prev,
+        ...valid
+          .filter((f) => !names.has(f.name))
+          .map((f) => ({
+            file: f,
+            key: "",
+            status: "pending" as const,
+            progress: 0,
+          })),
+      ];
     });
   }
 
@@ -1730,18 +2111,26 @@ export function ViontoPage() {
 
   const modes = ["cinematic", "slideshow", "social"] as const;
   const [activeMode, setActiveMode] = useState<UiMode>("cinematic");
-  const [activeAspectRatio, setActiveAspectRatio] = useState<AspectRatio>("16:9");
-  const [targetDurationSeconds, setTargetDurationSeconds] = useState<number>(20);
+  const [activeAspectRatio, setActiveAspectRatio] =
+    useState<AspectRatio>("16:9");
+  const [targetDurationSeconds, setTargetDurationSeconds] =
+    useState<number>(20);
   const [scriptStale, setScriptStale] = useState(false);
-  const currentPreviewAspectRatio = latestExport?.aspectRatio ?? activeAspectRatio;
+  const currentPreviewAspectRatio =
+    latestExport?.aspectRatio ?? activeAspectRatio;
 
   const queueItems = [
-    [t("vionto.queue.captioning"), t("vionto.queue.captioningDetail", { count: 12 })],
+    [
+      t("vionto.queue.captioning"),
+      t("vionto.queue.captioningDetail", { count: 12 }),
+    ],
     [t("vionto.queue.script"), t("vionto.queue.scriptDetail")],
     [t("vionto.queue.voice"), t("vionto.queue.voiceDetail")],
     [t("vionto.queue.render"), t("vionto.queue.renderDetail")],
   ];
-  const hasRenderableScript = versions.some((version) => version.narrationText?.trim());
+  const hasRenderableScript = versions.some((version) =>
+    version.narrationText?.trim()
+  );
 
   async function startUploads() {
     if (!selectedProjectId) {
@@ -1754,7 +2143,9 @@ export function ViontoPage() {
 
     // Create upload session
     try {
-      const sessionRes = await fetch("/api/uploads/session", { method: "POST" });
+      const sessionRes = await fetch("/api/uploads/session", {
+        method: "POST",
+      });
       if (!sessionRes.ok) {
         alert(t("vionto.alert.uploadSessionFailed"));
         setIsUploading(false);
@@ -1829,7 +2220,12 @@ export function ViontoPage() {
 
           setUploadingFiles((prev) => {
             const updated = [...prev];
-            updated[i] = { ...updated[i], status: "complete", progress: 100, key: presignData.key };
+            updated[i] = {
+              ...updated[i],
+              status: "complete",
+              progress: 100,
+              key: presignData.key,
+            };
             return updated;
           });
           completedUploads += 1;
@@ -1837,7 +2233,14 @@ export function ViontoPage() {
           console.error("Upload failed", error);
           setUploadingFiles((prev) => {
             const updated = [...prev];
-            updated[i] = { ...updated[i], status: "error", error: error instanceof Error ? error.message : t("vionto.alert.uploadFailed") };
+            updated[i] = {
+              ...updated[i],
+              status: "error",
+              error:
+                error instanceof Error
+                  ? error.message
+                  : t("vionto.alert.uploadFailed"),
+            };
             return updated;
           });
         }
@@ -1849,11 +2252,17 @@ export function ViontoPage() {
       }
 
       // Promote session to project assets
-      const promoteRes = await fetch(`/api/projects/${selectedProjectId}/assets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionData.sessionId, clearSession: true }),
-      });
+      const promoteRes = await fetch(
+        `/api/projects/${selectedProjectId}/assets`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: sessionData.sessionId,
+            clearSession: true,
+          }),
+        }
+      );
       if (promoteRes.ok) {
         await loadProjectAssets(selectedProjectId);
         setUploadingFiles([]);
@@ -1874,7 +2283,12 @@ export function ViontoPage() {
   function retryUpload(index: number) {
     setUploadingFiles((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], status: "pending", progress: 0, error: undefined };
+      updated[index] = {
+        ...updated[index],
+        status: "pending",
+        progress: 0,
+        error: undefined,
+      };
       return updated;
     });
   }
@@ -1895,7 +2309,9 @@ export function ViontoPage() {
         body: JSON.stringify({
           projectId: selectedProjectId,
           versionId: selectedVersionId ?? undefined,
-          ...(!selectedVersionId && selectedAlbumId ? { albumId: selectedAlbumId } : {}),
+          ...(!selectedVersionId && selectedAlbumId
+            ? { albumId: selectedAlbumId }
+            : {}),
           locale: locale.split("-")[0] ?? "en",
           mode: apiMode,
           visualStyle: selectedVisualStyle,
@@ -1905,8 +2321,14 @@ export function ViontoPage() {
         }),
       });
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-        const errorMsg = data.error ?? data.message ?? `Generation failed (status ${res.status})`;
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+        };
+        const errorMsg =
+          data.error ??
+          data.message ??
+          `Generation failed (status ${res.status})`;
         console.error("[ViontoPage] Generate failed:", errorMsg, data);
         alert(errorMsg);
         return;
@@ -1935,32 +2357,55 @@ export function ViontoPage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [locale, activeMode, selectedVisualStyle, userNotes, selectedProjectId, targetDurationSeconds, selectedAlbumId]);
+  }, [
+    locale,
+    activeMode,
+    selectedVisualStyle,
+    userNotes,
+    selectedProjectId,
+    targetDurationSeconds,
+    selectedAlbumId,
+  ]);
 
-  const handleSave = useCallback(async (scriptId: string, narration: string, srt: string) => {
-    const res = await fetch(`/api/story/${scriptId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ narrationText: narration, srtText: srt }),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      alert(data.error ?? t("vionto.alert.saveFailed"));
-      return;
-    }
-    setVersions((prev) =>
-      prev.map((v) => (v.id === scriptId ? { ...v, narrationText: narration, srtText: srt, isUserEdited: true } : v))
-    );
-  }, []);
-
+  const handleSave = useCallback(
+    async (scriptId: string, narration: string, srt: string) => {
+      const res = await fetch(`/api/story/${scriptId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ narrationText: narration, srtText: srt }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        alert(data.error ?? t("vionto.alert.saveFailed"));
+        return;
+      }
+      setVersions((prev) =>
+        prev.map((v) =>
+          v.id === scriptId
+            ? {
+                ...v,
+                narrationText: narration,
+                srtText: srt,
+                isUserEdited: true,
+              }
+            : v
+        )
+      );
+    },
+    []
+  );
 
   // Handle music track selection
   const handleSelectMusicTrack = (track: NormalizedTrackMetadata) => {
-    setSelectedMusicTracks((current) => (
-      current.some((selected) => selected.trackId === track.trackId && selected.provider === track.provider)
+    setSelectedMusicTracks((current) =>
+      current.some(
+        (selected) =>
+          selected.trackId === track.trackId &&
+          selected.provider === track.provider
+      )
         ? current
         : [...current, track]
-    ));
+    );
     setShowMusicSelector(false);
   };
 
@@ -1975,7 +2420,9 @@ export function ViontoPage() {
     return "audio/mpeg";
   }
 
-  async function uploadMusicFile(file: File): Promise<{ key: string; publicUrl?: string }> {
+  async function uploadMusicFile(
+    file: File
+  ): Promise<{ key: string; publicUrl?: string }> {
     const contentType = getAudioContentType(file);
     const presignRes = await fetch("/api/uploads/presign", {
       method: "POST",
@@ -2008,7 +2455,10 @@ export function ViontoPage() {
       throw new Error(message || t("vionto.alert.musicUploadFailed"));
     }
 
-    const uploadData = (await uploadRes.json()) as { key: string; publicUrl?: string };
+    const uploadData = (await uploadRes.json()) as {
+      key: string;
+      publicUrl?: string;
+    };
     return { key: uploadData.key, publicUrl: uploadData.publicUrl };
   }
 
@@ -2039,7 +2489,13 @@ export function ViontoPage() {
       });
     }
     setSelectedMusicTracks((current) =>
-      current.filter((selected) => !(selected.trackId === track.trackId && selected.provider === track.provider))
+      current.filter(
+        (selected) =>
+          !(
+            selected.trackId === track.trackId &&
+            selected.provider === track.provider
+          )
+      )
     );
   };
 
@@ -2059,13 +2515,17 @@ export function ViontoPage() {
       setMusicLibrary(items);
     } catch (error) {
       console.error("Failed to load music library", error);
-      setMusicLibraryError(error instanceof Error ? error.message : t("vionto.music.fetchError"));
+      setMusicLibraryError(
+        error instanceof Error ? error.message : t("vionto.music.fetchError")
+      );
     } finally {
       setIsLoadingMusicLibrary(false);
     }
   }
 
-  const makeLibraryTrackMetadata = (item: AudioLibraryItem): NormalizedTrackMetadata => {
+  const makeLibraryTrackMetadata = (
+    item: AudioLibraryItem
+  ): NormalizedTrackMetadata => {
     return item.common
       ? makeCommonTrackMetadata(item, t("vionto.music.commonArtist"))
       : makeSpacesTrackMetadata(item, t("vionto.music.libraryArtist"));
@@ -2073,16 +2533,20 @@ export function ViontoPage() {
 
   const handleSelectLibraryTrack = (item: AudioLibraryItem) => {
     const track = makeLibraryTrackMetadata(item);
-    setSelectedMusicTracks((current) => (
-      current.some((selected) => selected.trackId === track.trackId && selected.provider === track.provider)
+    setSelectedMusicTracks((current) =>
+      current.some(
+        (selected) =>
+          selected.trackId === track.trackId &&
+          selected.provider === track.provider
+      )
         ? current
         : [...current, track]
-    ));
+    );
     setShowMusicSelector(false);
   };
 
   const openMoreMusic = () => {
-    setMusicSelectorTab("library");
+    setMusicSelectorTab("royaltyFree");
     setShowMusicSelector(true);
     void loadMusicLibrary();
   };
@@ -2126,7 +2590,10 @@ export function ViontoPage() {
         const handleLoadError = (e: Event) => {
           audio.removeEventListener("canplay", handleCanPlay);
           audio.removeEventListener("error", handleLoadError);
-          reject((e.target as HTMLAudioElement)?.error || new Error("Failed to load audio"));
+          reject(
+            (e.target as HTMLAudioElement)?.error ||
+              new Error("Failed to load audio")
+          );
         };
         audio.addEventListener("canplay", handleCanPlay);
         audio.addEventListener("error", handleLoadError);
@@ -2138,8 +2605,15 @@ export function ViontoPage() {
     }
   };
 
+  const visibleMusicLibrary = musicLibrary.filter((item) =>
+    musicSelectorTab === "royaltyFree" ? item.common : !item.common
+  );
+
   return (
-    <main className="min-h-screen text-[var(--text)]" style={{ background: 'var(--color-bg)' }}>
+    <main
+      className="min-h-screen text-[var(--text)]"
+      style={{ background: "var(--color-bg)" }}
+    >
       <section className="workspace-shell m-0">
         {/* ─── Sidebar ─────────────────────────────────────────────── */}
         <aside
@@ -2150,50 +2624,97 @@ export function ViontoPage() {
           style={{ background: "var(--color-panel-strong)", zIndex: 20 }}
         >
           {/* Logo + collapse toggle */}
-          <div className={`flex h-14 items-center border-b border-[var(--line)] ${
-            collapsed ? "justify-center px-2" : "justify-between px-4"
-          }`}>
-            <a href="/" className="flex items-center gap-2.5 overflow-hidden" aria-label={t("vionto.aria.home")}>
+          <div
+            className={`flex h-14 items-center border-b border-[var(--line)] ${
+              collapsed ? "justify-center px-2" : "justify-between px-4"
+            }`}
+          >
+            <a
+              href="/"
+              className="flex items-center gap-2.5 overflow-hidden"
+              aria-label={t("vionto.aria.home")}
+            >
               <ViontoMark className="h-8 w-8 shrink-0" />
               {!collapsed && (
                 <div className="brand-text flex flex-col leading-tight max-sm:hidden">
-                  <span className="text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>Vionto</span>
-                  <span className="text-[10px]" style={{ color: "var(--muted)" }}>Vision + Canto</span>
+                  <span
+                    className="text-sm font-bold tracking-tight"
+                    style={{ color: "var(--text)" }}
+                  >
+                    Vionto
+                  </span>
+                  <span
+                    className="text-[10px]"
+                    style={{ color: "var(--muted)" }}
+                  >
+                    Vision + Canto
+                  </span>
                 </div>
               )}
             </a>
             {!collapsed && (
               <button
                 type="button"
-                onClick={() => { window.localStorage.setItem("vionto:sidebar", "collapsed"); setCollapsed(true); }}
+                onClick={() => {
+                  window.localStorage.setItem("vionto:sidebar", "collapsed");
+                  setCollapsed(true);
+                }}
                 title={t("vionto.aria.collapseSidebar")}
                 aria-label={t("vionto.aria.collapseSidebar")}
                 className="collapse-toggle h-7 w-7 flex items-center justify-center rounded-md transition-colors max-sm:hidden"
                 style={{ color: "var(--muted)" }}
               >
-                <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-                  <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="h-3.5 w-3.5"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M10 3L5 8l5 5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
             )}
             {collapsed && (
               <button
                 type="button"
-                onClick={() => { window.localStorage.setItem("vionto:sidebar", "expanded"); setCollapsed(false); }}
+                onClick={() => {
+                  window.localStorage.setItem("vionto:sidebar", "expanded");
+                  setCollapsed(false);
+                }}
                 title={t("vionto.aria.expandSidebar")}
                 aria-label={t("vionto.aria.expandSidebar")}
                 className="collapse-toggle mt-1 h-7 w-7 flex items-center justify-center rounded-md transition-colors max-sm:hidden"
                 style={{ color: "var(--muted)" }}
               >
-                <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-                  <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="h-3.5 w-3.5"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M6 3l5 5-5 5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
             )}
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label={t("vionto.aria.primaryNav")}>
+          <nav
+            className="flex-1 overflow-y-auto px-2 py-3"
+            aria-label={t("vionto.aria.primaryNav")}
+          >
             <ul className="space-y-0.5">
               {NAV_ITEMS.map(({ href, labelKey, Icon }, idx) => (
                 <li key={href}>
@@ -2218,10 +2739,25 @@ export function ViontoPage() {
 
           {/* Footer MVP panel */}
           {!collapsed && (
-            <div className="mx-3 mb-3 rounded-2xl border border-[var(--line)] p-3" style={{ background: "var(--color-panel)" }}>
+            <div
+              className="mx-3 mb-3 rounded-2xl border border-[var(--line)] p-3"
+              style={{ background: "var(--color-panel)" }}
+            >
               <p className="panel-label">MVP target</p>
-              <strong className="text-xs" style={{ color: "var(--text)" }}>First MP4 in 10 minutes</strong>
-              <span className="text-xs" style={{ color: "var(--muted)", lineHeight: 1.5, display: "block", marginTop: 2 }}>30–60 images → narrated story + subtitles.</span>
+              <strong className="text-xs" style={{ color: "var(--text)" }}>
+                First MP4 in 10 minutes
+              </strong>
+              <span
+                className="text-xs"
+                style={{
+                  color: "var(--muted)",
+                  lineHeight: 1.5,
+                  display: "block",
+                  marginTop: 2,
+                }}
+              >
+                30–60 images → narrated story + subtitles.
+              </span>
             </div>
           )}
         </aside>
@@ -2229,36 +2765,71 @@ export function ViontoPage() {
         <section className="main-panel">
           <header className="topbar">
             <div className="flex min-w-0 items-center gap-2 text-sm">
-              <span className="hidden text-[var(--muted)] sm:inline">ASafariM</span>
+              <span className="hidden text-[var(--muted)] sm:inline">
+                ASafariM
+              </span>
               <span className="hidden text-[var(--muted)] sm:inline">/</span>
-              <span className="hidden text-[var(--muted)] md:inline">Vionto</span>
+              <span className="hidden text-[var(--muted)] md:inline">
+                Vionto
+              </span>
               <span className="hidden text-[var(--muted)] md:inline">/</span>
-              <span className="truncate font-medium text-[var(--text)]">{t("vionto.nav.create")}</span>
+              <span className="truncate font-medium text-[var(--text)]">
+                {t("vionto.nav.create")}
+              </span>
             </div>
             {/* Desktop controls — hidden below portrait tablet */}
             <div className="hidden md:flex items-center gap-2">
-              <CountryLanguageSelector key={"language-selector"}/>
+              <CountryLanguageSelector key={"language-selector"} />
               <ViontoTopbarControls />
-              <a className="portal-link" href={process.env.NEXT_PUBLIC_HUB_URL ?? "http://localhost:3001"}>
+              <a
+                className="portal-link"
+                href={
+                  process.env.NEXT_PUBLIC_HUB_URL ?? "http://localhost:3001"
+                }
+              >
                 ASafarIM Hub <ArrowRight size={16} />
               </a>
             </div>
             {/* Hamburger — visible below portrait tablet */}
             <button
               type="button"
-              aria-label={mobileMenuOpen ? t("vionto.aria.closeMenu") : t("vionto.aria.openMenu")}
+              aria-label={
+                mobileMenuOpen
+                  ? t("vionto.aria.closeMenu")
+                  : t("vionto.aria.openMenu")
+              }
               aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen((o) => !o)}
               className="md:hidden flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] transition hover:bg-white/[0.06]"
               style={{ color: "var(--text)" }}
             >
               {mobileMenuOpen ? (
-                <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden="true">
-                  <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M3 3l10 10M13 3L3 13"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
                 </svg>
               ) : (
-                <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden="true">
-                  <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M2 4h12M2 8h12M2 12h12"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
                 </svg>
               )}
             </button>
@@ -2272,7 +2843,9 @@ export function ViontoPage() {
               <ViontoTopbarControls />
               <a
                 className="portal-link inline-flex w-full justify-center"
-                href={process.env.NEXT_PUBLIC_HUB_URL ?? "http://localhost:3001"}
+                href={
+                  process.env.NEXT_PUBLIC_HUB_URL ?? "http://localhost:3001"
+                }
                 onClick={() => setMobileMenuOpen(false)}
               >
                 ASafarIM Hub <ArrowRight size={16} />
@@ -2282,11 +2855,20 @@ export function ViontoPage() {
 
           <div className="px-5 pt-5 pb-1">
             <p className="eyebrow">Photo-to-story video MVP</p>
-            <h1 className="mt-1 text-2xl font-semibold" style={{ fontSize: "1.5rem", lineHeight: 1.25 }}>Turn memories into poetic motion.</h1>
+            <h1
+              className="mt-1 text-2xl font-semibold"
+              style={{ fontSize: "1.5rem", lineHeight: 1.25 }}
+            >
+              Turn memories into poetic motion.
+            </h1>
           </div>
 
           <div className="creator-grid" id="create">
-            <section className="upload-panel w-full max-w-full" id="uploads" aria-labelledby="upload-title">
+            <section
+              className="upload-panel w-full max-w-full"
+              id="uploads"
+              aria-labelledby="upload-title"
+            >
               <div>
                 <p className="eyebrow">{t("vionto.upload.eyebrow")}</p>
                 <h2 id="upload-title">{t("vionto.upload.title")}</h2>
@@ -2296,7 +2878,9 @@ export function ViontoPage() {
               {/* Project picker */}
               <div className="mt-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-[var(--color-text-muted)]">{t("vionto.project.label")}</label>
+                  <label className="text-xs font-medium text-[var(--color-text-muted)]">
+                    {t("vionto.project.label")}
+                  </label>
                   <a
                     href="/projects"
                     className="text-xs font-medium text-[var(--color-accent)] hover:underline flex items-center gap-1"
@@ -2312,9 +2896,13 @@ export function ViontoPage() {
                     onChange={(e) => selectProject(e.target.value || null)}
                     disabled={isLoadingProjects || isUploading}
                   >
-                    <option value="">{t("vionto.project.selectPlaceholder")}</option>
+                    <option value="">
+                      {t("vionto.project.selectPlaceholder")}
+                    </option>
                     {projects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.title}</option>
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
                     ))}
                   </select>
                   <button
@@ -2336,13 +2924,21 @@ export function ViontoPage() {
                       placeholder={t("vionto.project.titlePlaceholder")}
                       value={newProjectTitle}
                       onChange={(e) => setNewProjectTitle(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && !isSubmittingProject && createProject()}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" &&
+                        !isSubmittingProject &&
+                        createProject()
+                      }
                       disabled={isSubmittingProject}
                       autoFocus
                     />
                     <select
                       value={selectedTemplateId}
-                      onChange={(e) => applyTemplateToDraft(e.target.value as VideoTemplateId | "")}
+                      onChange={(e) =>
+                        applyTemplateToDraft(
+                          e.target.value as VideoTemplateId | ""
+                        )
+                      }
                       disabled={isSubmittingProject}
                       className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                     >
@@ -2361,7 +2957,10 @@ export function ViontoPage() {
                     <div className="mt-2 flex justify-end gap-2">
                       <button
                         type="button"
-                        onClick={() => { setIsCreatingProject(false); setNewProjectTitle(""); }}
+                        onClick={() => {
+                          setIsCreatingProject(false);
+                          setNewProjectTitle("");
+                        }}
                         disabled={isSubmittingProject}
                         className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1.5 text-sm text-[var(--color-text)] transition hover:bg-[var(--color-surface)]"
                       >
@@ -2370,7 +2969,9 @@ export function ViontoPage() {
                       <button
                         type="button"
                         onClick={createProject}
-                        disabled={!newProjectTitle.trim() || isSubmittingProject}
+                        disabled={
+                          !newProjectTitle.trim() || isSubmittingProject
+                        }
                         className="inline-flex min-w-24 items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
                       >
                         {isSubmittingProject ? (
@@ -2400,18 +3001,26 @@ export function ViontoPage() {
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
                       <select
                         value={versionTemplateId}
-                        onChange={(e) => setVersionTemplateId(e.target.value as VideoTemplateId | "")}
+                        onChange={(e) =>
+                          setVersionTemplateId(
+                            e.target.value as VideoTemplateId | ""
+                          )
+                        }
                         className="min-w-0 max-w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)] sm:max-w-36"
                         aria-label="Video template"
                       >
                         <option value="">Manual</option>
                         {VIDEO_TEMPLATES.map((template) => (
-                          <option key={template.id} value={template.id}>{template.name}</option>
+                          <option key={template.id} value={template.id}>
+                            {template.name}
+                          </option>
                         ))}
                       </select>
                       <button
                         type="button"
-                        onClick={() => createVideoVersion(undefined, selectedAlbumId)}
+                        onClick={() =>
+                          createVideoVersion(undefined, selectedAlbumId)
+                        }
                         className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:underline"
                       >
                         <Plus size={11} /> New version
@@ -2435,7 +3044,10 @@ export function ViontoPage() {
                             if (!isRenaming) setSelectedVersionId(version.id);
                           }}
                         >
-                          <Clapperboard size={13} className="flex-shrink-0 opacity-60" />
+                          <Clapperboard
+                            size={13}
+                            className="flex-shrink-0 opacity-60"
+                          />
 
                           {isRenaming ? (
                             <form
@@ -2454,7 +3066,8 @@ export function ViontoPage() {
                                 autoFocus
                                 onClick={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => {
-                                  if (e.key === "Escape") setRenamingVersionId(null);
+                                  if (e.key === "Escape")
+                                    setRenamingVersionId(null);
                                 }}
                               />
                               <button
@@ -2466,7 +3079,10 @@ export function ViontoPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); setRenamingVersionId(null); }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRenamingVersionId(null);
+                                }}
                                 className="rounded p-0.5 text-[var(--color-text-muted)] hover:bg-[var(--color-surface)]"
                               >
                                 <X size={12} />
@@ -2474,15 +3090,19 @@ export function ViontoPage() {
                             </form>
                           ) : (
                             <>
-                              <span className="min-w-0 max-w-[12rem] truncate">{version.name}</span>
+                              <span className="min-w-0 max-w-[12rem] truncate">
+                                {version.name}
+                              </span>
                               {version.albumId && (
                                 <span className="ml-1 max-w-[8rem] truncate rounded bg-[var(--color-surface)] px-1 py-0.5 text-[9px] text-[var(--color-text-muted)]">
-                                  {albums.find((a) => a.id === version.albumId)?.name ?? "Album"}
+                                  {albums.find((a) => a.id === version.albumId)
+                                    ?.name ?? "Album"}
                                 </span>
                               )}
                               {version.templateId && (
                                 <span className="ml-1 rounded bg-[var(--color-accent)]/10 px-1 py-0.5 text-[9px] text-[var(--color-accent)]">
-                                  {getVideoTemplate(version.templateId)?.name ?? "Template"}
+                                  {getVideoTemplate(version.templateId)?.name ??
+                                    "Template"}
                                 </span>
                               )}
                             </>
@@ -2520,7 +3140,11 @@ export function ViontoPage() {
                                   title="Delete"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (confirm("Delete this version? This cannot be undone.")) {
+                                    if (
+                                      confirm(
+                                        "Delete this version? This cannot be undone."
+                                      )
+                                    ) {
                                       deleteVideoVersion(version.id);
                                     }
                                   }}
@@ -2536,21 +3160,27 @@ export function ViontoPage() {
                     })}
                   </div>
                   {/* Version stats badge */}
-                  {selectedVersionId && (() => {
-                    const v = videoVersions.find((ver) => ver.id === selectedVersionId);
-                    if (!v) return null;
-                    const stats = [
-                      v._count.scripts > 0 && `${v._count.scripts} script${v._count.scripts > 1 ? "s" : ""}`,
-                      v._count.renderJobs > 0 && `${v._count.renderJobs} render${v._count.renderJobs > 1 ? "s" : ""}`,
-                      v._count.exports > 0 && `${v._count.exports} export${v._count.exports > 1 ? "s" : ""}`,
-                    ].filter(Boolean);
-                    if (stats.length === 0) return null;
-                    return (
-                      <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
-                        {stats.join(" · ")}
-                      </p>
-                    );
-                  })()}
+                  {selectedVersionId &&
+                    (() => {
+                      const v = videoVersions.find(
+                        (ver) => ver.id === selectedVersionId
+                      );
+                      if (!v) return null;
+                      const stats = [
+                        v._count.scripts > 0 &&
+                          `${v._count.scripts} script${v._count.scripts > 1 ? "s" : ""}`,
+                        v._count.renderJobs > 0 &&
+                          `${v._count.renderJobs} render${v._count.renderJobs > 1 ? "s" : ""}`,
+                        v._count.exports > 0 &&
+                          `${v._count.exports} export${v._count.exports > 1 ? "s" : ""}`,
+                      ].filter(Boolean);
+                      if (stats.length === 0) return null;
+                      return (
+                        <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                          {stats.join(" · ")}
+                        </p>
+                      );
+                    })()}
                 </div>
               )}
               {/* ─── End Video Version Selector ─────────────────────────────── */}
@@ -2573,16 +3203,42 @@ export function ViontoPage() {
                     role="button"
                     tabIndex={0}
                     aria-label={t("vionto.upload.dropzoneLabel")}
-                    onClick={() => !isUploading && fileInputRef.current?.click()}
-                    onKeyDown={(e) => e.key === "Enter" && !isUploading && fileInputRef.current?.click()}
-                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                    onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onClick={() =>
+                      !isUploading && fileInputRef.current?.click()
+                    }
+                    onKeyDown={(e) =>
+                      e.key === "Enter" &&
+                      !isUploading &&
+                      fileInputRef.current?.click()
+                    }
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={handleDropzoneDrop}
-                    style={isDragging ? { borderColor: "var(--coral)", background: "rgba(243,111,86,0.12)" } : undefined}
+                    style={
+                      isDragging
+                        ? {
+                            borderColor: "var(--coral)",
+                            background: "rgba(243,111,86,0.12)",
+                          }
+                        : undefined
+                    }
                   >
-                    <CloudUpload size={34} style={{ color: isDragging ? "var(--coral)" : undefined }} />
-                    <strong>{uploadingFiles.length > 0 ? `${uploadingFiles.length} file${uploadingFiles.length > 1 ? "s" : ""} selected` : t("vionto.upload.dropzoneLabel")}</strong>
+                    <CloudUpload
+                      size={34}
+                      style={{ color: isDragging ? "var(--coral)" : undefined }}
+                    />
+                    <strong>
+                      {uploadingFiles.length > 0
+                        ? `${uploadingFiles.length} file${uploadingFiles.length > 1 ? "s" : ""} selected`
+                        : t("vionto.upload.dropzoneLabel")}
+                    </strong>
                     <span>{t("vionto.upload.dropzoneHint")}</span>
                   </div>
 
@@ -2590,33 +3246,47 @@ export function ViontoPage() {
                   {uploadingFiles.length > 0 && (
                     <ul className="mt-1 space-y-1">
                       {uploadingFiles.slice(0, 5).map((f, i) => (
-                      <li key={i} className="flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs">
-                        <span className="min-w-0 flex-1 truncate text-[var(--text)]">{f.file.name}</span>
-                        {f.status === "uploading" && <RefreshCw size={14} className="animate-spin text-[var(--muted)]" />}
-                        {f.status === "complete" && <span className="text-[var(--coral)]">✓</span>}
-                        {f.status === "error" && (
+                        <li
+                          key={i}
+                          className="flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs"
+                        >
+                          <span className="min-w-0 flex-1 truncate text-[var(--text)]">
+                            {f.file.name}
+                          </span>
+                          {f.status === "uploading" && (
+                            <RefreshCw
+                              size={14}
+                              className="animate-spin text-[var(--muted)]"
+                            />
+                          )}
+                          {f.status === "complete" && (
+                            <span className="text-[var(--coral)]">✓</span>
+                          )}
+                          {f.status === "error" && (
+                            <button
+                              type="button"
+                              onClick={() => retryUpload(i)}
+                              className="text-[var(--muted)] hover:text-[var(--text)]"
+                              aria-label={t("vionto.aria.retry")}
+                            >
+                              <RefreshCw size={14} />
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => retryUpload(i)}
-                            className="text-[var(--muted)] hover:text-[var(--text)]"
-                            aria-label={t("vionto.aria.retry")}
+                            onClick={() => removeUpload(i)}
+                            disabled={f.status === "uploading"}
+                            className="shrink-0 text-[var(--muted)] hover:text-[var(--coral)] transition-colors disabled:opacity-50"
+                            aria-label={`Remove ${f.file.name}`}
                           >
-                            <RefreshCw size={14} />
+                            <Trash2 size={14} />
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeUpload(i)}
-                          disabled={f.status === "uploading"}
-                          className="shrink-0 text-[var(--muted)] hover:text-[var(--coral)] transition-colors disabled:opacity-50"
-                          aria-label={`Remove ${f.file.name}`}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </li>
+                        </li>
                       ))}
                       {uploadingFiles.length > 5 && (
-                        <li className="px-3 py-1 text-xs text-[var(--muted)]">+{uploadingFiles.length - 5} more</li>
+                        <li className="px-3 py-1 text-xs text-[var(--muted)]">
+                          +{uploadingFiles.length - 5} more
+                        </li>
                       )}
                     </ul>
                   )}
@@ -2626,10 +3296,17 @@ export function ViontoPage() {
                     <button
                       type="button"
                       onClick={startUploads}
-                      disabled={isUploading || uploadingFiles.every((f) => f.status === "complete")}
+                      disabled={
+                        isUploading ||
+                        uploadingFiles.every((f) => f.status === "complete")
+                      }
                       className="mt-2 w-full rounded-lg bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
                     >
-                      {isUploading ? <RefreshCw size={16} className="animate-spin" /> : "Upload"}
+                      {isUploading ? (
+                        <RefreshCw size={16} className="animate-spin" />
+                      ) : (
+                        "Upload"
+                      )}
                     </button>
                   )}
 
@@ -2638,7 +3315,8 @@ export function ViontoPage() {
                     projectId={selectedProjectId}
                     onImported={async () => {
                       await loadProjectAssets(selectedProjectId);
-                      const baseAlbum = albums.find((a) => a.isBase) ?? albums[0];
+                      const baseAlbum =
+                        albums.find((a) => a.isBase) ?? albums[0];
                       if (baseAlbum) {
                         await loadAlbumItems(selectedProjectId, baseAlbum.id);
                       }
@@ -2655,65 +3333,85 @@ export function ViontoPage() {
                     onClick={() => setIsAssetsExpanded((v) => !v)}
                     className="flex w-full items-center justify-between gap-1 text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
                   >
-                    <span>{t("vionto.project.assets")} ({projectAssets.length})</span>
-                    {isAssetsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                  </button>
-                  {isAssetsExpanded && <ul className="project-assets-grid mt-1">
-                    {projectAssets.map((a, idx) => (
-                      <li
-                        key={a.id}
-                        draggable
-                        onDragStart={() => {
-                          dragAssetId.current = a.id;
-                          setDragActiveId(a.id);
-                        }}
-                        onDragEnter={() => {
-                          dragOverAssetId.current = a.id;
-                          setDragOverId(a.id);
-                        }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDragEnd={() => {
-                          const fromId = dragAssetId.current;
-                          const toId = dragOverAssetId.current;
-                          dragAssetId.current = null;
-                          dragOverAssetId.current = null;
-                          setDragActiveId(null);
-                          setDragOverId(null);
-                          if (!fromId || !toId || fromId === toId) return;
-                          const from = projectAssets.findIndex((x) => x.id === fromId);
-                          const to = projectAssets.findIndex((x) => x.id === toId);
-                          if (from === -1 || to === -1) return;
-                          const next = [...projectAssets];
-                          const [moved] = next.splice(from, 1);
-                          next.splice(to, 0, moved);
-                          reorderAssets(next.map((x, i) => ({ ...x, orderIndex: i })));
-                        }}
-                        className={`asset-tile rounded-lg bg-[var(--color-surface-soft)] border overflow-hidden relative group cursor-grab active:cursor-grabbing transition-all ${
-                          dragActiveId === a.id
-                            ? "opacity-40 scale-95 border-[var(--color-accent)]"
-                            : dragOverId === a.id
-                            ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/50 scale-105"
-                            : "border-[var(--line)]"
-                        }`}
-                      >
-                        <span className="absolute top-1 right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-[9px] font-bold text-white">{idx + 1}</span>
-                        <img src={a.thumbnailUrl ?? a.originalUrl} alt="" className="pointer-events-none" />
-                        <button
-                          type="button"
-                          onClick={() => deleteAsset(a.id)}
-                          className="absolute top-1 left-1 p-1.5 rounded-md bg-black/50 hover:bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                          aria-label={`Delete ${a.id}`}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </li>
-                    ))}
-                    {false && projectAssets.length > 8 && (
-                      <li className="flex items-center justify-center aspect-square rounded-lg bg-[var(--color-surface-soft)] border border-[var(--line)] text-xs text-[var(--muted)]">
-                        +{projectAssets.length - 8} {t("vionto.asset.more")}
-                      </li>
+                    <span>
+                      {t("vionto.project.assets")} ({projectAssets.length})
+                    </span>
+                    {isAssetsExpanded ? (
+                      <ChevronUp size={13} />
+                    ) : (
+                      <ChevronDown size={13} />
                     )}
-                  </ul>}
+                  </button>
+                  {isAssetsExpanded && (
+                    <ul className="project-assets-grid mt-1">
+                      {projectAssets.map((a, idx) => (
+                        <li
+                          key={a.id}
+                          draggable
+                          onDragStart={() => {
+                            dragAssetId.current = a.id;
+                            setDragActiveId(a.id);
+                          }}
+                          onDragEnter={() => {
+                            dragOverAssetId.current = a.id;
+                            setDragOverId(a.id);
+                          }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDragEnd={() => {
+                            const fromId = dragAssetId.current;
+                            const toId = dragOverAssetId.current;
+                            dragAssetId.current = null;
+                            dragOverAssetId.current = null;
+                            setDragActiveId(null);
+                            setDragOverId(null);
+                            if (!fromId || !toId || fromId === toId) return;
+                            const from = projectAssets.findIndex(
+                              (x) => x.id === fromId
+                            );
+                            const to = projectAssets.findIndex(
+                              (x) => x.id === toId
+                            );
+                            if (from === -1 || to === -1) return;
+                            const next = [...projectAssets];
+                            const [moved] = next.splice(from, 1);
+                            next.splice(to, 0, moved);
+                            reorderAssets(
+                              next.map((x, i) => ({ ...x, orderIndex: i }))
+                            );
+                          }}
+                          className={`asset-tile rounded-lg bg-[var(--color-surface-soft)] border overflow-hidden relative group cursor-grab active:cursor-grabbing transition-all ${
+                            dragActiveId === a.id
+                              ? "opacity-40 scale-95 border-[var(--color-accent)]"
+                              : dragOverId === a.id
+                                ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/50 scale-105"
+                                : "border-[var(--line)]"
+                          }`}
+                        >
+                          <span className="absolute top-1 right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-[9px] font-bold text-white">
+                            {idx + 1}
+                          </span>
+                          <img
+                            src={a.thumbnailUrl ?? a.originalUrl}
+                            alt=""
+                            className="pointer-events-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => deleteAsset(a.id)}
+                            className="absolute top-1 left-1 p-1.5 rounded-md bg-black/50 hover:bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label={`Delete ${a.id}`}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </li>
+                      ))}
+                      {false && projectAssets.length > 8 && (
+                        <li className="flex items-center justify-center aspect-square rounded-lg bg-[var(--color-surface-soft)] border border-[var(--line)] text-xs text-[var(--muted)]">
+                          +{projectAssets.length - 8} {t("vionto.asset.more")}
+                        </li>
+                      )}
+                    </ul>
+                  )}
                 </div>
               )}
 
@@ -2726,23 +3424,30 @@ export function ViontoPage() {
                   {/* Album selector bar */}
                   <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-[var(--color-text-muted)]">Album for active version</p>
+                      <p className="text-xs font-medium text-[var(--color-text-muted)]">
+                        Album for active version
+                      </p>
                       {activeVersion && (
                         <p className="text-[10px] text-[var(--color-text-muted)] break-words">
-                          {activeVersion.name} renders from {selectedAlbum?.name ?? "the selected album"}.
+                          {activeVersion.name} renders from{" "}
+                          {selectedAlbum?.name ?? "the selected album"}.
                         </p>
                       )}
                     </div>
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
                       <select
                         value={albumCollectionFilter}
-                        onChange={(e) => setAlbumCollectionFilter(e.target.value)}
+                        onChange={(e) =>
+                          setAlbumCollectionFilter(e.target.value)
+                        }
                         className="min-w-0 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                         aria-label="Album collection"
                       >
                         <option value="">All</option>
                         {COLLECTION_OPTIONS.map((collection) => (
-                          <option key={collection} value={collection}>{collection}</option>
+                          <option key={collection} value={collection}>
+                            {collection}
+                          </option>
                         ))}
                       </select>
                       <button
@@ -2757,28 +3462,41 @@ export function ViontoPage() {
                   </div>
 
                   {isLoadingAlbums ? (
-                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">Loading albums…</p>
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                      Loading albums…
+                    </p>
                   ) : (
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {albums.map((album) => (
-                        <div key={album.id} className="group relative flex min-w-0 items-center gap-1">
+                        <div
+                          key={album.id}
+                          className="group relative flex min-w-0 items-center gap-1"
+                        >
                           {renamingAlbumId === album.id ? (
                             <input
                               type="text"
                               value={renameAlbumValue}
                               autoFocus
-                              onChange={(e) => setRenameAlbumValue(e.target.value)}
+                              onChange={(e) =>
+                                setRenameAlbumValue(e.target.value)
+                              }
                               onBlur={() => handleRenameAlbum(album.id)}
                               onKeyDown={(e) => {
-                                if (e.key === "Enter") handleRenameAlbum(album.id);
-                                if (e.key === "Escape") { setRenamingAlbumId(null); setRenameAlbumValue(""); }
+                                if (e.key === "Enter")
+                                  handleRenameAlbum(album.id);
+                                if (e.key === "Escape") {
+                                  setRenamingAlbumId(null);
+                                  setRenameAlbumValue("");
+                                }
                               }}
                               className="w-32 rounded-md border border-[var(--color-accent)] bg-[var(--color-surface)] px-2 py-0.5 text-xs text-[var(--color-text)] outline-none"
                             />
                           ) : (
                             <button
                               type="button"
-                              onClick={() => selectAlbumForActiveVersion(album.id)}
+                              onClick={() =>
+                                selectAlbumForActiveVersion(album.id)
+                              }
                               onDoubleClick={() => {
                                 if (!album.isBase) {
                                   setRenamingAlbumId(album.id);
@@ -2791,27 +3509,51 @@ export function ViontoPage() {
                                   : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text)] hover:border-[var(--color-accent)]"
                               }`}
                             >
-                              {album.isBase && <span className="mr-0.5 text-[10px] opacity-60">★</span>}
-                              {!album.isBase && album.privacyLevel === "private" && <Lock size={9} className="opacity-50" />}
-                              {!album.isBase && album.privacyLevel === "unlisted" && <EyeOff size={9} className="opacity-50" />}
-                              {!album.isBase && album.privacyLevel === "public" && <Globe size={9} className="opacity-50" />}
-                              {album.isFavorite && <span className="text-[10px] text-[var(--color-accent)]">★</span>}
-                              <span className="min-w-0 max-w-[10rem] truncate">{album.name}</span>
+                              {album.isBase && (
+                                <span className="mr-0.5 text-[10px] opacity-60">
+                                  ★
+                                </span>
+                              )}
+                              {!album.isBase &&
+                                album.privacyLevel === "private" && (
+                                  <Lock size={9} className="opacity-50" />
+                                )}
+                              {!album.isBase &&
+                                album.privacyLevel === "unlisted" && (
+                                  <EyeOff size={9} className="opacity-50" />
+                                )}
+                              {!album.isBase &&
+                                album.privacyLevel === "public" && (
+                                  <Globe size={9} className="opacity-50" />
+                                )}
+                              {album.isFavorite && (
+                                <span className="text-[10px] text-[var(--color-accent)]">
+                                  ★
+                                </span>
+                              )}
+                              <span className="min-w-0 max-w-[10rem] truncate">
+                                {album.name}
+                              </span>
                               {album.id === activeVersionAlbumId && (
                                 <span className="rounded bg-[var(--color-accent)]/10 px-1 text-[9px] text-[var(--color-accent)]">
                                   linked
                                 </span>
                               )}
                               <span className="rounded bg-[var(--color-accent)]/10 px-1 text-[9px] text-[var(--color-accent)]">
-                                {LIFECYCLE_LABELS[album.lifecycleStage]?.label ?? album.lifecycleStage}
+                                {LIFECYCLE_LABELS[album.lifecycleStage]
+                                  ?.label ?? album.lifecycleStage}
                               </span>
-                              <span className="ml-1 rounded bg-[var(--color-surface)] px-1 text-[10px] text-[var(--color-text-muted)]">{album._count.items}</span>
+                              <span className="ml-1 rounded bg-[var(--color-surface)] px-1 text-[10px] text-[var(--color-text-muted)]">
+                                {album._count.items}
+                              </span>
                             </button>
                           )}
                           {!album.isBase && selectedAlbumId !== album.id && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteAlbum(album.id, album.name)}
+                              onClick={() =>
+                                handleDeleteAlbum(album.id, album.name)
+                              }
                               className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-red-500 group-hover:flex"
                               aria-label={`Delete ${album.name}`}
                             >
@@ -2826,14 +3568,18 @@ export function ViontoPage() {
                   {/* Create album modal */}
                   {showCreateAlbum && (
                     <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                      <p className="mb-2 text-xs font-semibold text-[var(--color-text)]">New album</p>
+                      <p className="mb-2 text-xs font-semibold text-[var(--color-text)]">
+                        New album
+                      </p>
                       <input
                         type="text"
                         placeholder="Album name"
                         value={newAlbumName}
                         autoFocus
                         onChange={(e) => setNewAlbumName(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleCreateAlbum()}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleCreateAlbum()
+                        }
                         className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                       />
                       <input
@@ -2847,7 +3593,9 @@ export function ViontoPage() {
                         <input
                           type="checkbox"
                           checked={newAlbumFromBase}
-                          onChange={(e) => setNewAlbumFromBase(e.target.checked)}
+                          onChange={(e) =>
+                            setNewAlbumFromBase(e.target.checked)
+                          }
                           className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-[var(--color-accent)]"
                         />
                         Start with all images from base album
@@ -2857,59 +3605,149 @@ export function ViontoPage() {
                         onClick={() => setShowCreateAlbumDetails((v) => !v)}
                         className="mt-2 flex items-center gap-1 text-[10px] font-medium text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
                       >
-                        {showCreateAlbumDetails ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                        {showCreateAlbumDetails ? (
+                          <ChevronUp size={10} />
+                        ) : (
+                          <ChevronDown size={10} />
+                        )}
                         Details (optional)
                       </button>
                       {showCreateAlbumDetails && (
                         <div className="mt-1.5 space-y-1.5 border-t border-[var(--color-border)] pt-2">
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Date from</label>
-                              <input type="date" value={newAlbumDateFrom} onChange={(e) => setNewAlbumDateFrom(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
+                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                Date from
+                              </label>
+                              <input
+                                type="date"
+                                value={newAlbumDateFrom}
+                                onChange={(e) =>
+                                  setNewAlbumDateFrom(e.target.value)
+                                }
+                                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                              />
                             </div>
                             <div>
-                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Date to</label>
-                              <input type="date" value={newAlbumDateTo} onChange={(e) => setNewAlbumDateTo(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
+                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                Date to
+                              </label>
+                              <input
+                                type="date"
+                                value={newAlbumDateTo}
+                                onChange={(e) =>
+                                  setNewAlbumDateTo(e.target.value)
+                                }
+                                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                              />
                             </div>
                           </div>
                           <div>
-                            <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Location</label>
-                            <input type="text" placeholder="e.g., Paris, France" value={newAlbumLocation} onChange={(e) => setNewAlbumLocation(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
+                            <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                              Location
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g., Paris, France"
+                              value={newAlbumLocation}
+                              onChange={(e) =>
+                                setNewAlbumLocation(e.target.value)
+                              }
+                              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                            />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">People</label>
-                            <input type="text" placeholder="Comma-separated names" value={newAlbumPeople} onChange={(e) => setNewAlbumPeople(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
+                            <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                              People
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Comma-separated names"
+                              value={newAlbumPeople}
+                              onChange={(e) =>
+                                setNewAlbumPeople(e.target.value)
+                              }
+                              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                            />
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Occasion</label>
-                              <input type="text" list="occasion-suggestions" placeholder="e.g., wedding" value={newAlbumOccasion} onChange={(e) => setNewAlbumOccasion(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
+                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                Occasion
+                              </label>
+                              <input
+                                type="text"
+                                list="occasion-suggestions"
+                                placeholder="e.g., wedding"
+                                value={newAlbumOccasion}
+                                onChange={(e) =>
+                                  setNewAlbumOccasion(e.target.value)
+                                }
+                                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                              />
                               <datalist id="occasion-suggestions">
-                                {OCCASION_SUGGESTIONS.map((o) => <option key={o} value={o} />)}
+                                {OCCASION_SUGGESTIONS.map((o) => (
+                                  <option key={o} value={o} />
+                                ))}
                               </datalist>
                             </div>
                             <div>
-                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Mood</label>
-                              <input type="text" list="mood-suggestions" placeholder="e.g., joyful" value={newAlbumMood} onChange={(e) => setNewAlbumMood(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
+                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                Mood
+                              </label>
+                              <input
+                                type="text"
+                                list="mood-suggestions"
+                                placeholder="e.g., joyful"
+                                value={newAlbumMood}
+                                onChange={(e) =>
+                                  setNewAlbumMood(e.target.value)
+                                }
+                                className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                              />
                               <datalist id="mood-suggestions">
-                                {MOOD_SUGGESTIONS.map((m) => <option key={m} value={m} />)}
+                                {MOOD_SUGGESTIONS.map((m) => (
+                                  <option key={m} value={m} />
+                                ))}
                               </datalist>
                             </div>
                           </div>
                           <div>
-                            <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Privacy</label>
-                            <select value={newAlbumPrivacy} onChange={(e) => setNewAlbumPrivacy(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]">
-                              {PRIVACY_LEVELS.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                            <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                              Privacy
+                            </label>
+                            <select
+                              value={newAlbumPrivacy}
+                              onChange={(e) =>
+                                setNewAlbumPrivacy(e.target.value)
+                              }
+                              className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                            >
+                              {PRIVACY_LEVELS.map((p) => (
+                                <option key={p} value={p}>
+                                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                                </option>
+                              ))}
                             </select>
                           </div>
                           <div>
-                            <label className="mb-1 block text-[10px] font-medium text-[var(--color-text-muted)]">Collections</label>
+                            <label className="mb-1 block text-[10px] font-medium text-[var(--color-text-muted)]">
+                              Collections
+                            </label>
                             <div className="flex flex-wrap gap-1">
-                              {COLLECTION_OPTIONS.filter((collection) => collection !== "favorites").map((collection) => (
+                              {COLLECTION_OPTIONS.filter(
+                                (collection) => collection !== "favorites"
+                              ).map((collection) => (
                                 <button
                                   key={collection}
                                   type="button"
-                                  onClick={() => toggleCollection(collection, newAlbumCollections, setNewAlbumCollections)}
+                                  onClick={() =>
+                                    toggleCollection(
+                                      collection,
+                                      newAlbumCollections,
+                                      setNewAlbumCollections
+                                    )
+                                  }
                                   className={`rounded-md border px-2 py-0.5 text-[10px] ${
                                     newAlbumCollections.includes(collection)
                                       ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
@@ -2923,7 +3761,9 @@ export function ViontoPage() {
                                 <input
                                   type="checkbox"
                                   checked={newAlbumFavorite}
-                                  onChange={(e) => setNewAlbumFavorite(e.target.checked)}
+                                  onChange={(e) =>
+                                    setNewAlbumFavorite(e.target.checked)
+                                  }
                                   className="h-3 w-3 accent-[var(--color-accent)]"
                                 />
                                 favorite
@@ -2935,7 +3775,11 @@ export function ViontoPage() {
                       <div className="mt-2 flex justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => { setShowCreateAlbum(false); setNewAlbumName(""); setNewAlbumDesc(""); }}
+                          onClick={() => {
+                            setShowCreateAlbum(false);
+                            setNewAlbumName("");
+                            setNewAlbumDesc("");
+                          }}
                           className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1.5 text-xs text-[var(--color-text)] transition hover:bg-[var(--color-surface)]"
                         >
                           Cancel
@@ -2946,7 +3790,11 @@ export function ViontoPage() {
                           disabled={!newAlbumName.trim() || isCreatingAlbum}
                           className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
                         >
-                          {isCreatingAlbum ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
+                          {isCreatingAlbum ? (
+                            <RefreshCw size={12} className="animate-spin" />
+                          ) : (
+                            <Plus size={12} />
+                          )}
                           Create
                         </button>
                       </div>
@@ -2959,10 +3807,13 @@ export function ViontoPage() {
                       {selectedAlbum && (
                         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                           <span className="rounded-md bg-[var(--color-accent)]/10 px-2 py-0.5 font-medium text-[var(--color-accent)]">
-                            {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]?.label ?? selectedAlbum.lifecycleStage}
+                            {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]
+                              ?.label ?? selectedAlbum.lifecycleStage}
                           </span>
                           <span className="text-[var(--color-text-muted)]">
-                            Next: {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]?.next ?? "Continue"}
+                            Next:{" "}
+                            {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]
+                              ?.next ?? "Continue"}
                           </span>
                         </div>
                       )}
@@ -2970,12 +3821,16 @@ export function ViontoPage() {
                       {!isBaseAlbumSelected && (
                         <div className="mb-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <p className="min-w-0 text-xs text-[var(--color-text-muted)] break-words">
-                            {selectedAlbum?.name} · {albumItems.length} images · drag to reorder
+                            {selectedAlbum?.name} · {albumItems.length} images ·
+                            drag to reorder
                           </p>
                           <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
                             <button
                               type="button"
-                              onClick={() => { if (selectedAlbum) openAlbumDetails(selectedAlbum); }}
+                              onClick={() => {
+                                if (selectedAlbum)
+                                  openAlbumDetails(selectedAlbum);
+                              }}
                               className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors"
                             >
                               <Pencil size={12} />
@@ -2999,7 +3854,11 @@ export function ViontoPage() {
                               className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors disabled:opacity-50"
                               title="Sort images by EXIF date (oldest first)"
                             >
-                              {isSorting ? <RefreshCw size={12} className="animate-spin" /> : <ArrowUpDown size={12} />}
+                              {isSorting ? (
+                                <RefreshCw size={12} className="animate-spin" />
+                              ) : (
+                                <ArrowUpDown size={12} />
+                              )}
                               Sort by date
                             </button>
                             <button
@@ -3009,7 +3868,11 @@ export function ViontoPage() {
                               className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors disabled:opacity-50"
                               title="Group images by GPS location"
                             >
-                              {isSorting ? <RefreshCw size={12} className="animate-spin" /> : <MapPin size={12} />}
+                              {isSorting ? (
+                                <RefreshCw size={12} className="animate-spin" />
+                              ) : (
+                                <MapPin size={12} />
+                              )}
                               Group by location
                             </button>
                           </div>
@@ -3017,148 +3880,284 @@ export function ViontoPage() {
                       )}
 
                       {/* Edit album details panel */}
-                      {showAlbumDetails && !isBaseAlbumSelected && selectedAlbum && (
-                        <div className="mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                          <div className="mb-2 flex flex-wrap items-center gap-2">
-                            <p className="text-xs font-semibold text-[var(--color-text)]">Album details</p>
-                            <span className="rounded-md bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] text-[var(--color-accent)]">
-                              {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]?.label ?? selectedAlbum.lifecycleStage}
-                            </span>
-                            <span className="text-[10px] text-[var(--color-text-muted)]">
-                              Next: {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]?.next ?? "Continue"}
-                            </span>
-                          </div>
-                          <div className="space-y-1.5">
-                            <div>
-                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Description</label>
-                              <input type="text" placeholder="Album description" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
+                      {showAlbumDetails &&
+                        !isBaseAlbumSelected &&
+                        selectedAlbum && (
+                          <div className="mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                              <p className="text-xs font-semibold text-[var(--color-text)]">
+                                Album details
+                              </p>
+                              <span className="rounded-md bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] text-[var(--color-accent)]">
+                                {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]
+                                  ?.label ?? selectedAlbum.lifecycleStage}
+                              </span>
+                              <span className="text-[10px] text-[var(--color-text-muted)]">
+                                Next:{" "}
+                                {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]
+                                  ?.next ?? "Continue"}
+                              </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
                               <div>
-                                <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Date from</label>
-                                <input type="date" value={editDateFrom} onChange={(e) => setEditDateFrom(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Date to</label>
-                                <input type="date" value={editDateTo} onChange={(e) => setEditDateTo(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Location</label>
-                              <input type="text" placeholder="e.g., Paris, France" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">People</label>
-                              <input type="text" placeholder="Comma-separated names" value={editPeople} onChange={(e) => setEditPeople(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Occasion</label>
-                                <input type="text" list="edit-occasion-suggestions" placeholder="e.g., wedding" value={editOccasion} onChange={(e) => setEditOccasion(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
-                                <datalist id="edit-occasion-suggestions">
-                                  {OCCASION_SUGGESTIONS.map((o) => <option key={o} value={o} />)}
-                                </datalist>
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Mood</label>
-                                <input type="text" list="edit-mood-suggestions" placeholder="e.g., joyful" value={editMood} onChange={(e) => setEditMood(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]" />
-                                <datalist id="edit-mood-suggestions">
-                                  {MOOD_SUGGESTIONS.map((m) => <option key={m} value={m} />)}
-                                </datalist>
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">Privacy</label>
-                              <select value={editPrivacy} onChange={(e) => setEditPrivacy(e.target.value)} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]">
-                                {PRIVACY_LEVELS.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-[10px] font-medium text-[var(--color-text-muted)]">Collections</label>
-                              <div className="flex flex-wrap gap-1">
-                                {COLLECTION_OPTIONS.filter((collection) => collection !== "favorites").map((collection) => (
-                                  <button
-                                    key={collection}
-                                    type="button"
-                                    onClick={() => toggleCollection(collection, editCollections, setEditCollections)}
-                                    className={`rounded-md border px-2 py-0.5 text-[10px] ${
-                                      editCollections.includes(collection)
-                                        ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
-                                        : "border-[var(--color-border)] text-[var(--color-text-muted)]"
-                                    }`}
-                                  >
-                                    {collection}
-                                  </button>
-                                ))}
-                                <label className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
-                                  <input
-                                    type="checkbox"
-                                    checked={editFavorite}
-                                    onChange={(e) => setEditFavorite(e.target.checked)}
-                                    className="h-3 w-3 accent-[var(--color-accent)]"
-                                  />
-                                  favorite
+                                <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                  Description
                                 </label>
+                                <input
+                                  type="text"
+                                  placeholder="Album description"
+                                  value={editDescription}
+                                  onChange={(e) =>
+                                    setEditDescription(e.target.value)
+                                  }
+                                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                    Date from
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={editDateFrom}
+                                    onChange={(e) =>
+                                      setEditDateFrom(e.target.value)
+                                    }
+                                    className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                    Date to
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={editDateTo}
+                                    onChange={(e) =>
+                                      setEditDateTo(e.target.value)
+                                    }
+                                    className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                  Location
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g., Paris, France"
+                                  value={editLocation}
+                                  onChange={(e) =>
+                                    setEditLocation(e.target.value)
+                                  }
+                                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                  People
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="Comma-separated names"
+                                  value={editPeople}
+                                  onChange={(e) =>
+                                    setEditPeople(e.target.value)
+                                  }
+                                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                    Occasion
+                                  </label>
+                                  <input
+                                    type="text"
+                                    list="edit-occasion-suggestions"
+                                    placeholder="e.g., wedding"
+                                    value={editOccasion}
+                                    onChange={(e) =>
+                                      setEditOccasion(e.target.value)
+                                    }
+                                    className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                                  />
+                                  <datalist id="edit-occasion-suggestions">
+                                    {OCCASION_SUGGESTIONS.map((o) => (
+                                      <option key={o} value={o} />
+                                    ))}
+                                  </datalist>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                    Mood
+                                  </label>
+                                  <input
+                                    type="text"
+                                    list="edit-mood-suggestions"
+                                    placeholder="e.g., joyful"
+                                    value={editMood}
+                                    onChange={(e) =>
+                                      setEditMood(e.target.value)
+                                    }
+                                    className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                                  />
+                                  <datalist id="edit-mood-suggestions">
+                                    {MOOD_SUGGESTIONS.map((m) => (
+                                      <option key={m} value={m} />
+                                    ))}
+                                  </datalist>
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-medium text-[var(--color-text-muted)] mb-0.5">
+                                  Privacy
+                                </label>
+                                <select
+                                  value={editPrivacy}
+                                  onChange={(e) =>
+                                    setEditPrivacy(e.target.value)
+                                  }
+                                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                                >
+                                  {PRIVACY_LEVELS.map((p) => (
+                                    <option key={p} value={p}>
+                                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="mb-1 block text-[10px] font-medium text-[var(--color-text-muted)]">
+                                  Collections
+                                </label>
+                                <div className="flex flex-wrap gap-1">
+                                  {COLLECTION_OPTIONS.filter(
+                                    (collection) => collection !== "favorites"
+                                  ).map((collection) => (
+                                    <button
+                                      key={collection}
+                                      type="button"
+                                      onClick={() =>
+                                        toggleCollection(
+                                          collection,
+                                          editCollections,
+                                          setEditCollections
+                                        )
+                                      }
+                                      className={`rounded-md border px-2 py-0.5 text-[10px] ${
+                                        editCollections.includes(collection)
+                                          ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                                          : "border-[var(--color-border)] text-[var(--color-text-muted)]"
+                                      }`}
+                                    >
+                                      {collection}
+                                    </button>
+                                  ))}
+                                  <label className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
+                                    <input
+                                      type="checkbox"
+                                      checked={editFavorite}
+                                      onChange={(e) =>
+                                        setEditFavorite(e.target.checked)
+                                      }
+                                      className="h-3 w-3 accent-[var(--color-accent)]"
+                                    />
+                                    favorite
+                                  </label>
+                                </div>
                               </div>
                             </div>
+                            {albumDetailsError && (
+                              <p className="mt-1.5 text-[10px] text-red-500">
+                                {albumDetailsError}
+                              </p>
+                            )}
+                            <div className="mt-2 flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setShowAlbumDetails(false)}
+                                className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1.5 text-xs text-[var(--color-text)] transition hover:bg-[var(--color-surface)]"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSaveAlbumDetails}
+                                disabled={isSavingAlbumDetails}
+                                className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
+                              >
+                                {isSavingAlbumDetails ? (
+                                  <RefreshCw
+                                    size={12}
+                                    className="animate-spin"
+                                  />
+                                ) : (
+                                  <Check size={12} />
+                                )}
+                                Save
+                              </button>
+                            </div>
                           </div>
-                          {albumDetailsError && (
-                            <p className="mt-1.5 text-[10px] text-red-500">{albumDetailsError}</p>
-                          )}
-                          <div className="mt-2 flex justify-end gap-2">
-                            <button type="button" onClick={() => setShowAlbumDetails(false)} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1.5 text-xs text-[var(--color-text)] transition hover:bg-[var(--color-surface)]">
-                              Cancel
-                            </button>
-                            <button type="button" onClick={handleSaveAlbumDetails} disabled={isSavingAlbumDetails} className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50">
-                              {isSavingAlbumDetails ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                        )}
 
                       {/* Linked video versions for this album */}
-                      {selectedAlbum && !isBaseAlbumSelected && (() => {
-                        const albumVersions = videoVersions.filter((v) => v.albumId === selectedAlbumId);
-                        return (
-                          <div className="mb-2 flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-medium text-[var(--color-text-muted)]">Video versions using this album:</span>
-                            {albumVersions.length === 0 && (
-                              <span className="text-[10px] text-[var(--color-text-muted)] italic">None yet</span>
-                            )}
-                            {albumVersions.map((v) => (
+                      {selectedAlbum &&
+                        !isBaseAlbumSelected &&
+                        (() => {
+                          const albumVersions = videoVersions.filter(
+                            (v) => v.albumId === selectedAlbumId
+                          );
+                          return (
+                            <div className="mb-2 flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-medium text-[var(--color-text-muted)]">
+                                Video versions using this album:
+                              </span>
+                              {albumVersions.length === 0 && (
+                                <span className="text-[10px] text-[var(--color-text-muted)] italic">
+                                  None yet
+                                </span>
+                              )}
+                              {albumVersions.map((v) => (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  onClick={() => setSelectedVersionId(v.id)}
+                                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                                    v.id === selectedVersionId
+                                      ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                                      : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text-muted)] hover:border-[var(--color-accent)]/50"
+                                  }`}
+                                >
+                                  <Clapperboard size={9} />
+                                  {v.name}
+                                </button>
+                              ))}
                               <button
-                                key={v.id}
                                 type="button"
-                                onClick={() => setSelectedVersionId(v.id)}
-                                className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                                  v.id === selectedVersionId
-                                    ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
-                                    : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text-muted)] hover:border-[var(--color-accent)]/50"
-                                }`}
+                                onClick={() => {
+                                  if (
+                                    !confirm(
+                                      `Create a new video version linked to "${selectedAlbum.name}"?\n\nThis adds a new entry in the Video Version tabs above — it is separate from the album itself.`
+                                    )
+                                  )
+                                    return;
+                                  createVideoVersion(
+                                    `${selectedAlbum.name} - Version ${albumVersions.length + 1}`,
+                                    selectedAlbumId
+                                  );
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md border border-dashed border-[var(--color-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors"
+                                title="Create a brand-new video version linked to this album"
                               >
-                                <Clapperboard size={9} />
-                                {v.name}
+                                <Plus size={9} />
+                                New video version
                               </button>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!confirm(`Create a new video version linked to "${selectedAlbum.name}"?\n\nThis adds a new entry in the Video Version tabs above — it is separate from the album itself.`)) return;
-                                createVideoVersion(
-                                  `${selectedAlbum.name} - Version ${albumVersions.length + 1}`,
-                                  selectedAlbumId,
-                                );
-                              }}
-                              className="inline-flex items-center gap-1 rounded-md border border-dashed border-[var(--color-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors"
-                              title="Create a brand-new video version linked to this album"
-                            >
-                              <Plus size={9} />
-                              New video version
-                            </button>
-                          </div>
-                        );
-                      })()}
+                            </div>
+                          );
+                        })()}
 
                       {/* Add images panel */}
                       {showAddImages && !isBaseAlbumSelected && (
@@ -3168,7 +4167,10 @@ export function ViontoPage() {
                           </p>
                           <ul className="project-assets-grid">
                             {projectAssets
-                              .filter((a) => !albumItems.some((i) => i.assetId === a.id))
+                              .filter(
+                                (a) =>
+                                  !albumItems.some((i) => i.assetId === a.id)
+                              )
                               .map((a) => (
                                 <li
                                   key={a.id}
@@ -3186,10 +4188,16 @@ export function ViontoPage() {
                                       : "border-[var(--line)] hover:border-[var(--color-accent)]"
                                   }`}
                                 >
-                                  <img src={a.thumbnailUrl ?? a.originalUrl} alt="" className="pointer-events-none" />
+                                  <img
+                                    src={a.thumbnailUrl ?? a.originalUrl}
+                                    alt=""
+                                    className="pointer-events-none"
+                                  />
                                   {addImageSelection.has(a.id) && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-accent)]/20">
-                                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)] text-white text-xs font-bold">✓</span>
+                                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)] text-white text-xs font-bold">
+                                        ✓
+                                      </span>
                                     </div>
                                   )}
                                 </li>
@@ -3198,7 +4206,10 @@ export function ViontoPage() {
                           <div className="mt-2 flex justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() => { setShowAddImages(false); setAddImageSelection(new Set()); }}
+                              onClick={() => {
+                                setShowAddImages(false);
+                                setAddImageSelection(new Set());
+                              }}
                               className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1.5 text-xs text-[var(--color-text)] transition hover:bg-[var(--color-surface)]"
                             >
                               Cancel
@@ -3209,23 +4220,33 @@ export function ViontoPage() {
                               disabled={addImageSelection.size === 0}
                               className="inline-flex items-center gap-1 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
                             >
-                              Add {addImageSelection.size > 0 ? `${addImageSelection.size} ` : ""}image{addImageSelection.size !== 1 ? "s" : ""}
+                              Add{" "}
+                              {addImageSelection.size > 0
+                                ? `${addImageSelection.size} `
+                                : ""}
+                              image{addImageSelection.size !== 1 ? "s" : ""}
                             </button>
                           </div>
                         </div>
                       )}
 
                       {isLoadingAlbumItems ? (
-                        <p className="text-xs text-[var(--color-text-muted)]">Loading…</p>
+                        <p className="text-xs text-[var(--color-text-muted)]">
+                          Loading…
+                        </p>
                       ) : albumItems.length === 0 ? (
                         <p className="text-xs text-[var(--color-text-muted)]">
-                          {isBaseAlbumSelected ? "No images yet — upload some above." : "No images in this album yet."}
+                          {isBaseAlbumSelected
+                            ? "No images yet — upload some above."
+                            : "No images in this album yet."}
                         </p>
                       ) : (
                         <ul className="project-assets-grid">
                           {albumItems.map((item, idx) => {
                             // Find if a location group header should appear before this item.
-                            const groupHeader = locationGroups?.find((g) => g.startIndex === idx);
+                            const groupHeader = locationGroups?.find(
+                              (g) => g.startIndex === idx
+                            );
                             return (
                               <Fragment key={item.id}>
                                 {groupHeader && (
@@ -3233,78 +4254,109 @@ export function ViontoPage() {
                                     style={{ gridColumn: "1 / -1" }}
                                     className="flex items-center gap-2 border-t border-[var(--color-border)] pt-2 pb-1"
                                   >
-                                    <MapPin size={12} className="text-[var(--color-accent)] shrink-0" />
-                                    <span className="text-[11px] font-medium text-[var(--color-text)]">{groupHeader.label}</span>
-                                    <span className="text-[10px] text-[var(--color-text-muted)]">{groupHeader.count} {groupHeader.count === 1 ? "photo" : "photos"}</span>
+                                    <MapPin
+                                      size={12}
+                                      className="text-[var(--color-accent)] shrink-0"
+                                    />
+                                    <span className="text-[11px] font-medium text-[var(--color-text)]">
+                                      {groupHeader.label}
+                                    </span>
+                                    <span className="text-[10px] text-[var(--color-text-muted)]">
+                                      {groupHeader.count}{" "}
+                                      {groupHeader.count === 1
+                                        ? "photo"
+                                        : "photos"}
+                                    </span>
                                   </li>
                                 )}
-                            <li
-                              draggable
-                              onDragStart={() => {
-                                dragAlbumItemId.current = item.id;
-                                setDragAlbumActiveId(item.id);
-                              }}
-                              onDragEnter={() => {
-                                dragOverAlbumItemId.current = item.id;
-                                setDragAlbumOverId(item.id);
-                              }}
-                              onDragOver={(e) => e.preventDefault()}
-                              onDragEnd={() => {
-                                const fromId = dragAlbumItemId.current;
-                                const toId = dragOverAlbumItemId.current;
-                                dragAlbumItemId.current = null;
-                                dragOverAlbumItemId.current = null;
-                                setDragAlbumActiveId(null);
-                                setDragAlbumOverId(null);
-                                if (!fromId || !toId || fromId === toId) return;
-                                const from = albumItems.findIndex((x) => x.id === fromId);
-                                const to = albumItems.findIndex((x) => x.id === toId);
-                                if (from === -1 || to === -1) return;
-                                const next = [...albumItems];
-                                const [moved] = next.splice(from, 1);
-                                next.splice(to, 0, moved);
-                                reorderAlbumItems(next.map((x, i) => ({ ...x, orderIndex: i })));
-                              }}
-                              className={`asset-tile rounded-lg bg-[var(--color-surface-soft)] border overflow-hidden relative group cursor-grab active:cursor-grabbing transition-all ${
-                                dragAlbumActiveId === item.id
-                                  ? "opacity-40 scale-95 border-[var(--color-accent)]"
-                                  : dragAlbumOverId === item.id
-                                  ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/50 scale-105"
-                                  : "border-[var(--line)]"
-                              }`}
-                            >
-                              <span className="absolute top-1 right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-[9px] font-bold text-white">{idx + 1}</span>
-                              <img
-                                src={item.asset.thumbnailUrl ?? item.asset.originalUrl ?? ""}
-                                alt=""
-                                className="pointer-events-none"
-                              />
-                              {item.metadata && Object.keys(item.metadata).length > 0 && (
-                                <span className="absolute bottom-1 left-1 z-10 rounded bg-[var(--color-accent)]/80 px-1 py-0.5 text-[8px] font-semibold text-white">meta</span>
-                              )}
-                              <div className="absolute top-1 left-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  type="button"
-                                  onClick={() => openMetaEditor(item)}
-                                  className="p-1 rounded-md bg-black/50 hover:bg-[var(--color-accent)]/80 text-white"
-                                  aria-label="Edit metadata"
-                                  title="Edit metadata"
+                                <li
+                                  draggable
+                                  onDragStart={() => {
+                                    dragAlbumItemId.current = item.id;
+                                    setDragAlbumActiveId(item.id);
+                                  }}
+                                  onDragEnter={() => {
+                                    dragOverAlbumItemId.current = item.id;
+                                    setDragAlbumOverId(item.id);
+                                  }}
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onDragEnd={() => {
+                                    const fromId = dragAlbumItemId.current;
+                                    const toId = dragOverAlbumItemId.current;
+                                    dragAlbumItemId.current = null;
+                                    dragOverAlbumItemId.current = null;
+                                    setDragAlbumActiveId(null);
+                                    setDragAlbumOverId(null);
+                                    if (!fromId || !toId || fromId === toId)
+                                      return;
+                                    const from = albumItems.findIndex(
+                                      (x) => x.id === fromId
+                                    );
+                                    const to = albumItems.findIndex(
+                                      (x) => x.id === toId
+                                    );
+                                    if (from === -1 || to === -1) return;
+                                    const next = [...albumItems];
+                                    const [moved] = next.splice(from, 1);
+                                    next.splice(to, 0, moved);
+                                    reorderAlbumItems(
+                                      next.map((x, i) => ({
+                                        ...x,
+                                        orderIndex: i,
+                                      }))
+                                    );
+                                  }}
+                                  className={`asset-tile rounded-lg bg-[var(--color-surface-soft)] border overflow-hidden relative group cursor-grab active:cursor-grabbing transition-all ${
+                                    dragAlbumActiveId === item.id
+                                      ? "opacity-40 scale-95 border-[var(--color-accent)]"
+                                      : dragAlbumOverId === item.id
+                                        ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/50 scale-105"
+                                        : "border-[var(--line)]"
+                                  }`}
                                 >
-                                  <ListChecks size={13} />
-                                </button>
-                                {!isBaseAlbumSelected && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveFromAlbum(item.id)}
-                                    className="p-1 rounded-md bg-black/50 hover:bg-red-500/80 text-white"
-                                    aria-label="Remove from album"
-                                    title="Remove from album"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                )}
-                              </div>
-                            </li>
+                                  <span className="absolute top-1 right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-[9px] font-bold text-white">
+                                    {idx + 1}
+                                  </span>
+                                  <img
+                                    src={
+                                      item.asset.thumbnailUrl ??
+                                      item.asset.originalUrl ??
+                                      ""
+                                    }
+                                    alt=""
+                                    className="pointer-events-none"
+                                  />
+                                  {item.metadata &&
+                                    Object.keys(item.metadata).length > 0 && (
+                                      <span className="absolute bottom-1 left-1 z-10 rounded bg-[var(--color-accent)]/80 px-1 py-0.5 text-[8px] font-semibold text-white">
+                                        meta
+                                      </span>
+                                    )}
+                                  <div className="absolute top-1 left-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      type="button"
+                                      onClick={() => openMetaEditor(item)}
+                                      className="p-1 rounded-md bg-black/50 hover:bg-[var(--color-accent)]/80 text-white"
+                                      aria-label="Edit metadata"
+                                      title="Edit metadata"
+                                    >
+                                      <ListChecks size={13} />
+                                    </button>
+                                    {!isBaseAlbumSelected && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleRemoveFromAlbum(item.id)
+                                        }
+                                        className="p-1 rounded-md bg-black/50 hover:bg-red-500/80 text-white"
+                                        aria-label="Remove from album"
+                                        title="Remove from album"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </li>
                               </Fragment>
                             );
                           })}
@@ -3329,9 +4381,12 @@ export function ViontoPage() {
                           />
                         )}
                         <div>
-                          <p className="text-sm font-semibold text-[var(--color-text)]">Image metadata</p>
+                          <p className="text-sm font-semibold text-[var(--color-text)]">
+                            Image metadata
+                          </p>
                           <p className="text-xs text-[var(--color-text-muted)]">
-                            Album: {selectedAlbum?.name} · stored per-album, not globally
+                            Album: {selectedAlbum?.name} · stored per-album, not
+                            globally
                           </p>
                         </div>
                       </div>
@@ -3344,18 +4399,27 @@ export function ViontoPage() {
                       </button>
                     </div>
                     <p className="mb-1.5 text-xs text-[var(--color-text-muted)]">
-                      Enter flexible JSON metadata for this image in this album. Examples: place, personName, occasion, mood, people, dateLabel, captionHint.
+                      Enter flexible JSON metadata for this image in this album.
+                      Examples: place, personName, occasion, mood, people,
+                      dateLabel, captionHint.
                     </p>
                     <textarea
                       value={metaEditorValue}
-                      onChange={(e) => { setMetaEditorValue(e.target.value); setMetaEditorError(null); }}
+                      onChange={(e) => {
+                        setMetaEditorValue(e.target.value);
+                        setMetaEditorError(null);
+                      }}
                       rows={8}
                       spellCheck={false}
                       className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-2 font-mono text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
-                      placeholder={'{\n  "place": "Bern",\n  "personName": "Sara",\n  "occasion": "graduation"\n}'}
+                      placeholder={
+                        '{\n  "place": "Bern",\n  "personName": "Sara",\n  "occasion": "graduation"\n}'
+                      }
                     />
                     {metaEditorError && (
-                      <p className="mt-1.5 text-xs text-red-500">{metaEditorError}</p>
+                      <p className="mt-1.5 text-xs text-red-500">
+                        {metaEditorError}
+                      </p>
                     )}
                     <div className="mt-3 flex justify-end gap-2">
                       <button
@@ -3367,7 +4431,10 @@ export function ViontoPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setMetaEditorValue(""); setMetaEditorError(null); }}
+                        onClick={() => {
+                          setMetaEditorValue("");
+                          setMetaEditorError(null);
+                        }}
                         className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1.5 text-xs text-[var(--color-text)] hover:bg-[var(--color-surface)]"
                       >
                         Clear
@@ -3378,7 +4445,9 @@ export function ViontoPage() {
                         disabled={isSavingMeta}
                         className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
                       >
-                        {isSavingMeta ? <RefreshCw size={12} className="animate-spin" /> : null}
+                        {isSavingMeta ? (
+                          <RefreshCw size={12} className="animate-spin" />
+                        ) : null}
                         Save
                       </button>
                     </div>
@@ -3388,9 +4457,16 @@ export function ViontoPage() {
               {/* ─── End Album Management ───────────────────────────────────── */}
 
               {/* ─── Video Settings separator ────────────────────────────────── */}
-              <hr className="settings-separator" role="separator" aria-hidden="true" />
+              <hr
+                className="settings-separator"
+                role="separator"
+                aria-hidden="true"
+              />
 
-              <div className="mode-row" aria-label={t("vionto.aria.videoModePresets")}>
+              <div
+                className="mode-row"
+                aria-label={t("vionto.aria.videoModePresets")}
+              >
                 {modes.map((mode) => (
                   <button
                     key={mode}
@@ -3403,9 +4479,14 @@ export function ViontoPage() {
                 ))}
               </div>
 
-              <div className="settings-row mt-3" aria-label={t("vionto.storyMode.label")}>
+              <div
+                className="settings-row mt-3"
+                aria-label={t("vionto.storyMode.label")}
+              >
                 <div className="flex-1">
-                  <p className="text-xs font-medium text-[var(--color-text-muted)]">{t("vionto.storyMode.label")}</p>
+                  <p className="text-xs font-medium text-[var(--color-text-muted)]">
+                    {t("vionto.storyMode.label")}
+                  </p>
                   <select
                     value={selectedStoryMode}
                     onChange={(e) => setSelectedStoryMode(e.target.value)}
@@ -3419,7 +4500,9 @@ export function ViontoPage() {
                   </select>
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs font-medium text-[var(--color-text-muted)]">{t("vionto.emotionalTone.label")}</p>
+                  <p className="text-xs font-medium text-[var(--color-text-muted)]">
+                    {t("vionto.emotionalTone.label")}
+                  </p>
                   <select
                     value={selectedEmotionalTone}
                     onChange={(e) => setSelectedEmotionalTone(e.target.value)}
@@ -3435,7 +4518,9 @@ export function ViontoPage() {
               </div>
 
               <div className="mt-3" aria-label={t("vionto.visualStyle.label")}>
-                <p className="text-xs font-medium text-[var(--color-text-muted)]">{t("vionto.visualStyle.label")}</p>
+                <p className="text-xs font-medium text-[var(--color-text-muted)]">
+                  {t("vionto.visualStyle.label")}
+                </p>
                 <div className="visual-style-grid mt-2">
                   {VISUAL_STYLE_OPTIONS.map((option) => {
                     const active = selectedVisualStyle === option.value;
@@ -3459,11 +4544,16 @@ export function ViontoPage() {
                             : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-elevated)]"
                         }`}
                       >
-                        <span className="mb-1 block text-base leading-none" aria-hidden="true">
+                        <span
+                          className="mb-1 block text-base leading-none"
+                          aria-hidden="true"
+                        >
                           {STYLE_ICON[option.value] ?? "✨"}
                         </span>
                         <span className="vs-title">{t(option.labelKey)}</span>
-                        <span className="vs-desc text-[var(--color-text-muted)]">{t(option.descriptionKey)}</span>
+                        <span className="vs-desc text-[var(--color-text-muted)]">
+                          {t(option.descriptionKey)}
+                        </span>
                       </button>
                     );
                   })}
@@ -3471,7 +4561,9 @@ export function ViontoPage() {
               </div>
 
               <div className="mt-3" aria-label={t("vionto.music.label")}>
-                <p className="text-xs font-medium text-[var(--color-text-muted)]">{t("vionto.music.label")}</p>
+                <p className="text-xs font-medium text-[var(--color-text-muted)]">
+                  {t("vionto.music.label")}
+                </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -3479,7 +4571,11 @@ export function ViontoPage() {
                     className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-2 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
                   >
                     <Plus className="h-4 w-4" />
-                    {t(selectedMusicTracks.length === 0 ? "vionto.music.add" : "vionto.music.more")}
+                    {t(
+                      selectedMusicTracks.length === 0
+                        ? "vionto.music.add"
+                        : "vionto.music.more"
+                    )}
                   </button>
                   <button
                     type="button"
@@ -3494,7 +4590,10 @@ export function ViontoPage() {
                 {selectedMusicTracks.length > 0 && (
                   <div className="mt-2 w-full max-w-full min-w-0 space-y-2">
                     {selectedMusicTracks.map((track, index) => (
-                      <div key={`${track.provider}-${track.trackId}`} className="flex w-full max-w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent)]/10 p-2">
+                      <div
+                        key={`${track.provider}-${track.trackId}`}
+                        className="flex w-full max-w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent)]/10 p-2"
+                      >
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)] text-xs font-semibold text-white">
                           {index + 1}
                         </span>
@@ -3502,7 +4601,11 @@ export function ViontoPage() {
                           type="button"
                           onClick={() => toggleMusicPreview(track)}
                           className="shrink-0 text-[var(--color-accent)] hover:text-[var(--color-accent)]/80"
-                          title={musicPreviewTrackId === track.trackId ? t("vionto.audio.previewing") : t("vionto.audio.preview")}
+                          title={
+                            musicPreviewTrackId === track.trackId
+                              ? t("vionto.audio.previewing")
+                              : t("vionto.audio.preview")
+                          }
                         >
                           {musicPreviewTrackId === track.trackId ? (
                             <Pause className="h-4 w-4" />
@@ -3511,8 +4614,18 @@ export function ViontoPage() {
                           )}
                         </button>
                         <div className="flex-1 min-w-0">
-                          <p className="truncate break-all text-sm font-medium text-[var(--color-text)]" title={track.title}>{track.title}</p>
-                          <p className="truncate text-xs text-[var(--color-text-muted)]" title={track.artist}>{track.artist}</p>
+                          <p
+                            className="truncate break-all text-sm font-medium text-[var(--color-text)]"
+                            title={track.title}
+                          >
+                            {track.title}
+                          </p>
+                          <p
+                            className="truncate text-xs text-[var(--color-text-muted)]"
+                            title={track.artist}
+                          >
+                            {track.artist}
+                          </p>
                         </div>
                         <button
                           type="button"
@@ -3548,6 +4661,17 @@ export function ViontoPage() {
                     <div className="mb-4 flex border-b border-[var(--color-border)]">
                       <button
                         type="button"
+                        onClick={() => setMusicSelectorTab("royaltyFree")}
+                        className={`px-4 py-2 text-sm font-medium transition ${
+                          musicSelectorTab === "royaltyFree"
+                            ? "border-b-2 border-[var(--color-accent)] text-[var(--color-accent)]"
+                            : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                        }`}
+                      >
+                        {t("vionto.music.royaltyFreeTab")}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setMusicSelectorTab("library")}
                         className={`px-4 py-2 text-sm font-medium transition ${
                           musicSelectorTab === "library"
@@ -3570,8 +4694,14 @@ export function ViontoPage() {
                       </button>
                     </div>
 
-                    {musicSelectorTab === "library" && (
+                    {(musicSelectorTab === "royaltyFree" ||
+                      musicSelectorTab === "library") && (
                       <div className="space-y-3">
+                        {musicSelectorTab === "royaltyFree" && (
+                          <p className="rounded-lg bg-[var(--color-accent)]/10 px-3 py-2 text-xs text-[var(--color-text-muted)]">
+                            {t("vionto.music.royaltyFreeLicense")}
+                          </p>
+                        )}
                         {isLoadingMusicLibrary && (
                           <div className="flex items-center justify-center gap-2 py-8 text-sm text-[var(--color-text-muted)]">
                             <RefreshCw className="h-4 w-4 animate-spin" />
@@ -3583,56 +4713,92 @@ export function ViontoPage() {
                             {musicLibraryError}
                           </p>
                         )}
-                        {!isLoadingMusicLibrary && !musicLibraryError && musicLibrary.length === 0 && (
-                          <div className="py-8 text-center">
-                            <FileAudio className="mx-auto h-10 w-10 text-[var(--color-text-muted)]" />
-                            <p className="mt-2 text-sm text-[var(--color-text)]">{t("vionto.music.libraryEmpty")}</p>
-                            <p className="mt-1 text-xs text-[var(--color-text-muted)]">{t("vionto.music.libraryEmptyHint")}</p>
-                          </div>
-                        )}
-                        {!isLoadingMusicLibrary && !musicLibraryError && musicLibrary.length > 0 && (
-                          <ul className="space-y-2">
-                            {musicLibrary.map((item) => (
-                              <li
-                                key={item.key}
-                                className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-2"
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => toggleMusicPreview(makeLibraryTrackMetadata(item))}
-                                  className="shrink-0 text-[var(--color-accent)] hover:text-[var(--color-accent)]/80"
-                                  title={musicPreviewTrackId === item.key ? t("vionto.audio.previewing") : t("vionto.audio.preview")}
+                        {!isLoadingMusicLibrary &&
+                          !musicLibraryError &&
+                          visibleMusicLibrary.length === 0 && (
+                            <div className="py-8 text-center">
+                              <FileAudio className="mx-auto h-10 w-10 text-[var(--color-text-muted)]" />
+                              <p className="mt-2 text-sm text-[var(--color-text)]">
+                                {t(
+                                  musicSelectorTab === "royaltyFree"
+                                    ? "vionto.music.royaltyFreeEmpty"
+                                    : "vionto.music.libraryEmpty"
+                                )}
+                              </p>
+                              <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                                {t(
+                                  musicSelectorTab === "royaltyFree"
+                                    ? "vionto.music.royaltyFreeEmptyHint"
+                                    : "vionto.music.libraryEmptyHint"
+                                )}
+                              </p>
+                            </div>
+                          )}
+                        {!isLoadingMusicLibrary &&
+                          !musicLibraryError &&
+                          visibleMusicLibrary.length > 0 && (
+                            <ul className="space-y-2">
+                              {visibleMusicLibrary.map((item) => (
+                                <li
+                                  key={item.key}
+                                  className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-2"
                                 >
-                                  {musicPreviewTrackId === item.key ? (
-                                    <Pause className="h-4 w-4" />
-                                  ) : (
-                                    <Play className="h-4 w-4" />
-                                  )}
-                                </button>
-                                <div className="flex-1 min-w-0">
-                                  <p className="truncate text-sm font-medium text-[var(--color-text)]" title={item.filename}>
-                                    {item.filename}
-                                  </p>
-                                  <p className="truncate text-xs text-[var(--color-text-muted)]">
-                                    {new Date(item.lastModified).toLocaleDateString()} · {(item.sizeBytes / (1024 * 1024)).toFixed(2)} MB
-                                    {item.common && (
-                                      <span className="ml-2 rounded-full bg-[var(--color-accent)]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
-                                        {t("vionto.music.commonBadge")}
-                                      </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      toggleMusicPreview(
+                                        makeLibraryTrackMetadata(item)
+                                      )
+                                    }
+                                    className="shrink-0 text-[var(--color-accent)] hover:text-[var(--color-accent)]/80"
+                                    title={
+                                      musicPreviewTrackId === item.key
+                                        ? t("vionto.audio.previewing")
+                                        : t("vionto.audio.preview")
+                                    }
+                                  >
+                                    {musicPreviewTrackId === item.key ? (
+                                      <Pause className="h-4 w-4" />
+                                    ) : (
+                                      <Play className="h-4 w-4" />
                                     )}
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSelectLibraryTrack(item)}
-                                  className="shrink-0 rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-xs font-medium text-white hover:bg-[var(--color-accent)]/90"
-                                >
-                                  {t("vionto.music.select")}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
+                                  </button>
+                                  <div className="flex-1 min-w-0">
+                                    <p
+                                      className="truncate text-sm font-medium text-[var(--color-text)]"
+                                      title={item.filename}
+                                    >
+                                      {item.filename}
+                                    </p>
+                                    <p className="truncate text-xs text-[var(--color-text-muted)]">
+                                      {new Date(
+                                        item.lastModified
+                                      ).toLocaleDateString()}{" "}
+                                      ·{" "}
+                                      {(item.sizeBytes / (1024 * 1024)).toFixed(
+                                        2
+                                      )}{" "}
+                                      MB
+                                      {item.common && (
+                                        <span className="ml-2 rounded-full bg-[var(--color-accent)]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
+                                          {t("vionto.music.commonBadge")}
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleSelectLibraryTrack(item)
+                                    }
+                                    className="shrink-0 rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-xs font-medium text-white hover:bg-[var(--color-accent)]/90"
+                                  >
+                                    {t("vionto.music.select")}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                       </div>
                     )}
 
@@ -3651,40 +4817,56 @@ export function ViontoPage() {
 
                               setIsMusicUploading(true);
                               try {
-                                const uploadedTracks = await Promise.all(files.map(async (file, index) => {
-                                  const [{ key }, previewUrl] = await Promise.all([
-                                    uploadMusicFile(file),
-                                    Promise.resolve(URL.createObjectURL(file)),
-                                  ]);
+                                const uploadedTracks = await Promise.all(
+                                  files.map(async (file, index) => {
+                                    const [{ key }, previewUrl] =
+                                      await Promise.all([
+                                        uploadMusicFile(file),
+                                        Promise.resolve(
+                                          URL.createObjectURL(file)
+                                        ),
+                                      ]);
 
-                                  return {
-                                    provider: "upload",
-                                    trackId: `upload_${Date.now()}_${index}`,
-                                    title: file.name.replace(/\.[^/.]+$/, ""),
-                                    artist: t("vionto.music.uploadArtist"),
-                                    artistId: "upload",
-                                    duration: undefined,
-                                    tags: ["uploaded"],
-                                    sourceUrl: previewUrl,
-                                    downloadUrl: previewUrl,
-                                    storageKey: key,
-                                    license: "uploaded",
-                                    licenseInfo: t("vionto.music.uploadDisclaimer"),
-                                    downloads: 0,
-                                    likes: 0,
-                                  } satisfies NormalizedTrackMetadata;
-                                }));
+                                    return {
+                                      provider: "upload",
+                                      trackId: `upload_${Date.now()}_${index}`,
+                                      title: file.name.replace(/\.[^/.]+$/, ""),
+                                      artist: t("vionto.music.uploadArtist"),
+                                      artistId: "upload",
+                                      duration: undefined,
+                                      tags: ["uploaded"],
+                                      sourceUrl: previewUrl,
+                                      downloadUrl: previewUrl,
+                                      storageKey: key,
+                                      license: "uploaded",
+                                      licenseInfo: t(
+                                        "vionto.music.uploadDisclaimer"
+                                      ),
+                                      downloads: 0,
+                                      likes: 0,
+                                    } satisfies NormalizedTrackMetadata;
+                                  })
+                                );
 
-                                setSelectedMusicTracks((current) => [...current, ...uploadedTracks]);
+                                setSelectedMusicTracks((current) => [
+                                  ...current,
+                                  ...uploadedTracks,
+                                ]);
                                 setMusicBlobUrls((prev) => {
                                   const next = new Set(prev);
-                                  uploadedTracks.forEach((track) => next.add(track.downloadUrl));
+                                  uploadedTracks.forEach((track) =>
+                                    next.add(track.downloadUrl)
+                                  );
                                   return next;
                                 });
                                 setShowMusicSelector(false);
                               } catch (error) {
                                 console.error("Failed to upload music", error);
-                                alert(error instanceof Error ? error.message : t("vionto.alert.musicUploadFailed"));
+                                alert(
+                                  error instanceof Error
+                                    ? error.message
+                                    : t("vionto.alert.musicUploadFailed")
+                                );
                               } finally {
                                 setIsMusicUploading(false);
                                 // Reset input value to allow selecting the same file again
@@ -3704,7 +4886,9 @@ export function ViontoPage() {
                               <CloudUpload className="h-12 w-12 text-[var(--color-text-muted)]" />
                             )}
                             <p className="text-sm text-[var(--color-text)]">
-                              {isMusicUploading ? t("vionto.music.uploading") : t("vionto.music.upload_own")}
+                              {isMusicUploading
+                                ? t("vionto.music.uploading")
+                                : t("vionto.music.upload_own")}
                             </p>
                             <p className="text-xs text-[var(--color-text-muted)]">
                               MP3, WAV, OGG, M4A
@@ -3721,7 +4905,9 @@ export function ViontoPage() {
               )}
 
               <div className="mt-3" aria-label={t("vionto.aspect.aria")}>
-                <p className="text-xs font-medium text-[var(--color-text-muted)]">{t("vionto.aspect.label")}</p>
+                <p className="text-xs font-medium text-[var(--color-text-muted)]">
+                  {t("vionto.aspect.label")}
+                </p>
                 <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {ASPECT_OPTIONS.map((option) => (
                     <label
@@ -3749,9 +4935,13 @@ export function ViontoPage() {
               {/* ── Video length slider ── */}
               <div className="mt-3" aria-label={t("vionto.aria.videoLength")}>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-[var(--color-text-muted)]">{t("vionto.videoLength.label")}</p>
+                  <p className="text-xs font-medium text-[var(--color-text-muted)]">
+                    {t("vionto.videoLength.label")}
+                  </p>
                   <span className="text-xs font-semibold tabular-nums text-[var(--color-text)]">
-                    {t("vionto.videoLength.seconds", { seconds: targetDurationSeconds })}
+                    {t("vionto.videoLength.seconds", {
+                      seconds: targetDurationSeconds,
+                    })}
                   </span>
                 </div>
                 <input
@@ -3791,15 +4981,30 @@ export function ViontoPage() {
                   className="flex w-full items-center justify-between px-3 py-2.5 text-left"
                 >
                   <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-text)]">
-                    <ListChecks size={14} className="text-[var(--color-accent)]" />
+                    <ListChecks
+                      size={14}
+                      className="text-[var(--color-accent)]"
+                    />
                     Story Structure
                   </span>
-                  {storyStructureOpen ? <ChevronUp size={14} className="text-[var(--color-text-muted)]" /> : <ChevronDown size={14} className="text-[var(--color-text-muted)]" />}
+                  {storyStructureOpen ? (
+                    <ChevronUp
+                      size={14}
+                      className="text-[var(--color-text-muted)]"
+                    />
+                  ) : (
+                    <ChevronDown
+                      size={14}
+                      className="text-[var(--color-text-muted)]"
+                    />
+                  )}
                 </button>
                 {storyStructureOpen && (
                   <div className="space-y-2.5 border-t border-[var(--color-border)] px-3 pb-3 pt-2.5">
                     <div>
-                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">Opening Title</label>
+                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">
+                        Opening Title
+                      </label>
                       <input
                         type="text"
                         value={openingTitle}
@@ -3810,7 +5015,9 @@ export function ViontoPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">Intro Narration</label>
+                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">
+                        Intro Narration
+                      </label>
                       <textarea
                         value={introNarration}
                         onChange={(e) => setIntroNarration(e.target.value)}
@@ -3822,14 +5029,22 @@ export function ViontoPage() {
                     </div>
                     <div>
                       <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-medium text-[var(--color-text-muted)]">Chapters</label>
+                        <label className="text-[11px] font-medium text-[var(--color-text-muted)]">
+                          Chapters
+                        </label>
                         <button
                           type="button"
-                          onClick={() => setChapters([...chapters, { title: "", description: "" }])}
+                          onClick={() =>
+                            setChapters([
+                              ...chapters,
+                              { title: "", description: "" },
+                            ])
+                          }
                           disabled={chapters.length >= 10}
                           className="text-[11px] font-medium text-[var(--color-accent)] hover:underline disabled:opacity-50"
                         >
-                          <Plus size={10} className="mr-0.5 inline" /> Add chapter
+                          <Plus size={10} className="mr-0.5 inline" /> Add
+                          chapter
                         </button>
                       </div>
                       {chapters.map((ch, i) => (
@@ -3851,7 +5066,10 @@ export function ViontoPage() {
                             value={ch.description}
                             onChange={(e) => {
                               const next = [...chapters];
-                              next[i] = { ...next[i], description: e.target.value };
+                              next[i] = {
+                                ...next[i],
+                                description: e.target.value,
+                              };
                               setChapters(next);
                             }}
                             placeholder="Description"
@@ -3860,7 +5078,9 @@ export function ViontoPage() {
                           />
                           <button
                             type="button"
-                            onClick={() => setChapters(chapters.filter((_, j) => j !== i))}
+                            onClick={() =>
+                              setChapters(chapters.filter((_, j) => j !== i))
+                            }
                             className="shrink-0 rounded p-1 text-[var(--color-text-muted)] hover:text-red-500"
                           >
                             <X size={12} />
@@ -3869,7 +5089,9 @@ export function ViontoPage() {
                       ))}
                     </div>
                     <div>
-                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">Climax / Highlight</label>
+                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">
+                        Climax / Highlight
+                      </label>
                       <input
                         type="text"
                         value={climaxDescription}
@@ -3880,7 +5102,9 @@ export function ViontoPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">Closing Message</label>
+                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">
+                        Closing Message
+                      </label>
                       <input
                         type="text"
                         value={closingMessage}
@@ -3891,7 +5115,9 @@ export function ViontoPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">Dedication</label>
+                      <label className="text-[11px] font-medium text-[var(--color-text-muted)]">
+                        Dedication
+                      </label>
                       <input
                         type="text"
                         value={dedicationText}
@@ -3913,13 +5139,28 @@ export function ViontoPage() {
                   className="flex w-full items-center justify-between px-3 py-2.5 text-left"
                 >
                   <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-text)]">
-                    <Captions size={14} className="text-[var(--color-accent)]" />
+                    <Captions
+                      size={14}
+                      className="text-[var(--color-accent)]"
+                    />
                     Caption Overlays
                     {captionsEnabled && (
-                      <span className="ml-1 rounded-full bg-[var(--color-accent)]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">ON</span>
+                      <span className="ml-1 rounded-full bg-[var(--color-accent)]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
+                        ON
+                      </span>
                     )}
                   </span>
-                  {captionOverlaysOpen ? <ChevronUp size={14} className="text-[var(--color-text-muted)]" /> : <ChevronDown size={14} className="text-[var(--color-text-muted)]" />}
+                  {captionOverlaysOpen ? (
+                    <ChevronUp
+                      size={14}
+                      className="text-[var(--color-text-muted)]"
+                    />
+                  ) : (
+                    <ChevronDown
+                      size={14}
+                      className="text-[var(--color-text-muted)]"
+                    />
+                  )}
                 </button>
                 {captionOverlaysOpen && (
                   <div className="space-y-3 border-t border-[var(--color-border)] px-3 pb-3 pt-2.5">
@@ -3936,18 +5177,41 @@ export function ViontoPage() {
                     {captionsEnabled && (
                       <>
                         <div className="space-y-1.5">
-                          <p className="text-[11px] font-medium text-[var(--color-text-muted)]">Show in video</p>
+                          <p className="text-[11px] font-medium text-[var(--color-text-muted)]">
+                            Show in video
+                          </p>
                           {[
-                            { label: "Scene captions", checked: showSceneCaptions, onChange: setShowSceneCaptions },
-                            { label: "Date captions", checked: showDateCaptions, onChange: setShowDateCaptions },
-                            { label: "Location captions", checked: showLocationCaptions, onChange: setShowLocationCaptions },
-                            { label: "People labels", checked: showPeopleLabels, onChange: setShowPeopleLabels },
+                            {
+                              label: "Scene captions",
+                              checked: showSceneCaptions,
+                              onChange: setShowSceneCaptions,
+                            },
+                            {
+                              label: "Date captions",
+                              checked: showDateCaptions,
+                              onChange: setShowDateCaptions,
+                            },
+                            {
+                              label: "Location captions",
+                              checked: showLocationCaptions,
+                              onChange: setShowLocationCaptions,
+                            },
+                            {
+                              label: "People labels",
+                              checked: showPeopleLabels,
+                              onChange: setShowPeopleLabels,
+                            },
                           ].map((item) => (
-                            <label key={item.label} className="flex items-center gap-2 text-xs text-[var(--color-text)]">
+                            <label
+                              key={item.label}
+                              className="flex items-center gap-2 text-xs text-[var(--color-text)]"
+                            >
                               <input
                                 type="checkbox"
                                 checked={item.checked}
-                                onChange={(e) => item.onChange(e.target.checked)}
+                                onChange={(e) =>
+                                  item.onChange(e.target.checked)
+                                }
                                 className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-[var(--color-accent)]"
                               />
                               {item.label}
@@ -3957,10 +5221,14 @@ export function ViontoPage() {
 
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[11px] font-medium text-[var(--color-text-muted)]">Placement</label>
+                            <label className="text-[11px] font-medium text-[var(--color-text-muted)]">
+                              Placement
+                            </label>
                             <select
                               value={captionPlacement}
-                              onChange={(e) => setCaptionPlacement(e.target.value as any)}
+                              onChange={(e) =>
+                                setCaptionPlacement(e.target.value as any)
+                              }
                               className="mt-0.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1.5 text-xs text-[var(--color-text)]"
                             >
                               <option value="lower_third">Lower third</option>
@@ -3970,10 +5238,14 @@ export function ViontoPage() {
                             </select>
                           </div>
                           <div>
-                            <label className="text-[11px] font-medium text-[var(--color-text-muted)]">Style</label>
+                            <label className="text-[11px] font-medium text-[var(--color-text-muted)]">
+                              Style
+                            </label>
                             <select
                               value={captionStylePreset}
-                              onChange={(e) => setCaptionStylePreset(e.target.value as any)}
+                              onChange={(e) =>
+                                setCaptionStylePreset(e.target.value as any)
+                              }
                               className="mt-0.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1.5 text-xs text-[var(--color-text)]"
                             >
                               <option value="minimal">Minimal</option>
@@ -3990,7 +5262,10 @@ export function ViontoPage() {
               </div>
 
               <div className="mt-3">
-                <label htmlFor="user-notes" className="text-xs font-medium text-[var(--color-text-muted)]">
+                <label
+                  htmlFor="user-notes"
+                  className="text-xs font-medium text-[var(--color-text-muted)]"
+                >
                   {t("vionto.notes.label")}
                 </label>
                 <textarea
@@ -4012,7 +5287,10 @@ export function ViontoPage() {
                   <span />
                   <span />
                 </div>
-                <div className="video-stage" style={previewFrameStyle(currentPreviewAspectRatio)}>
+                <div
+                  className="video-stage"
+                  style={previewFrameStyle(currentPreviewAspectRatio)}
+                >
                   {latestExport?.previewUrl ? (
                     <video
                       key={latestExport.id}
@@ -4028,30 +5306,50 @@ export function ViontoPage() {
                       <div className="horizon" />
                     </>
                   )}
-                  <p>{latestExport?.previewSubtitle ?? t("vionto.preview.empty")}</p>
+                  <p>
+                    {latestExport?.previewSubtitle ?? t("vionto.preview.empty")}
+                  </p>
                 </div>
               </div>
               <div className="preview-copy">
                 <p className="eyebrow">{t("vionto.preview.eyebrow")}</p>
-                <h2 id="preview-title">{latestExport?.previewTitle ?? t("vionto.preview.draft", { mode: t(`vionto.mode.${activeMode}`) })}</h2>
+                <h2 id="preview-title">
+                  {latestExport?.previewTitle ??
+                    t("vionto.preview.draft", {
+                      mode: t(`vionto.mode.${activeMode}`),
+                    })}
+                </h2>
                 <p>
                   {latestExport?.filename ??
-                    t("vionto.preview.formatSummary", { aspect: activeAspectRatio })}
+                    t("vionto.preview.formatSummary", {
+                      aspect: activeAspectRatio,
+                    })}
                 </p>
                 <button
                   type="button"
                   onClick={startRender}
-                  disabled={!selectedProjectId || projectAssets.length === 0 || !hasRenderableScript || renderState === "queued" || renderState === "running"}
+                  disabled={
+                    !selectedProjectId ||
+                    projectAssets.length === 0 ||
+                    !hasRenderableScript ||
+                    renderState === "queued" ||
+                    renderState === "running"
+                  }
                   className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
                 >
                   <Clapperboard size={16} />
-                  {renderState === "queued" || renderState === "running" ? t("vionto.render.creating") : t("vionto.render.createVideo")}
+                  {renderState === "queued" || renderState === "running"
+                    ? t("vionto.render.creating")
+                    : t("vionto.render.createVideo")}
                 </button>
               </div>
             </section>
           </div>
 
-          <section className="pipeline" aria-label={t("vionto.aria.productionPipeline")}>
+          <section
+            className="pipeline"
+            aria-label={t("vionto.aria.productionPipeline")}
+          >
             {pipelineSteps.map((step) => {
               const Icon = step.icon;
               return (
@@ -4086,9 +5384,17 @@ export function ViontoPage() {
                     type="button"
                     onClick={() => setSubtitlesCollapsed(!subtitlesCollapsed)}
                     className="inline-flex items-center justify-center rounded-md p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-soft)] transition"
-                    aria-label={subtitlesCollapsed ? t("vionto.aria.expandSubtitles") : t("vionto.aria.collapseSubtitles")}
+                    aria-label={
+                      subtitlesCollapsed
+                        ? t("vionto.aria.expandSubtitles")
+                        : t("vionto.aria.collapseSubtitles")
+                    }
                   >
-                    {subtitlesCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                    {subtitlesCollapsed ? (
+                      <ChevronDown size={18} />
+                    ) : (
+                      <ChevronUp size={18} />
+                    )}
                   </button>
                 </div>
                 {!subtitlesCollapsed && (
@@ -4111,7 +5417,10 @@ export function ViontoPage() {
                 <div className="flex flex-col gap-3">
                   {voices.length > 0 ? (
                     <>
-                      <label htmlFor="voice-select" className="text-xs text-[var(--color-text-muted)]">
+                      <label
+                        htmlFor="voice-select"
+                        className="text-xs text-[var(--color-text-muted)]"
+                      >
                         {t("vionto.audio.voiceSelect")}
                       </label>
                       <select
@@ -4126,10 +5435,13 @@ export function ViontoPage() {
                           }
                         }}
                       >
-                        <option value="">{t("vionto.audio.defaultVoice")}</option>
+                        <option value="">
+                          {t("vionto.audio.defaultVoice")}
+                        </option>
                         {voices.map((voice) => (
                           <option key={voice.id} value={voice.id}>
-                            {voice.name} ({voice.locale}){voice.gender ? ` · ${voice.gender}` : ""}
+                            {voice.name} ({voice.locale})
+                            {voice.gender ? ` · ${voice.gender}` : ""}
                           </option>
                         ))}
                       </select>
@@ -4141,12 +5453,16 @@ export function ViontoPage() {
                           className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
                         >
                           <Play size={16} />
-                          {isPreviewing ? t("vionto.audio.previewing") : t("vionto.audio.preview")}
+                          {isPreviewing
+                            ? t("vionto.audio.previewing")
+                            : t("vionto.audio.preview")}
                         </button>
                       )}
                     </>
                   ) : (
-                    <p className="text-sm text-[var(--color-text-muted)]">{t("vionto.audio.noVoices")}</p>
+                    <p className="text-sm text-[var(--color-text-muted)]">
+                      {t("vionto.audio.noVoices")}
+                    </p>
                   )}
                 </div>
               </div>
@@ -4161,7 +5477,11 @@ export function ViontoPage() {
                 <button
                   type="button"
                   onClick={startRender}
-                  disabled={!selectedProjectId || projectAssets.length === 0 || !hasRenderableScript}
+                  disabled={
+                    !selectedProjectId ||
+                    projectAssets.length === 0 ||
+                    !hasRenderableScript
+                  }
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
                 >
                   <Clapperboard size={16} />
@@ -4173,7 +5493,9 @@ export function ViontoPage() {
                     <div className="flex items-center gap-2">
                       <RefreshCw size={16} className="animate-spin" />
                       <span className="text-sm">
-                        {renderState === "queued" ? t("vionto.render.queued") : t("vionto.render.running")}
+                        {renderState === "queued"
+                          ? t("vionto.render.queued")
+                          : t("vionto.render.running")}
                       </span>
                     </div>
                     <button
@@ -4191,13 +5513,17 @@ export function ViontoPage() {
                       style={{ width: `${renderProgress}%` }}
                     />
                   </div>
-                  <span className="text-xs text-[var(--color-text-muted)]">{renderProgress}%</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">
+                    {renderProgress}%
+                  </span>
                 </div>
               ) : renderState === "completed" ? (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-green-600">
                     <ListChecks size={16} />
-                    <span className="text-sm">{t("vionto.render.completed")}</span>
+                    <span className="text-sm">
+                      {t("vionto.render.completed")}
+                    </span>
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {exportId && (
@@ -4208,13 +5534,19 @@ export function ViontoPage() {
                         className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
                       >
                         <Download size={16} />
-                        {downloadUrl ? t("vionto.render.downloading") : t("vionto.render.download")}
+                        {downloadUrl
+                          ? t("vionto.render.downloading")
+                          : t("vionto.render.download")}
                       </button>
                     )}
                     <button
                       type="button"
                       onClick={startRender}
-                      disabled={!selectedProjectId || projectAssets.length === 0 || !hasRenderableScript}
+                      disabled={
+                        !selectedProjectId ||
+                        projectAssets.length === 0 ||
+                        !hasRenderableScript
+                      }
                       className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm font-medium text-[var(--color-text)] transition hover:bg-[var(--color-surface-soft)] disabled:opacity-50"
                     >
                       <Clapperboard size={16} />
@@ -4262,12 +5594,16 @@ export function ViontoPage() {
                 <select
                   className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                   value={libraryModeFilter}
-                  onChange={(e) => setLibraryModeFilter(e.target.value as "" | UiMode)}
+                  onChange={(e) =>
+                    setLibraryModeFilter(e.target.value as "" | UiMode)
+                  }
                   aria-label={t("vionto.library.filterMode")}
                 >
                   <option value="">{t("vionto.library.allModes")}</option>
                   {modes.map((mode) => (
-                    <option key={mode} value={mode}>{t(`vionto.mode.${mode}`)}</option>
+                    <option key={mode} value={mode}>
+                      {t(`vionto.mode.${mode}`)}
+                    </option>
                   ))}
                 </select>
                 <input
@@ -4286,7 +5622,10 @@ export function ViontoPage() {
                 />
               </div>
               <div className="relative mt-2">
-                <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                <Search
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
+                />
                 <input
                   type="search"
                   className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] py-2 pl-9 pr-3 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
@@ -4304,7 +5643,9 @@ export function ViontoPage() {
                     {t("vionto.library.loading")}
                   </div>
                 ) : libraryExports.length === 0 ? (
-                  <p className="text-sm text-[var(--color-text-muted)]">{t("vionto.library.empty")}</p>
+                  <p className="text-sm text-[var(--color-text-muted)]">
+                    {t("vionto.library.empty")}
+                  </p>
                 ) : (
                   libraryExports.map((item, _idx) => (
                     <article
@@ -4317,7 +5658,9 @@ export function ViontoPage() {
                         playsInline
                         preload="metadata"
                         className="w-full bg-black object-contain"
-                        style={{ aspectRatio: cssAspectRatio(item.aspectRatio) }}
+                        style={{
+                          aspectRatio: cssAspectRatio(item.aspectRatio),
+                        }}
                       />
                       <div className="flex flex-1 flex-col gap-1 p-3 min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -4349,18 +5692,33 @@ export function ViontoPage() {
                           {item.filename ?? t("vionto.library.untitled")}
                         </p>
                         {item.previewSubtitle && (
-                          <p className="line-clamp-2 text-xs text-[var(--color-text-muted)]">{item.previewSubtitle}</p>
+                          <p className="line-clamp-2 text-xs text-[var(--color-text-muted)]">
+                            {item.previewSubtitle}
+                          </p>
                         )}
                         <div className="mt-auto flex flex-wrap items-center gap-2 pt-2 text-[11px] text-[var(--color-text-muted)]">
-                          <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-                          {item.durationSeconds != null && <span>{item.durationSeconds}s</span>}
-                          {item.fileSizeBytes != null && <span>{(item.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB</span>}
+                          <span>
+                            {new Date(item.createdAt).toLocaleDateString()}
+                          </span>
+                          {item.durationSeconds != null && (
+                            <span>{item.durationSeconds}s</span>
+                          )}
+                          {item.fileSizeBytes != null && (
+                            <span>
+                              {(item.fileSizeBytes / (1024 * 1024)).toFixed(1)}{" "}
+                              MB
+                            </span>
+                          )}
                         </div>
                         <div className="mt-2 flex items-center justify-end">
                           <button
                             type="button"
                             onClick={() => {
-                              if (window.confirm(t("vionto.library.removeConfirm"))) {
+                              if (
+                                window.confirm(
+                                  t("vionto.library.removeConfirm")
+                                )
+                              ) {
                                 removeLibraryExport(item.id);
                               }
                             }}
@@ -4400,7 +5758,8 @@ export function ViontoPage() {
                     type="button"
                     disabled={!libraryHasNext || isLoadingLibrary}
                     onClick={() => {
-                      const lastItem = libraryExports[libraryExports.length - 1];
+                      const lastItem =
+                        libraryExports[libraryExports.length - 1];
                       if (!lastItem) return;
                       const nextCursors = [...libraryCursors];
                       nextCursors[libraryPage] = lastItem.id;
@@ -4425,7 +5784,9 @@ export function ViontoPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">{t("vionto.downloadDialog.title")}</h3>
+              <h3 className="text-lg font-semibold">
+                {t("vionto.downloadDialog.title")}
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowDownloadDialog(false)}
