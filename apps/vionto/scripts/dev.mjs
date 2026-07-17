@@ -33,6 +33,10 @@ function run(name, args, env = {}) {
       console.error(`[${name}] exited with ${reason}`);
       if (name === "web") {
         shutdown(code ?? 1);
+      } else if (name === "worker") {
+        setTimeout(() => {
+          if (!shuttingDown) run(name, args, env);
+        }, 1000);
       }
     }
   });

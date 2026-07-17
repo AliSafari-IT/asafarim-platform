@@ -34,7 +34,6 @@ type Props = {
 
 type Phase = "idle" | "picking" | "importing";
 
-
 export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -65,7 +64,11 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
       else setError("Could not connect Google Photos. Please try again.");
       params.delete("googlePhotos");
       const qs = params.toString();
-      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + (qs ? `?${qs}` : "")
+      );
     }
     return () => {
       if (pollTimer.current) clearTimeout(pollTimer.current);
@@ -78,30 +81,37 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
   }
 
   async function disconnect() {
-    await fetch("/api/integrations/google-photos/disconnect", { method: "POST" });
+    await fetch("/api/integrations/google-photos/disconnect", {
+      method: "POST",
+    });
     setMessage("Google Photos disconnected.");
     await refreshStatus();
   }
 
   /** Create an upload session, import into it, then promote to the project. */
   async function importInto(
-    runImport: (uploadSessionId: string) => Promise<Response>,
+    runImport: (uploadSessionId: string) => Promise<Response>
   ) {
     setError(null);
     setMessage(null);
     setPhase("importing");
     try {
-      const sessionRes = await fetch("/api/uploads/session", { method: "POST" });
+      const sessionRes = await fetch("/api/uploads/session", {
+        method: "POST",
+      });
       if (!sessionRes.ok) throw new Error("Could not start an upload session.");
       const { sessionId } = await sessionRes.json();
 
       const res = await runImport(sessionId);
       if (res.status === 409) {
         setStatus((s) => (s ? { ...s, connected: false } : s));
-        throw new Error("Your Google Photos access expired — please reconnect.");
+        throw new Error(
+          "Your Google Photos access expired — please reconnect."
+        );
       }
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || data?.error || "Import failed.");
+      if (!res.ok)
+        throw new Error(data?.message || data?.error || "Import failed.");
 
       if (data?.mode === "fallback") {
         setError(data.message ?? "Use the picker to import from this album.");
@@ -113,7 +123,7 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
         setError(
           summary.skipped || summary.failed
             ? `Nothing imported (${summary.skipped} skipped, ${summary.failed} failed).`
-            : "No photos were imported.",
+            : "No photos were imported."
         );
         return;
       }
@@ -124,13 +134,16 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, clearSession: true }),
       });
-      if (!promote.ok) throw new Error("Imported, but failed to add to the project.");
+      if (!promote.ok)
+        throw new Error("Imported, but failed to add to the project.");
 
       const extra =
         summary.skipped || summary.failed
           ? ` (${summary.skipped} skipped, ${summary.failed} failed)`
           : "";
-      setMessage(`Imported ${summary.imported} photo${summary.imported > 1 ? "s" : ""}${extra}.`);
+      setMessage(
+        `Imported ${summary.imported} photo${summary.imported > 1 ? "s" : ""}${extra}.`
+      );
       await onImported();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed.");
@@ -145,20 +158,35 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
     setMessage(null);
     setPhase("picking");
     try {
-      const res = await fetch("/api/integrations/google-photos/picker/session", {
-        method: "POST",
-      });
+      const res = await fetch(
+        "/api/integrations/google-photos/picker/session",
+        {
+          method: "POST",
+        }
+      );
+      const session = await res.json().catch(() => ({}));
       if (res.status === 409) {
         setStatus((s) => (s ? { ...s, connected: false } : s));
-        throw new Error("Your Google Photos access expired — please reconnect.");
+        throw new Error(
+          "Your Google Photos access expired — please reconnect."
+        );
       }
-      if (!res.ok) throw new Error("Could not start the Google Photos picker.");
-      const session = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          session?.message ||
+            session?.error ||
+            "Could not start the Google Photos picker."
+        );
+      }
       if (!session.sessionId) {
         throw new Error("Invalid picker session response from server.");
       }
 
-      const popup = window.open(session.pickerUri, "_blank", "noopener,noreferrer");
+      const popup = window.open(
+        session.pickerUri,
+        "_blank",
+        "noopener,noreferrer"
+      );
       if (!popup) {
         // Popup was blocked — show a manual link and keep polling
         setPickerHref(session.pickerUri);
@@ -185,7 +213,9 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
           if (!sres.ok) {
             const errData = await sres.json().catch(() => ({}));
             setPhase("idle");
-            setError(errData?.message ?? `Picker poll failed (${sres.status}).`);
+            setError(
+              errData?.message ?? `Picker poll failed (${sres.status}).`
+            );
             return;
           }
           const sdata = await sres.json();
@@ -194,8 +224,11 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
               fetch("/api/integrations/google-photos/import", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ uploadSessionId, pickerSessionId: session.sessionId }),
-              }),
+                body: JSON.stringify({
+                  uploadSessionId,
+                  pickerSessionId: session.sessionId,
+                }),
+              })
             );
             return;
           }
@@ -222,7 +255,7 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, uploadSessionId }),
-      }),
+      })
     );
   }
 
@@ -256,7 +289,9 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
       </div>
 
       {status.connected && status.googleAccountEmail && (
-        <p className="mt-1 text-[10px] text-[var(--muted)]">{status.googleAccountEmail}</p>
+        <p className="mt-1 text-[10px] text-[var(--muted)]">
+          {status.googleAccountEmail}
+        </p>
       )}
 
       {status.connected && (
@@ -279,7 +314,9 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
             onClick={() => setShowAlbumInput((v) => !v)}
             className="text-[var(--muted)] hover:text-[var(--text)]"
           >
-            {showAlbumInput ? "Hide shared album link" : "Import from a shared album link"}
+            {showAlbumInput
+              ? "Hide shared album link"
+              : "Import from a shared album link"}
           </button>
 
           {showAlbumInput && (
@@ -308,13 +345,20 @@ export function GooglePhotosImportPanel({ projectId, onImported }: Props) {
       {pickerHref && phase === "picking" && (
         <p className="mt-2 text-[10px] text-[var(--muted)]">
           Pop-up blocked.{" "}
-          <a href={pickerHref} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent)] underline">
+          <a
+            href={pickerHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[var(--color-accent)] underline"
+          >
             Open Google Photos picker
           </a>
           , then return here.
         </p>
       )}
-      {message && <p className="mt-2 text-[10px] text-emerald-500">{message}</p>}
+      {message && (
+        <p className="mt-2 text-[10px] text-emerald-500">{message}</p>
+      )}
       {error && <p className="mt-2 text-[10px] text-[var(--coral)]">{error}</p>}
     </div>
   );
