@@ -1,8 +1,11 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { createInterface } from "node:readline";
 
 const isWindows = process.platform === "win32";
-const pnpm = isWindows ? "pnpm.cmd" : "pnpm";
+const require = createRequire(import.meta.url);
+const nextCli = require.resolve("next/dist/bin/next");
+const tsxCli = require.resolve("tsx/cli");
 
 const children = new Set();
 let shuttingDown = false;
@@ -14,12 +17,12 @@ function prefixStream(stream, prefix, target) {
   });
 }
 
-function run(name, args, env = {}) {
-  const child = spawn(pnpm, args, {
+function run(name, cli, args, env = {}) {
+  const child = spawn(process.execPath, [cli, ...args], {
     cwd: process.cwd(),
     env: { ...process.env, ...env },
     stdio: ["inherit", "pipe", "pipe"],
-    shell: isWindows,
+    shell: false,
   });
 
   children.add(child);
@@ -48,7 +51,19 @@ function shutdown(code = 0) {
     child.kill("SIGTERM");
   }
 
-  setTimeout(() => process.exit(code), 500);
+  setTimeout(() => {
+    if (isWindows) {
+      for (const child of children) {
+        if (child.pid) {
+          spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], {
+            stdio: "ignore",
+            windowsHide: true,
+          });
+        }
+      }
+    }
+    process.exit(code);
+  }, 1500);
 }
 
 process.on("SIGINT", () => shutdown(0));
@@ -61,5 +76,10 @@ const viontoAuthEnv = {
   AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST ?? "true",
 };
 
-run("web", ["exec", "next", "dev", "--port", "3004"], viontoAuthEnv);
-run("worker", ["run", "worker:dev"], viontoAuthEnv);
+run("web", nextCli, ["dev", "--port", "3004"], viontoAuthEnv);
+run(
+  "worker",
+  tsxCli,
+  ["--import", "./scripts/preload-env.mjs", "worker.ts"],
+  viontoAuthEnv
+);
