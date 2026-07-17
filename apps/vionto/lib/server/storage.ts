@@ -601,8 +601,15 @@ export type AudioLibraryItem = {
   publicUrl: string;
   lastModified: string;
   sizeBytes: number;
+  category?: string;
   common?: boolean; // true when the track is from the shared/common library
 };
+
+function extractCommonAudioCategory(key: string): string | undefined {
+  const parts = key.split("/");
+  const audioIndex = parts.findIndex((part) => part === "audio");
+  return audioIndex >= 0 ? parts[audioIndex + 2] || undefined : undefined;
+}
 
 function isAudioKey(key: string): boolean {
   const ext = (key.split(".").pop() ?? "").toLowerCase();
@@ -746,6 +753,7 @@ export async function listCommonMusic(
         lastModified:
           object.LastModified?.toISOString() ?? new Date().toISOString(),
         sizeBytes: object.Size ?? 0,
+        category: extractCommonAudioCategory(key),
         common: true,
       });
     }
@@ -793,6 +801,7 @@ async function listLocalCommonMusic(): Promise<AudioLibraryItem[]> {
         publicUrl: getLocalUploadUrl(key),
         lastModified: fileStat.mtime.toISOString(),
         sizeBytes: fileStat.size,
+        category: extractCommonAudioCategory(key),
         common: true,
       });
     } catch {

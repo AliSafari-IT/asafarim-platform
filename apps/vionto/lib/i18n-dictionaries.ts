@@ -387,6 +387,7 @@ export const viontoDictionaries: Dictionaries = {
       "Upload your first track in the Upload tab.",
     "vionto.music.libraryArtist": "Your library",
     "vionto.music.commonArtist": "Curated library",
+    "vionto.music.personalUpload": "Personal upload",
     "vionto.music.commonBadge": "Royalty-free",
     "vionto.music.select": "Select",
 
@@ -785,6 +786,7 @@ export const viontoDictionaries: Dictionaries = {
       "Upload je eerste track in het tabblad Upload.",
     "vionto.music.libraryArtist": "Jouw bibliotheek",
     "vionto.music.commonArtist": "Gecureerde bibliotheek",
+    "vionto.music.personalUpload": "Persoonlijke upload",
     "vionto.music.commonBadge": "Royalty-free",
     "vionto.music.select": "Selecteren",
 
@@ -1194,6 +1196,7 @@ export const viontoDictionaries: Dictionaries = {
       "Téléchargez votre premier morceau dans l'onglet Upload.",
     "vionto.music.libraryArtist": "Votre bibliothèque",
     "vionto.music.commonArtist": "Bibliothèque sélectionnée",
+    "vionto.music.personalUpload": "Import personnel",
     "vionto.music.commonBadge": "Libre de redevances",
     "vionto.music.select": "Sélectionner",
   },
@@ -1521,6 +1524,7 @@ export const viontoDictionaries: Dictionaries = {
       "Lade deinen ersten Track im Upload-Tab hoch.",
     "vionto.music.libraryArtist": "Deine Bibliothek",
     "vionto.music.commonArtist": "Kuratierte Bibliothek",
+    "vionto.music.personalUpload": "Persönlicher Upload",
     "vionto.music.commonBadge": "Lizenzfrei",
     "vionto.music.select": "Auswählen",
   },
