@@ -16,6 +16,18 @@
 const QUEUE_BASE = "https://queue.fal.run";
 const REQUEST_TIMEOUT_MS = 30_000;
 
+/**
+ * fal quirk: you SUBMIT to the full endpoint path (e.g.
+ * `fal-ai/ltx-video/image-to-video`) but poll status/result at the *app id* —
+ * the first two path segments (`fal-ai/ltx-video`). Using the full path for
+ * status/result returns HTTP 405, which would leave a finished clip stuck
+ * "queued" forever. Models that are already two segments (e.g. `fal-ai/wan-i2v`)
+ * are unaffected.
+ */
+export function falAppId(model: string): string {
+  return model.split("/").slice(0, 2).join("/");
+}
+
 export type FalQueueStatus = "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED";
 
 export function isFalConfigured(): boolean {
@@ -91,7 +103,7 @@ export async function getFalStatus(
 ): Promise<FalQueueStatus> {
   const data = await falFetch(
     apiKey,
-    `${QUEUE_BASE}/${model}/requests/${encodeURIComponent(requestId)}/status`
+    `${QUEUE_BASE}/${falAppId(model)}/requests/${encodeURIComponent(requestId)}/status`
   );
   return (data.status as FalQueueStatus) ?? "IN_QUEUE";
 }
@@ -102,7 +114,7 @@ export async function getFalResult(
   model: string,
   requestId: string
 ): Promise<Record<string, unknown>> {
-  return falFetch(apiKey, `${QUEUE_BASE}/${model}/requests/${encodeURIComponent(requestId)}`);
+  return falFetch(apiKey, `${QUEUE_BASE}/${falAppId(model)}/requests/${encodeURIComponent(requestId)}`);
 }
 
 /** Download a finished clip (temporary fal URL) into a Buffer. */

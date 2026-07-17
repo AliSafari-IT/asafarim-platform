@@ -657,8 +657,23 @@ console.log(`[worker] Vionto render worker started on queue '${QUEUE_NAME}'`);
 
 // Graceful shutdown
 function shutdown(signal: string) {
-  console.log(`[worker] ${signal} received. Closingâ€¦`);
-  worker.close().then(() => redis.disconnect()).then(() => process.exit(0));
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`[worker] ${signal} received. Closing...`);
+  Promise.all([
+    worker.close(),
+    redis.disconnect(),
+    new Promise<void>((resolve, reject) => {
+      healthServer.close((err) => (err ? reject(err) : resolve()));
+    }),
+    prisma.$disconnect(),
+  ])
+    .catch((err) => {
+      console.error("[worker] error during shutdown:", err);
+    })
+    .finally(() => {
+      process.exit(0);
+    });
 }
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));
+process.once("SIGTERM", () => shutdown("SIGTERM"));

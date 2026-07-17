@@ -47,6 +47,31 @@ describe("parseSrt", () => {
     expect(parsed[0].text).toBe("Hello.");
     expect(parsed[1].text).toBe("World.");
   });
+
+  it("parses cues separated by single newlines (LLM-style, no blank lines)", () => {
+    // Regression: an LLM emitted SRT with no blank line between cues, which the
+    // old blank-line parser collapsed into one cue whose text swallowed every
+    // later index + timestamp — leaking "2 00:00:05,000 -->" into the burned caption.
+    const srt =
+      "1\n00:00:00,000 --> 00:00:05,000\nWatch the magic unfold!\n" +
+      "2\n00:00:05,000 --> 00:00:10,000\nVibrant costumes burst with color.\n" +
+      "3\n00:00:10,000 --> 00:00:15,000\nThe audience is captivated.";
+    const parsed = parseSrt(srt);
+    expect(parsed).toHaveLength(3);
+    expect(parsed[0]).toMatchObject({ index: 1, startMs: 0, endMs: 5000, text: "Watch the magic unfold!" });
+    expect(parsed[1]).toMatchObject({ index: 2, startMs: 5000, endMs: 10000, text: "Vibrant costumes burst with color." });
+    expect(parsed[2].text).toBe("The audience is captivated.");
+    // No timing metadata must ever leak into caption text.
+    for (const cue of parsed) expect(cue.text).not.toMatch(/-->/);
+  });
+
+  it("keeps genuine multi-line cue text together", () => {
+    const srt = "1\n00:00:01,000 --> 00:00:03,000\nLine one\nline two\n\n2\n00:00:04,000 --> 00:00:06,000\nNext.";
+    const parsed = parseSrt(srt);
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0].text).toBe("Line one\nline two");
+    expect(parsed[1].text).toBe("Next.");
+  });
 });
 
 describe("generateSrtFromText", () => {
