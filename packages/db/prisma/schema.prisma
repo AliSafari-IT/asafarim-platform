@@ -891,6 +891,37 @@ model ViontoPlanQuota {
   @@index([metric])
 }
 
+/// Bring-your-own-key credential for an AI provider (OpenAI, fal.ai, Kling, …).
+/// The plaintext key/secret never touch the database — stored AES-256-GCM
+/// encrypted (iv.authTag.ciphertext, base64url), see google-photos/crypto.ts.
+/// Resolution order at call time: user's credential → server env fallback.
+model ViontoProviderCredential {
+  id       String @id @default(cuid())
+  userId   String
+  /// Provider id from the AI registry (e.g. "openai", "fal", "kling").
+  provider String
+
+  /// Encrypted API key. Format: iv.authTag.ciphertext (base64url).
+  apiKeyEnc String  @db.Text
+  /// Encrypted secret for providers that use key+secret (e.g. Kling).
+  apiSecretEnc String? @db.Text
+
+  /// Optional user-facing label, and a masked hint like "sk-…4f2a" for the UI.
+  label     String?
+  maskedKey String?
+
+  /// active | invalid (last validation failed)
+  status        String    @default("active")
+  lastError     String?   @db.Text
+  lastVerifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
 // ─── Google Photos Integration (Vionto) ───────────────────────
 //
 // OAuth tokens are stored encrypted at rest (AES-256-GCM). The plaintext
