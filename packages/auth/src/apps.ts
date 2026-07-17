@@ -76,17 +76,19 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     status: "active",
     access: [ROLES.ADMIN],
   },
+  {
+    // Vionto's own proxy keeps the landing and creation entry public;
+    // project work requires sign-in inside the app itself.
+    key: "vionto",
+    name: "Vionto",
+    description: "Photo-to-story studio: turn photo collections into narrated videos.",
+    glyph: "VN",
+    meta: "vionto.asafarim.com · beta",
+    status: "active",
+    access: "public",
+  },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────
-  {
-    key: "vionto",
-    name: "Vionto Studio",
-    description: "Transparent AI media-pipeline benchmark.",
-    glyph: "VN",
-    meta: "vionto · planned",
-    status: "coming-soon",
-    access: null,
-  },
   {
     key: "edumatch",
     name: "EduMatch",

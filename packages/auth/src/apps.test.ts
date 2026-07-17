@@ -13,6 +13,7 @@ const hub = getPlatformApp("hub")!;
 const showcase = getPlatformApp("showcase")!;
 const admin = getPlatformApp("admin")!;
 const vionto = getPlatformApp("vionto")!;
+const edumatch = getPlatformApp("edumatch")!;
 
 const anonymous = { roles: [], authenticated: false };
 const roleless = { roles: [], authenticated: true };
@@ -23,12 +24,13 @@ const superadmin = { roles: [ROLES.SUPERADMIN], authenticated: true };
 const inactiveAdmin = { roles: [ROLES.ADMIN], authenticated: false };
 
 describe("registry shape", () => {
-  it("registers the four active platform apps and only those", () => {
+  it("registers the five active platform apps and only those", () => {
     const active = PLATFORM_APPS.filter((app) => app.status === "active");
     expect(active.map((app) => app.key).sort()).toEqual([
       "admin",
       "hub",
       "showcase",
+      "vionto",
       "web",
     ]);
   });
@@ -98,13 +100,22 @@ describe("role-gated apps (admin console)", () => {
   });
 });
 
+describe("public apps (vionto)", () => {
+  it("is open to anonymous visitors now that the app has shipped", () => {
+    expect(getAppAccessDecision(vionto, anonymous)).toEqual({
+      allowed: true,
+      reason: "public",
+    });
+  });
+});
+
 describe("coming-soon apps", () => {
   it("deny everyone, including superadmin", () => {
-    expect(getAppAccessDecision(vionto, superadmin)).toEqual({
+    expect(getAppAccessDecision(edumatch, superadmin)).toEqual({
       allowed: false,
       reason: "coming-soon",
     });
-    expect(canAccessApp(vionto, superadmin)).toBe(false);
+    expect(canAccessApp(edumatch, superadmin)).toBe(false);
   });
 });
 
@@ -112,6 +123,7 @@ describe("getAccessibleApps", () => {
   it("gives an anonymous visitor only the public apps", () => {
     expect(getAccessibleApps(anonymous).map((app) => app.key).sort()).toEqual([
       "showcase",
+      "vionto",
       "web",
     ]);
   });
@@ -120,6 +132,7 @@ describe("getAccessibleApps", () => {
     expect(getAccessibleApps(standard).map((app) => app.key).sort()).toEqual([
       "hub",
       "showcase",
+      "vionto",
       "web",
     ]);
   });
@@ -129,6 +142,7 @@ describe("getAccessibleApps", () => {
       "admin",
       "hub",
       "showcase",
+      "vionto",
       "web",
     ]);
   });
@@ -136,6 +150,6 @@ describe("getAccessibleApps", () => {
   it("gives a deactivated user only public apps", () => {
     expect(
       getAccessibleApps(inactiveAdmin).map((app) => app.key).sort()
-    ).toEqual(["showcase", "web"]);
+    ).toEqual(["showcase", "vionto", "web"]);
   });
 });
