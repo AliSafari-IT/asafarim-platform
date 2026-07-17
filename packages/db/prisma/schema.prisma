@@ -343,6 +343,7 @@ model ViontoProject {
   renderJobs    ViontoRenderJob[]
   exports       ViontoExport[]
   usageMetrics  ViontoUsageMetric[]
+  aiClips       ViontoAiClip[]
 
   // Ownership
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -799,6 +800,56 @@ model ViontoAlbumItem {
   @@unique([albumId, assetId])
   @@index([albumId, orderIndex])
   @@index([assetId])
+}
+
+/// AI-generated motion clip for a single album image (Kling image-to-video).
+/// The clip replaces the static pan-and-zoom segment for its asset during
+/// final rendering when status=succeeded and accepted=true.
+model ViontoAiClip {
+  id        String  @id @default(cuid())
+  projectId String
+  userId    String
+  versionId String?
+  albumId   String?
+  /// Album item the clip was generated from (kept loose: item may be
+  /// removed from the album without invalidating the clip).
+  albumItemId String?
+  assetId     String
+
+  provider       String @default("kling")
+  model          String
+  mode           String @default("std") // std, pro
+  prompt         String @db.Text
+  negativePrompt String? @db.Text
+  /// Requested clip duration (Kling supports 5 or 10 seconds).
+  durationSeconds Int @default(5)
+
+  /// Provider-side task id used for polling.
+  taskId String?
+  /// pending -> submitted -> processing -> succeeded | failed
+  status       String  @default("pending")
+  errorMessage String? @db.Text
+
+  /// Storage key of the downloaded clip in our own object storage.
+  outputStorageKey String?
+  /// Actual duration reported by the provider, seconds.
+  outputDurationSeconds Float?
+
+  /// Whether the clip should be used in the final render.
+  accepted Boolean @default(true)
+
+  /// Provider metadata: request ids, credit/cost info, raw task result.
+  providerMetadata Json?
+
+  project ViontoProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([assetId])
+  @@index([userId])
+  @@index([status])
 }
 
 // Vionto-specific usage metrics for quota enforcement and billing.

@@ -45,6 +45,7 @@ import {
 import { ScriptEditor, type ScriptVersion } from "./ScriptEditor";
 import { SubtitleConfig } from "./SubtitleConfig";
 import { GooglePhotosImportPanel } from "./GooglePhotosImportPanel";
+import { AiMotionPanel } from "./AiMotionPanel";
 import { ViontoTopbarControls } from "./ViontoNav";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
@@ -4381,6 +4382,22 @@ export function ViontoPage() {
                         </ul>
                       )}
                     </div>
+                  )}
+
+                  {/* ─── AI motion (Kling image-to-video) ─────────────────── */}
+                  {selectedProjectId && selectedAlbumId && albumItems.length > 0 && (
+                    <AiMotionPanel
+                      projectId={selectedProjectId}
+                      versionId={selectedVersionId}
+                      albumId={selectedAlbumId}
+                      items={albumItems
+                        .filter((item) => !item.hidden)
+                        .map((item) => ({
+                          albumItemId: item.id,
+                          assetId: item.assetId,
+                          thumbnailUrl: item.asset.thumbnailUrl ?? item.asset.originalUrl,
+                        }))}
+                    />
                   )}
                 </div>
               )}
