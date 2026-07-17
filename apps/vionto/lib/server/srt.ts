@@ -39,27 +39,57 @@ export function buildSrt(cues: SrtCue[]): string {
   return cues.map(formatSrtCue).join("\n\n") + "\n";
 }
 
-/** Parse a simple SRT string back into cues ( tolerant of whitespace ). */
+const SRT_TIME_RE = /(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})/;
+
+/**
+ * Parse an SRT string into cues, line-by-line so it tolerates malformed input.
+ *
+ * A blank-line-separated block parser breaks when a producer (e.g. an LLM)
+ * emits cues separated by *single* newlines — the first cue then swallows every
+ * later index and timestamp, and that garbage gets burned into the video. This
+ * parser instead recognizes each cue by its header (an integer index line
+ * followed by a timestamp line, or a bare timestamp line) and collects text
+ * until the next header, so both well-formed and single-newline SRT parse
+ * correctly.
+ */
 export function parseSrt(input: string): SrtCue[] {
+  const lines = input.replace(/\r\n?/g, "\n").split("\n");
   const cues: SrtCue[] = [];
-  const blocks = input.replace(/\r\n/g, "\n").split(/\n{2,}/);
-  for (const block of blocks) {
-    const lines = block.trim().split("\n").filter(Boolean);
-    if (lines.length < 2) continue;
-    const idx = Number(lines[0]);
-    if (!Number.isFinite(idx)) continue;
-    const timeLine = lines[1];
-    const match = timeLine.match(
-      /(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})/
-    );
-    if (!match) continue;
-    const text = lines.slice(2).join("\n");
-    cues.push({
-      index: idx,
-      startMs: srtTimeToMs(match[1]),
-      endMs: srtTimeToMs(match[2]),
-      text,
-    });
+
+  /** Is `k` the start of a cue? Returns the timestamp line index, or -1. */
+  const headerTimeLine = (k: number): number => {
+    if (k >= lines.length) return -1;
+    if (SRT_TIME_RE.test(lines[k])) return k; // index omitted
+    if (/^\d+$/.test(lines[k].trim()) && k + 1 < lines.length && SRT_TIME_RE.test(lines[k + 1])) {
+      return k + 1; // integer index followed by a timestamp line
+    }
+    return -1;
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const timeLineIdx = headerTimeLine(i);
+    if (timeLineIdx === -1) {
+      i++;
+      continue;
+    }
+    const idx = timeLineIdx === i ? cues.length + 1 : Number(lines[i].trim());
+    const match = lines[timeLineIdx].match(SRT_TIME_RE)!;
+
+    const textLines: string[] = [];
+    let j = timeLineIdx + 1;
+    while (j < lines.length) {
+      if (!lines[j].trim()) break; // blank line ends a well-formed cue
+      if (headerTimeLine(j) !== -1) break; // next cue header (single-newline case)
+      textLines.push(lines[j]);
+      j++;
+    }
+
+    const text = textLines.join("\n").trim();
+    if (text) {
+      cues.push({ index: idx, startMs: srtTimeToMs(match[1]), endMs: srtTimeToMs(match[2]), text });
+    }
+    i = j;
   }
   return cues;
 }
