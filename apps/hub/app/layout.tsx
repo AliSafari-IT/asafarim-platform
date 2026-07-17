@@ -60,6 +60,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   links={[
                     { label: "ASafarIM Digital", href: links.web, meta: "public" },
                     { label: "Showcase", href: links.showcase, meta: "public" },
+                    { label: "Vionto", href: links.vionto, meta: "photo-to-story" },
                     ...(isAdminUser
                       ? [{ label: "Admin Console", href: links.admin, meta: "restricted" }]
                       : []),

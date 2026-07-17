@@ -95,6 +95,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <CountryLanguageSelector lockCountry="BE" />
               <AppSwitcher
                 links={[
+                  { label: "Vionto", href: links.vionto, meta: "photo-to-story" },
                   { label: "Showcase", href: links.showcase, meta: "gallery" },
                   { label: "Hub", href: links.hub, meta: session?.user ? "dashboard" : "sign in" },
                 ]}

@@ -1,6 +1,9 @@
 /**
  * Projects content for the public ASafarIM Digital website.
  */
+import { getPlatformLinks } from "@asafarim/ui";
+
+const links = getPlatformLinks();
 
 export type Project = {
   name: string;
@@ -65,9 +68,9 @@ export const projectGroups: ProjectGroup[] = [
         name: "Vionto",
         status: "beta",
         description:
-          "AI-assisted content generation and workflow platform for marketing and product teams.",
+          "AI-powered photo-to-story studio that turns image collections into narrated MP4 videos.",
         tech: ["Next.js", "OpenAI", "Prisma", "TailwindCSS"],
-        href: "https://vionto.be",
+        href: links.vionto,
       },
       {
         name: "EduMatch",
