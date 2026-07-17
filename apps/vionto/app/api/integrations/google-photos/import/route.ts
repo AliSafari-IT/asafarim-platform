@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { badRequest, getAuthedUser, serverError, unauthorized } from "@/lib/server/auth";
+import {
+  badRequest,
+  getAuthedUser,
+  serverError,
+  unauthorized,
+} from "@/lib/server/auth";
 import { touchGooglePhotosImportedAt } from "@/lib/server/google-photos/connection";
 import { importMediaItems } from "@/lib/server/google-photos/ingest";
 import { listPickedItems } from "@/lib/server/google-photos/picker";
@@ -43,17 +48,43 @@ export async function POST(req: Request) {
       return badRequest("No photos were selected");
     }
 
-    const summary = await importMediaItems(user.id, uploadSessionId, items, { accessToken });
+    const summary = await importMediaItems(user.id, uploadSessionId, items, {
+      accessToken,
+    });
     if (summary.failed > 0) {
       const failures = summary.results.filter((r) => r.status === "failed");
-      console.error("[google-photos/import] failures:", JSON.stringify(failures, null, 2));
+      console.error(
+        "[google-photos/import] failures:",
+        JSON.stringify(failures, null, 2)
+      );
     }
     if (summary.imported > 0) {
       await touchGooglePhotosImportedAt(user.id).catch(() => {});
     }
+    if (summary.imported === 0 && summary.failed > 0) {
+      const storageAuthFailed = summary.results.some(
+        (result) =>
+          result.status === "failed" &&
+          result.reason?.includes("SignatureDoesNotMatch")
+      );
+      return NextResponse.json(
+        {
+          ...summary,
+          error: storageAuthFailed
+            ? "storage_authentication_failed"
+            : "photo_import_failed",
+          message: storageAuthFailed
+            ? "Vionto storage rejected the uploads. Check the configured Spaces access key and secret."
+            : "None of the selected photos could be imported.",
+        },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json(summary);
   } catch (error) {
-    return authErrorResponse(error) ?? serverError("google-photos/import", error);
+    return (
+      authErrorResponse(error) ?? serverError("google-photos/import", error)
+    );
   }
 }

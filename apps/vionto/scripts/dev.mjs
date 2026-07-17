@@ -31,12 +31,8 @@ function run(name, args, env = {}) {
     if (!shuttingDown) {
       const reason = signal ? `signal ${signal}` : `code ${code}`;
       console.error(`[${name}] exited with ${reason}`);
-      if (name === "web") {
+      if (name === "web" || name === "worker") {
         shutdown(code ?? 1);
-      } else if (name === "worker") {
-        setTimeout(() => {
-          if (!shuttingDown) run(name, args, env);
-        }, 1000);
       }
     }
   });
