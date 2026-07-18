@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Alert, Badge, Button, Card, FormRow, Input, Label, Textarea } from "@asafarim/ui";
 import { AddressFields, EMPTY_ADDRESS, type AddressFieldsValue } from "../../_components/AddressFields";
 import { LocationCard, type LocationLike } from "./LocationCard";
@@ -37,6 +38,7 @@ export function ProfileEditor({
   initialLocations: LocationLike[];
 }) {
   const router = useRouter();
+  const { update: updateSession } = useSession();
 
   const [name, setName] = useState(user.name ?? "");
   const [username, setUsername] = useState(user.username ?? "");
@@ -74,6 +76,7 @@ export function ProfileEditor({
         return;
       }
       setSaved(true);
+      await updateSession();
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -102,6 +105,9 @@ export function ProfileEditor({
       const data = (await res.json()) as { image: string };
       setImage(data.image);
       setSaved(true);
+      // Re-sync the auth token so the header avatar (server-rendered from the
+      // session) reflects the new image, then re-render server components.
+      await updateSession();
       router.refresh();
     } catch {
       setError("Avatar upload failed. Please try again.");
@@ -122,6 +128,7 @@ export function ProfileEditor({
       }
       setImage("");
       setSaved(true);
+      await updateSession();
       router.refresh();
     } catch {
       setError("Failed to remove avatar. Please try again.");
