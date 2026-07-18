@@ -1,6 +1,6 @@
 {
   "apps": [".", "apps/*"],
-  "envs": [ "production", "local"],
+  "envs": [ "production", "local", "root"],
   "keyFile": ".age/key.txt",
   "keyPubFile": ".age/key.pub"
 }
