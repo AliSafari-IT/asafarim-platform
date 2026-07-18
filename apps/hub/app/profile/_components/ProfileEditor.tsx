@@ -40,6 +40,7 @@ export function ProfileEditor({
 
   const [name, setName] = useState(user.name ?? "");
   const [username, setUsername] = useState(user.username ?? "");
+  const [image, setImage] = useState(user.image ?? "");
   const [bio, setBio] = useState(user.bio ?? "");
   const [jobTitle, setJobTitle] = useState(user.jobTitle ?? "");
   const [company, setCompany] = useState(user.company ?? "");
@@ -50,6 +51,7 @@ export function ProfileEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [locations, setLocations] = useState<LocationLike[]>(initialLocations);
   const [showAddLocation, setShowAddLocation] = useState(false);
@@ -65,7 +67,7 @@ export function ProfileEditor({
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, username, bio, jobTitle, company, website, phone, timezone }),
+        body: JSON.stringify({ name, username, image: image || null, bio, jobTitle, company, website, phone, timezone }),
       });
       if (!res.ok) {
         setError(await parseJsonError(res));
@@ -77,6 +79,54 @@ export function ProfileEditor({
       setError("Something went wrong. Please try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/profile/avatar", {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        setError(await parseJsonError(res));
+        return;
+      }
+      const data = (await res.json()) as { image: string };
+      setImage(data.image);
+      setSaved(true);
+      router.refresh();
+    } catch {
+      setError("Avatar upload failed. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    setUploadingAvatar(true);
+    setError("");
+    try {
+      const res = await fetch("/api/profile/avatar", { method: "DELETE" });
+      if (!res.ok) {
+        setError(await parseJsonError(res));
+        return;
+      }
+      setImage("");
+      setSaved(true);
+      router.refresh();
+    } catch {
+      setError("Failed to remove avatar. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
     }
   }
 
@@ -140,6 +190,62 @@ export function ProfileEditor({
             </span>
           ))}
         </p>
+        <div style={{ marginTop: "1rem" }}>
+          {image ? (
+            <img
+              src={image}
+              alt=""
+              width={64}
+              height={64}
+              style={{ borderRadius: "50%", objectFit: "cover" }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                background: "var(--surface-2, #333)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.5rem",
+                color: "var(--text-muted)",
+              }}
+            >
+              {(user.name ?? user.username ?? user.email).charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={uploadingAvatar}
+              onClick={() => document.getElementById("avatar-upload")?.click()}
+            >
+              {uploadingAvatar ? "Uploading…" : image ? "Change avatar" : "Add avatar"}
+            </Button>
+            {image && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={uploadingAvatar}
+                onClick={handleRemoveAvatar}
+              >
+                Remove
+              </Button>
+            )}
+            <input
+              id="avatar-upload"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleAvatarUpload}
+              style={{ display: "none" }}
+            />
+          </div>
+        </div>
       </Card>
 
       <Card title="Edit your details">

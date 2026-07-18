@@ -44,8 +44,40 @@ export function UserMenu({ name, email, image, roles = [], profileHref, children
       </summary>
       <div className="ui-menu__panel">
         <div className="ui-menu__section">
-          <div className="ui-usermenu__name">{name ?? "Signed in"}</div>
-          {email ? <div className="ui-usermenu__email">{email}</div> : null}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+            {image ? (
+              <img
+                src={image}
+                alt=""
+                width={40}
+                height={40}
+                style={{ borderRadius: "50%", objectFit: "cover" }}
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <span
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: "var(--surface-2, #333)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  color: "var(--text-muted)",
+                }}
+                aria-hidden="true"
+              >
+                {initials(name, email)}
+              </span>
+            )}
+            <div>
+              <div className="ui-usermenu__name">{name ?? "Signed in"}</div>
+              {email ? <div className="ui-usermenu__email">{email}</div> : null}
+            </div>
+          </div>
           {roles.length > 0 ? (
             <div className="ui-usermenu__roles">
               {roles.map((role) => (
