@@ -21,6 +21,7 @@ export { hasPermission, getUserPermissions } from "./permissions";
 export { getSession, requireUser, requireRole } from "./session";
 export { generateUniqueUsername, slugifyUsername } from "./username";
 export { requestEmailLoginCode, type RequestCodeResult } from "./email-code";
+export { createTransport, getSmtpConfig } from "./mailer";
 export {
   registerUser,
   RegisterInputSchema,

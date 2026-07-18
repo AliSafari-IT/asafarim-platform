@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./proxy": "./src/proxy.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./mailer": "./src/mailer.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
