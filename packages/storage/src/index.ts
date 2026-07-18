@@ -90,17 +90,23 @@ function readConfig(): StorageConfig | null {
     process.env.STORAGE_PUBLIC_URL ?? process.env.DO_SPACES_PUBLIC_URL;
   const forceRemoteFlag =
     process.env.STORAGE_FORCE_REMOTE ?? process.env.DO_SPACES_FORCE_REMOTE;
+  const driver = (process.env.STORAGE_DRIVER ?? "").trim().toLowerCase();
 
   const forceRemote = ["1", "true", "yes", "on"].includes(
     (forceRemoteFlag ?? "").trim().toLowerCase()
   );
+  const remoteRequested = forceRemote || driver === "spaces" || driver === "s3";
 
-  if (!forceRemote && process.env.NODE_ENV !== "production") {
+  if (driver === "local") {
+    return null;
+  }
+
+  if (!remoteRequested && process.env.NODE_ENV !== "production") {
     return null;
   }
 
   if (!endpoint || !region || !bucket || !accessKey || !secretKey) {
-    if (forceRemote) {
+    if (remoteRequested) {
       throw new Error(
         "Remote storage requested but endpoint, region, bucket, access key, and secret key are not all set."
       );
