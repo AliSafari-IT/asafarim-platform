@@ -6,6 +6,7 @@ import { slugifyUsername } from "./username";
 export const UpdateProfileInputSchema = z.object({
   name: z.string().trim().max(120).nullable().optional(),
   username: z.string().trim().min(3).max(24).optional(),
+  image: z.string().trim().max(1000).nullable().optional(),
   bio: z.string().trim().max(2000).nullable().optional(),
   jobTitle: z.string().trim().max(120).nullable().optional(),
   company: z.string().trim().max(120).nullable().optional(),
