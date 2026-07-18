@@ -69,6 +69,21 @@ function normalizeEndpoint(endpoint: string, bucket: string): string {
   return trimmed;
 }
 
+export function buildDefaultPublicUrl(endpoint: string, bucket: string): string {
+  const trimmed = endpoint.replace(/\/+$/, "");
+  try {
+    const url = new URL(trimmed);
+    const prefix = `${bucket}.`;
+    if (url.hostname.startsWith(prefix)) {
+      return trimmed;
+    }
+    url.hostname = `${bucket}.${url.hostname}`;
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return `${trimmed}/${bucket}`;
+  }
+}
+
 function readConfig(): StorageConfig | null {
   // Support both generic STORAGE_* and legacy DO_SPACES_* vars used by Vionto.
   const endpoint =
@@ -115,8 +130,7 @@ function readConfig(): StorageConfig | null {
   }
 
   const normalizedEndpoint = normalizeEndpoint(endpoint, bucket);
-  const resolvedPublicUrl =
-    publicUrl ?? `${normalizedEndpoint.replace(/\/+$/, "")}/${bucket}`;
+  const resolvedPublicUrl = publicUrl ?? buildDefaultPublicUrl(endpoint, bucket);
 
   return {
     endpoint: normalizedEndpoint,
@@ -211,6 +225,9 @@ export async function putObjectBytes(
         Body: body,
         ContentType: contentType,
         ContentLength: body.length,
+        // Objects on DigitalOcean Spaces / S3 are private by default; avatars
+        // are served directly from the public URL, so they must be world-readable.
+        ACL: "public-read",
       })
     );
   } catch (error) {
