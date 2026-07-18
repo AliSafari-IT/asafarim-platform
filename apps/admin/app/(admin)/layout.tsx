@@ -61,6 +61,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             { label: "Roles", href: "/roles" },
             { label: "Permissions", href: "/permissions" },
             { label: "Audit Logs", href: "/audit-logs" },
+            { label: "Subscriptions", href: "/subscriptions" },
             { label: "Settings", href: "/settings" },
           ]}
         />
