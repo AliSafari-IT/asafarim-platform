@@ -193,6 +193,41 @@ export const KlingVideoProvider = new KlingVideoProviderImpl();
 
 const LTX_MODEL_PREFIX = "fal-ai/ltx-video";
 
+function resolveFalModel(model: string, mode: "std" | "pro" | undefined): string {
+  if (mode === "pro" && model.includes("kling-video/v1.6/standard")) {
+    return model.replace("/standard/", "/pro/");
+  }
+  return model;
+}
+
+function buildFalQualityParams(
+  model: string,
+  mode: "std" | "pro" | undefined
+): Record<string, unknown> {
+  const isPro = mode === "pro";
+  const seed = Math.floor(Math.random() * 2_147_483_647);
+
+  if (model.startsWith(LTX_MODEL_PREFIX)) {
+    return {
+      seed,
+      num_inference_steps: isPro ? 45 : 30,
+      guidance_scale: isPro ? 6 : 3,
+    };
+  }
+  if (model.startsWith("fal-ai/wan-i2v")) {
+    return {
+      seed,
+      num_inference_steps: isPro ? 50 : 30,
+      guide_scale: isPro ? 6 : 5,
+      shift: isPro ? 6 : 5,
+    };
+  }
+  if (model.includes("kling-video")) {
+    return { cfg_scale: isPro ? 0.7 : 0.5 };
+  }
+  return { seed };
+}
+
 /** fal queue status → our clip status. COMPLETED maps to succeeded only when
  *  a video URL is present; the caller downgrades to "failed" otherwise. */
 function mapFalStatus(status: FalQueueStatus): GeneratedClipStatus {
@@ -224,14 +259,14 @@ class FalVideoProviderImpl implements GenerativeVideoProvider {
   constructor(private readonly apiKey: string) {}
 
   async generateClip(input: GeneratedClipInput) {
-    const model = input.model;
+    const model = resolveFalModel(input.model ?? "", input.mode);
     if (!model) throw new Error("A fal model id is required.");
 
-    // LTX takes only image_url + prompt; richer models accept duration/aspect.
     const body: Record<string, unknown> = {
       image_url: input.imageUrl,
       prompt: input.prompt,
       ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
+      ...buildFalQualityParams(model, input.mode),
     };
     if (!model.startsWith(LTX_MODEL_PREFIX)) {
       body.duration = String(input.durationSeconds);

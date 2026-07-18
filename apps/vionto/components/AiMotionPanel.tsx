@@ -55,8 +55,8 @@ type ModelOption = {
 /** Client-side mirror of the server registry's generative-video models. */
 const MODELS: Record<ProviderId, ModelOption[]> = {
   fal: [
-    { id: "fal-ai/ltx-video/image-to-video", label: "LTX — fast & cheap", costPer5s: 0.02, usesMode: false },
-    { id: "fal-ai/wan-i2v", label: "WAN 2.x — balanced", costPer5s: 0.35, usesMode: false },
+    { id: "fal-ai/ltx-video/image-to-video", label: "LTX — fast & cheap", costPer5s: 0.02, usesMode: true },
+    { id: "fal-ai/wan-i2v", label: "WAN 2.x — balanced", costPer5s: 0.35, usesMode: true },
     { id: "fal-ai/kling-video/v1.6/standard/image-to-video", label: "Kling via fal — premium", costPer5s: 0.42, usesMode: true },
   ],
   kling: [{ id: "kling-v1-6", label: "Kling v1.6 (direct)", costPer5s: 0.28, usesMode: true }],
@@ -65,9 +65,10 @@ const MODELS: Record<ProviderId, ModelOption[]> = {
 const PROVIDER_LABELS: Record<ProviderId, string> = { fal: "fal.ai", kling: "Kling (direct)" };
 
 const DEFAULT_PROMPT =
-  "Preserve every person's identity and facial appearance. Add subtle natural " +
-  "movement and a slow cinematic camera push-in. Maintain the original " +
-  "composition and realistic lighting.";
+  "Preserve every person's identity, facial features, and fine details exactly as " +
+  "in the source image. Add smooth, subtle, natural motion — a slow cinematic " +
+  "camera push-in or gentle parallax. Keep the original composition, colors, " +
+  "and realistic lighting. Avoid blur, flicker, warping, or extra elements.";
 
 const STATUS_LABELS: Record<AiClip["status"], string> = {
   pending: "Pending",
@@ -93,7 +94,7 @@ export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
   const [duration, setDuration] = useState<5 | 10>(5);
   const [mode, setMode] = useState<"std" | "pro">("std");
   const [provider, setProvider] = useState<ProviderId>("fal");
-  const [model, setModel] = useState<string>(MODELS.fal[0].id);
+  const [model, setModel] = useState<string>(MODELS.fal[1].id);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewClip, setPreviewClip] = useState<AiClip | null>(null);
