@@ -47,6 +47,7 @@ import { SubtitleConfig } from "./SubtitleConfig";
 import { GooglePhotosImportPanel } from "./GooglePhotosImportPanel";
 import { AiMotionPanel } from "./AiMotionPanel";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { AlertDialog } from "./AlertDialog";
 import { ViontoTopbarControls } from "./ViontoNav";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
@@ -583,6 +584,25 @@ export function ViontoPage() {
 
   const closeConfirm = useCallback(() => setConfirmDialog((s) => ({ ...s, open: false })), []);
 
+  // Professional alert modal (replaces window.alert) — see <AlertDialog>.
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    tone: "info" | "error";
+  }>({ open: false, title: "", message: "", tone: "info" });
+
+  const showAlert = useCallback((message: string, tone: "info" | "error" = "info") => {
+    setAlertDialog({
+      open: true,
+      title: tone === "error" ? "Error" : "Notice",
+      message,
+      tone,
+    });
+  }, []);
+
+  const closeAlert = useCallback(() => setAlertDialog((s) => ({ ...s, open: false })), []);
+
   // Create album modal
   const [showCreateAlbum, setShowCreateAlbum] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState("");
@@ -620,6 +640,20 @@ export function ViontoPage() {
   // Rename album inline
   const [renamingAlbumId, setRenamingAlbumId] = useState<string | null>(null);
   const [renameAlbumValue, setRenameAlbumValue] = useState("");
+
+  // Bulk album selection / management
+  const [albumManageMode, setAlbumManageMode] = useState(false);
+  const [selectedAlbumIds, setSelectedAlbumIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [isBulkDeletingAlbums, setIsBulkDeletingAlbums] = useState(false);
+
+  // Bulk album-item (image) selection / management
+  const [itemManageMode, setItemManageMode] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [isBulkRemovingItems, setIsBulkRemovingItems] = useState(false);
 
   // Per-image metadata editor
   const [metaEditorItemId, setMetaEditorItemId] = useState<string | null>(null);
@@ -964,6 +998,8 @@ export function ViontoPage() {
 
   useEffect(() => {
     setLocationGroups(null); // Clear auto-groups when switching albums
+    setItemManageMode(false); // Exit image-selection mode on album switch
+    setSelectedItemIds(new Set());
     if (selectedProjectId && selectedAlbumId) {
       loadAlbumItems(selectedProjectId, selectedAlbumId);
     } else {
@@ -1005,7 +1041,7 @@ export function ViontoPage() {
         const data = await res
           .json()
           .catch(() => ({ error: "Failed to create album" }));
-        alert(data.error ?? "Failed to create album");
+        showAlert(data.error ?? "Failed to create album", "error");
         return;
       }
       const created = await res.json();
@@ -1027,16 +1063,28 @@ export function ViontoPage() {
       await selectAlbumForActiveVersion(created.id);
     } catch (error) {
       console.error("Failed to create album", error);
-      alert("Failed to create album");
+      showAlert("Failed to create album", "error");
     } finally {
       setIsCreatingAlbum(false);
     }
   }
 
-  async function handleDeleteAlbum(albumId: string, albumName: string) {
+  function requestDeleteAlbum(albumId: string, albumName: string) {
+    setConfirmDialog({
+      open: true,
+      title: "Delete album",
+      message: `Delete album "${albumName}"?\n\nImages will not be deleted.`,
+      confirmLabel: "Delete",
+      tone: "danger",
+      onConfirm: () => {
+        closeConfirm();
+        void handleDeleteAlbum(albumId);
+      },
+    });
+  }
+
+  async function handleDeleteAlbum(albumId: string) {
     if (!selectedProjectId) return;
-    if (!confirm(`Delete album "${albumName}"? Images will not be deleted.`))
-      return;
     try {
       const res = await fetch(
         `/api/projects/${selectedProjectId}/albums/${albumId}`,
@@ -1048,13 +1096,83 @@ export function ViontoPage() {
         const data = await res
           .json()
           .catch(() => ({ error: "Failed to delete album" }));
-        alert(data.error ?? "Failed to delete album");
+        showAlert(data.error ?? "Failed to delete album", "error");
         return;
       }
       await loadProjectAlbums(selectedProjectId);
     } catch (error) {
       console.error("Failed to delete album", error);
-      alert("Failed to delete album");
+      showAlert("Failed to delete album", "error");
+    }
+  }
+
+  function toggleAlbumSelection(albumId: string) {
+    setSelectedAlbumIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(albumId)) next.delete(albumId);
+      else next.add(albumId);
+      return next;
+    });
+  }
+
+  function exitAlbumManageMode() {
+    setAlbumManageMode(false);
+    setSelectedAlbumIds(new Set());
+  }
+
+  function requestBulkDeleteAlbums() {
+    if (selectedAlbumIds.size === 0) return;
+    const n = selectedAlbumIds.size;
+    setConfirmDialog({
+      open: true,
+      title: n === 1 ? "Delete album" : "Delete albums",
+      message: `Delete ${n} album${
+        n === 1 ? "" : "s"
+      }?\n\nImages will not be deleted.`,
+      confirmLabel: "Delete",
+      tone: "danger",
+      onConfirm: () => {
+        closeConfirm();
+        void handleBulkDeleteAlbums();
+      },
+    });
+  }
+
+  async function handleBulkDeleteAlbums() {
+    if (!selectedProjectId || selectedAlbumIds.size === 0) return;
+    const ids = Array.from(selectedAlbumIds);
+    setIsBulkDeletingAlbums(true);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((albumId) =>
+          fetch(`/api/projects/${selectedProjectId}/albums/${albumId}`, {
+            method: "DELETE",
+          }).then(async (res) => {
+            if (!res.ok) {
+              const data = await res
+                .json()
+                .catch(() => ({ error: "Failed to delete album" }));
+              throw new Error(data.error ?? "Failed to delete album");
+            }
+          })
+        )
+      );
+      const failed = results.filter((r) => r.status === "rejected").length;
+      if (failed > 0) {
+        showAlert(
+          `${failed} album${
+            failed === 1 ? "" : "s"
+          } could not be deleted (the base album cannot be removed).`,
+          "error"
+        );
+      }
+      await loadProjectAlbums(selectedProjectId);
+      exitAlbumManageMode();
+    } catch (error) {
+      console.error("Failed to delete albums", error);
+      showAlert("Failed to delete albums", "error");
+    } finally {
+      setIsBulkDeletingAlbums(false);
     }
   }
 
@@ -1073,7 +1191,7 @@ export function ViontoPage() {
         }
       );
       if (!res.ok) {
-        alert("Failed to rename album");
+        showAlert("Failed to rename album", "error");
         return;
       }
       setAlbums((prev) =>
@@ -1167,19 +1285,137 @@ export function ViontoPage() {
         const data = await res
           .json()
           .catch(() => ({ error: "Failed to remove image" }));
-        alert(data.error ?? "Failed to remove image");
+        showAlert(data.error ?? "Failed to remove image", "error");
         return;
       }
       setAlbumItems((prev) => prev.filter((i) => i.id !== itemId));
-      setAlbums((prev) =>
-        prev.map((a) =>
-          a.id === selectedAlbumId
-            ? { ...a, _count: { items: a._count.items - 1 } }
-            : a
-        )
-      );
+      if (isBaseAlbumSelected) {
+        // Base removal deletes the source asset, cascading to every album.
+        await loadProjectAlbums(selectedProjectId);
+        await loadProjectAssets(selectedProjectId);
+      } else {
+        setAlbums((prev) =>
+          prev.map((a) =>
+            a.id === selectedAlbumId
+              ? { ...a, _count: { items: a._count.items - 1 } }
+              : a
+          )
+        );
+      }
     } catch (error) {
       console.error("Failed to remove from album", error);
+    }
+  }
+
+  function toggleItemSelection(itemId: string) {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function exitItemManageMode() {
+    setItemManageMode(false);
+    setSelectedItemIds(new Set());
+  }
+
+  /** Confirm, then remove the currently-selected images from the active album. */
+  function requestBulkRemoveItems() {
+    if (selectedItemIds.size === 0) return;
+    const n = selectedItemIds.size;
+    const isBase = isBaseAlbumSelected;
+    setConfirmDialog({
+      open: true,
+      title: isBase
+        ? n === 1
+          ? "Delete image"
+          : "Delete images"
+        : n === 1
+          ? "Remove image"
+          : "Remove images",
+      message: isBase
+        ? `Permanently delete ${n} image${
+            n === 1 ? "" : "s"
+          } from the project?\n\nThis is the base album, so they will also be removed from every other album and their original files deleted. This cannot be undone.`
+        : `Remove ${n} image${n === 1 ? "" : "s"} from "${
+            selectedAlbum?.name ?? "this album"
+          }"?\n\nThey stay in your project and any other albums — only this album's copies are removed.`,
+      confirmLabel: isBase ? "Delete" : "Remove",
+      tone: "danger",
+      onConfirm: () => {
+        closeConfirm();
+        void handleBulkRemoveItems();
+      },
+    });
+  }
+
+  async function handleBulkRemoveItems() {
+    if (!selectedProjectId || !selectedAlbumId || selectedItemIds.size === 0)
+      return;
+    const ids = Array.from(selectedItemIds);
+    setIsBulkRemovingItems(true);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((itemId) =>
+          fetch(
+            `/api/projects/${selectedProjectId}/albums/${selectedAlbumId}/items/${itemId}`,
+            { method: "DELETE" }
+          ).then(async (res) => {
+            if (!res.ok) {
+              const data = await res
+                .json()
+                .catch(() => ({ error: "Failed to remove image" }));
+              throw new Error(data.error ?? "Failed to remove image");
+            }
+            return itemId;
+          })
+        )
+      );
+      const removedIds = new Set(
+        results
+          .filter(
+            (r): r is PromiseFulfilledResult<string> =>
+              r.status === "fulfilled"
+          )
+          .map((r) => r.value)
+      );
+      const failed = ids.length - removedIds.size;
+      if (removedIds.size > 0) {
+        setAlbumItems((prev) => prev.filter((i) => !removedIds.has(i.id)));
+        if (isBaseAlbumSelected) {
+          // Base removal deletes the source assets, cascading to every album —
+          // resync all album counts and the project asset pool.
+          await loadProjectAlbums(selectedProjectId);
+          await loadProjectAssets(selectedProjectId);
+        } else {
+          setAlbums((prev) =>
+            prev.map((a) =>
+              a.id === selectedAlbumId
+                ? {
+                    ...a,
+                    _count: {
+                      items: Math.max(0, a._count.items - removedIds.size),
+                    },
+                  }
+                : a
+            )
+          );
+        }
+      }
+      if (failed > 0) {
+        showAlert(
+          `${failed} image${failed === 1 ? "" : "s"} could not be removed.`,
+          "error"
+        );
+      }
+      exitItemManageMode();
+    } catch (error) {
+      console.error("Failed to remove images", error);
+      showAlert("Failed to remove images", "error");
+    } finally {
+      setIsBulkRemovingItems(false);
     }
   }
 
@@ -1199,7 +1435,7 @@ export function ViontoPage() {
         const data = await res
           .json()
           .catch(() => ({ error: "Failed to add images" }));
-        alert(data.error ?? "Failed to add images");
+        showAlert(data.error ?? "Failed to add images", "error");
         return;
       }
       setShowAddImages(false);
@@ -1245,7 +1481,7 @@ export function ViontoPage() {
         const data = await res
           .json()
           .catch(() => ({ error: "Failed to sort" }));
-        alert(data.error ?? "Failed to sort album");
+        showAlert(data.error ?? "Failed to sort album", "error");
         return;
       }
       const data = await res.json();
@@ -1258,7 +1494,7 @@ export function ViontoPage() {
       await loadAlbumItems(selectedProjectId, selectedAlbumId);
     } catch (error) {
       console.error("Failed to sort album", error);
-      alert("Failed to sort album");
+      showAlert("Failed to sort album", "error");
     } finally {
       setIsSorting(false);
     }
@@ -1366,7 +1602,7 @@ export function ViontoPage() {
     } catch (error) {
       console.error("Failed to link album to version", error);
       setSelectedAlbumId(previousAlbumId ?? activeVersionAlbumId);
-      alert("Could not link this album to the active version.");
+      showAlert("Could not link this album to the active version.", "error");
     }
   }
 
@@ -1603,8 +1839,21 @@ export function ViontoPage() {
     }
   }
 
+  function requestRemoveLibraryExport(exportId: string) {
+    setConfirmDialog({
+      open: true,
+      title: t("vionto.library.remove"),
+      message: t("vionto.library.removeConfirm"),
+      confirmLabel: t("vionto.library.remove"),
+      tone: "danger",
+      onConfirm: () => {
+        closeConfirm();
+        void removeLibraryExport(exportId);
+      },
+    });
+  }
+
   async function removeLibraryExport(exportId: string) {
-    if (!confirm(t("vionto.library.removeConfirm"))) return;
     try {
       const res = await fetch(`/api/exports/${exportId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
@@ -1840,14 +2089,14 @@ export function ViontoPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.audioBase64) {
-        alert(data.error ?? t("vionto.alert.previewAudioFailed"));
+        showAlert(data.error ?? t("vionto.alert.previewAudioFailed"), "error");
         return;
       }
       const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
       await audio.play();
     } catch (error) {
       console.error("Failed to preview audio", error);
-      alert(t("vionto.alert.previewAudioFailed"));
+      showAlert(t("vionto.alert.previewAudioFailed"), "error");
     } finally {
       setIsPreviewing(false);
     }
@@ -1863,7 +2112,7 @@ export function ViontoPage() {
         }
       );
       if (!res.ok) {
-        alert(t("vionto.alert.deleteAssetFailed"));
+        showAlert(t("vionto.alert.deleteAssetFailed"), "error");
         return;
       }
       await loadProjectAssets(selectedProjectId);
@@ -1875,21 +2124,21 @@ export function ViontoPage() {
       await loadProjectAlbums(selectedProjectId);
     } catch (error) {
       console.error("Failed to delete asset", error);
-      alert(t("vionto.alert.deleteAssetFailed"));
+      showAlert(t("vionto.alert.deleteAssetFailed"), "error");
     }
   }
 
   async function startRender() {
     if (!selectedProjectId) {
-      alert(t("vionto.alert.selectProjectFirst"));
+      showAlert(t("vionto.alert.selectProjectFirst"));
       return;
     }
     if (projectAssets.length === 0) {
-      alert(t("vionto.alert.uploadImagesFirst"));
+      showAlert(t("vionto.alert.uploadImagesFirst"));
       return;
     }
     if (!hasRenderableScript) {
-      alert(t("vionto.alert.generateScriptFirst"));
+      showAlert(t("vionto.alert.generateScriptFirst"));
       setRenderError(t("vionto.render.error.noScript"));
       return;
     }
@@ -1904,14 +2153,14 @@ export function ViontoPage() {
 
     const savedSettings = await saveProjectSettings();
     if (!savedSettings) {
-      alert(t("vionto.alert.saveSettingsFailed"));
+      showAlert(t("vionto.alert.saveSettingsFailed"), "error");
       setRenderError(t("vionto.render.error.saveSettingsFailed"));
       setRenderState("idle");
       return;
     }
     const savedSubtitleSettings = await saveSubtitleSettingsNow();
     if (!savedSubtitleSettings) {
-      alert(t("vionto.alert.saveSubtitlesFailed"));
+      showAlert(t("vionto.alert.saveSubtitlesFailed"), "error");
       setRenderError(t("vionto.render.error.saveSubtitlesFailed"));
       setRenderState("idle");
       return;
@@ -1934,7 +2183,7 @@ export function ViontoPage() {
           .json()
           .catch(() => ({ error: t("vionto.alert.startRenderFailed") }));
         const message = data.error ?? t("vionto.alert.startRenderFailed");
-        alert(message);
+        showAlert(message, "error");
         setRenderError(message);
         setRenderState("idle");
         return;
@@ -1944,7 +2193,7 @@ export function ViontoPage() {
       pollRenderStatus(data.jobId);
     } catch (error) {
       console.error("Failed to start render", error);
-      alert(t("vionto.alert.startRenderFailed"));
+      showAlert(t("vionto.alert.startRenderFailed"), "error");
       setRenderError(t("vionto.render.error.startFailed"));
       setRenderState("idle");
     }
@@ -1979,7 +2228,7 @@ export function ViontoPage() {
       } else if (data.state === "failed") {
         const message = data.errorSummary || t("vionto.alert.unknownError");
         setRenderError(message);
-        alert(`${t("vionto.alert.renderFailed")}: ${message}`);
+        showAlert(`${t("vionto.alert.renderFailed")}: ${message}`, "error");
       } else if (data.state === "cancelled") {
         setRenderState("idle");
         setRenderProgress(0);
@@ -2003,7 +2252,7 @@ export function ViontoPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error ?? "Failed to cancel render");
+        showAlert(data.error ?? "Failed to cancel render", "error");
         return;
       }
       setRenderState("idle");
@@ -2019,7 +2268,7 @@ export function ViontoPage() {
     try {
       const res = await fetch(`/api/exports/${exportId}/download`);
       if (!res.ok) {
-        alert(t("vionto.alert.getDownloadUrlFailed"));
+        showAlert(t("vionto.alert.getDownloadUrlFailed"), "error");
         return;
       }
       const data = await res.json();
@@ -2027,14 +2276,14 @@ export function ViontoPage() {
       setShowDownloadDialog(true);
     } catch (error) {
       console.error("Failed to get download URL", error);
-      alert(t("vionto.alert.getDownloadUrlFailed"));
+      showAlert(t("vionto.alert.getDownloadUrlFailed"), "error");
     }
   }
 
   function copyToClipboard() {
     if (!downloadUrl) return;
     navigator.clipboard.writeText(downloadUrl);
-    alert(t("vionto.downloadDialog.copied"));
+    showAlert(t("vionto.downloadDialog.copied"));
   }
 
   async function createProject() {
@@ -2066,7 +2315,7 @@ export function ViontoPage() {
         const data = await res
           .json()
           .catch(() => ({ error: t("vionto.alert.createProjectFailed") }));
-        alert(data.error);
+        showAlert(data.error, "error");
         return;
       }
       const project = await res.json();
@@ -2077,7 +2326,7 @@ export function ViontoPage() {
       setIsCreatingProject(false);
     } catch (error) {
       console.error("Failed to create project", error);
-      alert(t("vionto.alert.createProjectFailed"));
+      showAlert(t("vionto.alert.createProjectFailed"), "error");
     } finally {
       setIsSubmittingProject(false);
     }
@@ -2159,7 +2408,7 @@ export function ViontoPage() {
 
   async function startUploads() {
     if (!selectedProjectId) {
-      alert(t("vionto.alert.selectProjectFirst"));
+      showAlert(t("vionto.alert.selectProjectFirst"));
       return;
     }
     if (uploadingFiles.length === 0) return;
@@ -2172,7 +2421,7 @@ export function ViontoPage() {
         method: "POST",
       });
       if (!sessionRes.ok) {
-        alert(t("vionto.alert.uploadSessionFailed"));
+        showAlert(t("vionto.alert.uploadSessionFailed"), "error");
         setIsUploading(false);
         return;
       }
@@ -2272,7 +2521,7 @@ export function ViontoPage() {
       }
 
       if (completedUploads === 0) {
-        alert(t("vionto.alert.noFilesUploaded"));
+        showAlert(t("vionto.alert.noFilesUploaded"), "error");
         return;
       }
 
@@ -2295,7 +2544,7 @@ export function ViontoPage() {
       }
     } catch (error) {
       console.error("Upload flow failed", error);
-      alert(t("vionto.alert.uploadFailed"));
+      showAlert(t("vionto.alert.uploadFailed"), "error");
     } finally {
       setIsUploading(false);
     }
@@ -2320,7 +2569,7 @@ export function ViontoPage() {
 
   const handleGenerate = useCallback(async () => {
     if (!selectedProjectId) {
-      alert(t("vionto.alert.selectProjectFirst"));
+      showAlert(t("vionto.alert.selectProjectFirst"));
       return;
     }
     setIsGenerating(true);
@@ -2355,7 +2604,7 @@ export function ViontoPage() {
           data.message ??
           `Generation failed (status ${res.status})`;
         console.error("[ViontoPage] Generate failed:", errorMsg, data);
-        alert(errorMsg);
+        showAlert(errorMsg, "error");
         return;
       }
       const data = (await res.json()) as {
@@ -2401,7 +2650,7 @@ export function ViontoPage() {
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        alert(data.error ?? t("vionto.alert.saveFailed"));
+        showAlert(data.error ?? t("vionto.alert.saveFailed"), "error");
         return;
       }
       setVersions((prev) =>
@@ -3183,13 +3432,18 @@ export function ViontoPage() {
                                   title="Delete"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (
-                                      confirm(
-                                        "Delete this version? This cannot be undone."
-                                      )
-                                    ) {
-                                      deleteVideoVersion(version.id);
-                                    }
+                                    setConfirmDialog({
+                                      open: true,
+                                      title: "Delete version",
+                                      message:
+                                        "Delete this version? This cannot be undone.",
+                                      confirmLabel: "Delete",
+                                      tone: "danger",
+                                      onConfirm: () => {
+                                        closeConfirm();
+                                        void deleteVideoVersion(version.id);
+                                      },
+                                    });
                                   }}
                                   className="rounded p-0.5 text-[var(--color-text-muted)] hover:text-red-500 hover:bg-red-50/10"
                                 >
@@ -3501,8 +3755,73 @@ export function ViontoPage() {
                         <Plus size={12} />
                         New album
                       </button>
+                      {albums.some((album) => !album.isBase) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            albumManageMode
+                              ? exitAlbumManageMode()
+                              : setAlbumManageMode(true)
+                          }
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+                            albumManageMode
+                              ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                              : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                          }`}
+                        >
+                          <ListChecks size={12} />
+                          {albumManageMode ? "Done" : "Manage"}
+                        </button>
+                      )}
                     </div>
                   </div>
+
+                  {/* Bulk-selection toolbar */}
+                  {albumManageMode && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5">
+                      <span className="text-xs text-[var(--color-text-muted)]">
+                        {selectedAlbumIds.size} selected
+                      </span>
+                      {(() => {
+                        const deletable = albums.filter((a) => !a.isBase);
+                        const allSelected =
+                          deletable.length > 0 &&
+                          deletable.every((a) => selectedAlbumIds.has(a.id));
+                        return (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedAlbumIds(
+                                allSelected
+                                  ? new Set()
+                                  : new Set(deletable.map((a) => a.id))
+                              )
+                            }
+                            className="text-xs font-medium text-[var(--color-accent)] hover:underline"
+                          >
+                            {allSelected ? "Clear all" : "Select all"}
+                          </button>
+                        );
+                      })()}
+                      <button
+                        type="button"
+                        onClick={requestBulkDeleteAlbums}
+                        disabled={
+                          selectedAlbumIds.size === 0 || isBulkDeletingAlbums
+                        }
+                        className="ml-auto inline-flex items-center gap-1 rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+                      >
+                        <Trash2 size={12} />
+                        {isBulkDeletingAlbums
+                          ? "Deleting…"
+                          : `Delete selected${
+                              selectedAlbumIds.size > 0
+                                ? ` (${selectedAlbumIds.size})`
+                                : ""
+                            }`}
+                      </button>
+                    </div>
+                  )}
 
                   {isLoadingAlbums ? (
                     <p className="mt-1 text-xs text-[var(--color-text-muted)]">
@@ -3538,20 +3857,43 @@ export function ViontoPage() {
                             <button
                               type="button"
                               onClick={() =>
-                                selectAlbumForActiveVersion(album.id)
+                                albumManageMode
+                                  ? !album.isBase &&
+                                    toggleAlbumSelection(album.id)
+                                  : selectAlbumForActiveVersion(album.id)
                               }
                               onDoubleClick={() => {
-                                if (!album.isBase) {
+                                if (!album.isBase && !albumManageMode) {
                                   setRenamingAlbumId(album.id);
                                   setRenameAlbumValue(album.name);
                                 }
                               }}
+                              disabled={albumManageMode && album.isBase}
                               className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                                selectedAlbumId === album.id
-                                  ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
-                                  : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text)] hover:border-[var(--color-accent)]"
+                                albumManageMode
+                                  ? album.isBase
+                                    ? "cursor-not-allowed border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text-muted)] opacity-60"
+                                    : selectedAlbumIds.has(album.id)
+                                      ? "border-red-400 bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400"
+                                      : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text)] hover:border-red-400"
+                                  : selectedAlbumId === album.id
+                                    ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                                    : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text)] hover:border-[var(--color-accent)]"
                               }`}
                             >
+                              {albumManageMode && !album.isBase && (
+                                <span
+                                  className={`flex h-3 w-3 shrink-0 items-center justify-center rounded-sm border ${
+                                    selectedAlbumIds.has(album.id)
+                                      ? "border-red-500 bg-red-500 text-white"
+                                      : "border-[var(--color-border)]"
+                                  }`}
+                                >
+                                  {selectedAlbumIds.has(album.id) && (
+                                    <Check size={9} />
+                                  )}
+                                </span>
+                              )}
                               {album.isBase && (
                                 <span className="mr-0.5 text-[10px] opacity-60">
                                   ★
@@ -3591,11 +3933,13 @@ export function ViontoPage() {
                               </span>
                             </button>
                           )}
-                          {!album.isBase && selectedAlbumId !== album.id && (
+                          {!album.isBase &&
+                            !albumManageMode &&
+                            selectedAlbumId !== album.id && (
                             <button
                               type="button"
                               onClick={() =>
-                                handleDeleteAlbum(album.id, album.name)
+                                requestDeleteAlbum(album.id, album.name)
                               }
                               className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-red-500 group-hover:flex"
                               aria-label={`Delete ${album.name}`}
@@ -3860,6 +4204,75 @@ export function ViontoPage() {
                           </span>
                         </div>
                       )}
+                      {/* Image selection / bulk-remove toolbar */}
+                      {albumItems.length > 0 && (
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              itemManageMode
+                                ? exitItemManageMode()
+                                : setItemManageMode(true)
+                            }
+                            className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+                              itemManageMode
+                                ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                                : "border-[var(--color-border)] bg-[var(--color-surface-soft)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                            }`}
+                          >
+                            <ListChecks size={12} />
+                            {itemManageMode ? "Done" : "Select"}
+                          </button>
+                          {itemManageMode && (
+                            <>
+                              <span className="text-xs text-[var(--color-text-muted)]">
+                                {selectedItemIds.size} selected
+                              </span>
+                              {(() => {
+                                const allSelected =
+                                  albumItems.length > 0 &&
+                                  albumItems.every((i) =>
+                                    selectedItemIds.has(i.id)
+                                  );
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setSelectedItemIds(
+                                        allSelected
+                                          ? new Set()
+                                          : new Set(albumItems.map((i) => i.id))
+                                      )
+                                    }
+                                    className="text-xs font-medium text-[var(--color-accent)] hover:underline"
+                                  >
+                                    {allSelected ? "Clear all" : "Select all"}
+                                  </button>
+                                );
+                              })()}
+                              <button
+                                type="button"
+                                onClick={requestBulkRemoveItems}
+                                disabled={
+                                  selectedItemIds.size === 0 ||
+                                  isBulkRemovingItems
+                                }
+                                className="ml-auto inline-flex items-center gap-1 rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+                              >
+                                <Trash2 size={12} />
+                                {isBulkRemovingItems
+                                  ? "Removing…"
+                                  : `Remove selected${
+                                      selectedItemIds.size > 0
+                                        ? ` (${selectedItemIds.size})`
+                                        : ""
+                                    }`}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+
                       {/* Toolbar for non-base albums */}
                       {!isBaseAlbumSelected && (
                         <div className="mb-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -4181,16 +4594,20 @@ export function ViontoPage() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (
-                                    !confirm(
-                                      `Create a new video version linked to "${selectedAlbum.name}"?\n\nThis adds a new entry in the Video Version tabs above — it is separate from the album itself.`
-                                    )
-                                  )
-                                    return;
-                                  createVideoVersion(
-                                    `${selectedAlbum.name} - Version ${albumVersions.length + 1}`,
-                                    selectedAlbumId
-                                  );
+                                  setConfirmDialog({
+                                    open: true,
+                                    title: "New video version",
+                                    message: `Create a new video version linked to "${selectedAlbum.name}"?\n\nThis adds a new entry in the Video Version tabs above — it is separate from the album itself.`,
+                                    confirmLabel: "Create",
+                                    tone: "default",
+                                    onConfirm: () => {
+                                      closeConfirm();
+                                      void createVideoVersion(
+                                        `${selectedAlbum.name} - Version ${albumVersions.length + 1}`,
+                                        selectedAlbumId
+                                      );
+                                    },
+                                  });
                                 }}
                                 className="inline-flex items-center gap-1 rounded-md border border-dashed border-[var(--color-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors"
                                 title="Create a brand-new video version linked to this album"
@@ -4313,7 +4730,11 @@ export function ViontoPage() {
                                   </li>
                                 )}
                                 <li
-                                  draggable
+                                  draggable={!itemManageMode}
+                                  onClick={() =>
+                                    itemManageMode &&
+                                    toggleItemSelection(item.id)
+                                  }
                                   onDragStart={() => {
                                     dragAlbumItemId.current = item.id;
                                     setDragAlbumActiveId(item.id);
@@ -4349,14 +4770,34 @@ export function ViontoPage() {
                                       }))
                                     );
                                   }}
-                                  className={`asset-tile rounded-lg bg-[var(--color-surface-soft)] border overflow-hidden relative group cursor-grab active:cursor-grabbing transition-all ${
-                                    dragAlbumActiveId === item.id
-                                      ? "opacity-40 scale-95 border-[var(--color-accent)]"
-                                      : dragAlbumOverId === item.id
-                                        ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/50 scale-105"
-                                        : "border-[var(--line)]"
+                                  className={`asset-tile rounded-lg bg-[var(--color-surface-soft)] border overflow-hidden relative group transition-all ${
+                                    itemManageMode
+                                      ? "cursor-pointer"
+                                      : "cursor-grab active:cursor-grabbing"
+                                  } ${
+                                    itemManageMode &&
+                                    selectedItemIds.has(item.id)
+                                      ? "border-red-400 ring-2 ring-red-400/50"
+                                      : dragAlbumActiveId === item.id
+                                        ? "opacity-40 scale-95 border-[var(--color-accent)]"
+                                        : dragAlbumOverId === item.id
+                                          ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/50 scale-105"
+                                          : "border-[var(--line)]"
                                   }`}
                                 >
+                                  {itemManageMode && (
+                                    <span
+                                      className={`absolute top-1 left-1 z-10 flex h-4 w-4 items-center justify-center rounded-sm border ${
+                                        selectedItemIds.has(item.id)
+                                          ? "border-red-500 bg-red-500 text-white"
+                                          : "border-white/70 bg-black/40"
+                                      }`}
+                                    >
+                                      {selectedItemIds.has(item.id) && (
+                                        <Check size={11} />
+                                      )}
+                                    </span>
+                                  )}
                                   <span className="absolute top-1 right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-[9px] font-bold text-white">
                                     {idx + 1}
                                   </span>
@@ -4375,7 +4816,7 @@ export function ViontoPage() {
                                         meta
                                       </span>
                                     )}
-                                  <div className="absolute top-1 left-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className={`absolute top-1 left-1 flex flex-col gap-1 opacity-0 transition-opacity ${itemManageMode ? "hidden" : "group-hover:opacity-100"}`}>
                                     <button
                                       type="button"
                                       onClick={() => openMetaEditor(item)}
@@ -4390,19 +4831,33 @@ export function ViontoPage() {
                                       onClick={() =>
                                         setConfirmDialog({
                                           open: true,
-                                          title: "Remove image",
-                                          message: `Remove this image from "${selectedAlbum?.name ?? "this album"}"?\n\nIt stays in your project and any other albums — only this album's copy is removed.`,
-                                          confirmLabel: "Remove",
-                                          tone: "default",
+                                          title: isBaseAlbumSelected
+                                            ? "Delete image"
+                                            : "Remove image",
+                                          message: isBaseAlbumSelected
+                                            ? `Permanently delete this image from the project?\n\nThis is the base album, so it will also be removed from every other album and its original file deleted. This cannot be undone.`
+                                            : `Remove this image from "${selectedAlbum?.name ?? "this album"}"?\n\nIt stays in your project and any other albums — only this album's copy is removed.`,
+                                          confirmLabel: isBaseAlbumSelected
+                                            ? "Delete"
+                                            : "Remove",
+                                          tone: "danger",
                                           onConfirm: () => {
-                                            handleRemoveFromAlbum(item.id);
                                             closeConfirm();
+                                            void handleRemoveFromAlbum(item.id);
                                           },
                                         })
                                       }
                                       className="p-1 rounded-md bg-black/50 hover:bg-red-500/80 text-white"
-                                      aria-label="Remove from this album"
-                                      title="Remove from this album"
+                                      aria-label={
+                                        isBaseAlbumSelected
+                                          ? "Delete from project"
+                                          : "Remove from this album"
+                                      }
+                                      title={
+                                        isBaseAlbumSelected
+                                          ? "Delete from project"
+                                          : "Remove from this album"
+                                      }
                                     >
                                       <Trash2 size={13} />
                                     </button>
@@ -4446,6 +4901,15 @@ export function ViontoPage() {
                 tone={confirmDialog.tone}
                 onConfirm={confirmDialog.onConfirm}
                 onCancel={closeConfirm}
+              />
+
+              {/* ─── Reusable alert modal ───────────────────────────────────── */}
+              <AlertDialog
+                open={alertDialog.open}
+                title={alertDialog.title}
+                message={alertDialog.message}
+                tone={alertDialog.tone}
+                onClose={closeAlert}
               />
 
               {/* ─── Per-image metadata editor modal ───────────────────────── */}
@@ -4944,10 +5408,11 @@ export function ViontoPage() {
                                 setShowMusicSelector(false);
                               } catch (error) {
                                 console.error("Failed to upload music", error);
-                                alert(
+                                showAlert(
                                   error instanceof Error
                                     ? error.message
-                                    : t("vionto.alert.musicUploadFailed")
+                                    : t("vionto.alert.musicUploadFailed"),
+                                  "error"
                                 );
                               } finally {
                                 setIsMusicUploading(false);
@@ -5825,15 +6290,7 @@ export function ViontoPage() {
                         <div className="mt-2 flex items-center justify-end">
                           <button
                             type="button"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  t("vionto.library.removeConfirm")
-                                )
-                              ) {
-                                removeLibraryExport(item.id);
-                              }
-                            }}
+                            onClick={() => requestRemoveLibraryExport(item.id)}
                             className="inline-flex items-center justify-center rounded-md border border-red-300 p-1.5 text-red-500 transition hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950"
                             aria-label={t("vionto.library.remove")}
                           >
