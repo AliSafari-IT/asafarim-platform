@@ -26,7 +26,7 @@ const DEFAULT_NEGATIVE_PROMPT =
 
 /** Default model per provider when the client doesn't pick one. */
 const DEFAULT_MODEL: Record<AiProviderId, string> = {
-  fal: "fal-ai/ltx-video/image-to-video",
+  fal: "fal-ai/wan-i2v",
   kling: process.env.KLING_MODEL?.trim() || "kling-v1-6",
 } as Record<AiProviderId, string>;
 
