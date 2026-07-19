@@ -36,7 +36,9 @@
     "bench:edumatch:fixtures": "pnpm --filter @asafarim/edumatch-benchmark bench:generate",
     "bench:vionto": "pnpm --filter @asafarim/vionto-benchmark test",
     "bench:vionto:fixtures": "pnpm --filter @asafarim/vionto-benchmark bench:generate",
-    "deploy:prod": "bash ./infra/scripts/deploy-prod.sh"
+    "deploy:prod": "bash ./infra/scripts/deploy-prod.sh",
+    "runFromVPS": "docker compose -f docker-compose.prod.yml up -d",
+    "runFromLocal": "ssh vps \"cd /var/www/asafarim-platform && docker compose -f docker-compose.prod.yml up -d\""
   },
   "devDependencies": {
     "@asafarim/envage": "^0.4.2",
