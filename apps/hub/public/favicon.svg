@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ASafarIM Hub">
+  <rect width="64" height="64" rx="14" fill="#101112"/>
+  <circle cx="32" cy="32" r="6" fill="#7c8cf8"/>
+  <circle cx="32" cy="13" r="4.5" fill="#a5b4fc"/>
+  <circle cx="49" cy="42" r="4.5" fill="#a5b4fc"/>
+  <circle cx="15" cy="42" r="4.5" fill="#a5b4fc"/>
+  <path d="M32 19v7M36.8 35l8.4 4.8M27.2 35l-8.4 4.8" stroke="#7c8cf8" stroke-width="3" stroke-linecap="round"/>
+</svg>

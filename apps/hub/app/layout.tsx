@@ -25,6 +25,7 @@ export const metadata: Metadata = {
   },
   description:
     "Your workspace for apps, showcases, and experiments — mission control for the ASafarIM Platform.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
