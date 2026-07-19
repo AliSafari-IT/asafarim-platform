@@ -94,7 +94,7 @@ function safeSet(key: string, value: string): void {
 export function ThemeProvider({
   children,
   storageKey = DEFAULT_STORAGE_KEY,
-  defaultTheme = "light",
+  defaultTheme = "dark",
 }: {
   children: ReactNode;
   storageKey?: string;
