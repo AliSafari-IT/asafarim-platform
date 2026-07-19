@@ -10,12 +10,13 @@ export const LOCALES = [
   "de-BE",
   "fr-LU",
   "de-LU",
+  "lb-LU",
 ] as const;
 
 export type Locale = (typeof LOCALES)[number];
 
 /** Base languages (without region) used to pick the correct dictionary. */
-export const BASE_LANGUAGES = ["en", "nl", "fr", "de"] as const;
+export const BASE_LANGUAGES = ["en", "nl", "fr", "de", "lb"] as const;
 export type BaseLanguage = (typeof BASE_LANGUAGES)[number];
 
 /** A translation dictionary is a flat map from dot-path keys to strings. */

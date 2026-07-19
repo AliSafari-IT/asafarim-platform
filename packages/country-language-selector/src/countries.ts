@@ -51,6 +51,7 @@ export const LOCALE_LABELS: Record<Locale, { short: string; long: string }> = {
   "de-BE": { short: "DE", long: "Deutsch (BE)" },
   "fr-LU": { short: "FR", long: "Français (LU)" },
   "de-LU": { short: "DE", long: "Deutsch (LU)" },
+  "lb-LU": { short: "LB", long: "Lëtzebuergesch (LU)" },
 };
 
 /** Look up the country that a given locale belongs to (or null for `en`). */

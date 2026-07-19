@@ -2,10 +2,11 @@ import en from "./en";
 import nl from "./nl";
 import fr from "./fr";
 import de from "./de";
+import lb from "./lb";
 import type { BaseLanguage, Dict, Dictionaries } from "../types";
 
-/** Bundled base dictionaries (en, nl, fr, de). Apps may extend/override these. */
-export const baseDictionaries: Dictionaries = { en, nl, fr, de };
+/** Bundled base dictionaries (en, nl, fr, de, lb). Apps may extend/override these. */
+export const baseDictionaries: Dictionaries = { en, nl, fr, de, lb };
 
 /** Merge multiple dictionary sets so later entries override earlier ones. */
 export function mergeDictionaries(...sets: Dictionaries[]): Dictionaries {
@@ -18,4 +19,4 @@ export function mergeDictionaries(...sets: Dictionaries[]): Dictionaries {
   return result;
 }
 
-export { en, nl, fr, de };
+export { en, nl, fr, de, lb };

@@ -12,6 +12,7 @@ import {
   type Theme,
 } from "@/lib/theme";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
+import { useTranslation } from "@asafarim/shared-i18n";
 
 const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
 const webUrl = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
@@ -30,6 +31,8 @@ export function ThemeToggle() {
     return unsubscribe;
   }, []);
 
+  const { t } = useTranslation();
+
   const toggleTheme = () => {
     const nextTheme: Theme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
@@ -41,7 +44,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+      aria-label={theme === "dark" ? t("vionto.topbar.switchToLight") : t("vionto.topbar.switchToDark")}
       className="group inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-panel)] text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-text)]"
     >
       {theme === "dark" ? (
@@ -71,6 +74,7 @@ export function ThemeToggle() {
 
 /** Cross-app switcher: links to the other platform apps. */
 function AppSwitcher() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -97,7 +101,7 @@ function AppSwitcher() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="true"
         aria-expanded={open}
-        aria-label="Switch app"
+        aria-label={t("vionto.topbar.switchApp")}
         className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-panel)] text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-text)]"
       >
         <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
@@ -128,6 +132,7 @@ function AppSwitcher() {
 }
 
 function UserMenu() {
+  const { t } = useTranslation();
   const { data: session, status, update } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -174,7 +179,7 @@ function UserMenu() {
         href={signInUrl}
         className="rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
       >
-        Sign in
+        {t("common.signIn")}
       </a>
     );
   }
@@ -201,7 +206,7 @@ function UserMenu() {
         {session.user.image ? (
           <img
             src={session.user.image.startsWith("http") ? session.user.image : `${hubUrl}${session.user.image}`}
-            alt={session.user.name ?? "User"}
+            alt={session.user.name ?? t("vionto.usermenu.user")}
             width={28}
             height={28}
             referrerPolicy="no-referrer"
@@ -226,7 +231,7 @@ function UserMenu() {
       {open && (
         <div className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-panel)] p-2 shadow-lg" style={dropdownStyle}>
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-            <p className="text-sm font-semibold">{session.user.name ?? "User"}</p>
+            <p className="text-sm font-semibold">{session.user.name ?? t("vionto.usermenu.user")}</p>
             <p className="mt-1 text-xs text-[var(--color-text-muted)]">{session.user.email}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {session.user.username && (
@@ -241,7 +246,7 @@ function UserMenu() {
                     : "border border-amber-400/30 bg-amber-400/10 text-amber-400"
                 }`}
               >
-                {session.user.emailVerified ? "Verified" : "Verification pending"}
+                {session.user.emailVerified ? t("vionto.usermenu.verified") : t("vionto.usermenu.verificationPending")}
               </span>
             </div>
           </div>
@@ -252,7 +257,7 @@ function UserMenu() {
               onClick={() => setOpen(false)}
               className="block rounded-xl px-4 py-2.5 text-sm font-medium transition hover:bg-[var(--color-surface)]"
             >
-              Profile settings
+              {t("vionto.usermenu.profileSettings")}
             </a>
             <button
               type="button"
@@ -266,7 +271,7 @@ function UserMenu() {
               }}
               className="cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition hover:bg-[var(--color-surface)]"
             >
-              Refresh session
+              {t("vionto.usermenu.refreshSession")}
             </button>
             <button
               type="button"
@@ -280,7 +285,7 @@ function UserMenu() {
               }}
               className="cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium text-red-500 transition hover:bg-[var(--color-surface)]"
             >
-              Sign out
+              {t("common.signOut")}
             </button>
           </div>
         </div>
@@ -290,11 +295,12 @@ function UserMenu() {
 }
 
 function ViontoLogo() {
+  const { t } = useTranslation();
   return (
     <Link
       href="/"
       className="flex items-center gap-2 text-[var(--color-text)]"
-      aria-label="Vionto home"
+      aria-label={t("vionto.aria.home")}
     >
       <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[var(--color-accent)]/15 text-sm font-semibold text-[var(--color-accent)]">
         Vi
@@ -314,15 +320,16 @@ export function ViontoTopbarControls() {
   );
 }
 
-const NAV_LINKS = [
-  { label: "Dashboard", href: "/albums" },
-  { label: "Create", href: "/create" },
-  { label: "Projects", href: "/projects" },
-  { label: "Organizer", href: "/organizer" },
-];
 
 export function ViontoNav() {
+  const { t } = useTranslation();
   const pathname = usePathname();
+  const navLinks = [
+    { label: t("vionto.nav.dashboard"), href: "/albums" },
+    { label: t("vionto.nav.create"), href: "/create" },
+    { label: t("vionto.nav.projects"), href: "/projects" },
+    { label: t("vionto.nav.organizer"), href: "/organizer" },
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-xl">
@@ -330,7 +337,7 @@ export function ViontoNav() {
         <div className="flex items-center gap-6">
           <ViontoLogo />
           <nav aria-label="Vionto" className="hidden items-center gap-1 md:flex">
-            {NAV_LINKS.map((link) => {
+            {navLinks.map((link) => {
               const active =
                 pathname === link.href || pathname?.startsWith(link.href + "/");
               return (
@@ -359,7 +366,7 @@ export function ViontoNav() {
         aria-label="Vionto mobile"
         className="flex items-center gap-1 overflow-x-auto px-4 pb-2 md:hidden"
       >
-        {NAV_LINKS.map((link) => {
+        {navLinks.map((link) => {
           const active =
             pathname === link.href || pathname?.startsWith(link.href + "/");
           return (
