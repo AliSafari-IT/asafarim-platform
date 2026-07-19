@@ -26,9 +26,13 @@
 
   position: relative;
   font-family: var(--font-inter), "Inter", system-ui, sans-serif;
-  /* Comfortable gutters against the viewport edges; tight at the top so the
-     hero sits close under the header instead of floating in empty space. */
-  padding: var(--space-2) clamp(1.5rem, 4vw, 4.5rem) var(--space-6);
+  /* Full-bleed background: the page background runs edge to edge — no gutters
+     on the wrapper itself. Only a little bottom space so the final section
+     isn't jammed against the viewport. The inner content (text blocks and the
+     hero card) gets its own horizontal gutter via --gutter, so the copy never
+     touches the edges even though the background does. */
+  --gutter: clamp(1.5rem, 4vw, 4.5rem);
+  padding: 0 0 var(--space-6);
 }
 
 .display {
@@ -121,6 +125,7 @@
   display: grid;
   gap: clamp(2rem, 4vw, 3.5rem);
   align-items: center;
+  padding-inline: var(--gutter);
 }
 @media (min-width: 960px) {
   .heroInner {
@@ -378,7 +383,7 @@
 
 /* ── Generic section scaffolding ───────────────────────────────── */
 .section {
-  padding: clamp(2.25rem, 4vw, 4rem) 0;
+  padding: clamp(2.25rem, 4vw, 4rem) var(--gutter);
 }
 .kicker {
   display: inline-flex;
@@ -407,7 +412,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 2rem;
-  padding: clamp(2rem, 4vw, 3.5rem) 0;
+  padding: clamp(2rem, 4vw, 3.5rem) var(--gutter);
 }
 @media (min-width: 768px) {
   .stats {
