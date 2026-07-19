@@ -200,7 +200,7 @@ export default async function HomePage() {
       {/* ── Stats ────────────────────────────────────────────── */}
       <section className={styles.stats}>
         {[
-          { n: 6, s: "+", label: "Years coding", cls: styles.accent },
+          { n: 7, s: "+", label: "Years coding", cls: styles.accent },
           { n: 100, s: "+", label: "GitHub Repositories", cls: "" },
           { n: 100, s: "%", label: "Free & open", cls: styles.accentSky },
           { n: openSourcePackageNr, s: "+", label: "Open Source packages", cls: styles.accent },
