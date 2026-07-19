@@ -12,6 +12,12 @@ const fr: Dict = {
   "common.close": "Fermer",
   "common.language": "Langue",
   "common.country": "Pays",
+  "common.delete": "Supprimer",
+  "common.rename": "Renommer",
+  "common.duplicate": "Dupliquer",
+  "common.edit": "Modifier",
+  "common.remove": "Retirer",
+  "common.ok": "OK",
 
   // Portal nav / marketing
   "portal.nav.capabilities": "Capacités",

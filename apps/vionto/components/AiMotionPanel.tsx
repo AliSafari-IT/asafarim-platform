@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { Sparkles, Trash2, Loader2, Play, X } from "lucide-react";
 
 /**
@@ -87,6 +88,7 @@ const STATUS_CLASSES: Record<AiClip["status"], string> = {
 };
 
 export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
+  const { t } = useTranslation();
   const [clips, setClips] = useState<AiClip[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [selection, setSelection] = useState<Set<string>>(new Set());
@@ -403,8 +405,8 @@ export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
                     type="button"
                     onClick={() => void handleDelete(clip)}
                     className="rounded-md p-1 text-[var(--color-text-subtle)] transition hover:bg-red-500/15 hover:text-red-400"
-                    aria-label="Delete clip"
-                    title="Delete clip"
+                    aria-label={t("vionto.aria.deleteClip")}
+                    title={t("vionto.aria.deleteClip")}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -420,7 +422,7 @@ export function AiMotionPanel({ projectId, versionId, albumId, items }: Props) {
                 type="button"
                 onClick={() => setPreviewClip(null)}
                 className="absolute right-2 top-2 z-10 rounded-full bg-black/60 p-1 text-white"
-                aria-label="Close preview"
+                aria-label={t("common.close")}
               >
                 <X size={13} />
               </button>

@@ -90,12 +90,12 @@ export function ScriptEditor({ versions, projectId, onGenerate, onSave, isGenera
 
         {versions.length > 0 && (
           <label className="script-version-field">
-            <span>Version</span>
+            <span>{t("vionto.script.version")}</span>
             <select
               className="script-version-select"
               value={activeIndex}
               onChange={(e) => selectVersion(Number(e.target.value))}
-              aria-label="Select script version"
+              aria-label={t("vionto.aria.selectScriptVersion")}
             >
               {versions.map((v, i) => (
                 <option key={v.id} value={i}>

@@ -3177,7 +3177,7 @@ export function ViontoPage() {
                     href="/projects"
                     className="text-xs font-medium text-[var(--color-accent)] hover:underline flex items-center gap-1"
                   >
-                    Manage projects
+                    {t("vionto.project.manage")}
                     <ArrowRight size={11} />
                   </a>
                 </div>
@@ -3234,7 +3234,7 @@ export function ViontoPage() {
                       disabled={isSubmittingProject}
                       className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                     >
-                      <option value="">Manual setup</option>
+                      <option value="">{t("vionto.template.manualSetup")}</option>
                       {VIDEO_TEMPLATES.map((template) => (
                         <option key={template.id} value={template.id}>
                           {template.name}
@@ -3299,9 +3299,9 @@ export function ViontoPage() {
                           )
                         }
                         className="min-w-0 max-w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)] sm:max-w-36"
-                        aria-label="Video template"
+                        aria-label={t("vionto.aria.videoTemplate")}
                       >
-                        <option value="">Manual</option>
+                        <option value="">{t("vionto.template.manual")}</option>
                         {VIDEO_TEMPLATES.map((template) => (
                           <option key={template.id} value={template.id}>
                             {template.name}
@@ -3405,7 +3405,7 @@ export function ViontoPage() {
                             <span className="ml-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 type="button"
-                                title="Rename"
+                                title={t("common.rename")}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setRenamingVersionId(version.id);
@@ -3417,7 +3417,7 @@ export function ViontoPage() {
                               </button>
                               <button
                                 type="button"
-                                title="Duplicate"
+                                title={t("common.duplicate")}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   duplicateVideoVersion(version.id);
@@ -3429,7 +3429,7 @@ export function ViontoPage() {
                               {videoVersions.length > 1 && (
                                 <button
                                   type="button"
-                                  title="Delete"
+                                  title={t("common.delete")}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setConfirmDialog({
@@ -3574,7 +3574,7 @@ export function ViontoPage() {
                             onClick={() => removeUpload(i)}
                             disabled={f.status === "uploading"}
                             className="shrink-0 text-[var(--muted)] hover:text-[var(--coral)] transition-colors disabled:opacity-50"
-                            aria-label={`Remove ${f.file.name}`}
+                            aria-label={`${t("common.remove")} ${f.file.name}`}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -3696,7 +3696,7 @@ export function ViontoPage() {
                             type="button"
                             onClick={() => deleteAsset(a.id)}
                             className="absolute top-1 left-1 p-1.5 rounded-md bg-black/50 hover:bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                            aria-label={`Delete ${a.id}`}
+                            aria-label={`${t("common.delete")} ${a.id}`}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -3716,7 +3716,7 @@ export function ViontoPage() {
               {selectedProjectId && (
                 <div
                   className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-2.5"
-                  aria-label="Album management"
+                  aria-label={t("vionto.aria.albumManagement")}
                 >
                   {/* Album selector bar */}
                   <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -3738,9 +3738,9 @@ export function ViontoPage() {
                           setAlbumCollectionFilter(e.target.value)
                         }
                         className="min-w-0 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
-                        aria-label="Album collection"
+                        aria-label={t("vionto.aria.albumCollection")}
                       >
-                        <option value="">All</option>
+                        <option value="">{t("vionto.album.collectionAll")}</option>
                         {COLLECTION_OPTIONS.map((collection) => (
                           <option key={collection} value={collection}>
                             {collection}
@@ -3753,7 +3753,7 @@ export function ViontoPage() {
                         className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors"
                       >
                         <Plus size={12} />
-                        New album
+                        {t("vionto.album.new")}
                       </button>
                       {albums.some((album) => !album.isBase) && (
                         <button
@@ -3770,7 +3770,7 @@ export function ViontoPage() {
                           }`}
                         >
                           <ListChecks size={12} />
-                          {albumManageMode ? "Done" : "Manage"}
+                          {albumManageMode ? t("vionto.album.done") : t("vionto.album.manage")}
                         </button>
                       )}
                     </div>
@@ -3942,7 +3942,7 @@ export function ViontoPage() {
                                 requestDeleteAlbum(album.id, album.name)
                               }
                               className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-red-500 group-hover:flex"
-                              aria-label={`Delete ${album.name}`}
+                              aria-label={`${t("common.delete")} ${album.name}`}
                             >
                               <X size={9} />
                             </button>
@@ -3956,11 +3956,11 @@ export function ViontoPage() {
                   {showCreateAlbum && (
                     <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                       <p className="mb-2 text-xs font-semibold text-[var(--color-text)]">
-                        New album
+                        {t("vionto.album.new")}
                       </p>
                       <input
                         type="text"
-                        placeholder="Album name"
+                        placeholder={t("vionto.album.namePlaceholder")}
                         value={newAlbumName}
                         autoFocus
                         onChange={(e) => setNewAlbumName(e.target.value)}
@@ -3971,7 +3971,7 @@ export function ViontoPage() {
                       />
                       <input
                         type="text"
-                        placeholder="Description (optional)"
+                        placeholder={t("vionto.album.descriptionPlaceholder")}
                         value={newAlbumDesc}
                         onChange={(e) => setNewAlbumDesc(e.target.value)}
                         className="mt-1.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
@@ -3985,7 +3985,7 @@ export function ViontoPage() {
                           }
                           className="h-3.5 w-3.5 rounded border-[var(--color-border)] accent-[var(--color-accent)]"
                         />
-                        Start with all images from base album
+                        {t("vionto.album.startFromBase")}
                       </label>
                       <button
                         type="button"
@@ -4035,7 +4035,7 @@ export function ViontoPage() {
                             </label>
                             <input
                               type="text"
-                              placeholder="e.g., Paris, France"
+                              placeholder={t("vionto.album.locationPlaceholder")}
                               value={newAlbumLocation}
                               onChange={(e) =>
                                 setNewAlbumLocation(e.target.value)
@@ -4049,7 +4049,7 @@ export function ViontoPage() {
                             </label>
                             <input
                               type="text"
-                              placeholder="Comma-separated names"
+                              placeholder={t("vionto.album.peoplePlaceholder")}
                               value={newAlbumPeople}
                               onChange={(e) =>
                                 setNewAlbumPeople(e.target.value)
@@ -4065,7 +4065,7 @@ export function ViontoPage() {
                               <input
                                 type="text"
                                 list="occasion-suggestions"
-                                placeholder="e.g., wedding"
+                                placeholder={t("vionto.album.occasionPlaceholder")}
                                 value={newAlbumOccasion}
                                 onChange={(e) =>
                                   setNewAlbumOccasion(e.target.value)
@@ -4085,7 +4085,7 @@ export function ViontoPage() {
                               <input
                                 type="text"
                                 list="mood-suggestions"
-                                placeholder="e.g., joyful"
+                                placeholder={t("vionto.album.moodPlaceholder")}
                                 value={newAlbumMood}
                                 onChange={(e) =>
                                   setNewAlbumMood(e.target.value)
@@ -4119,7 +4119,7 @@ export function ViontoPage() {
                           </div>
                           <div>
                             <label className="mb-1 block text-[10px] font-medium text-[var(--color-text-muted)]">
-                              Collections
+                              {t("vionto.album.collectionsLabel")}
                             </label>
                             <div className="flex flex-wrap gap-1">
                               {COLLECTION_OPTIONS.filter(
@@ -4301,35 +4301,35 @@ export function ViontoPage() {
                               className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors"
                             >
                               <ImagePlus size={12} />
-                              Add images
+                              {t("vionto.album.addImages")}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSortAlbum("date_asc")}
                               disabled={isSorting || albumItems.length < 2}
                               className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors disabled:opacity-50"
-                              title="Sort images by EXIF date (oldest first)"
+                              title={t("vionto.album.sortByDate")}
                             >
                               {isSorting ? (
                                 <RefreshCw size={12} className="animate-spin" />
                               ) : (
                                 <ArrowUpDown size={12} />
                               )}
-                              Sort by date
+                              {t("vionto.album.sortByDateShort")}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSortAlbum("location")}
                               disabled={isSorting || albumItems.length < 2}
                               className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors disabled:opacity-50"
-                              title="Group images by GPS location"
+                              title={t("vionto.album.groupByLocation")}
                             >
                               {isSorting ? (
                                 <RefreshCw size={12} className="animate-spin" />
                               ) : (
                                 <MapPin size={12} />
                               )}
-                              Group by location
+                              {t("vionto.album.groupByLocationShort")}
                             </button>
                           </div>
                         </div>
@@ -4361,7 +4361,7 @@ export function ViontoPage() {
                                 </label>
                                 <input
                                   type="text"
-                                  placeholder="Album description"
+                                  placeholder={t("vionto.album.editDescriptionPlaceholder")}
                                   value={editDescription}
                                   onChange={(e) =>
                                     setEditDescription(e.target.value)
@@ -4403,7 +4403,7 @@ export function ViontoPage() {
                                 </label>
                                 <input
                                   type="text"
-                                  placeholder="e.g., Paris, France"
+                                  placeholder={t("vionto.album.locationPlaceholder")}
                                   value={editLocation}
                                   onChange={(e) =>
                                     setEditLocation(e.target.value)
@@ -4417,7 +4417,7 @@ export function ViontoPage() {
                                 </label>
                                 <input
                                   type="text"
-                                  placeholder="Comma-separated names"
+                                  placeholder={t("vionto.album.peoplePlaceholder")}
                                   value={editPeople}
                                   onChange={(e) =>
                                     setEditPeople(e.target.value)
@@ -4433,7 +4433,7 @@ export function ViontoPage() {
                                   <input
                                     type="text"
                                     list="edit-occasion-suggestions"
-                                    placeholder="e.g., wedding"
+                                    placeholder={t("vionto.album.occasionPlaceholder")}
                                     value={editOccasion}
                                     onChange={(e) =>
                                       setEditOccasion(e.target.value)
@@ -4453,7 +4453,7 @@ export function ViontoPage() {
                                   <input
                                     type="text"
                                     list="edit-mood-suggestions"
-                                    placeholder="e.g., joyful"
+                                    placeholder={t("vionto.album.moodPlaceholder")}
                                     value={editMood}
                                     onChange={(e) =>
                                       setEditMood(e.target.value)
@@ -4610,10 +4610,10 @@ export function ViontoPage() {
                                   });
                                 }}
                                 className="inline-flex items-center gap-1 rounded-md border border-dashed border-[var(--color-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors"
-                                title="Create a brand-new video version linked to this album"
+                                title={t("vionto.videoVersion.titleTooltip")}
                               >
                                 <Plus size={9} />
-                                New video version
+                                {t("vionto.videoVersion.new")}
                               </button>
                             </div>
                           );
@@ -4623,7 +4623,7 @@ export function ViontoPage() {
                       {showAddImages && !isBaseAlbumSelected && (
                         <div className="mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                           <p className="mb-2 text-xs font-semibold text-[var(--color-text)]">
-                            Select images to add (from base album)
+                            {t("vionto.album.selectImagesFromBase")}
                           </p>
                           <ul className="project-assets-grid">
                             {projectAssets
@@ -4692,13 +4692,15 @@ export function ViontoPage() {
 
                       {isLoadingAlbumItems ? (
                         <p className="text-xs text-[var(--color-text-muted)]">
-                          Loading…
+                          {t("common.loading")}
                         </p>
                       ) : albumItems.length === 0 ? (
                         <p className="text-xs text-[var(--color-text-muted)]">
-                          {isBaseAlbumSelected
-                            ? "No images yet — upload some above."
-                            : "No images in this album yet."}
+                          {t(
+                            isBaseAlbumSelected
+                              ? "vionto.album.emptyBase"
+                              : "vionto.album.emptyAlbum"
+                          )}
                         </p>
                       ) : (
                         <ul className="project-assets-grid">
@@ -4821,8 +4823,8 @@ export function ViontoPage() {
                                       type="button"
                                       onClick={() => openMetaEditor(item)}
                                       className="p-1 rounded-md bg-black/50 hover:bg-[var(--color-accent)]/80 text-white"
-                                      aria-label="Edit metadata"
-                                      title="Edit metadata"
+                                      aria-label={t("vionto.aria.editMetadata")}
+                                      title={t("common.edit")}
                                     >
                                       <ListChecks size={13} />
                                     </button>
@@ -4831,15 +4833,19 @@ export function ViontoPage() {
                                       onClick={() =>
                                         setConfirmDialog({
                                           open: true,
-                                          title: isBaseAlbumSelected
-                                            ? "Delete image"
-                                            : "Remove image",
+                                          title: t(
+                                            isBaseAlbumSelected
+                                              ? "vionto.confirm.deleteImageTitle"
+                                              : "vionto.confirm.removeImageTitle"
+                                          ),
                                           message: isBaseAlbumSelected
                                             ? `Permanently delete this image from the project?\n\nThis is the base album, so it will also be removed from every other album and its original file deleted. This cannot be undone.`
                                             : `Remove this image from "${selectedAlbum?.name ?? "this album"}"?\n\nIt stays in your project and any other albums — only this album's copy is removed.`,
-                                          confirmLabel: isBaseAlbumSelected
-                                            ? "Delete"
-                                            : "Remove",
+                                          confirmLabel: t(
+                                            isBaseAlbumSelected
+                                              ? "vionto.confirm.deleteLabel"
+                                              : "vionto.confirm.removeLabel"
+                                          ),
                                           tone: "danger",
                                           onConfirm: () => {
                                             closeConfirm();
@@ -4849,14 +4855,18 @@ export function ViontoPage() {
                                       }
                                       className="p-1 rounded-md bg-black/50 hover:bg-red-500/80 text-white"
                                       aria-label={
-                                        isBaseAlbumSelected
-                                          ? "Delete from project"
-                                          : "Remove from this album"
+                                        t(
+                                          isBaseAlbumSelected
+                                            ? "vionto.aria.deleteFromProject"
+                                            : "vionto.aria.removeFromAlbum"
+                                        )
                                       }
                                       title={
-                                        isBaseAlbumSelected
-                                          ? "Delete from project"
-                                          : "Remove from this album"
+                                        t(
+                                          isBaseAlbumSelected
+                                            ? "vionto.aria.deleteFromProject"
+                                            : "vionto.aria.removeFromAlbum"
+                                        )
                                       }
                                     >
                                       <Trash2 size={13} />
@@ -5586,7 +5596,7 @@ export function ViontoPage() {
                         type="text"
                         value={openingTitle}
                         onChange={(e) => setOpeningTitle(e.target.value)}
-                        placeholder="e.g. Our Summer in Provence"
+                        placeholder={t("vionto.story.openingTitlePlaceholder")}
                         maxLength={200}
                         className="mt-0.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                       />
@@ -5598,7 +5608,7 @@ export function ViontoPage() {
                       <textarea
                         value={introNarration}
                         onChange={(e) => setIntroNarration(e.target.value)}
-                        placeholder="A short intro paragraph to set the scene..."
+                        placeholder={t("vionto.story.introNarrationPlaceholder")}
                         maxLength={1000}
                         rows={2}
                         className="mt-0.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
@@ -5649,7 +5659,7 @@ export function ViontoPage() {
                               };
                               setChapters(next);
                             }}
-                            placeholder="Description"
+                            placeholder={t("vionto.story.chapterDescriptionPlaceholder")}
                             maxLength={500}
                             className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                           />
@@ -5673,7 +5683,7 @@ export function ViontoPage() {
                         type="text"
                         value={climaxDescription}
                         onChange={(e) => setClimaxDescription(e.target.value)}
-                        placeholder="Which moment gets the most emphasis?"
+                        placeholder={t("vionto.story.climaxPlaceholder")}
                         maxLength={500}
                         className="mt-0.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                       />
@@ -5686,7 +5696,7 @@ export function ViontoPage() {
                         type="text"
                         value={closingMessage}
                         onChange={(e) => setClosingMessage(e.target.value)}
-                        placeholder="e.g. Until we meet again..."
+                        placeholder={t("vionto.story.closingMessagePlaceholder")}
                         maxLength={500}
                         className="mt-0.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                       />
@@ -5699,7 +5709,7 @@ export function ViontoPage() {
                         type="text"
                         value={dedicationText}
                         onChange={(e) => setDedicationText(e.target.value)}
-                        placeholder="e.g. For Mom and Dad"
+                        placeholder={t("vionto.story.dedicationPlaceholder")}
                         maxLength={300}
                         className="mt-0.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2.5 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
                       />
@@ -5808,10 +5818,10 @@ export function ViontoPage() {
                               }
                               className="mt-0.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1.5 text-xs text-[var(--color-text)]"
                             >
-                              <option value="lower_third">Lower third</option>
-                              <option value="top">Top</option>
-                              <option value="bottom">Bottom</option>
-                              <option value="corner">Corner</option>
+                              <option value="lower_third">{t("vionto.subtitle.position.lowerThird")}</option>
+                              <option value="top">{t("vionto.subtitle.position.top")}</option>
+                              <option value="bottom">{t("vionto.subtitle.position.bottom")}</option>
+                              <option value="corner">{t("vionto.subtitle.position.corner")}</option>
                             </select>
                           </div>
                           <div>
@@ -5825,10 +5835,10 @@ export function ViontoPage() {
                               }
                               className="mt-0.5 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-2 py-1.5 text-xs text-[var(--color-text)]"
                             >
-                              <option value="minimal">Minimal</option>
-                              <option value="memory">Memory</option>
-                              <option value="social">Social</option>
-                              <option value="documentary">Documentary</option>
+                              <option value="minimal">{t("vionto.subtitle.preset.minimal")}</option>
+                              <option value="memory">{t("vionto.subtitle.preset.memory")}</option>
+                              <option value="social">{t("vionto.subtitle.preset.social")}</option>
+                              <option value="documentary">{t("vionto.subtitle.preset.documentary")}</option>
                             </select>
                           </div>
                         </div>
