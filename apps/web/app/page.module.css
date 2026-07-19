@@ -370,7 +370,6 @@
 }
 .marquee {
   display: flex;
-  gap: 2.5rem;
   white-space: nowrap;
   width: max-content;
   font-family: var(--font-syne), "Syne", sans-serif;
@@ -379,6 +378,10 @@
   letter-spacing: -0.01em;
   color: color-mix(in srgb, var(--ink) 22%, transparent);
   animation: scroll-left 26s linear infinite;
+}
+.marqueeItem {
+  display: inline-flex;
+  align-items: center;
 }
 
 /* ── Generic section scaffolding ───────────────────────────────── */
