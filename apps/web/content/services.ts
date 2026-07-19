@@ -12,8 +12,8 @@ export interface Service {
 export const services: Service[] = [
   {
     title: "Full-stack web applications",
-    body: "End-to-end platforms with Next.js/React on the front and .NET or Node.js behind — the same stack this platform runs on, taken from data model to deployment.",
-    note: "next.js · react · .net · node",
+    body: "End-to-end platforms with Next.js/React on the front and Node.js with Prisma & PostgreSQL behind — the same stack this platform runs on, taken from data model to deployment.",
+    note: "next.js · react · node · prisma · postgres",
   },
   {
     title: "APIs & platform architecture",
