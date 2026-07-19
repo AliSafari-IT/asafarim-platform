@@ -131,10 +131,11 @@ function Modal({ onClose, children }: { onClose: () => void; children: React.Rea
 }
 
 function ModalHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="mb-5 flex items-start justify-between gap-3">
       <h2 className="text-lg font-semibold">{title}</h2>
-      <button type="button" onClick={onClose} aria-label="Close"
+      <button type="button" onClick={onClose} aria-label={t("common.close")}
         className="mt-0.5 rounded-full p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]">
         <X className="h-4 w-4" />
       </button>
@@ -402,7 +403,7 @@ function ShareModal({ project, onClose }: { project: ProjectRow; onClose: () => 
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="colleague@example.com"
+            placeholder={t("vionto.project.emailPlaceholder")}
             autoFocus
             className="flex-1 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3.5 py-2.5 text-sm outline-none ring-[var(--color-primary)] focus:ring-2 placeholder:text-[var(--color-text-muted)]"
           />

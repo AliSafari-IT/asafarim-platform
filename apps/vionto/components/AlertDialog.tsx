@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { AlertCircle, X } from "lucide-react";
 
 export type AlertDialogProps = {
@@ -23,6 +24,7 @@ export function AlertDialog({
   tone = "info",
   onClose,
 }: AlertDialogProps) {
+  const { t } = useTranslation();
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -66,7 +68,7 @@ export function AlertDialog({
             type="button"
             onClick={onClose}
             className="rounded-md p-1 text-[var(--color-text-subtle)] transition hover:text-[var(--color-text)]"
-            aria-label="Close"
+            aria-label={t("common.close")}
           >
             <X size={15} />
           </button>
@@ -77,7 +79,7 @@ export function AlertDialog({
             onClick={onClose}
             className="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--color-accent)]/90"
           >
-            OK
+            {t("common.ok")}
           </button>
         </div>
       </div>

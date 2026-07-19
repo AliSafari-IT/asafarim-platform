@@ -12,6 +12,12 @@ const nl: Dict = {
   "common.close": "Sluiten",
   "common.language": "Taal",
   "common.country": "Land",
+  "common.delete": "Verwijderen",
+  "common.rename": "Hernoemen",
+  "common.duplicate": "Dupliceren",
+  "common.edit": "Bewerken",
+  "common.remove": "Verwijderen",
+  "common.ok": "OK",
 
   // Portal nav / marketing
   "portal.nav.capabilities": "Mogelijkheden",
