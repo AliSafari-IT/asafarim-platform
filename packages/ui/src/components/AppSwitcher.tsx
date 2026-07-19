@@ -7,17 +7,23 @@ export interface AppSwitcherLink {
 
 export interface AppSwitcherProps {
   links: AppSwitcherLink[];
+  /**
+   * Shared `name` for the native <details> exclusive-accordion group: when
+   * set, opening this menu auto-closes any other <details name="..."> with
+   * the same value (e.g. the header's <UserMenu />). CSS-only, no JS.
+   */
+  groupName?: string;
 }
 
 /**
  * Cross-app navigation dropdown: keeps the header uncluttered by holding
  * links to the other platform apps. CSS-only (<details>), no client JS.
  */
-export function AppSwitcher({ links }: AppSwitcherProps) {
+export function AppSwitcher({ links, groupName = "ui-header-menu" }: AppSwitcherProps) {
   if (links.length === 0) return null;
 
   return (
-    <details className="ui-menu">
+    <details className="ui-menu" name={groupName}>
       <summary aria-label="Platform apps">
         <span aria-hidden="true">⌘</span>
         <span className="ui-app-switcher__label">Platform</span>
