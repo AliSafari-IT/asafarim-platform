@@ -6,6 +6,10 @@ services:
       POSTGRES_DB: asafarim
       POSTGRES_USER: asafarim
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      # Bound to loopback only: lets host-side scripts (migrate/seed) connect
+      # without exposing postgres to the internet.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

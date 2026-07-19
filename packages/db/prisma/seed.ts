@@ -3,13 +3,39 @@
 // Permission/role sets migrated from asafarim-digital, trimmed to the
 // foundation groups; product-specific permissions arrive with their apps.
 
+import { existsSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  "postgresql://asafarim:asafarim_dev@localhost:5432/asafarim";
+// When DATABASE_URL points at the docker-compose service name ("postgres")
+// but this script runs on the host (not inside a container), that hostname
+// does not resolve. Rewrite it to localhost, which works when the postgres
+// port is published (see docker-compose.prod.yml).
+function resolveDatabaseUrl(): string {
+  const raw =
+    process.env.DATABASE_URL ??
+    "postgresql://asafarim:asafarim_dev@localhost:5432/asafarim";
+
+  const insideContainer = existsSync("/.dockerenv");
+  if (insideContainer) return raw;
+
+  try {
+    const url = new URL(raw);
+    if (url.hostname === "postgres") {
+      url.hostname = "localhost";
+      console.log(
+        "DATABASE_URL host 'postgres' is not resolvable outside Docker — using localhost instead."
+      );
+      return url.toString();
+    }
+  } catch {
+    // Fall through with the raw value; Prisma will report a clearer error.
+  }
+  return raw;
+}
+
+const databaseUrl = resolveDatabaseUrl();
 
 const adapter = new PrismaPg({ connectionString: databaseUrl });
 const prisma = new PrismaClient({ adapter });
