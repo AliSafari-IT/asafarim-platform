@@ -28,6 +28,12 @@ const nl: Dict = {
   "portal.nav.admin": "Beheer",
   "portal.hero.eyebrow": "Productengineering partner",
   "portal.hero.cta": "Start een project",
+  "portal.nav.studio": "Studio",
+  "portal.nav.about": "Over",
+  "portal.nav.services": "Diensten",
+  "portal.nav.projects": "Projecten",
+  "portal.footer.privacy": "Privacy",
+  "portal.footer.terms": "Voorwaarden",
 
   // Content Generator
   "cg.nav.generator": "Generator",
