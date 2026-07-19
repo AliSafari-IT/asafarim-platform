@@ -8,7 +8,14 @@ import {
   type ProviderMeta,
 } from "../ai-providers";
 
-/** Live account/subscription info from a provider that exposes it. */
+/**
+ * Live account/subscription info from a provider that exposes it.
+ * 
+ * Note: Only ElevenLabs returns account/subscription data to a normal API key.
+ * For other providers (fal.ai, OpenAI, Anthropic, Kling), balances and renewal
+ * dates live on each provider's dashboard; the figures above are estimated from
+ * Vionto's own generation log.
+ */
 export type LiveAccount =
   | {
       state: "ok";
@@ -70,9 +77,17 @@ async function fetchElevenLabsSubscription(
     ).finally(() => clearTimeout(timeout));
 
     if (!res.ok) {
+      // ElevenLabs returns a structured reason (e.g. a scoped key missing the
+      // `user_read` permission) — surface it so the fix is obvious.
+      const detail = (await res.json().catch(() => null)) as {
+        detail?: { message?: string };
+      } | null;
+      const reason = detail?.detail?.message;
       return {
         state: "error",
-        message: `ElevenLabs API returned ${res.status}.`,
+        message: reason
+          ? `ElevenLabs: ${reason}`
+          : `ElevenLabs API returned ${res.status}.`,
       };
     }
     const data = (await res.json()) as {
