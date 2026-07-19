@@ -14,7 +14,7 @@ admin.asafarim.com {
   reverse_proxy admin:3000
 }
 
-showcase.asafarim.be {
+showcase.asafarim.com {
   reverse_proxy showcase:3000
 }
 
