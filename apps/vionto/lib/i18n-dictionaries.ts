@@ -77,6 +77,9 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.album.startFromBase": "Start with all images from base album",
     "vionto.project.manage": "Manage projects",
     "vionto.script.version": "Version",
+    "vionto.create.eyebrow": "Photo-to-story video MVP",
+    "vionto.create.headline": "Turn memories into poetic motion.",
+    "vionto.create.hubLink": "ASafarIM Hub",
 
     // Upload
     "vionto.upload.eyebrow": "Uploads",
@@ -610,6 +613,9 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.album.startFromBase": "Start met alle afbeeldingen van het basisalbum",
     "vionto.project.manage": "Projecten beheren",
     "vionto.script.version": "Versie",
+    "vionto.create.eyebrow": "Foto-naar-verhaal video MVP",
+    "vionto.create.headline": "Verander herinneringen in poëtische beweging.",
+    "vionto.create.hubLink": "ASafarIM Hub",
 
     "vionto.upload.eyebrow": "Uploads",
     "vionto.upload.title": "Upload een herinneringenset",
@@ -1084,6 +1090,9 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.album.startFromBase": "Commencer avec toutes les images de l'album de base",
     "vionto.project.manage": "Gérer les projets",
     "vionto.script.version": "Version",
+    "vionto.create.eyebrow": "MVP vidéo photo-récit",
+    "vionto.create.headline": "Transformez les souvenirs en mouvement poétique.",
+    "vionto.create.hubLink": "ASafarIM Hub",
 
     "vionto.upload.eyebrow": "Uploads",
     "vionto.upload.title": "Uploader un ensemble de souvenirs",
@@ -1482,6 +1491,9 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.album.new": "Neues Album",
     "vionto.album.manage": "Verwalten",
     "vionto.album.done": "Fertig",
+    "vionto.create.eyebrow": "Foto-zu-Geschichte Video-MVP",
+    "vionto.create.headline": "Verwandeln Sie Erinnerungen in poetische Bewegung.",
+    "vionto.create.hubLink": "ASafarIM Hub",
     "vionto.album.startFromBase": "Mit allen Bildern vom Basisalbum starten",
     "vionto.project.manage": "Projekte verwalten",
     "vionto.script.version": "Version",

@@ -3140,18 +3140,18 @@ export function ViontoPage() {
                 }
                 onClick={() => setMobileMenuOpen(false)}
               >
-                ASafarIM Hub <ArrowRight size={16} />
+                {t("vionto.create.hubLink")} <ArrowRight size={16} />
               </a>
             </div>
           )}
 
           <div className="px-5 pt-5 pb-1">
-            <p className="eyebrow">Photo-to-story video MVP</p>
+            <p className="eyebrow">{t("vionto.create.eyebrow")}</p>
             <h1
               className="mt-1 text-2xl font-semibold"
               style={{ fontSize: "1.5rem", lineHeight: 1.25 }}
             >
-              Turn memories into poetic motion.
+              {t("vionto.create.headline")}
             </h1>
           </div>
 
