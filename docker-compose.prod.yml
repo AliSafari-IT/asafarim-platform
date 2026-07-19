@@ -25,6 +25,8 @@ services:
         NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
+    env_file:
+      - .env.production
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
@@ -57,10 +59,12 @@ services:
       dockerfile: apps/showcase/Dockerfile
       args: *public-build-args
     restart: unless-stopped
+    env_file:
+      - .env.production
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
-      NEXT_PUBLIC_APP_URL: https://showcase.asafarim.be
+      NEXT_PUBLIC_APP_URL: https://showcase.asafarim.com
     depends_on:
       - postgres
     networks:
