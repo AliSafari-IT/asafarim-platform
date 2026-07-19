@@ -24,6 +24,7 @@ export const metadata: Metadata = {
   },
   description:
     "Curated projects from the ASafarIM Digital lab — demos, case studies, and experiments.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

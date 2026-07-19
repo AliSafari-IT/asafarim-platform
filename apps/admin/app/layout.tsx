@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     template: "%s | ASafarIM Admin",
   },
   description: "System operations console of the ASafarIM Platform",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
