@@ -13,7 +13,7 @@ import styles from "./auth.module.css";
 
 const links = getPlatformLinks();
 const trustedOrigins = new Set(
-  [links.web, links.hub, links.showcase, links.admin].map((url) => new URL(url).origin)
+  [links.web, links.hub, links.showcase, links.admin, links.vionto].map((url) => new URL(url).origin)
 );
 
 function normalizeCallbackUrl(raw: string | null): string {
