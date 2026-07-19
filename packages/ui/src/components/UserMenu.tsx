@@ -10,6 +10,12 @@ export interface UserMenuProps {
   profileHref?: string;
   /** Usually a <form> with a sign-out button (server action). */
   children?: ReactNode;
+  /**
+   * Shared `name` for the native <details> exclusive-accordion group: when
+   * set, opening this menu auto-closes any other <details name="..."> with
+   * the same value (e.g. the header's <AppSwitcher />). CSS-only, no JS.
+   */
+  groupName?: string;
 }
 
 function initials(name?: string | null, email?: string | null): string {
@@ -26,9 +32,17 @@ function initials(name?: string | null, email?: string | null): string {
  * opens a panel with the full identity, roles, and sign-out action.
  * CSS-only (<details>), no client JS.
  */
-export function UserMenu({ name, email, image, roles = [], profileHref, children }: UserMenuProps) {
+export function UserMenu({
+  name,
+  email,
+  image,
+  roles = [],
+  profileHref,
+  children,
+  groupName = "ui-header-menu",
+}: UserMenuProps) {
   return (
-    <details className="ui-menu">
+    <details className="ui-menu" name={groupName}>
       <summary aria-label="Account menu">
         <span className="ui-avatar" aria-hidden="true">
           {image ? (
