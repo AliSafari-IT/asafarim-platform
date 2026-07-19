@@ -38,7 +38,7 @@
     "bench:vionto:fixtures": "pnpm --filter @asafarim/vionto-benchmark bench:generate",
     "deploy:prod": "bash ./infra/scripts/deploy-prod.sh",
     "runFromVPS": "docker compose -f docker-compose.prod.yml up -d",
-    "runFromLocal": "ssh vps \"cd /var/repos/asafarim-platform && docker compose -f docker-compose.prod.yml up -d\""
+    "runFromLocal": "ssh vps \"cd /var/repos/asafarim-com && docker compose -f docker-compose.prod.yml up -d\""
   },
   "devDependencies": {
     "@asafarim/envage": "^0.4.2",
