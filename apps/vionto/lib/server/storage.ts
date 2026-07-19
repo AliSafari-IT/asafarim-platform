@@ -24,8 +24,11 @@ import { MAX_IMAGE_BYTES, type AllowedUploadMime } from "./validation";
  * Vionto storage layer.
  *
  * Production: S3-compatible (DigitalOcean Spaces). Configure via env:
- *   DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET,
- *   DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_PUBLIC_URL (optional)
+ *   DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET_NAME,
+ *   DO_SPACES_ACCESS_KEY_ID, DO_SPACES_SECRET_ACCESS_KEY, DO_SPACES_PUBLIC_URL (optional)
+ *
+ * For backwards compatibility, the legacy names DO_SPACES_BUCKET, DO_SPACES_KEY,
+ * and DO_SPACES_SECRET are also accepted.
  *
  * Local dev: defaults to local-file mode unless VIONTO_STORAGE_DRIVER=spaces
  * is set. If any required Spaces var is missing, the helper also short-circuits
@@ -156,8 +159,11 @@ function readConfig(): StorageConfig | null {
     DO_SPACES_ENDPOINT,
     DO_SPACES_REGION,
     DO_SPACES_BUCKET,
+    DO_SPACES_BUCKET_NAME,
     DO_SPACES_KEY,
+    DO_SPACES_ACCESS_KEY_ID,
     DO_SPACES_SECRET,
+    DO_SPACES_SECRET_ACCESS_KEY,
     DO_SPACES_PUBLIC_URL,
   } = process.env;
 
@@ -175,20 +181,28 @@ function readConfig(): StorageConfig | null {
     return null;
   }
 
+  const bucket = DO_SPACES_BUCKET_NAME || DO_SPACES_BUCKET;
+  const accessKey = DO_SPACES_ACCESS_KEY_ID || DO_SPACES_KEY;
+  const secretKey = DO_SPACES_SECRET_ACCESS_KEY || DO_SPACES_SECRET;
+
   if (
     !DO_SPACES_ENDPOINT ||
     !DO_SPACES_REGION ||
-    !DO_SPACES_BUCKET ||
-    !DO_SPACES_KEY ||
-    !DO_SPACES_SECRET
+    !bucket ||
+    !accessKey ||
+    !secretKey
   ) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        "[storage] DigitalOcean Spaces not configured. Falling back to local storage. " +
+          "Expected env vars: DO_SPACES_ENDPOINT, DO_SPACES_REGION, " +
+          "DO_SPACES_BUCKET_NAME, DO_SPACES_ACCESS_KEY_ID, DO_SPACES_SECRET_ACCESS_KEY."
+      );
+    }
     return null;
   }
 
-  const endpoint = normalizeSpacesEndpoint(
-    DO_SPACES_ENDPOINT,
-    DO_SPACES_BUCKET
-  );
+  const endpoint = normalizeSpacesEndpoint(DO_SPACES_ENDPOINT, bucket);
   let endpointUrl: URL;
   try {
     endpointUrl = new URL(endpoint);
@@ -197,24 +211,24 @@ function readConfig(): StorageConfig | null {
     return {
       endpoint,
       region: DO_SPACES_REGION,
-      bucket: DO_SPACES_BUCKET,
-      accessKey: DO_SPACES_KEY,
-      secretKey: DO_SPACES_SECRET,
+      bucket,
+      accessKey,
+      secretKey,
       publicUrl:
         DO_SPACES_PUBLIC_URL ??
-        `${endpoint.replace(/\/+$/, "")}/${DO_SPACES_BUCKET}`,
+        `${endpoint.replace(/\/+$/, "")}/${bucket}`,
     };
   }
 
   return {
     endpoint,
     region: DO_SPACES_REGION,
-    bucket: DO_SPACES_BUCKET,
-    accessKey: DO_SPACES_KEY,
-    secretKey: DO_SPACES_SECRET,
+    bucket,
+    accessKey,
+    secretKey,
     publicUrl:
       DO_SPACES_PUBLIC_URL ??
-      `${endpointUrl.protocol}//${DO_SPACES_BUCKET}.${endpointUrl.hostname}`,
+      `${endpointUrl.protocol}//${bucket}.${endpointUrl.hostname}`,
   };
 }
 
