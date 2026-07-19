@@ -3,7 +3,11 @@ import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { auth, signOut } from "@asafarim/auth";
 import { I18nProvider } from "@asafarim/shared-i18n";
-import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import webDictionaries from "../lib/i18n-dictionaries";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
 import {
@@ -66,6 +70,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const session = await auth();
   const cookieStore = await cookies();
   const initialLocale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(initialLocale, webDictionaries);
 
   return (
     <html lang={initialLocale} suppressHydrationWarning>
@@ -85,11 +90,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           nav={
             <TopNav
               items={[
-                { label: "Studio", href: "/" },
-                { label: "About", href: "/about" },
-                { label: "Services", href: "/services" },
-                { label: "Projects", href: "/projects" },
-                { label: "Contact", href: "/contact" },
+                { label: t("portal.nav.studio"), href: "/" },
+                { label: t("portal.nav.about"), href: "/about" },
+                { label: t("portal.nav.services"), href: "/services" },
+                { label: t("portal.nav.projects"), href: "/projects" },
+                { label: t("portal.nav.contact"), href: "/contact" },
               ]}
             />
           }
@@ -119,7 +124,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     }}
                   >
                     <Button type="submit" variant="secondary" size="sm">
-                      Sign out
+                      {t("common.signOut")}
                     </Button>
                   </form>
                 </UserMenu>
@@ -128,14 +133,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   href={`${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.web}/`)}`}
                   size="sm"
                 >
-                  Sign in
+                  {t("common.signIn")}
                 </ButtonLink>
               )}
             </>
           }
           footer={
             <span>
-              <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> ·{" "}
+              <a href="/privacy">{t("portal.footer.privacy")}</a> ·{" "}
+              <a href="/terms">{t("portal.footer.terms")}</a> ·{" "}
               <a href={site.contact.github} target="_blank" rel="noreferrer">
                 GitHub
               </a>

@@ -29,6 +29,12 @@ const en: Dict = {
   "portal.nav.admin": "Admin",
   "portal.hero.eyebrow": "Product engineering partner",
   "portal.hero.cta": "Start a project",
+  "portal.nav.studio": "Studio",
+  "portal.nav.about": "About",
+  "portal.nav.services": "Services",
+  "portal.nav.projects": "Projects",
+  "portal.footer.privacy": "Privacy",
+  "portal.footer.terms": "Terms",
 
   // Content Generator
   "cg.nav.generator": "Generator",
