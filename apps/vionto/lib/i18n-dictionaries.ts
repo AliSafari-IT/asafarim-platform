@@ -6,6 +6,19 @@ import type { Dictionaries } from "@asafarim/shared-i18n";
  */
 export const viontoDictionaries: Dictionaries = {
   en: {
+    // Topbar / nav
+    "vionto.nav.dashboard": "Dashboard",
+    "vionto.nav.projects": "Projects",
+    "vionto.nav.organizer": "Organizer",
+    "vionto.usermenu.user": "User",
+    "vionto.usermenu.verified": "Verified",
+    "vionto.usermenu.verificationPending": "Verification pending",
+    "vionto.usermenu.profileSettings": "Profile settings",
+    "vionto.usermenu.refreshSession": "Refresh session",
+    "vionto.topbar.switchToLight": "Switch to light theme",
+    "vionto.topbar.switchToDark": "Switch to dark theme",
+    "vionto.topbar.switchApp": "Switch app",
+
     // Upload
     "vionto.upload.eyebrow": "Uploads",
     "vionto.upload.title": "Upload a memory set",
@@ -468,6 +481,18 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.unit.mb": "MB",
   },
   nl: {
+    "vionto.nav.dashboard": "Dashboard",
+    "vionto.nav.projects": "Projecten",
+    "vionto.nav.organizer": "Organizer",
+    "vionto.usermenu.user": "Gebruiker",
+    "vionto.usermenu.verified": "Geverifieerd",
+    "vionto.usermenu.verificationPending": "Verificatie in behandeling",
+    "vionto.usermenu.profileSettings": "Profielinstellingen",
+    "vionto.usermenu.refreshSession": "Sessie vernieuwen",
+    "vionto.topbar.switchToLight": "Schakel naar licht thema",
+    "vionto.topbar.switchToDark": "Schakel naar donker thema",
+    "vionto.topbar.switchApp": "Wissel app",
+
     "vionto.upload.eyebrow": "Uploads",
     "vionto.upload.title": "Upload een herinneringenset",
     "vionto.upload.subtitle":
@@ -871,6 +896,18 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.music.uploadArtist": "Geüpload",
   },
   fr: {
+    "vionto.nav.dashboard": "Tableau de bord",
+    "vionto.nav.projects": "Projets",
+    "vionto.nav.organizer": "Organisateur",
+    "vionto.usermenu.user": "Utilisateur",
+    "vionto.usermenu.verified": "Vérifié",
+    "vionto.usermenu.verificationPending": "Vérification en attente",
+    "vionto.usermenu.profileSettings": "Paramètres du profil",
+    "vionto.usermenu.refreshSession": "Rafraîchir la session",
+    "vionto.topbar.switchToLight": "Passer au thème clair",
+    "vionto.topbar.switchToDark": "Passer au thème sombre",
+    "vionto.topbar.switchApp": "Changer d'application",
+
     "vionto.upload.eyebrow": "Uploads",
     "vionto.upload.title": "Uploader un ensemble de souvenirs",
     "vionto.upload.subtitle":
@@ -1201,6 +1238,18 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.music.select": "Sélectionner",
   },
   de: {
+    "vionto.nav.dashboard": "Dashboard",
+    "vionto.nav.projects": "Projekte",
+    "vionto.nav.organizer": "Organizer",
+    "vionto.usermenu.user": "Benutzer",
+    "vionto.usermenu.verified": "Verifiziert",
+    "vionto.usermenu.verificationPending": "Verifizierung ausstehend",
+    "vionto.usermenu.profileSettings": "Profileinstellungen",
+    "vionto.usermenu.refreshSession": "Sitzung aktualisieren",
+    "vionto.topbar.switchToLight": "Zum hellen Thema wechseln",
+    "vionto.topbar.switchToDark": "Zum dunklen Thema wechseln",
+    "vionto.topbar.switchApp": "App wechseln",
+
     "vionto.upload.eyebrow": "Uploads",
     "vionto.upload.title": "Erinnerungsset hochladen",
     "vionto.upload.subtitle":

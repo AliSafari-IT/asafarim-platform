@@ -35,4 +35,5 @@ export {
   nl,
   fr,
   de,
+  lb,
 } from "./dictionaries";
