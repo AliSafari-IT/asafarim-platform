@@ -158,8 +158,8 @@ export const site = {
       },
     ],
     craft: [
-      "TypeScript and React on the front, .NET and Node.js on the back",
-      "PostgreSQL as the source of truth, Prisma or EF Core on top",
+      "TypeScript and React on the front, Node.js on the back",
+      "PostgreSQL as the source of truth, Prisma on top",
       "One shared authentication and role system across every app",
       "Docker, Caddy/nginx, and calm VPS operations",
       "AI where it genuinely removes work, not where it demos well",

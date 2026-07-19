@@ -137,3 +137,44 @@ export const Mail = (p: IconProps) => (
     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
   </Base>
 );
+
+export const Sparkles = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0z" />
+    <path d="M20 3v4" />
+    <path d="M22 5h-4" />
+    <path d="M4 17v2" />
+    <path d="M5 18H3" />
+  </Base>
+);
+
+export const Building = (p: IconProps) => (
+  <Base {...p}>
+    <rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
+    <path d="M9 22v-4h6v4" />
+    <path d="M8 6h.01" />
+    <path d="M16 6h.01" />
+    <path d="M12 6h.01" />
+    <path d="M12 10h.01" />
+    <path d="M12 14h.01" />
+    <path d="M16 10h.01" />
+    <path d="M16 14h.01" />
+    <path d="M8 10h.01" />
+    <path d="M8 14h.01" />
+  </Base>
+);
+
+export const Cpu = (p: IconProps) => (
+  <Base {...p}>
+    <rect width="16" height="16" x="4" y="4" rx="2" />
+    <rect width="6" height="6" x="9" y="9" rx="1" />
+    <path d="M15 2v2" />
+    <path d="M15 20v2" />
+    <path d="M2 15h2" />
+    <path d="M2 9h2" />
+    <path d="M20 15h2" />
+    <path d="M20 9h2" />
+    <path d="M9 2v2" />
+    <path d="M9 20v2" />
+  </Base>
+);

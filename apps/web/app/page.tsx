@@ -6,9 +6,11 @@ import {
   ArrowUpRight,
   Bot,
   Briefcase,
+  Building,
   CalendarClock,
   Check,
   Clock,
+  Cpu,
   Github,
   Globe,
   Handshake,
@@ -16,6 +18,7 @@ import {
   Mail,
   MapPin,
   Package,
+  Sparkles,
   Terminal,
 } from "./_home/icons";
 import styles from "./page.module.css";
@@ -29,16 +32,65 @@ const grotesk = Space_Grotesk({
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Ali Safari — Full-stack Developer & Technical Coordinator",
+  title: "Ali Safari — Full-stack/AI Developer & Technical Coordinator",
   description:
-    "Full-stack developer (React / TypeScript / .NET) and Technical Coordinator in Belgium. Open-source everything; available for Employee, Flexi-job, or Part-time collaboration.",
+    "Full-stack & AI application developer (React / TypeScript / Next.js / Node.js / Prisma / PostgreSQL / Auth.js) in Belgium. Open-source everything; available for Employee, Flexi-job, or Part-time collaboration.",
   alternates: { canonical: "/" },
 };
 
 const GITHUB = site.contact.github;
 const EMAIL = site.contact.email;
 
-export default function HomePage() {
+async function fetchNpmPackageCount(
+  username: string,
+  fallback = 34
+): Promise<number> {
+  try {
+    const searchTerm = username.includes(".")
+      ? username.split(".")[0]
+      : username;
+    const size = 250;
+    let from = 0;
+    let count = 0;
+    let total = 0;
+
+    do {
+      const res = await fetch(
+        `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(
+          searchTerm
+        )}&size=${size}&from=${from}`,
+        { next: { revalidate: 86400 } }
+      );
+      if (!res.ok) return fallback;
+      const data = (await res.json()) as {
+        total: number;
+        objects: {
+          package: {
+            publisher?: { username?: string };
+            author?: { name?: string };
+          };
+        }[];
+      };
+      total = data.total;
+      const matches = data.objects.filter(
+        (obj) =>
+          obj.package.publisher?.username === username ||
+          obj.package.author?.name === username
+      );
+      count += matches.length;
+      from += size;
+    } while (from < total);
+
+    return count > 0 ? count : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export default async function HomePage() {
+  // Live count from npm search; falls back to 34 if the registry is unreachable.
+  const openSourcePackageNr = await fetchNpmPackageCount("asafarim.be", 34);
+
   return (
     <div
       data-home-fullbleed
@@ -53,29 +105,31 @@ export default function HomePage() {
         <div className={styles.blob + " " + styles.blob3} data-parallax="0.05" />
 
         <div className={styles.heroInner}>
-          <div className={styles.avail} data-reveal>
-            <span className={styles.dot} />
-            <span>Available for collaboration</span>
-          </div>
+          <div className={styles.heroLeft}>
+            <div className={styles.avail} data-reveal>
+              <span className={styles.dot} />
+              <span>Available for collaboration</span>
+            </div>
 
-          <h1 className={`${styles.display} ${styles.heroTitle}`}>
-            <span data-reveal>FULL-STACK</span>
-            <span className={styles.stroke} data-reveal>
-              DEVELOPER
-            </span>
-            <span data-reveal>
-              &amp; <em className={styles.accentGrad}>BUILDER.</em>
-            </span>
-          </h1>
+            <h1 className={`${styles.display} ${styles.heroTitle}`}>
+              <span data-reveal>FULL-STACK</span>
+              <span className={styles.stroke} data-reveal>
+                DEVELOPER
+              </span>
+              <span data-reveal>
+                &amp; <em className={styles.accentGrad}>AI BUILDER.</em>
+              </span>
+            </h1>
 
-          <div className={styles.heroBottom} data-reveal>
-            <p className={`${styles.lede} ${styles.grotesk}`}>
-              I&apos;m <strong>Ali Safari</strong>{" "}&mdash;{" "}a full-stack developer (React /
-              TypeScript / .NET) and Technical Coordinator at Probex Belgium. I build AI-powered
-              tools and ship open-source apps &amp; packages that are{" "}
+            <p className={`${styles.lede} ${styles.grotesk}`} data-reveal>
+              I&apos;m <strong>Ali Safari</strong>{" "}&mdash;{" "}a full-stack developer (Next.js /
+              React / TypeScript / Prisma / PostgreSQL / Auth.js) and, since 2026, an{" "}
+              <strong>AI application developer at Probex Belgium </strong> in Genk. I build
+              AI-powered tools and ship open-source apps &amp; packages that are{" "}
               <span className={styles.accent}>free for everyone</span>.
             </p>
-            <div className={styles.ctaRow}>
+
+            <div className={styles.ctaRow} data-reveal>
               <a href="#hire" className={styles.btnPrimary}>
                 Work with me <Handshake size={16} />
               </a>
@@ -84,15 +138,61 @@ export default function HomePage() {
               </a>
             </div>
           </div>
+
+          {/* Current-focus card — surfaces the AI role and fills the hero's right column. */}
+          <aside className={styles.heroCard} data-reveal data-tilt>
+            <div className={styles.heroCardTop}>
+              <span className={styles.heroCardNow}>
+                <Sparkles size={14} /> Now
+              </span>
+              <span className={styles.heroCardYear}>2026 &rarr;</span>
+            </div>
+            <h2 className={styles.heroCardRole}>AI / Full-Stack Application Developer</h2>
+            <p className={styles.heroCardOrg}>
+              <Building size={15} /> Probex Belgium
+              <span className={styles.heroCardDot} />
+              <MapPin size={15} /> Genk, BE
+            </p>
+            <p className={styles.heroCardDesc}>
+              Building production AI apps — LLM-powered tooling, automation, and data-driven
+              products, end to end.
+            </p>
+            <div className={styles.heroChips}>
+              {["LLMs", "RAG", "Automation", "Next.js", "Node.js"].map((chip) => (
+                <span key={chip} className={styles.heroChip}>
+                  {chip}
+                </span>
+              ))}
+            </div>
+            <div className={styles.heroCardProjects}>
+              <a
+                href="https://immostory.ai"
+                target="_blank"
+                rel="noreferrer"
+                className={styles.heroProject}
+              >
+                <span>
+                  <strong>immostory.ai</strong> — AI listings, in production
+                </span>
+                <ArrowUpRight size={14} />
+              </a>
+              <a href="/projects" className={styles.heroProject}>
+                <span>
+                  <strong>Vionto</strong> — AI photo-to-story app
+                </span>
+                <ArrowUpRight size={14} />
+              </a>
+            </div>
+          </aside>
         </div>
       </section>
 
       {/* ── Marquee ──────────────────────────────────────────── */}
       <div className={styles.marqueeWrap}>
         <div className={styles.marquee}>
-          <span>REACT ✦ TYPESCRIPT ✦ .NET ✦ NEXT.JS ✦ AI &amp; AUTOMATION ✦ OPEN SOURCE ✦&nbsp;</span>
+          <span>REACT ✦ TYPESCRIPT ✦ NEXT.JS ✦ NODE.JS ✦ PRISMA ✦ AI &amp; AUTOMATION ✦ OPEN SOURCE ✦&nbsp;</span>
           <span aria-hidden="true">
-            REACT ✦ TYPESCRIPT ✦ .NET ✦ NEXT.JS ✦ AI &amp; AUTOMATION ✦ OPEN SOURCE ✦&nbsp;
+            REACT ✦ TYPESCRIPT ✦ NEXT.JS ✦ NODE.JS ✦ PRISMA ✦ AI &amp; AUTOMATION ✦ OPEN SOURCE ✦&nbsp;
           </span>
         </div>
       </div>
@@ -100,10 +200,11 @@ export default function HomePage() {
       {/* ── Stats ────────────────────────────────────────────── */}
       <section className={styles.stats}>
         {[
-          { n: 10, s: "+", label: "Years coding", cls: styles.accent },
-          { n: 40, s: "+", label: "Repositories", cls: "" },
-          { n: 100, s: "%", label: "Free & open", cls: "" },
-          { n: 3, s: "", label: "Live platforms", cls: styles.accentBlush },
+          { n: 6, s: "+", label: "Years coding", cls: styles.accent },
+          { n: 100, s: "+", label: "GitHub Repositories", cls: "" },
+          { n: 100, s: "%", label: "Free & open", cls: styles.accentSky },
+          { n: openSourcePackageNr, s: "+", label: "Open Source packages", cls: styles.accent },
+          { n: 4, s: "", label: "Live platforms", cls: styles.accentBlush },
         ].map((stat) => (
           <div key={stat.label} data-reveal>
             <div
@@ -133,11 +234,15 @@ export default function HomePage() {
           <div className={styles.prose} data-reveal>
             <p>
               Based in Belgium, I work across the full stack — React &amp; TypeScript on the front,
-              .NET on the back — with a strong focus on automation and AI-powered tooling.
+              Node.js with Prisma &amp; PostgreSQL on the back — with a strong focus on automation
+              and AI-powered tooling.
             </p>
             <p>
-              As Technical Coordinator at <strong>Probex Belgium</strong>, I bridge engineering and
-              delivery: turning fuzzy requirements into shipped, maintainable systems.
+              Since early 2026 I&apos;ve been an <strong>AI application developer at Probex
+              Belgium</strong> in Genk, building production AI systems — from LLM-powered features
+              and retrieval pipelines to the automation that keeps them running. I collaborated on
+              shipping <strong>immostory.ai</strong> to production, and my own{" "}
+              <strong>Vionto</strong> app turns photos into stories with AI.
             </p>
             <p>
               Everything I publish — apps, libraries, and packages — I release{" "}
@@ -168,8 +273,8 @@ export default function HomePage() {
             <Package size={36} className={styles.cardIcon} />
             <h3 className={styles.cardTitle}>Reusable Packages</h3>
             <p className={styles.cardText}>
-              Battle-tested React &amp; TypeScript libraries and .NET utilities, published for anyone
-              to drop into their own projects.
+              Battle-tested React &amp; TypeScript libraries and Node.js utilities, published for
+              anyone to drop into their own projects.
             </p>
             <span className={styles.cardTag}>
               npm &amp; NuGet <ArrowUpRight size={14} />
@@ -179,14 +284,17 @@ export default function HomePage() {
             <Bot size={36} style={{ color: "var(--blush)" }} />
             <h3 className={styles.cardTitle}>AI Tools</h3>
             <p className={styles.cardText}>
-              AI-powered apps that automate repetitive work and speed up real workflows.
+              LLM-powered apps &amp; retrieval pipelines — the work behind Vionto and immostory.ai.
             </p>
+            <span className={styles.cardTag} style={{ color: "var(--blush)" }}>
+              LLMs &amp; RAG <Cpu size={14} />
+            </span>
           </article>
           <article className={`${styles.card} ${styles.span2} ${styles.tilt}`} data-reveal data-tilt>
             <LayoutDashboard size={36} style={{ color: "var(--sky)" }} />
             <h3 className={styles.cardTitle}>Web Apps</h3>
             <p className={styles.cardText}>
-              Full-stack applications built with Next.js, React and .NET APIs.
+              Full-stack applications built with Next.js, React and Node.js APIs.
             </p>
           </article>
           <article className={`${styles.card} ${styles.span4} ${styles.tilt}`} data-reveal data-tilt>
@@ -296,7 +404,7 @@ export default function HomePage() {
           </p>
           <div className={styles.quoteBy} data-reveal>
             <span className={styles.quoteAvatar} />
-            <span>Ali Safari — Full-stack Developer, Belgium</span>
+            <span>Ali Safari — Full-stack/AI Developer, Belgium</span>
           </div>
         </div>
       </section>
