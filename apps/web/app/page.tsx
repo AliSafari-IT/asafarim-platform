@@ -41,6 +41,18 @@ export const metadata: Metadata = {
 const GITHUB = site.contact.github;
 const EMAIL = site.contact.email;
 
+const MARQUEE_ITEMS: { icon: string; label: string }[] = [
+  { icon: "⚛️", label: "REACT" },
+  { icon: "🔷", label: "TYPESCRIPT" },
+  { icon: "▲", label: "NEXT.JS" },
+  { icon: "🟢", label: "NODE.JS" },
+  { icon: "◆", label: "PRISMA" },
+  { icon: "🤖", label: "AI & AUTOMATION" },
+  { icon: "🧠", label: "LLMS & RAG" },
+  { icon: "🐳", label: "DOCKER" },
+  { icon: "📦", label: "OPEN SOURCE" },
+];
+
 async function fetchNpmPackageCount(
   username: string,
   fallback = 34
@@ -190,10 +202,16 @@ export default async function HomePage() {
       {/* ── Marquee ──────────────────────────────────────────── */}
       <div className={styles.marqueeWrap}>
         <div className={styles.marquee}>
-          <span>REACT ✦ TYPESCRIPT ✦ NEXT.JS ✦ NODE.JS ✦ PRISMA ✦ AI &amp; AUTOMATION ✦ OPEN SOURCE ✦&nbsp;</span>
-          <span aria-hidden="true">
-            REACT ✦ TYPESCRIPT ✦ NEXT.JS ✦ NODE.JS ✦ PRISMA ✦ AI &amp; AUTOMATION ✦ OPEN SOURCE ✦&nbsp;
-          </span>
+          {[false, true].map((hidden) => (
+            <span key={hidden ? "dup" : "main"} aria-hidden={hidden || undefined}>
+              {MARQUEE_ITEMS.map(({ icon, label }, i) => (
+                <span key={i} className={styles.marqueeItem}>
+                  <span aria-hidden="true">{icon}</span> {label}
+                  {i < MARQUEE_ITEMS.length - 1 ? <span> ✦ </span> : <span>&nbsp;✦&nbsp;</span>}
+                </span>
+              ))}
+            </span>
+          ))}
         </div>
       </div>
 
