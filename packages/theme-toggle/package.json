@@ -1,0 +1,24 @@
+{
+  "name": "@asafarim/theme-toggle",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared light/dark theme toggle for all ASafarIM apps — provider, no-flash script, and a token-styled toggle button.",
+  "main": "./src/index.tsx",
+  "types": "./src/index.tsx",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@asafarim/config": "workspace:*",
+    "@types/react": "^19.2.17",
+    "react": "^19.2.7",
+    "typescript": "^5.7.0"
+  }
+}

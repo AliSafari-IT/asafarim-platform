@@ -5,6 +5,7 @@ import { auth, signOut } from "@asafarim/auth";
 import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
+import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
 import {
   AppShell,
   AppSwitcher,
@@ -69,6 +70,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang={initialLocale} suppressHydrationWarning>
       <head>
+        <ThemeScript defaultTheme="system" />
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
@@ -77,6 +79,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body data-app="web">
         <I18nProvider initialLocale={initialLocale}>
+        <ThemeProvider defaultTheme="light">
         <AppShell
           product="Digital"
           nav={
@@ -92,6 +95,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           }
           user={
             <>
+              <ThemeToggle />
               <CountryLanguageSelector lockCountry="BE" />
               <AppSwitcher
                 links={[
@@ -140,6 +144,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         >
           {children}
         </AppShell>
+        </ThemeProvider>
         </I18nProvider>
       </body>
     </html>
