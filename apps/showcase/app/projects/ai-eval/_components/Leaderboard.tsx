@@ -1,24 +1,28 @@
+"use client";
+
 import type { LeaderboardRow } from "../_data/types";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { ScoreBar } from "./ScoreBar";
 import { fmtCostPer1k, fmtLatency } from "./format";
 import styles from "./ai-eval.module.css";
 
 /** Ranked leaderboard over the checked-in fixture results. */
 export function Leaderboard({ rows }: { rows: LeaderboardRow[] }) {
+  const { t } = useTranslation();
   return (
     <div style={{ overflowX: "auto" }}>
       <table className={styles.table}>
         <thead>
           <tr>
-            <th>#</th>
-            <th>Model</th>
-            <th>Overall</th>
-            <th>Correct</th>
-            <th>Grounded</th>
-            <th>Format</th>
-            <th>Safety</th>
-            <th>Latency</th>
-            <th>$/1k</th>
+            <th>{t("showcase.aiEval.leaderboard.table.rank")}</th>
+            <th>{t("showcase.aiEval.leaderboard.table.model")}</th>
+            <th>{t("showcase.aiEval.leaderboard.table.overall")}</th>
+            <th>{t("showcase.aiEval.leaderboard.table.correct")}</th>
+            <th>{t("showcase.aiEval.leaderboard.table.grounded")}</th>
+            <th>{t("showcase.aiEval.leaderboard.table.format")}</th>
+            <th>{t("showcase.aiEval.leaderboard.table.safety")}</th>
+            <th>{t("showcase.aiEval.leaderboard.table.latency")}</th>
+            <th>{t("showcase.aiEval.leaderboard.table.costPer1k")}</th>
           </tr>
         </thead>
         <tbody>

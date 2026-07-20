@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { PageHeader, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../../lib/i18n-dictionaries";
 import { EdumatchNav } from "../_components/EdumatchNav";
 import { FixtureBanner } from "../_components/FixtureBanner";
 import { JourneySim } from "../_components/JourneySim";
@@ -10,36 +16,47 @@ export const metadata: Metadata = {
     "The inquiry -> proposal -> booking journey across student, tutor, and moderator perspectives, in a safe demo mode with no external side effects.",
 };
 
-export default function EdumatchJourneyPage() {
+export default async function EdumatchJourneyPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
   return (
     <>
       <PageHeader
-        kicker="Journey"
+        kicker={t("showcase.edumatch.journey.pageHeader.kicker")}
         kickerIndex="04"
-        title="Inquiry → proposal → booking"
-        description="The same journey, viewed from three roles. This is where matching output meets trust, permissions, and business workflow — the part a bare ranking algorithm never has to solve."
+        title={t("showcase.edumatch.journey.pageHeader.title")}
+        description={t("showcase.edumatch.journey.pageHeader.description")}
       />
 
       <EdumatchNav active="/projects/edumatch/journey" />
 
       <FixtureBanner />
 
-      <Section kicker="Multi-role" kickerIndex="01" title="Walk the journey">
-        <Panel title="safe demo mode — no network calls, nothing stored">
+      <Section
+        kicker={t("showcase.edumatch.journey.section.demo.kicker")}
+        kickerIndex="01"
+        title={t("showcase.edumatch.journey.section.demo.title")}
+      >
+        <Panel title={t("showcase.edumatch.journey.panel.demo")}>
           <JourneySim />
         </Panel>
       </Section>
 
-      <Section kicker="Why it matters" kickerIndex="02" title="Trust, not just ranking">
+      <Section
+        kicker={t("showcase.edumatch.journey.section.why.kicker")}
+        kickerIndex="02"
+        title={t("showcase.edumatch.journey.section.why.title")}
+      >
         <div className="ui-grid">
-          <Panel title="Student">
-            <p>Trusts that a recommended tutor is genuinely qualified and available — not just highly rated.</p>
+          <Panel title={t("showcase.edumatch.journey.student.title")}>
+            <p>{t("showcase.edumatch.journey.student.body")}</p>
           </Panel>
-          <Panel title="Tutor">
-            <p>Trusts that proposals reach students whose needs they can actually meet, and that ratings reflect real match quality.</p>
+          <Panel title={t("showcase.edumatch.journey.tutor.title")}>
+            <p>{t("showcase.edumatch.journey.tutor.body")}</p>
           </Panel>
-          <Panel title="Moderator">
-            <p>Needs visibility into every booking and a way to intervene — the flag action here stands in for a real trust &amp; safety workflow.</p>
+          <Panel title={t("showcase.edumatch.journey.moderator.title")}>
+            <p>{t("showcase.edumatch.journey.moderator.body")}</p>
           </Panel>
         </div>
       </Section>

@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Badge, PageHeader, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../../lib/i18n-dictionaries";
 import { EdumatchNav } from "../_components/EdumatchNav";
 import { FixtureBanner } from "../_components/FixtureBanner";
 import { matchResults, benchmarkScores } from "../_data/benchmark";
@@ -13,8 +19,12 @@ export const metadata: Metadata = {
 
 const TWIN_A = "T-01";
 const TWIN_B = "T-04";
+const COHORT = "cohort";
 
-export default function EdumatchFairnessPage() {
+export default async function EdumatchFairnessPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
   const twinRows = matchResults
     .map((m) => {
       const a = m.ranked.find((r) => r.tutorId === TWIN_A);
@@ -28,33 +38,40 @@ export default function EdumatchFairnessPage() {
   return (
     <>
       <PageHeader
-        kicker="Fairness"
+        kicker={t("showcase.edumatch.fairness.pageHeader.kicker")}
         kickerIndex="04"
-        title="A twin pair, and an edge case with no answer"
-        description="Fairness here means the engine is provably blind to an attribute it was never given. The no-qualified-tutor case shows the engine can say 'nobody' instead of forcing a bad match."
+        title={t("showcase.edumatch.fairness.pageHeader.title")}
+        description={t("showcase.edumatch.fairness.pageHeader.description")}
       />
 
       <EdumatchNav active="/projects/edumatch/fairness" />
 
       <FixtureBanner />
 
-      <Section kicker="Method" kickerIndex="01" title="The constraint-identical twin pair">
-        <Panel title={`${TWIN_A} · ${TWIN_B} — identical qualifications, different cohort tag`}>
+      <Section
+        kicker={t("showcase.edumatch.fairness.section.method.kicker")}
+        kickerIndex="01"
+        title={t("showcase.edumatch.fairness.section.method.title")}
+      >
+        <Panel
+          title={t("showcase.edumatch.fairness.panel.title")
+            .replace("{twinA}", TWIN_A)
+            .replace("{twinB}", TWIN_B)}
+        >
           <p>
-            Tutors <code>{TWIN_A}</code> and <code>{TWIN_B}</code> are fixture-designed to be
-            identical on every matching attribute (subjects, levels, languages, modes,
-            availability, location, rating, verification) and differ only in a neutral{" "}
-            <code>cohort</code> tag the engine never reads. Any score difference between them
-            would mean the engine is reacting to something outside its declared factors.
+            {t("showcase.edumatch.fairness.method.intro")
+              .replace("{twinA}", TWIN_A)
+              .replace("{twinB}", TWIN_B)
+              .replace("{cohort}", COHORT)}
           </p>
           <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Need</th>
-                  <th>{TWIN_A} composite</th>
-                  <th>{TWIN_B} composite</th>
-                  <th>Delta</th>
+                  <th>{t("showcase.edumatch.fairness.table.need")}</th>
+                  <th>{t("showcase.edumatch.fairness.table.twinA").replace("{twinA}", TWIN_A)}</th>
+                  <th>{t("showcase.edumatch.fairness.table.twinB").replace("{twinB}", TWIN_B)}</th>
+                  <th>{t("showcase.edumatch.fairness.table.delta")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -64,15 +81,15 @@ export default function EdumatchFairnessPage() {
                       <div>{row.label}</div>
                       <div className={styles.mono}>{row.needId}</div>
                     </td>
-                    <td className={styles.num}>{row.a ? row.a.composite.toFixed(3) : "excluded"}</td>
-                    <td className={styles.num}>{row.b ? row.b.composite.toFixed(3) : "excluded"}</td>
+                    <td className={styles.num}>{row.a ? row.a.composite.toFixed(3) : t("showcase.edumatch.fairness.table.excluded")}</td>
+                    <td className={styles.num}>{row.b ? row.b.composite.toFixed(3) : t("showcase.edumatch.fairness.table.excluded")}</td>
                     <td className={styles.num}>
                       {row.a && row.b ? (
                         <Badge tone={row.a.composite === row.b.composite ? "success" : "danger"}>
                           {Math.abs(row.a.composite - row.b.composite).toFixed(3)}
                         </Badge>
                       ) : (
-                        <span className="u-muted">both excluded together</span>
+                        <span className="u-muted">{t("showcase.edumatch.fairness.table.bothExcluded")}</span>
                       )}
                     </td>
                   </tr>
@@ -81,27 +98,30 @@ export default function EdumatchFairnessPage() {
             </table>
           </div>
           <p className="u-muted" style={{ marginTop: "0.6rem" }}>
-            Measured maximum delta across every need: {benchmarkScores.dimensions.fairness.value.toFixed(3)}.
+            {t("showcase.edumatch.fairness.maxDelta")
+              .replace("{value}", benchmarkScores.dimensions.fairness.value.toFixed(3))}
           </p>
         </Panel>
       </Section>
 
       {noMatchNeed ? (
-        <Section kicker="Edge case" kickerIndex="02" title="When nobody qualifies">
+        <Section
+          kicker={t("showcase.edumatch.fairness.section.edge.kicker")}
+          kickerIndex="02"
+          title={t("showcase.edumatch.fairness.section.edge.title")}
+        >
           <Panel title={`${noMatchNeed.needId} — ${noMatchNeed.label}`}>
             <p>
-              No fixture tutor teaches <strong>{noMatchNeed.subject}</strong>. Every one of the{" "}
-              {noMatchNeed.excluded.length} tutors is excluded on the subject constraint, and the
-              engine returns an empty ranked list rather than relaxing a requirement to force a
-              result. Showing "no match" honestly is part of what constraint satisfaction means
-              here.
+              {t("showcase.edumatch.fairness.edge.body")
+                .replace("{subject}", noMatchNeed.subject)
+                .replace("{count}", String(noMatchNeed.excluded.length))}
             </p>
             <div style={{ overflowX: "auto", marginTop: "0.75rem" }}>
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Tutor</th>
-                    <th>Excluded because</th>
+                    <th>{t("showcase.edumatch.fairness.edge.table.tutor")}</th>
+                    <th>{t("showcase.edumatch.fairness.edge.table.excludedBecause")}</th>
                   </tr>
                 </thead>
                 <tbody>

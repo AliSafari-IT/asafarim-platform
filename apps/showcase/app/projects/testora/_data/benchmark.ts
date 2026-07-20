@@ -12,7 +12,7 @@ export const runDetail = runDetailJson as RunDetail;
 export const runsHistory = runsJson as RunsHistory;
 
 /** The five dimensions Testora scores, straight from issue #7. */
-export const dimensions: BenchmarkDimension[] = [
+const dimensionsBase: BenchmarkDimension[] = [
   {
     key: "detection",
     name: "Detection rate",
@@ -50,7 +50,7 @@ export const dimensions: BenchmarkDimension[] = [
   },
 ];
 
-export const methodology = {
+const methodologyBase = {
   summary:
     "Testora measures a test-automation setup against a fixed, offline sample application that carries intentional, seeded defects. Because the system under test is deterministic, the benchmark can state exactly what a good suite should find — and prove it finds it on every run.",
   determinism:
@@ -58,3 +58,49 @@ export const methodology = {
   provenance:
     "These pages render committed fixture JSON distilled from a real Playwright run. The public demo never executes any test code. The runnable harness and CI upload the real traces, screenshots, and videos as the citable source.",
 };
+
+export function getDimensions(t: (key: string) => string): BenchmarkDimension[] {
+  return [
+    {
+      key: "detection",
+      name: t("showcase.testora.overview.dimensions.detection.name"),
+      question: t("showcase.testora.overview.dimensions.detection.question"),
+      method: t("showcase.testora.overview.dimensions.detection.method"),
+    },
+    {
+      key: "flaky",
+      name: t("showcase.testora.overview.dimensions.flaky.name"),
+      question: t("showcase.testora.overview.dimensions.flaky.question"),
+      method: t("showcase.testora.overview.dimensions.flaky.method"),
+    },
+    {
+      key: "diagnosis",
+      name: t("showcase.testora.overview.dimensions.diagnosis.name"),
+      question: t("showcase.testora.overview.dimensions.diagnosis.question"),
+      method: t("showcase.testora.overview.dimensions.diagnosis.method"),
+    },
+    {
+      key: "artifacts",
+      name: t("showcase.testora.overview.dimensions.artifacts.name"),
+      question: t("showcase.testora.overview.dimensions.artifacts.question"),
+      method: t("showcase.testora.overview.dimensions.artifacts.method"),
+    },
+    {
+      key: "reproducibility",
+      name: t("showcase.testora.overview.dimensions.reproducibility.name"),
+      question: t("showcase.testora.overview.dimensions.reproducibility.question"),
+      method: t("showcase.testora.overview.dimensions.reproducibility.method"),
+    },
+  ];
+}
+
+export function getMethodology(t: (key: string) => string) {
+  return {
+    summary: t("showcase.testora.overview.methodology.summary"),
+    determinism: t("showcase.testora.overview.method.determinism.body"),
+    provenance: t("showcase.testora.overview.method.provenance.body"),
+  };
+}
+
+export const dimensions = dimensionsBase;
+export const methodology = methodologyBase;

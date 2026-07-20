@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslation } from "@asafarim/shared-i18n";
 import type { TrendRun } from "../_data/types";
 import styles from "./testora.module.css";
 
@@ -23,6 +26,7 @@ function points(runs: TrendRun[], pick: (r: TrendRun) => number): string {
  * committed fixture runs. No JS, no libraries — renders identically every time.
  */
 export function TrendChart({ runs }: { runs: TrendRun[] }) {
+  const { t } = useTranslation();
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
   const stepX = runs.length > 1 ? innerW / (runs.length - 1) : 0;
@@ -35,7 +39,7 @@ export function TrendChart({ runs }: { runs: TrendRun[] }) {
           className={styles.chart}
           viewBox={`0 0 ${W} ${H}`}
           role="img"
-          aria-label="Detection rate and pass rate across fixture runs"
+          aria-label={t("showcase.testora.trend.chart.aria")}
         >
           {/* gridlines + Y labels */}
           {gridY.map((g) => {
@@ -107,14 +111,14 @@ export function TrendChart({ runs }: { runs: TrendRun[] }) {
             className={styles.swatch}
             style={{ background: "var(--accent)" }}
           />
-          Detection rate (% of seeded regressions caught)
+          {t("showcase.testora.trend.chart.legend.detection")}
         </span>
         <span className={styles.legendItem}>
           <span
             className={styles.swatch}
             style={{ background: "var(--muted)" }}
           />
-          Pass rate (% of all cases green)
+          {t("showcase.testora.trend.chart.legend.passRate")}
         </span>
       </div>
     </div>

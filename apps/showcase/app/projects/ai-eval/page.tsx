@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { ButtonLink, Card, Hero, Metric, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../lib/i18n-dictionaries";
 import { AiEvalNav } from "./_components/AiEvalNav";
 import { FixtureBanner } from "./_components/FixtureBanner";
 import {
-  dimensions,
+  getScenarioMeta,
+  getDimensions,
+  getMethodology,
   leaderboard,
-  methodology,
-  scenarioMeta,
 } from "./_data/benchmark";
 import styles from "./_components/ai-eval.module.css";
 
@@ -16,20 +22,28 @@ export const metadata: Metadata = {
     "A provider-neutral, fixture-mode AI benchmark: versioned prompts and synthetic datasets scored for correctness, groundedness, format compliance, latency, cost, and safety — reproducibly, with no API keys.",
 };
 
-export default function AiEvalOverviewPage() {
+export default async function AiEvalOverviewPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
   const top = leaderboard.models[0];
+  const scenarioMeta = getScenarioMeta((key) => t(key));
+  const dimensions = getDimensions((key) => t(key));
+  const methodology = getMethodology((key) => t(key));
   return (
     <>
       <Hero
-        kicker="Exhibit № 04 · AI Evaluation"
+        kicker={t("showcase.aiEval.overview.hero.kicker")}
         kickerIndex="04"
-        title="An AI Evaluation Lab — reproducible, not a chatbot demo."
-        lede="Provider-neutral model aliases scored against versioned prompts and synthetic datasets across three neutral scenarios. It runs offline in fixture mode with no API keys, and it produces the same numbers every time."
+        title={t("showcase.aiEval.overview.hero.title")}
+        lede={t("showcase.aiEval.overview.hero.lede")}
         actions={
           <>
-            <ButtonLink href="/projects/ai-eval/leaderboard">See the leaderboard</ButtonLink>
+            <ButtonLink href="/projects/ai-eval/leaderboard">
+              {t("showcase.aiEval.overview.hero.ctaPrimary")}
+            </ButtonLink>
             <ButtonLink href="/projects/ai-eval/case-study" variant="secondary">
-              Read the case study
+              {t("showcase.aiEval.overview.hero.ctaSecondary")}
             </ButtonLink>
           </>
         }
@@ -39,18 +53,50 @@ export default function AiEvalOverviewPage() {
 
       <FixtureBanner />
 
-      <Section kicker="Headline" kickerIndex="01" title="What the reference run shows">
+      <Section
+        kicker={t("showcase.aiEval.overview.headline.kicker")}
+        kickerIndex="01"
+        title={t("showcase.aiEval.overview.headline.title")}
+      >
         <div className="ui-grid ui-grid--metrics">
-          <Metric label="Top overall" value={`${Math.round(top.overall * 100)}%`} hint={top.label} />
-          <Metric label="Models" value={leaderboard.models.length} hint="provider-neutral aliases" />
-          <Metric label="Scenarios" value={scenarioMeta.length} hint="neutral tasks" />
-          <Metric label="Dimensions" value={dimensions.length} hint="scored per case" />
-          <Metric label="Prompt" value={leaderboard.version} hint="version under test" />
-          <Metric label="API keys" value="0" hint="fixture mode, offline" />
+          <Metric
+            label={t("showcase.aiEval.overview.metrics.topOverall.label")}
+            value={`${Math.round(top.overall * 100)}%`}
+            hint={top.label}
+          />
+          <Metric
+            label={t("showcase.aiEval.overview.metrics.models.label")}
+            value={leaderboard.models.length}
+            hint={t("showcase.aiEval.overview.metrics.models.hint")}
+          />
+          <Metric
+            label={t("showcase.aiEval.overview.metrics.scenarios.label")}
+            value={scenarioMeta.length}
+            hint={t("showcase.aiEval.overview.metrics.scenarios.hint")}
+          />
+          <Metric
+            label={t("showcase.aiEval.overview.metrics.dimensions.label")}
+            value={dimensions.length}
+            hint={t("showcase.aiEval.overview.metrics.dimensions.hint")}
+          />
+          <Metric
+            label={t("showcase.aiEval.overview.metrics.prompt.label")}
+            value={leaderboard.version}
+            hint={t("showcase.aiEval.overview.metrics.prompt.hint")}
+          />
+          <Metric
+            label={t("showcase.aiEval.overview.metrics.apiKeys.label")}
+            value="0"
+            hint={t("showcase.aiEval.overview.metrics.apiKeys.hint")}
+          />
         </div>
       </Section>
 
-      <Section kicker="Tasks" kickerIndex="02" title="Three neutral scenarios">
+      <Section
+        kicker={t("showcase.aiEval.overview.tasks.kicker")}
+        kickerIndex="02"
+        title={t("showcase.aiEval.overview.tasks.title")}
+      >
         <div className="ui-grid ui-grid--wide">
           {scenarioMeta.map((s, i) => (
             <Card key={s.key} variant="gallery" title={`${String(i + 1).padStart(2, "0")} · ${s.name}`}>
@@ -60,14 +106,18 @@ export default function AiEvalOverviewPage() {
         </div>
       </Section>
 
-      <Section kicker="Scoring" kickerIndex="03" title="Six dimensions">
+      <Section
+        kicker={t("showcase.aiEval.overview.scoring.kicker")}
+        kickerIndex="03"
+        title={t("showcase.aiEval.overview.scoring.title")}
+      >
         <div style={{ overflowX: "auto" }}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Dimension</th>
-                <th>Question</th>
-                <th>How it's measured</th>
+                <th>{t("showcase.aiEval.overview.scoring.table.dimension")}</th>
+                <th>{t("showcase.aiEval.overview.scoring.table.question")}</th>
+                <th>{t("showcase.aiEval.overview.scoring.table.measure")}</th>
               </tr>
             </thead>
             <tbody>
@@ -83,16 +133,20 @@ export default function AiEvalOverviewPage() {
         </div>
       </Section>
 
-      <Section kicker="Method" kickerIndex="04" title="Methodology & limitations">
+      <Section
+        kicker={t("showcase.aiEval.overview.method.kicker")}
+        kickerIndex="04"
+        title={t("showcase.aiEval.overview.method.title")}
+      >
         <div className="ui-grid">
-          <Panel title="Reproducibility">
+          <Panel title={t("showcase.aiEval.overview.method.determinism.title")}>
             <p>{methodology.determinism}</p>
           </Panel>
-          <Panel title="Provenance">
+          <Panel title={t("showcase.aiEval.overview.method.provenance.title")}>
             <p>{methodology.provenance}</p>
           </Panel>
         </div>
-        <Panel title="Limitations">
+        <Panel title={t("showcase.aiEval.overview.method.limitations.title")}>
           <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "grid", gap: "0.4rem" }}>
             {methodology.limitations.map((l) => (
               <li key={l}>{l}</li>

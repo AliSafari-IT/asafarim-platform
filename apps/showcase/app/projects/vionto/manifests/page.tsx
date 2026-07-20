@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Badge, PageHeader, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../../lib/i18n-dictionaries";
 import { ViontoNav } from "../_components/ViontoNav";
 import { FixtureBanner } from "../_components/FixtureBanner";
 import { StoryboardStrip } from "../_components/StoryboardStrip";
@@ -14,35 +20,42 @@ export const metadata: Metadata = {
 };
 
 const STAGE_ORDER = ["script", "storyboard", "assetPlan", "renderReport"] as const;
-const STAGE_LABEL: Record<(typeof STAGE_ORDER)[number], string> = {
-  script: "Script",
-  storyboard: "Storyboard",
-  assetPlan: "Asset plan",
-  renderReport: "Render report",
+const STAGE_KEY: Record<(typeof STAGE_ORDER)[number], string> = {
+  script: "showcase.vionto.manifests.stage.script",
+  storyboard: "showcase.vionto.manifests.stage.storyboard",
+  assetPlan: "showcase.vionto.manifests.stage.assetPlan",
+  renderReport: "showcase.vionto.manifests.stage.renderReport",
 };
 
-export default function ViontoManifestsPage() {
+export default async function ViontoManifestsPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
   return (
     <>
       <PageHeader
-        kicker="Manifests"
+        kicker={t("showcase.vionto.manifests.pageHeader.kicker")}
         kickerIndex="05"
-        title="Versioned artifact inspector"
-        description="Every artifact a run produces records its configuration version and an inputs fingerprint — the acceptance criterion that every generated artifact records its inputs and configuration version, made concrete."
+        title={t("showcase.vionto.manifests.pageHeader.title")}
+        description={t("showcase.vionto.manifests.pageHeader.description")}
       />
 
       <ViontoNav active="/projects/vionto/manifests" />
 
       <FixtureBanner />
 
-      <Section kicker="Runs" kickerIndex="01" title="Every reference run">
+      <Section
+        kicker={t("showcase.vionto.manifests.section.runs.kicker")}
+        kickerIndex="01"
+        title={t("showcase.vionto.manifests.section.runs.title")}
+      >
         <div className={styles.artifactGrid}>
           {runs.map((run) => {
             const badge = stateBadge(run.finalState);
             return (
               <Panel key={run.briefId} title={`${run.briefId} — ${run.title}`}>
                 <div className={styles.artifactHead}>
-                  <Badge tone={badge.tone}>{badge.label}</Badge>
+                  <Badge tone={badge.tone}>{t(badge.labelKey)}</Badge>
                   <span className="u-muted">{run.note}</span>
                 </div>
 
@@ -56,10 +69,10 @@ export default function ViontoManifestsPage() {
                   <table className={styles.table}>
                     <thead>
                       <tr>
-                        <th>Stage</th>
-                        <th>Config version</th>
-                        <th>Inputs fingerprint</th>
-                        <th>Value</th>
+                        <th>{t("showcase.vionto.manifests.table.stage")}</th>
+                        <th>{t("showcase.vionto.manifests.table.configVersion")}</th>
+                        <th>{t("showcase.vionto.manifests.table.inputsFingerprint")}</th>
+                        <th>{t("showcase.vionto.manifests.table.value")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -68,7 +81,7 @@ export default function ViontoManifestsPage() {
                         if (!artifact) return null;
                         return (
                           <tr key={key}>
-                            <td>{STAGE_LABEL[key]}</td>
+                            <td>{t(STAGE_KEY[key])}</td>
                             <td className={styles.mono}>{artifact.configVersion}</td>
                             <td className={styles.mono}>{artifact.inputsHash}</td>
                             <td>

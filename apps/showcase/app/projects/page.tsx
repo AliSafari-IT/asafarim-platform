@@ -1,17 +1,28 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { PageHeader, ProjectCard } from "@asafarim/ui";
-import { projects } from "./data";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../lib/i18n-dictionaries";
+import { getProjects } from "./data";
 
 export const metadata: Metadata = { title: "Projects" };
 
-export default function ProjectsPage() {
+export default async function ProjectsPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
+  const projects = getProjects((key) => t(key as any));
+
   return (
     <>
       <PageHeader
-        kicker="Gallery"
+        kicker={t("showcase.projects.kicker")}
         kickerIndex="01"
-        title="Projects"
-        description="Every piece on the wall — tech stacks, statuses, and case studies."
+        title={t("showcase.projects.title")}
+        description={t("showcase.projects.description")}
       />
       <div className="ui-grid ui-grid--wide">
         {projects.map((project) => (

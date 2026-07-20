@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { ButtonLink, Hero, Metric, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../lib/i18n-dictionaries";
 import { ViontoNav } from "./_components/ViontoNav";
 import { FixtureBanner } from "./_components/FixtureBanner";
-import { dimensions, methodology, scores } from "./_data/benchmark";
+import { getDimensions, scores } from "./_data/benchmark";
 import { fmtMs, fmtUsd } from "./_components/format";
 
 export const metadata: Metadata = {
@@ -11,20 +17,26 @@ export const metadata: Metadata = {
     "A deterministic AI media-pipeline benchmark: a schema-validated brief-to-render pipeline, an approval-gated job state machine with idempotent retry, seeded stage failures, and cost/latency estimation — all in fixture mode with no live providers.",
 };
 
-export default function ViontoOverviewPage() {
+export default async function ViontoOverviewPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
   const { dimensions: d } = scores;
+  const dimensions = getDimensions((key) => t(key));
   return (
     <>
       <Hero
-        kicker="Exhibit № 05 · Benchmark"
+        kicker={t("showcase.vionto.overview.hero.kicker")}
         kickerIndex="05"
-        title="Vionto Studio — an AI pipeline you can trust to fail honestly."
-        lede="A schema-validated brief-to-render pipeline with explicit human approval gates and idempotent retry. Two stages are seeded to fail — and the benchmark proves the pipeline recovers, truthfully, every time."
+        title={t("showcase.vionto.overview.hero.title")}
+        lede={t("showcase.vionto.overview.hero.lede")}
         actions={
           <>
-            <ButtonLink href="/projects/vionto/pipeline">Run the pipeline</ButtonLink>
+            <ButtonLink href="/projects/vionto/pipeline">
+              {t("showcase.vionto.overview.hero.ctaPrimary")}
+            </ButtonLink>
             <ButtonLink href="/projects/vionto/case-study" variant="secondary">
-              Read the case study
+              {t("showcase.vionto.overview.hero.ctaSecondary")}
             </ButtonLink>
           </>
         }
@@ -34,67 +46,88 @@ export default function ViontoOverviewPage() {
 
       <FixtureBanner />
 
-      <Section kicker="Headline" kickerIndex="01" title="How the reference run scored">
+      <Section
+        kicker={t("showcase.vionto.overview.headline.kicker")}
+        kickerIndex="01"
+        title={t("showcase.vionto.overview.headline.title")}
+      >
         <div className="ui-grid ui-grid--metrics">
           <Metric
-            label="Structured-output validity"
+            label={t("showcase.vionto.overview.metrics.structuredOutputValidity.label")}
             value={`${d.structuredOutputValidity.value}%`}
-            hint="schema-valid generation attempts"
+            hint={t("showcase.vionto.overview.metrics.structuredOutputValidity.hint")}
           />
           <Metric
-            label="Retry idempotency"
+            label={t("showcase.vionto.overview.metrics.retryIdempotency.label")}
             value={`${d.retryIdempotencyCorrectness.value}%`}
-            hint="new job, never a mutation"
+            hint={t("showcase.vionto.overview.metrics.retryIdempotency.hint")}
           />
           <Metric
-            label="Completion time"
+            label={t("showcase.vionto.overview.metrics.completionTime.label")}
             value={fmtMs(d.endToEndCompletionTime.value)}
-            hint="reference, per successful run"
+            hint={t("showcase.vionto.overview.metrics.completionTime.hint")}
           />
           <Metric
-            label="Cost delta"
+            label={t("showcase.vionto.overview.metrics.costDelta.label")}
             value={fmtUsd(d.estimatedVsObservedCost.value)}
-            hint="estimated vs. observed"
+            hint={t("showcase.vionto.overview.metrics.costDelta.hint")}
           />
           <Metric
-            label="Seeded-failure recovery"
+            label={t("showcase.vionto.overview.metrics.seededFailureRecovery.label")}
             value={`${d.seededFailureRecovery.value}%`}
-            hint="reaches succeeded via retry"
+            hint={t("showcase.vionto.overview.metrics.seededFailureRecovery.hint")}
           />
         </div>
       </Section>
 
-      <Section kicker="What it measures" kickerIndex="02" title="Five benchmark dimensions">
+      <Section
+        kicker={t("showcase.vionto.overview.dimensions.kicker")}
+        kickerIndex="02"
+        title={t("showcase.vionto.overview.dimensions.title")}
+      >
         <div className="ui-grid">
           {dimensions.map((dim) => (
             <Panel key={dim.key} title={dim.name}>
               <p>{dim.question}</p>
               <p className="u-muted" style={{ marginTop: "0.4rem" }}>
-                {d[dim.key].method}
+                {t(`showcase.vionto.overview.scores.${dim.key}.method`)}
               </p>
             </Panel>
           ))}
         </div>
       </Section>
 
-      <Section kicker="Method" kickerIndex="03" title="Why the pipeline is trustworthy">
+      <Section
+        kicker={t("showcase.vionto.overview.method.kicker")}
+        kickerIndex="03"
+        title={t("showcase.vionto.overview.method.title")}
+      >
         <div className="ui-grid">
-          <Panel title="Approval gates">
-            <p>{methodology.approvalGates}</p>
+          <Panel title={t("showcase.vionto.overview.method.approvalGates.title")}>
+            <p>{t("showcase.vionto.overview.method.approvalGates.body")}</p>
           </Panel>
-          <Panel title="Idempotent retry">
-            <p>{methodology.idempotentRetry}</p>
+          <Panel title={t("showcase.vionto.overview.method.idempotentRetry.title")}>
+            <p>{t("showcase.vionto.overview.method.idempotentRetry.body")}</p>
           </Panel>
-          <Panel title="Providers">
-            <p>{methodology.providers}</p>
+          <Panel title={t("showcase.vionto.overview.method.providers.title")}>
+            <p>{t("showcase.vionto.overview.method.providers.body")}</p>
           </Panel>
         </div>
       </Section>
 
-      <Section kicker="Honesty" kickerIndex="04" title="Limitations">
-        <Panel title="what this benchmark does not prove">
+      <Section
+        kicker={t("showcase.vionto.overview.honesty.kicker")}
+        kickerIndex="04"
+        title={t("showcase.vionto.overview.honesty.title")}
+      >
+        <Panel title={t("showcase.vionto.overview.honesty.panelTitle")}>
           <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>
-            {methodology.limitations.map((l) => (
+            {[
+              t("showcase.vionto.overview.honesty.limitations.p1"),
+              t("showcase.vionto.overview.honesty.limitations.p2"),
+              t("showcase.vionto.overview.honesty.limitations.p3"),
+              t("showcase.vionto.overview.honesty.limitations.p4"),
+            ].map((l) => (
               <li key={l} style={{ marginBottom: "0.4rem" }}>
                 {l}
               </li>

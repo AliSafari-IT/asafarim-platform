@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Badge, PageHeader, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../../lib/i18n-dictionaries";
 import { TestoraNav } from "../_components/TestoraNav";
 import { FixtureBanner } from "../_components/FixtureBanner";
 import styles from "../_components/testora.module.css";
@@ -34,29 +40,36 @@ const evolution = [
   },
 ];
 
-export default function TestoraCaseStudyPage() {
+export default async function TestoraCaseStudyPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
   return (
     <>
       <PageHeader
-        kicker="Case study"
+        kicker={t("showcase.testora.caseStudy.pageHeader.kicker")}
         kickerIndex="03"
-        title="From a live test console to a deterministic benchmark"
-        description="Three iterations of the same idea — the last one is the one you can trust in public."
+        title={t("showcase.testora.caseStudy.pageHeader.title")}
+        description={t("showcase.testora.caseStudy.pageHeader.description")}
       />
 
       <TestoraNav active="/projects/testora/case-study" />
 
       <FixtureBanner />
 
-      <Section kicker="Evolution" kickerIndex="01" title="Three iterations">
+      <Section
+        kicker={t("showcase.testora.caseStudy.evolution.kicker")}
+        kickerIndex="01"
+        title={t("showcase.testora.caseStudy.evolution.title")}
+      >
         <div style={{ overflowX: "auto" }}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Stage</th>
-                <th>Stack</th>
-                <th>Core idea</th>
-                <th>Where it hit a wall</th>
+                <th>{t("showcase.testora.caseStudy.evolution.table.stage")}</th>
+                <th>{t("showcase.testora.caseStudy.evolution.table.stack")}</th>
+                <th>{t("showcase.testora.caseStudy.evolution.table.idea")}</th>
+                <th>{t("showcase.testora.caseStudy.evolution.table.limit")}</th>
               </tr>
             </thead>
             <tbody>
@@ -73,16 +86,20 @@ export default function TestoraCaseStudyPage() {
         </div>
       </Section>
 
-      <Section kicker="Architecture" kickerIndex="02" title="How the benchmark is built">
+      <Section
+        kicker={t("showcase.testora.caseStudy.architecture.kicker")}
+        kickerIndex="02"
+        title={t("showcase.testora.caseStudy.architecture.title")}
+      >
         <div className="ui-grid">
-          <Panel title="System under test">
+          <Panel title={t("showcase.testora.caseStudy.architecture.sut")}>
             <p>
               A pure static app (<code>benchmarks/testora/sample-app</code>) with
               no network, storage, or timers. Every screen renders from the URL
               query alone, so a run is a pure function of its inputs.
             </p>
           </Panel>
-          <Panel title="Seeded ground truth">
+          <Panel title={t("showcase.testora.caseStudy.architecture.groundTruth")}>
             <p>
               A catalog (<code>fixtures/scenarios.mjs</code>) declares each
               scenario's true kind — pass, seeded fail, or controlled flake — and
@@ -90,14 +107,14 @@ export default function TestoraCaseStudyPage() {
               and the scoring.
             </p>
           </Panel>
-          <Panel title="Deterministic execution">
+          <Panel title={t("showcase.testora.caseStudy.architecture.execution")}>
             <p>
               Playwright runs single-worker with one retry. Seeded regressions
               fail on every attempt; the flake passes <code>testInfo.retry</code>{" "}
               as its attempt, so it fails first and passes on retry.
             </p>
           </Panel>
-          <Panel title="Evidence, distilled">
+          <Panel title={t("showcase.testora.caseStudy.architecture.evidence")}>
             <p>
               A generator validates that live outcomes still match ground truth,
               then writes byte-stable fixture JSON. The public demo renders that
@@ -107,16 +124,20 @@ export default function TestoraCaseStudyPage() {
         </div>
       </Section>
 
-      <Section kicker="Tradeoffs" kickerIndex="03" title="What we gave up, and why">
+      <Section
+        kicker={t("showcase.testora.caseStudy.tradeoffs.kicker")}
+        kickerIndex="03"
+        title={t("showcase.testora.caseStudy.tradeoffs.title")}
+      >
         <div className="ui-grid">
-          <Panel title="No live runner in public">
+          <Panel title={t("showcase.testora.caseStudy.tradeoffs.noLiveRunner")}>
             <p>
               The public surface cannot execute arbitrary code. That closes the
               door on "run it against your app" demos, but it's the only honest
               way to publish results without a sandboxed backend.
             </p>
           </Panel>
-          <Panel title="Distilled snapshot over raw logs">
+          <Panel title={t("showcase.testora.caseStudy.tradeoffs.snapshot")}>
             <p>
               Committed fixtures are a reproducible distillation, not a dump of
               every millisecond. Raw millisecond jitter is intentionally excluded
@@ -127,23 +148,27 @@ export default function TestoraCaseStudyPage() {
         </div>
       </Section>
 
-      <Section kicker="Lessons" kickerIndex="04" title="Lessons from the legacy system">
+      <Section
+        kicker={t("showcase.testora.caseStudy.lessons.kicker")}
+        kickerIndex="04"
+        title={t("showcase.testora.caseStudy.lessons.title")}
+      >
         <div className="ui-grid">
-          <Panel title="Reproducibility beats realism">
+          <Panel title={t("showcase.testora.caseStudy.lessons.reproducibility")}>
             <p>
               The SignalR console felt impressive but its results couldn't be
               re-derived. Fixing the SUT and seeding defects made the benchmark
               something you can actually reason about.
             </p>
           </Panel>
-          <Panel title="Detection is the real metric">
+          <Panel title={t("showcase.testora.caseStudy.lessons.detection")}>
             <p>
               Counting green tests flatters a suite. Measuring how many{" "}
               <em>known</em> defects it catches, and whether it can tell a flake
               from a regression, is what maps to engineering value.
             </p>
           </Panel>
-          <Panel title="Claims need a citation">
+          <Panel title={t("showcase.testora.caseStudy.lessons.citation")}>
             <p>
               Any headline about reduced manual-testing effort is only stated
               where the supporting source can be cited — the runnable harness and

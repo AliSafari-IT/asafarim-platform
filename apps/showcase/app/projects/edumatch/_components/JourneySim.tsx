@@ -2,22 +2,23 @@
 
 import { useState } from "react";
 import { Badge } from "@asafarim/ui";
+import { useTranslation } from "@asafarim/shared-i18n";
 import styles from "./edumatch.module.css";
 
 type Role = "student" | "tutor" | "moderator";
 type Step = 0 | 1 | 2 | 3;
 
-const STEPS: Array<{ title: string; detail: string }> = [
-  { title: "Inquiry", detail: "Student describes their need (subject, level, availability)." },
-  { title: "Proposal", detail: "A matched tutor sends a proposal: rate, plan, and time slot." },
-  { title: "Booking", detail: "Student accepts the proposal and the session is booked." },
-  { title: "Session logged", detail: "Booking appears on every role's dashboard and in the audit trail." },
+const STEPS: Array<{ key: string }> = [
+  { key: "inquiry" },
+  { key: "proposal" },
+  { key: "booking" },
+  { key: "logged" },
 ];
 
-const ROLES: Array<{ key: Role; label: string }> = [
-  { key: "student", label: "Student" },
-  { key: "tutor", label: "Tutor" },
-  { key: "moderator", label: "Moderator" },
+const ROLES: Array<{ key: Role }> = [
+  { key: "student" },
+  { key: "tutor" },
+  { key: "moderator" },
 ];
 
 /**
@@ -27,6 +28,7 @@ const ROLES: Array<{ key: Role; label: string }> = [
  * the moderator's trust & safety touchpoint without any real consequence.
  */
 export function JourneySim() {
+  const { t } = useTranslation();
   const [role, setRole] = useState<Role>("student");
   const [step, setStep] = useState<Step>(0);
   const [flagged, setFlagged] = useState(false);
@@ -41,17 +43,17 @@ export function JourneySim() {
 
   const actionLabel =
     step === 0
-      ? "Send inquiry"
+      ? t("showcase.edumatch.journeySim.action.sendInquiry")
       : step === 1
-        ? "Tutor sends proposal"
+        ? t("showcase.edumatch.journeySim.action.tutorSendsProposal")
         : step === 2
-          ? "Accept & book"
+          ? t("showcase.edumatch.journeySim.action.acceptBook")
           : null;
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
-        <div className={styles.roleTabs} role="tablist" aria-label="Perspective">
+        <div className={styles.roleTabs} role="tablist" aria-label={t("showcase.edumatch.journeySim.aria.perspective")}>
           {ROLES.map((r) => (
             <button
               key={r.key}
@@ -61,11 +63,11 @@ export function JourneySim() {
               className={styles.roleTab}
               onClick={() => setRole(r.key)}
             >
-              {r.label}
+              {t(`showcase.edumatch.journeySim.role.${r.key}`)}
             </button>
           ))}
         </div>
-        <Badge tone="warning">Safe demo mode — no real booking or payment</Badge>
+        <Badge tone="warning">{t("showcase.edumatch.journeySim.demoBadge")}</Badge>
       </div>
 
       <div className={styles.journeySteps} aria-live="polite">
@@ -74,12 +76,12 @@ export function JourneySim() {
           const done = i < step || (step === 3 && i === 3);
           return (
             <div
-              key={s.title}
+              key={s.key}
               className={`${styles.journeyStep} ${done ? styles.journeyStepDone : ""}`}
             >
               <span className={styles.journeyStepIdx}>{String(i + 1).padStart(2, "0")}</span>
               <span>
-                <strong>{s.title}</strong> — {s.detail}
+                <strong>{t(`showcase.edumatch.journeySim.step.${s.key}.title`)}</strong> — {t(`showcase.edumatch.journeySim.step.${s.key}.detail`)}
               </span>
             </div>
           );
@@ -92,10 +94,10 @@ export function JourneySim() {
             {actionLabel}
           </button>
         ) : (
-          <Badge tone="success">Booking complete</Badge>
+          <Badge tone="success">{t("showcase.edumatch.journeySim.bookingComplete")}</Badge>
         )}
         <button type="button" className="ui-btn ui-btn--secondary ui-btn--sm" onClick={reset}>
-          Reset
+          {t("showcase.edumatch.journeySim.reset")}
         </button>
 
         {role === "moderator" && step >= 2 ? (
@@ -104,15 +106,16 @@ export function JourneySim() {
             className="ui-btn ui-btn--danger ui-btn--sm"
             onClick={() => setFlagged((f) => !f)}
           >
-            {flagged ? "Unflag booking" : "Flag booking for review"}
+            {flagged
+              ? t("showcase.edumatch.journeySim.flag.unflag")
+              : t("showcase.edumatch.journeySim.flag.flagForReview")}
           </button>
         ) : null}
       </div>
 
       {flagged ? (
         <p className={styles.factorNote} style={{ marginTop: "0.6rem" }}>
-          Flagged for review — in production this would pause payout and notify trust &amp; safety.
-          Here it only toggles local demo state.
+          {t("showcase.edumatch.journeySim.flaggedNotice")}
         </p>
       ) : null}
     </div>

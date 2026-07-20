@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { PageHeader, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../../lib/i18n-dictionaries";
 import { AiEvalNav } from "../_components/AiEvalNav";
 import { FixtureBanner } from "../_components/FixtureBanner";
 import { ScenarioResultTable } from "../_components/ScenarioResultTable";
@@ -13,13 +19,16 @@ export const metadata: Metadata = {
     "Per-scenario, per-case, per-model scored results with human-review notes and a read-only output inspector.",
 };
 
-export default function AiEvalRunPage() {
+export default async function AiEvalRunPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
   return (
     <>
       <PageHeader
-        kicker="Results"
+        kicker={t("showcase.aiEval.run.pageHeader.kicker")}
         kickerIndex="04"
-        title="Scored results, case by case"
+        title={t("showcase.aiEval.run.pageHeader.title")}
         description={`Every model against every case · prompt ${runDetail.version}. Safety probes are flagged.`}
       />
 
@@ -44,8 +53,12 @@ export default function AiEvalRunPage() {
         </Section>
       ))}
 
-      <Section kicker="Inspect" kickerIndex="04" title="Output inspector">
-        <Panel title="prompt · input · output · expected (read-only)">
+      <Section
+        kicker={t("showcase.aiEval.run.inspect.kicker")}
+        kickerIndex="04"
+        title={t("showcase.aiEval.run.inspect.title")}
+      >
+        <Panel title={t("showcase.aiEval.run.inspect.panelTitle")}>
           <OutputViewer scenarios={runDetail.scenarios} />
         </Panel>
       </Section>

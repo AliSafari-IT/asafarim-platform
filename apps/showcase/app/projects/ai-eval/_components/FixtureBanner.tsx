@@ -1,4 +1,7 @@
+"use client";
+
 import { Alert } from "@asafarim/ui";
+import { useTranslation } from "@asafarim/shared-i18n";
 
 /**
  * Provenance disclaimer on every AI-Eval page. Covers the issue's constraints:
@@ -6,14 +9,10 @@ import { Alert } from "@asafarim/ui";
  * live inference — latency/cost are representative fixtures, not live numbers.
  */
 export function FixtureBanner() {
+  const { t } = useTranslation();
   return (
     <Alert tone="info">
-      <strong>Fixture mode — synthetic data, no live models.</strong> These
-      pages render committed, reproducible results from the runnable harness in{" "}
-      <code>benchmarks/ai-eval</code>. Models are provider-neutral aliases;
-      datasets are synthetic and openly licensed. Latency and cost are
-      representative fixtures, never live measurements. No employer or customer
-      data, prompts, or IP appear anywhere.
+      <span dangerouslySetInnerHTML={{ __html: t("showcase.fixtures.aiEval") }} />
     </Alert>
   );
 }

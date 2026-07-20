@@ -12,20 +12,20 @@ export function fmtUsd(usd: number | null | undefined): string {
   return `$${usd.toFixed(4)}`;
 }
 
-export function stateBadge(state: JobState): { tone: BadgeTone; label: string } {
+export function stateBadge(state: JobState): { tone: BadgeTone; labelKey: string } {
   switch (state) {
     case "succeeded":
-      return { tone: "success", label: "Succeeded" };
+      return { tone: "success", labelKey: "showcase.vionto.state.succeeded" };
     case "failed":
-      return { tone: "danger", label: "Failed" };
+      return { tone: "danger", labelKey: "showcase.vionto.state.failed" };
     case "cancelled":
-      return { tone: "warning", label: "Cancelled" };
+      return { tone: "warning", labelKey: "showcase.vionto.state.cancelled" };
     case "awaiting-approval":
-      return { tone: "info", label: "Awaiting approval" };
+      return { tone: "info", labelKey: "showcase.vionto.state.awaiting-approval" };
     case "running":
-      return { tone: "info", label: "Running" };
+      return { tone: "info", labelKey: "showcase.vionto.state.running" };
     case "queued":
     default:
-      return { tone: "neutral", label: "Queued" };
+      return { tone: "neutral", labelKey: "showcase.vionto.state.queued" };
   }
 }

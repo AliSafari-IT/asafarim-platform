@@ -79,3 +79,24 @@ export const projects: ShowcaseProject[] = [
 export function getProject(slug: string): ShowcaseProject | undefined {
   return projects.find((project) => project.slug === slug);
 }
+
+export function getProjects(t: (key: string) => string): ShowcaseProject[] {
+  return projects.map((project) => ({
+    ...project,
+    title: t(`showcase.projects.${project.slug}.title`),
+    summary: t(`showcase.projects.${project.slug}.summary`),
+  }));
+}
+
+export function getTranslatedProject(
+  t: (key: string) => string,
+  slug: string
+): ShowcaseProject | undefined {
+  const base = projects.find((project) => project.slug === slug);
+  if (!base) return undefined;
+  return {
+    ...base,
+    title: t(`showcase.projects.${base.slug}.title`),
+    summary: t(`showcase.projects.${base.slug}.summary`),
+  };
+}

@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { PageHeader, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../../lib/i18n-dictionaries";
 import { AiEvalNav } from "../_components/AiEvalNav";
 import { FixtureBanner } from "../_components/FixtureBanner";
 import { RegressionDiff } from "../_components/RegressionDiff";
@@ -12,14 +18,17 @@ export const metadata: Metadata = {
     "A documented failed regression: a stricter prompt revision breaks format compliance for the compact model on tool selection.",
 };
 
-export default function AiEvalRegressionPage() {
+export default async function AiEvalRegressionPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
   const regressed = regression.rows.filter((r) => r.regressed);
   return (
     <>
       <PageHeader
-        kicker="Regression"
+        kicker={t("showcase.aiEval.regression.pageHeader.kicker")}
         kickerIndex="04"
-        title="A prompt change that made things worse"
+        title={t("showcase.aiEval.regression.pageHeader.title")}
         description={`${regression.label} · ${regression.scenario} · prompt ${regression.promptFrom} → ${regression.promptTo}`}
       />
 
@@ -27,7 +36,11 @@ export default function AiEvalRegressionPage() {
 
       <FixtureBanner />
 
-      <Section kicker="What happened" kickerIndex="01" title="The stricter prompt backfired">
+      <Section
+        kicker={t("showcase.aiEval.regression.whatHappened.kicker")}
+        kickerIndex="01"
+        title={t("showcase.aiEval.regression.whatHappened.title")}
+      >
         <p style={{ maxWidth: "48rem" }}>
           Revising the tool-selection prompt from <code>v1</code> to a stricter{" "}
           <code>v2</code> (&ldquo;arguments only, no prose&rdquo;) helped the
@@ -37,16 +50,20 @@ export default function AiEvalRegressionPage() {
           the kind of change a prompt-level regression test must catch.
         </p>
         <div className="ui-grid">
-          <Panel title="prompt v1">
+          <Panel title={t("showcase.aiEval.regression.promptV1")}>
             <pre className={styles.code}>{`# system\n${regression.promptDiff.v1.system}\n\n# instruction\n${regression.promptDiff.v1.instruction}`}</pre>
           </Panel>
-          <Panel title="prompt v2 (regressed)">
+          <Panel title={t("showcase.aiEval.regression.promptV2Regressed")}>
             <pre className={styles.code}>{`# system\n${regression.promptDiff.v2.system}\n\n# instruction\n${regression.promptDiff.v2.instruction}`}</pre>
           </Panel>
         </div>
       </Section>
 
-      <Section kicker="Case by case" kickerIndex="02" title="v1 → v2 outputs">
+      <Section
+        kicker={t("showcase.aiEval.regression.caseByCase.kicker")}
+        kickerIndex="02"
+        title={t("showcase.aiEval.regression.caseByCase.title")}
+      >
         <RegressionDiff regression={regression} />
       </Section>
     </>

@@ -16,33 +16,46 @@ export function getMatchResult(needId: string): MatchResultEntry | undefined {
 }
 
 /** The five dimensions EduMatch scores, straight from issue #11. */
-export const dimensions: BenchmarkDimension[] = [
+const dimensionsBase: BenchmarkDimension[] = [
   {
     key: "matchRelevance",
-    name: "Match relevance",
-    question: "Do the top recommendations agree with a labeled ground truth?",
+    name: "showcase.edumatch.overview.dimensions.matchRelevance.name",
+    question:
+      "showcase.edumatch.overview.dimensions.matchRelevance.question",
   },
   {
     key: "constraintSatisfaction",
-    name: "Constraint satisfaction",
-    question: "Does every recommendation actually meet the student's hard requirements?",
+    name: "showcase.edumatch.overview.dimensions.constraintSatisfaction.name",
+    question:
+      "showcase.edumatch.overview.dimensions.constraintSatisfaction.question",
   },
   {
     key: "explainabilityCoverage",
-    name: "Explainability",
-    question: "Does every recommendation state exactly why it appears?",
+    name: "showcase.edumatch.overview.dimensions.explainability.name",
+    question: "showcase.edumatch.overview.dimensions.explainability.question",
   },
   {
     key: "fairness",
-    name: "Fairness",
-    question: "Do two equally-qualified tutors score identically regardless of an unrelated tag?",
+    name: "showcase.edumatch.overview.dimensions.fairness.name",
+    question: "showcase.edumatch.overview.dimensions.fairness.question",
   },
   {
     key: "rankingStability",
-    name: "Ranking stability",
-    question: "Does adding an unrelated candidate leave the existing order unchanged?",
+    name: "showcase.edumatch.overview.dimensions.rankingStability.name",
+    question:
+      "showcase.edumatch.overview.dimensions.rankingStability.question",
   },
 ];
+
+export function getDimensions(
+  t: (key: string) => string
+): BenchmarkDimension[] {
+  return dimensionsBase.map((d) => ({
+    key: d.key,
+    name: t(d.name),
+    question: t(d.question),
+  }));
+}
 
 export const methodology = {
   summary:
