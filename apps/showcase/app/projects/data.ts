@@ -80,23 +80,27 @@ export function getProject(slug: string): ShowcaseProject | undefined {
   return projects.find((project) => project.slug === slug);
 }
 
-export function getProjects(t: (key: string) => string): ShowcaseProject[] {
-  return projects.map((project) => ({
+function translateProject(t: (key: string) => string, project: ShowcaseProject): ShowcaseProject {
+  const titleKey = `showcase.projects.${project.slug}.title`;
+  const summaryKey = `showcase.projects.${project.slug}.summary`;
+  const title = t(titleKey);
+  const summary = t(summaryKey);
+
+  return {
     ...project,
-    title: t(`showcase.projects.${project.slug}.title`),
-    summary: t(`showcase.projects.${project.slug}.summary`),
-  }));
+    title: title === titleKey ? project.title : title,
+    summary: summary === summaryKey ? project.summary : summary,
+  };
+}
+
+export function getProjects(t: (key: string) => string): ShowcaseProject[] {
+  return projects.map((project) => translateProject(t, project));
 }
 
 export function getTranslatedProject(
   t: (key: string) => string,
   slug: string
 ): ShowcaseProject | undefined {
-  const base = projects.find((project) => project.slug === slug);
-  if (!base) return undefined;
-  return {
-    ...base,
-    title: t(`showcase.projects.${base.slug}.title`),
-    summary: t(`showcase.projects.${base.slug}.summary`),
-  };
+  const project = projects.find((item) => item.slug === slug);
+  return project ? translateProject(t, project) : undefined;
 }
