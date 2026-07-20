@@ -28,6 +28,7 @@ age -d -i .age/key.txt .env.production.age > .env.production
 chmod 600 .env.production
 
 export DOCKER_BUILDKIT=1
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-asafarim-com}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 
 echo "[deploy $(date -Is)] Building images sequentially (memory-safe on 8GB)..."
@@ -35,6 +36,17 @@ for svc in web hub showcase admin vionto vionto-worker; do
   echo "[deploy $(date -Is)] ===== build ${svc} ====="
   "${COMPOSE[@]}" build "$svc"
 done
+
+mapfile -t STALE_REPLACEMENT_CONTAINERS < <(
+  docker ps -a \
+    --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" \
+    --format '{{.ID}} {{.Names}}' |
+    awk -v project="${COMPOSE_PROJECT_NAME}" '$2 ~ "^[[:xdigit:]]{12}_" project "-" { print $1 }'
+)
+if (( ${#STALE_REPLACEMENT_CONTAINERS[@]} > 0 )); then
+  echo "[deploy $(date -Is)] Removing stale replacement containers..."
+  docker rm -f "${STALE_REPLACEMENT_CONTAINERS[@]}"
+fi
 
 echo "[deploy $(date -Is)] Starting stack..."
 "${COMPOSE[@]}" up -d --remove-orphans
