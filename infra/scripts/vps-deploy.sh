@@ -39,6 +39,20 @@ done
 echo "[deploy $(date -Is)] Starting stack..."
 "${COMPOSE[@]}" up -d --remove-orphans
 
+echo "[deploy $(date -Is)] Sending deployment notification..."
+DISCORD_WEBHOOK=""
+if [[ -f ".env.production" ]]; then
+  DISCORD_WEBHOOK="$(grep -E '^WEBHOOK_SECRET_DISCORD=' .env.production | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'")"
+fi
+if [[ -n "${DISCORD_WEBHOOK}" && "${DISCORD_WEBHOOK}" == https://discord.com/api/webhooks/* ]]; then
+  HOSTNAME="${HOSTNAME:-$(hostname)}"
+  curl -sS -X POST -H "Content-Type: application/json" \
+    -d '{"content":"✅ ASafarIM Platform deployed successfully on '"${HOSTNAME}"'."}' \
+    "${DISCORD_WEBHOOK}" || echo "Webhook notification failed (non-fatal)." >&2
+else
+  echo "WEBHOOK_SECRET_DISCORD not configured — skipping notification."
+fi
+
 echo "[deploy $(date -Is)] Pruning dangling images..."
 docker image prune -f >/dev/null 2>&1 || true
 

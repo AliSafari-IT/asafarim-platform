@@ -36,23 +36,23 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.labs.empty.title": "The shelf is empty — for now",
     "showcase.labs.empty.description":
       "Experiments from labs.asafarim.be will appear here as they are dusted off and rebuilt on the platform.",
-    "showcase.projects.taskManagement.title": "Task Management",
-    "showcase.projects.taskManagement.summary":
+    "showcase.projects.task-management.title": "Task Management",
+    "showcase.projects.task-management.summary":
       "End-to-end task management vertical with API and web client, originally built in the asafarim.be ecosystem.",
-    "showcase.projects.smartOperations.title": "Smart Operations Dashboard",
-    "showcase.projects.smartOperations.summary":
+    "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
+    "showcase.projects.smart-operations.summary":
       "Operations KPI dashboard showcase with real-time views and reporting.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
       "A deterministic Playwright benchmark: a seeded sample app with intentional pass/fail/flaky tests, scored on detection, flake identification, and artifact completeness.",
-    "showcase.projects.aiEval.title": "AI Evaluation Lab",
-    "showcase.projects.aiEval.summary":
+    "showcase.projects.ai-eval.title": "AI Evaluation Lab",
+    "showcase.projects.ai-eval.summary":
       "A provider-neutral, fixture-mode AI benchmark: versioned prompts and synthetic datasets scored for correctness, groundedness, format compliance, latency, cost, and safety — reproducibly, with no API keys.",
     "showcase.projects.edumatch.title": "EduMatch",
     "showcase.projects.edumatch.summary":
       "An explainable tutor-matching benchmark: synthetic students and tutors, a transparent weighted-factor engine you can adjust live, and fairness/stability checks.",
-    "showcase.projects.viontoStudio.title": "Vionto Studio",
-    "showcase.projects.viontoStudio.summary":
+    "showcase.projects.vionto.title": "Vionto Studio",
+    "showcase.projects.vionto.summary":
       "A transparent AI media-pipeline benchmark: a schema-validated brief-to-render pipeline with approval-gated retry, seeded stage failures, and cost estimation — no live providers, no real media.",
     "showcase.project.back": "← Back to the wall",
     "showcase.project.exhibit": "Exhibit №",
@@ -113,23 +113,23 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.labs.empty.title": "Het plankje is leeg — voor nu",
     "showcase.labs.empty.description":
       "Experimenten van labs.asafarim.be verschijnen hier zodra ze worden opgepoetst en op het platform herbouwd.",
-    "showcase.projects.taskManagement.title": "Task Management",
-    "showcase.projects.taskManagement.summary":
+    "showcase.projects.task-management.title": "Task Management",
+    "showcase.projects.task-management.summary":
       "End-to-end task management-verticaal met API en web client, oorspronkelijk gebouwd in het asafarim.be-ecosysteem.",
-    "showcase.projects.smartOperations.title": "Smart Operations Dashboard",
-    "showcase.projects.smartOperations.summary":
+    "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
+    "showcase.projects.smart-operations.summary":
       "Operations KPI dashboard-showcase met real-time views en rapportage.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
       "Een deterministische Playwright-benchmark: een seeded sample app met opzettelijke pass/fail/flaky tests, gescoord op detectie, flake-identificatie en artifact-compleetheid.",
-    "showcase.projects.aiEval.title": "AI Evaluation Lab",
-    "showcase.projects.aiEval.summary":
+    "showcase.projects.ai-eval.title": "AI Evaluation Lab",
+    "showcase.projects.ai-eval.summary":
       "Een provider-neutrale, fixture-mode AI-benchmark: geversioneerde prompts en synthetische datasets gescoord op correctheid, groundedness, format compliance, latency, kosten en veiligheid — reproduceerbaar, zonder API keys.",
     "showcase.projects.edumatch.title": "EduMatch",
     "showcase.projects.edumatch.summary":
       "Een verklarende tutor-matching benchmark: synthetische studenten en tutors, een transparante gewogen-factoren engine die je live kunt aanpassen, en fairness/stability checks.",
-    "showcase.projects.viontoStudio.title": "Vionto Studio",
-    "showcase.projects.viontoStudio.summary":
+    "showcase.projects.vionto.title": "Vionto Studio",
+    "showcase.projects.vionto.summary":
       "Een transparante AI media-pipeline benchmark: een schema-gevalideerde brief-to-render pipeline met approval-gated retry, seeded stage failures en kostenraming — geen live providers, geen echte media.",
     "showcase.project.back": "← Terug naar de muur",
     "showcase.project.exhibit": "Exhibit №",
@@ -190,23 +190,23 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.labs.empty.title": "L'étagère est vide — pour l'instant",
     "showcase.labs.empty.description":
       "Les expériences de labs.asafarim.be apparaîtront ici une fois dépoussiérées et reconstruites sur la plateforme.",
-    "showcase.projects.taskManagement.title": "Task Management",
-    "showcase.projects.taskManagement.summary":
+    "showcase.projects.task-management.title": "Task Management",
+    "showcase.projects.task-management.summary":
       "Verticale de gestion de tâches end-to-end avec API et client web, initialement construite dans l'écosystème asafarim.be.",
-    "showcase.projects.smartOperations.title": "Smart Operations Dashboard",
-    "showcase.projects.smartOperations.summary":
+    "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
+    "showcase.projects.smart-operations.summary":
       "Showcase de tableau de bord KPI opérationnel avec vues en temps réel et reporting.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
       "Un benchmark Playwright déterministe : une sample app seedée avec des tests pass/fail/flaky intentionnels, notés sur la détection, l'identification de flakes et la complétude des artefacts.",
-    "showcase.projects.aiEval.title": "AI Evaluation Lab",
-    "showcase.projects.aiEval.summary":
+    "showcase.projects.ai-eval.title": "AI Evaluation Lab",
+    "showcase.projects.ai-eval.summary":
       "Un benchmark AI en mode fixture et neutre vis-à-vis des fournisseurs : prompts versionnés et datasets synthétiques notés pour la correction, la groundedness, le format compliance, la latence, le coût et la sécurité — de manière reproductible, sans API keys.",
     "showcase.projects.edumatch.title": "EduMatch",
     "showcase.projects.edumatch.summary":
       "Un benchmark de matching tutor explicable : étudiants et tuteurs synthétiques, un moteur transparent à facteurs pondérés ajustable en live, et des vérifications d'équité/stabilité.",
-    "showcase.projects.viontoStudio.title": "Vionto Studio",
-    "showcase.projects.viontoStudio.summary":
+    "showcase.projects.vionto.title": "Vionto Studio",
+    "showcase.projects.vionto.summary":
       "Un benchmark de pipeline média AI transparent : un pipeline brief-to-render validé par schéma avec retry conditionné par approbation, seeded stage failures et estimation des coûts — aucun provider live, aucun média réel.",
     "showcase.project.back": "← Retour au mur",
     "showcase.project.exhibit": "Exhibit №",
@@ -267,23 +267,23 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.labs.empty.title": "Das Regal ist leer — vorerst",
     "showcase.labs.empty.description":
       "Experimente von labs.asafarim.be erscheinen hier, sobald sie aufpoliert und auf der Plattform neu aufgebaut werden.",
-    "showcase.projects.taskManagement.title": "Task Management",
-    "showcase.projects.taskManagement.summary":
+    "showcase.projects.task-management.title": "Task Management",
+    "showcase.projects.task-management.summary":
       "End-to-end Task-Management-Vertikale mit API und Web-Client, ursprünglich im asafarim.be-Ökosystem gebaut.",
-    "showcase.projects.smartOperations.title": "Smart Operations Dashboard",
-    "showcase.projects.smartOperations.summary":
+    "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
+    "showcase.projects.smart-operations.summary":
       "Operations KPI Dashboard Showcase mit Echtzeit-Ansichten und Reporting.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
       "Ein deterministischer Playwright-Benchmark: eine seeded Sample App mit absichtlichen pass/fail/flaky Tests, bewertet auf Detection, Flake-Identifikation und Artifact-Completeness.",
-    "showcase.projects.aiEval.title": "AI Evaluation Lab",
-    "showcase.projects.aiEval.summary":
+    "showcase.projects.ai-eval.title": "AI Evaluation Lab",
+    "showcase.projects.ai-eval.summary":
       "Ein provider-neutrales AI-Benchmark im Fixture-Modus: versionierte Prompts und synthetische Datensätze, bewertet auf Korrektheit, Groundedness, Format-Compliance, Latenz, Kosten und Sicherheit — reproduzierbar, ohne API Keys.",
     "showcase.projects.edumatch.title": "EduMatch",
     "showcase.projects.edumatch.summary":
       "Ein erklärbarer Tutor-Matching-Benchmark: synthetische Studenten und Tutoren, eine transparente gewichtete Faktoren-Engine, die du live anpassen kannst, sowie Fairness/Stability-Checks.",
-    "showcase.projects.viontoStudio.title": "Vionto Studio",
-    "showcase.projects.viontoStudio.summary":
+    "showcase.projects.vionto.title": "Vionto Studio",
+    "showcase.projects.vionto.summary":
       "Ein transparenter AI Media-Pipeline-Benchmark: ein schema-validierter Brief-to-Render-Pipeline mit Approval-gated Retry, seeded Stage Failures und Kostenschätzung — keine Live-Provider, keine echten Medien.",
     "showcase.project.back": "← Zurück zur Wand",
     "showcase.project.exhibit": "Exhibit №",
@@ -344,23 +344,23 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.labs.empty.title": "The shelf is empty — for now",
     "showcase.labs.empty.description":
       "Experiments from labs.asafarim.be will appear here as they are dusted off and rebuilt on the platform.",
-    "showcase.projects.taskManagement.title": "Task Management",
-    "showcase.projects.taskManagement.summary":
+    "showcase.projects.task-management.title": "Task Management",
+    "showcase.projects.task-management.summary":
       "End-to-end task management vertical with API and web client, originally built in the asafarim.be ecosystem.",
-    "showcase.projects.smartOperations.title": "Smart Operations Dashboard",
-    "showcase.projects.smartOperations.summary":
+    "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
+    "showcase.projects.smart-operations.summary":
       "Operations KPI dashboard showcase with real-time views and reporting.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
       "A deterministic Playwright benchmark: a seeded sample app with intentional pass/fail/flaky tests, scored on detection, flake identification, and artifact completeness.",
-    "showcase.projects.aiEval.title": "AI Evaluation Lab",
-    "showcase.projects.aiEval.summary":
+    "showcase.projects.ai-eval.title": "AI Evaluation Lab",
+    "showcase.projects.ai-eval.summary":
       "A provider-neutral, fixture-mode AI benchmark: versioned prompts and synthetic datasets scored for correctness, groundedness, format compliance, latency, cost, and safety — reproducibly, with no API keys.",
     "showcase.projects.edumatch.title": "EduMatch",
     "showcase.projects.edumatch.summary":
       "An explainable tutor-matching benchmark: synthetic students and tutors, a transparent weighted-factor engine you can adjust live, and fairness/stability checks.",
-    "showcase.projects.viontoStudio.title": "Vionto Studio",
-    "showcase.projects.viontoStudio.summary":
+    "showcase.projects.vionto.title": "Vionto Studio",
+    "showcase.projects.vionto.summary":
       "A transparent AI media-pipeline benchmark: a schema-validated brief-to-render pipeline with approval-gated retry, seeded stage failures, and cost estimation — no live providers, no real media.",
     "showcase.project.back": "← Back to the wall",
     "showcase.project.exhibit": "Exhibit №",
