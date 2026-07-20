@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useTranslation, type Locale } from "@asafarim/shared-i18n";
 import {
@@ -25,6 +26,7 @@ export function CountryLanguageSelector({
   compact = false,
 }: CountryLanguageSelectorProps) {
   const { locale, setLocale, t } = useTranslation();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [country, setCountry] = useState<CountryCode>(() =>
     lockCountry ?? countryForLocale(locale) ?? "NL"
@@ -182,6 +184,7 @@ export function CountryLanguageSelector({
 
   function pickLocale(next: Locale) {
     setLocale(next);
+    router.refresh();
     onChange?.(next, country);
     setOpen(false);
   }
