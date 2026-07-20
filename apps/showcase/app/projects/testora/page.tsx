@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { ButtonLink, Hero, Metric, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../lib/i18n-dictionaries";
 import { TestoraNav } from "./_components/TestoraNav";
 import { FixtureBanner } from "./_components/FixtureBanner";
-import { dimensions, methodology, runDetail } from "./_data/benchmark";
+import { getDimensions, getMethodology, runDetail } from "./_data/benchmark";
 import { fmtDuration } from "./_components/format";
 import styles from "./_components/testora.module.css";
 
@@ -12,20 +18,27 @@ export const metadata: Metadata = {
     "A deterministic Playwright benchmark: a seeded sample app with intentional pass/fail/flaky tests, scored on detection, flake identification, diagnosis speed, artifact completeness, and reproducibility.",
 };
 
-export default function TestoraOverviewPage() {
+export default async function TestoraOverviewPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
   const { scores, summary } = runDetail;
+  const dimensions = getDimensions((key) => t(key));
+  const methodology = getMethodology((key) => t(key));
   return (
     <>
       <Hero
-        kicker="Exhibit № 03 · Benchmark"
+        kicker={t("showcase.testora.overview.hero.kicker")}
         kickerIndex="03"
-        title="Testora — an observable test-automation benchmark."
-        lede="A fixed, offline sample application carries intentional, seeded defects. Testora proves a good suite catches every one of them — deterministically, with complete artifacts — and shows the evidence."
+        title={t("showcase.testora.overview.hero.title")}
+        lede={t("showcase.testora.overview.hero.lede")}
         actions={
           <>
-            <ButtonLink href="/projects/testora/run">See the latest run</ButtonLink>
+            <ButtonLink href="/projects/testora/run">
+              {t("showcase.testora.overview.hero.ctaPrimary")}
+            </ButtonLink>
             <ButtonLink href="/projects/testora/case-study" variant="secondary">
-              Read the case study
+              {t("showcase.testora.overview.hero.ctaSecondary")}
             </ButtonLink>
           </>
         }
@@ -35,49 +48,78 @@ export default function TestoraOverviewPage() {
 
       <FixtureBanner />
 
-      <Section kicker="Headline" kickerIndex="01" title="How the reference run scored">
+      <Section
+        kicker={t("showcase.testora.overview.headline.kicker")}
+        kickerIndex="01"
+        title={t("showcase.testora.overview.headline.title")}
+      >
         <div className="ui-grid ui-grid--metrics">
           <Metric
-            label="Detection rate"
+            label={t("showcase.testora.overview.metrics.detectionRate.label")}
             value={`${scores.detectionRate}%`}
-            hint={`${scores.regressionsDetected}/${scores.seededRegressions} seeded regressions`}
+            hint={t(
+              "showcase.testora.overview.metrics.detectionRate.hint",
+              {
+                detected: scores.regressionsDetected,
+                total: scores.seededRegressions,
+              }
+            )}
           />
           <Metric
-            label="Flaky identified"
-            value={scores.flakyIdentified ? "Yes" : "No"}
-            hint="fail-then-pass told apart from a regression"
+            label={t("showcase.testora.overview.metrics.flakyIdentified.label")}
+            value={t(
+              scores.flakyIdentified
+                ? "showcase.common.yes"
+                : "showcase.common.no"
+            )}
+            hint={t("showcase.testora.overview.metrics.flakyIdentified.hint")}
           />
           <Metric
-            label="Time to diagnosis"
+            label={t("showcase.testora.overview.metrics.timeToDiagnosis.label")}
             value={fmtDuration(scores.meanTimeToDiagnosisMs)}
-            hint="mean across failing scenarios"
+            hint={t("showcase.testora.overview.metrics.timeToDiagnosis.hint")}
           />
           <Metric
-            label="Artifact completeness"
+            label={t(
+              "showcase.testora.overview.metrics.artifactCompleteness.label"
+            )}
             value={`${scores.artifactCompleteness}%`}
-            hint="trace · screenshot · video"
+            hint={t(
+              "showcase.testora.overview.metrics.artifactCompleteness.hint"
+            )}
           />
           <Metric
-            label="CI reproducibility"
+            label={t(
+              "showcase.testora.overview.metrics.ciReproducibility.label"
+            )}
             value={`${scores.ciReproducibility}%`}
-            hint="byte-stable across runs"
+            hint={t(
+              "showcase.testora.overview.metrics.ciReproducibility.hint"
+            )}
           />
           <Metric
-            label="Pass rate"
+            label={t("showcase.testora.overview.metrics.passRate.label")}
             value={`${summary.passRate}%`}
-            hint={`${summary.passed}/${summary.total} cases green`}
+            hint={t(
+              "showcase.testora.overview.metrics.passRate.hint",
+              { passed: summary.passed, total: summary.total }
+            )}
           />
         </div>
       </Section>
 
-      <Section kicker="What it measures" kickerIndex="02" title="Five benchmark dimensions">
+      <Section
+        kicker={t("showcase.testora.overview.dimensions.kicker")}
+        kickerIndex="02"
+        title={t("showcase.testora.overview.dimensions.title")}
+      >
         <div style={{ overflowX: "auto" }}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Dimension</th>
-                <th>Question</th>
-                <th>How it's measured</th>
+                <th>{t("showcase.testora.overview.dimensions.table.dimension")}</th>
+                <th>{t("showcase.testora.overview.dimensions.table.question")}</th>
+                <th>{t("showcase.testora.overview.dimensions.table.measured")}</th>
               </tr>
             </thead>
             <tbody>
@@ -93,12 +135,16 @@ export default function TestoraOverviewPage() {
         </div>
       </Section>
 
-      <Section kicker="Method" kickerIndex="03" title="Why the numbers are trustworthy">
+      <Section
+        kicker={t("showcase.testora.overview.method.kicker")}
+        kickerIndex="03"
+        title={t("showcase.testora.overview.method.title")}
+      >
         <div className="ui-grid">
-          <Panel title="Determinism">
+          <Panel title={t("showcase.testora.overview.method.determinism.title")}>
             <p>{methodology.determinism}</p>
           </Panel>
-          <Panel title="Provenance">
+          <Panel title={t("showcase.testora.overview.method.provenance.title")}>
             <p>{methodology.provenance}</p>
           </Panel>
         </div>

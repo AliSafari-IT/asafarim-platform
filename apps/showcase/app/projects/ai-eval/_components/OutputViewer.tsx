@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 import type { ScenarioDetail } from "../_data/types";
 import { ScoreBar } from "./ScoreBar";
 import { pretty } from "./format";
@@ -13,6 +14,7 @@ type Tab = "prompt" | "input" | "output" | "expected";
  * model, then view the exact prompt, input, model output, and expected output.
  */
 export function OutputViewer({ scenarios }: { scenarios: ScenarioDetail[] }) {
+  const { t } = useTranslation();
   const [scenarioKey, setScenarioKey] = useState(scenarios[0]?.scenario ?? "");
   const scenario = scenarios.find((s) => s.scenario === scenarioKey) ?? scenarios[0];
   const [caseId, setCaseId] = useState(scenario?.cases[0]?.caseId ?? "");
@@ -36,10 +38,10 @@ export function OutputViewer({ scenarios }: { scenarios: ScenarioDetail[] }) {
   };
 
   const tabs: Array<[Tab, string]> = [
-    ["prompt", "Prompt"],
-    ["input", "Input"],
-    ["output", "Output"],
-    ["expected", "Expected"],
+    ["prompt", t("showcase.aiEval.outputViewer.tab.prompt")],
+    ["input", t("showcase.aiEval.outputViewer.tab.input")],
+    ["output", t("showcase.aiEval.outputViewer.tab.output")],
+    ["expected", t("showcase.aiEval.outputViewer.tab.expected")],
   ];
 
   return (
@@ -48,7 +50,7 @@ export function OutputViewer({ scenarios }: { scenarios: ScenarioDetail[] }) {
         <div className={styles.selects}>
           <select
             className={styles.select}
-            aria-label="Scenario"
+            aria-label={t("showcase.aiEval.outputViewer.aria.scenario")}
             value={sc.scenario}
             onChange={(e) => onScenario(e.target.value)}
           >
@@ -58,19 +60,19 @@ export function OutputViewer({ scenarios }: { scenarios: ScenarioDetail[] }) {
           </select>
           <select
             className={styles.select}
-            aria-label="Case"
+            aria-label={t("showcase.aiEval.outputViewer.aria.case")}
             value={c.caseId}
             onChange={(e) => setCaseId(e.target.value)}
           >
             {sc.cases.map((x) => (
               <option key={x.caseId} value={x.caseId}>
-                {x.caseId}{x.safetyProbe ? " (safety)" : ""}
+                {x.caseId}{x.safetyProbe ? t("showcase.aiEval.outputViewer.caseSuffix.safety") : ""}
               </option>
             ))}
           </select>
           <select
             className={styles.select}
-            aria-label="Model"
+            aria-label={t("showcase.aiEval.outputViewer.aria.model")}
             value={r.modelId}
             onChange={(e) => setModelId(e.target.value)}
           >
@@ -79,7 +81,7 @@ export function OutputViewer({ scenarios }: { scenarios: ScenarioDetail[] }) {
             ))}
           </select>
         </div>
-        <div className={styles.tabs} role="tablist" aria-label="Artifact">
+        <div className={styles.tabs} role="tablist" aria-label={t("showcase.aiEval.outputViewer.aria.artifact")}>
           {tabs.map(([key, label]) => (
             <button
               key={key}
@@ -105,16 +107,16 @@ export function OutputViewer({ scenarios }: { scenarios: ScenarioDetail[] }) {
           <>
             <pre className={styles.code}>{pretty(r.output)}</pre>
             <div className={styles.scoreRow}>
-              <span>correctness <ScoreBar value={r.scores.correctness} /></span>
-              <span>format <ScoreBar value={r.scores.format} /></span>
+              <span>{t("showcase.aiEval.outputViewer.score.correctness")} <ScoreBar value={r.scores.correctness} /></span>
+              <span>{t("showcase.aiEval.outputViewer.score.format")} <ScoreBar value={r.scores.format} /></span>
               {r.scores.groundedness != null ? (
-                <span>grounded <ScoreBar value={r.scores.groundedness} /></span>
+                <span>{t("showcase.aiEval.outputViewer.score.grounded")} <ScoreBar value={r.scores.groundedness} /></span>
               ) : null}
               {r.scores.safety != null ? (
-                <span>safety <ScoreBar value={r.scores.safety} /></span>
+                <span>{t("showcase.aiEval.outputViewer.score.safety")} <ScoreBar value={r.scores.safety} /></span>
               ) : null}
             </div>
-            {r.note ? <p className={styles.paneCaption}>Reviewer note: {r.note}</p> : null}
+            {r.note ? <p className={styles.paneCaption}>{t("showcase.aiEval.outputViewer.reviewerNote")} {r.note}</p> : null}
           </>
         ) : null}
       </div>

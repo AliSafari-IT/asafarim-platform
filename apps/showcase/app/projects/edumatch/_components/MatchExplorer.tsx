@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@asafarim/ui";
+import { useTranslation } from "@asafarim/shared-i18n";
 import {
   matchTutors,
   DEFAULT_WEIGHTS,
@@ -19,13 +20,6 @@ const tutors = tutorsFixture as Tutor[];
 const needs = needsFixture as StudentNeed[];
 
 const WEIGHT_KEYS: Array<keyof Weights> = ["distance", "subject", "level", "rating", "verified"];
-const WEIGHT_LABELS: Record<keyof Weights, string> = {
-  distance: "Distance",
-  subject: "Subject",
-  level: "Level",
-  rating: "Rating",
-  verified: "Verified",
-};
 
 /**
  * Interactive matching demo. Runs the real engine client-side, entirely
@@ -34,6 +28,7 @@ const WEIGHT_LABELS: Record<keyof Weights, string> = {
  * the weights to see the ranking change live.
  */
 export function MatchExplorer() {
+  const { t } = useTranslation();
   const [needId, setNeedId] = useState(needs[0].id);
   const [weights, setWeights] = useState<Weights>({ ...DEFAULT_WEIGHTS });
 
@@ -52,7 +47,7 @@ export function MatchExplorer() {
       <div className={styles.controlsRow}>
         <div>
           <label htmlFor="need-select" className={styles.factorLabel}>
-            Student need
+            {t("showcase.edumatch.matchExplorer.studentNeed")}
           </label>
           <br />
           <select
@@ -70,10 +65,10 @@ export function MatchExplorer() {
         </div>
 
         <div className={styles.weightPanel}>
-          <strong className={styles.factorLabel}>Weights (adjust and re-rank)</strong>
+          <strong className={styles.factorLabel}>{t("showcase.edumatch.matchExplorer.weightsLabel")}</strong>
           {WEIGHT_KEYS.map((key) => (
             <div className={styles.weightRow} key={key}>
-              <label htmlFor={`weight-${key}`}>{WEIGHT_LABELS[key]}</label>
+              <label htmlFor={`weight-${key}`}>{t(`showcase.edumatch.matchExplorer.weight.${key}`)}</label>
               <input
                 id={`weight-${key}`}
                 type="range"
@@ -91,18 +86,20 @@ export function MatchExplorer() {
             className={`ui-btn ui-btn--secondary ui-btn--sm ${styles.resetBtn}`}
             onClick={() => setWeights({ ...DEFAULT_WEIGHTS })}
           >
-            Reset to defaults
+            {t("showcase.edumatch.matchExplorer.reset")}
           </button>
         </div>
       </div>
 
       <div aria-live="polite">
         <h3 style={{ marginBottom: "0.5rem" }}>
-          Ranked ({ranked.length}) — {need.label}
+          {t("showcase.edumatch.matchExplorer.ranked")
+            .replace("{count}", String(ranked.length))
+            .replace("{needLabel}", need.label)}
         </h3>
         {ranked.length === 0 ? (
           <p className="u-muted">
-            No tutor satisfies every requirement for this need — see the excluded list below for why.
+            {t("showcase.edumatch.matchExplorer.noTutor")}
           </p>
         ) : (
           <div style={{ display: "grid", gap: "var(--space-3)" }}>
@@ -120,7 +117,11 @@ export function MatchExplorer() {
                 >
                   <span>
                     <span className={styles.rank}>#{r.rank}</span> {r.name}{" "}
-                    {r.verified ? <Badge tone="success">Verified</Badge> : null}
+                    {r.verified ? (
+                      <Badge tone="success">
+                        {t("showcase.edumatch.matchExplorer.verified")}
+                      </Badge>
+                    ) : null}
                   </span>
                   <span>
                     <span className={styles.compositeBig}>{r.composite.toFixed(3)}</span>{" "}
@@ -138,7 +139,7 @@ export function MatchExplorer() {
         {excluded.length > 0 ? (
           <>
             <h3 style={{ margin: "var(--space-4) 0 0.5rem" }}>
-              Excluded ({excluded.length})
+              {t("showcase.edumatch.matchExplorer.excluded").replace("{count}", String(excluded.length))}
             </h3>
             <div className={styles.pane}>
               {excluded.map((e) => (

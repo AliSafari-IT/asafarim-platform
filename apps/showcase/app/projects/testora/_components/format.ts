@@ -1,15 +1,15 @@
 import type { BadgeTone } from "@asafarim/ui";
 import type { CaseStatus } from "../_data/types";
 
-/** Map a benchmark case status to a Badge tone + label. */
-export function statusBadge(status: CaseStatus): { tone: BadgeTone; label: string } {
+/** Map a benchmark case status to a Badge tone. */
+export function statusTone(status: CaseStatus): BadgeTone {
   switch (status) {
     case "passed":
-      return { tone: "success", label: "Passed" };
+      return "success";
     case "failed":
-      return { tone: "danger", label: "Failed" };
+      return "danger";
     case "flaky":
-      return { tone: "warning", label: "Flaky" };
+      return "warning";
   }
 }
 

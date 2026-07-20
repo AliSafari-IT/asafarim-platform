@@ -16,33 +16,48 @@ export function getRun(briefId: string): RunEntry | undefined {
 }
 
 /** The five dimensions Vionto Studio scores, straight from issue #14. */
-export const dimensions: BenchmarkDimension[] = [
+const dimensionsBase: BenchmarkDimension[] = [
   {
     key: "structuredOutputValidity",
-    name: "Structured-output validity",
-    question: "Does every stage produce output that satisfies its schema?",
+    name: "showcase.vionto.overview.dimensions.structuredOutputValidity.name",
+    question:
+      "showcase.vionto.overview.dimensions.structuredOutputValidity.question",
   },
   {
     key: "retryIdempotencyCorrectness",
-    name: "Retry & idempotency correctness",
-    question: "Can a failed or cancelled run be retried without corrupting history?",
+    name: "showcase.vionto.overview.dimensions.retryIdempotencyCorrectness.name",
+    question:
+      "showcase.vionto.overview.dimensions.retryIdempotencyCorrectness.question",
   },
   {
     key: "endToEndCompletionTime",
-    name: "End-to-end completion time",
-    question: "How long does a full brief-to-render run take?",
+    name: "showcase.vionto.overview.dimensions.endToEndCompletionTime.name",
+    question:
+      "showcase.vionto.overview.dimensions.endToEndCompletionTime.question",
   },
   {
     key: "estimatedVsObservedCost",
-    name: "Estimated vs. observed cost",
-    question: "Does the pre-run cost estimate match what actually happened?",
+    name: "showcase.vionto.overview.dimensions.estimatedVsObservedCost.name",
+    question:
+      "showcase.vionto.overview.dimensions.estimatedVsObservedCost.question",
   },
   {
     key: "seededFailureRecovery",
-    name: "Recovery from seeded failures",
-    question: "Does a deliberately broken stage recover cleanly via retry?",
+    name: "showcase.vionto.overview.dimensions.seededFailureRecovery.name",
+    question:
+      "showcase.vionto.overview.dimensions.seededFailureRecovery.question",
   },
 ];
+
+export function getDimensions(
+  t: (key: string) => string
+): BenchmarkDimension[] {
+  return dimensionsBase.map((d) => ({
+    key: d.key,
+    name: t(d.name),
+    question: t(d.question),
+  }));
+}
 
 export const methodology = {
   summary:

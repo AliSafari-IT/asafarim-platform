@@ -1,25 +1,36 @@
 import { ButtonLink, Hero, ProjectCard, Section } from "@asafarim/ui";
-import { projects } from "./projects/data";
+import { cookies } from "next/headers";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../lib/i18n-dictionaries";
+import { getProjects } from "./projects/data";
 
-export default function ShowcaseHomePage() {
+export default async function ShowcaseHomePage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
+  const projects = getProjects((key) => t(key as any));
+
   return (
     <>
       <Hero
-        kicker="The exhibition"
+        kicker={t("showcase.home.hero.kicker")}
         kickerIndex="00"
-        title="Curated projects from the ASafarIM Digital lab."
-        lede="Demos, case studies, and experiments — each piece on this wall is real software you can inspect and try."
+        title={t("showcase.home.hero.title")}
+        lede={t("showcase.home.hero.lede")}
         actions={
           <>
-            <ButtonLink href="/projects">Walk the gallery</ButtonLink>
+            <ButtonLink href="/projects">{t("showcase.home.hero.ctaPrimary")}</ButtonLink>
             <ButtonLink href="/labs" variant="secondary">
-              Peek into Labs
+              {t("showcase.home.hero.ctaSecondary")}
             </ButtonLink>
           </>
         }
       />
 
-      <Section kicker="On display" kickerIndex="01" title="Featured pieces">
+      <Section kicker={t("showcase.home.featured.kicker")} kickerIndex="01" title={t("showcase.home.featured.title")}>
         <div className="ui-grid ui-grid--wide">
           {projects.map((project) => (
             <ProjectCard

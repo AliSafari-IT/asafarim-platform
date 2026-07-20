@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@asafarim/ui";
+import { useTranslation } from "@asafarim/shared-i18n";
 import {
   createJob,
   advance,
@@ -18,22 +19,16 @@ import styles from "./vionto.module.css";
 const briefs = briefsFixture as Brief[];
 
 const STAGE_ORDER: PipelineStage[] = ["script", "storyboard", "asset-plan", "render", "done"];
-const STAGE_LABEL: Record<PipelineStage, string> = {
-  script: "Script",
-  storyboard: "Storyboard",
-  "asset-plan": "Asset plan",
-  render: "Render",
-  done: "Done",
-};
 
 function StageChain({ job }: { job: Job }) {
+  const { t } = useTranslation();
   const currentIndex = STAGE_ORDER.indexOf(job.stage);
   return (
-    <div className={styles.stageChain} aria-label="Pipeline stage">
+    <div className={styles.stageChain} aria-label={t("showcase.vionto.pipelineExplorer.aria.stage")}>
       {STAGE_ORDER.map((stage, i) => (
         <span key={stage} style={{ display: "contents" }}>
           <span className={`${styles.stageChip} ${i === currentIndex ? styles.stageChipActive : ""}`}>
-            {STAGE_LABEL[stage]}
+            {t(`showcase.vionto.pipelineExplorer.stage.${stage}`)}
           </span>
           {i < STAGE_ORDER.length - 1 ? <span className={styles.stageArrow}>→</span> : null}
         </span>
@@ -49,6 +44,7 @@ function StageChain({ job }: { job: Job }) {
  * gates cannot be skipped, matching the engine's own rules.
  */
 export function PipelineExplorer() {
+  const { t } = useTranslation();
   const [briefId, setBriefId] = useState(briefs[0].id);
   const brief = useMemo(() => briefs.find((b) => b.id === briefId) ?? briefs[0], [briefId]);
   const [job, setJob] = useState<Job>(() => createJob(brief));
@@ -89,7 +85,7 @@ export function PipelineExplorer() {
       <div className={styles.controlsRow}>
         <div>
           <label htmlFor="brief-select" className={styles.mono}>
-            Brief
+            {t("showcase.vionto.pipelineExplorer.brief")}
           </label>
           <br />
           <select
@@ -112,7 +108,7 @@ export function PipelineExplorer() {
             disabled={!canStart}
             onClick={() => safeDispatch(() => advance(job, "start", ctx))}
           >
-            Start
+            {t("showcase.vionto.pipelineExplorer.start")}
           </button>
           <button
             type="button"
@@ -120,7 +116,7 @@ export function PipelineExplorer() {
             disabled={!canApprove}
             onClick={() => safeDispatch(() => advance(job, "approve", ctx))}
           >
-            Approve
+            {t("showcase.vionto.pipelineExplorer.approve")}
           </button>
           <button
             type="button"
@@ -128,7 +124,7 @@ export function PipelineExplorer() {
             disabled={!canReject}
             onClick={() => safeDispatch(() => advance(job, "reject", ctx))}
           >
-            Reject
+            {t("showcase.vionto.pipelineExplorer.reject")}
           </button>
           <button
             type="button"
@@ -136,10 +132,10 @@ export function PipelineExplorer() {
             disabled={!canRetry}
             onClick={() => safeDispatch(() => retry(job, ctx))}
           >
-            Retry
+            {t("showcase.vionto.pipelineExplorer.retry")}
           </button>
           <button type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={() => reset(brief)}>
-            Reset
+            {t("showcase.vionto.pipelineExplorer.reset")}
           </button>
         </div>
       </div>
@@ -149,8 +145,15 @@ export function PipelineExplorer() {
       <div aria-live="polite">
         <div className={styles.jobHead}>
           <span>
-            <Badge tone={badge.tone}>{badge.label}</Badge> <span className={styles.mono}>{job.id}</span>
-            {job.retryCount > 0 ? <span className={styles.mono}> · retry {job.retryCount}</span> : null}
+            <Badge tone={badge.tone}>{t(badge.labelKey)}</Badge> <span className={styles.mono}>{job.id}</span>
+            {job.retryCount > 0 ? (
+              <span className={styles.mono}>
+                {" · "}
+                {t("showcase.vionto.pipelineExplorer.retryLabel")}
+                {" "}
+                {job.retryCount}
+              </span>
+            ) : null}
           </span>
           <StageChain job={job} />
         </div>

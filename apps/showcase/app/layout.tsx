@@ -3,7 +3,11 @@ import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { auth, signOut } from "@asafarim/auth";
 import { I18nProvider } from "@asafarim/shared-i18n";
-import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../lib/i18n-dictionaries";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   AppShell,
@@ -32,19 +36,20 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const links = getPlatformLinks();
   const cookieStore = await cookies();
   const initialLocale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(initialLocale, showcaseDictionaries);
 
   return (
     <html lang={initialLocale} suppressHydrationWarning>
       <body data-app="showcase">
-        <I18nProvider initialLocale={initialLocale}>
+        <I18nProvider initialLocale={initialLocale} dictionaries={showcaseDictionaries}>
         <AppShell
           product="Showcase"
           nav={
             <TopNav
               items={[
-                { label: "Exhibition", href: "/" },
-                { label: "Projects", href: "/projects" },
-                { label: "Labs", href: "/labs" },
+                { label: t("showcase.nav.exhibition"), href: "/" },
+                { label: t("showcase.nav.projects"), href: "/projects" },
+                { label: t("showcase.nav.labs"), href: "/labs" },
               ]}
             />
           }
@@ -53,8 +58,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <CountryLanguageSelector lockCountry="BE" />
               <AppSwitcher
                 links={[
-                  { label: "ASafarIM Digital", href: links.web, meta: "studio" },
-                  { label: "Hub", href: links.hub, meta: session?.user ? "dashboard" : "sign in" },
+                  { label: "ASafarIM Digital", href: links.web, meta: t("showcase.appSwitcher.studio") },
+                  { label: "Hub", href: links.hub, meta: session?.user ? t("showcase.appSwitcher.dashboard") : t("common.signIn") },
                 ]}
               />
               {session?.user ? (
@@ -72,7 +77,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     }}
                   >
                     <Button type="submit" variant="secondary" size="sm">
-                      Sign out
+                      {t("common.signOut")}
                     </Button>
                   </form>
                 </UserMenu>
@@ -81,7 +86,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   href={`${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.showcase}/`)}`}
                   size="sm"
                 >
-                  Sign in
+                  {t("common.signIn")}
                 </ButtonLink>
               )}
             </>

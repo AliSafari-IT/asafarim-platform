@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Badge, PageHeader, Panel, Section } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../../lib/i18n-dictionaries";
 import { ViontoNav } from "../_components/ViontoNav";
 import { FixtureBanner } from "../_components/FixtureBanner";
 import { fmtMs, fmtUsd } from "../_components/format";
@@ -12,38 +18,50 @@ export const metadata: Metadata = {
     "Estimated vs. observed cost and latency for every Vionto Studio reference run, computed from fixed reference rates — never live provider pricing.",
 };
 
-export default function ViontoCostPage() {
+export default async function ViontoCostPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
+  const stateKey = (state: string) => `showcase.vionto.state.${state}`;
   return (
     <>
       <PageHeader
-        kicker="Cost"
+        kicker={t("showcase.vionto.cost.pageHeader.kicker")}
         kickerIndex="05"
-        title="Cost & latency, estimated before you spend it"
-        description="Every run is estimated before any expensive stage executes. The acceptance criterion is that this benchmark reports cost/latency without fabricating live numbers — every figure below is either a fixed reference rate or recomputed from the same fixtures."
+        title={t("showcase.vionto.cost.pageHeader.title")}
+        description={t("showcase.vionto.cost.pageHeader.description")}
       />
 
       <ViontoNav active="/projects/vionto/cost" />
 
       <FixtureBanner />
 
-      <Section kicker="Why zero delta" kickerIndex="01" title="Estimated vs. observed">
-        <Panel title="fixture mode has no live variance">
+      <Section
+        kicker={t("showcase.vionto.cost.section.why.kicker")}
+        kickerIndex="01"
+        title={t("showcase.vionto.cost.section.why.title")}
+      >
+        <Panel title={t("showcase.vionto.cost.panel.title")}>
           <p>{scores.dimensions.estimatedVsObservedCost.method}</p>
         </Panel>
       </Section>
 
-      <Section kicker="Per run" kickerIndex="02" title="Estimate vs. observed, per reference run">
+      <Section
+        kicker={t("showcase.vionto.cost.section.perRun.kicker")}
+        kickerIndex="02"
+        title={t("showcase.vionto.cost.section.perRun.title")}
+      >
         <div style={{ overflowX: "auto" }}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Run</th>
-                <th>Outcome</th>
-                <th>Est. tokens</th>
-                <th>Est. render seconds</th>
-                <th>Estimated $</th>
-                <th>Observed $</th>
-                <th>Reference completion</th>
+                <th>{t("showcase.vionto.cost.table.run")}</th>
+                <th>{t("showcase.vionto.cost.table.outcome")}</th>
+                <th>{t("showcase.vionto.cost.table.estTokens")}</th>
+                <th>{t("showcase.vionto.cost.table.estRenderSeconds")}</th>
+                <th>{t("showcase.vionto.cost.table.estUsd")}</th>
+                <th>{t("showcase.vionto.cost.table.obsUsd")}</th>
+                <th>{t("showcase.vionto.cost.table.refCompletion")}</th>
               </tr>
             </thead>
             <tbody>
@@ -55,7 +73,7 @@ export default function ViontoCostPage() {
                   </td>
                   <td>
                     <Badge tone={run.finalState === "succeeded" ? "success" : run.finalState === "cancelled" ? "warning" : "danger"}>
-                      {run.finalState}
+                      {t(stateKey(run.finalState))}
                     </Badge>
                   </td>
                   <td className={styles.num}>{run.costEstimate.scriptTokensEst}</td>

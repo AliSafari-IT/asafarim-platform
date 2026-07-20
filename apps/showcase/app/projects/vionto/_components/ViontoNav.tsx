@@ -1,16 +1,20 @@
+"use client";
+
 import Link from "next/link";
+import { useTranslation } from "@asafarim/shared-i18n";
 import styles from "./vionto.module.css";
 
 const LINKS = [
-  { href: "/projects/vionto", label: "Overview" },
-  { href: "/projects/vionto/pipeline", label: "Pipeline explorer" },
-  { href: "/projects/vionto/manifests", label: "Manifests" },
-  { href: "/projects/vionto/cost", label: "Cost" },
-  { href: "/projects/vionto/case-study", label: "Case study" },
+  { href: "/projects/vionto", labelKey: "showcase.nav.overview" },
+  { href: "/projects/vionto/pipeline", labelKey: "showcase.nav.pipeline" },
+  { href: "/projects/vionto/manifests", labelKey: "showcase.nav.manifests" },
+  { href: "/projects/vionto/cost", labelKey: "showcase.nav.cost" },
+  { href: "/projects/vionto/case-study", labelKey: "showcase.nav.caseStudy" },
 ];
 
 /** Sub-navigation across the Vionto Studio benchmark section. */
 export function ViontoNav({ active }: { active: string }) {
+  const { t } = useTranslation();
   return (
     <nav className={styles.subnav} aria-label="Vionto Studio sections">
       {LINKS.map((l) => (
@@ -20,7 +24,7 @@ export function ViontoNav({ active }: { active: string }) {
           className={styles.subnavLink}
           aria-current={l.href === active ? "page" : undefined}
         >
-          {l.label}
+          {t(l.labelKey)}
         </Link>
       ))}
     </nav>

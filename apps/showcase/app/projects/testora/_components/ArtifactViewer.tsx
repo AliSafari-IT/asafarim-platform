@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 import type { BenchmarkCase } from "../_data/types";
 import { fmtDuration } from "./format";
 import styles from "./testora.module.css";
@@ -41,7 +42,10 @@ function stepsFor(c: BenchmarkCase): Step[] {
   }
 }
 
-function logFor(c: BenchmarkCase): { lines: string[]; failFrom: number } {
+function logFor(
+  c: BenchmarkCase,
+  t: (key: string, vars?: Record<string, string | number>) => string
+): { lines: string[]; failFrom: number } {
   const steps = stepsFor(c);
   const lines = steps.map(
     (s, i) => `${String(i + 1).padStart(2, "0")}  ${s.status === "fail" ? "✗" : "✓"} ${s.action}`,
@@ -49,13 +53,13 @@ function logFor(c: BenchmarkCase): { lines: string[]; failFrom: number } {
   const failIdx = steps.findIndex((s) => s.status === "fail");
   if (c.diagnosis) {
     lines.push("");
-    lines.push("diagnosis: " + c.diagnosis);
+    lines.push(t("showcase.testora.artifactViewer.logDiagnosis") + ": " + c.diagnosis);
   }
   return { lines, failFrom: failIdx === -1 ? lines.length : failIdx };
 }
 
 /** A small, deterministic SVG mock of the failing screen. */
-function Screenshot({ c }: { c: BenchmarkCase }) {
+function Screenshot({ c, t }: { c: BenchmarkCase; t: (key: string, vars?: Record<string, string | number>) => string }) {
   const common = { width: "100%", viewBox: "0 0 480 300", role: "img" as const };
   const frame = (
     <>
@@ -69,7 +73,7 @@ function Screenshot({ c }: { c: BenchmarkCase }) {
 
   if (c.id === "auth-trim-email") {
     return (
-      <svg {...common} className={styles.shot} aria-label="Login screen at failure">
+      <svg {...common} className={styles.shot} aria-label={t("showcase.testora.artifactViewer.screenshot.login")}>
         {frame}
         <text x="24" y="64" fontSize="16" fontWeight="700" fill="var(--ink)">Sign in</text>
         <rect x="24" y="84" width="300" height="30" rx="6" fill="var(--surface-2,#171d26)" stroke="var(--line)" />
@@ -84,7 +88,7 @@ function Screenshot({ c }: { c: BenchmarkCase }) {
   }
   if (c.id === "checkout-total-includes-tax") {
     return (
-      <svg {...common} className={styles.shot} aria-label="Checkout screen at failure">
+      <svg {...common} className={styles.shot} aria-label={t("showcase.testora.artifactViewer.screenshot.checkout")}>
         {frame}
         <text x="24" y="64" fontSize="16" fontWeight="700" fill="var(--ink)">Checkout</text>
         <text x="24" y="96" fontSize="12" fill="var(--ink)">Split keyboard</text>
@@ -99,7 +103,7 @@ function Screenshot({ c }: { c: BenchmarkCase }) {
     );
   }
   return (
-    <svg {...common} className={styles.shot} aria-label="Dashboard screen at failure (attempt 0)">
+    <svg {...common} className={styles.shot} aria-label={t("showcase.testora.artifactViewer.screenshot.dashboard")}>
       {frame}
       <text x="24" y="64" fontSize="16" fontWeight="700" fill="var(--ink)">Dashboard</text>
       <rect x="24" y="84" width="100" height="30" rx="6" fill="var(--accent)" />
@@ -117,24 +121,25 @@ function Screenshot({ c }: { c: BenchmarkCase }) {
  * and uploaded in CI — not hosted in this public demo.
  */
 export function ArtifactViewer({ cases }: { cases: BenchmarkCase[] }) {
+  const { t } = useTranslation();
   const [caseId, setCaseId] = useState(cases[0]?.id ?? "");
   const [tab, setTab] = useState<Tab>("screenshot");
   const current = cases.find((c) => c.id === caseId) ?? cases[0];
   if (!current) return null;
 
   const tabs: Array<[Tab, string]> = [
-    ["screenshot", "Screenshot"],
-    ["log", "Log"],
-    ["trace", "Trace"],
+    ["screenshot", t("showcase.testora.artifactViewer.tabScreenshot")],
+    ["log", t("showcase.testora.artifactViewer.tabLog")],
+    ["trace", t("showcase.testora.artifactViewer.tabTrace")],
   ];
-  const log = logFor(current);
+  const log = logFor(current, t);
 
   return (
     <div className={styles.viewer}>
       <div className={styles.viewerControls}>
         <select
           className={styles.select}
-          aria-label="Choose a case"
+          aria-label={t("showcase.testora.artifactViewer.caseSelect")}
           value={current.id}
           onChange={(e) => setCaseId(e.target.value)}
         >
@@ -144,7 +149,7 @@ export function ArtifactViewer({ cases }: { cases: BenchmarkCase[] }) {
             </option>
           ))}
         </select>
-        <div className={styles.tabs} role="tablist" aria-label="Artifact type">
+        <div className={styles.tabs} role="tablist" aria-label={t("showcase.testora.artifactViewer.artifactType")}>
           {tabs.map(([key, label]) => (
             <button
               key={key}
@@ -163,9 +168,11 @@ export function ArtifactViewer({ cases }: { cases: BenchmarkCase[] }) {
       <div className={styles.pane}>
         {tab === "screenshot" ? (
           <>
-            <Screenshot c={current} />
+            <Screenshot c={current} t={t} />
             <p className={styles.paneCaption}>
-              Reconstructed from the seeded state · duration {fmtDuration(current.durationMs)}
+              {t("showcase.testora.artifactViewer.reconstructed", {
+                duration: fmtDuration(current.durationMs),
+              })}
             </p>
           </>
         ) : null}
@@ -188,7 +195,9 @@ export function ArtifactViewer({ cases }: { cases: BenchmarkCase[] }) {
                 <span className={styles.stepIdx}>{String(i + 1).padStart(2, "0")}</span>
                 <span>{s.action}</span>
                 <span style={{ color: s.status === "fail" ? "#f87171" : "var(--accent)" }}>
-                  {s.status === "fail" ? "fail" : "ok"}
+                  {s.status === "fail"
+                    ? t("showcase.testora.artifactViewer.stepFail")
+                    : t("showcase.testora.artifactViewer.stepOk")}
                 </span>
               </li>
             ))}

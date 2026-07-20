@@ -1,21 +1,31 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { EmptyState, PageHeader } from "@asafarim/ui";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../lib/i18n-dictionaries";
 
 export const metadata: Metadata = { title: "Labs" };
 
-export default function LabsPage() {
+export default async function LabsPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
+
   return (
     <>
       <PageHeader
-        kicker="Experimental shelf"
+        kicker={t("showcase.labs.kicker")}
         kickerIndex="02"
-        title="Labs"
-        description="Half-built ideas, prototypes, and things that might break."
+        title={t("showcase.labs.title")}
+        description={t("showcase.labs.description")}
       />
       <EmptyState
         glyph="( ~ )"
-        title="The shelf is empty — for now"
-        description="Experiments from labs.asafarim.be will appear here as they are dusted off and rebuilt on the platform."
+        title={t("showcase.labs.empty.title")}
+        description={t("showcase.labs.empty.description")}
       />
     </>
   );

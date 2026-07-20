@@ -1,14 +1,18 @@
+"use client";
+
 import { Badge } from "@asafarim/ui";
+import { useTranslation } from "@asafarim/shared-i18n";
 import type { CaseArtifacts, SuiteGroup } from "../_data/types";
-import { fmtDuration, statusBadge } from "./format";
+import { fmtDuration, statusTone } from "./format";
 import styles from "./testora.module.css";
 
 function ArtifactChips({ artifacts }: { artifacts: CaseArtifacts }) {
+  const { t } = useTranslation();
   const items: Array<[keyof CaseArtifacts, string]> = [
-    ["trace", "trace"],
-    ["screenshot", "shot"],
-    ["video", "video"],
-    ["log", "log"],
+    ["trace", t("showcase.testora.resultTable.artifact.trace")],
+    ["screenshot", t("showcase.testora.resultTable.artifact.screenshot")],
+    ["video", t("showcase.testora.resultTable.artifact.video")],
+    ["log", t("showcase.testora.resultTable.artifact.log")],
   ];
   return (
     <span className={styles.artifacts}>
@@ -16,7 +20,11 @@ function ArtifactChips({ artifacts }: { artifacts: CaseArtifacts }) {
         <span
           key={key}
           className={`${styles.chip} ${artifacts[key] ? styles.chipOn : ""}`}
-          title={artifacts[key] ? `${label} captured` : `${label} not captured`}
+          title={
+            artifacts[key]
+              ? t("showcase.testora.resultTable.artifact.captured", { label })
+              : t("showcase.testora.resultTable.artifact.notCaptured", { label })
+          }
         >
           {label}
         </span>
@@ -27,16 +35,17 @@ function ArtifactChips({ artifacts }: { artifacts: CaseArtifacts }) {
 
 /** Per-suite result table with status, dimension, timing, artifacts, diagnosis. */
 export function ResultTable({ suites }: { suites: SuiteGroup[] }) {
+  const { t } = useTranslation();
   return (
     <div style={{ overflowX: "auto" }}>
       <table className={styles.table}>
         <thead>
           <tr>
-            <th>Status</th>
-            <th>Case</th>
-            <th>Dimension</th>
-            <th>Duration</th>
-            <th>Artifacts</th>
+            <th>{t("showcase.testora.resultTable.status")}</th>
+            <th>{t("showcase.testora.resultTable.case")}</th>
+            <th>{t("showcase.testora.resultTable.dimension")}</th>
+            <th>{t("showcase.testora.resultTable.duration")}</th>
+            <th>{t("showcase.testora.resultTable.artifacts")}</th>
           </tr>
         </thead>
         <tbody>
@@ -50,19 +59,26 @@ export function ResultTable({ suites }: { suites: SuiteGroup[] }) {
 }
 
 function SuiteRows({ group }: { group: SuiteGroup }) {
+  const { t } = useTranslation();
   return (
     <>
       <tr>
-        <td colSpan={5} className={styles.caseId} style={{ paddingTop: "1rem" }}>
-          {group.suite}
+        <td
+          colSpan={5}
+          className={styles.caseId}
+          style={{ paddingTop: "1rem" }}
+        >
+          {t("showcase.testora.resultTable.suite")} · {group.suite}
         </td>
       </tr>
       {group.cases.map((c) => {
-        const badge = statusBadge(c.status);
+        const tone = statusTone(c.status);
         return (
           <tr key={c.id}>
             <td>
-              <Badge tone={badge.tone}>{badge.label}</Badge>
+              <Badge tone={tone}>
+                {t(`showcase.testora.status.${c.status}`)}
+              </Badge>
             </td>
             <td>
               <div className={styles.caseTitle}>{c.title}</div>

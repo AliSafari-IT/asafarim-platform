@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -8,7 +9,12 @@ import {
   Panel,
   StatusBadge,
 } from "@asafarim/ui";
-import { getProject, projects } from "../data";
+import {
+  resolveLocaleFromCookie,
+  getServerTranslator,
+} from "@asafarim/shared-i18n/server";
+import showcaseDictionaries from "../../../lib/i18n-dictionaries";
+import { projects, getProject, getTranslatedProject } from "../data";
 
 interface ProjectPageProps {
   params: Promise<{ slug: string }>;
@@ -32,7 +38,11 @@ export async function generateMetadata({ params }: ProjectPageProps): Promise<Me
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
   const { slug } = await params;
-  const project = getProject(slug);
+
+  const cookieStore = await cookies();
+  const locale = resolveLocaleFromCookie(cookieStore.toString());
+  const t = getServerTranslator(locale, showcaseDictionaries);
+  const project = getTranslatedProject((key) => t(key as any), slug);
 
   if (!project) {
     notFound();
@@ -41,15 +51,15 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   return (
     <>
       <PageHeader
-        kicker={`Exhibit № ${project.index}`}
+        kicker={`${t("showcase.project.exhibit")} ${project.index}`}
         title={project.title}
         description={project.summary}
-        actions={<Link href="/projects">← Back to the wall</Link>}
+        actions={<Link href="/projects">{t("showcase.project.back")}</Link>}
       />
 
       <div className="ui-grid">
         <Panel
-          title="Spec sheet"
+          title={t("showcase.project.specSheet")}
           actions={<StatusBadge status={project.status} />}
         >
           <p className="u-mono" style={{ marginBottom: "0.75rem" }}>
@@ -63,9 +73,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             ))}
           </div>
         </Panel>
-        <Card variant="gallery" title="Case study">
-          Full case study, screenshots, and a live demo link will be hung next
-          to this piece when the showcase content is migrated.
+        <Card variant="gallery" title={t("showcase.project.caseStudy")}>
+          {t("showcase.project.caseStudyBody")}
         </Card>
       </div>
     </>
