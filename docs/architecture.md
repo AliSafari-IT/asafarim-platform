@@ -14,7 +14,9 @@ asafarim-platform/
 │  ├─ hub/                 # Logged-in dashboard (hub.asafarim.com)
 │  ├─ showcase/            # Public showcase (showcase.asafarim.be)
 │  ├─ admin/               # Admin panel (admin.asafarim.com)
-│  └─ vionto/              # AI photo-to-story video app (vionto.asafarim.com)
+│  ├─ vionto/              # AI photo-to-story video app (vionto.asafarim.com)
+│  ├─ testora/             # E2E test automation platform (testora.asafarim.com)
+│  └─ appbuilder/          # Metadata-driven AI app factory (appbuilder.asafarim.com)
 ├─ packages/
 │  ├─ ui/                  # Shared React UI components + nav shell
 │  ├─ auth/                # Auth.js v5: providers, helpers, proxy (auth gate)
@@ -44,6 +46,8 @@ monorepo root context.
 | showcase | localhost:3002 | showcase.asafarim.be | `/`, `/projects`, `/projects/[slug]`, `/labs` | Public |
 | admin | localhost:3003 | admin.asafarim.com | `/`, `/users`, `/roles`, `/permissions`, `/audit-logs`, `/settings`, `/denied`, `/sign-in` | Everything except `/sign-in` and `/denied` requires the **admin** or **superadmin** role |
 | vionto | localhost:3004 | vionto.asafarim.com | `/`, `/create`, `/projects`, `/albums`, `/organizer`, `/api/**` | Landing and `/create` shell public; all data APIs and remaining pages require login (see [vionto-architecture.md](vionto-architecture.md)) |
+| testora | localhost:3005 | testora.asafarim.com | `/`, `/apps`, `/issues`, `/api/**` | Own Postgres/Drizzle service, isolated from the shared platform database |
+| appbuilder | localhost:3006 | *(not yet routed — M11)* | `/`, `/apps`, `/apps/new`, `/apps/[appId]`, `/apps/[appId]/preview`, `/api/health` | M01 scaffold only — no auth, no persistence yet (see [appbuilder-architecture.md](appbuilder-architecture.md)) |
 
 Protection is layered:
 

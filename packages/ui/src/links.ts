@@ -15,6 +15,7 @@ export interface PlatformLinks {
   admin: string;
   vionto: string;
   testora: string;
+  appbuilder: string;
 }
 
 export function getPlatformLinks(): PlatformLinks {
@@ -25,5 +26,6 @@ export function getPlatformLinks(): PlatformLinks {
     admin: process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3003",
     vionto: process.env.NEXT_PUBLIC_VIONTO_URL ?? "http://localhost:3004",
     testora: process.env.NEXT_PUBLIC_TESTORA_URL ?? "http://localhost:3005",
+    appbuilder: process.env.NEXT_PUBLIC_APPBUILDER_URL ?? "http://localhost:3006",
   };
 }

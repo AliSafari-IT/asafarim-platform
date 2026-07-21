@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ASafarIM AppBuilder">
+  <rect width="64" height="64" rx="14" fill="#101112"/>
+  <rect x="14" y="14" width="15" height="15" rx="3" fill="#7c8cf8"/>
+  <rect x="35" y="14" width="15" height="15" rx="3" fill="#a5b4fc"/>
+  <rect x="14" y="35" width="15" height="15" rx="3" fill="#a5b4fc"/>
+  <rect x="35" y="35" width="15" height="15" rx="3" fill="#7c8cf8"/>
+</svg>
