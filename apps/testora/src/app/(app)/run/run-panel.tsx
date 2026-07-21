@@ -631,7 +631,7 @@ export function RunPanel() {
           </select>
           {activeProject?.locked ? (
             <span className="inline-flex items-center gap-1 text-xs text-amber-400">
-              <Lock className="h-3.5 w-3.5" /> Private — unlock to run
+              <Lock className="h-3.5 w-3.5" /> Private — sign in to run
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">

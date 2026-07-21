@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth, signOut } from "@asafarim/auth";
 import {
   AppSwitcher,
@@ -22,10 +23,10 @@ export async function PlatformHeader() {
 
   return (
     <header className="ui-shell__header">
-      <a href="/" className="ui-shell__brand">
+      <Link href="/" className="ui-shell__brand">
         <LogoMark accent />
         <BrandWordmark product="Testora" />
-      </a>
+      </Link>
       <div className="ui-shell__nav" />
       <div className="ui-shell__actions">
         <AppSwitcher
