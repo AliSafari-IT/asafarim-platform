@@ -397,9 +397,15 @@ importers:
       '@asafarim/country-language-selector':
         specifier: workspace:*
         version: link:../../packages/country-language-selector
+      '@asafarim/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@asafarim/shared-i18n':
         specifier: workspace:*
         version: link:../../packages/shared-i18n
+      '@asafarim/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@asafarim/theme-toggle':
         specifier: workspace:*
         version: link:../../packages/theme-toggle

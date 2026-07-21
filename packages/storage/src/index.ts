@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   HeadObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
@@ -206,11 +207,21 @@ async function putLocalObject(
   return `/api/storage/local?key=${encodeURIComponent(key)}`;
 }
 
-/** Persist raw bytes to remote storage (or local fallback) and return a public URL. */
+export type PutObjectOptions = {
+  /**
+   * Object ACL. Defaults to "public-read" (avatars, public media). Pass
+   * "private" for objects that must only be reachable through an
+   * access-controlled route (e.g. contact-message attachments).
+   */
+  acl?: "public-read" | "private";
+};
+
+/** Persist raw bytes to remote storage (or local fallback) and return a URL/key ref. */
 export async function putObjectBytes(
   key: string,
   body: Buffer,
-  contentType: string
+  contentType: string,
+  options: PutObjectOptions = {}
 ): Promise<string> {
   const handle = getClient();
   if (!handle) {
@@ -225,9 +236,9 @@ export async function putObjectBytes(
         Body: body,
         ContentType: contentType,
         ContentLength: body.length,
-        // Objects on DigitalOcean Spaces / S3 are private by default; avatars
-        // are served directly from the public URL, so they must be world-readable.
-        ACL: "public-read",
+        // Objects on DigitalOcean Spaces / S3 are private by default; public
+        // media (avatars) must be world-readable, while attachments stay private.
+        ACL: options.acl ?? "public-read",
       })
     );
   } catch (error) {
@@ -235,6 +246,50 @@ export async function putObjectBytes(
   }
 
   return `${handle.config.publicUrl.replace(/\/+$/, "")}/${key}`;
+}
+
+/**
+ * Read an object's raw bytes + content type from remote or local storage.
+ * Returns null when the object does not exist. Use this to stream private
+ * objects through an access-controlled route instead of a public URL.
+ */
+export async function getObjectBytes(
+  key: string
+): Promise<{ body: Buffer; contentType: string } | null> {
+  const handle = getClient();
+  if (!handle) {
+    const cached = localObjects.get(key);
+    if (cached) return cached;
+    try {
+      const body = await readFile(getLocalFilePath(key));
+      let contentType = "application/octet-stream";
+      try {
+        const meta = JSON.parse(await readFile(getLocalMetaPath(key), "utf8")) as {
+          contentType?: string;
+        };
+        contentType = meta.contentType ?? contentType;
+      } catch {
+        // no metadata sidecar
+      }
+      return { body, contentType };
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const result = await handle.client.send(
+      new GetObjectCommand({ Bucket: handle.config.bucket, Key: key })
+    );
+    if (!result.Body) return null;
+    const bytes = await result.Body.transformToByteArray();
+    return {
+      body: Buffer.from(bytes),
+      contentType: result.ContentType ?? "application/octet-stream",
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Delete an object from remote or local storage. */

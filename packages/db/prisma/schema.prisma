@@ -59,6 +59,9 @@ model User {
   viontoSharesReceived   ViontoProjectShare[]    @relation("ViontoSharesReceived")
   googlePhotosConnection GooglePhotosConnection?
 
+  // Contact inbox — messages this user sent through the contact workspace
+  contactMessages ContactMessage[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -957,4 +960,58 @@ model GooglePhotosConnection {
 
   @@index([userId])
   @@index([status])
+}
+
+// ─── Contact Inbox ─────────────────────────────────────────────
+// A message sent through the /contact workspace. Anonymous submissions go out
+// as email only (no row); signed-in users get a tracked record here, with
+// pasted HTML content and file attachments, surfaced back to them as an inbox.
+
+model ContactMessage {
+  id       String  @id @default(cuid())
+  // Null for anonymous submissions that are still persisted (currently only
+  // authenticated messages are stored); SetNull keeps the record if the user
+  // is ever deleted.
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  name     String
+  email    String
+  subject  String?
+  // Raw HTML the user pasted/typed. Rendered inside a sandboxed <iframe> (no
+  // script execution), never with dangerouslySetInnerHTML.
+  bodyHtml String  @db.Text
+  // Best-effort plain-text version for previews and the email fallback.
+  bodyText String? @db.Text
+
+  // sent | read | archived
+  status    String  @default("sent")
+  // Whether the notification email to the site owner went out.
+  emailSent Boolean @default(false)
+
+  attachments ContactAttachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ContactAttachment {
+  id        String @id @default(cuid())
+  messageId String
+  message   ContactMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  fileName    String
+  contentType String
+  sizeBytes   Int
+  // Object-storage key (@asafarim/storage). Files are served only through an
+  // ownership-checked download route, never a public URL.
+  storageKey  String
+
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
 }

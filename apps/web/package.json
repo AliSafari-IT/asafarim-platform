@@ -12,7 +12,9 @@
   "dependencies": {
     "@asafarim/auth": "workspace:*",
     "@asafarim/country-language-selector": "workspace:*",
+    "@asafarim/db": "workspace:*",
     "@asafarim/shared-i18n": "workspace:*",
+    "@asafarim/storage": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "dotenv": "^17.4.2",
