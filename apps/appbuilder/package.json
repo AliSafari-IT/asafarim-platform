@@ -20,6 +20,7 @@
   "dependencies": {
     "@asafarim/appbuilder-schema": "workspace:*",
     "@asafarim/auth": "workspace:*",
+    "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.38.2",
