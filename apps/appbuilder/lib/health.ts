@@ -1,10 +1,11 @@
 /**
  * Health payload for AppBuilder.
  *
- * M01 has no database or external dependency of its own yet (that arrives in
- * M02), so the check is a liveness probe: the process is up and can respond.
- * Kept as a pure function so the route handler stays a thin wrapper and the
- * shape is unit-testable without booting Next.js.
+ * M02 adds AppBuilder's own database, so the liveness check from M01 now
+ * also reports a readiness check: can the process reach its own Postgres.
+ * Kept as a pure function (db check injected) so the route handler stays a
+ * thin wrapper and the shape is unit-testable without booting Next.js or a
+ * real database.
  */
 
 export interface HealthPayload {
@@ -15,9 +16,13 @@ export interface HealthPayload {
   timestamp: string;
 }
 
-export function buildHealthPayload(now: Date = new Date()): HealthPayload {
+export async function buildHealthPayload(
+  now: Date = new Date(),
+  checkDb: () => Promise<boolean> = defaultCheckDb,
+): Promise<HealthPayload> {
   const checks = {
     process: true,
+    database: await checkDb(),
   };
   const ok = Object.values(checks).every(Boolean);
 
@@ -28,4 +33,9 @@ export function buildHealthPayload(now: Date = new Date()): HealthPayload {
     checks,
     timestamp: now.toISOString(),
   };
+}
+
+async function defaultCheckDb(): Promise<boolean> {
+  const { pingDb } = await import("./db/readiness");
+  return pingDb();
 }

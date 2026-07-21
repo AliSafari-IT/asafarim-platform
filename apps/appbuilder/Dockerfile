@@ -1,9 +1,10 @@
 # ---------------------------------------------------------------------------
-# appbuilder — metadata-driven AI application factory. Two-stage:
-#   builder : installs the whole workspace and builds the standalone server.
-#   runner  : slim image that serves the app.
-# No database or migration stage yet — appbuilder's own Postgres service
-# ships in M02.
+# appbuilder — metadata-driven AI application factory. Three-stage:
+#   builder  : installs the whole workspace and builds the standalone server.
+#   migrator : reuses builder (has tsx + drizzle + source) to run drizzle
+#              migrations against appbuilder's own database before the app
+#              starts. See docker-compose.prod.yml's appbuilder-migrate job.
+#   runner   : slim image that serves the app.
 # ---------------------------------------------------------------------------
 FROM node:24-alpine AS builder
 WORKDIR /app
@@ -33,6 +34,12 @@ ENV BUILD_STANDALONE=true
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @asafarim/appbuilder build
+
+# --- migration runner (one-shot; started by docker compose before the app) ---
+FROM builder AS migrator
+# Default command applies pending drizzle migrations. APPBUILDER_DATABASE_URL
+# is supplied by compose (points at the in-network appbuilder-postgres).
+CMD ["pnpm", "--filter", "@asafarim/appbuilder", "db:migrate"]
 
 # --- app server ---
 FROM node:24-alpine AS runner
