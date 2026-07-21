@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { auth, signOut, PLATFORM_APPS, canAccessApp, type AppAccessContext } from "@asafarim/auth";
 import {
   AppShell,
   AppSwitcher,
+  Button,
   ButtonLink,
   TopNav,
+  UserMenu,
   getPlatformLinks,
 } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
@@ -19,8 +22,24 @@ export const metadata: Metadata = {
   icons: { icon: "/favicon.svg" },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const session = await auth();
   const links = getPlatformLinks();
+
+  // Registry-driven, same rule Hub's launcher/switcher use — no
+  // AppBuilder-specific hardcoded visibility here.
+  const switcherContext: AppAccessContext = {
+    roles: session?.user?.roles ?? [],
+    authenticated: Boolean(session?.user),
+  };
+  const switcherApps = PLATFORM_APPS.filter(
+    (app) => app.key !== "appbuilder" && app.status === "active" && app.key in links && canAccessApp(app, switcherContext),
+  );
+
+  // AppBuilder has no local sign-in page — the platform's centralized flow
+  // lives on Hub. The callback preserves the original AppBuilder URL so
+  // signing in returns here rather than stranding the user on Hub.
+  const signInHref = `${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.appbuilder}/`)}`;
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -39,20 +58,35 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           user={
             <>
               <AppSwitcher
-                links={[
-                  { label: "ASafarIM Digital", href: links.web, meta: "public" },
-                  { label: "Hub", href: links.hub, meta: "workbench" },
-                  { label: "Vionto", href: links.vionto, meta: "photo-to-story" },
-                  { label: "Testora", href: links.testora, meta: "benchmark" },
-                ]}
+                links={switcherApps.map((app) => ({
+                  label: app.name,
+                  href: links[app.key as keyof typeof links],
+                  meta: app.meta,
+                }))}
               />
-              {/*
-                Platform SSO lands in M03 (issue #32). Until then this links
-                to the Hub's own sign-in rather than wiring a session here.
-              */}
-              <ButtonLink href={`${links.hub}/sign-in`} size="sm">
-                Sign in
-              </ButtonLink>
+              {session?.user ? (
+                <UserMenu
+                  name={session.user.name}
+                  email={session.user.email}
+                  image={session.user.image}
+                  roles={session.user.roles}
+                >
+                  <form
+                    action={async () => {
+                      "use server";
+                      await signOut({ redirectTo: "/" });
+                    }}
+                  >
+                    <Button type="submit" variant="secondary" size="sm">
+                      Sign out
+                    </Button>
+                  </form>
+                </UserMenu>
+              ) : (
+                <ButtonLink href={signInHref} size="sm">
+                  Sign in
+                </ButtonLink>
+              )}
             </>
           }
         >

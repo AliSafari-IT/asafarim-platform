@@ -7,9 +7,9 @@ import { ForbiddenError, ConflictError, NotFoundError } from "../errors";
 
 const db = getTestDb();
 
-const ownerA = { principalId: "owner-a" };
-const ownerB = { principalId: "owner-b" };
-const stranger = { principalId: "stranger" };
+const ownerA = { principalId: "owner-a", roles: [] };
+const ownerB = { principalId: "owner-b", roles: [] };
+const stranger = { principalId: "stranger", roles: [] };
 
 beforeAll(async () => {
   await migrateTestDb();
@@ -32,14 +32,14 @@ describe("owner/app isolation", () => {
     expect(await getAppForActor(db, ownerB, appB.id)).toMatchObject({ id: appB.id });
   });
 
-  it("rejects a cross-owner read", async () => {
+  it("rejects a cross-owner read as NotFoundError, not ForbiddenError — unrelated actors must not learn the app exists", async () => {
     const appA = await createApp(db, ownerA, { name: "A's App", slug: "as-app" }, "create-a");
 
-    await expect(getAppForActor(db, ownerB, appA.id)).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(getAppForActor(db, stranger, appA.id)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(getAppForActor(db, ownerB, appA.id)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(getAppForActor(db, stranger, appA.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it("rejects a cross-owner write (applying an operation on someone else's app)", async () => {
+  it("rejects a cross-owner write (applying an operation on someone else's app) as NotFoundError", async () => {
     const appA = await createApp(db, ownerA, { name: "A's App", slug: "as-app" }, "create-a");
 
     await expect(
@@ -48,7 +48,7 @@ describe("owner/app isolation", () => {
         payload: { entity: "Widget" },
         idempotencyKey: "cross-owner-op",
       }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("scopes listAppsForActor to only the actor's own and collaborated apps", async () => {
@@ -68,7 +68,7 @@ describe("owner/app isolation", () => {
     const appB = await createApp(db, ownerB, { name: "B's App", slug: "bs-app" }, "create-b");
     await addCollaborator(db, ownerB, appB.id, "collab-1", "editor");
 
-    const collaborator = { principalId: "collab-1" };
+    const collaborator = { principalId: "collab-1", roles: [] };
     // Editor can read and apply operations...
     expect(await getAppForActor(db, collaborator, appB.id)).toMatchObject({ id: appB.id });
     await expect(
@@ -79,18 +79,22 @@ describe("owner/app isolation", () => {
       }),
     ).resolves.toBeDefined();
 
-    // ...but cannot add another collaborator (owner-only).
+    // ...but cannot add another collaborator (owner-only). The collaborator
+    // IS related to this app (they can view it), so this is a genuine 403,
+    // not the "unrelated actor" 404 case above.
     await expect(addCollaborator(db, collaborator, appB.id, "collab-2", "viewer")).rejects.toBeInstanceOf(
       ForbiddenError,
     );
   });
 
-  it("revoked collaborators lose access", async () => {
+  it("revoked collaborators lose access entirely (NotFoundError, same as an unrelated actor)", async () => {
     const appB = await createApp(db, ownerB, { name: "B's App", slug: "bs-app" }, "create-b");
     const collaborator = await addCollaborator(db, ownerB, appB.id, "collab-1", "viewer");
     await revokeCollaborator(db, ownerB, appB.id, collaborator.id);
 
-    await expect(getAppForActor(db, { principalId: "collab-1" }, appB.id)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      getAppForActor(db, { principalId: "collab-1", roles: [] }, appB.id),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("cannot revoke a collaborator via another app's id (cross-app id confusion)", async () => {
@@ -98,9 +102,8 @@ describe("owner/app isolation", () => {
     const appB = await createApp(db, ownerB, { name: "B's App", slug: "bs-app" }, "create-b");
     const collaborator = await addCollaborator(db, ownerB, appB.id, "collab-1", "viewer");
 
-    // ownerA is not even authorized to touch appB — but exercise the deeper
-    // guarantee too: even a caller authorized on appA can't use appA's id to
-    // reach a collaborator row that belongs to appB.
+    // ownerA is not even authorized to touch appB (unrelated -> NotFoundError
+    // at the assertCapability step, before the collaborator lookup even runs).
     await expect(revokeCollaborator(db, ownerA, appA.id, collaborator.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 

@@ -10,8 +10,8 @@ import { addCollaborator } from "../repositories/collaborators";
  * runtime, keyed on a fixed idempotency key per fixture row.
  */
 export async function seedDatabase(db: Db) {
-  const ownerA = { principalId: "seed-owner-a" };
-  const ownerB = { principalId: "seed-owner-b" };
+  const ownerA = { principalId: "seed-owner-a", roles: [] };
+  const ownerB = { principalId: "seed-owner-b", roles: [] };
 
   const appA1 = await createApp(db, ownerA, { name: "Inventory Tracker", slug: "inventory-tracker" }, "seed-app-a1");
   const appA2 = await createApp(db, ownerA, { name: "Support Desk", slug: "support-desk" }, "seed-app-a2");
