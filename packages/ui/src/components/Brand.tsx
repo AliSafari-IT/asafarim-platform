@@ -5,7 +5,8 @@ export type ProductName =
   | "Showcase"
   | "Admin"
   | "Vionto"
-  | "Testora";
+  | "Testora"
+  | "AppBuilder";
 
 export interface LogoMarkProps {
   /** Use the app accent color instead of ink. */

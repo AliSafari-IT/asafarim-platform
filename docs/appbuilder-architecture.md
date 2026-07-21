@@ -1,0 +1,71 @@
+# AppBuilder Architecture (M01)
+
+**Application:** `apps/appbuilder`
+**Document date:** 2026-07-21
+**Scope:** M01 only — architecture contract, app scaffold, and local runtime.
+See [issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29)
+for the full 12-milestone delivery series and
+[ADR 0001](adr/0001-appbuilder-managed-runtime.md) for the architectural
+decision behind the metadata-driven runtime.
+
+## Summary
+
+AppBuilder is a Next.js 16 / React 19 app in the ASafarIM pnpm/Turborepo
+monorepo. It will let a signed-in user describe an internal business
+application, get back a versioned application specification, preview it,
+refine it conversationally, validate it, and publish an immutable release.
+
+M01 establishes only the app shell and route contracts — no persistence, no
+auth, no AI calls, no preview runtime. Those are separate, sequenced
+milestones (see below), each gated on the previous one's acceptance criteria.
+
+## Local runtime
+
+| | |
+| --- | --- |
+| Dev port | `3006` (`pnpm --filter @asafarim/appbuilder dev`) |
+| Health check | `GET /api/health` |
+| Design system | `@asafarim/ui` (consumed directly; no forked components) |
+| Docker | `apps/appbuilder/Dockerfile`, standalone output, not yet wired into `docker-compose.prod.yml` (production routing is M11) |
+
+## Route contracts
+
+Defined in [`apps/appbuilder/lib/routes.ts`](../apps/appbuilder/lib/routes.ts)
+and unit-tested in `lib/routes.test.ts`.
+
+| Route | Purpose | Real behavior ships in |
+| --- | --- | --- |
+| `/` | Landing / product overview | — (this milestone) |
+| `/apps` | Catalog of the owner/tenant's generated apps | M02 (metadata store) |
+| `/apps/new` | Prompt-first creation entry point | M05 (creation flow), M07 (AI planner) |
+| `/apps/[appId]` | A generated app's detail/overview shell | M02 (registry), M03 (authorization) |
+| `/apps/[appId]/preview` | Metadata-driven preview runtime | M06 (template registry + preview runtime) |
+
+Every route currently renders as a defined, empty/informational shell (using
+the shared `EmptyState` / `Alert` primitives) rather than a 404 or a stub
+that silently does nothing — each page states which milestone fills it in.
+
+## Isolation and trust boundary
+
+- AppBuilder's own metadata store (M02) is a dedicated PostgreSQL
+  service, isolated from the platform's shared Prisma database — the same
+  pattern already used by Testora (`apps/testora`, its own Drizzle/Postgres
+  service on a dedicated port).
+- Generated apps never execute AI-written source code or load arbitrary npm
+  packages; see [ADR 0001](adr/0001-appbuilder-managed-runtime.md) for the
+  full rationale and the explicit prohibitions this fixes.
+
+## Milestone map (for orientation)
+
+1. **M01 — this milestone.** Architecture contract, app scaffold, local runtime.
+2. M02 — dedicated PostgreSQL service, migrations, repository boundary.
+3. M03 — platform SSO, authorization, app registry, audit identity.
+4. M04 — versioned application specification and operation engine.
+5. M05 — generated-app catalog and prompt-first creation flow.
+6. M06 — approved template/component registry and preview runtime.
+7. M07 — AI requirements planner and structured generation pipeline.
+8. M08 — builder workspace, conversational changes, version history.
+9. M09 — generated-data engine, RBAC, relations, basic workflows.
+10. M10 — validation gates, preview QA, bounded AI repair loop.
+11. M11 — immutable releases, generated-app deployment, domain routing.
+12. M12 — launch hardening, observability, backups, quotas, custom domains.
