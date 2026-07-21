@@ -10,6 +10,8 @@ loadEnv({ path: path.join(process.cwd(), "../../.env") });
 loadEnv({ path: path.join(process.cwd(), ".env.local") });
 
 const nextConfig: NextConfig = {
+  // Docker builds set BUILD_STANDALONE=true to emit a self-contained server.
+  output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   reactStrictMode: true,
   serverExternalPackages: ["testcafe", "testcafe-hammerhead", "@electron/asar"],
   devIndicators: false,

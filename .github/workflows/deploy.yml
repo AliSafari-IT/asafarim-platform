@@ -1,7 +1,8 @@
 name: Deploy to VPS
 
 # Deploys the full Docker Compose stack (web, hub, showcase, admin, vionto,
-# vionto-worker + postgres, redis, caddy) to the asafarim.com VPS.
+# vionto-worker, testora + postgres, redis, testora-postgres, caddy) to the
+# asafarim.com VPS.
 #
 # How it works: this job only SSHes into the VPS and runs the server-side
 # script infra/scripts/vps-deploy.sh, which pulls the latest main, decrypts
