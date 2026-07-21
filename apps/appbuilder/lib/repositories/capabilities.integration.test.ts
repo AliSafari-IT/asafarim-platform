@@ -49,7 +49,7 @@ describe("capability matrix — owner", () => {
     await expect(
       applyOperation(db, owner, app.id, {
         operation: createEntityOp("widget_owner"),
-        baseVersionNumber: 0,
+        baseVersionNumber: 1,
         idempotencyKey: "owner-op",
       }),
     ).resolves.toBeDefined();
@@ -67,7 +67,7 @@ describe("capability matrix — editor", () => {
     await expect(
       applyOperation(db, editor, app.id, {
         operation: createEntityOp("widget_editor"),
-        baseVersionNumber: 0,
+        baseVersionNumber: 1,
         idempotencyKey: "editor-op",
       }),
     ).resolves.toBeDefined();
@@ -88,7 +88,7 @@ describe("capability matrix — viewer", () => {
     await expect(
       applyOperation(db, viewer, app.id, {
         operation: createEntityOp("widget_viewer"),
-        baseVersionNumber: 0,
+        baseVersionNumber: 1,
         idempotencyKey: "viewer-op",
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
@@ -107,7 +107,7 @@ describe("capability matrix — unrelated authenticated user", () => {
     await expect(
       applyOperation(db, unrelated, app.id, {
         operation: createEntityOp("widget_unrelated"),
-        baseVersionNumber: 0,
+        baseVersionNumber: 1,
         idempotencyKey: "unrelated-op",
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
@@ -193,7 +193,7 @@ describe("forged actor/owner ids are ignored", () => {
       // having performed the action — extra/unknown keys are simply not
       // part of any operation's schema and are dropped by Zod's parse.
       operation: { ...createEntityOp("widget"), actorId: "someone-else", ownerPrincipalId: "attacker" },
-      baseVersionNumber: 0,
+      baseVersionNumber: 1,
       idempotencyKey: "forge-op",
     });
 

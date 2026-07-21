@@ -69,6 +69,24 @@ export const idempotencyStatusEnum = pgEnum("idempotency_status", [
   "failed",
 ]);
 
+// M05: the constrained set of starting points a prompt-first creation flow
+// may choose from. Intentionally small — M07 (AI interpretation) and M06
+// (registered templates) expand what a starter family actually produces;
+// M05 only records the user's choice.
+export const starterFamilyEnum = pgEnum("starter_family", [
+  "blank",
+  "task_management",
+  "crm",
+  "inventory",
+  "booking",
+]);
+
+// M05: the visibility the owner picks at creation time. This only records
+// intent — it does not yet drive any enforcement beyond the existing
+// owner/collaborator capability model (M03). "team" apps still require
+// collaborators to be added explicitly; there is no org-wide discovery.
+export const appVisibilityEnum = pgEnum("app_visibility", ["private", "team"]);
+
 // The generated-application registry. Every other app-owned table hangs off
 // `appId` (directly or, for specificationVersions, denormalized) so a
 // repository can never answer a query without an app-scoping predicate.
@@ -81,7 +99,13 @@ export const apps = pgTable(
     ownerPrincipalId: text("owner_principal_id").notNull(),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    // Short, denormalized catalog description — distinct from the initial
+    // creation prompt (see creationRequests below), which is the raw intent
+    // persisted for M07. This is a display-only summary, bounded and
+    // sanitized at the application layer, never raw HTML.
+    description: text("description"),
     status: appStatusEnum("status").notNull().default("active"),
+    visibility: appVisibilityEnum("visibility").notNull().default("private"),
     // Archival over destructive deletion — an archived app's history stays
     // intact for audit purposes.
     archivedAt: timestamp("archived_at", { withTimezone: true }),
@@ -91,6 +115,13 @@ export const apps = pgTable(
   (table) => [
     uniqueIndex("apps_slug_unique").on(table.slug),
     index("apps_owner_principal_id_idx").on(table.ownerPrincipalId),
+    // Catalog listing filters by status and sorts by updatedAt/createdAt/name
+    // for every request (M05) — index each to keep pagination cheap as the
+    // registry grows.
+    index("apps_status_idx").on(table.status),
+    index("apps_updated_at_idx").on(table.updatedAt),
+    index("apps_created_at_idx").on(table.createdAt),
+    index("apps_name_idx").on(table.name),
   ],
 );
 
@@ -347,6 +378,28 @@ export const idempotencyKeys = pgTable(
   ],
 );
 
+// M05: the persisted record of what the user asked for at creation time —
+// their free-text prompt and chosen starter family. This is product state
+// (an input M07's AI interpretation will read later), not an audit log
+// entry, so it gets its own table rather than being folded into
+// auditEvents metadata. One row per app, written once, in the same
+// transaction as the app itself; never mutated afterward.
+export const creationRequests = pgTable(
+  "creation_requests",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    requestedByPrincipalId: text("requested_by_principal_id").notNull(),
+    prompt: text("prompt").notNull(),
+    starterFamily: starterFamilyEnum("starter_family").notNull(),
+    visibility: appVisibilityEnum("visibility").notNull().default("private"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("creation_requests_app_id_unique").on(table.appId)],
+);
+
 export const appsRelations = relations(apps, ({ many }) => ({
   collaborators: many(collaborators),
   specifications: many(specifications),
@@ -355,6 +408,11 @@ export const appsRelations = relations(apps, ({ many }) => ({
   releases: many(releases),
   deployments: many(deployments),
   auditEvents: many(auditEvents),
+  creationRequest: many(creationRequests),
+}));
+
+export const creationRequestsRelations = relations(creationRequests, ({ one }) => ({
+  app: one(apps, { fields: [creationRequests.appId], references: [apps.id] }),
 }));
 
 export const collaboratorsRelations = relations(collaborators, ({ one }) => ({
