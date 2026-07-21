@@ -14,6 +14,7 @@ export interface PlatformLinks {
   showcase: string;
   admin: string;
   vionto: string;
+  testora: string;
 }
 
 export function getPlatformLinks(): PlatformLinks {
@@ -23,5 +24,6 @@ export function getPlatformLinks(): PlatformLinks {
     showcase: process.env.NEXT_PUBLIC_SHOWCASE_URL ?? "http://localhost:3002",
     admin: process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3003",
     vionto: process.env.NEXT_PUBLIC_VIONTO_URL ?? "http://localhost:3004",
+    testora: process.env.NEXT_PUBLIC_TESTORA_URL ?? "http://localhost:3005",
   };
 }

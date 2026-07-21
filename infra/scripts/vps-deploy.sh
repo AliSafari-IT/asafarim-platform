@@ -50,6 +50,7 @@ fi
 
 echo "[deploy $(date -Is)] Starting stack..."
 "${COMPOSE[@]}" up -d --remove-orphans
+"${COMPOSE[@]}" up -d --force-recreate --no-deps caddy
 
 echo "[deploy $(date -Is)] Sending deployment notification..."
 DISCORD_WEBHOOK=""

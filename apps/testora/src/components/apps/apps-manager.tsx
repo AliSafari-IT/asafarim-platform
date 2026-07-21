@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Github, Globe, Loader2, Lock, LockOpen, Pencil, Plus, Trash2, Unlock } from "lucide-react";
+import { Check, Github, Globe, Loader2, Lock, LogIn, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRun, type ClientProject } from "@/components/run-provider";
@@ -11,12 +11,19 @@ import { DEFAULT_PROJECT_ID } from "@/data/projects";
 
 type Visibility = "public" | "private";
 
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
+
+/** Send the viewer to the platform SSO sign-in, returning to the current page. */
+function goSignIn() {
+  const callbackUrl = typeof window !== "undefined" ? window.location.href : "";
+  window.location.href = `${HUB_URL}/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+}
+
 interface Draft {
   name: string;
   baseUrl: string;
   apiUrl: string;
   visibility: Visibility;
-  key: string;
   productName: string;
   companyName: string;
   githubRepo: string;
@@ -28,7 +35,6 @@ const emptyDraft: Draft = {
   baseUrl: "",
   apiUrl: "",
   visibility: "public",
-  key: "",
   productName: "",
   companyName: "",
   githubRepo: "",
@@ -36,9 +42,10 @@ const emptyDraft: Draft = {
 };
 
 /**
- * Manage the app registry: add apps (public or private with a key), edit them,
- * lock/unlock private apps, delete user-created ones, and select the active app.
- * Privacy is enforced server-side — this UI only mirrors that state.
+ * Manage the app registry: add apps (public or private), edit them, delete
+ * user-created ones, and select the active app. Privacy is enforced server-side
+ * via the platform SSO — a private app's data stays hidden until the viewer is
+ * signed in. This UI only mirrors that state.
  */
 export function AppsManager() {
   const router = useRouter();
@@ -48,12 +55,6 @@ export function AppsManager() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Per-app inline unlock state.
-  const [unlockFor, setUnlockFor] = useState<string | null>(null);
-  const [unlockKey, setUnlockKey] = useState("");
-  const [unlockBusy, setUnlockBusy] = useState(false);
-  const [unlockError, setUnlockError] = useState<string | null>(null);
 
   async function reload() {
     await refreshProjects();
@@ -79,7 +80,6 @@ export function AppsManager() {
       baseUrl: p.baseUrl ?? "",
       apiUrl: p.apiUrl ?? "",
       visibility: p.visibility,
-      key: "",
       productName: p.productName ?? "",
       companyName: p.companyName ?? "",
       githubRepo: p.githubRepo ?? "",
@@ -91,7 +91,6 @@ export function AppsManager() {
     setBusy(true);
     setError(null);
     const editId = mode && mode !== "add" ? mode.editId : null;
-    // Only send a key when one was typed (editing keeps the existing key otherwise).
     const payload: Record<string, unknown> = {
       name: draft.name,
       baseUrl: draft.baseUrl,
@@ -101,7 +100,6 @@ export function AppsManager() {
       companyName: draft.companyName,
       githubRepo: draft.githubRepo,
     };
-    if (draft.key) payload.key = draft.key;
     // Only send a token when one was typed (editing keeps the existing token).
     if (draft.githubToken) payload.githubToken = draft.githubToken;
     try {
@@ -145,52 +143,15 @@ export function AppsManager() {
     }
   }
 
-  async function unlock(id: string) {
-    if (!unlockKey.trim()) return;
-    setUnlockBusy(true);
-    setUnlockError(null);
-    try {
-      const res = await fetch("/api/projects/unlock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, key: unlockKey }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setUnlockError(extractError(data) ?? "Incorrect key");
-        return;
-      }
-      setUnlockFor(null);
-      setUnlockKey("");
-      await reload();
-    } catch {
-      setUnlockError("Could not unlock");
-    } finally {
-      setUnlockBusy(false);
-    }
-  }
-
-  async function lock(id: string) {
-    try {
-      await fetch("/api/projects/lock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      await reload();
-    } catch {
-      /* ignore */
-    }
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Apps</h1>
           <p className="text-muted-foreground">
-            Each app has its own test catalog. Private apps are locked behind a key — their
-            requirements, fixtures, cases and results stay hidden until unlocked.
+            Each app has its own test catalog. Private apps require signing in through the
+            ASafarIM platform — their requirements, fixtures, cases and results stay hidden until
+            you do.
           </p>
         </div>
         {!mode && (
@@ -213,7 +174,7 @@ export function AppsManager() {
             <CardTitle>{mode === "add" ? "New app" : "Edit app"}</CardTitle>
             <CardDescription>
               {draft.visibility === "private"
-                ? "Private apps require a key to view their data."
+                ? "Private apps require a signed-in platform user to view their data."
                 : "Public apps are visible to everyone."}
             </CardDescription>
           </CardHeader>
@@ -248,17 +209,6 @@ export function AppsManager() {
                 ))}
               </div>
             </div>
-
-            {draft.visibility === "private" && (
-              <Field
-                label={mode === "add" ? "Key" : "New key (leave blank to keep current)"}
-                type="password"
-                value={draft.key}
-                onChange={(v) => setDraft({ ...draft, key: v })}
-                placeholder="At least 4 characters"
-                disabled={busy}
-              />
-            )}
 
             <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-3">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground">
@@ -331,7 +281,7 @@ export function AppsManager() {
                       )}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">
-                      {p.locked ? "Locked — unlock to view URLs & data" : p.baseUrl || "no site URL"}
+                      {p.locked ? "Sign in to view its URLs & data" : p.baseUrl || "no site URL"}
                     </p>
                     {!p.locked && p.githubRepo && (
                       <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
@@ -353,20 +303,14 @@ export function AppsManager() {
                         Go to Run
                       </Button>
                     ) : p.locked ? (
-                      <Button size="sm" variant="outline" onClick={() => { setUnlockFor(p.id); setUnlockKey(""); setUnlockError(null); }}>
-                        <Unlock className="h-3.5 w-3.5" />
-                        Unlock
+                      <Button size="sm" variant="outline" onClick={goSignIn}>
+                        <LogIn className="h-3.5 w-3.5" />
+                        Sign in to view
                       </Button>
                     ) : (
                       <Button size="sm" variant="outline" onClick={() => selectProject(p.id)}>
                         <Check className="h-3.5 w-3.5" />
                         Select
-                      </Button>
-                    )}
-                    {!isActive && !p.locked && p.visibility === "private" && (
-                      <Button size="sm" variant="outline" onClick={() => void lock(p.id)} title="Lock again on this browser">
-                        <LockOpen className="h-3.5 w-3.5" />
-                        Lock
                       </Button>
                     )}
                     {!p.locked && (
@@ -387,31 +331,6 @@ export function AppsManager() {
                     )}
                   </div>
                 </div>
-
-                {unlockFor === p.id && p.locked && (
-                  <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input
-                        type="password"
-                        autoFocus
-                        value={unlockKey}
-                        onChange={(e) => setUnlockKey(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") void unlock(p.id); }}
-                        placeholder="App key"
-                        disabled={unlockBusy}
-                        className="h-9 w-56 rounded-md border border-border bg-muted px-3 text-sm text-foreground"
-                      />
-                      <Button size="sm" onClick={() => void unlock(p.id)} disabled={unlockBusy || !unlockKey.trim()}>
-                        {unlockBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlock className="h-4 w-4" />}
-                        Unlock
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setUnlockFor(null)} disabled={unlockBusy}>
-                        Cancel
-                      </Button>
-                    </div>
-                    {unlockError && <p className="text-xs text-destructive">{unlockError}</p>}
-                  </div>
-                )}
               </CardContent>
             </Card>
           );
@@ -438,7 +357,7 @@ function VisibilityBadge({ project }: { project: ClientProject }) {
           : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
       )}
     >
-      <Lock className="h-3 w-3" /> {project.locked ? "private — locked" : "private — unlocked"}
+      <Lock className="h-3 w-3" /> {project.locked ? "private — sign in" : "private"}
     </span>
   );
 }

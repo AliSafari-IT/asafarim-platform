@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
   // Docker builds set BUILD_STANDALONE=true to emit a self-contained server.
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   reactStrictMode: true,
+  // Workspace TS packages ship source, not a build — Next must transpile them.
+  transpilePackages: ["@asafarim/auth", "@asafarim/db", "@asafarim/ui"],
   serverExternalPackages: ["testcafe", "testcafe-hammerhead", "@electron/asar"],
   devIndicators: false,
 };

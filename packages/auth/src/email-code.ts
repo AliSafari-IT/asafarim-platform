@@ -58,8 +58,8 @@ export function generateCode(): string {
   const digitCount = 6 - letterCount;
 
   const chars: string[] = [];
-  for (let i = 0; i < letterCount; i++) chars.push(LETTERS[crypto.randomInt(LETTERS.length)]);
-  for (let i = 0; i < digitCount; i++) chars.push(DIGITS[crypto.randomInt(DIGITS.length)]);
+  for (let i = 0; i < letterCount; i++) chars.push(LETTERS[crypto.randomInt(LETTERS.length)]!);
+  for (let i = 0; i < digitCount; i++) chars.push(DIGITS[crypto.randomInt(DIGITS.length)]!);
 
   for (let i = chars.length - 1; i > 0; i--) {
     const j = crypto.randomInt(i + 1);

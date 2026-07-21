@@ -1,86 +1,18 @@
 import "server-only";
-import crypto from "node:crypto";
-import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
+import { auth } from "@asafarim/auth";
 import { db } from "@/db/client";
 import { projects } from "@/db/schema";
 
-// Server-only access control for private apps. A private app is locked behind a
-// key; its catalog and results are withheld until a viewer proves knowledge of
-// the key, after which a signed cookie keeps it unlocked for ~7 days. The key is
-// never stored in plaintext (salted scrypt hash) and the cookie is HMAC-signed so
-// it can't be forged client-side.
+// Server-only access control for private apps. Access is managed by the
+// platform SSO: a private app's catalog and results are withheld until the
+// viewer is signed in through the ASafarIM identity (any authenticated, active
+// user). Public apps are always viewable. There are no per-app keys.
 
-// Signing secret for the unlock cookie. Set TESTORA_SECRET in production — the
-// dev fallback is fine locally but anyone who knows it could forge unlock cookies.
-const SECRET = process.env.TESTORA_SECRET || "testora-insecure-dev-secret-change-me";
-
-export const UNLOCK_COOKIE_NAME = "e2e_unlocked";
-const UNLOCK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-export const UNLOCK_COOKIE_MAX_AGE = Math.floor(UNLOCK_TTL_MS / 1000);
-
-// ── Key hashing (salted scrypt) ──────────────────────────────────────────────
-
-export function hashKey(key: string): string {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const derived = crypto.scryptSync(key, salt, 64).toString("hex");
-  return `scrypt$${salt}$${derived}`;
-}
-
-export function verifyKey(key: string, stored: string | null | undefined): boolean {
-  if (!stored) return false;
-  const [scheme, salt, hash] = stored.split("$");
-  if (scheme !== "scrypt" || !salt || !hash) return false;
-  const expected = Buffer.from(hash, "hex");
-  const derived = crypto.scryptSync(key, salt, 64);
-  return expected.length === derived.length && crypto.timingSafeEqual(expected, derived);
-}
-
-// ── Signed unlock cookie (list of unlocked app ids + expiry) ──────────────────
-
-interface UnlockData {
-  ids: string[];
-  exp: number;
-}
-
-function sign(body: string): string {
-  return crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
-}
-
-/** Encode + sign an unlock cookie value granting access to `ids` for the TTL. */
-export function encodeUnlock(ids: string[]): string {
-  const data: UnlockData = { ids: [...new Set(ids)], exp: Date.now() + UNLOCK_TTL_MS };
-  const body = Buffer.from(JSON.stringify(data)).toString("base64url");
-  return `${body}.${sign(body)}`;
-}
-
-function decodeUnlock(raw: string | undefined): string[] {
-  if (!raw) return [];
-  const [body, sig] = raw.split(".");
-  if (!body || !sig || sign(body) !== sig) return [];
-  try {
-    const data = JSON.parse(Buffer.from(body, "base64url").toString()) as UnlockData;
-    if (!data || typeof data.exp !== "number" || data.exp < Date.now()) return [];
-    return Array.isArray(data.ids) ? data.ids : [];
-  } catch {
-    return [];
-  }
-}
-
-/** The app ids the current viewer has unlocked (from the signed cookie). */
-export async function getUnlockedProjectIds(): Promise<string[]> {
-  const store = await cookies();
-  return decodeUnlock(store.get(UNLOCK_COOKIE_NAME)?.value);
-}
-
-/** New cookie value with `id` added to the viewer's unlocked set. */
-export async function unlockCookieValue(id: string): Promise<string> {
-  return encodeUnlock([...(await getUnlockedProjectIds()), id]);
-}
-
-/** New cookie value with `id` removed from the viewer's unlocked set. */
-export async function lockCookieValue(id: string): Promise<string> {
-  return encodeUnlock((await getUnlockedProjectIds()).filter((x) => x !== id));
+/** Whether the current viewer is a signed-in, active platform user. */
+export async function isViewerAuthenticated(): Promise<boolean> {
+  const session = await auth();
+  return Boolean(session?.user?.id) && session?.user?.isActive !== false;
 }
 
 // ── Project access ────────────────────────────────────────────────────────────
@@ -107,10 +39,10 @@ export interface ViewerProject {
   id: string;
   name: string;
   visibility: ProjectVisibility;
-  /** private && not unlocked by this viewer. */
+  /** private && the viewer is not signed in. */
   locked: boolean;
   seeded: boolean;
-  // Only present when the app is viewable (public or unlocked).
+  // Only present when the app is viewable (public or the viewer is signed in).
   baseUrl?: string;
   apiUrl?: string;
   productName?: string | null;
@@ -121,8 +53,8 @@ export interface ViewerProject {
   githubConfigured?: boolean;
 }
 
-function toViewer(row: ProjectRow, unlockedIds: string[]): ViewerProject {
-  const locked = row.visibility === "private" && !unlockedIds.includes(row.id);
+function toViewer(row: ProjectRow, authenticated: boolean): ViewerProject {
+  const locked = row.visibility === "private" && !authenticated;
   const base: ViewerProject = {
     id: row.id,
     name: row.name,
@@ -150,8 +82,8 @@ async function getRow(id: string): Promise<ProjectRow | undefined> {
 /** All apps as client-safe views (locked apps expose only id/name/visibility). */
 export async function listProjectsForViewer(): Promise<ViewerProject[]> {
   const rows = (await db.select().from(projects).orderBy(projects.createdAt)) as ProjectRow[];
-  const unlocked = await getUnlockedProjectIds();
-  return rows.map((row) => toViewer(row, unlocked));
+  const authenticated = await isViewerAuthenticated();
+  return rows.map((row) => toViewer(row, authenticated));
 }
 
 export interface ProjectAccess {
@@ -164,20 +96,20 @@ export interface ProjectAccess {
 export async function getProjectAccess(id: string): Promise<ProjectAccess> {
   const row = await getRow(id);
   if (!row) return { exists: false, locked: false, project: null };
-  const unlocked = await getUnlockedProjectIds();
-  const view = toViewer(row, unlocked);
+  const authenticated = await isViewerAuthenticated();
+  const view = toViewer(row, authenticated);
   return { exists: true, locked: view.locked, project: view };
 }
 
 /**
  * Whether the current viewer may see an app's data. Public apps and unknown ids
  * (e.g. legacy catalog rows whose app predates this table) are always viewable;
- * private apps require an unlock cookie.
+ * private apps require a signed-in platform user.
  */
 export async function isProjectViewable(id: string | undefined | null): Promise<boolean> {
   if (!id) return true;
   const row = await getRow(id);
   if (!row) return true;
   if (row.visibility === "public") return true;
-  return (await getUnlockedProjectIds()).includes(id);
+  return isViewerAuthenticated();
 }
