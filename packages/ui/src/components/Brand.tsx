@@ -3,7 +3,9 @@ export type ProductName =
   | "Platform"
   | "Hub"
   | "Showcase"
-  | "Admin";
+  | "Admin"
+  | "Vionto"
+  | "Testora";
 
 export interface LogoMarkProps {
   /** Use the app accent color instead of ink. */

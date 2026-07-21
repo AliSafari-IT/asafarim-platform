@@ -87,6 +87,17 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     status: "active",
     access: "public",
   },
+  {
+    // Public landing; private apps-under-test gate themselves on a signed-in
+    // session inside the tool (see apps/testora app-access).
+    key: "testora",
+    name: "Testora",
+    description: "E2E test automation: requirements, suites, fixtures, and TestCafe runs.",
+    glyph: "TS",
+    meta: "testora.asafarim.com",
+    status: "active",
+    access: "public",
+  },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────
   {

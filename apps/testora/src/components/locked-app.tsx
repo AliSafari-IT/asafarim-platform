@@ -1,50 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Lock, Loader2 } from "lucide-react";
+import { LogIn, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useRun } from "@/components/run-provider";
+
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
 
 /**
- * Shown in place of an app's data when the active app is private and this browser
- * hasn't unlocked it. Submitting the correct key sets the server-side unlock
- * cookie, then a refresh re-renders the page with the now-visible data.
+ * Shown in place of a private app's data when the viewer is not signed in.
+ * Access is managed by the platform SSO — signing in through the ASafarIM
+ * identity (any active user) unlocks every private app at once.
  */
-export function LockedApp({ projectId, name }: { projectId: string; name: string }) {
-  const router = useRouter();
-  // The Run page gates on the client-side project registry (activeProject.locked),
-  // not a server render — so router.refresh() alone leaves it locked until a full
-  // reload. Re-fetch /api/projects so the context picks up the now-unlocked state.
-  const { refreshProjects } = useRun();
-  const [key, setKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function unlock() {
-    if (!key.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/projects/unlock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: projectId, key }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setError((data?.error as string) || "Could not unlock");
-        return;
-      }
-      setKey("");
-      await refreshProjects();
-      router.refresh();
-    } catch {
-      setError("Could not unlock");
-    } finally {
-      setBusy(false);
-    }
+export function LockedApp({ name }: { projectId: string; name: string }) {
+  function signIn() {
+    const callbackUrl = typeof window !== "undefined" ? window.location.href : "";
+    window.location.href = `${HUB_URL}/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`;
   }
 
   return (
@@ -56,27 +26,14 @@ export function LockedApp({ projectId, name }: { projectId: string; name: string
             “{name}” is private
           </CardTitle>
           <CardDescription>
-            Enter this app&apos;s key to view its requirements, suites, fixtures, cases and
-            results. Access stays unlocked on this browser for about 7 days.
+            Sign in with your ASafarIM account to view this app&apos;s requirements, suites,
+            fixtures, cases and results. One sign-in covers every private app across the platform.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <input
-            type="password"
-            autoFocus
-            value={key}
-            onChange={(event) => setKey(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void unlock();
-            }}
-            placeholder="App key"
-            disabled={busy}
-            className="h-10 w-full rounded-md border border-border bg-muted px-3 text-sm text-foreground"
-          />
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button onClick={() => void unlock()} disabled={busy || !key.trim()}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-            Unlock
+          <Button onClick={signIn}>
+            <LogIn className="h-4 w-4" />
+            Sign in
           </Button>
         </CardContent>
       </Card>

@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { projects, functionalRequirements } from "@/db/schema";
 import {
-  hashKey,
-  getUnlockedProjectIds,
-  unlockCookieValue,
+  isViewerAuthenticated,
   listProjectsForViewer,
-  UNLOCK_COOKIE_NAME,
-  UNLOCK_COOKIE_MAX_AGE,
   type ProjectRow,
 } from "@/lib/app-access";
 import { encryptToken } from "@/lib/github";
@@ -46,17 +41,6 @@ function sanitize(row: ProjectRow) {
   };
 }
 
-async function setUnlockCookie(id: string) {
-  const store = await cookies();
-  store.set(UNLOCK_COOKIE_NAME, await unlockCookieValue(id), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: UNLOCK_COOKIE_MAX_AGE,
-    secure: process.env.NODE_ENV === "production",
-  });
-}
-
 // List all apps as client-safe views (locked apps expose only id/name/visibility).
 export async function GET() {
   return NextResponse.json(await listProjectsForViewer());
@@ -69,15 +53,10 @@ const createSchema = z
     baseUrl: optionalUrl.default(""),
     apiUrl: optionalUrl.default(""),
     visibility: visibility.default("public"),
-    key: z.string().min(4, "Key must be at least 4 characters").optional(),
     productName: z.string().trim().optional(),
     companyName: z.string().trim().optional(),
     githubRepo: z.string().trim().optional(),
     githubToken: z.string().trim().optional(),
-  })
-  .refine((v) => v.visibility !== "private" || Boolean(v.key), {
-    message: "A private app needs a key",
-    path: ["key"],
   });
 
 export async function POST(request: Request) {
@@ -87,7 +66,6 @@ export async function POST(request: Request) {
   }
   const data = parsed.data;
   const id = slugify(data.id || data.name);
-  const isPrivate = data.visibility === "private";
   try {
     const [created] = await db
       .insert(projects)
@@ -96,8 +74,10 @@ export async function POST(request: Request) {
         name: data.name,
         baseUrl: data.baseUrl,
         apiUrl: data.apiUrl,
+        // Private now means "requires a signed-in platform user" (SSO); there
+        // is no per-app key, so keyHash is always null.
         visibility: data.visibility,
-        keyHash: isPrivate && data.key ? hashKey(data.key) : null,
+        keyHash: null,
         productName: data.productName || null,
         companyName: data.companyName || null,
         githubRepo: data.githubRepo || null,
@@ -105,9 +85,6 @@ export async function POST(request: Request) {
         seeded: false,
       })
       .returning();
-    // Creating a private app proves knowledge of its key — unlock it for the
-    // creator so they aren't immediately locked out of what they just made.
-    if (isPrivate) await setUnlockCookie(id);
     return NextResponse.json({ project: sanitize(created as ProjectRow) }, { status: 201 });
   } catch (error) {
     const conflict =
@@ -124,7 +101,6 @@ const updateSchema = z.object({
   baseUrl: optionalUrl.optional(),
   apiUrl: optionalUrl.optional(),
   visibility: visibility.optional(),
-  key: z.string().min(4, "Key must be at least 4 characters").optional(),
   productName: z.string().trim().optional(),
   companyName: z.string().trim().optional(),
   githubRepo: z.string().trim().optional(),
@@ -141,9 +117,9 @@ export async function PATCH(request: Request) {
     | undefined;
   if (!row) return NextResponse.json({ error: "App not found" }, { status: 404 });
 
-  // Can't edit a private app you haven't unlocked.
-  if (row.visibility === "private" && !(await getUnlockedProjectIds()).includes(id)) {
-    return NextResponse.json({ error: "App is locked — unlock it first" }, { status: 403 });
+  // Editing a private app requires a signed-in platform user (SSO).
+  if (row.visibility === "private" && !(await isViewerAuthenticated())) {
+    return NextResponse.json({ error: "Sign in to edit this private app" }, { status: 403 });
   }
 
   const parsed = updateSchema.safeParse(await request.json());
@@ -152,18 +128,6 @@ export async function PATCH(request: Request) {
   }
   const data = parsed.data;
   const nextVisibility = data.visibility ?? row.visibility;
-
-  let keyHash = row.keyHash;
-  if (nextVisibility === "public") {
-    keyHash = null;
-  } else if (data.key) {
-    keyHash = hashKey(data.key);
-  } else if (!row.keyHash) {
-    return NextResponse.json(
-      { error: "Set a key to make this app private", details: { key: ["A private app needs a key"] } },
-      { status: 400 },
-    );
-  }
 
   // GitHub token: omitted → keep; "" → clear; any value → (re)encrypt.
   const githubTokenEnc =
@@ -184,14 +148,12 @@ export async function PATCH(request: Request) {
       ...(data.githubRepo !== undefined ? { githubRepo: data.githubRepo || null } : {}),
       githubTokenEnc,
       visibility: nextVisibility,
-      keyHash,
+      // No per-app key any more; keep the column null.
+      keyHash: null,
       updatedAt: new Date(),
     })
     .where(eq(projects.id, id))
     .returning();
-
-  // Keep the editor unlocked when the app is (still) private.
-  if (nextVisibility === "private") await setUnlockCookie(id);
 
   return NextResponse.json({ project: sanitize(updated as ProjectRow) });
 }
@@ -209,8 +171,8 @@ export async function DELETE(request: Request) {
   if (row.seeded) {
     return NextResponse.json({ error: "Built-in apps can't be deleted" }, { status: 403 });
   }
-  if (row.visibility === "private" && !(await getUnlockedProjectIds()).includes(id)) {
-    return NextResponse.json({ error: "App is locked — unlock it first" }, { status: 403 });
+  if (row.visibility === "private" && !(await isViewerAuthenticated())) {
+    return NextResponse.json({ error: "Sign in to delete this private app" }, { status: 403 });
   }
 
   // Remove the app's catalog first (FKs cascade suites→fixtures→cases→results).

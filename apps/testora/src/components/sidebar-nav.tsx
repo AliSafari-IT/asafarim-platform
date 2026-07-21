@@ -93,7 +93,9 @@ export function SidebarNav() {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex h-screen w-64 shrink-0 flex-col border-r border-border bg-card p-4 transition-transform duration-200 ease-out",
-          "md:static md:z-auto md:translate-x-0 md:bg-card md:transition-none",
+          // Desktop: static column that fills the row below the platform header
+          // (h-auto so it doesn't overflow past the viewport), with its own scroll.
+          "md:static md:z-auto md:h-auto md:translate-x-0 md:overflow-y-auto md:bg-card md:transition-none",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
