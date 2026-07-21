@@ -7,6 +7,14 @@ import type { Actor } from "./actor";
 const hubUrl =
   process.env.NEXT_PUBLIC_HUB_URL || process.env.HUB_URL || "http://localhost:3001";
 
+// This app's own origin, so a relative callbackUrl (every call site passes
+// one, e.g. `/apps/${appId}/preview`) resolves back to *this* app rather
+// than being interpreted relative to Hub's origin once Hub's own sign-in
+// page normalizes it — see apps/hub's SignInPageContent#normalizeCallbackUrl,
+// which treats a relative path as relative to itself.
+const appbuilderUrl =
+  process.env.NEXT_PUBLIC_APPBUILDER_URL || process.env.APPBUILDER_URL || "http://localhost:3006";
+
 /**
  * The trusted actor for the current request, derived only from the shared
  * SSO session — never from anything client-supplied. Returns null for a
@@ -30,7 +38,10 @@ export async function requireActor(options?: { callbackUrl?: string }): Promise<
 
   const signInUrl = new URL("/sign-in", hubUrl);
   if (options?.callbackUrl) {
-    signInUrl.searchParams.set("callbackUrl", options.callbackUrl);
+    const absoluteCallbackUrl = options.callbackUrl.startsWith("/")
+      ? new URL(options.callbackUrl, appbuilderUrl).toString()
+      : options.callbackUrl;
+    signInUrl.searchParams.set("callbackUrl", absoluteCallbackUrl);
   }
   redirect(signInUrl.toString());
 }

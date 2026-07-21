@@ -1,0 +1,411 @@
+/* ─────────────────────────────────────────────────────────────────
+   @asafarim/appbuilder-runtime — generated-app preview chrome + registry
+   primitives. Built entirely on @asafarim/ui's token language (--space-*,
+   --radius-*, --text-*, --surface/--ink/--line/--accent, etc.) — never an
+   arbitrary color/class/style string from a specification. The only
+   specification-driven values are `data-ab-accent`/`data-ab-radius` on
+   .ab-shell (see security/branding.ts's SAFE_ACCENT_CHOICES /
+   SAFE_RADIUS_CHOICES allowlists), mapped below to real token values.
+   ───────────────────────────────────────────────────────────────── */
+
+.ab-shell {
+  --ab-accent: var(--accent);
+  --ab-radius: var(--radius-md);
+  min-height: 100vh;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  background: var(--bg, var(--surface));
+  color: var(--ink);
+  font-family: var(--font-sans);
+  box-sizing: border-box;
+}
+.ab-shell *,
+.ab-shell *::before,
+.ab-shell *::after {
+  box-sizing: border-box;
+}
+
+/* Accent allowlist mapping — see security/branding.ts. */
+.ab-shell[data-ab-accent="violet"] { --ab-accent: #7c3aed; }
+.ab-shell[data-ab-accent="teal"] { --ab-accent: #0f766e; }
+.ab-shell[data-ab-accent="amber"] { --ab-accent: #b45309; }
+.ab-shell[data-ab-accent="emerald"] { --ab-accent: #10b981; }
+.ab-shell[data-ab-accent="sky"] { --ab-accent: #0891b2; }
+.ab-shell[data-ab-accent="rose"] { --ab-accent: #be123c; }
+
+.ab-shell[data-ab-radius="sharp"] { --ab-radius: var(--radius-xs); }
+.ab-shell[data-ab-radius="soft"] { --ab-radius: var(--radius-md); }
+.ab-shell[data-ab-radius="pill"] { --ab-radius: var(--radius-pill); }
+
+.ab-skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  z-index: var(--z-overlay);
+  padding: var(--space-2) var(--space-4);
+  background: var(--ab-accent);
+  color: #fff;
+  border-radius: 0 0 var(--radius-sm) 0;
+}
+.ab-skip-link:focus {
+  left: 0;
+}
+
+.ab-shell__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.ab-shell__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+
+.ab-shell__logo {
+  border-radius: var(--radius-xs);
+}
+
+.ab-shell__main {
+  max-width: var(--width-content);
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* Flex items default to min-width:auto, which lets a wide child (e.g. a
+     data table) push the whole page wider instead of scrolling internally
+     within its own .ab-table-wrap — min-width:0 restores normal shrinking. */
+  min-width: 0;
+}
+
+.ab-page-components,
+.ab-component,
+.ab-component-error {
+  min-width: 0;
+}
+
+.ab-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ab-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: var(--space-1) 0;
+  border-bottom: 2px solid transparent;
+}
+.ab-nav a:hover {
+  color: var(--ink);
+}
+.ab-nav a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--ab-accent);
+  font-weight: 600;
+}
+
+.ab-page-components {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+  width: 100%;
+}
+
+.ab-component,
+.ab-component-error {
+  min-width: 0;
+  width: 100%;
+}
+
+/* ── Demo-data notice — every fabricated/preview row carries this. ── */
+.ab-demo-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+/* ── Data table ─────────────────────────────────────────────────── */
+.ab-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--ab-radius);
+}
+.ab-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.ab-table th,
+.ab-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.ab-table th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.ab-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Kanban board ───────────────────────────────────────────────── */
+.ab-kanban {
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+.ab-kanban__column {
+  flex: 0 0 16rem;
+  min-width: 16rem;
+  background: var(--surface-2);
+  border-radius: var(--ab-radius);
+  padding: var(--space-3);
+}
+.ab-kanban__column h4 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+.ab-kanban__column ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ab-kanban__card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+/* ── Calendar / schedule (agenda list) ──────────────────────────── */
+.ab-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ab-calendar__day h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.ab-calendar__day ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.ab-calendar__day li {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Form / filters ─────────────────────────────────────────────── */
+.ab-form,
+.ab-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: var(--width-narrow);
+}
+.ab-filters {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  max-width: none;
+}
+.ab-filters .ui-formrow {
+  min-width: 10rem;
+}
+
+/* ── Settings panel ─────────────────────────────────────────────── */
+.ab-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.ab-settings__section h3 {
+  margin: 0 0 var(--space-2);
+}
+.ab-settings__section dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ab-settings__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+.ab-settings__row dt {
+  color: var(--muted);
+}
+.ab-settings__row dd {
+  margin: 0;
+  text-align: right;
+}
+
+/* ── Record detail ──────────────────────────────────────────────── */
+.ab-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: var(--width-narrow);
+}
+.ab-detail__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+.ab-detail__row dt {
+  color: var(--muted);
+}
+.ab-detail__row dd {
+  margin: 0;
+}
+
+/* ── File field placeholder ─────────────────────────────────────── */
+.ab-file-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--ab-radius);
+  text-align: center;
+  max-width: 16rem;
+}
+.ab-file-field__placeholder {
+  font-size: var(--text-3xl);
+}
+
+/* ── Button action ──────────────────────────────────────────────── */
+.ab-button-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+/* ── Chart ───────────────────────────────────────────────────────── */
+.ab-chart__bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ab-chart__bars li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.ab-chart__bar {
+  display: block;
+  height: 1.1rem;
+  min-width: 2px;
+  background: var(--ab-accent);
+  border-radius: var(--radius-xs);
+}
+.ab-chart__bars label {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── Loading state ──────────────────────────────────────────────── */
+.ab-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+}
+.ab-loading__spinner {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  border-top-color: var(--ab-accent);
+  animation: ab-spin var(--dur-2) linear infinite;
+}
+@keyframes ab-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ab-hint {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.ab-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Responsive: collapse the top nav under the brand below 768px ── */
+@media (max-width: 48rem) {
+  .ab-shell__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ab-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ab-settings__row,
+  .ab-detail__row {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .ab-settings__row dd {
+    text-align: left;
+  }
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .ab-loading__spinner {
+    animation: none;
+  }
+}

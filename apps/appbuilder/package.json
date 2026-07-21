@@ -1,6 +1,6 @@
 {
   "name": "@asafarim/appbuilder",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "ASafarIM AppBuilder - metadata-driven AI application factory (appbuilder.asafarim.com)",
   "scripts": {
@@ -15,9 +15,12 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx lib/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx lib/db/seed.ts"
+    "db:seed": "tsx lib/db/seed.ts",
+    "e2e": "playwright test",
+    "e2e:report": "playwright show-report .playwright/report"
   },
   "dependencies": {
+    "@asafarim/appbuilder-runtime": "workspace:*",
     "@asafarim/appbuilder-schema": "workspace:*",
     "@asafarim/auth": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
@@ -33,6 +36,9 @@
   },
   "devDependencies": {
     "@asafarim/config": "workspace:*",
+    "@asafarim/db": "workspace:*",
+    "@axe-core/playwright": "^4.10.1",
+    "@playwright/test": "^1.60.0",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.11.10",
     "@types/react": "^19.2.17",

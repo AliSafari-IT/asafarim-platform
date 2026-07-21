@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Alert, Badge, ButtonLink, Card, PageHeader } from "@asafarim/ui";
+import { Alert, Badge, Button, ButtonLink, Card, PageHeader } from "@asafarim/ui";
 import { requireActor } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { getAppOverviewForActor } from "@/lib/repositories/appOverview";
@@ -8,6 +8,7 @@ import { NotFoundError } from "@/lib/errors";
 import { routes } from "@/lib/routes";
 import { STARTER_FAMILY_LABELS, type StarterFamily } from "@/lib/validation/createApp";
 import { roleGrants } from "@/lib/repositories/authz";
+import { requestPreviewBuildAction } from "./previewActions";
 
 export const metadata: Metadata = { title: "App detail" };
 
@@ -38,9 +39,13 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
   }
 
   const { app, role, specification, latestPreviewBuild, latestRelease, creationRequest } = overview;
-  const hasPreview = latestPreviewBuild?.status === "succeeded";
+  // Independent from `latestPreviewBuild.status`: a failed rebuild attempt
+  // must never take away an app's still-working, previously pinned preview.
+  const hasPreview = specification?.pinnedPreviewBuildId != null;
+  const latestAttemptFailed = latestPreviewBuild?.status === "failed";
   const canArchive = roleGrants(role, "app.archive");
   const canRestore = roleGrants(role, "app.restore");
+  const canRequestPreview = roleGrants(role, "app.editSpecification") && app.status === "active";
 
   return (
     <>
@@ -55,6 +60,9 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
         <Alert tone="error">
           You don&apos;t have permission to perform that action on this app.
         </Alert>
+      ) : null}
+      {actionError === "archived" ? (
+        <Alert tone="error">Restore this app before requesting a new preview build.</Alert>
       ) : null}
 
       <Card title="Overview">
@@ -89,7 +97,15 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
           </div>
           <div>
             <dt className="ui-hint">Preview status</dt>
-            <dd>{latestPreviewBuild ? latestPreviewBuild.status : "No preview requested yet"}</dd>
+            <dd>
+              {hasPreview ? (
+                <Badge tone="success">Ready</Badge>
+              ) : latestPreviewBuild ? (
+                <Badge tone={latestAttemptFailed ? "warning" : "neutral"}>{latestPreviewBuild.status}</Badge>
+              ) : (
+                "No preview requested yet"
+              )}
+            </dd>
           </div>
           <div>
             <dt className="ui-hint">Latest release</dt>
@@ -97,6 +113,13 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
           </div>
         </dl>
       </Card>
+
+      {latestAttemptFailed ? (
+        <Alert tone="error">
+          <strong>The most recent preview build failed{hasPreview ? " — the last successful preview is still available below." : "."}</strong>
+          {latestPreviewBuild?.errorMessage ? <p>{latestPreviewBuild.errorMessage}</p> : null}
+        </Alert>
+      ) : null}
 
       <Alert tone="info">
         This is a truthful overview, not the full builder: specification
@@ -114,6 +137,13 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
           <ButtonLink href={routes.appPreview(appId)} variant="secondary">
             Open preview
           </ButtonLink>
+        ) : null}
+        {canRequestPreview ? (
+          <form action={requestPreviewBuildAction.bind(null, appId)}>
+            <Button type="submit" variant="secondary">
+              {hasPreview ? "Rebuild preview" : "Build preview"}
+            </Button>
+          </form>
         ) : null}
         {app.status === "active" && canArchive ? (
           <ButtonLink href={routes.appArchive(appId)} variant="danger">
