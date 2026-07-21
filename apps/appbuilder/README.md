@@ -5,17 +5,19 @@ describe an internal business application, receive a controlled/versioned
 application specification, preview it at `/apps/{appId}/preview`, refine it
 conversationally, validate it, and publish an immutable release.
 
-This is **M03** of the delivery series tracked in
-[issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29):
-platform SSO, centralized per-app authorization, app registry, and
-authenticated audit identity, on top of M02's dedicated PostgreSQL service.
-See
+This is **M04** of the delivery series tracked in
+[issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29): the
+versioned application-specification contract and deterministic
+controlled-operation engine, on top of M02's persistence layer and M03's
+SSO/authorization. See
 [docs/adr/0001-appbuilder-managed-runtime.md](../../docs/adr/0001-appbuilder-managed-runtime.md)
-for the architectural decision this scaffold builds on, and
+for the architectural decision this scaffold builds on,
 [docs/appbuilder-architecture.md](../../docs/appbuilder-architecture.md) for
-the route contracts, milestone map, and the capability matrix.
+the route contracts, milestone map, and the capability matrix, and
+[packages/appbuilder-schema/README.md](../../packages/appbuilder-schema/README.md)
+for the full specification/operation contract this milestone introduces.
 
-## What's here (M01–M03)
+## What's here (M01–M04)
 
 - Next.js 16 App Router shell using `@asafarim/ui` directly (no forked
   components).
@@ -47,18 +49,36 @@ the route contracts, milestone map, and the capability matrix.
   `PLATFORM_APPS`) and `getPlatformLinks()`; Hub's launcher and app switcher
   pick it up automatically for any signed-in active user, no AppBuilder-
   specific code in Hub.
+- A versioned, validated `ApplicationSpecification` contract and a pure,
+  deterministic controlled-operation engine
+  (`@asafarim/appbuilder-schema`) — the single source of truth the future
+  AI planner (M07) and metadata-driven runtime (M06) will share. See
+  "Specification engine" below.
+- `applyOperation` now runs every change through that engine with real
+  optimistic concurrency (row-locked, proven under concurrent Postgres
+  transactions), payload-checked idempotency, and destructive-change
+  confirmation — every successful change is one new immutable
+  `specification_versions` row, atomically with its `applied_operations`
+  record and audit event.
+- Version history, structured compare (diff), restore-as-a-new-version, and
+  safe undo-by-inverse-operation (`lib/repositories/versions.ts`,
+  `lib/repositories/specifications.ts`).
 
 ## What's explicitly not here yet
 
-- The finalized application-specification operation engine (M04) —
-  `applyOperation` accepts an opaque JSON payload today.
-- AI generation, the template/component registry, and the preview runtime
-  (M05–M07).
+- Natural-language interpretation, OpenAI/AI provider calls, and the
+  template/component registry (M07/M05/M06) — the engine only accepts
+  already-structured `Operation` values.
+- The concrete metadata-driven preview runtime that renders a specification
+  (M06) and the generated-app catalog UI (M05).
 - Production routing / deployment of AppBuilder itself, and any per-generated-app
   deployment (M11).
 - Generated-app end-user authentication, email invitations, enterprise
   organizations/SCIM/billing, and the finalized generated-data RBAC (M09) —
-  all explicitly out of scope for M03.
+  all explicitly out of scope through M04.
+- Executing a destructive change against real generated-app *data* — there
+  is none at this layer; M04 only classifies and gates destructive changes
+  to the *specification*.
 
 ## Authentication and authorization (M03)
 
@@ -142,6 +162,54 @@ supplied field. Audit `metadata` carries only non-sensitive identifiers
 (principal ids, roles, operation types) — never session tokens, cookies, or
 secrets.
 
+## Specification engine (M04)
+
+The pure contract/engine lives in
+[`@asafarim/appbuilder-schema`](../../packages/appbuilder-schema) — no
+Next.js/database/auth/AI dependency, safe for the runtime (M06), the AI
+orchestrator (M07), and plain tests/scripts to import. This app only
+integrates it with persistence and authorization:
+
+- **`lib/repositories/operations.ts#applyOperation`** — takes
+  `{ operation, baseVersionNumber, idempotencyKey, confirmDestructive? }`.
+  Requires `app.applyOperation`. Loads the current draft's payload (or the
+  implicit empty specification for a brand-new app), runs
+  `applySpecOperation` from the schema package, and — only on success —
+  inserts one new `specification_versions` row (with `parentVersionId`,
+  `schemaVersion`, `engineVersion`, `summary`, `checksum`), advances
+  `specifications.currentVersionNumber`, inserts the `applied_operations`
+  row, and records an audit event, all in one transaction.
+- **Optimistic concurrency**: the specification row is locked
+  (`SELECT ... FOR UPDATE`) before comparing `baseVersionNumber` to the
+  actual current version — proven under real concurrent Postgres
+  transactions (two simultaneous requests against the same base: exactly
+  one succeeds, the other gets `StaleVersionError` with both version
+  numbers, and neither user's intended change is lost or silently merged).
+- **Idempotency**: `applied_operations.request_hash` (sha256 of the
+  operation + base) lets a retried request with the same
+  `idempotencyKey` replay its original result; the same key with a
+  different payload is `ConflictError`.
+- **Destructive changes**: a change the engine classifies as destructive
+  (see the schema package's `classifyDestructiveChange`) is rejected with
+  `DestructiveConfirmationRequiredError` (carrying the classification and
+  human-readable impact) unless the caller passes `confirmDestructive: true`.
+- **Any failure — validation, staleness, idempotency conflict, or
+  unconfirmed destructive change — leaves the database exactly as it was**:
+  no partial version, no partial operation row (proven directly against
+  real Postgres in `lib/repositories/specificationEngine.integration.test.ts`).
+- **`lib/repositories/versions.ts`** — `restoreVersion` (copies an older
+  version's payload forward as a new version; never rewrites history) and
+  `undoLastOperation` (computes and applies the safe inverse of the
+  operation that produced the current version via the schema package's
+  `invertOperation`, or throws `RestoreRequiredError` when no safe inverse
+  exists — the caller should offer `restoreVersion` instead of guessing).
+  Both go through the same optimistic-concurrency + idempotency contract as
+  `applyOperation`.
+- **`lib/repositories/specifications.ts`** — `listVersionsForActor`,
+  `getVersionForActor`, and `compareVersionsForActor` (structured diff via
+  the schema package's `diffSpecifications`) — all read-only, requiring
+  `app.view`.
+
 ## Development
 
 ```bash
@@ -203,6 +271,13 @@ AppBuilder product code at the platform's shared `DATABASE_URL`.
   an `idempotencyKey` and replay the original result for a repeated request
   instead of double-creating; a generic `idempotency_keys` table backs other
   create/mutate endpoints that don't have their own idempotency column.
+- `specification_versions` additionally carries `parent_version_id` (the
+  version it was built from — a plain column, not a Drizzle-level self-FK),
+  `schema_version` / `engine_version` (which `@asafarim/appbuilder-schema`
+  contract/engine produced this payload), and `summary` (a one-line,
+  human-readable provenance note). `applied_operations` additionally
+  carries `request_hash` (idempotency-payload verification) and
+  `base_version_number` (the optimistic-concurrency audit trail).
 
 ### Backup and restore
 

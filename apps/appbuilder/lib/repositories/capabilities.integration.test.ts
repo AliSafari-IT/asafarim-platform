@@ -18,6 +18,10 @@ const viewer = { principalId: "cap-viewer", roles: [] };
 const unrelated = { principalId: "cap-unrelated", roles: [] };
 const superadmin = { principalId: "cap-superadmin", roles: [ROLES.SUPERADMIN] };
 
+function createEntityOp(id: string) {
+  return { opVersion: "1.0.0", type: "CREATE_ENTITY", entity: { id, machineName: id, name: id } };
+}
+
 beforeAll(async () => {
   await migrateTestDb();
 });
@@ -44,8 +48,8 @@ describe("capability matrix — owner", () => {
     await expect(getAppForActor(db, owner, app.id)).resolves.toBeDefined();
     await expect(
       applyOperation(db, owner, app.id, {
-        operationType: "add-entity",
-        payload: { entity: "Widget" },
+        operation: createEntityOp("widget_owner"),
+        baseVersionNumber: 0,
         idempotencyKey: "owner-op",
       }),
     ).resolves.toBeDefined();
@@ -62,8 +66,8 @@ describe("capability matrix — editor", () => {
     await expect(getAppForActor(db, editor, app.id)).resolves.toBeDefined();
     await expect(
       applyOperation(db, editor, app.id, {
-        operationType: "add-entity",
-        payload: { entity: "Widget" },
+        operation: createEntityOp("widget_editor"),
+        baseVersionNumber: 0,
         idempotencyKey: "editor-op",
       }),
     ).resolves.toBeDefined();
@@ -83,8 +87,8 @@ describe("capability matrix — viewer", () => {
 
     await expect(
       applyOperation(db, viewer, app.id, {
-        operationType: "add-entity",
-        payload: { entity: "Widget" },
+        operation: createEntityOp("widget_viewer"),
+        baseVersionNumber: 0,
         idempotencyKey: "viewer-op",
       }),
     ).rejects.toBeInstanceOf(ForbiddenError);
@@ -102,8 +106,8 @@ describe("capability matrix — unrelated authenticated user", () => {
     await expect(getAppForActor(db, unrelated, app.id)).rejects.toBeInstanceOf(NotFoundError);
     await expect(
       applyOperation(db, unrelated, app.id, {
-        operationType: "add-entity",
-        payload: { entity: "Widget" },
+        operation: createEntityOp("widget_unrelated"),
+        baseVersionNumber: 0,
         idempotencyKey: "unrelated-op",
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
@@ -183,12 +187,13 @@ describe("forged actor/owner ids are ignored", () => {
   it("uses the trusted actor parameter for audit/ownership even when the payload claims a different actor", async () => {
     const app = await createApp(db, owner, { name: "Forge App", slug: "forge-app" }, "forge-create");
 
-    const operation = await applyOperation(db, owner, app.id, {
-      operationType: "add-entity",
+    const { operation } = await applyOperation(db, owner, app.id, {
       // A malicious/buggy caller stuffing identity-looking fields into the
-      // opaque operation payload must have zero effect on who gets
-      // recorded as having performed the action.
-      payload: { entity: "Widget", actorId: "someone-else", ownerPrincipalId: "attacker" },
+      // operation payload must have zero effect on who gets recorded as
+      // having performed the action — extra/unknown keys are simply not
+      // part of any operation's schema and are dropped by Zod's parse.
+      operation: { ...createEntityOp("widget"), actorId: "someone-else", ownerPrincipalId: "attacker" },
+      baseVersionNumber: 0,
       idempotencyKey: "forge-op",
     });
 

@@ -1,4 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
+import {
+  diffSpecifications,
+  type ApplicationSpecificationType,
+  type SpecificationDiff,
+} from "@asafarim/appbuilder-schema";
 import type { Db } from "../db/client";
 import { specifications, specificationVersions } from "../db/schema";
 import type { Actor } from "../auth/actor";
@@ -44,6 +49,7 @@ export async function getLatestVersionForActor(
   return version;
 }
 
+/** Immutable version history, oldest first. */
 export async function listVersionsForActor(
   db: Db,
   actor: Actor,
@@ -52,5 +58,47 @@ export async function listVersionsForActor(
   // appId is denormalized onto specificationVersions specifically so this
   // scoped read doesn't need a join through specifications.
   await assertCapability(db, actor, appId, "app.view");
-  return db.select().from(specificationVersions).where(eq(specificationVersions.appId, appId));
+  return db
+    .select()
+    .from(specificationVersions)
+    .where(eq(specificationVersions.appId, appId))
+    .orderBy(asc(specificationVersions.versionNumber));
+}
+
+/** A single immutable version, by its version number. */
+export async function getVersionForActor(
+  db: Db,
+  actor: Actor,
+  appId: string,
+  versionNumber: number,
+): Promise<SpecificationVersionRow> {
+  await assertCapability(db, actor, appId, "app.view");
+
+  const [version] = await db
+    .select()
+    .from(specificationVersions)
+    .where(and(eq(specificationVersions.appId, appId), eq(specificationVersions.versionNumber, versionNumber)))
+    .limit(1);
+  if (!version) {
+    throw new NotFoundError("Specification version", String(versionNumber));
+  }
+  return version;
+}
+
+/** Structured, path-aware diff between two immutable versions of the same app. */
+export async function compareVersionsForActor(
+  db: Db,
+  actor: Actor,
+  appId: string,
+  fromVersionNumber: number,
+  toVersionNumber: number,
+): Promise<SpecificationDiff> {
+  const [from, to] = await Promise.all([
+    getVersionForActor(db, actor, appId, fromVersionNumber),
+    getVersionForActor(db, actor, appId, toVersionNumber),
+  ]);
+  return diffSpecifications(
+    from.payload as unknown as ApplicationSpecificationType,
+    to.payload as unknown as ApplicationSpecificationType,
+  );
 }

@@ -1,15 +1,18 @@
-# AppBuilder Architecture (M01–M03)
+# AppBuilder Architecture (M01–M04)
 
 **Application:** `apps/appbuilder`
 **Document date:** 2026-07-21
 **Scope:** M01 (architecture contract, app scaffold, local runtime), M02
-(dedicated PostgreSQL service, migrations, repository boundary), and M03
+(dedicated PostgreSQL service, migrations, repository boundary), M03
 (platform SSO, centralized per-app authorization, app registry, audit
-identity). See
+identity), and M04 (versioned application-specification contract and
+deterministic controlled-operation engine). See
 [issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29)
-for the full 12-milestone delivery series and
+for the full 12-milestone delivery series,
 [ADR 0001](adr/0001-appbuilder-managed-runtime.md) for the architectural
-decision behind the metadata-driven runtime.
+decision behind the metadata-driven runtime, and
+[`packages/appbuilder-schema/README.md`](../packages/appbuilder-schema/README.md)
+for the full M04 specification/operation contract.
 
 ## Summary
 
@@ -24,10 +27,14 @@ that enforces owner/collaborator + app scoping on every read and write. M03
 wires that repository layer to the platform's shared SSO session, registers
 AppBuilder in the platform app registry, and replaces the placeholder
 owner/collaborator checks with a single capability-based policy every page,
-API route, and future milestone (M04 operations, M06 previews, M09/M11
-releases) must go through. AI calls and the preview runtime remain separate,
-sequenced milestones (see below), each gated on the previous one's
-acceptance criteria.
+API route, and future milestone must go through. M04 defines what that
+policy actually *protects*: a versioned `ApplicationSpecification` contract
+and a pure, deterministic controlled-operation engine
+(`@asafarim/appbuilder-schema`), integrated with M02's persistence and M03's
+authorization via real optimistic concurrency, payload-checked idempotency,
+and destructive-change confirmation. AI calls, the preview runtime, and the
+catalog UI remain separate, sequenced milestones (see below), each gated on
+the previous one's acceptance criteria.
 
 ## Local runtime
 
@@ -49,7 +56,7 @@ and unit-tested in `lib/routes.test.ts`.
 | `/` | Landing / product overview | Public (mirrors Hub's own root) | — |
 | `/apps` | Catalog of the owner/tenant's generated apps | Authenticated session required | M05 (catalog UI) |
 | `/apps/new` | Prompt-first creation entry point | Authenticated session required | M05 (creation flow), M07 (AI planner) |
-| `/apps/[appId]` | A generated app's detail/overview shell | Session + `app.view` capability (404 if inaccessible) | M04 (specification editing), M08 (builder workspace) |
+| `/apps/[appId]` | A generated app's detail/overview shell | Session + `app.view` capability (404 if inaccessible) | M08 (builder workspace UI over the M04 engine) |
 | `/apps/[appId]/preview` | Metadata-driven preview runtime | Session + `app.viewPreview` capability (404 if inaccessible) | M06 (template registry + preview runtime) |
 
 Every route currently renders as a defined, empty/informational shell (using
@@ -107,12 +114,56 @@ See [`apps/appbuilder/README.md`](../apps/appbuilder/README.md) for the
 concrete schema, migration commands, capability matrix, and
 backup/restore/rollback runbook.
 
+## Specification engine and shared contract (M04)
+
+`packages/appbuilder-schema` (`@asafarim/appbuilder-schema`) is a
+dependency-free (no Next.js/DB/auth/AI) package holding:
+
+- `ApplicationSpecification` — the versioned Zod contract (identity,
+  branding, entities/fields/relations, roles/permissions,
+  navigation/pages/components, dashboard, actions, workflows), every
+  cross-reference keyed by a stable opaque id, never a display name.
+- `Operation` — the allowlisted, discriminated-union catalog (entity/field/
+  relation/page/component/navigation/role/permission/workflow/branding
+  lifecycle operations) and `applySpecOperation` — a **pure** function:
+  validate the operation payload, check preconditions, apply as an
+  immutable transform, re-validate the *entire* resulting specification,
+  and return a structured result. No `Date.now()`, no random ids, no
+  locale-dependent sorting inside it — every id/timestamp the engine needs
+  is supplied by the caller.
+- `invertOperation`, `diffSpecifications`, `classifyDestructiveChange` —
+  undo, structured compare, and destructive-change classification.
+- `canonicalize`/`checksumOf` — deterministic serialization (sorted object
+  keys, untouched array order, no locale-aware comparison) and its sha256
+  checksum: the same base + ordered operations + engine version always
+  reproduces the same specification and checksum.
+
+AppBuilder's `lib/repositories/operations.ts#applyOperation` integrates
+this pure engine with persistence and authorization: `app.applyOperation`
+capability required; the specification row is locked (`FOR UPDATE`) and
+the caller's `baseVersionNumber` checked against it before the engine runs
+(optimistic concurrency, proven correct under real concurrent Postgres
+transactions — two racing writers against the same base: exactly one
+succeeds, the other gets a structured `StaleVersionError`, neither user's
+work is lost or silently merged); a `request_hash` on `applied_operations`
+makes retries with the same idempotency key safe and a differing payload
+under the same key a rejected conflict; a change the engine classifies as
+destructive is refused unless the caller confirms. Every successful change
+is exactly one new immutable `specification_versions` row (with
+`parentVersionId`, `schemaVersion`, `engineVersion`, `summary`, `checksum`)
+committed atomically with its `applied_operations` row and an audit event;
+any failure at any stage leaves the database exactly as it was.
+`lib/repositories/versions.ts` adds `restoreVersion` (copy an old version
+forward as a new one — history is never rewritten) and `undoLastOperation`
+(apply the safe inverse of the last change, or an explicit "restore
+required" result when none exists).
+
 ## Milestone map (for orientation)
 
 1. M01 — Architecture contract, app scaffold, local runtime.
 2. M02 — Dedicated PostgreSQL service, migrations, repository boundary.
-3. **M03 — this milestone.** Platform SSO, authorization, app registry, audit identity.
-4. M04 — versioned application specification and operation engine.
+3. M03 — Platform SSO, authorization, app registry, audit identity.
+4. **M04 — this milestone.** Versioned application specification and operation engine.
 5. M05 — generated-app catalog and prompt-first creation flow.
 6. M06 — approved template/component registry and preview runtime.
 7. M07 — AI requirements planner and structured generation pipeline.

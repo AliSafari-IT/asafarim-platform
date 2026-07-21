@@ -18,6 +18,7 @@
     "db:seed": "tsx lib/db/seed.ts"
   },
   "dependencies": {
+    "@asafarim/appbuilder-schema": "workspace:*",
     "@asafarim/auth": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "dotenv": "^17.4.2",
