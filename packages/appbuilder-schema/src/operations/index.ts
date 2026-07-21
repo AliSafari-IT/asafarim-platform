@@ -1,0 +1,41 @@
+export {
+  Operation,
+  type OperationType,
+  type OperationKind,
+  CreateEntityOp,
+  UpdateEntityOp,
+  ArchiveEntityOp,
+  AddFieldOp,
+  UpdateFieldOp,
+  ArchiveFieldOp,
+  CreateRelationOp,
+  UpdateRelationOp,
+  ArchiveRelationOp,
+  CreatePageOp,
+  UpdatePageOp,
+  ArchivePageOp,
+  AddComponentOp,
+  UpdateComponentOp,
+  MoveComponentOp,
+  RemoveComponentOp,
+  UpdateNavigationOp,
+  CreateRoleOp,
+  UpdateRoleOp,
+  SetPermissionOp,
+  RemovePermissionOp,
+  CreateWorkflowOp,
+  UpdateWorkflowOp,
+  ArchiveWorkflowOp,
+  UpdateBrandingOp,
+  UpdateAppMetadataOp,
+} from "./types";
+export {
+  applySpecOperation,
+  type OperationOutcome,
+  type OperationSuccess,
+  type OperationFailure,
+  type ApplyOperationOptions,
+} from "./engine";
+export { invertOperation } from "./invert";
+export { diffSpecifications, type SpecificationDiff, type DiffEntry, type DiffKind } from "./diff";
+export { classifyDestructiveChange, type DestructiveImpact } from "./destructive";

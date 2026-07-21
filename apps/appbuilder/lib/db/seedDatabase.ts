@@ -19,8 +19,12 @@ export async function seedDatabase(db: Db) {
   const appB2 = await createApp(db, ownerB, { name: "Asset Registry", slug: "asset-registry" }, "seed-app-b2");
 
   await applyOperation(db, ownerA, appA1.id, {
-    operationType: "add-entity",
-    payload: { entity: "Item", fields: [{ name: "name", type: "string" }] },
+    operation: {
+      opVersion: "1.0.0",
+      type: "CREATE_ENTITY",
+      entity: { id: "item", machineName: "item", name: "Item" },
+    },
+    baseVersionNumber: 0,
     idempotencyKey: "seed-app-a1-op1",
   });
 

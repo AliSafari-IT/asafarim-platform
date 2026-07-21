@@ -11,6 +11,10 @@ const ownerA = { principalId: "owner-a", roles: [] };
 const ownerB = { principalId: "owner-b", roles: [] };
 const stranger = { principalId: "stranger", roles: [] };
 
+function createEntityOp(id: string) {
+  return { opVersion: "1.0.0", type: "CREATE_ENTITY", entity: { id, machineName: id, name: id } };
+}
+
 beforeAll(async () => {
   await migrateTestDb();
 });
@@ -44,8 +48,8 @@ describe("owner/app isolation", () => {
 
     await expect(
       applyOperation(db, ownerB, appA.id, {
-        operationType: "add-entity",
-        payload: { entity: "Widget" },
+        operation: createEntityOp("widget"),
+        baseVersionNumber: 0,
         idempotencyKey: "cross-owner-op",
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
@@ -73,8 +77,8 @@ describe("owner/app isolation", () => {
     expect(await getAppForActor(db, collaborator, appB.id)).toMatchObject({ id: appB.id });
     await expect(
       applyOperation(db, collaborator, appB.id, {
-        operationType: "add-entity",
-        payload: { entity: "Thing" },
+        operation: createEntityOp("thing"),
+        baseVersionNumber: 0,
         idempotencyKey: "collab-op-1",
       }),
     ).resolves.toBeDefined();
@@ -139,18 +143,11 @@ describe("idempotency", () => {
   it("replays the same specification version for a repeated operation idempotency key", async () => {
     const app = await createApp(db, ownerA, { name: "App", slug: "app-op" }, "idem-app-op");
 
-    const first = await applyOperation(db, ownerA, app.id, {
-      operationType: "add-entity",
-      payload: { entity: "Widget" },
-      idempotencyKey: "op-once",
-    });
-    const second = await applyOperation(db, ownerA, app.id, {
-      operationType: "add-entity",
-      payload: { entity: "Widget" },
-      idempotencyKey: "op-once",
-    });
+    const op = { operation: createEntityOp("widget"), baseVersionNumber: 0, idempotencyKey: "op-once" };
+    const first = await applyOperation(db, ownerA, app.id, op);
+    const second = await applyOperation(db, ownerA, app.id, op);
 
-    expect(second.id).toBe(first.id);
-    expect(second.resultingVersionId).toBe(first.resultingVersionId);
+    expect(second.operation.id).toBe(first.operation.id);
+    expect(second.operation.resultingVersionId).toBe(first.operation.resultingVersionId);
   });
 });

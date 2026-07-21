@@ -157,8 +157,22 @@ export const specificationVersions = pgTable(
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
     versionNumber: integer("version_number").notNull(),
-    // Versioned contract payload. M04 formalizes its internal shape; M02
-    // only guarantees ownership, ordering, and integrity (checksum).
+    // Self-reference to the version this one was built from — null only
+    // for the very first version of a specification. Never a join
+    // requirement (versionNumber - 1 also identifies it), but explicit
+    // provenance is cheaper to read than to reconstruct.
+    parentVersionId: text("parent_version_id"),
+    // The @asafarim/appbuilder-schema SPEC_SCHEMA_VERSION the payload was
+    // written against, and the ENGINE_VERSION that produced it — both
+    // needed to reproduce this row's checksum exactly (see
+    // docs/appbuilder-schema.md#checksums).
+    schemaVersion: text("schema_version").notNull(),
+    engineVersion: text("engine_version").notNull(),
+    // Human-readable one-line provenance, e.g. "Applied CREATE_ENTITY: Task"
+    // or "Restored version 3". Detailed provenance (which operation, by
+    // whom) lives on the linked appliedOperations row.
+    summary: text("summary").notNull().default(""),
+    // The full ApplicationSpecification payload (@asafarim/appbuilder-schema).
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     checksum: text("checksum").notNull(),
     createdByPrincipalId: text("created_by_principal_id").notNull(),
@@ -197,6 +211,13 @@ export const appliedOperations = pgTable(
     rejectionReason: text("rejection_reason"),
     appliedByPrincipalId: text("applied_by_principal_id").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
+    // sha256 of the operation payload actually submitted — lets a retried
+    // request with the SAME idempotencyKey but a DIFFERENT payload be
+    // rejected as a conflict instead of silently replaying a stale result.
+    requestHash: text("request_hash").notNull(),
+    // The base version the operation was applied against — the optimistic-
+    // concurrency contract's audit trail (see lib/repositories/operations.ts).
+    baseVersionNumber: integer("base_version_number").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
