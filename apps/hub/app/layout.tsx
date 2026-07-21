@@ -62,6 +62,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     { label: "ASafarIM Digital", href: links.web, meta: "public" },
                     { label: "Showcase", href: links.showcase, meta: "public" },
                     { label: "Vionto", href: links.vionto, meta: "photo-to-story" },
+                    { label: "Testora", href: links.testora, meta: "benchmark" },
                     ...(isAdminUser
                       ? [{ label: "Admin Console", href: links.admin, meta: "restricted" }]
                       : []),

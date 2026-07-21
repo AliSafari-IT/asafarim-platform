@@ -5,7 +5,7 @@ import { SignInPageContent } from "./_components/SignInPageContent";
 
 const links = getPlatformLinks();
 const trustedOrigins = new Set(
-  [links.web, links.hub, links.showcase, links.admin, links.vionto].map(
+  [links.web, links.hub, links.showcase, links.admin, links.vionto, links.testora].map(
     (url) => new URL(url).origin
   )
 );

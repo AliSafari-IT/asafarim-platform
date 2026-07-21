@@ -30,7 +30,7 @@ export default async function ProjectsPage() {
             key={project.slug}
             title={project.title}
             summary={project.summary}
-            href={`/projects/${project.slug}`}
+            href={project.externalUrl ?? `/projects/${project.slug}`}
             tags={project.tags}
             status={project.status}
             glyph={project.glyph}
