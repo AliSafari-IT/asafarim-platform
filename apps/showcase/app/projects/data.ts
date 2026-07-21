@@ -3,6 +3,10 @@
  * showcases and asafarim-digital products) is migrated in a later PR;
  * these prove the gallery structure.
  */
+import { getPlatformLinks } from "@asafarim/ui";
+
+const platformLinks = getPlatformLinks();
+
 export interface ShowcaseProject {
   slug: string;
   title: string;
@@ -11,6 +15,8 @@ export interface ShowcaseProject {
   status: "live" | "beta" | "planned" | "archived";
   glyph: string;
   index: string;
+  /** If set, the project card links to this external app instead of /projects/:slug. */
+  externalUrl?: string;
 }
 
 export const projects: ShowcaseProject[] = [
@@ -43,6 +49,7 @@ export const projects: ShowcaseProject[] = [
     status: "live",
     glyph: "TS",
     index: "03",
+    externalUrl: platformLinks.testora,
   },
   {
     slug: "ai-eval",

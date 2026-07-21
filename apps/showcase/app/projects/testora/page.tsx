@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { ButtonLink, Hero, Metric, Panel, Section } from "@asafarim/ui";
+import { getPlatformLinks } from "@asafarim/ui";
 import {
   resolveLocaleFromCookie,
   getServerTranslator,
@@ -22,6 +23,7 @@ export default async function TestoraOverviewPage() {
   const cookieStore = await cookies();
   const locale = resolveLocaleFromCookie(cookieStore.toString());
   const t = getServerTranslator(locale, showcaseDictionaries);
+  const links = getPlatformLinks();
   const { scores, summary } = runDetail;
   const dimensions = getDimensions((key) => t(key));
   const methodology = getMethodology((key) => t(key));
@@ -34,7 +36,10 @@ export default async function TestoraOverviewPage() {
         lede={t("showcase.testora.overview.hero.lede")}
         actions={
           <>
-            <ButtonLink href="/projects/testora/run">
+            <ButtonLink href={links.testora}>
+              Open Testora app
+            </ButtonLink>
+            <ButtonLink href="/projects/testora/run" variant="secondary">
               {t("showcase.testora.overview.hero.ctaPrimary")}
             </ButtonLink>
             <ButtonLink href="/projects/testora/case-study" variant="secondary">

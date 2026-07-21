@@ -213,6 +213,7 @@ function getTrustedOrigins(): string[] {
     process.env.NEXT_PUBLIC_ADMIN_URL,
     process.env.NEXT_PUBLIC_SHOWCASE_URL,
     process.env.NEXT_PUBLIC_VIONTO_URL,
+    process.env.NEXT_PUBLIC_TESTORA_URL,
     process.env.NEXT_PUBLIC_API_URL,
   ]
     .filter((u): u is string => Boolean(u))

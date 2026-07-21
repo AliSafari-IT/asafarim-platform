@@ -88,10 +88,13 @@ function AppSwitcher() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const testoraUrl = process.env.NEXT_PUBLIC_TESTORA_URL || "http://localhost:3005";
+
   const apps = [
     { label: "ASafarIM Digital", href: webUrl, meta: "public site" },
     { label: "Hub", href: hubUrl, meta: "workspace" },
     { label: "Showcase", href: showcaseUrl, meta: "projects" },
+    { label: "Testora", href: testoraUrl, meta: "benchmark" },
   ];
 
   return (
