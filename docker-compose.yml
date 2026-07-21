@@ -39,7 +39,29 @@ services:
     volumes:
       - testora_pgdata:/var/lib/postgresql/data
 
+  # appbuilder keeps its own database, isolated from the shared Prisma
+  # Postgres and from testora's. Matches APPBUILDER_DATABASE_URL (host port
+  # 55436). See docs/appbuilder-architecture.md.
+  appbuilder-postgres:
+    image: postgres:16-alpine
+    container_name: appbuilder-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: appbuilder
+      POSTGRES_PASSWORD: appbuilder_dev
+      POSTGRES_DB: appbuilder
+    ports:
+      - "55436:5432"
+    volumes:
+      - appbuilder_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appbuilder -d appbuilder"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
   redis_data:
   testora_pgdata:
+  appbuilder_pgdata:

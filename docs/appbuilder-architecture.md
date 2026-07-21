@@ -1,9 +1,10 @@
-# AppBuilder Architecture (M01)
+# AppBuilder Architecture (M01–M02)
 
 **Application:** `apps/appbuilder`
 **Document date:** 2026-07-21
-**Scope:** M01 only — architecture contract, app scaffold, and local runtime.
-See [issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29)
+**Scope:** M01 (architecture contract, app scaffold, local runtime) and M02
+(dedicated PostgreSQL service, migrations, repository boundary). See
+[issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29)
 for the full 12-milestone delivery series and
 [ADR 0001](adr/0001-appbuilder-managed-runtime.md) for the architectural
 decision behind the metadata-driven runtime.
@@ -15,8 +16,10 @@ monorepo. It will let a signed-in user describe an internal business
 application, get back a versioned application specification, preview it,
 refine it conversationally, validate it, and publish an immutable release.
 
-M01 establishes only the app shell and route contracts — no persistence, no
-auth, no AI calls, no preview runtime. Those are separate, sequenced
+M01 established the app shell and route contracts. M02 adds AppBuilder's own
+isolated PostgreSQL database, migration lifecycle, and a repository layer
+that enforces owner/collaborator + app scoping on every read and write.
+Auth, AI calls, and the preview runtime remain separate, sequenced
 milestones (see below), each gated on the previous one's acceptance criteria.
 
 ## Local runtime
@@ -47,18 +50,35 @@ that silently does nothing — each page states which milestone fills it in.
 
 ## Isolation and trust boundary
 
-- AppBuilder's own metadata store (M02) is a dedicated PostgreSQL
-  service, isolated from the platform's shared Prisma database — the same
-  pattern already used by Testora (`apps/testora`, its own Drizzle/Postgres
-  service on a dedicated port).
+- AppBuilder's own metadata store (M02) is a dedicated PostgreSQL service
+  (`appbuilder-postgres`, `APPBUILDER_DATABASE_URL`), isolated from the
+  platform's shared Prisma database and from every other app's own
+  database — the same pattern already used by Testora (`apps/testora`, its
+  own Drizzle/Postgres service on a dedicated port). AppBuilder product
+  tables are never added to `packages/db`.
+- SSO user ids are stored only as opaque external principal references
+  (`ownerPrincipalId`, `principalId`, `*PrincipalId` columns) — there is no
+  foreign key from AppBuilder's database into the platform's `users` table.
+- Every app-owned table is reachable through `appId`, and
+  `lib/repositories/authz.ts#assertAppAccess` is the single chokepoint every
+  repository method calls before touching data: it resolves the app, checks
+  the caller is the owner or an active collaborator with sufficient role,
+  and throws otherwise. There is no unscoped "get by id" or "get all"
+  helper for tenant-owned data.
+- Retryable creation/mutation operations (`createApp`, `applyOperation`) are
+  idempotent on a caller-supplied key, so a network retry or double submit
+  cannot double-create an app or double-apply a specification change.
 - Generated apps never execute AI-written source code or load arbitrary npm
   packages; see [ADR 0001](adr/0001-appbuilder-managed-runtime.md) for the
   full rationale and the explicit prohibitions this fixes.
 
+See [`apps/appbuilder/README.md`](../apps/appbuilder/README.md) for the
+concrete schema, migration commands, and backup/restore/rollback runbook.
+
 ## Milestone map (for orientation)
 
-1. **M01 — this milestone.** Architecture contract, app scaffold, local runtime.
-2. M02 — dedicated PostgreSQL service, migrations, repository boundary.
+1. M01 — Architecture contract, app scaffold, local runtime.
+2. **M02 — this milestone.** Dedicated PostgreSQL service, migrations, repository boundary.
 3. M03 — platform SSO, authorization, app registry, audit identity.
 4. M04 — versioned application specification and operation engine.
 5. M05 — generated-app catalog and prompt-first creation flow.
