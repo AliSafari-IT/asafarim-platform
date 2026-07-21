@@ -38,9 +38,8 @@ const grotesk = Space_Grotesk({
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Ali Safari — Full-stack/AI Developer & Technical Coordinator",
-  description:
-    "Full-stack & AI application developer (React / TypeScript / Next.js / Node.js / Prisma / PostgreSQL / Auth.js) in Belgium. Open-source everything; available for Employee, Flexi-job, or Part-time collaboration.",
+  title: site.title,
+  description: site.description,
   alternates: { canonical: "/" },
 };
 
