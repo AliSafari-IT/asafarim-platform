@@ -28,6 +28,7 @@ services:
         NEXT_PUBLIC_SHOWCASE_URL: ${NEXT_PUBLIC_SHOWCASE_URL}
         NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL}
         NEXT_PUBLIC_VIONTO_URL: ${NEXT_PUBLIC_VIONTO_URL}
+        NEXT_PUBLIC_TESTORA_URL: ${NEXT_PUBLIC_TESTORA_URL}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     env_file:
@@ -146,6 +147,68 @@ services:
     networks:
       - asafarim_net
 
+  # testora keeps its OWN database, isolated from the shared Prisma Postgres.
+  testora-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: e2e_testora
+      POSTGRES_PASSWORD: ${TESTORA_DB_PASSWORD}
+      POSTGRES_DB: e2e-testing-db
+    ports:
+      # Loopback only: lets host-side scripts (seed/inspect) reach it without
+      # exposing testora's DB to the internet.
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - testora_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U e2e_testora -d e2e-testing-db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - asafarim_net
+
+  # One-shot: applies pending drizzle migrations, then exits. The app waits for
+  # this to complete successfully before starting.
+  testora-migrate:
+    build:
+      context: .
+      dockerfile: apps/testora/Dockerfile
+      target: migrator
+    restart: "no"
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      TESTORA_DATABASE_URL: postgres://e2e_testora:${TESTORA_DB_PASSWORD}@testora-postgres:5432/e2e-testing-db
+    depends_on:
+      testora-postgres:
+        condition: service_healthy
+    networks:
+      - asafarim_net
+
+  testora:
+    build:
+      context: .
+      dockerfile: apps/testora/Dockerfile
+      target: runner
+      args: *public-build-args
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      TESTORA_DATABASE_URL: postgres://e2e_testora:${TESTORA_DB_PASSWORD}@testora-postgres:5432/e2e-testing-db
+      NEXT_PUBLIC_APP_URL: https://testora.asafarim.com
+    depends_on:
+      testora-postgres:
+        condition: service_healthy
+      testora-migrate:
+        condition: service_completed_successfully
+    networks:
+      - asafarim_net
+
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -162,6 +225,7 @@ services:
       - showcase
       - admin
       - vionto
+      - testora
     networks:
       - asafarim_net
 
@@ -173,3 +237,4 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  testora_postgres_data:

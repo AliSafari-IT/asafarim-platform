@@ -663,7 +663,7 @@ function FooterCta() {
             </Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/">Back to Dashboard</Link>
+            <Link href="/dashboard">Back to Dashboard</Link>
           </Button>
         </div>
       </CardContent>

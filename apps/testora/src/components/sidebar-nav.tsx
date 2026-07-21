@@ -23,7 +23,7 @@ import { Logo } from "@/components/logo";
 import { TourTrigger } from "@/components/run/run-tour";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/apps", label: "Apps", icon: AppWindow },
   { href: "/requirements", label: "Requirements", icon: ListChecks },
   { href: "/suites", label: "Suites", icon: Boxes },

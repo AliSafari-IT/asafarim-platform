@@ -27,3 +27,13 @@ vionto.asafarim.com {
     }
   }
 }
+
+testora.asafarim.com {
+  # Test runs stream progress over a long-lived connection; be generous.
+  reverse_proxy testora:3000 {
+    transport http {
+      read_timeout 600s
+      write_timeout 600s
+    }
+  }
+}
