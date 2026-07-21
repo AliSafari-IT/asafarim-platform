@@ -2,7 +2,7 @@ import type { Dictionaries } from "@asafarim/shared-i18n";
 
 const webDictionaries: Dictionaries = {
   en: {
-    "web.home.hero.eyebrow": "Available for collaboration",
+    "web.home.hero.eyebrow": "ASafarIM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "DEVELOPER",
     "web.home.hero.title3": "& AI BUILDER.",
@@ -17,7 +17,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "AI listings, in production",
     "web.home.heroCard.projectVionto": "AI photo-to-story app",
     "web.home.hero.lede":
-      "I'm Ali Safari — a full-stack developer (Next.js / React / TypeScript / Prisma / PostgreSQL / Auth.js) and, since 2026, an AI application developer at Probex Belgium in Genk. I build AI-powered tools and ship open-source apps & packages that are free for everyone.",
+      "ASafarIM Digital is a full-stack & AI application studio that designs, builds, and operates end-to-end platforms — from identity and data layers to real-time dashboards and AI-assisted tools. Founded and run by Ali Safari in Belgium.",
     "web.home.stats.yearsCoding": "Years coding",
     "web.home.stats.githubRepos": "GitHub Repositories",
     "web.home.stats.freeOpen": "Free & open",
@@ -97,7 +97,7 @@ const webDictionaries: Dictionaries = {
     "web.home.contact.githubCta": "GitHub",
   },
   nl: {
-    "web.home.hero.eyebrow": "Beschikbaar voor samenwerking",
+    "web.home.hero.eyebrow": "ASafarIM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "ONTWIKKELAAR",
     "web.home.hero.title3": "& AI-BOUWER.",
@@ -112,7 +112,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "AI-listings, in productie",
     "web.home.heroCard.projectVionto": "AI foto-naar-verhaal app",
     "web.home.hero.lede":
-      "Ik ben Ali Safari — een full-stack developer (Next.js / React / TypeScript / Prisma / PostgreSQL / Auth.js) en sinds 2026 een AI application developer bij Probex Belgium in Genk. Ik bouw AI-gestuurde tools en ship open-source apps & packages die voor iedereen gratis zijn.",
+      "ASafarIM Digital is een full-stack & AI application studio die end-to-end platformen ontwerpt, bouwt en operationeel houdt — van identity en data lagen tot real-time dashboards en AI-assisted tools. Opgericht en geleid door Ali Safari in België.",
     "web.home.stats.yearsCoding": "Jaren coderen",
     "web.home.stats.githubRepos": "GitHub Repositories",
     "web.home.stats.freeOpen": "Gratis & open",
@@ -192,7 +192,7 @@ const webDictionaries: Dictionaries = {
     "web.home.contact.githubCta": "GitHub",
   },
   fr: {
-    "web.home.hero.eyebrow": "Disponible pour collaboration",
+    "web.home.hero.eyebrow": "ASafarIM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "DÉVELOPPEUR",
     "web.home.hero.title3": "& BUILDER IA.",
@@ -207,7 +207,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "Listings IA, en production",
     "web.home.heroCard.projectVionto": "App photo-récit IA",
     "web.home.hero.lede":
-      "Je suis Ali Safari — un développeur full-stack (Next.js / React / TypeScript / Prisma / PostgreSQL / Auth.js) et, depuis 2026, un AI application developer chez Probex Belgium à Genk. Je construis des outils pilotés par l'IA et je publie des apps & packages open source gratuits pour tout le monde.",
+      "ASafarIM Digital est un studio full-stack & IA qui conçoit, construit et exploite des plateformes de bout en bout — de l'identité et des couches de données aux tableaux de bord en temps réel et aux outils assistés par IA. Fondé et dirigé par Ali Safari en Belgique.",
     "web.home.stats.yearsCoding": "Années de code",
     "web.home.stats.githubRepos": "Dépôts GitHub",
     "web.home.stats.freeOpen": "Gratuit & open",
@@ -287,7 +287,7 @@ const webDictionaries: Dictionaries = {
     "web.home.contact.githubCta": "GitHub",
   },
   de: {
-    "web.home.hero.eyebrow": "Verfügbar für Zusammenarbeit",
+    "web.home.hero.eyebrow": "ASafarIM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "ENTWICKLER",
     "web.home.hero.title3": "& AI BUILDER.",
@@ -302,7 +302,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "AI Listings, in Produktion",
     "web.home.heroCard.projectVionto": "AI Foto-zu-Geschichte-App",
     "web.home.hero.lede":
-      "Ich bin Ali Safari — ein Full-Stack-Entwickler (Next.js / React / TypeScript / Prisma / PostgreSQL / Auth.js) und seit 2026 AI Application Developer bei Probex Belgium in Genk. Ich baue KI-gestützte Tools und veröffentliche Open-Source-Apps & Packages, die für alle kostenlos sind.",
+      "ASafarIM Digital ist ein Full-Stack & AI Application Studio, das End-to-End-Plattformen entwirft, baut und betreibt — von Identitäts- und Datenschichten bis hin zu Echtzeit-Dashboards und KI-gestützten Tools. Gegründet und geleitet von Ali Safari in Belgien.",
     "web.home.stats.yearsCoding": "Jahre coden",
     "web.home.stats.githubRepos": "GitHub Repositories",
     "web.home.stats.freeOpen": "Kostenlos & offen",
@@ -381,7 +381,7 @@ const webDictionaries: Dictionaries = {
     "web.home.contact.githubCta": "GitHub",
   },
   lb: {
-    "web.home.hero.eyebrow": "Available for collaboration",
+    "web.home.hero.eyebrow": "ASafarIM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "DEVELOPER",
     "web.home.hero.title3": "& AI BUILDER.",
@@ -396,7 +396,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "AI listings, in production",
     "web.home.heroCard.projectVionto": "AI photo-to-story app",
     "web.home.hero.lede":
-      "I'm Ali Safari — a full-stack developer (Next.js / React / TypeScript / Prisma / PostgreSQL / Auth.js) and, since 2026, an AI application developer at Probex Belgium in Genk. I build AI-powered tools and ship open-source apps & packages that are free for everyone.",
+      "ASafarIM Digital is a full-stack & AI application studio that designs, builds, and operates end-to-end platforms — from identity and data layers to real-time dashboards and AI-assisted tools. Founded and run by Ali Safari in Belgium.",
     "web.home.stats.yearsCoding": "Years coding",
     "web.home.stats.githubRepos": "GitHub Repositories",
     "web.home.stats.freeOpen": "Free & open",
