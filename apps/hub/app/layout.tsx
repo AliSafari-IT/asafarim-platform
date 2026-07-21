@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
-import { auth, signOut, hasRole, ROLES } from "@asafarim/auth";
+import {
+  auth,
+  signOut,
+  PLATFORM_APPS,
+  canAccessApp,
+  type AppAccessContext,
+} from "@asafarim/auth";
 import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
@@ -31,7 +37,23 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   const links = getPlatformLinks();
-  const isAdminUser = hasRole(session, [ROLES.ADMIN]);
+
+  // Registry-driven, same access rule the /apps launchpad uses — no
+  // per-app hardcoded visibility here. Coming-soon apps stay out of the
+  // compact switcher (they're never actionable); Hub itself is skipped
+  // since you're already standing in it.
+  const switcherContext: AppAccessContext = {
+    roles: session?.user?.roles ?? [],
+    authenticated: Boolean(session?.user),
+  };
+  const switcherApps = PLATFORM_APPS.filter(
+    (app) =>
+      app.key !== "hub" &&
+      app.status === "active" &&
+      app.key in links &&
+      canAccessApp(app, switcherContext)
+  );
+
   const cookieStore = await cookies();
   const initialLocale = resolveLocaleFromCookie(cookieStore.toString());
 
@@ -58,15 +80,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <>
                 <CountryLanguageSelector lockCountry="BE" />
                 <AppSwitcher
-                  links={[
-                    { label: "ASafarIM Digital", href: links.web, meta: "public" },
-                    { label: "Showcase", href: links.showcase, meta: "public" },
-                    { label: "Vionto", href: links.vionto, meta: "photo-to-story" },
-                    { label: "Testora", href: links.testora, meta: "benchmark" },
-                    ...(isAdminUser
-                      ? [{ label: "Admin Console", href: links.admin, meta: "restricted" }]
-                      : []),
-                  ]}
+                  links={switcherApps.map((app) => ({
+                    label: app.name,
+                    href: links[app.key as keyof typeof links],
+                    meta: app.meta,
+                  }))}
                 />
                 {session?.user ? (
                   <UserMenu

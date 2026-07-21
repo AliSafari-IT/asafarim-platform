@@ -4,7 +4,7 @@ import { generateId } from "../db/ids";
 
 /**
  * Internal helper — always called from inside a repository method that has
- * already run `assertAppAccess`, never exposed as a standalone write path.
+ * already run `assertCapability`, never exposed as a standalone write path.
  */
 export async function recordAuditEvent(
   db: Db,

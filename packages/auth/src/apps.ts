@@ -98,6 +98,18 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     status: "active",
     access: "public",
   },
+  {
+    // Any signed-in active user may open AppBuilder; per-generated-app
+    // ownership/collaborator access is enforced separately inside the app
+    // (apps/appbuilder/lib/repositories/authz.ts), not at this platform gate.
+    key: "appbuilder",
+    name: "AppBuilder",
+    description: "Describe an internal app in plain language and get a controlled, versioned application back.",
+    glyph: "AB",
+    meta: "appbuilder.asafarim.com",
+    status: "active",
+    access: "authenticated",
+  },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────
   {

@@ -2,7 +2,7 @@ import { eq, inArray, or } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { apps, collaborators, idempotencyKeys, specifications } from "../db/schema";
 import type { Actor } from "../auth/actor";
-import { assertAppAccess, type AppRow } from "./authz";
+import { assertCapability, type AppRow } from "./authz";
 import { recordAuditEvent } from "./audit";
 import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
@@ -102,12 +102,16 @@ export async function createApp(
 
 /** Scoped read — never call `apps.id` lookups without going through actor access. */
 export async function getAppForActor(db: Db, actor: Actor, appId: string): Promise<AppRow> {
-  return assertAppAccess(db, actor, appId, "viewer");
+  const { app } = await assertCapability(db, actor, appId, "app.view");
+  return app;
 }
 
 /**
  * Every app the actor owns or actively collaborates on. There is
- * intentionally no unscoped "list all apps" helper.
+ * intentionally no unscoped "list all apps" helper. Deliberately not
+ * expanded by the platform superadmin bypass — that bypass exists for
+ * acting on a specific, named app (assertCapability), not for dumping
+ * every tenant's app registry through the list endpoint.
  */
 export async function listAppsForActor(db: Db, actor: Actor): Promise<AppRow[]> {
   const collaboratorAppIds = await db
@@ -128,7 +132,7 @@ export async function listAppsForActor(db: Db, actor: Actor): Promise<AppRow[]> 
 }
 
 export async function archiveApp(db: Db, actor: Actor, appId: string): Promise<AppRow> {
-  await assertAppAccess(db, actor, appId, "owner");
+  await assertCapability(db, actor, appId, "app.archive");
 
   return db.transaction(async (tx) => {
     const now = new Date();
@@ -142,6 +146,29 @@ export async function archiveApp(db: Db, actor: Actor, appId: string): Promise<A
       appId,
       actorPrincipalId: actor.principalId,
       action: "app.archived",
+      targetType: "app",
+      targetId: appId,
+    });
+
+    return app;
+  });
+}
+
+export async function restoreApp(db: Db, actor: Actor, appId: string): Promise<AppRow> {
+  await assertCapability(db, actor, appId, "app.restore");
+
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const [app] = await tx
+      .update(apps)
+      .set({ status: "active", archivedAt: null, updatedAt: now })
+      .where(eq(apps.id, appId))
+      .returning();
+
+    await recordAuditEvent(tx, {
+      appId,
+      actorPrincipalId: actor.principalId,
+      action: "app.restored",
       targetType: "app",
       targetId: appId,
     });

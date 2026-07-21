@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { Alert, ButtonLink, PageHeader } from "@asafarim/ui";
+import { requireActor } from "@/lib/auth/session";
+import { getDb } from "@/lib/db/client";
+import { getAppForActor } from "@/lib/repositories/apps";
+import { NotFoundError } from "@/lib/errors";
 
 export const metadata: Metadata = { title: "App detail" };
 
@@ -9,22 +14,33 @@ interface AppDetailPageProps {
 
 export default async function AppDetailPage({ params }: AppDetailPageProps) {
   const { appId } = await params;
+  const actor = await requireActor({ callbackUrl: `/apps/${encodeURIComponent(appId)}` });
 
-  // No metadata store yet (M02) and no authorization/app registry yet (M03),
-  // so every appId resolves to the same defined "not implemented" shell
-  // rather than a real lookup or a bare 404.
+  // getAppForActor enforces owner/collaborator scoping (M03): an
+  // authenticated user unrelated to this app gets the same NotFoundError
+  // as a truly nonexistent id, so this route never leaks whether an
+  // inaccessible app exists.
+  let app;
+  try {
+    app = await getAppForActor(getDb(), actor, appId);
+  } catch (err) {
+    if (err instanceof NotFoundError) notFound();
+    throw err;
+  }
+
   return (
     <>
       <PageHeader
         kicker="App"
         kickerIndex="03"
-        title={appId}
+        title={app.name}
         description="Specification, version history, and settings for this generated app."
       />
       <Alert tone="info">
-        App detail loads from the metadata store shipping in M02, gated by
-        the authorization work in M03. This route contract exists so the
-        preview and builder milestones can link to it.
+        Specification editing, version history, and collaborator management
+        land with the operation engine (M04) and the builder workspace (M08).
+        This route now enforces the real ownership/collaborator boundary
+        (M03) rather than resolving every id to the same shell.
       </Alert>
       <p>
         <ButtonLink href={`/apps/${encodeURIComponent(appId)}/preview`} variant="secondary">

@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { ButtonLink, EmptyState, PageHeader } from "@asafarim/ui";
+import { requireActor } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Apps" };
 
-export default function AppsPage() {
-  // The application registry/metadata store ships in M02; until then this
-  // route is a defined, empty shell rather than a placeholder 404.
+export default async function AppsPage() {
+  // Session enforcement — proxy.ts already blocks unauthenticated/deactivated
+  // requests at the edge; this is defense-in-depth for direct server-side
+  // rendering, matching Hub/Admin's page-level convention. The catalog UI
+  // (listing the actor's own apps) ships in M05; this route stays a defined
+  // empty shell until then.
+  await requireActor({ callbackUrl: "/apps" });
+
   return (
     <>
       <PageHeader

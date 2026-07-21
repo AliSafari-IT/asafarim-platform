@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { releases } from "../db/schema";
 import type { Actor } from "../auth/actor";
-import { assertAppAccess } from "./authz";
+import { assertCapability } from "./authz";
 import { recordAuditEvent } from "./audit";
 import { generateId } from "../db/ids";
 import { ConflictError, NotFoundError } from "../errors";
@@ -17,7 +17,7 @@ export async function createRelease(
   appId: string,
   input: { specificationVersionId: string; versionLabel: string },
 ): Promise<ReleaseRow> {
-  await assertAppAccess(db, actor, appId, "owner");
+  await assertCapability(db, actor, appId, "app.deployRelease");
 
   try {
     const [release] = await db
@@ -40,7 +40,7 @@ export async function createRelease(
 }
 
 export async function publishRelease(db: Db, actor: Actor, appId: string, releaseId: string): Promise<ReleaseRow> {
-  await assertAppAccess(db, actor, appId, "owner");
+  await assertCapability(db, actor, appId, "app.deployRelease");
 
   return db.transaction(async (tx) => {
     const now = new Date();
@@ -67,7 +67,7 @@ export async function publishRelease(db: Db, actor: Actor, appId: string, releas
 }
 
 export async function listReleasesForActor(db: Db, actor: Actor, appId: string): Promise<ReleaseRow[]> {
-  await assertAppAccess(db, actor, appId, "viewer");
+  await assertCapability(db, actor, appId, "app.view");
   return db.select().from(releases).where(eq(releases.appId, appId));
 }
 

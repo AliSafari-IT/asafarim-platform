@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { deployments, releases } from "../db/schema";
 import type { Actor } from "../auth/actor";
-import { assertAppAccess } from "./authz";
+import { assertCapability } from "./authz";
 import { recordAuditEvent } from "./audit";
 import { generateId } from "../db/ids";
 import { NotFoundError } from "../errors";
@@ -15,7 +15,7 @@ export async function createDeployment(
   appId: string,
   input: { releaseId: string; environment: DeploymentRow["environment"] },
 ): Promise<DeploymentRow> {
-  await assertAppAccess(db, actor, appId, "owner");
+  await assertCapability(db, actor, appId, "app.deployRelease");
 
   return db.transaction(async (tx) => {
     // Release id is confirmed to belong to this app before a deployment can
@@ -55,6 +55,6 @@ export async function createDeployment(
 }
 
 export async function listDeploymentsForActor(db: Db, actor: Actor, appId: string): Promise<DeploymentRow[]> {
-  await assertAppAccess(db, actor, appId, "viewer");
+  await assertCapability(db, actor, appId, "app.view");
   return db.select().from(deployments).where(eq(deployments.appId, appId));
 }

@@ -13,6 +13,8 @@ const hub = getPlatformApp("hub")!;
 const showcase = getPlatformApp("showcase")!;
 const admin = getPlatformApp("admin")!;
 const vionto = getPlatformApp("vionto")!;
+const testora = getPlatformApp("testora")!;
+const appbuilder = getPlatformApp("appbuilder")!;
 const edumatch = getPlatformApp("edumatch")!;
 
 const anonymous = { roles: [], authenticated: false };
@@ -24,12 +26,14 @@ const superadmin = { roles: [ROLES.SUPERADMIN], authenticated: true };
 const inactiveAdmin = { roles: [ROLES.ADMIN], authenticated: false };
 
 describe("registry shape", () => {
-  it("registers the five active platform apps and only those", () => {
+  it("registers the seven active platform apps and only those", () => {
     const active = PLATFORM_APPS.filter((app) => app.status === "active");
     expect(active.map((app) => app.key).sort()).toEqual([
       "admin",
+      "appbuilder",
       "hub",
       "showcase",
+      "testora",
       "vionto",
       "web",
     ]);
@@ -109,6 +113,38 @@ describe("public apps (vionto)", () => {
   });
 });
 
+describe("public apps (testora)", () => {
+  it("is open to anonymous visitors — private apps-under-test gate themselves inside the tool", () => {
+    expect(getAppAccessDecision(testora, anonymous)).toEqual({
+      allowed: true,
+      reason: "public",
+    });
+  });
+});
+
+describe("authenticated apps (appbuilder)", () => {
+  it("denies anonymous visitors", () => {
+    expect(getAppAccessDecision(appbuilder, anonymous)).toEqual({
+      allowed: false,
+      reason: "not-authenticated",
+    });
+  });
+
+  it("admits any signed-in active user, even roleless — per-app ownership is enforced inside AppBuilder, not here", () => {
+    expect(getAppAccessDecision(appbuilder, roleless)).toEqual({
+      allowed: true,
+      reason: "authenticated",
+    });
+  });
+
+  it("denies a deactivated user (authenticated=false)", () => {
+    expect(getAppAccessDecision(appbuilder, inactiveAdmin)).toEqual({
+      allowed: false,
+      reason: "not-authenticated",
+    });
+  });
+});
+
 describe("coming-soon apps", () => {
   it("deny everyone, including superadmin", () => {
     expect(getAppAccessDecision(edumatch, superadmin)).toEqual({
@@ -123,6 +159,7 @@ describe("getAccessibleApps", () => {
   it("gives an anonymous visitor only the public apps", () => {
     expect(getAccessibleApps(anonymous).map((app) => app.key).sort()).toEqual([
       "showcase",
+      "testora",
       "vionto",
       "web",
     ]);
@@ -130,8 +167,10 @@ describe("getAccessibleApps", () => {
 
   it("gives a standard user every app except admin and deferred ones", () => {
     expect(getAccessibleApps(standard).map((app) => app.key).sort()).toEqual([
+      "appbuilder",
       "hub",
       "showcase",
+      "testora",
       "vionto",
       "web",
     ]);
@@ -140,8 +179,10 @@ describe("getAccessibleApps", () => {
   it("gives an admin multiple apps at once — access is not one app per role", () => {
     expect(getAccessibleApps(adminUser).map((app) => app.key).sort()).toEqual([
       "admin",
+      "appbuilder",
       "hub",
       "showcase",
+      "testora",
       "vionto",
       "web",
     ]);
@@ -150,6 +191,6 @@ describe("getAccessibleApps", () => {
   it("gives a deactivated user only public apps", () => {
     expect(
       getAccessibleApps(inactiveAdmin).map((app) => app.key).sort()
-    ).toEqual(["showcase", "vionto", "web"]);
+    ).toEqual(["showcase", "testora", "vionto", "web"]);
   });
 });

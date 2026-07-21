@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { previewBuilds } from "../db/schema";
 import type { Actor } from "../auth/actor";
-import { assertAppAccess } from "./authz";
+import { assertCapability } from "./authz";
 import { generateId } from "../db/ids";
 import { NotFoundError } from "../errors";
 
@@ -14,7 +14,7 @@ export async function createPreviewBuild(
   appId: string,
   specificationVersionId: string,
 ): Promise<PreviewBuildRow> {
-  await assertAppAccess(db, actor, appId, "editor");
+  await assertCapability(db, actor, appId, "app.editSpecification");
 
   const [build] = await db
     .insert(previewBuilds)
@@ -35,7 +35,7 @@ export async function listPreviewBuildsForActor(
   actor: Actor,
   appId: string,
 ): Promise<PreviewBuildRow[]> {
-  await assertAppAccess(db, actor, appId, "viewer");
+  await assertCapability(db, actor, appId, "app.viewPreview");
   return db.select().from(previewBuilds).where(eq(previewBuilds.appId, appId));
 }
 
@@ -51,7 +51,7 @@ export async function updatePreviewBuildStatus(
     errorMessage?: string;
   },
 ): Promise<PreviewBuildRow> {
-  await assertAppAccess(db, actor, appId, "editor");
+  await assertCapability(db, actor, appId, "app.editSpecification");
 
   const [build] = await db
     .update(previewBuilds)

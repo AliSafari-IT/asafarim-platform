@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { specifications, specificationVersions } from "../db/schema";
 import type { Actor } from "../auth/actor";
-import { assertAppAccess } from "./authz";
+import { assertCapability } from "./authz";
 import { NotFoundError } from "../errors";
 
 export type SpecificationRow = typeof specifications.$inferSelect;
@@ -13,7 +13,7 @@ export async function getSpecificationForActor(
   actor: Actor,
   appId: string,
 ): Promise<SpecificationRow> {
-  await assertAppAccess(db, actor, appId, "viewer");
+  await assertCapability(db, actor, appId, "app.view");
 
   const [spec] = await db.select().from(specifications).where(eq(specifications.appId, appId)).limit(1);
   if (!spec) {
@@ -51,6 +51,6 @@ export async function listVersionsForActor(
 ): Promise<SpecificationVersionRow[]> {
   // appId is denormalized onto specificationVersions specifically so this
   // scoped read doesn't need a join through specifications.
-  await assertAppAccess(db, actor, appId, "viewer");
+  await assertCapability(db, actor, appId, "app.view");
   return db.select().from(specificationVersions).where(eq(specificationVersions.appId, appId));
 }
