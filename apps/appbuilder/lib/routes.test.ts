@@ -11,6 +11,8 @@ describe("route contracts", () => {
   it("builds appId-scoped routes", () => {
     expect(routes.appDetail("app_123")).toBe("/apps/app_123");
     expect(routes.appPreview("app_123")).toBe("/apps/app_123/preview");
+    expect(routes.appArchive("app_123")).toBe("/apps/app_123/archive");
+    expect(routes.appRestore("app_123")).toBe("/apps/app_123/restore");
   });
 
   it("encodes appId segments to keep the route contract safe", () => {

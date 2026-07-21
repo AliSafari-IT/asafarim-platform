@@ -7,7 +7,7 @@ import { ROLES } from "@asafarim/auth/roles";
 import type { Db } from "../db/client";
 import { apps, collaborators } from "../db/schema";
 import type { Actor } from "../auth/actor";
-import { ForbiddenError, NotFoundError } from "../errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../errors";
 
 export type Role = "viewer" | "editor" | "owner";
 
@@ -55,6 +55,19 @@ const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
 export function roleGrants(role: Role, capability: Capability): boolean {
   return ROLE_RANK[role] >= ROLE_RANK[CAPABILITY_MIN_ROLE[capability]];
 }
+
+/**
+ * Capabilities still usable on an archived app (M05). Everything else —
+ * every edit/mutate/publish path — is blocked while archived, so an
+ * archived app can never accidentally accept a normal edit operation; the
+ * only way back in is explicitly restoring it first.
+ */
+const ALLOWED_WHILE_ARCHIVED: ReadonlySet<Capability> = new Set([
+  "app.view",
+  "app.viewPreview",
+  "app.archive",
+  "app.restore",
+]);
 
 export interface AppAccess {
   app: AppRow;
@@ -104,6 +117,12 @@ export async function assertCapability(
   if (!roleGrants(access.role, capability)) {
     throw new ForbiddenError(
       `Actor lacks the "${capability}" capability on this app (role: ${access.role})`,
+    );
+  }
+
+  if (app.status === "archived" && !ALLOWED_WHILE_ARCHIVED.has(capability)) {
+    throw new ConflictError(
+      `App is archived — restore it before performing "${capability}"`,
     );
   }
 

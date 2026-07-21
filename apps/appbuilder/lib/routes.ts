@@ -17,6 +17,10 @@ export const routes = {
   appDetail: (appId: string) => `/apps/${encodeURIComponent(appId)}`,
   /** Metadata-driven preview runtime for a generated app (ships in M06). */
   appPreview: (appId: string) => `/apps/${encodeURIComponent(appId)}/preview`,
+  /** Confirmation step for archiving an app (M05). */
+  appArchive: (appId: string) => `/apps/${encodeURIComponent(appId)}/archive`,
+  /** Confirmation step for restoring an archived app (M05). */
+  appRestore: (appId: string) => `/apps/${encodeURIComponent(appId)}/restore`,
 } as const;
 
 export interface AppRouteParams {

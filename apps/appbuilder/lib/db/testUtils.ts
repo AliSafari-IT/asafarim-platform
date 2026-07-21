@@ -17,6 +17,7 @@ const TABLE_NAMES = [
   "applied_operations",
   "specification_versions",
   "specifications",
+  "creation_requests",
   "collaborators",
   "apps",
 ] as const;

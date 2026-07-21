@@ -49,7 +49,7 @@ describe("owner/app isolation", () => {
     await expect(
       applyOperation(db, ownerB, appA.id, {
         operation: createEntityOp("widget"),
-        baseVersionNumber: 0,
+        baseVersionNumber: 1,
         idempotencyKey: "cross-owner-op",
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
@@ -78,7 +78,7 @@ describe("owner/app isolation", () => {
     await expect(
       applyOperation(db, collaborator, appB.id, {
         operation: createEntityOp("thing"),
-        baseVersionNumber: 0,
+        baseVersionNumber: 1,
         idempotencyKey: "collab-op-1",
       }),
     ).resolves.toBeDefined();
@@ -143,7 +143,7 @@ describe("idempotency", () => {
   it("replays the same specification version for a repeated operation idempotency key", async () => {
     const app = await createApp(db, ownerA, { name: "App", slug: "app-op" }, "idem-app-op");
 
-    const op = { operation: createEntityOp("widget"), baseVersionNumber: 0, idempotencyKey: "op-once" };
+    const op = { operation: createEntityOp("widget"), baseVersionNumber: 1, idempotencyKey: "op-once" };
     const first = await applyOperation(db, ownerA, app.id, op);
     const second = await applyOperation(db, ownerA, app.id, op);
 

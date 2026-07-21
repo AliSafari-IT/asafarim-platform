@@ -5,11 +5,11 @@ describe an internal business application, receive a controlled/versioned
 application specification, preview it at `/apps/{appId}/preview`, refine it
 conversationally, validate it, and publish an immutable release.
 
-This is **M04** of the delivery series tracked in
+This is **M05** of the delivery series tracked in
 [issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29): the
-versioned application-specification contract and deterministic
-controlled-operation engine, on top of M02's persistence layer and M03's
-SSO/authorization. See
+generated-app catalog and prompt-first creation flow, on top of M02's
+persistence layer, M03's SSO/authorization, and M04's versioned
+specification contract. See
 [docs/adr/0001-appbuilder-managed-runtime.md](../../docs/adr/0001-appbuilder-managed-runtime.md)
 for the architectural decision this scaffold builds on,
 [docs/appbuilder-architecture.md](../../docs/appbuilder-architecture.md) for
@@ -17,7 +17,7 @@ the route contracts, milestone map, and the capability matrix, and
 [packages/appbuilder-schema/README.md](../../packages/appbuilder-schema/README.md)
 for the full specification/operation contract this milestone introduces.
 
-## What's here (M01–M04)
+## What's here (M01–M05)
 
 - Next.js 16 App Router shell using `@asafarim/ui` directly (no forked
   components).
@@ -63,22 +63,40 @@ for the full specification/operation contract this milestone introduces.
 - Version history, structured compare (diff), restore-as-a-new-version, and
   safe undo-by-inverse-operation (`lib/repositories/versions.ts`,
   `lib/repositories/specifications.ts`).
+- A production-quality, actor-scoped `/apps` catalog: search, status
+  (active/archived/all) and access (owned/shared/all) filters, sort
+  (recently updated/created/name), deterministic server-side pagination, and
+  responsive cards — all driven by validated URL search params (see
+  [docs/appbuilder-architecture.md](../../docs/appbuilder-architecture.md#catalog-creation-and-lifecycle-m05)).
+- A prompt-first `/apps/new` creation form (name, business description/
+  prompt, starter family, visibility) backed by a shared Zod validation
+  schema and a single atomic creation transaction — app + specification +
+  initial draft version + creation-intent record + audit event — protected
+  by M02's idempotency ledger against double-click/refresh/retry.
+- A truthful `/apps/[appId]` continuation/overview page (status, role,
+  draft version, starter family, preview/release summaries) and explicit
+  archive/restore confirmation pages, both owner-authorized and idempotent.
 
 ## What's explicitly not here yet
 
-- Natural-language interpretation, OpenAI/AI provider calls, and the
-  template/component registry (M07/M05/M06) — the engine only accepts
-  already-structured `Operation` values.
+- Natural-language interpretation of the creation prompt, OpenAI/AI provider
+  calls, and the template/component registry (M07/M06) — M05 only records
+  the user's prompt and starter-family choice for M07 to interpret later.
 - The concrete metadata-driven preview runtime that renders a specification
-  (M06) and the generated-app catalog UI (M05).
+  (M06); `/apps/[appId]/preview` is still the M01 shell, linked to only when
+  a `preview_builds` row already has `status: "succeeded"`.
+- The rich builder workspace, conversational editing, and component
+  selection (M08) — `/apps/[appId]` is a truthful overview, not the editor.
 - Production routing / deployment of AppBuilder itself, and any per-generated-app
   deployment (M11).
 - Generated-app end-user authentication, email invitations, enterprise
   organizations/SCIM/billing, and the finalized generated-data RBAC (M09) —
-  all explicitly out of scope through M04.
+  all explicitly out of scope through M05.
 - Executing a destructive change against real generated-app *data* — there
   is none at this layer; M04 only classifies and gates destructive changes
   to the *specification*.
+- Hard deletion of an app — M05 only archives/restores; permanent deletion
+  is out of scope for the whole MVP delivery series.
 
 ## Authentication and authorization (M03)
 

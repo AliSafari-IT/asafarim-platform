@@ -15,6 +15,13 @@
       "when": 1784660517792,
       "tag": "0001_flat_scream",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784663557292,
+      "tag": "0002_appbuilder_m05_catalog",
+      "breakpoints": true
     }
   ]
 }

@@ -36,6 +36,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "testora", "dev"],
       "port": 3005
+    },
+    {
+      "name": "appbuilder",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@asafarim/appbuilder", "dev"],
+      "port": 3006
     }
   ]
 }
