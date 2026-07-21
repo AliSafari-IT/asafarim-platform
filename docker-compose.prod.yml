@@ -209,6 +209,48 @@ services:
     networks:
       - asafarim_net
 
+  # appbuilder keeps its OWN database, isolated from the shared Prisma
+  # Postgres and from testora's/others' app-local databases.
+  appbuilder-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: appbuilder
+      POSTGRES_PASSWORD: ${APPBUILDER_DB_PASSWORD}
+      POSTGRES_DB: appbuilder
+    # No published port: private to asafarim_net. AppBuilder has no public
+    # production service yet (ships in M11), so there is no host-side script
+    # that needs loopback access the way testora's does.
+    volumes:
+      - appbuilder_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appbuilder -d appbuilder"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - asafarim_net
+
+  # One-shot: applies pending drizzle migrations, then exits. Idempotent —
+  # drizzle's migration journal makes reruns against an already-migrated
+  # database a no-op. AppBuilder's own app service is not deployed yet (M11);
+  # this job exists so the database and its migration lifecycle are already
+  # correct and testable ahead of that milestone.
+  appbuilder-migrate:
+    build:
+      context: .
+      dockerfile: apps/appbuilder/Dockerfile
+      target: migrator
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      APPBUILDER_DATABASE_URL: postgres://appbuilder:${APPBUILDER_DB_PASSWORD}@appbuilder-postgres:5432/appbuilder
+    depends_on:
+      appbuilder-postgres:
+        condition: service_healthy
+    networks:
+      - asafarim_net
+
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -238,3 +280,4 @@ volumes:
   caddy_data:
   caddy_config:
   testora_postgres_data:
+  appbuilder_postgres_data:
