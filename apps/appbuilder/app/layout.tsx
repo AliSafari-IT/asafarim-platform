@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { auth, signOut, PLATFORM_APPS, canAccessApp, type AppAccessContext } from "@asafarim/auth";
+import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
 import {
   AppShell,
   AppSwitcher,
@@ -43,9 +44,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeScript defaultTheme="system" />
+      </head>
       <body data-app="appbuilder">
-        <AppShell
-          product="AppBuilder"
+        <ThemeProvider defaultTheme="light">
+          <AppShell
+            product="AppBuilder"
           nav={
             <TopNav
               items={[
@@ -57,6 +62,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           }
           user={
             <>
+              <ThemeToggle />
               <AppSwitcher
                 links={switcherApps.map((app) => ({
                   label: app.name,
@@ -92,6 +98,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         >
           {children}
         </AppShell>
+      </ThemeProvider>
       </body>
     </html>
   );

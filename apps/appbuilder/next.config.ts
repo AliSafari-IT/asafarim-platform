@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   reactStrictMode: true,
   // Workspace TS packages ship source, not a build — Next must transpile them.
-  transpilePackages: ["@asafarim/ui", "@asafarim/auth", "@asafarim/appbuilder-schema"],
+  transpilePackages: ["@asafarim/ui", "@asafarim/auth", "@asafarim/appbuilder-schema", "@asafarim/theme-toggle"],
   // Hide the floating Next.js dev-tools indicator (dev-only overlay).
   devIndicators: false,
 };
