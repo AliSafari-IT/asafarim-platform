@@ -1,0 +1,25 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="e2e-testora">
+  <defs>
+    <linearGradient id="et-bg" x1="40" y1="32" x2="472" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a98cfb"/>
+      <stop offset="0.5" stop-color="#7c5cf6"/>
+      <stop offset="1" stop-color="#16abf0"/>
+    </linearGradient>
+    <radialGradient id="et-glow" cx="0.3" cy="0.22" r="0.95">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- squircle backdrop -->
+  <rect x="0" y="0" width="512" height="512" rx="124" fill="url(#et-bg)"/>
+  <rect x="0" y="0" width="512" height="512" rx="124" fill="url(#et-glow)"/>
+
+  <!-- the mark: one bold "swoosh" checkmark — a fast, confident pass.
+       Drawn as a single thick stroke (legible at 16px) with a dark outline
+       pass underneath so it stays crisp against the gradient at any size. -->
+  <path d="M140 256 L215 332 Q300 300 404 150"
+        fill="none" stroke="#4b2da0" stroke-width="80" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M140 256 L215 332 Q300 300 404 150"
+        fill="none" stroke="#ffffff" stroke-width="62" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

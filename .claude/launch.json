@@ -30,6 +30,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "vionto", "dev"],
       "port": 3004
+    },
+    {
+      "name": "testora",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "testora", "dev"],
+      "port": 3005
     }
   ]
 }

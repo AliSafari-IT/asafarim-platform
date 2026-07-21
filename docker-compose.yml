@@ -24,6 +24,22 @@ services:
     volumes:
       - redis_data:/data
 
+  # testora keeps its own database, isolated from the shared Prisma Postgres.
+  # Matches TESTORA_DATABASE_URL (host port 55434).
+  testora-postgres:
+    image: postgres:16-alpine
+    container_name: e2e-testora-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: e2e_testora
+      POSTGRES_PASSWORD: e2e_testora
+      POSTGRES_DB: e2e-testing-db
+    ports:
+      - "55434:5432"
+    volumes:
+      - testora_pgdata:/var/lib/postgresql/data
+
 volumes:
   postgres_data:
   redis_data:
+  testora_pgdata:
