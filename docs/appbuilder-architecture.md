@@ -1,12 +1,13 @@
-# AppBuilder Architecture (M01–M04)
+# AppBuilder Architecture (M01–M05)
 
 **Application:** `apps/appbuilder`
 **Document date:** 2026-07-21
 **Scope:** M01 (architecture contract, app scaffold, local runtime), M02
 (dedicated PostgreSQL service, migrations, repository boundary), M03
 (platform SSO, centralized per-app authorization, app registry, audit
-identity), and M04 (versioned application-specification contract and
-deterministic controlled-operation engine). See
+identity), M04 (versioned application-specification contract and
+deterministic controlled-operation engine), and M05 (generated-app catalog
+and prompt-first creation flow). See
 [issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29)
 for the full 12-milestone delivery series,
 [ADR 0001](adr/0001-appbuilder-managed-runtime.md) for the architectural
@@ -54,10 +55,11 @@ and unit-tested in `lib/routes.test.ts`.
 | Route | Purpose | Access (M03) | Real behavior ships in |
 | --- | --- | --- | --- |
 | `/` | Landing / product overview | Public (mirrors Hub's own root) | — |
-| `/apps` | Catalog of the owner/tenant's generated apps | Authenticated session required | M05 (catalog UI) |
-| `/apps/new` | Prompt-first creation entry point | Authenticated session required | M05 (creation flow), M07 (AI planner) |
-| `/apps/[appId]` | A generated app's detail/overview shell | Session + `app.view` capability (404 if inaccessible) | M08 (builder workspace UI over the M04 engine) |
-| `/apps/[appId]/preview` | Metadata-driven preview runtime | Session + `app.viewPreview` capability (404 if inaccessible) | M06 (template registry + preview runtime) |
+| `/apps` | Catalog of the actor's owned/shared generated apps — search, status/access filters, sort, pagination (M05, live) | Authenticated session required; results are actor-scoped inside the repository | Live (M05) |
+| `/apps/new` | Prompt-first creation form: name, prompt, starter family, visibility (M05, live) | Authenticated session required | Live (M05); AI interpretation of the prompt ships in M07 |
+| `/apps/[appId]` | Truthful continuation/overview: status, role, draft version, preview/release summaries, archive/restore actions (M05, live) | Session + `app.view` capability (404 if inaccessible) | Live overview (M05); the rich builder workspace ships in M08 |
+| `/apps/[appId]/archive`, `/apps/[appId]/restore` | Explicit-confirmation lifecycle controls (M05, live) | Session + `app.archive`/`app.restore` capability (owner-only) | Live (M05) |
+| `/apps/[appId]/preview` | Metadata-driven preview runtime | Session + `app.viewPreview` capability (404 if inaccessible); linked from the catalog/overview only when a `preview_builds` row has `status: "succeeded"` | M06 (template registry + preview runtime) |
 
 Every route currently renders as a defined, empty/informational shell (using
 the shared `EmptyState` / `Alert` primitives) rather than a 404 or a stub
@@ -158,13 +160,125 @@ forward as a new one — history is never rewritten) and `undoLastOperation`
 (apply the safe inverse of the last change, or an explicit "restore
 required" result when none exists).
 
+## Catalog, creation, and lifecycle (M05)
+
+### Lifecycle/status model
+
+- `apps.status`: `"active" | "archived"`. Archival is the only lifecycle
+  transition in M05 — there is no hard delete. While archived,
+  `assertCapability` rejects every mutating capability except `app.archive`
+  and `app.restore` themselves (`ConflictError`, "restore it before
+  performing…") — an archived app cannot accidentally accept a normal edit.
+- `specifications.status` stays `"draft"` through M05 (`"published"` is a
+  later milestone's concern).
+- `preview_builds.status` (`queued|running|succeeded|failed`) and
+  `releases.status` (`draft|published|archived`) are read-only signals in
+  M05 — nothing in this milestone creates real preview or release rows; the
+  catalog/overview just displays the most recent one if M06/M11 (or a test)
+  created one.
+
+### Catalog query contract
+
+`GET /apps` and `GET /api/apps` both normalize their query params through
+[`lib/validation/catalogQuery.ts`](../apps/appbuilder/lib/validation/catalogQuery.ts)
+before they ever reach the repository:
+
+| Param | Values | Default | Fallback on unknown/malformed |
+| --- | --- | --- | --- |
+| `q` | free text, whitespace-normalized, capped at 200 chars | — | dropped |
+| `status` | `active` \| `archived` \| `all` | `active` | `active` |
+| `access` | `all` \| `owned` \| `shared` | `all` | `all` |
+| `sort` | `updated` \| `created` \| `name` | `updated` | `updated` |
+| `page` | positive integer, capped at 100,000 | `1` | `1` |
+
+`lib/repositories/apps.ts#listCatalogForActor` applies every predicate —
+ownership/collaboration, status, access, and search — inside the SQL query
+itself (parameterized Drizzle query builder calls, never string
+concatenation); nothing is fetched unscoped and filtered in memory. Search
+uses `ILIKE` against `name`/`description` with `%`/`_`/`\` escaped in the
+user's input first, so a search for a literal `%` or `_` cannot be
+interpreted as a wildcard. `apps` gained `status`, `updated_at`,
+`created_at`, and `name` indexes (migration `0002`) to keep this cheap as
+the registry grows. Per-row display metadata (current draft version,
+preview status, release status, starter family) is fetched in one batched
+query per catalog page (`lib/repositories/appOverview.ts#listCatalogMetadata`),
+not one query per row — and catalog responses never include a
+specification's JSON `payload`.
+
+### Creation transaction
+
+`POST /apps/new` (Server Action) and `POST /api/apps` both validate through
+the same shared schema
+([`lib/validation/createApp.ts`](../apps/appbuilder/lib/validation/createApp.ts):
+bounded/whitespace-normalized name and prompt, reserved-name and
+route-collision checks, closed starter-family/visibility enums, no `<`/`>`
+in free text) and then call the single `createApp` transaction
+(`lib/repositories/apps.ts`), which atomically:
+
+1. Inserts the `apps` row (owner from the trusted session actor, never the
+   request body).
+2. Inserts the `specifications` container row with
+   `currentVersionNumber: 1`.
+3. Inserts `specification_versions` version 1 — `@asafarim/appbuilder-schema`'s
+   `emptySpecification()`, the same valid empty/base contract M04's
+   operation engine already treats as an app's implicit starting point.
+4. Inserts one `creation_requests` row (new in M05 — see migration `0002`)
+   holding the user's raw prompt and chosen starter family, for M07 to
+   interpret later. This is product state, not an audit entry, so it isn't
+   folded into `audit_events.metadata`.
+5. Records an `app.created` audit event.
+
+All five writes happen in one Postgres transaction; any failure (e.g. a
+slug collision) rolls back every row, including the idempotency ledger
+entry (see below). M05 deliberately does **not** insert a `collaborators`
+row for the owner — M03 already established `apps.ownerPrincipalId` as the
+sole source of truth for ownership (`collaborators.ts#assertNotOwner`
+rejects an owner row anywhere else), and duplicating that here would
+contradict the invariant, not fulfill it.
+
+### Idempotency
+
+`createApp` reuses M02's generic `idempotency_keys` ledger
+(scope `"create-app"`, unique on `(owner_principal_id, scope, key)`): the
+`/apps/new` page generates one UUID per page render and carries it as a
+hidden form field, so a double-click, browser back-and-resubmit, or network
+retry of the *same* rendered form reuses the same key and replays the
+original app instead of creating a second one. Reusing a key with a
+different request payload is rejected with `ConflictError` (409). Because
+creation redirects to `/apps/[appId]` on success (POST → redirect → GET),
+refreshing the success page only re-runs the `GET`, never the `POST` — no
+duplicate is possible from a refresh either. `archiveApp`/`restoreApp` are
+independently idempotent (a repeat call when the app is already in the
+target state is a no-op success, not an error or a duplicate audit event).
+
+### Archive / restore
+
+Owner-only (`app.archive`/`app.restore` capabilities), reached only through
+a dedicated confirmation page (`/apps/[appId]/archive`,
+`/apps/[appId]/restore`) rather than a client-side modal — this keeps the
+action keyboard/screen-reader accessible with zero client JS and matches
+the platform's "no native dialogs" convention without inventing a bespoke
+modal component. Both mutations are transactional (lifecycle state +
+audit event together) and idempotent. Unauthorized attempts (editor/viewer,
+or an unrelated actor) get the same `ForbiddenError`/`NotFoundError`
+leak-prevention behavior as every other app-scoped mutation.
+
+### Explicit M06/M07/M08 deferrals
+
+M05 records intent and provides truthful, database-backed UI — it does
+**not** call an LLM, interpret the prompt, render a registered
+template/component, run a functional preview, or provide the conversational
+builder workspace. `/apps/[appId]/preview` still renders the M01 shell;
+`/apps/new`'s success copy explicitly says the app is "a draft awaiting
+configuration," never that anything was generated.
+
 ## Milestone map (for orientation)
 
 1. M01 — Architecture contract, app scaffold, local runtime.
 2. M02 — Dedicated PostgreSQL service, migrations, repository boundary.
 3. M03 — Platform SSO, authorization, app registry, audit identity.
-4. **M04 — this milestone.** Versioned application specification and operation engine.
-5. M05 — generated-app catalog and prompt-first creation flow.
+4. M04 — Versioned application specification and operation engine.
+5. **M05 — this milestone.** Generated-app catalog and prompt-first creation flow.
 6. M06 — approved template/component registry and preview runtime.
 7. M07 — AI requirements planner and structured generation pipeline.
 8. M08 — builder workspace, conversational changes, version history.
