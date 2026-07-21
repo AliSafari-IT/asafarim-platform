@@ -5,16 +5,17 @@ describe an internal business application, receive a controlled/versioned
 application specification, preview it at `/apps/{appId}/preview`, refine it
 conversationally, validate it, and publish an immutable release.
 
-This is **M02** of the delivery series tracked in
+This is **M03** of the delivery series tracked in
 [issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29):
-AppBuilder's dedicated PostgreSQL service, migrations, and repository
-boundary. See
+platform SSO, centralized per-app authorization, app registry, and
+authenticated audit identity, on top of M02's dedicated PostgreSQL service.
+See
 [docs/adr/0001-appbuilder-managed-runtime.md](../../docs/adr/0001-appbuilder-managed-runtime.md)
 for the architectural decision this scaffold builds on, and
 [docs/appbuilder-architecture.md](../../docs/appbuilder-architecture.md) for
-the route contracts and milestone map.
+the route contracts, milestone map, and the capability matrix.
 
-## What's here (M01 + M02)
+## What's here (M01–M03)
 
 - Next.js 16 App Router shell using `@asafarim/ui` directly (no forked
   components).
@@ -34,18 +35,112 @@ the route contracts and milestone map.
 - A repository layer (`lib/repositories/`) that requires an authenticated
   actor and always scopes reads/writes by `appId` — there is no unscoped
   "get by id" or "get all" helper for tenant-owned data.
+- Full platform SSO: AppBuilder shares the `@asafarim/auth` Auth.js session
+  and the `.asafarim.com` cookie with every other app. `proxy.ts` protects
+  every route except `/` and `/api/health`; HTML requests redirect through
+  Hub's centralized `/sign-in` with a safe, absolute callback back to
+  AppBuilder, API requests get a 401/403 JSON body.
+- A single, capability-based authorization policy
+  (`lib/repositories/authz.ts#assertCapability`) covering owner/editor/viewer
+  access to every generated app — see the capability matrix below.
+- Registered in the platform app registry (`@asafarim/auth`'s
+  `PLATFORM_APPS`) and `getPlatformLinks()`; Hub's launcher and app switcher
+  pick it up automatically for any signed-in active user, no AppBuilder-
+  specific code in Hub.
 
 ## What's explicitly not here yet
 
-- Platform SSO / authorization (M03) — actor identity is currently supplied
-  directly by callers (`{ principalId }`); wiring it to the real session is
-  M03's job.
 - The finalized application-specification operation engine (M04) —
   `applyOperation` accepts an opaque JSON payload today.
 - AI generation, the template/component registry, and the preview runtime
   (M05–M07).
 - Production routing / deployment of AppBuilder itself, and any per-generated-app
   deployment (M11).
+- Generated-app end-user authentication, email invitations, enterprise
+  organizations/SCIM/billing, and the finalized generated-data RBAC (M09) —
+  all explicitly out of scope for M03.
+
+## Authentication and authorization (M03)
+
+AppBuilder has no local sign-in page or user table of its own — it
+authenticates entirely through the shared platform session.
+
+- **Session**: `@asafarim/auth`'s Auth.js config (JWT strategy, shared
+  `.asafarim.com` cookie in production, `localhost` cookie domain in dev so
+  the session is readable across every app's port). AppBuilder mounts the
+  same `handlers` at `app/api/auth/[...nextauth]/route.ts` as every other
+  app (Hub, Admin, Vionto) — this is not a second auth system, just the one
+  shared NextAuth instance running in another process.
+- **Route protection**: `proxy.ts` (`createAuthProxy` from
+  `@asafarim/auth/proxy`) treats every route as protected except `/` and
+  `/api/health`. A signed-out HTML request is redirected to
+  `${HUB_URL}/sign-in?callbackUrl=<absolute-appbuilder-url>` — the same
+  redirect convention Vionto and Admin use. A signed-out API request gets
+  `401 {"error":"Unauthorized"}` JSON, never an HTML page. A deactivated
+  session gets `403 {"error":"Account deactivated"}`.
+- **Trusted callback origin**: `packages/auth/src/config.ts`'s
+  `getTrustedOrigins()` includes `NEXT_PUBLIC_APPBUILDER_URL`, so Auth.js's
+  `redirect` callback accepts AppBuilder as a valid cross-origin callback
+  target — any other origin falls back to the base sign-in URL.
+- **Platform app registry**: AppBuilder is registered in `PLATFORM_APPS`
+  with `access: "authenticated"` — any signed-in, active user may open the
+  app itself. Per-generated-app ownership is a separate, second gate
+  enforced entirely inside AppBuilder (see below); the platform-level gate
+  never grants access to another user's data.
+- **Actor identity**: `lib/auth/session.ts#getActor()` maps the session to
+  `{ principalId, roles }`, returning `null` for a missing, invalid,
+  expired, or deactivated session. This is the *only* source of actor
+  identity — repository methods and API routes never read an actor or
+  owner id from a request body/query/params.
+
+### Capability matrix
+
+`lib/repositories/authz.ts` defines named capabilities instead of scattered
+role comparisons, so later milestones (M04 operations, M06 previews, M09
+release RBAC) extend one contract rather than inventing their own checks.
+
+| Capability | Viewer | Editor | Owner |
+| --- | --- | --- | --- |
+| `app.view` (list/view) | ✅ | ✅ | ✅ |
+| `app.viewPreview` | ✅ | ✅ | ✅ |
+| `app.editSpecification` | ❌ | ✅ | ✅ |
+| `app.applyOperation` | ❌ | ✅ | ✅ |
+| `app.manageCollaborators` | ❌ | ❌ | ✅ |
+| `app.archive` / `app.restore` | ❌ | ❌ | ✅ |
+| `app.validate` (M10) | ❌ | ✅ | ✅ |
+| `app.approve` (M10) | ❌ | ❌ | ✅ |
+| `app.deployRelease` (M11) | ❌ | ❌ | ✅ |
+
+- The **platform superadmin** bypass (`assertCapability` treats a session
+  with the `superadmin` role as an implicit owner on any app) mirrors the
+  existing, documented platform policy in `packages/auth`
+  (`hasRole`/`getAppAccessDecision`: superadmin always passes) — it is not
+  a bypass invented for AppBuilder, and it is **not** applied to
+  `listAppsForActor` (a superadmin doesn't get every tenant's apps dumped
+  through the list endpoint, only capability-gated access to a *named*
+  app).
+- **Leak prevention**: an actor with *no* relationship to an app (not the
+  owner, not an active collaborator, not superadmin) gets `NotFoundError`
+  for every operation — identical to the app simply not existing. An actor
+  who *is* related but lacks the capability's minimum role gets
+  `ForbiddenError` instead — they already know the app exists.
+- **Final-owner protection**: `collaborators.ts` refuses to add, revoke, or
+  re-role a collaborator whose `principalId` equals the app's
+  `ownerPrincipalId` (`ConflictError`). Ownership transfer isn't
+  implemented in M03.
+- **Idempotency + transactions**: unchanged from M02 — collaborator
+  add/revoke/role-change and the audit event they produce run in one
+  `db.transaction`.
+
+### Audit
+
+Every protected mutation (`app.created`, `app.archived`, `app.restored`,
+`collaborator.added`, `collaborator.role_changed`, `collaborator.removed`,
+`operation.applied`, ...) writes an `audit_events` row with
+`actorPrincipalId` set from the trusted `Actor`, never from a client-
+supplied field. Audit `metadata` carries only non-sensitive identifiers
+(principal ids, roles, operation types) — never session tokens, cookies, or
+secrets.
 
 ## Development
 
@@ -92,10 +187,11 @@ AppBuilder product code at the platform's shared `DATABASE_URL`.
 - Every app-owned table carries (or, for `specification_versions`,
   denormalizes) an `appId` column with an index, so a repository query can
   never omit app scoping.
-- `lib/repositories/authz.ts#assertAppAccess` is the single chokepoint: it
-  loads the app, checks the caller is the owner or an active collaborator
-  meeting the required role, and throws `NotFoundError` /
-  `ForbiddenError` otherwise. Every repository method calls it first.
+- `lib/repositories/authz.ts#assertCapability` is the single chokepoint: it
+  loads the app, resolves the actor's effective role (owner, active
+  collaborator, or platform superadmin), and checks it against the
+  requested named capability — see the capability matrix above. Every
+  repository method calls it first.
 - SSO user ids (`ownerPrincipalId`, `principalId`, `*PrincipalId` columns)
   are stored as opaque external references — there is no foreign key from
   this database into the platform's `users` table, so AppBuilder's schema

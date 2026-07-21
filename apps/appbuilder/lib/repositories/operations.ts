@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { appliedOperations, specifications, specificationVersions } from "../db/schema";
 import type { Actor } from "../auth/actor";
-import { assertAppAccess } from "./authz";
+import { assertCapability } from "./authz";
 import { recordAuditEvent } from "./audit";
 import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
@@ -31,7 +31,7 @@ export async function applyOperation(
   appId: string,
   input: ApplyOperationInput,
 ): Promise<AppliedOperationRow> {
-  await assertAppAccess(db, actor, appId, "editor");
+  await assertCapability(db, actor, appId, "app.applyOperation");
 
   return db.transaction(async (tx) => {
     const [existing] = await tx
@@ -100,6 +100,6 @@ export async function listOperationsForActor(
   actor: Actor,
   appId: string,
 ): Promise<AppliedOperationRow[]> {
-  await assertAppAccess(db, actor, appId, "viewer");
+  await assertCapability(db, actor, appId, "app.view");
   return db.select().from(appliedOperations).where(eq(appliedOperations.appId, appId));
 }
