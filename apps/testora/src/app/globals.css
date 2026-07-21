@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 222 28% 7%;
+  --foreground: 210 20% 92%;
+  --card: 222 24% 10%;
+  --card-foreground: 210 20% 92%;
+  --primary: 258 90% 66%;
+  --primary-foreground: 210 20% 98%;
+  --muted: 222 18% 16%;
+  --muted-foreground: 215 15% 65%;
+  --accent: 199 89% 58%;
+  --accent-foreground: 210 20% 98%;
+  --destructive: 0 72% 60%;
+  --destructive-foreground: 210 20% 98%;
+  --success: 142 71% 50%;
+  --success-foreground: 210 20% 98%;
+  --border: 222 18% 18%;
+  --radius: 0.75rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* Run-page guided tour: a spotlight cutout that dims the page (constant big
+   shadow) and pulses an accent ring around the highlighted element. */
+@keyframes tourPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.62), 0 0 0 2px hsl(var(--primary)),
+      0 0 18px 2px hsl(var(--primary) / 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.62), 0 0 0 5px hsl(var(--primary) / 0.6),
+      0 0 26px 6px hsl(var(--primary) / 0.35);
+  }
+}
+.tour-spotlight {
+  animation: tourPulse 2s ease-in-out infinite;
+}

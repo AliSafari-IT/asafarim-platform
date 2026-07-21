@@ -1,0 +1,1 @@
+ALTER TABLE "functional_requirements" ADD COLUMN "project_id" text DEFAULT 'webapp' NOT NULL;

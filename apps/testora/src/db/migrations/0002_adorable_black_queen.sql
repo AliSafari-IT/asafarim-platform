@@ -1,0 +1,1 @@
+ALTER TABLE "functional_requirements" ADD COLUMN "base_url" text;
