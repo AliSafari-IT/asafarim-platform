@@ -36,7 +36,7 @@ export const BENELUX_COUNTRIES: Record<CountryCode, CountryDefinition> = {
     nativeName: "Luxembourg / Luxemburg",
     flag: "🇱🇺",
     flagUrl: "https://flagcdn.com/w40/lu.png",
-    languages: ["fr-LU", "de-LU", "en"],
+    languages: ["lb-LU", "fr-LU", "de-LU", "en"],
   },
 };
 

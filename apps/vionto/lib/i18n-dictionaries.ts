@@ -1826,3 +1826,7 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.music.select": "Auswählen",
   },
 };
+
+// Luxembourgish locale uses English placeholders for Vionto strings until translations are ready.
+viontoDictionaries.lb = { ...(viontoDictionaries.en ?? {}) };
+
