@@ -150,6 +150,8 @@ export async function requestPreviewBuild(db: Db, actor: Actor, appId: string): 
 export interface PinnedPreview {
   build: PreviewBuildRow;
   specificationPayload: ApplicationSpecificationType;
+  /** The version number the pinned build was rendered from — what the M08 preview-selection protocol stamps into a selection so a stale (superseded) selection can be detected and rejected. */
+  specificationVersionNumber: number;
 }
 
 /**
@@ -178,5 +180,9 @@ export async function getPinnedPreview(db: Db, actor: Actor, appId: string): Pro
     .limit(1);
   if (!version) return null;
 
-  return { build, specificationPayload: version.payload as ApplicationSpecificationType };
+  return {
+    build,
+    specificationPayload: version.payload as ApplicationSpecificationType,
+    specificationVersionNumber: version.versionNumber,
+  };
 }

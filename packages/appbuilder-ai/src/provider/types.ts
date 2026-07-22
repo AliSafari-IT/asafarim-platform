@@ -2,6 +2,7 @@ import type { ApplicationSpecificationType } from "@asafarim/appbuilder-schema";
 import type { RequirementsAnalysisType } from "../schemas/requirementsAnalysis";
 import type { TemplateRecommendationType } from "../schemas/templateRecommendation";
 import type { OperationBatchType } from "../schemas/operationProposal";
+import type { ModificationProposalType } from "../schemas/modificationProposal";
 import type { ClarificationRoundType } from "../schemas/clarification";
 
 /**
@@ -64,6 +65,29 @@ export interface ProposeOperationsResult {
   usage: UsageMetadata;
 }
 
+/** Bounded, stable-id-only description of a preview element the user selected before asking for a change — see lib/modification/selectionContext.ts (apps/appbuilder). Never raw DOM/HTML. */
+export interface ModificationSelectionContext {
+  pageId?: string;
+  componentId?: string;
+  componentKind?: string;
+  label?: string;
+}
+
+export interface ProposeModificationInput {
+  /** Untrusted free text — the user's conversational request. Treated as data, never as instructions (see prompts/systemPolicy.ts). */
+  userRequest: string;
+  /** The specification as it stands right now — the model must work only against this, never re-derive/guess prior state. */
+  currentSpec: ApplicationSpecificationType;
+  /** Bounded context if the user selected a page/component in the preview before asking; null if not. */
+  selection: ModificationSelectionContext | null;
+  /** Caps how many operations a single proposal may contain — smaller than M07's per-batch cap since this is one bounded follow-up edit, not an app build-out. */
+  operationBudget: number;
+}
+export interface ProposeModificationResult {
+  proposal: ModificationProposalType;
+  usage: UsageMetadata;
+}
+
 /**
  * Server-only AI provider boundary. Independent of UI, repositories, and
  * orchestration — implementations (OpenAI adapter, fake/fixture provider)
@@ -83,4 +107,6 @@ export interface AiProvider {
   ): Promise<AnalyzeRequirementsResult>;
   recommendTemplate(input: RecommendTemplateInput, options: ProviderCallOptions): Promise<RecommendTemplateResult>;
   proposeOperations(input: ProposeOperationsInput, options: ProviderCallOptions): Promise<ProposeOperationsResult>;
+  /** M08: proposes a single bounded operation batch answering one conversational modification request. */
+  proposeModification(input: ProposeModificationInput, options: ProviderCallOptions): Promise<ProposeModificationResult>;
 }

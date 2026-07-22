@@ -138,7 +138,13 @@ export function renderPreview(input: PreviewRenderInput): PreviewRenderResult {
             };
         warnings.push(error);
         return (
-          <div key={component.id} className="ab-component-error">
+          <div
+            key={component.id}
+            className="ab-component-error"
+            data-ab-page-id={page.id}
+            data-ab-component-id={component.id}
+            data-ab-component-kind={component.kind}
+          >
             <ComponentErrorState title="Unsupported component" description={error.message} />
           </div>
         );
@@ -183,7 +189,13 @@ export function renderPreview(input: PreviewRenderInput): PreviewRenderResult {
       }
 
       return (
-        <div key={component.id} className="ab-component">
+        <div
+          key={component.id}
+          className="ab-component"
+          data-ab-page-id={page.id}
+          data-ab-component-id={component.id}
+          data-ab-component-kind={component.kind}
+        >
           {element}
         </div>
       );
@@ -194,7 +206,9 @@ export function renderPreview(input: PreviewRenderInput): PreviewRenderResult {
   const element = (
     <ShellChrome branding={branding} nav={<NavigationChrome items={navItems} />}>
       <PageHeaderChrome title={page.name} />
-      <div className="ab-page-components">{componentElements}</div>
+      <div className="ab-page-components" data-ab-page-id={page.id}>
+        {componentElements}
+      </div>
     </ShellChrome>
   );
 

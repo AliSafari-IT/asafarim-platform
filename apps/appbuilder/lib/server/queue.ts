@@ -20,13 +20,26 @@ import { Queue } from "bullmq";
 import Redis from "ioredis";
 
 export const GENERATION_QUEUE_NAME = "appbuilder-generation";
+// M08: a separate BullMQ queue for conversational modification jobs — same
+// "low-latency wake-up only, Postgres is the durable source of truth"
+// contract as the generation queue (see lib/repositories/modificationJobs.ts's
+// own stale-lease sweep), kept as its own queue rather than a discriminated
+// message on the generation queue since the two job types have entirely
+// separate repository/state-machine modules (see lib/db/schema.ts's
+// modificationJobs comment for why).
+export const MODIFICATION_QUEUE_NAME = "appbuilder-modification";
 
 export interface GenerationDispatchMessage {
   jobId: string;
 }
 
+export interface ModificationDispatchMessage {
+  jobId: string;
+}
+
 let _redis: Redis | undefined;
 let _queue: Queue<GenerationDispatchMessage> | undefined;
+let _modificationQueue: Queue<ModificationDispatchMessage> | undefined;
 
 function getRedis(): Redis {
   if (!_redis) {
@@ -47,6 +60,13 @@ export function getGenerationQueue(): Queue<GenerationDispatchMessage> {
     _queue = new Queue<GenerationDispatchMessage>(GENERATION_QUEUE_NAME, { connection: getRedis() });
   }
   return _queue;
+}
+
+export function getModificationQueue(): Queue<ModificationDispatchMessage> {
+  if (!_modificationQueue) {
+    _modificationQueue = new Queue<ModificationDispatchMessage>(MODIFICATION_QUEUE_NAME, { connection: getRedis() });
+  }
+  return _modificationQueue;
 }
 
 /**
@@ -77,10 +97,28 @@ export async function nudgeWorker(
   );
 }
 
+/** Nudges the modification worker — see nudgeWorker's docstring for the deterministic-jobId/dedupe rationale, identical here. */
+export async function nudgeModificationWorker(
+  jobId: string,
+  options: { cause?: "enqueue" | "resume" | "retry"; attempt?: number; delayMs?: number } = {},
+): Promise<void> {
+  const cause = options.cause ?? "enqueue";
+  const suffix = cause === "retry" ? `${cause}-${options.attempt ?? 0}` : cause;
+  await getModificationQueue().add(
+    MODIFICATION_QUEUE_NAME,
+    { jobId },
+    { jobId: `dispatch-${jobId}-${suffix}`, delay: options.delayMs, removeOnComplete: true, removeOnFail: 1000 },
+  );
+}
+
 export async function closeQueue(): Promise<void> {
   if (_queue) {
     await _queue.close();
     _queue = undefined;
+  }
+  if (_modificationQueue) {
+    await _modificationQueue.close();
+    _modificationQueue = undefined;
   }
   if (_redis) {
     _redis.disconnect();

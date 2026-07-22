@@ -3,6 +3,12 @@ import { ProviderError } from "../provider/errors";
 import { CONSTRUCTION_TASK_MANAGEMENT_SCRIPT } from "../fixtures/constructionTaskManagement";
 import { CRM_SUCCESS_SCRIPT } from "../fixtures/crm";
 import { GENERIC_FALLBACK_SCRIPT } from "../fixtures/generic";
+import {
+  ADD_PRIORITY_FIELD_SCRIPT,
+  COMPACT_TABLE_SCRIPT,
+  RESTRICT_PERMISSION_SCRIPT,
+  GENERIC_MODIFICATION_FALLBACK_SCRIPT,
+} from "../fixtures/modification";
 import type {
   AiProvider,
   AnalyzeRequirementsInput,
@@ -12,6 +18,8 @@ import type {
   RecommendTemplateResult,
   ProposeOperationsInput,
   ProposeOperationsResult,
+  ProposeModificationInput,
+  ProposeModificationResult,
 } from "../provider/types";
 
 function selectScriptForPrompt(prompt: string): FakeProviderScript {
@@ -23,6 +31,17 @@ function selectScriptForPrompt(prompt: string): FakeProviderScript {
     return CRM_SUCCESS_SCRIPT;
   }
   return GENERIC_FALLBACK_SCRIPT;
+}
+
+/** Same keyword-routing idea as selectScriptForPrompt, but for the M08 conversational-modification vocabulary. */
+function selectModificationScriptForPrompt(prompt: string): FakeProviderScript {
+  const text = prompt.toLowerCase();
+  if (text.includes("priority")) return ADD_PRIORITY_FIELD_SCRIPT;
+  if (text.includes("compact")) return COMPACT_TABLE_SCRIPT;
+  if (text.includes("only managers") || text.includes("restrict") || text.includes("no longer")) {
+    return RESTRICT_PERMISSION_SCRIPT;
+  }
+  return GENERIC_MODIFICATION_FALLBACK_SCRIPT;
 }
 
 /**
@@ -66,5 +85,21 @@ export class DefaultFakeProvider implements AiProvider {
       throw new ProviderError({ code: "unknown", message: "proposeOperations called before analyzeRequirements." });
     }
     return this.delegate.proposeOperations(input, options);
+  }
+
+  /**
+   * Unlike the M07 methods above, a modification job never calls
+   * analyzeRequirements first — it goes straight to proposeModification —
+   * so this pins its own delegate independently on first call, keyed off
+   * the modification vocabulary rather than the generation one.
+   */
+  async proposeModification(
+    input: ProposeModificationInput,
+    options: ProviderCallOptions,
+  ): Promise<ProposeModificationResult> {
+    if (!this.delegate) {
+      this.delegate = new FakeAiProvider(selectModificationScriptForPrompt(input.userRequest));
+    }
+    return this.delegate.proposeModification(input, options);
   }
 }

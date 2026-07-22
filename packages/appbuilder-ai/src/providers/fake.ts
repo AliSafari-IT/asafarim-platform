@@ -1,6 +1,7 @@
 import { RequirementsAnalysis } from "../schemas/requirementsAnalysis";
 import { TemplateRecommendation } from "../schemas/templateRecommendation";
 import { OperationBatch } from "../schemas/operationProposal";
+import { ModificationProposal } from "../schemas/modificationProposal";
 import { ProviderError } from "../provider/errors";
 import type {
   AiProvider,
@@ -11,10 +12,12 @@ import type {
   RecommendTemplateResult,
   ProposeOperationsInput,
   ProposeOperationsResult,
+  ProposeModificationInput,
+  ProposeModificationResult,
   UsageMetadata,
 } from "../provider/types";
 
-type Method = "analyzeRequirements" | "recommendTemplate" | "proposeOperations";
+type Method = "analyzeRequirements" | "recommendTemplate" | "proposeOperations" | "proposeModification";
 
 export type FakeStep = { kind: "value"; raw: unknown } | { kind: "error"; error: ProviderError };
 
@@ -29,12 +32,14 @@ export interface FakeProviderScript {
   analyzeRequirements?: FakeStep[];
   recommendTemplate?: FakeStep[];
   proposeOperations?: FakeStep[];
+  proposeModification?: FakeStep[];
 }
 
 const SCHEMAS = {
   analyzeRequirements: RequirementsAnalysis,
   recommendTemplate: TemplateRecommendation,
   proposeOperations: OperationBatch,
+  proposeModification: ModificationProposal,
 } as const;
 
 function usage(model: string): UsageMetadata {
@@ -60,6 +65,7 @@ export class FakeAiProvider implements AiProvider {
     analyzeRequirements: 0,
     recommendTemplate: 0,
     proposeOperations: 0,
+    proposeModification: 0,
   };
 
   constructor(
@@ -113,6 +119,13 @@ export class FakeAiProvider implements AiProvider {
     options: ProviderCallOptions,
   ): Promise<ProposeOperationsResult> {
     return { batch: this.consume("proposeOperations", options) as any, usage: usage(this.model) };
+  }
+
+  async proposeModification(
+    _input: ProposeModificationInput,
+    options: ProviderCallOptions,
+  ): Promise<ProposeModificationResult> {
+    return { proposal: this.consume("proposeModification", options) as any, usage: usage(this.model) };
   }
 }
 

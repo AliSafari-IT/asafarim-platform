@@ -38,7 +38,13 @@ export type Capability =
   | "app.deployRelease" // create/publish a release or deployment (M11)
   | "app.requestGeneration" // enqueue/resume an AI generation job (M07)
   | "app.viewGenerationJob" // view a generation job's status/progress (M07)
-  | "app.cancelGeneration"; // cancel an active generation job (M07)
+  | "app.cancelGeneration" // cancel an active generation job (M07)
+  | "app.viewConversation" // view the builder workspace's conversation/message history (M08)
+  | "app.requestModification" // send a conversational modification request (M08)
+  | "app.cancelModification" // cancel an active modification job (M08)
+  | "app.confirmModification" // confirm a destructive modification proposal (M08)
+  | "app.undoOperation" // undo the last applied operation via its safe inverse (M08)
+  | "app.restoreVersion"; // restore an older specification version as a new version (M08)
 
 /** The minimum role each capability requires. Owner outranks editor outranks viewer. */
 const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
@@ -55,6 +61,19 @@ const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
   "app.requestGeneration": "editor",
   "app.viewGenerationJob": "viewer",
   "app.cancelGeneration": "editor",
+  // Conversational editing follows the same M03 policy as any other
+  // specification edit: editors may propose/apply/undo, matching
+  // app.editSpecification/app.applyOperation. Restoring an OLDER version is
+  // reserved for owners — the issue's builder-workspace policy explicitly
+  // separates "owner: full M08 editing and restoration capability" from
+  // "editor: conversational/specification editing", so restore-as-new-
+  // version is the one M08 action editors cannot perform.
+  "app.viewConversation": "viewer",
+  "app.requestModification": "editor",
+  "app.cancelModification": "editor",
+  "app.confirmModification": "editor",
+  "app.undoOperation": "editor",
+  "app.restoreVersion": "owner",
 };
 
 /** Whether a role grants a capability. Exported so tests/UI can render capability-gated affordances consistently. */
@@ -74,6 +93,7 @@ const ALLOWED_WHILE_ARCHIVED: ReadonlySet<Capability> = new Set([
   "app.archive",
   "app.restore",
   "app.viewGenerationJob",
+  "app.viewConversation",
 ]);
 
 export interface AppAccess {
