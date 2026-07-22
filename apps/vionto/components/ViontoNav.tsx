@@ -18,6 +18,7 @@ const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
 const webUrl = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
 const showcaseUrl = process.env.NEXT_PUBLIC_SHOWCASE_URL || "http://localhost:3002";
 const viontoUrl = process.env.NEXT_PUBLIC_VIONTO_URL || "http://localhost:3004";
+const appbuilderUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>("dark");
@@ -89,12 +90,14 @@ function AppSwitcher() {
   }, []);
 
   const testoraUrl = process.env.NEXT_PUBLIC_TESTORA_URL || "http://localhost:3005";
+  const appbuilderUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
 
   const apps = [
     { label: "ASafarIM Digital", href: webUrl, meta: "public site" },
     { label: "Hub", href: hubUrl, meta: "workspace" },
     { label: "Showcase", href: showcaseUrl, meta: "projects" },
     { label: "Testora", href: testoraUrl, meta: "benchmark" },
+    { label: "AppBuilder", href: appbuilderUrl, meta: "builder" },
   ];
 
   return (

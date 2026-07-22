@@ -20,6 +20,11 @@ export {
   type ProposedOperationType,
 } from "./schemas/operationProposal";
 export {
+  ModificationProposal,
+  countModificationOperations,
+  type ModificationProposalType,
+} from "./schemas/modificationProposal";
+export {
   ClarificationAnswer,
   ClarificationRound,
   ClarificationState,
@@ -51,6 +56,9 @@ export type {
   RecommendTemplateResult,
   ProposeOperationsInput,
   ProposeOperationsResult,
+  ProposeModificationInput,
+  ProposeModificationResult,
+  ModificationSelectionContext,
   ProviderCallOptions,
   UsageMetadata,
 } from "./provider/types";
@@ -59,6 +67,7 @@ export { SYSTEM_POLICY, wrapUntrustedInput } from "./prompts/systemPolicy";
 export { buildAnalysisPrompt } from "./prompts/buildAnalysisPrompt";
 export { buildTemplatePrompt } from "./prompts/buildTemplatePrompt";
 export { buildOperationPrompt } from "./prompts/buildOperationPrompt";
+export { buildModificationPrompt } from "./prompts/buildModificationPrompt";
 
 export { OpenAiProvider } from "./providers/openai";
 export { FakeAiProvider, createFakeProvider, value, errorStep, type FakeProviderScript, type FakeStep } from "./providers/fake";

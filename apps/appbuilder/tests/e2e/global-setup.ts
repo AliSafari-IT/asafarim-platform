@@ -178,6 +178,7 @@ export default async function globalSetup(): Promise<void> {
   const { archiveApp, createApp } = await import("../../lib/repositories/apps");
   const { addCollaborator } = await import("../../lib/repositories/collaborators");
   const { requestPreviewBuild } = await import("../../lib/repositories/previewService");
+  const { applyOperation } = await import("../../lib/repositories/operations");
   const { buildStorageState } = await import("./fixtures/session");
 
   const versionDeps = { eq, schema, checksumOf, generateId, SPEC_SCHEMA_VERSION, ENGINE_VERSION };
@@ -255,6 +256,90 @@ export default async function globalSetup(): Promise<void> {
   );
   await seedUnsafeSucceededBuild(db, securityApp.id, { ...versionDeps, REGISTRY_VERSION });
 
+  // 5. M08 builder-workspace apps — a minimal task/tasks_table/employee_role
+  //    spec built through the real M04 operation engine (not
+  //    appendSpecVersion's bypass) so each app's version history/checksum/
+  //    provenance chain looks exactly like a real user's app. Deliberately
+  //    does NOT have a `priority` field on `task` yet — unlike
+  //    constructionTaskManagementFixture above, which already does — so the
+  //    "add task priority conversationally" golden path has something real
+  //    to add. Ids match packages/appbuilder-ai's M08 fake-provider fixtures
+  //    (fixtures/modification.ts) exactly.
+  //
+  //    One INDEPENDENT app per test that drives a modification job to
+  //    completion (rather than one shared app) — a job left
+  //    `awaiting_confirmation`/non-terminal by one test would otherwise
+  //    auto-open ConversationPanel's confirm dialog on every OTHER test's
+  //    fresh page load against the same app (it polls the app's latest job
+  //    regardless of which test navigated there), blocking clicks with the
+  //    dialog overlay. Read-only/layout-only tests still share `builderApp`.
+  async function seedBuilderWorkspaceApp(suffix: string) {
+    const app = await createApp(
+      db,
+      ownerActor,
+      { name: `Builder Workspace Demo ${suffix}`, slug: `e2e-builder-workspace-${suffix}-${RUN_ID}`, starterFamily: "blank", visibility: "private" },
+      `e2e-seed-builder-${suffix}-${RUN_ID}`,
+    );
+    let bv = 1;
+    await applyOperation(db, ownerActor, app.id, {
+      operation: { opVersion: "1.0.0", type: "CREATE_ENTITY", entity: { id: "task", machineName: "task", name: "Task" } },
+      baseVersionNumber: bv++,
+      idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-create-entity`,
+    });
+    await applyOperation(db, ownerActor, app.id, {
+      operation: {
+        opVersion: "1.0.0",
+        type: "ADD_FIELD",
+        entityId: "task",
+        field: { id: "title", machineName: "title", name: "Title", type: "text", required: true, unique: false, archived: false },
+      },
+      baseVersionNumber: bv++,
+      idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-add-title`,
+    });
+    await applyOperation(db, ownerActor, app.id, {
+      operation: { opVersion: "1.0.0", type: "CREATE_PAGE", page: { id: "tasks", name: "Tasks", path: "tasks" } },
+      baseVersionNumber: bv++,
+      idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-create-page`,
+    });
+    await applyOperation(db, ownerActor, app.id, {
+      operation: {
+        opVersion: "1.0.0",
+        type: "ADD_COMPONENT",
+        pageId: "tasks",
+        component: { id: "tasks_table", kind: "dataTable", entityId: "task", config: { variant: "table" }, order: 0 },
+      },
+      baseVersionNumber: bv++,
+      idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-add-component`,
+    });
+    await applyOperation(db, ownerActor, app.id, {
+      operation: { opVersion: "1.0.0", type: "CREATE_ROLE", role: { id: "employee_role", name: "Employee" } },
+      baseVersionNumber: bv++,
+      idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-create-role`,
+    });
+    await applyOperation(db, ownerActor, app.id, {
+      operation: {
+        opVersion: "1.0.0",
+        type: "SET_PERMISSION",
+        permission: { id: "perm_employee_task_delete", roleId: "employee_role", entityId: "task", verb: "delete", effect: "allow" },
+      },
+      baseVersionNumber: bv++,
+      idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-set-permission`,
+    });
+    await addCollaborator(db, ownerActor, app.id, editor.id, "editor");
+    await addCollaborator(db, ownerActor, app.id, viewer.id, "viewer");
+    await requestPreviewBuild(db, ownerActor, app.id);
+    return app;
+  }
+
+  const builderApp = await seedBuilderWorkspaceApp("main");
+  const builderAppPriority = await seedBuilderWorkspaceApp("priority");
+  const builderAppSelection = await seedBuilderWorkspaceApp("selection");
+  const builderAppDestructive = await seedBuilderWorkspaceApp("destructive");
+  const builderAppHistory = await seedBuilderWorkspaceApp("history");
+  const builderAppAdversarial = await seedBuilderWorkspaceApp("adversarial");
+  const builderAppA11yDialog = await seedBuilderWorkspaceApp("a11y-dialog");
+  const builderAppA11yMotion = await seedBuilderWorkspaceApp("a11y-motion");
+
   await fs.writeFile(
     path.join(AUTH_DIR, "fixtures.json"),
     JSON.stringify(
@@ -263,6 +348,14 @@ export default async function globalSetup(): Promise<void> {
         archivedAppId: archivedApp.id,
         noPreviewAppId: noPreviewApp.id,
         securityAppId: securityApp.id,
+        builderAppId: builderApp.id,
+        builderAppPriorityId: builderAppPriority.id,
+        builderAppSelectionId: builderAppSelection.id,
+        builderAppDestructiveId: builderAppDestructive.id,
+        builderAppHistoryId: builderAppHistory.id,
+        builderAppAdversarialId: builderAppAdversarial.id,
+        builderAppA11yDialogId: builderAppA11yDialog.id,
+        builderAppA11yMotionId: builderAppA11yMotion.id,
         ownerId: owner.id,
         editorId: editor.id,
         viewerId: viewer.id,
