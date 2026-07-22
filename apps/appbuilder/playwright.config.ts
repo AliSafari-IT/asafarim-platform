@@ -7,6 +7,7 @@ loadEnv({ path: path.join(process.cwd(), "../../.env") });
 
 const APPBUILDER_PORT = 3006;
 const HUB_PORT = 3001;
+const WORKER_HEALTH_PORT = 3008;
 const BASE_URL = `http://localhost:${APPBUILDER_PORT}`;
 
 export default defineConfig({
@@ -57,6 +58,19 @@ export default defineConfig({
       cwd: path.join(process.cwd(), "../.."),
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+    },
+    {
+      // M07 generation worker — forced onto the deterministic fake provider
+      // regardless of local .env, so the e2e suite never makes a real,
+      // billable provider call. Readiness is its own health endpoint (it
+      // has no other HTTP surface). Requires REDIS_URL to already point at
+      // a reachable Redis (docker compose's `redis` service).
+      command: "pnpm --filter @asafarim/appbuilder worker:dev",
+      url: `http://localhost:${WORKER_HEALTH_PORT}`,
+      cwd: path.join(process.cwd(), "../.."),
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: { APPBUILDER_AI_PROVIDER: "fake", APPBUILDER_WORKER_HEALTH_PORT: String(WORKER_HEALTH_PORT) },
     },
   ],
 });

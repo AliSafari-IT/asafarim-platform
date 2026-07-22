@@ -301,13 +301,16 @@ export default async function globalSetup(): Promise<void> {
     email: owner.email,
   });
   const appbuilderUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
-  try {
-    await fetch(`${appbuilderUrl}/apps/${demoApp.id}/preview`, {
-      headers: { Cookie: `authjs.session-token=${ownerCookie.cookies[0].value}` },
-    });
-  } catch {
-    // Best-effort — a failed warm-up just means the first real test pays
-    // the compile cost instead; it doesn't affect correctness.
+  const warmUpCookieHeader = `authjs.session-token=${ownerCookie.cookies[0].value}`;
+  // M07's ai-generation.spec.ts hits /apps/new and /apps/[appId] first —
+  // warm those too, same rationale as the preview route above.
+  for (const path of [`/apps/${demoApp.id}/preview`, "/apps/new", `/apps/${demoApp.id}`]) {
+    try {
+      await fetch(`${appbuilderUrl}${path}`, { headers: { Cookie: warmUpCookieHeader } });
+    } catch {
+      // Best-effort — a failed warm-up just means the first real test pays
+      // the compile cost instead; it doesn't affect correctness.
+    }
   }
 
   await closeDb();

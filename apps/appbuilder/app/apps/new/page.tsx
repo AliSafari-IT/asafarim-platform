@@ -70,14 +70,15 @@ export default async function NewAppPage({ searchParams }: NewAppPageProps) {
         kicker="Create"
         kickerIndex="02"
         title="Describe your app"
-        description="Tell AppBuilder what the app should manage. This creates a draft record — it does not generate code, screens, or data yet."
+        description="Tell AppBuilder what the app should manage. It never generates source code — only structured entities, pages, and roles from an allowlisted set."
       />
 
       <Alert tone="info">
-        Creating an app here records your name, description, and starter
-        family as a draft. Nothing is generated automatically: the
-        specification starts empty, and AI-assisted planning (M07) and
-        registered templates (M06) arrive in later milestones.
+        Creating an app starts an AI generation job automatically: your
+        starter family selects a registered template, and your description
+        is analyzed into structured requirements and applied as validated
+        specification changes. You&apos;ll see live progress on the app page
+        next, including any clarifying questions.
       </Alert>
 
       <Card title="New application">
@@ -123,9 +124,10 @@ export default async function NewAppPage({ searchParams }: NewAppPageProps) {
             ) : (
               <p id="field-prompt-hint" className="ui-hint">
                 Describe what this app should manage, in plain language.
-                Saved as your creation intent — a later milestone (M07)
-                interprets it into specification changes; nothing is
-                generated from it yet.
+                An AI generation job analyzes this into structured
+                requirements — entities, pages, and roles — never source
+                code, and asks follow-up questions if anything essential is
+                missing.
               </p>
             )}
           </FormRow>
@@ -143,8 +145,9 @@ export default async function NewAppPage({ searchParams }: NewAppPageProps) {
               aria-describedby="field-starterFamily-hint"
             />
             <p id="field-starterFamily-hint" className="ui-hint">
-              A starting shape for later template/AI assistance (M06/M07) —
-              recorded now, applied later.
+              Selects the registered starter template generation begins
+              from — the AI may recommend a better-fitting one if your
+              description suggests it.
             </p>
           </FormRow>
 

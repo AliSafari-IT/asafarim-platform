@@ -5,21 +5,25 @@ describe an internal business application, receive a controlled/versioned
 application specification, preview it at `/apps/{appId}/preview`, refine it
 conversationally, validate it, and publish an immutable release.
 
-This is **M06** of the delivery series tracked in
+This is **M07** of the delivery series tracked in
 [issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29): the
-approved template/component registry and metadata-driven preview runtime,
-on top of M02's persistence layer, M03's SSO/authorization, M04's versioned
-specification contract, and M05's catalog/creation flow. See
+AI requirements planner and structured, durable generation pipeline, on top
+of M02's persistence layer, M03's SSO/authorization, M04's versioned
+specification contract, M05's catalog/creation flow, and M06's template
+registry/preview runtime. See
 [docs/adr/0001-appbuilder-managed-runtime.md](../../docs/adr/0001-appbuilder-managed-runtime.md)
 for the architectural decision this scaffold builds on,
 [docs/appbuilder-architecture.md](../../docs/appbuilder-architecture.md) for
 the route contracts, milestone map, and the capability matrix,
 [packages/appbuilder-schema/README.md](../../packages/appbuilder-schema/README.md)
-for the M04 specification/operation contract, and
+for the M04 specification/operation contract,
 [docs/appbuilder-runtime.md](../../docs/appbuilder-runtime.md) for the full
-M06 registry/renderer architecture, security model, and preview lifecycle.
+M06 registry/renderer architecture, security model, and preview lifecycle,
+and [docs/appbuilder-m07-ai-generation.md](../../docs/appbuilder-m07-ai-generation.md)
+for the M07 provider boundary, durable job model, worker, and generation
+pipeline.
 
-## What's here (M01–M06)
+## What's here (M01–M07)
 
 - Next.js 16 App Router shell using `@asafarim/ui` directly (no forked
   components).

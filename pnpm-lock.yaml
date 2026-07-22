@@ -87,6 +87,9 @@ importers:
 
   apps/appbuilder:
     dependencies:
+      '@asafarim/appbuilder-ai':
+        specifier: workspace:*
+        version: link:../../packages/appbuilder-ai
       '@asafarim/appbuilder-runtime':
         specifier: workspace:*
         version: link:../../packages/appbuilder-runtime
@@ -102,18 +105,27 @@ importers:
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      bullmq:
+        specifier: ^5.34.0
+        version: 5.80.2(supports-color@7.2.0)
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
       drizzle-orm:
         specifier: ^0.38.2
         version: 0.38.4(@electric-sql/pglite@0.4.1)(@prisma/client@7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3))(@types/pg@8.20.0)(@types/react@19.2.17)(mysql2@3.15.3)(pg@8.22.0)(postgres@3.4.7)(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(react@19.2.7)
+      ioredis:
+        specifier: ^5.11.1
+        version: 5.11.1(supports-color@7.2.0)
       next:
         specifier: ^16.2.10
         version: 16.2.10(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       next-auth:
         specifier: ^5.0.0-beta.28
         version: 5.0.0-beta.31(next@16.2.10(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(nodemailer@9.0.3)(react@19.2.7)
+      openai:
+        specifier: ^4.73.0
+        version: 4.104.0(zod@3.25.76)
       pg:
         specifier: ^8.13.1
         version: 8.22.0
@@ -154,6 +166,9 @@ importers:
       drizzle-kit:
         specifier: ^0.30.1
         version: 0.30.6(supports-color@7.2.0)
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.19)(supports-color@7.2.0)(tsx@4.23.0)(typescript@5.9.3)
       tsx:
         specifier: ^4.19.2
         version: 4.23.0
@@ -534,6 +549,31 @@ importers:
         version: 24.13.2
 
   benchmarks/vionto: {}
+
+  packages/appbuilder-ai:
+    dependencies:
+      '@asafarim/appbuilder-schema':
+        specifier: workspace:*
+        version: link:../appbuilder-schema
+      openai:
+        specifier: ^4.73.0
+        version: 4.104.0(zod@3.25.76)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@asafarim/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.13.2)(lightningcss@1.32.0)(supports-color@7.2.0)
 
   packages/appbuilder-runtime:
     dependencies:

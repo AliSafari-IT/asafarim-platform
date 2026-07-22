@@ -9,6 +9,7 @@ import { routes } from "@/lib/routes";
 import { STARTER_FAMILY_LABELS, type StarterFamily } from "@/lib/validation/createApp";
 import { roleGrants } from "@/lib/repositories/authz";
 import { requestPreviewBuildAction } from "./previewActions";
+import { GenerationStatusPanel } from "./GenerationStatusPanel";
 
 export const metadata: Metadata = { title: "App detail" };
 
@@ -121,12 +122,15 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
         </Alert>
       ) : null}
 
+      <GenerationStatusPanel appId={appId} canManage={roleGrants(role, "app.requestGeneration")} />
+
       <Alert tone="info">
         This is a truthful overview, not the full builder: specification
-        editing, version history, and collaborator management arrive with
-        the operation engine surfaced in the UI and the builder workspace
-        (M08). Nothing shown here implies AI-generated content exists yet —
-        M07 interprets your initial prompt in a later milestone.
+        editing beyond AI generation, version history, and collaborator
+        management arrive with the operation engine surfaced in the UI and
+        the builder workspace (M08). Nothing shown above implies AI-generated
+        content exists merely because it was described — entities, pages,
+        and the preview only appear once actually persisted.
       </Alert>
 
       <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", marginTop: "var(--space-4)" }}>
