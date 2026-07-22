@@ -78,16 +78,16 @@ export function ConfirmDialog({
 
       if (event.shiftKey && active === first) {
         event.preventDefault();
-        last.focus();
+        last?.focus();
       } else if (!event.shiftKey && active === last) {
         event.preventDefault();
-        first.focus();
+        first?.focus();
       } else if (!current.includes(active as HTMLElement)) {
         // Focus somehow escaped the dialog (e.g. programmatic focus
         // elsewhere) — pull it back in rather than letting Tab continue
         // into background page content.
         event.preventDefault();
-        first.focus();
+        first?.focus();
       }
     }
 
