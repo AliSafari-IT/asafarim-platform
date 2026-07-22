@@ -4,6 +4,7 @@ import {
   jsonb,
   timestamp,
   integer,
+  boolean,
   pgEnum,
   uniqueIndex,
   index,
@@ -87,6 +88,46 @@ export const starterFamilyEnum = pgEnum("starter_family", [
 // owner/collaborator capability model (M03). "team" apps still require
 // collaborators to be added explicitly; there is no org-wide discovery.
 export const appVisibilityEnum = pgEnum("app_visibility", ["private", "team"]);
+
+// M07: the AI generation job's own lifecycle. `needs_clarification` and
+// `queued`/`analyzing`/`planning`/`applying`/`validating`/`preparing_preview`
+// are all non-terminal; `ready`/`failed`/`cancelled` are terminal. Legal
+// transitions between these are enforced centrally in
+// lib/generation/stateMachine.ts, never by ad-hoc status writes — this enum
+// only constrains *which strings* are possible, not which transitions are.
+export const generationJobStatusEnum = pgEnum("generation_job_status", [
+  "queued",
+  "analyzing",
+  "needs_clarification",
+  "planning",
+  "applying",
+  "validating",
+  "preparing_preview",
+  "ready",
+  "failed",
+  "cancelled",
+]);
+
+// Safe, stable failure classification — surfaced to users via
+// lib/generation/errors.ts#safeFailureMessage, never a raw stack trace or
+// provider error string. "clarification required" is intentionally absent
+// here: it is a normal status (`needs_clarification`), not a failure.
+export const generationJobFailureCodeEnum = pgEnum("generation_job_failure_code", [
+  "invalid_request",
+  "provider_configuration_error",
+  "provider_rate_limit",
+  "provider_unavailable",
+  "malformed_provider_response",
+  "forbidden_operation",
+  "specification_validation_failed",
+  "stale_base_version",
+  "authorization_lost",
+  "preview_failed",
+  "worker_infrastructure_error",
+  "cancelled",
+]);
+
+export const generationBatchStatusEnum = pgEnum("generation_batch_status", ["applied", "rejected"]);
 
 // The generated-application registry. Every other app-owned table hangs off
 // `appId` (directly or, for specificationVersions, denormalized) so a
@@ -437,6 +478,148 @@ export const creationRequests = pgTable(
   (table) => [uniqueIndex("creation_requests_app_id_unique").on(table.appId)],
 );
 
+// M07: one durable row per AI generation attempt. `initiatedByPrincipalId`
+// is the trusted platform actor captured at enqueue time (from the
+// authenticated session — never from a job payload field) and is replayed
+// by the worker for every assertCapability/applyOperation call for the
+// life of the job, rather than the worker inventing a "system" actor (see
+// docs/appbuilder-m07-ai-generation.md#trusted-actor-model). A job never
+// mutates `initiatedByPrincipalId` after creation, so `initiatedBy` and any
+// later "trusted system executor" bookkeeping stay distinguishable in the
+// audit trail (auditEvents.metadata) even though the worker process itself
+// has no session of its own.
+//
+// Retrying the *enqueue* call (same appId + idempotencyKey) always returns
+// this same row rather than creating a second job — enforced by the unique
+// index below, mirroring appliedOperations' own idempotency contract.
+export const generationJobs = pgTable(
+  "generation_jobs",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    creationRequestId: text("creation_request_id")
+      .notNull()
+      .references(() => creationRequests.id, { onDelete: "cascade" }),
+
+    initiatedByPrincipalId: text("initiated_by_principal_id").notNull(),
+
+    status: generationJobStatusEnum("status").notNull().default("queued"),
+    // Free-text sub-phase within `status` for UI/observability (e.g.
+    // "analyzing:iteration-2") — status alone drives the state machine and
+    // authorization; phase is descriptive only, never branched on.
+    phase: text("phase").notNull().default("queued"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+
+    // The specification version this job's operations are/were based on —
+    // re-checked against `specifications.currentVersionNumber` immediately
+    // before applying (see lib/generation/pipeline.ts), so a spec edited by
+    // a human mid-generation fails the job safely (stale_base_version)
+    // rather than silently overwriting the human's edit.
+    baseVersionNumber: integer("base_version_number").notNull(),
+
+    requestedTemplateId: text("requested_template_id").notNull(),
+    selectedTemplateId: text("selected_template_id"),
+    // TemplateSelectionRecord (@asafarim/appbuilder-ai) — requested vs.
+    // recommended template, reasoning, confidence; never template code.
+    templateSelection: jsonb("template_selection").$type<Record<string, unknown>>(),
+
+    // RequirementsAnalysisType (@asafarim/appbuilder-ai) — the model's
+    // structured read of the prompt, re-validated on every write.
+    normalizedRequirements: jsonb("normalized_requirements").$type<Record<string, unknown>>(),
+    // ClarificationStateType (@asafarim/appbuilder-ai) — full question/
+    // answer history across every round, never overwritten, only appended.
+    clarificationState: jsonb("clarification_state").$type<Record<string, unknown>>(),
+
+    totalOperationsApplied: integer("total_operations_applied").notNull().default(0),
+
+    resultingVersionNumber: integer("resulting_version_number"),
+    resultingVersionId: text("resulting_version_id").references(
+      (): AnyPgColumn => specificationVersions.id,
+      { onDelete: "set null" },
+    ),
+    resultingPreviewBuildId: text("resulting_preview_build_id").references(
+      (): AnyPgColumn => previewBuilds.id,
+      { onDelete: "set null" },
+    ),
+
+    providerName: text("provider_name"),
+    providerModel: text("provider_model"),
+    // Cumulative UsageMetadata-shaped totals (@asafarim/appbuilder-ai) —
+    // token/latency counts only, never provider request/response bodies.
+    usage: jsonb("usage").$type<Record<string, unknown>>().default({}),
+
+    failureCode: generationJobFailureCodeEnum("failure_code"),
+    // Always the safe, user-facing message (see lib/generation/errors.ts) —
+    // detailed operator diagnostics are logged, redacted, separately, never
+    // persisted verbatim on this row.
+    failureMessage: text("failure_message"),
+
+    cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
+    cancelledByPrincipalId: text("cancelled_by_principal_id"),
+
+    // Worker crash-recovery lease. A worker claiming this job stamps its own
+    // instance id + a future expiry and refreshes `heartbeatAt`/
+    // `leaseExpiresAt` periodically; a claim query only considers jobs whose
+    // `leaseExpiresAt` is null or already in the past (see
+    // lib/repositories/generationJobs.ts#claimNextJob).
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generation_jobs_app_idempotency_unique").on(table.appId, table.idempotencyKey),
+    index("generation_jobs_app_id_idx").on(table.appId),
+    index("generation_jobs_status_idx").on(table.status),
+    index("generation_jobs_status_lease_idx").on(table.status, table.leaseExpiresAt),
+  ],
+);
+
+// One row per accepted-or-rejected operation-proposal iteration within a
+// job. Exists mainly so the pipeline's operation-proposal step is itself
+// idempotent per (jobId, iteration): a worker crash/restart mid-iteration
+// re-checks this table before calling the provider or applyOperation again
+// for that iteration, rather than re-proposing/re-applying and risking a
+// duplicate specification version.
+export const generationOperationBatches = pgTable(
+  "generation_operation_batches",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => generationJobs.id, { onDelete: "cascade" }),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    iteration: integer("iteration").notNull(),
+    reasoningSummary: text("reasoning_summary").notNull().default(""),
+    isFinalBatch: boolean("is_final_batch").notNull().default(false),
+    proposedOperationCount: integer("proposed_operation_count").notNull().default(0),
+    // Ordered ids into appliedOperations for every operation in this batch
+    // that was actually applied — the durable link from "what the model
+    // proposed" to "what M04 actually persisted".
+    appliedOperationIds: jsonb("applied_operation_ids").$type<string[]>().notNull().default([]),
+    status: generationBatchStatusEnum("status").notNull(),
+    rejectionReason: text("rejection_reason"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generation_operation_batches_job_iteration_unique").on(table.jobId, table.iteration),
+    index("generation_operation_batches_app_id_idx").on(table.appId),
+  ],
+);
+
 export const appsRelations = relations(apps, ({ many }) => ({
   collaborators: many(collaborators),
   specifications: many(specifications),
@@ -446,6 +629,7 @@ export const appsRelations = relations(apps, ({ many }) => ({
   deployments: many(deployments),
   auditEvents: many(auditEvents),
   creationRequest: many(creationRequests),
+  generationJobs: many(generationJobs),
 }));
 
 export const creationRequestsRelations = relations(creationRequests, ({ one }) => ({
@@ -515,4 +699,26 @@ export const auditEventsRelations = relations(auditEvents, ({ one }) => ({
 
 export const idempotencyKeysRelations = relations(idempotencyKeys, ({ one }) => ({
   app: one(apps, { fields: [idempotencyKeys.appId], references: [apps.id] }),
+}));
+
+export const generationJobsRelations = relations(generationJobs, ({ one, many }) => ({
+  app: one(apps, { fields: [generationJobs.appId], references: [apps.id] }),
+  creationRequest: one(creationRequests, {
+    fields: [generationJobs.creationRequestId],
+    references: [creationRequests.id],
+  }),
+  resultingVersion: one(specificationVersions, {
+    fields: [generationJobs.resultingVersionId],
+    references: [specificationVersions.id],
+  }),
+  resultingPreviewBuild: one(previewBuilds, {
+    fields: [generationJobs.resultingPreviewBuildId],
+    references: [previewBuilds.id],
+  }),
+  batches: many(generationOperationBatches),
+}));
+
+export const generationOperationBatchesRelations = relations(generationOperationBatches, ({ one }) => ({
+  job: one(generationJobs, { fields: [generationOperationBatches.jobId], references: [generationJobs.id] }),
+  app: one(apps, { fields: [generationOperationBatches.appId], references: [apps.id] }),
 }));

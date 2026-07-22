@@ -35,7 +35,10 @@ export type Capability =
   | "app.restore" // restore an archived app
   | "app.validate" // run validation gates (M10)
   | "app.approve" // approve a validated version (M10)
-  | "app.deployRelease"; // create/publish a release or deployment (M11)
+  | "app.deployRelease" // create/publish a release or deployment (M11)
+  | "app.requestGeneration" // enqueue/resume an AI generation job (M07)
+  | "app.viewGenerationJob" // view a generation job's status/progress (M07)
+  | "app.cancelGeneration"; // cancel an active generation job (M07)
 
 /** The minimum role each capability requires. Owner outranks editor outranks viewer. */
 const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
@@ -49,6 +52,9 @@ const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
   "app.validate": "editor",
   "app.approve": "owner",
   "app.deployRelease": "owner",
+  "app.requestGeneration": "editor",
+  "app.viewGenerationJob": "viewer",
+  "app.cancelGeneration": "editor",
 };
 
 /** Whether a role grants a capability. Exported so tests/UI can render capability-gated affordances consistently. */
@@ -67,6 +73,7 @@ const ALLOWED_WHILE_ARCHIVED: ReadonlySet<Capability> = new Set([
   "app.viewPreview",
   "app.archive",
   "app.restore",
+  "app.viewGenerationJob",
 ]);
 
 export interface AppAccess {

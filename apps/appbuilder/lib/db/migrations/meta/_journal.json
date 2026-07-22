@@ -29,6 +29,13 @@
       "when": 1784670352399,
       "tag": "0003_appbuilder_m06_preview_runtime",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784706020596,
+      "tag": "0004_appbuilder_m07_generation_jobs",
+      "breakpoints": true
     }
   ]
 }

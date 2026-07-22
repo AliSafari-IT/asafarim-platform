@@ -17,18 +17,24 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx lib/db/seed.ts",
     "e2e": "playwright test",
-    "e2e:report": "playwright show-report .playwright/report"
+    "e2e:report": "playwright show-report .playwright/report",
+    "worker:dev": "tsup --config tsup.worker.config.ts --watch --silent --onSuccess \"node ./worker-dist/worker.js\"",
+    "worker:build": "tsup --config tsup.worker.config.ts"
   },
   "dependencies": {
+    "@asafarim/appbuilder-ai": "workspace:*",
     "@asafarim/appbuilder-runtime": "workspace:*",
     "@asafarim/appbuilder-schema": "workspace:*",
     "@asafarim/auth": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
+    "bullmq": "^5.34.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.38.2",
+    "ioredis": "^5.11.1",
     "next": "^16.2.10",
     "next-auth": "^5.0.0-beta.28",
+    "openai": "^4.73.0",
     "pg": "^8.13.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -44,6 +50,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.30.1",
+    "tsup": "^8.3.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.0",
     "vitest": "^2.1.9"

@@ -29,6 +29,7 @@ services:
         NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL}
         NEXT_PUBLIC_VIONTO_URL: ${NEXT_PUBLIC_VIONTO_URL}
         NEXT_PUBLIC_TESTORA_URL: ${NEXT_PUBLIC_TESTORA_URL}
+        NEXT_PUBLIC_APPBUILDER_URL: ${NEXT_PUBLIC_APPBUILDER_URL}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     env_file:
@@ -248,6 +249,45 @@ services:
     depends_on:
       appbuilder-postgres:
         condition: service_healthy
+    networks:
+      - asafarim_net
+
+  # M07 AI generation worker — a standalone process, not the Next.js app
+  # (which is not deployed yet, M11; see appbuilder-migrate above for the
+  # same "staged ahead of the app itself" rationale). Consumes BullMQ
+  # dispatch messages on the shared `redis` instance and drives
+  # generation_jobs rows in appbuilder-postgres forward; see
+  # docs/appbuilder-m07-ai-generation.md. Defaults to the deterministic fake
+  # provider (APPBUILDER_AI_PROVIDER) so this service never makes a billable
+  # call until an operator explicitly opts into "openai" with a real key.
+  appbuilder-worker:
+    build:
+      context: .
+      dockerfile: apps/appbuilder/Dockerfile
+      target: worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      APPBUILDER_DATABASE_URL: postgres://appbuilder:${APPBUILDER_DB_PASSWORD}@appbuilder-postgres:5432/appbuilder
+      REDIS_URL: redis://redis:6379
+      APPBUILDER_AI_PROVIDER: ${APPBUILDER_AI_PROVIDER:-fake}
+      APPBUILDER_AI_OPENAI_API_KEY: ${APPBUILDER_AI_OPENAI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL}
+      APPBUILDER_WORKER_CONCURRENCY: ${APPBUILDER_WORKER_CONCURRENCY:-2}
+      APPBUILDER_WORKER_HEALTH_PORT: "3008"
+    depends_on:
+      appbuilder-postgres:
+        condition: service_healthy
+      appbuilder-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
     networks:
       - asafarim_net
 

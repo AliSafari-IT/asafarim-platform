@@ -14,6 +14,8 @@ const TABLE_NAMES = [
   "deployments",
   "releases",
   "preview_builds",
+  "generation_operation_batches",
+  "generation_jobs",
   "applied_operations",
   "specification_versions",
   "specifications",
