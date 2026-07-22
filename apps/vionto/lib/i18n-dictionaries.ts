@@ -1,5 +1,6 @@
 import type { BaseLanguage, Dictionaries } from "@asafarim/shared-i18n";
 import landingDictionaries from "./locales/landing";
+import lbVionto from "./locales/lb";
 
 /**
  * Vionto-specific translation overrides. Keys shadow the base dictionary
@@ -20,6 +21,12 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.topbar.switchToDark": "Switch to dark theme",
     "vionto.topbar.switchApp": "Switch app",
 
+    // Common action shadows
+    "common.rename": "Rename",
+    "common.duplicate": "Duplicate",
+    "common.delete": "Delete",
+    "common.remove": "Remove",
+
     // Common labels / aria
     "vionto.aria.videoTemplate": "Video template",
     "vionto.aria.albumManagement": "Album management",
@@ -32,6 +39,7 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.aria.closePreview": "Close preview",
     "vionto.template.manual": "Manual",
     "vionto.template.manualSetup": "Manual setup",
+    "vionto.template.fallback": "Template",
     "vionto.album.collectionAll": "All",
     "vionto.album.namePlaceholder": "Album name",
     "vionto.album.descriptionPlaceholder": "Description (optional)",
@@ -56,6 +64,14 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.subtitle.preset.documentary": "Documentary",
     "vionto.videoVersion.new": "New video version",
     "vionto.videoVersion.titleTooltip": "Create a brand-new video version linked to this album",
+    "vionto.videoVersion.label": "Video Version",
+    "vionto.videoVersion.newVersion": "New version",
+    "vionto.videoVersion.deleteTitle": "Delete version",
+    "vionto.videoVersion.deleteMessage": "Delete this version? This cannot be undone.",
+    "vionto.videoVersion.fallback": "Version",
+    "vionto.videoVersion.scripts": "{count} script{s}",
+    "vionto.videoVersion.renders": "{count} render{s}",
+    "vionto.videoVersion.exports": "{count} export{s}",
     "vionto.album.sortByDate": "Sort images by EXIF date (oldest first)",
     "vionto.album.groupByLocation": "Group images by GPS location",
     "vionto.album.collectionsLabel": "Collections",
@@ -76,6 +92,17 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.album.manage": "Manage",
     "vionto.album.done": "Done",
     "vionto.album.startFromBase": "Start with all images from base album",
+    "vionto.album.activeVersionLabel": "Album for active version",
+    "vionto.album.rendersFrom": "renders from",
+    "vionto.album.selectedAlbum": "the selected album",
+    "vionto.album.selectedCount": "{count} selected",
+    "vionto.album.clearAll": "Clear all",
+    "vionto.album.selectAll": "Select all",
+    "vionto.album.deleting": "Deleting…",
+    "vionto.album.deleteSelected": "Delete selected",
+    "vionto.album.loading": "Loading albums…",
+    "vionto.album.details": "Album details",
+    "vionto.album.fallback": "Album",
     "vionto.project.manage": "Manage projects",
     "vionto.script.version": "Version",
     "vionto.create.eyebrow": "Photo-to-story video MVP",
@@ -91,6 +118,9 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.upload.dropzoneHint":
       "JPG, PNG, HEIC, WEBP, or ZIP up to the account limit.",
     "vionto.upload.exifReading": "Reading EXIF metadata…",
+    "vionto.upload.selectedFiles": "{count} file{s} selected",
+    "vionto.upload.moreFiles": "+{count} more",
+    "vionto.upload.button": "Upload",
 
     // Script / Story
     "vionto.script.title": "Generated story",
@@ -542,6 +572,27 @@ export const viontoDictionaries: Dictionaries = {
     // Units
     "vionto.unit.seconds": "s",
     "vionto.unit.mb": "MB",
+
+    // Lifecycle labels (used by ViontoPage)
+    "vionto.lifecycle.draft.label": "Draft",
+    "vionto.lifecycle.draft.next": "Upload photos",
+    "vionto.lifecycle.photos_uploaded.label": "Photos uploaded",
+    "vionto.lifecycle.photos_uploaded.next": "Generate story",
+    "vionto.lifecycle.story_generated.label": "Story generated",
+    "vionto.lifecycle.story_generated.next": "Choose audio",
+    "vionto.lifecycle.audio_ready.label": "Audio ready",
+    "vionto.lifecycle.audio_ready.next": "Render video",
+    "vionto.lifecycle.video_rendered.label": "Video rendered",
+    "vionto.lifecycle.video_rendered.next": "Publish/export",
+    "vionto.lifecycle.nextLabel": "Next:",
+
+    // Collection labels (used by ViontoPage)
+    "vionto.collection.family": "Family",
+    "vionto.collection.travel": "Travel",
+    "vionto.collection.events": "Events",
+    "vionto.collection.work": "Work",
+    "vionto.collection.archive": "Archive",
+    "vionto.collection.favorites": "Favorites",
   },
   nl: {
     "vionto.nav.dashboard": "Dashboard",
@@ -1828,8 +1879,8 @@ export const viontoDictionaries: Dictionaries = {
   },
 };
 
-// Luxembourgish locale uses English placeholders for Vionto strings until translations are ready.
-viontoDictionaries.lb = { ...(viontoDictionaries.en ?? {}) };
+// Luxembourgish Vionto overrides (fall back to English for any missing app-specific keys).
+viontoDictionaries.lb = lbVionto;
 
 // Merge landing-page translations into all base-language dictionaries.
 for (const lang of Object.keys(landingDictionaries) as BaseLanguage[]) {
