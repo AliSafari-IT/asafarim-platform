@@ -1,10 +1,13 @@
 # ---------------------------------------------------------------------------
-# appbuilder — metadata-driven AI application factory. Three-stage:
+# appbuilder — metadata-driven AI application factory. Stages:
 #   builder  : installs the whole workspace and builds the standalone server.
 #   migrator : reuses builder (has tsx + drizzle + source) to run drizzle
 #              migrations against appbuilder's own database before the app
 #              starts. See docker-compose.prod.yml's appbuilder-migrate job.
 #   runner   : slim image that serves the app.
+#   worker   : bundles worker.ts (M07 AI generation worker — a separate
+#              process from the Next.js app, see docs/appbuilder-m07-ai-generation.md)
+#              and installs only its external runtime deps into a slim image.
 # ---------------------------------------------------------------------------
 FROM node:24-alpine AS builder
 WORKDIR /app
@@ -52,3 +55,18 @@ COPY --from=builder /app/apps/appbuilder/.next/static ./apps/appbuilder/.next/st
 COPY --from=builder /app/apps/appbuilder/public ./apps/appbuilder/public
 EXPOSE 3000
 CMD ["node", "apps/appbuilder/server.js"]
+
+# --- worker builder (bundles worker.ts + workspace packages via tsup) ---
+FROM builder AS worker-builder
+RUN pnpm --filter @asafarim/appbuilder worker:build
+
+# --- worker (standalone M07 generation worker; not the Next.js app) ---
+FROM node:24-alpine AS worker
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=worker-builder /app/apps/appbuilder/worker-dist ./worker-dist
+# Only the deps tsup.worker.config.ts keeps external (native/heavy — bundled
+# workspace packages like @asafarim/appbuilder-ai are already inlined).
+RUN npm install --no-save --omit=dev bullmq@^5.34.0 ioredis@^5.11.1 openai@^4.73.0 pg@^8.13.1
+EXPOSE 3008
+CMD ["node", "worker-dist/worker.js"]
