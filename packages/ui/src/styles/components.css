@@ -1442,3 +1442,81 @@ a .ui-card {
   object-fit: cover;
 }
 
+/* ── ConfirmDialog ──────────────────────────────────────────────── */
+
+.ui-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: var(--space-4);
+  z-index: var(--z-overlay);
+  animation: ui-dialog-fade-in var(--dur-2) var(--ease);
+}
+
+.ui-dialog {
+  width: 100%;
+  max-width: 30rem;
+  max-height: calc(100vh - var(--space-6));
+  overflow-y: auto;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-5);
+}
+
+.ui-dialog:focus-visible,
+.ui-dialog:focus {
+  outline: none;
+}
+
+.ui-dialog--danger {
+  border-color: color-mix(in srgb, #b91c1c 45%, var(--line));
+}
+
+.ui-dialog__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.ui-dialog--danger .ui-dialog__title {
+  color: #b91c1c;
+}
+
+.ui-dialog__message {
+  margin: 0 0 var(--space-4);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.ui-dialog__body {
+  margin-bottom: var(--space-4);
+}
+
+.ui-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+@keyframes ui-dialog-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-dialog-overlay {
+    animation: none;
+  }
+}
+

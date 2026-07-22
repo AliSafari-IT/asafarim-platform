@@ -35,6 +35,7 @@ export async function PlatformHeader() {
             { label: "Hub", href: links.hub, meta: session?.user ? "workspace" : "sign in" },
             { label: "Showcase", href: links.showcase, meta: "gallery" },
             { label: "Vionto", href: links.vionto, meta: "studio" },
+            { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
           ]}
         />
         {session?.user ? (

@@ -1,0 +1,203 @@
+/*
+ * Responsive layout for the M08 builder workspace.
+ * Breakpoints intentionally match tests/e2e/specs/responsive.spec.ts's own
+ * contract (mobile 390, tablet 768, laptop 1024, desktop 1440) so this
+ * layout and that suite's "no horizontal overflow" assertions stay aligned.
+ *
+ * Desktop (>=1024px): a real three-column grid — structure | preview | right panel.
+ * Tablet (768-1023px): two visible columns (preview | right panel); structure
+ *   becomes a togglable overlay drawer (data-drawer-open).
+ * Mobile (<768px): a single visible panel at a time, switched via a
+ *   role="tablist" tab bar (data-active-panel).
+ */
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.topBarIdentity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.topBarIdentity h1 {
+  font-size: var(--text-lg);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topBarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.drawerToggle {
+  display: none;
+}
+
+.tabBar {
+  display: none;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr) 22rem;
+  gap: var(--space-3);
+  min-height: 34rem;
+  min-width: 0;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) 0;
+}
+
+.panelBody {
+  padding: var(--space-3);
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.statusBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.rightPanelTabs {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+}
+
+/* Marker classes only — layout for these two comes from .panel; they exist
+   so the mobile media query below can select them by a stable,
+   module-scoped name (see .workspace[data-active-panel=...] rules). */
+.previewPanel,
+.rightPanel {
+  display: flex;
+}
+
+/* ── Tablet: two visible columns, structure becomes an overlay drawer ── */
+@media (max-width: 1023px) {
+  .panels {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+
+  .structurePanel {
+    display: none;
+  }
+
+  .drawerToggle {
+    display: inline-flex;
+  }
+
+  .workspace[data-drawer-open="true"] .structurePanel {
+    display: flex;
+    position: fixed;
+    z-index: var(--z-overlay);
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(20rem, 85vw);
+    box-shadow: var(--shadow-2);
+  }
+
+  .drawerBackdrop {
+    display: none;
+  }
+  .workspace[data-drawer-open="true"] .drawerBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: calc(var(--z-overlay) - 1);
+  }
+}
+
+/* ── Mobile: single panel + tab bar ── */
+@media (max-width: 767px) {
+  .panels {
+    display: block;
+  }
+
+  .panel {
+    display: none;
+  }
+
+  .workspace[data-active-panel="structure"] .structurePanel,
+  .workspace[data-active-panel="preview"] .previewPanel,
+  .workspace[data-active-panel="conversation"] .rightPanel,
+  .workspace[data-active-panel="history"] .rightPanel {
+    display: flex;
+  }
+
+  .structurePanel {
+    position: static;
+    width: auto;
+    box-shadow: none;
+  }
+
+  .drawerToggle {
+    display: none;
+  }
+
+  .tabBar {
+    display: flex;
+    gap: var(--space-1);
+    overflow-x: auto;
+    padding: var(--space-1);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+
+  .tabBar button {
+    flex: 1 0 auto;
+  }
+}

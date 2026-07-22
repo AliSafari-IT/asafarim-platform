@@ -17,6 +17,7 @@ export {
   type ButtonVariant,
 } from "./components/Button";
 export { Card, type CardVariant } from "./components/Card";
+export { ConfirmDialog, type ConfirmDialogProps } from "./components/ConfirmDialog";
 export { EmptyState } from "./components/EmptyState";
 export {
   FieldError,

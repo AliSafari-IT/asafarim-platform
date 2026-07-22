@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db/client";
 import { getPinnedPreview } from "@/lib/repositories/previewService";
 import { NotFoundError } from "@/lib/errors";
 import { routes } from "@/lib/routes";
+import { PreviewSelectionBridge } from "./PreviewSelectionBridge";
 
 export const metadata: Metadata = { title: "Preview" };
 
@@ -19,6 +20,13 @@ interface PreviewPageProps {
    * decoded, or used for anything beyond the authorized lookups below.
    */
   params: Promise<{ appId: string; path?: string[] }>;
+  /**
+   * `embed=workspace&nonce=...` — set only by the M08 builder workspace's
+   * `PreviewPane` when it embeds this route in an iframe for selection
+   * support (see PreviewSelectionBridge.tsx). Absent for the standalone
+   * preview route, whose behavior is completely unchanged by M08.
+   */
+  searchParams: Promise<{ embed?: string; nonce?: string }>;
 }
 
 /**
@@ -34,8 +42,9 @@ interface PreviewPageProps {
  * `ALLOWED_WHILE_ARCHIVED`), so this is a deliberate, documented policy
  * choice, not stale leftover access — see docs/appbuilder-runtime.md.
  */
-export default async function AppPreviewPage({ params }: PreviewPageProps) {
+export default async function AppPreviewPage({ params, searchParams }: PreviewPageProps) {
   const { appId, path = [] } = await params;
+  const { embed, nonce } = await searchParams;
   const actor = await requireActor({ callbackUrl: routes.appPreview(appId) });
 
   let pinned: Awaited<ReturnType<typeof getPinnedPreview>>;
@@ -76,7 +85,19 @@ export default async function AppPreviewPage({ params }: PreviewPageProps) {
     return <PreviewDiagnostic appId={appId} errors={result.errors} />;
   }
 
-  return result.element;
+  return (
+    <>
+      {embed === "workspace" && nonce ? (
+        <PreviewSelectionBridge
+          appId={appId}
+          specificationVersionNumber={pinned.specificationVersionNumber}
+          buildId={pinned.build.id}
+          nonce={nonce}
+        />
+      ) : null}
+      {result.element}
+    </>
+  );
 }
 
 /**

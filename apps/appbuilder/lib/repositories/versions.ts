@@ -46,7 +46,7 @@ export async function restoreVersion(
   appId: string,
   input: RestoreVersionInput,
 ): Promise<VersionMutationResult> {
-  await assertCapability(db, actor, appId, "app.editSpecification");
+  await assertCapability(db, actor, appId, "app.restoreVersion");
   const requestHash = checksumOf({ action: "restore", targetVersionNumber: input.targetVersionNumber, baseVersionNumber: input.baseVersionNumber });
 
   return db.transaction(async (tx) => {

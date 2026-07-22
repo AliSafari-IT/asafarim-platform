@@ -129,6 +129,86 @@ export const generationJobFailureCodeEnum = pgEnum("generation_job_failure_code"
 
 export const generationBatchStatusEnum = pgEnum("generation_batch_status", ["applied", "rejected"]);
 
+// M08: a conversation message's author role — mirrors the shape a chat UI
+// needs (user/assistant/system) without conflating it with `messageType`
+// below, which is *what kind of content* the message carries regardless of
+// who "spoke" it (e.g. the assistant role produces both `ai_proposal` and
+// `failure` messageTypes).
+export const conversationRoleEnum = pgEnum("conversation_role", [
+  "user",
+  "assistant",
+  "system",
+]);
+
+// M08: what a persisted conversation message actually represents, so the
+// workspace UI can render each kind distinctly (issue requirement: "clearly
+// distinguish user request, AI proposal, system status, validation result,
+// applied change, and failure"). Intermediate per-tick job status is
+// deliberately NOT persisted as a message on every poll — only these
+// meaningful milestones are, so the conversation log stays a readable
+// history rather than a spam of transient status ticks.
+export const conversationMessageTypeEnum = pgEnum("conversation_message_type", [
+  "user_request",
+  "ai_proposal",
+  "system_status",
+  "validation_result",
+  "applied_change",
+  "failure",
+]);
+
+export const conversationConfirmationStateEnum = pgEnum("conversation_confirmation_state", [
+  "not_required",
+  "pending",
+  "confirmed",
+  "expired",
+]);
+
+// M08: the conversational modification job's own lifecycle — deliberately a
+// SEPARATE enum/state machine from generation_job_status (see
+// lib/modification/stateMachine.ts), even though both are AI-driven and
+// both apply through M04. A modification job interprets a single bounded
+// follow-up request against an EXISTING app (no template selection, no
+// multi-iteration operation budget loop) and may pause partway through for
+// human destructive-change confirmation, which generation jobs never do
+// (they always apply with confirmDestructive:false and simply reject/skip
+// destructive proposals instead of pausing for a human).
+export const modificationJobStatusEnum = pgEnum("modification_job_status", [
+  "queued",
+  "interpreting",
+  "proposing",
+  "awaiting_confirmation",
+  "applying",
+  "validating",
+  "preparing_preview",
+  "ready",
+  "failed",
+  "cancelled",
+]);
+
+export const modificationJobFailureCodeEnum = pgEnum("modification_job_failure_code", [
+  "invalid_request",
+  "provider_configuration_error",
+  "provider_rate_limit",
+  "provider_unavailable",
+  "malformed_provider_response",
+  "forbidden_operation",
+  "specification_validation_failed",
+  "stale_base_version",
+  "authorization_lost",
+  "preview_failed",
+  "confirmation_expired",
+  "confirmation_invalid",
+  "worker_infrastructure_error",
+  "cancelled",
+]);
+
+export const modificationBatchStatusEnum = pgEnum("modification_batch_status", [
+  "proposed",
+  "awaiting_confirmation",
+  "applied",
+  "rejected",
+]);
+
 // The generated-application registry. Every other app-owned table hangs off
 // `appId` (directly or, for specificationVersions, denormalized) so a
 // repository can never answer a query without an app-scoping predicate.
@@ -620,6 +700,254 @@ export const generationOperationBatches = pgTable(
   ],
 );
 
+// M08: the single conversation thread for an app's builder workspace. One
+// row per app (unique index below) rather than a full multi-thread model —
+// the workspace's right panel is a single ongoing conversation about the
+// app, matching the issue's "the AI conversation/change workflow" (singular
+// panel, not a thread picker). Auto-created on first message.
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    createdByPrincipalId: text("created_by_principal_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("conversations_app_id_unique").on(table.appId)],
+);
+
+// M08: every persisted message in an app's conversation — the durable
+// record that survives refresh/sign-out/device-change/worker-restart (never
+// browser-only state). `content` is always rendered through a strict, safe
+// Markdown subset on the client — never `dangerouslySetInnerHTML` — so this
+// column may contain arbitrary user/model text without being a stored-XSS
+// vector; safety is enforced at render time, not by pre-sanitizing storage.
+export const conversationMessages = pgTable(
+  "conversation_messages",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    // Denormalized so scoped reads never need a join through conversations.
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    role: conversationRoleEnum("role").notNull(),
+    messageType: conversationMessageTypeEnum("message_type").notNull(),
+    content: text("content").notNull(),
+    // The trusted, session-derived actor who authored a `user_request`
+    // message. Null for assistant/system-authored messages — those are
+    // attributed to the triggering modification job, not a principal.
+    authorPrincipalId: text("author_principal_id"),
+    // Bounded selection-context the user attached to a request (see
+    // lib/modification/selectionContext.ts) — stable spec identifiers only
+    // (appId, specification version, pageId, componentId, kind, label),
+    // never raw DOM/HTML/cookies/tokens. Null when no preview element was
+    // selected.
+    selectedContext: jsonb("selected_context").$type<Record<string, unknown>>(),
+    // The specification version this message's request/response corresponds
+    // to — lets the UI detect "this proposal was about an older version"
+    // without a join.
+    baseVersionNumber: integer("base_version_number"),
+    modificationJobId: text("modification_job_id").references(
+      (): AnyPgColumn => modificationJobs.id,
+      { onDelete: "set null" },
+    ),
+    // SpecificationDiff (@asafarim/appbuilder-schema) for ai_proposal/
+    // applied_change messages — structured, never a raw text diff.
+    diffSummary: jsonb("diff_summary").$type<Record<string, unknown>>(),
+    // DestructiveImpact["classification"] (@asafarim/appbuilder-schema) when
+    // the proposal contains a destructive change, else null.
+    impactClassification: text("impact_classification"),
+    confirmationState: conversationConfirmationStateEnum("confirmation_state")
+      .notNull()
+      .default("not_required"),
+    resultingVersionNumber: integer("resulting_version_number"),
+    resultingPreviewBuildId: text("resulting_preview_build_id").references(
+      (): AnyPgColumn => previewBuilds.id,
+      { onDelete: "set null" },
+    ),
+    failureCode: text("failure_code"),
+    // Always the safe, user-facing message — never a raw stack trace,
+    // provider error string, or SQL detail (mirrors
+    // lib/generation/errors.ts#safeFailureMessage's contract).
+    failureMessage: text("failure_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("conversation_messages_conversation_id_idx").on(table.conversationId),
+    index("conversation_messages_app_id_idx").on(table.appId),
+    index("conversation_messages_created_at_idx").on(table.createdAt),
+  ],
+);
+
+// M08: one durable row per conversational modification attempt — the
+// sibling of generation_jobs (M07), NOT a repurposing of it. A modification
+// job interprets ONE bounded follow-up request against an already-generated
+// app (optionally scoped to a selected page/component), proposes a SINGLE
+// operation batch (see modification_operation_batches; no multi-iteration
+// budget loop like generation), and may pause at `awaiting_confirmation` for
+// a human to explicitly confirm a destructive change — generation jobs never
+// pause for human confirmation, they simply skip/reject destructive
+// proposals. Kept as a distinct table + status enum rather than a
+// `jobType` discriminator on generation_jobs specifically because: (a) the
+// FK shape differs (no creationRequestId/requestedTemplateId — those are
+// M05/M07 creation-specific and meaningless here), and (b) overloading one
+// status enum with two different phase vocabularies would break the
+// invariant that `status` alone drives the state machine (see
+// lib/generation/stateMachine.ts's "phase is descriptive only, never
+// branched on" comment) — a modification job's `awaiting_confirmation`
+// status has no generation-job equivalent. The claim/lease/heartbeat SQL
+// mechanics are still copied verbatim from generationJobs.ts (see
+// lib/repositories/modificationJobs.ts) since those are genuinely
+// job-shape-agnostic.
+export const modificationJobs = pgTable(
+  "modification_jobs",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    // The `user_request` message that triggered this job — set once, never
+    // changed.
+    triggeringMessageId: text("triggering_message_id")
+      .notNull()
+      .references((): AnyPgColumn => conversationMessages.id, { onDelete: "cascade" }),
+
+    // Trusted platform actor captured at enqueue time — never client-
+    // supplied at any later step. Replayed by the worker for every
+    // assertCapability/applyOperation call (see
+    // lib/modification/pipeline.ts#actingAsInitiator), same trusted-actor
+    // pattern as M07.
+    initiatedByPrincipalId: text("initiated_by_principal_id").notNull(),
+
+    status: modificationJobStatusEnum("status").notNull().default("queued"),
+    phase: text("phase").notNull().default("queued"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+
+    // Re-checked against specifications.currentVersionNumber immediately
+    // before applying — a spec edited elsewhere mid-job fails safely
+    // (stale_base_version) rather than silently overwriting it.
+    baseVersionNumber: integer("base_version_number").notNull(),
+
+    // Bounded preview-selection context (see
+    // lib/modification/selectionContext.ts) — stable spec identifiers only.
+    selectionContext: jsonb("selection_context").$type<Record<string, unknown>>(),
+
+    // Truncated copy of the user's free-text request, bounded at the API
+    // layer (see lib/validation/conversations.ts) before being persisted —
+    // this is what the provider is actually asked about.
+    userRequestText: text("user_request_text").notNull(),
+
+    // ModificationAnalysisType (@asafarim/appbuilder-ai) — the model's
+    // structured read of the request, re-validated on every write.
+    normalizedRequest: jsonb("normalized_request").$type<Record<string, unknown>>(),
+
+    totalOperationsApplied: integer("total_operations_applied").notNull().default(0),
+
+    // Confirmation binding (issue requirement: "bind to actor, app, base
+    // version, exact proposal checksum; expire; single-use; fail if base
+    // version changed; never come from the model"). Folded directly onto
+    // this row rather than a separate table since a modification job has
+    // exactly one confirmation cycle for its one operation batch.
+    confirmationRequired: boolean("confirmation_required").notNull().default(false),
+    confirmationChecksum: text("confirmation_checksum"),
+    confirmationBaseVersionNumber: integer("confirmation_base_version_number"),
+    confirmationExpiresAt: timestamp("confirmation_expires_at", { withTimezone: true }),
+    confirmationConfirmedAt: timestamp("confirmation_confirmed_at", { withTimezone: true }),
+    confirmationConfirmedByPrincipalId: text("confirmation_confirmed_by_principal_id"),
+
+    resultingVersionNumber: integer("resulting_version_number"),
+    resultingVersionId: text("resulting_version_id").references(
+      (): AnyPgColumn => specificationVersions.id,
+      { onDelete: "set null" },
+    ),
+    resultingPreviewBuildId: text("resulting_preview_build_id").references(
+      (): AnyPgColumn => previewBuilds.id,
+      { onDelete: "set null" },
+    ),
+
+    providerName: text("provider_name"),
+    providerModel: text("provider_model"),
+    usage: jsonb("usage").$type<Record<string, unknown>>().default({}),
+
+    failureCode: modificationJobFailureCodeEnum("failure_code"),
+    failureMessage: text("failure_message"),
+
+    cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
+    cancelledByPrincipalId: text("cancelled_by_principal_id"),
+
+    // Worker crash-recovery lease — identical mechanics to
+    // generation_jobs (see lib/repositories/modificationJobs.ts#claimInternal).
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("modification_jobs_app_idempotency_unique").on(table.appId, table.idempotencyKey),
+    index("modification_jobs_app_id_idx").on(table.appId),
+    index("modification_jobs_conversation_id_idx").on(table.conversationId),
+    index("modification_jobs_status_idx").on(table.status),
+    index("modification_jobs_status_lease_idx").on(table.status, table.leaseExpiresAt),
+  ],
+);
+
+// M08: exactly one row per modification job — unlike generation's
+// multi-iteration generationOperationBatches, a modification job proposes a
+// single bounded operation batch (see schema comment on modificationJobs).
+// Still its own table (not folded onto modificationJobs) to mirror M07's
+// audit-trail convention of keeping "what was proposed" as its own
+// append-only record, distinct from the job's own bookkeeping columns.
+export const modificationOperationBatches = pgTable(
+  "modification_operation_batches",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => modificationJobs.id, { onDelete: "cascade" }),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    reasoningSummary: text("reasoning_summary").notNull().default(""),
+    proposedOperationCount: integer("proposed_operation_count").notNull().default(0),
+    // Ordered ids into appliedOperations for every operation actually
+    // applied (before any confirmation-gated ones) — same durable link
+    // convention as generationOperationBatches.appliedOperationIds.
+    appliedOperationIds: jsonb("applied_operation_ids").$type<string[]>().notNull().default([]),
+    // { operation: unknown; reason: string }[] — proposed operations that
+    // failed structural/semantic validation and were never applied.
+    rejectedOperations: jsonb("rejected_operations").$type<Record<string, unknown>[]>().notNull().default([]),
+    // { operation: unknown; classification: string; details: string[] }[] —
+    // proposed operations M04 classified as destructive, held pending
+    // confirmation. Cleared (moved into appliedOperationIds or dropped) once
+    // the confirmation cycle resolves.
+    destructiveOperations: jsonb("destructive_operations").$type<Record<string, unknown>[]>().notNull().default([]),
+    status: modificationBatchStatusEnum("status").notNull().default("proposed"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("modification_operation_batches_job_unique").on(table.jobId),
+    index("modification_operation_batches_app_id_idx").on(table.appId),
+  ],
+);
+
 export const appsRelations = relations(apps, ({ many }) => ({
   collaborators: many(collaborators),
   specifications: many(specifications),
@@ -630,6 +958,8 @@ export const appsRelations = relations(apps, ({ many }) => ({
   auditEvents: many(auditEvents),
   creationRequest: many(creationRequests),
   generationJobs: many(generationJobs),
+  conversations: many(conversations),
+  modificationJobs: many(modificationJobs),
 }));
 
 export const creationRequestsRelations = relations(creationRequests, ({ one }) => ({
@@ -721,4 +1051,52 @@ export const generationJobsRelations = relations(generationJobs, ({ one, many })
 export const generationOperationBatchesRelations = relations(generationOperationBatches, ({ one }) => ({
   job: one(generationJobs, { fields: [generationOperationBatches.jobId], references: [generationJobs.id] }),
   app: one(apps, { fields: [generationOperationBatches.appId], references: [apps.id] }),
+}));
+
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  app: one(apps, { fields: [conversations.appId], references: [apps.id] }),
+  messages: many(conversationMessages),
+  modificationJobs: many(modificationJobs),
+}));
+
+export const conversationMessagesRelations = relations(conversationMessages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [conversationMessages.conversationId],
+    references: [conversations.id],
+  }),
+  app: one(apps, { fields: [conversationMessages.appId], references: [apps.id] }),
+  modificationJob: one(modificationJobs, {
+    fields: [conversationMessages.modificationJobId],
+    references: [modificationJobs.id],
+  }),
+  resultingPreviewBuild: one(previewBuilds, {
+    fields: [conversationMessages.resultingPreviewBuildId],
+    references: [previewBuilds.id],
+  }),
+}));
+
+export const modificationJobsRelations = relations(modificationJobs, ({ one, many }) => ({
+  app: one(apps, { fields: [modificationJobs.appId], references: [apps.id] }),
+  conversation: one(conversations, {
+    fields: [modificationJobs.conversationId],
+    references: [conversations.id],
+  }),
+  triggeringMessage: one(conversationMessages, {
+    fields: [modificationJobs.triggeringMessageId],
+    references: [conversationMessages.id],
+  }),
+  resultingVersion: one(specificationVersions, {
+    fields: [modificationJobs.resultingVersionId],
+    references: [specificationVersions.id],
+  }),
+  resultingPreviewBuild: one(previewBuilds, {
+    fields: [modificationJobs.resultingPreviewBuildId],
+    references: [previewBuilds.id],
+  }),
+  batch: many(modificationOperationBatches),
+}));
+
+export const modificationOperationBatchesRelations = relations(modificationOperationBatches, ({ one }) => ({
+  job: one(modificationJobs, { fields: [modificationOperationBatches.jobId], references: [modificationJobs.id] }),
+  app: one(apps, { fields: [modificationOperationBatches.appId], references: [apps.id] }),
 }));

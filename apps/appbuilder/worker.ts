@@ -29,22 +29,38 @@ import { Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 import { createProviderFromConfig, loadAiProviderConfig, safeConfigSummary, buildSafeSummary } from "@asafarim/appbuilder-ai";
 import { getDb, closeDb } from "./lib/db/client";
-import { generationJobs } from "./lib/db/schema";
+import { generationJobs, modificationJobs } from "./lib/db/schema";
 import {
   claimJobById,
   claimNextAvailableJob,
   type GenerationJobRow,
 } from "./lib/repositories/generationJobs";
+import {
+  claimJobById as claimModificationJobById,
+  claimNextAvailableJob as claimNextAvailableModificationJob,
+  type ModificationJobRow,
+} from "./lib/repositories/modificationJobs";
 import { runGenerationJob } from "./lib/generation/pipeline";
+import { runModificationJob } from "./lib/modification/pipeline";
 import { GENERATION_LIMITS } from "./lib/generation/limits";
+import { MODIFICATION_LIMITS } from "./lib/modification/limits";
 import { computeBackoffDelayMs } from "./lib/generation/backoff";
-import { GENERATION_QUEUE_NAME, nudgeWorker, type GenerationDispatchMessage } from "./lib/server/queue";
+import {
+  GENERATION_QUEUE_NAME,
+  MODIFICATION_QUEUE_NAME,
+  nudgeWorker,
+  nudgeModificationWorker,
+  type GenerationDispatchMessage,
+  type ModificationDispatchMessage,
+} from "./lib/server/queue";
 
 const WORKER_ID = `appbuilder-worker:${process.pid}:${Math.random().toString(36).slice(2, 8)}`;
 const CONCURRENCY = Number.parseInt(process.env.APPBUILDER_WORKER_CONCURRENCY ?? "2", 10);
 const HEALTH_PORT = Number.parseInt(process.env.APPBUILDER_WORKER_HEALTH_PORT ?? "3008", 10);
 const LEASE_DURATION_MS = GENERATION_LIMITS.DEFAULT_LEASE_DURATION_MS;
 const SWEEP_INTERVAL_MS = GENERATION_LIMITS.STALE_LEASE_SWEEP_INTERVAL_MS;
+const MODIFICATION_LEASE_DURATION_MS = MODIFICATION_LIMITS.DEFAULT_LEASE_DURATION_MS;
+const MODIFICATION_SWEEP_INTERVAL_MS = MODIFICATION_LIMITS.STALE_LEASE_SWEEP_INTERVAL_MS;
 
 const redisUrl = process.env.REDIS_URL;
 if (!redisUrl) {
@@ -140,6 +156,83 @@ const sweepInterval = setInterval(async () => {
   }
 }, SWEEP_INTERVAL_MS);
 
+// ─── M08: conversational modification jobs — same worker process, a
+// separate BullMQ queue/state machine (see lib/db/schema.ts's
+// modificationJobs comment), but an identical claim/process/sweep shape. ──
+
+async function processClaimedModificationJob(job: ModificationJobRow): Promise<void> {
+  activeJobCount += 1;
+  const controller = new AbortController();
+
+  const cancelWatcher = setInterval(async () => {
+    try {
+      const db = getDb();
+      const [row] = await db.select().from(modificationJobs).where(eq(modificationJobs.id, job.id)).limit(1);
+      if (row?.cancelRequestedAt) controller.abort();
+    } catch {
+      // Best-effort — the next phase-boundary checkpoint still catches it.
+    }
+  }, 3_000);
+
+  try {
+    const provider = createProviderFromConfig(loadAiProviderConfig());
+    const outcome = await runModificationJob(
+      { db: getDb(), provider, workerId: WORKER_ID, leaseDurationMs: MODIFICATION_LEASE_DURATION_MS, signal: controller.signal },
+      job,
+    );
+
+    if (outcome.kind === "retry_later") {
+      const delayMs = computeBackoffDelayMs(outcome.job.attemptCount);
+      console.warn(
+        `[appbuilder-worker] modification job ${job.id} failed retryably (${outcome.error.code}); retrying in ~${delayMs}ms (attempt ${outcome.job.attemptCount}/${MODIFICATION_LIMITS.MAX_JOB_ATTEMPTS})`,
+        buildSafeSummary({ cause: String(outcome.error.cause ?? "") }),
+      );
+      await nudgeModificationWorker(job.id, { cause: "retry", attempt: outcome.job.attemptCount, delayMs });
+    } else if (outcome.kind === "lease_lost") {
+      console.warn(`[appbuilder-worker] lost lease on modification job ${job.id} mid-processing; another worker owns it now`);
+    } else {
+      console.log(`[appbuilder-worker] modification job ${job.id} -> ${outcome.job.status} (${outcome.job.phase})`);
+    }
+  } catch (err) {
+    console.error(`[appbuilder-worker] unhandled error processing modification job ${job.id}:`, err);
+  } finally {
+    clearInterval(cancelWatcher);
+    activeJobCount -= 1;
+  }
+}
+
+const modificationWorker = new Worker<ModificationDispatchMessage>(
+  MODIFICATION_QUEUE_NAME,
+  async (bullJob: Job<ModificationDispatchMessage>) => {
+    const { jobId } = bullJob.data;
+    const claimed = await claimModificationJobById(getDb(), jobId, WORKER_ID, MODIFICATION_LEASE_DURATION_MS);
+    if (!claimed) {
+      // Already claimed, already terminal, or awaiting human confirmation —
+      // nothing to do; not an error.
+      return;
+    }
+    await processClaimedModificationJob(claimed);
+  },
+  { connection: redis, concurrency: CONCURRENCY },
+);
+
+modificationWorker.on("failed", (bullJob, err) => {
+  console.error(`[appbuilder-worker] BullMQ modification job ${bullJob?.id} failed:`, err);
+});
+
+const modificationSweepInterval = setInterval(async () => {
+  if (isShuttingDown) return;
+  try {
+    const claimed = await claimNextAvailableModificationJob(getDb(), WORKER_ID, MODIFICATION_LEASE_DURATION_MS);
+    if (claimed) {
+      console.log(`[appbuilder-worker] stale-lease sweep claimed modification job ${claimed.id} (status: ${claimed.status})`);
+      await processClaimedModificationJob(claimed);
+    }
+  } catch (err) {
+    console.error("[appbuilder-worker] modification stale-lease sweep error:", err);
+  }
+}, MODIFICATION_SWEEP_INTERVAL_MS);
+
 const healthServer = createServer(async (_req, res) => {
   const checks = { worker: !isShuttingDown, redis: false, database: false };
   try {
@@ -160,7 +253,7 @@ const healthServer = createServer(async (_req, res) => {
     JSON.stringify({
       ok,
       service: "appbuilder-worker",
-      queue: GENERATION_QUEUE_NAME,
+      queues: [GENERATION_QUEUE_NAME, MODIFICATION_QUEUE_NAME],
       concurrency: CONCURRENCY,
       activeJobCount,
       checks,
@@ -178,8 +271,10 @@ function shutdown(signal: string) {
   isShuttingDown = true;
   console.log(`[appbuilder-worker] ${signal} received, shutting down gracefully...`);
   clearInterval(sweepInterval);
+  clearInterval(modificationSweepInterval);
   Promise.all([
     worker.close(),
+    modificationWorker.close(),
     redis.quit(),
     closeDb(),
     new Promise<void>((resolve, reject) => {

@@ -9,6 +9,14 @@ export interface SeededFixtures {
   archivedAppId: string;
   noPreviewAppId: string;
   securityAppId: string;
+  builderAppId: string;
+  builderAppPriorityId: string;
+  builderAppSelectionId: string;
+  builderAppDestructiveId: string;
+  builderAppHistoryId: string;
+  builderAppAdversarialId: string;
+  builderAppA11yDialogId: string;
+  builderAppA11yMotionId: string;
   ownerId: string;
   editorId: string;
   viewerId: string;

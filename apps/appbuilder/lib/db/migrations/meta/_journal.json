@@ -36,6 +36,13 @@
       "when": 1784706020596,
       "tag": "0004_appbuilder_m07_generation_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784730509852,
+      "tag": "0005_appbuilder_m08_conversations_modification_jobs",
+      "breakpoints": true
     }
   ]
 }

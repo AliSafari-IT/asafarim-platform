@@ -3,10 +3,12 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { RequirementsAnalysis, type RequirementsAnalysisType } from "../schemas/requirementsAnalysis";
 import { TemplateRecommendation } from "../schemas/templateRecommendation";
 import { OperationBatch } from "../schemas/operationProposal";
+import { ModificationProposal } from "../schemas/modificationProposal";
 import { SYSTEM_POLICY } from "../prompts/systemPolicy";
 import { buildAnalysisPrompt } from "../prompts/buildAnalysisPrompt";
 import { buildTemplatePrompt } from "../prompts/buildTemplatePrompt";
 import { buildOperationPrompt } from "../prompts/buildOperationPrompt";
+import { buildModificationPrompt } from "../prompts/buildModificationPrompt";
 import { ProviderError } from "../provider/errors";
 import type { AiProviderConfig } from "../provider/config";
 import type {
@@ -18,6 +20,8 @@ import type {
   RecommendTemplateResult,
   ProposeOperationsInput,
   ProposeOperationsResult,
+  ProposeModificationInput,
+  ProposeModificationResult,
   UsageMetadata,
 } from "../provider/types";
 
@@ -151,6 +155,15 @@ export class OpenAiProvider implements AiProvider {
     const prompt = buildOperationPrompt(input);
     const { data, usage } = await this.parse(prompt, OperationBatch, "operation_batch", options);
     return { batch: data as any, usage };
+  }
+
+  async proposeModification(
+    input: ProposeModificationInput,
+    options: ProviderCallOptions,
+  ): Promise<ProposeModificationResult> {
+    const prompt = buildModificationPrompt(input);
+    const { data, usage } = await this.parse(prompt, ModificationProposal, "modification_proposal", options);
+    return { proposal: data as any, usage };
   }
 }
 
