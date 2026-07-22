@@ -291,6 +291,34 @@ services:
     networks:
       - asafarim_net
 
+  appbuilder:
+    build:
+      context: .
+      dockerfile: apps/appbuilder/Dockerfile
+      target: runner
+      args: *public-build-args
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      APPBUILDER_DATABASE_URL: postgres://appbuilder:${APPBUILDER_DB_PASSWORD}@appbuilder-postgres:5432/appbuilder
+      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_APP_URL: https://appbuilder.asafarim.com
+      AUTH_URL: https://appbuilder.asafarim.com
+    depends_on:
+      postgres:
+        condition: service_started
+      appbuilder-postgres:
+        condition: service_healthy
+      appbuilder-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    networks:
+      - asafarim_net
+
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -308,6 +336,7 @@ services:
       - admin
       - vionto
       - testora
+      - appbuilder
     networks:
       - asafarim_net
 

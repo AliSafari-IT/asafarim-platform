@@ -32,7 +32,7 @@ export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-asafarim-com}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 
 echo "[deploy $(date -Is)] Building images sequentially (memory-safe on 8GB)..."
-for svc in web hub showcase admin vionto vionto-worker testora-migrate testora; do
+for svc in web hub showcase admin vionto vionto-worker testora-migrate testora appbuilder-migrate appbuilder-worker appbuilder; do
   echo "[deploy $(date -Is)] ===== build ${svc} ====="
   "${COMPOSE[@]}" build "$svc"
 done

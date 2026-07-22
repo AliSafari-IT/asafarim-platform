@@ -37,3 +37,7 @@ testora.asafarim.com {
     }
   }
 }
+
+appbuilder.asafarim.com {
+  reverse_proxy appbuilder:3000
+}
