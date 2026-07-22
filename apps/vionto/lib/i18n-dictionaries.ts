@@ -1,4 +1,5 @@
-import type { Dictionaries } from "@asafarim/shared-i18n";
+import type { BaseLanguage, Dictionaries } from "@asafarim/shared-i18n";
+import landingDictionaries from "./locales/landing";
 
 /**
  * Vionto-specific translation overrides. Keys shadow the base dictionary
@@ -1829,4 +1830,9 @@ export const viontoDictionaries: Dictionaries = {
 
 // Luxembourgish locale uses English placeholders for Vionto strings until translations are ready.
 viontoDictionaries.lb = { ...(viontoDictionaries.en ?? {}) };
+
+// Merge landing-page translations into all base-language dictionaries.
+for (const lang of Object.keys(landingDictionaries) as BaseLanguage[]) {
+  viontoDictionaries[lang] = { ...(viontoDictionaries[lang] ?? {}), ...landingDictionaries[lang] };
+}
 
