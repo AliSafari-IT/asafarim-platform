@@ -10,6 +10,50 @@ See [docs/migration-plan.md](docs/migration-plan.md) for the full plan,
 [docs/admin-console.md](docs/admin-console.md) for the app registry,
 role/permission model, audit taxonomy, and platform settings.
 
+## Architecture overview
+
+```mermaid
+flowchart TD
+    User([User / Browser])
+    Caddy[Caddy reverse proxy]
+    subgraph VPS ["VPS (Docker Compose)"]
+        direction TB
+        Web[apps/web]
+        Hub[apps/hub]
+        Showcase[apps/showcase]
+        Admin[apps/admin]
+        Vionto[apps/vionto]
+        AppBuilder[apps/appbuilder]
+        Testora[apps/testora]
+        Postgres[(PostgreSQL)]
+    end
+    Auth["@asafarim/auth"]
+    DB["packages/db"]
+
+    User -->|HTTPS| Caddy
+    Caddy --> Web
+    Caddy --> Hub
+    Caddy --> Showcase
+    Caddy --> Admin
+    Caddy --> Vionto
+    Caddy --> AppBuilder
+    Caddy --> Testora
+    Web --> DB
+    Hub --> DB
+    Showcase --> DB
+    Admin --> DB
+    Vionto --> DB
+    AppBuilder --> DB
+    Testora --> DB
+    Hub --> Auth
+    Admin --> Auth
+    Vionto --> Auth
+    AppBuilder --> Auth
+    Testora --> Auth
+    Auth --> DB
+    DB --> Postgres
+```
+
 ## Apps
 
 | App              | Purpose                        | Dev port | Target domain          | Access                      |
@@ -81,12 +125,55 @@ pnpm db:studio                  # browse the database
 Authentication (Auth.js v5) lives in `packages/auth`; sign in at
 `hub:3001/sign-in`, admin-only area at `admin:3003`.
 
+### Auth flow
+
+```mermaid
+flowchart LR
+    User([User])
+    App[Next.js app]
+    Hub["hub.asafarim.com<br/>sign-in"]
+    AuthPkg["@asafarim/auth"]
+    DB[(PostgreSQL)]
+
+    User -->|1. Open protected app| App
+    App -->|2. Redirect to sign-in| Hub
+    Hub -->|3. Credentials + callback| AuthPkg
+    AuthPkg -->|4. Query user / session| DB
+    AuthPkg -->|5. Set session cookie| Hub
+    Hub -->|6. Redirect to callback URL| App
+    App -->|7. auth() / API call| AuthPkg
+    AuthPkg -->|8. Validate session| DB
+```
+
 ## Deployment
 
 Production runs on a VPS via Docker Compose and Caddy:
 
 ```bash
 pnpm deploy:prod
+```
+
+### Deployment pipeline
+
+```mermaid
+flowchart LR
+    Dev([Developer])
+    GH[GitHub]
+    Actions[GitHub Actions]
+    VPS[VPS]
+    Docker[Docker Compose]
+    Caddy[Caddy]
+    Apps[Next.js apps]
+    DB[(PostgreSQL)]
+
+    Dev -->|push| GH
+    GH -->|workflow trigger| Actions
+    Actions -->|build + SSH deploy| VPS
+    VPS -->|docker compose up| Docker
+    Docker --> Apps
+    Docker --> Caddy
+    Caddy -->|HTTPS| Apps
+    Docker --> DB
 ```
 
 See [docs/deployment.md](docs/deployment.md) for VPS setup details.
