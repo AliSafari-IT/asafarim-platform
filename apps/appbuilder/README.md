@@ -5,19 +5,21 @@ describe an internal business application, receive a controlled/versioned
 application specification, preview it at `/apps/{appId}/preview`, refine it
 conversationally, validate it, and publish an immutable release.
 
-This is **M05** of the delivery series tracked in
+This is **M06** of the delivery series tracked in
 [issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29): the
-generated-app catalog and prompt-first creation flow, on top of M02's
-persistence layer, M03's SSO/authorization, and M04's versioned
-specification contract. See
+approved template/component registry and metadata-driven preview runtime,
+on top of M02's persistence layer, M03's SSO/authorization, M04's versioned
+specification contract, and M05's catalog/creation flow. See
 [docs/adr/0001-appbuilder-managed-runtime.md](../../docs/adr/0001-appbuilder-managed-runtime.md)
 for the architectural decision this scaffold builds on,
 [docs/appbuilder-architecture.md](../../docs/appbuilder-architecture.md) for
-the route contracts, milestone map, and the capability matrix, and
+the route contracts, milestone map, and the capability matrix,
 [packages/appbuilder-schema/README.md](../../packages/appbuilder-schema/README.md)
-for the full specification/operation contract this milestone introduces.
+for the M04 specification/operation contract, and
+[docs/appbuilder-runtime.md](../../docs/appbuilder-runtime.md) for the full
+M06 registry/renderer architecture, security model, and preview lifecycle.
 
-## What's here (M01–M05)
+## What's here (M01–M06)
 
 - Next.js 16 App Router shell using `@asafarim/ui` directly (no forked
   components).
@@ -74,19 +76,45 @@ for the full specification/operation contract this milestone introduces.
   initial draft version + creation-intent record + audit event — protected
   by M02's idempotency ledger against double-click/refresh/retry.
 - A truthful `/apps/[appId]` continuation/overview page (status, role,
-  draft version, starter family, preview/release summaries) and explicit
-  archive/restore confirmation pages, both owner-authorized and idempotent.
+  draft version, starter family, preview/release summaries, a "Build/Rebuild
+  preview" action, and a safe diagnostic when the latest preview attempt
+  failed) and explicit archive/restore confirmation pages, both
+  owner-authorized and idempotent.
+- **M06**: `@asafarim/appbuilder-runtime` — an approved registry of ~13
+  rendering primitives plus shell/navigation/page-header chrome, and a
+  deterministic `renderPreview()` renderer with zero database/auth/AI/
+  Next.js dependency. `/apps/[appId]/preview/[[...path]]` renders the app's
+  pinned, successful preview build for real — homepage, internal page
+  navigation, refresh/deep-link version pinning, generated-app 404 for an
+  unknown path, and a sanitized diagnostic for any other render failure.
+  `lib/repositories/previewService.ts` creates/reuses idempotent preview
+  builds pinned to `(specificationVersionId, checksum, registryVersion)`
+  and only ever advances the pinned pointer on success. A strict,
+  per-request-nonce CSP (`proxy.ts`) protects the preview route. Full
+  details: [docs/appbuilder-runtime.md](../../docs/appbuilder-runtime.md).
+- A five-template registry (`blank`, `task_management`, `crm`, `inventory`,
+  `booking`) in `@asafarim/appbuilder-runtime`, matching M05's
+  `StarterFamily` enum — not yet wired into app creation (see "What's
+  explicitly not here yet").
+- A permanent Playwright browser-automation harness
+  (`apps/appbuilder/tests/e2e/`, `pnpm e2e`) — M05 shipped without one; this
+  milestone adds it and backfills the core M05 create → catalog →
+  continuation → archive → restore flow alongside the new preview-specific
+  coverage (capability matrix, security, accessibility, responsive).
 
 ## What's explicitly not here yet
 
-- Natural-language interpretation of the creation prompt, OpenAI/AI provider
-  calls, and the template/component registry (M07/M06) — M05 only records
-  the user's prompt and starter-family choice for M07 to interpret later.
-- The concrete metadata-driven preview runtime that renders a specification
-  (M06); `/apps/[appId]/preview` is still the M01 shell, linked to only when
-  a `preview_builds` row already has `status: "succeeded"`.
+- Natural-language interpretation of the creation prompt and OpenAI/AI
+  provider calls (M07) — M05 only records the user's prompt and
+  starter-family choice; M06's template registry exists but isn't yet
+  applied to a new app's initial specification (an explicit, scoped
+  deferral — see [docs/appbuilder-runtime.md](../../docs/appbuilder-runtime.md)).
 - The rich builder workspace, conversational editing, and component
   selection (M08) — `/apps/[appId]` is a truthful overview, not the editor.
+- Functional generated-record CRUD and any real generated-app data (M09) —
+  every data-dependent M06 registry entry renders deterministic, clearly
+  labelled preview/demo data or a safe empty state, never a persisted
+  record.
 - Production routing / deployment of AppBuilder itself, and any per-generated-app
   deployment (M11).
 - Generated-app end-user authentication, email invitations, enterprise
@@ -134,8 +162,9 @@ authenticates entirely through the shared platform session.
 ### Capability matrix
 
 `lib/repositories/authz.ts` defines named capabilities instead of scattered
-role comparisons, so later milestones (M04 operations, M06 previews, M09
-release RBAC) extend one contract rather than inventing their own checks.
+role comparisons, so later milestones (M04 operations, M06 previews — now
+live, M09 release RBAC) extend one contract rather than inventing their own
+checks.
 
 | Capability | Viewer | Editor | Owner |
 | --- | --- | --- | --- |
@@ -237,6 +266,10 @@ pnpm --filter @asafarim/appbuilder typecheck
 pnpm --filter @asafarim/appbuilder lint
 pnpm --filter @asafarim/appbuilder test              # unit only, no database needed
 pnpm --filter @asafarim/appbuilder test:integration  # requires appbuilder-postgres running
+pnpm --filter @asafarim/appbuilder e2e                # Playwright — starts hub+appbuilder dev servers,
+                                                       # seeds real users/apps, needs appbuilder-postgres
+                                                       # and the platform Postgres (DATABASE_URL) running
+pnpm --filter @asafarim/appbuilder e2e:report         # open the last Playwright HTML report
 ```
 
 Or run everything (including this app) via the monorepo root `pnpm dev`.

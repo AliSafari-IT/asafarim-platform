@@ -1,19 +1,22 @@
-# AppBuilder Architecture (M01–M05)
+# AppBuilder Architecture (M01–M06)
 
 **Application:** `apps/appbuilder`
-**Document date:** 2026-07-21
+**Document date:** 2026-07-22
 **Scope:** M01 (architecture contract, app scaffold, local runtime), M02
 (dedicated PostgreSQL service, migrations, repository boundary), M03
 (platform SSO, centralized per-app authorization, app registry, audit
 identity), M04 (versioned application-specification contract and
-deterministic controlled-operation engine), and M05 (generated-app catalog
-and prompt-first creation flow). See
+deterministic controlled-operation engine), M05 (generated-app catalog and
+prompt-first creation flow), and M06 (approved template/component registry
+and metadata-driven preview runtime). See
 [issue #29](https://github.com/AliSafari-IT/asafarim-platform/issues/29)
 for the full 12-milestone delivery series,
 [ADR 0001](adr/0001-appbuilder-managed-runtime.md) for the architectural
-decision behind the metadata-driven runtime, and
+decision behind the metadata-driven runtime,
 [`packages/appbuilder-schema/README.md`](../packages/appbuilder-schema/README.md)
-for the full M04 specification/operation contract.
+for the full M04 specification/operation contract, and
+[docs/appbuilder-runtime.md](appbuilder-runtime.md) for the full M06
+registry/renderer architecture, security model, and preview lifecycle.
 
 ## Summary
 
@@ -59,7 +62,7 @@ and unit-tested in `lib/routes.test.ts`.
 | `/apps/new` | Prompt-first creation form: name, prompt, starter family, visibility (M05, live) | Authenticated session required | Live (M05); AI interpretation of the prompt ships in M07 |
 | `/apps/[appId]` | Truthful continuation/overview: status, role, draft version, preview/release summaries, archive/restore actions (M05, live) | Session + `app.view` capability (404 if inaccessible) | Live overview (M05); the rich builder workspace ships in M08 |
 | `/apps/[appId]/archive`, `/apps/[appId]/restore` | Explicit-confirmation lifecycle controls (M05, live) | Session + `app.archive`/`app.restore` capability (owner-only) | Live (M05) |
-| `/apps/[appId]/preview` | Metadata-driven preview runtime | Session + `app.viewPreview` capability (404 if inaccessible); linked from the catalog/overview only when a `preview_builds` row has `status: "succeeded"` | M06 (template registry + preview runtime) |
+| `/apps/[appId]/preview/[[...path]]` | Metadata-driven preview runtime — resolves the specification's homepage at the base path, internal pages at `/preview/{page-path}` (M06, live) | Session + `app.viewPreview` capability (404 if inaccessible); resolves only the app's pinned, successful preview build — never a version id from the browser; linked from the catalog/overview only when `specifications.pinnedPreviewBuildId` is set | Live (M06); see [docs/appbuilder-runtime.md](appbuilder-runtime.md) |
 
 Every route currently renders as a defined, empty/informational shell (using
 the shared `EmptyState` / `Alert` primitives) rather than a 404 or a stub
@@ -263,14 +266,61 @@ audit event together) and idempotent. Unauthorized attempts (editor/viewer,
 or an unrelated actor) get the same `ForbiddenError`/`NotFoundError`
 leak-prevention behavior as every other app-scoped mutation.
 
-### Explicit M06/M07/M08 deferrals
+### Explicit M07/M08/M09 deferrals (as of M06)
 
-M05 records intent and provides truthful, database-backed UI — it does
-**not** call an LLM, interpret the prompt, render a registered
-template/component, run a functional preview, or provide the conversational
-builder workspace. `/apps/[appId]/preview` still renders the M01 shell;
-`/apps/new`'s success copy explicitly says the app is "a draft awaiting
-configuration," never that anything was generated.
+M06 renders a specification through an approved registry — it does **not**
+call an LLM, interpret a creation prompt, persist functional generated
+records, or provide the conversational builder workspace. Data-dependent
+registry entries render deterministic demo data or a safe empty state,
+clearly labelled; nothing implies a real record was ever saved. The M05
+starter-family choice (`creation_requests.starterFamily`) is still not
+applied to a new app's initial specification — `createApp` continues to
+persist `emptySpecification()` for every app regardless of family; M06's
+template registry (`@asafarim/appbuilder-runtime`) is ready for a later
+milestone to wire in. See [docs/appbuilder-runtime.md](appbuilder-runtime.md#explicit-non-goals-m07m08m09)
+for the full list.
+
+## Metadata-driven preview runtime (M06)
+
+`packages/appbuilder-runtime` (`@asafarim/appbuilder-runtime`) is, like the
+M04 schema package, dependency-free of AppBuilder's own database, auth, AI,
+and Next.js — it exports `renderPreview({ specification, path, basePath })`,
+a pure function from a validated `ApplicationSpecificationType` to either a
+React element or a structured `RenderError[]`. It owns an approved registry
+of ~13 rendering primitives (data table, form, record detail, filters,
+dashboard metric cards, an accessible chart, Kanban board, calendar/schedule
+view, file/image field placeholder, activity timeline, settings panel,
+empty state, action button) plus three structural chrome primitives (shell,
+navigation, page header), keyed by `{schemaKind}.{variant}` rather than
+schema `kind` alone — `COMPONENT_KINDS` is a frozen validation allowlist, so
+extending the *rendered* catalog never requires a schema-version bump. It
+also owns a small template registry (`blank`, `task_management`, `crm`,
+`inventory`, `booking`) matching M05's `StarterFamily` enum one-to-one,
+though M06 does not wire template selection into `createApp` — that stays
+an explicit follow-up.
+
+`apps/appbuilder/lib/repositories/previewService.ts` integrates this pure
+renderer with persistence: `requestPreviewBuild` validates the app's
+current specification version, runs a synchronous homepage-only
+`renderPreview` check, and creates or reuses an idempotent `preview_builds`
+row pinned to `(specificationVersionId, checksum, registryVersion)`
+(migration `0003_appbuilder_m06_preview_runtime.sql` adds these columns
+plus `specifications.pinnedPreviewBuildId`) — advancing the pinned pointer
+only on success, so a failed rebuild attempt never displaces the last
+successful preview. `getPinnedPreview` resolves that pointer under the
+existing `app.viewPreview` capability (M03), never a version id supplied by
+the caller. The `/apps/[appId]/preview/[[...path]]` route (a Next.js
+optional catch-all) renders the pinned preview fresh on every request —
+refresh and deep links always resolve the same pinned version; an
+unresolvable internal path becomes the generated app's own 404
+(`app/not-found.tsx`), never a builder-internal error; every other
+top-level render failure becomes a sanitized, structured diagnostic. The
+preview route carries a strict, per-request-nonce Content-Security-Policy
+(`apps/appbuilder/proxy.ts`), layered on top of the shared `@asafarim/auth`
+session proxy.
+
+Full architecture, registry contract, security model, and testing details:
+[docs/appbuilder-runtime.md](appbuilder-runtime.md).
 
 ## Milestone map (for orientation)
 
@@ -278,8 +328,8 @@ configuration," never that anything was generated.
 2. M02 — Dedicated PostgreSQL service, migrations, repository boundary.
 3. M03 — Platform SSO, authorization, app registry, audit identity.
 4. M04 — Versioned application specification and operation engine.
-5. **M05 — this milestone.** Generated-app catalog and prompt-first creation flow.
-6. M06 — approved template/component registry and preview runtime.
+5. M05 — Generated-app catalog and prompt-first creation flow.
+6. **M06 — this milestone.** Approved template/component registry and metadata-driven preview runtime.
 7. M07 — AI requirements planner and structured generation pipeline.
 8. M08 — builder workspace, conversational changes, version history.
 9. M09 — generated-data engine, RBAC, relations, basic workflows.

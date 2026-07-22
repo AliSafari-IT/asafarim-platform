@@ -87,6 +87,9 @@ importers:
 
   apps/appbuilder:
     dependencies:
+      '@asafarim/appbuilder-runtime':
+        specifier: workspace:*
+        version: link:../../packages/appbuilder-runtime
       '@asafarim/appbuilder-schema':
         specifier: workspace:*
         version: link:../../packages/appbuilder-schema
@@ -127,6 +130,15 @@ importers:
       '@asafarim/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@asafarim/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@axe-core/playwright':
+        specifier: ^4.10.1
+        version: 4.12.1(playwright-core@1.61.1)
+      '@playwright/test':
+        specifier: ^1.60.0
+        version: 1.61.1
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.2
@@ -523,6 +535,43 @@ importers:
 
   benchmarks/vionto: {}
 
+  packages/appbuilder-runtime:
+    dependencies:
+      '@asafarim/appbuilder-schema':
+        specifier: workspace:*
+        version: link:../appbuilder-schema
+      '@asafarim/ui':
+        specifier: workspace:*
+        version: link:../ui
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@asafarim/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.2.7
+        version: 19.2.7(react@19.2.7)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.13.2)(lightningcss@1.32.0)(supports-color@7.2.0)
+
   packages/appbuilder-schema:
     dependencies:
       zod:
@@ -834,6 +883,11 @@ packages:
   '@aws/lambda-invoke-store@0.3.0':
     resolution: {integrity: sha512-sl4Bm6yiMNYrZKkqqDFWN0UfnWhlS8ivKxrYl+6t0gCLrqr8y3B2IqZZbFRkfaVVp7C/baApyh71P+LeE1A2sQ==}
     engines: {node: '>=18.0.0'}
+
+  '@axe-core/playwright@4.12.1':
+    resolution: {integrity: sha512-rMd7xriptqKpP+w5265i4Hdkv2X5kbu6uiBi/B2I7uf3hieRBM3qDCfaKPtxfiYb2mKXfF+yLODJwIx+Jv1GDw==}
+    peerDependencies:
+      playwright-core: '>= 1.0.0'
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -7564,6 +7618,11 @@ snapshots:
       tslib: 2.8.1
 
   '@aws/lambda-invoke-store@0.3.0': {}
+
+  '@axe-core/playwright@4.12.1(playwright-core@1.61.1)':
+    dependencies:
+      axe-core: 4.12.1
+      playwright-core: 1.61.1
 
   '@babel/code-frame@7.29.7':
     dependencies:

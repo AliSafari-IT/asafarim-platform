@@ -7,6 +7,7 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -165,6 +166,17 @@ export const specifications = pgTable(
     // Denormalized pointer to the latest immutable version, kept in sync by
     // the repository layer inside the same transaction that inserts it.
     currentVersionNumber: integer("current_version_number").notNull().default(0),
+    // M06: the app's pinned, authoritative preview — set only after a
+    // preview build *succeeds* (lib/repositories/previewService.ts), never
+    // pointed at a queued/running/failed build. A failed rebuild attempt
+    // never moves or clears this, so the last successful preview always
+    // keeps rendering at /apps/{appId}/preview until a *new* build succeeds.
+    // The browser can never supply this directly — it is resolved
+    // server-side from this column alone.
+    pinnedPreviewBuildId: text("pinned_preview_build_id").references(
+      (): AnyPgColumn => previewBuilds.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -260,9 +272,11 @@ export const appliedOperations = pgTable(
   ],
 );
 
-// Preview builds triggered from a specific specification version. The
-// preview runtime itself ships later (M06/M07) — this table only tracks the
-// build lifecycle and its outcome.
+// Preview builds triggered from a specific specification version, rendered
+// by @asafarim/appbuilder-runtime's metadata-driven renderer (M06). Pinned
+// to an immutable (specificationVersionId, checksum, registryVersion)
+// triple so a build is always reproducible against the exact inputs that
+// produced it — never re-derived from the app's *current* state.
 export const previewBuilds = pgTable(
   "preview_builds",
   {
@@ -273,14 +287,37 @@ export const previewBuilds = pgTable(
     specificationVersionId: text("specification_version_id")
       .notNull()
       .references(() => specificationVersions.id, { onDelete: "cascade" }),
+    // The specification version's own checksum (@asafarim/appbuilder-schema
+    // checksumOf), copied at build time — lets a build be verified against
+    // its source version without a join, and lets a future re-check detect
+    // if a version row was somehow altered (it never legitimately is).
+    checksum: text("checksum"),
+    // @asafarim/appbuilder-runtime's REGISTRY_VERSION at build time. A
+    // registry upgrade that changes rendering behavior gets a new build
+    // rather than silently reinterpreting an old one under a new registry.
+    registryVersion: text("registry_version"),
     status: previewBuildStatusEnum("status").notNull().default("queued"),
     requestedByPrincipalId: text("requested_by_principal_id").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     errorMessage: text("error_message"),
+    // Structured RenderError[]/ValidationIssue[] — never a raw stack trace
+    // or database detail. Rendered as an actionable, builder-facing
+    // diagnostic; never shown to a generated-app viewer.
+    diagnostics: jsonb("diagnostics").$type<Record<string, unknown>[]>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("preview_builds_app_id_idx").on(table.appId)],
+  (table) => [
+    index("preview_builds_app_id_idx").on(table.appId),
+    // Idempotent preview creation: the same specification version rendered
+    // against the same registry version is a pure, deterministic
+    // computation — a repeated request reuses this row instead of
+    // inserting a duplicate.
+    uniqueIndex("preview_builds_version_registry_unique").on(
+      table.specificationVersionId,
+      table.registryVersion,
+    ),
+  ],
 );
 
 // An immutable, publishable snapshot of a specification version. Publishing

@@ -22,6 +22,13 @@
       "when": 1784663557292,
       "tag": "0002_appbuilder_m05_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784670352399,
+      "tag": "0003_appbuilder_m06_preview_runtime",
+      "breakpoints": true
     }
   ]
 }

@@ -67,6 +67,16 @@ export function starterFamilyOf(row: CreationRequestRow | null): StarterFamily |
 export interface CatalogCardMetadata {
   currentVersionNumber: number;
   specificationStatus: SpecificationRow["status"] | null;
+  /**
+   * Whether the app currently has a successful, pinned preview to link to
+   * (`specifications.pinnedPreviewBuildId` is set) — this is the M06
+   * "does the preview link work" answer, and is deliberately NOT the same
+   * as `previewStatus` below: a build attempt can fail *after* an earlier
+   * one succeeded, in which case this stays `true` (the last successful
+   * preview is preserved) while `previewStatus` reports "failed".
+   */
+  hasPreview: boolean;
+  /** The most recent preview *build attempt's* status, for diagnostic display — not necessarily the pinned/succeeded one. */
   previewStatus: PreviewBuildRow["status"] | null;
   releaseStatus: ReleaseRow["status"] | null;
   starterFamily: StarterFamily | null;
@@ -88,7 +98,12 @@ export async function listCatalogMetadata(
 
   const [specRows, latestPreviews, latestReleases, creationRows] = await Promise.all([
     db
-      .select({ appId: specifications.appId, currentVersionNumber: specifications.currentVersionNumber, status: specifications.status })
+      .select({
+        appId: specifications.appId,
+        currentVersionNumber: specifications.currentVersionNumber,
+        status: specifications.status,
+        pinnedPreviewBuildId: specifications.pinnedPreviewBuildId,
+      })
       .from(specifications)
       .where(inArray(specifications.appId, appIds)),
     db
@@ -118,6 +133,7 @@ export async function listCatalogMetadata(
     result.set(appId, {
       currentVersionNumber: spec?.currentVersionNumber ?? 0,
       specificationStatus: spec?.status ?? null,
+      hasPreview: spec?.pinnedPreviewBuildId != null,
       previewStatus: previewByAppId.get(appId) ?? null,
       releaseStatus: releaseByAppId.get(appId) ?? null,
       starterFamily: starterByAppId.get(appId) ?? null,

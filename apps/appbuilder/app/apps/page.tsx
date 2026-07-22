@@ -227,7 +227,11 @@ function CatalogBody({
           >
             {result.rows.map(({ app, role }) => {
               const meta = metadata.get(app.id) ?? null;
-              const hasPreview = meta?.previewStatus === "succeeded";
+              // `hasPreview` (a successful, pinned build exists) is
+              // deliberately independent of `previewStatus` (the most
+              // recent build *attempt*) — a failed rebuild attempt must
+              // never hide an app's still-working, last successful preview.
+              const hasPreview = meta?.hasPreview === true;
               return (
                 <Card key={app.id} variant="elevated">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", alignItems: "flex-start" }}>
@@ -247,8 +251,12 @@ function CatalogBody({
                     {meta?.starterFamily ? (
                       <Badge tone="neutral">{STARTER_FAMILY_LABELS[meta.starterFamily as StarterFamily]}</Badge>
                     ) : null}
-                    {meta?.previewStatus ? (
-                      <Badge tone={hasPreview ? "success" : "neutral"}>Preview: {meta.previewStatus}</Badge>
+                    {hasPreview ? (
+                      <Badge tone="success">Preview ready</Badge>
+                    ) : meta?.previewStatus === "failed" ? (
+                      <Badge tone="warning">Preview failed</Badge>
+                    ) : meta?.previewStatus === "queued" || meta?.previewStatus === "running" ? (
+                      <Badge tone="neutral">Preview: {meta.previewStatus}</Badge>
                     ) : null}
                     {meta?.releaseStatus ? (
                       <Badge tone={meta.releaseStatus === "published" ? "success" : "neutral"}>
