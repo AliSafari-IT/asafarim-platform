@@ -248,14 +248,6 @@ const COLLECTION_OPTIONS = [
   "favorites",
 ] as const;
 
-const LIFECYCLE_LABELS: Record<string, { label: string; next: string }> = {
-  draft: { label: "Draft", next: "Upload photos" },
-  photos_uploaded: { label: "Photos uploaded", next: "Generate story" },
-  story_generated: { label: "Story generated", next: "Choose audio" },
-  audio_ready: { label: "Audio ready", next: "Render video" },
-  video_rendered: { label: "Video rendered", next: "Publish/export" },
-  published_exported: { label: "Published/exported", next: "Ready" },
-};
 
 type AspectRatio = (typeof ASPECT_OPTIONS)[number]["value"];
 type UiMode = "cinematic" | "slideshow" | "social";
@@ -3288,7 +3280,7 @@ export function ViontoPage() {
                 <div className="mt-3">
                   <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <label className="text-xs font-medium text-[var(--color-text-muted)]">
-                      Video Version
+                      {t("vionto.videoVersion.label")}
                     </label>
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
                       <select
@@ -3315,7 +3307,7 @@ export function ViontoPage() {
                         }
                         className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:underline"
                       >
-                        <Plus size={11} /> New version
+                        <Plus size={11} /> {t("vionto.videoVersion.newVersion")}
                       </button>
                     </div>
                   </div>
@@ -3388,13 +3380,13 @@ export function ViontoPage() {
                               {version.albumId && (
                                 <span className="ml-1 max-w-[8rem] truncate rounded bg-[var(--color-surface)] px-1 py-0.5 text-[9px] text-[var(--color-text-muted)]">
                                   {albums.find((a) => a.id === version.albumId)
-                                    ?.name ?? "Album"}
+                                    ?.name ?? t("vionto.album.fallback")}
                                 </span>
                               )}
                               {version.templateId && (
                                 <span className="ml-1 rounded bg-[var(--color-accent)]/10 px-1 py-0.5 text-[9px] text-[var(--color-accent)]">
                                   {getVideoTemplate(version.templateId)?.name ??
-                                    "Template"}
+                                    t("vionto.template.fallback")}
                                 </span>
                               )}
                             </>
@@ -3434,10 +3426,9 @@ export function ViontoPage() {
                                     e.stopPropagation();
                                     setConfirmDialog({
                                       open: true,
-                                      title: "Delete version",
-                                      message:
-                                        "Delete this version? This cannot be undone.",
-                                      confirmLabel: "Delete",
+                                      title: t("vionto.videoVersion.deleteTitle"),
+                                      message: t("vionto.videoVersion.deleteMessage"),
+                                      confirmLabel: t("vionto.confirm.deleteLabel"),
                                       tone: "danger",
                                       onConfirm: () => {
                                         closeConfirm();
@@ -3465,11 +3456,11 @@ export function ViontoPage() {
                       if (!v) return null;
                       const stats = [
                         v._count.scripts > 0 &&
-                          `${v._count.scripts} script${v._count.scripts > 1 ? "s" : ""}`,
+                          t("vionto.videoVersion.scripts", { count: v._count.scripts, s: v._count.scripts > 1 ? "s" : "" }),
                         v._count.renderJobs > 0 &&
-                          `${v._count.renderJobs} render${v._count.renderJobs > 1 ? "s" : ""}`,
+                          t("vionto.videoVersion.renders", { count: v._count.renderJobs, s: v._count.renderJobs > 1 ? "s" : "" }),
                         v._count.exports > 0 &&
-                          `${v._count.exports} export${v._count.exports > 1 ? "s" : ""}`,
+                          t("vionto.videoVersion.exports", { count: v._count.exports, s: v._count.exports > 1 ? "s" : "" }),
                       ].filter(Boolean);
                       if (stats.length === 0) return null;
                       return (
@@ -3533,7 +3524,7 @@ export function ViontoPage() {
                     />
                     <strong>
                       {uploadingFiles.length > 0
-                        ? `${uploadingFiles.length} file${uploadingFiles.length > 1 ? "s" : ""} selected`
+                        ? t("vionto.upload.selectedFiles", { count: uploadingFiles.length, s: uploadingFiles.length > 1 ? "s" : "" })
                         : t("vionto.upload.dropzoneLabel")}
                     </strong>
                     <span>{t("vionto.upload.dropzoneHint")}</span>
@@ -3582,7 +3573,7 @@ export function ViontoPage() {
                       ))}
                       {uploadingFiles.length > 5 && (
                         <li className="px-3 py-1 text-xs text-[var(--muted)]">
-                          +{uploadingFiles.length - 5} more
+                          {t("vionto.upload.moreFiles", { count: uploadingFiles.length - 5 })}
                         </li>
                       )}
                     </ul>
@@ -3602,7 +3593,7 @@ export function ViontoPage() {
                       {isUploading ? (
                         <RefreshCw size={16} className="animate-spin" />
                       ) : (
-                        "Upload"
+                        t("vionto.upload.button")
                       )}
                     </button>
                   )}
@@ -3722,12 +3713,12 @@ export function ViontoPage() {
                   <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-[var(--color-text-muted)]">
-                        Album for active version
+                        {t("vionto.album.activeVersionLabel")}
                       </p>
                       {activeVersion && (
                         <p className="text-[10px] text-[var(--color-text-muted)] break-words">
-                          {activeVersion.name} renders from{" "}
-                          {selectedAlbum?.name ?? "the selected album"}.
+                          {activeVersion.name} {t("vionto.album.rendersFrom")}{" "}
+                          {selectedAlbum?.name ?? t("vionto.album.selectedAlbum")}.
                         </p>
                       )}
                     </div>
@@ -3743,7 +3734,7 @@ export function ViontoPage() {
                         <option value="">{t("vionto.album.collectionAll")}</option>
                         {COLLECTION_OPTIONS.map((collection) => (
                           <option key={collection} value={collection}>
-                            {collection}
+                            {t(`vionto.collection.${collection}`)}
                           </option>
                         ))}
                       </select>
@@ -3780,7 +3771,7 @@ export function ViontoPage() {
                   {albumManageMode && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5">
                       <span className="text-xs text-[var(--color-text-muted)]">
-                        {selectedAlbumIds.size} selected
+                        {t("vionto.album.selectedCount", { count: selectedAlbumIds.size })}
                       </span>
                       {(() => {
                         const deletable = albums.filter((a) => !a.isBase);
@@ -3799,7 +3790,7 @@ export function ViontoPage() {
                             }
                             className="text-xs font-medium text-[var(--color-accent)] hover:underline"
                           >
-                            {allSelected ? "Clear all" : "Select all"}
+                            {allSelected ? t("vionto.album.clearAll") : t("vionto.album.selectAll")}
                           </button>
                         );
                       })()}
@@ -3813,8 +3804,8 @@ export function ViontoPage() {
                       >
                         <Trash2 size={12} />
                         {isBulkDeletingAlbums
-                          ? "Deleting…"
-                          : `Delete selected${
+                          ? t("vionto.album.deleting")
+                          : `${t("vionto.album.deleteSelected")}${
                               selectedAlbumIds.size > 0
                                 ? ` (${selectedAlbumIds.size})`
                                 : ""
@@ -3825,7 +3816,7 @@ export function ViontoPage() {
 
                   {isLoadingAlbums ? (
                     <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                      Loading albums…
+                      {t("vionto.album.loading")}
                     </p>
                   ) : (
                     <div className="mt-1 flex flex-wrap gap-1.5">
@@ -3921,12 +3912,11 @@ export function ViontoPage() {
                               </span>
                               {album.id === activeVersionAlbumId && (
                                 <span className="rounded bg-[var(--color-accent)]/10 px-1 text-[9px] text-[var(--color-accent)]">
-                                  linked
+                                  {t("vionto.album.linked")}
                                 </span>
                               )}
                               <span className="rounded bg-[var(--color-accent)]/10 px-1 text-[9px] text-[var(--color-accent)]">
-                                {LIFECYCLE_LABELS[album.lifecycleStage]
-                                  ?.label ?? album.lifecycleStage}
+                                {t(`vionto.lifecycle.${album.lifecycleStage}.label`)}
                               </span>
                               <span className="ml-1 rounded bg-[var(--color-surface)] px-1 text-[10px] text-[var(--color-text-muted)]">
                                 {album._count.items}
@@ -4141,7 +4131,7 @@ export function ViontoPage() {
                                       : "border-[var(--color-border)] text-[var(--color-text-muted)]"
                                   }`}
                                 >
-                                  {collection}
+                                  {t(`vionto.collection.${collection}`)}
                                 </button>
                               ))}
                               <label className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
@@ -4153,7 +4143,7 @@ export function ViontoPage() {
                                   }
                                   className="h-3 w-3 accent-[var(--color-accent)]"
                                 />
-                                favorite
+                                {t("vionto.collection.favorite")}
                               </label>
                             </div>
                           </div>
@@ -4194,13 +4184,11 @@ export function ViontoPage() {
                       {selectedAlbum && (
                         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                           <span className="rounded-md bg-[var(--color-accent)]/10 px-2 py-0.5 font-medium text-[var(--color-accent)]">
-                            {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]
-                              ?.label ?? selectedAlbum.lifecycleStage}
+                            {t(`vionto.lifecycle.${selectedAlbum.lifecycleStage}.label`)}
                           </span>
                           <span className="text-[var(--color-text-muted)]">
-                            Next:{" "}
-                            {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]
-                              ?.next ?? "Continue"}
+                            {t("vionto.lifecycle.nextLabel")}{" "}
+                            {t(`vionto.lifecycle.${selectedAlbum.lifecycleStage}.next`)}
                           </span>
                         </div>
                       )}
@@ -4226,7 +4214,7 @@ export function ViontoPage() {
                           {itemManageMode && (
                             <>
                               <span className="text-xs text-[var(--color-text-muted)]">
-                                {selectedItemIds.size} selected
+                                {t("vionto.album.selectedCount", { count: selectedItemIds.size })}
                               </span>
                               {(() => {
                                 const allSelected =
@@ -4246,7 +4234,7 @@ export function ViontoPage() {
                                     }
                                     className="text-xs font-medium text-[var(--color-accent)] hover:underline"
                                   >
-                                    {allSelected ? "Clear all" : "Select all"}
+                                    {allSelected ? t("vionto.album.clearAll") : t("vionto.album.selectAll")}
                                   </button>
                                 );
                               })()}
@@ -4261,8 +4249,8 @@ export function ViontoPage() {
                               >
                                 <Trash2 size={12} />
                                 {isBulkRemovingItems
-                                  ? "Removing…"
-                                  : `Remove selected${
+                                  ? t("vionto.album.removing")
+                                  : `${t("vionto.album.removeSelected")}${
                                       selectedItemIds.size > 0
                                         ? ` (${selectedItemIds.size})`
                                         : ""
@@ -4342,16 +4330,14 @@ export function ViontoPage() {
                           <div className="mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
                             <div className="mb-2 flex flex-wrap items-center gap-2">
                               <p className="text-xs font-semibold text-[var(--color-text)]">
-                                Album details
+                                {t("vionto.album.details")}
                               </p>
                               <span className="rounded-md bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] text-[var(--color-accent)]">
-                                {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]
-                                  ?.label ?? selectedAlbum.lifecycleStage}
+                                {t(`vionto.lifecycle.${selectedAlbum.lifecycleStage}.label`)}
                               </span>
                               <span className="text-[10px] text-[var(--color-text-muted)]">
-                                Next:{" "}
-                                {LIFECYCLE_LABELS[selectedAlbum.lifecycleStage]
-                                  ?.next ?? "Continue"}
+                                {t("vionto.lifecycle.nextLabel")}{" "}
+                                {t(`vionto.lifecycle.${selectedAlbum.lifecycleStage}.next`)}
                               </span>
                             </div>
                             <div className="space-y-1.5">
@@ -4509,7 +4495,7 @@ export function ViontoPage() {
                                           : "border-[var(--color-border)] text-[var(--color-text-muted)]"
                                       }`}
                                     >
-                                      {collection}
+                                      {t(`vionto.collection.${collection}`)}
                                     </button>
                                   ))}
                                   <label className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
@@ -4521,7 +4507,7 @@ export function ViontoPage() {
                                       }
                                       className="h-3 w-3 accent-[var(--color-accent)]"
                                     />
-                                    favorite
+                                    {t("vionto.collection.favorite")}
                                   </label>
                                 </div>
                               </div>

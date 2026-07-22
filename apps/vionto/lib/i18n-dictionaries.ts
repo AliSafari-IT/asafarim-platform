@@ -100,9 +100,12 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.album.selectAll": "Select all",
     "vionto.album.deleting": "Deleting…",
     "vionto.album.deleteSelected": "Delete selected",
+    "vionto.album.removing": "Removing…",
+    "vionto.album.removeSelected": "Remove selected",
     "vionto.album.loading": "Loading albums…",
     "vionto.album.details": "Album details",
     "vionto.album.fallback": "Album",
+    "vionto.album.linked": "linked",
     "vionto.project.manage": "Manage projects",
     "vionto.script.version": "Version",
     "vionto.create.eyebrow": "Photo-to-story video MVP",
@@ -584,6 +587,8 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.lifecycle.audio_ready.next": "Render video",
     "vionto.lifecycle.video_rendered.label": "Video rendered",
     "vionto.lifecycle.video_rendered.next": "Publish/export",
+    "vionto.lifecycle.published_exported.label": "Published/exported",
+    "vionto.lifecycle.published_exported.next": "Ready",
     "vionto.lifecycle.nextLabel": "Next:",
 
     // Collection labels (used by ViontoPage)
@@ -593,6 +598,7 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.collection.work": "Work",
     "vionto.collection.archive": "Archive",
     "vionto.collection.favorites": "Favorites",
+    "vionto.collection.favorite": "Favorite",
   },
   nl: {
     "vionto.nav.dashboard": "Dashboard",
