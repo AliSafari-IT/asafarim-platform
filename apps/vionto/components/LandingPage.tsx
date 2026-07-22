@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useTranslation } from "@asafarim/shared-i18n";
 import {
   ArrowRight,
   Clapperboard,
@@ -431,6 +432,7 @@ function AIBadge({ name, role, color, initials }: { name: string; role: string; 
 
 export function LandingPage() {
   const { status } = useSession();
+  const { t } = useTranslation();
   const portalUrl = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
 
   const handleStartCreating = () => {
@@ -512,7 +514,7 @@ export function LandingPage() {
             }}
           >
             <Sparkles size={11} />
-            AI-Powered Video Creation
+            {t("vionto.landing.hero.badge")}
           </div>
 
           {/* Headline */}
@@ -541,8 +543,8 @@ export function LandingPage() {
               Vionto
             </span>
             <br />
-            <span style={{ color: "var(--text)" }}>Your photos.</span>{" "}
-            <span style={{ color: "var(--muted)", fontWeight: 700 }}>Their story.</span>
+            <span style={{ color: "var(--text)" }}>{t("vionto.landing.hero.title.line2")}</span>{" "}
+            <span style={{ color: "var(--muted)", fontWeight: 700 }}>{t("vionto.landing.hero.title.line3")}</span>
           </h1>
 
           {/* Sub-headline */}
@@ -557,9 +559,7 @@ export function LandingPage() {
               zIndex: 1,
             }}
           >
-            Upload a collection of images, and Vionto's AI writes the script, adds
-            natural voice narration, and exports a{" "}
-            <span style={{ color: "var(--text)", fontWeight: 600 }}>polished MP4</span> — in minutes.
+            {t("vionto.landing.hero.subtitle")}
           </p>
 
           {/* CTA buttons */}
@@ -605,7 +605,7 @@ export function LandingPage() {
                 el.style.boxShadow = "0 10px 36px rgba(243,111,86,0.38)";
               }}
             >
-              Start Creating <ArrowRight size={16} />
+              {t("vionto.landing.hero.cta.start")} <ArrowRight size={16} />
             </button>
             <a
               href="#how-it-works"
@@ -634,7 +634,7 @@ export function LandingPage() {
                 el.style.transform = "translateY(0)";
               }}
             >
-              <Play size={13} /> See how it works
+              <Play size={13} /> {t("vionto.landing.hero.cta.how")}
             </a>
           </div>
 
@@ -650,11 +650,11 @@ export function LandingPage() {
             }}
           >
             {[
-              { label: "GPT-4 + Claude",    accent: "#6ea8ff" },
-              { label: "ElevenLabs TTS",    accent: "#59c3b1" },
-              { label: "3 Output Modes",    accent: "#e8b45d" },
-              { label: "Multi-Language",    accent: "#f36f56" },
-              { label: "Cloud Storage",     accent: "#b5b0aa" },
+              { label: t("vionto.landing.trust.gptClaude"),    accent: "#6ea8ff" },
+              { label: t("vionto.landing.trust.elevenlabs"),    accent: "#59c3b1" },
+              { label: t("vionto.landing.trust.outputModes"),    accent: "#e8b45d" },
+              { label: t("vionto.landing.trust.multiLanguage"),    accent: "#f36f56" },
+              { label: t("vionto.landing.trust.cloudStorage"),     accent: "#b5b0aa" },
             ].map(({ label, accent }) => (
               <span
                 key={label}
@@ -678,7 +678,7 @@ export function LandingPage() {
         <section style={{ padding: "96px 24px", maxWidth: "1120px", margin: "0 auto" }}>
           <Reveal>
             <div style={{ textAlign: "center", marginBottom: "64px" }}>
-              <SectionLabel color="#e8b45d" icon={Zap}>Everything you need</SectionLabel>
+              <SectionLabel color="#e8b45d" icon={Zap}>{t("vionto.landing.features.label")}</SectionLabel>
               <h2
                 style={{
                   fontSize: "clamp(1.9rem, 4vw, 3.1rem)",
@@ -688,11 +688,10 @@ export function LandingPage() {
                   letterSpacing: "-0.025em",
                 }}
               >
-                From photos to cinematic video
+                {t("vionto.landing.features.title")}
               </h2>
               <p style={{ color: "var(--muted)", maxWidth: "500px", margin: "0 auto", lineHeight: 1.7 }}>
-                Vionto handles the entire pipeline — from image ingestion to AI
-                narration to polished video export.
+                {t("vionto.landing.features.subtitle")}
               </p>
             </div>
           </Reveal>
@@ -705,12 +704,12 @@ export function LandingPage() {
             }}
           >
             {[
-              { icon: ImagePlus,    title: "Image Upload",          desc: "Drag and drop your photo collection. Vionto handles ordering, cropping, and optimization automatically.", accent: "#f36f56", delay: 0 },
-              { icon: Wand2,        title: "AI Script Generation",  desc: "GPT-4 and Claude collaborate to write compelling narration scripts tailored to your images and chosen tone.", accent: "#e8b45d", delay: 80 },
-              { icon: Mic,          title: "Voice Narration",       desc: "ElevenLabs TTS brings your script to life with natural, expressive voice — in your language of choice.", accent: "#59c3b1", delay: 160 },
-              { icon: Download,     title: "MP4 Export",            desc: "Export polished MP4 videos in 16:9, 9:16, or 1:1. Ready for YouTube, Instagram Reels, or personal archives.", accent: "#6ea8ff", delay: 240 },
-              { icon: Globe,        title: "Multi-Language",        desc: "Generate scripts and narration in dozens of languages. Reach a global audience with your visual stories.", accent: "#e8b45d", delay: 320 },
-              { icon: Layers,       title: "Multiple Modes",        desc: "Cinematic story, Slideshow presentation, or Social documentary — each with its own pacing and visual style.", accent: "#f36f56", delay: 400 },
+              { icon: ImagePlus,    title: t("vionto.landing.features.imageUpload.title"),          desc: t("vionto.landing.features.imageUpload.desc"), accent: "#f36f56", delay: 0 },
+              { icon: Wand2,        title: t("vionto.landing.features.aiScript.title"),  desc: t("vionto.landing.features.aiScript.desc"), accent: "#e8b45d", delay: 80 },
+              { icon: Mic,          title: t("vionto.landing.features.voice.title"),       desc: t("vionto.landing.features.voice.desc"), accent: "#59c3b1", delay: 160 },
+              { icon: Download,     title: t("vionto.landing.features.mp4Export.title"),            desc: t("vionto.landing.features.mp4Export.desc"), accent: "#6ea8ff", delay: 240 },
+              { icon: Globe,        title: t("vionto.landing.features.multiLanguage.title"),        desc: t("vionto.landing.features.multiLanguage.desc"), accent: "#e8b45d", delay: 320 },
+              { icon: Layers,       title: t("vionto.landing.features.modes.title"),        desc: t("vionto.landing.features.modes.desc"), accent: "#f36f56", delay: 400 },
             ].map(({ icon, title, desc, accent, delay }) => (
               <Reveal key={title} delay={delay}>
                 <FeatureCard icon={icon} title={title} desc={desc} accent={accent} />
@@ -732,7 +731,7 @@ export function LandingPage() {
           <div style={{ maxWidth: "960px", margin: "0 auto" }}>
             <Reveal>
               <div style={{ textAlign: "center", marginBottom: "64px" }}>
-                <SectionLabel color="#59c3b1" icon={Zap}>Simple process</SectionLabel>
+                <SectionLabel color="#59c3b1" icon={Zap}>{t("vionto.landing.how.label")}</SectionLabel>
                 <h2
                   style={{
                     fontSize: "clamp(1.9rem, 4vw, 3.1rem)",
@@ -742,11 +741,10 @@ export function LandingPage() {
                     letterSpacing: "-0.025em",
                   }}
                 >
-                  Four steps to your video
+                  {t("vionto.landing.how.title")}
                 </h2>
                 <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto", lineHeight: 1.7 }}>
-                  Vionto's AI pipeline takes you from a folder of images to a
-                  shareable video in under five minutes.
+                  {t("vionto.landing.how.subtitle")}
                 </p>
               </div>
             </Reveal>
@@ -760,18 +758,18 @@ export function LandingPage() {
             >
               <div>
                 <Reveal delay={0}>
-                  <Step num={1} icon={CloudUpload} title="Upload Your Photos" desc="Select the images you want to turn into a video. Vionto reads context from each image to understand the visual narrative." />
+                  <Step num={1} icon={CloudUpload} title={t("vionto.landing.how.step1.title")} desc={t("vionto.landing.how.step1.desc")} />
                 </Reveal>
                 <Reveal delay={100}>
-                  <Step num={2} icon={Wand2} title="AI Writes the Script" desc="Our AI analyzes your photos and generates a narration script matched to the mood, content, and your chosen output mode." />
+                  <Step num={2} icon={Wand2} title={t("vionto.landing.how.step2.title")} desc={t("vionto.landing.how.step2.desc")} />
                 </Reveal>
               </div>
               <div>
                 <Reveal delay={200}>
-                  <Step num={3} icon={FileAudio} title="Add Voice Narration" desc="ElevenLabs TTS renders the script into natural, expressive speech. Pick your language and voice persona." />
+                  <Step num={3} icon={FileAudio} title={t("vionto.landing.how.step3.title")} desc={t("vionto.landing.how.step3.desc")} />
                 </Reveal>
                 <Reveal delay={300}>
-                  <Step num={4} icon={Download} title="Export & Share" desc="Download your finished MP4. Share to YouTube, Instagram Reels, or keep it as a cinematic personal memory." isLast />
+                  <Step num={4} icon={Download} title={t("vionto.landing.how.step4.title")} desc={t("vionto.landing.how.step4.desc")} isLast />
                 </Reveal>
               </div>
             </div>
@@ -782,7 +780,7 @@ export function LandingPage() {
         <section style={{ padding: "96px 24px", maxWidth: "1120px", margin: "0 auto" }}>
           <Reveal>
             <div style={{ textAlign: "center", marginBottom: "64px" }}>
-              <SectionLabel color="#6ea8ff" icon={Clapperboard}>Output modes</SectionLabel>
+              <SectionLabel color="#6ea8ff" icon={Clapperboard}>{t("vionto.landing.modes.label")}</SectionLabel>
               <h2
                 style={{
                   fontSize: "clamp(1.9rem, 4vw, 3.1rem)",
@@ -792,10 +790,10 @@ export function LandingPage() {
                   letterSpacing: "-0.025em",
                 }}
               >
-                Made for every platform
+                {t("vionto.landing.modes.title")}
               </h2>
               <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto", lineHeight: 1.7 }}>
-                Three distinct styles. Three aspect ratios. One tool.
+                {t("vionto.landing.modes.subtitle")}
               </p>
             </div>
           </Reveal>
@@ -803,23 +801,23 @@ export function LandingPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
             <Reveal delay={0}>
               <ModeCard
-                title="Cinematic Story"
-                desc="Narrative-driven videos with dramatic pacing, expressive voice-over, and cinematic transitions. Built for YouTube and Vimeo."
-                ratio="16:9" ratioLabel="16:9 Landscape" accent="#f36f56" badge="Story"
+                title={t("vionto.landing.modes.cinematic.title")}
+                desc={t("vionto.landing.modes.cinematic.desc")}
+                ratio="16:9" ratioLabel={t("vionto.landing.modes.cinematic.ratioLabel")} accent="#f36f56" badge={t("vionto.landing.modes.cinematic.badge")}
               />
             </Reveal>
             <Reveal delay={110}>
               <ModeCard
-                title="Slideshow"
-                desc="Clean, structured presentations with clear captions and steady pacing. Perfect for portfolios, reports, and event recaps."
-                ratio="16:9" ratioLabel="16:9 / 9:16 / 1:1" accent="#e8b45d" badge="Slideshow"
+                title={t("vionto.landing.modes.slideshow.title")}
+                desc={t("vionto.landing.modes.slideshow.desc")}
+                ratio="16:9" ratioLabel={t("vionto.landing.modes.slideshow.ratioLabel")} accent="#e8b45d" badge={t("vionto.landing.modes.slideshow.badge")}
               />
             </Reveal>
             <Reveal delay={220}>
               <ModeCard
-                title="Social Documentary"
-                desc="Fast-paced, vertical-optimised clips with punchy narration crafted for Instagram Reels, TikTok, and Shorts."
-                ratio="9:16" ratioLabel="9:16 Portrait" accent="#59c3b1" badge="Social"
+                title={t("vionto.landing.modes.social.title")}
+                desc={t("vionto.landing.modes.social.desc")}
+                ratio="9:16" ratioLabel={t("vionto.landing.modes.social.ratioLabel")} accent="#59c3b1" badge={t("vionto.landing.modes.social.badge")}
               />
             </Reveal>
           </div>
@@ -837,7 +835,7 @@ export function LandingPage() {
           <div style={{ maxWidth: "960px", margin: "0 auto" }}>
             <Reveal>
               <div style={{ textAlign: "center", marginBottom: "56px" }}>
-                <SectionLabel color="#f36f56" icon={Sparkles}>Powered by</SectionLabel>
+                <SectionLabel color="#f36f56" icon={Sparkles}>{t("vionto.landing.stack.label")}</SectionLabel>
                 <h2
                   style={{
                     fontSize: "clamp(1.9rem, 4vw, 3.1rem)",
@@ -847,24 +845,23 @@ export function LandingPage() {
                     letterSpacing: "-0.025em",
                   }}
                 >
-                  Best-in-class AI stack
+                  {t("vionto.landing.stack.title")}
                 </h2>
                 <p style={{ color: "var(--muted)", maxWidth: "460px", margin: "0 auto", lineHeight: 1.7 }}>
-                  Three frontier AI systems working in concert to deliver scripts and
-                  narration that feel genuinely human.
+                  {t("vionto.landing.stack.subtitle")}
                 </p>
               </div>
             </Reveal>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
               <Reveal delay={0}>
-                <AIBadge name="OpenAI GPT-4.1-mini" role="Primary script generation & vision" color="#10a37f" initials="AI" />
+                <AIBadge name={t("vionto.landing.stack.gpt.name")} role={t("vionto.landing.stack.gpt.role")} color="#10a37f" initials="AI" />
               </Reveal>
               <Reveal delay={120}>
-                <AIBadge name="Anthropic Claude Haiku" role="Contextual narration & scene editing" color="#d97706" initials="Cl" />
+                <AIBadge name={t("vionto.landing.stack.claude.name")} role={t("vionto.landing.stack.claude.role")} color="#d97706" initials="Cl" />
               </Reveal>
               <Reveal delay={240}>
-                <AIBadge name="ElevenLabs TTS" role="Natural multi-language voice synthesis" color="#6ea8ff" initials="EL" />
+                <AIBadge name={t("vionto.landing.stack.elevenlabs.name")} role={t("vionto.landing.stack.elevenlabs.role")} color="#6ea8ff" initials="EL" />
               </Reveal>
             </div>
           </div>
@@ -900,7 +897,7 @@ export function LandingPage() {
                 zIndex: 1,
               }}
             >
-              Ready to tell your story?
+              {t("vionto.landing.cta.title")}
             </h2>
             <p
               style={{
@@ -913,7 +910,7 @@ export function LandingPage() {
                 zIndex: 1,
               }}
             >
-              Start with a handful of photos. Vionto handles the rest — script, voice, and video.
+              {t("vionto.landing.cta.subtitle")}
             </p>
             <Link
               href="/create"
@@ -946,7 +943,7 @@ export function LandingPage() {
                 el.style.boxShadow = "0 14px 44px rgba(243,111,86,0.42)";
               }}
             >
-              Create your first video <ArrowRight size={18} />
+              {t("vionto.landing.cta.button")} <ArrowRight size={18} />
             </Link>
           </Reveal>
         </section>
@@ -968,13 +965,13 @@ export function LandingPage() {
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <ViontoFooterMark />
             <span style={{ fontWeight: 700, fontSize: "0.97rem", color: "var(--text)" }}>Vionto</span>
-            <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>— AI-Powered Video Creation</span>
+            <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>{t("vionto.landing.footer.tagline")}</span>
           </div>
           <nav style={{ display: "flex", gap: "22px" }}>
             {[
-              { href: "/privacy",        label: "Privacy" },
-              { href: "/terms",          label: "Terms" },
-              { href: "/acceptable-use", label: "Acceptable Use" },
+              { href: "/privacy",        label: t("vionto.landing.footer.privacy") },
+              { href: "/terms",          label: t("vionto.landing.footer.terms") },
+              { href: "/acceptable-use", label: t("vionto.landing.footer.acceptableUse") },
             ].map(({ href, label }) => (
               <Link
                 key={href}
