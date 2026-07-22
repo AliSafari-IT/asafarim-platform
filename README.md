@@ -58,11 +58,11 @@ flowchart TD
 
 | App              | Purpose                        | Dev port | Target domain          | Access                      |
 | ---------------- | ------------------------------ | -------- | ---------------------- | --------------------------- |
-| `apps/web`       | Public ASafarIM Digital site   | 3000     | asafarim.com           | Public                      |
-| `apps/hub`       | Logged-in user dashboard       | 3001     | hub.asafarim.com       | Login for dashboard/apps/profile/settings |
-| `apps/showcase`  | Public demos and case studies  | 3002     | showcase.asafarim.be   | Public                      |
-| `apps/admin`     | Internal admin panel           | 3003     | admin.asafarim.com     | admin / superadmin role     |
-| `apps/vionto`    | AI photo-to-story video app    | 3004     | vionto.asafarim.com    | Login for projects/rendering (see [docs/vionto-architecture.md](docs/vionto-architecture.md)) |
+| [`apps/web`](apps/web/README.md)       | Public ASafarIM Digital site   | 3000     | asafarim.com           | Public                      |
+| [`apps/hub`](apps/hub/README.md)       | Logged-in user dashboard       | 3001     | hub.asafarim.com       | Login for dashboard/apps/profile/settings |
+| [`apps/showcase`](apps/showcase/README.md)  | Public demos and case studies  | 3002     | showcase.asafarim.be   | Public                      |
+| [`apps/admin`](apps/admin/README.md)     | Internal admin panel           | 3003     | admin.asafarim.com     | admin / superadmin role     |
+| [`apps/vionto`](apps/vionto/README.md)    | AI photo-to-story video app    | 3004     | vionto.asafarim.com    | Login for projects/rendering (see [docs/vionto-architecture.md](docs/vionto-architecture.md)) |
 
 Public website copy is maintained in `apps/web/content/`; PR-specific source,
 asset, and deferral records are kept in `docs/migration-notes.md`.
@@ -135,14 +135,14 @@ flowchart LR
     AuthPkg["@asafarim/auth"]
     DB[(PostgreSQL)]
 
-    User -->|1. Open protected app| App
-    App -->|2. Redirect to sign-in| Hub
-    Hub -->|3. Credentials + callback| AuthPkg
-    AuthPkg -->|4. Query user / session| DB
-    AuthPkg -->|5. Set session cookie| Hub
-    Hub -->|6. Redirect to callback URL| App
-    App -->|7. auth() / API call| AuthPkg
-    AuthPkg -->|8. Validate session| DB
+    User -->|"1. Open protected app"| App
+    App -->|"2. Redirect to sign-in"| Hub
+    Hub -->|"3. Credentials + callback"| AuthPkg
+    AuthPkg -->|"4. Query user / session"| DB
+    AuthPkg -->|"5. Set session cookie"| Hub
+    Hub -->|"6. Redirect to callback URL"| App
+    App -->|"7. auth() / API call"| AuthPkg
+    AuthPkg -->|"8. Validate session"| DB
 ```
 
 ## Deployment
