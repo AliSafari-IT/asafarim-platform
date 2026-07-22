@@ -85,12 +85,15 @@ const lbVionto: Dict = {
   "vionto.album.selectAll": "Alles auswielen",
   "vionto.album.deleting": "Gëtt geläscht…",
   "vionto.album.deleteSelected": "Ausgewielt läschen",
+  "vionto.album.removing": "Gëtt ewechgeholl…",
+  "vionto.album.removeSelected": "Ausgewielt ewechhuelen",
   "vionto.album.loading": "Albume ginn gelueden…",
   "vionto.album.details": "Albumdetails",
   "vionto.album.collectionsLabel": "Collectiounen",
   "vionto.album.emptyBase": "Nach keng Biller — lued der e puer hei uewen erop.",
   "vionto.album.emptyAlbum": "Nach keng Biller an dësem Album.",
   "vionto.album.fallback": "Album",
+  "vionto.album.linked": "verknippt",
 
   // Project
   "vionto.project.label": "Projet",
@@ -372,6 +375,8 @@ const lbVionto: Dict = {
   "vionto.lifecycle.audio_ready.next": "Video renderen",
   "vionto.lifecycle.video_rendered.label": "Video gerendert",
   "vionto.lifecycle.video_rendered.next": "Publizéieren/exportéieren",
+  "vionto.lifecycle.published_exported.label": "Publizéiert/exportéiert",
+  "vionto.lifecycle.published_exported.next": "Fäerdeg",
   "vionto.lifecycle.nextLabel": "Nächst:",
 
   // Collection labels
@@ -381,6 +386,7 @@ const lbVionto: Dict = {
   "vionto.collection.work": "Aarbecht",
   "vionto.collection.archive": "Archiv",
   "vionto.collection.favorites": "Favoritten",
+  "vionto.collection.favorite": "Favorit",
 };
 
 export default lbVionto;
