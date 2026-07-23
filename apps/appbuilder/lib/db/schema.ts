@@ -209,6 +209,60 @@ export const modificationBatchStatusEnum = pgEnum("modification_batch_status", [
   "rejected",
 ]);
 
+// M09: a generated app's OWN membership status — entirely separate from
+// M03's collaborator_status (which governs the AppBuilder *development*
+// workspace). A generated-app member is a person using the FINISHED app
+// (e.g. an employee logging in to manage their tasks), never automatically
+// an AppBuilder owner/editor/viewer. See lib/generated-data/membership.ts.
+export const generatedMemberStatusEnum = pgEnum("generated_member_status", [
+  "active",
+  "revoked",
+]);
+
+// How a generated-app membership row came to exist — audit provenance, not
+// a permission itself.
+export const generatedMemberProvenanceEnum = pgEnum("generated_member_provenance", [
+  "owner_bootstrap",
+  "invited",
+]);
+
+export const generatedRecordStatusEnum = pgEnum("generated_record_status", [
+  "active",
+  "archived",
+]);
+
+export const generatedFileStatusEnum = pgEnum("generated_file_status", [
+  "pending",
+  "committed",
+  "archived",
+]);
+
+// The workflow *execution job's* own lifecycle — deliberately tiny (M09
+// workflows run synchronously, in-request, immediately after the record
+// mutation that triggered them; see lib/generated-data/workflows.ts) rather
+// than the multi-phase async state machines M07/M08 use for AI jobs. Still
+// a durable row for idempotency/audit/retry-safety, just not
+// worker-dispatched.
+export const generatedWorkflowExecutionStatusEnum = pgEnum("generated_workflow_execution_status", [
+  "succeeded",
+  "failed",
+]);
+
+export const generatedWorkflowStepStatusEnum = pgEnum("generated_workflow_step_status", [
+  "applied",
+  "skipped",
+  "failed",
+]);
+
+// Bounded, allowlisted row-access rule vocabulary — never eval'd, never a
+// generated SQL fragment. See lib/generated-data/runtimeAuth.ts.
+export const generatedRowAccessRuleKindEnum = pgEnum("generated_row_access_rule_kind", [
+  "all",
+  "own",
+  "assigned",
+  "relatedToParent",
+]);
+
 // The generated-application registry. Every other app-owned table hangs off
 // `appId` (directly or, for specificationVersions, denormalized) so a
 // repository can never answer a query without an app-scoping predicate.
@@ -948,6 +1002,330 @@ export const modificationOperationBatches = pgTable(
   ],
 );
 
+// ─── M09: generated-app membership, records, relations, files, activity,
+// notifications, workflows, and row-access rules. Every table below is
+// scoped by `appId` on every row — see docs/appbuilder-m09-data-engine.md
+// for the full design writeup. ──────────────────────────────────────────
+
+// A person's access to the FINISHED, generated app — distinct from
+// `collaborators` (M03), which governs the AppBuilder *development*
+// workspace. `roleIds` references role ids defined in the pinned
+// specification (never invented ad hoc) — validated at write time by
+// lib/generated-data/membership.ts, not enforced by a DB constraint (roles
+// live in JSONB spec payloads, not a queryable table).
+export const generatedAppMembers = pgTable(
+  "generated_app_members",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    principalId: text("principal_id").notNull(),
+    roleIds: jsonb("role_ids").$type<string[]>().notNull().default([]),
+    status: generatedMemberStatusEnum("status").notNull().default("active"),
+    provenance: generatedMemberProvenanceEnum("provenance").notNull(),
+    invitedByPrincipalId: text("invited_by_principal_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generated_app_members_app_principal_unique").on(table.appId, table.principalId),
+    index("generated_app_members_app_id_idx").on(table.appId),
+  ],
+);
+
+// One row per generated record, of any entity. `data` holds only
+// already-validated field values (lib/generated-data/validation.ts) — never
+// raw/unvalidated client input. `revision` is the optimistic-concurrency
+// counter (bumped on every update); `specVersionNumber` is the pinned
+// specification version this row's `data` was last validated against (see
+// schema-evolution handling).
+export const generatedRecords = pgTable(
+  "generated_records",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    entityId: text("entity_id").notNull(),
+    specVersionNumber: integer("spec_version_number").notNull(),
+    revision: integer("revision").notNull().default(1),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    status: generatedRecordStatusEnum("status").notNull().default("active"),
+    createdByPrincipalId: text("created_by_principal_id").notNull(),
+    updatedByPrincipalId: text("updated_by_principal_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("generated_records_app_entity_idx").on(table.appId, table.entityId),
+    index("generated_records_app_entity_status_idx").on(table.appId, table.entityId, table.status),
+  ],
+);
+
+// Append-only snapshot of a record's `data` immediately BEFORE each update
+// — never mutated/deleted. The full pre-image (not a diff) so history can
+// be reconstructed without replaying every intermediate operation.
+export const generatedRecordRevisions = pgTable(
+  "generated_record_revisions",
+  {
+    id: text("id").primaryKey(),
+    recordId: text("record_id")
+      .notNull()
+      .references(() => generatedRecords.id, { onDelete: "cascade" }),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    entityId: text("entity_id").notNull(),
+    revision: integer("revision").notNull(),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+    changedByPrincipalId: text("changed_by_principal_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generated_record_revisions_record_revision_unique").on(table.recordId, table.revision),
+    index("generated_record_revisions_app_id_idx").on(table.appId),
+  ],
+);
+
+// Denormalized relation edges — maintained transactionally alongside
+// `relation`-typed field writes on `generatedRecords.data` (never the sole
+// source of truth for a relation's *value*, only an indexed projection of
+// it) so reverse lookups ("all tasks for project X") don't require a JSONB
+// scan. `relationId` is the M04 spec's Relation.id, validated to exist and
+// bind two entities in the SAME app on every write.
+export const generatedRecordRelations = pgTable(
+  "generated_record_relations",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    relationId: text("relation_id").notNull(),
+    fromRecordId: text("from_record_id")
+      .notNull()
+      .references(() => generatedRecords.id, { onDelete: "cascade" }),
+    toRecordId: text("to_record_id")
+      .notNull()
+      .references(() => generatedRecords.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generated_record_relations_unique").on(table.relationId, table.fromRecordId, table.toRecordId),
+    index("generated_record_relations_app_id_idx").on(table.appId),
+    index("generated_record_relations_to_record_idx").on(table.toRecordId),
+  ],
+);
+
+// Normalized uniqueness claims for `unique: true` fields — a claim row is
+// inserted transactionally alongside the record write it backs; the unique
+// index below is what actually enforces uniqueness at the database level
+// (JSONB alone cannot). `valueHash` is a normalized (trimmed/lowercased
+// where the field type calls for it) hash of the field's value, never the
+// raw value itself, so this index works uniformly across field types.
+export const generatedUniquenessClaims = pgTable(
+  "generated_uniqueness_claims",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    entityId: text("entity_id").notNull(),
+    fieldId: text("field_id").notNull(),
+    valueHash: text("value_hash").notNull(),
+    recordId: text("record_id")
+      .notNull()
+      .references(() => generatedRecords.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generated_uniqueness_claims_unique").on(table.appId, table.entityId, table.fieldId, table.valueHash),
+  ],
+);
+
+// File metadata for generated-app `file`/`image` fields. `storageKey` is
+// always server-generated (lib/generated-data/files.ts#buildKey-style
+// helper) — never the client's original filename or a client-supplied
+// path. `recordId` is nullable because an upload may be initiated before
+// the record it will attach to exists (a create form's file field).
+export const generatedFiles = pgTable(
+  "generated_files",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    entityId: text("entity_id").notNull(),
+    recordId: text("record_id").references((): AnyPgColumn => generatedRecords.id, { onDelete: "set null" }),
+    fieldId: text("field_id").notNull(),
+    storageKey: text("storage_key").notNull(),
+    originalFilename: text("original_filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    status: generatedFileStatusEnum("status").notNull().default("pending"),
+    uploadedByPrincipalId: text("uploaded_by_principal_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    committedAt: timestamp("committed_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("generated_files_storage_key_unique").on(table.storageKey),
+    index("generated_files_app_id_idx").on(table.appId),
+    index("generated_files_record_id_idx").on(table.recordId),
+  ],
+);
+
+// Append-only activity feed — never updated/deleted. `actorPrincipalId` is
+// null only for `actorKind: "workflow"` entries (the workflow executor has
+// no session of its own; it always replays the triggering user's identity
+// for authorization, but the activity entry itself is attributed to the
+// workflow so the distinction stays visible in the feed).
+export const generatedActivity = pgTable(
+  "generated_activity",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    entityId: text("entity_id").notNull(),
+    recordId: text("record_id").references((): AnyPgColumn => generatedRecords.id, { onDelete: "cascade" }),
+    action: text("action").notNull(),
+    actorPrincipalId: text("actor_principal_id"),
+    actorKind: text("actor_kind").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("generated_activity_app_id_idx").on(table.appId),
+    index("generated_activity_record_id_idx").on(table.recordId),
+  ],
+);
+
+export const generatedNotifications = pgTable(
+  "generated_notifications",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    recipientPrincipalId: text("recipient_principal_id").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    relatedRecordId: text("related_record_id").references((): AnyPgColumn => generatedRecords.id, { onDelete: "set null" }),
+    read: boolean("read").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("generated_notifications_app_recipient_idx").on(table.appId, table.recipientPrincipalId),
+  ],
+);
+
+// One durable row per workflow trigger event. Runs synchronously in-request
+// (see lib/generated-data/workflows.ts) rather than through an async
+// worker/queue — every allowlisted step (updateField/sendNotification/
+// runAction/condition) is a fast, bounded DB write, so there is no need for
+// M07/M08-style async job dispatch here. Still a real durable row: the
+// UNIQUE (appId, idempotencyKey) index is what makes a retried record
+// mutation (same idempotency key) never re-run — and therefore never
+// re-notify/re-activity-log — a workflow that already executed for that
+// exact trigger.
+export const generatedWorkflowExecutions = pgTable(
+  "generated_workflow_executions",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    workflowId: text("workflow_id").notNull(),
+    triggerRecordId: text("trigger_record_id")
+      .notNull()
+      .references(() => generatedRecords.id, { onDelete: "cascade" }),
+    triggerRevision: integer("trigger_revision").notNull(),
+    triggerKind: text("trigger_kind").notNull(),
+    status: generatedWorkflowExecutionStatusEnum("status").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    attemptCount: integer("attempt_count").notNull().default(1),
+    failureMessage: text("failure_message"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generated_workflow_executions_idempotency_unique").on(table.appId, table.idempotencyKey),
+    index("generated_workflow_executions_app_id_idx").on(table.appId),
+  ],
+);
+
+export const generatedWorkflowStepExecutions = pgTable(
+  "generated_workflow_step_executions",
+  {
+    id: text("id").primaryKey(),
+    executionId: text("execution_id")
+      .notNull()
+      .references(() => generatedWorkflowExecutions.id, { onDelete: "cascade" }),
+    stepId: text("step_id").notNull(),
+    status: generatedWorkflowStepStatusEnum("status").notNull(),
+    resultMetadata: jsonb("result_metadata").$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generated_workflow_step_executions_unique").on(table.executionId, table.stepId),
+  ],
+);
+
+// Generic idempotency ledger for record mutations (create/update/archive/
+// restore) — mirrors idempotencyKeys' role for M05 app-creation, scoped
+// additionally by entityId since two different entities in the same app
+// must never collide on the same key.
+export const generatedDataIdempotency = pgTable(
+  "generated_data_idempotency",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    entityId: text("entity_id").notNull(),
+    scope: text("scope").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    responseSnapshot: jsonb("response_snapshot").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generated_data_idempotency_unique").on(table.appId, table.entityId, table.scope, table.idempotencyKey),
+  ],
+);
+
+// Declarative, allowlisted row-access rules (lib/generated-data/
+// runtimeAuth.ts) — NEVER eval'd, NEVER a generated SQL fragment. Seeded
+// today only by the M09 demo seed (lib/generated-data/seed.ts); a builder
+// UI to configure these is future work (see docs deferrals). At most one
+// rule per (appId, entityId, roleId, verb) — absence means "no row-level
+// narrowing beyond the entity-level permission" (i.e. every row the
+// permission allows).
+export const generatedRowAccessRules = pgTable(
+  "generated_row_access_rules",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    entityId: text("entity_id").notNull(),
+    roleId: text("role_id").notNull(),
+    verb: text("verb").notNull(),
+    ruleKind: generatedRowAccessRuleKindEnum("rule_kind").notNull(),
+    // Shape depends on ruleKind: {} for "all"/"own"; { assigneeFieldId } for
+    // "assigned"; { parentRelationId } for "relatedToParent".
+    ruleConfig: jsonb("rule_config").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("generated_row_access_rules_unique").on(table.appId, table.entityId, table.roleId, table.verb),
+  ],
+);
+
 export const appsRelations = relations(apps, ({ many }) => ({
   collaborators: many(collaborators),
   specifications: many(specifications),
@@ -960,6 +1338,8 @@ export const appsRelations = relations(apps, ({ many }) => ({
   generationJobs: many(generationJobs),
   conversations: many(conversations),
   modificationJobs: many(modificationJobs),
+  generatedAppMembers: many(generatedAppMembers),
+  generatedRecords: many(generatedRecords),
 }));
 
 export const creationRequestsRelations = relations(creationRequests, ({ one }) => ({
@@ -1099,4 +1479,78 @@ export const modificationJobsRelations = relations(modificationJobs, ({ one, man
 export const modificationOperationBatchesRelations = relations(modificationOperationBatches, ({ one }) => ({
   job: one(modificationJobs, { fields: [modificationOperationBatches.jobId], references: [modificationJobs.id] }),
   app: one(apps, { fields: [modificationOperationBatches.appId], references: [apps.id] }),
+}));
+
+export const generatedAppMembersRelations = relations(generatedAppMembers, ({ one }) => ({
+  app: one(apps, { fields: [generatedAppMembers.appId], references: [apps.id] }),
+}));
+
+export const generatedRecordsRelations = relations(generatedRecords, ({ one, many }) => ({
+  app: one(apps, { fields: [generatedRecords.appId], references: [apps.id] }),
+  revisions: many(generatedRecordRevisions),
+  outgoingRelations: many(generatedRecordRelations, { relationName: "fromRecord" }),
+  incomingRelations: many(generatedRecordRelations, { relationName: "toRecord" }),
+}));
+
+export const generatedRecordRevisionsRelations = relations(generatedRecordRevisions, ({ one }) => ({
+  record: one(generatedRecords, { fields: [generatedRecordRevisions.recordId], references: [generatedRecords.id] }),
+  app: one(apps, { fields: [generatedRecordRevisions.appId], references: [apps.id] }),
+}));
+
+export const generatedRecordRelationsRelations = relations(generatedRecordRelations, ({ one }) => ({
+  app: one(apps, { fields: [generatedRecordRelations.appId], references: [apps.id] }),
+  fromRecord: one(generatedRecords, {
+    fields: [generatedRecordRelations.fromRecordId],
+    references: [generatedRecords.id],
+    relationName: "fromRecord",
+  }),
+  toRecord: one(generatedRecords, {
+    fields: [generatedRecordRelations.toRecordId],
+    references: [generatedRecords.id],
+    relationName: "toRecord",
+  }),
+}));
+
+export const generatedUniquenessClaimsRelations = relations(generatedUniquenessClaims, ({ one }) => ({
+  app: one(apps, { fields: [generatedUniquenessClaims.appId], references: [apps.id] }),
+  record: one(generatedRecords, { fields: [generatedUniquenessClaims.recordId], references: [generatedRecords.id] }),
+}));
+
+export const generatedFilesRelations = relations(generatedFiles, ({ one }) => ({
+  app: one(apps, { fields: [generatedFiles.appId], references: [apps.id] }),
+  record: one(generatedRecords, { fields: [generatedFiles.recordId], references: [generatedRecords.id] }),
+}));
+
+export const generatedActivityRelations = relations(generatedActivity, ({ one }) => ({
+  app: one(apps, { fields: [generatedActivity.appId], references: [apps.id] }),
+  record: one(generatedRecords, { fields: [generatedActivity.recordId], references: [generatedRecords.id] }),
+}));
+
+export const generatedNotificationsRelations = relations(generatedNotifications, ({ one }) => ({
+  app: one(apps, { fields: [generatedNotifications.appId], references: [apps.id] }),
+  record: one(generatedRecords, { fields: [generatedNotifications.relatedRecordId], references: [generatedRecords.id] }),
+}));
+
+export const generatedWorkflowExecutionsRelations = relations(generatedWorkflowExecutions, ({ one, many }) => ({
+  app: one(apps, { fields: [generatedWorkflowExecutions.appId], references: [apps.id] }),
+  triggerRecord: one(generatedRecords, {
+    fields: [generatedWorkflowExecutions.triggerRecordId],
+    references: [generatedRecords.id],
+  }),
+  steps: many(generatedWorkflowStepExecutions),
+}));
+
+export const generatedWorkflowStepExecutionsRelations = relations(generatedWorkflowStepExecutions, ({ one }) => ({
+  execution: one(generatedWorkflowExecutions, {
+    fields: [generatedWorkflowStepExecutions.executionId],
+    references: [generatedWorkflowExecutions.id],
+  }),
+}));
+
+export const generatedDataIdempotencyRelations = relations(generatedDataIdempotency, ({ one }) => ({
+  app: one(apps, { fields: [generatedDataIdempotency.appId], references: [apps.id] }),
+}));
+
+export const generatedRowAccessRulesRelations = relations(generatedRowAccessRules, ({ one }) => ({
+  app: one(apps, { fields: [generatedRowAccessRules.appId], references: [apps.id] }),
 }));
