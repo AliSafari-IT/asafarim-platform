@@ -10,6 +10,9 @@ import {
 } from "../errors";
 import { ConfirmationExpiredError, ConfirmationInvalidError } from "../repositories/modificationJobs";
 import { InvalidSelectionError, StaleSelectionError } from "../modification/selectionContext";
+import { RecordValidationError, StaleRecordRevisionError, UniqueConstraintError } from "../generated-data/records";
+import { FileTooLargeError, SignedLinkExpiredError, UnsupportedMimeTypeError } from "../generated-data/files";
+import { RuntimePermissionDeniedError } from "../generated-data/runtimeAuth";
 
 /**
  * Maps a repository error to the right JSON status — never HTML for API
@@ -26,8 +29,29 @@ export function errorResponse(err: unknown): NextResponse {
   if (err instanceof NotFoundError) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  if (err instanceof RuntimePermissionDeniedError) {
+    return NextResponse.json({ error: err.message, code: "runtime_permission_denied" }, { status: 403 });
+  }
   if (err instanceof ForbiddenError) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (err instanceof RecordValidationError) {
+    return NextResponse.json({ error: err.message, code: "record_validation_failed", errors: err.errors }, { status: 400 });
+  }
+  if (err instanceof StaleRecordRevisionError) {
+    return NextResponse.json(
+      { error: err.message, code: "stale_revision", currentRevision: err.currentRevision, baseRevision: err.baseRevision },
+      { status: 409 },
+    );
+  }
+  if (err instanceof UniqueConstraintError) {
+    return NextResponse.json({ error: err.message, code: "unique_constraint" }, { status: 409 });
+  }
+  if (err instanceof FileTooLargeError || err instanceof UnsupportedMimeTypeError) {
+    return NextResponse.json({ error: err.message, code: "invalid_file" }, { status: 400 });
+  }
+  if (err instanceof SignedLinkExpiredError) {
+    return NextResponse.json({ error: err.message, code: "link_expired" }, { status: 410 });
   }
   if (err instanceof OperationValidationError) {
     return NextResponse.json({ error: err.message, code: "operation_validation_failed", errors: err.errors }, { status: 400 });

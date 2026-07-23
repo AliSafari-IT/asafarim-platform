@@ -219,6 +219,7 @@ export const taskManagementTemplate: AppTemplate = {
           components: [
             { id: "tasks_table", kind: "dataTable", entityId: "task", config: { variant: "table" }, order: 0 },
             { id: "task_detail", kind: "detailView", entityId: "task", config: { variant: "detail" }, order: 1 },
+            { id: "task_form", kind: "form", entityId: "task", config: { variant: "form", submitLabel: "Create task" }, order: 2 },
           ],
         },
         {

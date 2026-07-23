@@ -17,6 +17,8 @@ export interface SeededFixtures {
   builderAppAdversarialId: string;
   builderAppA11yDialogId: string;
   builderAppA11yMotionId: string;
+  m09AppId: string;
+  m09AppSecondaryId: string;
   ownerId: string;
   editorId: string;
   viewerId: string;

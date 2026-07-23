@@ -1,0 +1,77 @@
+/* ─────────────────────────────────────────────────────────────────
+   M09 "live" generated-app rendering — apps/appbuilder-only styles for
+   the interactive counterparts to `@asafarim/appbuilder-runtime`'s
+   demo-only registry components (packages/appbuilder-runtime/src/styles/
+   preview.css). Reuses that package's `--ab-*`/design tokens and `.ab-*`
+   layout classes wherever the shape matches (table/detail/kanban/
+   calendar/chart/settings markup is intentionally identical); only truly
+   new interactive affordances (sortable headers, toolbars, pagers, the
+   entity workspace layout) get new classes here.
+   ───────────────────────────────────────────────────────────────── */
+
+.ab-live-table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+}
+
+.ab-live-table__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ab-live-table__archived-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.ab-live-table__sort {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+}
+.ab-live-table__sort:hover {
+  text-decoration: underline;
+}
+
+.ab-live-table__row--clickable:hover {
+  background: var(--surface-2);
+}
+
+.ab-live-table__pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ab-live-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  min-width: 0;
+}
+
+.ab-live-workspace__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: var(--width-narrow);
+}
+
+.ab-detail__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
