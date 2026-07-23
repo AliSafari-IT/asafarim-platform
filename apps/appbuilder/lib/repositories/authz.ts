@@ -44,7 +44,9 @@ export type Capability =
   | "app.cancelModification" // cancel an active modification job (M08)
   | "app.confirmModification" // confirm a destructive modification proposal (M08)
   | "app.undoOperation" // undo the last applied operation via its safe inverse (M08)
-  | "app.restoreVersion"; // restore an older specification version as a new version (M08)
+  | "app.restoreVersion" // restore an older specification version as a new version (M08)
+  | "app.manageGeneratedMembers" // bootstrap/invite/re-role/revoke a GENERATED-APP member (M09) — a builder-side action, distinct from being a generated-app member oneself
+  | "app.resetGeneratedData"; // preview-only generated-record seed/reset (M09)
 
 /** The minimum role each capability requires. Owner outranks editor outranks viewer. */
 const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
@@ -74,6 +76,12 @@ const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
   "app.confirmModification": "editor",
   "app.undoOperation": "editor",
   "app.restoreVersion": "owner",
+  // M09: builder-side control over the GENERATED app's own membership/data —
+  // never to be confused with M03's owner/editor/viewer ranks governing the
+  // AppBuilder workspace itself (see lib/generated-data/membership.ts's
+  // module docstring for the full identity-boundary rationale).
+  "app.manageGeneratedMembers": "owner",
+  "app.resetGeneratedData": "editor",
 };
 
 /** Whether a role grants a capability. Exported so tests/UI can render capability-gated affordances consistently. */

@@ -1,6 +1,6 @@
 {
   "name": "@asafarim/appbuilder",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "ASafarIM AppBuilder - metadata-driven AI application factory (appbuilder.asafarim.com)",
   "scripts": {
@@ -26,6 +26,7 @@
     "@asafarim/appbuilder-runtime": "workspace:*",
     "@asafarim/appbuilder-schema": "workspace:*",
     "@asafarim/auth": "workspace:*",
+    "@asafarim/storage": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "bullmq": "^5.34.0",

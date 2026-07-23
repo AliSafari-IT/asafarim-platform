@@ -171,7 +171,7 @@ export default async function globalSetup(): Promise<void> {
   const { eq } = await import("drizzle-orm");
   const { checksumOf, ENGINE_VERSION, SPEC_SCHEMA_VERSION } = await import("@asafarim/appbuilder-schema");
   const { constructionTaskManagementFixture } = await import("@asafarim/appbuilder-schema/fixtures");
-  const { REGISTRY_VERSION } = await import("@asafarim/appbuilder-runtime");
+  const { REGISTRY_VERSION, getTemplate } = await import("@asafarim/appbuilder-runtime");
   const { getDb, closeDb } = await import("../../lib/db/client");
   const { generateId } = await import("../../lib/db/ids");
   const schema = await import("../../lib/db/schema");
@@ -179,6 +179,8 @@ export default async function globalSetup(): Promise<void> {
   const { addCollaborator } = await import("../../lib/repositories/collaborators");
   const { requestPreviewBuild } = await import("../../lib/repositories/previewService");
   const { applyOperation } = await import("../../lib/repositories/operations");
+  const { applyTemplateVersion } = await import("../../lib/repositories/templateApplication");
+  const { resetGeneratedData } = await import("../../lib/generated-data/seed");
   const { buildStorageState } = await import("./fixtures/session");
 
   const versionDeps = { eq, schema, checksumOf, generateId, SPEC_SCHEMA_VERSION, ENGINE_VERSION };
@@ -340,6 +342,51 @@ export default async function globalSetup(): Promise<void> {
   const builderAppA11yDialog = await seedBuilderWorkspaceApp("a11y-dialog");
   const builderAppA11yMotion = await seedBuilderWorkspaceApp("a11y-motion");
 
+  // 6. M09 generated-data-engine fixtures — the UNMODIFIED
+  //    `task_management` template from
+  //    packages/appbuilder-runtime/src/templates/taskManagement.ts, applied
+  //    via `applyTemplateVersion` (the same bulk-template-application path
+  //    the real M07 generation pipeline uses — see lib/generation/pipeline.ts
+  //    #runPlanningIteration), never `appendSpecVersion`'s bypass and never
+  //    `constructionTaskManagementFixture` (the *different* M04 fixture
+  //    `demoApp` above uses, whose entity/field ids don't match).
+  //    lib/generated-data/seed.ts's hardcoded TASK_MGMT_IDS match this
+  //    template's ids exactly, so `resetGeneratedData` can seed real
+  //    project/task/team_member rows against it. Two independent apps: one
+  //    for the main M09 golden-path/RBAC suite, one purely so the
+  //    cross-app-isolation test has a second app's record id to probe.
+  async function seedM09App(suffix: string) {
+    const app = await createApp(
+      db,
+      ownerActor,
+      {
+        name: `M09 Task Manager ${suffix}`,
+        slug: `e2e-m09-tasks-${suffix}-${RUN_ID}`,
+        description: "E2E fixture — the M09 generated-data engine, unmodified task_management template.",
+        starterFamily: "task_management",
+        visibility: "private",
+      },
+      `e2e-seed-m09-${suffix}-${RUN_ID}`,
+    );
+    const template = getTemplate("task_management");
+    if (!template) throw new Error("task_management template is not registered in @asafarim/appbuilder-runtime");
+    await applyTemplateVersion(db, ownerActor, app.id, {
+      template,
+      baseVersionNumber: 1,
+      idempotencyKey: `e2e-seed-m09-${suffix}-${RUN_ID}-template`,
+    });
+    await requestPreviewBuild(db, ownerActor, app.id);
+    // Pre-seeds deterministic demo data AND bootstraps the owner as the
+    // first real generated-app admin member (see seed.ts's docstring) — the
+    // owner Playwright session can therefore exercise real (non-simulated)
+    // admin-level M09 assertions directly, no `?simulateRoleId=` needed.
+    await resetGeneratedData(db, ownerActor, app.id, { confirm: true });
+    return app;
+  }
+
+  const m09App = await seedM09App("main");
+  const m09AppSecondary = await seedM09App("secondary");
+
   await fs.writeFile(
     path.join(AUTH_DIR, "fixtures.json"),
     JSON.stringify(
@@ -356,6 +403,8 @@ export default async function globalSetup(): Promise<void> {
         builderAppAdversarialId: builderAppAdversarial.id,
         builderAppA11yDialogId: builderAppA11yDialog.id,
         builderAppA11yMotionId: builderAppA11yMotion.id,
+        m09AppId: m09App.id,
+        m09AppSecondaryId: m09AppSecondary.id,
         ownerId: owner.id,
         editorId: editor.id,
         viewerId: viewer.id,

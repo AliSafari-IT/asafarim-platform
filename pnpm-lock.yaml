@@ -99,6 +99,9 @@ importers:
       '@asafarim/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@asafarim/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@asafarim/theme-toggle':
         specifier: workspace:*
         version: link:../../packages/theme-toggle

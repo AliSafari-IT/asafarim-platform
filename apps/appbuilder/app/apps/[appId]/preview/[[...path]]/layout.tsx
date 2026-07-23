@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import "@asafarim/appbuilder-runtime/styles.css";
+import "./live/live.css";
 
 /**
  * Scopes the generated-app chrome/registry stylesheet to just the preview

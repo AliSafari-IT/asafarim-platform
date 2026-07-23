@@ -46,3 +46,4 @@ Thumbs.db
 # Vionto app artifacts
 apps/vionto/worker-dist/
 apps/vionto/.local-storage/
+apps/appbuilder/.local-storage/
