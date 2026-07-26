@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Badge, Button, ButtonLink } from "@asafarim/ui";
 import { routes } from "@/lib/routes";
 import { StructurePanel } from "./StructurePanel";
 import { PreviewPane } from "./PreviewPane";
 import { ConversationPanel } from "./ConversationPanel";
 import { VersionHistoryPanel } from "./VersionHistoryPanel";
+import { ValidationPanel } from "./ValidationPanel";
 import styles from "../workspace.module.css";
 import type { SelectionContext } from "./types";
 
-type MobilePanel = "structure" | "preview" | "conversation" | "history";
-type RightTab = "conversation" | "history";
+type MobilePanel = "structure" | "preview" | "conversation" | "history" | "validation";
+type RightTab = "conversation" | "history" | "validation";
 
 export interface WorkspaceShellProps {
   appId: string;
@@ -31,6 +32,7 @@ const MOBILE_TABS: { id: MobilePanel; label: string }[] = [
   { id: "preview", label: "Preview" },
   { id: "conversation", label: "Conversation" },
   { id: "history", label: "History" },
+  { id: "validation", label: "Validation" },
 ];
 
 /**
@@ -62,6 +64,24 @@ export function WorkspaceShell({
   const [versionNumber, setVersionNumber] = useState(initialVersionNumber);
   const [spec, setSpec] = useState(initialSpec);
   const [hasPreview, setHasPreview] = useState(initialHasPreview);
+
+  // `useState(initialX)` only ever reads its argument on first mount — a
+  // server-driven `router.refresh()` (see GenerationStatusPanel.tsx, which
+  // calls it once a generation job reaches a terminal status) re-renders
+  // this already-mounted client component with fresh props, but React never
+  // re-reads them into state on its own. Without this resync, "Open
+  // preview" / the version badge / the preview iframe could all keep
+  // showing pre-generation values even though the server now has a pinned
+  // preview and a bumped version (see docs/appbuilder-m10-validation-qa.md's
+  // known-risk resolution for the M09-era regression this fixes). Client-
+  // driven updates (refreshSpec, called from onVersionApplied after a
+  // conversational modification/restore/undo) still work exactly as before —
+  // they happen between renders and are simply what the next prop-driven
+  // resync would reaffirm anyway.
+  useEffect(() => setVersionNumber(initialVersionNumber), [initialVersionNumber]);
+  useEffect(() => setSpec(initialSpec), [initialSpec]);
+  useEffect(() => setHasPreview(initialHasPreview), [initialHasPreview]);
+
   const [selection, setSelection] = useState<SelectionContext | null>(null);
   const [activePanel, setActivePanel] = useState<MobilePanel>("preview");
   const [rightTab, setRightTab] = useState<RightTab>("conversation");
@@ -72,6 +92,11 @@ export function WorkspaceShell({
   const canCancelModification = canRequestModification;
   const canRestoreVersion = role === "owner";
   const canUndo = canRequestModification;
+  // Editor+ per authz.ts (app.validate/app.cancelValidation/app.requestRepair/
+  // app.cancelRepair/app.confirmRepair are all editor-minimum) — viewers may
+  // still inspect ValidationPanel's read-only summaries (app.viewValidation
+  // is viewer-minimum).
+  const canRequestValidation = canRequestModification;
 
   async function refreshSpec(newVersionNumber: number) {
     setVersionNumber(newVersionNumber);
@@ -142,7 +167,10 @@ export function WorkspaceShell({
             role="tab"
             aria-selected={activePanel === tab.id}
             className={`ui-btn ${activePanel === tab.id ? "ui-btn--primary" : "ui-btn--ghost"} ui-btn--sm`}
-            onClick={() => setActivePanel(tab.id)}
+            onClick={() => {
+              setActivePanel(tab.id);
+              if (tab.id === "conversation" || tab.id === "history" || tab.id === "validation") setRightTab(tab.id);
+            }}
           >
             {tab.label}
           </button>
@@ -210,6 +238,15 @@ export function WorkspaceShell({
             >
               History
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={rightTab === "validation"}
+              className={`ui-btn ${rightTab === "validation" ? "ui-btn--primary" : "ui-btn--ghost"} ui-btn--sm`}
+              onClick={() => setRightTab("validation")}
+            >
+              Validation
+            </button>
           </div>
           <div className={styles.panelBody}>
             {rightTab === "conversation" ? (
@@ -223,13 +260,23 @@ export function WorkspaceShell({
                 onClearSelection={() => setSelection(null)}
                 onVersionApplied={refreshSpec}
               />
-            ) : (
+            ) : rightTab === "history" ? (
               <VersionHistoryPanel
                 appId={appId}
                 currentVersionNumber={versionNumber}
                 canRestore={canRestoreVersion}
                 canUndo={canUndo}
                 onChanged={refreshSpec}
+              />
+            ) : (
+              <ValidationPanel
+                appId={appId}
+                canRequestValidation={canRequestValidation}
+                canCancelValidation={canRequestValidation}
+                canRequestRepair={canRequestValidation}
+                canConfirmRepair={canRequestValidation}
+                canCancelRepair={canRequestValidation}
+                onVersionApplied={refreshSpec}
               />
             )}
           </div>

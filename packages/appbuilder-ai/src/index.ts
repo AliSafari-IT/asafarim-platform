@@ -25,6 +25,11 @@ export {
   type ModificationProposalType,
 } from "./schemas/modificationProposal";
 export {
+  RepairProposal,
+  countRepairOperations,
+  type RepairProposalType,
+} from "./schemas/repairProposal";
+export {
   ClarificationAnswer,
   ClarificationRound,
   ClarificationState,
@@ -58,6 +63,8 @@ export type {
   ProposeOperationsResult,
   ProposeModificationInput,
   ProposeModificationResult,
+  ProposeRepairInput,
+  ProposeRepairResult,
   ModificationSelectionContext,
   ProviderCallOptions,
   UsageMetadata,
@@ -68,6 +75,7 @@ export { buildAnalysisPrompt } from "./prompts/buildAnalysisPrompt";
 export { buildTemplatePrompt } from "./prompts/buildTemplatePrompt";
 export { buildOperationPrompt } from "./prompts/buildOperationPrompt";
 export { buildModificationPrompt } from "./prompts/buildModificationPrompt";
+export { buildRepairPrompt } from "./prompts/buildRepairPrompt";
 
 export { OpenAiProvider } from "./providers/openai";
 export { FakeAiProvider, createFakeProvider, value, errorStep, type FakeProviderScript, type FakeStep } from "./providers/fake";

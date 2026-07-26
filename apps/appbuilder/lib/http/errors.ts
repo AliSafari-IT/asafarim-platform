@@ -9,6 +9,7 @@ import {
   StaleVersionError,
 } from "../errors";
 import { ConfirmationExpiredError, ConfirmationInvalidError } from "../repositories/modificationJobs";
+import { RepairConfirmationExpiredError, RepairConfirmationInvalidError } from "../repositories/repairAttempts";
 import { InvalidSelectionError, StaleSelectionError } from "../modification/selectionContext";
 import { RecordValidationError, StaleRecordRevisionError, UniqueConstraintError } from "../generated-data/records";
 import { FileTooLargeError, SignedLinkExpiredError, UnsupportedMimeTypeError } from "../generated-data/files";
@@ -83,6 +84,12 @@ export function errorResponse(err: unknown): NextResponse {
     return NextResponse.json({ error: err.message, code: "confirmation_expired" }, { status: 409 });
   }
   if (err instanceof ConfirmationInvalidError) {
+    return NextResponse.json({ error: err.message, code: "confirmation_invalid" }, { status: 409 });
+  }
+  if (err instanceof RepairConfirmationExpiredError) {
+    return NextResponse.json({ error: err.message, code: "confirmation_expired" }, { status: 409 });
+  }
+  if (err instanceof RepairConfirmationInvalidError) {
     return NextResponse.json({ error: err.message, code: "confirmation_invalid" }, { status: 409 });
   }
   if (err instanceof ConflictError) {

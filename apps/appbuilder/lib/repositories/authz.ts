@@ -33,7 +33,12 @@ export type Capability =
   | "app.manageCollaborators" // add/remove/re-role collaborators
   | "app.archive" // archive an app
   | "app.restore" // restore an archived app
-  | "app.validate" // run validation gates (M10)
+  | "app.viewValidation" // view validation run/gate/artifact summaries (M10)
+  | "app.validate" // request a validation run (M10)
+  | "app.cancelValidation" // cancel an active validation run (M10)
+  | "app.requestRepair" // request a bounded AI repair attempt (M10)
+  | "app.cancelRepair" // cancel an active repair attempt (M10)
+  | "app.confirmRepair" // confirm a destructive repair proposal (M10)
   | "app.approve" // approve a validated version (M10)
   | "app.deployRelease" // create/publish a release or deployment (M11)
   | "app.requestGeneration" // enqueue/resume an AI generation job (M07)
@@ -57,7 +62,12 @@ const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
   "app.manageCollaborators": "owner",
   "app.archive": "owner",
   "app.restore": "owner",
+  "app.viewValidation": "viewer",
   "app.validate": "editor",
+  "app.cancelValidation": "editor",
+  "app.requestRepair": "editor",
+  "app.cancelRepair": "editor",
+  "app.confirmRepair": "editor",
   "app.approve": "owner",
   "app.deployRelease": "owner",
   "app.requestGeneration": "editor",
@@ -102,6 +112,7 @@ const ALLOWED_WHILE_ARCHIVED: ReadonlySet<Capability> = new Set([
   "app.restore",
   "app.viewGenerationJob",
   "app.viewConversation",
+  "app.viewValidation",
 ]);
 
 export interface AppAccess {

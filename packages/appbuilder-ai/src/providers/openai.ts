@@ -4,11 +4,13 @@ import { RequirementsAnalysis, type RequirementsAnalysisType } from "../schemas/
 import { TemplateRecommendation } from "../schemas/templateRecommendation";
 import { OperationBatch } from "../schemas/operationProposal";
 import { ModificationProposal } from "../schemas/modificationProposal";
+import { RepairProposal } from "../schemas/repairProposal";
 import { SYSTEM_POLICY } from "../prompts/systemPolicy";
 import { buildAnalysisPrompt } from "../prompts/buildAnalysisPrompt";
 import { buildTemplatePrompt } from "../prompts/buildTemplatePrompt";
 import { buildOperationPrompt } from "../prompts/buildOperationPrompt";
 import { buildModificationPrompt } from "../prompts/buildModificationPrompt";
+import { buildRepairPrompt } from "../prompts/buildRepairPrompt";
 import { ProviderError } from "../provider/errors";
 import type { AiProviderConfig } from "../provider/config";
 import type {
@@ -22,6 +24,8 @@ import type {
   ProposeOperationsResult,
   ProposeModificationInput,
   ProposeModificationResult,
+  ProposeRepairInput,
+  ProposeRepairResult,
   UsageMetadata,
 } from "../provider/types";
 
@@ -163,6 +167,12 @@ export class OpenAiProvider implements AiProvider {
   ): Promise<ProposeModificationResult> {
     const prompt = buildModificationPrompt(input);
     const { data, usage } = await this.parse(prompt, ModificationProposal, "modification_proposal", options);
+    return { proposal: data as any, usage };
+  }
+
+  async proposeRepair(input: ProposeRepairInput, options: ProviderCallOptions): Promise<ProposeRepairResult> {
+    const prompt = buildRepairPrompt(input);
+    const { data, usage } = await this.parse(prompt, RepairProposal, "repair_proposal", options);
     return { proposal: data as any, usage };
   }
 }

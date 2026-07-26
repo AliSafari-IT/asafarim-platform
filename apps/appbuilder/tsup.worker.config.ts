@@ -13,7 +13,11 @@ export default defineConfig({
   // "ReferenceError: React is not defined". See tsconfig.worker.json.
   tsconfig: "./tsconfig.worker.json",
   // Keep native/heavy deps external — installed separately in the runner image.
-  external: ["bullmq", "ioredis", "openai", "pg"],
+  // playwright-core/@axe-core/playwright back M10's browser-driven validation
+  // gates (lib/validation/smoke/harness.ts) — the worker container must run
+  // `npx playwright install --with-deps chromium` (see
+  // docs/appbuilder-m10-validation-qa.md#operator-troubleshooting).
+  external: ["bullmq", "ioredis", "openai", "pg", "playwright-core", "@axe-core/playwright"],
   // Force-inline all workspace packages (they are source-only TS, not
   // published) — including transitive ones like @asafarim/ui (a dependency
   // of @asafarim/appbuilder-runtime's rendering registry) that would
