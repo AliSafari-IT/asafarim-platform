@@ -1,11 +1,14 @@
 import type { Db } from "../db/client";
 import { generatedActivity } from "../db/schema";
 import { generateId } from "../db/ids";
+import { PREVIEW, type GeneratedEnvironment } from "./environment";
 
 export type ActorKind = "member" | "workflow" | "system";
 
 export interface RecordActivityInput {
   appId: string;
+  /** M11: defaults to `preview` (fail-closed) — callers operating in production must pass it explicitly. */
+  environment?: GeneratedEnvironment;
   entityId: string;
   recordId: string | null;
   action: string;
@@ -19,6 +22,7 @@ export async function recordActivity(db: Db, input: RecordActivityInput): Promis
   await db.insert(generatedActivity).values({
     id: generateId(),
     appId: input.appId,
+    environment: input.environment ?? PREVIEW,
     entityId: input.entityId,
     recordId: input.recordId,
     action: input.action,

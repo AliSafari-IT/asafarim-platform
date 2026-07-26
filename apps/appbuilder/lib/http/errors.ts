@@ -14,6 +14,7 @@ import { InvalidSelectionError, StaleSelectionError } from "../modification/sele
 import { RecordValidationError, StaleRecordRevisionError, UniqueConstraintError } from "../generated-data/records";
 import { FileTooLargeError, SignedLinkExpiredError, UnsupportedMimeTypeError } from "../generated-data/files";
 import { RuntimePermissionDeniedError } from "../generated-data/runtimeAuth";
+import { ReleaseNotEligibleError, StaleApprovalError } from "../deployment/errors";
 
 /**
  * Maps a repository error to the right JSON status — never HTML for API
@@ -91,6 +92,12 @@ export function errorResponse(err: unknown): NextResponse {
   }
   if (err instanceof RepairConfirmationInvalidError) {
     return NextResponse.json({ error: err.message, code: "confirmation_invalid" }, { status: 409 });
+  }
+  if (err instanceof ReleaseNotEligibleError) {
+    return NextResponse.json({ error: err.message, code: "release_not_eligible", reasons: err.reasons }, { status: 409 });
+  }
+  if (err instanceof StaleApprovalError) {
+    return NextResponse.json({ error: err.message, code: "stale_approval", reasons: err.reasons }, { status: 409 });
   }
   if (err instanceof ConflictError) {
     return NextResponse.json({ error: err.message, code: "conflict" }, { status: 409 });

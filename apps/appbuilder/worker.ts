@@ -29,7 +29,7 @@ import { Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 import { createProviderFromConfig, loadAiProviderConfig, safeConfigSummary, buildSafeSummary } from "@asafarim/appbuilder-ai";
 import { getDb, closeDb } from "./lib/db/client";
-import { generationJobs, modificationJobs, validationRuns, repairAttempts } from "./lib/db/schema";
+import { generationJobs, modificationJobs, validationRuns, repairAttempts, deployments } from "./lib/db/schema";
 import {
   claimJobById,
   claimNextAvailableJob,
@@ -50,20 +50,29 @@ import {
   claimNextAvailableAttempt,
   type RepairAttemptRow,
 } from "./lib/repositories/repairAttempts";
+import {
+  claimDeploymentById,
+  claimNextAvailableDeployment,
+  type DeploymentRow,
+} from "./lib/repositories/deployments";
 import { runGenerationJob } from "./lib/generation/pipeline";
 import { runModificationJob } from "./lib/modification/pipeline";
 import { runValidationRun } from "./lib/validation/pipeline";
 import { runRepairAttempt } from "./lib/repair/pipeline";
+import { runDeploymentJob } from "./lib/deployment/pipeline";
 import { GENERATION_LIMITS } from "./lib/generation/limits";
 import { MODIFICATION_LIMITS } from "./lib/modification/limits";
 import { VALIDATION_LIMITS, REPAIR_LIMITS } from "./lib/validation/limits";
+import { DEPLOYMENT_LIMITS } from "./lib/deployment/limits";
 import { computeBackoffDelayMs } from "./lib/generation/backoff";
 import {
   GENERATION_QUEUE_NAME,
   MODIFICATION_QUEUE_NAME,
   VALIDATION_QUEUE_NAME,
   REPAIR_QUEUE_NAME,
+  DEPLOYMENT_QUEUE_NAME,
   nudgeWorker,
+  nudgeDeploymentWorker,
   nudgeModificationWorker,
   nudgeValidationWorker,
   nudgeRepairWorker,
@@ -71,6 +80,7 @@ import {
   type ModificationDispatchMessage,
   type ValidationDispatchMessage,
   type RepairDispatchMessage,
+  type DeploymentDispatchMessage,
 } from "./lib/server/queue";
 
 const WORKER_ID = `appbuilder-worker:${process.pid}:${Math.random().toString(36).slice(2, 8)}`;
@@ -84,6 +94,8 @@ const VALIDATION_LEASE_DURATION_MS = VALIDATION_LIMITS.DEFAULT_LEASE_DURATION_MS
 const VALIDATION_SWEEP_INTERVAL_MS = VALIDATION_LIMITS.STALE_LEASE_SWEEP_INTERVAL_MS;
 const REPAIR_LEASE_DURATION_MS = REPAIR_LIMITS.DEFAULT_LEASE_DURATION_MS;
 const REPAIR_SWEEP_INTERVAL_MS = REPAIR_LIMITS.STALE_LEASE_SWEEP_INTERVAL_MS;
+const DEPLOYMENT_LEASE_DURATION_MS = DEPLOYMENT_LIMITS.DEFAULT_LEASE_DURATION_MS;
+const DEPLOYMENT_SWEEP_INTERVAL_MS = DEPLOYMENT_LIMITS.STALE_LEASE_SWEEP_INTERVAL_MS;
 
 const redisUrl = process.env.REDIS_URL;
 if (!redisUrl) {
@@ -392,6 +404,81 @@ const repairSweepInterval = setInterval(async () => {
   }
 }, REPAIR_SWEEP_INTERVAL_MS);
 
+// ─── M11: deployment/rollback jobs — same worker process, its own BullMQ
+// queue/state machine (lib/deployment/stateMachine.ts). Never runs arbitrary
+// per-app code: every phase either verifies already-persisted, immutable
+// facts (eligibility, manifest checksum, registry compatibility) or performs
+// the one atomic pointer switch (lib/deployment/pipeline.ts#activating). ──
+
+async function processClaimedDeployment(deployment: DeploymentRow): Promise<void> {
+  activeJobCount += 1;
+  const controller = new AbortController();
+
+  const cancelWatcher = setInterval(async () => {
+    try {
+      const db = getDb();
+      const [row] = await db.select().from(deployments).where(eq(deployments.id, deployment.id)).limit(1);
+      // Cancellation is only ever honored pre-activation — see
+      // lib/repositories/deployments.ts#requestDeploymentCancellation, which
+      // itself refuses to set cancelRequestedAt once activatedAt is set, so
+      // no additional guard is needed here.
+      if (row?.cancelRequestedAt) controller.abort();
+    } catch {
+      // Best-effort — the next phase-boundary checkpoint still catches it.
+    }
+  }, 3_000);
+
+  try {
+    const outcome = await runDeploymentJob(
+      { db: getDb(), workerId: WORKER_ID, leaseDurationMs: DEPLOYMENT_LEASE_DURATION_MS, signal: controller.signal },
+      deployment,
+    );
+
+    if (outcome.kind === "retry_later") {
+      const delayMs = computeBackoffDelayMs(outcome.deployment.attemptCount);
+      console.warn(`[appbuilder-worker] deployment ${deployment.id} failed retryably; retrying in ~${delayMs}ms (attempt ${outcome.deployment.attemptCount}/${DEPLOYMENT_LIMITS.MAX_DEPLOYMENT_ATTEMPTS})`);
+      await nudgeDeploymentWorker(deployment.id, { cause: "retry", attempt: outcome.deployment.attemptCount, delayMs });
+    } else if (outcome.kind === "lease_lost") {
+      console.warn(`[appbuilder-worker] lost lease on deployment ${deployment.id} mid-processing; another worker owns it now`);
+    } else {
+      console.log(`[appbuilder-worker] deployment ${deployment.id} -> ${outcome.deployment.status} (${outcome.deployment.phase})`);
+    }
+  } catch (err) {
+    console.error(`[appbuilder-worker] unhandled error processing deployment ${deployment.id}:`, err);
+  } finally {
+    clearInterval(cancelWatcher);
+    activeJobCount -= 1;
+  }
+}
+
+const deploymentWorker = new Worker<DeploymentDispatchMessage>(
+  DEPLOYMENT_QUEUE_NAME,
+  async (bullJob: Job<DeploymentDispatchMessage>) => {
+    const { deploymentId } = bullJob.data;
+    const claimed = await claimDeploymentById(getDb(), deploymentId, WORKER_ID, DEPLOYMENT_LEASE_DURATION_MS);
+    if (!claimed) return; // already claimed or already terminal — not an error.
+    await processClaimedDeployment(claimed);
+  },
+  { connection: redis, concurrency: CONCURRENCY },
+);
+
+deploymentWorker.on("failed", (bullJob, err) => {
+  console.error(`[appbuilder-worker] BullMQ deployment ${bullJob?.id} failed:`, err);
+});
+
+const deploymentSweepInterval = setInterval(async () => {
+  if (isShuttingDown) return;
+  try {
+    const claimed = await claimNextAvailableDeployment(getDb(), WORKER_ID, DEPLOYMENT_LEASE_DURATION_MS);
+    if (claimed) {
+      console.log(`[appbuilder-worker] stale-lease sweep claimed deployment ${claimed.id} (status: ${claimed.status})`);
+      await processClaimedDeployment(claimed);
+    }
+  } catch (err) {
+    console.error("[appbuilder-worker] deployment stale-lease sweep error:", err);
+  }
+}, DEPLOYMENT_SWEEP_INTERVAL_MS);
+
 const healthServer = createServer(async (_req, res) => {
   const checks = { worker: !isShuttingDown, redis: false, database: false };
   try {
@@ -412,7 +499,7 @@ const healthServer = createServer(async (_req, res) => {
     JSON.stringify({
       ok,
       service: "appbuilder-worker",
-      queues: [GENERATION_QUEUE_NAME, MODIFICATION_QUEUE_NAME, VALIDATION_QUEUE_NAME, REPAIR_QUEUE_NAME],
+      queues: [GENERATION_QUEUE_NAME, MODIFICATION_QUEUE_NAME, VALIDATION_QUEUE_NAME, REPAIR_QUEUE_NAME, DEPLOYMENT_QUEUE_NAME],
       concurrency: CONCURRENCY,
       activeJobCount,
       checks,
@@ -433,11 +520,13 @@ function shutdown(signal: string) {
   clearInterval(modificationSweepInterval);
   clearInterval(validationSweepInterval);
   clearInterval(repairSweepInterval);
+  clearInterval(deploymentSweepInterval);
   Promise.all([
     worker.close(),
     modificationWorker.close(),
     validationWorker.close(),
     repairWorker.close(),
+    deploymentWorker.close(),
     redis.quit(),
     closeDb(),
     new Promise<void>((resolve, reject) => {

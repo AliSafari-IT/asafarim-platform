@@ -87,7 +87,7 @@ describe("relation target validation", () => {
     // Direct relations.ts-level check, for the precise error type.
     const { spec } = await loadPinnedSpec(db, appOne.id);
     await expect(
-      validateRelationTarget(db, appOne.id, spec, "task_project", "task", projectInAppTwo.id),
+      validateRelationTarget(db, appOne.id, "preview", spec, "task_project", "task", projectInAppTwo.id),
     ).rejects.toBeInstanceOf(InvalidRelationTargetError);
   });
 
@@ -108,9 +108,40 @@ describe("relation target validation", () => {
     // task_project is declared fromEntityId="task" — calling it as if the
     // record carrying the field were a "project" must fail structurally.
     const project = await createRecord(db, ctx, "project", { name: "P", status: "planning" }, "rel-6-p");
-    await expect(validateRelationTarget(db, app.id, spec, "task_project", "project", project.id)).rejects.toBeInstanceOf(
+    await expect(validateRelationTarget(db, app.id, "preview", spec, "task_project", "project", project.id)).rejects.toBeInstanceOf(
       InvalidRelationTargetError,
     );
+  });
+
+  it("M11: a relation can never cross environments — a PRODUCTION record is not a valid target from a PREVIEW context, even with a real record id in the same app", async () => {
+    const app = await makeTaskApp("Cross Environment App", "rel-10");
+    const { spec } = await loadPinnedSpec(db, app.id);
+
+    const productionProjectId = generateId();
+    await db.insert(generatedRecords).values({
+      id: productionProjectId,
+      appId: app.id,
+      environment: "production",
+      entityId: "project",
+      specVersionNumber: 1,
+      revision: 1,
+      data: { name: "Real Production Project", status: "active" },
+      status: "active",
+      createdByPrincipalId: "real-end-user",
+      updatedByPrincipalId: "real-end-user",
+    });
+
+    await expect(
+      validateRelationTarget(db, app.id, "preview", spec, "task_project", "task", productionProjectId),
+    ).rejects.toBeInstanceOf(InvalidRelationTargetError);
+
+    // The reverse direction is equally impossible: from a PRODUCTION
+    // context, the same id resolves fine (it belongs to production) —
+    // proving the rejection above is genuinely about environment scoping,
+    // not a generically broken lookup.
+    await expect(
+      validateRelationTarget(db, app.id, "production", spec, "task_project", "task", productionProjectId),
+    ).resolves.toBeTruthy();
   });
 });
 
@@ -184,7 +215,7 @@ describe("onDelete: setNull (task_assignee)", () => {
 
     const { spec } = await loadPinnedSpec(db, app.id);
     await db.transaction(async (tx) => {
-      await applyDeleteBehaviorOnArchive(tx, app.id, spec, "team_member", member.id);
+      await applyDeleteBehaviorOnArchive(tx, app.id, "preview", spec, "team_member", member.id);
       await tx.update(generatedRecords).set({ status: "archived", archivedAt: new Date() }).where(eq(generatedRecords.id, member.id));
     });
 

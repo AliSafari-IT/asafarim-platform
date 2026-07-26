@@ -113,7 +113,7 @@ export async function listRecords(
   const pageSize = Math.min(Math.max(options.pageSize ?? QUERY_LIMITS.DEFAULT_PAGE_SIZE, 1), QUERY_LIMITS.MAX_PAGE_SIZE);
   const page = Math.max(options.page ?? 1, 1);
 
-  const conditions: SQL[] = [eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.entityId, entityId)];
+  const conditions: SQL[] = [eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.environment, ctx.environment), eq(generatedRecords.entityId, entityId)];
   if (!options.includeArchived) conditions.push(eq(generatedRecords.status, "active"));
   for (const filter of filters) conditions.push(fieldCondition(filter));
   for (const rf of options.relationFilters ?? []) conditions.push(sql`${jsonField(rf.relationFieldId)} = ${rf.recordId}`);
@@ -143,7 +143,7 @@ export async function listRecords(
       const parentScope = await resolveRowAccessScope(db, ctx, relation.toEntityId, "read");
       if (parentScope.kind === "own") {
         conditions.push(
-          sql`${jsonField(parentFieldId)} IN (SELECT id FROM generated_records WHERE app_id = ${ctx.appId} AND entity_id = ${relation.toEntityId} AND created_by_principal_id = ${ctx.actor.principalId})`,
+          sql`${jsonField(parentFieldId)} IN (SELECT id FROM generated_records WHERE app_id = ${ctx.appId} AND environment = ${ctx.environment} AND entity_id = ${relation.toEntityId} AND created_by_principal_id = ${ctx.actor.principalId})`,
         );
       }
       // parentScope "all": no extra narrowing needed (every parent is visible).
@@ -219,10 +219,20 @@ export async function listRelatedRecords(
   limit = 50,
 ): Promise<GeneratedRecordRow[]> {
   assertRuntimePermission(ctx, childEntityId, "read");
+  // M11: this edge lookup previously scoped by (relationId, toRecordId)
+  // ALONE — no app, no environment. Both predicates are now mandatory: an
+  // edge row is only ever visible to the app AND environment that owns it.
   const edges = await db
     .select({ fromRecordId: generatedRecordRelations.fromRecordId })
     .from(generatedRecordRelations)
-    .where(and(eq(generatedRecordRelations.relationId, relationId), eq(generatedRecordRelations.toRecordId, toRecordId)))
+    .where(
+      and(
+        eq(generatedRecordRelations.appId, ctx.appId),
+        eq(generatedRecordRelations.environment, ctx.environment),
+        eq(generatedRecordRelations.relationId, relationId),
+        eq(generatedRecordRelations.toRecordId, toRecordId),
+      ),
+    )
     .limit(Math.min(limit, 200));
   if (edges.length === 0) return [];
 
@@ -235,6 +245,6 @@ export async function listRelatedRecords(
   const rows = await db
     .select()
     .from(generatedRecords)
-    .where(and(eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.entityId, childEntityId), inArray(generatedRecords.id, ids), eq(generatedRecords.status, "active")));
+    .where(and(eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.environment, ctx.environment), eq(generatedRecords.entityId, childEntityId), inArray(generatedRecords.id, ids), eq(generatedRecords.status, "active")));
   return rows;
 }

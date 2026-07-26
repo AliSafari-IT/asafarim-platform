@@ -10,7 +10,13 @@ export async function listOwnNotifications(db: Db, ctx: RuntimeContext, limit = 
   return db
     .select()
     .from(generatedNotifications)
-    .where(and(eq(generatedNotifications.appId, ctx.appId), eq(generatedNotifications.recipientPrincipalId, ctx.actor.principalId)))
+    .where(
+      and(
+        eq(generatedNotifications.appId, ctx.appId),
+        eq(generatedNotifications.environment, ctx.environment),
+        eq(generatedNotifications.recipientPrincipalId, ctx.actor.principalId),
+      ),
+    )
     .orderBy(desc(generatedNotifications.createdAt))
     .limit(Math.min(limit, 100));
 }
@@ -23,6 +29,7 @@ export async function markNotificationRead(db: Db, ctx: RuntimeContext, notifica
       and(
         eq(generatedNotifications.id, notificationId),
         eq(generatedNotifications.appId, ctx.appId),
+        eq(generatedNotifications.environment, ctx.environment),
         eq(generatedNotifications.recipientPrincipalId, ctx.actor.principalId),
       ),
     );

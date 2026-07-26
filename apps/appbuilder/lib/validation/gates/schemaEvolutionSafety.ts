@@ -43,7 +43,7 @@ export const schemaEvolutionSafetyGate: GateDefinition = {
           requiresValidationChecked += 1;
           const field = newEntity.fields.find((f) => f.id === report.fieldId);
           if (!field) continue;
-          const violations = await checkExistingRecordsAgainstField(ctx.db, ctx.appId, newEntity.id, field);
+          const violations = await checkExistingRecordsAgainstField(ctx.db, ctx.appId, "preview", newEntity.id, field);
           if (violations.length > 0) {
             failures.push({
               code: "constraint_violated_by_existing_data",

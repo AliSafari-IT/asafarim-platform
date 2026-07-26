@@ -6,6 +6,7 @@ import { recordAuditEvent } from "../repositories/audit";
 import { generateId } from "../db/ids";
 import { ConflictError, NotFoundError } from "../errors";
 import { loadPinnedSpec } from "./runtimeAuth";
+import { PREVIEW } from "./environment";
 import {
   generatedActivity,
   generatedAppMembers,
@@ -52,25 +53,35 @@ export class ReleasedAppResetError extends ConflictError {
   }
 }
 
+/**
+ * M11 CRITICAL: every delete below is hard-scoped to `environment: "preview"`
+ * — never derived from a parameter, never widen-able by a caller. This
+ * function's entire purpose is resetting DEMO data; if production ever holds
+ * real rows in these same tables (once M11's deployment pipeline starts
+ * writing them), this hardcoded predicate is what makes it structurally
+ * impossible for a "reset demo data" click to delete a single real
+ * production record. See lib/generated-data/environment.ts.
+ */
 async function clearExistingGeneratedData(tx: Db, appId: string): Promise<void> {
   // Deleting generatedWorkflowExecutions cascades to
   // generatedWorkflowStepExecutions automatically (ON DELETE CASCADE) —
   // see lib/db/schema.ts.
-  await tx.delete(generatedWorkflowExecutions).where(eq(generatedWorkflowExecutions.appId, appId));
-  await tx.delete(generatedNotifications).where(eq(generatedNotifications.appId, appId));
-  await tx.delete(generatedActivity).where(eq(generatedActivity.appId, appId));
-  await tx.delete(generatedFiles).where(eq(generatedFiles.appId, appId));
-  await tx.delete(generatedRecordRelations).where(eq(generatedRecordRelations.appId, appId));
-  await tx.delete(generatedUniquenessClaims).where(eq(generatedUniquenessClaims.appId, appId));
-  await tx.delete(generatedRecordRevisions).where(eq(generatedRecordRevisions.appId, appId));
-  await tx.delete(generatedRecords).where(eq(generatedRecords.appId, appId));
-  await tx.delete(generatedRowAccessRules).where(eq(generatedRowAccessRules.appId, appId));
+  await tx.delete(generatedWorkflowExecutions).where(and(eq(generatedWorkflowExecutions.appId, appId), eq(generatedWorkflowExecutions.environment, PREVIEW)));
+  await tx.delete(generatedNotifications).where(and(eq(generatedNotifications.appId, appId), eq(generatedNotifications.environment, PREVIEW)));
+  await tx.delete(generatedActivity).where(and(eq(generatedActivity.appId, appId), eq(generatedActivity.environment, PREVIEW)));
+  await tx.delete(generatedFiles).where(and(eq(generatedFiles.appId, appId), eq(generatedFiles.environment, PREVIEW)));
+  await tx.delete(generatedRecordRelations).where(and(eq(generatedRecordRelations.appId, appId), eq(generatedRecordRelations.environment, PREVIEW)));
+  await tx.delete(generatedUniquenessClaims).where(and(eq(generatedUniquenessClaims.appId, appId), eq(generatedUniquenessClaims.environment, PREVIEW)));
+  await tx.delete(generatedRecordRevisions).where(and(eq(generatedRecordRevisions.appId, appId), eq(generatedRecordRevisions.environment, PREVIEW)));
+  await tx.delete(generatedRecords).where(and(eq(generatedRecords.appId, appId), eq(generatedRecords.environment, PREVIEW)));
+  await tx.delete(generatedRowAccessRules).where(and(eq(generatedRowAccessRules.appId, appId), eq(generatedRowAccessRules.environment, PREVIEW)));
 }
 
 function insertRecordValues(appId: string, entityId: string, specVersionNumber: number, data: Record<string, unknown>, actorPrincipalId: string) {
   return {
     id: generateId(),
     appId,
+    environment: PREVIEW,
     entityId,
     specVersionNumber,
     revision: 1,
@@ -122,7 +133,7 @@ export async function resetGeneratedData(db: Db, actor: Actor, appId: string, in
     const [existingAdmin] = await tx
       .select()
       .from(generatedAppMembers)
-      .where(and(eq(generatedAppMembers.appId, appId), eq(generatedAppMembers.principalId, app.ownerPrincipalId)))
+      .where(and(eq(generatedAppMembers.appId, appId), eq(generatedAppMembers.environment, PREVIEW), eq(generatedAppMembers.principalId, app.ownerPrincipalId)))
       .limit(1);
     const [adminMember] = existingAdmin
       ? [existingAdmin]
@@ -131,6 +142,7 @@ export async function resetGeneratedData(db: Db, actor: Actor, appId: string, in
           .values({
             id: generateId(),
             appId,
+            environment: PREVIEW,
             principalId: app.ownerPrincipalId,
             roleIds: [TASK_MGMT_IDS.admin],
             status: "active",
@@ -145,11 +157,16 @@ export async function resetGeneratedData(db: Db, actor: Actor, appId: string, in
       [managerPrincipalId, TASK_MGMT_IDS.manager],
       [employeePrincipalId, TASK_MGMT_IDS.employee],
     ] as const) {
-      const [existing] = await tx.select().from(generatedAppMembers).where(and(eq(generatedAppMembers.appId, appId), eq(generatedAppMembers.principalId, principalId))).limit(1);
+      const [existing] = await tx
+        .select()
+        .from(generatedAppMembers)
+        .where(and(eq(generatedAppMembers.appId, appId), eq(generatedAppMembers.environment, PREVIEW), eq(generatedAppMembers.principalId, principalId)))
+        .limit(1);
       if (!existing) {
         await tx.insert(generatedAppMembers).values({
           id: generateId(),
           appId,
+          environment: PREVIEW,
           principalId,
           roleIds: [roleId],
           status: "active",
@@ -163,8 +180,8 @@ export async function resetGeneratedData(db: Db, actor: Actor, appId: string, in
     const teamMember2 = insertRecordValues(appId, TASK_MGMT_IDS.teamMember, versionNumber, { name: "Sam Rivera", email: "sam@example.test", job_role: "employee" }, actor.principalId);
     await tx.insert(generatedRecords).values([teamMember1, teamMember2]);
     await tx.insert(generatedUniquenessClaims).values([
-      { id: generateId(), appId, entityId: TASK_MGMT_IDS.teamMember, fieldId: "email", valueHash: "morgan@example.test", recordId: teamMember1.id },
-      { id: generateId(), appId, entityId: TASK_MGMT_IDS.teamMember, fieldId: "email", valueHash: "sam@example.test", recordId: teamMember2.id },
+      { id: generateId(), appId, environment: PREVIEW, entityId: TASK_MGMT_IDS.teamMember, fieldId: "email", valueHash: "morgan@example.test", recordId: teamMember1.id },
+      { id: generateId(), appId, environment: PREVIEW, entityId: TASK_MGMT_IDS.teamMember, fieldId: "email", valueHash: "sam@example.test", recordId: teamMember2.id },
     ]);
 
     const project1 = insertRecordValues(appId, TASK_MGMT_IDS.project, versionNumber, { name: "Riverside Renovation", description: "Full kitchen and bath remodel.", status: "active" }, actor.principalId);
@@ -180,13 +197,13 @@ export async function resetGeneratedData(db: Db, actor: Actor, appId: string, in
     await tx.insert(generatedRecords).values(tasks);
 
     const edges = [
-      { id: generateId(), appId, relationId: TASK_MGMT_IDS.relationTaskProject, fromRecordId: tasks[0].id, toRecordId: project1.id },
-      { id: generateId(), appId, relationId: TASK_MGMT_IDS.relationTaskProject, fromRecordId: tasks[1].id, toRecordId: project1.id },
-      { id: generateId(), appId, relationId: TASK_MGMT_IDS.relationTaskProject, fromRecordId: tasks[2].id, toRecordId: project2.id },
-      { id: generateId(), appId, relationId: TASK_MGMT_IDS.relationTaskProject, fromRecordId: tasks[3].id, toRecordId: project2.id },
-      { id: generateId(), appId, relationId: TASK_MGMT_IDS.relationTaskAssignee, fromRecordId: tasks[0].id, toRecordId: teamMember2.id },
-      { id: generateId(), appId, relationId: TASK_MGMT_IDS.relationTaskAssignee, fromRecordId: tasks[1].id, toRecordId: teamMember2.id },
-      { id: generateId(), appId, relationId: TASK_MGMT_IDS.relationTaskAssignee, fromRecordId: tasks[2].id, toRecordId: teamMember1.id },
+      { id: generateId(), appId, environment: PREVIEW, relationId: TASK_MGMT_IDS.relationTaskProject, fromRecordId: tasks[0].id, toRecordId: project1.id },
+      { id: generateId(), appId, environment: PREVIEW, relationId: TASK_MGMT_IDS.relationTaskProject, fromRecordId: tasks[1].id, toRecordId: project1.id },
+      { id: generateId(), appId, environment: PREVIEW, relationId: TASK_MGMT_IDS.relationTaskProject, fromRecordId: tasks[2].id, toRecordId: project2.id },
+      { id: generateId(), appId, environment: PREVIEW, relationId: TASK_MGMT_IDS.relationTaskProject, fromRecordId: tasks[3].id, toRecordId: project2.id },
+      { id: generateId(), appId, environment: PREVIEW, relationId: TASK_MGMT_IDS.relationTaskAssignee, fromRecordId: tasks[0].id, toRecordId: teamMember2.id },
+      { id: generateId(), appId, environment: PREVIEW, relationId: TASK_MGMT_IDS.relationTaskAssignee, fromRecordId: tasks[1].id, toRecordId: teamMember2.id },
+      { id: generateId(), appId, environment: PREVIEW, relationId: TASK_MGMT_IDS.relationTaskAssignee, fromRecordId: tasks[2].id, toRecordId: teamMember1.id },
     ];
     await tx.insert(generatedRecordRelations).values(edges);
 

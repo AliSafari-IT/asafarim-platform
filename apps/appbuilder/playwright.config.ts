@@ -10,6 +10,17 @@ const HUB_PORT = 3001;
 const WORKER_HEALTH_PORT = 3008;
 const BASE_URL = `http://localhost:${APPBUILDER_PORT}`;
 
+// M11: managed-app hosts under test use `*.apps.localhost` rather than the
+// real `apps.asafarim.com` — Chromium (and every major browser) resolves any
+// `*.localhost` host straight to loopback with zero DNS/hosts-file setup
+// (RFC 6761), so `{slug}.apps.localhost:3006` is a REAL navigable URL with a
+// REAL, correctly-set `Host` header — no header-spoofing needed (Chromium's
+// CDP rejects `Host` in `setExtraHTTPHeaders` outright as a forbidden
+// header, which does not work here). Propagated to the test-runner process
+// itself (read by lib/routing/resolveAppHost.ts during global-setup's
+// release preparation) and to both the app and worker dev servers below.
+process.env.APPBUILDER_MANAGED_APPS_DOMAIN = "apps.localhost";
+
 export default defineConfig({
   testDir: "./tests/e2e/specs",
   outputDir: "./.playwright/artifacts",
@@ -58,6 +69,7 @@ export default defineConfig({
       cwd: path.join(process.cwd(), "../.."),
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+      env: { APPBUILDER_MANAGED_APPS_DOMAIN: "apps.localhost" },
     },
     {
       // M07 generation worker — forced onto the deterministic fake provider
@@ -70,7 +82,16 @@ export default defineConfig({
       cwd: path.join(process.cwd(), "../.."),
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
-      env: { APPBUILDER_AI_PROVIDER: "fake", APPBUILDER_WORKER_HEALTH_PORT: String(WORKER_HEALTH_PORT) },
+      env: {
+        APPBUILDER_AI_PROVIDER: "fake",
+        APPBUILDER_WORKER_HEALTH_PORT: String(WORKER_HEALTH_PORT),
+        // M11: the deployment pipeline's post-activation verification makes
+        // a real internal HTTP request with the target production Host
+        // header set — point it at THIS dev server (not the default
+        // production port 3000) so e2e deployments can actually succeed.
+        APPBUILDER_INTERNAL_ORIGIN: BASE_URL,
+        APPBUILDER_MANAGED_APPS_DOMAIN: "apps.localhost",
+      },
     },
   ],
 });

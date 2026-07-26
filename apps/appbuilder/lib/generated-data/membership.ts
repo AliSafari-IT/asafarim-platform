@@ -8,6 +8,7 @@ import { generateId } from "../db/ids";
 import { ConflictError, NotFoundError } from "../errors";
 import type { ApplicationSpecificationType } from "@asafarim/appbuilder-schema";
 import { loadPinnedSpec } from "./runtimeAuth";
+import type { GeneratedEnvironment } from "./environment";
 
 /**
  * M09's generated-app membership model — deliberately a SEPARATE identity
@@ -61,21 +62,40 @@ function assertRoleIdsExist(spec: ApplicationSpecificationType, roleIds: string[
  * column. Used only to decide what "the final administrator" means for
  * `FinalAdminProtectionError` — see this module's docstring.
  */
-async function getAdminRoleId(db: Db, appId: string): Promise<string | null> {
+async function getAdminRoleId(db: Db, appId: string, environment: GeneratedEnvironment): Promise<string | null> {
   const [row] = await db
     .select()
     .from(generatedAppMembers)
-    .where(and(eq(generatedAppMembers.appId, appId), eq(generatedAppMembers.provenance, "owner_bootstrap")))
+    .where(
+      and(
+        eq(generatedAppMembers.appId, appId),
+        eq(generatedAppMembers.environment, environment),
+        eq(generatedAppMembers.provenance, "owner_bootstrap"),
+      ),
+    )
     .orderBy(asc(generatedAppMembers.createdAt))
     .limit(1);
   return row?.roleIds[0] ?? null;
 }
 
-async function countActiveAdmins(db: Db, appId: string, adminRoleId: string, excludeMemberId?: string): Promise<number> {
+/** Final-admin protection is a PER-ENVIRONMENT invariant: revoking the last production admin must not be allowed just because a preview admin still exists. */
+async function countActiveAdmins(
+  db: Db,
+  appId: string,
+  environment: GeneratedEnvironment,
+  adminRoleId: string,
+  excludeMemberId?: string,
+): Promise<number> {
   const rows = await db
     .select()
     .from(generatedAppMembers)
-    .where(and(eq(generatedAppMembers.appId, appId), eq(generatedAppMembers.status, "active")));
+    .where(
+      and(
+        eq(generatedAppMembers.appId, appId),
+        eq(generatedAppMembers.environment, environment),
+        eq(generatedAppMembers.status, "active"),
+      ),
+    );
   return rows.filter((row) => row.id !== excludeMemberId && row.roleIds.includes(adminRoleId)).length;
 }
 
@@ -92,6 +112,7 @@ export async function bootstrapOwnerAsAdmin(
   actor: Actor,
   appId: string,
   adminRoleId: string,
+  environment: GeneratedEnvironment = "preview",
 ): Promise<GeneratedAppMemberRow> {
   const { app } = await assertCapability(db, actor, appId, "app.manageGeneratedMembers");
   const { spec } = await loadPinnedSpec(db, appId);
@@ -101,7 +122,13 @@ export async function bootstrapOwnerAsAdmin(
     const [existing] = await tx
       .select()
       .from(generatedAppMembers)
-      .where(and(eq(generatedAppMembers.appId, appId), eq(generatedAppMembers.principalId, app.ownerPrincipalId)))
+      .where(
+        and(
+          eq(generatedAppMembers.appId, appId),
+          eq(generatedAppMembers.environment, environment),
+          eq(generatedAppMembers.principalId, app.ownerPrincipalId),
+        ),
+      )
       .limit(1);
     if (existing) return existing;
 
@@ -110,6 +137,7 @@ export async function bootstrapOwnerAsAdmin(
       .values({
         id: generateId(),
         appId,
+        environment,
         principalId: app.ownerPrincipalId,
         roleIds: [adminRoleId],
         status: "active",
@@ -124,7 +152,7 @@ export async function bootstrapOwnerAsAdmin(
       action: "generated_membership.bootstrapped",
       targetType: "generated_app_member",
       targetId: member.id,
-      metadata: { principalId: app.ownerPrincipalId, roleIds: [adminRoleId] },
+      metadata: { principalId: app.ownerPrincipalId, roleIds: [adminRoleId], environment },
     });
 
     return member;
@@ -143,7 +171,13 @@ export interface AddMemberInput {
  * directory lookup) — it is never accepted as an authoritative claim from
  * an untrusted end-user client.
  */
-export async function addMember(db: Db, actor: Actor, appId: string, input: AddMemberInput): Promise<GeneratedAppMemberRow> {
+export async function addMember(
+  db: Db,
+  actor: Actor,
+  appId: string,
+  input: AddMemberInput,
+  environment: GeneratedEnvironment = "preview",
+): Promise<GeneratedAppMemberRow> {
   await assertCapability(db, actor, appId, "app.manageGeneratedMembers");
   if (input.roleIds.length === 0) throw new ConflictError("At least one role id is required.");
   const { spec } = await loadPinnedSpec(db, appId);
@@ -153,7 +187,13 @@ export async function addMember(db: Db, actor: Actor, appId: string, input: AddM
     const [existing] = await tx
       .select()
       .from(generatedAppMembers)
-      .where(and(eq(generatedAppMembers.appId, appId), eq(generatedAppMembers.principalId, input.principalId)))
+      .where(
+        and(
+          eq(generatedAppMembers.appId, appId),
+          eq(generatedAppMembers.environment, environment),
+          eq(generatedAppMembers.principalId, input.principalId),
+        ),
+      )
       .limit(1);
 
     if (existing) {
@@ -171,7 +211,7 @@ export async function addMember(db: Db, actor: Actor, appId: string, input: AddM
         action: "generated_membership.reactivated",
         targetType: "generated_app_member",
         targetId: existing.id,
-        metadata: { principalId: input.principalId, roleIds: input.roleIds },
+        metadata: { principalId: input.principalId, roleIds: input.roleIds, environment },
       });
       return reactivated;
     }
@@ -181,6 +221,7 @@ export async function addMember(db: Db, actor: Actor, appId: string, input: AddM
       .values({
         id: generateId(),
         appId,
+        environment,
         principalId: input.principalId,
         roleIds: input.roleIds,
         status: "active",
@@ -195,7 +236,7 @@ export async function addMember(db: Db, actor: Actor, appId: string, input: AddM
       action: "generated_membership.added",
       targetType: "generated_app_member",
       targetId: member.id,
-      metadata: { principalId: input.principalId, roleIds: input.roleIds },
+      metadata: { principalId: input.principalId, roleIds: input.roleIds, environment },
     });
 
     return member;
@@ -217,9 +258,13 @@ export async function changeMemberRoles(db: Db, actor: Actor, appId: string, mem
       .limit(1);
     if (!member) throw new NotFoundError("Generated-app member", memberId);
 
-    const adminRoleId = await getAdminRoleId(db, appId);
+    // Final-admin protection is evaluated within the MEMBER'S OWN
+    // environment (read off the row, never from a caller argument) so
+    // demoting the last production admin is never permitted merely because
+    // a preview admin still exists.
+    const adminRoleId = await getAdminRoleId(db, appId, member.environment);
     if (adminRoleId && member.roleIds.includes(adminRoleId) && !roleIds.includes(adminRoleId)) {
-      const remaining = await countActiveAdmins(tx, appId, adminRoleId, memberId);
+      const remaining = await countActiveAdmins(tx, appId, member.environment, adminRoleId, memberId);
       if (remaining === 0) throw new FinalAdminProtectionError();
     }
 
@@ -255,9 +300,9 @@ export async function revokeMember(db: Db, actor: Actor, appId: string, memberId
     if (!member) throw new NotFoundError("Generated-app member", memberId);
     if (member.status === "revoked") return member;
 
-    const adminRoleId = await getAdminRoleId(db, appId);
+    const adminRoleId = await getAdminRoleId(db, appId, member.environment);
     if (adminRoleId && member.roleIds.includes(adminRoleId)) {
-      const remaining = await countActiveAdmins(tx, appId, adminRoleId, memberId);
+      const remaining = await countActiveAdmins(tx, appId, member.environment, adminRoleId, memberId);
       if (remaining === 0) throw new FinalAdminProtectionError();
     }
 
@@ -280,14 +325,26 @@ export async function revokeMember(db: Db, actor: Actor, appId: string, memberId
   });
 }
 
-/** The caller's own generated-app membership row, or null if they are not (or no longer) a member. Never requires builder capability — any authenticated platform user may ask "am I a member of this app". */
-export async function getOwnMembership(db: Db, actor: Actor, appId: string): Promise<GeneratedAppMemberRow | null> {
+/**
+ * The caller's own generated-app membership row FOR THE GIVEN ENVIRONMENT,
+ * or null if they are not (or no longer) a member there. Never requires
+ * builder capability — any authenticated platform user may ask "am I a
+ * member of this app". Membership in preview grants nothing in production
+ * and vice versa: they are separate rows with separate roles.
+ */
+export async function getOwnMembership(
+  db: Db,
+  actor: Actor,
+  appId: string,
+  environment: GeneratedEnvironment = "preview",
+): Promise<GeneratedAppMemberRow | null> {
   const [row] = await db
     .select()
     .from(generatedAppMembers)
     .where(
       and(
         eq(generatedAppMembers.appId, appId),
+        eq(generatedAppMembers.environment, environment),
         eq(generatedAppMembers.principalId, actor.principalId),
         eq(generatedAppMembers.status, "active"),
       ),
@@ -296,12 +353,23 @@ export async function getOwnMembership(db: Db, actor: Actor, appId: string): Pro
   return row ?? null;
 }
 
-/** Full membership list for the builder's "manage generated-app members" panel. */
-export async function listMembers(db: Db, actor: Actor, appId: string): Promise<GeneratedAppMemberRow[]> {
+/** Full membership list for the builder's "manage generated-app members" panel, scoped to one environment. */
+export async function listMembers(
+  db: Db,
+  actor: Actor,
+  appId: string,
+  environment: GeneratedEnvironment = "preview",
+): Promise<GeneratedAppMemberRow[]> {
   await assertCapability(db, actor, appId, "app.manageGeneratedMembers");
   return db
     .select()
     .from(generatedAppMembers)
-    .where(and(eq(generatedAppMembers.appId, appId), ne(generatedAppMembers.status, "revoked")))
+    .where(
+      and(
+        eq(generatedAppMembers.appId, appId),
+        eq(generatedAppMembers.environment, environment),
+        ne(generatedAppMembers.status, "revoked"),
+      ),
+    )
     .orderBy(asc(generatedAppMembers.createdAt));
 }

@@ -41,3 +41,31 @@ testora.asafarim.com {
 appbuilder.asafarim.com {
   reverse_proxy appbuilder:3000
 }
+
+# M11: wildcard managed-app hosting. Every `{app-slug}.apps.asafarim.com`
+# host is routed to the SAME AppBuilder container as the builder itself —
+# there is no per-app container or deployment target. AppBuilder's own
+# proxy.ts (lib/routing/resolveAppHost.ts) does the real work: it normalizes
+# and validates the Host header, rejects reserved/malformed slugs with a
+# generic 404, and resolves the active production release server-side from
+# the persisted `app_domains` table — Caddy's only job here is getting the
+# request to the right container.
+#
+# DELIBERATELY COMMENTED OUT: a wildcard certificate requires a DNS-01
+# challenge, which requires a Caddy build with a DNS provider module (the
+# stock `caddy:latest` image used by docker-compose.prod.yml has none) —
+# uncommenting this block against the current image would fail to parse and
+# take down EVERY app behind this Caddy instance, not just AppBuilder. See
+# docs/appbuilder-m11-releases-deployment.md#dns-and-tls for the required
+# wildcard DNS record, the custom Caddy build (infra/caddy/Dockerfile),
+# provider-module confirmation, secret handling, staging-cert testing, and
+# the exact rollout sequence before uncommenting this in a real deployment.
+#
+# *.apps.asafarim.com {
+#   reverse_proxy appbuilder:3000
+#   tls {
+#     # Replace <provider> with the DNS-01 module actually built into
+#     # infra/caddy/Dockerfile for your DNS host.
+#     dns <provider> {env.CADDY_DNS_API_TOKEN}
+#   }
+# }

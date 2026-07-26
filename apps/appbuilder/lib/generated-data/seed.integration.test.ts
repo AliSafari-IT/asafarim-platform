@@ -103,6 +103,46 @@ describe("resetGeneratedData", () => {
     // owner (admin) + demo-manager + demo-employee, not duplicated.
     expect(members).toHaveLength(3);
   });
+
+  it("M11: never deletes a PRODUCTION record, even one for the same app/entity a preview reset also touches", async () => {
+    const app = await makeTaskAppWithTemplate("Environment Isolation App", "seed-6");
+    await requestPreviewBuild(db, owner, app.id);
+    await resetGeneratedData(db, owner, app.id, { confirm: true });
+
+    // A real production record, inserted the way the deployment pipeline's
+    // metadata runtime would (never through resetGeneratedData, which is
+    // preview-only by construction).
+    const productionRecordId = generateId();
+    await db.insert(generatedRecords).values({
+      id: productionRecordId,
+      appId: app.id,
+      environment: "production",
+      entityId: "project",
+      specVersionNumber: 1,
+      revision: 1,
+      data: { name: "Real Customer Project", description: "Not demo data.", status: "active" },
+      status: "active",
+      createdByPrincipalId: "real-end-user",
+      updatedByPrincipalId: "real-end-user",
+    });
+
+    // Reset preview demo data again — this must be a complete no-op for the
+    // production row above.
+    await resetGeneratedData(db, owner, app.id, { confirm: true });
+
+    const [survivor] = await db.select().from(generatedRecords).where(eq(generatedRecords.id, productionRecordId));
+    expect(survivor).toBeTruthy();
+    expect(survivor.environment).toBe("production");
+    expect(survivor.data).toEqual({ name: "Real Customer Project", description: "Not demo data.", status: "active" });
+
+    // Preview's own project rows are still exactly the demo set (2) — the
+    // production row is never counted among them.
+    const previewProjects = await db
+      .select()
+      .from(generatedRecords)
+      .where(and(eq(generatedRecords.appId, app.id), eq(generatedRecords.entityId, "project"), eq(generatedRecords.environment, "preview")));
+    expect(previewProjects).toHaveLength(2);
+  });
 });
 
 async function currentVersionIdFor(appId: string): Promise<string> {

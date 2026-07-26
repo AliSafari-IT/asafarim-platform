@@ -173,6 +173,80 @@ export interface RepairAttempt {
 export const TERMINAL_VALIDATION_RUN_STATUSES: ReadonlySet<ValidationRunStatus> = new Set(["passed", "failed", "infrastructure_error", "flaky", "cancelled"]);
 export const TERMINAL_REPAIR_ATTEMPT_STATUSES: ReadonlySet<RepairAttemptStatus> = new Set(["completed", "failed", "cancelled"]);
 
+// ─── M11: releases and deployments ─────────────────────────────────────
+
+export type ReleaseStatus = "draft" | "approved" | "published" | "superseded" | "archived";
+
+export interface Release {
+  id: string;
+  appId: string;
+  specificationVersionId: string;
+  specificationVersionNumber: number;
+  specificationChecksum: string;
+  previewBuildId: string | null;
+  registryVersion: string;
+  validationRunId: string | null;
+  dataCompatibility: "none" | "safe" | "requires_review" | "unsafe";
+  appSlug: string;
+  productionHost: string;
+  versionLabel: string;
+  status: ReleaseStatus;
+  preparedByPrincipalId: string | null;
+  approvedByPrincipalId: string | null;
+  approvedAt: string | null;
+  publishedByPrincipalId: string | null;
+  publishedAt: string | null;
+  previousReleaseId: string | null;
+  createdAt: string;
+}
+
+export type DeploymentStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled" | "rolled_back";
+export type DeploymentPhase =
+  | "queued"
+  | "checking_eligibility"
+  | "freezing_manifest"
+  | "reserving_slug"
+  | "checking_data_compatibility"
+  | "preparing_artifact"
+  | "publishing"
+  | "health_checking"
+  | "smoke_testing"
+  | "activating"
+  | "verifying"
+  | "completed"
+  | "rolling_back";
+
+export interface Deployment {
+  id: string;
+  appId: string;
+  releaseId: string;
+  environment: "preview" | "production";
+  status: DeploymentStatus;
+  phase: DeploymentPhase;
+  isRollback: boolean;
+  supersededReleaseId: string | null;
+  attemptCount: number;
+  activatedAt: string | null;
+  deployedByPrincipalId: string;
+  deployedAt: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  cancelRequestedAt: string | null;
+  createdAt: string;
+}
+
+export interface DeploymentStep {
+  id: string;
+  deploymentId: string;
+  phase: DeploymentPhase;
+  ok: boolean;
+  message: string;
+  durationMs: number | null;
+  createdAt: string;
+}
+
+export const TERMINAL_DEPLOYMENT_STATUSES: ReadonlySet<DeploymentStatus> = new Set(["succeeded", "failed", "cancelled", "rolled_back"]);
+
 export type FetchJsonError = Error & { code?: string; status?: number; body?: unknown };
 
 export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {

@@ -48,9 +48,20 @@ export const previewBuildStatusEnum = pgEnum("preview_build_status", [
   "failed",
 ]);
 
+// M11: a release's own lifecycle, distinct from a DEPLOYMENT's lifecycle
+// (below). `draft` = prepared and manifest-frozen but not yet approved;
+// `approved` = a human with app.approve bound their approval to this exact
+// specification version + checksum; `published` = this release has been
+// successfully activated as production at least once; `superseded` = a
+// later release replaced it as the active production pointer (it remains
+// immutable and rollback-eligible); `archived` = explicitly retired, no
+// longer rollback-eligible. `draft`/`published`/`archived` predate M11
+// (M02 scaffolding) and are retained so existing rows stay valid.
 export const releaseStatusEnum = pgEnum("release_status", [
   "draft",
+  "approved",
   "published",
+  "superseded",
   "archived",
 ]);
 
@@ -59,10 +70,73 @@ export const deploymentEnvironmentEnum = pgEnum("deployment_environment", [
   "production",
 ]);
 
+// M11: `pending`/`succeeded`/`failed` predate this milestone; `running`,
+// `cancelled`, and `rolled_back` are added for the durable deployment
+// worker. Legal transitions are enforced centrally in
+// lib/deployment/stateMachine.ts, never by ad-hoc status writes.
 export const deploymentStatusEnum = pgEnum("deployment_status", [
   "pending",
+  "running",
   "succeeded",
   "failed",
+  "cancelled",
+  "rolled_back",
+]);
+
+// M11: what a deployment is doing right now. Ordered exactly as
+// lib/deployment/pipeline.ts executes them. Everything up to and including
+// `smoke_testing` is pre-activation and MUST leave the previous production
+// pointer untouched on failure; `activating` is the single atomic pointer
+// switch; `verifying` runs after activation and, on failure, triggers an
+// automatic restore of the previous healthy pointer.
+export const deploymentPhaseEnum = pgEnum("deployment_phase", [
+  "queued",
+  "checking_eligibility",
+  "freezing_manifest",
+  "reserving_slug",
+  "checking_data_compatibility",
+  "preparing_artifact",
+  "publishing",
+  "health_checking",
+  "smoke_testing",
+  "activating",
+  "verifying",
+  "completed",
+  "rolling_back",
+]);
+
+// M11: why a deployment failed — a closed, safe-to-display classification
+// (never a raw stack trace, provider body, or connection string). See
+// lib/deployment/errors.ts.
+export const deploymentFailureCodeEnum = pgEnum("deployment_failure_code", [
+  "not_eligible",
+  "stale_approval",
+  "slug_unavailable",
+  "slug_reserved",
+  "data_incompatible",
+  "artifact_preparation_failed",
+  "health_check_failed",
+  "smoke_test_failed",
+  "activation_failed",
+  "post_activation_verification_failed",
+  "authorization_lost",
+  "app_archived",
+  "worker_infrastructure_error",
+  "cancelled",
+]);
+
+// M11: how a domain mapping came to exist. `auto_slug` is the default
+// managed convention ({app-slug}.apps.asafarim.com); `custom` is reserved
+// for M12's customer-domain work and is NOT reachable in M11.
+export const appDomainKindEnum = pgEnum("app_domain_kind", [
+  "auto_slug",
+  "custom",
+]);
+
+export const appDomainStatusEnum = pgEnum("app_domain_status", [
+  "reserved",
+  "active",
+  "released",
 ]);
 
 export const idempotencyStatusEnum = pgEnum("idempotency_status", [
@@ -207,6 +281,28 @@ export const modificationBatchStatusEnum = pgEnum("modification_batch_status", [
   "awaiting_confirmation",
   "applied",
   "rejected",
+]);
+
+// M11: the hard data boundary between a generated app's PREVIEW data (demo
+// rows a builder seeds/resets freely while designing) and its PRODUCTION
+// data (real records belonging to real end users of a deployed release).
+//
+// This is deliberately a SEPARATE enum from `deployment_environment` (which
+// labels a deployment record, not a data row) so the two can never be
+// conflated: this one is an immutable property of every generated-data row,
+// stamped at insert and never updated afterward (see the
+// `generated_*_environment_immutable` triggers in the M11 migration).
+//
+// Every M09 generated-data table carries this column, every uniqueness/
+// idempotency index includes it, and every repository predicate filters on
+// it — without that, a preview record's unique email would permanently
+// block the same value in production, a preview workflow execution would
+// suppress the production run via a colliding idempotency key, and
+// `resetGeneratedData` would delete real production rows. See
+// docs/appbuilder-m11-releases-deployment.md#data-environment-separation.
+export const generatedEnvironmentEnum = pgEnum("generated_environment", [
+  "preview",
+  "production",
 ]);
 
 // M09: a generated app's OWN membership status — entirely separate from
@@ -495,8 +591,20 @@ export const previewBuilds = pgTable(
   ],
 );
 
-// An immutable, publishable snapshot of a specification version. Publishing
-// never mutates the underlying specificationVersion.
+// M11: an IMMUTABLE, approvable, deployable snapshot of a specification
+// version. Every column below other than `status` and the approval/publish
+// bookkeeping is frozen at creation and never updated — "editing a release"
+// is not a concept; you prepare a NEW release from a newer version.
+//
+// Crucially, every field is DERIVED SERVER-SIDE from persisted records
+// (specificationVersions, previewBuilds, validationRuns) at preparation
+// time — none of it is ever accepted from the browser. See
+// lib/repositories/releases.ts#prepareRelease.
+//
+// The `manifest` JSONB is the frozen, self-contained provenance record
+// (see lib/deployment/manifest.ts#ReleaseManifest) written once when the
+// release is prepared; the individual columns beside it exist so the same
+// facts stay queryable/indexable without parsing JSON.
 export const releases = pgTable(
   "releases",
   {
@@ -504,24 +612,114 @@ export const releases = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+
+    // ── Pinned specification identity (immutable) ──────────────────────
     specificationVersionId: text("specification_version_id")
       .notNull()
       .references(() => specificationVersions.id, { onDelete: "restrict" }),
+    specificationVersionNumber: integer("specification_version_number").notNull().default(0),
+    // The canonical @asafarim/appbuilder-schema checksum of that version's
+    // payload, copied at preparation. Approval and deployment both re-verify
+    // against this exact value — a version whose payload somehow no longer
+    // hashes to it is refused rather than deployed.
+    specificationChecksum: text("specification_checksum").notNull().default(""),
+    schemaVersion: text("schema_version").notNull().default(""),
+
+    // ── Pinned build/runtime identity (immutable) ──────────────────────
+    previewBuildId: text("preview_build_id").references((): AnyPgColumn => previewBuilds.id, { onDelete: "restrict" }),
+    previewChecksum: text("preview_checksum"),
+    registryVersion: text("registry_version").notNull().default(""),
+
+    // ── Pinned validation evidence (immutable) ─────────────────────────
+    // The M10 run that proves this exact version+checksum passed every
+    // mandatory gate. Deployment re-reads this row transactionally rather
+    // than trusting the boolean alone.
+    validationRunId: text("validation_run_id").references((): AnyPgColumn => validationRuns.id, { onDelete: "restrict" }),
+    gateSetVersion: text("gate_set_version"),
+
+    // ── Data-compatibility verdict (immutable, computed at preparation) ─
+    // Result of diffing this version's entities against the CURRENTLY LIVE
+    // production release's entities (see lib/deployment/dataCompatibility.ts).
+    // "none" when there is no prior production release to diff against.
+    dataCompatibility: text("data_compatibility").notNull().default("none"),
+    dataCompatibilityDetail: jsonb("data_compatibility_detail").$type<Record<string, unknown>>().notNull().default({}),
+
+    // ── Frozen manifest + its own checksum ─────────────────────────────
+    manifest: jsonb("manifest").$type<Record<string, unknown>>().notNull().default({}),
+    // sha256 over the canonicalized manifest — lets a deployment prove the
+    // manifest it is acting on is byte-identical to the one approved.
+    manifestChecksum: text("manifest_checksum").notNull().default(""),
+
+    // ── Managed production host at preparation time ────────────────────
+    appSlug: text("app_slug").notNull().default(""),
+    productionHost: text("production_host").notNull().default(""),
+
     versionLabel: text("version_label").notNull(),
     status: releaseStatusEnum("status").notNull().default("draft"),
+
+    // ── Actors / provenance ────────────────────────────────────────────
+    preparedByPrincipalId: text("prepared_by_principal_id"),
+    approvedByPrincipalId: text("approved_by_principal_id"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
     publishedByPrincipalId: text("published_by_principal_id"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    // The production release this one replaced when it first went live —
+    // the rollback breadcrumb trail.
+    previousReleaseId: text("previous_release_id"),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("releases_app_version_label_unique").on(table.appId, table.versionLabel),
     index("releases_app_id_idx").on(table.appId),
+    index("releases_app_status_idx").on(table.appId, table.status),
+    // Preparing a release for the same (app, specification version) twice is
+    // a replay, not a second release — see prepareRelease's idempotency.
+    uniqueIndex("releases_app_spec_version_unique").on(table.appId, table.specificationVersionId),
   ],
 );
 
-// Deployment of a release to an environment. Production generated-app
-// deployment (running the release for end users) is out of scope for M02;
-// this table only records the deployment lifecycle.
+// M11: the app's managed production domain(s). This table — never the
+// request Host header — is the authority for "which app does this hostname
+// belong to". `activeReleaseId` is the ONLY pointer that decides what
+// production serves; it moves exactly once per successful deployment, in a
+// single transaction (see lib/deployment/pipeline.ts's activation phase).
+//
+// `host` is stored fully normalized (lowercase, punycode/ASCII, no port) so
+// the routing lookup is an exact equality match against an untrusted,
+// pre-normalized host — never a LIKE/suffix computation.
+export const appDomains = pgTable(
+  "app_domains",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    host: text("host").notNull(),
+    kind: appDomainKindEnum("kind").notNull().default("auto_slug"),
+    status: appDomainStatusEnum("status").notNull().default("reserved"),
+    // Null until the first successful deployment activates a release here.
+    activeReleaseId: text("active_release_id").references((): AnyPgColumn => releases.id, { onDelete: "restrict" }),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    reservedByPrincipalId: text("reserved_by_principal_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Globally unique: two apps can never claim the same production host.
+    uniqueIndex("app_domains_host_unique").on(table.host),
+    // One managed auto-slug domain per app (a second would be ambiguous).
+    uniqueIndex("app_domains_app_kind_unique").on(table.appId, table.kind),
+    index("app_domains_app_id_idx").on(table.appId),
+  ],
+);
+
+// M11: one durable row per deployment (or rollback) attempt. Mirrors the
+// M07/M08/M10 job contract exactly — atomic claim via SELECT … FOR UPDATE
+// SKIP LOCKED, lease + heartbeat, bounded retry, cooperative cancellation,
+// terminal-state protection — so a crashed worker's in-flight deployment is
+// recovered rather than stranded, and a redelivered dispatch never
+// double-activates a pointer.
 export const deployments = pgTable(
   "deployments",
   {
@@ -534,12 +732,81 @@ export const deployments = pgTable(
       .references(() => releases.id, { onDelete: "cascade" }),
     environment: deploymentEnvironmentEnum("environment").notNull(),
     status: deploymentStatusEnum("status").notNull().default("pending"),
+    phase: deploymentPhaseEnum("phase").notNull().default("queued"),
+
+    // True when this deployment is a ROLLBACK to an earlier release rather
+    // than a forward deploy; `supersededReleaseId` records what was live
+    // before it, so the pointer can be restored if activation fails.
+    isRollback: boolean("is_rollback").notNull().default(false),
+    supersededReleaseId: text("superseded_release_id"),
+
+    // Idempotency: a redelivered "deploy this release" request replays this
+    // row instead of creating a second deployment.
+    idempotencyKey: text("idempotency_key").notNull().default(""),
+    requestHash: text("request_hash").notNull().default(""),
+
+    attemptCount: integer("attempt_count").notNull().default(0),
+    // Set the instant the production pointer actually moved — the single
+    // fact that distinguishes "failed before activation" (previous release
+    // untouched) from "failed after activation" (auto-restore required).
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+
     deployedByPrincipalId: text("deployed_by_principal_id").notNull(),
     deployedAt: timestamp("deployed_at", { withTimezone: true }),
+
+    failureCode: deploymentFailureCodeEnum("failure_code"),
+    // Always the safe, user-facing message (lib/deployment/errors.ts) —
+    // never a raw stack trace, connection string, cookie, or token.
+    failureMessage: text("failure_message"),
     errorMessage: text("error_message"),
+
+    cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
+    cancelledByPrincipalId: text("cancelled_by_principal_id"),
+
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("deployments_app_id_idx").on(table.appId),
+    index("deployments_status_idx").on(table.status),
+    index("deployments_status_lease_idx").on(table.status, table.leaseExpiresAt),
+    uniqueIndex("deployments_app_idempotency_unique").on(table.appId, table.idempotencyKey),
+  ],
+);
+
+// M11: append-only per-phase record of what a deployment actually did —
+// the "safe logs" surface. `detail` is always redacted
+// (lib/validation/redaction.ts, reused) before persistence; nothing here is
+// ever a secret, connection string, cookie, or raw provider body.
+export const deploymentSteps = pgTable(
+  "deployment_steps",
+  {
+    id: text("id").primaryKey(),
+    deploymentId: text("deployment_id")
+      .notNull()
+      .references(() => deployments.id, { onDelete: "cascade" }),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    phase: deploymentPhaseEnum("phase").notNull(),
+    ok: boolean("ok").notNull(),
+    message: text("message").notNull().default(""),
+    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    durationMs: integer("duration_ms"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("deployments_app_id_idx").on(table.appId)],
+  (table) => [
+    // A phase runs at most once per deployment attempt; a retried phase
+    // replaces its own row rather than accumulating duplicates.
+    uniqueIndex("deployment_steps_deployment_phase_unique").on(table.deploymentId, table.phase),
+    index("deployment_steps_app_id_idx").on(table.appId),
+  ],
 );
 
 // Append-only audit trail. Never updated or deleted; archival, not erasure,
@@ -1020,6 +1287,11 @@ export const generatedAppMembers = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // M11: immutable data-environment boundary. A person may legitimately be
+    // a member of the same app in BOTH environments with different roles
+    // (e.g. an admin in preview for testing, an ordinary employee in
+    // production), so this belongs in the uniqueness key below.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     principalId: text("principal_id").notNull(),
     roleIds: jsonb("role_ids").$type<string[]>().notNull().default([]),
     status: generatedMemberStatusEnum("status").notNull().default("active"),
@@ -1029,8 +1301,8 @@ export const generatedAppMembers = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_app_members_app_principal_unique").on(table.appId, table.principalId),
-    index("generated_app_members_app_id_idx").on(table.appId),
+    uniqueIndex("generated_app_members_app_env_principal_unique").on(table.appId, table.environment, table.principalId),
+    index("generated_app_members_app_env_idx").on(table.appId, table.environment),
   ],
 );
 
@@ -1047,6 +1319,9 @@ export const generatedRecords = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // M11: immutable data-environment boundary — stamped at insert, never
+    // updated. Every read predicate in lib/generated-data/* filters on it.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     entityId: text("entity_id").notNull(),
     specVersionNumber: integer("spec_version_number").notNull(),
     revision: integer("revision").notNull().default(1),
@@ -1059,8 +1334,8 @@ export const generatedRecords = pgTable(
     archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => [
-    index("generated_records_app_entity_idx").on(table.appId, table.entityId),
-    index("generated_records_app_entity_status_idx").on(table.appId, table.entityId, table.status),
+    index("generated_records_app_env_entity_idx").on(table.appId, table.environment, table.entityId),
+    index("generated_records_app_env_entity_status_idx").on(table.appId, table.environment, table.entityId, table.status),
   ],
 );
 
@@ -1077,6 +1352,10 @@ export const generatedRecordRevisions = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // Denormalized from the parent record for query-scoping symmetry — the
+    // (recordId, revision) unique below is already environment-safe because
+    // recordId itself belongs to exactly one environment.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     entityId: text("entity_id").notNull(),
     revision: integer("revision").notNull(),
     data: jsonb("data").$type<Record<string, unknown>>().notNull(),
@@ -1085,7 +1364,7 @@ export const generatedRecordRevisions = pgTable(
   },
   (table) => [
     uniqueIndex("generated_record_revisions_record_revision_unique").on(table.recordId, table.revision),
-    index("generated_record_revisions_app_id_idx").on(table.appId),
+    index("generated_record_revisions_app_env_idx").on(table.appId, table.environment),
   ],
 );
 
@@ -1102,6 +1381,11 @@ export const generatedRecordRelations = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // Denormalized from the endpoint records. A relation edge may NEVER span
+    // two environments — lib/generated-data/relations.ts asserts both
+    // endpoints resolve within the same (appId, environment) before
+    // inserting, and every edge read filters on it.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     relationId: text("relation_id").notNull(),
     fromRecordId: text("from_record_id")
       .notNull()
@@ -1113,7 +1397,7 @@ export const generatedRecordRelations = pgTable(
   },
   (table) => [
     uniqueIndex("generated_record_relations_unique").on(table.relationId, table.fromRecordId, table.toRecordId),
-    index("generated_record_relations_app_id_idx").on(table.appId),
+    index("generated_record_relations_app_env_idx").on(table.appId, table.environment),
     index("generated_record_relations_to_record_idx").on(table.toRecordId),
   ],
 );
@@ -1131,6 +1415,12 @@ export const generatedUniquenessClaims = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // M11 CRITICAL: without `environment` in the unique index below, a demo
+    // record seeded in preview (e.g. team member "morgan@example.test")
+    // would permanently occupy that unique value and make it impossible for
+    // a REAL production user to ever register the same email. Uniqueness is
+    // a per-environment property.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     entityId: text("entity_id").notNull(),
     fieldId: text("field_id").notNull(),
     valueHash: text("value_hash").notNull(),
@@ -1140,7 +1430,7 @@ export const generatedUniquenessClaims = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_uniqueness_claims_unique").on(table.appId, table.entityId, table.fieldId, table.valueHash),
+    uniqueIndex("generated_uniqueness_claims_unique").on(table.appId, table.environment, table.entityId, table.fieldId, table.valueHash),
   ],
 );
 
@@ -1156,6 +1446,11 @@ export const generatedFiles = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // M11: also encoded into the server-generated storage key
+    // (`generated/{appId}/{environment}/{entityId}/…`) and into the HMAC
+    // download-token payload, so a preview token can never be replayed
+    // against a production object even if the file id were guessed.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     entityId: text("entity_id").notNull(),
     recordId: text("record_id").references((): AnyPgColumn => generatedRecords.id, { onDelete: "set null" }),
     fieldId: text("field_id").notNull(),
@@ -1171,7 +1466,7 @@ export const generatedFiles = pgTable(
   },
   (table) => [
     uniqueIndex("generated_files_storage_key_unique").on(table.storageKey),
-    index("generated_files_app_id_idx").on(table.appId),
+    index("generated_files_app_env_idx").on(table.appId, table.environment),
     index("generated_files_record_id_idx").on(table.recordId),
   ],
 );
@@ -1188,6 +1483,7 @@ export const generatedActivity = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     entityId: text("entity_id").notNull(),
     recordId: text("record_id").references((): AnyPgColumn => generatedRecords.id, { onDelete: "cascade" }),
     action: text("action").notNull(),
@@ -1197,7 +1493,7 @@ export const generatedActivity = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index("generated_activity_app_id_idx").on(table.appId),
+    index("generated_activity_app_env_idx").on(table.appId, table.environment),
     index("generated_activity_record_id_idx").on(table.recordId),
   ],
 );
@@ -1209,6 +1505,9 @@ export const generatedNotifications = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // M11: without this, demo notifications generated by a preview workflow
+    // would appear in a real production user's inbox for the same app.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     recipientPrincipalId: text("recipient_principal_id").notNull(),
     title: text("title").notNull(),
     body: text("body").notNull(),
@@ -1217,7 +1516,7 @@ export const generatedNotifications = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index("generated_notifications_app_recipient_idx").on(table.appId, table.recipientPrincipalId),
+    index("generated_notifications_app_env_recipient_idx").on(table.appId, table.environment, table.recipientPrincipalId),
   ],
 );
 
@@ -1237,6 +1536,13 @@ export const generatedWorkflowExecutions = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // M11 CRITICAL: the idempotency key is derived from
+    // (workflowId, recordId, revision, triggerKind) — all of which can
+    // legitimately repeat across environments. Without `environment` in the
+    // unique index below, a preview execution would make the production
+    // runtime believe that workflow had already run, silently suppressing a
+    // real notification/activity entry.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     workflowId: text("workflow_id").notNull(),
     triggerRecordId: text("trigger_record_id")
       .notNull()
@@ -1253,8 +1559,8 @@ export const generatedWorkflowExecutions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_workflow_executions_idempotency_unique").on(table.appId, table.idempotencyKey),
-    index("generated_workflow_executions_app_id_idx").on(table.appId),
+    uniqueIndex("generated_workflow_executions_idempotency_unique").on(table.appId, table.environment, table.idempotencyKey),
+    index("generated_workflow_executions_app_env_idx").on(table.appId, table.environment),
   ],
 );
 
@@ -1286,6 +1592,11 @@ export const generatedDataIdempotency = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // M11 CRITICAL: idempotency keys here are CLIENT-supplied. Without
+    // `environment` in the unique index below, a client could replay a
+    // preview response snapshot into production (or vice versa) simply by
+    // reusing its own key across the two environments.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     entityId: text("entity_id").notNull(),
     scope: text("scope").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
@@ -1294,7 +1605,7 @@ export const generatedDataIdempotency = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_data_idempotency_unique").on(table.appId, table.entityId, table.scope, table.idempotencyKey),
+    uniqueIndex("generated_data_idempotency_unique").on(table.appId, table.environment, table.entityId, table.scope, table.idempotencyKey),
   ],
 );
 
@@ -1312,6 +1623,9 @@ export const generatedRowAccessRules = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    // Row-access rules are environment-scoped so a permissive preview rule
+    // (seeded for demo convenience) can never widen production access.
+    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
     entityId: text("entity_id").notNull(),
     roleId: text("role_id").notNull(),
     verb: text("verb").notNull(),
@@ -1322,7 +1636,7 @@ export const generatedRowAccessRules = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_row_access_rules_unique").on(table.appId, table.entityId, table.roleId, table.verb),
+    uniqueIndex("generated_row_access_rules_unique").on(table.appId, table.environment, table.entityId, table.roleId, table.verb),
   ],
 );
 
@@ -1737,6 +2051,8 @@ export const appsRelations = relations(apps, ({ many }) => ({
   generatedRecords: many(generatedRecords),
   validationRuns: many(validationRuns),
   repairAttempts: many(repairAttempts),
+  appDomains: many(appDomains),
+  deploymentSteps: many(deploymentSteps),
 }));
 
 export const creationRequestsRelations = relations(creationRequests, ({ one }) => ({
@@ -1792,12 +2108,25 @@ export const releasesRelations = relations(releases, ({ one, many }) => ({
     fields: [releases.specificationVersionId],
     references: [specificationVersions.id],
   }),
+  previewBuild: one(previewBuilds, { fields: [releases.previewBuildId], references: [previewBuilds.id] }),
+  validationRun: one(validationRuns, { fields: [releases.validationRunId], references: [validationRuns.id] }),
   deployments: many(deployments),
 }));
 
-export const deploymentsRelations = relations(deployments, ({ one }) => ({
+export const appDomainsRelations = relations(appDomains, ({ one }) => ({
+  app: one(apps, { fields: [appDomains.appId], references: [apps.id] }),
+  activeRelease: one(releases, { fields: [appDomains.activeReleaseId], references: [releases.id] }),
+}));
+
+export const deploymentsRelations = relations(deployments, ({ one, many }) => ({
   app: one(apps, { fields: [deployments.appId], references: [apps.id] }),
   release: one(releases, { fields: [deployments.releaseId], references: [releases.id] }),
+  steps: many(deploymentSteps),
+}));
+
+export const deploymentStepsRelations = relations(deploymentSteps, ({ one }) => ({
+  deployment: one(deployments, { fields: [deploymentSteps.deploymentId], references: [deployments.id] }),
+  app: one(apps, { fields: [deploymentSteps.appId], references: [apps.id] }),
 }));
 
 export const auditEventsRelations = relations(auditEvents, ({ one }) => ({
