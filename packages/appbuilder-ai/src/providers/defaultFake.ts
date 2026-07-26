@@ -52,13 +52,24 @@ function selectModificationScriptForPrompt(prompt: string): FakeProviderScript {
   return GENERIC_MODIFICATION_FALLBACK_SCRIPT;
 }
 
-/** Same keyword-routing idea, for the M10 repair-diagnostics vocabulary — keyed off the failure classification + target gate keys the repair pipeline passes in, not free user text (there is none at this layer). */
-function selectRepairScriptForPrompt(failureClassification: string, targetGateKeys: readonly string[]): FakeProviderScript {
-  const gates = targetGateKeys.join(" ").toLowerCase();
-  if (failureClassification === "unsupported_product_capability") return REPAIR_UNSUPPORTED_CAPABILITY_SCRIPT;
-  if (gates.includes("security_policy") || gates.includes("permissions_authorization_narrow")) {
-    return REPAIR_NARROW_PERMISSION_SCRIPT;
-  }
+/**
+ * Same keyword-routing idea, for the M10 repair-diagnostics vocabulary —
+ * keyed off the failure classification, target gate keys, and the
+ * diagnostics text itself (there is no free user text at this layer, since
+ * a repair is triggered by a validation-gate failure, not a request). Since
+ * `permissions_authorization` failures are ALWAYS classified
+ * `security_policy_failure` by lib/repair/classify.ts regardless of whether
+ * the real defect is a missing grant or an over-broad one, a scripted
+ * fixture app can steer which fixture applies by embedding a distinguishing
+ * marker (e.g. an entity/role literally named with "narrow") in its
+ * diagnostics text — see tests/e2e/specs/m10-validation-repair.spec.ts's
+ * destructive-repair-confirmation fixture.
+ */
+function selectRepairScriptForPrompt(input: ProposeRepairInput): FakeProviderScript {
+  if (input.failureClassification === "unsupported_product_capability") return REPAIR_UNSUPPORTED_CAPABILITY_SCRIPT;
+  const diagnosticsText = JSON.stringify(input.diagnosticsSummary).toLowerCase();
+  if (diagnosticsText.includes("narrow")) return REPAIR_NARROW_PERMISSION_SCRIPT;
+  const gates = input.targetGateKeys.join(" ").toLowerCase();
   if (gates.includes("permissions") || gates.includes("reference_integrity")) {
     return REPAIR_ADD_MISSING_PERMISSION_SCRIPT;
   }
@@ -127,7 +138,7 @@ export class DefaultFakeProvider implements AiProvider {
   /** A repair job never calls analyzeRequirements first either — pins its own delegate on first call, keyed off the failure classification/target gates rather than free text. */
   async proposeRepair(input: ProposeRepairInput, options: ProviderCallOptions): Promise<ProposeRepairResult> {
     if (!this.delegate) {
-      this.delegate = new FakeAiProvider(selectRepairScriptForPrompt(input.failureClassification, input.targetGateKeys));
+      this.delegate = new FakeAiProvider(selectRepairScriptForPrompt(input));
     }
     return this.delegate.proposeRepair(input, options);
   }

@@ -19,6 +19,9 @@ export interface SeededFixtures {
   builderAppA11yMotionId: string;
   m09AppId: string;
   m09AppSecondaryId: string;
+  m10PassingAppId: string;
+  m10BrokenAppId: string;
+  m10NarrowAppId: string;
   ownerId: string;
   editorId: string;
   viewerId: string;
