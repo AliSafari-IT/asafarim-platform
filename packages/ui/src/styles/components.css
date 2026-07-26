@@ -695,17 +695,35 @@ a .ui-card {
   border-color: rgba(239, 68, 68, 0.3);
 }
 
-[data-app="web"] .ui-badge--success {
+/*
+ * The default `.ui-badge--success/--warning/--danger` colors above are
+ * tuned for a DARK surface (e.g. `--bg: #0b0d0e`-class admin themes) — on a
+ * light "warm paper" surface (`--surface: #fdfaf3`-class, `color-scheme:
+ * light`) they fail WCAG AA (the success green in particular measures
+ * ~1.5:1 against that surface, far under the 4.5:1 minimum). `[data-app="web"]`
+ * already carries its own light-surface override; `[data-app="appbuilder"]`
+ * uses numerically identical light-scheme tokens (see tokens.css) and
+ * inherited the SAME unscoped dark-tuned default with no override of its
+ * own, which is exactly the accessibility-baseline violation M10's
+ * `accessibility_baseline` validation gate (apps/appbuilder/lib/validation/
+ * gates/accessibilityBaseline.ts) was built to catch. Any future light-
+ * scheme `data-app` should be added to this same selector list rather than
+ * inheriting the dark default silently.
+ */
+[data-app="web"] .ui-badge--success,
+[data-app="appbuilder"] .ui-badge--success {
   color: #15803d;
   background: rgba(21, 128, 61, 0.09);
 }
 
-[data-app="web"] .ui-badge--warning {
+[data-app="web"] .ui-badge--warning,
+[data-app="appbuilder"] .ui-badge--warning {
   color: #a16207;
   background: rgba(161, 98, 7, 0.09);
 }
 
-[data-app="web"] .ui-badge--danger {
+[data-app="web"] .ui-badge--danger,
+[data-app="appbuilder"] .ui-badge--danger {
   color: #b91c1c;
   background: rgba(185, 28, 28, 0.08);
 }

@@ -3,6 +3,7 @@ import type { RequirementsAnalysisType } from "../schemas/requirementsAnalysis";
 import type { TemplateRecommendationType } from "../schemas/templateRecommendation";
 import type { OperationBatchType } from "../schemas/operationProposal";
 import type { ModificationProposalType } from "../schemas/modificationProposal";
+import type { RepairProposalType } from "../schemas/repairProposal";
 import type { ClarificationRoundType } from "../schemas/clarification";
 
 /**
@@ -89,6 +90,24 @@ export interface ProposeModificationResult {
 }
 
 /**
+ * M10: one classified, repairable validation-gate failure to answer with a
+ * bounded operation batch. `diagnosticsSummary` is always the OUTPUT of
+ * lib/validation/redaction.ts (apps/appbuilder) — bounded, redacted evidence
+ * only, never a raw stack trace, DB error, or provider response body.
+ */
+export interface ProposeRepairInput {
+  failureClassification: string;
+  targetGateKeys: readonly string[];
+  diagnosticsSummary: Record<string, unknown>;
+  currentSpec: ApplicationSpecificationType;
+  operationBudget: number;
+}
+export interface ProposeRepairResult {
+  proposal: RepairProposalType;
+  usage: UsageMetadata;
+}
+
+/**
  * Server-only AI provider boundary. Independent of UI, repositories, and
  * orchestration — implementations (OpenAI adapter, fake/fixture provider)
  * live behind this interface and the generation pipeline never imports a
@@ -109,4 +128,6 @@ export interface AiProvider {
   proposeOperations(input: ProposeOperationsInput, options: ProviderCallOptions): Promise<ProposeOperationsResult>;
   /** M08: proposes a single bounded operation batch answering one conversational modification request. */
   proposeModification(input: ProposeModificationInput, options: ProviderCallOptions): Promise<ProposeModificationResult>;
+  /** M10: proposes a single bounded operation batch answering one classified, repairable validation-gate failure. */
+  proposeRepair(input: ProposeRepairInput, options: ProviderCallOptions): Promise<ProposeRepairResult>;
 }

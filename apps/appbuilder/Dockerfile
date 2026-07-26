@@ -60,13 +60,19 @@ CMD ["node", "apps/appbuilder/server.js"]
 FROM builder AS worker-builder
 RUN pnpm --filter @asafarim/appbuilder worker:build
 
-# --- worker (standalone M07 generation worker; not the Next.js app) ---
-FROM node:24-alpine AS worker
+# --- worker (M07 generation/modification worker + M10 validation/repair
+# worker; not the Next.js app). Debian-based (not alpine): M10's
+# browser-driven validation gates (lib/validation/smoke/harness.ts) launch
+# Chromium via playwright-core, which Playwright does not support on
+# musl/Alpine — see docs/appbuilder-m10-validation-qa.md#operator-troubleshooting.
+FROM node:24-slim AS worker
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=worker-builder /app/apps/appbuilder/worker-dist ./worker-dist
 # Only the deps tsup.worker.config.ts keeps external (native/heavy — bundled
 # workspace packages like @asafarim/appbuilder-ai are already inlined).
-RUN npm install --no-save --omit=dev bullmq@^5.34.0 ioredis@^5.11.1 openai@^4.73.0 pg@^8.13.1
+# playwright-core/@axe-core/playwright back M10's browser-driven gates.
+RUN npm install --no-save --omit=dev bullmq@^5.34.0 ioredis@^5.11.1 openai@^4.73.0 pg@^8.13.1 playwright-core@^1.60.0 @axe-core/playwright@^4.10.1
+RUN npx playwright install --with-deps chromium
 EXPOSE 3008
 CMD ["node", "worker-dist/worker.js"]

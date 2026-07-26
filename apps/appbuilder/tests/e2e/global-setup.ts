@@ -387,6 +387,43 @@ export default async function globalSetup(): Promise<void> {
   const m09App = await seedM09App("main");
   const m09AppSecondary = await seedM09App("secondary");
 
+  // 3. M10 validation/repair fixtures — each its OWN dedicated app (never
+  //    shared with the M09 suite above) since these tests deliberately
+  //    mutate permissions to reproduce failure scenarios.
+  const m10PassingApp = await seedM09App("m10-passing"); // unmodified template — every M10 gate should be able to run/pass against it.
+
+  const m10BrokenApp = await seedM09App("m10-broken");
+  // Reproduces the exact pre-fix M09 bug (see commit 637fea1): remove the
+  // employee_role -> team_member read permission so
+  // permissions_authorization fails, and the fake repair provider's
+  // REPAIR_ADD_MISSING_PERMISSION_SCRIPT fixture (packages/appbuilder-ai/src/fixtures/repair.ts)
+  // proposes re-adding exactly this grant.
+  await applyOperation(db, ownerActor, m10BrokenApp.id, {
+    operation: { opVersion: "1.0.0", type: "REMOVE_PERMISSION", permissionId: "perm_employee_team_member_read" },
+    baseVersionNumber: 2, // v1 root, v2 = the applied template
+    idempotencyKey: `e2e-seed-m10-broken-remove-perm-${RUN_ID}`,
+    confirmDestructive: true, // deliberately reproducing a pre-fix bug state, not exercising the confirmation flow here
+  });
+  await requestPreviewBuild(db, ownerActor, m10BrokenApp.id);
+
+  const m10NarrowApp = await seedM09App("m10-narrow");
+  // A permission gap whose failure message contains "narrow" — the fake
+  // repair provider routes any diagnostics text containing that marker to
+  // REPAIR_NARROW_PERMISSION_SCRIPT (a DESTRUCTIVE proposal), exercising the
+  // repair-confirmation flow independently of whether the proposed fix
+  // would actually resolve THIS gap (it doesn't have to — this fixture only
+  // proves the confirm/cancel UI and API path work). The "dashboard"/
+  // "projects"/"tasks" pages have no `requiredRoleIds` (open to every role —
+  // see taskManagement.ts), so merely adding a new role already creates an
+  // unresolved read-permission gap on "project"/"task" for it — no
+  // additional operation needed.
+  await applyOperation(db, ownerActor, m10NarrowApp.id, {
+    operation: { opVersion: "1.0.0", type: "CREATE_ROLE", role: { id: "narrow_role", name: "Narrow Role" } },
+    baseVersionNumber: 2, // v1 root, v2 = the applied template
+    idempotencyKey: `e2e-seed-m10-narrow-role-${RUN_ID}`,
+  });
+  await requestPreviewBuild(db, ownerActor, m10NarrowApp.id);
+
   await fs.writeFile(
     path.join(AUTH_DIR, "fixtures.json"),
     JSON.stringify(
@@ -405,6 +442,9 @@ export default async function globalSetup(): Promise<void> {
         builderAppA11yMotionId: builderAppA11yMotion.id,
         m09AppId: m09App.id,
         m09AppSecondaryId: m09AppSecondary.id,
+        m10PassingAppId: m10PassingApp.id,
+        m10BrokenAppId: m10BrokenApp.id,
+        m10NarrowAppId: m10NarrowApp.id,
         ownerId: owner.id,
         editorId: editor.id,
         viewerId: viewer.id,

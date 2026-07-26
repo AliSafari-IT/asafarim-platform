@@ -29,6 +29,7 @@
     "@asafarim/storage": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
+    "@axe-core/playwright": "^4.10.1",
     "bullmq": "^5.34.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.38.2",
@@ -37,6 +38,7 @@
     "next-auth": "^5.0.0-beta.28",
     "openai": "^4.73.0",
     "pg": "^8.13.1",
+    "playwright-core": "^1.60.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "zod": "^3.24.1"
@@ -44,7 +46,6 @@
   "devDependencies": {
     "@asafarim/config": "workspace:*",
     "@asafarim/db": "workspace:*",
-    "@axe-core/playwright": "^4.10.1",
     "@playwright/test": "^1.60.0",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.11.10",

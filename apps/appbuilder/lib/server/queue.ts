@@ -28,6 +28,13 @@ export const GENERATION_QUEUE_NAME = "appbuilder-generation";
 // separate repository/state-machine modules (see lib/db/schema.ts's
 // modificationJobs comment for why).
 export const MODIFICATION_QUEUE_NAME = "appbuilder-modification";
+// M10: validation runs and bounded repair attempts each get their own queue —
+// same "low-latency wake-up only, Postgres is the durable source of truth"
+// contract, kept separate from generation/modification since they are their
+// own tables/state machines (lib/validation/stateMachine.ts,
+// lib/repair/stateMachine.ts).
+export const VALIDATION_QUEUE_NAME = "appbuilder-validation";
+export const REPAIR_QUEUE_NAME = "appbuilder-repair";
 
 export interface GenerationDispatchMessage {
   jobId: string;
@@ -37,9 +44,19 @@ export interface ModificationDispatchMessage {
   jobId: string;
 }
 
+export interface ValidationDispatchMessage {
+  runId: string;
+}
+
+export interface RepairDispatchMessage {
+  attemptId: string;
+}
+
 let _redis: Redis | undefined;
 let _queue: Queue<GenerationDispatchMessage> | undefined;
 let _modificationQueue: Queue<ModificationDispatchMessage> | undefined;
+let _validationQueue: Queue<ValidationDispatchMessage> | undefined;
+let _repairQueue: Queue<RepairDispatchMessage> | undefined;
 
 function getRedis(): Redis {
   if (!_redis) {
@@ -67,6 +84,20 @@ export function getModificationQueue(): Queue<ModificationDispatchMessage> {
     _modificationQueue = new Queue<ModificationDispatchMessage>(MODIFICATION_QUEUE_NAME, { connection: getRedis() });
   }
   return _modificationQueue;
+}
+
+export function getValidationQueue(): Queue<ValidationDispatchMessage> {
+  if (!_validationQueue) {
+    _validationQueue = new Queue<ValidationDispatchMessage>(VALIDATION_QUEUE_NAME, { connection: getRedis() });
+  }
+  return _validationQueue;
+}
+
+export function getRepairQueue(): Queue<RepairDispatchMessage> {
+  if (!_repairQueue) {
+    _repairQueue = new Queue<RepairDispatchMessage>(REPAIR_QUEUE_NAME, { connection: getRedis() });
+  }
+  return _repairQueue;
 }
 
 /**
@@ -111,6 +142,34 @@ export async function nudgeModificationWorker(
   );
 }
 
+/** Nudges the validation worker — see nudgeWorker's docstring for the deterministic-jobId/dedupe rationale, identical here. */
+export async function nudgeValidationWorker(
+  runId: string,
+  options: { cause?: "enqueue" | "resume" | "retry"; attempt?: number; delayMs?: number } = {},
+): Promise<void> {
+  const cause = options.cause ?? "enqueue";
+  const suffix = cause === "retry" ? `${cause}-${options.attempt ?? 0}` : cause;
+  await getValidationQueue().add(
+    VALIDATION_QUEUE_NAME,
+    { runId },
+    { jobId: `dispatch-${runId}-${suffix}`, delay: options.delayMs, removeOnComplete: true, removeOnFail: 1000 },
+  );
+}
+
+/** Nudges the repair worker — see nudgeWorker's docstring for the deterministic-jobId/dedupe rationale, identical here. */
+export async function nudgeRepairWorker(
+  attemptId: string,
+  options: { cause?: "enqueue" | "resume" | "retry"; attempt?: number; delayMs?: number } = {},
+): Promise<void> {
+  const cause = options.cause ?? "enqueue";
+  const suffix = cause === "retry" ? `${cause}-${options.attempt ?? 0}` : cause;
+  await getRepairQueue().add(
+    REPAIR_QUEUE_NAME,
+    { attemptId },
+    { jobId: `dispatch-${attemptId}-${suffix}`, delay: options.delayMs, removeOnComplete: true, removeOnFail: 1000 },
+  );
+}
+
 export async function closeQueue(): Promise<void> {
   if (_queue) {
     await _queue.close();
@@ -119,6 +178,14 @@ export async function closeQueue(): Promise<void> {
   if (_modificationQueue) {
     await _modificationQueue.close();
     _modificationQueue = undefined;
+  }
+  if (_validationQueue) {
+    await _validationQueue.close();
+    _validationQueue = undefined;
+  }
+  if (_repairQueue) {
+    await _repairQueue.close();
+    _repairQueue = undefined;
   }
   if (_redis) {
     _redis.disconnect();

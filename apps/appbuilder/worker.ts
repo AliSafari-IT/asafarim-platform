@@ -29,7 +29,7 @@ import { Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 import { createProviderFromConfig, loadAiProviderConfig, safeConfigSummary, buildSafeSummary } from "@asafarim/appbuilder-ai";
 import { getDb, closeDb } from "./lib/db/client";
-import { generationJobs, modificationJobs } from "./lib/db/schema";
+import { generationJobs, modificationJobs, validationRuns, repairAttempts } from "./lib/db/schema";
 import {
   claimJobById,
   claimNextAvailableJob,
@@ -40,18 +40,37 @@ import {
   claimNextAvailableJob as claimNextAvailableModificationJob,
   type ModificationJobRow,
 } from "./lib/repositories/modificationJobs";
+import {
+  claimRunById,
+  claimNextAvailableRun,
+  type ValidationRunRow,
+} from "./lib/repositories/validationRuns";
+import {
+  claimAttemptById,
+  claimNextAvailableAttempt,
+  type RepairAttemptRow,
+} from "./lib/repositories/repairAttempts";
 import { runGenerationJob } from "./lib/generation/pipeline";
 import { runModificationJob } from "./lib/modification/pipeline";
+import { runValidationRun } from "./lib/validation/pipeline";
+import { runRepairAttempt } from "./lib/repair/pipeline";
 import { GENERATION_LIMITS } from "./lib/generation/limits";
 import { MODIFICATION_LIMITS } from "./lib/modification/limits";
+import { VALIDATION_LIMITS, REPAIR_LIMITS } from "./lib/validation/limits";
 import { computeBackoffDelayMs } from "./lib/generation/backoff";
 import {
   GENERATION_QUEUE_NAME,
   MODIFICATION_QUEUE_NAME,
+  VALIDATION_QUEUE_NAME,
+  REPAIR_QUEUE_NAME,
   nudgeWorker,
   nudgeModificationWorker,
+  nudgeValidationWorker,
+  nudgeRepairWorker,
   type GenerationDispatchMessage,
   type ModificationDispatchMessage,
+  type ValidationDispatchMessage,
+  type RepairDispatchMessage,
 } from "./lib/server/queue";
 
 const WORKER_ID = `appbuilder-worker:${process.pid}:${Math.random().toString(36).slice(2, 8)}`;
@@ -61,6 +80,10 @@ const LEASE_DURATION_MS = GENERATION_LIMITS.DEFAULT_LEASE_DURATION_MS;
 const SWEEP_INTERVAL_MS = GENERATION_LIMITS.STALE_LEASE_SWEEP_INTERVAL_MS;
 const MODIFICATION_LEASE_DURATION_MS = MODIFICATION_LIMITS.DEFAULT_LEASE_DURATION_MS;
 const MODIFICATION_SWEEP_INTERVAL_MS = MODIFICATION_LIMITS.STALE_LEASE_SWEEP_INTERVAL_MS;
+const VALIDATION_LEASE_DURATION_MS = VALIDATION_LIMITS.DEFAULT_LEASE_DURATION_MS;
+const VALIDATION_SWEEP_INTERVAL_MS = VALIDATION_LIMITS.STALE_LEASE_SWEEP_INTERVAL_MS;
+const REPAIR_LEASE_DURATION_MS = REPAIR_LIMITS.DEFAULT_LEASE_DURATION_MS;
+const REPAIR_SWEEP_INTERVAL_MS = REPAIR_LIMITS.STALE_LEASE_SWEEP_INTERVAL_MS;
 
 const redisUrl = process.env.REDIS_URL;
 if (!redisUrl) {
@@ -233,6 +256,142 @@ const modificationSweepInterval = setInterval(async () => {
   }
 }, MODIFICATION_SWEEP_INTERVAL_MS);
 
+// ─── M10: validation runs — same worker process, its own BullMQ queue/state
+// machine (see lib/validation/stateMachine.ts), identical claim/process/sweep
+// shape. Runs every gate in lib/validation/gates/registry.ts, including
+// browser-driven smoke gates — this is exactly why validation never runs
+// inside an HTTP request. ──────────────────────────────────────────────────
+
+async function processClaimedValidationRun(run: ValidationRunRow): Promise<void> {
+  activeJobCount += 1;
+  const controller = new AbortController();
+
+  const cancelWatcher = setInterval(async () => {
+    try {
+      const db = getDb();
+      const [row] = await db.select().from(validationRuns).where(eq(validationRuns.id, run.id)).limit(1);
+      if (row?.cancelRequestedAt) controller.abort();
+    } catch {
+      // Best-effort — the next phase-boundary checkpoint still catches it.
+    }
+  }, 3_000);
+
+  try {
+    const outcome = await runValidationRun(
+      { db: getDb(), workerId: WORKER_ID, leaseDurationMs: VALIDATION_LEASE_DURATION_MS, signal: controller.signal },
+      run,
+    );
+    if (outcome.kind === "lease_lost") {
+      console.warn(`[appbuilder-worker] lost lease on validation run ${run.id} mid-processing; another worker owns it now`);
+    } else {
+      console.log(`[appbuilder-worker] validation run ${run.id} -> ${outcome.run.status} (releaseEligible: ${outcome.run.releaseEligible})`);
+    }
+  } catch (err) {
+    console.error(`[appbuilder-worker] unhandled error processing validation run ${run.id}:`, err);
+  } finally {
+    clearInterval(cancelWatcher);
+    activeJobCount -= 1;
+  }
+}
+
+const validationWorker = new Worker<ValidationDispatchMessage>(
+  VALIDATION_QUEUE_NAME,
+  async (bullJob: Job<ValidationDispatchMessage>) => {
+    const { runId } = bullJob.data;
+    const claimed = await claimRunById(getDb(), runId, WORKER_ID, VALIDATION_LEASE_DURATION_MS);
+    if (!claimed) return; // already claimed or already terminal — not an error.
+    await processClaimedValidationRun(claimed);
+  },
+  { connection: redis, concurrency: CONCURRENCY },
+);
+
+validationWorker.on("failed", (bullJob, err) => {
+  console.error(`[appbuilder-worker] BullMQ validation run ${bullJob?.id} failed:`, err);
+});
+
+const validationSweepInterval = setInterval(async () => {
+  if (isShuttingDown) return;
+  try {
+    const claimed = await claimNextAvailableRun(getDb(), WORKER_ID, VALIDATION_LEASE_DURATION_MS);
+    if (claimed) {
+      console.log(`[appbuilder-worker] stale-lease sweep claimed validation run ${claimed.id} (status: ${claimed.status})`);
+      await processClaimedValidationRun(claimed);
+    }
+  } catch (err) {
+    console.error("[appbuilder-worker] validation stale-lease sweep error:", err);
+  }
+}, VALIDATION_SWEEP_INTERVAL_MS);
+
+// ─── M10: bounded AI repair attempts — same worker process, its own BullMQ
+// queue/state machine (lib/repair/stateMachine.ts). Extends M07's
+// provider/worker infrastructure rather than a second orchestration system. ─
+
+async function processClaimedRepairAttempt(attempt: RepairAttemptRow): Promise<void> {
+  activeJobCount += 1;
+  const controller = new AbortController();
+
+  const cancelWatcher = setInterval(async () => {
+    try {
+      const db = getDb();
+      const [row] = await db.select().from(repairAttempts).where(eq(repairAttempts.id, attempt.id)).limit(1);
+      if (row?.cancelRequestedAt) controller.abort();
+    } catch {
+      // Best-effort — the next phase-boundary checkpoint still catches it.
+    }
+  }, 3_000);
+
+  try {
+    const provider = createProviderFromConfig(loadAiProviderConfig());
+    const outcome = await runRepairAttempt(
+      { db: getDb(), provider, workerId: WORKER_ID, leaseDurationMs: REPAIR_LEASE_DURATION_MS, signal: controller.signal },
+      attempt,
+    );
+
+    if (outcome.kind === "retry_later") {
+      const delayMs = computeBackoffDelayMs(1);
+      console.warn(`[appbuilder-worker] repair attempt ${attempt.id} failed retryably (${outcome.error.code}); retrying in ~${delayMs}ms`, buildSafeSummary({ cause: String(outcome.error.cause ?? "") }));
+      await nudgeRepairWorker(attempt.id, { cause: "retry", delayMs });
+    } else if (outcome.kind === "lease_lost") {
+      console.warn(`[appbuilder-worker] lost lease on repair attempt ${attempt.id} mid-processing; another worker owns it now`);
+    } else {
+      console.log(`[appbuilder-worker] repair attempt ${attempt.id} -> ${outcome.attempt.status} (${outcome.attempt.phase})`);
+    }
+  } catch (err) {
+    console.error(`[appbuilder-worker] unhandled error processing repair attempt ${attempt.id}:`, err);
+  } finally {
+    clearInterval(cancelWatcher);
+    activeJobCount -= 1;
+  }
+}
+
+const repairWorker = new Worker<RepairDispatchMessage>(
+  REPAIR_QUEUE_NAME,
+  async (bullJob: Job<RepairDispatchMessage>) => {
+    const { attemptId } = bullJob.data;
+    const claimed = await claimAttemptById(getDb(), attemptId, WORKER_ID, REPAIR_LEASE_DURATION_MS);
+    if (!claimed) return; // already claimed, terminal, or awaiting confirmation — not an error.
+    await processClaimedRepairAttempt(claimed);
+  },
+  { connection: redis, concurrency: CONCURRENCY },
+);
+
+repairWorker.on("failed", (bullJob, err) => {
+  console.error(`[appbuilder-worker] BullMQ repair attempt ${bullJob?.id} failed:`, err);
+});
+
+const repairSweepInterval = setInterval(async () => {
+  if (isShuttingDown) return;
+  try {
+    const claimed = await claimNextAvailableAttempt(getDb(), WORKER_ID, REPAIR_LEASE_DURATION_MS);
+    if (claimed) {
+      console.log(`[appbuilder-worker] stale-lease sweep claimed repair attempt ${claimed.id} (status: ${claimed.status})`);
+      await processClaimedRepairAttempt(claimed);
+    }
+  } catch (err) {
+    console.error("[appbuilder-worker] repair stale-lease sweep error:", err);
+  }
+}, REPAIR_SWEEP_INTERVAL_MS);
+
 const healthServer = createServer(async (_req, res) => {
   const checks = { worker: !isShuttingDown, redis: false, database: false };
   try {
@@ -253,7 +412,7 @@ const healthServer = createServer(async (_req, res) => {
     JSON.stringify({
       ok,
       service: "appbuilder-worker",
-      queues: [GENERATION_QUEUE_NAME, MODIFICATION_QUEUE_NAME],
+      queues: [GENERATION_QUEUE_NAME, MODIFICATION_QUEUE_NAME, VALIDATION_QUEUE_NAME, REPAIR_QUEUE_NAME],
       concurrency: CONCURRENCY,
       activeJobCount,
       checks,
@@ -272,9 +431,13 @@ function shutdown(signal: string) {
   console.log(`[appbuilder-worker] ${signal} received, shutting down gracefully...`);
   clearInterval(sweepInterval);
   clearInterval(modificationSweepInterval);
+  clearInterval(validationSweepInterval);
+  clearInterval(repairSweepInterval);
   Promise.all([
     worker.close(),
     modificationWorker.close(),
+    validationWorker.close(),
+    repairWorker.close(),
     redis.quit(),
     closeDb(),
     new Promise<void>((resolve, reject) => {
