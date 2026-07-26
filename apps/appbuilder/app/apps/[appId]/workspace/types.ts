@@ -95,6 +95,84 @@ export interface SpecificationVersion {
 
 export const TERMINAL_JOB_STATUSES: ReadonlySet<ModificationJobStatus> = new Set(["ready", "failed", "cancelled"]);
 
+// ─── M10: validation runs, gates, artifacts, and the bounded repair loop ──
+
+export type ValidationRunStatus = "pending" | "running" | "passed" | "failed" | "infrastructure_error" | "flaky" | "cancelled";
+export type ValidationGateStatus = "pending" | "running" | "passed" | "failed" | "skipped" | "infrastructure_error" | "flaky" | "cancelled";
+
+export interface ValidationRun {
+  id: string;
+  appId: string;
+  specificationVersionId: string;
+  specificationChecksum: string;
+  previewBuildId: string | null;
+  registryVersion: string;
+  gateSetVersion: string;
+  requestSource: "manual" | "repair" | "api";
+  status: ValidationRunStatus;
+  mandatoryGatesTotal: number;
+  mandatoryGatesPassed: number;
+  releaseEligible: boolean;
+  failureCode: string | null;
+  failureMessage: string | null;
+  cancelRequestedAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface ValidationGateResult {
+  id: string;
+  runId: string;
+  gateKey: string;
+  gateVersion: string;
+  mandatory: boolean;
+  status: ValidationGateStatus;
+  skipReason: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  structuredFailures: { code: string; message: string; path?: (string | number)[] }[];
+  evidence: Record<string, unknown>;
+  artifactIds: string[];
+  durationMs: number | null;
+}
+
+export interface ValidationArtifact {
+  id: string;
+  runId: string;
+  gateKey: string | null;
+  kind: "screenshot" | "trace" | "report" | "log" | "summary";
+  label: string;
+  contentType: string;
+  sizeBytes: number;
+  retentionExpiresAt: string | null;
+}
+
+export type RepairAttemptStatus = "queued" | "classifying" | "proposing" | "awaiting_confirmation" | "applying" | "revalidating" | "completed" | "failed" | "cancelled";
+
+export interface RepairAttempt {
+  id: string;
+  appId: string;
+  originatingRunId: string;
+  attemptNumber: number;
+  status: RepairAttemptStatus;
+  phase: string;
+  failureClassification: string | null;
+  targetGateKeys: string[];
+  confirmationRequired: boolean;
+  confirmationChecksum: string | null;
+  confirmationExpiresAt: string | null;
+  resultingVersionNumber: number | null;
+  resultingValidationRunId: string | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  cancelRequestedAt: string | null;
+  createdAt: string;
+}
+
+export const TERMINAL_VALIDATION_RUN_STATUSES: ReadonlySet<ValidationRunStatus> = new Set(["passed", "failed", "infrastructure_error", "flaky", "cancelled"]);
+export const TERMINAL_REPAIR_ATTEMPT_STATUSES: ReadonlySet<RepairAttemptStatus> = new Set(["completed", "failed", "cancelled"]);
+
 export type FetchJsonError = Error & { code?: string; status?: number; body?: unknown };
 
 export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {

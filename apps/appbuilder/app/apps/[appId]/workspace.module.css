@@ -173,7 +173,8 @@
   .workspace[data-active-panel="structure"] .structurePanel,
   .workspace[data-active-panel="preview"] .previewPanel,
   .workspace[data-active-panel="conversation"] .rightPanel,
-  .workspace[data-active-panel="history"] .rightPanel {
+  .workspace[data-active-panel="history"] .rightPanel,
+  .workspace[data-active-panel="validation"] .rightPanel {
     display: flex;
   }
 
