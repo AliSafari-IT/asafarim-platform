@@ -5,6 +5,7 @@ import { resolveContextForRequest } from "@/lib/generated-data/routeHelpers";
 import { getRecord, updateRecord } from "@/lib/generated-data/records";
 import { UpdateRecordBody } from "@/lib/validation/runtime";
 import { errorResponse, unauthorized } from "@/lib/http/errors";
+import { checksumOf } from "@/lib/db/hash";
 
 interface RouteParams {
   params: Promise<{ appId: string; entityId: string; recordId: string }>;
@@ -40,10 +41,19 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     const db = getDb();
     const ctx = await resolveContextForRequest(db, actor, appId, request);
+    // Content-derived, not just `${recordId}:${baseRevision}` — two
+    // DIFFERENT edits submitted against the same base revision (the exact
+    // concurrent-edit collision this endpoint exists to detect) must reach
+    // updateRecord's real revision check and surface as StaleRecordRevisionError,
+    // not collide on a shared key and get swallowed as a generic conflict
+    // by the idempotency layer. A genuine retry of the SAME payload still
+    // replays idempotently, since the hash is identical.
+    const idempotencyKey =
+      parsed.data.idempotencyKey ?? checksumOf({ recordId, baseRevision: parsed.data.baseRevision, data: parsed.data.data });
     const record = await updateRecord(db, ctx, entityId, recordId, {
       data: parsed.data.data,
       baseRevision: parsed.data.baseRevision,
-      idempotencyKey: parsed.data.idempotencyKey ?? `${recordId}:${parsed.data.baseRevision}`,
+      idempotencyKey,
     });
     return NextResponse.json({ record, simulated: ctx.simulated });
   } catch (err) {

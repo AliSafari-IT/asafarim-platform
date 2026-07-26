@@ -189,6 +189,17 @@ export const taskManagementTemplate: AppTemplate = {
         { id: "perm_employee_task_read", roleId: "employee_role", entityId: "task", verb: "read", effect: "allow" },
         { id: "perm_employee_task_update", roleId: "employee_role", entityId: "task", verb: "update", effect: "allow" },
         { id: "perm_employee_project_read", roleId: "employee_role", entityId: "project", verb: "read", effect: "allow" },
+        // team_member: admin manages the roster; manager/employee need at
+        // least read to resolve a task's assignee (see the `assignee_ref`
+        // relation field below) and to view the Team page — but per the
+        // "manager" role's own description ("cannot change team roles"),
+        // only admin may create/update/delete team members.
+        { id: "perm_admin_team_member_create", roleId: "admin", entityId: "team_member", verb: "create", effect: "allow" },
+        { id: "perm_admin_team_member_read", roleId: "admin", entityId: "team_member", verb: "read", effect: "allow" },
+        { id: "perm_admin_team_member_update", roleId: "admin", entityId: "team_member", verb: "update", effect: "allow" },
+        { id: "perm_admin_team_member_delete", roleId: "admin", entityId: "team_member", verb: "delete", effect: "allow" },
+        { id: "perm_manager_team_member_read", roleId: "manager", entityId: "team_member", verb: "read", effect: "allow" },
+        { id: "perm_employee_team_member_read", roleId: "employee_role", entityId: "team_member", verb: "read", effect: "allow" },
       ],
       navigation: [
         { id: "nav_dashboard", label: "Dashboard", targetPageId: "dashboard", order: 0 },
