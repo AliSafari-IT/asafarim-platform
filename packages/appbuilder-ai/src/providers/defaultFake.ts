@@ -9,6 +9,12 @@ import {
   RESTRICT_PERMISSION_SCRIPT,
   GENERIC_MODIFICATION_FALLBACK_SCRIPT,
 } from "../fixtures/modification";
+import {
+  REPAIR_ADD_MISSING_PERMISSION_SCRIPT,
+  REPAIR_NARROW_PERMISSION_SCRIPT,
+  REPAIR_UNSUPPORTED_CAPABILITY_SCRIPT,
+  REPAIR_GENERIC_FALLBACK_SCRIPT,
+} from "../fixtures/repair";
 import type {
   AiProvider,
   AnalyzeRequirementsInput,
@@ -20,6 +26,8 @@ import type {
   ProposeOperationsResult,
   ProposeModificationInput,
   ProposeModificationResult,
+  ProposeRepairInput,
+  ProposeRepairResult,
 } from "../provider/types";
 
 function selectScriptForPrompt(prompt: string): FakeProviderScript {
@@ -42,6 +50,19 @@ function selectModificationScriptForPrompt(prompt: string): FakeProviderScript {
     return RESTRICT_PERMISSION_SCRIPT;
   }
   return GENERIC_MODIFICATION_FALLBACK_SCRIPT;
+}
+
+/** Same keyword-routing idea, for the M10 repair-diagnostics vocabulary — keyed off the failure classification + target gate keys the repair pipeline passes in, not free user text (there is none at this layer). */
+function selectRepairScriptForPrompt(failureClassification: string, targetGateKeys: readonly string[]): FakeProviderScript {
+  const gates = targetGateKeys.join(" ").toLowerCase();
+  if (failureClassification === "unsupported_product_capability") return REPAIR_UNSUPPORTED_CAPABILITY_SCRIPT;
+  if (gates.includes("security_policy") || gates.includes("permissions_authorization_narrow")) {
+    return REPAIR_NARROW_PERMISSION_SCRIPT;
+  }
+  if (gates.includes("permissions") || gates.includes("reference_integrity")) {
+    return REPAIR_ADD_MISSING_PERMISSION_SCRIPT;
+  }
+  return REPAIR_GENERIC_FALLBACK_SCRIPT;
 }
 
 /**
@@ -101,5 +122,13 @@ export class DefaultFakeProvider implements AiProvider {
       this.delegate = new FakeAiProvider(selectModificationScriptForPrompt(input.userRequest));
     }
     return this.delegate.proposeModification(input, options);
+  }
+
+  /** A repair job never calls analyzeRequirements first either — pins its own delegate on first call, keyed off the failure classification/target gates rather than free text. */
+  async proposeRepair(input: ProposeRepairInput, options: ProviderCallOptions): Promise<ProposeRepairResult> {
+    if (!this.delegate) {
+      this.delegate = new FakeAiProvider(selectRepairScriptForPrompt(input.failureClassification, input.targetGateKeys));
+    }
+    return this.delegate.proposeRepair(input, options);
   }
 }

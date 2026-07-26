@@ -2,6 +2,7 @@ import { RequirementsAnalysis } from "../schemas/requirementsAnalysis";
 import { TemplateRecommendation } from "../schemas/templateRecommendation";
 import { OperationBatch } from "../schemas/operationProposal";
 import { ModificationProposal } from "../schemas/modificationProposal";
+import { RepairProposal } from "../schemas/repairProposal";
 import { ProviderError } from "../provider/errors";
 import type {
   AiProvider,
@@ -14,10 +15,12 @@ import type {
   ProposeOperationsResult,
   ProposeModificationInput,
   ProposeModificationResult,
+  ProposeRepairInput,
+  ProposeRepairResult,
   UsageMetadata,
 } from "../provider/types";
 
-type Method = "analyzeRequirements" | "recommendTemplate" | "proposeOperations" | "proposeModification";
+type Method = "analyzeRequirements" | "recommendTemplate" | "proposeOperations" | "proposeModification" | "proposeRepair";
 
 export type FakeStep = { kind: "value"; raw: unknown } | { kind: "error"; error: ProviderError };
 
@@ -33,6 +36,7 @@ export interface FakeProviderScript {
   recommendTemplate?: FakeStep[];
   proposeOperations?: FakeStep[];
   proposeModification?: FakeStep[];
+  proposeRepair?: FakeStep[];
 }
 
 const SCHEMAS = {
@@ -40,6 +44,7 @@ const SCHEMAS = {
   recommendTemplate: TemplateRecommendation,
   proposeOperations: OperationBatch,
   proposeModification: ModificationProposal,
+  proposeRepair: RepairProposal,
 } as const;
 
 function usage(model: string): UsageMetadata {
@@ -66,6 +71,7 @@ export class FakeAiProvider implements AiProvider {
     recommendTemplate: 0,
     proposeOperations: 0,
     proposeModification: 0,
+    proposeRepair: 0,
   };
 
   constructor(
@@ -126,6 +132,10 @@ export class FakeAiProvider implements AiProvider {
     options: ProviderCallOptions,
   ): Promise<ProposeModificationResult> {
     return { proposal: this.consume("proposeModification", options) as any, usage: usage(this.model) };
+  }
+
+  async proposeRepair(_input: ProposeRepairInput, options: ProviderCallOptions): Promise<ProposeRepairResult> {
+    return { proposal: this.consume("proposeRepair", options) as any, usage: usage(this.model) };
   }
 }
 

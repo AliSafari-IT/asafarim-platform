@@ -1326,6 +1326,401 @@ export const generatedRowAccessRules = pgTable(
   ],
 );
 
+// ─── M10: validation gates, preview QA, and the bounded AI repair loop.
+// A validation run is pinned to an IMMUTABLE (specificationVersionId,
+// specificationChecksum, previewBuildId, registryVersion, gateSetVersion)
+// tuple at creation time and never re-derives any of those from the app's
+// *current* state afterward — rerunning validation for a changed spec always
+// means creating a NEW run, never mutating an old one's pinned identity or
+// its terminal gate results/artifacts. See docs/appbuilder-m10-validation-qa.md.
+export const validationRunStatusEnum = pgEnum("validation_run_status", [
+  "pending",
+  "running",
+  "passed",
+  "failed",
+  "infrastructure_error",
+  "flaky",
+  "cancelled",
+]);
+
+// A gate's own status is a superset of the run's (adds "skipped" — a gate
+// that legitimately does not apply, e.g. workflow idempotency on a
+// specification with zero workflows — which must never be confused with
+// "passed": a skipped mandatory gate does NOT count toward release
+// eligibility; only an explicitly PASSED mandatory gate does).
+export const validationGateStatusEnum = pgEnum("validation_gate_status", [
+  "pending",
+  "running",
+  "passed",
+  "failed",
+  "skipped",
+  "infrastructure_error",
+  "flaky",
+  "cancelled",
+]);
+
+// How a validation run was requested — never a builder-facing distinction of
+// trust, only provenance. A repair-triggered revalidation is otherwise
+// identical to a manually requested one (same gates, same pinning contract).
+export const validationRequestSourceEnum = pgEnum("validation_request_source", [
+  "manual",
+  "repair",
+  "api",
+]);
+
+export const validationArtifactKindEnum = pgEnum("validation_artifact_kind", [
+  "screenshot",
+  "trace",
+  "report",
+  "log",
+  "summary",
+]);
+
+// The bounded AI repair loop's own job lifecycle — deliberately its own
+// state machine (see lib/repair/stateMachine.ts), not a repurposing of
+// modification_job_status, even though "propose -> dry-run -> confirm ->
+// apply" is the identical shape reused from M08 (lib/modification/pipeline.ts).
+// The extra `revalidating` phase is what modification jobs never have: a
+// repair is not "done" when M04 accepts the new version, only when a fresh
+// validation run against that new version has actually passed.
+export const repairAttemptStatusEnum = pgEnum("repair_attempt_status", [
+  "queued",
+  "classifying",
+  "proposing",
+  "awaiting_confirmation",
+  "applying",
+  "revalidating",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+// Closed failure-classification vocabulary (issue requirement: "distinguish
+// product bugs, infrastructure failures, flaky tests, and user-spec
+// errors"). `infrastructure_failure`/`flaky_test`/`cancellation` are NEVER
+// repairable — lib/repair/classify.ts's classifier is the one place that
+// decides membership, and the repair pipeline refuses to even attempt a
+// repair for those three no matter how many attempts remain.
+export const repairFailureClassificationEnum = pgEnum("repair_failure_classification", [
+  "user_specification_error",
+  "supported_repairable_configuration_error",
+  "unsupported_product_capability",
+  "test_failure",
+  "accessibility_failure",
+  "security_policy_failure",
+  "migration_data_safety_failure",
+  "provider_failure",
+  "infrastructure_failure",
+  "flaky_test",
+  "cancellation",
+]);
+
+export const repairJobFailureCodeEnum = pgEnum("repair_job_failure_code", [
+  "invalid_request",
+  "not_repairable",
+  "provider_configuration_error",
+  "provider_rate_limit",
+  "provider_unavailable",
+  "malformed_provider_response",
+  "forbidden_operation",
+  "specification_validation_failed",
+  "stale_base_version",
+  "authorization_lost",
+  "preview_failed",
+  "confirmation_expired",
+  "confirmation_invalid",
+  "revalidation_failed",
+  "repair_budget_exhausted",
+  "worker_infrastructure_error",
+  "cancelled",
+]);
+
+// One row per validation run. Pinned identity columns
+// (specificationVersionId/specificationChecksum/previewBuildId/
+// previewChecksum/registryVersion/gateSetVersion) are set once at creation
+// and never updated afterward — only `status`/lease/timestamp/rollup
+// columns are mutated while the run is non-terminal. `triggeringRepairAttemptId`
+// is set only for a revalidation run created BY a repair attempt's own
+// "new preview -> revalidate" step (see lib/repair/pipeline.ts); null for a
+// manually/API-requested run.
+export const validationRuns = pgTable(
+  "validation_runs",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    specificationVersionId: text("specification_version_id")
+      .notNull()
+      .references(() => specificationVersions.id, { onDelete: "cascade" }),
+    specificationChecksum: text("specification_checksum").notNull(),
+    // Nullable only for the brief window before the pinned preview build has
+    // been resolved during run creation; every run that actually reaches
+    // `running` has this set (see lib/repositories/validationRuns.ts).
+    previewBuildId: text("preview_build_id").references(
+      (): AnyPgColumn => previewBuilds.id,
+      { onDelete: "set null" },
+    ),
+    previewChecksum: text("preview_checksum"),
+    // @asafarim/appbuilder-runtime's REGISTRY_VERSION at run time — a
+    // registry upgrade never silently reinterprets an old run's evidence
+    // under new rendering behavior.
+    registryVersion: text("registry_version").notNull(),
+    // lib/validation/gates/registry.ts's GATE_SET_VERSION — bumping the gate
+        // catalog (adding/removing/materially changing a gate) never
+    // retroactively reinterprets an old run's recorded gate list.
+    gateSetVersion: text("gate_set_version").notNull(),
+    requestSource: validationRequestSourceEnum("request_source").notNull().default("manual"),
+    requestedByPrincipalId: text("requested_by_principal_id").notNull(),
+    triggeringRepairAttemptId: text("triggering_repair_attempt_id").references(
+      (): AnyPgColumn => repairAttempts.id,
+      { onDelete: "set null" },
+    ),
+    status: validationRunStatusEnum("status").notNull().default("pending"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    mandatoryGatesTotal: integer("mandatory_gates_total").notNull().default(0),
+    mandatoryGatesPassed: integer("mandatory_gates_passed").notNull().default(0),
+    // Issue requirement: "only a fully passing approved preview version
+    // becomes release-eligible." Computed and stamped exactly once, when the
+    // run reaches a terminal state (see
+    // lib/validation/eligibility.ts#computeReleaseEligibility) — never
+    // recomputed afterward, and never true for a non-`passed` run.
+    releaseEligible: boolean("release_eligible").notNull().default(false),
+    failureCode: text("failure_code"),
+    failureMessage: text("failure_message"),
+    cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
+    cancelledByPrincipalId: text("cancelled_by_principal_id"),
+    // Worker crash-recovery lease — identical mechanics to
+    // modification_jobs (see lib/repositories/validationRuns.ts#claimInternal).
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("validation_runs_app_idempotency_unique").on(table.appId, table.idempotencyKey),
+    index("validation_runs_app_id_idx").on(table.appId),
+    index("validation_runs_status_idx").on(table.status),
+    index("validation_runs_status_lease_idx").on(table.status, table.leaseExpiresAt),
+  ],
+);
+
+// One row per gate per run. `mandatory` is copied from the gate definition
+// at run time (not re-derived from the live registry later) so an old run's
+// release-eligibility math stays reproducible even if a gate is later
+// reclassified mandatory/optional. `structuredFailures` is always
+// machine-readable ({ code, message, path? }[]), never a raw stack trace;
+// `evidence` holds small deterministic proof (counts, ids, checksums) —
+// anything larger (screenshots, traces, reports) is a row in
+// validationArtifacts instead, referenced by id from here.
+export const validationGateResults = pgTable(
+  "validation_gate_results",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => validationRuns.id, { onDelete: "cascade" }),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    gateKey: text("gate_key").notNull(),
+    gateVersion: text("gate_version").notNull(),
+    mandatory: boolean("mandatory").notNull().default(true),
+    status: validationGateStatusEnum("status").notNull().default("pending"),
+    skipReason: text("skip_reason"),
+    failureCode: text("failure_code"),
+    failureMessage: text("failure_message"),
+    structuredFailures: jsonb("structured_failures").$type<Record<string, unknown>[]>().notNull().default([]),
+    evidence: jsonb("evidence").$type<Record<string, unknown>>().notNull().default({}),
+    artifactIds: jsonb("artifact_ids").$type<string[]>().notNull().default([]),
+    durationMs: integer("duration_ms"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("validation_gate_results_run_gate_unique").on(table.runId, table.gateKey),
+    index("validation_gate_results_app_id_idx").on(table.appId),
+  ],
+);
+
+// Safe QA evidence (issue requirement: "screenshots, traces, test reports,
+// structured console/network diagnostics, gate summaries ... free of
+// secrets/session cookies/raw authorization headers"). `storageKey` always
+// comes from lib/generated-data/files.ts-style server-generated key
+// construction (never a client path); every artifact is written through
+// lib/validation/redaction.ts before being persisted, mirroring
+// @asafarim/appbuilder-ai's redactForLogging contract for provider
+// diagnostics. `retentionExpiresAt` is set at write time from
+// VALIDATION_LIMITS.ARTIFACT_RETENTION_MS — a scheduled cleanup (see
+// docs/appbuilder-m10-validation-qa.md#artifact-retention) deletes both the
+// row and the underlying object once expired; nothing reads an artifact
+// past its retention window.
+export const validationArtifacts = pgTable(
+  "validation_artifacts",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => validationRuns.id, { onDelete: "cascade" }),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    gateKey: text("gate_key"),
+    kind: validationArtifactKindEnum("kind").notNull(),
+    label: text("label").notNull(),
+    storageKey: text("storage_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    retentionExpiresAt: timestamp("retention_expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("validation_artifacts_run_id_idx").on(table.runId),
+    index("validation_artifacts_app_id_idx").on(table.appId),
+  ],
+);
+
+// One row per bounded AI repair attempt against a FAILED validation run.
+// `originatingRunId` + `attemptNumber` together enforce
+// VALIDATION_LIMITS.MAX_REPAIR_ATTEMPTS_PER_RUN at the database level (the
+// unique index below), not just in application code. `diagnosticsSummary` is
+// always the OUTPUT of lib/validation/redaction.ts — the only diagnostics
+// ever sent to the model or persisted here. Mirrors
+// modification_operation_batches' proposed/rejected/destructive/applied
+// bookkeeping folded onto one row (a repair attempt proposes exactly one
+// bounded batch, like a modification job).
+export const repairAttempts = pgTable(
+  "repair_attempts",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    originatingRunId: text("originating_run_id")
+      .notNull()
+      .references(() => validationRuns.id, { onDelete: "cascade" }),
+    attemptNumber: integer("attempt_number").notNull(),
+    initiatedByPrincipalId: text("initiated_by_principal_id").notNull(),
+    status: repairAttemptStatusEnum("status").notNull().default("queued"),
+    phase: text("phase").notNull().default("queued"),
+    failureClassification: repairFailureClassificationEnum("failure_classification"),
+    // Which failed gate(s) this attempt is targeting — never "the whole run"
+    // implicitly, so a repair proposal stays scoped to what was actually
+    // classified as repairable.
+    targetGateKeys: jsonb("target_gate_keys").$type<string[]>().notNull().default([]),
+    // Bounded, redacted diagnostics actually shown to the model — see
+    // lib/validation/redaction.ts. Never a raw stack trace, DB error, or
+    // provider response body.
+    diagnosticsSummary: jsonb("diagnostics_summary").$type<Record<string, unknown>>().notNull().default({}),
+    proposedOperationCount: integer("proposed_operation_count").notNull().default(0),
+    rejectedOperations: jsonb("rejected_operations").$type<Record<string, unknown>[]>().notNull().default([]),
+    destructiveOperations: jsonb("destructive_operations").$type<Record<string, unknown>[]>().notNull().default([]),
+    appliedOperationIds: jsonb("applied_operation_ids").$type<string[]>().notNull().default([]),
+    // Identical confirmation-binding contract to modification_jobs (actor,
+    // app, base version, exact checksum, expiry, single-use) — reuses
+    // lib/modification/confirmation.ts's functions directly rather than a
+    // parallel implementation.
+    confirmationRequired: boolean("confirmation_required").notNull().default(false),
+    confirmationChecksum: text("confirmation_checksum"),
+    confirmationBaseVersionNumber: integer("confirmation_base_version_number"),
+    confirmationExpiresAt: timestamp("confirmation_expires_at", { withTimezone: true }),
+    confirmationConfirmedAt: timestamp("confirmation_confirmed_at", { withTimezone: true }),
+    confirmationConfirmedByPrincipalId: text("confirmation_confirmed_by_principal_id"),
+    baseVersionNumber: integer("base_version_number").notNull(),
+    resultingVersionNumber: integer("resulting_version_number"),
+    resultingVersionId: text("resulting_version_id").references(
+      (): AnyPgColumn => specificationVersions.id,
+      { onDelete: "set null" },
+    ),
+    resultingPreviewBuildId: text("resulting_preview_build_id").references(
+      (): AnyPgColumn => previewBuilds.id,
+      { onDelete: "set null" },
+    ),
+    // The NEW validation run created to revalidate from scratch after this
+    // repair applied — never the same row as originatingRunId.
+    resultingValidationRunId: text("resulting_validation_run_id").references(
+      (): AnyPgColumn => validationRuns.id,
+      { onDelete: "set null" },
+    ),
+    providerName: text("provider_name"),
+    providerModel: text("provider_model"),
+    usage: jsonb("usage").$type<Record<string, unknown>>().default({}),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    failureCode: repairJobFailureCodeEnum("failure_code"),
+    failureMessage: text("failure_message"),
+    cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
+    cancelledByPrincipalId: text("cancelled_by_principal_id"),
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("repair_attempts_app_idempotency_unique").on(table.appId, table.idempotencyKey),
+    // Enforces MAX_REPAIR_ATTEMPTS_PER_RUN structurally: attempt numbers for
+    // one run are unique, so the repository's bounds check racing another
+    // insert fails closed at the database rather than only in application
+    // logic.
+    uniqueIndex("repair_attempts_run_attempt_unique").on(table.originatingRunId, table.attemptNumber),
+    index("repair_attempts_app_id_idx").on(table.appId),
+    index("repair_attempts_status_idx").on(table.status),
+    index("repair_attempts_status_lease_idx").on(table.status, table.leaseExpiresAt),
+  ],
+);
+
+export const validationRunsRelations = relations(validationRuns, ({ one, many }) => ({
+  app: one(apps, { fields: [validationRuns.appId], references: [apps.id] }),
+  specificationVersion: one(specificationVersions, {
+    fields: [validationRuns.specificationVersionId],
+    references: [specificationVersions.id],
+  }),
+  previewBuild: one(previewBuilds, { fields: [validationRuns.previewBuildId], references: [previewBuilds.id] }),
+  gateResults: many(validationGateResults),
+  artifacts: many(validationArtifacts),
+  repairAttempts: many(repairAttempts),
+}));
+
+export const validationGateResultsRelations = relations(validationGateResults, ({ one }) => ({
+  run: one(validationRuns, { fields: [validationGateResults.runId], references: [validationRuns.id] }),
+  app: one(apps, { fields: [validationGateResults.appId], references: [apps.id] }),
+}));
+
+export const validationArtifactsRelations = relations(validationArtifacts, ({ one }) => ({
+  run: one(validationRuns, { fields: [validationArtifacts.runId], references: [validationRuns.id] }),
+  app: one(apps, { fields: [validationArtifacts.appId], references: [apps.id] }),
+}));
+
+export const repairAttemptsRelations = relations(repairAttempts, ({ one }) => ({
+  app: one(apps, { fields: [repairAttempts.appId], references: [apps.id] }),
+  originatingRun: one(validationRuns, {
+    fields: [repairAttempts.originatingRunId],
+    references: [validationRuns.id],
+    relationName: "originatingRun",
+  }),
+  resultingValidationRun: one(validationRuns, {
+    fields: [repairAttempts.resultingValidationRunId],
+    references: [validationRuns.id],
+    relationName: "resultingValidationRun",
+  }),
+  resultingVersion: one(specificationVersions, {
+    fields: [repairAttempts.resultingVersionId],
+    references: [specificationVersions.id],
+  }),
+  resultingPreviewBuild: one(previewBuilds, {
+    fields: [repairAttempts.resultingPreviewBuildId],
+    references: [previewBuilds.id],
+  }),
+}));
+
 export const appsRelations = relations(apps, ({ many }) => ({
   collaborators: many(collaborators),
   specifications: many(specifications),
@@ -1340,6 +1735,8 @@ export const appsRelations = relations(apps, ({ many }) => ({
   modificationJobs: many(modificationJobs),
   generatedAppMembers: many(generatedAppMembers),
   generatedRecords: many(generatedRecords),
+  validationRuns: many(validationRuns),
+  repairAttempts: many(repairAttempts),
 }));
 
 export const creationRequestsRelations = relations(creationRequests, ({ one }) => ({
