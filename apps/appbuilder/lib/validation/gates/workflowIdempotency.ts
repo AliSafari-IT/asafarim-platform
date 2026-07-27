@@ -86,15 +86,20 @@ export const workflowIdempotencyGate: GateDefinition = {
       data[field.id] = value;
     }
 
+    // Validation always runs against PREVIEW data (a validation run pins a
+    // draft specification version, never a production release) — every
+    // query/insert here is explicitly preview-scoped for the same reason
+    // seed.ts hardcodes it, not derived from any parameter.
     const [existingMember] = await ctx.db
       .select()
       .from(generatedAppMembers)
-      .where(and(eq(generatedAppMembers.appId, ctx.appId), eq(generatedAppMembers.principalId, ctx.ownerPrincipalId)))
+      .where(and(eq(generatedAppMembers.appId, ctx.appId), eq(generatedAppMembers.environment, "preview"), eq(generatedAppMembers.principalId, ctx.ownerPrincipalId)))
       .limit(1);
     if (!existingMember) {
       await ctx.db.insert(generatedAppMembers).values({
         id: generateId(),
         appId: ctx.appId,
+        environment: "preview",
         principalId: ctx.ownerPrincipalId,
         roleIds: [role.id],
         status: "active",
@@ -122,12 +127,21 @@ export const workflowIdempotencyGate: GateDefinition = {
     const executions = await ctx.db
       .select()
       .from(generatedWorkflowExecutions)
-      .where(and(eq(generatedWorkflowExecutions.appId, ctx.appId), eq(generatedWorkflowExecutions.triggerRecordId, first.id)));
+      .where(
+        and(
+          eq(generatedWorkflowExecutions.appId, ctx.appId),
+          eq(generatedWorkflowExecutions.environment, "preview"),
+          eq(generatedWorkflowExecutions.triggerRecordId, first.id),
+        ),
+      );
     if (executions.length > 1) {
       failures.push({ code: "duplicate_workflow_execution", message: `Expected at most 1 workflow execution for the retried create; found ${executions.length}.` });
     }
 
-    const notifications = await ctx.db.select().from(generatedNotifications).where(eq(generatedNotifications.appId, ctx.appId));
+    const notifications = await ctx.db
+      .select()
+      .from(generatedNotifications)
+      .where(and(eq(generatedNotifications.appId, ctx.appId), eq(generatedNotifications.environment, "preview")));
 
     if (failures.length > 0) {
       return {

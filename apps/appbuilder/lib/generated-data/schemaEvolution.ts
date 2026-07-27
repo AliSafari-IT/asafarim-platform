@@ -3,6 +3,7 @@ import type { EntityType, FieldType } from "@asafarim/appbuilder-schema";
 import type { Db } from "../db/client";
 import { generatedRecords } from "../db/schema";
 import { validateFieldValue } from "./validation";
+import type { GeneratedEnvironment } from "./environment";
 
 /**
  * Classifies a single field's change between the specification version a
@@ -81,6 +82,7 @@ export interface ValidationViolation {
 export async function checkExistingRecordsAgainstField(
   db: Db,
   appId: string,
+  environment: GeneratedEnvironment,
   entityId: string,
   field: FieldType,
   limit = 500,
@@ -88,7 +90,14 @@ export async function checkExistingRecordsAgainstField(
   const rows = await db
     .select()
     .from(generatedRecords)
-    .where(and(eq(generatedRecords.appId, appId), eq(generatedRecords.entityId, entityId), eq(generatedRecords.status, "active")))
+    .where(
+      and(
+        eq(generatedRecords.appId, appId),
+        eq(generatedRecords.environment, environment),
+        eq(generatedRecords.entityId, entityId),
+        eq(generatedRecords.status, "active"),
+      ),
+    )
     .limit(limit);
 
   const violations: ValidationViolation[] = [];

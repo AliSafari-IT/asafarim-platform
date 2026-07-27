@@ -149,10 +149,12 @@ describe("hasPermission / assertRuntimePermission", () => {
     const ctx: RuntimeContext = {
       appId: "app-x",
       actor: stranger,
+      environment: "preview",
       membership: null,
       roleIds: ["no_perm_role"],
       spec,
       specVersionNumber: 1,
+      releaseId: null,
       simulated: true,
     };
     expect(() => assertRuntimePermission(ctx, "widget", "read")).toThrow(RuntimePermissionDeniedError);
@@ -163,10 +165,12 @@ describe("hasPermission / assertRuntimePermission", () => {
     const ctx: RuntimeContext = {
       appId: "app-x",
       actor: stranger,
+      environment: "preview",
       membership: null,
       roleIds: ["allow_role"],
       spec,
       specVersionNumber: 1,
+      releaseId: null,
       simulated: true,
     };
     expect(() => assertRuntimePermission(ctx, "widget", "read")).not.toThrow();
@@ -262,10 +266,12 @@ describe("resolveRowAccessScope / recordSatisfiesScope", () => {
     const ctx: RuntimeContext = {
       appId: app.id,
       actor: employee,
+      environment: "preview",
       membership: null,
       roleIds: ["employee_role", "manager"],
       spec: (await loadPinnedSpec(db, app.id)).spec,
       specVersionNumber: 1,
+      releaseId: null,
       simulated: true,
     };
     const scope = await resolveRowAccessScope(db, ctx, "task", "read");

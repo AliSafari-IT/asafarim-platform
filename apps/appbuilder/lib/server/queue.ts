@@ -35,6 +35,10 @@ export const MODIFICATION_QUEUE_NAME = "appbuilder-modification";
 // lib/repair/stateMachine.ts).
 export const VALIDATION_QUEUE_NAME = "appbuilder-validation";
 export const REPAIR_QUEUE_NAME = "appbuilder-repair";
+// M11: forward deploys and rollbacks share one queue/table (`deployments`) —
+// same "low-latency wake-up only, Postgres is the durable source of truth"
+// contract as every other job kind here.
+export const DEPLOYMENT_QUEUE_NAME = "appbuilder-deployment";
 
 export interface GenerationDispatchMessage {
   jobId: string;
@@ -52,11 +56,16 @@ export interface RepairDispatchMessage {
   attemptId: string;
 }
 
+export interface DeploymentDispatchMessage {
+  deploymentId: string;
+}
+
 let _redis: Redis | undefined;
 let _queue: Queue<GenerationDispatchMessage> | undefined;
 let _modificationQueue: Queue<ModificationDispatchMessage> | undefined;
 let _validationQueue: Queue<ValidationDispatchMessage> | undefined;
 let _repairQueue: Queue<RepairDispatchMessage> | undefined;
+let _deploymentQueue: Queue<DeploymentDispatchMessage> | undefined;
 
 function getRedis(): Redis {
   if (!_redis) {
@@ -98,6 +107,13 @@ export function getRepairQueue(): Queue<RepairDispatchMessage> {
     _repairQueue = new Queue<RepairDispatchMessage>(REPAIR_QUEUE_NAME, { connection: getRedis() });
   }
   return _repairQueue;
+}
+
+export function getDeploymentQueue(): Queue<DeploymentDispatchMessage> {
+  if (!_deploymentQueue) {
+    _deploymentQueue = new Queue<DeploymentDispatchMessage>(DEPLOYMENT_QUEUE_NAME, { connection: getRedis() });
+  }
+  return _deploymentQueue;
 }
 
 /**
@@ -170,6 +186,20 @@ export async function nudgeRepairWorker(
   );
 }
 
+/** Nudges the deployment worker — see nudgeWorker's docstring for the deterministic-jobId/dedupe rationale, identical here. */
+export async function nudgeDeploymentWorker(
+  deploymentId: string,
+  options: { cause?: "enqueue" | "resume" | "retry"; attempt?: number; delayMs?: number } = {},
+): Promise<void> {
+  const cause = options.cause ?? "enqueue";
+  const suffix = cause === "retry" ? `${cause}-${options.attempt ?? 0}` : cause;
+  await getDeploymentQueue().add(
+    DEPLOYMENT_QUEUE_NAME,
+    { deploymentId },
+    { jobId: `dispatch-${deploymentId}-${suffix}`, delay: options.delayMs, removeOnComplete: true, removeOnFail: 1000 },
+  );
+}
+
 export async function closeQueue(): Promise<void> {
   if (_queue) {
     await _queue.close();
@@ -186,6 +216,10 @@ export async function closeQueue(): Promise<void> {
   if (_repairQueue) {
     await _repairQueue.close();
     _repairQueue = undefined;
+  }
+  if (_deploymentQueue) {
+    await _deploymentQueue.close();
+    _deploymentQueue = undefined;
   }
   if (_redis) {
     _redis.disconnect();

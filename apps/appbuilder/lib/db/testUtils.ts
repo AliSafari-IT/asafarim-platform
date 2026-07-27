@@ -11,7 +11,10 @@ const connectionString =
 const TABLE_NAMES = [
   "idempotency_keys",
   "audit_events",
+  // M11
+  "deployment_steps",
   "deployments",
+  "app_domains",
   "releases",
   "preview_builds",
   "modification_operation_batches",
@@ -25,6 +28,20 @@ const TABLE_NAMES = [
   "specifications",
   "creation_requests",
   "collaborators",
+  // M09 generated-data engine — previously missing here, which would have
+  // let a seeded generated-app row leak across test files.
+  "generated_workflow_step_executions",
+  "generated_workflow_executions",
+  "generated_notifications",
+  "generated_activity",
+  "generated_files",
+  "generated_record_relations",
+  "generated_uniqueness_claims",
+  "generated_record_revisions",
+  "generated_records",
+  "generated_row_access_rules",
+  "generated_data_idempotency",
+  "generated_app_members",
   "apps",
 ] as const;
 

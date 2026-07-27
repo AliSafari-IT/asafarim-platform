@@ -5,7 +5,7 @@
   "description": "ASafarIM Platform - unified monorepo for all ASafarIM Digital apps and services",
   "author": "Ali Safari",
   "license": "MIT",
-  "packageManager": "pnpm@11.15.0",
+  "packageManager": "pnpm@11.17.0",
   "scripts": {
     "dev": "tsx scripts/dev-start.mts",
     "clean": "rimraf node_modules .turbo && turbo clean",
