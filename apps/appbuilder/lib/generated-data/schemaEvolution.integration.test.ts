@@ -56,7 +56,7 @@ describe("checkExistingRecordsAgainstField", () => {
     const deadlineField = entity.fields.find((f) => f.id === "deadline")!;
     const tightened = { ...deadlineField, required: true };
 
-    const violations = await checkExistingRecordsAgainstField(db, app.id, "project", tightened as typeof deadlineField);
+    const violations = await checkExistingRecordsAgainstField(db, app.id, "preview", "project", tightened as typeof deadlineField);
     expect(violations).toHaveLength(0);
   });
 
@@ -73,7 +73,7 @@ describe("checkExistingRecordsAgainstField", () => {
     const deadlineField = entity.fields.find((f) => f.id === "deadline")!;
     const tightened = { ...deadlineField, required: true };
 
-    const violations = await checkExistingRecordsAgainstField(db, app.id, "project", tightened as typeof deadlineField);
+    const violations = await checkExistingRecordsAgainstField(db, app.id, "preview", "project", tightened as typeof deadlineField);
     expect(violations.map((v) => v.recordId)).toEqual([withoutDeadline.id]);
   });
 
@@ -89,7 +89,7 @@ describe("checkExistingRecordsAgainstField", () => {
     const nameField = entity.fields.find((f) => f.id === "name")!;
     const tightened = { ...nameField, unique: true };
 
-    const violations = await checkExistingRecordsAgainstField(db, app.id, "project", tightened as typeof nameField);
+    const violations = await checkExistingRecordsAgainstField(db, app.id, "preview", "project", tightened as typeof nameField);
     expect(violations.map((v) => v.recordId)).toEqual([second.id]);
   });
 
@@ -106,7 +106,7 @@ describe("checkExistingRecordsAgainstField", () => {
     const { spec } = await loadPinnedSpec(db, appOne.id);
     const entity = spec.entities.find((e) => e.id === "project")!;
     const nameField = entity.fields.find((f) => f.id === "name")!;
-    const violations = await checkExistingRecordsAgainstField(db, appOne.id, "project", { ...nameField, unique: true } as typeof nameField);
+    const violations = await checkExistingRecordsAgainstField(db, appOne.id, "preview", "project", { ...nameField, unique: true } as typeof nameField);
     expect(violations).toHaveLength(0);
   });
 });

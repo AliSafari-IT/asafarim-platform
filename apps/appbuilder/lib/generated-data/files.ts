@@ -139,11 +139,12 @@ export async function initUpload(db: Db, ctx: RuntimeContext, input: InitUploadI
   }
 
   const fileId = generateId();
-  const storageKey = buildKey(`generated/${ctx.appId}/${input.entityId}`, mimeToExt(input.mimeType));
+  const storageKey = buildKey(`generated/${ctx.appId}/${ctx.environment}/${input.entityId}`, mimeToExt(input.mimeType));
 
   await db.insert(generatedFiles).values({
     id: fileId,
     appId: ctx.appId,
+    environment: ctx.environment,
     entityId: input.entityId,
     recordId: input.recordId ?? null,
     fieldId: input.fieldId,
@@ -160,7 +161,11 @@ export async function initUpload(db: Db, ctx: RuntimeContext, input: InitUploadI
 
 /** Persists the actual bytes for a previously-initiated upload. Only the original uploader may commit it, and only once; the byte length is re-verified against what was declared at `initUpload`. */
 export async function commitUpload(db: Db, ctx: RuntimeContext, fileId: string, bytes: Buffer): Promise<GeneratedFileRow> {
-  const [file] = await db.select().from(generatedFiles).where(and(eq(generatedFiles.id, fileId), eq(generatedFiles.appId, ctx.appId))).limit(1);
+  const [file] = await db
+    .select()
+    .from(generatedFiles)
+    .where(and(eq(generatedFiles.id, fileId), eq(generatedFiles.appId, ctx.appId), eq(generatedFiles.environment, ctx.environment)))
+    .limit(1);
   if (!file) throw new NotFoundError("File", fileId);
   if (file.uploadedByPrincipalId !== ctx.actor.principalId) throw new FileAccessDeniedError();
   if (file.status !== "pending") throw new ConflictError("This upload has already been committed or archived.");
@@ -180,7 +185,11 @@ export async function commitUpload(db: Db, ctx: RuntimeContext, fileId: string, 
 
 /** Mints a short-lived (5 minute), single-file, single-principal signed download token. */
 export async function getDownloadAuthorization(db: Db, ctx: RuntimeContext, fileId: string): Promise<{ token: string; expiresAt: Date }> {
-  const [file] = await db.select().from(generatedFiles).where(and(eq(generatedFiles.id, fileId), eq(generatedFiles.appId, ctx.appId))).limit(1);
+  const [file] = await db
+    .select()
+    .from(generatedFiles)
+    .where(and(eq(generatedFiles.id, fileId), eq(generatedFiles.appId, ctx.appId), eq(generatedFiles.environment, ctx.environment)))
+    .limit(1);
   if (!file || file.status !== "committed") throw new NotFoundError("File", fileId);
   assertRuntimePermission(ctx, file.entityId, "read");
 
@@ -210,7 +219,11 @@ export async function downloadFile(db: Db, fileId: string, token: string): Promi
 }
 
 export async function archiveFile(db: Db, ctx: RuntimeContext, fileId: string): Promise<GeneratedFileRow> {
-  const [file] = await db.select().from(generatedFiles).where(and(eq(generatedFiles.id, fileId), eq(generatedFiles.appId, ctx.appId))).limit(1);
+  const [file] = await db
+    .select()
+    .from(generatedFiles)
+    .where(and(eq(generatedFiles.id, fileId), eq(generatedFiles.appId, ctx.appId), eq(generatedFiles.environment, ctx.environment)))
+    .limit(1);
   if (!file) throw new NotFoundError("File", fileId);
   assertRuntimePermission(ctx, file.entityId, "update");
   if (file.status === "archived") return file;

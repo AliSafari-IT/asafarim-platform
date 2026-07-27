@@ -22,6 +22,11 @@ export interface SeededFixtures {
   m10PassingAppId: string;
   m10BrokenAppId: string;
   m10NarrowAppId: string;
+  m11ReadyToDeployAppId: string;
+  m11DeployedAppId: string;
+  m11DeployedAppProductionHost: string;
+  m11DraftDivergedAppId: string;
+  m11DraftDivergedAppProductionHost: string;
   ownerId: string;
   editorId: string;
   viewerId: string;

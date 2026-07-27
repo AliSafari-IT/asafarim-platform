@@ -6,7 +6,6 @@ import { createApp } from "./apps";
 import { addCollaborator } from "./collaborators";
 import { requestPreviewBuild } from "./previewService";
 import { applyOperation } from "./operations";
-import { createRelease, publishRelease } from "./releases";
 import { enqueueValidationRun, transitionStatus, finalizeRun } from "./validationRuns";
 import {
   enqueueRepairAttempt,
@@ -17,7 +16,8 @@ import {
   getRepairAttemptForActor,
   listRepairAttemptsForRun,
 } from "./repairAttempts";
-import { specifications, specificationVersions } from "../db/schema";
+import { releases, specifications, specificationVersions } from "../db/schema";
+import { generateId } from "../db/ids";
 import { ConflictError, ForbiddenError, NotFoundError, StaleVersionError } from "../errors";
 
 const db = getTestDb();
@@ -215,8 +215,22 @@ describe("released-version immutability", () => {
     const [spec] = await db.select().from(specifications).where(eq(specifications.appId, app.id));
     const [v1Before] = await db.select().from(specificationVersions).where(eq(specificationVersions.specificationId, spec.id));
 
-    const release = await createRelease(db, owner, app.id, { specificationVersionId: v1Before.id, versionLabel: "v1.0" });
-    await publishRelease(db, owner, app.id, release.id);
+    // Direct insert rather than the full prepareRelease/approveRelease flow —
+    // this test's only concern is that a version bound to a PUBLISHED
+    // release is immutable, not M11 eligibility gating (makeFailedRun's
+    // validation run is deliberately failing, so it could never pass a real
+    // eligibility check).
+    await db.insert(releases).values({
+      id: generateId(),
+      appId: app.id,
+      specificationVersionId: v1Before.id,
+      specificationVersionNumber: v1Before.versionNumber,
+      specificationChecksum: v1Before.checksum,
+      versionLabel: "v1.0",
+      status: "published",
+      publishedByPrincipalId: owner.principalId,
+      publishedAt: new Date(),
+    });
 
     await applyOperation(db, owner, app.id, {
       operation: { opVersion: "1.0.0", type: "CREATE_ENTITY", entity: { id: "post_release", machineName: "post_release", name: "Post Release", fields: [], indexes: [], archived: false } },

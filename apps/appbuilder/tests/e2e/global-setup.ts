@@ -406,6 +406,154 @@ export default async function globalSetup(): Promise<void> {
   });
   await requestPreviewBuild(db, ownerActor, m10BrokenApp.id);
 
+  // 7. M11 releases/deployment fixtures — a real, fully-deployed production
+  //    app (prepared, approved, and activated through the ACTUAL pipeline —
+  //    lib/deployment/pipeline.ts — not a shortcut), so e2e specs can hit
+  //    `https://{slug}.apps.asafarim.com` via an explicit Host header
+  //    against this same dev server with zero public DNS involved. Every
+  //    step goes through the real repositories (prepareRelease,
+  //    approveRelease, createDeployment, runDeploymentJob) exactly as the
+  //    deployment worker would, including a real internal HTTP
+  //    self-verification request.
+  const appbuilderBaseUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
+  async function seedM11DeployedApp(suffix: string) {
+    const app = await createApp(
+      db,
+      ownerActor,
+      {
+        name: `M11 Deployed App ${suffix}`,
+        slug: `e2e-m11-${suffix}-${RUN_ID}`,
+        description: "E2E fixture — a real M11 production deployment.",
+        starterFamily: "task_management",
+        visibility: "private",
+      },
+      `e2e-seed-m11-${suffix}-${RUN_ID}`,
+    );
+    const template = getTemplate("task_management");
+    if (!template) throw new Error("task_management template is not registered in @asafarim/appbuilder-runtime");
+    await applyTemplateVersion(db, ownerActor, app.id, { template, baseVersionNumber: 1, idempotencyKey: `e2e-seed-m11-${suffix}-${RUN_ID}-template` });
+    const { build } = await requestPreviewBuild(db, ownerActor, app.id);
+
+    const { enqueueValidationRun, transitionStatus, upsertGateResult, finalizeRun } = await import("../../lib/repositories/validationRuns");
+    const run = await enqueueValidationRun(db, ownerActor, app.id, { idempotencyKey: `e2e-seed-m11-${suffix}-${RUN_ID}-run`, requestSource: "manual" });
+    await transitionStatus(db, run.id, "pending", "running");
+    await upsertGateResult(db, {
+      runId: run.id,
+      appId: app.id,
+      gateKey: "spec_schema_validity",
+      gateVersion: "1.0.0",
+      mandatory: true,
+      result: { status: "passed" },
+      startedAt: new Date(),
+      completedAt: new Date(),
+      artifactIds: [],
+    });
+    await finalizeRun(db, run.id, "passed");
+
+    const { prepareRelease, approveRelease } = await import("../../lib/repositories/releases");
+    const { createDeployment, claimDeploymentById } = await import("../../lib/repositories/deployments");
+    const { runDeploymentJob } = await import("../../lib/deployment/pipeline");
+
+    const release = await prepareRelease(db, ownerActor, app.id, { specificationVersionId: build.specificationVersionId });
+    await approveRelease(db, ownerActor, app.id, release.id);
+    const deployment = await createDeployment(db, ownerActor, app.id, { releaseId: release.id, idempotencyKey: `e2e-seed-m11-${suffix}-${RUN_ID}-deploy` });
+    const claimed = await claimDeploymentById(db, deployment.id, "e2e-seed-worker", 120_000);
+    if (!claimed) throw new Error(`e2e setup: failed to claim the M11 fixture deployment for app ${app.id}`);
+    const outcome = await runDeploymentJob(
+      {
+        db,
+        workerId: "e2e-seed-worker",
+        leaseDurationMs: 120_000,
+        signal: new AbortController().signal,
+        verifyProductionRoute: async (host) => {
+          try {
+            const res = await fetch(appbuilderBaseUrl, { headers: { Host: host } });
+            return { ok: res.status < 500, status: res.status, message: "e2e-seed verification" };
+          } catch (err) {
+            return { ok: false, message: err instanceof Error ? err.message : "e2e-seed verification failed" };
+          }
+        },
+      },
+      claimed,
+    );
+    if (outcome.kind !== "completed" || outcome.deployment.status !== "succeeded") {
+      throw new Error(`e2e setup: M11 fixture deployment for app ${app.id} did not succeed (${JSON.stringify(outcome)})`);
+    }
+
+    // Bootstrap the owner as a real PRODUCTION generated-app member (never
+    // done by resetGeneratedData, which is preview-only by construction) so
+    // an authenticated owner session can actually view the deployed app's
+    // dashboard — mirrors what a real deployed app's first admin would need,
+    // done here directly since M11 has no production-membership-bootstrap UI
+    // of its own yet.
+    await db.insert(schema.generatedAppMembers).values({
+      id: generateId(),
+      appId: app.id,
+      environment: "production",
+      principalId: owner.id,
+      roleIds: ["admin"],
+      status: "active",
+      provenance: "owner_bootstrap",
+      invitedByPrincipalId: null,
+    });
+
+    return { app, release, productionHost: release.productionHost };
+  }
+
+  // A third M11 fixture: eligible (a real passing validation run) but never
+  // released — lets a spec drive the full prepare → approve → deploy → roll
+  // back UI flow itself, from a clean starting state.
+  async function seedM11ReadyToDeployApp(suffix: string) {
+    const app = await createApp(
+      db,
+      ownerActor,
+      {
+        name: `M11 Ready App ${suffix}`,
+        slug: `e2e-m11-ready-${suffix}-${RUN_ID}`,
+        description: "E2E fixture — eligible for release but not yet deployed.",
+        starterFamily: "task_management",
+        visibility: "private",
+      },
+      `e2e-seed-m11-ready-${suffix}-${RUN_ID}`,
+    );
+    const template = getTemplate("task_management");
+    if (!template) throw new Error("task_management template is not registered in @asafarim/appbuilder-runtime");
+    await applyTemplateVersion(db, ownerActor, app.id, { template, baseVersionNumber: 1, idempotencyKey: `e2e-seed-m11-ready-${suffix}-${RUN_ID}-template` });
+    await requestPreviewBuild(db, ownerActor, app.id);
+
+    const { enqueueValidationRun, transitionStatus, upsertGateResult, finalizeRun } = await import("../../lib/repositories/validationRuns");
+    const run = await enqueueValidationRun(db, ownerActor, app.id, { idempotencyKey: `e2e-seed-m11-ready-${suffix}-${RUN_ID}-run`, requestSource: "manual" });
+    await transitionStatus(db, run.id, "pending", "running");
+    await upsertGateResult(db, {
+      runId: run.id,
+      appId: app.id,
+      gateKey: "spec_schema_validity",
+      gateVersion: "1.0.0",
+      mandatory: true,
+      result: { status: "passed" },
+      startedAt: new Date(),
+      completedAt: new Date(),
+      artifactIds: [],
+    });
+    await finalizeRun(db, run.id, "passed");
+    return app;
+  }
+
+  const m11ReadyToDeployApp = await seedM11ReadyToDeployApp("ready");
+
+  const m11DeployedApp = await seedM11DeployedApp("deployed");
+
+  // A second, independently deployed app whose DRAFT is then edited after
+  // deployment — proves "draft edits never affect production" has something
+  // real to assert against (production keeps serving the version it was
+  // deployed with even though the draft has since moved on).
+  const m11DraftDivergedApp = await seedM11DeployedApp("draft-diverged");
+  await applyOperation(db, ownerActor, m11DraftDivergedApp.app.id, {
+    operation: { opVersion: "1.0.0", type: "CREATE_ENTITY", entity: { id: "post_deploy_entity", machineName: "post_deploy_entity", name: "Post Deploy Entity" } },
+    baseVersionNumber: 2, // v1 root, v2 = the applied template (what's live in production)
+    idempotencyKey: `e2e-seed-m11-draft-diverged-${RUN_ID}-edit`,
+  });
+
   const m10NarrowApp = await seedM09App("m10-narrow");
   // A permission gap whose failure message contains "narrow" — the fake
   // repair provider routes any diagnostics text containing that marker to
@@ -445,6 +593,11 @@ export default async function globalSetup(): Promise<void> {
         m10PassingAppId: m10PassingApp.id,
         m10BrokenAppId: m10BrokenApp.id,
         m10NarrowAppId: m10NarrowApp.id,
+        m11ReadyToDeployAppId: m11ReadyToDeployApp.id,
+        m11DeployedAppId: m11DeployedApp.app.id,
+        m11DeployedAppProductionHost: m11DeployedApp.productionHost,
+        m11DraftDivergedAppId: m11DraftDivergedApp.app.id,
+        m11DraftDivergedAppProductionHost: m11DraftDivergedApp.productionHost,
         ownerId: owner.id,
         editorId: editor.id,
         viewerId: viewer.id,
@@ -485,14 +638,31 @@ export default async function globalSetup(): Promise<void> {
   const appbuilderUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
   const warmUpCookieHeader = `authjs.session-token=${ownerCookie.cookies[0].value}`;
   // M07's ai-generation.spec.ts hits /apps/new and /apps/[appId] first —
-  // warm those too, same rationale as the preview route above.
-  for (const path of [`/apps/${demoApp.id}/preview`, "/apps/new", `/apps/${demoApp.id}`]) {
+  // warm those too, same rationale as the preview route above. M11 adds its
+  // own brand-new API routes (releases/deployments) and the managed-app
+  // render route — each needs its own first-hit compile paid for here too,
+  // not by m11-releases-deployment.spec.ts's own assertions.
+  for (const path of [
+    `/apps/${demoApp.id}/preview`,
+    "/apps/new",
+    `/apps/${demoApp.id}`,
+    `/apps/${m11ReadyToDeployApp.id}`,
+    `/api/apps/${m11ReadyToDeployApp.id}/releases`,
+    `/api/apps/${m11ReadyToDeployApp.id}/deployments`,
+  ]) {
     try {
       await fetch(`${appbuilderUrl}${path}`, { headers: { Cookie: warmUpCookieHeader } });
     } catch {
       // Best-effort — a failed warm-up just means the first real test pays
       // the compile cost instead; it doesn't affect correctness.
     }
+  }
+  // The managed-app route resolves by HOST, not path — warm it via its own
+  // host header rather than the builder's own origin/path.
+  try {
+    await fetch(appbuilderUrl, { headers: { Cookie: warmUpCookieHeader, Host: m11DeployedApp.productionHost } });
+  } catch {
+    // Best-effort, see above.
   }
 
   await closeDb();

@@ -5,6 +5,7 @@ import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
 import { ConflictError, NotFoundError } from "../errors";
 import type { RuntimeContext } from "./runtimeAuth";
+import type { GeneratedEnvironment } from "./environment";
 import { assertRuntimePermission, recordSatisfiesScope, resolveRowAccessScope } from "./runtimeAuth";
 import {
   findEntity,
@@ -63,6 +64,7 @@ function isUniqueViolation(err: unknown): boolean {
 async function claimUniqueValues(
   tx: Db,
   appId: string,
+  environment: GeneratedEnvironment,
   entityId: string,
   entity: ReturnType<typeof findEntity>,
   recordId: string,
@@ -75,7 +77,9 @@ async function claimUniqueValues(
     const field = entity.fields.find((f) => f.id === fieldId)!;
     const valueHash = normalizeForUniqueness(field, value);
     try {
-      await tx.insert(generatedUniquenessClaims).values({ id: generateId(), appId, entityId, fieldId, valueHash, recordId });
+      // M11: `environment` is part of the uniqueness key, so a demo record's
+      // value in preview never blocks the same value in production.
+      await tx.insert(generatedUniquenessClaims).values({ id: generateId(), appId, environment, entityId, fieldId, valueHash, recordId });
     } catch (err) {
       if (isUniqueViolation(err)) throw new UniqueConstraintError(fieldId);
       throw err;
@@ -83,12 +87,20 @@ async function claimUniqueValues(
   }
 }
 
-async function releaseUniqueValue(tx: Db, appId: string, entityId: string, fieldId: string, valueHash: string): Promise<void> {
+async function releaseUniqueValue(
+  tx: Db,
+  appId: string,
+  environment: GeneratedEnvironment,
+  entityId: string,
+  fieldId: string,
+  valueHash: string,
+): Promise<void> {
   await tx
     .delete(generatedUniquenessClaims)
     .where(
       and(
         eq(generatedUniquenessClaims.appId, appId),
+        eq(generatedUniquenessClaims.environment, environment),
         eq(generatedUniquenessClaims.entityId, entityId),
         eq(generatedUniquenessClaims.fieldId, fieldId),
         eq(generatedUniquenessClaims.valueHash, valueHash),
@@ -107,8 +119,8 @@ async function syncRelationFieldsOnCreate(
   for (const { fieldId, relationId } of relationFieldIds(entity)) {
     const value = data[fieldId];
     if (typeof value === "string" && value.length > 0) {
-      await validateRelationTarget(tx, ctx.appId, ctx.spec, relationId, entityId, value);
-      await upsertRelationEdge(tx, ctx.appId, relationId, recordId, value);
+      await validateRelationTarget(tx, ctx.appId, ctx.environment, ctx.spec, relationId, entityId, value);
+      await upsertRelationEdge(tx, ctx.appId, ctx.environment, relationId, recordId, value);
     }
   }
 }
@@ -116,6 +128,7 @@ async function syncRelationFieldsOnCreate(
 async function findIdempotentRecord(
   tx: Db,
   appId: string,
+  environment: GeneratedEnvironment,
   entityId: string,
   scope: string,
   idempotencyKey: string,
@@ -127,6 +140,10 @@ async function findIdempotentRecord(
     .where(
       and(
         eq(generatedDataIdempotency.appId, appId),
+        // M11: idempotency keys here are CLIENT-supplied — without this
+        // predicate a caller could replay a preview response snapshot into
+        // production simply by reusing its own key.
+        eq(generatedDataIdempotency.environment, environment),
         eq(generatedDataIdempotency.entityId, entityId),
         eq(generatedDataIdempotency.scope, scope),
         eq(generatedDataIdempotency.idempotencyKey, idempotencyKey),
@@ -139,7 +156,20 @@ async function findIdempotentRecord(
   }
   const recordId = (existing.responseSnapshot as { recordId?: string } | null)?.recordId;
   if (!recordId) return undefined;
-  const [record] = await tx.select().from(generatedRecords).where(eq(generatedRecords.id, recordId)).limit(1);
+  // M11: re-scope the replayed record by app AND environment — the snapshot
+  // only carries an id, and an id alone must never be enough to cross the
+  // environment boundary.
+  const [record] = await tx
+    .select()
+    .from(generatedRecords)
+    .where(
+      and(
+        eq(generatedRecords.id, recordId),
+        eq(generatedRecords.appId, appId),
+        eq(generatedRecords.environment, environment),
+      ),
+    )
+    .limit(1);
   return record;
 }
 
@@ -158,7 +188,7 @@ export async function createRecord(
   const requestHash = checksumOf({ entityId, data: validation.data });
 
   return db.transaction(async (tx) => {
-    const existing = await findIdempotentRecord(tx, ctx.appId, entityId, "create", idempotencyKey, requestHash);
+    const existing = await findIdempotentRecord(tx, ctx.appId, ctx.environment, entityId, "create", idempotencyKey, requestHash);
     if (existing) return existing;
 
     const recordId = generateId();
@@ -175,6 +205,7 @@ export async function createRecord(
       .values({
         id: recordId,
         appId: ctx.appId,
+        environment: ctx.environment,
         entityId,
         specVersionNumber: ctx.specVersionNumber,
         revision: 1,
@@ -186,10 +217,11 @@ export async function createRecord(
       .returning();
 
     await syncRelationFieldsOnCreate(tx, ctx, entityId, entity, recordId, validation.data);
-    await claimUniqueValues(tx, ctx.appId, entityId, entity, recordId, validation.data, uniqueFieldIds(entity));
+    await claimUniqueValues(tx, ctx.appId, ctx.environment, entityId, entity, recordId, validation.data, uniqueFieldIds(entity));
 
     await recordActivity(tx, {
       appId: ctx.appId,
+      environment: ctx.environment,
       entityId,
       recordId,
       action: "record.created",
@@ -200,6 +232,7 @@ export async function createRecord(
     await tx.insert(generatedDataIdempotency).values({
       id: generateId(),
       appId: ctx.appId,
+      environment: ctx.environment,
       entityId,
       scope: "create",
       idempotencyKey,
@@ -211,6 +244,7 @@ export async function createRecord(
       tx,
       ctx.actor,
       ctx.appId,
+      ctx.environment,
       ctx.spec,
       entityId,
       { id: recordId, revision: 1, createdByPrincipalId: ctx.actor.principalId, data: validation.data },
@@ -227,7 +261,7 @@ export async function getRecord(db: Db, ctx: RuntimeContext, entityId: string, r
   const [record] = await db
     .select()
     .from(generatedRecords)
-    .where(and(eq(generatedRecords.id, recordId), eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.entityId, entityId)))
+    .where(and(eq(generatedRecords.id, recordId), eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.environment, ctx.environment), eq(generatedRecords.entityId, entityId)))
     .limit(1);
   if (!record) throw new NotFoundError("Record", recordId);
 
@@ -258,13 +292,13 @@ export async function updateRecord(
   const requestHash = checksumOf({ recordId, baseRevision: input.baseRevision, data: validation.data });
 
   return db.transaction(async (tx) => {
-    const existing = await findIdempotentRecord(tx, ctx.appId, entityId, "update", input.idempotencyKey, requestHash);
+    const existing = await findIdempotentRecord(tx, ctx.appId, ctx.environment, entityId, "update", input.idempotencyKey, requestHash);
     if (existing) return existing;
 
     const [record] = await tx
       .select()
       .from(generatedRecords)
-      .where(and(eq(generatedRecords.id, recordId), eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.entityId, entityId)))
+      .where(and(eq(generatedRecords.id, recordId), eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.environment, ctx.environment), eq(generatedRecords.entityId, entityId)))
       .for("update")
       .limit(1);
     if (!record || record.status === "archived") throw new NotFoundError("Record", recordId);
@@ -280,7 +314,7 @@ export async function updateRecord(
       if (!(fieldId in validation.data)) continue;
       const value = validation.data[fieldId];
       if (typeof value === "string" && value.length > 0) {
-        await validateRelationTarget(tx, ctx.appId, ctx.spec, relationId, entityId, value);
+        await validateRelationTarget(tx, ctx.appId, ctx.environment, ctx.spec, relationId, entityId, value);
       }
     }
 
@@ -291,13 +325,14 @@ export async function updateRecord(
       const newValue = validation.data[fieldId];
       if (JSON.stringify(oldValue) === JSON.stringify(newValue)) continue;
       if (oldValue !== undefined && oldValue !== null) {
-        await releaseUniqueValue(tx, ctx.appId, entityId, fieldId, normalizeForUniqueness(field, oldValue));
+        await releaseUniqueValue(tx, ctx.appId, ctx.environment, entityId, fieldId, normalizeForUniqueness(field, oldValue));
       }
       if (newValue !== undefined && newValue !== null) {
         try {
           await tx.insert(generatedUniquenessClaims).values({
             id: generateId(),
             appId: ctx.appId,
+            environment: ctx.environment,
             entityId,
             fieldId,
             valueHash: normalizeForUniqueness(field, newValue),
@@ -314,6 +349,7 @@ export async function updateRecord(
       id: generateId(),
       recordId,
       appId: ctx.appId,
+      environment: ctx.environment,
       entityId,
       revision: record.revision,
       data: record.data,
@@ -332,15 +368,23 @@ export async function updateRecord(
       if (!(fieldId in validation.data)) continue;
       await tx
         .delete(generatedRecordRelations)
-        .where(and(eq(generatedRecordRelations.relationId, relationId), eq(generatedRecordRelations.fromRecordId, recordId)));
+        .where(
+          and(
+            eq(generatedRecordRelations.appId, ctx.appId),
+            eq(generatedRecordRelations.environment, ctx.environment),
+            eq(generatedRecordRelations.relationId, relationId),
+            eq(generatedRecordRelations.fromRecordId, recordId),
+          ),
+        );
       const value = validation.data[fieldId];
       if (typeof value === "string" && value.length > 0) {
-        await upsertRelationEdge(tx, ctx.appId, relationId, recordId, value);
+        await upsertRelationEdge(tx, ctx.appId, ctx.environment, relationId, recordId, value);
       }
     }
 
     await recordActivity(tx, {
       appId: ctx.appId,
+      environment: ctx.environment,
       entityId,
       recordId,
       action: "record.updated",
@@ -352,6 +396,7 @@ export async function updateRecord(
     await tx.insert(generatedDataIdempotency).values({
       id: generateId(),
       appId: ctx.appId,
+      environment: ctx.environment,
       entityId,
       scope: "update",
       idempotencyKey: input.idempotencyKey,
@@ -363,6 +408,7 @@ export async function updateRecord(
       tx,
       ctx.actor,
       ctx.appId,
+      ctx.environment,
       ctx.spec,
       entityId,
       { id: recordId, revision: nextRevision, createdByPrincipalId: updated.createdByPrincipalId, data: nextData },
@@ -385,13 +431,13 @@ export async function archiveRecord(db: Db, ctx: RuntimeContext, entityId: strin
     const [record] = await tx
       .select()
       .from(generatedRecords)
-      .where(and(eq(generatedRecords.id, recordId), eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.entityId, entityId)))
+      .where(and(eq(generatedRecords.id, recordId), eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.environment, ctx.environment), eq(generatedRecords.entityId, entityId)))
       .for("update")
       .limit(1);
     if (!record) throw new NotFoundError("Record", recordId);
     if (record.status === "archived") return record;
 
-    await applyDeleteBehaviorOnArchive(tx, ctx.appId, ctx.spec, entityId, recordId);
+    await applyDeleteBehaviorOnArchive(tx, ctx.appId, ctx.environment, ctx.spec, entityId, recordId);
 
     const [archived] = await tx
       .update(generatedRecords)
@@ -401,6 +447,7 @@ export async function archiveRecord(db: Db, ctx: RuntimeContext, entityId: strin
 
     await recordActivity(tx, {
       appId: ctx.appId,
+      environment: ctx.environment,
       entityId,
       recordId,
       action: "record.archived",
@@ -412,6 +459,7 @@ export async function archiveRecord(db: Db, ctx: RuntimeContext, entityId: strin
       tx,
       ctx.actor,
       ctx.appId,
+      ctx.environment,
       ctx.spec,
       entityId,
       { id: recordId, revision: archived.revision, createdByPrincipalId: archived.createdByPrincipalId, data: archived.data },
@@ -429,7 +477,7 @@ export async function restoreRecord(db: Db, ctx: RuntimeContext, entityId: strin
     const [record] = await tx
       .select()
       .from(generatedRecords)
-      .where(and(eq(generatedRecords.id, recordId), eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.entityId, entityId)))
+      .where(and(eq(generatedRecords.id, recordId), eq(generatedRecords.appId, ctx.appId), eq(generatedRecords.environment, ctx.environment), eq(generatedRecords.entityId, entityId)))
       .for("update")
       .limit(1);
     if (!record) throw new NotFoundError("Record", recordId);
@@ -443,6 +491,7 @@ export async function restoreRecord(db: Db, ctx: RuntimeContext, entityId: strin
 
     await recordActivity(tx, {
       appId: ctx.appId,
+      environment: ctx.environment,
       entityId,
       recordId,
       action: "record.restored",

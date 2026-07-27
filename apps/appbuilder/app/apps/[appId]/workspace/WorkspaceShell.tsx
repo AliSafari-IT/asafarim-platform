@@ -8,11 +8,12 @@ import { PreviewPane } from "./PreviewPane";
 import { ConversationPanel } from "./ConversationPanel";
 import { VersionHistoryPanel } from "./VersionHistoryPanel";
 import { ValidationPanel } from "./ValidationPanel";
+import { DeploymentPanel } from "./DeploymentPanel";
 import styles from "../workspace.module.css";
 import type { SelectionContext } from "./types";
 
-type MobilePanel = "structure" | "preview" | "conversation" | "history" | "validation";
-type RightTab = "conversation" | "history" | "validation";
+type MobilePanel = "structure" | "preview" | "conversation" | "history" | "validation" | "deployment";
+type RightTab = "conversation" | "history" | "validation" | "deployment";
 
 export interface WorkspaceShellProps {
   appId: string;
@@ -33,6 +34,7 @@ const MOBILE_TABS: { id: MobilePanel; label: string }[] = [
   { id: "conversation", label: "Conversation" },
   { id: "history", label: "History" },
   { id: "validation", label: "Validation" },
+  { id: "deployment", label: "Deploy" },
 ];
 
 /**
@@ -97,6 +99,9 @@ export function WorkspaceShell({
   // still inspect ValidationPanel's read-only summaries (app.viewValidation
   // is viewer-minimum).
   const canRequestValidation = canRequestModification;
+  // app.approve / app.deployRelease are both owner-minimum per authz.ts.
+  const canApprove = role === "owner";
+  const canDeploy = role === "owner";
 
   async function refreshSpec(newVersionNumber: number) {
     setVersionNumber(newVersionNumber);
@@ -139,8 +144,15 @@ export function WorkspaceShell({
               Open preview
             </ButtonLink>
           ) : null}
-          {/* M11 owns real deployment — this is an explanatory, disabled affordance only. */}
-          <Button type="button" size="sm" variant="ghost" disabled title="Deployment is not yet available (arrives in M11).">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setActivePanel("deployment");
+              setRightTab("deployment");
+            }}
+          >
             Deploy
           </Button>
           {appStatus === "active" && canArchive ? (
@@ -169,7 +181,7 @@ export function WorkspaceShell({
             className={`ui-btn ${activePanel === tab.id ? "ui-btn--primary" : "ui-btn--ghost"} ui-btn--sm`}
             onClick={() => {
               setActivePanel(tab.id);
-              if (tab.id === "conversation" || tab.id === "history" || tab.id === "validation") setRightTab(tab.id);
+              if (tab.id === "conversation" || tab.id === "history" || tab.id === "validation" || tab.id === "deployment") setRightTab(tab.id);
             }}
           >
             {tab.label}
@@ -247,6 +259,15 @@ export function WorkspaceShell({
             >
               Validation
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={rightTab === "deployment"}
+              className={`ui-btn ${rightTab === "deployment" ? "ui-btn--primary" : "ui-btn--ghost"} ui-btn--sm`}
+              onClick={() => setRightTab("deployment")}
+            >
+              Deploy
+            </button>
           </div>
           <div className={styles.panelBody}>
             {rightTab === "conversation" ? (
@@ -268,7 +289,7 @@ export function WorkspaceShell({
                 canUndo={canUndo}
                 onChanged={refreshSpec}
               />
-            ) : (
+            ) : rightTab === "validation" ? (
               <ValidationPanel
                 appId={appId}
                 canRequestValidation={canRequestValidation}
@@ -278,6 +299,8 @@ export function WorkspaceShell({
                 canCancelRepair={canRequestValidation}
                 onVersionApplied={refreshSpec}
               />
+            ) : (
+              <DeploymentPanel appId={appId} currentVersionNumber={versionNumber} canApprove={canApprove} canDeploy={canDeploy} />
             )}
           </div>
         </section>

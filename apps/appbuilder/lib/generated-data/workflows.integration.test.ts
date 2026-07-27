@@ -179,8 +179,8 @@ describe("workflow idempotency", () => {
     // Same (workflowId, recordId, revision, triggerKind) as the automatic
     // trigger above — the generatedWorkflowExecutions UNIQUE index must
     // reject re-running it, called directly, bypassing records.ts entirely.
-    await triggerWorkflows(db, owner, app.id, spec, "task", triggerable, "onCreate");
-    await triggerWorkflows(db, owner, app.id, spec, "task", triggerable, "onCreate");
+    await triggerWorkflows(db, owner, app.id, "preview", spec, "task", triggerable, "onCreate");
+    await triggerWorkflows(db, owner, app.id, "preview", spec, "task", triggerable, "onCreate");
 
     const notifications = await db.select().from(generatedNotifications).where(eq(generatedNotifications.relatedRecordId, created.id));
     expect(notifications).toHaveLength(1);

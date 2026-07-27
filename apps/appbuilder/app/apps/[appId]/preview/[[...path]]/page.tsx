@@ -168,14 +168,35 @@ export default async function AppPreviewPage({ params, searchParams }: PreviewPa
   );
 }
 
-/** Shared resolution for both live-mode builder branches and the automatic end-user branch — resolves the requested page, enforces `canViewPage` (page-level RBAC), and hands off to the live Client Component tree. */
-function renderLiveOrAccessDenied({ appId, ctx, path, isEndUser }: { appId: string; ctx: RuntimeContext; path: string[]; isEndUser: boolean }) {
+/**
+ * Shared resolution for both live-mode builder branches and the automatic
+ * end-user branch — resolves the requested page, enforces `canViewPage`
+ * (page-level RBAC), and hands off to the live Client Component tree.
+ * Exported so the M11 production route
+ * (app/_managed-app/[slug]/[[...path]]/page.tsx) can reuse the exact same
+ * rendering path for `ctx.environment === "production"` rather than
+ * duplicating it — see that route's docstring.
+ */
+export function renderLiveOrAccessDenied({
+  appId,
+  ctx,
+  path,
+  isEndUser,
+  basePath,
+}: {
+  appId: string;
+  ctx: RuntimeContext;
+  path: string[];
+  isEndUser: boolean;
+  /** Defaults to the preview route's own base path; the M11 production route passes its own (host-rooted) base path instead. */
+  basePath?: string;
+}) {
   const page = resolvePageByPath(ctx.spec, path);
   if (!page) notFound();
   if (!canViewPage(ctx, page.id)) {
     return (
       <>
-        <PageHeader kicker="Preview" kickerIndex="04" title="Not permitted" />
+        <PageHeader kicker={ctx.environment === "production" ? "App" : "Preview"} kickerIndex="04" title="Not permitted" />
         <Alert tone="error">You don&apos;t have access to this page with your current role.</Alert>
       </>
     );
@@ -183,7 +204,7 @@ function renderLiveOrAccessDenied({ appId, ctx, path, isEndUser }: { appId: stri
 
   const branding = resolveBranding(ctx.spec.branding, ctx.spec.app.name);
   const isHomePage = page.id === resolveHomePage(ctx.spec)?.id;
-  const navItems = buildPermittedNavItems(ctx, routes.appPreview(appId), page.id);
+  const navItems = buildPermittedNavItems(ctx, basePath ?? routes.appPreview(appId), page.id);
 
   return (
     <LiveShell
@@ -213,7 +234,7 @@ function buildPermittedNavItems(ctx: RuntimeContext, basePath: string, activePag
         {
           id: item.id,
           label: item.label,
-          path: page.path.length > 0 ? `${basePath}/${page.path}` : basePath,
+          path: page.path.length > 0 ? `${basePath}/${page.path}` : basePath || "/",
           active: page.id === activePageId,
         },
       ];

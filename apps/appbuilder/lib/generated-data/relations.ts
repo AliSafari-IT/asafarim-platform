@@ -4,6 +4,7 @@ import type { Db } from "../db/client";
 import { generatedRecordRelations, generatedRecords } from "../db/schema";
 import { generateId } from "../db/ids";
 import { ConflictError } from "../errors";
+import type { GeneratedEnvironment } from "./environment";
 
 /**
  * Validated relation edges between generated records. A relation-typed
@@ -57,6 +58,7 @@ export function findRelation(spec: ApplicationSpecificationType, relationId: str
 export async function validateRelationTarget(
   db: Db,
   appId: string,
+  environment: GeneratedEnvironment,
   spec: ApplicationSpecificationType,
   relationId: string,
   entityIdOfRecord: string,
@@ -67,6 +69,10 @@ export async function validateRelationTarget(
     throw new InvalidRelationTargetError(`Relation "${relationId}" is not declared from entity "${entityIdOfRecord}".`);
   }
 
+  // M11: the environment predicate here is what makes a CROSS-ENVIRONMENT
+  // relation structurally impossible — a production record can never point
+  // at a preview record (or vice versa), because the target simply does not
+  // resolve outside its own environment.
   const [target] = await db
     .select()
     .from(generatedRecords)
@@ -74,6 +80,7 @@ export async function validateRelationTarget(
       and(
         eq(generatedRecords.id, targetRecordId),
         eq(generatedRecords.appId, appId),
+        eq(generatedRecords.environment, environment),
         eq(generatedRecords.entityId, relation.toEntityId),
       ),
     )
@@ -91,6 +98,7 @@ export async function validateRelationTarget(
 export async function upsertRelationEdge(
   tx: Db,
   appId: string,
+  environment: GeneratedEnvironment,
   relationId: string,
   fromRecordId: string,
   toRecordId: string,
@@ -100,6 +108,8 @@ export async function upsertRelationEdge(
     .from(generatedRecordRelations)
     .where(
       and(
+        eq(generatedRecordRelations.appId, appId),
+        eq(generatedRecordRelations.environment, environment),
         eq(generatedRecordRelations.relationId, relationId),
         eq(generatedRecordRelations.fromRecordId, fromRecordId),
         eq(generatedRecordRelations.toRecordId, toRecordId),
@@ -107,22 +117,53 @@ export async function upsertRelationEdge(
     )
     .limit(1);
   if (existing) return;
-  await tx.insert(generatedRecordRelations).values({ id: generateId(), appId, relationId, fromRecordId, toRecordId });
+  await tx.insert(generatedRecordRelations).values({ id: generateId(), appId, environment, relationId, fromRecordId, toRecordId });
 }
 
-/** Removes every edge (either direction) a record participates in — used before archiving/hard-clearing a record's relation edges. */
-export async function removeRelationEdgesForRecord(tx: Db, recordId: string): Promise<void> {
+/**
+ * Removes every edge (either direction) a record participates in — used
+ * before archiving/hard-clearing a record's relation edges. Scoped by app +
+ * environment in addition to the record id: an id alone must never be
+ * sufficient to mutate rows across the environment boundary, even though a
+ * record id is in practice unique.
+ */
+export async function removeRelationEdgesForRecord(
+  tx: Db,
+  appId: string,
+  environment: GeneratedEnvironment,
+  recordId: string,
+): Promise<void> {
   await tx
     .delete(generatedRecordRelations)
-    .where(or(eq(generatedRecordRelations.fromRecordId, recordId), eq(generatedRecordRelations.toRecordId, recordId)));
+    .where(
+      and(
+        eq(generatedRecordRelations.appId, appId),
+        eq(generatedRecordRelations.environment, environment),
+        or(eq(generatedRecordRelations.fromRecordId, recordId), eq(generatedRecordRelations.toRecordId, recordId)),
+      ),
+    );
 }
 
-/** Bounded reverse lookup: every `fromRecordId` currently pointing at `toRecordId` through `relationId`. */
-export async function listIncomingEdges(db: Db, relationId: string, toRecordId: string, limit = 200): Promise<string[]> {
+/** Bounded reverse lookup: every `fromRecordId` currently pointing at `toRecordId` through `relationId`, within one app+environment. */
+export async function listIncomingEdges(
+  db: Db,
+  appId: string,
+  environment: GeneratedEnvironment,
+  relationId: string,
+  toRecordId: string,
+  limit = 200,
+): Promise<string[]> {
   const rows = await db
     .select({ fromRecordId: generatedRecordRelations.fromRecordId })
     .from(generatedRecordRelations)
-    .where(and(eq(generatedRecordRelations.relationId, relationId), eq(generatedRecordRelations.toRecordId, toRecordId)))
+    .where(
+      and(
+        eq(generatedRecordRelations.appId, appId),
+        eq(generatedRecordRelations.environment, environment),
+        eq(generatedRecordRelations.relationId, relationId),
+        eq(generatedRecordRelations.toRecordId, toRecordId),
+      ),
+    )
     .limit(Math.min(limit, 200));
   return rows.map((r) => r.fromRecordId);
 }
@@ -139,6 +180,7 @@ export async function listIncomingEdges(db: Db, relationId: string, toRecordId: 
 export async function applyDeleteBehaviorOnArchive(
   tx: Db,
   appId: string,
+  environment: GeneratedEnvironment,
   spec: ApplicationSpecificationType,
   entityId: string,
   recordId: string,
@@ -150,7 +192,7 @@ export async function applyDeleteBehaviorOnArchive(
 
   const incomingRelations = spec.relations.filter((r) => !r.archived && r.toEntityId === entityId);
   for (const relation of incomingRelations) {
-    const sourceIds = await listIncomingEdges(tx, relation.id, recordId);
+    const sourceIds = await listIncomingEdges(tx, appId, environment, relation.id, recordId);
     if (sourceIds.length === 0) continue;
 
     if (relation.onDelete === "restrict") {
@@ -158,7 +200,11 @@ export async function applyDeleteBehaviorOnArchive(
     }
 
     for (const sourceId of sourceIds) {
-      const [sourceRecord] = await tx.select().from(generatedRecords).where(eq(generatedRecords.id, sourceId)).limit(1);
+      const [sourceRecord] = await tx
+        .select()
+        .from(generatedRecords)
+        .where(and(eq(generatedRecords.id, sourceId), eq(generatedRecords.appId, appId), eq(generatedRecords.environment, environment)))
+        .limit(1);
       if (!sourceRecord || sourceRecord.status === "archived") continue;
 
       if (relation.onDelete === "setNull") {
@@ -171,13 +217,20 @@ export async function applyDeleteBehaviorOnArchive(
         }
         await tx
           .delete(generatedRecordRelations)
-          .where(and(eq(generatedRecordRelations.relationId, relation.id), eq(generatedRecordRelations.fromRecordId, sourceId)));
+          .where(
+            and(
+              eq(generatedRecordRelations.appId, appId),
+              eq(generatedRecordRelations.environment, environment),
+              eq(generatedRecordRelations.relationId, relation.id),
+              eq(generatedRecordRelations.fromRecordId, sourceId),
+            ),
+          );
       } else if (relation.onDelete === "cascade") {
         await tx
           .update(generatedRecords)
           .set({ status: "archived", archivedAt: new Date(), updatedAt: new Date() })
           .where(eq(generatedRecords.id, sourceId));
-        await applyDeleteBehaviorOnArchive(tx, appId, spec, relation.fromEntityId, sourceId, depth + 1);
+        await applyDeleteBehaviorOnArchive(tx, appId, environment, spec, relation.fromEntityId, sourceId, depth + 1);
       }
     }
   }

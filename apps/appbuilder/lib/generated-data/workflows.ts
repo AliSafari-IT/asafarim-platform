@@ -6,6 +6,7 @@ import type { Actor } from "../auth/actor";
 import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
 import { recordActivity } from "./activity";
+import type { GeneratedEnvironment } from "./environment";
 
 /**
  * Allowlisted workflow execution — every step kind is a bounded, pre-defined
@@ -53,6 +54,7 @@ export async function triggerWorkflows(
   tx: Db,
   actor: Actor,
   appId: string,
+  environment: GeneratedEnvironment,
   spec: ApplicationSpecificationType,
   entityId: string,
   record: TriggerableRecord,
@@ -63,7 +65,7 @@ export async function triggerWorkflows(
   );
   const visited = new Set<string>();
   for (const workflow of workflows) {
-    await runWorkflow(tx, actor, appId, spec, entityId, record, workflow, triggerKind, visited, 0);
+    await runWorkflow(tx, actor, appId, environment, spec, entityId, record, workflow, triggerKind, visited, 0);
   }
 }
 
@@ -71,6 +73,7 @@ async function runWorkflow(
   tx: Db,
   actor: Actor,
   appId: string,
+  environment: GeneratedEnvironment,
   spec: ApplicationSpecificationType,
   entityId: string,
   record: TriggerableRecord,
@@ -86,7 +89,15 @@ async function runWorkflow(
   const [existing] = await tx
     .select()
     .from(generatedWorkflowExecutions)
-    .where(and(eq(generatedWorkflowExecutions.appId, appId), eq(generatedWorkflowExecutions.idempotencyKey, idempotencyKey)))
+    .where(
+      and(
+        eq(generatedWorkflowExecutions.appId, appId),
+        // M11: a preview execution must never make production believe the
+        // same trigger already ran (and vice versa) — see the unique index.
+        eq(generatedWorkflowExecutions.environment, environment),
+        eq(generatedWorkflowExecutions.idempotencyKey, idempotencyKey),
+      ),
+    )
     .limit(1);
   if (existing) return;
 
@@ -95,6 +106,7 @@ async function runWorkflow(
     .values({
       id: generateId(),
       appId,
+      environment,
       workflowId: workflow.id,
       triggerRecordId: record.id,
       triggerRevision: record.revision,
@@ -107,7 +119,7 @@ async function runWorkflow(
   try {
     let currentData = record.data;
     for (const step of workflow.steps.slice(0, MAX_STEPS_PER_WORKFLOW)) {
-      const outcome = await runStep(tx, actor, appId, spec, entityId, { ...record, data: currentData }, step, execution.id, visited, depth);
+      const outcome = await runStep(tx, actor, appId, environment, spec, entityId, { ...record, data: currentData }, step, execution.id, visited, depth);
       if (outcome.updatedData) currentData = outcome.updatedData;
       if (outcome.stop) break;
     }
@@ -123,6 +135,7 @@ async function runWorkflow(
       .where(eq(generatedWorkflowExecutions.id, execution.id));
     await recordActivity(tx, {
       appId,
+      environment,
       entityId,
       recordId: record.id,
       action: "workflow.failed",
@@ -142,6 +155,7 @@ async function runStep(
   tx: Db,
   actor: Actor,
   appId: string,
+  environment: GeneratedEnvironment,
   spec: ApplicationSpecificationType,
   entityId: string,
   record: TriggerableRecord,
@@ -182,7 +196,14 @@ async function runStep(
         await tx
           .update(generatedRecords)
           .set({ data: nextData, revision: record.revision + 1, updatedAt: new Date() })
-          .where(and(eq(generatedRecords.id, record.id), eq(generatedRecords.revision, record.revision)));
+          .where(
+            and(
+              eq(generatedRecords.id, record.id),
+              eq(generatedRecords.appId, appId),
+              eq(generatedRecords.environment, environment),
+              eq(generatedRecords.revision, record.revision),
+            ),
+          );
         outcome = { updatedData: nextData };
         resultMetadata = { fieldId, value: config.value };
       }
@@ -200,6 +221,7 @@ async function runStep(
         await tx.insert(generatedNotifications).values({
           id: generateId(),
           appId,
+          environment,
           recipientPrincipalId,
           title: (config.title ?? "Notification").slice(0, 200),
           body: (config.body ?? "").slice(0, 2000),
@@ -227,14 +249,21 @@ async function runStep(
         await tx
           .update(generatedRecords)
           .set({ data: nextData, revision: record.revision + 1, updatedAt: new Date() })
-          .where(and(eq(generatedRecords.id, record.id), eq(generatedRecords.revision, record.revision)));
+          .where(
+            and(
+              eq(generatedRecords.id, record.id),
+              eq(generatedRecords.appId, appId),
+              eq(generatedRecords.environment, environment),
+              eq(generatedRecords.revision, record.revision),
+            ),
+          );
         outcome = { updatedData: nextData };
         resultMetadata = { actionId: action.id };
       } else if (action?.kind === "runWorkflow") {
         const targetWorkflowId = (action.config as { workflowId?: string }).workflowId;
         const targetWorkflow = spec.workflows.find((w) => w.id === targetWorkflowId && !w.archived);
         if (targetWorkflow) {
-          await runWorkflow(tx, actor, appId, spec, entityId, record, targetWorkflow, "manual", visited, depth + 1);
+          await runWorkflow(tx, actor, appId, environment, spec, entityId, record, targetWorkflow, "manual", visited, depth + 1);
         }
         resultMetadata = { chainedWorkflowId: targetWorkflowId };
       }
