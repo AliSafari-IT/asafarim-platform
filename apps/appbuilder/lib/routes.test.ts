@@ -13,12 +13,11 @@ describe("route contracts", () => {
     expect(routes.appPreview("app_123")).toBe("/apps/app_123/preview");
     expect(routes.appArchive("app_123")).toBe("/apps/app_123/archive");
     expect(routes.appRestore("app_123")).toBe("/apps/app_123/restore");
+    expect(routes.appOperations("app_123")).toBe("/apps/app_123/operations");
   });
 
   it("encodes appId segments to keep the route contract safe", () => {
-    expect(routes.appDetail("weird id/slash")).toBe(
-      "/apps/weird%20id%2Fslash"
-    );
+    expect(routes.appDetail("weird id/slash")).toBe("/apps/weird%20id%2Fslash");
     expect(routes.appPreview("weird id/slash")).toBe(
       "/apps/weird%20id%2Fslash/preview"
     );

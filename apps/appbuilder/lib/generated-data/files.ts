@@ -1,13 +1,22 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { buildKey, deleteObject, getObjectBytes, putObjectBytes } from "@asafarim/storage";
+import {
+  buildKey,
+  deleteObject,
+  getObjectBytes,
+  putObjectBytes,
+} from "@asafarim/storage";
 import type { Db } from "../db/client";
-import { generatedFiles } from "../db/schema";
+import { apps, generatedFiles } from "../db/schema";
 import type { RuntimeContext } from "./runtimeAuth";
 import { assertRuntimePermission } from "./runtimeAuth";
 import { findEntity } from "./validation";
 import { generateId } from "../db/ids";
 import { ConflictError, ForbiddenError, NotFoundError } from "../errors";
+import { withQuota } from "../quotas/enforce";
+import { sumStorageBytesForApp } from "../quotas/usage";
+import { recordUsageEvent } from "../quotas/recordUsage";
+import { withQuotaRejectionLogging } from "../observability/events";
 
 /**
  * The generated-app file boundary. Uses `@asafarim/storage` (S3-compatible;
@@ -38,7 +47,9 @@ export type GeneratedFileRow = typeof generatedFiles.$inferSelect;
 
 export class FileTooLargeError extends ConflictError {
   constructor(maxBytes: number) {
-    super(`File exceeds the maximum allowed size of ${Math.round(maxBytes / (1024 * 1024))}MB.`);
+    super(
+      `File exceeds the maximum allowed size of ${Math.round(maxBytes / (1024 * 1024))}MB.`
+    );
     this.name = "FileTooLargeError";
   }
 }
@@ -80,7 +91,10 @@ function mimeToExt(mimeType: string): string {
 }
 
 function getTokenSecret(): string {
-  return process.env.APPBUILDER_FILE_TOKEN_SECRET ?? "dev-insecure-appbuilder-file-token-secret";
+  return (
+    process.env.APPBUILDER_FILE_TOKEN_SECRET ??
+    "dev-insecure-appbuilder-file-token-secret"
+  );
 }
 
 interface DownloadTokenPayload {
@@ -91,18 +105,25 @@ interface DownloadTokenPayload {
 
 function signDownloadToken(payload: DownloadTokenPayload): string {
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signature = createHmac("sha256", getTokenSecret()).update(body).digest("base64url");
+  const signature = createHmac("sha256", getTokenSecret())
+    .update(body)
+    .digest("base64url");
   return `${body}.${signature}`;
 }
 
 function verifyDownloadToken(token: string): DownloadTokenPayload {
   const [body, signature] = token.split(".");
   if (!body || !signature) throw new SignedLinkExpiredError();
-  const expected = createHmac("sha256", getTokenSecret()).update(body).digest("base64url");
+  const expected = createHmac("sha256", getTokenSecret())
+    .update(body)
+    .digest("base64url");
   const a = Buffer.from(signature);
   const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) throw new SignedLinkExpiredError();
-  const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as DownloadTokenPayload;
+  if (a.length !== b.length || !timingSafeEqual(a, b))
+    throw new SignedLinkExpiredError();
+  const payload = JSON.parse(
+    Buffer.from(body, "base64url").toString("utf8")
+  ) as DownloadTokenPayload;
   if (Date.now() > payload.expiresAt) throw new SignedLinkExpiredError();
   return payload;
 }
@@ -117,16 +138,34 @@ export interface InitUploadInput {
 }
 
 /** Validates the upload against the field's own MIME/size allowlist and mints a server-generated storage key. Returns a `pending` file row — bytes are not yet persisted. */
-export async function initUpload(db: Db, ctx: RuntimeContext, input: InitUploadInput): Promise<{ fileId: string; storageKey: string }> {
-  assertRuntimePermission(ctx, input.entityId, input.recordId ? "update" : "create");
+export async function initUpload(
+  db: Db,
+  ctx: RuntimeContext,
+  input: InitUploadInput
+): Promise<{ fileId: string; storageKey: string }> {
+  assertRuntimePermission(
+    ctx,
+    input.entityId,
+    input.recordId ? "update" : "create"
+  );
   const entity = findEntity(ctx.spec, input.entityId);
-  const field = entity.fields.find((f) => !f.archived && f.id === input.fieldId && (f.type === "file" || f.type === "image"));
+  const field = entity.fields.find(
+    (f) =>
+      !f.archived &&
+      f.id === input.fieldId &&
+      (f.type === "file" || f.type === "image")
+  );
   if (!field || (field.type !== "file" && field.type !== "image")) {
-    throw new ConflictError(`"${input.fieldId}" is not a file/image field on entity "${input.entityId}".`);
+    throw new ConflictError(
+      `"${input.fieldId}" is not a file/image field on entity "${input.entityId}".`
+    );
   }
 
   const maxBytes = (field.maxSizeMb ?? 25) * 1024 * 1024;
-  if (input.sizeBytes <= 0 || input.sizeBytes > Math.min(maxBytes, DEFAULT_MAX_SIZE_BYTES * 40)) {
+  if (
+    input.sizeBytes <= 0 ||
+    input.sizeBytes > Math.min(maxBytes, DEFAULT_MAX_SIZE_BYTES * 40)
+  ) {
     throw new FileTooLargeError(maxBytes);
   }
 
@@ -139,7 +178,10 @@ export async function initUpload(db: Db, ctx: RuntimeContext, input: InitUploadI
   }
 
   const fileId = generateId();
-  const storageKey = buildKey(`generated/${ctx.appId}/${ctx.environment}/${input.entityId}`, mimeToExt(input.mimeType));
+  const storageKey = buildKey(
+    `generated/${ctx.appId}/${ctx.environment}/${input.entityId}`,
+    mimeToExt(input.mimeType)
+  );
 
   await db.insert(generatedFiles).values({
     id: fileId,
@@ -160,41 +202,122 @@ export async function initUpload(db: Db, ctx: RuntimeContext, input: InitUploadI
 }
 
 /** Persists the actual bytes for a previously-initiated upload. Only the original uploader may commit it, and only once; the byte length is re-verified against what was declared at `initUpload`. */
-export async function commitUpload(db: Db, ctx: RuntimeContext, fileId: string, bytes: Buffer): Promise<GeneratedFileRow> {
+export async function commitUpload(
+  db: Db,
+  ctx: RuntimeContext,
+  fileId: string,
+  bytes: Buffer
+): Promise<GeneratedFileRow> {
   const [file] = await db
     .select()
     .from(generatedFiles)
-    .where(and(eq(generatedFiles.id, fileId), eq(generatedFiles.appId, ctx.appId), eq(generatedFiles.environment, ctx.environment)))
+    .where(
+      and(
+        eq(generatedFiles.id, fileId),
+        eq(generatedFiles.appId, ctx.appId),
+        eq(generatedFiles.environment, ctx.environment)
+      )
+    )
     .limit(1);
   if (!file) throw new NotFoundError("File", fileId);
-  if (file.uploadedByPrincipalId !== ctx.actor.principalId) throw new FileAccessDeniedError();
-  if (file.status !== "pending") throw new ConflictError("This upload has already been committed or archived.");
+  if (file.uploadedByPrincipalId !== ctx.actor.principalId)
+    throw new FileAccessDeniedError();
+  if (file.status !== "pending")
+    throw new ConflictError(
+      "This upload has already been committed or archived."
+    );
   if (bytes.length !== file.sizeBytes) {
-    throw new ConflictError("Uploaded byte count does not match the declared size.");
+    throw new ConflictError(
+      "Uploaded byte count does not match the declared size."
+    );
   }
 
-  await putObjectBytes(file.storageKey, bytes, file.mimeType, { acl: "private" });
+  // M12 storage quota. The advisory lock inside `withQuota` MUST NOT be
+  // held across the external `putObjectBytes` call below (a slow/hung
+  // object-storage backend must never serialize every other upload for
+  // this app behind it), so the check runs in its own short transaction
+  // that commits — releasing the lock — before the external write. This
+  // bounds (to the number of uploads truly in flight at once for this app)
+  // but does not fully eliminate a race between two concurrent commits,
+  // unlike the fully race-safe count-based quotas in lib/quotas/enforce.ts.
+  // See docs/appbuilder-m12-launch-hardening.md's quota-enforcement section.
+  await withQuotaRejectionLogging(
+    db,
+    {
+      category: "storage",
+      appId: ctx.appId,
+      actorPrincipalId: ctx.actor.principalId,
+    },
+    () =>
+      db.transaction((tx) =>
+        withQuota(
+          tx,
+          ctx.appId,
+          "storage_bytes_per_app",
+          async () =>
+            (await sumStorageBytesForApp(tx, ctx.appId)) + file.sizeBytes,
+          async () => undefined
+        )
+      )
+  );
+
+  await putObjectBytes(file.storageKey, bytes, file.mimeType, {
+    acl: "private",
+  });
 
   const [committed] = await db
     .update(generatedFiles)
     .set({ status: "committed", committedAt: new Date() })
     .where(eq(generatedFiles.id, fileId))
     .returning();
+
+  const [appRow] = await db
+    .select({ ownerPrincipalId: apps.ownerPrincipalId })
+    .from(apps)
+    .where(eq(apps.id, ctx.appId))
+    .limit(1);
+  if (appRow) {
+    await recordUsageEvent(db, {
+      appId: ctx.appId,
+      ownerPrincipalId: appRow.ownerPrincipalId,
+      environment: ctx.environment,
+      kind: "storage_write",
+      quantity: file.sizeBytes,
+      unit: "bytes",
+      metadata: { fileId },
+    });
+  }
+
   return committed;
 }
 
 /** Mints a short-lived (5 minute), single-file, single-principal signed download token. */
-export async function getDownloadAuthorization(db: Db, ctx: RuntimeContext, fileId: string): Promise<{ token: string; expiresAt: Date }> {
+export async function getDownloadAuthorization(
+  db: Db,
+  ctx: RuntimeContext,
+  fileId: string
+): Promise<{ token: string; expiresAt: Date }> {
   const [file] = await db
     .select()
     .from(generatedFiles)
-    .where(and(eq(generatedFiles.id, fileId), eq(generatedFiles.appId, ctx.appId), eq(generatedFiles.environment, ctx.environment)))
+    .where(
+      and(
+        eq(generatedFiles.id, fileId),
+        eq(generatedFiles.appId, ctx.appId),
+        eq(generatedFiles.environment, ctx.environment)
+      )
+    )
     .limit(1);
-  if (!file || file.status !== "committed") throw new NotFoundError("File", fileId);
+  if (!file || file.status !== "committed")
+    throw new NotFoundError("File", fileId);
   assertRuntimePermission(ctx, file.entityId, "read");
 
   const expiresAt = new Date(Date.now() + DOWNLOAD_TOKEN_TTL_MS);
-  const token = signDownloadToken({ fileId, principalId: ctx.actor.principalId, expiresAt: expiresAt.getTime() });
+  const token = signDownloadToken({
+    fileId,
+    principalId: ctx.actor.principalId,
+    expiresAt: expiresAt.getTime(),
+  });
   return { token, expiresAt };
 }
 
@@ -205,24 +328,47 @@ export async function getDownloadAuthorization(db: Db, ctx: RuntimeContext, file
  * authorized, non-expired, single-use-window request; never an unrestricted
  * passthrough of an arbitrary client-supplied key.
  */
-export async function downloadFile(db: Db, fileId: string, token: string): Promise<{ body: Buffer; contentType: string; filename: string }> {
+export async function downloadFile(
+  db: Db,
+  fileId: string,
+  token: string
+): Promise<{ body: Buffer; contentType: string; filename: string }> {
   const payload = verifyDownloadToken(token);
   if (payload.fileId !== fileId) throw new FileAccessDeniedError();
 
-  const [file] = await db.select().from(generatedFiles).where(eq(generatedFiles.id, fileId)).limit(1);
-  if (!file || file.status !== "committed") throw new NotFoundError("File", fileId);
+  const [file] = await db
+    .select()
+    .from(generatedFiles)
+    .where(eq(generatedFiles.id, fileId))
+    .limit(1);
+  if (!file || file.status !== "committed")
+    throw new NotFoundError("File", fileId);
 
   const object = await getObjectBytes(file.storageKey);
   if (!object) throw new NotFoundError("File", fileId);
 
-  return { body: object.body, contentType: object.contentType, filename: file.originalFilename };
+  return {
+    body: object.body,
+    contentType: object.contentType,
+    filename: file.originalFilename,
+  };
 }
 
-export async function archiveFile(db: Db, ctx: RuntimeContext, fileId: string): Promise<GeneratedFileRow> {
+export async function archiveFile(
+  db: Db,
+  ctx: RuntimeContext,
+  fileId: string
+): Promise<GeneratedFileRow> {
   const [file] = await db
     .select()
     .from(generatedFiles)
-    .where(and(eq(generatedFiles.id, fileId), eq(generatedFiles.appId, ctx.appId), eq(generatedFiles.environment, ctx.environment)))
+    .where(
+      and(
+        eq(generatedFiles.id, fileId),
+        eq(generatedFiles.appId, ctx.appId),
+        eq(generatedFiles.environment, ctx.environment)
+      )
+    )
     .limit(1);
   if (!file) throw new NotFoundError("File", fileId);
   assertRuntimePermission(ctx, file.entityId, "update");

@@ -18,7 +18,12 @@ import type { Db } from "../../lib/db/client";
 const AUTH_DIR = path.join(__dirname, ".auth");
 const RUN_ID = Date.now().toString(36);
 
-async function upsertUser(prisma: typeof import("@asafarim/db").prisma, email: string, name: string, username: string) {
+async function upsertUser(
+  prisma: typeof import("@asafarim/db").prisma,
+  email: string,
+  name: string,
+  username: string
+) {
   return prisma.user.upsert({
     where: { email },
     update: {},
@@ -38,10 +43,20 @@ async function appendSpecVersion(
     generateId: typeof import("../../lib/db/ids").generateId;
     SPEC_SCHEMA_VERSION: string;
     ENGINE_VERSION: string;
-  },
+  }
 ): Promise<void> {
-  const { eq, schema, checksumOf, generateId, SPEC_SCHEMA_VERSION, ENGINE_VERSION } = deps;
-  const [spec] = await db.select().from(schema.specifications).where(eq(schema.specifications.appId, appId));
+  const {
+    eq,
+    schema,
+    checksumOf,
+    generateId,
+    SPEC_SCHEMA_VERSION,
+    ENGINE_VERSION,
+  } = deps;
+  const [spec] = await db
+    .select()
+    .from(schema.specifications)
+    .where(eq(schema.specifications.appId, appId));
   const nextVersion = spec.currentVersionNumber + 1;
 
   await db.insert(schema.specificationVersions).values({
@@ -49,14 +64,18 @@ async function appendSpecVersion(
     specificationId: spec.id,
     appId,
     versionNumber: nextVersion,
-    schemaVersion: SPEC_SCHEMA_VERSION as ApplicationSpecificationType["schemaVersion"],
+    schemaVersion:
+      SPEC_SCHEMA_VERSION as ApplicationSpecificationType["schemaVersion"],
     engineVersion: ENGINE_VERSION,
     summary: "E2E fixture content",
     payload,
     checksum: checksumOf(payload),
     createdByPrincipalId: "e2e-seed",
   });
-  await db.update(schema.specifications).set({ currentVersionNumber: nextVersion }).where(eq(schema.specifications.id, spec.id));
+  await db
+    .update(schema.specifications)
+    .set({ currentVersionNumber: nextVersion })
+    .where(eq(schema.specifications.id, spec.id));
 }
 
 /**
@@ -79,14 +98,26 @@ async function seedUnsafeSucceededBuild(
     SPEC_SCHEMA_VERSION: string;
     ENGINE_VERSION: string;
     REGISTRY_VERSION: string;
-  },
+  }
 ): Promise<void> {
-  const { eq, schema, checksumOf, generateId, SPEC_SCHEMA_VERSION, ENGINE_VERSION, REGISTRY_VERSION } = deps;
-  const [spec] = await db.select().from(schema.specifications).where(eq(schema.specifications.appId, appId));
+  const {
+    eq,
+    schema,
+    checksumOf,
+    generateId,
+    SPEC_SCHEMA_VERSION,
+    ENGINE_VERSION,
+    REGISTRY_VERSION,
+  } = deps;
+  const [spec] = await db
+    .select()
+    .from(schema.specifications)
+    .where(eq(schema.specifications.appId, appId));
   const nextVersion = spec.currentVersionNumber + 1;
 
   const payload: ApplicationSpecificationType = {
-    schemaVersion: SPEC_SCHEMA_VERSION as ApplicationSpecificationType["schemaVersion"],
+    schemaVersion:
+      SPEC_SCHEMA_VERSION as ApplicationSpecificationType["schemaVersion"],
     app: { name: "Security Proof", slug: "security-proof-e2e" },
     branding: {
       companyName: "<b>Bold</b> & <i>Italic</i> Co",
@@ -99,14 +130,26 @@ async function seedUnsafeSucceededBuild(
         machineName: "widget",
         name: "Widget",
         archived: false,
-        fields: [{ id: "name", machineName: "name", name: "Name", type: "text", required: true, unique: false, archived: false }],
+        fields: [
+          {
+            id: "name",
+            machineName: "name",
+            name: "Name",
+            type: "text",
+            required: true,
+            unique: false,
+            archived: false,
+          },
+        ],
         indexes: [],
       },
     ],
     relations: [],
     roles: [],
     permissions: [],
-    navigation: [{ id: "nav_home", label: "Home", targetPageId: "home", order: 0 }],
+    navigation: [
+      { id: "nav_home", label: "Home", targetPageId: "home", order: 0 },
+    ],
     pages: [
       {
         id: "home",
@@ -116,7 +159,13 @@ async function seedUnsafeSucceededBuild(
         components: [
           // Unknown variant of a known kind — must fail closed with an
           // inline diagnostic, never a blank/crashed page.
-          { id: "c_unknown", kind: "dataTable", entityId: "widget", config: { variant: "not-a-real-variant" }, order: 0 },
+          {
+            id: "c_unknown",
+            kind: "dataTable",
+            entityId: "widget",
+            config: { variant: "not-a-real-variant" },
+            order: 0,
+          },
         ],
       },
     ],
@@ -133,12 +182,16 @@ async function seedUnsafeSucceededBuild(
     versionNumber: nextVersion,
     schemaVersion: SPEC_SCHEMA_VERSION,
     engineVersion: ENGINE_VERSION,
-    summary: "E2E security-proof fixture (bypasses normal validation deliberately)",
+    summary:
+      "E2E security-proof fixture (bypasses normal validation deliberately)",
     payload,
     checksum: checksumOf(payload),
     createdByPrincipalId: "e2e-seed",
   });
-  await db.update(schema.specifications).set({ currentVersionNumber: nextVersion }).where(eq(schema.specifications.id, spec.id));
+  await db
+    .update(schema.specifications)
+    .set({ currentVersionNumber: nextVersion })
+    .where(eq(schema.specifications.id, spec.id));
 
   const buildId = generateId();
   await db.insert(schema.previewBuilds).values({
@@ -152,14 +205,17 @@ async function seedUnsafeSucceededBuild(
     startedAt: new Date(),
     completedAt: new Date(),
   });
-  await db.update(schema.specifications).set({ pinnedPreviewBuildId: buildId }).where(eq(schema.specifications.id, spec.id));
+  await db
+    .update(schema.specifications)
+    .set({ pinnedPreviewBuildId: buildId })
+    .where(eq(schema.specifications.id, spec.id));
 }
 
 function fixtureSpec(
   fixture: ApplicationSpecificationType,
   name: string,
   slug: string,
-  description: string,
+  description: string
 ): ApplicationSpecificationType {
   return { ...fixture, app: { name, slug, description } };
 }
@@ -169,31 +225,87 @@ export default async function globalSetup(): Promise<void> {
 
   const { prisma } = await import("@asafarim/db");
   const { eq } = await import("drizzle-orm");
-  const { checksumOf, ENGINE_VERSION, SPEC_SCHEMA_VERSION } = await import("@asafarim/appbuilder-schema");
-  const { constructionTaskManagementFixture } = await import("@asafarim/appbuilder-schema/fixtures");
-  const { REGISTRY_VERSION, getTemplate } = await import("@asafarim/appbuilder-runtime");
+  const { checksumOf, ENGINE_VERSION, SPEC_SCHEMA_VERSION } =
+    await import("@asafarim/appbuilder-schema");
+  const { constructionTaskManagementFixture } =
+    await import("@asafarim/appbuilder-schema/fixtures");
+  const { REGISTRY_VERSION, getTemplate } =
+    await import("@asafarim/appbuilder-runtime");
   const { getDb, closeDb } = await import("../../lib/db/client");
   const { generateId } = await import("../../lib/db/ids");
   const schema = await import("../../lib/db/schema");
   const { archiveApp, createApp } = await import("../../lib/repositories/apps");
-  const { addCollaborator } = await import("../../lib/repositories/collaborators");
-  const { requestPreviewBuild } = await import("../../lib/repositories/previewService");
+  const { addCollaborator } =
+    await import("../../lib/repositories/collaborators");
+  const { requestPreviewBuild } =
+    await import("../../lib/repositories/previewService");
   const { applyOperation } = await import("../../lib/repositories/operations");
-  const { applyTemplateVersion } = await import("../../lib/repositories/templateApplication");
+  const { applyTemplateVersion } =
+    await import("../../lib/repositories/templateApplication");
   const { resetGeneratedData } = await import("../../lib/generated-data/seed");
   const { buildStorageState } = await import("./fixtures/session");
 
-  const versionDeps = { eq, schema, checksumOf, generateId, SPEC_SCHEMA_VERSION, ENGINE_VERSION };
+  const versionDeps = {
+    eq,
+    schema,
+    checksumOf,
+    generateId,
+    SPEC_SCHEMA_VERSION,
+    ENGINE_VERSION,
+  };
 
   const [owner, editor, viewer, unrelated] = await Promise.all([
-    upsertUser(prisma, "e2e-owner@example.test", "E2E Owner", `e2e_owner_${RUN_ID}`),
-    upsertUser(prisma, "e2e-editor@example.test", "E2E Editor", `e2e_editor_${RUN_ID}`),
-    upsertUser(prisma, "e2e-viewer@example.test", "E2E Viewer", `e2e_viewer_${RUN_ID}`),
-    upsertUser(prisma, "e2e-unrelated@example.test", "E2E Unrelated", `e2e_unrelated_${RUN_ID}`),
+    upsertUser(
+      prisma,
+      "e2e-owner@example.test",
+      "E2E Owner",
+      `e2e_owner_${RUN_ID}`
+    ),
+    upsertUser(
+      prisma,
+      "e2e-editor@example.test",
+      "E2E Editor",
+      `e2e_editor_${RUN_ID}`
+    ),
+    upsertUser(
+      prisma,
+      "e2e-viewer@example.test",
+      "E2E Viewer",
+      `e2e_viewer_${RUN_ID}`
+    ),
+    upsertUser(
+      prisma,
+      "e2e-unrelated@example.test",
+      "E2E Unrelated",
+      `e2e_unrelated_${RUN_ID}`
+    ),
   ]);
 
   const db = getDb();
   const ownerActor = { principalId: owner.id, roles: [] as string[] };
+
+  // M12: this fixture set alone creates well over a dozen apps for the ONE
+  // demo owner (by design — one fixture per milestone's edge cases) — more
+  // than the real-world `apps_per_owner` quota default is meant to allow
+  // for a normal account. Rather than special-casing test/seed code inside
+  // the quota engine itself, use the SAME superadmin override mechanism a
+  // real operator would use for a legitimate high-volume account (see
+  // lib/quotas/overrides.ts) — this is also a real, if incidental, exercise
+  // of that mechanism end-to-end against a live dev server.
+  const { setQuotaOverride } = await import("../../lib/quotas/overrides");
+  const { ROLES } = await import("@asafarim/auth/roles");
+  await setQuotaOverride(
+    db,
+    { principalId: "e2e-global-setup", roles: [ROLES.SUPERADMIN] },
+    {
+      scopeType: "owner",
+      scopeId: owner.id,
+      metric: "apps_per_owner",
+      limitValue: 100,
+      reason:
+        "e2e fixture seeding creates many apps for one demo owner by design",
+    }
+  );
 
   // 1. The construction task-manager proof app — dashboard/projects/tasks/team/settings,
   //    a real succeeded pinned preview, and editor/viewer collaborators for the capability matrix.
@@ -203,11 +315,12 @@ export default async function globalSetup(): Promise<void> {
     {
       name: "Construction Task Manager",
       slug: `e2e-construction-tasks-${RUN_ID}`,
-      description: "E2E fixture — the M04 construction task-management specification.",
+      description:
+        "E2E fixture — the M04 construction task-management specification.",
       starterFamily: "task_management",
       visibility: "private",
     },
-    `e2e-seed-demo-${RUN_ID}`,
+    `e2e-seed-demo-${RUN_ID}`
   );
   await appendSpecVersion(
     db,
@@ -216,9 +329,9 @@ export default async function globalSetup(): Promise<void> {
       constructionTaskManagementFixture,
       "Construction Task Manager",
       demoApp.slug,
-      "E2E fixture — the M04 construction task-management specification.",
+      "E2E fixture — the M04 construction task-management specification."
     ),
-    versionDeps,
+    versionDeps
   );
   await addCollaborator(db, ownerActor, demoApp.id, editor.id, "editor");
   await addCollaborator(db, ownerActor, demoApp.id, viewer.id, "viewer");
@@ -229,14 +342,24 @@ export default async function globalSetup(): Promise<void> {
   const archivedApp = await createApp(
     db,
     ownerActor,
-    { name: "Archived Demo", slug: `e2e-archived-demo-${RUN_ID}`, starterFamily: "blank", visibility: "private" },
-    `e2e-seed-archived-${RUN_ID}`,
+    {
+      name: "Archived Demo",
+      slug: `e2e-archived-demo-${RUN_ID}`,
+      starterFamily: "blank",
+      visibility: "private",
+    },
+    `e2e-seed-archived-${RUN_ID}`
   );
   await appendSpecVersion(
     db,
     archivedApp.id,
-    fixtureSpec(constructionTaskManagementFixture, "Archived Demo", archivedApp.slug, "E2E archived-app fixture."),
-    versionDeps,
+    fixtureSpec(
+      constructionTaskManagementFixture,
+      "Archived Demo",
+      archivedApp.slug,
+      "E2E archived-app fixture."
+    ),
+    versionDeps
   );
   await requestPreviewBuild(db, ownerActor, archivedApp.id);
   await archiveApp(db, ownerActor, archivedApp.id);
@@ -245,18 +368,31 @@ export default async function globalSetup(): Promise<void> {
   const noPreviewApp = await createApp(
     db,
     ownerActor,
-    { name: "No Preview Yet", slug: `e2e-no-preview-${RUN_ID}`, starterFamily: "blank", visibility: "private" },
-    `e2e-seed-nopreview-${RUN_ID}`,
+    {
+      name: "No Preview Yet",
+      slug: `e2e-no-preview-${RUN_ID}`,
+      starterFamily: "blank",
+      visibility: "private",
+    },
+    `e2e-seed-nopreview-${RUN_ID}`
   );
 
   // 4. Security-proof app — see seedUnsafeSucceededBuild's docstring.
   const securityApp = await createApp(
     db,
     ownerActor,
-    { name: "Security Proof", slug: `e2e-security-${RUN_ID}`, starterFamily: "blank", visibility: "private" },
-    `e2e-seed-security-${RUN_ID}`,
+    {
+      name: "Security Proof",
+      slug: `e2e-security-${RUN_ID}`,
+      starterFamily: "blank",
+      visibility: "private",
+    },
+    `e2e-seed-security-${RUN_ID}`
   );
-  await seedUnsafeSucceededBuild(db, securityApp.id, { ...versionDeps, REGISTRY_VERSION });
+  await seedUnsafeSucceededBuild(db, securityApp.id, {
+    ...versionDeps,
+    REGISTRY_VERSION,
+  });
 
   // 5. M08 builder-workspace apps — a minimal task/tasks_table/employee_role
   //    spec built through the real M04 operation engine (not
@@ -279,12 +415,21 @@ export default async function globalSetup(): Promise<void> {
     const app = await createApp(
       db,
       ownerActor,
-      { name: `Builder Workspace Demo ${suffix}`, slug: `e2e-builder-workspace-${suffix}-${RUN_ID}`, starterFamily: "blank", visibility: "private" },
-      `e2e-seed-builder-${suffix}-${RUN_ID}`,
+      {
+        name: `Builder Workspace Demo ${suffix}`,
+        slug: `e2e-builder-workspace-${suffix}-${RUN_ID}`,
+        starterFamily: "blank",
+        visibility: "private",
+      },
+      `e2e-seed-builder-${suffix}-${RUN_ID}`
     );
     let bv = 1;
     await applyOperation(db, ownerActor, app.id, {
-      operation: { opVersion: "1.0.0", type: "CREATE_ENTITY", entity: { id: "task", machineName: "task", name: "Task" } },
+      operation: {
+        opVersion: "1.0.0",
+        type: "CREATE_ENTITY",
+        entity: { id: "task", machineName: "task", name: "Task" },
+      },
       baseVersionNumber: bv++,
       idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-create-entity`,
     });
@@ -293,13 +438,25 @@ export default async function globalSetup(): Promise<void> {
         opVersion: "1.0.0",
         type: "ADD_FIELD",
         entityId: "task",
-        field: { id: "title", machineName: "title", name: "Title", type: "text", required: true, unique: false, archived: false },
+        field: {
+          id: "title",
+          machineName: "title",
+          name: "Title",
+          type: "text",
+          required: true,
+          unique: false,
+          archived: false,
+        },
       },
       baseVersionNumber: bv++,
       idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-add-title`,
     });
     await applyOperation(db, ownerActor, app.id, {
-      operation: { opVersion: "1.0.0", type: "CREATE_PAGE", page: { id: "tasks", name: "Tasks", path: "tasks" } },
+      operation: {
+        opVersion: "1.0.0",
+        type: "CREATE_PAGE",
+        page: { id: "tasks", name: "Tasks", path: "tasks" },
+      },
       baseVersionNumber: bv++,
       idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-create-page`,
     });
@@ -308,13 +465,23 @@ export default async function globalSetup(): Promise<void> {
         opVersion: "1.0.0",
         type: "ADD_COMPONENT",
         pageId: "tasks",
-        component: { id: "tasks_table", kind: "dataTable", entityId: "task", config: { variant: "table" }, order: 0 },
+        component: {
+          id: "tasks_table",
+          kind: "dataTable",
+          entityId: "task",
+          config: { variant: "table" },
+          order: 0,
+        },
       },
       baseVersionNumber: bv++,
       idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-add-component`,
     });
     await applyOperation(db, ownerActor, app.id, {
-      operation: { opVersion: "1.0.0", type: "CREATE_ROLE", role: { id: "employee_role", name: "Employee" } },
+      operation: {
+        opVersion: "1.0.0",
+        type: "CREATE_ROLE",
+        role: { id: "employee_role", name: "Employee" },
+      },
       baseVersionNumber: bv++,
       idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-create-role`,
     });
@@ -322,7 +489,13 @@ export default async function globalSetup(): Promise<void> {
       operation: {
         opVersion: "1.0.0",
         type: "SET_PERMISSION",
-        permission: { id: "perm_employee_task_delete", roleId: "employee_role", entityId: "task", verb: "delete", effect: "allow" },
+        permission: {
+          id: "perm_employee_task_delete",
+          roleId: "employee_role",
+          entityId: "task",
+          verb: "delete",
+          effect: "allow",
+        },
       },
       baseVersionNumber: bv++,
       idempotencyKey: `e2e-builder-${suffix}-${RUN_ID}-set-permission`,
@@ -362,14 +535,18 @@ export default async function globalSetup(): Promise<void> {
       {
         name: `M09 Task Manager ${suffix}`,
         slug: `e2e-m09-tasks-${suffix}-${RUN_ID}`,
-        description: "E2E fixture — the M09 generated-data engine, unmodified task_management template.",
+        description:
+          "E2E fixture — the M09 generated-data engine, unmodified task_management template.",
         starterFamily: "task_management",
         visibility: "private",
       },
-      `e2e-seed-m09-${suffix}-${RUN_ID}`,
+      `e2e-seed-m09-${suffix}-${RUN_ID}`
     );
     const template = getTemplate("task_management");
-    if (!template) throw new Error("task_management template is not registered in @asafarim/appbuilder-runtime");
+    if (!template)
+      throw new Error(
+        "task_management template is not registered in @asafarim/appbuilder-runtime"
+      );
     await applyTemplateVersion(db, ownerActor, app.id, {
       template,
       baseVersionNumber: 1,
@@ -399,7 +576,11 @@ export default async function globalSetup(): Promise<void> {
   // REPAIR_ADD_MISSING_PERMISSION_SCRIPT fixture (packages/appbuilder-ai/src/fixtures/repair.ts)
   // proposes re-adding exactly this grant.
   await applyOperation(db, ownerActor, m10BrokenApp.id, {
-    operation: { opVersion: "1.0.0", type: "REMOVE_PERMISSION", permissionId: "perm_employee_team_member_read" },
+    operation: {
+      opVersion: "1.0.0",
+      type: "REMOVE_PERMISSION",
+      permissionId: "perm_employee_team_member_read",
+    },
     baseVersionNumber: 2, // v1 root, v2 = the applied template
     idempotencyKey: `e2e-seed-m10-broken-remove-perm-${RUN_ID}`,
     confirmDestructive: true, // deliberately reproducing a pre-fix bug state, not exercising the confirmation flow here
@@ -415,7 +596,8 @@ export default async function globalSetup(): Promise<void> {
   //    approveRelease, createDeployment, runDeploymentJob) exactly as the
   //    deployment worker would, including a real internal HTTP
   //    self-verification request.
-  const appbuilderBaseUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
+  const appbuilderBaseUrl =
+    process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
   async function seedM11DeployedApp(suffix: string) {
     const app = await createApp(
       db,
@@ -427,15 +609,30 @@ export default async function globalSetup(): Promise<void> {
         starterFamily: "task_management",
         visibility: "private",
       },
-      `e2e-seed-m11-${suffix}-${RUN_ID}`,
+      `e2e-seed-m11-${suffix}-${RUN_ID}`
     );
     const template = getTemplate("task_management");
-    if (!template) throw new Error("task_management template is not registered in @asafarim/appbuilder-runtime");
-    await applyTemplateVersion(db, ownerActor, app.id, { template, baseVersionNumber: 1, idempotencyKey: `e2e-seed-m11-${suffix}-${RUN_ID}-template` });
+    if (!template)
+      throw new Error(
+        "task_management template is not registered in @asafarim/appbuilder-runtime"
+      );
+    await applyTemplateVersion(db, ownerActor, app.id, {
+      template,
+      baseVersionNumber: 1,
+      idempotencyKey: `e2e-seed-m11-${suffix}-${RUN_ID}-template`,
+    });
     const { build } = await requestPreviewBuild(db, ownerActor, app.id);
 
-    const { enqueueValidationRun, transitionStatus, upsertGateResult, finalizeRun } = await import("../../lib/repositories/validationRuns");
-    const run = await enqueueValidationRun(db, ownerActor, app.id, { idempotencyKey: `e2e-seed-m11-${suffix}-${RUN_ID}-run`, requestSource: "manual" });
+    const {
+      enqueueValidationRun,
+      transitionStatus,
+      upsertGateResult,
+      finalizeRun,
+    } = await import("../../lib/repositories/validationRuns");
+    const run = await enqueueValidationRun(db, ownerActor, app.id, {
+      idempotencyKey: `e2e-seed-m11-${suffix}-${RUN_ID}-run`,
+      requestSource: "manual",
+    });
     await transitionStatus(db, run.id, "pending", "running");
     await upsertGateResult(db, {
       runId: run.id,
@@ -450,15 +647,30 @@ export default async function globalSetup(): Promise<void> {
     });
     await finalizeRun(db, run.id, "passed");
 
-    const { prepareRelease, approveRelease } = await import("../../lib/repositories/releases");
-    const { createDeployment, claimDeploymentById } = await import("../../lib/repositories/deployments");
+    const { prepareRelease, approveRelease } =
+      await import("../../lib/repositories/releases");
+    const { createDeployment, claimDeploymentById } =
+      await import("../../lib/repositories/deployments");
     const { runDeploymentJob } = await import("../../lib/deployment/pipeline");
 
-    const release = await prepareRelease(db, ownerActor, app.id, { specificationVersionId: build.specificationVersionId });
+    const release = await prepareRelease(db, ownerActor, app.id, {
+      specificationVersionId: build.specificationVersionId,
+    });
     await approveRelease(db, ownerActor, app.id, release.id);
-    const deployment = await createDeployment(db, ownerActor, app.id, { releaseId: release.id, idempotencyKey: `e2e-seed-m11-${suffix}-${RUN_ID}-deploy` });
-    const claimed = await claimDeploymentById(db, deployment.id, "e2e-seed-worker", 120_000);
-    if (!claimed) throw new Error(`e2e setup: failed to claim the M11 fixture deployment for app ${app.id}`);
+    const deployment = await createDeployment(db, ownerActor, app.id, {
+      releaseId: release.id,
+      idempotencyKey: `e2e-seed-m11-${suffix}-${RUN_ID}-deploy`,
+    });
+    const claimed = await claimDeploymentById(
+      db,
+      deployment.id,
+      "e2e-seed-worker",
+      120_000
+    );
+    if (!claimed)
+      throw new Error(
+        `e2e setup: failed to claim the M11 fixture deployment for app ${app.id}`
+      );
     const outcome = await runDeploymentJob(
       {
         db,
@@ -467,17 +679,34 @@ export default async function globalSetup(): Promise<void> {
         signal: new AbortController().signal,
         verifyProductionRoute: async (host) => {
           try {
-            const res = await fetch(appbuilderBaseUrl, { headers: { Host: host } });
-            return { ok: res.status < 500, status: res.status, message: "e2e-seed verification" };
+            const res = await fetch(appbuilderBaseUrl, {
+              headers: { Host: host },
+            });
+            return {
+              ok: res.status < 500,
+              status: res.status,
+              message: "e2e-seed verification",
+            };
           } catch (err) {
-            return { ok: false, message: err instanceof Error ? err.message : "e2e-seed verification failed" };
+            return {
+              ok: false,
+              message:
+                err instanceof Error
+                  ? err.message
+                  : "e2e-seed verification failed",
+            };
           }
         },
       },
-      claimed,
+      claimed
     );
-    if (outcome.kind !== "completed" || outcome.deployment.status !== "succeeded") {
-      throw new Error(`e2e setup: M11 fixture deployment for app ${app.id} did not succeed (${JSON.stringify(outcome)})`);
+    if (
+      outcome.kind !== "completed" ||
+      outcome.deployment.status !== "succeeded"
+    ) {
+      throw new Error(
+        `e2e setup: M11 fixture deployment for app ${app.id} did not succeed (${JSON.stringify(outcome)})`
+      );
     }
 
     // Bootstrap the owner as a real PRODUCTION generated-app member (never
@@ -514,15 +743,30 @@ export default async function globalSetup(): Promise<void> {
         starterFamily: "task_management",
         visibility: "private",
       },
-      `e2e-seed-m11-ready-${suffix}-${RUN_ID}`,
+      `e2e-seed-m11-ready-${suffix}-${RUN_ID}`
     );
     const template = getTemplate("task_management");
-    if (!template) throw new Error("task_management template is not registered in @asafarim/appbuilder-runtime");
-    await applyTemplateVersion(db, ownerActor, app.id, { template, baseVersionNumber: 1, idempotencyKey: `e2e-seed-m11-ready-${suffix}-${RUN_ID}-template` });
+    if (!template)
+      throw new Error(
+        "task_management template is not registered in @asafarim/appbuilder-runtime"
+      );
+    await applyTemplateVersion(db, ownerActor, app.id, {
+      template,
+      baseVersionNumber: 1,
+      idempotencyKey: `e2e-seed-m11-ready-${suffix}-${RUN_ID}-template`,
+    });
     await requestPreviewBuild(db, ownerActor, app.id);
 
-    const { enqueueValidationRun, transitionStatus, upsertGateResult, finalizeRun } = await import("../../lib/repositories/validationRuns");
-    const run = await enqueueValidationRun(db, ownerActor, app.id, { idempotencyKey: `e2e-seed-m11-ready-${suffix}-${RUN_ID}-run`, requestSource: "manual" });
+    const {
+      enqueueValidationRun,
+      transitionStatus,
+      upsertGateResult,
+      finalizeRun,
+    } = await import("../../lib/repositories/validationRuns");
+    const run = await enqueueValidationRun(db, ownerActor, app.id, {
+      idempotencyKey: `e2e-seed-m11-ready-${suffix}-${RUN_ID}-run`,
+      requestSource: "manual",
+    });
     await transitionStatus(db, run.id, "pending", "running");
     await upsertGateResult(db, {
       runId: run.id,
@@ -549,7 +793,15 @@ export default async function globalSetup(): Promise<void> {
   // deployed with even though the draft has since moved on).
   const m11DraftDivergedApp = await seedM11DeployedApp("draft-diverged");
   await applyOperation(db, ownerActor, m11DraftDivergedApp.app.id, {
-    operation: { opVersion: "1.0.0", type: "CREATE_ENTITY", entity: { id: "post_deploy_entity", machineName: "post_deploy_entity", name: "Post Deploy Entity" } },
+    operation: {
+      opVersion: "1.0.0",
+      type: "CREATE_ENTITY",
+      entity: {
+        id: "post_deploy_entity",
+        machineName: "post_deploy_entity",
+        name: "Post Deploy Entity",
+      },
+    },
     baseVersionNumber: 2, // v1 root, v2 = the applied template (what's live in production)
     idempotencyKey: `e2e-seed-m11-draft-diverged-${RUN_ID}-edit`,
   });
@@ -566,7 +818,11 @@ export default async function globalSetup(): Promise<void> {
   // unresolved read-permission gap on "project"/"task" for it — no
   // additional operation needed.
   await applyOperation(db, ownerActor, m10NarrowApp.id, {
-    operation: { opVersion: "1.0.0", type: "CREATE_ROLE", role: { id: "narrow_role", name: "Narrow Role" } },
+    operation: {
+      opVersion: "1.0.0",
+      type: "CREATE_ROLE",
+      role: { id: "narrow_role", name: "Narrow Role" },
+    },
     baseVersionNumber: 2, // v1 root, v2 = the applied template
     idempotencyKey: `e2e-seed-m10-narrow-role-${RUN_ID}`,
   });
@@ -604,11 +860,13 @@ export default async function globalSetup(): Promise<void> {
         unrelatedId: unrelated.id,
       },
       null,
-      2,
-    ),
+      2
+    )
   );
 
-  const roleUsers: Array<["owner" | "editor" | "viewer" | "unrelated", typeof owner]> = [
+  const roleUsers: Array<
+    ["owner" | "editor" | "viewer" | "unrelated", typeof owner]
+  > = [
     ["owner", owner],
     ["editor", editor],
     ["viewer", viewer],
@@ -621,7 +879,10 @@ export default async function globalSetup(): Promise<void> {
       name: user.name ?? role,
       email: user.email,
     });
-    await fs.writeFile(path.join(AUTH_DIR, `${role}.json`), JSON.stringify(state, null, 2));
+    await fs.writeFile(
+      path.join(AUTH_DIR, `${role}.json`),
+      JSON.stringify(state, null, 2)
+    );
   }
 
   // Warm up the preview route before the suite starts: Next.js dev mode
@@ -635,7 +896,8 @@ export default async function globalSetup(): Promise<void> {
     name: owner.name ?? "owner",
     email: owner.email,
   });
-  const appbuilderUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
+  const appbuilderUrl =
+    process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
   const warmUpCookieHeader = `authjs.session-token=${ownerCookie.cookies[0].value}`;
   // M07's ai-generation.spec.ts hits /apps/new and /apps/[appId] first —
   // warm those too, same rationale as the preview route above. M11 adds its
@@ -649,9 +911,15 @@ export default async function globalSetup(): Promise<void> {
     `/apps/${m11ReadyToDeployApp.id}`,
     `/api/apps/${m11ReadyToDeployApp.id}/releases`,
     `/api/apps/${m11ReadyToDeployApp.id}/deployments`,
+    // M12: the launch-readiness dashboard and its aggregation endpoint —
+    // same first-compile-cost rationale as every other route warmed here.
+    `/apps/${m11DeployedApp.app.id}/operations`,
+    `/api/apps/${m11DeployedApp.app.id}/operations`,
   ]) {
     try {
-      await fetch(`${appbuilderUrl}${path}`, { headers: { Cookie: warmUpCookieHeader } });
+      await fetch(`${appbuilderUrl}${path}`, {
+        headers: { Cookie: warmUpCookieHeader },
+      });
     } catch {
       // Best-effort — a failed warm-up just means the first real test pays
       // the compile cost instead; it doesn't affect correctness.
@@ -660,7 +928,12 @@ export default async function globalSetup(): Promise<void> {
   // The managed-app route resolves by HOST, not path — warm it via its own
   // host header rather than the builder's own origin/path.
   try {
-    await fetch(appbuilderUrl, { headers: { Cookie: warmUpCookieHeader, Host: m11DeployedApp.productionHost } });
+    await fetch(appbuilderUrl, {
+      headers: {
+        Cookie: warmUpCookieHeader,
+        Host: m11DeployedApp.productionHost,
+      },
+    });
   } catch {
     // Best-effort, see above.
   }

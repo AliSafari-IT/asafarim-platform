@@ -21,6 +21,9 @@ export const routes = {
   appArchive: (appId: string) => `/apps/${encodeURIComponent(appId)}/archive`,
   /** Confirmation step for restoring an archived app (M05). */
   appRestore: (appId: string) => `/apps/${encodeURIComponent(appId)}/restore`,
+  /** M12 launch-readiness / operations dashboard — deliberately its own top-level page, not another workspace tab, so it's genuinely visible rather than buried. */
+  appOperations: (appId: string) =>
+    `/apps/${encodeURIComponent(appId)}/operations`,
 } as const;
 
 export interface AppRouteParams {

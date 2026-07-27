@@ -1,5 +1,10 @@
 import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
-import { emptySpecification, SPEC_SCHEMA_VERSION, ENGINE_VERSION, checksumOf as specChecksumOf } from "@asafarim/appbuilder-schema";
+import {
+  emptySpecification,
+  SPEC_SCHEMA_VERSION,
+  ENGINE_VERSION,
+  checksumOf as specChecksumOf,
+} from "@asafarim/appbuilder-schema";
 import type { Db } from "../db/client";
 import {
   apps,
@@ -16,6 +21,9 @@ import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
 import { ConflictError } from "../errors";
 import type { StarterFamily, Visibility } from "../validation/createApp";
+import { withQuota } from "../quotas/enforce";
+import { countActiveAppsForOwner } from "../quotas/usage";
+import { withQuotaRejectionLogging } from "../observability/events";
 
 const UNIQUE_VIOLATION = "23505";
 
@@ -56,128 +64,164 @@ export async function createApp(
   db: Db,
   actor: Actor,
   input: CreateAppInput,
-  idempotencyKey: string,
+  idempotencyKey: string
 ): Promise<AppRow> {
   const requestHash = checksumOf(input);
 
-  return db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(idempotencyKeys)
-      .where(eq(idempotencyKeys.key, idempotencyKey))
-      .limit(1);
+  return withQuotaRejectionLogging(
+    db,
+    { category: "runtime", appId: null, actorPrincipalId: actor.principalId },
+    () =>
+      db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(idempotencyKeys)
+          .where(eq(idempotencyKeys.key, idempotencyKey))
+          .limit(1);
 
-    if (existing && existing.ownerPrincipalId === actor.principalId && existing.scope === "create-app") {
-      if (existing.requestHash !== requestHash) {
-        throw new ConflictError("Idempotency key reused with a different request payload");
-      }
-      if (existing.status === "in_progress") {
-        throw new ConflictError("A create-app request with this idempotency key is already in progress");
-      }
-      if (existing.status === "completed" && existing.responseSnapshot) {
-        const appId = (existing.responseSnapshot as { appId: string }).appId;
-        const [app] = await tx.select().from(apps).where(eq(apps.id, appId)).limit(1);
-        if (app) return app;
-      }
-    }
+        if (
+          existing &&
+          existing.ownerPrincipalId === actor.principalId &&
+          existing.scope === "create-app"
+        ) {
+          if (existing.requestHash !== requestHash) {
+            throw new ConflictError(
+              "Idempotency key reused with a different request payload"
+            );
+          }
+          if (existing.status === "in_progress") {
+            throw new ConflictError(
+              "A create-app request with this idempotency key is already in progress"
+            );
+          }
+          if (existing.status === "completed" && existing.responseSnapshot) {
+            const appId = (existing.responseSnapshot as { appId: string })
+              .appId;
+            const [app] = await tx
+              .select()
+              .from(apps)
+              .where(eq(apps.id, appId))
+              .limit(1);
+            if (app) return app;
+          }
+        }
 
-    const idempotencyRowId = existing?.id ?? generateId();
-    if (!existing) {
-      await tx.insert(idempotencyKeys).values({
-        id: idempotencyRowId,
-        ownerPrincipalId: actor.principalId,
-        scope: "create-app",
-        key: idempotencyKey,
-        requestHash,
-        status: "in_progress",
-      });
-    }
+        const idempotencyRowId = existing?.id ?? generateId();
+        if (!existing) {
+          await tx.insert(idempotencyKeys).values({
+            id: idempotencyRowId,
+            ownerPrincipalId: actor.principalId,
+            scope: "create-app",
+            key: idempotencyKey,
+            requestHash,
+            status: "in_progress",
+          });
+        }
 
-    const starterFamily: StarterFamily = input.starterFamily ?? "blank";
-    const visibility: Visibility = input.visibility ?? "private";
-    const prompt = input.prompt ?? "";
+        const starterFamily: StarterFamily = input.starterFamily ?? "blank";
+        const visibility: Visibility = input.visibility ?? "private";
+        const prompt = input.prompt ?? "";
 
-    const appId = generateId();
-    let app: AppRow;
-    try {
-      [app] = await tx
-        .insert(apps)
-        .values({
-          id: appId,
-          ownerPrincipalId: actor.principalId,
+        const appId = generateId();
+        const app = await withQuota(
+          tx,
+          actor.principalId,
+          "apps_per_owner",
+          () => countActiveAppsForOwner(tx, actor.principalId),
+          async () => {
+            try {
+              const [row] = await tx
+                .insert(apps)
+                .values({
+                  id: appId,
+                  ownerPrincipalId: actor.principalId,
+                  name: input.name,
+                  slug: input.slug,
+                  description: input.description ?? null,
+                  visibility,
+                })
+                .returning();
+              return row;
+            } catch (err) {
+              if (isUniqueViolation(err)) {
+                throw new ConflictError(
+                  `An app with slug "${input.slug}" already exists`
+                );
+              }
+              throw err;
+            }
+          }
+        );
+
+        const specificationId = generateId();
+        const versionId = generateId();
+        const baseSpec = emptySpecification({
           name: input.name,
           slug: input.slug,
-          description: input.description ?? null,
+          description: input.description,
+        });
+
+        await tx.insert(specifications).values({
+          id: specificationId,
+          appId,
+          status: "draft",
+          currentVersionNumber: 1,
+        });
+
+        await tx.insert(specificationVersions).values({
+          id: versionId,
+          specificationId,
+          appId,
+          versionNumber: 1,
+          parentVersionId: null,
+          schemaVersion: SPEC_SCHEMA_VERSION,
+          engineVersion: ENGINE_VERSION,
+          summary: "Initial draft — empty base specification",
+          payload: baseSpec,
+          checksum: specChecksumOf(baseSpec),
+          createdByPrincipalId: actor.principalId,
+        });
+
+        // The user's intent, persisted for M07 to interpret later. Product
+        // state, not an audit entry — see schema.ts#creationRequests.
+        await tx.insert(creationRequests).values({
+          id: generateId(),
+          appId,
+          requestedByPrincipalId: actor.principalId,
+          prompt,
+          starterFamily,
           visibility,
-        })
-        .returning();
-    } catch (err) {
-      if (isUniqueViolation(err)) {
-        throw new ConflictError(`An app with slug "${input.slug}" already exists`);
-      }
-      throw err;
-    }
+        });
 
-    const specificationId = generateId();
-    const versionId = generateId();
-    const baseSpec = emptySpecification({
-      name: input.name,
-      slug: input.slug,
-      description: input.description,
-    });
+        await recordAuditEvent(tx, {
+          appId,
+          actorPrincipalId: actor.principalId,
+          action: "app.created",
+          targetType: "app",
+          targetId: appId,
+          metadata: { starterFamily, visibility },
+        });
 
-    await tx.insert(specifications).values({
-      id: specificationId,
-      appId,
-      status: "draft",
-      currentVersionNumber: 1,
-    });
+        await tx
+          .update(idempotencyKeys)
+          .set({
+            status: "completed",
+            responseSnapshot: { appId },
+            updatedAt: new Date(),
+          })
+          .where(eq(idempotencyKeys.id, idempotencyRowId));
 
-    await tx.insert(specificationVersions).values({
-      id: versionId,
-      specificationId,
-      appId,
-      versionNumber: 1,
-      parentVersionId: null,
-      schemaVersion: SPEC_SCHEMA_VERSION,
-      engineVersion: ENGINE_VERSION,
-      summary: "Initial draft — empty base specification",
-      payload: baseSpec,
-      checksum: specChecksumOf(baseSpec),
-      createdByPrincipalId: actor.principalId,
-    });
-
-    // The user's intent, persisted for M07 to interpret later. Product
-    // state, not an audit entry — see schema.ts#creationRequests.
-    await tx.insert(creationRequests).values({
-      id: generateId(),
-      appId,
-      requestedByPrincipalId: actor.principalId,
-      prompt,
-      starterFamily,
-      visibility,
-    });
-
-    await recordAuditEvent(tx, {
-      appId,
-      actorPrincipalId: actor.principalId,
-      action: "app.created",
-      targetType: "app",
-      targetId: appId,
-      metadata: { starterFamily, visibility },
-    });
-
-    await tx
-      .update(idempotencyKeys)
-      .set({ status: "completed", responseSnapshot: { appId }, updatedAt: new Date() })
-      .where(eq(idempotencyKeys.id, idempotencyRowId));
-
-    return app;
-  });
+        return app;
+      })
+  );
 }
 
 /** Scoped read — never call `apps.id` lookups without going through actor access. */
-export async function getAppForActor(db: Db, actor: Actor, appId: string): Promise<AppRow> {
+export async function getAppForActor(
+  db: Db,
+  actor: Actor,
+  appId: string
+): Promise<AppRow> {
   const { app } = await assertCapability(db, actor, appId, "app.view");
   return app;
 }
@@ -189,7 +233,10 @@ export async function getAppForActor(db: Db, actor: Actor, appId: string): Promi
  * acting on a specific, named app (assertCapability), not for dumping
  * every tenant's app registry through the list endpoint.
  */
-export async function listAppsForActor(db: Db, actor: Actor): Promise<AppRow[]> {
+export async function listAppsForActor(
+  db: Db,
+  actor: Actor
+): Promise<AppRow[]> {
   const collaboratorAppIds = await db
     .select({ appId: collaborators.appId })
     .from(collaborators)
@@ -202,8 +249,11 @@ export async function listAppsForActor(db: Db, actor: Actor): Promise<AppRow[]> 
     .from(apps)
     .where(
       ids.length > 0
-        ? or(eq(apps.ownerPrincipalId, actor.principalId), inArray(apps.id, ids))
-        : eq(apps.ownerPrincipalId, actor.principalId),
+        ? or(
+            eq(apps.ownerPrincipalId, actor.principalId),
+            inArray(apps.id, ids)
+          )
+        : eq(apps.ownerPrincipalId, actor.principalId)
     );
 }
 
@@ -255,31 +305,44 @@ function escapeLikePattern(value: string): string {
 export async function listCatalogForActor(
   db: Db,
   actor: Actor,
-  query: CatalogQuery,
+  query: CatalogQuery
 ): Promise<CatalogResult> {
   const collaboratorRows = await db
     .select({ appId: collaborators.appId, role: collaborators.role })
     .from(collaborators)
-    .where(and(eq(collaborators.principalId, actor.principalId), eq(collaborators.status, "active")));
+    .where(
+      and(
+        eq(collaborators.principalId, actor.principalId),
+        eq(collaborators.status, "active")
+      )
+    );
 
-  const roleByAppId = new Map(collaboratorRows.map((row) => [row.appId, row.role]));
+  const roleByAppId = new Map(
+    collaboratorRows.map((row) => [row.appId, row.role])
+  );
   const collaboratorAppIds = collaboratorRows.map((row) => row.appId);
 
   const accessPredicate =
     query.access === "owned"
       ? eq(apps.ownerPrincipalId, actor.principalId)
       : query.access === "shared"
-        ? (collaboratorAppIds.length > 0 ? inArray(apps.id, collaboratorAppIds) : sql`false`)
-        : (collaboratorAppIds.length > 0
-            ? or(eq(apps.ownerPrincipalId, actor.principalId), inArray(apps.id, collaboratorAppIds))
-            : eq(apps.ownerPrincipalId, actor.principalId));
+        ? collaboratorAppIds.length > 0
+          ? inArray(apps.id, collaboratorAppIds)
+          : sql`false`
+        : collaboratorAppIds.length > 0
+          ? or(
+              eq(apps.ownerPrincipalId, actor.principalId),
+              inArray(apps.id, collaboratorAppIds)
+            )
+          : eq(apps.ownerPrincipalId, actor.principalId);
 
-  const statusPredicate = query.status === "all" ? undefined : eq(apps.status, query.status);
+  const statusPredicate =
+    query.status === "all" ? undefined : eq(apps.status, query.status);
 
   const searchPredicate = query.search
     ? or(
         ilike(apps.name, `%${escapeLikePattern(query.search)}%`),
-        ilike(apps.description, `%${escapeLikePattern(query.search)}%`),
+        ilike(apps.description, `%${escapeLikePattern(query.search)}%`)
       )
     : undefined;
 
@@ -300,13 +363,19 @@ export async function listCatalogForActor(
       .orderBy(...orderBy)
       .limit(query.pageSize)
       .offset((query.page - 1) * query.pageSize),
-    db.select({ count: sql<number>`count(*)::int` }).from(apps).where(where),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(apps)
+      .where(where),
   ]);
 
   return {
     rows: rows.map((app) => ({
       app,
-      role: app.ownerPrincipalId === actor.principalId ? "owner" : (roleByAppId.get(app.id) ?? "viewer"),
+      role:
+        app.ownerPrincipalId === actor.principalId
+          ? "owner"
+          : (roleByAppId.get(app.id) ?? "viewer"),
     })),
     totalCount: count,
     page: query.page,
@@ -319,8 +388,17 @@ export async function listCatalogForActor(
  * row returned, no duplicate audit event) so a refresh/retry/double-click
  * of the archive confirmation can never spam the audit log or error out.
  */
-export async function archiveApp(db: Db, actor: Actor, appId: string): Promise<AppRow> {
-  const { app: current } = await assertCapability(db, actor, appId, "app.archive");
+export async function archiveApp(
+  db: Db,
+  actor: Actor,
+  appId: string
+): Promise<AppRow> {
+  const { app: current } = await assertCapability(
+    db,
+    actor,
+    appId,
+    "app.archive"
+  );
   if (current.status === "archived") return current;
 
   return db.transaction(async (tx) => {
@@ -344,8 +422,17 @@ export async function archiveApp(db: Db, actor: Actor, appId: string): Promise<A
 }
 
 /** Idempotent counterpart to archiveApp — see its docstring. */
-export async function restoreApp(db: Db, actor: Actor, appId: string): Promise<AppRow> {
-  const { app: current } = await assertCapability(db, actor, appId, "app.restore");
+export async function restoreApp(
+  db: Db,
+  actor: Actor,
+  appId: string
+): Promise<AppRow> {
+  const { app: current } = await assertCapability(
+    db,
+    actor,
+    appId,
+    "app.restore"
+  );
   if (current.status === "active") return current;
 
   return db.transaction(async (tx) => {
@@ -369,5 +456,10 @@ export async function restoreApp(db: Db, actor: Actor, appId: string): Promise<A
 }
 
 function isUniqueViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code: unknown }).code === UNIQUE_VIOLATION;
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: unknown }).code === UNIQUE_VIOLATION
+  );
 }

@@ -19,7 +19,10 @@
     "e2e": "playwright test",
     "e2e:report": "playwright show-report .playwright/report",
     "worker:dev": "tsup --config tsup.worker.config.ts --watch --silent --onSuccess \"node ./worker-dist/worker.js\"",
-    "worker:build": "tsup --config tsup.worker.config.ts"
+    "worker:build": "tsup --config tsup.worker.config.ts",
+    "backup:run": "tsx lib/backup/runBackup.ts",
+    "backup:restore-rehearsal": "tsx lib/backup/runRestoreRehearsal.ts",
+    "retention:sweep": "tsx lib/retention/runSweep.ts"
   },
   "dependencies": {
     "@asafarim/appbuilder-ai": "workspace:*",
