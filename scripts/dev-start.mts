@@ -93,7 +93,7 @@ async function main(): Promise<void> {
   execSync("pnpm build --no-cache", { stdio: "inherit" });
 
   console.log("Killing ports...");
-  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007", { stdio: "inherit" });
+  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008", { stdio: "inherit" });
 
   // Clean stale .next/dev directories to prevent Turbopack cache conflicts
   // after the build step above. Build artifacts can confuse the dev server.
@@ -111,7 +111,7 @@ async function main(): Promise<void> {
   console.log("Starting dev servers...");
   const require = createRequire(import.meta.url);
   const turboCli = require.resolve("turbo/bin/turbo");
-  const turbo = spawn(process.execPath, [turboCli, "dev"], {
+  const turbo = spawn(process.execPath, [turboCli, "dev", "worker:dev"], {
     stdio: "inherit",
     shell: false,
   });
