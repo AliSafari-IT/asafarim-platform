@@ -34,6 +34,12 @@ export async function POST(request: Request, { params }: RouteParams) {
   const raw = await request.json().catch(() => null);
   const parsed = SendMessageBody.safeParse(raw);
   if (!parsed.success) {
+    console.error(
+      "[conversation/messages] 400 validation failed. raw=",
+      JSON.stringify(raw),
+      "issues=",
+      JSON.stringify(parsed.error.issues),
+    );
     return NextResponse.json({ error: "Invalid message." }, { status: 400 });
   }
   const { content, baseVersionNumber, selectionContext, idempotencyKey } = parsed.data;
