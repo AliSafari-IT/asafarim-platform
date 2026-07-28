@@ -6,13 +6,21 @@ import {
 } from "@asafarim/appbuilder-schema";
 import { REGISTRY_VERSION, renderPreview } from "@asafarim/appbuilder-runtime";
 import type { Db } from "../db/client";
-import { previewBuilds, specifications, specificationVersions } from "../db/schema";
+import {
+  previewBuilds,
+  specifications,
+  specificationVersions,
+} from "../db/schema";
 import type { Actor } from "../auth/actor";
 import { assertCapability } from "./authz";
 import { recordAuditEvent } from "./audit";
 import { generateId } from "../db/ids";
 import { NotFoundError } from "../errors";
 import { routes } from "../routes";
+import { withQuota } from "../quotas/enforce";
+import { countPreviewBuildsForApp } from "../quotas/usage";
+import { recordUsageEvent } from "../quotas/recordUsage";
+import { withQuotaRejectionLogging } from "../observability/events";
 
 export type PreviewBuildRow = typeof previewBuilds.$inferSelect;
 
@@ -37,12 +45,25 @@ export interface PreviewCreationResult {
  * leaves the existing pinned pointer (if any) completely untouched, so the
  * last successful preview keeps serving at `/apps/{appId}/preview`.
  */
-export async function requestPreviewBuild(db: Db, actor: Actor, appId: string): Promise<PreviewCreationResult> {
+export async function requestPreviewBuild(
+  db: Db,
+  actor: Actor,
+  appId: string
+): Promise<PreviewCreationResult> {
   // Same minimum capability as the M05 previewBuilds.ts#createPreviewBuild —
   // requesting a (re)build is an editing action, blocked on an archived app.
-  await assertCapability(db, actor, appId, "app.editSpecification");
+  const { app } = await assertCapability(
+    db,
+    actor,
+    appId,
+    "app.editSpecification"
+  );
 
-  const [specification] = await db.select().from(specifications).where(eq(specifications.appId, appId)).limit(1);
+  const [specification] = await db
+    .select()
+    .from(specifications)
+    .where(eq(specifications.appId, appId))
+    .limit(1);
   if (!specification) {
     throw new NotFoundError("Specification", appId);
   }
@@ -53,22 +74,36 @@ export async function requestPreviewBuild(db: Db, actor: Actor, appId: string): 
     .where(
       and(
         eq(specificationVersions.specificationId, specification.id),
-        eq(specificationVersions.versionNumber, specification.currentVersionNumber),
-      ),
+        eq(
+          specificationVersions.versionNumber,
+          specification.currentVersionNumber
+        )
+      )
     )
     .limit(1);
   if (!version) {
-    throw new NotFoundError("Specification version", `${specification.id}@${specification.currentVersionNumber}`);
+    throw new NotFoundError(
+      "Specification version",
+      `${specification.id}@${specification.currentVersionNumber}`
+    );
   }
 
   const [existing] = await db
     .select()
     .from(previewBuilds)
-    .where(and(eq(previewBuilds.specificationVersionId, version.id), eq(previewBuilds.registryVersion, REGISTRY_VERSION)))
+    .where(
+      and(
+        eq(previewBuilds.specificationVersionId, version.id),
+        eq(previewBuilds.registryVersion, REGISTRY_VERSION)
+      )
+    )
     .limit(1);
 
   if (existing) {
-    if (existing.status === "succeeded" && specification.pinnedPreviewBuildId !== existing.id) {
+    if (
+      existing.status === "succeeded" &&
+      specification.pinnedPreviewBuildId !== existing.id
+    ) {
       await db
         .update(specifications)
         .set({ pinnedPreviewBuildId: existing.id, updatedAt: new Date() })
@@ -89,18 +124,35 @@ export async function requestPreviewBuild(db: Db, actor: Actor, appId: string): 
     status = "failed";
     diagnostics.push({
       code: "checksum_mismatch",
-      message: "The stored specification version's checksum no longer matches its payload.",
+      message:
+        "The stored specification version's checksum no longer matches its payload.",
     });
   } else {
     const validation = validateSpecification(payload);
     if (!validation.ok) {
       status = "failed";
-      diagnostics.push(...validation.errors.map((issue) => ({ code: issue.code, message: issue.message, path: issue.path })));
+      diagnostics.push(
+        ...validation.errors.map((issue) => ({
+          code: issue.code,
+          message: issue.message,
+          path: issue.path,
+        }))
+      );
     } else {
-      const rendered = renderPreview({ specification: payload, path: [], basePath: routes.appPreview(appId) });
+      const rendered = renderPreview({
+        specification: payload,
+        path: [],
+        basePath: routes.appPreview(appId),
+      });
       if (!rendered.ok) {
         status = "failed";
-        diagnostics.push(...rendered.errors.map((error) => ({ code: error.code, message: error.message, path: error.path })));
+        diagnostics.push(
+          ...rendered.errors.map((error) => ({
+            code: error.code,
+            message: error.message,
+            path: error.path,
+          }))
+        );
       }
       // rendered.warnings (recoverable per-component diagnostics already
       // shown inline in the render) do not fail the build — the preview is
@@ -108,43 +160,80 @@ export async function requestPreviewBuild(db: Db, actor: Actor, appId: string): 
     }
   }
 
-  return db.transaction(async (tx) => {
-    const now = new Date();
-    const [build] = await tx
-      .insert(previewBuilds)
-      .values({
-        id: generateId(),
-        appId,
-        specificationVersionId: version.id,
-        checksum: computedChecksum,
-        registryVersion: REGISTRY_VERSION,
-        status,
-        requestedByPrincipalId: actor.principalId,
-        startedAt: now,
-        completedAt: now,
-        errorMessage: status === "failed" ? diagnostics.map((entry) => String(entry.message)).join("; ").slice(0, 2000) : null,
-        diagnostics: diagnostics.length > 0 ? diagnostics : null,
-      })
-      .returning();
+  return withQuotaRejectionLogging(
+    db,
+    { category: "preview", appId, actorPrincipalId: actor.principalId },
+    () =>
+      db.transaction(async (tx) =>
+        // M12: only genuinely NEW builds count against the quota — reusing an
+        // identical (specificationVersionId, registryVersion) build above never
+        // reaches this branch, matching the "growth", not "requests", framing
+        // of a per-app storage-like cap.
+        withQuota(
+          tx,
+          appId,
+          "preview_builds_per_app",
+          () => countPreviewBuildsForApp(tx, appId),
+          async () => {
+            const now = new Date();
+            const [build] = await tx
+              .insert(previewBuilds)
+              .values({
+                id: generateId(),
+                appId,
+                specificationVersionId: version.id,
+                checksum: computedChecksum,
+                registryVersion: REGISTRY_VERSION,
+                status,
+                requestedByPrincipalId: actor.principalId,
+                startedAt: now,
+                completedAt: now,
+                errorMessage:
+                  status === "failed"
+                    ? diagnostics
+                        .map((entry) => String(entry.message))
+                        .join("; ")
+                        .slice(0, 2000)
+                    : null,
+                diagnostics: diagnostics.length > 0 ? diagnostics : null,
+              })
+              .returning();
 
-    if (status === "succeeded") {
-      await tx
-        .update(specifications)
-        .set({ pinnedPreviewBuildId: build.id, updatedAt: now })
-        .where(eq(specifications.id, specification.id));
-    }
+            if (status === "succeeded") {
+              await tx
+                .update(specifications)
+                .set({ pinnedPreviewBuildId: build.id, updatedAt: now })
+                .where(eq(specifications.id, specification.id));
+            }
 
-    await recordAuditEvent(tx, {
-      appId,
-      actorPrincipalId: actor.principalId,
-      action: status === "succeeded" ? "preview.build.succeeded" : "preview.build.failed",
-      targetType: "preview_build",
-      targetId: build.id,
-      metadata: { specificationVersionId: version.id, registryVersion: REGISTRY_VERSION, status },
-    });
+            await recordUsageEvent(tx, {
+              appId,
+              ownerPrincipalId: app.ownerPrincipalId,
+              kind: "preview_build",
+              metadata: { previewBuildId: build.id, status },
+            });
 
-    return { build, reused: false };
-  });
+            await recordAuditEvent(tx, {
+              appId,
+              actorPrincipalId: actor.principalId,
+              action:
+                status === "succeeded"
+                  ? "preview.build.succeeded"
+                  : "preview.build.failed",
+              targetType: "preview_build",
+              targetId: build.id,
+              metadata: {
+                specificationVersionId: version.id,
+                registryVersion: REGISTRY_VERSION,
+                status,
+              },
+            });
+
+            return { build, reused: false };
+          }
+        )
+      )
+  );
 }
 
 export interface PinnedPreview {
@@ -160,23 +249,41 @@ export interface PinnedPreview {
  * consults a version id from the caller; the browser has no way to request
  * a different version through this function.
  */
-export async function getPinnedPreview(db: Db, actor: Actor, appId: string): Promise<PinnedPreview | null> {
+export async function getPinnedPreview(
+  db: Db,
+  actor: Actor,
+  appId: string
+): Promise<PinnedPreview | null> {
   await assertCapability(db, actor, appId, "app.viewPreview");
 
-  const [specification] = await db.select().from(specifications).where(eq(specifications.appId, appId)).limit(1);
+  const [specification] = await db
+    .select()
+    .from(specifications)
+    .where(eq(specifications.appId, appId))
+    .limit(1);
   if (!specification?.pinnedPreviewBuildId) return null;
 
   const [build] = await db
     .select()
     .from(previewBuilds)
-    .where(and(eq(previewBuilds.id, specification.pinnedPreviewBuildId), eq(previewBuilds.appId, appId)))
+    .where(
+      and(
+        eq(previewBuilds.id, specification.pinnedPreviewBuildId),
+        eq(previewBuilds.appId, appId)
+      )
+    )
     .limit(1);
   if (!build || build.status !== "succeeded") return null;
 
   const [version] = await db
     .select()
     .from(specificationVersions)
-    .where(and(eq(specificationVersions.id, build.specificationVersionId), eq(specificationVersions.appId, appId)))
+    .where(
+      and(
+        eq(specificationVersions.id, build.specificationVersionId),
+        eq(specificationVersions.appId, appId)
+      )
+    )
     .limit(1);
   if (!version) return null;
 

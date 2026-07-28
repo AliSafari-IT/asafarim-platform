@@ -64,6 +64,20 @@
       "when": 1785095400794,
       "tag": "0008_friendly_tomas",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785182199127,
+      "tag": "0009_appbuilder_m12_launch_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785184642624,
+      "tag": "0010_chief_gladiator",
+      "breakpoints": true
     }
   ]
 }

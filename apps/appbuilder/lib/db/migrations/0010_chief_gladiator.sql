@@ -1,0 +1,2 @@
+DROP INDEX "custom_domain_requests_host_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "custom_domain_requests_host_unique" ON "custom_domain_requests" USING btree ("requested_host") WHERE "custom_domain_requests"."status" <> 'cancelled';

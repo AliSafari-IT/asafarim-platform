@@ -51,7 +51,9 @@ export type Capability =
   | "app.undoOperation" // undo the last applied operation via its safe inverse (M08)
   | "app.restoreVersion" // restore an older specification version as a new version (M08)
   | "app.manageGeneratedMembers" // bootstrap/invite/re-role/revoke a GENERATED-APP member (M09) — a builder-side action, distinct from being a generated-app member oneself
-  | "app.resetGeneratedData"; // preview-only generated-record seed/reset (M09)
+  | "app.resetGeneratedData" // preview-only generated-record seed/reset (M09)
+  | "app.viewOperations" // view the M12 launch-readiness/operations snapshot — viewers get a restricted subset, resolved in the aggregation route itself, not via a separate capability
+  | "app.manageCustomDomainRequest"; // create/cancel a (feature-flagged, inert) custom-domain readiness request (M12)
 
 /** The minimum role each capability requires. Owner outranks editor outranks viewer. */
 const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
@@ -92,6 +94,15 @@ const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
   // module docstring for the full identity-boundary rationale).
   "app.manageGeneratedMembers": "owner",
   "app.resetGeneratedData": "editor",
+  // M12: every related role (including viewer) may load SOME readiness
+  // view — "viewers receive a restricted read-only summary" per the issue's
+  // access rules — the restriction itself is applied inside the
+  // aggregation route/service by trimming fields for role === "viewer",
+  // not by a higher capability floor here (an unrelated actor is still
+  // blocked entirely by assertCapability's NotFoundError-for-unrelated
+  // behavior, same as every other capability).
+  "app.viewOperations": "viewer",
+  "app.manageCustomDomainRequest": "owner",
 };
 
 /** Whether a role grants a capability. Exported so tests/UI can render capability-gated affordances consistently. */
@@ -113,6 +124,7 @@ const ALLOWED_WHILE_ARCHIVED: ReadonlySet<Capability> = new Set([
   "app.viewGenerationJob",
   "app.viewConversation",
   "app.viewValidation",
+  "app.viewOperations",
 ]);
 
 export interface AppAccess {
@@ -147,7 +159,7 @@ export async function assertCapability(
   db: Db,
   actor: Actor,
   appId: string,
-  capability: Capability,
+  capability: Capability
 ): Promise<AppAccess> {
   const [app] = await db.select().from(apps).where(eq(apps.id, appId)).limit(1);
   if (!app) {
@@ -162,20 +174,24 @@ export async function assertCapability(
 
   if (!roleGrants(access.role, capability)) {
     throw new ForbiddenError(
-      `Actor lacks the "${capability}" capability on this app (role: ${access.role})`,
+      `Actor lacks the "${capability}" capability on this app (role: ${access.role})`
     );
   }
 
   if (app.status === "archived" && !ALLOWED_WHILE_ARCHIVED.has(capability)) {
     throw new ConflictError(
-      `App is archived — restore it before performing "${capability}"`,
+      `App is archived — restore it before performing "${capability}"`
     );
   }
 
   return access;
 }
 
-async function resolveAccess(db: Db, actor: Actor, app: AppRow): Promise<AppAccess | null> {
+async function resolveAccess(
+  db: Db,
+  actor: Actor,
+  app: AppRow
+): Promise<AppAccess | null> {
   if (app.ownerPrincipalId === actor.principalId) {
     return { app, role: "owner", viaSuperadmin: false };
   }
@@ -187,8 +203,8 @@ async function resolveAccess(db: Db, actor: Actor, app: AppRow): Promise<AppAcce
       and(
         eq(collaborators.appId, app.id),
         eq(collaborators.principalId, actor.principalId),
-        eq(collaborators.status, "active"),
-      ),
+        eq(collaborators.status, "active")
+      )
     )
     .limit(1);
 

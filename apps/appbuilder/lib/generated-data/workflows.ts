@@ -1,12 +1,23 @@
 import { and, eq } from "drizzle-orm";
-import type { ApplicationSpecificationType, WorkflowType } from "@asafarim/appbuilder-schema";
+import type {
+  ApplicationSpecificationType,
+  WorkflowType,
+} from "@asafarim/appbuilder-schema";
 import type { Db } from "../db/client";
-import { generatedWorkflowExecutions, generatedWorkflowStepExecutions, generatedRecords, generatedNotifications } from "../db/schema";
+import {
+  generatedWorkflowExecutions,
+  generatedWorkflowStepExecutions,
+  generatedRecords,
+  generatedNotifications,
+} from "../db/schema";
 import type { Actor } from "../auth/actor";
 import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
 import { recordActivity } from "./activity";
 import type { GeneratedEnvironment } from "./environment";
+import { operationalEvents } from "../db/schema";
+import { checkQuotaSnapshot } from "../quotas/enforce";
+import { countWorkflowExecutionsTodayForApp } from "../quotas/usage";
 
 /**
  * Allowlisted workflow execution — every step kind is a bounded, pre-defined
@@ -45,7 +56,12 @@ export interface TriggerableRecord {
   data: Record<string, unknown>;
 }
 
-function computeIdempotencyKey(workflowId: string, recordId: string, revision: number, triggerKind: string): string {
+function computeIdempotencyKey(
+  workflowId: string,
+  recordId: string,
+  revision: number,
+  triggerKind: string
+): string {
   return checksumOf({ workflowId, recordId, revision, triggerKind });
 }
 
@@ -58,14 +74,63 @@ export async function triggerWorkflows(
   spec: ApplicationSpecificationType,
   entityId: string,
   record: TriggerableRecord,
-  triggerKind: "onCreate" | "onUpdate" | "onArchive",
+  triggerKind: "onCreate" | "onUpdate" | "onArchive"
 ): Promise<void> {
   const workflows = spec.workflows.filter(
-    (w) => !w.archived && w.trigger.kind === triggerKind && (!w.trigger.entityId || w.trigger.entityId === entityId),
+    (w) =>
+      !w.archived &&
+      w.trigger.kind === triggerKind &&
+      (!w.trigger.entityId || w.trigger.entityId === entityId)
   );
+  if (workflows.length === 0) return;
+
+  // M12 quota — SOFT enforcement only. This function's contract (see
+  // docstring) is that a workflow problem never rolls back the record
+  // mutation that triggered it, so this MUST NOT throw; instead, once the
+  // app's daily workflow-execution cap is reached, every further workflow
+  // trigger for the rest of that day is silently skipped (never executed,
+  // never partially executed) and recorded once as an operational event so
+  // it is visible in the readiness UI's "launch-blocking issues" /
+  // observability surface rather than disappearing invisibly.
+  const snapshot = await checkQuotaSnapshot(
+    tx,
+    appId,
+    "workflow_executions_per_day_per_app",
+    () => countWorkflowExecutionsTodayForApp(tx, appId)
+  );
+  if (snapshot.exceeded) {
+    await tx.insert(operationalEvents).values({
+      id: generateId(),
+      appId,
+      category: "quota",
+      kind: "quota.workflow_executions.rejected",
+      severity: "warning",
+      actorPrincipalId: actor.principalId,
+      detail: {
+        limit: snapshot.limit,
+        current: snapshot.current,
+        triggerKind,
+        entityId,
+      },
+    });
+    return;
+  }
+
   const visited = new Set<string>();
   for (const workflow of workflows) {
-    await runWorkflow(tx, actor, appId, environment, spec, entityId, record, workflow, triggerKind, visited, 0);
+    await runWorkflow(
+      tx,
+      actor,
+      appId,
+      environment,
+      spec,
+      entityId,
+      record,
+      workflow,
+      triggerKind,
+      visited,
+      0
+    );
   }
 }
 
@@ -80,12 +145,17 @@ async function runWorkflow(
   workflow: WorkflowType,
   triggerKind: string,
   visited: Set<string>,
-  depth: number,
+  depth: number
 ): Promise<void> {
   if (depth >= MAX_WORKFLOW_CHAIN_DEPTH || visited.has(workflow.id)) return; // cycle/depth-safe: silently stop chaining, never an error the user sees
   visited.add(workflow.id);
 
-  const idempotencyKey = computeIdempotencyKey(workflow.id, record.id, record.revision, triggerKind);
+  const idempotencyKey = computeIdempotencyKey(
+    workflow.id,
+    record.id,
+    record.revision,
+    triggerKind
+  );
   const [existing] = await tx
     .select()
     .from(generatedWorkflowExecutions)
@@ -95,8 +165,8 @@ async function runWorkflow(
         // M11: a preview execution must never make production believe the
         // same trigger already ran (and vice versa) — see the unique index.
         eq(generatedWorkflowExecutions.environment, environment),
-        eq(generatedWorkflowExecutions.idempotencyKey, idempotencyKey),
-      ),
+        eq(generatedWorkflowExecutions.idempotencyKey, idempotencyKey)
+      )
     )
     .limit(1);
   if (existing) return;
@@ -119,19 +189,41 @@ async function runWorkflow(
   try {
     let currentData = record.data;
     for (const step of workflow.steps.slice(0, MAX_STEPS_PER_WORKFLOW)) {
-      const outcome = await runStep(tx, actor, appId, environment, spec, entityId, { ...record, data: currentData }, step, execution.id, visited, depth);
+      const outcome = await runStep(
+        tx,
+        actor,
+        appId,
+        environment,
+        spec,
+        entityId,
+        { ...record, data: currentData },
+        step,
+        execution.id,
+        visited,
+        depth
+      );
       if (outcome.updatedData) currentData = outcome.updatedData;
       if (outcome.stop) break;
     }
     await tx
       .update(generatedWorkflowExecutions)
-      .set({ status: "succeeded", completedAt: new Date(), updatedAt: new Date() })
+      .set({
+        status: "succeeded",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
       .where(eq(generatedWorkflowExecutions.id, execution.id));
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Workflow step failed.";
+    const message =
+      err instanceof Error ? err.message : "Workflow step failed.";
     await tx
       .update(generatedWorkflowExecutions)
-      .set({ status: "failed", failureMessage: message.slice(0, 500), completedAt: new Date(), updatedAt: new Date() })
+      .set({
+        status: "failed",
+        failureMessage: message.slice(0, 500),
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
       .where(eq(generatedWorkflowExecutions.id, execution.id));
     await recordActivity(tx, {
       appId,
@@ -162,12 +254,17 @@ async function runStep(
   step: WorkflowType["steps"][number],
   executionId: string,
   visited: Set<string>,
-  depth: number,
+  depth: number
 ): Promise<StepOutcome> {
   const [existingStep] = await tx
     .select()
     .from(generatedWorkflowStepExecutions)
-    .where(and(eq(generatedWorkflowStepExecutions.executionId, executionId), eq(generatedWorkflowStepExecutions.stepId, step.id)))
+    .where(
+      and(
+        eq(generatedWorkflowStepExecutions.executionId, executionId),
+        eq(generatedWorkflowStepExecutions.stepId, step.id)
+      )
+    )
     .limit(1);
   if (existingStep) return {};
 
@@ -191,18 +288,25 @@ async function runStep(
       // targeted field was an entity's own, perfectly ordinary "status"
       // field, since "status" is also a PROTECTED_SYSTEM_FIELD_NAMES entry.
       // See validateRecordData's identical fix in validation.ts.
-      if (fieldId && entity?.fields.some((f) => f.id === fieldId && !f.archived)) {
+      if (
+        fieldId &&
+        entity?.fields.some((f) => f.id === fieldId && !f.archived)
+      ) {
         const nextData = { ...record.data, [fieldId]: config.value };
         await tx
           .update(generatedRecords)
-          .set({ data: nextData, revision: record.revision + 1, updatedAt: new Date() })
+          .set({
+            data: nextData,
+            revision: record.revision + 1,
+            updatedAt: new Date(),
+          })
           .where(
             and(
               eq(generatedRecords.id, record.id),
               eq(generatedRecords.appId, appId),
               eq(generatedRecords.environment, environment),
-              eq(generatedRecords.revision, record.revision),
-            ),
+              eq(generatedRecords.revision, record.revision)
+            )
           );
         outcome = { updatedData: nextData };
         resultMetadata = { fieldId, value: config.value };
@@ -210,7 +314,11 @@ async function runStep(
       break;
     }
     case "sendNotification": {
-      const config = step.config as { recipientFieldId?: string; title?: string; body?: string };
+      const config = step.config as {
+        recipientFieldId?: string;
+        title?: string;
+        body?: string;
+      };
       const recipientPrincipalId =
         config.recipientFieldId === "creator" || !config.recipientFieldId
           ? record.createdByPrincipalId
@@ -233,9 +341,12 @@ async function runStep(
     }
     case "runAction": {
       const config = step.config as { actionId?: string };
-      const action = spec.actions.find((a) => a.id === config.actionId && !a.archived);
+      const action = spec.actions.find(
+        (a) => a.id === config.actionId && !a.archived
+      );
       if (action?.kind === "updateRecord") {
-        const set = (action.config as { set?: Record<string, unknown> }).set ?? {};
+        const set =
+          (action.config as { set?: Record<string, unknown> }).set ?? {};
         // Same fix as the `updateField` step above: only ever write keys the
         // entity itself defines as real fields — e.g. the task_management
         // template's own built-in "Mark Complete" action
@@ -243,27 +354,50 @@ async function runStep(
         // otherwise always be silently dropped, since "status" also
         // happens to be a PROTECTED_SYSTEM_FIELD_NAMES entry.
         const entity = spec.entities.find((e) => e.id === entityId);
-        const knownFieldIds = new Set(entity?.fields.filter((f) => !f.archived).map((f) => f.id) ?? []);
-        const safeSet = Object.fromEntries(Object.entries(set).filter(([k]) => knownFieldIds.has(k)));
+        const knownFieldIds = new Set(
+          entity?.fields.filter((f) => !f.archived).map((f) => f.id) ?? []
+        );
+        const safeSet = Object.fromEntries(
+          Object.entries(set).filter(([k]) => knownFieldIds.has(k))
+        );
         const nextData = { ...record.data, ...safeSet };
         await tx
           .update(generatedRecords)
-          .set({ data: nextData, revision: record.revision + 1, updatedAt: new Date() })
+          .set({
+            data: nextData,
+            revision: record.revision + 1,
+            updatedAt: new Date(),
+          })
           .where(
             and(
               eq(generatedRecords.id, record.id),
               eq(generatedRecords.appId, appId),
               eq(generatedRecords.environment, environment),
-              eq(generatedRecords.revision, record.revision),
-            ),
+              eq(generatedRecords.revision, record.revision)
+            )
           );
         outcome = { updatedData: nextData };
         resultMetadata = { actionId: action.id };
       } else if (action?.kind === "runWorkflow") {
-        const targetWorkflowId = (action.config as { workflowId?: string }).workflowId;
-        const targetWorkflow = spec.workflows.find((w) => w.id === targetWorkflowId && !w.archived);
+        const targetWorkflowId = (action.config as { workflowId?: string })
+          .workflowId;
+        const targetWorkflow = spec.workflows.find(
+          (w) => w.id === targetWorkflowId && !w.archived
+        );
         if (targetWorkflow) {
-          await runWorkflow(tx, actor, appId, environment, spec, entityId, record, targetWorkflow, "manual", visited, depth + 1);
+          await runWorkflow(
+            tx,
+            actor,
+            appId,
+            environment,
+            spec,
+            entityId,
+            record,
+            targetWorkflow,
+            "manual",
+            visited,
+            depth + 1
+          );
         }
         resultMetadata = { chainedWorkflowId: targetWorkflowId };
       }
@@ -271,7 +405,9 @@ async function runStep(
     }
     case "condition": {
       const config = step.config as { fieldId?: string; equals?: unknown };
-      const matches = config.fieldId ? record.data[config.fieldId] === config.equals : true;
+      const matches = config.fieldId
+        ? record.data[config.fieldId] === config.equals
+        : true;
       resultMetadata = { matched: matches };
       if (!matches) outcome = { stop: true };
       break;
