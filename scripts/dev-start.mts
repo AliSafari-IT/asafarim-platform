@@ -111,7 +111,7 @@ async function main(): Promise<void> {
   console.log("Starting dev servers...");
   const require = createRequire(import.meta.url);
   const turboCli = require.resolve("turbo/bin/turbo");
-  const turbo = spawn(process.execPath, [turboCli, "dev", "worker:dev"], {
+  const turbo = spawn(process.execPath, [turboCli, "dev", "@asafarim/appbuilder#worker:dev"], {
     stdio: "inherit",
     shell: false,
   });
