@@ -6,7 +6,11 @@ import {
   type ApplicationSpecificationType,
 } from "@asafarim/appbuilder-schema";
 import type { Db } from "../db/client";
-import { appliedOperations, specifications, specificationVersions } from "../db/schema";
+import {
+  appliedOperations,
+  specifications,
+  specificationVersions,
+} from "../db/schema";
 import type { Actor } from "../auth/actor";
 import { assertCapability } from "./authz";
 import { recordAuditEvent } from "./audit";
@@ -19,6 +23,9 @@ import {
   OperationValidationError,
   StaleVersionError,
 } from "../errors";
+import { withQuota } from "../quotas/enforce";
+import { countSpecificationVersionsForApp } from "../quotas/usage";
+import { withQuotaRejectionLogging } from "../observability/events";
 
 export type AppliedOperationRow = typeof appliedOperations.$inferSelect;
 export type SpecificationVersionRow = typeof specificationVersions.$inferSelect;
@@ -61,150 +68,199 @@ export async function applyOperation(
   db: Db,
   actor: Actor,
   appId: string,
-  input: ApplyOperationInput,
+  input: ApplyOperationInput
 ): Promise<ApplyOperationResult> {
-  const { app } = await assertCapability(db, actor, appId, "app.applyOperation");
-  const requestHash = checksumOf({ operation: input.operation, baseVersionNumber: input.baseVersionNumber });
+  const { app } = await assertCapability(
+    db,
+    actor,
+    appId,
+    "app.applyOperation"
+  );
+  const requestHash = checksumOf({
+    operation: input.operation,
+    baseVersionNumber: input.baseVersionNumber,
+  });
 
-  return db.transaction(async (tx) => {
-    const [existingOp] = await tx
-      .select()
-      .from(appliedOperations)
-      .where(eq(appliedOperations.idempotencyKey, input.idempotencyKey))
-      .limit(1);
+  return withQuotaRejectionLogging(
+    db,
+    { category: "modification", appId, actorPrincipalId: actor.principalId },
+    () =>
+      db.transaction(async (tx) => {
+        const [existingOp] = await tx
+          .select()
+          .from(appliedOperations)
+          .where(eq(appliedOperations.idempotencyKey, input.idempotencyKey))
+          .limit(1);
 
-    if (existingOp && existingOp.appId === appId) {
-      if (existingOp.requestHash !== requestHash) {
-        throw new ConflictError("Idempotency key reused with a different request payload");
-      }
-      const version = existingOp.resultingVersionId
-        ? ((await tx
+        if (existingOp && existingOp.appId === appId) {
+          if (existingOp.requestHash !== requestHash) {
+            throw new ConflictError(
+              "Idempotency key reused with a different request payload"
+            );
+          }
+          const version = existingOp.resultingVersionId
+            ? ((
+                await tx
+                  .select()
+                  .from(specificationVersions)
+                  .where(
+                    eq(specificationVersions.id, existingOp.resultingVersionId)
+                  )
+                  .limit(1)
+              )[0] ?? null)
+            : null;
+          return { operation: existingOp, version };
+        }
+
+        // Row-locked read: under concurrent transactions, the second one blocks
+        // here until the first commits, then observes the *updated*
+        // currentVersionNumber — this is what makes the staleness check below
+        // correct against real concurrent writers, not just sequential callers.
+        const [spec] = await tx
+          .select()
+          .from(specifications)
+          .where(eq(specifications.appId, appId))
+          .for("update")
+          .limit(1);
+        if (!spec) {
+          throw new NotFoundError("Specification for app", appId);
+        }
+
+        if (spec.currentVersionNumber !== input.baseVersionNumber) {
+          throw new StaleVersionError(
+            spec.currentVersionNumber,
+            input.baseVersionNumber
+          );
+        }
+
+        let previousVersion: SpecificationVersionRow | null = null;
+        let baseSpec: ApplicationSpecificationType;
+        if (spec.currentVersionNumber === 0) {
+          baseSpec = emptySpecification({ name: app.name, slug: app.slug });
+        } else {
+          const [version] = await tx
             .select()
             .from(specificationVersions)
-            .where(eq(specificationVersions.id, existingOp.resultingVersionId))
-            .limit(1))[0] ?? null)
-        : null;
-      return { operation: existingOp, version };
-    }
+            .where(
+              and(
+                eq(specificationVersions.specificationId, spec.id),
+                eq(
+                  specificationVersions.versionNumber,
+                  spec.currentVersionNumber
+                )
+              )
+            )
+            .limit(1);
+          if (!version) {
+            throw new NotFoundError(
+              "Specification version",
+              String(spec.currentVersionNumber)
+            );
+          }
+          previousVersion = version;
+          baseSpec = version.payload as unknown as ApplicationSpecificationType;
+        }
 
-    // Row-locked read: under concurrent transactions, the second one blocks
-    // here until the first commits, then observes the *updated*
-    // currentVersionNumber — this is what makes the staleness check below
-    // correct against real concurrent writers, not just sequential callers.
-    const [spec] = await tx
-      .select()
-      .from(specifications)
-      .where(eq(specifications.appId, appId))
-      .for("update")
-      .limit(1);
-    if (!spec) {
-      throw new NotFoundError("Specification for app", appId);
-    }
+        const outcome = applySpecOperation(baseSpec, input.operation, {
+          confirmDestructive: input.confirmDestructive,
+        });
 
-    if (spec.currentVersionNumber !== input.baseVersionNumber) {
-      throw new StaleVersionError(spec.currentVersionNumber, input.baseVersionNumber);
-    }
+        if (!outcome.ok) {
+          if (outcome.destructive) {
+            throw new DestructiveConfirmationRequiredError(outcome.destructive);
+          }
+          throw new OperationValidationError(outcome.errors);
+        }
 
-    let previousVersion: SpecificationVersionRow | null = null;
-    let baseSpec: ApplicationSpecificationType;
-    if (spec.currentVersionNumber === 0) {
-      baseSpec = emptySpecification({ name: app.name, slug: app.slug });
-    } else {
-      const [version] = await tx
-        .select()
-        .from(specificationVersions)
-        .where(
-          and(
-            eq(specificationVersions.specificationId, spec.id),
-            eq(specificationVersions.versionNumber, spec.currentVersionNumber),
-          ),
-        )
-        .limit(1);
-      if (!version) {
-        throw new NotFoundError("Specification version", String(spec.currentVersionNumber));
-      }
-      previousVersion = version;
-      baseSpec = version.payload as unknown as ApplicationSpecificationType;
-    }
+        const nextVersionNumber = spec.currentVersionNumber + 1;
+        const versionId = generateId();
 
-    const outcome = applySpecOperation(baseSpec, input.operation, {
-      confirmDestructive: input.confirmDestructive,
-    });
+        // M12: bounds unbounded specification-version growth per app (a
+        // denial-of-wallet vector via a scripted flood of tiny operations).
+        // Applied here — the single highest-traffic version-creation path
+        // (manual edits, and the M07/M08 AI pipelines both funnel through this
+        // function) — see docs/appbuilder-m12-launch-hardening.md for the
+        // documented scope decision on the two lower-traffic version-creation
+        // paths (lib/repositories/versions.ts#restoreVersion,
+        // lib/repositories/templateApplication.ts) not yet wrapped the same way.
+        return withQuota(
+          tx,
+          appId,
+          "specification_versions_per_app",
+          () => countSpecificationVersionsForApp(tx, appId),
+          async () => {
+            const [version] = await tx
+              .insert(specificationVersions)
+              .values({
+                id: versionId,
+                specificationId: spec.id,
+                appId,
+                versionNumber: nextVersionNumber,
+                parentVersionId: previousVersion?.id ?? null,
+                schemaVersion: SPEC_SCHEMA_VERSION,
+                engineVersion: outcome.engineVersion,
+                summary: outcome.summary,
+                payload: outcome.spec,
+                checksum: outcome.checksum,
+                createdByPrincipalId: actor.principalId,
+              })
+              .returning();
 
-    if (!outcome.ok) {
-      if (outcome.destructive) {
-        throw new DestructiveConfirmationRequiredError(outcome.destructive);
-      }
-      throw new OperationValidationError(outcome.errors);
-    }
+            await tx
+              .update(specifications)
+              .set({
+                currentVersionNumber: nextVersionNumber,
+                updatedAt: new Date(),
+              })
+              .where(eq(specifications.id, spec.id));
 
-    const nextVersionNumber = spec.currentVersionNumber + 1;
-    const versionId = generateId();
+            const operationType =
+              typeof input.operation === "object" &&
+              input.operation !== null &&
+              "type" in input.operation
+                ? String((input.operation as { type: unknown }).type)
+                : "UNKNOWN";
 
-    const [version] = await tx
-      .insert(specificationVersions)
-      .values({
-        id: versionId,
-        specificationId: spec.id,
-        appId,
-        versionNumber: nextVersionNumber,
-        parentVersionId: previousVersion?.id ?? null,
-        schemaVersion: SPEC_SCHEMA_VERSION,
-        engineVersion: outcome.engineVersion,
-        summary: outcome.summary,
-        payload: outcome.spec,
-        checksum: outcome.checksum,
-        createdByPrincipalId: actor.principalId,
+            const [operation] = await tx
+              .insert(appliedOperations)
+              .values({
+                id: generateId(),
+                appId,
+                specificationId: spec.id,
+                resultingVersionId: versionId,
+                operationType,
+                payload: input.operation as Record<string, unknown>,
+                status: "applied",
+                appliedByPrincipalId: actor.principalId,
+                idempotencyKey: input.idempotencyKey,
+                requestHash,
+                baseVersionNumber: input.baseVersionNumber,
+              })
+              .returning();
+
+            await recordAuditEvent(tx, {
+              appId,
+              actorPrincipalId: actor.principalId,
+              action: "operation.applied",
+              targetType: "specification_version",
+              targetId: versionId,
+              metadata: {
+                operationType,
+                destructive: outcome.destructive?.classification ?? null,
+              },
+            });
+
+            return { operation, version };
+          }
+        );
       })
-      .returning();
-
-    await tx
-      .update(specifications)
-      .set({ currentVersionNumber: nextVersionNumber, updatedAt: new Date() })
-      .where(eq(specifications.id, spec.id));
-
-    const operationType =
-      typeof input.operation === "object" && input.operation !== null && "type" in input.operation
-        ? String((input.operation as { type: unknown }).type)
-        : "UNKNOWN";
-
-    const [operation] = await tx
-      .insert(appliedOperations)
-      .values({
-        id: generateId(),
-        appId,
-        specificationId: spec.id,
-        resultingVersionId: versionId,
-        operationType,
-        payload: input.operation as Record<string, unknown>,
-        status: "applied",
-        appliedByPrincipalId: actor.principalId,
-        idempotencyKey: input.idempotencyKey,
-        requestHash,
-        baseVersionNumber: input.baseVersionNumber,
-      })
-      .returning();
-
-    await recordAuditEvent(tx, {
-      appId,
-      actorPrincipalId: actor.principalId,
-      action: "operation.applied",
-      targetType: "specification_version",
-      targetId: versionId,
-      metadata: {
-        operationType,
-        destructive: outcome.destructive?.classification ?? null,
-      },
-    });
-
-    return { operation, version };
-  });
+  );
 }
 
 export async function listOperationsForActor(
   db: Db,
   actor: Actor,
-  appId: string,
+  appId: string
 ): Promise<AppliedOperationRow[]> {
   await assertCapability(db, actor, appId, "app.view");
   return db

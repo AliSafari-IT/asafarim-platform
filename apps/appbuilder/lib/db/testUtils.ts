@@ -11,6 +11,14 @@ const connectionString =
 const TABLE_NAMES = [
   "idempotency_keys",
   "audit_events",
+  // M12
+  "restore_rehearsals",
+  "backup_runs",
+  "data_subject_requests",
+  "custom_domain_requests",
+  "operational_events",
+  "usage_events",
+  "quota_overrides",
   // M11
   "deployment_steps",
   "deployments",
@@ -60,7 +68,9 @@ export async function migrateTestDb(): Promise<void> {
 /** Truncates every app-owned table between tests so fixtures don't leak across cases. */
 export async function resetTestDb(): Promise<void> {
   const db = getTestDb();
-  await db.execute(sql.raw(`truncate table ${TABLE_NAMES.join(", ")} restart identity cascade`));
+  await db.execute(
+    sql.raw(`truncate table ${TABLE_NAMES.join(", ")} restart identity cascade`)
+  );
 }
 
 export async function closeTestDb(): Promise<void> {

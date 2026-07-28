@@ -10,7 +10,7 @@ import {
   index,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // AppBuilder owns this database exclusively (APPBUILDER_DATABASE_URL). SSO
 // user identities are never foreign-keyed here — every "*PrincipalId" column
@@ -186,22 +186,28 @@ export const generationJobStatusEnum = pgEnum("generation_job_status", [
 // lib/generation/errors.ts#safeFailureMessage, never a raw stack trace or
 // provider error string. "clarification required" is intentionally absent
 // here: it is a normal status (`needs_clarification`), not a failure.
-export const generationJobFailureCodeEnum = pgEnum("generation_job_failure_code", [
-  "invalid_request",
-  "provider_configuration_error",
-  "provider_rate_limit",
-  "provider_unavailable",
-  "malformed_provider_response",
-  "forbidden_operation",
-  "specification_validation_failed",
-  "stale_base_version",
-  "authorization_lost",
-  "preview_failed",
-  "worker_infrastructure_error",
-  "cancelled",
-]);
+export const generationJobFailureCodeEnum = pgEnum(
+  "generation_job_failure_code",
+  [
+    "invalid_request",
+    "provider_configuration_error",
+    "provider_rate_limit",
+    "provider_unavailable",
+    "malformed_provider_response",
+    "forbidden_operation",
+    "specification_validation_failed",
+    "stale_base_version",
+    "authorization_lost",
+    "preview_failed",
+    "worker_infrastructure_error",
+    "cancelled",
+  ]
+);
 
-export const generationBatchStatusEnum = pgEnum("generation_batch_status", ["applied", "rejected"]);
+export const generationBatchStatusEnum = pgEnum("generation_batch_status", [
+  "applied",
+  "rejected",
+]);
 
 // M08: a conversation message's author role — mirrors the shape a chat UI
 // needs (user/assistant/system) without conflating it with `messageType`
@@ -230,12 +236,10 @@ export const conversationMessageTypeEnum = pgEnum("conversation_message_type", [
   "failure",
 ]);
 
-export const conversationConfirmationStateEnum = pgEnum("conversation_confirmation_state", [
-  "not_required",
-  "pending",
-  "confirmed",
-  "expired",
-]);
+export const conversationConfirmationStateEnum = pgEnum(
+  "conversation_confirmation_state",
+  ["not_required", "pending", "confirmed", "expired"]
+);
 
 // M08: the conversational modification job's own lifecycle — deliberately a
 // SEPARATE enum/state machine from generation_job_status (see
@@ -259,22 +263,25 @@ export const modificationJobStatusEnum = pgEnum("modification_job_status", [
   "cancelled",
 ]);
 
-export const modificationJobFailureCodeEnum = pgEnum("modification_job_failure_code", [
-  "invalid_request",
-  "provider_configuration_error",
-  "provider_rate_limit",
-  "provider_unavailable",
-  "malformed_provider_response",
-  "forbidden_operation",
-  "specification_validation_failed",
-  "stale_base_version",
-  "authorization_lost",
-  "preview_failed",
-  "confirmation_expired",
-  "confirmation_invalid",
-  "worker_infrastructure_error",
-  "cancelled",
-]);
+export const modificationJobFailureCodeEnum = pgEnum(
+  "modification_job_failure_code",
+  [
+    "invalid_request",
+    "provider_configuration_error",
+    "provider_rate_limit",
+    "provider_unavailable",
+    "malformed_provider_response",
+    "forbidden_operation",
+    "specification_validation_failed",
+    "stale_base_version",
+    "authorization_lost",
+    "preview_failed",
+    "confirmation_expired",
+    "confirmation_invalid",
+    "worker_infrastructure_error",
+    "cancelled",
+  ]
+);
 
 export const modificationBatchStatusEnum = pgEnum("modification_batch_status", [
   "proposed",
@@ -317,10 +324,10 @@ export const generatedMemberStatusEnum = pgEnum("generated_member_status", [
 
 // How a generated-app membership row came to exist — audit provenance, not
 // a permission itself.
-export const generatedMemberProvenanceEnum = pgEnum("generated_member_provenance", [
-  "owner_bootstrap",
-  "invited",
-]);
+export const generatedMemberProvenanceEnum = pgEnum(
+  "generated_member_provenance",
+  ["owner_bootstrap", "invited"]
+);
 
 export const generatedRecordStatusEnum = pgEnum("generated_record_status", [
   "active",
@@ -339,25 +346,22 @@ export const generatedFileStatusEnum = pgEnum("generated_file_status", [
 // than the multi-phase async state machines M07/M08 use for AI jobs. Still
 // a durable row for idempotency/audit/retry-safety, just not
 // worker-dispatched.
-export const generatedWorkflowExecutionStatusEnum = pgEnum("generated_workflow_execution_status", [
-  "succeeded",
-  "failed",
-]);
+export const generatedWorkflowExecutionStatusEnum = pgEnum(
+  "generated_workflow_execution_status",
+  ["succeeded", "failed"]
+);
 
-export const generatedWorkflowStepStatusEnum = pgEnum("generated_workflow_step_status", [
-  "applied",
-  "skipped",
-  "failed",
-]);
+export const generatedWorkflowStepStatusEnum = pgEnum(
+  "generated_workflow_step_status",
+  ["applied", "skipped", "failed"]
+);
 
 // Bounded, allowlisted row-access rule vocabulary — never eval'd, never a
 // generated SQL fragment. See lib/generated-data/runtimeAuth.ts.
-export const generatedRowAccessRuleKindEnum = pgEnum("generated_row_access_rule_kind", [
-  "all",
-  "own",
-  "assigned",
-  "relatedToParent",
-]);
+export const generatedRowAccessRuleKindEnum = pgEnum(
+  "generated_row_access_rule_kind",
+  ["all", "own", "assigned", "relatedToParent"]
+);
 
 // The generated-application registry. Every other app-owned table hangs off
 // `appId` (directly or, for specificationVersions, denormalized) so a
@@ -381,8 +385,12 @@ export const apps = pgTable(
     // Archival over destructive deletion — an archived app's history stays
     // intact for audit purposes.
     archivedAt: timestamp("archived_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("apps_slug_unique").on(table.slug),
@@ -394,7 +402,7 @@ export const apps = pgTable(
     index("apps_updated_at_idx").on(table.updatedAt),
     index("apps_created_at_idx").on(table.createdAt),
     index("apps_name_idx").on(table.name),
-  ],
+  ]
 );
 
 // Collaborators grant additional principals access to an app beyond its
@@ -412,14 +420,21 @@ export const collaborators = pgTable(
     status: collaboratorStatusEnum("status").notNull().default("active"),
     invitedByPrincipalId: text("invited_by_principal_id").notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("collaborators_app_principal_unique").on(table.appId, table.principalId),
+    uniqueIndex("collaborators_app_principal_unique").on(
+      table.appId,
+      table.principalId
+    ),
     index("collaborators_app_id_idx").on(table.appId),
     index("collaborators_principal_id_idx").on(table.principalId),
-  ],
+  ]
 );
 
 // The mutable "current specification" container for an app. Exactly one row
@@ -436,7 +451,9 @@ export const specifications = pgTable(
     status: specificationStatusEnum("status").notNull().default("draft"),
     // Denormalized pointer to the latest immutable version, kept in sync by
     // the repository layer inside the same transaction that inserts it.
-    currentVersionNumber: integer("current_version_number").notNull().default(0),
+    currentVersionNumber: integer("current_version_number")
+      .notNull()
+      .default(0),
     // M06: the app's pinned, authoritative preview — set only after a
     // preview build *succeeds* (lib/repositories/previewService.ts), never
     // pointed at a queued/running/failed build. A failed rebuild attempt
@@ -446,14 +463,16 @@ export const specifications = pgTable(
     // server-side from this column alone.
     pinnedPreviewBuildId: text("pinned_preview_build_id").references(
       (): AnyPgColumn => previewBuilds.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [
-    uniqueIndex("specifications_app_id_unique").on(table.appId),
-  ],
+  (table) => [uniqueIndex("specifications_app_id_unique").on(table.appId)]
 );
 
 // Immutable specification versions. Never updated or deleted once inserted —
@@ -490,15 +509,17 @@ export const specificationVersions = pgTable(
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     checksum: text("checksum").notNull(),
     createdByPrincipalId: text("created_by_principal_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("specification_versions_spec_version_unique").on(
       table.specificationId,
-      table.versionNumber,
+      table.versionNumber
     ),
     index("specification_versions_app_id_idx").on(table.appId),
-  ],
+  ]
 );
 
 // A record of every operation proposed against a specification and its
@@ -517,7 +538,7 @@ export const appliedOperations = pgTable(
     // Null when the operation was rejected before producing a new version.
     resultingVersionId: text("resulting_version_id").references(
       () => specificationVersions.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     operationType: text("operation_type").notNull(),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
@@ -532,15 +553,17 @@ export const appliedOperations = pgTable(
     // The base version the operation was applied against — the optimistic-
     // concurrency contract's audit trail (see lib/repositories/operations.ts).
     baseVersionNumber: integer("base_version_number").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("applied_operations_app_idempotency_unique").on(
       table.appId,
-      table.idempotencyKey,
+      table.idempotencyKey
     ),
     index("applied_operations_app_id_idx").on(table.appId),
-  ],
+  ]
 );
 
 // Preview builds triggered from a specific specification version, rendered
@@ -576,7 +599,9 @@ export const previewBuilds = pgTable(
     // or database detail. Rendered as an actionable, builder-facing
     // diagnostic; never shown to a generated-app viewer.
     diagnostics: jsonb("diagnostics").$type<Record<string, unknown>[]>(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     index("preview_builds_app_id_idx").on(table.appId),
@@ -586,9 +611,9 @@ export const previewBuilds = pgTable(
     // inserting a duplicate.
     uniqueIndex("preview_builds_version_registry_unique").on(
       table.specificationVersionId,
-      table.registryVersion,
+      table.registryVersion
     ),
-  ],
+  ]
 );
 
 // M11: an IMMUTABLE, approvable, deployable snapshot of a specification
@@ -617,7 +642,9 @@ export const releases = pgTable(
     specificationVersionId: text("specification_version_id")
       .notNull()
       .references(() => specificationVersions.id, { onDelete: "restrict" }),
-    specificationVersionNumber: integer("specification_version_number").notNull().default(0),
+    specificationVersionNumber: integer("specification_version_number")
+      .notNull()
+      .default(0),
     // The canonical @asafarim/appbuilder-schema checksum of that version's
     // payload, copied at preparation. Approval and deployment both re-verify
     // against this exact value — a version whose payload somehow no longer
@@ -626,7 +653,10 @@ export const releases = pgTable(
     schemaVersion: text("schema_version").notNull().default(""),
 
     // ── Pinned build/runtime identity (immutable) ──────────────────────
-    previewBuildId: text("preview_build_id").references((): AnyPgColumn => previewBuilds.id, { onDelete: "restrict" }),
+    previewBuildId: text("preview_build_id").references(
+      (): AnyPgColumn => previewBuilds.id,
+      { onDelete: "restrict" }
+    ),
     previewChecksum: text("preview_checksum"),
     registryVersion: text("registry_version").notNull().default(""),
 
@@ -634,7 +664,10 @@ export const releases = pgTable(
     // The M10 run that proves this exact version+checksum passed every
     // mandatory gate. Deployment re-reads this row transactionally rather
     // than trusting the boolean alone.
-    validationRunId: text("validation_run_id").references((): AnyPgColumn => validationRuns.id, { onDelete: "restrict" }),
+    validationRunId: text("validation_run_id").references(
+      (): AnyPgColumn => validationRuns.id,
+      { onDelete: "restrict" }
+    ),
     gateSetVersion: text("gate_set_version"),
 
     // ── Data-compatibility verdict (immutable, computed at preparation) ─
@@ -642,10 +675,16 @@ export const releases = pgTable(
     // production release's entities (see lib/deployment/dataCompatibility.ts).
     // "none" when there is no prior production release to diff against.
     dataCompatibility: text("data_compatibility").notNull().default("none"),
-    dataCompatibilityDetail: jsonb("data_compatibility_detail").$type<Record<string, unknown>>().notNull().default({}),
+    dataCompatibilityDetail: jsonb("data_compatibility_detail")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
 
     // ── Frozen manifest + its own checksum ─────────────────────────────
-    manifest: jsonb("manifest").$type<Record<string, unknown>>().notNull().default({}),
+    manifest: jsonb("manifest")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     // sha256 over the canonicalized manifest — lets a deployment prove the
     // manifest it is acting on is byte-identical to the one approved.
     manifestChecksum: text("manifest_checksum").notNull().default(""),
@@ -667,16 +706,24 @@ export const releases = pgTable(
     // the rollback breadcrumb trail.
     previousReleaseId: text("previous_release_id"),
 
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("releases_app_version_label_unique").on(table.appId, table.versionLabel),
+    uniqueIndex("releases_app_version_label_unique").on(
+      table.appId,
+      table.versionLabel
+    ),
     index("releases_app_id_idx").on(table.appId),
     index("releases_app_status_idx").on(table.appId, table.status),
     // Preparing a release for the same (app, specification version) twice is
     // a replay, not a second release — see prepareRelease's idempotency.
-    uniqueIndex("releases_app_spec_version_unique").on(table.appId, table.specificationVersionId),
-  ],
+    uniqueIndex("releases_app_spec_version_unique").on(
+      table.appId,
+      table.specificationVersionId
+    ),
+  ]
 );
 
 // M11: the app's managed production domain(s). This table — never the
@@ -699,11 +746,18 @@ export const appDomains = pgTable(
     kind: appDomainKindEnum("kind").notNull().default("auto_slug"),
     status: appDomainStatusEnum("status").notNull().default("reserved"),
     // Null until the first successful deployment activates a release here.
-    activeReleaseId: text("active_release_id").references((): AnyPgColumn => releases.id, { onDelete: "restrict" }),
+    activeReleaseId: text("active_release_id").references(
+      (): AnyPgColumn => releases.id,
+      { onDelete: "restrict" }
+    ),
     activatedAt: timestamp("activated_at", { withTimezone: true }),
     reservedByPrincipalId: text("reserved_by_principal_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     // Globally unique: two apps can never claim the same production host.
@@ -711,7 +765,7 @@ export const appDomains = pgTable(
     // One managed auto-slug domain per app (a second would be ambiguous).
     uniqueIndex("app_domains_app_kind_unique").on(table.appId, table.kind),
     index("app_domains_app_id_idx").on(table.appId),
-  ],
+  ]
 );
 
 // M11: one durable row per deployment (or rollback) attempt. Mirrors the
@@ -769,15 +823,25 @@ export const deployments = pgTable(
 
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     index("deployments_app_id_idx").on(table.appId),
     index("deployments_status_idx").on(table.status),
-    index("deployments_status_lease_idx").on(table.status, table.leaseExpiresAt),
-    uniqueIndex("deployments_app_idempotency_unique").on(table.appId, table.idempotencyKey),
-  ],
+    index("deployments_status_lease_idx").on(
+      table.status,
+      table.leaseExpiresAt
+    ),
+    uniqueIndex("deployments_app_idempotency_unique").on(
+      table.appId,
+      table.idempotencyKey
+    ),
+  ]
 );
 
 // M11: append-only per-phase record of what a deployment actually did —
@@ -797,16 +861,24 @@ export const deploymentSteps = pgTable(
     phase: deploymentPhaseEnum("phase").notNull(),
     ok: boolean("ok").notNull(),
     message: text("message").notNull().default(""),
-    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    detail: jsonb("detail")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     durationMs: integer("duration_ms"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     // A phase runs at most once per deployment attempt; a retried phase
     // replaces its own row rather than accumulating duplicates.
-    uniqueIndex("deployment_steps_deployment_phase_unique").on(table.deploymentId, table.phase),
+    uniqueIndex("deployment_steps_deployment_phase_unique").on(
+      table.deploymentId,
+      table.phase
+    ),
     index("deployment_steps_app_id_idx").on(table.appId),
-  ],
+  ]
 );
 
 // Append-only audit trail. Never updated or deleted; archival, not erasure,
@@ -823,9 +895,11 @@ export const auditEvents = pgTable(
     targetType: text("target_type").notNull(),
     targetId: text("target_id").notNull(),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [index("audit_events_app_id_idx").on(table.appId)],
+  (table) => [index("audit_events_app_id_idx").on(table.appId)]
 );
 
 // Generic idempotency ledger for retryable creation/mutation endpoints that
@@ -843,18 +917,23 @@ export const idempotencyKeys = pgTable(
     key: text("key").notNull(),
     requestHash: text("request_hash").notNull(),
     status: idempotencyStatusEnum("status").notNull().default("in_progress"),
-    responseSnapshot: jsonb("response_snapshot").$type<Record<string, unknown>>(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    responseSnapshot:
+      jsonb("response_snapshot").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("idempotency_keys_owner_scope_key_unique").on(
       table.ownerPrincipalId,
       table.scope,
-      table.key,
+      table.key
     ),
     index("idempotency_keys_app_id_idx").on(table.appId),
-  ],
+  ]
 );
 
 // M05: the persisted record of what the user asked for at creation time —
@@ -874,9 +953,11 @@ export const creationRequests = pgTable(
     prompt: text("prompt").notNull(),
     starterFamily: starterFamilyEnum("starter_family").notNull(),
     visibility: appVisibilityEnum("visibility").notNull().default("private"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [uniqueIndex("creation_requests_app_id_unique").on(table.appId)],
+  (table) => [uniqueIndex("creation_requests_app_id_unique").on(table.appId)]
 );
 
 // M07: one durable row per AI generation attempt. `initiatedByPrincipalId`
@@ -927,25 +1008,32 @@ export const generationJobs = pgTable(
     selectedTemplateId: text("selected_template_id"),
     // TemplateSelectionRecord (@asafarim/appbuilder-ai) — requested vs.
     // recommended template, reasoning, confidence; never template code.
-    templateSelection: jsonb("template_selection").$type<Record<string, unknown>>(),
+    templateSelection:
+      jsonb("template_selection").$type<Record<string, unknown>>(),
 
     // RequirementsAnalysisType (@asafarim/appbuilder-ai) — the model's
     // structured read of the prompt, re-validated on every write.
-    normalizedRequirements: jsonb("normalized_requirements").$type<Record<string, unknown>>(),
+    normalizedRequirements: jsonb("normalized_requirements").$type<
+      Record<string, unknown>
+    >(),
     // ClarificationStateType (@asafarim/appbuilder-ai) — full question/
     // answer history across every round, never overwritten, only appended.
-    clarificationState: jsonb("clarification_state").$type<Record<string, unknown>>(),
+    clarificationState: jsonb("clarification_state").$type<
+      Record<string, unknown>
+    >(),
 
-    totalOperationsApplied: integer("total_operations_applied").notNull().default(0),
+    totalOperationsApplied: integer("total_operations_applied")
+      .notNull()
+      .default(0),
 
     resultingVersionNumber: integer("resulting_version_number"),
     resultingVersionId: text("resulting_version_id").references(
       (): AnyPgColumn => specificationVersions.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     resultingPreviewBuildId: text("resulting_preview_build_id").references(
       (): AnyPgColumn => previewBuilds.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
 
     providerName: text("provider_name"),
@@ -974,15 +1062,25 @@ export const generationJobs = pgTable(
 
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generation_jobs_app_idempotency_unique").on(table.appId, table.idempotencyKey),
+    uniqueIndex("generation_jobs_app_idempotency_unique").on(
+      table.appId,
+      table.idempotencyKey
+    ),
     index("generation_jobs_app_id_idx").on(table.appId),
     index("generation_jobs_status_idx").on(table.status),
-    index("generation_jobs_status_lease_idx").on(table.status, table.leaseExpiresAt),
-  ],
+    index("generation_jobs_status_lease_idx").on(
+      table.status,
+      table.leaseExpiresAt
+    ),
+  ]
 );
 
 // One row per accepted-or-rejected operation-proposal iteration within a
@@ -1004,21 +1102,31 @@ export const generationOperationBatches = pgTable(
     iteration: integer("iteration").notNull(),
     reasoningSummary: text("reasoning_summary").notNull().default(""),
     isFinalBatch: boolean("is_final_batch").notNull().default(false),
-    proposedOperationCount: integer("proposed_operation_count").notNull().default(0),
+    proposedOperationCount: integer("proposed_operation_count")
+      .notNull()
+      .default(0),
     // Ordered ids into appliedOperations for every operation in this batch
     // that was actually applied — the durable link from "what the model
     // proposed" to "what M04 actually persisted".
-    appliedOperationIds: jsonb("applied_operation_ids").$type<string[]>().notNull().default([]),
+    appliedOperationIds: jsonb("applied_operation_ids")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
     status: generationBatchStatusEnum("status").notNull(),
     rejectionReason: text("rejection_reason"),
     idempotencyKey: text("idempotency_key").notNull(),
     requestHash: text("request_hash").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generation_operation_batches_job_iteration_unique").on(table.jobId, table.iteration),
+    uniqueIndex("generation_operation_batches_job_iteration_unique").on(
+      table.jobId,
+      table.iteration
+    ),
     index("generation_operation_batches_app_id_idx").on(table.appId),
-  ],
+  ]
 );
 
 // M08: the single conversation thread for an app's builder workspace. One
@@ -1034,10 +1142,14 @@ export const conversations = pgTable(
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
     createdByPrincipalId: text("created_by_principal_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [uniqueIndex("conversations_app_id_unique").on(table.appId)],
+  (table) => [uniqueIndex("conversations_app_id_unique").on(table.appId)]
 );
 
 // M08: every persisted message in an app's conversation — the durable
@@ -1076,7 +1188,7 @@ export const conversationMessages = pgTable(
     baseVersionNumber: integer("base_version_number"),
     modificationJobId: text("modification_job_id").references(
       (): AnyPgColumn => modificationJobs.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     // SpecificationDiff (@asafarim/appbuilder-schema) for ai_proposal/
     // applied_change messages — structured, never a raw text diff.
@@ -1090,20 +1202,22 @@ export const conversationMessages = pgTable(
     resultingVersionNumber: integer("resulting_version_number"),
     resultingPreviewBuildId: text("resulting_preview_build_id").references(
       (): AnyPgColumn => previewBuilds.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     failureCode: text("failure_code"),
     // Always the safe, user-facing message — never a raw stack trace,
     // provider error string, or SQL detail (mirrors
     // lib/generation/errors.ts#safeFailureMessage's contract).
     failureMessage: text("failure_message"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     index("conversation_messages_conversation_id_idx").on(table.conversationId),
     index("conversation_messages_app_id_idx").on(table.appId),
     index("conversation_messages_created_at_idx").on(table.createdAt),
-  ],
+  ]
 );
 
 // M08: one durable row per conversational modification attempt — the
@@ -1140,7 +1254,9 @@ export const modificationJobs = pgTable(
     // changed.
     triggeringMessageId: text("triggering_message_id")
       .notNull()
-      .references((): AnyPgColumn => conversationMessages.id, { onDelete: "cascade" }),
+      .references((): AnyPgColumn => conversationMessages.id, {
+        onDelete: "cascade",
+      }),
 
     // Trusted platform actor captured at enqueue time — never client-
     // supplied at any later step. Replayed by the worker for every
@@ -1163,7 +1279,8 @@ export const modificationJobs = pgTable(
 
     // Bounded preview-selection context (see
     // lib/modification/selectionContext.ts) — stable spec identifiers only.
-    selectionContext: jsonb("selection_context").$type<Record<string, unknown>>(),
+    selectionContext:
+      jsonb("selection_context").$type<Record<string, unknown>>(),
 
     // Truncated copy of the user's free-text request, bounded at the API
     // layer (see lib/validation/conversations.ts) before being persisted —
@@ -1172,30 +1289,41 @@ export const modificationJobs = pgTable(
 
     // ModificationAnalysisType (@asafarim/appbuilder-ai) — the model's
     // structured read of the request, re-validated on every write.
-    normalizedRequest: jsonb("normalized_request").$type<Record<string, unknown>>(),
+    normalizedRequest:
+      jsonb("normalized_request").$type<Record<string, unknown>>(),
 
-    totalOperationsApplied: integer("total_operations_applied").notNull().default(0),
+    totalOperationsApplied: integer("total_operations_applied")
+      .notNull()
+      .default(0),
 
     // Confirmation binding (issue requirement: "bind to actor, app, base
     // version, exact proposal checksum; expire; single-use; fail if base
     // version changed; never come from the model"). Folded directly onto
     // this row rather than a separate table since a modification job has
     // exactly one confirmation cycle for its one operation batch.
-    confirmationRequired: boolean("confirmation_required").notNull().default(false),
+    confirmationRequired: boolean("confirmation_required")
+      .notNull()
+      .default(false),
     confirmationChecksum: text("confirmation_checksum"),
     confirmationBaseVersionNumber: integer("confirmation_base_version_number"),
-    confirmationExpiresAt: timestamp("confirmation_expires_at", { withTimezone: true }),
-    confirmationConfirmedAt: timestamp("confirmation_confirmed_at", { withTimezone: true }),
-    confirmationConfirmedByPrincipalId: text("confirmation_confirmed_by_principal_id"),
+    confirmationExpiresAt: timestamp("confirmation_expires_at", {
+      withTimezone: true,
+    }),
+    confirmationConfirmedAt: timestamp("confirmation_confirmed_at", {
+      withTimezone: true,
+    }),
+    confirmationConfirmedByPrincipalId: text(
+      "confirmation_confirmed_by_principal_id"
+    ),
 
     resultingVersionNumber: integer("resulting_version_number"),
     resultingVersionId: text("resulting_version_id").references(
       (): AnyPgColumn => specificationVersions.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     resultingPreviewBuildId: text("resulting_preview_build_id").references(
       (): AnyPgColumn => previewBuilds.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
 
     providerName: text("provider_name"),
@@ -1216,16 +1344,26 @@ export const modificationJobs = pgTable(
 
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("modification_jobs_app_idempotency_unique").on(table.appId, table.idempotencyKey),
+    uniqueIndex("modification_jobs_app_idempotency_unique").on(
+      table.appId,
+      table.idempotencyKey
+    ),
     index("modification_jobs_app_id_idx").on(table.appId),
     index("modification_jobs_conversation_id_idx").on(table.conversationId),
     index("modification_jobs_status_idx").on(table.status),
-    index("modification_jobs_status_lease_idx").on(table.status, table.leaseExpiresAt),
-  ],
+    index("modification_jobs_status_lease_idx").on(
+      table.status,
+      table.leaseExpiresAt
+    ),
+  ]
 );
 
 // M08: exactly one row per modification job — unlike generation's
@@ -1245,28 +1383,41 @@ export const modificationOperationBatches = pgTable(
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
     reasoningSummary: text("reasoning_summary").notNull().default(""),
-    proposedOperationCount: integer("proposed_operation_count").notNull().default(0),
+    proposedOperationCount: integer("proposed_operation_count")
+      .notNull()
+      .default(0),
     // Ordered ids into appliedOperations for every operation actually
     // applied (before any confirmation-gated ones) — same durable link
     // convention as generationOperationBatches.appliedOperationIds.
-    appliedOperationIds: jsonb("applied_operation_ids").$type<string[]>().notNull().default([]),
+    appliedOperationIds: jsonb("applied_operation_ids")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
     // { operation: unknown; reason: string }[] — proposed operations that
     // failed structural/semantic validation and were never applied.
-    rejectedOperations: jsonb("rejected_operations").$type<Record<string, unknown>[]>().notNull().default([]),
+    rejectedOperations: jsonb("rejected_operations")
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
     // { operation: unknown; classification: string; details: string[] }[] —
     // proposed operations M04 classified as destructive, held pending
     // confirmation. Cleared (moved into appliedOperationIds or dropped) once
     // the confirmation cycle resolves.
-    destructiveOperations: jsonb("destructive_operations").$type<Record<string, unknown>[]>().notNull().default([]),
+    destructiveOperations: jsonb("destructive_operations")
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
     status: modificationBatchStatusEnum("status").notNull().default("proposed"),
     idempotencyKey: text("idempotency_key").notNull(),
     requestHash: text("request_hash").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("modification_operation_batches_job_unique").on(table.jobId),
     index("modification_operation_batches_app_id_idx").on(table.appId),
-  ],
+  ]
 );
 
 // ─── M09: generated-app membership, records, relations, files, activity,
@@ -1291,19 +1442,32 @@ export const generatedAppMembers = pgTable(
     // a member of the same app in BOTH environments with different roles
     // (e.g. an admin in preview for testing, an ordinary employee in
     // production), so this belongs in the uniqueness key below.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     principalId: text("principal_id").notNull(),
     roleIds: jsonb("role_ids").$type<string[]>().notNull().default([]),
     status: generatedMemberStatusEnum("status").notNull().default("active"),
     provenance: generatedMemberProvenanceEnum("provenance").notNull(),
     invitedByPrincipalId: text("invited_by_principal_id"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_app_members_app_env_principal_unique").on(table.appId, table.environment, table.principalId),
-    index("generated_app_members_app_env_idx").on(table.appId, table.environment),
-  ],
+    uniqueIndex("generated_app_members_app_env_principal_unique").on(
+      table.appId,
+      table.environment,
+      table.principalId
+    ),
+    index("generated_app_members_app_env_idx").on(
+      table.appId,
+      table.environment
+    ),
+  ]
 );
 
 // One row per generated record, of any entity. `data` holds only
@@ -1321,7 +1485,9 @@ export const generatedRecords = pgTable(
       .references(() => apps.id, { onDelete: "cascade" }),
     // M11: immutable data-environment boundary — stamped at insert, never
     // updated. Every read predicate in lib/generated-data/* filters on it.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     entityId: text("entity_id").notNull(),
     specVersionNumber: integer("spec_version_number").notNull(),
     revision: integer("revision").notNull().default(1),
@@ -1329,14 +1495,27 @@ export const generatedRecords = pgTable(
     status: generatedRecordStatusEnum("status").notNull().default("active"),
     createdByPrincipalId: text("created_by_principal_id").notNull(),
     updatedByPrincipalId: text("updated_by_principal_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => [
-    index("generated_records_app_env_entity_idx").on(table.appId, table.environment, table.entityId),
-    index("generated_records_app_env_entity_status_idx").on(table.appId, table.environment, table.entityId, table.status),
-  ],
+    index("generated_records_app_env_entity_idx").on(
+      table.appId,
+      table.environment,
+      table.entityId
+    ),
+    index("generated_records_app_env_entity_status_idx").on(
+      table.appId,
+      table.environment,
+      table.entityId,
+      table.status
+    ),
+  ]
 );
 
 // Append-only snapshot of a record's `data` immediately BEFORE each update
@@ -1355,17 +1534,27 @@ export const generatedRecordRevisions = pgTable(
     // Denormalized from the parent record for query-scoping symmetry — the
     // (recordId, revision) unique below is already environment-safe because
     // recordId itself belongs to exactly one environment.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     entityId: text("entity_id").notNull(),
     revision: integer("revision").notNull(),
     data: jsonb("data").$type<Record<string, unknown>>().notNull(),
     changedByPrincipalId: text("changed_by_principal_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_record_revisions_record_revision_unique").on(table.recordId, table.revision),
-    index("generated_record_revisions_app_env_idx").on(table.appId, table.environment),
-  ],
+    uniqueIndex("generated_record_revisions_record_revision_unique").on(
+      table.recordId,
+      table.revision
+    ),
+    index("generated_record_revisions_app_env_idx").on(
+      table.appId,
+      table.environment
+    ),
+  ]
 );
 
 // Denormalized relation edges — maintained transactionally alongside
@@ -1385,7 +1574,9 @@ export const generatedRecordRelations = pgTable(
     // two environments — lib/generated-data/relations.ts asserts both
     // endpoints resolve within the same (appId, environment) before
     // inserting, and every edge read filters on it.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     relationId: text("relation_id").notNull(),
     fromRecordId: text("from_record_id")
       .notNull()
@@ -1393,13 +1584,22 @@ export const generatedRecordRelations = pgTable(
     toRecordId: text("to_record_id")
       .notNull()
       .references(() => generatedRecords.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_record_relations_unique").on(table.relationId, table.fromRecordId, table.toRecordId),
-    index("generated_record_relations_app_env_idx").on(table.appId, table.environment),
+    uniqueIndex("generated_record_relations_unique").on(
+      table.relationId,
+      table.fromRecordId,
+      table.toRecordId
+    ),
+    index("generated_record_relations_app_env_idx").on(
+      table.appId,
+      table.environment
+    ),
     index("generated_record_relations_to_record_idx").on(table.toRecordId),
-  ],
+  ]
 );
 
 // Normalized uniqueness claims for `unique: true` fields — a claim row is
@@ -1420,18 +1620,28 @@ export const generatedUniquenessClaims = pgTable(
     // would permanently occupy that unique value and make it impossible for
     // a REAL production user to ever register the same email. Uniqueness is
     // a per-environment property.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     entityId: text("entity_id").notNull(),
     fieldId: text("field_id").notNull(),
     valueHash: text("value_hash").notNull(),
     recordId: text("record_id")
       .notNull()
       .references(() => generatedRecords.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_uniqueness_claims_unique").on(table.appId, table.environment, table.entityId, table.fieldId, table.valueHash),
-  ],
+    uniqueIndex("generated_uniqueness_claims_unique").on(
+      table.appId,
+      table.environment,
+      table.entityId,
+      table.fieldId,
+      table.valueHash
+    ),
+  ]
 );
 
 // File metadata for generated-app `file`/`image` fields. `storageKey` is
@@ -1450,9 +1660,14 @@ export const generatedFiles = pgTable(
     // (`generated/{appId}/{environment}/{entityId}/…`) and into the HMAC
     // download-token payload, so a preview token can never be replayed
     // against a production object even if the file id were guessed.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     entityId: text("entity_id").notNull(),
-    recordId: text("record_id").references((): AnyPgColumn => generatedRecords.id, { onDelete: "set null" }),
+    recordId: text("record_id").references(
+      (): AnyPgColumn => generatedRecords.id,
+      { onDelete: "set null" }
+    ),
     fieldId: text("field_id").notNull(),
     storageKey: text("storage_key").notNull(),
     originalFilename: text("original_filename").notNull(),
@@ -1460,7 +1675,9 @@ export const generatedFiles = pgTable(
     sizeBytes: integer("size_bytes").notNull(),
     status: generatedFileStatusEnum("status").notNull().default("pending"),
     uploadedByPrincipalId: text("uploaded_by_principal_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     committedAt: timestamp("committed_at", { withTimezone: true }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
@@ -1468,7 +1685,7 @@ export const generatedFiles = pgTable(
     uniqueIndex("generated_files_storage_key_unique").on(table.storageKey),
     index("generated_files_app_env_idx").on(table.appId, table.environment),
     index("generated_files_record_id_idx").on(table.recordId),
-  ],
+  ]
 );
 
 // Append-only activity feed — never updated/deleted. `actorPrincipalId` is
@@ -1483,19 +1700,26 @@ export const generatedActivity = pgTable(
     appId: text("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     entityId: text("entity_id").notNull(),
-    recordId: text("record_id").references((): AnyPgColumn => generatedRecords.id, { onDelete: "cascade" }),
+    recordId: text("record_id").references(
+      (): AnyPgColumn => generatedRecords.id,
+      { onDelete: "cascade" }
+    ),
     action: text("action").notNull(),
     actorPrincipalId: text("actor_principal_id"),
     actorKind: text("actor_kind").notNull(),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     index("generated_activity_app_env_idx").on(table.appId, table.environment),
     index("generated_activity_record_id_idx").on(table.recordId),
-  ],
+  ]
 );
 
 export const generatedNotifications = pgTable(
@@ -1507,17 +1731,28 @@ export const generatedNotifications = pgTable(
       .references(() => apps.id, { onDelete: "cascade" }),
     // M11: without this, demo notifications generated by a preview workflow
     // would appear in a real production user's inbox for the same app.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     recipientPrincipalId: text("recipient_principal_id").notNull(),
     title: text("title").notNull(),
     body: text("body").notNull(),
-    relatedRecordId: text("related_record_id").references((): AnyPgColumn => generatedRecords.id, { onDelete: "set null" }),
+    relatedRecordId: text("related_record_id").references(
+      (): AnyPgColumn => generatedRecords.id,
+      { onDelete: "set null" }
+    ),
     read: boolean("read").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    index("generated_notifications_app_env_recipient_idx").on(table.appId, table.environment, table.recipientPrincipalId),
-  ],
+    index("generated_notifications_app_env_recipient_idx").on(
+      table.appId,
+      table.environment,
+      table.recipientPrincipalId
+    ),
+  ]
 );
 
 // One durable row per workflow trigger event. Runs synchronously in-request
@@ -1542,7 +1777,9 @@ export const generatedWorkflowExecutions = pgTable(
     // unique index below, a preview execution would make the production
     // runtime believe that workflow had already run, silently suppressing a
     // real notification/activity entry.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     workflowId: text("workflow_id").notNull(),
     triggerRecordId: text("trigger_record_id")
       .notNull()
@@ -1553,15 +1790,28 @@ export const generatedWorkflowExecutions = pgTable(
     idempotencyKey: text("idempotency_key").notNull(),
     attemptCount: integer("attempt_count").notNull().default(1),
     failureMessage: text("failure_message"),
-    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_workflow_executions_idempotency_unique").on(table.appId, table.environment, table.idempotencyKey),
-    index("generated_workflow_executions_app_env_idx").on(table.appId, table.environment),
-  ],
+    uniqueIndex("generated_workflow_executions_idempotency_unique").on(
+      table.appId,
+      table.environment,
+      table.idempotencyKey
+    ),
+    index("generated_workflow_executions_app_env_idx").on(
+      table.appId,
+      table.environment
+    ),
+  ]
 );
 
 export const generatedWorkflowStepExecutions = pgTable(
@@ -1570,15 +1820,24 @@ export const generatedWorkflowStepExecutions = pgTable(
     id: text("id").primaryKey(),
     executionId: text("execution_id")
       .notNull()
-      .references(() => generatedWorkflowExecutions.id, { onDelete: "cascade" }),
+      .references(() => generatedWorkflowExecutions.id, {
+        onDelete: "cascade",
+      }),
     stepId: text("step_id").notNull(),
     status: generatedWorkflowStepStatusEnum("status").notNull(),
-    resultMetadata: jsonb("result_metadata").$type<Record<string, unknown>>().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    resultMetadata: jsonb("result_metadata")
+      .$type<Record<string, unknown>>()
+      .default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_workflow_step_executions_unique").on(table.executionId, table.stepId),
-  ],
+    uniqueIndex("generated_workflow_step_executions_unique").on(
+      table.executionId,
+      table.stepId
+    ),
+  ]
 );
 
 // Generic idempotency ledger for record mutations (create/update/archive/
@@ -1596,17 +1855,28 @@ export const generatedDataIdempotency = pgTable(
     // `environment` in the unique index below, a client could replay a
     // preview response snapshot into production (or vice versa) simply by
     // reusing its own key across the two environments.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     entityId: text("entity_id").notNull(),
     scope: text("scope").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     requestHash: text("request_hash").notNull(),
-    responseSnapshot: jsonb("response_snapshot").$type<Record<string, unknown>>(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    responseSnapshot:
+      jsonb("response_snapshot").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_data_idempotency_unique").on(table.appId, table.environment, table.entityId, table.scope, table.idempotencyKey),
-  ],
+    uniqueIndex("generated_data_idempotency_unique").on(
+      table.appId,
+      table.environment,
+      table.entityId,
+      table.scope,
+      table.idempotencyKey
+    ),
+  ]
 );
 
 // Declarative, allowlisted row-access rules (lib/generated-data/
@@ -1625,19 +1895,32 @@ export const generatedRowAccessRules = pgTable(
       .references(() => apps.id, { onDelete: "cascade" }),
     // Row-access rules are environment-scoped so a permissive preview rule
     // (seeded for demo convenience) can never widen production access.
-    environment: generatedEnvironmentEnum("environment").notNull().default("preview"),
+    environment: generatedEnvironmentEnum("environment")
+      .notNull()
+      .default("preview"),
     entityId: text("entity_id").notNull(),
     roleId: text("role_id").notNull(),
     verb: text("verb").notNull(),
     ruleKind: generatedRowAccessRuleKindEnum("rule_kind").notNull(),
     // Shape depends on ruleKind: {} for "all"/"own"; { assigneeFieldId } for
     // "assigned"; { parentRelationId } for "relatedToParent".
-    ruleConfig: jsonb("rule_config").$type<Record<string, unknown>>().notNull().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    ruleConfig: jsonb("rule_config")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("generated_row_access_rules_unique").on(table.appId, table.environment, table.entityId, table.roleId, table.verb),
-  ],
+    uniqueIndex("generated_row_access_rules_unique").on(
+      table.appId,
+      table.environment,
+      table.entityId,
+      table.roleId,
+      table.verb
+    ),
+  ]
 );
 
 // ─── M10: validation gates, preview QA, and the bounded AI repair loop.
@@ -1715,19 +1998,22 @@ export const repairAttemptStatusEnum = pgEnum("repair_attempt_status", [
 // repairable — lib/repair/classify.ts's classifier is the one place that
 // decides membership, and the repair pipeline refuses to even attempt a
 // repair for those three no matter how many attempts remain.
-export const repairFailureClassificationEnum = pgEnum("repair_failure_classification", [
-  "user_specification_error",
-  "supported_repairable_configuration_error",
-  "unsupported_product_capability",
-  "test_failure",
-  "accessibility_failure",
-  "security_policy_failure",
-  "migration_data_safety_failure",
-  "provider_failure",
-  "infrastructure_failure",
-  "flaky_test",
-  "cancellation",
-]);
+export const repairFailureClassificationEnum = pgEnum(
+  "repair_failure_classification",
+  [
+    "user_specification_error",
+    "supported_repairable_configuration_error",
+    "unsupported_product_capability",
+    "test_failure",
+    "accessibility_failure",
+    "security_policy_failure",
+    "migration_data_safety_failure",
+    "provider_failure",
+    "infrastructure_failure",
+    "flaky_test",
+    "cancellation",
+  ]
+);
 
 export const repairJobFailureCodeEnum = pgEnum("repair_job_failure_code", [
   "invalid_request",
@@ -1773,7 +2059,7 @@ export const validationRuns = pgTable(
     // `running` has this set (see lib/repositories/validationRuns.ts).
     previewBuildId: text("preview_build_id").references(
       (): AnyPgColumn => previewBuilds.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     previewChecksum: text("preview_checksum"),
     // @asafarim/appbuilder-runtime's REGISTRY_VERSION at run time — a
@@ -1781,20 +2067,24 @@ export const validationRuns = pgTable(
     // under new rendering behavior.
     registryVersion: text("registry_version").notNull(),
     // lib/validation/gates/registry.ts's GATE_SET_VERSION — bumping the gate
-        // catalog (adding/removing/materially changing a gate) never
+    // catalog (adding/removing/materially changing a gate) never
     // retroactively reinterprets an old run's recorded gate list.
     gateSetVersion: text("gate_set_version").notNull(),
-    requestSource: validationRequestSourceEnum("request_source").notNull().default("manual"),
+    requestSource: validationRequestSourceEnum("request_source")
+      .notNull()
+      .default("manual"),
     requestedByPrincipalId: text("requested_by_principal_id").notNull(),
     triggeringRepairAttemptId: text("triggering_repair_attempt_id").references(
       (): AnyPgColumn => repairAttempts.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     status: validationRunStatusEnum("status").notNull().default("pending"),
     idempotencyKey: text("idempotency_key").notNull(),
     requestHash: text("request_hash").notNull(),
     mandatoryGatesTotal: integer("mandatory_gates_total").notNull().default(0),
-    mandatoryGatesPassed: integer("mandatory_gates_passed").notNull().default(0),
+    mandatoryGatesPassed: integer("mandatory_gates_passed")
+      .notNull()
+      .default(0),
     // Issue requirement: "only a fully passing approved preview version
     // becomes release-eligible." Computed and stamped exactly once, when the
     // run reaches a terminal state (see
@@ -1812,15 +2102,25 @@ export const validationRuns = pgTable(
     heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("validation_runs_app_idempotency_unique").on(table.appId, table.idempotencyKey),
+    uniqueIndex("validation_runs_app_idempotency_unique").on(
+      table.appId,
+      table.idempotencyKey
+    ),
     index("validation_runs_app_id_idx").on(table.appId),
     index("validation_runs_status_idx").on(table.status),
-    index("validation_runs_status_lease_idx").on(table.status, table.leaseExpiresAt),
-  ],
+    index("validation_runs_status_lease_idx").on(
+      table.status,
+      table.leaseExpiresAt
+    ),
+  ]
 );
 
 // One row per gate per run. `mandatory` is copied from the gate definition
@@ -1848,18 +2148,29 @@ export const validationGateResults = pgTable(
     skipReason: text("skip_reason"),
     failureCode: text("failure_code"),
     failureMessage: text("failure_message"),
-    structuredFailures: jsonb("structured_failures").$type<Record<string, unknown>[]>().notNull().default([]),
-    evidence: jsonb("evidence").$type<Record<string, unknown>>().notNull().default({}),
+    structuredFailures: jsonb("structured_failures")
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
+    evidence: jsonb("evidence")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     artifactIds: jsonb("artifact_ids").$type<string[]>().notNull().default([]),
     durationMs: integer("duration_ms"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("validation_gate_results_run_gate_unique").on(table.runId, table.gateKey),
+    uniqueIndex("validation_gate_results_run_gate_unique").on(
+      table.runId,
+      table.gateKey
+    ),
     index("validation_gate_results_app_id_idx").on(table.appId),
-  ],
+  ]
 );
 
 // Safe QA evidence (issue requirement: "screenshots, traces, test reports,
@@ -1890,13 +2201,17 @@ export const validationArtifacts = pgTable(
     storageKey: text("storage_key").notNull(),
     contentType: text("content_type").notNull(),
     sizeBytes: integer("size_bytes").notNull().default(0),
-    retentionExpiresAt: timestamp("retention_expires_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    retentionExpiresAt: timestamp("retention_expires_at", {
+      withTimezone: true,
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     index("validation_artifacts_run_id_idx").on(table.runId),
     index("validation_artifacts_app_id_idx").on(table.appId),
-  ],
+  ]
 );
 
 // One row per bounded AI repair attempt against a FAILED validation run.
@@ -1922,44 +2237,71 @@ export const repairAttempts = pgTable(
     initiatedByPrincipalId: text("initiated_by_principal_id").notNull(),
     status: repairAttemptStatusEnum("status").notNull().default("queued"),
     phase: text("phase").notNull().default("queued"),
-    failureClassification: repairFailureClassificationEnum("failure_classification"),
+    failureClassification: repairFailureClassificationEnum(
+      "failure_classification"
+    ),
     // Which failed gate(s) this attempt is targeting — never "the whole run"
     // implicitly, so a repair proposal stays scoped to what was actually
     // classified as repairable.
-    targetGateKeys: jsonb("target_gate_keys").$type<string[]>().notNull().default([]),
+    targetGateKeys: jsonb("target_gate_keys")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
     // Bounded, redacted diagnostics actually shown to the model — see
     // lib/validation/redaction.ts. Never a raw stack trace, DB error, or
     // provider response body.
-    diagnosticsSummary: jsonb("diagnostics_summary").$type<Record<string, unknown>>().notNull().default({}),
-    proposedOperationCount: integer("proposed_operation_count").notNull().default(0),
-    rejectedOperations: jsonb("rejected_operations").$type<Record<string, unknown>[]>().notNull().default([]),
-    destructiveOperations: jsonb("destructive_operations").$type<Record<string, unknown>[]>().notNull().default([]),
-    appliedOperationIds: jsonb("applied_operation_ids").$type<string[]>().notNull().default([]),
+    diagnosticsSummary: jsonb("diagnostics_summary")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    proposedOperationCount: integer("proposed_operation_count")
+      .notNull()
+      .default(0),
+    rejectedOperations: jsonb("rejected_operations")
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
+    destructiveOperations: jsonb("destructive_operations")
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
+    appliedOperationIds: jsonb("applied_operation_ids")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
     // Identical confirmation-binding contract to modification_jobs (actor,
     // app, base version, exact checksum, expiry, single-use) — reuses
     // lib/modification/confirmation.ts's functions directly rather than a
     // parallel implementation.
-    confirmationRequired: boolean("confirmation_required").notNull().default(false),
+    confirmationRequired: boolean("confirmation_required")
+      .notNull()
+      .default(false),
     confirmationChecksum: text("confirmation_checksum"),
     confirmationBaseVersionNumber: integer("confirmation_base_version_number"),
-    confirmationExpiresAt: timestamp("confirmation_expires_at", { withTimezone: true }),
-    confirmationConfirmedAt: timestamp("confirmation_confirmed_at", { withTimezone: true }),
-    confirmationConfirmedByPrincipalId: text("confirmation_confirmed_by_principal_id"),
+    confirmationExpiresAt: timestamp("confirmation_expires_at", {
+      withTimezone: true,
+    }),
+    confirmationConfirmedAt: timestamp("confirmation_confirmed_at", {
+      withTimezone: true,
+    }),
+    confirmationConfirmedByPrincipalId: text(
+      "confirmation_confirmed_by_principal_id"
+    ),
     baseVersionNumber: integer("base_version_number").notNull(),
     resultingVersionNumber: integer("resulting_version_number"),
     resultingVersionId: text("resulting_version_id").references(
       (): AnyPgColumn => specificationVersions.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     resultingPreviewBuildId: text("resulting_preview_build_id").references(
       (): AnyPgColumn => previewBuilds.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     // The NEW validation run created to revalidate from scratch after this
     // repair applied — never the same row as originatingRunId.
     resultingValidationRunId: text("resulting_validation_run_id").references(
       (): AnyPgColumn => validationRuns.id,
-      { onDelete: "set null" },
+      { onDelete: "set null" }
     ),
     providerName: text("provider_name"),
     providerModel: text("provider_model"),
@@ -1975,43 +2317,80 @@ export const repairAttempts = pgTable(
     heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    uniqueIndex("repair_attempts_app_idempotency_unique").on(table.appId, table.idempotencyKey),
+    uniqueIndex("repair_attempts_app_idempotency_unique").on(
+      table.appId,
+      table.idempotencyKey
+    ),
     // Enforces MAX_REPAIR_ATTEMPTS_PER_RUN structurally: attempt numbers for
     // one run are unique, so the repository's bounds check racing another
     // insert fails closed at the database rather than only in application
     // logic.
-    uniqueIndex("repair_attempts_run_attempt_unique").on(table.originatingRunId, table.attemptNumber),
+    uniqueIndex("repair_attempts_run_attempt_unique").on(
+      table.originatingRunId,
+      table.attemptNumber
+    ),
     index("repair_attempts_app_id_idx").on(table.appId),
     index("repair_attempts_status_idx").on(table.status),
-    index("repair_attempts_status_lease_idx").on(table.status, table.leaseExpiresAt),
-  ],
+    index("repair_attempts_status_lease_idx").on(
+      table.status,
+      table.leaseExpiresAt
+    ),
+  ]
 );
 
-export const validationRunsRelations = relations(validationRuns, ({ one, many }) => ({
-  app: one(apps, { fields: [validationRuns.appId], references: [apps.id] }),
-  specificationVersion: one(specificationVersions, {
-    fields: [validationRuns.specificationVersionId],
-    references: [specificationVersions.id],
-  }),
-  previewBuild: one(previewBuilds, { fields: [validationRuns.previewBuildId], references: [previewBuilds.id] }),
-  gateResults: many(validationGateResults),
-  artifacts: many(validationArtifacts),
-  repairAttempts: many(repairAttempts),
-}));
+export const validationRunsRelations = relations(
+  validationRuns,
+  ({ one, many }) => ({
+    app: one(apps, { fields: [validationRuns.appId], references: [apps.id] }),
+    specificationVersion: one(specificationVersions, {
+      fields: [validationRuns.specificationVersionId],
+      references: [specificationVersions.id],
+    }),
+    previewBuild: one(previewBuilds, {
+      fields: [validationRuns.previewBuildId],
+      references: [previewBuilds.id],
+    }),
+    gateResults: many(validationGateResults),
+    artifacts: many(validationArtifacts),
+    repairAttempts: many(repairAttempts),
+  })
+);
 
-export const validationGateResultsRelations = relations(validationGateResults, ({ one }) => ({
-  run: one(validationRuns, { fields: [validationGateResults.runId], references: [validationRuns.id] }),
-  app: one(apps, { fields: [validationGateResults.appId], references: [apps.id] }),
-}));
+export const validationGateResultsRelations = relations(
+  validationGateResults,
+  ({ one }) => ({
+    run: one(validationRuns, {
+      fields: [validationGateResults.runId],
+      references: [validationRuns.id],
+    }),
+    app: one(apps, {
+      fields: [validationGateResults.appId],
+      references: [apps.id],
+    }),
+  })
+);
 
-export const validationArtifactsRelations = relations(validationArtifacts, ({ one }) => ({
-  run: one(validationRuns, { fields: [validationArtifacts.runId], references: [validationRuns.id] }),
-  app: one(apps, { fields: [validationArtifacts.appId], references: [apps.id] }),
-}));
+export const validationArtifactsRelations = relations(
+  validationArtifacts,
+  ({ one }) => ({
+    run: one(validationRuns, {
+      fields: [validationArtifacts.runId],
+      references: [validationRuns.id],
+    }),
+    app: one(apps, {
+      fields: [validationArtifacts.appId],
+      references: [apps.id],
+    }),
+  })
+);
 
 export const repairAttemptsRelations = relations(repairAttempts, ({ one }) => ({
   app: one(apps, { fields: [repairAttempts.appId], references: [apps.id] }),
@@ -2035,6 +2414,326 @@ export const repairAttemptsRelations = relations(repairAttempts, ({ one }) => ({
   }),
 }));
 
+// ---------------------------------------------------------------------------
+// M12: launch hardening — quotas/usage, observability events, backups and
+// restore rehearsals, custom-domain readiness (inert, feature-flagged), and
+// privacy/retention foundations. See docs/appbuilder-m12-launch-hardening.md.
+// ---------------------------------------------------------------------------
+
+export const quotaScopeTypeEnum = pgEnum("quota_scope_type", ["owner", "app"]);
+
+// Admin/owner override for a single quota metric. Deliberately NOT a
+// per-metric column set on `apps` — overrides are rare, audited exceptions,
+// not normal app configuration, so they get their own append-mostly table
+// with a `revokedAt` lifecycle rather than being silently editable. Every
+// insert/revoke is additionally mirrored into `auditEvents` (or, for
+// owner-scoped overrides that predate any single app, `operationalEvents`)
+// by the repository layer — this table alone is the resolution source of
+// truth, but never the only record of who changed it and why.
+export const quotaOverrides = pgTable(
+  "quota_overrides",
+  {
+    id: text("id").primaryKey(),
+    scopeType: quotaScopeTypeEnum("scope_type").notNull(),
+    // ownerPrincipalId when scopeType="owner", appId when scopeType="app".
+    // Deliberately one opaque column rather than two nullable FKs — the
+    // interpretation is selected by scopeType, mirroring idempotencyKeys'
+    // existing (appId nullable, ownerPrincipalId always set) convention.
+    scopeId: text("scope_id").notNull(),
+    metric: text("metric").notNull(),
+    limitValue: integer("limit_value").notNull(),
+    reason: text("reason").notNull(),
+    createdByPrincipalId: text("created_by_principal_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedByPrincipalId: text("revoked_by_principal_id"),
+  },
+  (table) => [
+    index("quota_overrides_scope_idx").on(
+      table.scopeType,
+      table.scopeId,
+      table.metric
+    ),
+  ]
+);
+
+export const usageEventKindEnum = pgEnum("usage_event_kind", [
+  "ai_generation_request",
+  "ai_modification_request",
+  "ai_repair_request",
+  "preview_build",
+  "validation_run",
+  "deployment",
+  "workflow_execution",
+  "storage_write",
+]);
+
+// Append-only usage ledger. Exists so M12 "preserve enough usage data for
+// future billing" is satisfied without building billing itself (explicit
+// non-goal) — a future billing system can aggregate this table without any
+// schema change. Never updated or deleted; not covered by the general
+// retention sweep (see docs/appbuilder-m12-privacy-retention.md — usage
+// records are kept indefinitely by design, unlike prompts/diagnostics).
+export const usageEvents = pgTable(
+  "usage_events",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id").references(() => apps.id, { onDelete: "cascade" }),
+    ownerPrincipalId: text("owner_principal_id").notNull(),
+    environment: generatedEnvironmentEnum("environment"),
+    kind: usageEventKindEnum("kind").notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    unit: text("unit").notNull().default("count"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    occurredAt: timestamp("occurred_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("usage_events_app_id_idx").on(table.appId),
+    index("usage_events_owner_occurred_idx").on(
+      table.ownerPrincipalId,
+      table.occurredAt
+    ),
+    index("usage_events_kind_occurred_idx").on(table.kind, table.occurredAt),
+  ]
+);
+
+export const operationalEventSeverityEnum = pgEnum(
+  "operational_event_severity",
+  ["info", "warning", "error"]
+);
+
+// Durable, queryable operational event stream — the backbone for M12
+// observability that isn't already derivable by aggregating an existing
+// domain table (queue depth/duration/pass-fail rates ARE derived directly
+// from generationJobs/validationRuns/deployments — see
+// lib/observability/metrics.ts). This table exists for events with no other
+// durable home: quota rejections, security-policy check failures, backup/
+// restore lifecycle, and correlation-id-tagged milestones across
+// generation/modification/repair/validation/preview/deployment/rollback/
+// runtime/storage/workflow paths. Append-only; retention documented in
+// docs/appbuilder-m12-privacy-retention.md.
+export const operationalEvents = pgTable(
+  "operational_events",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id").references(() => apps.id, { onDelete: "cascade" }),
+    correlationId: text("correlation_id"),
+    category: text("category").notNull(),
+    kind: text("kind").notNull(),
+    severity: operationalEventSeverityEnum("severity")
+      .notNull()
+      .default("info"),
+    actorPrincipalId: text("actor_principal_id"),
+    detail: jsonb("detail")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("operational_events_app_id_idx").on(table.appId),
+    index("operational_events_category_created_idx").on(
+      table.category,
+      table.createdAt
+    ),
+    index("operational_events_correlation_idx").on(table.correlationId),
+  ]
+);
+
+export const backupKindEnum = pgEnum("backup_kind", [
+  "database",
+  "object_storage",
+]);
+export const backupStatusEnum = pgEnum("backup_status", [
+  "running",
+  "succeeded",
+  "failed",
+]);
+export const backupTriggerEnum = pgEnum("backup_trigger", [
+  "scheduled",
+  "manual",
+]);
+
+// Platform-wide, not per-app — AppBuilder owns exactly one database and one
+// object-storage bucket, backed up as a unit. `appId` is deliberately
+// absent; every app's readiness page surfaces the SAME latest row (see
+// lib/backup/repository.ts#getLatestBackupStatus).
+export const backupRuns = pgTable(
+  "backup_runs",
+  {
+    id: text("id").primaryKey(),
+    kind: backupKindEnum("kind").notNull(),
+    status: backupStatusEnum("status").notNull().default("running"),
+    trigger: backupTriggerEnum("trigger").notNull().default("manual"),
+    // Storage key/path for the artifact — never a filesystem secret or
+    // credential; see lib/backup/runBackup.ts.
+    location: text("location").notNull(),
+    sizeBytes: integer("size_bytes"),
+    checksum: text("checksum"),
+    encryption: text("encryption")
+      .notNull()
+      .default("at-rest (provider-managed)"),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    failureMessage: text("failure_message"),
+    retentionExpiresAt: timestamp("retention_expires_at", {
+      withTimezone: true,
+    }),
+    triggeredByPrincipalId: text("triggered_by_principal_id"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  },
+  (table) => [
+    index("backup_runs_kind_started_idx").on(table.kind, table.startedAt),
+    index("backup_runs_status_idx").on(table.status),
+  ]
+);
+
+export const restoreRehearsalStatusEnum = pgEnum("restore_rehearsal_status", [
+  "running",
+  "succeeded",
+  "failed",
+]);
+
+// A restore rehearsal NEVER targets the production database — see
+// lib/backup/runRestoreRehearsal.ts, which refuses to run unless the
+// resolved target connection string is provably not
+// APPBUILDER_DATABASE_URL. `verifiedCounts` records row counts per checked
+// table (apps, specifications, specificationVersions, releases,
+// generatedRecords, generatedFiles, ...) captured from the restored target,
+// so "restore recovers AppBuilder metadata/specs/generated data/release
+// manifests/artifacts" is evidenced, not merely asserted.
+export const restoreRehearsals = pgTable(
+  "restore_rehearsals",
+  {
+    id: text("id").primaryKey(),
+    backupRunId: text("backup_run_id")
+      .notNull()
+      .references(() => backupRuns.id, { onDelete: "cascade" }),
+    status: restoreRehearsalStatusEnum("status").notNull().default("running"),
+    targetDescription: text("target_description").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    verifiedCounts: jsonb("verified_counts").$type<Record<string, number>>(),
+    findings: jsonb("findings").$type<Record<string, unknown>>().default({}),
+    failureMessage: text("failure_message"),
+    performedByPrincipalId: text("performed_by_principal_id"),
+  },
+  (table) => [index("restore_rehearsals_backup_run_idx").on(table.backupRunId)]
+);
+
+export const customDomainStatusEnum = pgEnum("custom_domain_status", [
+  "pending_verification",
+  "verified",
+  "blocked",
+  "cancelled",
+]);
+
+export const customDomainTlsStateEnum = pgEnum("custom_domain_tls_state", [
+  "not_started",
+  "pending",
+  "issued",
+  "failed",
+]);
+
+// M12: readiness data model ONLY — see lib/customDomains/featureFlag.ts.
+// APPBUILDER_CUSTOM_DOMAINS_ENABLED is unset/false in every environment this
+// milestone ships to; nothing in this codebase provisions DNS, issues a TLS
+// certificate, or routes traffic for a row in this table. Collision
+// prevention piggybacks on `appDomains.host`'s existing global unique
+// index: the (still unimplemented, flag-gated) verification step would
+// insert/activate a row there exactly like the auto-slug flow, so two apps
+// can never claim the same host even once the flag is on.
+export const customDomainRequests = pgTable(
+  "custom_domain_requests",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    requestedHost: text("requested_host").notNull(),
+    status: customDomainStatusEnum("status")
+      .notNull()
+      .default("pending_verification"),
+    verificationToken: text("verification_token").notNull(),
+    verificationMethod: text("verification_method")
+      .notNull()
+      .default("dns_txt"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    tlsState: customDomainTlsStateEnum("tls_state")
+      .notNull()
+      .default("not_started"),
+    releaseId: text("release_id").references((): AnyPgColumn => releases.id, {
+      onDelete: "set null",
+    }),
+    requestedByPrincipalId: text("requested_by_principal_id").notNull(),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Partial: uniqueness only holds among non-cancelled requests, so
+    // cancelling a request (see lib/customDomains/requests.ts#cancelCustomDomainRequest)
+    // genuinely frees that host for a new request instead of leaving a
+    // permanent tombstone behind.
+    uniqueIndex("custom_domain_requests_host_unique")
+      .on(table.requestedHost)
+      .where(sql`${table.status} <> 'cancelled'`),
+    index("custom_domain_requests_app_id_idx").on(table.appId),
+  ]
+);
+
+export const dataSubjectRequestKindEnum = pgEnum("data_subject_request_kind", [
+  "export",
+  "deletion",
+]);
+export const dataSubjectRequestStatusEnum = pgEnum(
+  "data_subject_request_status",
+  ["received", "in_progress", "completed", "rejected"]
+);
+
+// Export/deletion-request FOUNDATION only (explicit M12 scope: not a full
+// compliance platform). Fulfillment today is operator-assisted: an operator
+// works this queue by hand following
+// docs/appbuilder-m12-privacy-retention.md and marks the row completed —
+// there is no automatic fulfiller yet.
+export const dataSubjectRequests = pgTable(
+  "data_subject_requests",
+  {
+    id: text("id").primaryKey(),
+    requestedByPrincipalId: text("requested_by_principal_id").notNull(),
+    appId: text("app_id").references(() => apps.id, { onDelete: "cascade" }),
+    kind: dataSubjectRequestKindEnum("kind").notNull(),
+    status: dataSubjectRequestStatusEnum("status")
+      .notNull()
+      .default("received"),
+    notes: text("notes"),
+    resultLocation: text("result_location"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedByPrincipalId: text("completed_by_principal_id"),
+  },
+  (table) => [
+    index("data_subject_requests_owner_idx").on(table.requestedByPrincipalId),
+  ]
+);
+
 export const appsRelations = relations(apps, ({ many }) => ({
   collaborators: many(collaborators),
   specifications: many(specifications),
@@ -2053,21 +2752,31 @@ export const appsRelations = relations(apps, ({ many }) => ({
   repairAttempts: many(repairAttempts),
   appDomains: many(appDomains),
   deploymentSteps: many(deploymentSteps),
+  usageEvents: many(usageEvents),
+  operationalEvents: many(operationalEvents),
+  customDomainRequests: many(customDomainRequests),
+  dataSubjectRequests: many(dataSubjectRequests),
 }));
 
-export const creationRequestsRelations = relations(creationRequests, ({ one }) => ({
-  app: one(apps, { fields: [creationRequests.appId], references: [apps.id] }),
-}));
+export const creationRequestsRelations = relations(
+  creationRequests,
+  ({ one }) => ({
+    app: one(apps, { fields: [creationRequests.appId], references: [apps.id] }),
+  })
+);
 
 export const collaboratorsRelations = relations(collaborators, ({ one }) => ({
   app: one(apps, { fields: [collaborators.appId], references: [apps.id] }),
 }));
 
-export const specificationsRelations = relations(specifications, ({ one, many }) => ({
-  app: one(apps, { fields: [specifications.appId], references: [apps.id] }),
-  versions: many(specificationVersions),
-  operations: many(appliedOperations),
-}));
+export const specificationsRelations = relations(
+  specifications,
+  ({ one, many }) => ({
+    app: one(apps, { fields: [specifications.appId], references: [apps.id] }),
+    versions: many(specificationVersions),
+    operations: many(appliedOperations),
+  })
+);
 
 export const specificationVersionsRelations = relations(
   specificationVersions,
@@ -2076,23 +2785,32 @@ export const specificationVersionsRelations = relations(
       fields: [specificationVersions.specificationId],
       references: [specifications.id],
     }),
-    app: one(apps, { fields: [specificationVersions.appId], references: [apps.id] }),
+    app: one(apps, {
+      fields: [specificationVersions.appId],
+      references: [apps.id],
+    }),
     previewBuilds: many(previewBuilds),
     releases: many(releases),
-  }),
+  })
 );
 
-export const appliedOperationsRelations = relations(appliedOperations, ({ one }) => ({
-  app: one(apps, { fields: [appliedOperations.appId], references: [apps.id] }),
-  specification: one(specifications, {
-    fields: [appliedOperations.specificationId],
-    references: [specifications.id],
-  }),
-  resultingVersion: one(specificationVersions, {
-    fields: [appliedOperations.resultingVersionId],
-    references: [specificationVersions.id],
-  }),
-}));
+export const appliedOperationsRelations = relations(
+  appliedOperations,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [appliedOperations.appId],
+      references: [apps.id],
+    }),
+    specification: one(specifications, {
+      fields: [appliedOperations.specificationId],
+      references: [specifications.id],
+    }),
+    resultingVersion: one(specificationVersions, {
+      fields: [appliedOperations.resultingVersionId],
+      references: [specificationVersions.id],
+    }),
+  })
+);
 
 export const previewBuildsRelations = relations(previewBuilds, ({ one }) => ({
   app: one(apps, { fields: [previewBuilds.appId], references: [apps.id] }),
@@ -2108,175 +2826,356 @@ export const releasesRelations = relations(releases, ({ one, many }) => ({
     fields: [releases.specificationVersionId],
     references: [specificationVersions.id],
   }),
-  previewBuild: one(previewBuilds, { fields: [releases.previewBuildId], references: [previewBuilds.id] }),
-  validationRun: one(validationRuns, { fields: [releases.validationRunId], references: [validationRuns.id] }),
+  previewBuild: one(previewBuilds, {
+    fields: [releases.previewBuildId],
+    references: [previewBuilds.id],
+  }),
+  validationRun: one(validationRuns, {
+    fields: [releases.validationRunId],
+    references: [validationRuns.id],
+  }),
   deployments: many(deployments),
 }));
 
 export const appDomainsRelations = relations(appDomains, ({ one }) => ({
   app: one(apps, { fields: [appDomains.appId], references: [apps.id] }),
-  activeRelease: one(releases, { fields: [appDomains.activeReleaseId], references: [releases.id] }),
+  activeRelease: one(releases, {
+    fields: [appDomains.activeReleaseId],
+    references: [releases.id],
+  }),
 }));
 
 export const deploymentsRelations = relations(deployments, ({ one, many }) => ({
   app: one(apps, { fields: [deployments.appId], references: [apps.id] }),
-  release: one(releases, { fields: [deployments.releaseId], references: [releases.id] }),
+  release: one(releases, {
+    fields: [deployments.releaseId],
+    references: [releases.id],
+  }),
   steps: many(deploymentSteps),
 }));
 
-export const deploymentStepsRelations = relations(deploymentSteps, ({ one }) => ({
-  deployment: one(deployments, { fields: [deploymentSteps.deploymentId], references: [deployments.id] }),
-  app: one(apps, { fields: [deploymentSteps.appId], references: [apps.id] }),
-}));
+export const deploymentStepsRelations = relations(
+  deploymentSteps,
+  ({ one }) => ({
+    deployment: one(deployments, {
+      fields: [deploymentSteps.deploymentId],
+      references: [deployments.id],
+    }),
+    app: one(apps, { fields: [deploymentSteps.appId], references: [apps.id] }),
+  })
+);
 
 export const auditEventsRelations = relations(auditEvents, ({ one }) => ({
   app: one(apps, { fields: [auditEvents.appId], references: [apps.id] }),
 }));
 
-export const idempotencyKeysRelations = relations(idempotencyKeys, ({ one }) => ({
-  app: one(apps, { fields: [idempotencyKeys.appId], references: [apps.id] }),
-}));
+export const idempotencyKeysRelations = relations(
+  idempotencyKeys,
+  ({ one }) => ({
+    app: one(apps, { fields: [idempotencyKeys.appId], references: [apps.id] }),
+  })
+);
 
-export const generationJobsRelations = relations(generationJobs, ({ one, many }) => ({
-  app: one(apps, { fields: [generationJobs.appId], references: [apps.id] }),
-  creationRequest: one(creationRequests, {
-    fields: [generationJobs.creationRequestId],
-    references: [creationRequests.id],
-  }),
-  resultingVersion: one(specificationVersions, {
-    fields: [generationJobs.resultingVersionId],
-    references: [specificationVersions.id],
-  }),
-  resultingPreviewBuild: one(previewBuilds, {
-    fields: [generationJobs.resultingPreviewBuildId],
-    references: [previewBuilds.id],
-  }),
-  batches: many(generationOperationBatches),
-}));
+export const generationJobsRelations = relations(
+  generationJobs,
+  ({ one, many }) => ({
+    app: one(apps, { fields: [generationJobs.appId], references: [apps.id] }),
+    creationRequest: one(creationRequests, {
+      fields: [generationJobs.creationRequestId],
+      references: [creationRequests.id],
+    }),
+    resultingVersion: one(specificationVersions, {
+      fields: [generationJobs.resultingVersionId],
+      references: [specificationVersions.id],
+    }),
+    resultingPreviewBuild: one(previewBuilds, {
+      fields: [generationJobs.resultingPreviewBuildId],
+      references: [previewBuilds.id],
+    }),
+    batches: many(generationOperationBatches),
+  })
+);
 
-export const generationOperationBatchesRelations = relations(generationOperationBatches, ({ one }) => ({
-  job: one(generationJobs, { fields: [generationOperationBatches.jobId], references: [generationJobs.id] }),
-  app: one(apps, { fields: [generationOperationBatches.appId], references: [apps.id] }),
-}));
+export const generationOperationBatchesRelations = relations(
+  generationOperationBatches,
+  ({ one }) => ({
+    job: one(generationJobs, {
+      fields: [generationOperationBatches.jobId],
+      references: [generationJobs.id],
+    }),
+    app: one(apps, {
+      fields: [generationOperationBatches.appId],
+      references: [apps.id],
+    }),
+  })
+);
 
-export const conversationsRelations = relations(conversations, ({ one, many }) => ({
-  app: one(apps, { fields: [conversations.appId], references: [apps.id] }),
-  messages: many(conversationMessages),
-  modificationJobs: many(modificationJobs),
-}));
+export const conversationsRelations = relations(
+  conversations,
+  ({ one, many }) => ({
+    app: one(apps, { fields: [conversations.appId], references: [apps.id] }),
+    messages: many(conversationMessages),
+    modificationJobs: many(modificationJobs),
+  })
+);
 
-export const conversationMessagesRelations = relations(conversationMessages, ({ one }) => ({
-  conversation: one(conversations, {
-    fields: [conversationMessages.conversationId],
-    references: [conversations.id],
-  }),
-  app: one(apps, { fields: [conversationMessages.appId], references: [apps.id] }),
-  modificationJob: one(modificationJobs, {
-    fields: [conversationMessages.modificationJobId],
-    references: [modificationJobs.id],
-  }),
-  resultingPreviewBuild: one(previewBuilds, {
-    fields: [conversationMessages.resultingPreviewBuildId],
-    references: [previewBuilds.id],
-  }),
-}));
+export const conversationMessagesRelations = relations(
+  conversationMessages,
+  ({ one }) => ({
+    conversation: one(conversations, {
+      fields: [conversationMessages.conversationId],
+      references: [conversations.id],
+    }),
+    app: one(apps, {
+      fields: [conversationMessages.appId],
+      references: [apps.id],
+    }),
+    modificationJob: one(modificationJobs, {
+      fields: [conversationMessages.modificationJobId],
+      references: [modificationJobs.id],
+    }),
+    resultingPreviewBuild: one(previewBuilds, {
+      fields: [conversationMessages.resultingPreviewBuildId],
+      references: [previewBuilds.id],
+    }),
+  })
+);
 
-export const modificationJobsRelations = relations(modificationJobs, ({ one, many }) => ({
-  app: one(apps, { fields: [modificationJobs.appId], references: [apps.id] }),
-  conversation: one(conversations, {
-    fields: [modificationJobs.conversationId],
-    references: [conversations.id],
-  }),
-  triggeringMessage: one(conversationMessages, {
-    fields: [modificationJobs.triggeringMessageId],
-    references: [conversationMessages.id],
-  }),
-  resultingVersion: one(specificationVersions, {
-    fields: [modificationJobs.resultingVersionId],
-    references: [specificationVersions.id],
-  }),
-  resultingPreviewBuild: one(previewBuilds, {
-    fields: [modificationJobs.resultingPreviewBuildId],
-    references: [previewBuilds.id],
-  }),
-  batch: many(modificationOperationBatches),
-}));
+export const modificationJobsRelations = relations(
+  modificationJobs,
+  ({ one, many }) => ({
+    app: one(apps, { fields: [modificationJobs.appId], references: [apps.id] }),
+    conversation: one(conversations, {
+      fields: [modificationJobs.conversationId],
+      references: [conversations.id],
+    }),
+    triggeringMessage: one(conversationMessages, {
+      fields: [modificationJobs.triggeringMessageId],
+      references: [conversationMessages.id],
+    }),
+    resultingVersion: one(specificationVersions, {
+      fields: [modificationJobs.resultingVersionId],
+      references: [specificationVersions.id],
+    }),
+    resultingPreviewBuild: one(previewBuilds, {
+      fields: [modificationJobs.resultingPreviewBuildId],
+      references: [previewBuilds.id],
+    }),
+    batch: many(modificationOperationBatches),
+  })
+);
 
-export const modificationOperationBatchesRelations = relations(modificationOperationBatches, ({ one }) => ({
-  job: one(modificationJobs, { fields: [modificationOperationBatches.jobId], references: [modificationJobs.id] }),
-  app: one(apps, { fields: [modificationOperationBatches.appId], references: [apps.id] }),
-}));
+export const modificationOperationBatchesRelations = relations(
+  modificationOperationBatches,
+  ({ one }) => ({
+    job: one(modificationJobs, {
+      fields: [modificationOperationBatches.jobId],
+      references: [modificationJobs.id],
+    }),
+    app: one(apps, {
+      fields: [modificationOperationBatches.appId],
+      references: [apps.id],
+    }),
+  })
+);
 
-export const generatedAppMembersRelations = relations(generatedAppMembers, ({ one }) => ({
-  app: one(apps, { fields: [generatedAppMembers.appId], references: [apps.id] }),
-}));
+export const generatedAppMembersRelations = relations(
+  generatedAppMembers,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [generatedAppMembers.appId],
+      references: [apps.id],
+    }),
+  })
+);
 
-export const generatedRecordsRelations = relations(generatedRecords, ({ one, many }) => ({
-  app: one(apps, { fields: [generatedRecords.appId], references: [apps.id] }),
-  revisions: many(generatedRecordRevisions),
-  outgoingRelations: many(generatedRecordRelations, { relationName: "fromRecord" }),
-  incomingRelations: many(generatedRecordRelations, { relationName: "toRecord" }),
-}));
+export const generatedRecordsRelations = relations(
+  generatedRecords,
+  ({ one, many }) => ({
+    app: one(apps, { fields: [generatedRecords.appId], references: [apps.id] }),
+    revisions: many(generatedRecordRevisions),
+    outgoingRelations: many(generatedRecordRelations, {
+      relationName: "fromRecord",
+    }),
+    incomingRelations: many(generatedRecordRelations, {
+      relationName: "toRecord",
+    }),
+  })
+);
 
-export const generatedRecordRevisionsRelations = relations(generatedRecordRevisions, ({ one }) => ({
-  record: one(generatedRecords, { fields: [generatedRecordRevisions.recordId], references: [generatedRecords.id] }),
-  app: one(apps, { fields: [generatedRecordRevisions.appId], references: [apps.id] }),
-}));
+export const generatedRecordRevisionsRelations = relations(
+  generatedRecordRevisions,
+  ({ one }) => ({
+    record: one(generatedRecords, {
+      fields: [generatedRecordRevisions.recordId],
+      references: [generatedRecords.id],
+    }),
+    app: one(apps, {
+      fields: [generatedRecordRevisions.appId],
+      references: [apps.id],
+    }),
+  })
+);
 
-export const generatedRecordRelationsRelations = relations(generatedRecordRelations, ({ one }) => ({
-  app: one(apps, { fields: [generatedRecordRelations.appId], references: [apps.id] }),
-  fromRecord: one(generatedRecords, {
-    fields: [generatedRecordRelations.fromRecordId],
-    references: [generatedRecords.id],
-    relationName: "fromRecord",
-  }),
-  toRecord: one(generatedRecords, {
-    fields: [generatedRecordRelations.toRecordId],
-    references: [generatedRecords.id],
-    relationName: "toRecord",
-  }),
-}));
+export const generatedRecordRelationsRelations = relations(
+  generatedRecordRelations,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [generatedRecordRelations.appId],
+      references: [apps.id],
+    }),
+    fromRecord: one(generatedRecords, {
+      fields: [generatedRecordRelations.fromRecordId],
+      references: [generatedRecords.id],
+      relationName: "fromRecord",
+    }),
+    toRecord: one(generatedRecords, {
+      fields: [generatedRecordRelations.toRecordId],
+      references: [generatedRecords.id],
+      relationName: "toRecord",
+    }),
+  })
+);
 
-export const generatedUniquenessClaimsRelations = relations(generatedUniquenessClaims, ({ one }) => ({
-  app: one(apps, { fields: [generatedUniquenessClaims.appId], references: [apps.id] }),
-  record: one(generatedRecords, { fields: [generatedUniquenessClaims.recordId], references: [generatedRecords.id] }),
-}));
+export const generatedUniquenessClaimsRelations = relations(
+  generatedUniquenessClaims,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [generatedUniquenessClaims.appId],
+      references: [apps.id],
+    }),
+    record: one(generatedRecords, {
+      fields: [generatedUniquenessClaims.recordId],
+      references: [generatedRecords.id],
+    }),
+  })
+);
 
 export const generatedFilesRelations = relations(generatedFiles, ({ one }) => ({
   app: one(apps, { fields: [generatedFiles.appId], references: [apps.id] }),
-  record: one(generatedRecords, { fields: [generatedFiles.recordId], references: [generatedRecords.id] }),
-}));
-
-export const generatedActivityRelations = relations(generatedActivity, ({ one }) => ({
-  app: one(apps, { fields: [generatedActivity.appId], references: [apps.id] }),
-  record: one(generatedRecords, { fields: [generatedActivity.recordId], references: [generatedRecords.id] }),
-}));
-
-export const generatedNotificationsRelations = relations(generatedNotifications, ({ one }) => ({
-  app: one(apps, { fields: [generatedNotifications.appId], references: [apps.id] }),
-  record: one(generatedRecords, { fields: [generatedNotifications.relatedRecordId], references: [generatedRecords.id] }),
-}));
-
-export const generatedWorkflowExecutionsRelations = relations(generatedWorkflowExecutions, ({ one, many }) => ({
-  app: one(apps, { fields: [generatedWorkflowExecutions.appId], references: [apps.id] }),
-  triggerRecord: one(generatedRecords, {
-    fields: [generatedWorkflowExecutions.triggerRecordId],
+  record: one(generatedRecords, {
+    fields: [generatedFiles.recordId],
     references: [generatedRecords.id],
   }),
-  steps: many(generatedWorkflowStepExecutions),
 }));
 
-export const generatedWorkflowStepExecutionsRelations = relations(generatedWorkflowStepExecutions, ({ one }) => ({
-  execution: one(generatedWorkflowExecutions, {
-    fields: [generatedWorkflowStepExecutions.executionId],
-    references: [generatedWorkflowExecutions.id],
-  }),
+export const generatedActivityRelations = relations(
+  generatedActivity,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [generatedActivity.appId],
+      references: [apps.id],
+    }),
+    record: one(generatedRecords, {
+      fields: [generatedActivity.recordId],
+      references: [generatedRecords.id],
+    }),
+  })
+);
+
+export const generatedNotificationsRelations = relations(
+  generatedNotifications,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [generatedNotifications.appId],
+      references: [apps.id],
+    }),
+    record: one(generatedRecords, {
+      fields: [generatedNotifications.relatedRecordId],
+      references: [generatedRecords.id],
+    }),
+  })
+);
+
+export const generatedWorkflowExecutionsRelations = relations(
+  generatedWorkflowExecutions,
+  ({ one, many }) => ({
+    app: one(apps, {
+      fields: [generatedWorkflowExecutions.appId],
+      references: [apps.id],
+    }),
+    triggerRecord: one(generatedRecords, {
+      fields: [generatedWorkflowExecutions.triggerRecordId],
+      references: [generatedRecords.id],
+    }),
+    steps: many(generatedWorkflowStepExecutions),
+  })
+);
+
+export const generatedWorkflowStepExecutionsRelations = relations(
+  generatedWorkflowStepExecutions,
+  ({ one }) => ({
+    execution: one(generatedWorkflowExecutions, {
+      fields: [generatedWorkflowStepExecutions.executionId],
+      references: [generatedWorkflowExecutions.id],
+    }),
+  })
+);
+
+export const generatedDataIdempotencyRelations = relations(
+  generatedDataIdempotency,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [generatedDataIdempotency.appId],
+      references: [apps.id],
+    }),
+  })
+);
+
+export const generatedRowAccessRulesRelations = relations(
+  generatedRowAccessRules,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [generatedRowAccessRules.appId],
+      references: [apps.id],
+    }),
+  })
+);
+
+export const usageEventsRelations = relations(usageEvents, ({ one }) => ({
+  app: one(apps, { fields: [usageEvents.appId], references: [apps.id] }),
 }));
 
-export const generatedDataIdempotencyRelations = relations(generatedDataIdempotency, ({ one }) => ({
-  app: one(apps, { fields: [generatedDataIdempotency.appId], references: [apps.id] }),
-}));
+export const operationalEventsRelations = relations(
+  operationalEvents,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [operationalEvents.appId],
+      references: [apps.id],
+    }),
+  })
+);
 
-export const generatedRowAccessRulesRelations = relations(generatedRowAccessRules, ({ one }) => ({
-  app: one(apps, { fields: [generatedRowAccessRules.appId], references: [apps.id] }),
-}));
+export const restoreRehearsalsRelations = relations(
+  restoreRehearsals,
+  ({ one }) => ({
+    backupRun: one(backupRuns, {
+      fields: [restoreRehearsals.backupRunId],
+      references: [backupRuns.id],
+    }),
+  })
+);
+
+export const customDomainRequestsRelations = relations(
+  customDomainRequests,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [customDomainRequests.appId],
+      references: [apps.id],
+    }),
+    release: one(releases, {
+      fields: [customDomainRequests.releaseId],
+      references: [releases.id],
+    }),
+  })
+);
+
+export const dataSubjectRequestsRelations = relations(
+  dataSubjectRequests,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [dataSubjectRequests.appId],
+      references: [apps.id],
+    }),
+  })
+);

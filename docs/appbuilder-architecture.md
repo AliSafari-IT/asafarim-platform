@@ -322,6 +322,50 @@ session proxy.
 Full architecture, registry contract, security model, and testing details:
 [docs/appbuilder-runtime.md](appbuilder-runtime.md).
 
+## Launch hardening: quotas, observability, backups, custom domains (M12)
+
+M12 adds no new product surface to what a generated app can do — it adds
+the operational layer that makes the platform safe to run. Seven new
+tables (`lib/db/schema.ts`, migrations `0009`/`0010`): `quota_overrides`,
+`usage_events` (append-only billing-readiness ledger), `operational_events`
+(the durable event stream for everything without another queryable home),
+`backup_runs`/`restore_rehearsals`, `custom_domain_requests` (inert,
+feature-flagged), and `data_subject_requests` (privacy foundation).
+
+The **quota engine** (`lib/quotas/`) is the one genuinely new mechanism:
+`withQuota` takes a Postgres transaction-scoped advisory lock before
+re-counting usage and performing a guarded write, inside the same
+transaction — the same "re-derive from persisted rows, never trust a
+cached flag" philosophy M11's deployment eligibility already established,
+applied to cost control instead of release safety. Nine metrics are
+enforced across app/generation-job/AI-request/version/preview-build/
+storage/workflow-execution/deployment/validation surfaces; see
+[appbuilder-m12-quota-policy.md](appbuilder-m12-quota-policy.md).
+
+The **launch-readiness dashboard** (`/apps/{appId}/operations`,
+`lib/observability/readiness.ts`) is the milestone's primary UI
+deliverable — a single aggregation function reading real persisted state
+across every subsystem built so far (versions, validation, deployment,
+generation, quotas, storage, workflows, jobs, backups, security posture,
+custom-domain readiness) and reporting `"unknown"`/`"not_configured"`
+explicitly rather than ever defaulting to a healthy-looking value.
+
+**Backups** (`lib/backup/`) run a real `pg_dump`/`pg_restore` round-trip
+against this repository's own database, with a restore rehearsal that
+refuses (three independent checks, `lib/backup/safety.ts`) to run against
+anything that looks like the production connection string. **Retention**
+(`lib/retention/`) computes eligibility for every category the issue calls
+out and automates deletion for exactly one (`validation_artifacts`) — the
+rest are operator-assisted by explicit scope decision. **Custom-domain
+readiness** (`lib/customDomains/`) is a complete, tested data model and
+request flow behind a platform-wide feature flag that is off everywhere
+this milestone ships.
+
+Full detail: [appbuilder-m12-launch-hardening.md](appbuilder-m12-launch-hardening.md)
+and its companion docs (observability runbook, backup/restore runbook,
+privacy/retention policy, threat model, custom-domain readiness design,
+launch checklist).
+
 ## Milestone map (for orientation)
 
 1. M01 — Architecture contract, app scaffold, local runtime.

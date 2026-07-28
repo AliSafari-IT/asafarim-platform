@@ -12,7 +12,13 @@ import { DeploymentPanel } from "./DeploymentPanel";
 import styles from "../workspace.module.css";
 import type { SelectionContext } from "./types";
 
-type MobilePanel = "structure" | "preview" | "conversation" | "history" | "validation" | "deployment";
+type MobilePanel =
+  | "structure"
+  | "preview"
+  | "conversation"
+  | "history"
+  | "validation"
+  | "deployment";
 type RightTab = "conversation" | "history" | "validation" | "deployment";
 
 export interface WorkspaceShellProps {
@@ -80,7 +86,10 @@ export function WorkspaceShell({
   // conversational modification/restore/undo) still work exactly as before —
   // they happen between renders and are simply what the next prop-driven
   // resync would reaffirm anyway.
-  useEffect(() => setVersionNumber(initialVersionNumber), [initialVersionNumber]);
+  useEffect(
+    () => setVersionNumber(initialVersionNumber),
+    [initialVersionNumber]
+  );
   useEffect(() => setSpec(initialSpec), [initialSpec]);
   useEffect(() => setHasPreview(initialHasPreview), [initialHasPreview]);
 
@@ -134,16 +143,32 @@ export function WorkspaceShell({
             Structure
           </button>
           <h1>{appName}</h1>
-          <Badge tone={appStatus === "active" ? "success" : "warning"}>{appStatus === "active" ? "Active" : "Archived"}</Badge>
+          <Badge tone={appStatus === "active" ? "success" : "warning"}>
+            {appStatus === "active" ? "Active" : "Archived"}
+          </Badge>
           <Badge tone="neutral">v{versionNumber}</Badge>
-          <Badge tone={hasPreview ? "success" : "neutral"}>{hasPreview ? "Preview ready" : "No preview yet"}</Badge>
+          <Badge tone={hasPreview ? "success" : "neutral"}>
+            {hasPreview ? "Preview ready" : "No preview yet"}
+          </Badge>
         </div>
         <div className={styles.topBarActions}>
           {hasPreview ? (
-            <ButtonLink href={routes.appPreview(appId)} variant="secondary" size="sm" newTab>
+            <ButtonLink
+              href={routes.appPreview(appId)}
+              variant="secondary"
+              size="sm"
+              newTab
+            >
               Open preview
             </ButtonLink>
           ) : null}
+          <ButtonLink
+            href={routes.appOperations(appId)}
+            variant="secondary"
+            size="sm"
+          >
+            Launch readiness
+          </ButtonLink>
           <Button
             type="button"
             size="sm"
@@ -156,7 +181,11 @@ export function WorkspaceShell({
             Deploy
           </Button>
           {appStatus === "active" && canArchive ? (
-            <ButtonLink href={routes.appArchive(appId)} variant="danger" size="sm">
+            <ButtonLink
+              href={routes.appArchive(appId)}
+              variant="danger"
+              size="sm"
+            >
               Archive
             </ButtonLink>
           ) : null}
@@ -168,10 +197,22 @@ export function WorkspaceShell({
         </div>
       </header>
 
-      {actionError === "forbidden" ? <Alert tone="error">You don&apos;t have permission to perform that action on this app.</Alert> : null}
-      {actionError === "archived" ? <Alert tone="error">Restore this app before requesting a new preview build.</Alert> : null}
+      {actionError === "forbidden" ? (
+        <Alert tone="error">
+          You don&apos;t have permission to perform that action on this app.
+        </Alert>
+      ) : null}
+      {actionError === "archived" ? (
+        <Alert tone="error">
+          Restore this app before requesting a new preview build.
+        </Alert>
+      ) : null}
 
-      <nav className={styles.tabBar} role="tablist" aria-label="Workspace panels">
+      <nav
+        className={styles.tabBar}
+        role="tablist"
+        aria-label="Workspace panels"
+      >
         {MOBILE_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -181,7 +222,13 @@ export function WorkspaceShell({
             className={`ui-btn ${activePanel === tab.id ? "ui-btn--primary" : "ui-btn--ghost"} ui-btn--sm`}
             onClick={() => {
               setActivePanel(tab.id);
-              if (tab.id === "conversation" || tab.id === "history" || tab.id === "validation" || tab.id === "deployment") setRightTab(tab.id);
+              if (
+                tab.id === "conversation" ||
+                tab.id === "history" ||
+                tab.id === "validation" ||
+                tab.id === "deployment"
+              )
+                setRightTab(tab.id);
             }}
           >
             {tab.label}
@@ -190,7 +237,12 @@ export function WorkspaceShell({
       </nav>
 
       <div className={styles.panels}>
-        {drawerOpen ? <div className={styles.drawerBackdrop} onClick={() => setDrawerOpen(false)} /> : null}
+        {drawerOpen ? (
+          <div
+            className={styles.drawerBackdrop}
+            onClick={() => setDrawerOpen(false)}
+          />
+        ) : null}
 
         <section
           id="ab-structure-panel"
@@ -205,9 +257,23 @@ export function WorkspaceShell({
               spec={spec}
               versionNumber={versionNumber}
               appId={appId}
-              onSelectPage={(pageId, label) => setSelection({ appId, specificationVersionNumber: versionNumber, pageId, label })}
+              onSelectPage={(pageId, label) =>
+                setSelection({
+                  appId,
+                  specificationVersionNumber: versionNumber,
+                  pageId,
+                  label,
+                })
+              }
               onSelectComponent={(pageId, componentId, componentKind, label) =>
-                setSelection({ appId, specificationVersionNumber: versionNumber, pageId, componentId, componentKind, label })
+                setSelection({
+                  appId,
+                  specificationVersionNumber: versionNumber,
+                  pageId,
+                  componentId,
+                  componentKind,
+                  label,
+                })
               }
               onOpenHistory={() => {
                 setRightTab("history");
@@ -217,7 +283,10 @@ export function WorkspaceShell({
           </div>
         </section>
 
-        <section className={`${styles.panel} ${styles.previewPanel}`} aria-label="Live preview">
+        <section
+          className={`${styles.panel} ${styles.previewPanel}`}
+          aria-label="Live preview"
+        >
           <div className={styles.panelBody}>
             <PreviewPane
               appId={appId}
@@ -230,8 +299,15 @@ export function WorkspaceShell({
           </div>
         </section>
 
-        <section className={`${styles.panel} ${styles.rightPanel}`} aria-label="Conversation and version history">
-          <div className={styles.rightPanelTabs} role="tablist" aria-label="Conversation or history">
+        <section
+          className={`${styles.panel} ${styles.rightPanel}`}
+          aria-label="Conversation and version history"
+        >
+          <div
+            className={styles.rightPanelTabs}
+            role="tablist"
+            aria-label="Conversation or history"
+          >
             <button
               type="button"
               role="tab"
@@ -300,14 +376,23 @@ export function WorkspaceShell({
                 onVersionApplied={refreshSpec}
               />
             ) : (
-              <DeploymentPanel appId={appId} currentVersionNumber={versionNumber} canApprove={canApprove} canDeploy={canDeploy} />
+              <DeploymentPanel
+                appId={appId}
+                currentVersionNumber={versionNumber}
+                canApprove={canApprove}
+                canDeploy={canDeploy}
+              />
             )}
           </div>
         </section>
       </div>
 
       <footer className={styles.statusBar}>
-        <span>{role === "viewer" ? "Read-only" : "All changes are saved automatically once applied."}</span>
+        <span>
+          {role === "viewer"
+            ? "Read-only"
+            : "All changes are saved automatically once applied."}
+        </span>
         <span>App {appId}</span>
       </footer>
     </div>
