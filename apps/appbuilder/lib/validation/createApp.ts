@@ -83,8 +83,11 @@ const PromptSchema = z
     z
       .string()
       .min(MIN_PROMPT_LENGTH, `Description must be at least ${MIN_PROMPT_LENGTH} characters`)
-      .max(MAX_PROMPT_LENGTH, `Description must be at most ${MAX_PROMPT_LENGTH} characters`)
-      .refine((v) => !/[<>]/.test(v), "Description cannot contain '<' or '>'"),
+      .max(MAX_PROMPT_LENGTH, `Description must be at most ${MAX_PROMPT_LENGTH} characters`),
+    // No angle-bracket ban here: unlike `name`, this is free-form prose fed
+    // to the LLM and rendered only through SafeMarkdown (never
+    // dangerouslySetInnerHTML), so markdown blockquotes ('>'), generics
+    // ('List<string>'), and comparisons ('a < b') are all legitimate.
   );
 
 export const CreateAppInputSchema = z
