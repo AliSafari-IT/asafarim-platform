@@ -22,7 +22,8 @@
     "worker:build": "tsup --config tsup.worker.config.ts",
     "backup:run": "tsx lib/backup/runBackup.ts",
     "backup:restore-rehearsal": "tsx lib/backup/runRestoreRehearsal.ts",
-    "retention:sweep": "tsx lib/retention/runSweep.ts"
+    "retention:sweep": "tsx lib/retention/runSweep.ts",
+    "eval:m13:real": "tsx eval/recordRealProviderBaseline.ts"
   },
   "dependencies": {
     "@asafarim/appbuilder-ai": "workspace:*",
