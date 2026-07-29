@@ -11,7 +11,10 @@ import {
   deleteAttachment,
   getAttachmentForActor,
   initAttachment,
+  listConversationAttachmentsForActor,
+  readAttachmentContentForActor,
 } from "./attachments";
+import { listMessagesForActor } from "./conversations";
 import { NotFoundError } from "../errors";
 import {
   AttachmentAccessDeniedError,
@@ -442,5 +445,216 @@ describe("claimAttachmentsForMessage", () => {
     await expect(
       claimAttachmentsForMessage(db, owner, app.id, conversation.id, message.id, [attachment.id]),
     ).rejects.toBeInstanceOf(AttachmentAccessDeniedError);
+  });
+});
+
+/**
+ * M13 slice C — sending a message WITH attachments. The claim now runs
+ * inside the message's own transaction, so these tests are specifically
+ * about that atomicity: a rejected claim must leave no message behind.
+ */
+describe("appendUserMessage with attachmentIds — transactional claim", () => {
+  async function readyAttachment(appId: string, key: string, actor = owner) {
+    const attachment = await initAttachment(db, actor, appId, {
+      originalFilename: "photo.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: key,
+    });
+    return commitAttachmentContent(db, actor, appId, attachment.id, PNG_1X1);
+  }
+
+  it("claims the attachments as part of sending, returning them with the message", async () => {
+    const app = await makeApp("send-golden");
+    const first = await readyAttachment(app.id, "send-golden-1");
+    const second = await readyAttachment(app.id, "send-golden-2");
+
+    const { message, attachments } = await appendUserMessage(db, owner, app.id, {
+      content: "Match this screenshot.",
+      selectionContext: null,
+      baseVersionNumber: 0,
+      attachmentIds: [first.id, second.id],
+    });
+
+    expect(attachments.map((a) => a.id).sort()).toEqual([first.id, second.id].sort());
+    expect(attachments.every((a) => a.messageId === message.id)).toBe(true);
+  });
+
+  it("rolls the MESSAGE back when a claim fails — never a message whose evidence silently vanished", async () => {
+    const app = await makeApp("send-rollback");
+    const ready = await readyAttachment(app.id, "send-rollback-1");
+    // Never committed, so it is still `pending` and cannot be claimed.
+    const notReady = await initAttachment(db, owner, app.id, {
+      originalFilename: "later.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "send-rollback-2",
+    });
+
+    await expect(
+      appendUserMessage(db, owner, app.id, {
+        content: "Use both of these.",
+        selectionContext: null,
+        baseVersionNumber: 0,
+        attachmentIds: [ready.id, notReady.id],
+      }),
+    ).rejects.toThrow();
+
+    // No half-sent message...
+    expect(await listMessagesForActor(db, owner, app.id)).toHaveLength(0);
+    // ...and the ready attachment stays unclaimed, still available to send.
+    expect((await getAttachmentForActor(db, owner, app.id, ready.id)).messageId).toBeNull();
+  });
+
+  it("rejects a duplicate id in one message rather than claiming it twice", async () => {
+    const app = await makeApp("send-duplicate");
+    const attachment = await readyAttachment(app.id, "send-duplicate-1");
+
+    await expect(
+      appendUserMessage(db, owner, app.id, {
+        content: "Twice.",
+        selectionContext: null,
+        baseVersionNumber: 0,
+        attachmentIds: [attachment.id, attachment.id],
+      }),
+    ).rejects.toThrow();
+    expect(await listMessagesForActor(db, owner, app.id)).toHaveLength(0);
+  });
+
+  it("rejects another editor's upload, taking the message down with it", async () => {
+    const app = await makeApp("send-other-uploader");
+    await addCollaborator(db, owner, app.id, "attach-editor-send", "editor");
+    const editor = { principalId: "attach-editor-send", roles: [] };
+    const theirs = await readyAttachment(app.id, "send-other-1", editor);
+
+    await expect(
+      appendUserMessage(db, owner, app.id, {
+        content: "Not mine to send.",
+        selectionContext: null,
+        baseVersionNumber: 0,
+        attachmentIds: [theirs.id],
+      }),
+    ).rejects.toBeInstanceOf(AttachmentAccessDeniedError);
+    expect(await listMessagesForActor(db, owner, app.id)).toHaveLength(0);
+  });
+
+  it("sends normally when no attachments are involved", async () => {
+    const app = await makeApp("send-none");
+    const { message, attachments } = await appendUserMessage(db, owner, app.id, {
+      content: "Just text.",
+      selectionContext: null,
+      baseVersionNumber: 0,
+    });
+    expect(attachments).toEqual([]);
+    expect(message.content).toBe("Just text.");
+  });
+});
+
+describe("listConversationAttachmentsForActor", () => {
+  it("returns claimed history to any conversation viewer, but another actor's unsent draft to nobody", async () => {
+    const app = await makeApp("list-scope");
+    await addCollaborator(db, owner, app.id, "attach-editor-list", "editor");
+    await addCollaborator(db, owner, app.id, "attach-viewer-list", "viewer");
+    const editor = { principalId: "attach-editor-list", roles: [] };
+    const viewer = { principalId: "attach-viewer-list", roles: [] };
+
+    const sent = await initAttachment(db, editor, app.id, {
+      originalFilename: "sent.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "list-scope-sent",
+    });
+    await commitAttachmentContent(db, editor, app.id, sent.id, PNG_1X1);
+    await appendUserMessage(db, editor, app.id, {
+      content: "Sent with evidence.",
+      selectionContext: null,
+      baseVersionNumber: 0,
+      attachmentIds: [sent.id],
+    });
+
+    // Uploaded but never sent — the editor's own private draft.
+    const draft = await initAttachment(db, editor, app.id, {
+      originalFilename: "draft.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "list-scope-draft",
+    });
+    await commitAttachmentContent(db, editor, app.id, draft.id, PNG_1X1);
+
+    const editorSees = await listConversationAttachmentsForActor(db, editor, app.id);
+    expect(editorSees.map((a) => a.id).sort()).toEqual([sent.id, draft.id].sort());
+
+    const viewerSees = await listConversationAttachmentsForActor(db, viewer, app.id);
+    expect(viewerSees.map((a) => a.id)).toEqual([sent.id]);
+
+    const ownerSees = await listConversationAttachmentsForActor(db, owner, app.id);
+    expect(ownerSees.map((a) => a.id)).toEqual([sent.id]);
+  });
+
+  it("never returns a storage key or a deleted attachment", async () => {
+    const app = await makeApp("list-deleted");
+    const attachment = await initAttachment(db, owner, app.id, {
+      originalFilename: "gone.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "list-deleted-1",
+    });
+    await commitAttachmentContent(db, owner, app.id, attachment.id, PNG_1X1);
+
+    const before = await listConversationAttachmentsForActor(db, owner, app.id);
+    expect(before).toHaveLength(1);
+    expect((before[0] as unknown as { storageKey?: string }).storageKey).toBeUndefined();
+
+    await deleteAttachment(db, owner, app.id, attachment.id);
+    expect(await listConversationAttachmentsForActor(db, owner, app.id)).toHaveLength(0);
+  });
+
+  it("cross-app / unrelated actor: fails as NotFoundError", async () => {
+    const app = await makeApp("list-cross");
+    await expect(listConversationAttachmentsForActor(db, unrelated, app.id)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("readAttachmentContentForActor", () => {
+  // The type reported here is the one derived from the bytes at commit
+  // (`detectedMimeType`), never the client's declared type.
+  it("returns the stored bytes with the sniffed type to a conversation viewer", async () => {
+    const app = await makeApp("content-read");
+    await addCollaborator(db, owner, app.id, "attach-viewer-content", "viewer");
+    const attachment = await initAttachment(db, owner, app.id, {
+      originalFilename: "photo.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "content-read-1",
+    });
+    await commitAttachmentContent(db, owner, app.id, attachment.id, PNG_1X1);
+
+    const content = await readAttachmentContentForActor(db, { principalId: "attach-viewer-content", roles: [] }, app.id, attachment.id);
+    expect(content.contentType).toBe("image/png");
+    expect(content.filename).toBe("photo.png");
+    expect(Buffer.compare(content.bytes, PNG_1X1)).toBe(0);
+  });
+
+  it("refuses to serve bytes for an attachment that is not ready", async () => {
+    const app = await makeApp("content-not-ready");
+    const attachment = await initAttachment(db, owner, app.id, {
+      originalFilename: "photo.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "content-not-ready-1",
+    });
+    await expect(readAttachmentContentForActor(db, owner, app.id, attachment.id)).rejects.toThrow();
+  });
+
+  it("cross-app / unrelated actor: fails as NotFoundError", async () => {
+    const app = await makeApp("content-cross");
+    const attachment = await initAttachment(db, owner, app.id, {
+      originalFilename: "photo.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "content-cross-1",
+    });
+    await commitAttachmentContent(db, owner, app.id, attachment.id, PNG_1X1);
+    await expect(readAttachmentContentForActor(db, unrelated, app.id, attachment.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
