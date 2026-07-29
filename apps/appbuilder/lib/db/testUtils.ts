@@ -27,6 +27,7 @@ const TABLE_NAMES = [
   "preview_builds",
   "modification_operation_batches",
   "modification_jobs",
+  "conversation_attachments",
   "conversation_messages",
   "conversations",
   "generation_operation_batches",

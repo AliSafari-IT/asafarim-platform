@@ -32,6 +32,15 @@ import {
 } from "../generated-data/files";
 import { RuntimePermissionDeniedError } from "../generated-data/runtimeAuth";
 import {
+  AttachmentAlreadyClaimedError,
+  AttachmentMismatchError,
+  AttachmentNotReadyError,
+  AttachmentScanFailedError,
+  AttachmentTooLargeError,
+  TooManyAttachmentsError,
+  UnsupportedAttachmentTypeError,
+} from "../attachments/errors";
+import {
   ReleaseNotEligibleError,
   StaleApprovalError,
 } from "../deployment/errors";
@@ -94,10 +103,42 @@ export function errorResponse(err: unknown): NextResponse {
   }
   if (
     err instanceof FileTooLargeError ||
-    err instanceof UnsupportedMimeTypeError
+    err instanceof UnsupportedMimeTypeError ||
+    err instanceof AttachmentTooLargeError ||
+    err instanceof UnsupportedAttachmentTypeError
   ) {
     return NextResponse.json(
       { error: err.message, code: "invalid_file" },
+      { status: 400 }
+    );
+  }
+  if (err instanceof AttachmentMismatchError) {
+    return NextResponse.json(
+      { error: err.message, code: "attachment_mismatch" },
+      { status: 400 }
+    );
+  }
+  if (err instanceof AttachmentAlreadyClaimedError) {
+    return NextResponse.json(
+      { error: err.message, code: "attachment_already_claimed" },
+      { status: 409 }
+    );
+  }
+  if (err instanceof AttachmentNotReadyError) {
+    return NextResponse.json(
+      { error: err.message, code: "attachment_not_ready" },
+      { status: 409 }
+    );
+  }
+  if (err instanceof AttachmentScanFailedError) {
+    return NextResponse.json(
+      { error: err.message, code: "attachment_scan_failed" },
+      { status: 409 }
+    );
+  }
+  if (err instanceof TooManyAttachmentsError) {
+    return NextResponse.json(
+      { error: err.message, code: "too_many_attachments" },
       { status: 400 }
     );
   }

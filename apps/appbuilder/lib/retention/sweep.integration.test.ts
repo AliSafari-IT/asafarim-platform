@@ -8,9 +8,10 @@ import {
 } from "../db/testUtils";
 import { createApp } from "../repositories/apps";
 import { enqueueValidationRun } from "../repositories/validationRuns";
-import { validationArtifacts, operationalEvents } from "../db/schema";
+import { initAttachment, commitAttachmentContent } from "../repositories/attachments";
+import { validationArtifacts, operationalEvents, conversationAttachments } from "../db/schema";
 import { generateId } from "../db/ids";
-import { sweepExpiredValidationArtifacts } from "./sweep";
+import { sweepExpiredValidationArtifacts, sweepUnclaimedAttachments } from "./sweep";
 
 const db = getTestDb();
 const owner = { principalId: "sweep-owner", roles: [] };
@@ -147,5 +148,77 @@ describe("sweepExpiredValidationArtifacts", () => {
       deleted: 0,
       dryRun: false,
     });
+  });
+});
+
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
+
+describe("sweepUnclaimedAttachments", () => {
+  it("deletes a still-pending attachment older than 24h, leaves a fresh one untouched", async () => {
+    const app = await createApp(db, owner, { name: "Sweep Attach App", slug: "sweep-attach-app" }, "sweep-attach-key");
+
+    const stale = await initAttachment(db, owner, app.id, {
+      originalFilename: "old.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "sweep-attach-stale",
+    });
+    await db
+      .update(conversationAttachments)
+      .set({ createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000) })
+      .where(eq(conversationAttachments.id, stale.id));
+
+    const fresh = await initAttachment(db, owner, app.id, {
+      originalFilename: "new.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "sweep-attach-fresh",
+    });
+
+    const result = await sweepUnclaimedAttachments(db, { dryRun: false });
+    expect(result).toEqual({ category: "conversation_attachments", eligible: 1, deleted: 1, dryRun: false });
+
+    expect(await db.select().from(conversationAttachments).where(eq(conversationAttachments.id, stale.id))).toHaveLength(0);
+    expect(await db.select().from(conversationAttachments).where(eq(conversationAttachments.id, fresh.id))).toHaveLength(1);
+  });
+
+  it("dry run reports eligible rows without deleting anything", async () => {
+    const app = await createApp(db, owner, { name: "Sweep Attach Dry", slug: "sweep-attach-dry" }, "sweep-attach-dry-key");
+    const stale = await initAttachment(db, owner, app.id, {
+      originalFilename: "old.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "sweep-attach-dry-stale",
+    });
+    await db
+      .update(conversationAttachments)
+      .set({ createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000) })
+      .where(eq(conversationAttachments.id, stale.id));
+
+    const result = await sweepUnclaimedAttachments(db, { dryRun: true });
+    expect(result).toEqual({ category: "conversation_attachments", eligible: 1, deleted: 0, dryRun: true });
+    expect(await db.select().from(conversationAttachments).where(eq(conversationAttachments.id, stale.id))).toHaveLength(1);
+  });
+
+  it("never sweeps a ready attachment, no matter its age", async () => {
+    const app = await createApp(db, owner, { name: "Sweep Attach Ready", slug: "sweep-attach-ready" }, "sweep-attach-ready-key");
+    const attachment = await initAttachment(db, owner, app.id, {
+      originalFilename: "old.png",
+      declaredMimeType: "image/png",
+      declaredSizeBytes: PNG_1X1.length,
+      idempotencyKey: "sweep-attach-ready-1",
+    });
+    await commitAttachmentContent(db, owner, app.id, attachment.id, PNG_1X1);
+    await db
+      .update(conversationAttachments)
+      .set({ createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000) })
+      .where(eq(conversationAttachments.id, attachment.id));
+
+    const result = await sweepUnclaimedAttachments(db, { dryRun: false });
+    expect(result).toEqual({ category: "conversation_attachments", eligible: 0, deleted: 0, dryRun: false });
+    expect(await db.select().from(conversationAttachments).where(eq(conversationAttachments.id, attachment.id))).toHaveLength(1);
   });
 });

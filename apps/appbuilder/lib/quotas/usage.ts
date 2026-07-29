@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, notInArray, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import {
   apps,
+  conversationAttachments,
   deployments,
   generatedFiles,
   generatedWorkflowExecutions,
@@ -11,6 +12,16 @@ import {
   validationRuns,
 } from "../db/schema";
 import { generationJobs } from "../db/schema";
+
+/** Attachment rows still counted against quota — everything except a soft-deleted tombstone. */
+const NON_DELETED_ATTACHMENT_STATUSES = [
+  "pending",
+  "uploaded",
+  "processing",
+  "ready",
+  "quarantined",
+  "failed",
+] as const;
 
 /**
  * Every "current usage" counter a quota check or the readiness UI needs,
@@ -167,6 +178,35 @@ export async function countConcurrentDeploymentJobsForApp(
         eq(deployments.appId, appId),
         notInArray(deployments.status, [...TERMINAL_DEPLOYMENT_STATUSES])
       )
+    );
+  return row?.count ?? 0;
+}
+
+/** Sums bytes for every non-deleted attachment (including in-flight `pending`/`uploaded` rows) — the quota bounds worst-case storage exposure, not just successfully-processed attachments. */
+export async function sumAttachmentBytesForApp(db: Db, appId: string): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`coalesce(sum(coalesce(${conversationAttachments.actualSizeBytes}, ${conversationAttachments.declaredSizeBytes})), 0)::bigint`,
+    })
+    .from(conversationAttachments)
+    .where(
+      and(
+        eq(conversationAttachments.appId, appId),
+        inArray(conversationAttachments.status, [...NON_DELETED_ATTACHMENT_STATUSES]),
+      ),
+    );
+  return Number(row?.total ?? 0);
+}
+
+export async function countAttachmentsForApp(db: Db, appId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(conversationAttachments)
+    .where(
+      and(
+        eq(conversationAttachments.appId, appId),
+        inArray(conversationAttachments.status, [...NON_DELETED_ATTACHMENT_STATUSES]),
+      ),
     );
   return row?.count ?? 0;
 }
