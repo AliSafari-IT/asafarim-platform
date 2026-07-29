@@ -29,12 +29,16 @@ import {
   countConcurrentDeploymentJobsForApp,
   countConcurrentValidationJobsForApp,
   countPreviewBuildsForApp,
+  countReferenceFetchesTodayForApp,
+  countReferencesForApp,
   countSpecificationVersionsForApp,
   countWorkflowExecutionsTodayForApp,
   sumAttachmentBytesForApp,
   sumStorageBytesForApp,
 } from "../quotas/usage";
 import { isCustomDomainsEnabled } from "../customDomains/featureFlag";
+import { getReferenceImportHealth } from "../repositories/references";
+import { REFERENCE_LIMITS } from "../references/limits";
 import {
   getLatestBackupStatus,
   getLatestRestoreRehearsal,
@@ -74,6 +78,8 @@ const QUOTA_METRIC_LABELS: Record<QuotaMetric, string> = {
   concurrent_validation_jobs_per_app: "Concurrent validation runs",
   attachment_bytes_per_app: "Conversation attachment storage",
   attachments_per_app: "Conversation attachments",
+  references_per_app: "Imported public references",
+  reference_fetches_per_day_per_app: "Public reference fetches today",
 };
 
 export interface QuotaSnapshotEntry {
@@ -203,6 +209,24 @@ export interface AppReadinessSnapshot {
       tlsState: string;
       verifiedAt: string | null;
     } | null;
+  };
+
+  /**
+   * M13 slice F — public-reference import. `"unknown"` until something has
+   * actually been imported: nothing is probed to produce this (a readiness
+   * endpoint that makes outbound requests is itself an SSRF surface), so
+   * "no data yet" is reported as no data, never as healthy.
+   */
+  referenceImport: {
+    status: ReadinessStatus;
+    cacheTtlSeconds: number;
+    /** Always "none (public API only)" for GitHub — no token is ever sent (see lib/references/github.ts). */
+    githubAuthentication: string;
+    cached: number;
+    stale: number;
+    unavailable: number;
+    lastFetchedAt: string | null;
+    lastFailureCode: string | null;
   };
 
   /** null for a restricted (viewer) response. */
@@ -335,6 +359,18 @@ export async function buildAppReadinessSnapshot(
             ? "degraded"
             : "unknown";
 
+  const referenceHealth = await getReferenceImportHealth(db, appId, now);
+  const referenceImportStatus: ReadinessStatus =
+    referenceHealth.cached === 0 &&
+    referenceHealth.stale === 0 &&
+    referenceHealth.unavailable === 0
+      ? "unknown"
+      : referenceHealth.unavailable > 0
+        ? "unhealthy"
+        : referenceHealth.stale > 0
+          ? "degraded"
+          : "healthy";
+
   const [customDomainRequest] = await db
     .select()
     .from(customDomainRequests)
@@ -463,6 +499,16 @@ export async function buildAppReadinessSnapshot(
           }
         : null,
     },
+    referenceImport: {
+      status: referenceImportStatus,
+      cacheTtlSeconds: REFERENCE_LIMITS.CACHE_TTL_SECONDS,
+      githubAuthentication: "none (public API only)",
+      cached: referenceHealth.cached,
+      stale: referenceHealth.stale,
+      unavailable: referenceHealth.unavailable,
+      lastFetchedAt: iso(referenceHealth.lastFetchedAt),
+      lastFailureCode: referenceHealth.lastFailureCode,
+    },
     launchBlockingIssues,
   };
 
@@ -502,6 +548,9 @@ export async function buildAppReadinessSnapshot(
       countConcurrentValidationJobsForApp(db, appId),
     attachment_bytes_per_app: () => sumAttachmentBytesForApp(db, appId),
     attachments_per_app: () => countAttachmentsForApp(db, appId),
+    references_per_app: () => countReferencesForApp(db, appId),
+    reference_fetches_per_day_per_app: () =>
+      countReferenceFetchesTodayForApp(db, appId),
   };
 
   const quotas: QuotaSnapshotEntry[] = [];

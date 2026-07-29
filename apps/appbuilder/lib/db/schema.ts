@@ -279,6 +279,48 @@ export const conversationAttachmentFailureCodeEnum = pgEnum(
   ]
 );
 
+// M13 slice F: which adapter produced an imported public reference. Stored
+// (with a version, see conversation_references.adapter_version) so a cached
+// row can always be attributed — M13 requires provenance to carry
+// "adapter/version".
+export const conversationReferenceAdapterEnum = pgEnum(
+  "conversation_reference_adapter",
+  ["generic_https", "github_profile", "github_repository"]
+);
+
+// M13 slice F: an imported reference's usability. Deliberately NOT a
+// freshness enum — freshness is DERIVED at read time from `fetched_at`,
+// `cache_expires_at`, and `failure_code` (lib/references/provenance.ts), so
+// a row can never sit in the database asserting it is "live" while the clock
+// moves on. `ready` = usable content is stored (possibly past its TTL, and
+// possibly after a failed refresh — both report as stale, never live);
+// `unavailable` = no usable content was ever stored; `deleted` = soft
+// tombstone, same convention as conversation_attachments.
+export const conversationReferenceStatusEnum = pgEnum(
+  "conversation_reference_status",
+  ["ready", "unavailable", "deleted"]
+);
+
+// M13 slice F: safe, stable failure classification for a reference import —
+// mirrors lib/references/errors.ts#ReferenceFailureCode. Never a raw
+// exception, remote response body, resolved IP address, or redirect chain
+// (telling a caller which internal address their URL resolved to would turn
+// a blocked SSRF attempt into a working port scanner — see that module's
+// docstring).
+export const conversationReferenceFailureCodeEnum = pgEnum(
+  "conversation_reference_failure_code",
+  [
+    "url_not_allowed",
+    "too_many_redirects",
+    "timeout",
+    "too_large",
+    "unsupported_content_type",
+    "fetch_failed",
+    "rate_limited",
+    "no_content",
+  ]
+);
+
 // M08: the conversational modification job's own lifecycle — deliberately a
 // SEPARATE enum/state machine from generation_job_status (see
 // lib/modification/stateMachine.ts), even though both are AI-driven and
@@ -1456,6 +1498,103 @@ export const conversationMemories = pgTable(
       table.conversationId
     ),
     index("conversation_memories_app_id_idx").on(table.appId),
+  ]
+);
+
+// M13 slice F: one row per public HTTPS URL a conversation has imported —
+// simultaneously the durable reference AND its cache. The unique index on
+// (app_id, source_url) is what makes that safe: a re-import of the same URL
+// refreshes this row in place instead of accumulating a new row per fetch, so
+// "how many outbound requests has this app made" stays bounded by the quota
+// and not by how often someone clicks Import.
+//
+// Deliberately NOT claimed by a message the way conversation_attachments are.
+// An attachment is a one-shot upload whose bytes belong to the message that
+// sent them; a reference is an addressable, re-fetchable, cacheable pointer
+// at somebody else's server, shared by every turn that mentions it. Binding
+// it to one message would mean re-fetching the same URL for the next turn.
+//
+// Freshness is never stored (see conversation_reference_status): `fetched_at`
+// + `cache_expires_at` + `failure_code` are the raw facts, and
+// lib/references/provenance.ts#freshnessOfRow derives cached/stale/
+// unavailable from them at read time. `extracted_text` is bounded remote
+// content and is always treated as untrusted prompt data.
+export const conversationReferences = pgTable(
+  "conversation_references",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    importedByPrincipalId: text("imported_by_principal_id").notNull(),
+
+    // The normalized URL the user asked for (lib/references/urlPolicy.ts#
+    // normalizeReferenceUrl) — the cache key, and what provenance reports as
+    // the source.
+    sourceUrl: text("source_url").notNull(),
+    // Where the fetch actually ended up: after redirects, or the API
+    // endpoint an adapter used instead of the page.
+    finalUrl: text("final_url"),
+    host: text("host").notNull(),
+
+    adapter: conversationReferenceAdapterEnum("adapter").notNull(),
+    adapterVersion: text("adapter_version").notNull(),
+
+    status: conversationReferenceStatusEnum("status").notNull().default("unavailable"),
+
+    title: text("title"),
+    contentType: text("content_type"),
+    // Bounded (REFERENCE_LIMITS.MAX_EXTRACTED_TEXT_CHARS) remote text.
+    extractedText: text("extracted_text"),
+    // ReferenceFact[] (lib/references/limits.ts) — labelled values an adapter
+    // projected out of the response. Remote data, wrapped as untrusted at
+    // prompt-build time exactly like extracted_text.
+    facts: jsonb("facts").$type<Record<string, unknown>[]>().notNull().default([]),
+    // SHA-256 over the extracted text + facts, so a refresh can report
+    // "unchanged" without diffing content.
+    contentHash: text("content_hash"),
+    originalChars: integer("original_chars"),
+    truncated: boolean("truncated").notNull().default(false),
+
+    // When the content above was fetched, and when it stops being reusable
+    // without a re-fetch. Persisted (not recomputed from a constant) so
+    // changing the TTL never silently re-validates rows fetched under the
+    // old one.
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }),
+    cacheExpiresAt: timestamp("cache_expires_at", { withTimezone: true }),
+    refreshCount: integer("refresh_count").notNull().default(0),
+
+    // Set when the MOST RECENT fetch attempt failed, even when older content
+    // is still stored — which is exactly what downgrades freshness to
+    // `stale` rather than letting a failed refresh keep the `cached` label.
+    // Cleared on a successful fetch.
+    failureCode: conversationReferenceFailureCodeEnum("failure_code"),
+    failureMessage: text("failure_message"),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("conversation_references_app_source_url_unique").on(
+      table.appId,
+      table.sourceUrl
+    ),
+    index("conversation_references_app_id_idx").on(table.appId),
+    index("conversation_references_conversation_id_idx").on(
+      table.conversationId
+    ),
+    index("conversation_references_status_fetched_at_idx").on(
+      table.status,
+      table.fetchedAt
+    ),
   ]
 );
 
@@ -2816,6 +2955,10 @@ export const usageEventKindEnum = pgEnum("usage_event_kind", [
   "deployment",
   "workflow_execution",
   "storage_write",
+  // M13 slice F: one outbound public-reference fetch. Recorded in the same
+  // transaction as the quota check that bounds it, so "fetches today" is
+  // re-derived from this ledger rather than a counter that could drift.
+  "public_reference_fetch",
 ]);
 
 // Append-only usage ledger. Exists so M12 "preserve enough usage data for
@@ -3266,6 +3409,21 @@ export const conversationsRelations = relations(
     modificationJobs: many(modificationJobs),
     attachments: many(conversationAttachments),
     memory: many(conversationMemories),
+    publicReferences: many(conversationReferences),
+  })
+);
+
+export const conversationReferencesRelations = relations(
+  conversationReferences,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [conversationReferences.appId],
+      references: [apps.id],
+    }),
+    conversation: one(conversations, {
+      fields: [conversationReferences.conversationId],
+      references: [conversations.id],
+    }),
   })
 );
 

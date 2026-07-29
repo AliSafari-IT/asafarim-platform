@@ -41,6 +41,16 @@ import {
   UnsupportedAttachmentTypeError,
 } from "../attachments/errors";
 import {
+  ReferenceFetchFailedError,
+  ReferenceNoContentError,
+  ReferenceRateLimitedError,
+  ReferenceTimeoutError,
+  ReferenceTooLargeError,
+  ReferenceTooManyRedirectsError,
+  ReferenceUrlNotAllowedError,
+  UnsupportedReferenceContentTypeError,
+} from "../references/errors";
+import {
   ReleaseNotEligibleError,
   StaleApprovalError,
 } from "../deployment/errors";
@@ -229,6 +239,69 @@ export function errorResponse(err: unknown): NextResponse {
     return NextResponse.json(
       { error: err.message, code: "stale_approval", reasons: err.reasons },
       { status: 409 }
+    );
+  }
+  // M13 slice F — reference import. Every one of these is a 4xx about the
+  // URL the caller supplied, never a 5xx: a refused destination, an oversize
+  // page, or a rate-limited third party are all expected outcomes of letting
+  // someone name an arbitrary public address. The `code` is what the composer
+  // branches on; the message is already safe (lib/references/errors.ts) and
+  // deliberately never names a resolved address.
+  if (err instanceof ReferenceUrlNotAllowedError) {
+    return NextResponse.json(
+      { error: err.message, code: "reference_url_not_allowed" },
+      { status: 400 }
+    );
+  }
+  if (err instanceof UnsupportedReferenceContentTypeError) {
+    return NextResponse.json(
+      { error: err.message, code: "reference_unsupported_content" },
+      { status: 415 }
+    );
+  }
+  if (err instanceof ReferenceTooLargeError) {
+    return NextResponse.json(
+      { error: err.message, code: "reference_too_large" },
+      { status: 413 }
+    );
+  }
+  if (err instanceof ReferenceTooManyRedirectsError) {
+    return NextResponse.json(
+      { error: err.message, code: "reference_too_many_redirects" },
+      { status: 502 }
+    );
+  }
+  if (err instanceof ReferenceTimeoutError) {
+    return NextResponse.json(
+      { error: err.message, code: "reference_timeout" },
+      { status: 504 }
+    );
+  }
+  if (err instanceof ReferenceRateLimitedError) {
+    return NextResponse.json(
+      {
+        error: err.message,
+        code: "reference_rate_limited",
+        retryAfterSeconds: err.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: err.retryAfterSeconds
+          ? { "retry-after": String(err.retryAfterSeconds) }
+          : undefined,
+      }
+    );
+  }
+  if (err instanceof ReferenceNoContentError) {
+    return NextResponse.json(
+      { error: err.message, code: "reference_no_content" },
+      { status: 422 }
+    );
+  }
+  if (err instanceof ReferenceFetchFailedError) {
+    return NextResponse.json(
+      { error: err.message, code: "reference_fetch_failed" },
+      { status: 502 }
     );
   }
   if (err instanceof CustomDomainsDisabledError) {

@@ -7,6 +7,7 @@ import { createApp } from "../repositories/apps";
 import { applyOperation } from "../repositories/operations";
 import { appendSystemMessage, appendUserMessage } from "../repositories/conversations";
 import { commitAttachmentContent, initAttachment } from "../repositories/attachments";
+import { deleteConversationReference, importConversationReference } from "../repositories/references";
 import { recordResolvedReference, recallConversationMemory } from "../repositories/conversationMemory";
 import { buildSpecIndex } from "./specIndex";
 import { buildModificationContext, CONTEXT_LIMITS, toPersistableManifest } from "./contextAssembler";
@@ -297,6 +298,107 @@ describe("attachment evidence", () => {
     const context = await build(app.id, first.conversation.id, trigger.message.id, versionNumber, "use it");
 
     expect(context.grounded.attachments.map((a) => a.filename)).toContain("brief.txt");
+  });
+});
+
+describe("imported public reference evidence (M13 slice F)", () => {
+  /** Imports a reference through the real repository path, with an injected fetch. */
+  async function importReference(appId: string, url: string, body: string, options: { refresh?: boolean; status?: number } = {}) {
+    const fetchImpl = (async () =>
+      new Response(options.status && options.status >= 400 ? null : body, {
+        status: options.status ?? 200,
+        headers: options.status && options.status >= 400 ? {} : { "content-type": "text/html; charset=utf-8" },
+      })) as unknown as typeof fetch;
+    return importConversationReference(
+      db,
+      owner,
+      appId,
+      { url, refresh: options.refresh },
+      { fetchImpl, resolveHost: async () => ["93.184.216.34"] },
+    );
+  }
+
+  it("includes imported reference text with its provenance, and never labels it live", async () => {
+    const { app, versionNumber } = await setupTitleApp("ref-included");
+    const first = await sendRequest(app.id, versionNumber, "ground this in my site");
+    await importReference(app.id, "https://example.com/about", "<title>About</title><body><p>Ali builds AI systems.</p></body>");
+    const trigger = await sendRequest(app.id, versionNumber, "use my site copy");
+
+    const context = await build(app.id, first.conversation.id, trigger.message.id, versionNumber, "use my site copy");
+
+    expect(context.grounded.references).toHaveLength(1);
+    const reference = context.grounded.references[0];
+    expect(reference.sourceUrl).toBe("https://example.com/about");
+    expect(reference.host).toBe("example.com");
+    expect(reference.adapter).toBe("generic_https");
+    expect(reference.adapterVersion).toBe("m13-slice-f-v1");
+    expect(reference.fetchedAt).toBeTruthy();
+    expect(reference.availability).toBe("text_included");
+    expect(reference.text).toContain("Ali builds AI systems.");
+    // `live` is not even representable here — a stored row is a past fetch.
+    expect(reference.freshness).toBe("cached");
+    expect(context.grounded.manifest.redactionFlags).toContain("untrusted_reference_text");
+    expect(context.grounded.manifest.includedSourceIds).toContain(`reference:${reference.id}`);
+  });
+
+  it("marks a reference whose last refresh failed as stale, and flags it in the manifest", async () => {
+    const { app, versionNumber } = await setupTitleApp("ref-stale");
+    const first = await sendRequest(app.id, versionNumber, "ground this");
+    await importReference(app.id, "https://example.com/a", "<body><p>Original copy</p></body>");
+    await importReference(app.id, "https://example.com/a", "", { refresh: true, status: 500 });
+    const trigger = await sendRequest(app.id, versionNumber, "use it");
+
+    const context = await build(app.id, first.conversation.id, trigger.message.id, versionNumber, "use it");
+
+    const reference = context.grounded.references[0];
+    expect(reference.freshness).toBe("stale");
+    // The usable older copy is still supplied — stale is not the same as gone.
+    expect(reference.text).toContain("Original copy");
+    expect(context.grounded.manifest.redactionFlags).toContain("stale_reference_content");
+  });
+
+  it("bounds included reference text and accounts for the truncation", async () => {
+    const { app, versionNumber } = await setupTitleApp("ref-truncate");
+    const first = await sendRequest(app.id, versionNumber, "ground this");
+    const long = "y".repeat(CONTEXT_LIMITS.MAX_REFERENCE_TEXT_CHARS_PER_REFERENCE + 2_000);
+    const imported = await importReference(app.id, "https://example.com/long", `<body><p>${long}</p></body>`);
+    const trigger = await sendRequest(app.id, versionNumber, "use it");
+
+    const context = await build(app.id, first.conversation.id, trigger.message.id, versionNumber, "use it");
+
+    const reference = context.grounded.references[0];
+    expect(reference.availability).toBe("text_truncated");
+    expect(reference.text!.length).toBe(CONTEXT_LIMITS.MAX_REFERENCE_TEXT_CHARS_PER_REFERENCE);
+    expect(context.grounded.manifest.truncated).toContainEqual({
+      sourceId: `reference:${imported.reference.id}`,
+      originalChars: reference.originalChars,
+      includedChars: reference.includedChars,
+    });
+  });
+
+  it("never includes a deleted reference", async () => {
+    const { app, versionNumber } = await setupTitleApp("ref-deleted");
+    const first = await sendRequest(app.id, versionNumber, "ground this");
+    const imported = await importReference(app.id, "https://example.com/a", "<body><p>Gone soon</p></body>");
+    await deleteConversationReference(db, owner, app.id, imported.reference.id);
+    const trigger = await sendRequest(app.id, versionNumber, "use it");
+
+    const context = await build(app.id, first.conversation.id, trigger.message.id, versionNumber, "use it");
+    expect(context.grounded.references).toHaveLength(0);
+  });
+
+  it("keeps the persisted manifest to provenance only — never the imported text or full URL", async () => {
+    const { app, versionNumber } = await setupTitleApp("ref-manifest");
+    const first = await sendRequest(app.id, versionNumber, "ground this");
+    await importReference(app.id, "https://example.com/secret-path", "<body><p>Third party words</p></body>");
+    const trigger = await sendRequest(app.id, versionNumber, "use it");
+
+    const context = await build(app.id, first.conversation.id, trigger.message.id, versionNumber, "use it");
+    const persisted = JSON.stringify(toPersistableManifest(context.grounded));
+
+    expect(persisted).toContain("example.com");
+    expect(persisted).not.toContain("Third party words");
+    expect(persisted).not.toContain("secret-path");
   });
 });
 

@@ -55,7 +55,9 @@ export type Capability =
   | "app.viewOperations" // view the M12 launch-readiness/operations snapshot — viewers get a restricted subset, resolved in the aggregation route itself, not via a separate capability
   | "app.manageCustomDomainRequest" // create/cancel a (feature-flagged, inert) custom-domain readiness request (M12)
   | "app.uploadAttachment" // init/commit/delete a conversation attachment (M13)
-  | "app.viewAttachment"; // view a conversation attachment's metadata (M13)
+  | "app.viewAttachment" // view a conversation attachment's metadata (M13)
+  | "app.importReference" // import/refresh/remove a public HTTPS reference (M13 slice F)
+  | "app.viewReference"; // view an imported reference's metadata/provenance (M13 slice F)
 
 /** The minimum role each capability requires. Owner outranks editor outranks viewer. */
 const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
@@ -110,6 +112,12 @@ const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
   // may otherwise edit the specification.
   "app.uploadAttachment": "editor",
   "app.viewAttachment": "viewer",
+  // M13 slice F: importing a reference makes this platform send an outbound
+  // request to a host the caller names, so it sits at the same floor as any
+  // other specification-affecting action — never at viewer, which would let
+  // read-only collaborators use the app as an outbound request proxy.
+  "app.importReference": "editor",
+  "app.viewReference": "viewer",
 };
 
 /** Whether a role grants a capability. Exported so tests/UI can render capability-gated affordances consistently. */
@@ -133,6 +141,7 @@ const ALLOWED_WHILE_ARCHIVED: ReadonlySet<Capability> = new Set([
   "app.viewValidation",
   "app.viewOperations",
   "app.viewAttachment",
+  "app.viewReference",
 ]);
 
 export interface AppAccess {

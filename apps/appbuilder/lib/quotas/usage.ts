@@ -3,6 +3,7 @@ import type { Db } from "../db/client";
 import {
   apps,
   conversationAttachments,
+  conversationReferences,
   deployments,
   generatedFiles,
   generatedWorkflowExecutions,
@@ -206,6 +207,41 @@ export async function countAttachmentsForApp(db: Db, appId: string): Promise<num
       and(
         eq(conversationAttachments.appId, appId),
         inArray(conversationAttachments.status, [...NON_DELETED_ATTACHMENT_STATUSES]),
+      ),
+    );
+  return row?.count ?? 0;
+}
+
+/** Non-deleted imported public references for an app (M13 slice F). One row per URL, refreshed in place — so this counts distinct references, not fetches. */
+export async function countReferencesForApp(db: Db, appId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(conversationReferences)
+    .where(
+      and(
+        eq(conversationReferences.appId, appId),
+        notInArray(conversationReferences.status, ["deleted"]),
+      ),
+    );
+  return row?.count ?? 0;
+}
+
+/**
+ * Outbound public-reference fetches this app has made today (M13 slice F),
+ * counted from the append-only usage ledger rather than from the reference
+ * rows — a refresh overwrites its row, so the rows cannot tell you how many
+ * requests were actually sent. This is the counter that bounds using the
+ * platform as an outbound proxy.
+ */
+export async function countReferenceFetchesTodayForApp(db: Db, appId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(usageEvents)
+    .where(
+      and(
+        eq(usageEvents.appId, appId),
+        eq(usageEvents.kind, "public_reference_fetch"),
+        gte(usageEvents.occurredAt, startOfUtcDay()),
       ),
     );
   return row?.count ?? 0;

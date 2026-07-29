@@ -108,6 +108,15 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
       "Operators only (not exposed in the workspace UI beyond the aggregated quota snapshot).",
   },
   {
+    category: "public_reference_cache",
+    retentionDays: null,
+    description:
+      "M13 slice F imported public references (conversation_references): provenance (source URL, final URL, adapter/version, fetch time) plus bounded extracted third-party text, retained with the conversation because the reference is what a past turn was grounded in. The CACHE window is separate and much shorter — 6 hours (REFERENCE_LIMITS.CACHE_TTL_SECONDS), after which the stored copy is reported as `stale` and reused only if a re-fetch fails. Removing a reference clears the stored remote text immediately and leaves a provenance tombstone; included in app deletion/export.",
+    automatedCleanup: false,
+    accessibleTo:
+      "App owner/editors (import/refresh/remove); viewers (provenance only, never the stored text); operators.",
+  },
+  {
     category: "operational_events",
     retentionDays: 365,
     description:
