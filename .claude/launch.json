@@ -39,9 +39,9 @@
     },
     {
       "name": "appbuilder",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@asafarim/appbuilder", "dev"],
-      "port": 3006
+      "url": "http://localhost:3006",
+      "port": 3006,
+      "autoPort": false
     }
   ]
 }
