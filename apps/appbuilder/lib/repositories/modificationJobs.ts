@@ -237,6 +237,8 @@ export async function releaseLease(db: Db, jobId: string, workerId: string): Pro
 export interface ModificationJobFieldPatch {
   phase?: string;
   normalizedRequest?: Record<string, unknown>;
+  /** M13 slice D — the SAFE grounding summary (see lib/modification/contextAssembler.ts#toPersistableManifest). Never the assembled prompt. */
+  contextManifest?: Record<string, unknown>;
   totalOperationsApplied?: number;
   providerName?: string;
   providerModel?: string;
@@ -258,6 +260,8 @@ export async function updateJobFields(db: Db, jobId: string, patch: Modification
 export interface ModificationTransitionPatch {
   phase?: string;
   normalizedRequest?: Record<string, unknown>;
+  /** M13 slice D — the SAFE grounding summary (see lib/modification/contextAssembler.ts#toPersistableManifest). Never the assembled prompt. */
+  contextManifest?: Record<string, unknown>;
   totalOperationsApplied?: number;
   confirmationRequired?: boolean;
   confirmationChecksum?: string;

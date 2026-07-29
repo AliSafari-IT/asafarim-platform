@@ -6,6 +6,7 @@ import type {
 import type { Db } from "../db/client";
 import { specifications, specificationVersions } from "../db/schema";
 import { ConflictError, NotFoundError } from "../errors";
+import { PreviewEvidence } from "./previewEvidence";
 
 /**
  * The ONLY shape a client may send to attach preview-selection context to a
@@ -24,6 +25,16 @@ export const SelectionContext = z.object({
   componentKind: z.string().min(1).max(100).optional(),
   label: z.string().max(200).optional(),
   registryMetadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  /**
+   * M13 slice D — bounded DOM evidence about *what was clicked*, for the
+   * case where the click did not land on an instrumented component. It is
+   * evidence only: `lib/modification/previewEvidence.ts` maps it onto stable
+   * specification targets server-side, and nothing downstream can build an
+   * operation from it. This is why it stays a sibling of the stable-id
+   * fields rather than being folded into them — a selector must never be
+   * mistaken for a target.
+   */
+  previewEvidence: PreviewEvidence.optional(),
 });
 export type SelectionContextType = z.infer<typeof SelectionContext>;
 

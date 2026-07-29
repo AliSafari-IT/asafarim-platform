@@ -11,6 +11,22 @@ export interface PreviewReadyMessage {
   type: "ab-preview-ready";
   nonce: string;
 }
+/**
+ * M13 slice D — bounded DOM evidence about a click that did NOT land on an
+ * instrumented component. Kept separate from the stable-id fields above on
+ * purpose: the server maps this onto specification targets
+ * (lib/modification/previewEvidence.ts) and never lets it become a mutation
+ * target. Each field is length-capped here as well as by the server's Zod
+ * schema, so a compromised frame cannot use the channel to push bulk data
+ * into the parent.
+ */
+export interface PreviewDomEvidence {
+  domTagName?: string;
+  domRole?: string;
+  domTextSnippet?: string;
+  domOutsideSpecRegion?: boolean;
+}
+
 export interface PreviewSelectMessage {
   type: "ab-preview-select";
   nonce: string;
@@ -21,6 +37,23 @@ export interface PreviewSelectMessage {
   componentId?: string;
   componentKind?: string;
   label?: string;
+  previewEvidence?: PreviewDomEvidence;
+}
+
+const MAX_DOM_TAG_NAME_CHARS = 40;
+const MAX_DOM_ROLE_CHARS = 40;
+const MAX_DOM_TEXT_CHARS = 200;
+
+/** Parses (and re-bounds) the optional DOM-evidence block. Returns `undefined` rather than throwing for anything malformed — evidence is best-effort by design. */
+function parseDomEvidence(raw: unknown): PreviewDomEvidence | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const d = raw as Record<string, unknown>;
+  const evidence: PreviewDomEvidence = {};
+  if (typeof d.domTagName === "string") evidence.domTagName = d.domTagName.slice(0, MAX_DOM_TAG_NAME_CHARS);
+  if (typeof d.domRole === "string") evidence.domRole = d.domRole.slice(0, MAX_DOM_ROLE_CHARS);
+  if (typeof d.domTextSnippet === "string") evidence.domTextSnippet = d.domTextSnippet.slice(0, MAX_DOM_TEXT_CHARS);
+  if (typeof d.domOutsideSpecRegion === "boolean") evidence.domOutsideSpecRegion = d.domOutsideSpecRegion;
+  return Object.keys(evidence).length > 0 ? evidence : undefined;
 }
 export type ParentInboundMessage = PreviewReadyMessage | PreviewSelectMessage;
 
@@ -49,6 +82,7 @@ export function parseParentInboundMessage(data: unknown): ParentInboundMessage |
     componentId: typeof d.componentId === "string" ? d.componentId : undefined,
     componentKind: typeof d.componentKind === "string" ? d.componentKind : undefined,
     label: typeof d.label === "string" ? d.label : undefined,
+    previewEvidence: parseDomEvidence(d.previewEvidence),
   };
 }
 
@@ -75,6 +109,7 @@ export type EvaluateResult =
         componentId?: string;
         componentKind?: string;
         label?: string;
+        previewEvidence?: PreviewDomEvidence;
       };
     }
   | { kind: "stale_version" }
@@ -108,6 +143,7 @@ export function evaluateParentInboundMessage(params: EvaluateParams): EvaluateRe
       componentId: message.componentId,
       componentKind: message.componentKind,
       label: message.label,
+      previewEvidence: message.previewEvidence,
     },
   };
 }

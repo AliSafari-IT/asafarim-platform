@@ -34,6 +34,11 @@ import { computeProposalChecksum, confirmationExpiresAt } from "./confirmation";
 import { classifyModificationError, ModificationJobError } from "./errors";
 import { MODIFICATION_LIMITS } from "./limits";
 import type { ModificationJobStatus } from "./stateMachine";
+import { buildModificationContext, toPersistableManifest } from "./contextAssembler";
+import { buildSpecIndex } from "./specIndex";
+import type { TargetResolution } from "./targetResolver";
+import type { SelectionContextType } from "./selectionContext";
+import { recordResolvedReference } from "../repositories/conversationMemory";
 
 export interface ModificationPipelineDeps {
   db: Db;
@@ -193,35 +198,87 @@ async function runPhase(deps: ModificationPipelineDeps, job: ModificationJobRow)
 
 async function runInterpretingPhase(deps: ModificationPipelineDeps, job: ModificationJobRow): Promise<ModificationJobRow> {
   const currentSpec = await loadCurrentSpecPayload(deps.db, job.appId, job.baseVersionNumber);
-  const selection = (job.selectionContext as unknown as ModificationSelectionContext | null) ?? null;
+  const selection = (job.selectionContext as unknown as SelectionContextType | null) ?? null;
+
+  // M13 slice D: interpretation is grounded before the provider is ever
+  // called. `buildModificationContext` is the single provider-input builder
+  // — it indexes the current specification, resolves the request's target
+  // deterministically, verifies conversation memory against that index, and
+  // assembles bounded history and attachment evidence with a manifest of
+  // what was included, truncated, or dropped.
+  const context = await buildModificationContext({
+    db: deps.db,
+    appId: job.appId,
+    conversationId: job.conversationId,
+    triggeringMessageId: job.triggeringMessageId,
+    userRequest: job.userRequestText,
+    currentSpec,
+    currentVersionNumber: job.baseVersionNumber,
+    selection,
+  });
+  await heartbeat(deps.db, job.id, deps.workerId, deps.leaseDurationMs);
 
   const { proposal, usage } = await deps.provider.proposeModification(
     {
       userRequest: job.userRequestText,
       currentSpec,
-      selection,
+      selection: selection as ModificationSelectionContext | null,
       operationBudget: MODIFICATION_LIMITS.MAX_OPERATIONS_PER_PROPOSAL,
+      groundedContext: context.grounded,
     },
     { signal: deps.signal, requestId: `${job.id}:interpret:a${job.attemptCount}` },
   );
   await heartbeat(deps.db, job.id, deps.workerId, deps.leaseDurationMs);
 
+  // Persisted regardless of outcome — a job that ended in a question is
+  // exactly the one an operator most needs to be able to explain, and this
+  // is the safe summary (no prompt, no conversation text, no file content).
+  const contextManifest = {
+    ...toPersistableManifest(context.grounded),
+    // The phrases this request bound to its target, kept so a successful
+    // apply can write them into memory (see recordResolvedReferences) —
+    // "the title" must still mean something two turns later.
+    memoryPhrases: memoryPhrasesFor(context.resolution),
+  };
+
   if (proposal.clarificationNeeded) {
-    // M08 deliberately does not implement a multi-round clarification state
-    // machine for conversational modification (see schemas/
-    // modificationProposal.ts's docstring) — an ambiguous request fails
-    // safely with the model's own (schema-bounded, validated) explanation,
-    // and the user can simply send a more specific follow-up message.
-    throw new ModificationJobError("invalid_request", proposal.summary.slice(0, 1000));
+    // Slice D still lets an unanswerable request fail rather than pausing —
+    // resumable clarification state is slice E. What changed is the
+    // *content*: the model now had the real candidate list, so its question
+    // names actual competing targets instead of calling the request too
+    // broad. Where resolution itself was ambiguous, the deterministic
+    // grounded question is preferred over whatever the model wrote, so the
+    // user gets the same concrete choices every time.
+    const question =
+      context.grounded.resolutionOutcome === "ambiguous" && context.grounded.groundedQuestion
+        ? context.grounded.groundedQuestion
+        : proposal.summary;
+    await updateJobFields(deps.db, job.id, { contextManifest });
+    throw new ModificationJobError("invalid_request", question.slice(0, 1000));
   }
 
   return transitionStatus(deps.db, job.id, "interpreting", "proposing", {
     phase: "proposing",
     normalizedRequest: proposal as unknown as Record<string, unknown>,
+    contextManifest,
     providerName: deps.provider.name,
     providerModel: usage.model,
     usage: accumulateUsage(job.usage, usage),
   });
+}
+
+/**
+ * The phrases worth binding to the resolved target once a change actually
+ * lands. Value phrases first ("Home"), then property words ("title") — the
+ * two ways the reported conversation referred back to the same thing. Bound
+ * to two so memory stays a small, checkable set rather than a bag of every
+ * noun the user typed.
+ */
+function memoryPhrasesFor(resolution: TargetResolution): string[] {
+  return [...resolution.signals.valuePhrases, ...resolution.signals.propertyPhrases]
+    .map((phrase) => phrase.trim())
+    .filter((phrase) => phrase.length > 0 && phrase.length <= 120)
+    .slice(0, 2);
 }
 
 // ─── Phase: proposing (pure dry-run — nothing is persisted to the spec yet) ─
@@ -435,6 +492,8 @@ async function runPreparingPreviewPhase(deps: ModificationPipelineDeps, job: Mod
     resultingPreviewBuildId: build.id,
   });
 
+  await recordResolvedReferences(deps, updated);
+
   // Success is stamped ONLY here, after M04's version bump and M06's
   // preview build have both actually succeeded — never a claim the model
   // itself made (see docs/appbuilder-m08-builder-workspace.md#modification-job-lifecycle).
@@ -450,6 +509,73 @@ async function runPreparingPreviewPhase(deps: ModificationPipelineDeps, job: Mod
   });
 
   return updated;
+}
+
+/**
+ * M13 slice D: binds the phrases this request used ("the title", "Home") to
+ * the stable target it actually changed, so the next turn can say "it is
+ * still black" and be understood.
+ *
+ * Deliberately written AFTER the version bump, against the resulting
+ * specification: recording the pre-change value would make the very edit we
+ * just applied look like third-party drift and invalidate the reference on
+ * the next recall (memory.ts#invalidateStaleFacts compares recorded value to
+ * current value). Recording the post-change value means a later
+ * invalidation is a true signal — someone or something else moved it.
+ *
+ * Memory is an aid to interpretation, never a precondition for correctness:
+ * a failure here must not fail a change that has already been applied,
+ * versioned, validated, and previewed. So it is best-effort and logged
+ * through the job's own audit trail rather than thrown.
+ */
+async function recordResolvedReferences(deps: ModificationPipelineDeps, job: ModificationJobRow): Promise<void> {
+  const manifest = job.contextManifest as Record<string, unknown> | null;
+  const targetId = typeof manifest?.resolvedTargetId === "string" ? manifest.resolvedTargetId : null;
+  const phrases = Array.isArray(manifest?.memoryPhrases) ? (manifest.memoryPhrases as unknown[]) : [];
+  if (!targetId || phrases.length === 0) return;
+
+  const versionNumber = job.resultingVersionNumber;
+  if (!versionNumber) return;
+
+  try {
+    const spec = await loadCurrentSpecPayload(deps.db, job.appId, versionNumber);
+    const index = buildSpecIndex(spec, versionNumber);
+    const target = index.byTargetId.get(targetId);
+    // The change may have removed the very thing it targeted (an archive, a
+    // rename that re-keys an id). Nothing to remember, and nothing broken.
+    if (!target) return;
+
+    for (const phrase of phrases) {
+      if (typeof phrase !== "string" || phrase.length === 0) continue;
+      await recordResolvedReference(deps.db, {
+        appId: job.appId,
+        conversationId: job.conversationId,
+        specificationVersionNumber: versionNumber,
+        reference: {
+          phrase,
+          targetId: target.targetId,
+          property: target.property,
+          recordedValue: target.value,
+          pageId: target.pageId,
+          componentId: target.componentId,
+          entityId: target.entityId,
+          fieldId: target.fieldId,
+          sourceMessageIds: [job.triggeringMessageId],
+          specificationVersionNumber: versionNumber,
+          recordedAt: new Date().toISOString(),
+        },
+      });
+    }
+  } catch (err) {
+    await recordAuditEvent(deps.db, {
+      appId: job.appId,
+      actorPrincipalId: job.initiatedByPrincipalId,
+      action: "modification.memory_write_failed",
+      targetType: "modification_job",
+      targetId: job.id,
+      metadata: { targetId, reason: err instanceof Error ? err.name : "unknown" },
+    });
+  }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────

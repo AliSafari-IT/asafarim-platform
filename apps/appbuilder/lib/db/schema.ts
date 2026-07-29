@@ -1339,6 +1339,70 @@ export const conversationAttachments = pgTable(
   ]
 );
 
+// M13 slice D: one bounded, structured memory row per conversation — the
+// thing that makes "it is still black" interpretable three turns after the
+// user last named what "it" is. Deliberately NOT a prose summary column:
+// every fact in these JSONB arrays carries the message ids that produced it
+// and the specification version it was true at, so recall can *verify* each
+// fact against the current specification and drop what no longer holds (see
+// lib/modification/memory.ts#invalidateStaleFacts) instead of feeding a
+// model a confidently wrong pointer at a page somebody archived. One row per
+// conversation (unique index below), rewritten in place — memory is current
+// state, not an append-only log; the conversation messages themselves are
+// the durable history, and `sourceMessageIds` is the link back to them.
+export const conversationMemories = pgTable(
+  "conversation_memories",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+
+    // Bumped on every write. Lets a concurrent writer detect that it read a
+    // stale copy without holding a transaction open across a provider call.
+    revision: integer("revision").notNull().default(0),
+
+    // The specification version the memory was last written against —
+    // recall compares this (and each fact's own version stamp) against the
+    // current version to decide what survived.
+    specificationVersionNumber: integer("specification_version_number")
+      .notNull()
+      .default(0),
+
+    // MemoryReference[] / MemoryAssumption[] / MemoryPreference[]
+    // (lib/modification/memory.ts). Bounded by MEMORY_LIMITS before every
+    // write — never unbounded accumulation.
+    references: jsonb("references")
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
+    assumptions: jsonb("assumptions")
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
+    preferences: jsonb("preferences")
+      .$type<Record<string, unknown>[]>()
+      .notNull()
+      .default([]),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("conversation_memories_conversation_id_unique").on(
+      table.conversationId
+    ),
+    index("conversation_memories_app_id_idx").on(table.appId),
+  ]
+);
+
 // M08: one durable row per conversational modification attempt — the
 // sibling of generation_jobs (M07), NOT a repurposing of it. A modification
 // job interprets ONE bounded follow-up request against an already-generated
@@ -1410,6 +1474,16 @@ export const modificationJobs = pgTable(
     // structured read of the request, re-validated on every write.
     normalizedRequest:
       jsonb("normalized_request").$type<Record<string, unknown>>(),
+
+    // M13 slice D: the SAFE SUMMARY of what this job's interpretation was
+    // grounded in — included/omitted/truncated source ids, token estimate,
+    // redaction flags, the deterministic resolver outcome, and the resolved
+    // target. M13 is explicit that we "persist a safe manifest summary, not
+    // raw prompts": there is deliberately no column here for the assembled
+    // prompt, the conversation text, or extracted attachment content, so an
+    // operator can audit *what* grounded a decision without the audit trail
+    // itself becoming a second copy of the user's private files.
+    contextManifest: jsonb("context_manifest").$type<Record<string, unknown>>(),
 
     totalOperationsApplied: integer("total_operations_applied")
       .notNull()
@@ -3037,6 +3111,21 @@ export const conversationsRelations = relations(
     messages: many(conversationMessages),
     modificationJobs: many(modificationJobs),
     attachments: many(conversationAttachments),
+    memory: many(conversationMemories),
+  })
+);
+
+export const conversationMemoriesRelations = relations(
+  conversationMemories,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [conversationMemories.appId],
+      references: [apps.id],
+    }),
+    conversation: one(conversations, {
+      fields: [conversationMemories.conversationId],
+      references: [conversations.id],
+    }),
   })
 );
 

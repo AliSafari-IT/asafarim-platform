@@ -23,6 +23,7 @@ export {
   MODIFICATION_TIMEOUT_THEN_RETRY_SCRIPT,
   MODIFICATION_VALIDATION_FAILURE_SCRIPT,
 } from "./modification";
+export { groundedModificationProposal } from "./groundedModification";
 export {
   REPAIR_ADD_MISSING_PERMISSION_SCRIPT,
   REPAIR_NARROW_PERMISSION_SCRIPT,

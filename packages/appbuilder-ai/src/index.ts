@@ -69,6 +69,20 @@ export type {
   ProviderCallOptions,
   UsageMetadata,
 } from "./provider/types";
+export type {
+  GroundedModificationContext,
+  ContextTurn,
+  ContextMemoryFact,
+  ContextAttachmentEvidence,
+  ContextTargetCandidate,
+  ContextPreviewEvidence,
+  ContextManifest,
+  ContextOmission,
+  ContextTruncation,
+  AttachmentEvidenceAvailability,
+  PreviewEvidenceKind,
+  TargetResolutionOutcome,
+} from "./provider/groundedContext";
 
 export { SYSTEM_POLICY, wrapUntrustedInput } from "./prompts/systemPolicy";
 export { buildAnalysisPrompt } from "./prompts/buildAnalysisPrompt";
