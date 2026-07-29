@@ -1,4 +1,5 @@
-import { FakeAiProvider, type FakeProviderScript } from "./fake";
+import { FakeAiProvider, value, type FakeProviderScript } from "./fake";
+import { groundedModificationProposal } from "../fixtures/groundedModification";
 import { ProviderError } from "../provider/errors";
 import { CONSTRUCTION_TASK_MANAGEMENT_SCRIPT } from "../fixtures/constructionTaskManagement";
 import { CRM_SUCCESS_SCRIPT } from "../fixtures/crm";
@@ -42,13 +43,35 @@ function selectScriptForPrompt(prompt: string): FakeProviderScript {
 }
 
 /** Same keyword-routing idea as selectScriptForPrompt, but for the M08 conversational-modification vocabulary. */
-function selectModificationScriptForPrompt(prompt: string): FakeProviderScript {
+function selectModificationScriptForPrompt(prompt: string): FakeProviderScript | null {
   const text = prompt.toLowerCase();
   if (text.includes("priority")) return ADD_PRIORITY_FIELD_SCRIPT;
   if (text.includes("compact")) return COMPACT_TABLE_SCRIPT;
   if (text.includes("only managers") || text.includes("restrict") || text.includes("no longer")) {
     return RESTRICT_PERMISSION_SCRIPT;
   }
+  return null;
+}
+
+/**
+ * M13 slice D: keyword fixtures first (they pin the specific M08 scenarios
+ * the existing tests and the Playwright golden path rely on), then the
+ * grounded derivation, and only then the generic fallback.
+ *
+ * That last fallback used to be the *first* thing most requests hit, which
+ * is root cause #7 in the M13 analysis: the default fake scripted the exact
+ * "this request is too broad" refusal from the reported conversation, so
+ * every local run and every CI run rehearsed the bug rather than catching
+ * it. It survives here only for requests the server genuinely could not
+ * ground — where asking really is the right answer.
+ */
+function selectModificationScript(input: ProposeModificationInput): FakeProviderScript {
+  const keyworded = selectModificationScriptForPrompt(input.userRequest);
+  if (keyworded) return keyworded;
+
+  const grounded = groundedModificationProposal(input);
+  if (grounded) return { proposeModification: [value(grounded)] };
+
   return GENERIC_MODIFICATION_FALLBACK_SCRIPT;
 }
 
@@ -130,7 +153,7 @@ export class DefaultFakeProvider implements AiProvider {
     options: ProviderCallOptions,
   ): Promise<ProposeModificationResult> {
     if (!this.delegate) {
-      this.delegate = new FakeAiProvider(selectModificationScriptForPrompt(input.userRequest));
+      this.delegate = new FakeAiProvider(selectModificationScript(input));
     }
     return this.delegate.proposeModification(input, options);
   }

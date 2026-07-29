@@ -6,6 +6,17 @@ export interface SelectionContext {
   componentId?: string;
   componentKind?: string;
   label?: string;
+  /**
+   * M13 slice D — bounded DOM evidence for a click that missed an
+   * instrumented component. Evidence only: the server maps it to stable
+   * specification targets and never builds an operation from it.
+   */
+  previewEvidence?: {
+    domTagName?: string;
+    domRole?: string;
+    domTextSnippet?: string;
+    domOutsideSpecRegion?: boolean;
+  };
 }
 
 export type ConversationRole = "user" | "assistant" | "system";

@@ -31,6 +31,47 @@ describe("parseParentInboundMessage", () => {
     expect(parseParentInboundMessage({ type: "ab-preview-EXECUTE", nonce: "n1" })).toBeNull();
   });
 
+  // M13 slice D — bounded DOM evidence for a click that missed an
+  // instrumented component. It is evidence the server maps to stable
+  // specification targets, never a mutation target of its own.
+  it("parses bounded DOM evidence alongside the stable ids", () => {
+    const parsed = parseParentInboundMessage({
+      type: "ab-preview-select",
+      nonce: "n1",
+      appId: "app_1",
+      specificationVersionNumber: 3,
+      previewEvidence: { domTagName: "h1", domRole: "heading", domTextSnippet: "Home", domOutsideSpecRegion: false },
+    });
+    expect(parsed).toMatchObject({
+      previewEvidence: { domTagName: "h1", domRole: "heading", domTextSnippet: "Home", domOutsideSpecRegion: false },
+    });
+  });
+
+  it("re-bounds over-long DOM evidence rather than trusting the frame's lengths", () => {
+    const parsed = parseParentInboundMessage({
+      type: "ab-preview-select",
+      nonce: "n1",
+      appId: "app_1",
+      specificationVersionNumber: 3,
+      previewEvidence: { domTagName: "x".repeat(500), domTextSnippet: "y".repeat(5_000) },
+    });
+    const evidence = (parsed as { previewEvidence?: Record<string, string> }).previewEvidence!;
+    expect(evidence.domTagName).toHaveLength(40);
+    expect(evidence.domTextSnippet).toHaveLength(200);
+  });
+
+  it("drops DOM-evidence fields of the wrong type, and the block entirely when nothing survives", () => {
+    const parsed = parseParentInboundMessage({
+      type: "ab-preview-select",
+      nonce: "n1",
+      appId: "app_1",
+      specificationVersionNumber: 3,
+      previewEvidence: { domTagName: { toString: "nope" }, outerHTML: "<script>alert(1)</script>" },
+    });
+    expect((parsed as { previewEvidence?: unknown }).previewEvidence).toBeUndefined();
+    expect(JSON.stringify(parsed)).not.toContain("script");
+  });
+
   it("rejects a non-object payload", () => {
     expect(parseParentInboundMessage("just a string")).toBeNull();
     expect(parseParentInboundMessage(null)).toBeNull();

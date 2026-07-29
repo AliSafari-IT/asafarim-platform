@@ -85,6 +85,13 @@
       "when": 1785329521065,
       "tag": "0011_appbuilder_m13_conversation_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785342484501,
+      "tag": "0012_appbuilder_m13_conversation_memory",
+      "breakpoints": true
     }
   ]
 }

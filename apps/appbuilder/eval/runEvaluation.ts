@@ -1,4 +1,4 @@
-import { createFakeProvider } from "@asafarim/appbuilder-ai";
+import { createFakeProvider, DefaultFakeProvider } from "@asafarim/appbuilder-ai";
 import type {
   AiProvider,
   AnalyzeRequirementsInput,
@@ -150,6 +150,25 @@ async function runCorpus(
 /** The deterministic, network-free CI baseline: each case is scored against the exact response reported for it in the M13 doc. */
 export async function runEvaluation(db: Db, corpus: readonly RegressionCase[] = REGRESSION_CORPUS): Promise<EvaluationReport> {
   return runCorpus(db, corpus, (c) => createFakeProvider(c.reproducedProviderScript));
+}
+
+/**
+ * M13 slice D — the same corpus, same pipeline, but with the grounding
+ * actually switched on: `DefaultFakeProvider` now derives its proposal from
+ * the target candidates `buildModificationContext` resolved, instead of
+ * replaying the reported "too broad" refusal.
+ *
+ * Kept beside `runEvaluation` rather than replacing it. The baseline is the
+ * recorded past and must stay reproducible; this is the measurement of what
+ * changed, on identical cases. Still deterministic and network-free, so it
+ * belongs in CI — the cases it cannot yet fix (staged plans, clarification
+ * resume, capability notices) stay visibly unfixed until slices E and F.
+ */
+export async function runGroundedEvaluation(
+  db: Db,
+  corpus: readonly RegressionCase[] = REGRESSION_CORPUS,
+): Promise<EvaluationReport> {
+  return runCorpus(db, corpus, () => new DefaultFakeProvider());
 }
 
 /**

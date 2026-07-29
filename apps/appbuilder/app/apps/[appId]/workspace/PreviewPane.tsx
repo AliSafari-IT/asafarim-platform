@@ -97,7 +97,17 @@ export function PreviewPane({ appId, hasPreview, currentVersionNumber, selection
       ) : null}
       {selection ? (
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
-          <span className="ui-hint">Selected: {selection.label ?? selection.componentId ?? selection.pageId}</span>
+          <span className="ui-hint">
+            Selected:{" "}
+            {selection.label ??
+              selection.componentId ??
+              selection.pageId ??
+              // M13 slice D: a click that missed an instrumented component
+              // still produces a usable selection (bounded DOM evidence the
+              // server maps to a target), so it needs a label too.
+              selection.previewEvidence?.domTextSnippet ??
+              "an element in the preview"}
+          </span>
           <Button type="button" size="sm" variant="ghost" onClick={onClearSelection}>
             Clear
           </Button>

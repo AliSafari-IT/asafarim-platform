@@ -5,6 +5,7 @@ import type { OperationBatchType } from "../schemas/operationProposal";
 import type { ModificationProposalType } from "../schemas/modificationProposal";
 import type { RepairProposalType } from "../schemas/repairProposal";
 import type { ClarificationRoundType } from "../schemas/clarification";
+import type { GroundedModificationContext } from "./groundedContext";
 
 /**
  * Usage/latency metadata recorded for cost tracking (M12 quotas build on
@@ -83,6 +84,17 @@ export interface ProposeModificationInput {
   selection: ModificationSelectionContext | null;
   /** Caps how many operations a single proposal may contain — smaller than M07's per-batch cap since this is one bounded follow-up edit, not an app build-out. */
   operationBudget: number;
+  /**
+   * M13 slice D: the server-assembled, bounded evidence this request should
+   * be interpreted against — relevant conversation turns, evidence-linked
+   * memory, attachment text, and deterministically ranked target candidates
+   * addressed by stable specification ids (see provider/groundedContext.ts).
+   *
+   * Optional so every pre-M13 caller and fixture keeps compiling and
+   * behaving identically; when absent the provider simply works from
+   * `userRequest`/`currentSpec`/`selection` exactly as it did in M08.
+   */
+  groundedContext?: GroundedModificationContext | null;
 }
 export interface ProposeModificationResult {
   proposal: ModificationProposalType;

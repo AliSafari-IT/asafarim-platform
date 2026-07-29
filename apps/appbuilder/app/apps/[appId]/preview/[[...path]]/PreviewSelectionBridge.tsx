@@ -57,8 +57,40 @@ export function PreviewSelectionBridge({
     function onClick(event: MouseEvent) {
       if (!handshakeCompleteRef.current) return;
       const target = event.target as HTMLElement | null;
-      const el = target?.closest<HTMLElement>("[data-ab-component-id]");
-      if (!el) return;
+      if (!target) return;
+      const el = target.closest<HTMLElement>("[data-ab-component-id]");
+
+      // M13 slice D: a click that misses an instrumented component used to
+      // be dropped silently, which is precisely how the reported
+      // conversation ended up with the user pasting a DOM selector by hand.
+      // Send bounded evidence instead — tag name, role, a short text
+      // snippet, and whether the node sits outside any rendered page region
+      // — and let the server map it to a stable target (or classify it as
+      // builder chrome). Never a selector, never markup, never attributes
+      // wholesale: those would be raw DOM crossing a trust boundary, which
+      // the M08 protocol forbids and slice D does not relax.
+      if (!el) {
+        const pageRegion = target.closest<HTMLElement>("[data-ab-page-id]");
+        clearSelectionOutline();
+        window.parent.postMessage(
+          {
+            type: "ab-preview-select",
+            nonce,
+            appId,
+            specificationVersionNumber,
+            buildId,
+            pageId: pageRegion?.getAttribute("data-ab-page-id") ?? undefined,
+            previewEvidence: {
+              domTagName: target.tagName.toLowerCase().slice(0, 40),
+              domRole: target.getAttribute("role")?.slice(0, 40) ?? undefined,
+              domTextSnippet: (target.textContent ?? "").trim().slice(0, 200) || undefined,
+              domOutsideSpecRegion: pageRegion === null,
+            },
+          },
+          window.location.origin,
+        );
+        return;
+      }
 
       clearSelectionOutline();
       el.style.outline = "2px solid #7c3aed";
