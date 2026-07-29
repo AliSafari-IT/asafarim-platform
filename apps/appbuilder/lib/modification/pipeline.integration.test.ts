@@ -179,15 +179,21 @@ describe("runModificationJob — safe (non-destructive) change golden path", () 
     expect(table.config.density).toBe("compact");
   });
 
-  it("fails safely on an ambiguous request instead of guessing", async () => {
+  it("pauses safely on an ambiguous request instead of guessing or failing (M13 slice E)", async () => {
     const { app, baseVersionNumber } = await setupTaskApp("ambiguous");
     const { job } = await sendMessageAndEnqueue(app.id, "Make it better.", "ambiguous", baseVersionNumber);
 
     const outcome = await claimAndRun(job, GENERIC_MODIFICATION_FALLBACK_SCRIPT);
     expect(outcome.kind).toBe("yielded");
     if (outcome.kind !== "yielded") throw new Error("unreachable");
-    expect(outcome.job.status).toBe("failed");
-    expect(outcome.job.failureCode).toBe("invalid_request");
+    // Clarification is a PAUSE, never a failure — the job stays addressable
+    // and resumable (see lib/repositories/modificationJobs.ts#
+    // submitClarificationAnswer), unlike the pre-slice-E "invalid_request" failure.
+    expect(outcome.job.status).toBe("needs_clarification");
+    expect(outcome.job.failureCode).toBeNull();
+    const state = outcome.job.clarificationState as { rounds: { question: { choices: unknown[] } }[] };
+    expect(state.rounds).toHaveLength(1);
+    expect(state.rounds[0].question.choices.length).toBeGreaterThanOrEqual(2);
 
     const [spec] = await db.select().from(specifications).where(eq(specifications.appId, app.id));
     expect(spec.currentVersionNumber).toBe(baseVersionNumber); // nothing applied

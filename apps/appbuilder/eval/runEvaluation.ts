@@ -3,7 +3,7 @@ import type {
   AiProvider,
   AnalyzeRequirementsInput,
   AnalyzeRequirementsResult,
-  ModificationProposalType,
+  ModificationDecisionType,
   ProposeModificationInput,
   ProposeModificationResult,
   ProposeOperationsInput,
@@ -23,7 +23,20 @@ import { runModificationJob } from "../lib/modification/pipeline";
 import { REGRESSION_CORPUS, type RegressionCase } from "./regressionCorpus";
 import { scoreCase, summarize, type CaseScore, type EvaluationReport } from "./scorer";
 
-const owner = { principalId: "m13-eval-owner", roles: [] };
+/**
+ * M13 slice E: `needs_clarification` is a non-terminal, "active" job status
+ * (by design — a pause the user can still resume). Since this eval corpus
+ * runs every case's job to completion but never answers a pending
+ * clarification, each case scoped to the SAME principal would leave behind
+ * an ever-growing pile of "active" jobs and trip MODIFICATION_LIMITS.
+ * MAX_ACTIVE_JOBS_PER_USER by the 4th case — a real product limit that
+ * should stay enforced, not something this harness should raise. Each case
+ * is an independent scenario, so it gets its own isolated principal, the
+ * same way it already gets its own isolated app.
+ */
+function ownerFor(suffix: string) {
+  return { principalId: `m13-eval-owner-${suffix}`, roles: [] };
+}
 
 /**
  * Builds the minimal app the whole M13 Slice A corpus runs against: a
@@ -32,6 +45,7 @@ const owner = { principalId: "m13-eval-owner", roles: [] };
  * (the closest representable stand-in for "the title color").
  */
 async function setupTitleApp(db: Db, suffix: string) {
+  const owner = ownerFor(suffix);
   const app = await createApp(
     db,
     owner,
@@ -72,7 +86,7 @@ async function setupTitleApp(db: Db, suffix: string) {
  */
 class RecordingProvider implements AiProvider {
   readonly name: string;
-  lastProposal: ModificationProposalType | null = null;
+  lastDecision: ModificationDecisionType | null = null;
 
   constructor(private readonly base: AiProvider) {
     this.name = base.name;
@@ -89,7 +103,7 @@ class RecordingProvider implements AiProvider {
   }
   async proposeModification(input: ProposeModificationInput, options: ProviderCallOptions): Promise<ProposeModificationResult> {
     const result = await this.base.proposeModification(input, options);
-    this.lastProposal = result.proposal;
+    this.lastDecision = result.decision;
     return result;
   }
   proposeRepair(input: ProposeRepairInput, options: ProviderCallOptions): Promise<ProposeRepairResult> {
@@ -98,6 +112,7 @@ class RecordingProvider implements AiProvider {
 }
 
 async function runOneCase(db: Db, regressionCase: RegressionCase, makeProvider: (c: RegressionCase) => AiProvider): Promise<CaseScore> {
+  const owner = ownerFor(regressionCase.id);
   const { app, baseVersionNumber } = await setupTitleApp(db, regressionCase.id);
 
   const selectionContext = regressionCase.selection
@@ -128,11 +143,11 @@ async function runOneCase(db: Db, regressionCase: RegressionCase, makeProvider: 
   if (outcome.kind !== "yielded") {
     throw new Error(`case "${regressionCase.id}" did not reach a terminal outcome (kind=${outcome.kind})`);
   }
-  if (!provider.lastProposal) {
-    throw new Error(`case "${regressionCase.id}" never received a proposal from the provider`);
+  if (!provider.lastDecision) {
+    throw new Error(`case "${regressionCase.id}" never received a decision from the provider`);
   }
 
-  return scoreCase(regressionCase, provider.lastProposal, { status: outcome.job.status, failureCode: outcome.job.failureCode ?? null });
+  return scoreCase(regressionCase, provider.lastDecision, { status: outcome.job.status, failureCode: outcome.job.failureCode ?? null });
 }
 
 async function runCorpus(

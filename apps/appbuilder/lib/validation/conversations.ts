@@ -34,6 +34,27 @@ export const ConfirmModificationBody = z.object({
   checksum: z.string().min(1).max(200),
 });
 
+/**
+ * POST /api/apps/{appId}/modification-jobs/{jobId}/clarification request
+ * body (M13 slice E). An answer selects one of the pending question's
+ * offered choices, provides free text (only when the question allows it),
+ * or both — never neither, enforced by the refinement below; the
+ * repository layer (lib/repositories/modificationJobs.ts#
+ * submitClarificationAnswer) re-validates the choice against the actual
+ * pending question, this is only the untrusted-shape check.
+ */
+export const ClarificationAnswerBody = z
+  .object({
+    questionId: z.string().min(1).max(64),
+    choiceId: z.string().min(1).max(64).optional(),
+    freeText: z.string().min(1).max(MODIFICATION_LIMITS.MAX_REQUEST_LENGTH).optional(),
+  })
+  .refine((body) => Boolean(body.choiceId) || Boolean(body.freeText), {
+    message: "An answer needs a selected choice or free text.",
+    path: ["choiceId"],
+  });
+export type ClarificationAnswerBodyType = z.infer<typeof ClarificationAnswerBody>;
+
 /** POST /api/apps/{appId}/specification/versions/{versionNumber}/restore request body. */
 export const RestoreVersionBody = z.object({
   baseVersionNumber: z.number().int().nonnegative(),

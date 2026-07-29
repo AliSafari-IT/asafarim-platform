@@ -234,6 +234,14 @@ export const conversationMessageTypeEnum = pgEnum("conversation_message_type", [
   "validation_result",
   "applied_change",
   "failure",
+  // M13 slice E: the three new card kinds the M13 doc's "Conversation
+  // cards" section requires — persisted as ordinary messages (not a
+  // parallel record type) so history/audit/deletion/export all keep
+  // working unchanged.
+  "clarification_question",
+  "clarification_answer",
+  "plan",
+  "capability_notice",
 ]);
 
 export const conversationConfirmationStateEnum = pgEnum(
@@ -280,9 +288,20 @@ export const conversationAttachmentFailureCodeEnum = pgEnum(
 // human destructive-change confirmation, which generation jobs never do
 // (they always apply with confirmDestructive:false and simply reject/skip
 // destructive proposals instead of pausing for a human).
+// M13 slice E: `needs_clarification` is a PAUSE, not a failure — the job
+// stays addressable, a question is persisted (modificationJobs.
+// clarificationState), and submitting an answer resumes it back through
+// `interpreting` (see lib/repositories/modificationJobs.ts#
+// submitClarificationAnswer and lib/modification/stateMachine.ts). Mirrors
+// generationJobStatusEnum's own `needs_clarification` status, which this
+// was explicitly modeled on (docs/appbuilder-m13-multimodal-contextual-
+// assistant.md: "Existing modification jobs reference steps or are
+// migrated into the model; M13 must not create a second mutation
+// executor").
 export const modificationJobStatusEnum = pgEnum("modification_job_status", [
   "queued",
   "interpreting",
+  "needs_clarification",
   "proposing",
   "awaiting_confirmation",
   "applying",
@@ -310,6 +329,14 @@ export const modificationJobFailureCodeEnum = pgEnum(
     "confirmation_invalid",
     "worker_infrastructure_error",
     "cancelled",
+    // M13 slice E: the request named nothing this platform's schema/
+    // component/integration set can represent — a truthful capability
+    // gap (see ModificationDecision's "unsupported" outcome), never the
+    // generic invalid_request the pre-slice-E pipeline used for this case.
+    "unsupported_request",
+    // The clarification round expired (MODIFICATION_LIMITS.
+    // CLARIFICATION_TTL_MS) before an answer was submitted.
+    "clarification_expired",
   ]
 );
 
@@ -318,6 +345,35 @@ export const modificationBatchStatusEnum = pgEnum("modification_batch_status", [
   "awaiting_confirmation",
   "applied",
   "rejected",
+]);
+
+// M13 slice E: a triggering message's capability-aware, multi-step
+// modification plan — "draft" while being assembled/proposed (before its
+// first step's job has run), "running" while any step is in progress,
+// "completed" once every step reached `applied`, "failed" when a step
+// failed and left a recoverable partial result (earlier applied steps'
+// versions are never rolled back), "cancelled" on explicit user
+// cancellation.
+export const modificationPlanStatusEnum = pgEnum("modification_plan_status", [
+  "draft",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+// One step's lifecycle within a plan — deliberately mirrors the shape of
+// modificationJobStatusEnum's own terminal states (ready~applied,
+// failed~failed) without reusing the enum itself, since a step is a plan-
+// level bookkeeping row, never itself worker-claimed or leased (the
+// modificationJob it points at is what a worker actually drives).
+export const modificationPlanStepStatusEnum = pgEnum("modification_plan_step_status", [
+  "pending",
+  "running",
+  "awaiting_confirmation",
+  "applied",
+  "failed",
+  "skipped",
 ]);
 
 // M11: the hard data boundary between a generated app's PREVIEW data (demo
@@ -1485,6 +1541,23 @@ export const modificationJobs = pgTable(
     // itself becoming a second copy of the user's private files.
     contextManifest: jsonb("context_manifest").$type<Record<string, unknown>>(),
 
+    // M13 slice E: ModificationClarificationStateType
+    // (@asafarim/appbuilder-ai) — at most two rounds, each with its own
+    // question, contextVersion, expiry, and (once answered) answer. Set
+    // only while/after this job has paused for clarification; a job that
+    // never asked stays null. See lib/repositories/modificationJobs.ts#
+    // submitClarificationAnswer.
+    clarificationState: jsonb("clarification_state").$type<Record<string, unknown>>(),
+
+    // M13 slice E: set when this job is executing one step of a
+    // multi-step modification_plans row — null for an ordinary single-step
+    // job. The reverse pointer (modification_plan_steps.
+    // modification_job_id) is set atomically alongside this one; see
+    // lib/repositories/modificationPlans.ts.
+    planStepId: text("plan_step_id").references((): AnyPgColumn => modificationPlanSteps.id, {
+      onDelete: "set null",
+    }),
+
     totalOperationsApplied: integer("total_operations_applied")
       .notNull()
       .default(0),
@@ -1556,6 +1629,7 @@ export const modificationJobs = pgTable(
       table.status,
       table.leaseExpiresAt
     ),
+    index("modification_jobs_plan_step_id_idx").on(table.planStepId),
   ]
 );
 
@@ -1610,6 +1684,86 @@ export const modificationOperationBatches = pgTable(
   (table) => [
     uniqueIndex("modification_operation_batches_job_unique").on(table.jobId),
     index("modification_operation_batches_app_id_idx").on(table.appId),
+  ]
+);
+
+// M13 slice E: one row per multi-step modification plan (docs/appbuilder-
+// m13-multimodal-contextual-assistant.md, "`modification_plans` and
+// `modification_plan_steps`"). Created only when a decision's outcome is
+// `ready` with more than one planned step, or `partially_supported` (which
+// always carries a plan alongside its honest gaps) — an ordinary
+// single-step `ready` decision never allocates a plan row, so the common
+// case pays no extra write. `capabilityAssessment` is the safe, structured
+// record of what was judged supported/partially-supported/unsupported at
+// creation time (assumptions + capability gaps), mirroring
+// modificationJobs.contextManifest's "safe summary, never raw prompt"
+// convention.
+export const modificationPlans = pgTable(
+  "modification_plans",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    triggeringMessageId: text("triggering_message_id")
+      .notNull()
+      .references((): AnyPgColumn => conversationMessages.id, { onDelete: "cascade" }),
+    status: modificationPlanStatusEnum("status").notNull().default("draft"),
+    // The specification version this plan was proposed against — each
+    // step's own job independently re-checks the live version before
+    // applying (same stale-base-version protection every modification job
+    // already has), so this is provenance, not a second authority.
+    baseVersionNumber: integer("base_version_number").notNull(),
+    summary: text("summary").notNull().default(""),
+    capabilityAssessment: jsonb("capability_assessment").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("modification_plans_app_id_idx").on(table.appId),
+    index("modification_plans_conversation_id_idx").on(table.conversationId),
+  ]
+);
+
+// M13 slice E: one row per planned step. `operationBatch` is the step's
+// OperationBatchType draft (@asafarim/appbuilder-ai), persisted at plan-
+// creation time so advancing to a later step never needs to re-ask the
+// model what that step was — only WHETHER it still applies cleanly against
+// the (possibly since-changed) live specification, which its own job
+// re-derives for real via the unchanged single-step pipeline.
+// `modificationJobId` is null until this step's job is created (steps
+// beyond the first are created lazily as earlier steps complete — see
+// lib/modification/pipeline.ts).
+export const modificationPlanSteps = pgTable(
+  "modification_plan_steps",
+  {
+    id: text("id").primaryKey(),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => modificationPlans.id, { onDelete: "cascade" }),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    stepNumber: integer("step_number").notNull(),
+    title: text("title").notNull(),
+    operationBatch: jsonb("operation_batch").$type<Record<string, unknown>>().notNull(),
+    status: modificationPlanStepStatusEnum("status").notNull().default("pending"),
+    modificationJobId: text("modification_job_id").references((): AnyPgColumn => modificationJobs.id, {
+      onDelete: "set null",
+    }),
+    resultingVersionNumber: integer("resulting_version_number"),
+    failureCode: modificationJobFailureCodeEnum("failure_code"),
+    failureMessage: text("failure_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("modification_plan_steps_plan_step_unique").on(table.planId, table.stepNumber),
+    index("modification_plan_steps_app_id_idx").on(table.appId),
+    index("modification_plan_steps_modification_job_id_idx").on(table.modificationJobId),
   ]
 );
 

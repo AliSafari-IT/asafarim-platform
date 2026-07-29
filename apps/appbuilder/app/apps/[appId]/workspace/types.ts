@@ -26,7 +26,12 @@ export type ConversationMessageType =
   | "system_status"
   | "validation_result"
   | "applied_change"
-  | "failure";
+  | "failure"
+  // M13 slice E
+  | "clarification_question"
+  | "clarification_answer"
+  | "plan"
+  | "capability_notice";
 export type ConversationConfirmationState = "not_required" | "pending" | "confirmed" | "expired";
 
 export interface ConversationMessage {
@@ -108,6 +113,7 @@ export interface DraftAttachment {
 export type ModificationJobStatus =
   | "queued"
   | "interpreting"
+  | "needs_clarification"
   | "proposing"
   | "awaiting_confirmation"
   | "applying"
@@ -116,6 +122,64 @@ export type ModificationJobStatus =
   | "ready"
   | "failed"
   | "cancelled";
+
+// ─── M13 slice E: resumable clarification and multi-step plans ──────────
+
+export interface ModificationClarificationChoice {
+  id: string;
+  label: string;
+  targetId?: string;
+}
+
+export interface ModificationClarificationQuestion {
+  id: string;
+  text: string;
+  choices: ModificationClarificationChoice[];
+  allowFreeText: boolean;
+}
+
+export interface ModificationClarificationAnswer {
+  questionId: string;
+  choiceId?: string;
+  freeText?: string;
+  answeredAt: string;
+  answeredByPrincipalId: string;
+}
+
+export interface ModificationClarificationRound {
+  roundNumber: number;
+  question: ModificationClarificationQuestion;
+  contextVersion: number;
+  askedAt: string;
+  expiresAt: string;
+  answer?: ModificationClarificationAnswer;
+}
+
+export interface ModificationClarificationState {
+  rounds: ModificationClarificationRound[];
+}
+
+export type ModificationPlanStatus = "draft" | "running" | "completed" | "failed" | "cancelled";
+export type ModificationPlanStepStatus = "pending" | "running" | "awaiting_confirmation" | "applied" | "failed" | "skipped";
+
+export interface ModificationPlan {
+  id: string;
+  appId: string;
+  conversationId: string;
+  status: ModificationPlanStatus;
+  summary: string;
+}
+
+export interface ModificationPlanStep {
+  id: string;
+  planId: string;
+  stepNumber: number;
+  title: string;
+  status: ModificationPlanStepStatus;
+  modificationJobId: string | null;
+  resultingVersionNumber: number | null;
+  failureMessage: string | null;
+}
 
 export interface ModificationJob {
   id: string;
@@ -136,6 +200,8 @@ export interface ModificationJob {
   resultingPreviewBuildId: string | null;
   failureCode: string | null;
   failureMessage: string | null;
+  clarificationState: ModificationClarificationState | null;
+  planStepId: string | null;
 }
 
 export interface DiffEntry {

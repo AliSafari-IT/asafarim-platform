@@ -1,7 +1,7 @@
 import { RequirementsAnalysis } from "../schemas/requirementsAnalysis";
 import { TemplateRecommendation } from "../schemas/templateRecommendation";
 import { OperationBatch } from "../schemas/operationProposal";
-import { ModificationProposal } from "../schemas/modificationProposal";
+import { ModificationDecision } from "../schemas/modificationDecision";
 import { RepairProposal } from "../schemas/repairProposal";
 import { ProviderError } from "../provider/errors";
 import type {
@@ -43,7 +43,7 @@ const SCHEMAS = {
   analyzeRequirements: RequirementsAnalysis,
   recommendTemplate: TemplateRecommendation,
   proposeOperations: OperationBatch,
-  proposeModification: ModificationProposal,
+  proposeModification: ModificationDecision,
   proposeRepair: RepairProposal,
 } as const;
 
@@ -131,7 +131,7 @@ export class FakeAiProvider implements AiProvider {
     _input: ProposeModificationInput,
     options: ProviderCallOptions,
   ): Promise<ProposeModificationResult> {
-    return { proposal: this.consume("proposeModification", options) as any, usage: usage(this.model) };
+    return { decision: this.consume("proposeModification", options) as any, usage: usage(this.model) };
   }
 
   async proposeRepair(_input: ProposeRepairInput, options: ProviderCallOptions): Promise<ProposeRepairResult> {
