@@ -11,11 +11,34 @@
  *   role="tablist" tab bar (data-active-panel).
  */
 
-.workspace {
+/*
+ * Pins the whole route (generation-status banner + workspace) to the
+ * viewport, below the shared AppShell's sticky header — measured at ~4rem —
+ * and its own top/bottom padding (2 * var(--space-6) = 4rem). Without this,
+ * `.workspace` and `.panels` below have no definite height to flex against,
+ * so `min-height:0`/`flex:1` on their descendants are no-ops and every panel
+ * (most visibly the conversation panel) just grows with its content,
+ * pushing the message composer out of view and forcing the whole page to
+ * scroll — see the workspace responsiveness fix this comment set accompanies.
+ * The ~0.2rem of AppShell footer that ends up just below the fold as a
+ * result is an accepted trade-off: it's non-functional branding text, and
+ * the composer must never require scrolling to reach.
+ */
+.workspacePage {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  height: calc(100dvh - 8rem);
+  min-height: 0;
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-3);
   min-width: 0;
+  min-height: 0;
 }
 
 .topBar {
@@ -64,8 +87,15 @@
 .panels {
   display: grid;
   grid-template-columns: 18rem minmax(0, 1fr) 22rem;
+  /* A single explicit `1fr` row, not the `auto` default — an `auto` row
+     only ever grows to fit its tallest item, so it can't hand a bounded
+     height down to `.panel` below. `minmax(0, 1fr)` lets the row (and
+     everything inside it) actually shrink to fit `.workspacePage`'s fixed
+     viewport-relative height instead. */
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--space-3);
-  min-height: 34rem;
+  flex: 1;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -73,9 +103,9 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  overflow: auto;
+  overflow: hidden;
   min-width: 0;
-  min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }

@@ -16,9 +16,10 @@ describe("classifyGenerationError", () => {
     expect(err.retryable).toBe(false);
   });
 
-  it("maps malformed_response onto malformed_provider_response", () => {
+  it("maps malformed_response onto malformed_provider_response, retryable=true (a schema miss is a one-off model slip, not persistent)", () => {
     const err = classifyGenerationError(new ProviderError({ code: "malformed_response", message: "x" }));
     expect(err.code).toBe("malformed_provider_response");
+    expect(err.retryable).toBe(true);
   });
 
   it("maps StaleVersionError onto stale_base_version", () => {

@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { zodResponseFormat } from "openai/helpers/zod";
+import type { ZodType, ZodTypeDef } from "zod";
 import { RequirementsAnalysis, type RequirementsAnalysisType } from "../schemas/requirementsAnalysis";
 import { TemplateRecommendation } from "../schemas/templateRecommendation";
 import { OperationBatch } from "../schemas/operationProposal";
@@ -12,6 +12,7 @@ import { buildOperationPrompt } from "../prompts/buildOperationPrompt";
 import { buildModificationPrompt } from "../prompts/buildModificationPrompt";
 import { buildRepairPrompt } from "../prompts/buildRepairPrompt";
 import { ProviderError } from "../provider/errors";
+import { toStrictJsonSchema, nullsToUndefinedDeep } from "../provider/strictSchema";
 import type { AiProviderConfig } from "../provider/config";
 import type {
   AiProvider,
@@ -83,22 +84,37 @@ export class OpenAiProvider implements AiProvider {
     this.maxOutputTokens = config.maxOutputTokens;
   }
 
+  /**
+   * Deliberately uses the plain (non-`beta`) `chat.completions.create` API
+   * rather than `beta.chat.completions.parse` + `zodResponseFormat`: the
+   * latter couples the JSON schema sent to OpenAI to the exact same zod
+   * schema used to validate the answer, and our domain schemas' plain
+   * `.optional()` fields (see strictSchema.ts's docstring) make OpenAI
+   * reject that schema outright. `toStrictJsonSchema`/`nullsToUndefinedDeep`
+   * split that coupling: a sanitized schema goes to OpenAI, and the
+   * original, unmodified domain schema validates the (null-normalized)
+   * answer — so callers below never need their own schemas changed.
+   */
   private async parse<T>(
     userContent: string,
-    schema: Parameters<typeof zodResponseFormat>[0],
+    // `Input` widened to `any`: several domain schemas (e.g.
+    // RequirementsAnalysis) use `.default()`, whose parse-input type
+    // (fields optional) differs from its output type (always present) —
+    // this method only ever cares about the validated Output shape `T`.
+    schema: ZodType<T, ZodTypeDef, any>,
     schemaName: string,
     options: ProviderCallOptions,
   ): Promise<{ data: T; usage: UsageMetadata }> {
     const start = Date.now();
     try {
-      const completion = await this.client.beta.chat.completions.parse(
+      const completion = await this.client.chat.completions.create(
         {
           model: this.model,
           messages: [
             { role: "system", content: SYSTEM_POLICY },
             { role: "user", content: userContent },
           ],
-          response_format: zodResponseFormat(schema, schemaName),
+          response_format: { type: "json_schema", json_schema: toStrictJsonSchema(schema, schemaName) },
           max_completion_tokens: this.maxOutputTokens,
         },
         { signal: options.signal, timeout: this.requestTimeoutMs },
@@ -108,13 +124,29 @@ export class OpenAiProvider implements AiProvider {
       if (choice?.message.refusal) {
         throw new ProviderError({ code: "invalid_request", message: `Model refused: ${choice.message.refusal}` });
       }
-      const parsed = choice?.message.parsed;
-      if (!parsed) {
-        throw new ProviderError({ code: "malformed_response", message: "OpenAI response did not match the requested schema." });
+      const content = choice?.message.content;
+      if (!content) {
+        throw new ProviderError({ code: "malformed_response", message: "OpenAI response had no content." });
+      }
+
+      let rawParsed: unknown;
+      try {
+        rawParsed = JSON.parse(content);
+      } catch (jsonErr) {
+        throw new ProviderError({ code: "malformed_response", message: "OpenAI response was not valid JSON.", cause: jsonErr });
+      }
+
+      const result = schema.safeParse(nullsToUndefinedDeep(rawParsed));
+      if (!result.success) {
+        throw new ProviderError({
+          code: "malformed_response",
+          message: "OpenAI response did not match the requested schema.",
+          cause: result.error,
+        });
       }
 
       return {
-        data: parsed as T,
+        data: result.data,
         usage: {
           provider: this.name,
           model: this.model,

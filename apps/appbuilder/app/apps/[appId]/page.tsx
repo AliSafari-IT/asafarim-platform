@@ -8,6 +8,7 @@ import { NotFoundError } from "@/lib/errors";
 import { roleGrants } from "@/lib/repositories/authz";
 import { GenerationStatusPanel } from "./GenerationStatusPanel";
 import { WorkspaceShell } from "./workspace/WorkspaceShell";
+import styles from "./workspace.module.css";
 
 export const metadata: Metadata = { title: "Builder workspace" };
 
@@ -46,7 +47,7 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
   const latestVersion = specification && specification.currentVersionNumber > 0 ? await getLatestVersionForActor(getDb(), actor, appId) : undefined;
 
   return (
-    <>
+    <div className={styles.workspacePage}>
       <GenerationStatusPanel appId={appId} canManage={roleGrants(role, "app.requestGeneration")} />
       <WorkspaceShell
         appId={appId}
@@ -60,6 +61,6 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
         canArchive={canArchive}
         canRestore={canRestore}
       />
-    </>
+    </div>
   );
 }

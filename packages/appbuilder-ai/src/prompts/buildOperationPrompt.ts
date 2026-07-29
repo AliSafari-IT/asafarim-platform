@@ -39,6 +39,9 @@ export function buildOperationPrompt(input: OperationPromptInput): string {
       ? "The operation budget for this job is exhausted. Return an empty-safe final batch describing nothing further, with isFinalBatch=true."
       : "Propose the next bounded batch of operations (only from the allowed operation schema) that moves the specification closer to the normalized requirements. Set isFinalBatch=true only once the app is reasonably complete for its stated purpose.",
   );
+  sections.push(
+    "Every response MUST also include `reasoningSummary` (one sentence — your internal justification for this batch, distinct from any per-operation detail).",
+  );
 
   return sections.join("\n\n");
 }
