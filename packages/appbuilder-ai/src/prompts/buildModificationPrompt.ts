@@ -45,7 +45,8 @@ export function buildModificationPrompt(input: ModificationPromptInput): string 
   }
 
   sections.push(
-    "Propose a single bounded batch answering exactly this request. If the request is too ambiguous to act on safely, set clarificationNeeded=true, return an empty operations array, and explain what you need in `summary`. Never claim the change has been applied — you only propose.",
+    "Propose a single bounded batch answering exactly this request. If the request is too ambiguous to act on safely, set clarificationNeeded=true, return an empty operations array, and explain what you need in `summary`. Never claim the change has been applied — you only propose.\n\n" +
+      "Every response MUST include all of these fields, even though this is a single one-shot edit, not a multi-batch job: `batch.reasoningSummary` (one sentence — your internal justification, distinct from the user-facing `summary`) and `batch.isFinalBatch` (always `true` here — there is no follow-up batch in this conversational flow).",
   );
 
   return sections.join("\n\n");

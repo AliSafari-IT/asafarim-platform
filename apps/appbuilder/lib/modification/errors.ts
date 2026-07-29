@@ -33,6 +33,11 @@ export const RETRYABLE_FAILURE_CODES: ReadonlySet<ModificationJobFailureCode> = 
   "provider_rate_limit",
   "provider_unavailable",
   "worker_infrastructure_error",
+  // See lib/generation/errors.ts's RETRYABLE_FAILURE_CODES for why: the
+  // safe message for this code already promises an automatic retry, and a
+  // schema-mismatched response is a one-off model slip worth retrying
+  // rather than failing the job outright on the first miss.
+  "malformed_provider_response",
 ]);
 
 const PROVIDER_CODE_TO_FAILURE_CODE: Record<ProviderErrorCode, ModificationJobFailureCode> = {

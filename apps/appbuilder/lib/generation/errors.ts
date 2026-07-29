@@ -35,6 +35,13 @@ export const RETRYABLE_FAILURE_CODES: ReadonlySet<GenerationJobFailureCode> = ne
   "provider_rate_limit",
   "provider_unavailable",
   "worker_infrastructure_error",
+  // The user-facing message for this code already promises "This will be
+  // retried automatically" (see SAFE_MESSAGES below) — it belongs here so
+  // that promise is actually true. A schema-mismatched response is a
+  // one-off model slip, not a persistent condition, so retrying the whole
+  // job (bounded by MAX_JOB_ATTEMPTS) is the right default rather than
+  // failing outright on the first miss.
+  "malformed_provider_response",
 ]);
 
 const PROVIDER_CODE_TO_FAILURE_CODE: Record<ProviderErrorCode, GenerationJobFailureCode> = {

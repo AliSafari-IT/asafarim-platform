@@ -32,7 +32,8 @@ export function buildRepairPrompt(input: RepairPromptInput): string {
       null,
       2,
     )}`,
-    "Propose a single bounded operation batch that fixes the failing gate(s) above, using ONLY the allowlisted operation vocabulary already available to you. If this failure cannot be fixed within that vocabulary (e.g. it requires a capability this platform does not support, or is not actually a specification problem), set repairable=false, return an empty operations array, and explain why in `summary`. Never claim the fix has been applied or that validation will now pass — you only propose; revalidation happens separately after a human confirms any destructive change.",
+    "Propose a single bounded operation batch that fixes the failing gate(s) above, using ONLY the allowlisted operation vocabulary already available to you. If this failure cannot be fixed within that vocabulary (e.g. it requires a capability this platform does not support, or is not actually a specification problem), set repairable=false, return an empty operations array, and explain why in `summary`. Never claim the fix has been applied or that validation will now pass — you only propose; revalidation happens separately after a human confirms any destructive change.\n\n" +
+      "Every response MUST include all of these fields, even though this is a single one-shot repair, not a multi-batch job: `batch.reasoningSummary` (one sentence — your internal justification, distinct from the user-facing `summary`) and `batch.isFinalBatch` (always `true` here — there is no follow-up batch for a single repair).",
   ];
 
   return sections.join("\n\n");
