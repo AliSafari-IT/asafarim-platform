@@ -6,6 +6,10 @@ import { assertCapability } from "./authz";
 import { generateId } from "../db/ids";
 import { NotFoundError } from "../errors";
 import type { SelectionContextType } from "../modification/selectionContext";
+import { claimAttachmentsForMessageInTx, type SafeAttachment } from "./attachments";
+import { ensureConversation } from "./conversationThread";
+
+export { ensureConversation };
 
 export type ConversationRow = typeof conversations.$inferSelect;
 export type ConversationMessageRow = typeof conversationMessages.$inferSelect;
@@ -32,30 +36,12 @@ export async function listMessagesForActor(db: Db, actor: Actor, appId: string):
     .orderBy(asc(conversationMessages.createdAt));
 }
 
-/**
- * Gets the app's single conversation thread, creating it on first use.
- * MUST be called with `tx` as an active transaction shared with whatever
- * write is about to reference the returned id (a message, or — M13 slice B —
- * an attachment initiated before any message exists), so two concurrent
- * first-writes can never race into two conversation rows for the same app
- * (the `conversations_app_id_unique` index would reject the loser anyway,
- * but doing the lookup-then-insert inside the caller's own transaction is
- * what makes the winner's id the one actually used downstream).
- */
-export async function ensureConversation(tx: Db, appId: string, actor: Actor): Promise<ConversationRow> {
-  const [existing] = await tx.select().from(conversations).where(eq(conversations.appId, appId)).limit(1);
-  if (existing) return existing;
-  const [created] = await tx
-    .insert(conversations)
-    .values({ id: generateId(), appId, createdByPrincipalId: actor.principalId })
-    .returning();
-  return created;
-}
-
 export interface AppendUserMessageInput {
   content: string;
   selectionContext: SelectionContextType | null;
   baseVersionNumber: number;
+  /** M13 slice C — `ready` attachments this message claims, claimed in the same transaction as the message itself. */
+  attachmentIds?: readonly string[];
 }
 
 /**
@@ -65,13 +51,20 @@ export interface AppendUserMessageInput {
  * (`authorPrincipalId`), never a client-supplied identity. Does not itself
  * enqueue a modification job; the API route does that immediately after,
  * passing this message's id as `triggeringMessageId`.
+ *
+ * M13: any `attachmentIds` are claimed inside this same transaction (see
+ * lib/repositories/attachments.ts#claimAttachmentsForMessageInTx), so a
+ * rejected claim — not ready, already claimed by another message, someone
+ * else's upload, quarantined — rolls the message back with it. A message
+ * can therefore never be persisted having silently dropped the evidence the
+ * user attached to it.
  */
 export async function appendUserMessage(
   db: Db,
   actor: Actor,
   appId: string,
   input: AppendUserMessageInput,
-): Promise<{ conversation: ConversationRow; message: ConversationMessageRow }> {
+): Promise<{ conversation: ConversationRow; message: ConversationMessageRow; attachments: SafeAttachment[] }> {
   await assertCapability(db, actor, appId, "app.requestModification");
 
   return db.transaction(async (tx) => {
@@ -93,9 +86,18 @@ export async function appendUserMessage(
       })
       .returning();
 
+    const attachments = await claimAttachmentsForMessageInTx(
+      tx,
+      actor,
+      appId,
+      conversation.id,
+      message.id,
+      input.attachmentIds ?? [],
+    );
+
     await tx.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, conversation.id));
 
-    return { conversation, message };
+    return { conversation, message, attachments };
   });
 }
 

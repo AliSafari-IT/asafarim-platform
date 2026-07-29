@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getActor } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { appendUserMessage, findMessageByJobId } from "@/lib/repositories/conversations";
+import { listAttachmentsForMessage, type SafeAttachment } from "@/lib/repositories/attachments";
 import { enqueueModificationJob, getModificationJobByIdempotencyKey } from "@/lib/repositories/modificationJobs";
 import { validateSelectionContext } from "@/lib/modification/selectionContext";
 import { SendMessageBody } from "@/lib/validation/conversations";
@@ -11,6 +12,23 @@ import { nudgeModificationWorker } from "@/lib/server/queue";
 
 interface RouteParams {
   params: Promise<{ appId: string }>;
+}
+
+/**
+ * What the modification pipeline receives as the user's request. Normally
+ * just the typed text. An attachment-only message (allowed by the M13
+ * composer contract: "send enabled when text or at least one ready
+ * attachment exists") has no text to send, so the pipeline instead receives
+ * a factual manifest of what was attached — a description of the evidence
+ * that exists, never an invented instruction. Slice D replaces this bridge
+ * with real multimodal input: the model will see the image/extracted text
+ * itself rather than only its filename.
+ */
+function requestTextFor(content: string, attachments: SafeAttachment[]): string {
+  const trimmed = content.trim();
+  if (trimmed) return trimmed;
+  const manifest = attachments.map((a) => `${a.originalFilename} (${a.detectedMimeType ?? a.declaredMimeType})`).join(", ");
+  return `The user sent these attachments with no accompanying text: ${manifest}.`;
 }
 
 /**
@@ -42,7 +60,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
     return NextResponse.json({ error: "Invalid message." }, { status: 400 });
   }
-  const { content, baseVersionNumber, selectionContext, idempotencyKey } = parsed.data;
+  const { content, baseVersionNumber, selectionContext, attachmentIds, idempotencyKey } = parsed.data;
   const key = idempotencyKey ?? randomUUID();
 
   try {
@@ -51,27 +69,33 @@ export async function POST(request: Request, { params }: RouteParams) {
     const existingJob = await getModificationJobByIdempotencyKey(db, actor, appId, key);
     if (existingJob) {
       const message = await findMessageByJobId(db, appId, existingJob.id);
-      return NextResponse.json({ message, job: existingJob });
+      const attachments = message ? await listAttachmentsForMessage(db, actor, appId, message.id) : [];
+      return NextResponse.json({ message, job: existingJob, attachments });
     }
 
     const validatedSelection = await validateSelectionContext(db, appId, selectionContext ?? null);
 
-    const { message } = await appendUserMessage(db, actor, appId, {
+    // The message and its attachment claims share ONE transaction: a claim
+    // that fails (not ready, already claimed, someone else's upload,
+    // quarantined) must take the message down with it rather than persist a
+    // message whose evidence silently disappeared.
+    const { message, attachments } = await appendUserMessage(db, actor, appId, {
       content,
       selectionContext: validatedSelection,
       baseVersionNumber,
+      attachmentIds,
     });
 
     const job = await enqueueModificationJob(db, actor, appId, {
       conversationId: message.conversationId,
       triggeringMessageId: message.id,
-      userRequestText: content,
+      userRequestText: requestTextFor(content, attachments),
       selectionContext: validatedSelection,
       idempotencyKey: key,
     });
     await nudgeModificationWorker(job.id, { cause: "enqueue" });
 
-    return NextResponse.json({ message, job }, { status: 201 });
+    return NextResponse.json({ message, job, attachments }, { status: 201 });
   } catch (err) {
     return errorResponse(err);
   }

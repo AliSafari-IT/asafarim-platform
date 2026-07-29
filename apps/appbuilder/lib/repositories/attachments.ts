@@ -1,11 +1,11 @@
-import { and, eq, inArray, lt } from "drizzle-orm";
-import { buildKey, deleteObject, putObjectBytes } from "@asafarim/storage";
+import { and, asc, eq, inArray, isNotNull, lt, ne, or } from "drizzle-orm";
+import { buildKey, deleteObject, getObjectBytes, putObjectBytes } from "@asafarim/storage";
 import { createHash } from "node:crypto";
 import type { Db } from "../db/client";
 import { conversationAttachments } from "../db/schema";
 import type { Actor } from "../auth/actor";
 import { assertCapability } from "./authz";
-import { ensureConversation } from "./conversations";
+import { ensureConversation } from "./conversationThread";
 import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
 import { ConflictError, NotFoundError } from "../errors";
@@ -328,6 +328,102 @@ export async function getAttachmentForActor(db: Db, actor: Actor, appId: string,
 }
 
 /**
+ * Every attachment this actor may see in the app's conversation panel:
+ * each one already CLAIMED by a message (conversation history — visible to
+ * anyone who can view the conversation, exactly like the messages they hang
+ * off), plus this actor's OWN not-yet-claimed uploads (their in-progress
+ * composer draft). Another editor's unsent draft is deliberately excluded —
+ * an upload becomes shared history only when a message claims it.
+ *
+ * Soft-deleted tombstones are filtered out here rather than being returned
+ * with a `deleted` status for the client to hide, so a removed attachment
+ * cannot resurface in any UI that forgets to check.
+ */
+export async function listConversationAttachmentsForActor(
+  db: Db,
+  actor: Actor,
+  appId: string,
+): Promise<SafeAttachment[]> {
+  await assertCapability(db, actor, appId, "app.viewAttachment");
+  const rows = await db
+    .select()
+    .from(conversationAttachments)
+    .where(
+      and(
+        eq(conversationAttachments.appId, appId),
+        ne(conversationAttachments.status, "deleted"),
+        or(
+          isNotNull(conversationAttachments.messageId),
+          eq(conversationAttachments.uploadedByPrincipalId, actor.principalId),
+        ),
+      ),
+    )
+    .orderBy(asc(conversationAttachments.createdAt));
+  return rows.map(toSafeAttachment);
+}
+
+/** The attachments a single message claimed, oldest first — used by the send response so the client can render the new message's cards without a second round trip. */
+export async function listAttachmentsForMessage(
+  db: Db,
+  actor: Actor,
+  appId: string,
+  messageId: string,
+): Promise<SafeAttachment[]> {
+  await assertCapability(db, actor, appId, "app.viewAttachment");
+  const rows = await db
+    .select()
+    .from(conversationAttachments)
+    .where(
+      and(
+        eq(conversationAttachments.appId, appId),
+        eq(conversationAttachments.messageId, messageId),
+        ne(conversationAttachments.status, "deleted"),
+      ),
+    )
+    .orderBy(asc(conversationAttachments.createdAt));
+  return rows.map(toSafeAttachment);
+}
+
+export interface AttachmentContent {
+  bytes: Buffer;
+  /** The SNIFFED type (never the declared one) — what the bytes actually are. */
+  contentType: string;
+  filename: string;
+}
+
+/**
+ * Reads an attachment's stored bytes for a viewer — the read side of the
+ * "raw storage keys are never returned" rule: the key is resolved
+ * server-side from the attachment id and never leaves this process, so a
+ * thumbnail/preview URL is an app-scoped, capability-checked route rather
+ * than a storage URL the client could share or enumerate.
+ *
+ * Only `ready` attachments are readable: `pending`/`uploaded` have no
+ * complete object yet, and `quarantined`/`failed` content must never be
+ * served back — the card shows the failure instead.
+ */
+export async function readAttachmentContentForActor(
+  db: Db,
+  actor: Actor,
+  appId: string,
+  attachmentId: string,
+): Promise<AttachmentContent> {
+  await assertCapability(db, actor, appId, "app.viewAttachment");
+  const row = await loadOwnAttachmentRow(db, appId, attachmentId);
+  if (row.status !== "ready") throw new AttachmentNotReadyError(attachmentId, row.status);
+  const object = await getObjectBytes(row.storageKey);
+  if (!object) throw new NotFoundError("Attachment", attachmentId);
+  return {
+    // The row's sniffed type wins over whatever the storage backend reports
+    // for the object — it is the one value derived from the bytes by code
+    // we control (lib/attachments/sniff.ts).
+    bytes: object.body,
+    contentType: row.detectedMimeType ?? "application/octet-stream",
+    filename: row.originalFilename,
+  };
+}
+
+/**
  * Soft-deletes an attachment: removes the storage object(s) and marks the
  * row `deleted` (never hard-deleted, so audit history and any message that
  * already referenced it survive — see docs/appbuilder-m13-...md's
@@ -357,16 +453,90 @@ export async function deleteAttachment(db: Db, actor: Actor, appId: string, atta
 }
 
 /**
+ * The claim itself, running inside a transaction the CALLER owns. M13 slice
+ * C sends attachments with a message, and the spec requires those to be
+ * "claimed transactionally with message/job creation" — so the message
+ * insert and this claim must share one transaction, or a rejected claim
+ * would leave a sent message whose attachments silently vanished. That is
+ * why the transaction boundary lives with the caller
+ * (lib/repositories/conversations.ts#appendUserMessage) rather than here.
+ * Every throw below therefore rolls the message back too.
+ */
+async function claimAttachmentsInTx(
+  tx: Db,
+  actor: Actor,
+  appId: string,
+  conversationId: string,
+  messageId: string,
+  attachmentIds: readonly string[],
+): Promise<SafeAttachment[]> {
+  const rows = await tx
+    .select()
+    .from(conversationAttachments)
+    .where(and(eq(conversationAttachments.appId, appId), inArray(conversationAttachments.id, [...attachmentIds])));
+
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  for (const id of attachmentIds) {
+    const row = byId.get(id);
+    if (!row || row.conversationId !== conversationId) throw new NotFoundError("Attachment", id);
+    if (row.uploadedByPrincipalId !== actor.principalId) throw new AttachmentAccessDeniedError();
+    if (row.messageId) throw new AttachmentAlreadyClaimedError(id);
+    if (row.status !== "ready") {
+      if (row.status === "quarantined") throw new AttachmentScanFailedError(`Attachment ${id} was flagged by content scanning.`);
+      throw new AttachmentNotReadyError(id, row.status);
+    }
+  }
+
+  const claimed: ConversationAttachmentRow[] = [];
+  for (const id of attachmentIds) {
+    const [updated] = await tx
+      .update(conversationAttachments)
+      .set({ messageId })
+      .where(and(eq(conversationAttachments.id, id), eq(conversationAttachments.appId, appId)))
+      .returning();
+    claimed.push(updated);
+  }
+  return claimed.map(toSafeAttachment);
+}
+
+/**
+ * Validates a claim request's shape and authorization, then runs it in the
+ * caller's transaction. Split from `claimAttachmentsForMessage` so the
+ * send-a-message path (which already holds a transaction) can reuse the
+ * exact same rules without nesting a second one — the capability check runs
+ * against `tx` too, so a revoked capability is seen at the same isolation
+ * level as the rows being claimed.
+ */
+export async function claimAttachmentsForMessageInTx(
+  tx: Db,
+  actor: Actor,
+  appId: string,
+  conversationId: string,
+  messageId: string,
+  attachmentIds: readonly string[],
+): Promise<SafeAttachment[]> {
+  if (attachmentIds.length === 0) return [];
+  await assertCapability(tx, actor, appId, "app.uploadAttachment");
+  if (attachmentIds.length > ATTACHMENT_LIMITS.MAX_ATTACHMENTS_PER_MESSAGE) {
+    throw new TooManyAttachmentsError(ATTACHMENT_LIMITS.MAX_ATTACHMENTS_PER_MESSAGE);
+  }
+  if (new Set(attachmentIds).size !== attachmentIds.length) {
+    throw new ConflictError("The same attachment was listed more than once.");
+  }
+  return claimAttachmentsInTx(tx, actor, appId, conversationId, messageId, attachmentIds);
+}
+
+/**
  * Atomically claims one or more `ready` attachments for a message being
  * sent — the "claimed by exactly one message at send time" contract (M13
  * data model). Ownership and app/conversation scope are rechecked here
  * (never trusted from an earlier request); an attachment already claimed by
  * another message, not owned by this actor, not `ready`, or not belonging
  * to this app/conversation fails the WHOLE claim — never a partial claim.
- * Not yet wired to the `/conversation/messages` route (that integration is
- * M13 slice C, once the composer can actually produce attachment ids) —
- * this function is the complete, independently testable backend contract
- * slice C's route change will call into.
+ *
+ * Standalone entry point (owns its transaction). The send path uses
+ * `claimAttachmentsForMessageInTx` instead so the claim shares the
+ * message's transaction.
  */
 export async function claimAttachmentsForMessage(
   db: Db,
@@ -376,41 +546,11 @@ export async function claimAttachmentsForMessage(
   messageId: string,
   attachmentIds: readonly string[],
 ): Promise<SafeAttachment[]> {
-  await assertCapability(db, actor, appId, "app.uploadAttachment");
-  if (attachmentIds.length === 0) return [];
-  if (attachmentIds.length > ATTACHMENT_LIMITS.MAX_ATTACHMENTS_PER_MESSAGE) {
-    throw new TooManyAttachmentsError(ATTACHMENT_LIMITS.MAX_ATTACHMENTS_PER_MESSAGE);
+  if (attachmentIds.length === 0) {
+    await assertCapability(db, actor, appId, "app.uploadAttachment");
+    return [];
   }
-
-  return db.transaction(async (tx) => {
-    const rows = await tx
-      .select()
-      .from(conversationAttachments)
-      .where(and(eq(conversationAttachments.appId, appId), inArray(conversationAttachments.id, [...attachmentIds])));
-
-    const byId = new Map(rows.map((r) => [r.id, r]));
-    for (const id of attachmentIds) {
-      const row = byId.get(id);
-      if (!row || row.conversationId !== conversationId) throw new NotFoundError("Attachment", id);
-      if (row.uploadedByPrincipalId !== actor.principalId) throw new AttachmentAccessDeniedError();
-      if (row.messageId) throw new AttachmentAlreadyClaimedError(id);
-      if (row.status !== "ready") {
-        if (row.status === "quarantined") throw new AttachmentScanFailedError(`Attachment ${id} was flagged by content scanning.`);
-        throw new AttachmentNotReadyError(id, row.status);
-      }
-    }
-
-    const claimed: ConversationAttachmentRow[] = [];
-    for (const id of attachmentIds) {
-      const [updated] = await tx
-        .update(conversationAttachments)
-        .set({ messageId })
-        .where(and(eq(conversationAttachments.id, id), eq(conversationAttachments.appId, appId)))
-        .returning();
-      claimed.push(updated);
-    }
-    return claimed.map(toSafeAttachment);
-  });
+  return db.transaction((tx) => claimAttachmentsForMessageInTx(tx, actor, appId, conversationId, messageId, attachmentIds));
 }
 
 /** Unclaimed uploads (never attached to a message) older than the retention window — see lib/retention/sweep.ts#sweepUnclaimedAttachments. */

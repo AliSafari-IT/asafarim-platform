@@ -514,6 +514,13 @@ export default async function globalSetup(): Promise<void> {
   const builderAppAdversarial = await seedBuilderWorkspaceApp("adversarial");
   const builderAppA11yDialog = await seedBuilderWorkspaceApp("a11y-dialog");
   const builderAppA11yMotion = await seedBuilderWorkspaceApp("a11y-motion");
+  // M13 slice C — the attachment composer. One app per test that SENDS
+  // (each send starts a real modification job, and a non-terminal job
+  // auto-opens the confirm dialog on every later page load against the same
+  // app); the upload/validation/accessibility tests never send, so they can
+  // share `m13Composer`.
+  const m13ComposerApp = await seedBuilderWorkspaceApp("m13-composer");
+  const m13SendApp = await seedBuilderWorkspaceApp("m13-send");
 
   // 6. M09 generated-data-engine fixtures — the UNMODIFIED
   //    `task_management` template from
@@ -844,6 +851,8 @@ export default async function globalSetup(): Promise<void> {
         builderAppAdversarialId: builderAppAdversarial.id,
         builderAppA11yDialogId: builderAppA11yDialog.id,
         builderAppA11yMotionId: builderAppA11yMotion.id,
+        m13ComposerAppId: m13ComposerApp.id,
+        m13SendAppId: m13SendApp.id,
         m09AppId: m09App.id,
         m09AppSecondaryId: m09AppSecondary.id,
         m10PassingAppId: m10PassingApp.id,
