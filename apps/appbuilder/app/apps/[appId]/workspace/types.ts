@@ -86,6 +86,64 @@ export interface AttachmentPolicy {
   maxFilenameLength: number;
 }
 
+// ─── M13 slice F: imported public references ────────────────────────────
+
+export type ReferenceAdapter = "generic_https" | "github_profile" | "github_repository";
+/** Never includes "live": stored content is only ever cached/stale/unavailable (see lib/references/provenance.ts). */
+export type ReferenceFreshness = "cached" | "stale" | "unavailable";
+
+/** Client mirror of lib/repositories/references.ts#SafeReference — provenance and metadata only; the imported remote text never reaches the client. */
+export interface SafeReference {
+  id: string;
+  appId: string;
+  conversationId: string;
+  importedByPrincipalId: string;
+  sourceUrl: string;
+  finalUrl: string | null;
+  host: string;
+  adapter: ReferenceAdapter;
+  adapterVersion: string;
+  status: "ready" | "unavailable" | "deleted";
+  title: string | null;
+  contentType: string | null;
+  facts: { label: string; value: string }[];
+  contentHash: string | null;
+  originalChars: number | null;
+  truncated: boolean;
+  extractedChars: number;
+  fetchedAt: string | null;
+  cacheExpiresAt: string | null;
+  cacheTtlSeconds: number;
+  refreshCount: number;
+  freshness: ReferenceFreshness;
+  failureCode: string | null;
+  failureMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Client mirror of lib/references/limits.ts#ReferencePolicy — the server-owned import catalogue. */
+export interface ReferencePolicy {
+  allowedSchemes: string[];
+  allowedContentTypes: string[];
+  maxResponseBytes: number;
+  maxRedirects: number;
+  timeoutMs: number;
+  cacheTtlSeconds: number;
+  maxUrlLength: number;
+  adapters: { adapter: ReferenceAdapter; version: string }[];
+}
+
+/** The import endpoint's response. `freshness: "live"` exists ONLY here — for a fetch that just succeeded. */
+export interface ImportReferenceResponse {
+  reference: SafeReference;
+  fetched: boolean;
+  freshness: "live" | ReferenceFreshness;
+  freshnessLabel: string;
+  unchanged: boolean;
+  failure: { code: string; message: string } | null;
+}
+
 /** Where an upload is in the composer, which is not the same thing as the server row's status. */
 export type UploadStatus = "uploading" | "ready" | "failed";
 

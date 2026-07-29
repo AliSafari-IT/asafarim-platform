@@ -77,6 +77,68 @@ export interface ContextAttachmentEvidence {
   includedChars?: number;
 }
 
+/**
+ * M13 slice F — how fresh an imported public reference's content is AT PROMPT
+ * TIME. There is deliberately no `"live"` member: by the time a stored
+ * reference reaches a prompt it was fetched at some earlier moment, so the
+ * only honest labels are "still inside its cache TTL", "past it", and "we
+ * have nothing usable". `"live"` exists only on the import API's immediate
+ * response, for a fetch that just succeeded in that request (see
+ * apps/appbuilder/lib/references/provenance.ts).
+ */
+export type ReferenceFreshness = "cached" | "stale" | "unavailable";
+
+export type ReferenceEvidenceAvailability =
+  | "text_included"
+  | "text_truncated"
+  /** Facts were extracted but the body text was not included (bounded out, or an adapter that only yields facts). */
+  | "facts_only"
+  /** The import failed or has never succeeded — disclosed, never silently dropped. */
+  | "unavailable";
+
+/** One structured fact an adapter extracted from a reference, e.g. `{ label: "Public repositories", value: "42" }`. */
+export interface ReferenceFact {
+  label: string;
+  value: string;
+}
+
+/**
+ * M13 slice F — one public HTTPS reference the user explicitly imported,
+ * with its provenance. Two things this shape exists to make impossible:
+ *
+ * 1. **Passing third-party content off as fresh.** `fetchedAt` and
+ *    `freshness` are always present, and the prompt is instructed to date
+ *    anything it repeats from here. A failed refresh downgrades freshness —
+ *    it never keeps the previous "cached" label.
+ * 2. **Passing third-party content off as trusted.** `text` is remote,
+ *    attacker-controllable data. It is wrapped via `wrapUntrustedInput` by
+ *    `buildModificationPrompt` exactly like attachment text; the provenance
+ *    fields around it are server-derived and stay outside the wrapper.
+ */
+export interface ContextReferenceEvidence {
+  id: string;
+  /** The normalized URL the user asked for. */
+  sourceUrl: string;
+  /** Where the fetch actually ended up after redirects, when it differs. */
+  finalUrl?: string;
+  host: string;
+  /** Which adapter produced this — `generic_https`, `github_profile`, `github_repository`. */
+  adapter: string;
+  adapterVersion: string;
+  /** ISO timestamp of the fetch that produced the content below. */
+  fetchedAt: string | null;
+  freshness: ReferenceFreshness;
+  availability: ReferenceEvidenceAvailability;
+  /** Safe, user-facing reason when the content isn't usable — never a raw error. */
+  reason?: string;
+  /** Bounded extracted text. Untrusted remote data; wrapped at prompt-build time. */
+  text?: string;
+  /** Bounded structured facts an adapter extracted. Also remote data, so also wrapped. */
+  facts?: readonly ReferenceFact[];
+  originalChars?: number;
+  includedChars?: number;
+}
+
 /** One ranked, stable-id-addressed target the request might be about. */
 export interface ContextTargetCandidate {
   /** Deterministic address of an editable property, e.g. `pages.home.name`. */
@@ -157,6 +219,8 @@ export interface GroundedModificationContext {
   history: readonly ContextTurn[];
   memory: readonly ContextMemoryFact[];
   attachments: readonly ContextAttachmentEvidence[];
+  /** M13 slice F — public HTTPS references the user imported into this conversation, newest first, bounded by the assembler. */
+  references: readonly ContextReferenceEvidence[];
   targetCandidates: readonly ContextTargetCandidate[];
   /** Set only when exactly one candidate cleared the calibrated confidence threshold AND margin. */
   resolvedTarget: ContextTargetCandidate | null;
