@@ -58,4 +58,28 @@ describe("modification job state machine", () => {
     expect(isTerminal("awaiting_confirmation")).toBe(false);
     expect(isTerminal("queued")).toBe(false);
   });
+
+  describe("M13 slice E: needs_clarification pause/resume", () => {
+    it("allows interpreting to pause at needs_clarification", () => {
+      expect(canTransition("interpreting", "needs_clarification")).toBe(true);
+    });
+
+    it("allows needs_clarification to resume back to interpreting once answered", () => {
+      expect(canTransition("needs_clarification", "interpreting")).toBe(true);
+    });
+
+    it("never allows needs_clarification to skip straight to proposing/applying", () => {
+      expect(canTransition("needs_clarification", "proposing")).toBe(false);
+      expect(canTransition("needs_clarification", "applying")).toBe(false);
+    });
+
+    it("allows cancelled/failed from needs_clarification like any other non-terminal status", () => {
+      expect(canTransition("needs_clarification", "cancelled")).toBe(true);
+      expect(canTransition("needs_clarification", "failed")).toBe(true);
+    });
+
+    it("isTerminal is false for needs_clarification — it is a pause, not an end state", () => {
+      expect(isTerminal("needs_clarification")).toBe(false);
+    });
+  });
 });

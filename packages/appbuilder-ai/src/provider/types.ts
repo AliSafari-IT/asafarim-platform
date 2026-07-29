@@ -2,7 +2,7 @@ import type { ApplicationSpecificationType } from "@asafarim/appbuilder-schema";
 import type { RequirementsAnalysisType } from "../schemas/requirementsAnalysis";
 import type { TemplateRecommendationType } from "../schemas/templateRecommendation";
 import type { OperationBatchType } from "../schemas/operationProposal";
-import type { ModificationProposalType } from "../schemas/modificationProposal";
+import type { ModificationDecisionType } from "../schemas/modificationDecision";
 import type { RepairProposalType } from "../schemas/repairProposal";
 import type { ClarificationRoundType } from "../schemas/clarification";
 import type { GroundedModificationContext } from "./groundedContext";
@@ -97,7 +97,7 @@ export interface ProposeModificationInput {
   groundedContext?: GroundedModificationContext | null;
 }
 export interface ProposeModificationResult {
-  proposal: ModificationProposalType;
+  decision: ModificationDecisionType;
   usage: UsageMetadata;
 }
 

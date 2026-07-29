@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   DefaultFakeProvider,
   type AiProvider,
@@ -13,9 +13,14 @@ import { closeTestDb, getTestDb, migrateTestDb, resetTestDb } from "../db/testUt
 import { createApp } from "../repositories/apps";
 import { applyOperation } from "../repositories/operations";
 import { appendUserMessage } from "../repositories/conversations";
-import { claimJobById, enqueueModificationJob, type ModificationJobRow } from "../repositories/modificationJobs";
+import {
+  claimJobById,
+  enqueueModificationJob,
+  submitClarificationAnswer,
+  type ModificationJobRow,
+} from "../repositories/modificationJobs";
 import { loadConversationMemory } from "../repositories/conversationMemory";
-import { specifications, specificationVersions } from "../db/schema";
+import { conversationMessages, specifications, specificationVersions } from "../db/schema";
 import { runModificationJob } from "./pipeline";
 import type { SelectionContextType } from "./selectionContext";
 
@@ -131,6 +136,19 @@ async function runRequest(
   return { job: outcome.job as ModificationJobRow, grounded: provider.grounded, message };
 }
 
+/** Re-claims and re-drives an already-enqueued job — used to resume a job a clarification answer just moved back to `interpreting`. */
+async function resumeRequest(jobId: string, suffix: string) {
+  const claimed = await claimJobById(db, jobId, "grounded-worker", 120_000);
+  if (!claimed) throw new Error("expected to reclaim the resumed job");
+  const provider = new RecordingProvider(new DefaultFakeProvider());
+  const outcome = await runModificationJob(
+    { db, provider, workerId: "grounded-worker", leaseDurationMs: 120_000, signal: new AbortController().signal },
+    claimed,
+  );
+  if (outcome.kind !== "yielded") throw new Error(`expected a terminal outcome resuming ${suffix}, got ${outcome.kind}`);
+  return { job: outcome.job as ModificationJobRow, grounded: provider.grounded };
+}
+
 async function specAt(appId: string, versionNumber: number): Promise<ApplicationSpecificationType> {
   const [spec] = await db.select().from(specifications).where(eq(specifications.appId, appId)).limit(1);
   const rows = await db.select().from(specificationVersions).where(eq(specificationVersions.specificationId, spec.id));
@@ -212,8 +230,8 @@ describe("memory across turns", () => {
   });
 });
 
-describe("duplicate matches", () => {
-  it("asks one grounded question naming the real competitors, and applies nothing", async () => {
+describe("duplicate matches (M13 slice E: resumable clarification)", () => {
+  it("pauses with one grounded question naming the real competitors, and applies nothing yet", async () => {
     const { app, baseVersionNumber } = await setupTitleApp("duplicate");
     const { version } = await applyOperation(db, owner, app.id, {
       operation: {
@@ -235,17 +253,90 @@ describe("duplicate matches", () => {
     expect(grounded?.resolutionOutcome).toBe("ambiguous");
     expect(grounded?.groundedQuestion).toBeTruthy();
 
-    // Slice D still FAILS an unanswerable request — resumable clarification
-    // is slice E. What changed is the content: a question naming the actual
-    // competing pages, never "this request is too broad".
-    expect(job.status).toBe("failed");
-    expect(job.failureCode).toBe("invalid_request");
-    expect(job.failureMessage).toContain("Home");
-    expect(job.failureMessage).not.toMatch(/too broad/i);
-    expect(job.failureMessage!.match(/\?/g)).toHaveLength(1);
+    // Slice E: clarification PAUSES the job — it is never a failure, and
+    // the question names the actual competing pages, never "too broad".
+    expect(job.status).toBe("needs_clarification");
+    expect(job.failureCode).toBeNull();
+
+    const state = job.clarificationState as { rounds: { roundNumber: number; question: { text: string; choices: { id: string; targetId?: string }[] } }[] };
+    expect(state.rounds).toHaveLength(1);
+    expect(state.rounds[0].roundNumber).toBe(1);
+    expect(state.rounds[0].question.text).toContain("Home");
+    expect(state.rounds[0].question.text).not.toMatch(/too broad/i);
+    expect(state.rounds[0].question.choices.length).toBeGreaterThanOrEqual(2);
+    expect(state.rounds[0].question.choices.map((c) => c.targetId)).toEqual(
+      expect.arrayContaining(["pages.home.name", "pages.home_marketing.name"]),
+    );
 
     const [spec] = await db.select().from(specifications).where(eq(specifications.appId, app.id));
-    expect(spec.currentVersionNumber).toBe(version!.versionNumber); // nothing applied
+    expect(spec.currentVersionNumber).toBe(version!.versionNumber); // nothing applied yet
+  });
+
+  it("resumes with the answer's chosen target and applies the change to exactly that page", async () => {
+    const { app, baseVersionNumber } = await setupTitleApp("duplicate-resume");
+    const { version } = await applyOperation(db, owner, app.id, {
+      operation: { opVersion: "1.0.0", type: "CREATE_PAGE", page: { id: "home_marketing", name: "Home", path: "marketing-home" } },
+      baseVersionNumber,
+      idempotencyKey: "duplicate-resume-second-home",
+    });
+
+    const { job: paused } = await runRequest(app.id, version!.versionNumber, "replace the title Home to Experiences", "duplicate-resume");
+    expect(paused.status).toBe("needs_clarification");
+    const state = paused.clarificationState as { rounds: { question: { id: string; choices: { id: string; label: string; targetId?: string }[] } }[] };
+    const question = state.rounds[0].question;
+    const marketingChoice = question.choices.find((c) => c.targetId === "pages.home_marketing.name");
+    expect(marketingChoice).toBeDefined();
+
+    const answered = await submitClarificationAnswer(db, owner, app.id, paused.id, {
+      questionId: question.id,
+      choiceId: marketingChoice!.id,
+    });
+    expect(answered.status).toBe("interpreting");
+    expect(answered.leaseOwner).toBeNull();
+
+    const { job: resumed, grounded: resumedContext } = await resumeRequest(paused.id, "duplicate-resume");
+
+    // The human's choice — not the deterministic text resolver — decided the target.
+    expect(resumedContext?.resolvedTarget?.targetId).toBe("pages.home_marketing.name");
+    expect(resumed.status).toBe("ready");
+
+    const spec = await specAt(app.id, resumed.resultingVersionNumber!);
+    expect(spec.pages.find((p) => p.id === "home_marketing")?.name).toBe("Experiences");
+    expect(spec.pages.find((p) => p.id === "home")?.name).toBe("Home"); // the OTHER match was left untouched
+
+    // The answer is also visible in the conversation log.
+    const answerMessage = await db
+      .select()
+      .from(conversationMessages)
+      .where(and(eq(conversationMessages.modificationJobId, paused.id), eq(conversationMessages.messageType, "clarification_answer")));
+    expect(answerMessage).toHaveLength(1);
+    expect(answerMessage[0].content).toBe(marketingChoice!.label);
+  });
+
+  it("asks a second (and final) round when a free-text answer does not resolve the ambiguity, honoring the two-round cap", async () => {
+    const { app, baseVersionNumber } = await setupTitleApp("duplicate-freetext");
+    const { version } = await applyOperation(db, owner, app.id, {
+      operation: { opVersion: "1.0.0", type: "CREATE_PAGE", page: { id: "home_marketing", name: "Home", path: "marketing-home" } },
+      baseVersionNumber,
+      idempotencyKey: "duplicate-freetext-second-home",
+    });
+
+    const { job: paused } = await runRequest(app.id, version!.versionNumber, "replace the title Home to Experiences", "duplicate-freetext");
+    const state1 = paused.clarificationState as { rounds: { question: { id: string } }[] };
+
+    await submitClarificationAnswer(db, owner, app.id, paused.id, {
+      questionId: state1.rounds[0].question.id,
+      freeText: "the one used for marketing",
+    });
+    const { job: secondRound } = await resumeRequest(paused.id, "duplicate-freetext-round2");
+
+    // The deterministic resolver still sees the same unresolved original
+    // request text (prose understanding is a real provider's job, not the
+    // fixture's) — a second, final round is the honest, safe outcome, not
+    // a silent guess or a lost intent.
+    expect(secondRound.status).toBe("needs_clarification");
+    const state2 = secondRound.clarificationState as { rounds: unknown[] };
+    expect(state2.rounds).toHaveLength(2);
   });
 });
 
@@ -266,6 +357,6 @@ describe("safety invariants still hold with grounded context", () => {
     for (const candidate of grounded?.targetCandidates ?? []) {
       expect(candidate.targetId).toMatch(/^(app|branding|pages|navigation|entities|dashboard|actions)\./);
     }
-    expect(["ready", "failed"]).toContain(job.status);
+    expect(["ready", "failed", "needs_clarification"]).toContain(job.status);
   });
 });

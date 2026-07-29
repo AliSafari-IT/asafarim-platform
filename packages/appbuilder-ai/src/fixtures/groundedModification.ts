@@ -1,10 +1,12 @@
-import type { ModificationProposalType } from "../schemas/modificationProposal";
+import type { ModificationDecisionType } from "../schemas/modificationDecision";
+import type { ModificationClarificationQuestionType, ModificationClarificationChoiceType } from "../schemas/modificationClarification";
 import type { ProposedOperationType } from "../schemas/operationProposal";
 import type { ProposeModificationInput } from "../provider/types";
 import type { ContextTargetCandidate, GroundedModificationContext } from "../provider/groundedContext";
+import { describeCapabilityGaps } from "../capabilities/catalog";
 
 /**
- * M13 slice D — the grounded replacement for the modification fixture's
+ * M13 slice D/E — the grounded replacement for the modification fixture's
  * "too broad" reflex.
  *
  * Root cause #7 in the M13 analysis is that the default fake provider
@@ -25,6 +27,13 @@ import type { ContextTargetCandidate, GroundedModificationContext } from "../pro
  * Everything it emits still goes through the real pipeline unchanged:
  * schema validation, dry run, capability checks, destructive confirmation,
  * versioning, and validation gates. A fixture cannot apply anything.
+ *
+ * M13 slice E: ambiguous/unresolved resolution now returns a real
+ * `needs_clarification` decision with grounded, targetId-addressed choices
+ * (built from the resolver's own candidate list) instead of the slice-D
+ * failure message, and a request naming a known-unsupported surface
+ * (Framer Motion, GitHub) is honestly labelled `partially_supported`/
+ * `unsupported` alongside whatever WAS resolvable.
  */
 
 /** Named colours mapped into the palette-ish hex the branding schema requires (`#rrggbb`). Reversible presentation defaults, per the M13 product contract — exact hex is optional, never demanded. */
@@ -54,53 +63,54 @@ const COLOR_HEX: Record<string, string> = {
 const REPLACEMENT_PATTERN = /\b(?:replace|change|rename|update|set|make)\b[^]*?\bto\b\s+([^,.;]{1,120})/i;
 
 /**
- * Builds the proposal the grounded context implies, or `null` when it
- * implies nothing specific enough to act on.
+ * Builds the decision the grounded context implies, or `null` when it
+ * implies nothing specific enough to act on (the caller falls back to the
+ * generic clarification script).
  */
-export function groundedModificationProposal(input: ProposeModificationInput): ModificationProposalType | null {
+export function groundedModificationDecision(input: ProposeModificationInput): ModificationDecisionType | null {
   const grounded = input.groundedContext;
   if (!grounded) return null;
 
   if (grounded.resolutionOutcome === "ambiguous" || grounded.resolutionOutcome === "unresolved") {
     if (!grounded.groundedQuestion) return null;
-    return {
-      summary: grounded.groundedQuestion,
-      clarificationNeeded: true,
-      batch: {
-        reasoningSummary: `Target resolution came back ${grounded.resolutionOutcome}; asking one question naming the real candidates.`,
-        isFinalBatch: true,
-        operations: [],
-      },
-    };
+    return { outcome: "needs_clarification", question: buildQuestionFromCandidates(grounded) };
   }
 
   const resolved = grounded.resolvedTarget;
   if (!resolved) return null;
 
+  const gaps = describeCapabilityGaps(input.userRequest);
+
   const color = findColor(input.userRequest);
   if (color) {
-    const colorProposal = proposeColorChange(grounded, resolved, color);
-    if (colorProposal) return colorProposal;
+    const colorDecision = proposeColorChange(grounded, resolved, color, gaps);
+    if (colorDecision) return colorDecision;
   }
 
   const replacement = findReplacementValue(input.userRequest);
   if (replacement) {
     const operation = writeValueOperation(resolved, replacement);
     if (operation) {
-      return {
-        summary:
-          `Updating ${resolved.label} to "${replacement}". ` +
-          `I matched that to ${describeMatch(resolved)} — tell me if you meant something else and I'll move it.`,
-        clarificationNeeded: false,
-        batch: {
-          reasoningSummary: `Writes "${replacement}" into the deterministically resolved target ${resolved.targetId}.`,
-          isFinalBatch: true,
-          operations: [operation],
+      const summary =
+        `Updating ${resolved.label} to "${replacement}". ` +
+        `I matched that to ${describeMatch(resolved)} — tell me if you meant something else and I'll move it.`;
+      const plan = [
+        {
+          title: `Update ${resolved.label}`,
+          batch: {
+            reasoningSummary: `Writes "${replacement}" into the deterministically resolved target ${resolved.targetId}.`,
+            isFinalBatch: true,
+            operations: [operation],
+          },
         },
-      };
+      ];
+      return gaps.length > 0
+        ? { outcome: "partially_supported", summary, assumptions: [], plan, unsupported: gaps }
+        : { outcome: "ready", summary, assumptions: [], plan };
     }
   }
 
+  if (gaps.length > 0) return { outcome: "unsupported", unsupported: gaps, alternatives: [] };
   return null;
 }
 
@@ -117,7 +127,8 @@ function proposeColorChange(
   grounded: GroundedModificationContext,
   resolved: ContextTargetCandidate,
   color: string,
-): ModificationProposalType | null {
+  gaps: ReturnType<typeof describeCapabilityGaps>,
+): ModificationDecisionType | null {
   const hex = color.startsWith("#") ? color : COLOR_HEX[color];
   if (!hex) return null;
 
@@ -132,20 +143,25 @@ function proposeColorChange(
     ? `I matched "${color}" to ${describeMatch(resolved)}, but this app's specification has no per-element colour — the closest thing I can actually change is the app's primary brand colour, so I'm setting that to ${hex}. That applies app-wide, not just to ${resolved.label}.`
     : `Setting the app's primary brand colour to ${hex} for "${color}".`;
 
-  return {
-    summary,
-    clarificationNeeded: false,
-    batch: {
-      reasoningSummary: `Maps the colour "${color}" onto branding.primaryColor (${hex}), the only colour-valued property in this schema.`,
-      isFinalBatch: true,
-      operations: [
-        {
-          modelBelievesDestructive: false,
-          operation: { opVersion: "1.0.0", type: "UPDATE_BRANDING", patch: { primaryColor: hex } },
-        },
-      ],
+  const plan = [
+    {
+      title: "Update brand colour",
+      batch: {
+        reasoningSummary: `Maps the colour "${color}" onto branding.primaryColor (${hex}), the only colour-valued property in this schema.`,
+        isFinalBatch: true,
+        operations: [
+          {
+            modelBelievesDestructive: false,
+            operation: { opVersion: "1.0.0" as const, type: "UPDATE_BRANDING" as const, patch: { primaryColor: hex } },
+          },
+        ],
+      },
     },
-  };
+  ];
+
+  return gaps.length > 0
+    ? { outcome: "partially_supported", summary, assumptions: [], plan, unsupported: gaps }
+    : { outcome: "ready", summary, assumptions: [], plan };
 }
 
 /** Maps a resolved target's property onto the allowlisted operation that writes it. Returns `null` for properties no single bounded operation can set. */
@@ -192,6 +208,27 @@ function writeValueOperation(target: ContextTargetCandidate, newValue: string): 
   // would risk dropping the other entries, so this deliberately declines
   // rather than guessing.
   return null;
+}
+
+/** Builds a schema-valid (2-5 choice) clarification question from the resolver's own ranked candidates — never a generic "could you be more specific?". */
+function buildQuestionFromCandidates(grounded: GroundedModificationContext): ModificationClarificationQuestionType {
+  const choices: ModificationClarificationChoiceType[] = grounded.targetCandidates
+    .slice(0, 5)
+    .map((candidate, index) => ({ id: `candidate_${index}`, label: candidate.label, targetId: candidate.targetId }));
+
+  while (choices.length < 2) {
+    choices.push({
+      id: choices.length === 0 ? "none_matched" : "something_else",
+      label: choices.length === 0 ? "None of these — let me describe it" : "Something else",
+    });
+  }
+
+  return {
+    id: "q_target_resolution",
+    text: grounded.groundedQuestion ?? "Which one did you mean?",
+    choices,
+    allowFreeText: true,
+  };
 }
 
 function describeMatch(target: ContextTargetCandidate): string {

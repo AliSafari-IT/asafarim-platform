@@ -2,12 +2,14 @@ import { and, desc, eq } from "drizzle-orm";
 import type { ApplicationSpecificationType } from "@asafarim/appbuilder-schema";
 import type {
   ContextAttachmentEvidence,
+  ContextCapabilityEntry,
   ContextManifest,
   ContextMemoryFact,
   ContextTargetCandidate,
   ContextTurn,
   GroundedModificationContext,
 } from "@asafarim/appbuilder-ai";
+import { buildCapabilityCatalog } from "@asafarim/appbuilder-ai";
 import type { Db } from "../db/client";
 import { conversationMessages } from "../db/schema";
 import { listAttachmentEvidenceForMessages, type ConversationAttachmentRow } from "../repositories/attachments";
@@ -85,6 +87,15 @@ export interface BuildModificationContextInput {
   selection: SelectionContextType | null;
   /** True when the configured provider can actually analyze images — drives the honest "I did not look at your screenshot" disclosure. */
   visionAvailable?: boolean;
+  /**
+   * M13 slice E — set when this interpretation resumes a clarification
+   * whose answer named a stable target (see lib/repositories/
+   * modificationJobs.ts#submitClarificationAnswer and pipeline.ts's
+   * forcedTargetFromClarification). The human's explicit choice is
+   * authoritative: it overrides whatever the deterministic text-based
+   * resolver would otherwise conclude from the answer text alone.
+   */
+  forcedTargetId?: string;
 }
 
 export interface ModificationContextResult {
@@ -132,7 +143,7 @@ export async function buildModificationContext(
   if (previewEvidence) includedSourceIds.push(`preview_evidence:${previewEvidence.kind}`);
 
   // ─── Deterministic target resolution ─────────────────────────────────────
-  const resolution = resolveTargets({
+  let resolution = resolveTargets({
     request: input.userRequest,
     index,
     selection: input.selection
@@ -147,6 +158,30 @@ export async function buildModificationContext(
     memoryWasInvalidated: memory.invalidated.length > 0,
   });
 
+  // M13 slice E: an answered clarification's chosen target overrides
+  // whatever the text-based rules above concluded from the answer alone —
+  // see BuildModificationContextInput.forcedTargetId's doc comment.
+  if (input.forcedTargetId) {
+    const target = index.byTargetId.get(input.forcedTargetId);
+    if (target) {
+      const forced: TargetCandidate = {
+        target,
+        role: "subject",
+        strategy: "clarification_answer",
+        confidence: 1,
+        evidence: ["the user selected this in answer to a clarifying question"],
+      };
+      resolution = {
+        outcome: "resolved",
+        resolved: forced,
+        candidates: [forced, ...resolution.candidates.filter((c) => c.target.targetId !== target.targetId)],
+        question: null,
+        signals: resolution.signals,
+      };
+      includedSourceIds.push(`clarification_answer_target:${target.targetId}`);
+    }
+  }
+
   // ─── Relevant recent turns ───────────────────────────────────────────────
   const history = await assembleHistory(input, includedSourceIds, omitted, truncated);
 
@@ -156,6 +191,13 @@ export async function buildModificationContext(
   const memoryFacts = describeMemory(memory, index, includedSourceIds);
   const candidates = resolution.candidates.slice(0, CONTEXT_LIMITS.MAX_CANDIDATES).map(toContextCandidate);
   for (const candidate of candidates) includedSourceIds.push(`target:${candidate.targetId}`);
+
+  // M13 slice E: only the actionable subset — "supported_now" entries are
+  // implied by the prompt's own instruction ("anything not listed here as
+  // unsupported and matching an operation/component/field type IS
+  // supported"), so including all ~50 of them would spend prompt budget
+  // saying nothing a model needs told.
+  const capabilities: ContextCapabilityEntry[] = buildCapabilityCatalog().filter((entry) => entry.status !== "supported_now");
 
   const manifest: ContextManifest = {
     specificationVersionNumber: input.currentVersionNumber,
@@ -175,6 +217,7 @@ export async function buildModificationContext(
     resolutionOutcome: resolution.outcome,
     groundedQuestion: resolution.question,
     previewEvidence: toContextPreviewEvidence(previewEvidence),
+    capabilities,
     manifest,
   };
 

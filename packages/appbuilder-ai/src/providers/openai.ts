@@ -3,7 +3,7 @@ import type { ZodType, ZodTypeDef } from "zod";
 import { RequirementsAnalysis, type RequirementsAnalysisType } from "../schemas/requirementsAnalysis";
 import { TemplateRecommendation } from "../schemas/templateRecommendation";
 import { OperationBatch } from "../schemas/operationProposal";
-import { ModificationProposal } from "../schemas/modificationProposal";
+import { ModificationDecision } from "../schemas/modificationDecision";
 import { RepairProposal } from "../schemas/repairProposal";
 import { SYSTEM_POLICY } from "../prompts/systemPolicy";
 import { buildAnalysisPrompt } from "../prompts/buildAnalysisPrompt";
@@ -198,8 +198,8 @@ export class OpenAiProvider implements AiProvider {
     options: ProviderCallOptions,
   ): Promise<ProposeModificationResult> {
     const prompt = buildModificationPrompt(input);
-    const { data, usage } = await this.parse(prompt, ModificationProposal, "modification_proposal", options);
-    return { proposal: data as any, usage };
+    const { data, usage } = await this.parse(prompt, ModificationDecision, "modification_decision", options);
+    return { decision: data as any, usage };
   }
 
   async proposeRepair(input: ProposeRepairInput, options: ProviderCallOptions): Promise<ProposeRepairResult> {

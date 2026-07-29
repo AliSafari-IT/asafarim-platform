@@ -40,7 +40,11 @@ export type ResolutionStrategy =
   | "case_insensitive"
   | "memory"
   | "property_only"
-  | "capability_hint";
+  | "capability_hint"
+  // M13 slice E: the user explicitly picked this target by answering a
+  // clarifying question — authoritative over anything the text-based rules
+  // above would otherwise conclude (see contextAssembler.ts's forcedTargetId).
+  | "clarification_answer";
 
 export type CandidateRole = "subject" | "capability";
 

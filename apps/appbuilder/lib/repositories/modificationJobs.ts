@@ -1,6 +1,12 @@
 import { and, asc, desc, eq, isNull, lt, ne, notInArray, or, type SQL } from "drizzle-orm";
+import {
+  ModificationClarificationState,
+  currentClarificationRound,
+  isClarificationExpired,
+  type ModificationClarificationAnswerType,
+} from "@asafarim/appbuilder-ai";
 import type { Db } from "../db/client";
-import { modificationJobs, modificationOperationBatches, specifications } from "../db/schema";
+import { conversationMessages, conversations, modificationJobs, modificationOperationBatches, specifications } from "../db/schema";
 import type { Actor } from "../auth/actor";
 import { assertCapability } from "./authz";
 import { recordAuditEvent } from "./audit";
@@ -15,6 +21,7 @@ import {
 } from "../modification/stateMachine";
 import { MODIFICATION_LIMITS } from "../modification/limits";
 import { checkConfirmation } from "../modification/confirmation";
+import { safeFailureMessage } from "../modification/errors";
 import type { SelectionContextType } from "../modification/selectionContext";
 
 export type ModificationJobRow = typeof modificationJobs.$inferSelect;
@@ -160,12 +167,19 @@ export async function claimJobById(db: Db, jobId: string, workerId: string, leas
 
 /**
  * Crash-recovery sweep path. Never claims a job awaiting human confirmation
- * (`awaiting_confirmation`) — that status only re-enters the claimable pool
- * once `confirmModification` explicitly clears the lease, exactly mirroring
- * generationJobs.ts's `needs_clarification` exclusion.
+ * (`awaiting_confirmation`) or a pending clarification answer
+ * (`needs_clarification`) — both statuses only re-enter the claimable pool
+ * once a human acts (`confirmModification` / `submitClarificationAnswer`),
+ * exactly mirroring generationJobs.ts's own `needs_clarification`
+ * exclusion.
  */
 export async function claimNextAvailableJob(db: Db, workerId: string, leaseDurationMs: number): Promise<ModificationJobRow | null> {
-  return claimInternal(db, workerId, leaseDurationMs, ne(modificationJobs.status, "awaiting_confirmation"));
+  return claimInternal(
+    db,
+    workerId,
+    leaseDurationMs,
+    and(ne(modificationJobs.status, "awaiting_confirmation"), ne(modificationJobs.status, "needs_clarification"))!,
+  );
 }
 
 async function claimInternal(
@@ -239,6 +253,9 @@ export interface ModificationJobFieldPatch {
   normalizedRequest?: Record<string, unknown>;
   /** M13 slice D — the SAFE grounding summary (see lib/modification/contextAssembler.ts#toPersistableManifest). Never the assembled prompt. */
   contextManifest?: Record<string, unknown>;
+  /** M13 slice E — ModificationClarificationStateType (@asafarim/appbuilder-ai). */
+  clarificationState?: Record<string, unknown>;
+  planStepId?: string;
   totalOperationsApplied?: number;
   providerName?: string;
   providerModel?: string;
@@ -262,6 +279,10 @@ export interface ModificationTransitionPatch {
   normalizedRequest?: Record<string, unknown>;
   /** M13 slice D — the SAFE grounding summary (see lib/modification/contextAssembler.ts#toPersistableManifest). Never the assembled prompt. */
   contextManifest?: Record<string, unknown>;
+  /** M13 slice E — ModificationClarificationStateType (@asafarim/appbuilder-ai). */
+  clarificationState?: Record<string, unknown>;
+  /** M13 slice E — set when this job executes one step of a modification_plans row. */
+  planStepId?: string;
   totalOperationsApplied?: number;
   confirmationRequired?: boolean;
   confirmationChecksum?: string;
@@ -534,6 +555,159 @@ export async function confirmModification(
       throw new ConfirmationInvalidError("The proposal has changed since you last reviewed it. Refresh and try again.");
     case "invalid":
       throw new ConfirmationInvalidError();
+  }
+}
+
+// ─── Clarification (M13 slice E) ────────────────────────────────────────
+
+export interface SubmitClarificationAnswerInput {
+  questionId: string;
+  choiceId?: string;
+  freeText?: string;
+}
+
+type SubmitClarificationOutcome =
+  | { kind: "ok"; job: ModificationJobRow }
+  | { kind: "expired" }
+  | { kind: "invalid"; reason: string };
+
+/**
+ * Submits an authorized owner/editor's answer to a modification job's
+ * pending clarification round and resumes it. Mirrors
+ * generationJobs.ts#submitClarificationAnswers's contract (same-actor-only,
+ * clears the lease so the worker immediately reclaims it) with the
+ * additional binding M13 slice E's product contract calls for: the answer
+ * must name a choice the job actually offered (or free text, when the
+ * question allows it), and an expired round fails the job safely rather
+ * than silently accepting a stale answer. `needs_clarification -> interpreting`
+ * is a PAUSE resuming, never a retry — the job's own userRequestText,
+ * attachments, and candidates are untouched; only the answer (persisted on
+ * the round, and as its own `clarification_answer` conversation message) is
+ * new context for the next interpretation pass (see
+ * lib/modification/contextAssembler.ts's forcedTargetId and
+ * lib/modification/pipeline.ts's forcedTargetFromClarification).
+ *
+ * Structured as "run the whole decision inside one transaction that never
+ * throws, then translate the result to an error afterward" — same reasoning
+ * as confirmModification's own doc comment: the expired path needs its
+ * failed-status write to survive even though the overall function reports
+ * an error.
+ */
+export async function submitClarificationAnswer(
+  db: Db,
+  actor: Actor,
+  appId: string,
+  jobId: string,
+  input: SubmitClarificationAnswerInput,
+): Promise<ModificationJobRow> {
+  await assertCapability(db, actor, appId, "app.requestModification");
+
+  const outcome = await db.transaction(async (tx): Promise<SubmitClarificationOutcome> => {
+    const [job] = await tx
+      .select()
+      .from(modificationJobs)
+      .where(and(eq(modificationJobs.id, jobId), eq(modificationJobs.appId, appId)))
+      .for("update")
+      .limit(1);
+    if (!job) throw new NotFoundError("Modification job", jobId);
+
+    if (job.initiatedByPrincipalId !== actor.principalId) {
+      throw new ForbiddenError("Only the person who requested this change can answer its clarifying question.");
+    }
+    if (job.status !== "needs_clarification") {
+      return { kind: "invalid", reason: `Modification job is not awaiting clarification (status: ${job.status})` };
+    }
+
+    const state = ModificationClarificationState.parse(job.clarificationState ?? { rounds: [] });
+    const round = currentClarificationRound(state);
+    if (!round) {
+      return { kind: "invalid", reason: "This job has no pending clarification question." };
+    }
+    if (round.question.id !== input.questionId) {
+      return { kind: "invalid", reason: "This answer does not match the currently pending question." };
+    }
+    if (isClarificationExpired(round)) {
+      const expiredAt = new Date();
+      await tx
+        .update(modificationJobs)
+        .set({
+          status: "failed",
+          phase: "failed",
+          failureCode: "clarification_expired",
+          failureMessage: safeFailureMessage("clarification_expired"),
+          completedAt: expiredAt,
+          updatedAt: expiredAt,
+        })
+        .where(eq(modificationJobs.id, jobId));
+      return { kind: "expired" };
+    }
+
+    const choice = input.choiceId ? round.question.choices.find((c) => c.id === input.choiceId) : undefined;
+    if (input.choiceId && !choice) {
+      return { kind: "invalid", reason: "This answer does not match any of the offered choices." };
+    }
+    if (!input.choiceId && !(round.question.allowFreeText && input.freeText)) {
+      return { kind: "invalid", reason: "An answer must select one of the offered choices, or provide free text where allowed." };
+    }
+
+    const now = new Date();
+    const answer: ModificationClarificationAnswerType = {
+      questionId: input.questionId,
+      choiceId: input.choiceId,
+      freeText: input.freeText,
+      answeredAt: now.toISOString(),
+      answeredByPrincipalId: actor.principalId,
+    };
+    const newState = {
+      rounds: state.rounds.map((r) => (r.roundNumber === round.roundNumber ? { ...r, answer } : r)),
+    };
+
+    assertTransition("needs_clarification", "interpreting");
+    const [updated] = await tx
+      .update(modificationJobs)
+      .set({
+        status: "interpreting",
+        phase: "interpreting",
+        clarificationState: newState,
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        updatedAt: now,
+      })
+      .where(eq(modificationJobs.id, jobId))
+      .returning();
+
+    await tx.insert(conversationMessages).values({
+      id: generateId(),
+      conversationId: job.conversationId,
+      appId,
+      role: "user",
+      messageType: "clarification_answer",
+      content: choice ? choice.label : (input.freeText ?? ""),
+      authorPrincipalId: actor.principalId,
+      modificationJobId: job.id,
+      confirmationState: "not_required",
+    });
+    await tx.update(conversations).set({ updatedAt: now }).where(eq(conversations.id, job.conversationId));
+
+    await recordAuditEvent(tx, {
+      appId,
+      actorPrincipalId: actor.principalId,
+      action: "modification.clarification_answered",
+      targetType: "modification_job",
+      targetId: jobId,
+      metadata: { questionId: input.questionId, roundNumber: round.roundNumber },
+    });
+
+    return { kind: "ok", job: updated };
+  });
+
+  switch (outcome.kind) {
+    case "ok":
+      return outcome.job;
+    case "expired":
+      throw new ConflictError(safeFailureMessage("clarification_expired"));
+    case "invalid":
+      throw new ConflictError(outcome.reason);
   }
 }
 

@@ -1,4 +1,4 @@
-import type { ModificationProposalType } from "@asafarim/appbuilder-ai";
+import type { ModificationDecisionType } from "@asafarim/appbuilder-ai";
 import type { RegressionCase } from "./regressionCorpus";
 
 /**
@@ -12,7 +12,7 @@ import type { RegressionCase } from "./regressionCorpus";
  */
 export interface CaseScore {
   caseId: string;
-  /** Did clarificationNeeded match what the M13 product contract actually requires for this request? */
+  /** Did outcome === "needs_clarification" match what the M13 product contract actually requires for this request? */
   clarificationCorrect: boolean;
   targetAccuracy: boolean | null;
   operationValidity: number | null;
@@ -42,26 +42,27 @@ export interface ScoredJobOutcome {
   failureCode: string | null;
 }
 
-export function scoreCase(regressionCase: RegressionCase, proposal: ModificationProposalType, job: ScoredJobOutcome): CaseScore {
-  const clarificationCorrect = proposal.clarificationNeeded === regressionCase.expected.questionNeeded;
-  const reachedProposal = !proposal.clarificationNeeded;
+export function scoreCase(regressionCase: RegressionCase, decision: ModificationDecisionType, job: ScoredJobOutcome): CaseScore {
+  const clarificationCorrect = (decision.outcome === "needs_clarification") === regressionCase.expected.questionNeeded;
+  const reachedProposal = decision.outcome === "ready" || decision.outcome === "partially_supported";
+  const allOperations = reachedProposal ? decision.plan.flatMap((step) => step.batch.operations) : [];
 
   const targetAccuracy = reachedProposal && regressionCase.expected.matchesTarget
-    ? regressionCase.expected.matchesTarget(proposal.batch.operations)
+    ? regressionCase.expected.matchesTarget(allOperations)
     : null;
 
   const operationValidity = reachedProposal ? 1 : null;
 
   const planCompletion = regressionCase.expected.requiresPlan
-    ? reachedProposal && proposal.batch.operations.length > 0
+    ? reachedProposal && allOperations.length > 0
     : null;
 
-  // No `capability_notice` outcome exists in the schema yet (that lands in
-  // M13 slice E) — until then, an owed disclosure is never actually made,
-  // so this is always false where applicable. Kept as its own metric (not
-  // folded into clarificationCorrect) so slice E's fix is visible as a
-  // change to THIS number specifically.
-  const capabilityTruthfulness = regressionCase.expected.requiresCapabilityDisclosure ? false : null;
+  // M13 slice E: a `partially_supported`/`unsupported` decision is the
+  // owed disclosure itself — this metric is now a real measurement, not
+  // permanently false as it was before slice E's outcomes existed.
+  const capabilityTruthfulness = regressionCase.expected.requiresCapabilityDisclosure
+    ? decision.outcome === "partially_supported" || decision.outcome === "unsupported"
+    : null;
 
   return {
     caseId: regressionCase.id,

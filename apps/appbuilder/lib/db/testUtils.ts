@@ -26,6 +26,9 @@ const TABLE_NAMES = [
   "releases",
   "preview_builds",
   "modification_operation_batches",
+  // M13 slice E
+  "modification_plan_steps",
+  "modification_plans",
   "modification_jobs",
   "conversation_attachments",
   "conversation_messages",

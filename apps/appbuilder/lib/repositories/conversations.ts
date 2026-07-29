@@ -104,9 +104,22 @@ export async function appendUserMessage(
 export interface AppendSystemMessageInput {
   conversationId: string;
   appId: string;
-  messageType: "ai_proposal" | "system_status" | "validation_result" | "applied_change" | "failure";
+  messageType:
+    | "ai_proposal"
+    | "system_status"
+    | "validation_result"
+    | "applied_change"
+    | "failure"
+    // M13 slice E: assistant-authored cards. The fourth new message type,
+    // "clarification_answer", is USER-authored and inserted directly by
+    // lib/repositories/modificationJobs.ts#submitClarificationAnswer, not
+    // through this pipeline-only helper.
+    | "clarification_question"
+    | "plan"
+    | "capability_notice";
   content: string;
   modificationJobId?: string;
+  /** M13 slice E: also carries the structured plan-step list ("plan" messages) or capability-gap/alternative list ("capability_notice" messages) — the same generic jsonb column, not a second one, since exactly one of these payload shapes is ever attached to a given message. */
   diffSummary?: Record<string, unknown>;
   impactClassification?: string | null;
   confirmationState?: "not_required" | "pending" | "confirmed" | "expired";
