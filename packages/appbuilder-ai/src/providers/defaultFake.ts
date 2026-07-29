@@ -1,5 +1,5 @@
 import { FakeAiProvider, value, type FakeProviderScript } from "./fake";
-import { groundedModificationProposal } from "../fixtures/groundedModification";
+import { groundedModificationDecision } from "../fixtures/groundedModification";
 import { ProviderError } from "../provider/errors";
 import { CONSTRUCTION_TASK_MANAGEMENT_SCRIPT } from "../fixtures/constructionTaskManagement";
 import { CRM_SUCCESS_SCRIPT } from "../fixtures/crm";
@@ -9,6 +9,7 @@ import {
   COMPACT_TABLE_SCRIPT,
   RESTRICT_PERMISSION_SCRIPT,
   GENERIC_MODIFICATION_FALLBACK_SCRIPT,
+  LANDING_PAGE_BRIEF_SCRIPT,
 } from "../fixtures/modification";
 import {
   REPAIR_ADD_MISSING_PERMISSION_SCRIPT,
@@ -45,6 +46,7 @@ function selectScriptForPrompt(prompt: string): FakeProviderScript {
 /** Same keyword-routing idea as selectScriptForPrompt, but for the M08 conversational-modification vocabulary. */
 function selectModificationScriptForPrompt(prompt: string): FakeProviderScript | null {
   const text = prompt.toLowerCase();
+  if (text.includes("landing page") && text.includes("hero")) return LANDING_PAGE_BRIEF_SCRIPT;
   if (text.includes("priority")) return ADD_PRIORITY_FIELD_SCRIPT;
   if (text.includes("compact")) return COMPACT_TABLE_SCRIPT;
   if (text.includes("only managers") || text.includes("restrict") || text.includes("no longer")) {
@@ -69,7 +71,7 @@ function selectModificationScript(input: ProposeModificationInput): FakeProvider
   const keyworded = selectModificationScriptForPrompt(input.userRequest);
   if (keyworded) return keyworded;
 
-  const grounded = groundedModificationProposal(input);
+  const grounded = groundedModificationDecision(input);
   if (grounded) return { proposeModification: [value(grounded)] };
 
   return GENERIC_MODIFICATION_FALLBACK_SCRIPT;

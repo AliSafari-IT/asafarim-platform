@@ -75,8 +75,12 @@ export function buildModificationPrompt(input: ModificationPromptInput): string 
   }
 
   sections.push(
-    "Propose a single bounded batch answering exactly this request. If the request is too ambiguous to act on safely, set clarificationNeeded=true, return an empty operations array, and explain what you need in `summary`. Never claim the change has been applied — you only propose.\n\n" +
-      "Every response MUST include all of these fields, even though this is a single one-shot edit, not a multi-batch job: `batch.reasoningSummary` (one sentence — your internal justification, distinct from the user-facing `summary`) and `batch.isFinalBatch` (always `true` here — there is no follow-up batch in this conversational flow).",
+    "Return a single ModificationDecision with exactly one `outcome`:\n" +
+      '- "ready": one high-confidence target/change (or a short, bounded sequence of them for one coherent request). Provide `plan` (1+ steps, each with a `title` and a `batch`), and state every assumption you made in `assumptions` (e.g. "I matched \'Home\' to the only page title with that value") — never bury an assumption silently inside `summary` alone.\n' +
+      '- "needs_clarification": ONLY when two or more materially different, safe, representable outcomes remain — never because a request is merely "broad". Ask exactly one concise `question` with 2-5 grounded `choices` naming the real candidates (never a generic "could you be more specific?").\n' +
+      '- "partially_supported": some of the request is representable and some is not. Provide `plan` for the supported part (staged into separate steps when the request spans structure/content/branding/etc.) and `unsupported` gaps for the rest, each with a `classification` (schema/component/integration/flag) and a plain-language `reason`.\n' +
+      '- "unsupported": nothing in the request is representable. Provide `unsupported` gaps and, where possible, `alternatives` — the closest supported thing you could do instead.\n\n' +
+      "Never claim a change has been applied — you only propose. Every `batch` MUST include `batch.reasoningSummary` (your internal justification, distinct from any user-facing `summary`) and `batch.isFinalBatch` (always `true` — there is no follow-up batch within one step).",
   );
 
   return sections.join("\n\n");
@@ -124,6 +128,13 @@ function groundedSections(grounded: GroundedModificationContext): string[] {
         "Every operation you propose MUST address one of these by its stable ids (`pageId`/`componentId`/`entityId`/`fieldId`) — " +
         "never invent an id, a DOM selector, or a target that does not appear here:\n" +
         JSON.stringify(grounded.targetCandidates, null, 2),
+    );
+  }
+
+  if (grounded.capabilities.length > 0) {
+    sections.push(
+      "CAPABILITY CATALOGUE (what this platform can and cannot represent right now — cite this, never guess, when classifying the request as partially_supported/unsupported; anything not listed here as unsupported and matching an operation/component/field type IS supported):\n" +
+        JSON.stringify(grounded.capabilities, null, 2),
     );
   }
 
@@ -187,14 +198,14 @@ function resolutionInstruction(grounded: GroundedModificationContext): string {
       );
     case "ambiguous":
       return (
-        "several candidates matched equally well, so the target is genuinely ambiguous. Set clarificationNeeded=true with an empty operations array and ask exactly this one question, naming the real competing candidates: " +
+        'several candidates matched equally well, so the target is genuinely ambiguous. Return outcome="needs_clarification" and ask exactly this one question, naming the real competing candidates: ' +
         JSON.stringify(grounded.groundedQuestion ?? "Which of the matching items did you mean?")
       );
     case "unresolved":
     default:
       return (
         "no target could be resolved deterministically from the specification, selection, or memory. " +
-        "Use the candidate list and conversation above to pick one if a single reasonable target is evident; otherwise ask one concise, grounded question. " +
+        "Use the candidate list and conversation above to pick one if a single reasonable target is evident; otherwise return outcome=\"needs_clarification\" with one concise, grounded question. " +
         '"Too broad" is never on its own a reason to refuse — say specifically what could not be located.'
       );
   }

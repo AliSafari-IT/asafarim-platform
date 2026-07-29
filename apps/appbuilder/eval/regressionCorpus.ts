@@ -56,13 +56,30 @@ export interface RegressionCase {
   reproducedProviderScript: FakeProviderScript;
 }
 
+/**
+ * The exact response reported for every case in the M13 doc's baseline
+ * conversation, translated onto the CURRENT provider-boundary schema
+ * (ModificationDecision, M13 slice E) so the frozen scenario stays
+ * replayable — what's frozen is the SCENARIO the pre-M13 system produced
+ * (a generic, non-grounded refusal), never the wire shape of a schema that
+ * didn't exist yet. `needs_clarification` with a generic, ungrounded
+ * question is the accurate slice-E-shaped equivalent of the old
+ * `clarificationNeeded: true` refusal.
+ */
 function tooBroadScript(summary: string): FakeProviderScript {
   return {
     proposeModification: [
       value({
-        summary,
-        clarificationNeeded: true,
-        batch: { reasoningSummary: "Request too ambiguous to propose a safe, bounded change.", isFinalBatch: true, operations: [] },
+        outcome: "needs_clarification",
+        question: {
+          id: "q_too_broad",
+          text: summary,
+          choices: [
+            { id: "field", label: "A field on an entity" },
+            { id: "page_or_permission", label: "A page or a permission" },
+          ],
+          allowFreeText: true,
+        },
       }),
     ],
   };

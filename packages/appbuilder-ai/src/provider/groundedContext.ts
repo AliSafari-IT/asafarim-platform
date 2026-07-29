@@ -138,6 +138,21 @@ export interface ContextManifest {
 
 export type TargetResolutionOutcome = "resolved" | "ambiguous" | "unresolved";
 
+/** M13 slice E — one catalogue entry the model can cite when classifying a request as partially_supported/unsupported. See capabilities/catalog.ts#buildCapabilityCatalog. */
+export interface ContextCapabilityEntry {
+  id: string;
+  description: string;
+  status:
+    | "supported_now"
+    | "supported_as_plan"
+    | "partially_supported"
+    | "unsupported_schema"
+    | "unsupported_component"
+    | "unsupported_integration"
+    | "unsupported_flag"
+    | "temporarily_unavailable";
+}
+
 export interface GroundedModificationContext {
   history: readonly ContextTurn[];
   memory: readonly ContextMemoryFact[];
@@ -148,10 +163,14 @@ export interface GroundedModificationContext {
   resolutionOutcome: TargetResolutionOutcome;
   /**
    * A single grounded question naming the actual competing candidates, when
-   * (and only when) resolution is ambiguous. Slice D produces it; making it
-   * a resumable, non-failing conversation state is slice E.
+   * (and only when) resolution is ambiguous. Slice D produced it as a
+   * failure message; slice E's pipeline persists it as a resumable,
+   * non-failing `needs_clarification` pause instead (lib/modification/
+   * pipeline.ts).
    */
   groundedQuestion: string | null;
   previewEvidence: ContextPreviewEvidence | null;
+  /** M13 slice E — the capability catalogue this request should be judged against (see capabilities/catalog.ts). Bounded to the unsupported/plan-relevant subset by the assembler. */
+  capabilities: readonly ContextCapabilityEntry[];
   manifest: ContextManifest;
 }

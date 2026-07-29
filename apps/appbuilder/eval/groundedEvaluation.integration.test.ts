@@ -4,16 +4,24 @@ import { runGroundedEvaluation } from "./runEvaluation";
 import type { CaseScore } from "./scorer";
 
 /**
- * M13 slice D measured on slice A's corpus: the same seven reported-
- * conversation cases, the same unmodified `runModificationJob`, but with
- * grounding switched on — spec index, deterministic target resolution,
- * verified memory, bounded context — instead of replaying the recorded
- * "too broad" refusal.
+ * M13 slices D+E measured on slice A's corpus: the same seven reported-
+ * conversation cases, the same unmodified `runModificationJob`, with
+ * grounding (slice D) and the ModificationDecision outcome contract
+ * (slice E — needs_clarification/partially_supported/unsupported,
+ * multi-step plans, capability disclosure) both switched on.
  *
- * The point of asserting the *unfixed* cases as loudly as the fixed ones:
- * this file is what stops slice D from being reported as more complete than
- * it is. Staged plans, clarification resume, and capability notices are
- * slices E and F, and they are still visibly failing here.
+ * This harness scores a SINGLE provider call per case — it cannot exercise
+ * slice E's resumable, multi-turn clarification mechanic (a real answer
+ * round-trip; see lib/modification/groundedPipeline.integration.test.ts's
+ * "duplicate matches" suite for that) or drive a multi-step plan past its
+ * first step (see lib/modification/modificationPlan.integration.test.ts).
+ * What it CAN measure here: a decision's outcome/shape on the first call,
+ * and whether the job that first call started reached a truthful status.
+ *
+ * The point of asserting what remains unfixed as loudly as what's fixed:
+ * this file is what stops slice E from being reported as more complete than
+ * it is. Public URL/GitHub import and real multimodal image understanding
+ * are slice F/G, and are still visibly absent here.
  */
 const db = getTestDb();
 
@@ -35,7 +43,7 @@ function byId(cases: readonly CaseScore[], id: string): CaseScore {
   return found;
 }
 
-describe("M13 slice D — grounded run of the regression corpus", () => {
+describe("M13 slices D+E — grounded run of the regression corpus", () => {
   it("resolves and applies the cases slice D is responsible for", async () => {
     const report = await runGroundedEvaluation(db);
 
@@ -68,35 +76,57 @@ describe("M13 slice D — grounded run of the regression corpus", () => {
   it("moves unnecessary clarification off the 100% baseline", async () => {
     const report = await runGroundedEvaluation(db);
     // Baseline (eval/evaluation.integration.test.ts) is 0 — every case
-    // wrongly asked a question. The remaining gap to the ≤5%-unnecessary
-    // release target is slices E and F.
-    expect(report.summary.clarificationPrecisionRate).toBeGreaterThanOrEqual(4 / 7);
+    // wrongly asked a question.
+    expect(report.summary.clarificationPrecisionRate).toBeGreaterThanOrEqual(5 / 7);
   });
 
-  it("leaves the slice E/F cases honestly unfixed", async () => {
+  it("stages the landing-page brief into a plan and discloses its capability gaps honestly (slice E)", async () => {
+    const report = await runGroundedEvaluation(db);
+    const brief = byId(report.cases, "landing_page_brief");
+
+    expect(brief.actualJobStatus).toBe("ready");
+    expect(brief.actualFailureCode).toBeNull();
+    // The decision was partially_supported with a real multi-step plan, not
+    // a refusal — see modificationPlan.integration.test.ts for the same
+    // scenario driven all the way through every step.
+    expect(brief.planCompletion).toBe(true);
+    expect(brief.capabilityTruthfulness).toBe(true);
+    expect(report.summary.planCompletionRate).toBe(1);
+  });
+
+  it("pauses rather than fails on the cases slice E's clarification/plan work does not fully resolve in a single call", async () => {
     const report = await runGroundedEvaluation(db);
 
-    // A staged, capability-assessed plan for the landing-page brief needs
-    // multi-step plans (slice E) — there is still no plan to complete.
-    expect(report.summary.planCompletionRate).toBe(0);
-
-    // "at the page level" is an answer to a pending question, and there is
-    // still no clarification state for it to resume (slice E).
-    expect(byId(report.cases, "resume_page_level").actualJobStatus).toBe("failed");
+    // "at the page level" answers a pending question this single-call
+    // harness never asked — resuming it for real is
+    // groundedPipeline.integration.test.ts's job. What slice E DID fix here:
+    // this used to be a hard `failed` job; it is now a resumable pause.
+    expect(byId(report.cases, "resume_page_level").actualJobStatus).toBe("needs_clarification");
+    expect(byId(report.cases, "resume_page_level").actualFailureCode).toBeNull();
 
     // The screenshot case still has no image evidence reaching a model
-    // (multimodal provider calls are not built yet).
-    expect(byId(report.cases, "screenshot_make_blue").actualJobStatus).toBe("failed");
+    // (multimodal provider calls are not built yet) — also now a pause
+    // asking what to change, rather than a failure.
+    expect(byId(report.cases, "screenshot_make_blue").actualJobStatus).toBe("needs_clarification");
+    expect(byId(report.cases, "screenshot_make_blue").actualFailureCode).toBeNull();
 
-    // `partially_supported` / `unsupported` outcomes do not exist in the
-    // decision schema until slice E, so no capability gap is ever disclosed.
-    expect(report.summary.capabilityTruthfulnessRate).toBe(0);
+    // Capability disclosure is now real (landing_page_brief), but not every
+    // case the corpus marks as "should disclose" does — e.g. a reversible
+    // presentation default like mapping "blue" onto the app palette is
+    // stated as an assumption in prose, not a structured capability gap,
+    // which this metric does not currently credit. Honestly short of 100%,
+    // tracked rather than hidden.
+    expect(report.summary.capabilityTruthfulnessRate).toBeGreaterThan(0);
+    expect(report.summary.capabilityTruthfulnessRate).toBeLessThan(1);
   });
 
-  it("never asks a question that blames the request for being too broad", async () => {
+  it("never asks a question that blames the request for being too broad, and never fails silently", async () => {
     const report = await runGroundedEvaluation(db);
     for (const score of report.cases) {
-      expect(score.actualFailureCode === null || score.actualFailureCode === "invalid_request").toBe(true);
+      expect(
+        score.actualFailureCode === null || score.actualFailureCode === "invalid_request",
+        `case ${score.caseId}`,
+      ).toBe(true);
     }
   });
 });

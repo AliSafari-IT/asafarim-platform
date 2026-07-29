@@ -19,6 +19,7 @@ function grounded(overrides: Partial<GroundedModificationContext> = {}): Grounde
     resolutionOutcome: "unresolved",
     groundedQuestion: null,
     previewEvidence: null,
+    capabilities: [],
     manifest: {
       specificationVersionNumber: 4,
       includedSourceIds: ["spec@4"],
@@ -90,7 +91,7 @@ describe("target candidates", () => {
     const prompt = build(
       grounded({ resolutionOutcome: "ambiguous", groundedQuestion: 'More than one thing matches "Home": …' }),
     );
-    expect(prompt).toContain("clarificationNeeded=true");
+    expect(prompt).toContain('outcome="needs_clarification"');
     expect(prompt).toContain('More than one thing matches \\"Home\\"');
   });
 
@@ -164,6 +165,20 @@ describe("untrusted inputs", () => {
     expect(prompt).toContain("ATTACHMENTS WITHOUT USABLE TEXT");
     expect(prompt).toMatch(/never imply you analyzed them/i);
     expect(prompt).toContain("screenshot.png");
+  });
+});
+
+describe("capability catalogue", () => {
+  it("includes the catalogue so the model can cite it rather than guess", () => {
+    const prompt = build(
+      grounded({
+        capabilities: [
+          { id: "arbitrary_css_or_animation", description: "Arbitrary CSS or animation.", status: "unsupported_schema" },
+        ],
+      }),
+    );
+    expect(prompt).toContain("CAPABILITY CATALOGUE");
+    expect(prompt).toContain("arbitrary_css_or_animation");
   });
 });
 
