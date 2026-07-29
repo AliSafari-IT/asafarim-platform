@@ -25,11 +25,13 @@ import {
   countActiveAppsForOwner,
   countActiveGenerationJobsForApp,
   countAiRequestsTodayForOwner,
+  countAttachmentsForApp,
   countConcurrentDeploymentJobsForApp,
   countConcurrentValidationJobsForApp,
   countPreviewBuildsForApp,
   countSpecificationVersionsForApp,
   countWorkflowExecutionsTodayForApp,
+  sumAttachmentBytesForApp,
   sumStorageBytesForApp,
 } from "../quotas/usage";
 import { isCustomDomainsEnabled } from "../customDomains/featureFlag";
@@ -70,6 +72,8 @@ const QUOTA_METRIC_LABELS: Record<QuotaMetric, string> = {
   workflow_executions_per_day_per_app: "Workflow executions today",
   concurrent_deployment_jobs_per_app: "Concurrent deployments",
   concurrent_validation_jobs_per_app: "Concurrent validation runs",
+  attachment_bytes_per_app: "Conversation attachment storage",
+  attachments_per_app: "Conversation attachments",
 };
 
 export interface QuotaSnapshotEntry {
@@ -496,6 +500,8 @@ export async function buildAppReadinessSnapshot(
       countConcurrentDeploymentJobsForApp(db, appId),
     concurrent_validation_jobs_per_app: () =>
       countConcurrentValidationJobsForApp(db, appId),
+    attachment_bytes_per_app: () => sumAttachmentBytesForApp(db, appId),
+    attachments_per_app: () => countAttachmentsForApp(db, appId),
   };
 
   const quotas: QuotaSnapshotEntry[] = [];

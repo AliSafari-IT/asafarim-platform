@@ -29,7 +29,9 @@ export type QuotaMetric =
   | "storage_bytes_per_app"
   | "workflow_executions_per_day_per_app"
   | "concurrent_deployment_jobs_per_app"
-  | "concurrent_validation_jobs_per_app";
+  | "concurrent_validation_jobs_per_app"
+  | "attachment_bytes_per_app"
+  | "attachments_per_app";
 
 export const QUOTA_METRICS: readonly QuotaMetric[] = [
   "apps_per_owner",
@@ -41,6 +43,8 @@ export const QUOTA_METRICS: readonly QuotaMetric[] = [
   "workflow_executions_per_day_per_app",
   "concurrent_deployment_jobs_per_app",
   "concurrent_validation_jobs_per_app",
+  "attachment_bytes_per_app",
+  "attachments_per_app",
 ];
 
 export type QuotaScopeType = "owner" | "app";
@@ -56,6 +60,8 @@ export const QUOTA_METRIC_SCOPE: Record<QuotaMetric, QuotaScopeType> = {
   workflow_executions_per_day_per_app: "app",
   concurrent_deployment_jobs_per_app: "app",
   concurrent_validation_jobs_per_app: "app",
+  attachment_bytes_per_app: "app",
+  attachments_per_app: "app",
 };
 
 /**
@@ -77,6 +83,12 @@ export const QUOTA_LIMITS: Record<QuotaMetric, number> = {
   workflow_executions_per_day_per_app: 2000,
   concurrent_deployment_jobs_per_app: 1,
   concurrent_validation_jobs_per_app: 1,
+  // M13: a separate cap from storage_bytes_per_app (M09 generated-file
+  // storage) — conversation attachments are development/authoring input,
+  // not the app's own generated-data storage, and are also subject to the
+  // 24h unclaimed-upload retention sweep (lib/retention/sweep.ts).
+  attachment_bytes_per_app: 200 * 1024 * 1024, // 200 MiB
+  attachments_per_app: 500,
 };
 
 function envOverrideKey(metric: QuotaMetric): string {
