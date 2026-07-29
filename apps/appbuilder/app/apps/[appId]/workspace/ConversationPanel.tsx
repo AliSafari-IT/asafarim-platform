@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Badge, Button, ConfirmDialog, Textarea } from "@asafarim/ui";
 import { SafeMarkdown } from "./SafeMarkdown";
+import styles from "./ConversationPanel.module.css";
 import {
   fetchJson,
   TERMINAL_JOB_STATUSES,
   type ConversationMessage,
   type ModificationJob,
+  type ModificationJobStatus,
   type SelectionContext,
   type SpecificationDiff,
 } from "./types";
@@ -21,6 +23,16 @@ const MESSAGE_TYPE_LABEL: Record<ConversationMessage["messageType"], string> = {
   validation_result: "Validation",
   applied_change: "Applied",
   failure: "Failed",
+};
+
+/** Friendly, in-progress phrasing for each non-terminal job status — shown in the busy banner while a modification job runs. */
+const BUSY_STATUS_LABEL: Partial<Record<ModificationJobStatus, string>> = {
+  queued: "Queued — starting shortly…",
+  interpreting: "Reading your request…",
+  proposing: "Drafting a proposal…",
+  applying: "Applying the change…",
+  validating: "Validating the result…",
+  preparing_preview: "Building the preview…",
 };
 
 function messageTone(type: ConversationMessage["messageType"]): "success" | "warning" | "info" | "neutral" {
@@ -220,8 +232,14 @@ export function ConversationPanel({
       </div>
 
       {isJobActive && job?.status !== "awaiting_confirmation" ? (
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-          <Badge tone="info">{job?.phase ?? job?.status}</Badge>
+        <div className={styles.busyBanner} style={{ marginTop: "var(--space-2)" }} role="status" aria-live="polite">
+          <span className={styles.spinner} aria-hidden="true" />
+          <span className={styles.busyText}>
+            <span className={styles.busyLabel}>
+              {BUSY_STATUS_LABEL[job.status] ?? "Working…"}
+            </span>
+            <span className={styles.busyHint}>This can take up to a minute — feel free to wait.</span>
+          </span>
           {canCancelModification ? (
             <Button type="button" size="sm" variant="ghost" onClick={cancel} disabled={busy}>
               Cancel
