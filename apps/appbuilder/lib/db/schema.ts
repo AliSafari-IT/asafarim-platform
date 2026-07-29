@@ -241,6 +241,36 @@ export const conversationConfirmationStateEnum = pgEnum(
   ["not_required", "pending", "confirmed", "expired"]
 );
 
+// M13 slice B: an attachment's own lifecycle, independent of the message it
+// eventually gets claimed by (a message may not exist yet — init happens
+// before send). `pending` = initiated, no bytes yet; `uploaded` = bytes
+// persisted and byte-verified, not yet processed; `processing` = extraction/
+// scan in flight; `ready` = safe to reference from a message/model context;
+// `quarantined` = the scan adapter flagged it; `failed` = processing could
+// not complete (see conversationAttachmentFailureCodeEnum); `deleted` = a
+// soft tombstone (owner/uploader deletion or retention sweep), storage
+// object already removed. See lib/repositories/attachments.ts.
+export const conversationAttachmentStatusEnum = pgEnum(
+  "conversation_attachment_status",
+  ["pending", "uploaded", "processing", "ready", "quarantined", "failed", "deleted"]
+);
+
+// Safe, stable failure classification surfaced to the user — never a raw
+// exception message, storage error, or scanner detail.
+export const conversationAttachmentFailureCodeEnum = pgEnum(
+  "conversation_attachment_failure_code",
+  [
+    "size_mismatch",
+    "oversized",
+    "mime_mismatch",
+    "unsupported_format",
+    "malware_detected",
+    "scanner_unavailable",
+    "extraction_failed",
+    "worker_infrastructure_error",
+  ]
+);
+
 // M08: the conversational modification job's own lifecycle — deliberately a
 // SEPARATE enum/state machine from generation_job_status (see
 // lib/modification/stateMachine.ts), even though both are AI-driven and
@@ -1217,6 +1247,95 @@ export const conversationMessages = pgTable(
     index("conversation_messages_conversation_id_idx").on(table.conversationId),
     index("conversation_messages_app_id_idx").on(table.appId),
     index("conversation_messages_created_at_idx").on(table.createdAt),
+  ]
+);
+
+// M13 slice B: a conversation attachment's durable metadata. `storageKey`
+// (and `thumbnailStorageKey`) are server-generated and NEVER returned by any
+// API route — stricter than M09's generatedFiles, which does return its key
+// (see lib/repositories/attachments.ts's module docstring for why M13 is
+// deliberately stricter here). An attachment is inserted (status `pending`)
+// BEFORE the message that will reference it exists — `messageId` starts
+// null and is set exactly once, transactionally, when a still-`ready`,
+// still-unclaimed, same-uploader attachment is atomically claimed by a
+// message at send time (see claimAttachmentsForMessage). Never hard-deleted
+// except by the 24h "never claimed" retention sweep (lib/retention/sweep.ts)
+// — an explicit user/owner deletion after that point is a soft tombstone
+// (`status: "deleted"`, storage object already removed) so audit history
+// survives.
+export const conversationAttachments = pgTable(
+  "conversation_attachments",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    messageId: text("message_id").references(
+      (): AnyPgColumn => conversationMessages.id,
+      { onDelete: "set null" }
+    ),
+    uploadedByPrincipalId: text("uploaded_by_principal_id").notNull(),
+
+    originalFilename: text("original_filename").notNull(),
+    // Client-declared at init — never trusted alone. Re-derived from the
+    // actual bytes at commit (see lib/attachments/sniff.ts) and compared
+    // against this; a mismatch fails the commit (`mime_mismatch`).
+    declaredMimeType: text("declared_mime_type").notNull(),
+    declaredSizeBytes: integer("declared_size_bytes").notNull(),
+    detectedMimeType: text("detected_mime_type"),
+    actualSizeBytes: integer("actual_size_bytes"),
+    sha256: text("sha256"),
+
+    storageKey: text("storage_key").notNull(),
+    thumbnailStorageKey: text("thumbnail_storage_key"),
+
+    status: conversationAttachmentStatusEnum("status").notNull().default("pending"),
+
+    // Bounded extraction output (text/markdown/json/csv today — see
+    // lib/attachments/extract.ts; image/PDF text extraction is an explicit,
+    // documented deferral, mirroring M09's malware-scanning deferral
+    // convention). Never raw/unbounded file content.
+    extractionKind: text("extraction_kind"),
+    extractionVersion: text("extraction_version"),
+    extractedText: text("extracted_text"),
+    pageCount: integer("page_count"),
+    widthPx: integer("width_px"),
+    heightPx: integer("height_px"),
+
+    failureCode: conversationAttachmentFailureCodeEnum("failure_code"),
+    failureMessage: text("failure_message"),
+
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("conversation_attachments_storage_key_unique").on(table.storageKey),
+    uniqueIndex("conversation_attachments_app_idempotency_unique").on(
+      table.appId,
+      table.idempotencyKey
+    ),
+    index("conversation_attachments_app_id_idx").on(table.appId),
+    index("conversation_attachments_conversation_id_idx").on(table.conversationId),
+    index("conversation_attachments_message_id_idx").on(table.messageId),
+    // The 24h "unclaimed upload" retention sweep scans exactly this shape:
+    // status in (pending, uploaded) ordered/filtered by createdAt.
+    index("conversation_attachments_status_created_at_idx").on(
+      table.status,
+      table.createdAt
+    ),
   ]
 );
 
@@ -2746,6 +2865,7 @@ export const appsRelations = relations(apps, ({ many }) => ({
   generationJobs: many(generationJobs),
   conversations: many(conversations),
   modificationJobs: many(modificationJobs),
+  attachments: many(conversationAttachments),
   generatedAppMembers: many(generatedAppMembers),
   generatedRecords: many(generatedRecords),
   validationRuns: many(validationRuns),
@@ -2916,12 +3036,13 @@ export const conversationsRelations = relations(
     app: one(apps, { fields: [conversations.appId], references: [apps.id] }),
     messages: many(conversationMessages),
     modificationJobs: many(modificationJobs),
+    attachments: many(conversationAttachments),
   })
 );
 
 export const conversationMessagesRelations = relations(
   conversationMessages,
-  ({ one }) => ({
+  ({ one, many }) => ({
     conversation: one(conversations, {
       fields: [conversationMessages.conversationId],
       references: [conversations.id],
@@ -2937,6 +3058,25 @@ export const conversationMessagesRelations = relations(
     resultingPreviewBuild: one(previewBuilds, {
       fields: [conversationMessages.resultingPreviewBuildId],
       references: [previewBuilds.id],
+    }),
+    attachments: many(conversationAttachments),
+  })
+);
+
+export const conversationAttachmentsRelations = relations(
+  conversationAttachments,
+  ({ one }) => ({
+    app: one(apps, {
+      fields: [conversationAttachments.appId],
+      references: [apps.id],
+    }),
+    conversation: one(conversations, {
+      fields: [conversationAttachments.conversationId],
+      references: [conversations.id],
+    }),
+    message: one(conversationMessages, {
+      fields: [conversationAttachments.messageId],
+      references: [conversationMessages.id],
     }),
   })
 );

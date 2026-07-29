@@ -53,7 +53,9 @@ export type Capability =
   | "app.manageGeneratedMembers" // bootstrap/invite/re-role/revoke a GENERATED-APP member (M09) — a builder-side action, distinct from being a generated-app member oneself
   | "app.resetGeneratedData" // preview-only generated-record seed/reset (M09)
   | "app.viewOperations" // view the M12 launch-readiness/operations snapshot — viewers get a restricted subset, resolved in the aggregation route itself, not via a separate capability
-  | "app.manageCustomDomainRequest"; // create/cancel a (feature-flagged, inert) custom-domain readiness request (M12)
+  | "app.manageCustomDomainRequest" // create/cancel a (feature-flagged, inert) custom-domain readiness request (M12)
+  | "app.uploadAttachment" // init/commit/delete a conversation attachment (M13)
+  | "app.viewAttachment"; // view a conversation attachment's metadata (M13)
 
 /** The minimum role each capability requires. Owner outranks editor outranks viewer. */
 const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
@@ -103,6 +105,11 @@ const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
   // behavior, same as every other capability).
   "app.viewOperations": "viewer",
   "app.manageCustomDomainRequest": "owner",
+  // Same policy as app.requestModification: attachments exist to ground a
+  // conversational edit, so editors may attach/remove them just like they
+  // may otherwise edit the specification.
+  "app.uploadAttachment": "editor",
+  "app.viewAttachment": "viewer",
 };
 
 /** Whether a role grants a capability. Exported so tests/UI can render capability-gated affordances consistently. */
@@ -125,6 +132,7 @@ const ALLOWED_WHILE_ARCHIVED: ReadonlySet<Capability> = new Set([
   "app.viewConversation",
   "app.viewValidation",
   "app.viewOperations",
+  "app.viewAttachment",
 ]);
 
 export interface AppAccess {
