@@ -384,6 +384,43 @@ export async function listAttachmentsForMessage(
   return rows.map(toSafeAttachment);
 }
 
+/**
+ * M13 slice D — the attachments claimed by a set of messages, WITH their
+ * bounded extracted text, for the modification pipeline's context assembler.
+ *
+ * Deliberately separate from `listAttachmentsForMessage` above, which
+ * returns `SafeAttachment` (no extracted text) to clients. This one returns
+ * the raw rows and takes no `Actor`: like `appendSystemMessage`, its only
+ * caller is the worker running as the job's own trusted initiating actor,
+ * which already proved app access at enqueue time. Two consequences that
+ * must stay true — (a) nothing here may be wired to a route without adding
+ * a capability check, and (b) `storageKey`/`thumbnailStorageKey` still never
+ * leave the server: the assembler reads `extractedText` and metadata only,
+ * and never forwards a key.
+ *
+ * Only `ready` attachments carry usable text; the rest are returned too, so
+ * the assembler can DISCLOSE that evidence existed but was unusable rather
+ * than silently pretending the user attached nothing.
+ */
+export async function listAttachmentEvidenceForMessages(
+  db: Db,
+  appId: string,
+  messageIds: readonly string[],
+): Promise<ConversationAttachmentRow[]> {
+  if (messageIds.length === 0) return [];
+  return db
+    .select()
+    .from(conversationAttachments)
+    .where(
+      and(
+        eq(conversationAttachments.appId, appId),
+        inArray(conversationAttachments.messageId, [...messageIds]),
+        ne(conversationAttachments.status, "deleted"),
+      ),
+    )
+    .orderBy(asc(conversationAttachments.createdAt));
+}
+
 export interface AttachmentContent {
   bytes: Buffer;
   /** The SNIFFED type (never the declared one) — what the bytes actually are. */
