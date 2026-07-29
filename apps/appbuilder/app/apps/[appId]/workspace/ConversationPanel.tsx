@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Badge, Button, ConfirmDialog } from "@asafarim/ui";
+import { Alert, Badge, Button, ConfirmDialog, Textarea } from "@asafarim/ui";
 import { SafeMarkdown } from "./SafeMarkdown";
 import { AttachmentComposer } from "./AttachmentComposer";
 import { MessageAttachments } from "./MessageAttachments";
@@ -12,8 +12,11 @@ import {
   TERMINAL_JOB_STATUSES,
   type AttachmentPolicy,
   type ConversationMessage,
+  type ModificationClarificationRound,
   type ModificationJob,
   type ModificationJobStatus,
+  type ModificationPlan,
+  type ModificationPlanStep,
   type SafeAttachment,
   type SelectionContext,
   type SpecificationDiff,
@@ -28,9 +31,13 @@ const MESSAGE_TYPE_LABEL: Record<ConversationMessage["messageType"], string> = {
   validation_result: "Validation",
   applied_change: "Applied",
   failure: "Failed",
+  clarification_question: "Question",
+  clarification_answer: "You",
+  plan: "Plan",
+  capability_notice: "Note",
 };
 
-/** Friendly, in-progress phrasing for each non-terminal job status — shown in the busy banner while a modification job runs. */
+/** Friendly, in-progress phrasing for each non-terminal job status — shown in the busy banner while a modification job runs. `needs_clarification` is deliberately absent — it renders the ClarificationCard instead of this generic banner. */
 const BUSY_STATUS_LABEL: Partial<Record<ModificationJobStatus, string>> = {
   queued: "Queued — starting shortly…",
   interpreting: "Reading your request…",
@@ -42,9 +49,52 @@ const BUSY_STATUS_LABEL: Partial<Record<ModificationJobStatus, string>> = {
 
 function messageTone(type: ConversationMessage["messageType"]): "success" | "warning" | "info" | "neutral" {
   if (type === "applied_change") return "success";
-  if (type === "failure" || type === "validation_result") return "warning";
-  if (type === "ai_proposal") return "info";
+  if (type === "failure" || type === "capability_notice") return "warning";
+  if (type === "validation_result") return "warning";
+  if (type === "ai_proposal" || type === "clarification_question" || type === "plan") return "info";
   return "neutral";
+}
+
+/** The current unanswered round, if any — the same "last round without an answer" rule the server enforces (see @asafarim/appbuilder-ai's currentClarificationRound). */
+function pendingClarificationRound(job: ModificationJob | null | undefined): ModificationClarificationRound | null {
+  if (!job || job.status !== "needs_clarification" || !job.clarificationState) return null;
+  const rounds = job.clarificationState.rounds;
+  const last = rounds[rounds.length - 1];
+  return last && !last.answer ? last : null;
+}
+
+const PLAN_STEP_STATUS_LABEL: Record<ModificationPlanStep["status"], string> = {
+  pending: "Not started",
+  running: "In progress",
+  awaiting_confirmation: "Awaiting confirmation",
+  applied: "Applied",
+  failed: "Failed",
+  skipped: "Skipped",
+};
+
+function planStepTone(status: ModificationPlanStep["status"]): "success" | "warning" | "info" | "neutral" {
+  if (status === "applied") return "success";
+  if (status === "failed") return "warning";
+  if (status === "running" || status === "awaiting_confirmation") return "info";
+  return "neutral";
+}
+
+function PlanProgressView({ plan, steps }: { plan: ModificationPlan; steps: ModificationPlanStep[] }) {
+  return (
+    <div style={{ display: "grid", gap: "var(--space-1)" }}>
+      <p className="ui-hint">
+        Plan: {plan.status} — {steps.filter((s) => s.status === "applied").length}/{steps.length} step(s) applied
+      </p>
+      <ol style={{ margin: 0, paddingLeft: "var(--space-4)", fontSize: "var(--text-xs)", display: "grid", gap: "var(--space-1)" }}>
+        {steps.map((step) => (
+          <li key={step.id}>
+            <Badge tone={planStepTone(step.status)}>{PLAN_STEP_STATUS_LABEL[step.status]}</Badge> {step.title}
+            {step.failureMessage ? <span className="ui-hint"> — {step.failureMessage}</span> : null}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
 }
 
 function DiffSummaryView({ diff }: { diff: SpecificationDiff }) {
@@ -87,11 +137,14 @@ export function ConversationPanel({
 }: ConversationPanelProps) {
   const [messages, setMessages] = useState<ConversationMessage[] | null>(null);
   const [job, setJob] = useState<ModificationJob | null | undefined>(undefined);
+  const [plan, setPlan] = useState<{ plan: ModificationPlan; steps: ModificationPlanStep[] } | null>(null);
   const [attachments, setAttachments] = useState<SafeAttachment[]>([]);
   const [policy, setPolicy] = useState<AttachmentPolicy | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [answering, setAnswering] = useState(false);
+  const [freeTextAnswer, setFreeTextAnswer] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastStatusRef = useRef<string | null>(null);
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -118,8 +171,12 @@ export function ConversationPanel({
 
   const loadJob = useCallback(async () => {
     try {
-      const data = await fetchJson<{ job: ModificationJob | null }>(`/api/apps/${appId}/modification-jobs`);
+      const data = await fetchJson<{
+        job: ModificationJob | null;
+        plan: { plan: ModificationPlan; steps: ModificationPlanStep[] } | null;
+      }>(`/api/apps/${appId}/modification-jobs`);
       setJob(data.job);
+      setPlan(data.plan);
       const status = data.job?.status ?? null;
       if (status && TERMINAL_JOB_STATUSES.has(data.job!.status) && lastStatusRef.current !== status) {
         await loadMessages();
@@ -231,6 +288,26 @@ export function ConversationPanel({
     }
   };
 
+  const submitClarification = async (answer: { questionId: string; choiceId?: string; freeText?: string }) => {
+    if (!job) return;
+    setAnswering(true);
+    setError(null);
+    try {
+      await fetchJson(`/api/apps/${appId}/modification-jobs/${job.id}/clarification`, {
+        method: "POST",
+        body: JSON.stringify(answer),
+      });
+      setFreeTextAnswer("");
+      lastStatusRef.current = null;
+      await loadJob();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit answer.");
+    } finally {
+      setAnswering(false);
+    }
+  };
+
+  const pendingRound = pendingClarificationRound(job);
   const pendingMessage = job?.status === "awaiting_confirmation" ? messages?.find((m) => m.modificationJobId === job.id) : undefined;
   const isJobActive = job !== undefined && job !== null && !TERMINAL_JOB_STATUSES.has(job.status);
 
@@ -272,10 +349,53 @@ export function ConversationPanel({
             </div>
           ))
         )}
+        {plan ? <PlanProgressView plan={plan.plan} steps={plan.steps} /> : null}
         <div ref={listEndRef} />
       </div>
 
-      {isJobActive && job?.status !== "awaiting_confirmation" ? (
+      {job?.status === "needs_clarification" && pendingRound ? (
+        <div style={{ marginTop: "var(--space-2)", display: "grid", gap: "var(--space-2)" }} role="status" aria-live="polite">
+          <p style={{ fontWeight: 600 }}>{pendingRound.question.text}</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+            {pendingRound.question.choices.map((choice) => (
+              <Button
+                key={choice.id}
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={answering}
+                onClick={() => submitClarification({ questionId: pendingRound.question.id, choiceId: choice.id })}
+              >
+                {choice.label}
+              </Button>
+            ))}
+          </div>
+          {pendingRound.question.allowFreeText ? (
+            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
+              <Textarea
+                rows={2}
+                placeholder="Or describe it in your own words…"
+                value={freeTextAnswer}
+                onChange={(e) => setFreeTextAnswer(e.target.value)}
+                disabled={answering}
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={answering || freeTextAnswer.trim().length === 0}
+                onClick={() => submitClarification({ questionId: pendingRound.question.id, freeText: freeTextAnswer.trim() })}
+              >
+                Send
+              </Button>
+            </div>
+          ) : null}
+          {canCancelModification ? (
+            <Button type="button" size="sm" variant="ghost" onClick={cancel} disabled={busy}>
+              Cancel this change
+            </Button>
+          ) : null}
+        </div>
+      ) : isJobActive && job?.status !== "awaiting_confirmation" ? (
         <div className={styles.busyBanner} style={{ marginTop: "var(--space-2)" }} role="status" aria-live="polite">
           <span className={styles.spinner} aria-hidden="true" />
           <span className={styles.busyText}>

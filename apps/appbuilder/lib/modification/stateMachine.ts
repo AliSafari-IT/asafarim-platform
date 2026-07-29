@@ -24,7 +24,12 @@ export function isTerminal(status: ModificationJobStatus): boolean {
  */
 const FORWARD_TRANSITIONS: Record<ModificationJobStatus, readonly ModificationJobStatus[]> = {
   queued: ["interpreting"],
-  interpreting: ["proposing"],
+  // M13 slice E: `needs_clarification` is a PAUSE within interpreting, not
+  // a failure — the job stays addressable and resumes back to
+  // `interpreting` once an answer is submitted (see
+  // lib/repositories/modificationJobs.ts#submitClarificationAnswer).
+  interpreting: ["proposing", "needs_clarification"],
+  needs_clarification: ["interpreting"],
   // `proposing` is a PURE dry run (lib/modification/pipeline.ts's
   // runProposingPhase) — it computes the full diff/impact via the pure
   // engine without persisting anything. It moves straight to `applying`

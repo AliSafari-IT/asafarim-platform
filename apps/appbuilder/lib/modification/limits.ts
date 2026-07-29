@@ -21,4 +21,10 @@ export const MODIFICATION_LIMITS = {
   MAX_REQUEST_LENGTH: 4_000,
   /** How long an unconfirmed destructive proposal stays valid before the confirmation token expires. */
   CONFIRMATION_TTL_MS: 15 * 60_000,
+  /** M13 slice E: at most two clarification rounds per job (docs/appbuilder-m13-multimodal-contextual-assistant.md: "Allow at most two rounds per plan"). A third ambiguous pass falls back to a safe default/capability notice instead of asking again. */
+  MAX_CLARIFICATION_ROUNDS: 2,
+  /** How long an unanswered clarification question stays valid — same TTL philosophy as CONFIRMATION_TTL_MS. */
+  CLARIFICATION_TTL_MS: 15 * 60_000,
+  /** M13 slice E: a single decision's plan may never propose more steps than this — independent re-check of @asafarim/appbuilder-ai's own MAX_MODIFICATION_PLAN_STEPS, same "two independent limits" philosophy as MAX_OPERATIONS_PER_PROPOSAL. */
+  MAX_PLAN_STEPS: 6,
 } as const;

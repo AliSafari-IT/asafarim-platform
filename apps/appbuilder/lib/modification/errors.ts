@@ -66,6 +66,8 @@ const SAFE_MESSAGES: Record<ModificationJobFailureCode, string> = {
   confirmation_invalid: "This confirmation could not be verified and was not applied.",
   worker_infrastructure_error: "An internal error interrupted this change. An operator has been notified.",
   cancelled: "This change was cancelled.",
+  unsupported_request: "This request cannot be represented by this platform today.",
+  clarification_expired: "This question expired before it was answered. Send the request again to get a fresh one.",
 };
 
 export function safeFailureMessage(code: ModificationJobFailureCode): string {

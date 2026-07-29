@@ -7,11 +7,19 @@ import { REGRESSION_CORPUS } from "./regressionCorpus";
  * M13 Slice A — "Evaluation baseline" (docs/appbuilder-m13-multimodal-
  * contextual-assistant.md, Delivery slices > A). Runs the reported-
  * conversation regression corpus through the REAL, unmodified
- * `runModificationJob` pipeline via a deterministic fake provider and
- * asserts today's known-bad baseline. This is the pre-fix snapshot the doc
- * calls for: every assertion here should start FAILING once slices D/E land
- * real target resolution, clarification-resume, and capability notices —
- * that's the signal this corpus is doing its job, not a regression.
+ * `runModificationJob` pipeline, replaying the EXACT ungrounded, generic
+ * "too broad" response the original conversation received for every case
+ * (`regressionCorpus.ts#tooBroadScript`) — a deterministic fake provider,
+ * never grounding (that's `groundedEvaluation.integration.test.ts`).
+ *
+ * The frozen scenario is the recorded past and must stay reproducible; the
+ * shape of ONE assertion here changed with slice E regardless: clarification
+ * became a pause rather than a failure PIPELINE-WIDE (lib/modification/
+ * pipeline.ts), so even replaying the old dumb refusal now correctly PAUSES
+ * the job instead of failing it. Every other metric here is still the
+ * pre-grounding baseline slice D/E's real fixes are measured against (see
+ * groundedEvaluation.integration.test.ts) — those assertions should start
+ * failing only if grounding itself regresses, not from this file.
  */
 const db = getTestDb();
 
@@ -34,14 +42,19 @@ describe("M13 slice A — regression corpus baseline", () => {
     expect(REGRESSION_CORPUS.length).toBe(7);
   });
 
-  it("reproduces the reported failure: every case is wrongly rejected as invalid_request today", async () => {
+  it("reproduces the reported bug: every case is wrongly asked the same generic, ungrounded question", async () => {
     const report = await runEvaluation(db);
 
     for (const score of report.cases) {
-      expect(score.actualJobStatus, `case ${score.caseId}`).toBe("failed");
-      expect(score.actualFailureCode, `case ${score.caseId}`).toBe("invalid_request");
+      // M13 slice E: clarification is a pause, never a failure, even when
+      // replaying the exact ungrounded refusal the original bug report
+      // received — this is now true pipeline-wide, not something grounding
+      // (slice D) or a specific fixture script needs to opt into.
+      expect(score.actualJobStatus, `case ${score.caseId}`).toBe("needs_clarification");
+      expect(score.actualFailureCode, `case ${score.caseId}`).toBeNull();
       // None of these seven requests actually needed a clarifying question
-      // under the M13 product contract — today's pipeline asks one anyway.
+      // under the M13 product contract — today's ungrounded baseline asks
+      // one anyway (that's the bug slice D's grounding fixes).
       expect(score.clarificationCorrect, `case ${score.caseId}`).toBe(false);
     }
   });
