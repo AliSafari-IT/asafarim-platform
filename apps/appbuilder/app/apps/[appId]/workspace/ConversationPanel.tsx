@@ -1,15 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Badge, Button, ConfirmDialog, Textarea } from "@asafarim/ui";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Badge, Button, ConfirmDialog } from "@asafarim/ui";
 import { SafeMarkdown } from "./SafeMarkdown";
+import { AttachmentComposer } from "./AttachmentComposer";
+import { MessageAttachments } from "./MessageAttachments";
+import { clearSentAttachments, getDraft, readyAttachmentIds, syncServerAttachments } from "./attachmentDraft";
 import styles from "./ConversationPanel.module.css";
 import {
   fetchJson,
   TERMINAL_JOB_STATUSES,
+  type AttachmentPolicy,
   type ConversationMessage,
   type ModificationJob,
   type ModificationJobStatus,
+  type SafeAttachment,
   type SelectionContext,
   type SpecificationDiff,
 } from "./types";
@@ -82,7 +87,8 @@ export function ConversationPanel({
 }: ConversationPanelProps) {
   const [messages, setMessages] = useState<ConversationMessage[] | null>(null);
   const [job, setJob] = useState<ModificationJob | null | undefined>(undefined);
-  const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<SafeAttachment[]>([]);
+  const [policy, setPolicy] = useState<AttachmentPolicy | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -92,8 +98,19 @@ export function ConversationPanel({
 
   const loadMessages = useCallback(async () => {
     try {
-      const data = await fetchJson<{ conversation: unknown; messages: ConversationMessage[] }>(`/api/apps/${appId}/conversation`);
+      const data = await fetchJson<{
+        conversation: unknown;
+        messages: ConversationMessage[];
+        attachments: SafeAttachment[];
+        attachmentPolicy: AttachmentPolicy;
+      }>(`/api/apps/${appId}/conversation`);
       setMessages(data.messages);
+      setAttachments(data.attachments ?? []);
+      setPolicy(data.attachmentPolicy ?? null);
+      // Server state is authoritative for the composer too: uploads that
+      // finished but were never sent come back after a reload, and chips the
+      // server has since claimed or dropped stop lingering here.
+      syncServerAttachments(appId, data.attachments ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load conversation.");
     }
@@ -142,27 +159,41 @@ export function ConversationPanel({
   }, [messages]);
 
   const send = async () => {
-    const content = input.trim();
-    if (!content) return;
+    const content = getDraft(appId).text.trim();
+    const attachmentIds = readyAttachmentIds(appId);
+    // The M13 composer contract: text OR at least one ready attachment.
+    if (!content && attachmentIds.length === 0) return;
     setBusy(true);
     setError(null);
     try {
-      const data = await fetchJson<{ message: ConversationMessage; job: ModificationJob }>(`/api/apps/${appId}/conversation/messages`, {
-        method: "POST",
-        body: JSON.stringify({
-          content,
-          baseVersionNumber: currentVersionNumber,
-          selectionContext: selection,
-          idempotencyKey: crypto.randomUUID(),
-        }),
-      });
-      setInput("");
+      const data = await fetchJson<{ message: ConversationMessage; job: ModificationJob; attachments: SafeAttachment[] }>(
+        `/api/apps/${appId}/conversation/messages`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            content,
+            baseVersionNumber: currentVersionNumber,
+            selectionContext: selection,
+            attachmentIds,
+            idempotencyKey: crypto.randomUUID(),
+          }),
+        },
+      );
+      // Only the attachments the server actually claimed leave the composer.
+      // If the claim had failed, the message would not exist either (one
+      // transaction), and the chips stay put for another attempt.
+      clearSentAttachments(appId, (data.attachments ?? []).map((a) => a.id));
       onClearSelection();
       lastStatusRef.current = null;
       setJob(data.job);
       await loadMessages();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send message.");
+      // A send can fail AFTER the attachments were claimed (the message and
+      // its claim commit before the job is enqueued). Re-reading the server's
+      // list is what stops those chips lingering in a state every retry would
+      // reject as already claimed.
+      await loadMessages();
     } finally {
       setBusy(false);
     }
@@ -203,6 +234,18 @@ export function ConversationPanel({
   const pendingMessage = job?.status === "awaiting_confirmation" ? messages?.find((m) => m.modificationJobId === job.id) : undefined;
   const isJobActive = job !== undefined && job !== null && !TERMINAL_JOB_STATUSES.has(job.status);
 
+  /** Claimed attachments grouped by the message that owns them — unclaimed ones belong to the composer, not to history. */
+  const attachmentsByMessage = useMemo(() => {
+    const grouped = new Map<string, SafeAttachment[]>();
+    for (const attachment of attachments) {
+      if (!attachment.messageId) continue;
+      const existing = grouped.get(attachment.messageId);
+      if (existing) existing.push(attachment);
+      else grouped.set(attachment.messageId, [attachment]);
+    }
+    return grouped;
+  }, [attachments]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
@@ -221,6 +264,7 @@ export function ConversationPanel({
                 </span>
               </div>
               <SafeMarkdown content={message.content} />
+              <MessageAttachments appId={appId} attachments={attachmentsByMessage.get(message.id) ?? []} />
               {message.diffSummary ? <DiffSummaryView diff={message.diffSummary} /> : null}
               {message.resultingVersionNumber ? (
                 <p className="ui-hint">Version v{message.resultingVersionNumber}</p>
@@ -258,25 +302,13 @@ export function ConversationPanel({
       ) : null}
 
       {canRequestModification ? (
-        <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Describe a change, e.g. “Add a priority field to tasks.”"
-            rows={2}
-            disabled={busy || isJobActive}
-            style={{ flex: 1 }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-          />
-          <Button type="button" onClick={send} disabled={busy || isJobActive || !input.trim()}>
-            Send
-          </Button>
-        </div>
+        <AttachmentComposer
+          appId={appId}
+          policy={policy}
+          disabled={busy || isJobActive}
+          sending={busy}
+          onSend={send}
+        />
       ) : (
         <p className="ui-hint" style={{ marginTop: "var(--space-2)" }}>
           Viewing only — you don&apos;t have permission to request changes.

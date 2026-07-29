@@ -39,6 +39,61 @@ export interface ConversationMessage {
   createdAt: string;
 }
 
+// ─── M13: conversation attachments ─────────────────────────────────────
+
+/** Client mirror of lib/repositories/attachments.ts#SafeAttachment — note there is deliberately no storage key on it. */
+export interface SafeAttachment {
+  id: string;
+  appId: string;
+  conversationId: string;
+  messageId: string | null;
+  uploadedByPrincipalId: string;
+  originalFilename: string;
+  declaredMimeType: string;
+  declaredSizeBytes: number;
+  detectedMimeType: string | null;
+  actualSizeBytes: number | null;
+  status: "pending" | "uploaded" | "processing" | "ready" | "quarantined" | "failed" | "deleted";
+  extractionKind: string | null;
+  hasThumbnail: boolean;
+  failureCode: string | null;
+  failureMessage: string | null;
+  createdAt: string;
+  uploadedAt: string | null;
+  processedAt: string | null;
+}
+
+/** Client mirror of lib/attachments/limits.ts#AttachmentPolicy — the server-owned catalogue, so the composer keeps no allowlist of its own. */
+export interface AttachmentPolicy {
+  types: { mimeType: string; category: "image" | "text" | "pdf"; maxBytes: number }[];
+  maxAttachmentsPerMessage: number;
+  maxFilenameLength: number;
+}
+
+/** Where an upload is in the composer, which is not the same thing as the server row's status. */
+export type UploadStatus = "uploading" | "ready" | "failed";
+
+/** One chip in the composer: a file the user picked, pasted, or dropped. */
+export interface DraftAttachment {
+  /** Stable across retries and independent of the server id, which does not exist until init returns. */
+  localId: string;
+  attachmentId: string | null;
+  filename: string;
+  sizeBytes: number;
+  declaredMimeType: string;
+  status: UploadStatus;
+  serverStatus: SafeAttachment["status"] | null;
+  /** 0–1, from real XHR upload progress. */
+  progress: number;
+  /** Object URL for a locally-picked image; null once it comes from the server instead. */
+  previewUrl: string | null;
+  error: string | null;
+  errorCode: string | null;
+  retryable: boolean;
+  /** Minted once per entry and reused across retries so a retry can never orphan a half-created row. */
+  idempotencyKey: string;
+}
+
 export type ModificationJobStatus =
   | "queued"
   | "interpreting"
