@@ -1409,6 +1409,13 @@ export const conversationAttachments = pgTable(
     idempotencyKey: text("idempotency_key").notNull(),
     requestHash: text("request_hash").notNull(),
 
+    // M13 slice G: the trace label of the HTTP request that initiated this
+    // upload, so the init/commit/extraction/scan/sweep events for one file
+    // join to each other and to the conversation turn that claimed it. Never
+    // an authorization or lookup key (see lib/observability/correlation.ts);
+    // nullable because rows predating slice G were not backfilled.
+    correlationId: text("correlation_id"),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -1434,6 +1441,7 @@ export const conversationAttachments = pgTable(
       table.status,
       table.createdAt
     ),
+    index("conversation_attachments_correlation_idx").on(table.correlationId),
   ]
 );
 
@@ -1650,6 +1658,14 @@ export const modificationJobs = pgTable(
     idempotencyKey: text("idempotency_key").notNull(),
     requestHash: text("request_hash").notNull(),
 
+    // M13 slice G: the trace label of the HTTP request that enqueued this
+    // job, carried through every phase, provider call, operational event,
+    // and — via modification_plans — every later step's job, so one
+    // conversational change reads as one thread. Captured at enqueue and
+    // never rewritten afterwards; see lib/observability/correlation.ts for
+    // why accepting it from a caller is safe.
+    correlationId: text("correlation_id"),
+
     // Re-checked against specifications.currentVersionNumber immediately
     // before applying — a spec edited elsewhere mid-job fails safely
     // (stale_base_version) rather than silently overwriting it.
@@ -1769,6 +1785,10 @@ export const modificationJobs = pgTable(
       table.leaseExpiresAt
     ),
     index("modification_jobs_plan_step_id_idx").on(table.planStepId),
+    // M13 slice G: "show me everything that happened to this request" is the
+    // one operator query that has to be cheap, and it starts here before
+    // fanning out to operational_events' own correlation index.
+    index("modification_jobs_correlation_idx").on(table.correlationId),
   ]
 );
 

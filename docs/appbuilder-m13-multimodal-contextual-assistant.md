@@ -371,6 +371,24 @@ targets fail; imported prompt injection cannot become instructions/tools.
 **Exit:** no critical/high finding; each feature can be disabled without making
 history unreadable; deletion/export are complete.
 
+**Delivered.** See `docs/appbuilder-m13-hardening-rollout.md` for the full
+write-up: correlation IDs threaded end to end, the M13 event catalogue and
+metrics aggregation, seven readiness sections that never report an
+unconfigured dependency as healthy, five independent feature flags, structural
+no-mutation dark launch, three automated retention sweeps plus owner
+export/erasure, and the release-target table encoded as gates a run can fail.
+
+Two things it did **not** close, recorded here rather than in a status
+elsewhere:
+
+- **Connection-level DNS-rebinding pinning** for public-reference fetches
+  remains open (see `docs/appbuilder-m13-public-references.md`).
+- **Vision cannot be usefully enabled**: no provider path sends image parts,
+  so `APPBUILDER_VISION_ENABLED=true` reports `unhealthy` in readiness by
+  design rather than claiming a capability that does not exist. The
+  attachment, disclosure, and retention machinery around it is complete; the
+  provider integration is not.
+
 ## Acceptance scenarios
 
 | Input | Required behavior |

@@ -21,6 +21,68 @@ export type OperationalEventCategory =
 
 export type OperationalEventSeverity = "info" | "warning" | "error";
 
+/**
+ * M13 slice G — the operational-event kinds this milestone emits, named in
+ * one place so lib/observability/metrics.ts aggregates over a closed set
+ * rather than over string literals scattered across a dozen call sites, and
+ * so a reviewer can see the whole M13 telemetry surface at once.
+ *
+ * What is deliberately NOT here is as load-bearing as what is: no event kind
+ * exists for prompt text, conversation content, extracted attachment text,
+ * imported reference bodies, resolved IP addresses, or URL paths. M13's
+ * telemetry rule is "redacted scores and case ids, not prompts or attachment
+ * content" — a `detail` payload on any of these kinds carries counts, codes,
+ * durations, hosts, and stable ids only.
+ */
+export const M13_EVENT_KINDS = {
+  attachment: [
+    "attachment.initiated",
+    "attachment.committed",
+    "attachment.extraction_completed",
+    "attachment.extraction_skipped",
+    "attachment.quarantined",
+    "attachment.scan_not_configured",
+    "attachment.deleted",
+    "attachment.swept_unclaimed",
+    "attachment.rejected",
+  ],
+  context: [
+    "context.assembled",
+    "context.truncated",
+    "context.vision_unavailable",
+  ],
+  resolver: ["resolver.resolved", "resolver.ambiguous", "resolver.unresolved"],
+  clarification: [
+    "clarification.asked",
+    "clarification.answered",
+    "clarification.exhausted",
+  ],
+  plan: [
+    "plan.created",
+    "plan.step_applied",
+    "plan.completed",
+    "plan.stopped",
+    "plan.suppressed_by_flag",
+  ],
+  reference: [
+    "reference.imported",
+    "reference.blocked",
+    "reference.fetch_failed",
+    "reference.rate_limited",
+    "reference.disabled_by_flag",
+  ],
+  model: ["model.call_completed", "model.call_failed"],
+  retention: ["retention.swept", "retention.sweep_failed"],
+  shadow: ["shadow.evaluated", "shadow.failed"],
+} as const;
+
+export type M13EventGroup = keyof typeof M13_EVENT_KINDS;
+
+/** Flat list of every M13 event kind — the aggregation surface for metrics.ts. */
+export const ALL_M13_EVENT_KINDS: readonly string[] = Object.values(
+  M13_EVENT_KINDS
+).flat();
+
 export interface RecordOperationalEventInput {
   appId?: string | null;
   correlationId?: string | null;

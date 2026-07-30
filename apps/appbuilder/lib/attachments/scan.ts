@@ -1,3 +1,5 @@
+import type { EnvLike } from "../features/env";
+
 /**
  * Malware/content-scan adapter boundary (docs/appbuilder-m13-multimodal-
  * contextual-assistant.md: "Scan through an adapter. Production requires a
@@ -42,7 +44,7 @@ export class ScannerNotConfiguredError extends Error {
  * than silently serving unscanned uploads; outside production it falls
  * back to the honest no-op adapter above.
  */
-export function resolveScanAdapter(env: NodeJS.ProcessEnv = process.env): ContentScanAdapter {
+export function resolveScanAdapter(env: EnvLike = process.env): ContentScanAdapter {
   const configured = env.APPBUILDER_ATTACHMENT_SCANNER;
   if (!configured) {
     if (env.NODE_ENV === "production") throw new ScannerNotConfiguredError();

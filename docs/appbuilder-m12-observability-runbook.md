@@ -31,13 +31,64 @@ the same queries without any app-side change.
 `operational_events.correlation_id` (nullable) is the join key for
 "everything that happened as part of one logical request" across
 generation/modification/repair/validation/preview/deployment/rollback/
-runtime/storage/workflow. Not every code path stamps one yet in M12 (see
-"Known gaps"); where it IS present (quota rejections currently), investigate
-with:
+runtime/storage/workflow.
+
+**M13 slice G made this real for the conversational path.** Every M13 API
+route accepts and returns an `x-correlation-id` header, mints one when the
+caller supplies none, and persists it on `modification_jobs`,
+`conversation_attachments`, and every operational event those paths emit — so
+one conversational change reads as one thread across its HTTP request, job,
+provider calls, plan steps, and attachment work. Investigate with:
 
 ```sql
-SELECT * FROM operational_events WHERE correlation_id = '<id>' ORDER BY created_at;
+SELECT created_at, category, kind, severity, detail FROM operational_events WHERE correlation_id = '<id>' ORDER BY created_at;
 ```
+
+Start from the job when the user has no id to quote:
+
+```sql
+SELECT id, status, correlation_id FROM modification_jobs WHERE app_id = '<appId>' ORDER BY created_at DESC LIMIT 5;
+```
+
+A malformed inbound header is discarded and replaced with a fresh id rather
+than sanitized — the value reaches a persisted column and a response header,
+so accepting caller text would make it a log-injection vector. Jobs created
+before slice G have `correlation_id IS NULL`; their events carry a synthetic
+`job-<jobId>` instead (see `lib/observability/correlation.ts`).
+
+### M13 event kinds
+
+`lib/observability/events.ts#M13_EVENT_KINDS` is the closed list. Grouped:
+`attachment.*` (initiated, committed, extraction_completed/skipped,
+quarantined, scan_not_configured, deleted, swept_unclaimed, rejected),
+`context.*` (assembled, truncated, vision_unavailable), `resolver.*`
+(resolved, ambiguous, unresolved), `clarification.*` (asked, answered,
+exhausted), `plan.*` (created, step_applied, completed, stopped,
+suppressed_by_flag), `reference.*` (imported, blocked, fetch_failed,
+rate_limited, disabled_by_flag), `model.*` (call_completed, call_failed),
+`retention.*` (swept, sweep_failed), `shadow.*` (evaluated, failed).
+
+No event kind carries prompt text, conversation content, extracted attachment
+text, imported reference bodies, resolved IP addresses, or URL paths. A
+`detail` payload holds counts, codes, durations, hosts, and stable ids only.
+
+### M13 metrics and readiness
+
+`GET /api/apps/{appId}/operations` now returns `m13` (storage, extraction,
+malware scanning, model vision, URL import, cleanup lag, evaluation version,
+and resolved feature-flag states) and `m13Metrics` (attachment, context,
+resolver, clarification, plan, decision, reference, token, storage, and
+estimated-cost figures). Both are owner/editor only; a viewer gets `null` for
+each, but any `unhealthy` M13 section still reaches `launchBlockingIssues`,
+which is populated for every role.
+
+Cost is an **estimate** from a checked-in rate table
+(`lib/observability/costRates.ts`), never billing. A model with no configured
+rate contributes zero and is named in `cost.unratedModels` — check that field
+before trusting a total.
+
+See `docs/appbuilder-m13-hardening-rollout.md` for the full section-by-section
+table of what each readiness status means and which are launch-blocking.
 
 Deployment steps (`deployment_steps`, one row per phase per deployment
 attempt) are the equivalent trace for a single deployment even without a
@@ -81,5 +132,6 @@ M12):
 ## Known gaps (explicit, not hidden)
 
 - **Runtime API failures** (errors from a generated app's own `/api/apps/{appId}/runtime/*` routes serving end-users) are not yet aggregated into `operational_events` — they're currently only visible via server logs / the hosting platform's own request logging. Tracked as a follow-up.
-- **Correlation IDs** are stamped for quota rejections only in M12, not yet threaded through every generation/validation/deployment call site end-to-end. The mechanism (`operational_events.correlation_id`) exists and is ready to be populated more broadly.
+- **Correlation IDs** are threaded end-to-end through the M13 conversational path (attachments, references, modification jobs, plans, clarification, provider calls, shadow runs) as of slice G, and through quota rejections since M12. The **generation (M07), validation (M10), and deployment (M11)** paths still do not stamp one — the mechanism is identical and populating them is a small change, but it has not been done, so an M07 generation job's events cannot yet be joined the way an M13 modification job's can.
+- **Vision readiness reports `unhealthy` if `APPBUILDER_VISION_ENABLED=true`**, deliberately: no provider path sends image parts yet, so enabling the flag would claim a capability that does not exist. This is a real gap in the feature, not a bug in the check.
 - **No in-app alerting** — every threshold above must be wired into an external system (cron + query + notification, or a BI/observability tool pointed at the database) by an operator; M12 provides the queryable data, not the alerting pipeline itself.
