@@ -31,7 +31,9 @@ export type QuotaMetric =
   | "concurrent_deployment_jobs_per_app"
   | "concurrent_validation_jobs_per_app"
   | "attachment_bytes_per_app"
-  | "attachments_per_app";
+  | "attachments_per_app"
+  | "references_per_app"
+  | "reference_fetches_per_day_per_app";
 
 export const QUOTA_METRICS: readonly QuotaMetric[] = [
   "apps_per_owner",
@@ -45,6 +47,8 @@ export const QUOTA_METRICS: readonly QuotaMetric[] = [
   "concurrent_validation_jobs_per_app",
   "attachment_bytes_per_app",
   "attachments_per_app",
+  "references_per_app",
+  "reference_fetches_per_day_per_app",
 ];
 
 export type QuotaScopeType = "owner" | "app";
@@ -62,6 +66,8 @@ export const QUOTA_METRIC_SCOPE: Record<QuotaMetric, QuotaScopeType> = {
   concurrent_validation_jobs_per_app: "app",
   attachment_bytes_per_app: "app",
   attachments_per_app: "app",
+  references_per_app: "app",
+  reference_fetches_per_day_per_app: "app",
 };
 
 /**
@@ -89,6 +95,14 @@ export const QUOTA_LIMITS: Record<QuotaMetric, number> = {
   // 24h unclaimed-upload retention sweep (lib/retention/sweep.ts).
   attachment_bytes_per_app: 200 * 1024 * 1024, // 200 MiB
   attachments_per_app: 500,
+  // M13 slice F: two separate caps because they bound two different things —
+  // how much third-party content one app accumulates (rows, refreshed in
+  // place rather than appended per fetch), and how many OUTBOUND requests
+  // this platform makes on a user's behalf per day. The daily fetch cap is
+  // the one that matters for abuse: without it an app becomes a way to scan
+  // or hammer other people's servers from our IP address.
+  references_per_app: 100,
+  reference_fetches_per_day_per_app: 200,
 };
 
 function envOverrideKey(metric: QuotaMetric): string {

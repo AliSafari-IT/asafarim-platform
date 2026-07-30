@@ -31,6 +31,11 @@ const TABLE_NAMES = [
   "modification_plans",
   "modification_jobs",
   "conversation_attachments",
+  // M13 slice F (references) and slice D (memories) — both cascade from
+  // conversations, but truncating them explicitly keeps this list a complete
+  // description of what a reset clears.
+  "conversation_references",
+  "conversation_memories",
   "conversation_messages",
   "conversations",
   "generation_operation_batches",

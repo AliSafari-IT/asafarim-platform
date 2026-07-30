@@ -5,6 +5,7 @@ import type {
   ContextCapabilityEntry,
   ContextManifest,
   ContextMemoryFact,
+  ContextReferenceEvidence,
   ContextTargetCandidate,
   ContextTurn,
   GroundedModificationContext,
@@ -13,8 +14,11 @@ import { buildCapabilityCatalog } from "@asafarim/appbuilder-ai";
 import type { Db } from "../db/client";
 import { conversationMessages } from "../db/schema";
 import { listAttachmentEvidenceForMessages, type ConversationAttachmentRow } from "../repositories/attachments";
+import { listReferenceEvidenceForConversation, type ConversationReferenceRow } from "../repositories/references";
 import { recallConversationMemory } from "../repositories/conversationMemory";
 import { ATTACHMENT_LIMITS, categoryForMimeType } from "../attachments/limits";
+import { REFERENCE_LIMITS, type ReferenceFact } from "../references/limits";
+import { freshnessOfRow } from "../references/provenance";
 import { buildSpecIndex, type SpecIndex } from "./specIndex";
 import { describeReference, type RecalledMemory } from "./memory";
 import { mapPreviewEvidence, toContextPreviewEvidence, type PreviewEvidenceMapping } from "./previewEvidence";
@@ -66,6 +70,10 @@ export const CONTEXT_LIMITS = {
   MAX_ATTACHMENT_TEXT_CHARS_PER_FILE: ATTACHMENT_LIMITS.MAX_EXTRACTED_TEXT_CHARS_PER_FILE,
   MAX_ATTACHMENT_TEXT_CHARS_TOTAL: ATTACHMENT_LIMITS.MAX_EXTRACTED_TEXT_CHARS_PER_MODEL_CALL,
   MAX_CANDIDATES: 10,
+  /** M13 slice F — imported public references included as evidence, newest first. */
+  MAX_REFERENCES: REFERENCE_LIMITS.MAX_CONTEXT_REFERENCES,
+  MAX_REFERENCE_TEXT_CHARS_PER_REFERENCE: REFERENCE_LIMITS.MAX_CONTEXT_TEXT_CHARS_PER_REFERENCE,
+  MAX_REFERENCE_TEXT_CHARS_TOTAL: REFERENCE_LIMITS.MAX_CONTEXT_TEXT_CHARS_TOTAL,
 } as const;
 
 /**
@@ -188,6 +196,9 @@ export async function buildModificationContext(
   // ─── Attachment evidence ─────────────────────────────────────────────────
   const attachments = await assembleAttachments(input, history, includedSourceIds, omitted, truncated, redactionFlags);
 
+  // ─── Imported public references ──────────────────────────────────────────
+  const references = await assembleReferences(input, includedSourceIds, omitted, truncated, redactionFlags);
+
   const memoryFacts = describeMemory(memory, index, includedSourceIds);
   const candidates = resolution.candidates.slice(0, CONTEXT_LIMITS.MAX_CANDIDATES).map(toContextCandidate);
   for (const candidate of candidates) includedSourceIds.push(`target:${candidate.targetId}`);
@@ -204,7 +215,7 @@ export async function buildModificationContext(
     includedSourceIds,
     omitted,
     truncated,
-    estimatedTokens: estimateTokens({ request: input.userRequest, spec: input.currentSpec, history, attachments, candidates }),
+    estimatedTokens: estimateTokens({ request: input.userRequest, spec: input.currentSpec, history, attachments, references, candidates }),
     redactionFlags: [...redactionFlags],
   };
 
@@ -212,6 +223,7 @@ export async function buildModificationContext(
     history,
     memory: memoryFacts,
     attachments,
+    references,
     targetCandidates: candidates,
     resolvedTarget: resolution.resolved ? toContextCandidate(resolution.resolved) : null,
     resolutionOutcome: resolution.outcome,
@@ -387,6 +399,134 @@ async function assembleAttachments(
   return evidence;
 }
 
+// ─── Imported public references ────────────────────────────────────────────
+
+/**
+ * M13 slice F — imported public HTTPS references as bounded evidence.
+ *
+ * Two things this function is responsible for, beyond bounding:
+ *
+ * **Nothing reaches a prompt labelled `live`.** Freshness is recomputed here
+ * from the row (fetch time, TTL, last failure) rather than read from a
+ * stored field, so a reference imported yesterday says `stale` today without
+ * anybody having to re-run an import. The type of
+ * `ContextReferenceEvidence.freshness` has no `live` member at all.
+ *
+ * **A stale or failed reference is still disclosed.** It is included with
+ * `availability: "unavailable"` and a safe reason instead of being filtered
+ * out, because "I couldn't read the page you linked" and "you never linked a
+ * page" must not look the same to the model — or to the user reading its
+ * summary.
+ */
+async function assembleReferences(
+  input: BuildModificationContextInput,
+  includedSourceIds: string[],
+  omitted: { sourceId: string; reason: string }[],
+  truncated: { sourceId: string; originalChars: number; includedChars: number }[],
+  redactionFlags: Set<string>,
+): Promise<ContextReferenceEvidence[]> {
+  const rows = await listReferenceEvidenceForConversation(
+    input.db,
+    input.appId,
+    input.conversationId,
+    CONTEXT_LIMITS.MAX_REFERENCES,
+  );
+  if (rows.length === 0) return [];
+
+  const evidence: ContextReferenceEvidence[] = [];
+  let textBudget = CONTEXT_LIMITS.MAX_REFERENCE_TEXT_CHARS_TOTAL;
+  let sawUntrustedText = false;
+
+  for (const row of rows) {
+    const freshness = freshnessOfRow(
+      {
+        fetchedAt: row.fetchedAt,
+        cacheExpiresAt: row.cacheExpiresAt,
+        failureCode: row.failureCode,
+        hasContent: (row.extractedText?.length ?? 0) > 0 || (row.facts?.length ?? 0) > 0,
+      },
+      new Date(),
+    );
+    const facts = (row.facts ?? []) as unknown as ReferenceFact[];
+    const base = {
+      id: row.id,
+      sourceUrl: row.sourceUrl,
+      finalUrl: row.finalUrl && row.finalUrl !== row.sourceUrl ? row.finalUrl : undefined,
+      host: row.host,
+      adapter: row.adapter,
+      adapterVersion: row.adapterVersion,
+      fetchedAt: row.fetchedAt ? row.fetchedAt.toISOString() : null,
+      freshness,
+    } as const;
+
+    if (freshness === "unavailable") {
+      omitted.push({ sourceId: `reference:${row.id}`, reason: `reference_unavailable_${row.failureCode ?? "no_content"}` });
+      evidence.push({
+        ...base,
+        availability: "unavailable",
+        reason: describeUnavailableReference(row),
+      });
+      continue;
+    }
+
+    const full = row.extractedText ?? "";
+    if (full.length === 0 && facts.length === 0) {
+      omitted.push({ sourceId: `reference:${row.id}`, reason: "reference_no_content" });
+      evidence.push({ ...base, availability: "unavailable", reason: "Nothing readable was stored for this reference." });
+      continue;
+    }
+
+    if (textBudget <= 0) {
+      // Facts are tiny and are the most useful part of an adapter result, so
+      // a reference that lost the text budget still contributes them rather
+      // than dropping out entirely.
+      omitted.push({ sourceId: `reference:${row.id}`, reason: "reference_text_budget" });
+      evidence.push({
+        ...base,
+        availability: facts.length > 0 ? "facts_only" : "unavailable",
+        facts: facts.length > 0 ? facts : undefined,
+        reason: "Earlier references used the whole text budget for this request, so only its summary facts were included.",
+      });
+      if (facts.length > 0) {
+        includedSourceIds.push(`reference:${row.id}`);
+        sawUntrustedText = true;
+      }
+      continue;
+    }
+
+    const limit = Math.min(CONTEXT_LIMITS.MAX_REFERENCE_TEXT_CHARS_PER_REFERENCE, textBudget);
+    const text = full.slice(0, limit);
+    const wasTruncated = text.length < full.length;
+    textBudget -= text.length;
+    sawUntrustedText = true;
+
+    if (wasTruncated) {
+      truncated.push({ sourceId: `reference:${row.id}`, originalChars: full.length, includedChars: text.length });
+    }
+    includedSourceIds.push(`reference:${row.id}`);
+    evidence.push({
+      ...base,
+      availability: text.length === 0 ? "facts_only" : wasTruncated ? "text_truncated" : "text_included",
+      text: text.length > 0 ? text : undefined,
+      facts: facts.length > 0 ? facts : undefined,
+      originalChars: full.length,
+      includedChars: text.length,
+    });
+  }
+
+  if (sawUntrustedText) redactionFlags.add("untrusted_reference_text");
+  if (evidence.some((entry) => entry.freshness === "stale")) redactionFlags.add("stale_reference_content");
+  return evidence;
+}
+
+/** Safe, user-facing wording for a reference that exists but has no usable content — the persisted failure message is already safe (see lib/references/errors.ts), but a generic fallback keeps an unmapped code from leaking. */
+function describeUnavailableReference(row: ConversationReferenceRow): string {
+  if (row.failureCode === "rate_limited") {
+    return `${row.host} was rate-limiting us, so this reference could not be read.`;
+  }
+  return row.failureMessage ?? "This reference could not be read, so it was not used.";
+}
+
 /** Safe, user-facing wording for an attachment that exists but can't be used — never a raw failure message or storage detail. */
 function describeUnusable(row: ConversationAttachmentRow): { manifestReason: string; userFacingReason: string } | null {
   switch (row.status) {
@@ -471,6 +611,7 @@ function estimateTokens(parts: {
   spec: ApplicationSpecificationType;
   history: readonly ContextTurn[];
   attachments: readonly ContextAttachmentEvidence[];
+  references: readonly ContextReferenceEvidence[];
   candidates: readonly ContextTargetCandidate[];
 }): number {
   const chars =
@@ -478,6 +619,7 @@ function estimateTokens(parts: {
     JSON.stringify({ entities: parts.spec.entities, pages: parts.spec.pages, branding: parts.spec.branding }).length +
     parts.history.reduce((sum, turn) => sum + turn.content.length, 0) +
     parts.attachments.reduce((sum, a) => sum + (a.text?.length ?? 0), 0) +
+    parts.references.reduce((sum, r) => sum + (r.text?.length ?? 0) + JSON.stringify(r.facts ?? []).length, 0) +
     JSON.stringify(parts.candidates).length;
   return Math.ceil(chars / 4);
 }
@@ -498,6 +640,17 @@ export function toPersistableManifest(grounded: GroundedModificationContext): Re
     historyTurnCount: grounded.history.length,
     memoryFactCount: grounded.memory.length,
     attachmentEvidence: grounded.attachments.map((a) => ({ id: a.id, availability: a.availability })),
+    // Host/adapter/freshness only — never the imported text, and never the
+    // full URL path, so a persisted manifest cannot become a log of what
+    // pages an app fetched.
+    referenceEvidence: grounded.references.map((r) => ({
+      id: r.id,
+      host: r.host,
+      adapter: r.adapter,
+      freshness: r.freshness,
+      availability: r.availability,
+      fetchedAt: r.fetchedAt,
+    })),
     previewEvidenceKind: grounded.previewEvidence?.kind ?? null,
   };
 }
