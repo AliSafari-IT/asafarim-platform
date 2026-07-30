@@ -12,7 +12,8 @@ export type UsageEventKind =
   | "validation_run"
   | "deployment"
   | "workflow_execution"
-  | "storage_write";
+  | "storage_write"
+  | "public_reference_fetch";
 
 export interface RecordUsageEventInput {
   appId?: string | null;

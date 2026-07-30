@@ -5,6 +5,7 @@ import { Alert, Badge, Button, ConfirmDialog, Textarea } from "@asafarim/ui";
 import { SafeMarkdown } from "./SafeMarkdown";
 import { AttachmentComposer } from "./AttachmentComposer";
 import { MessageAttachments } from "./MessageAttachments";
+import { ReferencePanel } from "./ReferencePanel";
 import { clearSentAttachments, getDraft, readyAttachmentIds, syncServerAttachments } from "./attachmentDraft";
 import styles from "./ConversationPanel.module.css";
 import {
@@ -17,7 +18,9 @@ import {
   type ModificationJobStatus,
   type ModificationPlan,
   type ModificationPlanStep,
+  type ReferencePolicy,
   type SafeAttachment,
+  type SafeReference,
   type SelectionContext,
   type SpecificationDiff,
 } from "./types";
@@ -140,6 +143,8 @@ export function ConversationPanel({
   const [plan, setPlan] = useState<{ plan: ModificationPlan; steps: ModificationPlanStep[] } | null>(null);
   const [attachments, setAttachments] = useState<SafeAttachment[]>([]);
   const [policy, setPolicy] = useState<AttachmentPolicy | null>(null);
+  const [references, setReferences] = useState<SafeReference[]>([]);
+  const [refPolicy, setRefPolicy] = useState<ReferencePolicy | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -156,10 +161,17 @@ export function ConversationPanel({
         messages: ConversationMessage[];
         attachments: SafeAttachment[];
         attachmentPolicy: AttachmentPolicy;
+        references: SafeReference[];
+        referencePolicy: ReferencePolicy;
       }>(`/api/apps/${appId}/conversation`);
       setMessages(data.messages);
       setAttachments(data.attachments ?? []);
       setPolicy(data.attachmentPolicy ?? null);
+      // Freshness on these rows is recomputed server-side on every load, so a
+      // reference that aged out of its cache window since the last fetch comes
+      // back labelled `stale` without this panel expiring anything itself.
+      setReferences(data.references ?? []);
+      setRefPolicy(data.referencePolicy ?? null);
       // Server state is authoritative for the composer too: uploads that
       // finished but were never sent come back after a reload, and chips the
       // server has since claimed or dropped stop lingering here.
@@ -419,6 +431,20 @@ export function ConversationPanel({
             Clear
           </button>
         </div>
+      ) : null}
+
+      {/* M13 slice F. `app.importReference` sits at the same editor floor as
+          app.requestModification (see lib/repositories/authz.ts), so the same
+          flag gates both — a viewer sees imported references and their
+          provenance, but cannot make this platform fetch anything. */}
+      {canRequestModification || references.length > 0 ? (
+        <ReferencePanel
+          appId={appId}
+          canImportReference={canRequestModification}
+          policy={refPolicy}
+          references={references}
+          onChanged={loadMessages}
+        />
       ) : null}
 
       {canRequestModification ? (
