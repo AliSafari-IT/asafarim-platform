@@ -16,7 +16,96 @@ export type QuotaMetric =
   | "storage_bytes_per_app"
   | "workflow_executions_per_day_per_app"
   | "concurrent_deployment_jobs_per_app"
-  | "concurrent_validation_jobs_per_app";
+  | "concurrent_validation_jobs_per_app"
+  | "attachment_bytes_per_app"
+  | "attachments_per_app"
+  | "references_per_app"
+  | "reference_fetches_per_day_per_app";
+
+/** M13 slice G — one dependency/readiness section (lib/observability/m13Readiness.ts). */
+export interface M13ReadinessSection {
+  status: ReadinessStatus;
+  summary: string;
+  detail: Record<string, unknown>;
+}
+
+export interface FeatureFlagState {
+  key: "attachments" | "vision" | "contextualMemory" | "planning" | "urlImports";
+  envVar: string;
+  enabled: boolean;
+  usingDefault: boolean;
+  disabledEffect: string;
+}
+
+export interface M13ReadinessSnapshot {
+  storage: M13ReadinessSection;
+  extraction: M13ReadinessSection;
+  malwareScanning: M13ReadinessSection;
+  modelVision: M13ReadinessSection;
+  urlImport: M13ReadinessSection;
+  cleanupLag: M13ReadinessSection;
+  evaluation: M13ReadinessSection;
+  featureFlags: FeatureFlagState[];
+}
+
+/**
+ * M13 slice G metrics. Only the fields this view actually renders are
+ * mirrored — the server returns more (see lib/observability/metrics.ts), and
+ * a structural type means an unrendered field is not an error.
+ */
+export interface M13MetricsSnapshot {
+  windowDays: number;
+  attachments: {
+    byStatus: Record<string, number>;
+    readyBytes: number;
+    extractedTextChars: number;
+    quarantined: number;
+    unscannedCommits: number;
+    sweptUnclaimed: number;
+    overdueUnclaimed: number;
+    processingSecondsP95: number | null;
+  };
+  context: {
+    jobsWithManifest: number;
+    meanEstimatedTokens: number | null;
+    jobsWithTruncation: number;
+    redactionFlagCounts: Record<string, number>;
+  };
+  resolver: {
+    resolved: number;
+    ambiguous: number;
+    unresolved: number;
+    resolutionRate: number | null;
+    meanConfidence: number | null;
+  };
+  clarification: {
+    jobsThatAsked: number;
+    totalRounds: number;
+    answered: number;
+    abandoned: number;
+    answerRate: number | null;
+  };
+  plans: {
+    created: number;
+    completed: number;
+    stopped: number;
+    completionRate: number | null;
+  };
+  references: {
+    totalReferences: number;
+    imported: number;
+    blocked: number;
+    rateLimited: number;
+    failing: number;
+  };
+  tokens: { promptTokens: number; completionTokens: number; providerCalls: number };
+  cost: {
+    estimated: true;
+    currency: "USD";
+    totalUsd: number;
+    unratedModels: string[];
+  };
+}
 
 export interface QuotaSnapshotEntry {
   metric: QuotaMetric;
@@ -121,6 +210,23 @@ export interface AppReadinessSnapshot {
   } | null;
 
   security: { status: "documented"; notes: string[] } | null;
+
+  /** M13 slice G — null for a restricted (viewer) response. */
+  m13: M13ReadinessSnapshot | null;
+  /** M13 slice G — null for a restricted (viewer) response. */
+  m13Metrics: M13MetricsSnapshot | null;
+
+  /** M13 slice F — public-reference import health. */
+  referenceImport: {
+    status: ReadinessStatus;
+    cacheTtlSeconds: number;
+    githubAuthentication: string;
+    cached: number;
+    stale: number;
+    unavailable: number;
+    lastFetchedAt: string | null;
+    lastFailureCode: string | null;
+  };
 
   recentOperationalEvents: Array<{
     id: string;

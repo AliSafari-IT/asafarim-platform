@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { closeTestDb, getTestDb, migrateTestDb, resetTestDb } from "../db/testUtils";
 import { createApp } from "./apps";
@@ -59,6 +59,15 @@ beforeEach(async () => {
   await resetTestDb();
   delete process.env.APPBUILDER_QUOTA_REFERENCE_FETCHES_PER_DAY_PER_APP;
   delete process.env.APPBUILDER_QUOTA_REFERENCES_PER_APP;
+  // M13 slice G made URL import independently flagged, and OFF by default
+  // (see lib/features/flags.ts). This file exercises the import path itself,
+  // so it opts in explicitly; the flag's own OFF behavior is asserted in
+  // lib/features/featureFlags.integration.test.ts.
+  process.env.APPBUILDER_URL_IMPORTS_ENABLED = "true";
+});
+
+afterEach(() => {
+  delete process.env.APPBUILDER_URL_IMPORTS_ENABLED;
 });
 
 afterAll(async () => {

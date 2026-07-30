@@ -44,8 +44,16 @@ import {
   getLatestRestoreRehearsal,
 } from "../backup/repository";
 import type { ReadinessStatus } from "./status";
+import {
+  buildM13ReadinessSnapshot,
+  m13LaunchBlockingIssues,
+  type M13ReadinessSnapshot,
+} from "./m13Readiness";
+import { collectM13Metrics, type M13MetricsSnapshot } from "./metrics";
 
 export type { ReadinessStatus } from "./status";
+export type { M13ReadinessSnapshot } from "./m13Readiness";
+export type { M13MetricsSnapshot } from "./metrics";
 
 const TERMINAL_GENERATION_JOB_STATUSES = [
   "ready",
@@ -229,6 +237,27 @@ export interface AppReadinessSnapshot {
     lastFailureCode: string | null;
   };
 
+  /**
+   * M13 slice G — storage, extraction, malware scanning, model vision, URL
+   * import, cleanup lag, evaluation version, and the resolved state of every
+   * independent feature flag. Nothing in here probes anything (see
+   * lib/observability/m13Readiness.ts).
+   *
+   * null for a restricted (viewer) response: these are deployment-level
+   * configuration facts (which scanner, which storage backend, which flags),
+   * and a viewer on one app has no reason to learn them. The `cleanupLag`
+   * and `modelVision` consequences a viewer WOULD care about already reach
+   * them through `launchBlockingIssues`, which is populated for every role.
+   */
+  m13: M13ReadinessSnapshot | null;
+
+  /**
+   * M13 slice G — the milestone's own measurement surface for this app.
+   * null for a restricted (viewer) response, same as `quotas` and `aiUsage`:
+   * token counts and cost estimates are owner/editor information.
+   */
+  m13Metrics: M13MetricsSnapshot | null;
+
   /** null for a restricted (viewer) response. */
   recentOperationalEvents: Array<{
     id: string;
@@ -378,7 +407,14 @@ export async function buildAppReadinessSnapshot(
     .orderBy(desc(customDomainRequests.createdAt))
     .limit(1);
 
-  const launchBlockingIssues: string[] = [];
+  // M13 slice G. Built for EVERY role (including a restricted viewer) because
+  // its launch-blocking issues must reach everyone — an app whose attachments
+  // are landing on disk that a redeploy will wipe is exactly the kind of
+  // problem the issue's "launchBlockingIssues is always populated" rule
+  // exists for. The snapshot ITSELF is still withheld from a viewer below.
+  const m13 = await buildM13ReadinessSnapshot(db, appId, now);
+
+  const launchBlockingIssues: string[] = [...m13LaunchBlockingIssues(m13)];
   if (!approvedRelease)
     launchBlockingIssues.push(
       "No approved release exists yet — approve a validated version before deploying."
@@ -486,6 +522,8 @@ export async function buildAppReadinessSnapshot(
     jobs: null,
     backup: null,
     security: null,
+    m13: null,
+    m13Metrics: null,
     recentOperationalEvents: null,
     customDomain: {
       enabled: isCustomDomainsEnabled(),
@@ -766,6 +804,8 @@ export async function buildAppReadinessSnapshot(
         : null,
     },
     security: { status: "documented", notes: securityNotes },
+    m13,
+    m13Metrics: await collectM13Metrics(db, appId, { now }),
     recentOperationalEvents: recentEvents.map((e) => ({
       id: e.id,
       category: e.category,

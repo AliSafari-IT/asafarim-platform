@@ -21,6 +21,10 @@ procedure for changing one.
 | `workflow_executions_per_day_per_app` | app | 2000 | Soft (see below) | Bounds a workflow-chain runaway without ever rolling back the record write that triggered it. |
 | `concurrent_deployment_jobs_per_app` | app | 1 | Hard, race-safe | New in M12 — no such check existed pre-M12. |
 | `concurrent_validation_jobs_per_app` | app | 1 | Hard, race-safe | Replaces the pre-M12 non-race-safe `VALIDATION_LIMITS.MAX_ACTIVE_RUNS_PER_APP` check with `withQuota`, same rationale as generation jobs. |
+| `attachment_bytes_per_app` | app | 200 MiB | Hard, bounded-race | M13 slice B. Deliberately separate from `storage_bytes_per_app`: conversation attachments are authoring *input*, not the app's own generated-data storage, and they are additionally subject to the 24h unclaimed-upload sweep. Sharing one budget would let a few screenshots crowd out an app's real data. |
+| `attachments_per_app` | app | 500 | Hard, race-safe | Bounds row count independently of bytes — 500 tiny files cost little storage and a great deal of per-message context assembly. |
+| `references_per_app` | app | 100 | Hard, race-safe | M13 slice F. How much third-party content one app accumulates. Rows are refreshed in place, so this counts distinct URLs, not fetches. |
+| `reference_fetches_per_day_per_app` | app | 200 | Hard, race-safe | The one that matters for abuse: how many **outbound requests** the platform makes on a user's behalf per day. Without it, an app becomes a way to scan or hammer other people's servers from our IP address. Recorded in the same transaction as the check that permitted it, so "fetches today" is always re-derived from rows that only exist for requests that really happened. |
 
 **Hard, race-safe**: `withQuota` (`lib/quotas/enforce.ts`) takes a
 `pg_advisory_xact_lock` scoped to `(metric, scope)` inside the same
@@ -103,8 +107,46 @@ incidental, end-to-end exercise of the override path.
 
 ## Preserving usage data for future billing
 
-Every AI request, preview build, validation run, deployment, and storage
-write appends one row to `usage_events` (`lib/quotas/recordUsage.ts`) —
-append-only, never mutated or swept, kept indefinitely by design. This
-satisfies "preserve enough usage data for future billing" without
-implementing billing itself.
+Every AI request, preview build, validation run, deployment, storage write,
+and public-reference fetch appends one row to `usage_events`
+(`lib/quotas/recordUsage.ts`) — append-only, never mutated or swept, kept
+indefinitely by design. This satisfies "preserve enough usage data for future
+billing" without implementing billing itself.
+
+**M13 slice G adds an estimate on top, and it is not billing.**
+`lib/observability/metrics.ts#estimateCost` turns the token counts recorded on
+`modification_jobs.usage` into USD via a checked-in rate table
+(`lib/observability/costRates.ts`), overridable per model through
+`APPBUILDER_MODEL_COST_RATES` for operators on negotiated pricing.
+
+Three deliberate limits on how far to trust it:
+
+- The ledger records **usage**, not price. The price comes from a table that
+  can be stale, so the result is labelled `estimated: true` on the field
+  itself and every consumer must present it that way.
+- A model with **no configured rate contributes zero and is named** in
+  `cost.unratedModels`. Guessing a rate would be worse than a visible gap, and
+  absorbing it into a total that looks complete would be worse still — check
+  that field before quoting a number.
+- Live pricing is deliberately **not** fetched: that would make a metrics read
+  perform an outbound request to a vendor, adding both a failure mode and an
+  egress surface to an operator dashboard.
+
+## M13 limits enforced outside the quota ledger
+
+Not every M13 bound is a quota row, and conflating the two would misrepresent
+where enforcement happens. These are fixed per-request limits, checked at the
+point of use rather than counted over a window:
+
+| Limit | Value | Where |
+|---|---|---|
+| Attachments per message | 8 | `lib/attachments/limits.ts` |
+| Image size / text size / PDF size | 10 MB / 2 MB / 20 MB | `lib/attachments/limits.ts` |
+| Extracted text per file / per model call | 50,000 / 100,000 chars | `lib/attachments/limits.ts` |
+| Plan steps per decision | `MAX_PLAN_STEPS` | `lib/modification/limits.ts` |
+| Clarification rounds | 2 | `lib/modification/limits.ts` |
+| Reference response bytes / timeout / redirects | 512 KB / 8 s / 3 hops | `lib/references/limits.ts` |
+| Reference cache TTL | 6 hours | `lib/references/limits.ts` |
+
+The server returns the attachment catalogue to the client so the composer
+keeps no divergent copy of it.
