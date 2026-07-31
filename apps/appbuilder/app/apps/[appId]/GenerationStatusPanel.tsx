@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Badge, Button, Card, ConfirmDialog } from "@asafarim/ui";
+import { answeredCount, buildAnswerPayload } from "./clarificationAnswers";
 import { clearDraft, hasUnsavedAnswers, loadDraft, saveDraft } from "./clarificationDraft";
 import { useLeaveGuard } from "./useLeaveGuard";
 
@@ -182,7 +183,9 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
     try {
       const payload = {
         roundNumber: round.roundNumber,
-        answers: round.questions.map((q) => ({ questionId: q.id, answer: answers[q.id] ?? "" })),
+        // Skipped questions are sent explicitly rather than omitted — see
+        // clarificationAnswers.ts for why omission cannot work here.
+        answers: buildAnswerPayload(round.questions, answers),
       };
       await fetchJson(`/api/apps/${appId}/generation-jobs/${job.id}/clarification`, {
         method: "POST",
@@ -251,6 +254,9 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
   }, [appId, draftKeyParts?.jobId, draftKeyParts?.roundNumber, answers]);
 
   const unsaved = Boolean(openRound) && canManage && hasUnsavedAnswers(answers);
+  const skippedCount = openRound
+    ? openRound.questions.length - answeredCount(openRound.questions, answers)
+    : 0;
 
   const leaveGuard = useLeaveGuard(
     unsaved,
@@ -323,7 +329,18 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
               <p>A few more details will help generate a better application:</p>
               {openRound.questions.map((q) => (
                 <label key={q.id} style={{ display: "grid", gap: "var(--space-1)" }}>
-                  <span>{q.question}</span>
+                  <span>
+                    {q.question}{" "}
+                    {/*
+                      Marked on every question because every question is
+                      genuinely skippable. Saying so up front is the point:
+                      the form previously disabled Submit until all of them
+                      were filled, with nothing on screen explaining why.
+                    */}
+                    <span className="ui-hint" style={{ fontWeight: 400 }}>
+                      (optional)
+                    </span>
+                  </span>
                   {q.reason ? <span className="ui-hint">{q.reason}</span> : null}
                   <textarea
                     value={answers[q.id] ?? ""}
@@ -339,10 +356,22 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
                   <Button
                     type="button"
                     onClick={() => submitClarification(openRound)}
-                    disabled={busy || openRound.questions.some((q) => !(answers[q.id] ?? "").trim())}
+                    // Only ever blocked by a request already in flight. It
+                    // used to require every question, so one blank box — a
+                    // contact email the user did not want to publish, a
+                    // palette they had no opinion on — stopped generation
+                    // dead with no way forward but to invent an answer.
+                    disabled={busy}
                   >
                     Submit answers
                   </Button>
+                  {skippedCount > 0 ? (
+                    <p className="ui-hint" aria-live="polite">
+                      {skippedCount === openRound.questions.length
+                        ? "You haven't answered any of these. Submitting now lets the assistant choose sensible defaults for all of them."
+                        : `${skippedCount} question${skippedCount === 1 ? "" : "s"} left blank — the assistant will choose a sensible default for ${skippedCount === 1 ? "it" : "those"}.`}
+                    </p>
+                  ) : null}
                   {/*
                     Says the answers are kept, rather than leaving the user to
                     hope. Only shown once there is something to keep, so it
