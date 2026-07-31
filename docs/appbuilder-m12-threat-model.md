@@ -57,8 +57,39 @@ part is only the `Host` header (itself derived from the release's own
 `productionHost`, computed at release-preparation time from a slug already
 validated against `RESERVED_APP_SLUGS`/`DNS_LABEL_RE` in
 `lib/routing/resolveAppHost.ts`), never an arbitrary external network
-target. There is no code path anywhere that accepts a client-supplied URL
-and fetches it server-side.
+target.
+
+**M13 slice F changed the last sentence of that paragraph**, which used to
+read "there is no code path anywhere that accepts a client-supplied URL and
+fetches it server-side." There now is exactly one:
+`POST /api/apps/{appId}/conversation/references/import`. Its full policy —
+https-only, no embedded credentials, port 443 only, every non-public address
+class refused, obfuscated and IPv4-mapped literals decoded first, **all**
+resolved addresses checked (not just the first), and the whole policy
+re-applied to every redirect hop — is documented in
+`docs/appbuilder-m13-public-references.md`. It is an **editor** capability,
+never a viewer one: a read-only collaborator must not be able to use the
+platform as an outbound request proxy.
+
+**M13 slice G additions.** The route is now behind its own feature flag
+(`APPBUILDER_URL_IMPORTS_ENABLED`, default **off**), so a deployment that has
+not accepted the outbound-request policy makes no outbound request at all,
+and a refusal is recorded as `reference.disabled_by_flag`. The readiness
+section for URL import deliberately **probes nothing** — a readiness endpoint
+that made an outbound request to prove outbound requests work would itself be
+an SSRF surface.
+
+**Residual risk, unchanged and still open**: Node's `fetch` re-resolves the
+hostname itself, so a name whose DNS answer changes between our check and the
+connection can still be connected to (TOCTOU rebinding). Closing it fully
+requires pinning the checked address into the connection via a custom undici
+dispatcher. Slice F deferred this to slice G and **slice G has not closed
+it** — it is a connection-layer change with its own risk, and shipping it
+under time pressure alongside eight other workstreams was judged worse than
+carrying the documented risk. The compensating controls remain: every hop
+re-validated, an 8s whole-request timeout, a 512 KB streamed size cap, a
+content-type allowlist, no credentials sent, nothing echoed back beyond
+bounded extracted text, and a daily per-app outbound-fetch quota.
 
 ## File upload abuse
 
@@ -195,3 +226,101 @@ restore prevention), `lib/customDomains/requests.integration.test.ts`
 leakage of operational data specifically). No test was excluded or skipped
 to avoid surfacing a failure — every test file above is part of the normal
 `pnpm test`/`pnpm test:integration` run.
+
+## M13 additions to this threat model
+
+### Attachment content as a second copy (slice G fix)
+
+**Threat**: a user deletes an uploaded file believing it is gone. Before
+slice G, `deleteAttachment` removed the object from storage and left
+`extracted_text` — a plain-text copy of the file's contents — in the
+database. "Delete" removed the harder-to-read copy and kept the easier one.
+
+**Mitigation**: deletion now clears `extracted_text` and leaves a tombstone
+carrying filename, type, size, hash, uploader, and deletion time — enough to
+answer "what was here and who removed it" without retaining the content.
+Owner erasure (`DELETE /api/apps/{appId}/data`) does the same across every
+category at once. Covered by `lib/retention/appData.integration.test.ts`,
+which asserts no second copy survives anywhere.
+
+### Telemetry as an exfiltration path
+
+**Threat**: an observability surface built to monitor a system that handles
+private files becomes a way to read those files — an event payload carrying a
+prompt, an operational log carrying extracted text, a metrics endpoint that
+sums over `extracted_text` and returns a sample of it.
+
+**Mitigation**: every M13 event kind is enumerated in
+`lib/observability/events.ts#M13_EVENT_KINDS` and none carries prompt text,
+conversation content, extracted attachment text, reference bodies, resolved
+addresses, or URL paths — only counts, codes, durations, hosts, and stable
+spec ids. `lib/observability/metrics.ts` reads the *length* of extracted text,
+never the text. Asserted directly:
+`lib/observability/metrics.integration.test.ts` seeds a known secret string
+into a file and a fetched page and asserts it appears in no metric payload;
+`lib/features/featureFlags.integration.test.ts` asserts a blocked import's
+event carries the host but neither the path nor a query token.
+
+### Correlation ID as an injection vector
+
+**Threat**: the `x-correlation-id` header is caller-controlled and ends up in
+a persisted column and a response header — a natural place to attempt log
+injection, header splitting, or stored XSS in whatever renders the events.
+
+**Mitigation**: format validation against `^[A-Za-z0-9_-]{8,64}$`, with a
+malformed value **discarded and replaced** rather than sanitized (a sanitizer
+is one missed character from the same bug). The id grants nothing, addresses
+nothing, and is never used for authorization, idempotency, or lookup, so a
+reused or guessed value cannot reach another user's data. Covered by
+`lib/observability/correlation.test.ts`.
+
+### Shadow evaluation as an unreviewed mutation path
+
+**Threat**: a dark-launch harness that runs a full decision pipeline is one
+accidental call away from applying operations nobody reviewed.
+
+**Mitigation**: structural rather than disciplinary —
+`lib/modification/shadow.ts` never imports `applyOperation`,
+`appendSystemMessage`, `transitionStatus`, or `createModificationPlan`, so
+the write path is unreachable from it and a reviewer can verify that from the
+import list. Its only write is one operational event. Confirmed observably by
+`lib/modification/shadow.integration.test.ts` (version unchanged, no batch,
+no plan, no message).
+
+### Export as a privilege-escalation target
+
+**Threat**: `GET /api/apps/{appId}/data` returns every message, extracted
+file, and imported page in one response — a far broader read than any single
+existing capability, and the natural target for anyone who obtains
+collaborator access.
+
+**Mitigation**: owner-only (`app.exportData`), never editor. Served
+`Content-Disposition: attachment` with `Cache-Control: no-store, private`,
+never inline. Storage keys are excluded (as everywhere else in M13). Erasure
+additionally requires the app id restated in the body, so an accidental or
+CSRF-shaped call is insufficient on its own.
+
+### Feature flag as a false sense of containment
+
+**Threat**: an operator disables a capability after an incident and assumes
+the data it produced is now inaccessible.
+
+**Mitigation**: documented explicitly rather than implemented misleadingly. A
+disabled flag stops **new writes only**; existing attachments stay
+downloadable and existing references keep grounding context. That is
+deliberate — making history unreadable is the failure mode a rollback is
+supposed to avoid — but it means a flag is a capability switch, **not** a
+containment measure. To make content inaccessible, use erasure.
+
+### Automated security-relevant tests added in M13 slice G
+
+`lib/observability/correlation.test.ts` (header injection refusal),
+`lib/observability/metrics.integration.test.ts` (no user content in any
+metric; app scoping), `lib/observability/m13Readiness.test.ts` (unconfigured
+dependencies never report healthy; no credential values echoed),
+`lib/retention/appData.integration.test.ts` (owner-only export/erasure,
+cross-app scoping, no second copy after erasure),
+`lib/features/featureFlags.integration.test.ts` (ingress refused, history
+readable, no URL path in a refusal event), and
+`lib/modification/shadow.integration.test.ts` (no mutation, no decision text
+persisted).

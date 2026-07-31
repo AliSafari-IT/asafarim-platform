@@ -119,6 +119,10 @@ describe("buildAppReadinessSnapshot", () => {
     expect(snapshot.backup).toBeNull();
     expect(snapshot.security).toBeNull();
     expect(snapshot.recentOperationalEvents).toBeNull();
+    // M13 slice G: deployment configuration (which scanner, which storage
+    // backend, which flags) and cost are owner/editor information.
+    expect(snapshot.m13).toBeNull();
+    expect(snapshot.m13Metrics).toBeNull();
 
     // But the essentials — versions, validation, deployment health, and
     // launch-blocking issues — remain visible, matching what ValidationPanel/
@@ -126,6 +130,40 @@ describe("buildAppReadinessSnapshot", () => {
     expect(snapshot.versions.draftVersionNumber).toBe(1);
     expect(snapshot.validation.status).toBe("unknown");
     expect(snapshot.launchBlockingIssues.length).toBeGreaterThan(0);
+  });
+
+  it("gives an owner the M13 dependency sections and metrics, and never reports an unconfigured dependency as healthy", async () => {
+    const app = await createApp(
+      db,
+      owner,
+      { name: "Readiness App M13", slug: "readiness-app-m13" },
+      "readiness-key-m13"
+    );
+
+    const snapshot = await buildAppReadinessSnapshot(db, owner, app.id);
+    expect(snapshot.m13).not.toBeNull();
+    expect(snapshot.m13Metrics).not.toBeNull();
+
+    // In the test environment no scanner and no remote bucket are configured,
+    // and vision and URL import are off. None of those may read "healthy".
+    expect(snapshot.m13!.malwareScanning.status).not.toBe("healthy");
+    expect(snapshot.m13!.storage.status).not.toBe("healthy");
+    expect(snapshot.m13!.modelVision.status).toBe("not_configured");
+    expect(snapshot.m13!.urlImport.status).toBe("not_configured");
+
+    // A feature that is off on purpose is not a launch blocker, so nothing
+    // above should have added one.
+    expect(
+      snapshot.launchBlockingIssues.filter((i) => i.startsWith("Model vision:"))
+    ).toHaveLength(0);
+
+    expect(snapshot.m13!.featureFlags).toHaveLength(5);
+    expect(snapshot.m13!.evaluation.detail.evaluationVersion).toMatch(/^m13\./);
+
+    // Empty app: rates report "never measured", not zero.
+    expect(snapshot.m13Metrics!.resolver.resolutionRate).toBeNull();
+    expect(snapshot.m13Metrics!.clarification.answerRate).toBeNull();
+    expect(snapshot.m13Metrics!.cost.estimated).toBe(true);
   });
 
   it("never lets an unrelated actor discover the app exists (NotFoundError, not an empty/restricted snapshot)", async () => {

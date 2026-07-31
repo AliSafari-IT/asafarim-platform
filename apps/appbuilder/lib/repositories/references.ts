@@ -27,6 +27,8 @@ import { withQuota } from "../quotas/enforce";
 import { countReferenceFetchesTodayForApp, countReferencesForApp } from "../quotas/usage";
 import { recordUsageEvent } from "../quotas/recordUsage";
 import { recordOperationalEvent, withQuotaRejectionLogging } from "../observability/events";
+import { isUrlImportsEnabled } from "../features/flags";
+import { FeatureDisabledError } from "../features/errors";
 
 /**
  * M13 slice F — the imported-public-reference lifecycle: authorization,
@@ -132,6 +134,8 @@ export interface ImportReferenceInput {
   url: string;
   /** Forces an outbound fetch even when the cached copy is still inside its TTL. */
   refresh?: boolean;
+  /** M13 slice G — trace label of the importing request, stamped on every event this import emits. */
+  correlationId?: string | null;
 }
 
 export interface ImportReferenceResult {
@@ -188,6 +192,26 @@ export async function importConversationReference(
 ): Promise<ImportReferenceResult> {
   const { app } = await assertCapability(db, actor, appId, "app.importReference");
 
+  // M13 slice G: the flag boundary for URL import. Placed here, before URL
+  // normalization, because with the flag off there is no outbound request to
+  // make and therefore nothing to validate — refusing the whole operation is
+  // both simpler and stricter than refusing only the fetch. Everything below
+  // this function (listing, provenance, context assembly) is untouched by the
+  // flag, so references imported before it was switched off keep grounding
+  // conversations and keep reporting their real freshness.
+  if (!isUrlImportsEnabled()) {
+    await recordOperationalEvent(db, {
+      appId,
+      correlationId: input.correlationId ?? null,
+      category: "modification",
+      kind: "reference.disabled_by_flag",
+      severity: "info",
+      actorPrincipalId: actor.principalId,
+      detail: { host: safeHostOf(input.url), refresh: Boolean(input.refresh) },
+    });
+    throw new FeatureDisabledError("urlImports", "Importing a public URL is not available right now.");
+  }
+
   let url: URL;
   try {
     url = normalizeReferenceUrl(input.url);
@@ -198,6 +222,7 @@ export async function importConversationReference(
       // exactly the kind of signal that must not vanish with a rollback.
       await recordOperationalEvent(db, {
         appId,
+        correlationId: input.correlationId ?? null,
         category: "security",
         kind: "reference.blocked",
         severity: "warning",
@@ -254,6 +279,7 @@ export async function importConversationReference(
 
     await recordOperationalEvent(db, {
       appId,
+      correlationId: input.correlationId ?? null,
       category: code === "url_not_allowed" ? "security" : "modification",
       kind: code === "rate_limited" ? "reference.rate_limited" : "reference.fetch_failed",
       severity: "warning",
@@ -315,7 +341,7 @@ export async function importConversationReference(
       })
       .where(eq(conversationReferences.id, existing.id))
       .returning();
-    await recordReferenceImported(db, actor, appId, updated, { refreshed: true, unchanged });
+    await recordReferenceImported(db, actor, appId, updated, { refreshed: true, unchanged }, input.correlationId ?? null);
     return { reference: toSafeReference(updated, now), fetched: true, freshness: "live", failure: null, unchanged };
   }
 
@@ -348,7 +374,7 @@ export async function importConversationReference(
       }),
   );
 
-  await recordReferenceImported(db, actor, appId, inserted, { refreshed: false, unchanged: false });
+  await recordReferenceImported(db, actor, appId, inserted, { refreshed: false, unchanged: false }, input.correlationId ?? null);
   return { reference: toSafeReference(inserted, now), fetched: true, freshness: "live", failure: null, unchanged: false };
 }
 
@@ -358,9 +384,11 @@ async function recordReferenceImported(
   appId: string,
   row: ConversationReferenceRow,
   flags: { refreshed: boolean; unchanged: boolean },
+  correlationId: string | null,
 ): Promise<void> {
   await recordOperationalEvent(db, {
     appId,
+    correlationId,
     category: "modification",
     kind: "reference.imported",
     actorPrincipalId: actor.principalId,

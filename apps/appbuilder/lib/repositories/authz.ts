@@ -57,7 +57,9 @@ export type Capability =
   | "app.uploadAttachment" // init/commit/delete a conversation attachment (M13)
   | "app.viewAttachment" // view a conversation attachment's metadata (M13)
   | "app.importReference" // import/refresh/remove a public HTTPS reference (M13 slice F)
-  | "app.viewReference"; // view an imported reference's metadata/provenance (M13 slice F)
+  | "app.viewReference" // view an imported reference's metadata/provenance (M13 slice F)
+  | "app.exportData" // export everything retained about this app, including M13 conversation data (M13 slice G)
+  | "app.eraseData"; // irreversibly erase this app's retained conversation data (M13 slice G)
 
 /** The minimum role each capability requires. Owner outranks editor outranks viewer. */
 const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
@@ -118,6 +120,13 @@ const CAPABILITY_MIN_ROLE: Record<Capability, Role> = {
   // read-only collaborators use the app as an outbound request proxy.
   "app.importReference": "editor",
   "app.viewReference": "viewer",
+  // M13 slice G. Both are owner-only, for different reasons. Export produces
+  // one document containing every message, attachment, memory fact, and
+  // imported reference the app retains — a far broader read than any single
+  // capability an editor holds, and the natural target for anyone who
+  // obtained editor access. Erasure is irreversible.
+  "app.exportData": "owner",
+  "app.eraseData": "owner",
 };
 
 /** Whether a role grants a capability. Exported so tests/UI can render capability-gated affordances consistently. */
@@ -142,6 +151,12 @@ const ALLOWED_WHILE_ARCHIVED: ReadonlySet<Capability> = new Set([
   "app.viewOperations",
   "app.viewAttachment",
   "app.viewReference",
+  // M13 slice G: an archived app is the MOST likely subject of an export or
+  // erasure request — archiving is the step before "I'm done with this" —
+  // so blocking both while archived would force an owner to un-archive an
+  // app just to delete its data.
+  "app.exportData",
+  "app.eraseData",
 ]);
 
 export interface AppAccess {

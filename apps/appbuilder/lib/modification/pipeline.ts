@@ -49,6 +49,10 @@ import type { SelectionContextType } from "./selectionContext";
 import type { PersistedStepRequest } from "./types";
 import { recordResolvedReference } from "../repositories/conversationMemory";
 import { nudgeModificationWorker } from "../server/queue";
+import { recordOperationalEvent } from "../observability/events";
+import { correlationIdForJob } from "../observability/correlation";
+import { isContextualMemoryEnabled, isPlanningEnabled, isShadowEvaluationEnabled, isVisionEnabled } from "../features/flags";
+import { runShadowEvaluation } from "./shadow";
 
 export interface ModificationPipelineDeps {
   db: Db;
@@ -233,6 +237,13 @@ async function runInterpretingPhase(deps: ModificationPipelineDeps, job: Modific
   // choice named a stable target, that target overrides the deterministic
   // resolver (see contextAssembler.ts's forcedTargetId) — the human already
   // told us which one they meant.
+  //
+  // M13 slice G: `visionAvailable` and `memoryEnabled` are read from the
+  // independent feature flags here rather than assumed. Both are DISCLOSURE
+  // inputs, not filters — with vision off, images stay attached and the
+  // assembler records `vision_unavailable` so the model is told it cannot
+  // see them (and says so) instead of quietly reasoning without them.
+  const correlationId = correlationIdForJob(job);
   const context = await buildModificationContext({
     db: deps.db,
     appId: job.appId,
@@ -243,20 +254,89 @@ async function runInterpretingPhase(deps: ModificationPipelineDeps, job: Modific
     currentVersionNumber: job.baseVersionNumber,
     selection,
     forcedTargetId: forcedTargetFromClarification(job),
+    visionAvailable: isVisionEnabled(),
+    memoryEnabled: isContextualMemoryEnabled(),
   });
   await heartbeat(deps.db, job.id, deps.workerId, deps.leaseDurationMs);
 
-  const { decision, usage } = await deps.provider.proposeModification(
-    {
-      userRequest: job.userRequestText,
-      currentSpec,
-      selection: selection as ModificationSelectionContext | null,
-      operationBudget: MODIFICATION_LIMITS.MAX_OPERATIONS_PER_PROPOSAL,
-      groundedContext: context.grounded,
-    },
-    { signal: deps.signal, requestId: `${job.id}:interpret:a${job.attemptCount}` },
-  );
+  await recordContextEvents(deps, job, correlationId, context);
+
+  const providerStartedAt = Date.now();
+  let decision: Awaited<ReturnType<AiProvider["proposeModification"]>>["decision"];
+  let usage: Awaited<ReturnType<AiProvider["proposeModification"]>>["usage"];
+  try {
+    ({ decision, usage } = await deps.provider.proposeModification(
+      {
+        userRequest: job.userRequestText,
+        currentSpec,
+        selection: selection as ModificationSelectionContext | null,
+        operationBudget: MODIFICATION_LIMITS.MAX_OPERATIONS_PER_PROPOSAL,
+        groundedContext: context.grounded,
+      },
+      { signal: deps.signal, requestId: `${job.id}:interpret:a${job.attemptCount}` },
+    ));
+  } catch (err) {
+    // Recorded before re-throwing so a provider outage is visible as a
+    // provider outage in the event stream, not only as whatever terminal
+    // failure code the retry policy eventually settles on.
+    await recordOperationalEvent(deps.db, {
+      appId: job.appId,
+      correlationId,
+      category: "modification",
+      kind: "model.call_failed",
+      severity: "error",
+      actorPrincipalId: job.initiatedByPrincipalId,
+      detail: {
+        jobId: job.id,
+        provider: deps.provider.name,
+        attempt: job.attemptCount,
+        latencyMs: Date.now() - providerStartedAt,
+        reason: err instanceof Error ? err.name : "unknown",
+      },
+    });
+    throw err;
+  }
   await heartbeat(deps.db, job.id, deps.workerId, deps.leaseDurationMs);
+
+  // M13 slice G dark launch. Runs AFTER the real decision so it can never
+  // delay or influence it, and cannot mutate anything by construction (see
+  // lib/modification/shadow.ts). Off unless explicitly enabled — it costs a
+  // second provider call per request.
+  if (isShadowEvaluationEnabled()) {
+    await runShadowEvaluation(
+      {
+        db: deps.db,
+        provider: deps.provider,
+        job,
+        currentSpec,
+        selection,
+        signal: deps.signal,
+      },
+      true,
+    );
+    await heartbeat(deps.db, job.id, deps.workerId, deps.leaseDurationMs);
+  }
+
+  await recordOperationalEvent(deps.db, {
+    appId: job.appId,
+    correlationId,
+    category: "modification",
+    kind: "model.call_completed",
+    actorPrincipalId: job.initiatedByPrincipalId,
+    // Token counts and the decision's SHAPE — never the request text, the
+    // summary, the question, or any operation payload.
+    detail: {
+      jobId: job.id,
+      provider: deps.provider.name,
+      model: usage.model,
+      outcome: decision.outcome,
+      promptTokens: usage.promptTokens ?? 0,
+      completionTokens: usage.completionTokens ?? 0,
+      totalTokens: usage.totalTokens ?? 0,
+      latencyMs: Date.now() - providerStartedAt,
+      planSteps: decision.outcome === "ready" || decision.outcome === "partially_supported" ? decision.plan.length : 0,
+    },
+  });
 
   // Persisted regardless of outcome — a job that ended in a question is
   // exactly the one an operator most needs to be able to explain, and this
@@ -294,6 +374,15 @@ async function runInterpretingPhase(deps: ModificationPipelineDeps, job: Modific
         modificationJobId: job.id,
       });
       await updateJobFields(deps.db, job.id, { contextManifest });
+      await recordOperationalEvent(deps.db, {
+        appId: job.appId,
+        correlationId,
+        category: "modification",
+        kind: "clarification.exhausted",
+        severity: "warning",
+        actorPrincipalId: job.initiatedByPrincipalId,
+        detail: { jobId: job.id, rounds: existingState.rounds.length },
+      });
       throw new ModificationJobError("invalid_request", notice);
     }
 
@@ -313,6 +402,24 @@ async function runInterpretingPhase(deps: ModificationPipelineDeps, job: Modific
       messageType: "clarification_question",
       content: decision.question.text,
       modificationJobId: job.id,
+    });
+
+    await recordOperationalEvent(deps.db, {
+      appId: job.appId,
+      correlationId,
+      category: "modification",
+      kind: "clarification.asked",
+      actorPrincipalId: job.initiatedByPrincipalId,
+      // The question TEXT is deliberately absent: it is model output derived
+      // from the user's request and their app's contents, and the count of
+      // grounded choices is what tells an operator whether the question was
+      // a real disambiguation or a shrug.
+      detail: {
+        jobId: job.id,
+        roundNumber: nextRoundNumber,
+        choices: decision.question.choices.length,
+        resolutionOutcome: context.grounded.resolutionOutcome,
+      },
     });
 
     return transitionStatus(deps.db, job.id, "interpreting", "needs_clarification", {
@@ -354,6 +461,49 @@ async function runInterpretingPhase(deps: ModificationPipelineDeps, job: Modific
     });
   }
 
+  // ─── Planning disabled: execute the first step, disclose the rest ───────
+  //
+  // M13 slice G. With planning off, a multi-step decision must not silently
+  // become a single-step one — that would apply part of what the user asked
+  // for and report complete success. It also must not become a failure: the
+  // first step is genuinely valid, independently validated work. So the
+  // first step runs and the remaining scope is reported as an unmet gap,
+  // which is exactly the "truthful gaps and alternatives" contract M13
+  // already requires for capability limits.
+  if (!isPlanningEnabled()) {
+    const remaining = boundedPlan.slice(1);
+    await recordOperationalEvent(deps.db, {
+      appId: job.appId,
+      correlationId,
+      category: "modification",
+      kind: "plan.suppressed_by_flag",
+      severity: "warning",
+      actorPrincipalId: job.initiatedByPrincipalId,
+      detail: { jobId: job.id, requestedSteps: boundedPlan.length, executedSteps: 1 },
+    });
+    await appendSystemMessage(deps.db, {
+      conversationId: job.conversationId,
+      appId: job.appId,
+      messageType: "capability_notice",
+      content:
+        `This request needs ${boundedPlan.length} steps, and multi-step plans are turned off for this deployment. ` +
+        `I am applying only the first step (${boundedPlan[0].title}). Send the remaining work as separate requests: ` +
+        `${remaining.map((step) => step.title).join("; ")}.`,
+      modificationJobId: job.id,
+    });
+    const persisted: PersistedStepRequest = {
+      summary: boundedPlan[0].title,
+      assumptions: decision.assumptions,
+      batch: boundedPlan[0].batch,
+    };
+    return transitionStatus(deps.db, job.id, "interpreting", "proposing", {
+      phase: "proposing",
+      normalizedRequest: persisted as unknown as Record<string, unknown>,
+      contextManifest,
+      ...providerFields,
+    });
+  }
+
   // Multi-step: a `ready` decision spanning more than one step, or any
   // `partially_supported` decision (which always carries a plan alongside
   // its honest gaps). Reuses the exact same single-step pipeline for every
@@ -370,6 +520,21 @@ async function runInterpretingPhase(deps: ModificationPipelineDeps, job: Modific
     },
     steps: boundedPlan.map((step) => ({ title: step.title, batch: step.batch })),
     firstStepJobId: job.id,
+  });
+
+  await recordOperationalEvent(deps.db, {
+    appId: job.appId,
+    correlationId,
+    category: "modification",
+    kind: "plan.created",
+    actorPrincipalId: job.initiatedByPrincipalId,
+    detail: {
+      jobId: job.id,
+      planId: plan.id,
+      steps: steps.length,
+      outcome: decision.outcome,
+      capabilityGaps: decision.outcome === "partially_supported" ? decision.unsupported.length : 0,
+    },
   });
 
   await appendSystemMessage(deps.db, {
@@ -404,6 +569,108 @@ async function runInterpretingPhase(deps: ModificationPipelineDeps, job: Modific
     planStepId: steps[0].id,
     contextManifest,
     ...providerFields,
+  });
+}
+
+/**
+ * M13 slice G — the "what was this decision grounded in, and how sure was
+ * the resolver" half of the telemetry, emitted once per interpretation pass.
+ *
+ * Everything in these payloads is a count, an enum, a stable target id, or a
+ * confidence number. No conversation text, no attachment content, no
+ * reference bodies, no prompt. That is the same rule the persisted
+ * `contextManifest` follows, and for the same reason: an audit trail that
+ * reconstructs the user's private files is worse than the problem it solves.
+ */
+async function recordContextEvents(
+  deps: ModificationPipelineDeps,
+  job: ModificationJobRow,
+  correlationId: string,
+  context: Awaited<ReturnType<typeof buildModificationContext>>,
+): Promise<void> {
+  const grounded = context.grounded;
+  const manifest = grounded.manifest;
+
+  await recordOperationalEvent(deps.db, {
+    appId: job.appId,
+    correlationId,
+    category: "modification",
+    kind: "context.assembled",
+    actorPrincipalId: job.initiatedByPrincipalId,
+    detail: {
+      jobId: job.id,
+      specificationVersionNumber: manifest.specificationVersionNumber,
+      estimatedTokens: manifest.estimatedTokens,
+      includedSources: manifest.includedSourceIds.length,
+      omitted: manifest.omitted.length,
+      truncated: manifest.truncated.length,
+      historyTurns: grounded.history.length,
+      memoryFacts: grounded.memory.length,
+      attachments: grounded.attachments.length,
+      references: grounded.references.length,
+      redactionFlags: manifest.redactionFlags,
+    },
+  });
+
+  // A separate event rather than a flag on the one above: "we dropped part
+  // of the evidence to fit a budget" is a tuning signal an operator should
+  // be able to alert on, and burying it inside a payload that fires on every
+  // single request makes that impractical.
+  if (manifest.truncated.length > 0 || manifest.omitted.length > 0) {
+    await recordOperationalEvent(deps.db, {
+      appId: job.appId,
+      correlationId,
+      category: "modification",
+      kind: "context.truncated",
+      severity: "info",
+      actorPrincipalId: job.initiatedByPrincipalId,
+      detail: {
+        jobId: job.id,
+        truncatedSources: manifest.truncated.length,
+        omittedSources: manifest.omitted.length,
+        droppedChars: manifest.truncated.reduce((sum, t) => sum + (t.originalChars - t.includedChars), 0),
+        omissionReasons: [...new Set(manifest.omitted.map((o) => o.reason))],
+      },
+    });
+  }
+
+  if (manifest.redactionFlags.includes("vision_unavailable")) {
+    await recordOperationalEvent(deps.db, {
+      appId: job.appId,
+      correlationId,
+      category: "modification",
+      kind: "context.vision_unavailable",
+      severity: "info",
+      actorPrincipalId: job.initiatedByPrincipalId,
+      detail: {
+        jobId: job.id,
+        images: grounded.attachments.filter((a) => a.category === "image").length,
+      },
+    });
+  }
+
+  await recordOperationalEvent(deps.db, {
+    appId: job.appId,
+    correlationId,
+    category: "modification",
+    kind:
+      grounded.resolutionOutcome === "resolved"
+        ? "resolver.resolved"
+        : grounded.resolutionOutcome === "ambiguous"
+          ? "resolver.ambiguous"
+          : "resolver.unresolved",
+    severity: "info",
+    actorPrincipalId: job.initiatedByPrincipalId,
+    detail: {
+      jobId: job.id,
+      candidates: grounded.targetCandidates.length,
+      // A target id is a spec address (`pages.home.name`), not user content
+      // — the same identifier already persisted on the job's manifest.
+      resolvedTargetId: grounded.resolvedTarget?.targetId ?? null,
+      strategy: grounded.resolvedTarget?.strategy ?? null,
+      confidence: grounded.resolvedTarget?.confidence ?? null,
+      previewEvidenceKind: grounded.previewEvidence?.kind ?? null,
+    },
   });
 }
 
@@ -715,7 +982,29 @@ async function advancePlanIfApplicable(deps: ModificationPipelineDeps, job: Modi
     return;
   }
 
+  await recordOperationalEvent(deps.db, {
+    appId: job.appId,
+    correlationId: correlationIdForJob(job),
+    category: "modification",
+    kind: "plan.step_applied",
+    actorPrincipalId: job.initiatedByPrincipalId,
+    detail: {
+      jobId: job.id,
+      planId: step.planId,
+      stepNumber: step.stepNumber,
+      resultingVersionNumber: job.resultingVersionNumber,
+    },
+  });
+
   if (result.kind === "completed") {
+    await recordOperationalEvent(deps.db, {
+      appId: job.appId,
+      correlationId: correlationIdForJob(job),
+      category: "modification",
+      kind: "plan.completed",
+      actorPrincipalId: job.initiatedByPrincipalId,
+      detail: { jobId: job.id, planId: step.planId, steps: step.stepNumber },
+    });
     await appendSystemMessage(deps.db, {
       conversationId: job.conversationId,
       appId: job.appId,
@@ -764,6 +1053,23 @@ async function stopPlanIfApplicable(
     if (!step) return;
     const steps = await stopPlanOnStepEnd(deps.db, step, outcome, job.failureCode ?? null, job.failureMessage ?? null);
     const appliedCount = steps.filter((s: ModificationPlanStepRow) => s.status === "applied").length;
+    await recordOperationalEvent(deps.db, {
+      appId: job.appId,
+      correlationId: correlationIdForJob(job),
+      category: "modification",
+      kind: "plan.stopped",
+      severity: outcome === "failed" ? "warning" : "info",
+      actorPrincipalId: job.initiatedByPrincipalId,
+      detail: {
+        jobId: job.id,
+        planId: step.planId,
+        stoppedAtStep: step.stepNumber,
+        totalSteps: steps.length,
+        appliedSteps: appliedCount,
+        outcome,
+        failureCode: job.failureCode ?? null,
+      },
+    });
     await appendSystemMessage(deps.db, {
       conversationId: job.conversationId,
       appId: job.appId,
@@ -795,6 +1101,12 @@ async function stopPlanIfApplicable(
  * through the job's own audit trail rather than thrown.
  */
 async function recordResolvedReferences(deps: ModificationPipelineDeps, job: ModificationJobRow): Promise<void> {
+  // M13 slice G: with contextual memory off, nothing new is written either —
+  // recall and write are the same switch. Writing rows that recall will never
+  // read would accumulate a store whose accuracy nothing verifies, and which
+  // would come back as stale facts the moment the flag was flipped on again.
+  if (!isContextualMemoryEnabled()) return;
+
   const manifest = job.contextManifest as Record<string, unknown> | null;
   const targetId = typeof manifest?.resolvedTargetId === "string" ? manifest.resolvedTargetId : null;
   const phrases = Array.isArray(manifest?.memoryPhrases) ? (manifest.memoryPhrases as unknown[]) : [];

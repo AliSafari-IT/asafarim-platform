@@ -30,6 +30,8 @@ import { withQuota } from "../quotas/enforce";
 import { sumAttachmentBytesForApp, countAttachmentsForApp } from "../quotas/usage";
 import { withQuotaRejectionLogging } from "../observability/events";
 import { recordOperationalEvent } from "../observability/events";
+import { isAttachmentsEnabled } from "../features/flags";
+import { FeatureDisabledError } from "../features/errors";
 
 /**
  * M13 slice B — the conversation-attachment lifecycle. `storageKey` and
@@ -113,6 +115,8 @@ export interface InitAttachmentInput {
   declaredMimeType: string;
   declaredSizeBytes: number;
   idempotencyKey: string;
+  /** M13 slice G — trace label of the initiating request; carried to commit, extraction, and the sweep. */
+  correlationId?: string | null;
 }
 
 /**
@@ -120,6 +124,12 @@ export interface InitAttachmentInput {
  * server-generated storage key, and inserts a `pending` row — no bytes
  * exist yet. Ensures the app's conversation exists (an attachment may be
  * initiated before any message references it).
+ *
+ * M13 slice G: this is the flag boundary for attachments. It gates the
+ * creation of NEW rows only — every read, download, listing, and
+ * grounded-context path below stays fully functional with the flag off, so
+ * turning attachments off stops new uploads without making a conversation
+ * that already has them unreadable.
  */
 export async function initAttachment(
   db: Db,
@@ -129,11 +139,21 @@ export async function initAttachment(
 ): Promise<SafeAttachment> {
   await assertCapability(db, actor, appId, "app.uploadAttachment");
 
+  if (!isAttachmentsEnabled()) {
+    throw new FeatureDisabledError("attachments", "Attachments cannot be uploaded right now.");
+  }
+
+  // Rejections are recorded before throwing: "which types and sizes are
+  // users actually being turned away for" is the signal that tells an
+  // operator whether the catalogue is wrong, and a thrown error alone
+  // leaves no trace of it anywhere.
   if (!ALLOWED_ATTACHMENT_MIME_TYPES.includes(input.declaredMimeType)) {
+    await recordAttachmentRejection(db, appId, actor, input, "unsupported_type");
     throw new UnsupportedAttachmentTypeError(input.declaredMimeType);
   }
   const maxBytes = maxBytesForMimeType(input.declaredMimeType)!;
   if (input.declaredSizeBytes <= 0 || input.declaredSizeBytes > maxBytes) {
+    await recordAttachmentRejection(db, appId, actor, input, "too_large");
     throw new AttachmentTooLargeError(maxBytes);
   }
 
@@ -173,10 +193,35 @@ export async function initAttachment(
         status: "pending",
         idempotencyKey: input.idempotencyKey,
         requestHash,
+        correlationId: input.correlationId ?? null,
       })
       .returning();
 
     return toSafeAttachment(row);
+  });
+}
+
+/**
+ * Records a refused upload. Carries the declared MIME type, the declared
+ * size, and a coarse reason — never the filename, which is user-authored
+ * text that regularly contains names, client names, and case numbers, and
+ * which this event does not need to be useful.
+ */
+async function recordAttachmentRejection(
+  db: Db,
+  appId: string,
+  actor: Actor,
+  input: InitAttachmentInput,
+  reason: "unsupported_type" | "too_large",
+): Promise<void> {
+  await recordOperationalEvent(db, {
+    appId,
+    correlationId: input.correlationId ?? null,
+    category: "storage",
+    kind: "attachment.rejected",
+    severity: "info",
+    actorPrincipalId: actor.principalId,
+    detail: { reason, declaredMimeType: input.declaredMimeType, declaredSizeBytes: input.declaredSizeBytes },
   });
 }
 
@@ -263,9 +308,12 @@ export async function commitAttachmentContent(
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const now = new Date();
 
+  const correlationId = attachment.correlationId;
+
   if (processed.scan.verdict === "not_configured") {
     await recordOperationalEvent(db, {
       appId,
+      correlationId,
       category: "security",
       kind: "attachment.scan_not_configured",
       severity: "warning",
@@ -291,6 +339,7 @@ export async function commitAttachmentContent(
       .returning();
     await recordOperationalEvent(db, {
       appId,
+      correlationId,
       category: "security",
       kind: "attachment.quarantined",
       severity: "warning",
@@ -318,6 +367,47 @@ export async function commitAttachmentContent(
     })
     .where(eq(conversationAttachments.id, attachmentId))
     .returning();
+
+  // Two events, not one, because they answer different questions and can
+  // disagree: the file landed (storage/quota worked) and the file yielded
+  // usable text (extraction worked). An image commits successfully and
+  // extracts nothing — that is a normal, documented outcome, and collapsing
+  // it into a single "committed" event would make the extraction coverage
+  // gap invisible.
+  await recordOperationalEvent(db, {
+    appId,
+    correlationId,
+    category: "storage",
+    kind: "attachment.committed",
+    severity: "info",
+    actorPrincipalId: actor.principalId,
+    detail: {
+      attachmentId,
+      category: categoryForMimeType(processed.detectedMimeType),
+      detectedMimeType: processed.detectedMimeType,
+      bytes: bytes.length,
+      processingMs: now.getTime() - attachment.createdAt.getTime(),
+      scanVerdict: processed.scan.verdict,
+    },
+  });
+
+  const extractedChars = processed.extractedText?.length ?? 0;
+  await recordOperationalEvent(db, {
+    appId,
+    correlationId,
+    category: "storage",
+    kind: extractedChars > 0 ? "attachment.extraction_completed" : "attachment.extraction_skipped",
+    severity: "info",
+    actorPrincipalId: actor.principalId,
+    detail: {
+      attachmentId,
+      extractionKind: processed.extractionKind,
+      extractionVersion: processed.extractionVersion,
+      extractedChars,
+      pageCount: processed.pageCount ?? null,
+    },
+  });
+
   return toSafeAttachment(ready);
 }
 
@@ -483,9 +573,40 @@ export async function deleteAttachment(db: Db, actor: Actor, appId: string, atta
 
   const [deleted] = await db
     .update(conversationAttachments)
-    .set({ status: "deleted", deletedAt: new Date() })
+    .set({
+      status: "deleted",
+      deletedAt: new Date(),
+      // M13 slice G: the extracted text is a SECOND COPY of the user's file
+      // content, living in a database column rather than object storage.
+      // Deleting the object while leaving it behind would mean "delete this
+      // attachment" removed the harder-to-read copy and kept the
+      // easier-to-read one. Cleared here so deletion is complete, exactly
+      // like removing an imported reference clears its stored remote text
+      // (lib/repositories/references.ts#deleteConversationReference).
+      //
+      // The tombstone is what survives: filename, type, size, hash, who
+      // uploaded it, and when it was deleted — enough to answer "what was
+      // here and who removed it" without retaining the content itself.
+      extractedText: null,
+    })
     .where(eq(conversationAttachments.id, attachmentId))
     .returning();
+
+  await recordOperationalEvent(db, {
+    appId,
+    correlationId: attachment.correlationId,
+    category: "storage",
+    kind: "attachment.deleted",
+    severity: "info",
+    actorPrincipalId: actor.principalId,
+    detail: {
+      attachmentId,
+      wasClaimed: attachment.messageId !== null,
+      byUploader: attachment.uploadedByPrincipalId === actor.principalId,
+      clearedExtractedText: (attachment.extractedText?.length ?? 0) > 0,
+    },
+  });
+
   return toSafeAttachment(deleted);
 }
 

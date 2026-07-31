@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   closeTestDb,
   getTestDb,
@@ -9,9 +9,17 @@ import {
 import { createApp } from "../repositories/apps";
 import { enqueueValidationRun } from "../repositories/validationRuns";
 import { initAttachment, commitAttachmentContent } from "../repositories/attachments";
-import { validationArtifacts, operationalEvents, conversationAttachments } from "../db/schema";
+import {
+  validationArtifacts,
+  operationalEvents,
+  conversationAttachments,
+  conversationMemories,
+  conversationMessages,
+} from "../db/schema";
 import { generateId } from "../db/ids";
-import { sweepExpiredValidationArtifacts, sweepUnclaimedAttachments } from "./sweep";
+import { sweepExpiredValidationArtifacts, sweepOrphanedMemoryFacts, sweepUnclaimedAttachments } from "./sweep";
+import { appendUserMessage } from "../repositories/conversations";
+import { recordResolvedReference } from "../repositories/conversationMemory";
 
 const db = getTestDb();
 const owner = { principalId: "sweep-owner", roles: [] };
@@ -220,5 +228,92 @@ describe("sweepUnclaimedAttachments", () => {
     const result = await sweepUnclaimedAttachments(db, { dryRun: false });
     expect(result).toEqual({ category: "conversation_attachments", eligible: 0, deleted: 0, dryRun: false });
     expect(await db.select().from(conversationAttachments).where(eq(conversationAttachments.id, attachment.id))).toHaveLength(1);
+  });
+});
+
+/**
+ * M13 slice G — "Delete memory when source messages are deleted".
+ *
+ * A memory fact is a claim derived from specific turns and carries the ids
+ * of the messages that produced it. Once every one of those is gone, the
+ * fact is a derived copy of deleted content that would keep steering
+ * interpretation — and one whose evidence nobody can inspect any more.
+ */
+describe("sweepOrphanedMemoryFacts", () => {
+  async function seedMemory(suffix: string) {
+    const app = await createApp(
+      db,
+      owner,
+      { name: `Sweep Memory ${suffix}`, slug: `sweep-memory-${suffix}` },
+      `sweep-memory-${suffix}-key`,
+    );
+    const { message } = await appendUserMessage(db, owner, app.id, {
+      content: "call the Home page title 'the title'",
+      selectionContext: null,
+      baseVersionNumber: 1,
+    });
+    await recordResolvedReference(db, {
+      appId: app.id,
+      conversationId: message.conversationId,
+      specificationVersionNumber: 1,
+      reference: {
+        phrase: "the title",
+        targetId: "pages.home.name",
+        property: "name",
+        recordedValue: "Home",
+        pageId: "home",
+        sourceMessageIds: [message.id],
+        specificationVersionNumber: 1,
+        recordedAt: new Date().toISOString(),
+      },
+    });
+    return { app, message };
+  }
+
+  it("keeps a fact whose source message still exists", async () => {
+    const { app } = await seedMemory("kept");
+    const result = await sweepOrphanedMemoryFacts(db, { dryRun: false });
+    expect(result.deleted).toBe(0);
+
+    const [memory] = await db.select().from(conversationMemories).where(eq(conversationMemories.appId, app.id));
+    expect(memory.references).toHaveLength(1);
+  });
+
+  it("removes a fact once every source message is gone", async () => {
+    const { app, message } = await seedMemory("orphaned");
+    await db.delete(conversationMessages).where(eq(conversationMessages.id, message.id));
+
+    const result = await sweepOrphanedMemoryFacts(db, { dryRun: false });
+    expect(result.deleted).toBe(1);
+
+    const [memory] = await db.select().from(conversationMemories).where(eq(conversationMemories.appId, app.id));
+    // The ROW survives — one row per conversation is a unique-indexed
+    // invariant, and empty arrays are the correct "no memory" state.
+    expect(memory).toBeTruthy();
+    expect(memory.references).toEqual([]);
+    expect(memory.revision).toBeGreaterThan(0);
+  });
+
+  it("dry run reports without writing", async () => {
+    const { app, message } = await seedMemory("dry");
+    await db.delete(conversationMessages).where(eq(conversationMessages.id, message.id));
+
+    const result = await sweepOrphanedMemoryFacts(db, { dryRun: true });
+    expect(result).toMatchObject({ category: "conversation_memories", eligible: 1, deleted: 0, dryRun: true });
+
+    const [memory] = await db.select().from(conversationMemories).where(eq(conversationMemories.appId, app.id));
+    expect(memory.references).toHaveLength(1);
+  });
+
+  it("records an app-scoped event so the deletion is visible per app, not only in a log line", async () => {
+    const { app, message } = await seedMemory("event");
+    await db.delete(conversationMessages).where(eq(conversationMessages.id, message.id));
+    await sweepOrphanedMemoryFacts(db, { dryRun: false });
+
+    const events = await db
+      .select()
+      .from(operationalEvents)
+      .where(and(eq(operationalEvents.appId, app.id), eq(operationalEvents.kind, "retention.swept")));
+    expect(events.some((e) => (e.detail as Record<string, unknown>).table === "conversation_memories")).toBe(true);
   });
 });
