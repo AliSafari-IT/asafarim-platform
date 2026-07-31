@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Badge, Button, Card } from "@asafarim/ui";
+import { Alert, Badge, Button, Card, ConfirmDialog } from "@asafarim/ui";
+import { clearDraft, hasUnsavedAnswers, loadDraft, saveDraft } from "./clarificationDraft";
+import { useLeaveGuard } from "./useLeaveGuard";
 
 type JobStatus =
   | "queued"
@@ -109,6 +111,8 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastStatusRef = useRef<JobStatus | null>(null);
+  /** `"<jobId>:<roundNumber>"` once the draft for that round has been read — see the save effect. */
+  const hydratedRoundRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -184,6 +188,10 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
         method: "POST",
         body: JSON.stringify(payload),
       });
+      // Cleared only after the POST resolves: if submitting fails, the
+      // answers are still the only copy that exists and must survive for
+      // the retry.
+      clearDraft(appId, job.id, round.roundNumber);
       setAnswers({});
       await load();
     } catch (err) {
@@ -201,8 +209,8 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
   const elapsed = useElapsedSeconds(job?.startedAt ?? null, running);
   const attempt = job?.attemptCount ?? 0;
 
-  if (job === undefined) return null; // still loading — avoid a flash of "no job" state
-
+  // Computed above the early return for the same reason: the draft and
+  // leave-guard hooks below depend on it and must run on every render.
   const rounds = job?.clarificationState?.rounds ?? [];
   let openRound: ClarificationRound | null = null;
   for (let i = rounds.length - 1; i >= 0; i -= 1) {
@@ -211,6 +219,52 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
       break;
     }
   }
+
+  const draftKeyParts = job && openRound ? { jobId: job.id, roundNumber: openRound.roundNumber } : null;
+
+  // Restore a draft when an open round appears (first render, a return
+  // visit, or a reload mid-answer). Keyed on job+round so round 2 never
+  // inherits round 1's text.
+  useEffect(() => {
+    if (!draftKeyParts) return;
+    const restored = loadDraft(appId, draftKeyParts.jobId, draftKeyParts.roundNumber);
+    if (restored) setAnswers(restored);
+    // Marks this round as hydrated so the save effect below may start
+    // writing. Set even when there was no draft — "we looked and there was
+    // nothing" is just as much a completed restore.
+    hydratedRoundRef.current = `${draftKeyParts.jobId}:${draftKeyParts.roundNumber}`;
+  }, [appId, draftKeyParts?.jobId, draftKeyParts?.roundNumber]);
+
+  // Persist on every keystroke. Cheap (a few KB of text, one tab) and it is
+  // what makes the guard below a safety net rather than the only defence.
+  //
+  // The hydration check is load-bearing, not defensive noise. Both effects
+  // run in the same commit, in declaration order, and `setAnswers` above
+  // does not apply until the next render — so without it this would fire
+  // once with `answers` still `{}`, see an empty form, and delete the very
+  // draft the effect above had just read. The state recovered on the next
+  // render, but a refresh in that window lost the answers for good.
+  useEffect(() => {
+    if (!draftKeyParts) return;
+    if (hydratedRoundRef.current !== `${draftKeyParts.jobId}:${draftKeyParts.roundNumber}`) return;
+    saveDraft(appId, draftKeyParts.jobId, draftKeyParts.roundNumber, answers);
+  }, [appId, draftKeyParts?.jobId, draftKeyParts?.roundNumber, answers]);
+
+  const unsaved = Boolean(openRound) && canManage && hasUnsavedAnswers(answers);
+
+  const leaveGuard = useLeaveGuard(
+    unsaved,
+    useCallback(
+      (href: string | null) => {
+        // The draft is deliberately NOT cleared here — the whole point is
+        // that changing your mind and coming back costs nothing.
+        if (href) router.push(href);
+      },
+      [router],
+    ),
+  );
+
+  if (job === undefined) return null; // still loading — avoid a flash of "no job" state
 
   return (
     <Card title="AI generation">
@@ -281,13 +335,26 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
                 </label>
               ))}
               {canManage ? (
-                <Button
-                  type="button"
-                  onClick={() => submitClarification(openRound)}
-                  disabled={busy || openRound.questions.some((q) => !(answers[q.id] ?? "").trim())}
-                >
-                  Submit answers
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => submitClarification(openRound)}
+                    disabled={busy || openRound.questions.some((q) => !(answers[q.id] ?? "").trim())}
+                  >
+                    Submit answers
+                  </Button>
+                  {/*
+                    Says the answers are kept, rather than leaving the user to
+                    hope. Only shown once there is something to keep, so it
+                    reads as a fact about their work and not as boilerplate.
+                  */}
+                  {unsaved ? (
+                    <p className="ui-hint" aria-live="polite">
+                      Your answers are saved in this browser tab as you type, so a reload or an
+                      accidental Back won&rsquo;t lose them.
+                    </p>
+                  ) : null}
+                </>
               ) : (
                 <p className="ui-hint">Only an owner or editor can answer these questions.</p>
               )}
@@ -319,6 +386,29 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
           ) : null}
         </>
       )}
+
+      {/*
+        The styled dialog, never window.confirm (platform rule — see
+        packages/ui/src/components/ConfirmDialog.tsx, which also gives this a
+        real focus trap and Escape-to-cancel).
+
+        Reload and tab-close cannot use it: those only expose `beforeunload`,
+        where the browser renders its own copy. This covers Back/forward and
+        in-app links, which is where the accidental loss actually happens.
+
+        The confirm action is NOT `tone="danger"` — nothing is destroyed by
+        leaving now that the draft persists. Overstating it would train the
+        user to dismiss dialogs that do matter.
+      */}
+      <ConfirmDialog
+        open={leaveGuard.promptOpen}
+        title="Leave without submitting your answers?"
+        message="Generation is still waiting on these answers, so it won't continue until you submit them. Your answers stay saved in this browser tab, so you can come back and finish."
+        confirmLabel="Leave"
+        cancelLabel="Stay on this page"
+        onConfirm={leaveGuard.confirmLeave}
+        onCancel={leaveGuard.cancelLeave}
+      />
     </Card>
   );
 }
