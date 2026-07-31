@@ -4,7 +4,7 @@ import { ClarificationAnswer } from "@asafarim/appbuilder-ai";
 import { getActor } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { submitClarificationAnswers } from "@/lib/repositories/generationJobs";
-import { errorResponse, unauthorized } from "@/lib/http/errors";
+import { errorResponse, unauthorized, validationErrorResponse } from "@/lib/http/errors";
 import { nudgeWorker } from "@/lib/server/queue";
 
 interface RouteParams {
@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   const raw = await request.json().catch(() => null);
   const parsed = Body.safeParse(raw);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid clarification submission." }, { status: 400 });
+    return validationErrorResponse(parsed.error);
   }
 
   try {

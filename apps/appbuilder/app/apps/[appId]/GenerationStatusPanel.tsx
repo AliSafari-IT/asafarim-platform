@@ -46,6 +46,17 @@ const TERMINAL: ReadonlySet<JobStatus> = new Set(["ready", "failed", "cancelled"
 const POLL_MS = 3_000;
 /** Mirrors GENERATION_LIMITS.MAX_JOB_ATTEMPTS (lib/generation/limits.ts). */
 const MAX_ATTEMPTS = 3;
+/**
+ * Mirrors PLANNING_LIMITS.MAX_CLARIFICATION_ANSWER_LENGTH
+ * (@asafarim/appbuilder-ai, a server-only package this client component
+ * cannot import from). `maxLength` on the textarea enforces this at the
+ * character level (including paste, which HTML's maxlength truncates) so a
+ * long answer is capped before Submit rather than discovered afterward as a
+ * generic 400.
+ */
+const MAX_ANSWER_LENGTH = 2000;
+/** Start warning this many characters before the cap. */
+const ANSWER_LENGTH_WARNING_THRESHOLD = 200;
 
 const STATUS_LABEL: Record<JobStatus, string> = {
   queued: "Queued",
@@ -347,8 +358,16 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
                     onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
                     rows={2}
                     disabled={!canManage || busy}
+                    maxLength={MAX_ANSWER_LENGTH}
                     style={{ width: "100%" }}
                   />
+                  {(answers[q.id]?.length ?? 0) >= MAX_ANSWER_LENGTH - ANSWER_LENGTH_WARNING_THRESHOLD ? (
+                    <span className="ui-hint" aria-live="polite">
+                      {(answers[q.id]?.length ?? 0) >= MAX_ANSWER_LENGTH
+                        ? `Reached the ${MAX_ANSWER_LENGTH}-character limit for one answer.`
+                        : `${MAX_ANSWER_LENGTH - (answers[q.id]?.length ?? 0)} characters left.`}
+                    </span>
+                  ) : null}
                 </label>
               ))}
               {canManage ? (
