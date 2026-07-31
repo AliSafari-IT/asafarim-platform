@@ -162,6 +162,60 @@ describe("enqueueGenerationJob", () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
+
+  it('carries clarification history forward from a prior terminal job, so "Retry generation" is not blind to answers already given', async () => {
+    const { app, creationRequest } = await makeAppWithCreationRequest(owner, "Carry Forward", "enq-8");
+    const first = await enqueueGenerationJob(db, owner, app.id, {
+      creationRequestId: creationRequest.id,
+      requestedTemplateId: "task_management",
+      idempotencyKey: "job-key-8a",
+    });
+
+    const clarificationState = {
+      rounds: [
+        {
+          roundNumber: 1,
+          questions: [{ id: "q1", question: "What should the app track?" }],
+          answers: [{ questionId: "q1", answer: "Tasks with due dates." }],
+          askedAt: new Date().toISOString(),
+        },
+      ],
+    };
+    await transitionStatus(db, first.id, "queued", "failed", {
+      failureCode: "invalid_request",
+      failureMessage: "Too many clarification rounds were needed to safely interpret this request.",
+      clarificationState,
+    });
+
+    const retry = await enqueueGenerationJob(db, owner, app.id, {
+      creationRequestId: creationRequest.id,
+      requestedTemplateId: "task_management",
+      idempotencyKey: "job-key-8b",
+    });
+
+    expect(retry.clarificationState).toEqual(clarificationState);
+  });
+
+  it("does not carry forward an empty clarification history (nothing was ever asked)", async () => {
+    const { app, creationRequest } = await makeAppWithCreationRequest(owner, "No Carry Forward", "enq-9");
+    const first = await enqueueGenerationJob(db, owner, app.id, {
+      creationRequestId: creationRequest.id,
+      requestedTemplateId: "task_management",
+      idempotencyKey: "job-key-9a",
+    });
+    await transitionStatus(db, first.id, "queued", "failed", {
+      failureCode: "worker_infrastructure_error",
+      failureMessage: "boom",
+    });
+
+    const retry = await enqueueGenerationJob(db, owner, app.id, {
+      creationRequestId: creationRequest.id,
+      requestedTemplateId: "task_management",
+      idempotencyKey: "job-key-9b",
+    });
+
+    expect(retry.clarificationState).toBeNull();
+  });
 });
 
 describe("claiming", () => {
