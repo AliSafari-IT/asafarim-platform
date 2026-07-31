@@ -130,6 +130,14 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
     try {
       const data = await fetchJson<{ job: GenerationJob | null }>(`/api/apps/${appId}/generation-jobs`);
       setJob(data.job);
+      // A background poll succeeding means we're not currently blocked by a
+      // network/server error, so any leftover message from a previous
+      // start/cancel/submit attempt no longer describes the current moment —
+      // clear it here rather than leaving it on screen indefinitely with no
+      // action the user can take to dismiss it (this polls every POLL_MS
+      // while the job is non-terminal, so a stale rejection outlives its
+      // relevance by at most one tick).
+      setError(null);
       // The rest of this page (Overview card, "Open preview" link) is
       // server-rendered from data fetched when the page first loaded — it
       // has no way to know generation finished on its own. Refresh the
@@ -355,11 +363,32 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
                   {q.reason ? <span className="ui-hint">{q.reason}</span> : null}
                   <textarea
                     value={answers[q.id] ?? ""}
-                    onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                    onChange={(e) => {
+                      // The `maxLength` attribute below is a UI hint, not a
+                      // guarantee: browsers are inconsistent about enforcing
+                      // it on PASTE for a <textarea> (reliably enforced for
+                      // typed input, not always for a pasted block), so a
+                      // pasted answer could silently land in state over the
+                      // limit and fail at Submit with no visible cause.
+                      // Slicing here is what actually keeps this within
+                      // MAX_ANSWER_LENGTH regardless of how the text arrived.
+                      const value = e.target.value.slice(0, MAX_ANSWER_LENGTH);
+                      setAnswers((prev) => ({ ...prev, [q.id]: value }));
+                      // Clears a stale rejection from a PREVIOUS submit attempt
+                      // (e.g. an answer that was too long before this field's
+                      // own maxLength existed, or before it was edited down)
+                      // as soon as the user starts addressing it, rather than
+                      // leaving it on screen looking unresolved indefinitely.
+                      setError(null);
+                    }}
                     rows={2}
                     disabled={!canManage || busy}
                     maxLength={MAX_ANSWER_LENGTH}
-                    style={{ width: "100%" }}
+                    // `resize: both` (the textarea default) lets a drag handle
+                    // pull the element wider than its grid cell, overflowing
+                    // the card. Vertical-only keeps the useful "make room for
+                    // a long answer" resize without the horizontal overflow.
+                    style={{ width: "99%", resize: "vertical" }}
                   />
                   {(answers[q.id]?.length ?? 0) >= MAX_ANSWER_LENGTH - ANSWER_LENGTH_WARNING_THRESHOLD ? (
                     <span className="ui-hint" aria-live="polite">
@@ -382,7 +411,7 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
                     // dead with no way forward but to invent an answer.
                     disabled={busy}
                   >
-                    Submit answers
+                    {busy ? "Submitting…" : "Submit answers"}
                   </Button>
                   {skippedCount > 0 ? (
                     <p className="ui-hint" aria-live="polite">
