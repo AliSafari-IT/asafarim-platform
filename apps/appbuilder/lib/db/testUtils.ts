@@ -3,10 +3,14 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
+import { assertSafeTestDatabaseUrl } from "./testDbGuard";
 
-const connectionString =
-  process.env.APPBUILDER_DATABASE_URL ??
-  "postgres://appbuilder:appbuilder_dev@localhost:55436/appbuilder";
+// Throws immediately on import unless APPBUILDER_TEST_DATABASE_URL is set to
+// a database that is clearly not the dev/prod one — see testDbGuard.ts. This
+// module's resetTestDb() runs TRUNCATE ... CASCADE on every app-owned table
+// before every integration test; it must never be able to silently resolve
+// to the same database `pnpm dev` uses.
+const connectionString = assertSafeTestDatabaseUrl();
 
 const TABLE_NAMES = [
   "idempotency_keys",

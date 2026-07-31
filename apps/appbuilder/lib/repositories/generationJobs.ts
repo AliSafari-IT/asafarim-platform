@@ -75,12 +75,54 @@ export interface EnqueueGenerationJobInput {
 }
 
 /**
+ * Whatever clarification Q&A history should seed a freshly-enqueued job for
+ * this app, or `null` if there is none worth carrying forward.
+ *
+ * A retry (the only way this function is ever called with a prior job
+ * already on record — the active-job quota below blocks enqueueing while one
+ * is still running) used to always start `clarificationState` at `{ rounds:
+ * [] }`, silently discarding every answer the user had already given. That
+ * was invisible right up until a job failed with "too many clarification
+ * rounds": the retry replayed the identical original prompt against an empty
+ * history, so the model asked the same (or similar) questions again with no
+ * more information than the very first attempt, reliably reproducing the
+ * same failure. Carrying the last terminal job's rounds forward means the
+ * retry's first analysis call already has every previously-given answer —
+ * including an explicit skip — so it can often succeed outright, and if it
+ * still cannot, it fails fast on that one call instead of after three more
+ * rounds of asking questions this history had already answered.
+ */
+async function carryForwardClarificationState(
+  db: Db,
+  appId: string
+): Promise<Record<string, unknown> | null> {
+  const [priorJob] = await db
+    .select({
+      status: generationJobs.status,
+      clarificationState: generationJobs.clarificationState,
+    })
+    .from(generationJobs)
+    .where(eq(generationJobs.appId, appId))
+    .orderBy(desc(generationJobs.createdAt))
+    .limit(1);
+
+  if (!priorJob || (priorJob.status !== "failed" && priorJob.status !== "cancelled")) {
+    return null;
+  }
+  const parsed = ClarificationState.safeParse(priorJob.clarificationState ?? { rounds: [] });
+  if (!parsed.success || parsed.data.rounds.length === 0) return null;
+  return priorJob.clarificationState as Record<string, unknown>;
+}
+
+/**
  * Idempotently enqueues a generation job. Retrying with the same
  * `(appId, idempotencyKey)` always returns the existing job unchanged; the
  * same key with a different `requestedTemplateId`/`creationRequestId` is a
  * `ConflictError`. Enforces the M07 per-app and per-user active-job limits
  * (see GENERATION_LIMITS) before inserting — a caller must cancel or wait
- * for an existing job to finish before starting another.
+ * for an existing job to finish before starting another. A new job also
+ * inherits the prior terminal job's clarification history, if any — see
+ * `carryForwardClarificationState`.
  */
 export async function enqueueGenerationJob(
   db: Db,
@@ -150,6 +192,8 @@ export async function enqueueGenerationJob(
           .limit(1);
         if (!spec) throw new NotFoundError("Specification for app", appId);
 
+        const seedClarificationState = await carryForwardClarificationState(tx, appId);
+
         // M12: race-safe replacement for the old plain-count `MAX_ACTIVE_JOBS_PER_APP`
         // check — two concurrent enqueue requests for the same app now
         // serialize on a Postgres advisory lock instead of both observing
@@ -180,6 +224,9 @@ export async function enqueueGenerationJob(
                     requestHash,
                     baseVersionNumber: spec.currentVersionNumber,
                     requestedTemplateId: input.requestedTemplateId,
+                    ...(seedClarificationState
+                      ? { clarificationState: seedClarificationState }
+                      : {}),
                   })
                   .returning();
 

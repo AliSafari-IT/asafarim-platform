@@ -389,9 +389,17 @@ export function WorkspaceShell({
 
       <footer className={styles.statusBar}>
         <span>
+          {/*
+            Names its subject explicitly. The old wording — "All changes are
+            saved automatically once applied" — was true of applied
+            specification changes and read, sitting directly under an
+            unsubmitted clarification form, as a promise that the form itself
+            was saved. It was not: nothing about "all changes" excluded it,
+            and the qualifier came too late to help.
+          */}
           {role === "viewer"
             ? "Read-only"
-            : "All changes are saved automatically once applied."}
+            : "Every change you apply is saved as a new version automatically."}
         </span>
         <span>App {appId}</span>
       </footer>

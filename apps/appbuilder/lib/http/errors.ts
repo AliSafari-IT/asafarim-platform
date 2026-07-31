@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { ZodError } from "zod";
 import {
   ConflictError,
   DestructiveConfirmationRequiredError,
@@ -344,4 +345,24 @@ export function errorResponse(err: unknown): NextResponse {
 
 export function unauthorized(): NextResponse {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+/**
+ * Turns a failed `z.object(...).safeParse()` result into a 400 that actually
+ * names the field and constraint that failed, instead of a single opaque
+ * string ("Invalid clarification submission.", etc.) that gives the caller
+ * no way to tell which of several fields was the problem. Safe to expose:
+ * every issue here describes the shape of the caller's OWN request against a
+ * server-authored schema (a field name and a length/type constraint), never
+ * server internals or another user's data.
+ */
+export function validationErrorResponse(error: ZodError, status = 400): NextResponse {
+  const issues = error.issues.map((issue) => {
+    const path = issue.path.join(".");
+    return path ? `${path}: ${issue.message}` : issue.message;
+  });
+  return NextResponse.json(
+    { error: issues[0] ?? "Invalid request.", code: "validation_error", issues },
+    { status },
+  );
 }

@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Badge, Button, Card } from "@asafarim/ui";
+import { Alert, Badge, Button, Card, ConfirmDialog } from "@asafarim/ui";
+import { answeredCount, buildAnswerPayload } from "./clarificationAnswers";
+import { clearDraft, hasUnsavedAnswers, loadDraft, saveDraft } from "./clarificationDraft";
+import { useLeaveGuard } from "./useLeaveGuard";
 
 type JobStatus =
   | "queued"
@@ -43,6 +46,17 @@ const TERMINAL: ReadonlySet<JobStatus> = new Set(["ready", "failed", "cancelled"
 const POLL_MS = 3_000;
 /** Mirrors GENERATION_LIMITS.MAX_JOB_ATTEMPTS (lib/generation/limits.ts). */
 const MAX_ATTEMPTS = 3;
+/**
+ * Mirrors PLANNING_LIMITS.MAX_CLARIFICATION_ANSWER_LENGTH
+ * (@asafarim/appbuilder-ai, a server-only package this client component
+ * cannot import from). `maxLength` on the textarea enforces this at the
+ * character level (including paste, which HTML's maxlength truncates) so a
+ * long answer is capped before Submit rather than discovered afterward as a
+ * generic 400.
+ */
+const MAX_ANSWER_LENGTH = 2000;
+/** Start warning this many characters before the cap. */
+const ANSWER_LENGTH_WARNING_THRESHOLD = 200;
 
 const STATUS_LABEL: Record<JobStatus, string> = {
   queued: "Queued",
@@ -109,6 +123,8 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastStatusRef = useRef<JobStatus | null>(null);
+  /** `"<jobId>:<roundNumber>"` once the draft for that round has been read — see the save effect. */
+  const hydratedRoundRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -178,12 +194,18 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
     try {
       const payload = {
         roundNumber: round.roundNumber,
-        answers: round.questions.map((q) => ({ questionId: q.id, answer: answers[q.id] ?? "" })),
+        // Skipped questions are sent explicitly rather than omitted — see
+        // clarificationAnswers.ts for why omission cannot work here.
+        answers: buildAnswerPayload(round.questions, answers),
       };
       await fetchJson(`/api/apps/${appId}/generation-jobs/${job.id}/clarification`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      // Cleared only after the POST resolves: if submitting fails, the
+      // answers are still the only copy that exists and must survive for
+      // the retry.
+      clearDraft(appId, job.id, round.roundNumber);
       setAnswers({});
       await load();
     } catch (err) {
@@ -201,8 +223,8 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
   const elapsed = useElapsedSeconds(job?.startedAt ?? null, running);
   const attempt = job?.attemptCount ?? 0;
 
-  if (job === undefined) return null; // still loading — avoid a flash of "no job" state
-
+  // Computed above the early return for the same reason: the draft and
+  // leave-guard hooks below depend on it and must run on every render.
   const rounds = job?.clarificationState?.rounds ?? [];
   let openRound: ClarificationRound | null = null;
   for (let i = rounds.length - 1; i >= 0; i -= 1) {
@@ -211,6 +233,55 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
       break;
     }
   }
+
+  const draftKeyParts = job && openRound ? { jobId: job.id, roundNumber: openRound.roundNumber } : null;
+
+  // Restore a draft when an open round appears (first render, a return
+  // visit, or a reload mid-answer). Keyed on job+round so round 2 never
+  // inherits round 1's text.
+  useEffect(() => {
+    if (!draftKeyParts) return;
+    const restored = loadDraft(appId, draftKeyParts.jobId, draftKeyParts.roundNumber);
+    if (restored) setAnswers(restored);
+    // Marks this round as hydrated so the save effect below may start
+    // writing. Set even when there was no draft — "we looked and there was
+    // nothing" is just as much a completed restore.
+    hydratedRoundRef.current = `${draftKeyParts.jobId}:${draftKeyParts.roundNumber}`;
+  }, [appId, draftKeyParts?.jobId, draftKeyParts?.roundNumber]);
+
+  // Persist on every keystroke. Cheap (a few KB of text, one tab) and it is
+  // what makes the guard below a safety net rather than the only defence.
+  //
+  // The hydration check is load-bearing, not defensive noise. Both effects
+  // run in the same commit, in declaration order, and `setAnswers` above
+  // does not apply until the next render — so without it this would fire
+  // once with `answers` still `{}`, see an empty form, and delete the very
+  // draft the effect above had just read. The state recovered on the next
+  // render, but a refresh in that window lost the answers for good.
+  useEffect(() => {
+    if (!draftKeyParts) return;
+    if (hydratedRoundRef.current !== `${draftKeyParts.jobId}:${draftKeyParts.roundNumber}`) return;
+    saveDraft(appId, draftKeyParts.jobId, draftKeyParts.roundNumber, answers);
+  }, [appId, draftKeyParts?.jobId, draftKeyParts?.roundNumber, answers]);
+
+  const unsaved = Boolean(openRound) && canManage && hasUnsavedAnswers(answers);
+  const skippedCount = openRound
+    ? openRound.questions.length - answeredCount(openRound.questions, answers)
+    : 0;
+
+  const leaveGuard = useLeaveGuard(
+    unsaved,
+    useCallback(
+      (href: string | null) => {
+        // The draft is deliberately NOT cleared here — the whole point is
+        // that changing your mind and coming back costs nothing.
+        if (href) router.push(href);
+      },
+      [router],
+    ),
+  );
+
+  if (job === undefined) return null; // still loading — avoid a flash of "no job" state
 
   return (
     <Card title="AI generation">
@@ -269,25 +340,69 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
               <p>A few more details will help generate a better application:</p>
               {openRound.questions.map((q) => (
                 <label key={q.id} style={{ display: "grid", gap: "var(--space-1)" }}>
-                  <span>{q.question}</span>
+                  <span>
+                    {q.question}{" "}
+                    {/*
+                      Marked on every question because every question is
+                      genuinely skippable. Saying so up front is the point:
+                      the form previously disabled Submit until all of them
+                      were filled, with nothing on screen explaining why.
+                    */}
+                    <span className="ui-hint" style={{ fontWeight: 400 }}>
+                      (optional)
+                    </span>
+                  </span>
                   {q.reason ? <span className="ui-hint">{q.reason}</span> : null}
                   <textarea
                     value={answers[q.id] ?? ""}
                     onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
                     rows={2}
                     disabled={!canManage || busy}
+                    maxLength={MAX_ANSWER_LENGTH}
                     style={{ width: "100%" }}
                   />
+                  {(answers[q.id]?.length ?? 0) >= MAX_ANSWER_LENGTH - ANSWER_LENGTH_WARNING_THRESHOLD ? (
+                    <span className="ui-hint" aria-live="polite">
+                      {(answers[q.id]?.length ?? 0) >= MAX_ANSWER_LENGTH
+                        ? `Reached the ${MAX_ANSWER_LENGTH}-character limit for one answer.`
+                        : `${MAX_ANSWER_LENGTH - (answers[q.id]?.length ?? 0)} characters left.`}
+                    </span>
+                  ) : null}
                 </label>
               ))}
               {canManage ? (
-                <Button
-                  type="button"
-                  onClick={() => submitClarification(openRound)}
-                  disabled={busy || openRound.questions.some((q) => !(answers[q.id] ?? "").trim())}
-                >
-                  Submit answers
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => submitClarification(openRound)}
+                    // Only ever blocked by a request already in flight. It
+                    // used to require every question, so one blank box — a
+                    // contact email the user did not want to publish, a
+                    // palette they had no opinion on — stopped generation
+                    // dead with no way forward but to invent an answer.
+                    disabled={busy}
+                  >
+                    Submit answers
+                  </Button>
+                  {skippedCount > 0 ? (
+                    <p className="ui-hint" aria-live="polite">
+                      {skippedCount === openRound.questions.length
+                        ? "You haven't answered any of these. Submitting now lets the assistant choose sensible defaults for all of them."
+                        : `${skippedCount} question${skippedCount === 1 ? "" : "s"} left blank — the assistant will choose a sensible default for ${skippedCount === 1 ? "it" : "those"}.`}
+                    </p>
+                  ) : null}
+                  {/*
+                    Says the answers are kept, rather than leaving the user to
+                    hope. Only shown once there is something to keep, so it
+                    reads as a fact about their work and not as boilerplate.
+                  */}
+                  {unsaved ? (
+                    <p className="ui-hint" aria-live="polite">
+                      Your answers are saved in this browser tab as you type, so a reload or an
+                      accidental Back won&rsquo;t lose them.
+                    </p>
+                  ) : null}
+                </>
               ) : (
                 <p className="ui-hint">Only an owner or editor can answer these questions.</p>
               )}
@@ -319,6 +434,29 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
           ) : null}
         </>
       )}
+
+      {/*
+        The styled dialog, never window.confirm (platform rule — see
+        packages/ui/src/components/ConfirmDialog.tsx, which also gives this a
+        real focus trap and Escape-to-cancel).
+
+        Reload and tab-close cannot use it: those only expose `beforeunload`,
+        where the browser renders its own copy. This covers Back/forward and
+        in-app links, which is where the accidental loss actually happens.
+
+        The confirm action is NOT `tone="danger"` — nothing is destroyed by
+        leaving now that the draft persists. Overstating it would train the
+        user to dismiss dialogs that do matter.
+      */}
+      <ConfirmDialog
+        open={leaveGuard.promptOpen}
+        title="Leave without submitting your answers?"
+        message="Generation is still waiting on these answers, so it won't continue until you submit them. Your answers stay saved in this browser tab, so you can come back and finish."
+        confirmLabel="Leave"
+        cancelLabel="Stay on this page"
+        onConfirm={leaveGuard.confirmLeave}
+        onCancel={leaveGuard.cancelLeave}
+      />
     </Card>
   );
 }
