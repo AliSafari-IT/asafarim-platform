@@ -98,6 +98,65 @@ async function startDatabase(): Promise<void> {
   throw new Error("Timed out waiting for database to be reachable.");
 }
 
+/**
+ * Apps with their own isolated Drizzle database. `pnpm db:migrate:deploy`
+ * above is Prisma only — it migrates the SHARED platform database and knows
+ * nothing about these, so before #64 nothing in dev startup ever migrated
+ * them.
+ *
+ * That was not a cosmetic gap. Drizzle builds `SELECT *` from the schema
+ * definition, so pulling a branch that adds a column left every read of that
+ * table failing with a bare "Internal server error" and no hint that a
+ * migration was the cause — which is exactly how the M13 slice G merge broke
+ * the AppBuilder conversation panel.
+ */
+const DRIZZLE_APPS = [
+  { name: "@asafarim/appbuilder", port: 55436 },
+  { name: "@asafarim/testora", port: 55434 },
+] as const;
+
+function isPortReachable(port: number): boolean {
+  const probe = spawnSync(
+    process.execPath,
+    [
+      "-e",
+      `const net=require("net");const s=new net.Socket();s.setTimeout(1500);` +
+        `s.once("connect",()=>{s.destroy();process.exit(0)});` +
+        `s.once("error",()=>process.exit(1));s.once("timeout",()=>process.exit(1));` +
+        `s.connect(${port},"${DB_HOST}")`,
+    ],
+    { stdio: "ignore" },
+  );
+  return probe.status === 0;
+}
+
+/**
+ * Never fatal. An app whose database container is not up is a normal state —
+ * someone working only on the public website should not have `pnpm dev`
+ * refuse to start because AppBuilder's Postgres is stopped. A skip or a
+ * failure is reported loudly enough to act on and then stepped over.
+ */
+function applyAppDrizzleMigrations(): void {
+  for (const app of DRIZZLE_APPS) {
+    if (!isPortReachable(app.port)) {
+      console.log(
+        `  [skip] ${app.name}: no database reachable on :${app.port}. ` +
+          `Start it with \`pnpm db:up\`, then \`pnpm --filter ${app.name} db:migrate\`.`,
+      );
+      continue;
+    }
+    try {
+      console.log(`  ${app.name}: applying Drizzle migrations...`);
+      execSync(`pnpm --filter ${app.name} db:migrate`, { stdio: "inherit" });
+    } catch {
+      console.error(
+        `  [FAILED] ${app.name}: migrations did not apply. This app's reads will fail ` +
+          `until they do — run \`pnpm --filter ${app.name} db:migrate\` and read the error.`,
+      );
+    }
+  }
+}
+
 async function main(): Promise<void> {
   console.log("Installing dependencies...");
   execSync("pnpm install", { stdio: "inherit" });
@@ -106,6 +165,7 @@ async function main(): Promise<void> {
 
   console.log("Applying migrations...");
   execSync("pnpm db:migrate:deploy", { stdio: "inherit" });
+  applyAppDrizzleMigrations();
 
   console.log("Building packages...");
   execSync("pnpm build --no-cache", { stdio: "inherit" });

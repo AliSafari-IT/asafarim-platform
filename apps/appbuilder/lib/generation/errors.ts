@@ -1,4 +1,4 @@
-import { ProviderError, type ProviderErrorCode } from "@asafarim/appbuilder-ai";
+import { ProviderError, requestTimeoutSeconds, type ProviderErrorCode } from "@asafarim/appbuilder-ai";
 import type { generationJobFailureCodeEnum } from "../db/schema";
 import {
   ConflictError,
@@ -34,6 +34,12 @@ export class GenerationJobError extends Error {
 export const RETRYABLE_FAILURE_CODES: ReadonlySet<GenerationJobFailureCode> = new Set([
   "provider_rate_limit",
   "provider_unavailable",
+  // #64: retryable for the same reason `provider_unavailable` is — a slow
+  // response can be a transient blip. Note this does NOT make a persistently
+  // too-low timeout self-healing: every attempt hits the same wall, which is
+  // exactly the 3×31s pattern that surfaced this bug. The retries buy a
+  // genuine blip a second chance; the honest message is what fixes the rest.
+  "provider_timeout",
   "worker_infrastructure_error",
   // The user-facing message for this code already promises "This will be
   // retried automatically" (see SAFE_MESSAGES below) — it belongs here so
@@ -47,7 +53,11 @@ export const RETRYABLE_FAILURE_CODES: ReadonlySet<GenerationJobFailureCode> = ne
 const PROVIDER_CODE_TO_FAILURE_CODE: Record<ProviderErrorCode, GenerationJobFailureCode> = {
   authentication_error: "provider_configuration_error",
   rate_limit: "provider_rate_limit",
-  timeout: "provider_unavailable",
+  // #64: these two used to collapse into `provider_unavailable`, which told
+  // an operator to wait for a recovery that was never coming — the provider
+  // was answering fine and WE stopped listening. They are now distinct
+  // because the corrective action is different for each.
+  timeout: "provider_timeout",
   unavailable: "provider_unavailable",
   malformed_response: "malformed_provider_response",
   invalid_request: "invalid_request",
@@ -60,6 +70,8 @@ const SAFE_MESSAGES: Record<GenerationJobFailureCode, string> = {
   provider_configuration_error: "The AI provider is not configured correctly. An operator has been notified.",
   provider_rate_limit: "The AI provider is temporarily rate-limited. This will be retried automatically.",
   provider_unavailable: "The AI provider was temporarily unavailable. This will be retried automatically.",
+  // Filled in by safeFailureMessage below, which knows the configured limit.
+  provider_timeout: "",
   malformed_provider_response: "The AI provider returned an unexpected response. This will be retried automatically.",
   forbidden_operation: "The AI proposed a change outside what this platform allows, so it was rejected.",
   specification_validation_failed: "The proposed changes did not pass specification validation.",
@@ -71,7 +83,17 @@ const SAFE_MESSAGES: Record<GenerationJobFailureCode, string> = {
 };
 
 export function safeFailureMessage(code: GenerationJobFailureCode): string {
+  // #64: the timeout message names the limit that was actually hit, because
+  // that number IS the fix — an operator reading "took longer than 120
+  // seconds" knows to raise APPBUILDER_AI_REQUEST_TIMEOUT_MS or move to a
+  // faster model, where "temporarily unavailable" told them to wait.
+  if (code === "provider_timeout") return providerTimeoutMessage();
   return SAFE_MESSAGES[code];
+}
+
+/** Shared wording so generation, modification, and repair all say the same true thing. */
+export function providerTimeoutMessage(): string {
+  return `The AI provider did not respond within ${requestTimeoutSeconds()} seconds, so the request was stopped. This will be retried automatically.`;
 }
 
 /**

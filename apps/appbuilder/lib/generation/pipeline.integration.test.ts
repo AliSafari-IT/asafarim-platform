@@ -160,7 +160,12 @@ describe("runGenerationJob — retry and cancellation", () => {
     const outcome = await claimAndRun(job, TIMEOUT_THEN_RETRY_SCRIPT);
     expect(outcome.kind).toBe("retry_later");
     if (outcome.kind !== "retry_later") throw new Error("unreachable");
-    expect(outcome.error.code).toBe("provider_unavailable");
+    // #64: this asserted `provider_unavailable` while the test's own name
+    // said "timeout" — it was encoding the conflation that made a timeout
+    // read as an outage. A timeout is still retryable; it just says what it
+    // actually was now.
+    expect(outcome.error.code).toBe("provider_timeout");
+    expect(outcome.error.retryable).toBe(true);
     // The queued -> analyzing transition already committed before the
     // provider call failed; only the analyzeRequirements call itself
     // (inside the "analyzing" phase) hit the scripted timeout.

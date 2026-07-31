@@ -1,4 +1,5 @@
 import { ProviderError, type ProviderErrorCode } from "@asafarim/appbuilder-ai";
+import { providerTimeoutMessage } from "../generation/errors";
 import type { repairJobFailureCodeEnum } from "../db/schema";
 import {
   ConflictError,
@@ -27,6 +28,7 @@ export class RepairJobError extends Error {
 export const RETRYABLE_FAILURE_CODES: ReadonlySet<RepairJobFailureCode> = new Set([
   "provider_rate_limit",
   "provider_unavailable",
+  "provider_timeout",
   "worker_infrastructure_error",
   // See lib/generation/errors.ts's RETRYABLE_FAILURE_CODES for why: the
   // safe message for this code already promises an automatic retry, and a
@@ -38,7 +40,8 @@ export const RETRYABLE_FAILURE_CODES: ReadonlySet<RepairJobFailureCode> = new Se
 const PROVIDER_CODE_TO_FAILURE_CODE: Record<ProviderErrorCode, RepairJobFailureCode> = {
   authentication_error: "provider_configuration_error",
   rate_limit: "provider_rate_limit",
-  timeout: "provider_unavailable",
+  // #64: distinct from `unavailable` — see lib/generation/errors.ts.
+  timeout: "provider_timeout",
   unavailable: "provider_unavailable",
   malformed_response: "malformed_provider_response",
   invalid_request: "invalid_request",
@@ -52,6 +55,8 @@ const SAFE_MESSAGES: Record<RepairJobFailureCode, string> = {
   provider_configuration_error: "The AI provider is not configured correctly. An operator has been notified.",
   provider_rate_limit: "The AI provider is temporarily rate-limited. This will be retried automatically.",
   provider_unavailable: "The AI provider was temporarily unavailable. This will be retried automatically.",
+  // Filled in by safeFailureMessage — see lib/generation/errors.ts#providerTimeoutMessage.
+  provider_timeout: "",
   malformed_provider_response: "The AI provider returned an unexpected response. This will be retried automatically.",
   forbidden_operation: "The AI proposed a change outside what this platform allows, so it was rejected.",
   specification_validation_failed: "The proposed repair did not pass specification validation.",
@@ -67,6 +72,8 @@ const SAFE_MESSAGES: Record<RepairJobFailureCode, string> = {
 };
 
 export function safeFailureMessage(code: RepairJobFailureCode): string {
+  // #64: names the limit that was actually hit — see lib/generation/errors.ts.
+  if (code === "provider_timeout") return providerTimeoutMessage();
   return SAFE_MESSAGES[code];
 }
 

@@ -87,6 +87,8 @@ export { redactSecrets, redactForLogging, buildSafeSummary } from "./provider/re
 export {
   loadAiProviderConfig,
   safeConfigSummary,
+  requestTimeoutSeconds,
+  DEFAULT_REQUEST_TIMEOUT_MS,
   AiProviderConfigError,
   type AiProviderConfig,
 } from "./provider/config";
