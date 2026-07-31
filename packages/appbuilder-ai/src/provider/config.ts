@@ -16,13 +16,35 @@ import { z } from "zod";
  * key can be used without duplicating it, while still allowing AppBuilder
  * to run a different model/budget than any other app.
  */
+/**
+ * #64 — raised from 30s.
+ *
+ * 30 seconds was too short for this platform's flagship operation. Producing
+ * a whole application specification through structured output regularly takes
+ * longer than that, so a correctly configured install failed by default: the
+ * client aborted mid-response, three job attempts in a row hit the same wall,
+ * and the user was told the provider was unavailable when it had been
+ * answering the entire time.
+ *
+ * 120s is chosen to clear the observed generation duration with headroom
+ * while still bounding a hung request. It is not "no limit": a request that
+ * genuinely goes nowhere still fails, just with `provider_timeout` now, which
+ * says what actually happened. Tune per deployment with
+ * APPBUILDER_AI_REQUEST_TIMEOUT_MS.
+ */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
+
 const EnvSchema = z.object({
   APPBUILDER_AI_PROVIDER: z.enum(["openai", "fake"]).default("fake"),
   APPBUILDER_AI_OPENAI_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
   APPBUILDER_AI_OPENAI_MODEL: z.string().min(1).optional(),
   OPENAI_MODEL: z.string().min(1).optional(),
-  APPBUILDER_AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+  APPBUILDER_AI_REQUEST_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(DEFAULT_REQUEST_TIMEOUT_MS),
   APPBUILDER_AI_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(2),
   APPBUILDER_AI_MAX_TOOL_CALLS: z.coerce.number().int().positive().max(100).default(40),
   APPBUILDER_AI_MAX_ITERATIONS: z.coerce.number().int().positive().max(10).default(4),
@@ -84,6 +106,28 @@ export function loadAiProviderConfig(env: NodeJS.ProcessEnv = process.env): AiPr
     concurrency: e.APPBUILDER_AI_CONCURRENCY,
     maxOutputTokens: e.APPBUILDER_AI_MAX_OUTPUT_TOKENS ?? e.OPENAI_MAX_OUTPUT_TOKENS,
   };
+}
+
+/**
+ * The configured request timeout, in whole seconds, for use in a user-facing
+ * failure message (#64).
+ *
+ * Read from the environment at call time rather than threaded down from the
+ * provider instance: a `provider_timeout` failure is classified inside the
+ * pipelines' pure error mappers (`classifyGenerationError` and friends),
+ * which deliberately take only the thrown error and have no provider handle
+ * to ask. Reading it here keeps those mappers pure while still letting the
+ * message name the real number instead of a hardcoded one that would drift
+ * the moment an operator tunes it.
+ *
+ * Falls back to the schema default if the env value is unparseable, so a
+ * malformed override degrades the message rather than throwing while we are
+ * already handling a failure.
+ */
+export function requestTimeoutSeconds(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = Number.parseInt(env.APPBUILDER_AI_REQUEST_TIMEOUT_MS ?? "", 10);
+  const ms = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_REQUEST_TIMEOUT_MS;
+  return Math.round(ms / 1000);
 }
 
 /** Redacted view safe to log/return in diagnostics — never includes the API key. */

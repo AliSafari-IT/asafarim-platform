@@ -193,6 +193,13 @@ export const generationJobFailureCodeEnum = pgEnum(
     "provider_configuration_error",
     "provider_rate_limit",
     "provider_unavailable",
+    // Distinct from `provider_unavailable` on purpose. "The provider is
+    // down" and "we gave up waiting" are opposite operational signals: the
+    // first says wait, the second says raise
+    // APPBUILDER_AI_REQUEST_TIMEOUT_MS or pick a faster model. Collapsing
+    // them (as every pipeline did until #64) sent whoever read the failure
+    // in exactly the wrong direction.
+    "provider_timeout",
     "malformed_provider_response",
     "forbidden_operation",
     "specification_validation_failed",
@@ -361,6 +368,8 @@ export const modificationJobFailureCodeEnum = pgEnum(
     "provider_configuration_error",
     "provider_rate_limit",
     "provider_unavailable",
+    /** See generationJobFailureCodeEnum's note — same distinction, same reason. */
+    "provider_timeout",
     "malformed_provider_response",
     "forbidden_operation",
     "specification_validation_failed",
@@ -2527,6 +2536,8 @@ export const repairJobFailureCodeEnum = pgEnum("repair_job_failure_code", [
   "provider_configuration_error",
   "provider_rate_limit",
   "provider_unavailable",
+  /** See generationJobFailureCodeEnum's note — same distinction, same reason. */
+  "provider_timeout",
   "malformed_provider_response",
   "forbidden_operation",
   "specification_validation_failed",

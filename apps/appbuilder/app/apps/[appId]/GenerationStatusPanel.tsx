@@ -34,10 +34,15 @@ interface GenerationJob {
   cancelRequestedAt: string | null;
   resultingVersionNumber: number | null;
   clarificationState: { rounds: ClarificationRound[] } | null;
+  /** #64 — already persisted and already on the wire; the panel just never read them. */
+  attemptCount: number | null;
+  startedAt: string | null;
 }
 
 const TERMINAL: ReadonlySet<JobStatus> = new Set(["ready", "failed", "cancelled"]);
 const POLL_MS = 3_000;
+/** Mirrors GENERATION_LIMITS.MAX_JOB_ATTEMPTS (lib/generation/limits.ts). */
+const MAX_ATTEMPTS = 3;
 
 const STATUS_LABEL: Record<JobStatus, string> = {
   queued: "Queued",
@@ -57,6 +62,36 @@ function statusTone(status: JobStatus): "success" | "warning" | "info" | "neutra
   if (status === "failed" || status === "cancelled") return "warning";
   if (status === "needs_clarification") return "info";
   return "neutral";
+}
+
+/**
+ * #64 — a live elapsed counter for a job that is still running.
+ *
+ * Generation legitimately takes upwards of a minute, and until now the panel
+ * showed one static label for the whole of it, which is indistinguishable
+ * from being stuck. The counter re-renders once a second so there is always
+ * visible evidence that something is happening; the status poll stays at
+ * POLL_MS, because how long this has been running is knowable on the client
+ * and does not need a round trip to answer.
+ */
+function useElapsedSeconds(startedAt: string | null, running: boolean): number | null {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!running || !startedAt) return;
+    const id = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, [running, startedAt]);
+
+  if (!startedAt) return null;
+  const started = new Date(startedAt).getTime();
+  if (!Number.isFinite(started)) return null;
+  return Math.max(0, Math.floor((now - started) / 1000));
+}
+
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -158,6 +193,14 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
     }
   };
 
+  // "Running" excludes needs_clarification: the job is waiting on the human,
+  // not working, and a ticking counter there would imply the platform is busy
+  // when it is the user who is being waited on.
+  const running = Boolean(job && !TERMINAL.has(job.status) && job.status !== "needs_clarification");
+  // Called before the early return below — hooks cannot sit behind a branch.
+  const elapsed = useElapsedSeconds(job?.startedAt ?? null, running);
+  const attempt = job?.attemptCount ?? 0;
+
   if (job === undefined) return null; // still loading — avoid a flash of "no job" state
 
   const rounds = job?.clarificationState?.rounds ?? [];
@@ -184,10 +227,42 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
         </>
       ) : (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-3)",
+              marginBottom: "var(--space-3)",
+              flexWrap: "wrap",
+            }}
+          >
             <Badge tone={statusTone(job.status)}>{STATUS_LABEL[job.status]}</Badge>
+            {/*
+              #64: `aria-live="polite"` so a screen-reader user is told the
+              job is progressing without the announcement interrupting them —
+              the same information the sighted counter conveys. `role="timer"`
+              would announce every tick, which is exactly what we don't want
+              over a 90-second run.
+            */}
+            {running ? (
+              <span className="ui-hint" aria-live="polite">
+                {elapsed !== null ? `Working — ${formatElapsed(elapsed)} elapsed` : "Working…"}
+                {attempt > 1 ? ` · attempt ${attempt} of ${MAX_ATTEMPTS}` : ""}
+              </span>
+            ) : null}
             {job.cancelRequestedAt && !TERMINAL.has(job.status) ? <span className="ui-hint">Cancellation requested…</span> : null}
           </div>
+
+          {/*
+            A retry after a transient provider failure used to be completely
+            silent — the badge went back to "Analyzing your request" and the
+            user had no way to tell a retry from a first attempt.
+          */}
+          {running && attempt > 1 ? (
+            <Alert tone="info">
+              The previous attempt did not complete, so this is being retried automatically.
+            </Alert>
+          ) : null}
 
           {job.status === "needs_clarification" && openRound ? (
             <div style={{ display: "grid", gap: "var(--space-3)" }}>
