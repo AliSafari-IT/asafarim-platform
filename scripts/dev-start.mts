@@ -9,7 +9,7 @@ const DB_HOST = "localhost";
 const DB_PORT = 55435;
 const DOCKER_DESKTOP_PATH =
   "F:\\\\programs\\\\Docker\\\\Docker\\\\Docker Desktop.exe";
-const MAX_WAIT_SECONDS = 90;
+const MAX_WAIT_SECONDS = 180;
 
 function isDbReachable(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -52,11 +52,29 @@ function startDockerDesktop(): void {
     console.log("Docker is already running.");
     return;
   }
-  console.log("Starting Docker Desktop...");
-  execSync(
-    `powershell -ExecutionPolicy Bypass -Command "Get-Process 'Docker Desktop' -ErrorAction SilentlyContinue | Stop-Process -Force; Get-Process 'com.docker.backend','com.docker.proxy','dockerd' -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 3; Start-Process '${DOCKER_DESKTOP_PATH}';"`,
-    { stdio: "inherit" }
-  );
+
+  // Check if Docker Desktop is already starting (processes exist but daemon not ready yet).
+  // If so, just wait for it instead of killing and restarting.
+  let dockerProcessRunning = false;
+  try {
+    const result = execSync(
+      'powershell -Command "(Get-Process \'Docker Desktop\' -ErrorAction SilentlyContinue).Count"',
+      { encoding: "utf-8" }
+    ).trim();
+    dockerProcessRunning = parseInt(result, 10) > 0;
+  } catch {
+    // ignore
+  }
+
+  if (!dockerProcessRunning) {
+    console.log("Starting Docker Desktop...");
+    execSync(
+      `powershell -ExecutionPolicy Bypass -Command "Start-Process '${DOCKER_DESKTOP_PATH}';"`,
+      { stdio: "inherit" }
+    );
+  } else {
+    console.log("Docker Desktop is starting, waiting for daemon...");
+  }
   waitForDocker();
 }
 
