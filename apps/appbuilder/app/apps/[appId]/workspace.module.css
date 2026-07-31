@@ -12,24 +12,32 @@
  */
 
 /*
- * Pins the whole route (generation-status banner + workspace) to the
- * viewport, below the shared AppShell's sticky header — measured at ~4rem —
- * and its own top/bottom padding (2 * var(--space-6) = 4rem). Without this,
- * `.workspace` and `.panels` below have no definite height to flex against,
- * so `min-height:0`/`flex:1` on their descendants are no-ops and every panel
- * (most visibly the conversation panel) just grows with its content,
- * pushing the message composer out of view and forcing the whole page to
- * scroll — see the workspace responsiveness fix this comment set accompanies.
- * The ~0.2rem of AppShell footer that ends up just below the fold as a
- * result is an accepted trade-off: it's non-functional branding text, and
- * the composer must never require scrolling to reach.
+ * Gives the whole route (generation-status banner + workspace) a FLOOR of
+ * the viewport height, below the shared AppShell's sticky header — measured
+ * at ~4rem — and its own top/bottom padding (2 * var(--space-6) = 4rem).
+ * Without this, `.workspace` and `.panels` below have no definite height to
+ * flex against, so `min-height:0`/`flex:1` on their descendants are no-ops
+ * and every panel (most visibly the conversation panel) just grows with its
+ * content, pushing the message composer out of view — see the workspace
+ * responsiveness fix this comment set accompanies.
+ *
+ * `min-height`, not `height`: a fixed `height` clips at this value instead of
+ * growing, so when the generation-status banner is unusually tall (a
+ * clarification round with several questions, each with reasoning text and
+ * a textarea) its content overflowed the box while the AppShell footer —
+ * ordinary flow right after this box — still rendered at the box's
+ * *declared* height, landing in the middle of the overflowing banner instead
+ * of after it. `min-height` keeps the composer-visible guarantee in the
+ * normal case (the resolved height is identical to before whenever content
+ * fits) and lets the container grow instead of overflow when it doesn't, so
+ * the footer always ends up after the real content — worst case, the whole
+ * page scrolls, which beats the footer cutting into the banner.
  */
 .workspacePage {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  height: calc(100dvh - 8rem);
-  min-height: 0;
+  min-height: calc(100dvh - 8rem);
 }
 
 .workspace {
