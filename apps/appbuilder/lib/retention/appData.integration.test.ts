@@ -15,6 +15,7 @@ import {
 import { commitAttachmentContent, initAttachment } from "../repositories/attachments";
 import { importConversationReference } from "../repositories/references";
 import { appendUserMessage } from "../repositories/conversations";
+import { enqueueModificationJob } from "../repositories/modificationJobs";
 import { recordResolvedReference } from "../repositories/conversationMemory";
 import { NotFoundError } from "../errors";
 import { ERASED_CONTENT_PLACEHOLDER, eraseAppData, exportAppData } from "./appData";
@@ -90,6 +91,18 @@ async function makePopulatedApp(suffix: string) {
     selectionContext: null,
     baseVersionNumber: 1,
     attachmentIds: [attachment.id],
+  });
+
+  // A real modification job for that message. Without one, the export's
+  // `modificationJobs` section had nothing to cover and the assertion below
+  // was checking a fixture gap rather than the exporter.
+  await enqueueModificationJob(db, owner, app.id, {
+    conversationId: message.conversationId,
+    triggeringMessageId: message.id,
+    userRequestText: "Please match the tone in the attached brand guide.",
+    selectionContext: null,
+    idempotencyKey: `erasure-enqueue-${suffix}`,
+    correlationId: `erasuretrace${suffix}`.slice(0, 60),
   });
 
   await importConversationReference(db, owner, app.id, { url: "https://example.com/about" }, constantFetch);
