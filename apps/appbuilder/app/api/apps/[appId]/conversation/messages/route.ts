@@ -9,6 +9,7 @@ import { validateSelectionContext } from "@/lib/modification/selectionContext";
 import { SendMessageBody } from "@/lib/validation/conversations";
 import { errorResponse, unauthorized } from "@/lib/http/errors";
 import { nudgeModificationWorker } from "@/lib/server/queue";
+import { correlationIdFrom, withCorrelationId } from "@/lib/observability/correlation";
 
 interface RouteParams {
   params: Promise<{ appId: string }>;
@@ -62,6 +63,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
   const { content, baseVersionNumber, selectionContext, attachmentIds, idempotencyKey } = parsed.data;
   const key = idempotencyKey ?? randomUUID();
+  const correlationId = correlationIdFrom(request);
 
   try {
     const db = getDb();
@@ -70,7 +72,13 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (existingJob) {
       const message = await findMessageByJobId(db, appId, existingJob.id);
       const attachments = message ? await listAttachmentsForMessage(db, actor, appId, message.id) : [];
-      return NextResponse.json({ message, job: existingJob, attachments });
+      // The ORIGINAL job's correlation id, not this retry's — the retry is
+      // the same request, and reporting a fresh id would split one thread
+      // in two for whoever reads the events later.
+      return withCorrelationId(
+        NextResponse.json({ message, job: existingJob, attachments }),
+        existingJob.correlationId ?? correlationId,
+      );
     }
 
     const validatedSelection = await validateSelectionContext(db, appId, selectionContext ?? null);
@@ -92,11 +100,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       userRequestText: requestTextFor(content, attachments),
       selectionContext: validatedSelection,
       idempotencyKey: key,
+      correlationId,
     });
     await nudgeModificationWorker(job.id, { cause: "enqueue" });
 
-    return NextResponse.json({ message, job, attachments }, { status: 201 });
+    return withCorrelationId(NextResponse.json({ message, job, attachments }, { status: 201 }), correlationId);
   } catch (err) {
-    return errorResponse(err);
+    return withCorrelationId(errorResponse(err), correlationId);
   }
 }

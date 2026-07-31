@@ -10,6 +10,7 @@ import { conversationMessages, conversations, modificationJobs, modificationOper
 import type { Actor } from "../auth/actor";
 import { assertCapability } from "./authz";
 import { recordAuditEvent } from "./audit";
+import { recordOperationalEvent } from "../observability/events";
 import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
 import { ConflictError, ForbiddenError, NotFoundError, StaleVersionError } from "../errors";
@@ -65,6 +66,14 @@ export interface EnqueueModificationJobInput {
   userRequestText: string;
   selectionContext: SelectionContextType | null;
   idempotencyKey: string;
+  /**
+   * M13 slice G — the trace label of the HTTP request that sent this
+   * message. Deliberately NOT part of `requestHash`: an idempotent retry
+   * carrying a fresh correlation id is still the same request and must
+   * return the same job rather than conflict, so the FIRST id wins and
+   * later retries join the original thread.
+   */
+  correlationId?: string | null;
 }
 
 /**
@@ -143,6 +152,7 @@ export async function enqueueModificationJob(
         baseVersionNumber: spec.currentVersionNumber,
         selectionContext: input.selectionContext ?? undefined,
         userRequestText: input.userRequestText,
+        correlationId: input.correlationId ?? null,
       })
       .returning();
 
@@ -703,6 +713,23 @@ export async function submitClarificationAnswer(
 
   switch (outcome.kind) {
     case "ok":
+      // M13 slice G: recorded on the plain `db` handle AFTER the transaction
+      // commits, and only for a real answer — the "how many questions
+      // actually get answered" metric is meaningless if it counts attempts
+      // that rolled back. Carries the round number and whether a grounded
+      // choice or free text was used; never the answer text itself.
+      await recordOperationalEvent(db, {
+        appId,
+        correlationId: outcome.job.correlationId,
+        category: "modification",
+        kind: "clarification.answered",
+        actorPrincipalId: actor.principalId,
+        detail: {
+          jobId,
+          questionId: input.questionId,
+          answeredWith: input.choiceId ? "choice" : "free_text",
+        },
+      });
       return outcome.job;
     case "expired":
       throw new ConflictError(safeFailureMessage("clarification_expired"));

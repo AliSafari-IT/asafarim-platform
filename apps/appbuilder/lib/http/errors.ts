@@ -56,6 +56,7 @@ import {
 } from "../deployment/errors";
 import { QuotaExceededError } from "../quotas/errors";
 import { CustomDomainsDisabledError } from "../customDomains/requests";
+import { FeatureDisabledError } from "../features/errors";
 
 /**
  * Maps a repository error to the right JSON status — never HTML for API
@@ -307,6 +308,15 @@ export function errorResponse(err: unknown): NextResponse {
   if (err instanceof CustomDomainsDisabledError) {
     return NextResponse.json(
       { error: err.message, code: "custom_domains_disabled" },
+      { status: 409 }
+    );
+  }
+  // M13 slice G. `feature` is returned so the composer can disable exactly
+  // the one affected control rather than showing a generic error and leaving
+  // the user to discover by trial which action is unavailable.
+  if (err instanceof FeatureDisabledError) {
+    return NextResponse.json(
+      { error: err.message, code: "feature_disabled", feature: err.flag },
       { status: 409 }
     );
   }

@@ -35,12 +35,72 @@ computes exactly which rows WOULD be eligible (and is unit-tested —
 `lib/retention/eligibility.test.ts`), so turning on automated deletion for
 these categories later is a small, well-scoped change, not a redesign.
 
+## M13 categories and owner-initiated erasure (slice G)
+
+M13 persists people's uploaded files, the text extracted from them, and
+third-party content fetched on their behalf. Three changes followed:
+
+- **`lib/retention/policy.ts` gained the two M13 categories it was missing** —
+  `conversation_attachments` and `conversation_memory` — plus an
+  `ownerErasable` flag on every category. `automatedCleanup: false` used to be
+  the end of the story, which left an owner with no way to remove their own
+  conversation content short of asking an operator.
+
+- **Two more sweeps are automated and wired into the runner.** Unclaimed
+  attachments (24 hours, hard-deleted with their storage objects) and orphaned
+  memory facts (removed once *every* source message is gone; any surviving
+  source keeps the fact). The unclaimed-attachment sweep existed since slice B
+  and nothing outside tests had ever called it — the deletion the milestone
+  promised was implemented and never ran.
+
+- **Deleting an attachment now clears its `extracted_text`.** Previously the
+  storage object went away and a readable copy of the file's contents stayed
+  in a database column, which meant "delete this file" removed the
+  harder-to-read copy and kept the easier one.
+
+### Owner export and erasure
+
+| Operation | Route | Capability |
+|---|---|---|
+| Export everything retained | `GET /api/apps/{appId}/data` | `app.exportData` (owner) |
+| Erase retained content | `DELETE /api/apps/{appId}/data` with `{ "confirm": "<appId>" }` | `app.eraseData` (owner) |
+
+Both work on an archived app — an archived app is the *most* likely subject of
+such a request, and forcing an owner to un-archive one just to delete its data
+would be perverse.
+
+Export includes messages, attachment metadata and extracted text, references
+with provenance and text, memory facts, plans, jobs, and the retention policy
+each category falls under. It never includes storage keys. Attachment **bytes**
+are excluded and said so in the response's `notIncluded` field — one export
+would be hundreds of megabytes in memory, and each file is already downloadable
+through its own authenticated route.
+
+Erasure destroys message bodies, attachment objects and extracted text,
+reference text and facts, all memory facts, and each job's stored request text.
+It keeps the app, its specification and version history, the row skeletons (so
+the workspace still renders a coherent history rather than one full of holes),
+and `audit_events` — including the record of the erasure itself, because an
+erasure that erased its own evidence would be unauditable.
+
+This does **not** replace `data_subject_requests`: that queue still exists for
+requests that span apps or come from someone who is not the owner.
+
 ## Running the retention sweep
 
 ```bash
-pnpm --filter appbuilder retention:sweep          # dry run — reports only
-pnpm --filter appbuilder retention:sweep --apply  # actually deletes
+pnpm --filter @asafarim/appbuilder retention:sweep          # dry run — reports only
+pnpm --filter @asafarim/appbuilder retention:sweep --apply  # actually deletes
 ```
+
+Three categories run: `validation_artifacts`, `conversation_attachments`, and
+`conversation_memories`. One failing does not stop the others, and any failure
+sets exit code 1 so a half-failed scheduled run is not reported as success.
+
+**Schedule it.** A sweep that is not scheduled logs nothing, so its absence is
+invisible from its own output. The `cleanupLag` readiness section
+(`lib/observability/m13Readiness.ts`) counts rows already past their deadline
+precisely so an unscheduled sweep shows up as a growing number instead.
 
 Dry-run is the default specifically so an operator never accidentally
 deletes anything by running the command without thinking. A real `--apply`

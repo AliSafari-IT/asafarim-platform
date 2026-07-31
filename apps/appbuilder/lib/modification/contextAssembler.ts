@@ -20,7 +20,7 @@ import { ATTACHMENT_LIMITS, categoryForMimeType } from "../attachments/limits";
 import { REFERENCE_LIMITS, type ReferenceFact } from "../references/limits";
 import { freshnessOfRow } from "../references/provenance";
 import { buildSpecIndex, type SpecIndex } from "./specIndex";
-import { describeReference, type RecalledMemory } from "./memory";
+import { describeReference, emptyMemoryFacts, type RecalledMemory } from "./memory";
 import { mapPreviewEvidence, toContextPreviewEvidence, type PreviewEvidenceMapping } from "./previewEvidence";
 import { resolveTargets, type TargetCandidate, type TargetResolution } from "./targetResolver";
 import type { SelectionContextType } from "./selectionContext";
@@ -104,6 +104,15 @@ export interface BuildModificationContextInput {
    * resolver would otherwise conclude from the answer text alone.
    */
   forcedTargetId?: string;
+  /**
+   * M13 slice G — when false, durable cross-turn memory is neither recalled
+   * into context nor allowed to influence target resolution. Stored memory
+   * rows are NOT deleted or hidden: this is an interpretation switch, so
+   * flipping it back on restores the same behavior against the same rows.
+   * Defaults to true so every existing caller and test keeps slice D's
+   * behavior unchanged.
+   */
+  memoryEnabled?: boolean;
 }
 
 export interface ModificationContextResult {
@@ -126,7 +135,16 @@ export async function buildModificationContext(
   const redactionFlags = new Set<string>();
 
   // ─── Memory (verified against the current index) ─────────────────────────
-  const memory = await recallConversationMemory(input.db, input.conversationId, index);
+  //
+  // M13 slice G: with contextual memory disabled, recall is skipped entirely
+  // rather than recalled-then-filtered. Filtering later would still let stale
+  // facts influence resolver ranking on the way through, which is precisely
+  // the behavior an operator turning the flag off is trying to stop.
+  const memoryEnabled = input.memoryEnabled ?? true;
+  const memory: RecalledMemory = memoryEnabled
+    ? await recallConversationMemory(input.db, input.conversationId, index)
+    : { facts: emptyMemoryFacts(), invalidated: [] };
+  if (!memoryEnabled) redactionFlags.add("contextual_memory_disabled");
   for (const dropped of memory.invalidated) {
     omitted.push({
       sourceId: `memory:${dropped.targetId ?? dropped.descriptor}`,

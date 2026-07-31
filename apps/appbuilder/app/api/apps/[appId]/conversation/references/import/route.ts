@@ -5,6 +5,7 @@ import { importConversationReference } from "@/lib/repositories/references";
 import { describeFreshness } from "@/lib/references/provenance";
 import { ImportReferenceBody } from "@/lib/validation/references";
 import { errorResponse, unauthorized } from "@/lib/http/errors";
+import { correlationIdFrom, withCorrelationId } from "@/lib/observability/correlation";
 
 interface RouteParams {
   params: Promise<{ appId: string }>;
@@ -38,21 +39,25 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
   }
 
+  const correlationId = correlationIdFrom(request);
   try {
     const db = getDb();
-    const result = await importConversationReference(db, actor, appId, parsed.data);
-    return NextResponse.json(
-      {
-        reference: result.reference,
-        fetched: result.fetched,
-        freshness: result.freshness,
-        freshnessLabel: describeFreshness(result.freshness, result.reference.fetchedAt),
-        unchanged: result.unchanged,
-        failure: result.failure,
-      },
-      { status: result.fetched && !result.reference.refreshCount ? 201 : 200 },
+    const result = await importConversationReference(db, actor, appId, { ...parsed.data, correlationId });
+    return withCorrelationId(
+      NextResponse.json(
+        {
+          reference: result.reference,
+          fetched: result.fetched,
+          freshness: result.freshness,
+          freshnessLabel: describeFreshness(result.freshness, result.reference.fetchedAt),
+          unchanged: result.unchanged,
+          failure: result.failure,
+        },
+        { status: result.fetched && !result.reference.refreshCount ? 201 : 200 },
+      ),
+      correlationId,
     );
   } catch (err) {
-    return errorResponse(err);
+    return withCorrelationId(errorResponse(err), correlationId);
   }
 }

@@ -58,15 +58,25 @@ resolved address, never the URL path. Error messages are equally coarse on
 purpose: telling a caller *which* internal address their URL resolved to
 turns a blocked SSRF attempt into a working internal port scanner.
 
-### Known residual risk (deferred to slice G)
+### Known residual risk (still open after slice G)
 
 Node's `fetch` re-resolves the hostname itself, so a name whose DNS answer
 changes between our check and the connection can still be connected to
 (classic TOCTOU rebinding). Closing it fully means pinning the checked address
-into the connection via a custom undici dispatcher/`lookup`. Until then the
-mitigations are: every hop re-validated, a short whole-request timeout, a
-512 KB streamed size cap, a content-type allowlist, no credentials sent, and
-nothing about the response echoed back beyond bounded extracted text.
+into the connection via a custom undici dispatcher/`lookup`.
+
+Slice F deferred this to slice G and **slice G did not close it**. It is a
+connection-layer change with its own failure modes, and shipping it under
+time pressure alongside slice G's other workstreams was judged worse than
+carrying the documented risk with compensating controls. It remains the top
+open item for this subsystem.
+
+The mitigations are: every hop re-validated, a short whole-request timeout, a
+512 KB streamed size cap, a content-type allowlist, no credentials sent,
+nothing about the response echoed back beyond bounded extracted text, a daily
+per-app outbound-fetch quota, and — new in slice G — the whole route behind
+`APPBUILDER_URL_IMPORTS_ENABLED`, which defaults to **off**, so a deployment
+that has not accepted this risk makes no outbound request at all.
 
 ## Request bounds
 
@@ -205,8 +215,13 @@ attempts and give false confidence about everything else.
 | Reference evidence bounds, stale disclosure, safe persisted manifest | `lib/modification/contextAssembler.integration.test.ts` |
 | Prompt provenance section, untrusted wrapping of text and facts, stale/unavailable disclosure | `packages/appbuilder-ai/src/prompts/buildModificationPrompt.test.ts` |
 
-## Deferred to slice G
+## Slice G follow-through
 
-Operational dashboards and correlation IDs for imports, the connection-level
-address pinning described above, the final threat-model write-up, an
-independent feature flag for URL import, and the staged rollout gates.
+Delivered (see `docs/appbuilder-m13-hardening-rollout.md`): correlation IDs on
+every import event, reference metrics (adapter breakdown, imports, blocks,
+fetch failures, rate limits, refreshes, stored characters), the
+`APPBUILDER_URL_IMPORTS_ENABLED` flag with import refused and no outbound
+request while it is off, references included in owner export and erasure, and
+the threat-model write-up in `docs/appbuilder-m12-threat-model.md`.
+
+Still open: the connection-level address pinning described above.

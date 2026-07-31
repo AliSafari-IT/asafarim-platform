@@ -7,6 +7,8 @@ import {
   fetchJson,
   formatBytes,
   type AppReadinessSnapshot,
+  type FeatureFlagState,
+  type M13ReadinessSnapshot,
   type ReadinessStatus,
 } from "./types";
 
@@ -73,6 +75,43 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <span>{value}</span>
     </div>
   );
+}
+
+/**
+ * M13 slice G — rendered in this fixed order rather than by iterating the
+ * object, so the list reads dependency-first (can we store, extract, and scan
+ * a file at all) before capability (vision, URL import) and then hygiene
+ * (cleanup, evaluation).
+ */
+const M13_SECTIONS = [
+  { key: "storage", label: "Attachment storage" },
+  { key: "extraction", label: "Text extraction" },
+  { key: "malwareScanning", label: "Content scanning" },
+  { key: "modelVision", label: "Image analysis" },
+  { key: "urlImport", label: "Public URL import" },
+  { key: "cleanupLag", label: "Retention cleanup" },
+  { key: "evaluation", label: "Quality evaluation" },
+] as const satisfies ReadonlyArray<{
+  key: keyof M13ReadinessSnapshot;
+  label: string;
+}>;
+
+const FLAG_LABELS: Record<FeatureFlagState["key"], string> = {
+  attachments: "Attachments",
+  vision: "Image analysis",
+  contextualMemory: "Conversation memory",
+  planning: "Multi-step plans",
+  urlImports: "Public URL import",
+};
+
+/**
+ * A rate that was never measured renders as an em dash, never as "0%".
+ * Reporting "0% of clarifying questions were answered" when none were ever
+ * asked is the same misreport the `unknown` readiness status exists to
+ * prevent (see lib/observability/status.ts).
+ */
+function formatRate(rate: number | null): string {
+  return rate === null ? "—" : `${Math.round(rate * 100)}%`;
 }
 
 export interface OperationsViewProps {
@@ -498,6 +537,139 @@ export function OperationsView({
                 </li>
               ))}
             </ul>
+          </Card>
+        ) : null}
+
+        {snapshot.m13 ? (
+          <Card title="Assistant dependencies">
+            <p className="ui-hint" style={{ fontSize: "var(--text-xs)", margin: 0 }}>
+              A dependency that is switched off reads &ldquo;Not configured&rdquo;.
+              Only a dependency that is switched <em>on</em> but missing
+              something reads &ldquo;Unhealthy&rdquo;, and only those block a
+              launch.
+            </p>
+            <dl style={{ display: "grid", gap: "var(--space-2)", margin: 0 }}>
+              {M13_SECTIONS.map(({ key, label }) => {
+                const section = snapshot.m13![key];
+                return (
+                  <div key={key} style={{ display: "grid", gap: "2px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "var(--space-2)",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <dt style={{ fontSize: "var(--text-sm)", margin: 0 }}>{label}</dt>
+                      <StatusBadge status={section.status} />
+                    </div>
+                    <dd
+                      className="ui-hint"
+                      style={{ fontSize: "var(--text-xs)", margin: 0 }}
+                    >
+                      {section.summary}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
+          </Card>
+        ) : null}
+
+        {snapshot.m13 ? (
+          <Card title="Assistant feature flags">
+            <p className="ui-hint" style={{ fontSize: "var(--text-xs)", margin: 0 }}>
+              Deploy-time switches. Turning one off stops new work of that kind;
+              everything already created stays readable and downloadable.
+            </p>
+            {snapshot.m13.featureFlags.map((flag) => (
+              <div key={flag.key} style={{ display: "grid", gap: "2px" }}>
+                <Row
+                  label={FLAG_LABELS[flag.key] ?? flag.key}
+                  value={
+                    <Badge tone={flag.enabled ? "success" : "neutral"}>
+                      {flag.enabled ? "On" : "Off"}
+                      {flag.usingDefault ? " (default)" : ""}
+                    </Badge>
+                  }
+                />
+                {!flag.enabled ? (
+                  <p
+                    className="ui-hint"
+                    style={{ fontSize: "var(--text-xs)", margin: 0 }}
+                  >
+                    {flag.disabledEffect}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </Card>
+        ) : null}
+
+        {snapshot.m13Metrics ? (
+          <Card
+            title={`Assistant activity (last ${snapshot.m13Metrics.windowDays} days)`}
+          >
+            <Row
+              label="Attachments stored"
+              value={formatBytes(snapshot.m13Metrics.attachments.readyBytes)}
+            />
+            <Row
+              label="Quarantined / unscanned commits"
+              value={`${snapshot.m13Metrics.attachments.quarantined} / ${snapshot.m13Metrics.attachments.unscannedCommits}`}
+            />
+            <Row
+              label="Uploads past their 24h cleanup deadline"
+              value={
+                snapshot.m13Metrics.attachments.overdueUnclaimed > 0 ? (
+                  <Badge tone="warning">
+                    {snapshot.m13Metrics.attachments.overdueUnclaimed}
+                  </Badge>
+                ) : (
+                  "0"
+                )
+              }
+            />
+            <Row
+              label="Target resolved on first try"
+              value={formatRate(snapshot.m13Metrics.resolver.resolutionRate)}
+            />
+            <Row
+              label="Clarifying questions answered"
+              value={formatRate(snapshot.m13Metrics.clarification.answerRate)}
+            />
+            <Row
+              label="Staged plans completed"
+              value={formatRate(snapshot.m13Metrics.plans.completionRate)}
+            />
+            <Row
+              label="References imported / blocked"
+              value={`${snapshot.m13Metrics.references.imported} / ${snapshot.m13Metrics.references.blocked}`}
+            />
+            <Row
+              label="Model calls"
+              value={snapshot.m13Metrics.tokens.providerCalls.toLocaleString()}
+            />
+            <Row
+              label="Estimated model cost"
+              value={`~$${snapshot.m13Metrics.cost.totalUsd.toFixed(2)}`}
+            />
+            {snapshot.m13Metrics.cost.unratedModels.length > 0 ? (
+              <p className="ui-hint" style={{ fontSize: "var(--text-xs)", margin: 0 }}>
+                Excludes {snapshot.m13Metrics.cost.unratedModels.join(", ")} — no
+                price is configured for{" "}
+                {snapshot.m13Metrics.cost.unratedModels.length === 1
+                  ? "that model"
+                  : "those models"}
+                , so their usage is counted but their cost is not.
+              </p>
+            ) : null}
+            <p className="ui-hint" style={{ fontSize: "var(--text-xs)", margin: 0 }}>
+              A dash means nothing has happened yet — not zero. Cost is an
+              estimate from configured rates, never a bill.
+            </p>
           </Card>
         ) : null}
 

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import type { ApplicationSpecificationType } from "@asafarim/appbuilder-schema";
 import { closeTestDb, getTestDb, migrateTestDb, resetTestDb } from "../db/testUtils";
@@ -32,6 +32,16 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await resetTestDb();
+  // M13 slice G made URL import independently flagged and OFF by default
+  // (lib/features/flags.ts). The reference cases below need a real import to
+  // have happened before they can assert how it grounds context, so they opt
+  // in; the flag's own OFF behavior is covered in
+  // lib/features/featureFlags.integration.test.ts.
+  process.env.APPBUILDER_URL_IMPORTS_ENABLED = "true";
+});
+
+afterEach(() => {
+  delete process.env.APPBUILDER_URL_IMPORTS_ENABLED;
 });
 
 afterAll(async () => {

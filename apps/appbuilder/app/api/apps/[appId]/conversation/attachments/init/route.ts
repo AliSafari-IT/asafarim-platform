@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db/client";
 import { initAttachment } from "@/lib/repositories/attachments";
 import { InitAttachmentBody } from "@/lib/validation/attachments";
 import { errorResponse, unauthorized } from "@/lib/http/errors";
+import { correlationIdFrom, withCorrelationId } from "@/lib/observability/correlation";
 
 interface RouteParams {
   params: Promise<{ appId: string }>;
@@ -22,14 +23,16 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid attachment request." }, { status: 400 });
   }
 
+  const correlationId = correlationIdFrom(request);
   try {
     const db = getDb();
     const attachment = await initAttachment(db, actor, appId, {
       ...parsed.data,
       idempotencyKey: parsed.data.idempotencyKey ?? randomUUID(),
+      correlationId,
     });
-    return NextResponse.json({ attachment }, { status: 201 });
+    return withCorrelationId(NextResponse.json({ attachment }, { status: 201 }), correlationId);
   } catch (err) {
-    return errorResponse(err);
+    return withCorrelationId(errorResponse(err), correlationId);
   }
 }

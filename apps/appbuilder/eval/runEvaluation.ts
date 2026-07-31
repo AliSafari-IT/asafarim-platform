@@ -22,6 +22,7 @@ import { claimJobById, enqueueModificationJob } from "../lib/repositories/modifi
 import { runModificationJob } from "../lib/modification/pipeline";
 import { REGRESSION_CORPUS, type RegressionCase } from "./regressionCorpus";
 import { scoreCase, summarize, type CaseScore, type EvaluationReport } from "./scorer";
+import { evaluateReleaseGates, type ReleaseGateReport } from "./releaseGates";
 
 /**
  * M13 slice E: `needs_clarification` is a non-terminal, "active" job status
@@ -200,4 +201,23 @@ export async function runEvaluationWithProvider(
   corpus: readonly RegressionCase[] = REGRESSION_CORPUS,
 ): Promise<EvaluationReport> {
   return runCorpus(db, corpus, () => provider);
+}
+
+/**
+ * M13 slice G — the same grounded run, scored against the milestone's
+ * release-target table (eval/releaseGates.ts).
+ *
+ * Kept as its own entry point rather than folded into
+ * `runGroundedEvaluation`: that function's job is to MEASURE, and callers
+ * (including the slice D/E tests) depend on getting the raw report back
+ * regardless of whether the numbers are good. This one JUDGES, and a judge
+ * that silently changed what "measure" returned would make those tests
+ * assert something other than what they say they assert.
+ */
+export async function runGroundedEvaluationWithGates(
+  db: Db,
+  corpus: readonly RegressionCase[] = REGRESSION_CORPUS,
+): Promise<{ report: EvaluationReport; gates: ReleaseGateReport }> {
+  const report = await runGroundedEvaluation(db, corpus);
+  return { report, gates: evaluateReleaseGates(report.summary) };
 }
