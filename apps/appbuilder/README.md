@@ -269,7 +269,11 @@ pnpm --filter @asafarim/appbuilder build
 pnpm --filter @asafarim/appbuilder typecheck
 pnpm --filter @asafarim/appbuilder lint
 pnpm --filter @asafarim/appbuilder test              # unit only, no database needed
-pnpm --filter @asafarim/appbuilder test:integration  # requires appbuilder-postgres running
+pnpm --filter @asafarim/appbuilder test:integration  # requires appbuilder-postgres running AND
+                                                       # APPBUILDER_TEST_DATABASE_URL set to a DISTINCT
+                                                       # scratch database (see .env.local.example) — the
+                                                       # suite truncates every app-owned table before every
+                                                       # test and refuses to run otherwise (lib/db/testDbGuard.ts)
 pnpm --filter @asafarim/appbuilder e2e                # Playwright — starts hub+appbuilder dev servers,
                                                        # seeds real users/apps, needs appbuilder-postgres
                                                        # and the platform Postgres (DATABASE_URL) running
