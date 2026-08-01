@@ -80,7 +80,8 @@ export function buildModificationPrompt(input: ModificationPromptInput): string 
       '- "needs_clarification": ONLY when two or more materially different, safe, representable outcomes remain — never because a request is merely "broad". Ask exactly one concise `question` with 2-5 grounded `choices` naming the real candidates (never a generic "could you be more specific?").\n' +
       '- "partially_supported": some of the request is representable and some is not. Provide `plan` for the supported part (staged into separate steps when the request spans structure/content/branding/etc.) and `unsupported` gaps for the rest, each with a `classification` (schema/component/integration/flag) and a plain-language `reason`.\n' +
       '- "unsupported": nothing in the request is representable. Provide `unsupported` gaps and, where possible, `alternatives` — the closest supported thing you could do instead.\n\n' +
-      "Never claim a change has been applied — you only propose. Every `batch` MUST include `batch.reasoningSummary` (your internal justification, distinct from any user-facing `summary`) and `batch.isFinalBatch` (always `true` — there is no follow-up batch within one step).",
+      "Never claim a change has been applied — you only propose. Every `batch` MUST include `batch.reasoningSummary` (your internal justification, distinct from any user-facing `summary`) and `batch.isFinalBatch` (always `true` — there is no follow-up batch within one step).\n\n" +
+      "If any operation creates something new, every `id`/`machineName` MUST match exactly: lowercase letters, digits, underscore, or hyphen, starting with a letter (e.g. `about_section`) — never spaces, capital letters, or other punctuation.",
   );
 
   return sections.join("\n\n");

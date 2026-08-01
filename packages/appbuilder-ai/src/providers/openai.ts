@@ -13,6 +13,7 @@ import { buildModificationPrompt } from "../prompts/buildModificationPrompt";
 import { buildRepairPrompt } from "../prompts/buildRepairPrompt";
 import { ProviderError } from "../provider/errors";
 import { toStrictJsonSchema, nullsToUndefinedDeep } from "../provider/strictSchema";
+import { buildSafeSummary } from "../provider/redact";
 import type { AiProviderConfig } from "../provider/config";
 import type {
   AiProvider,
@@ -124,6 +125,20 @@ export class OpenAiProvider implements AiProvider {
       if (choice?.message.refusal) {
         throw new ProviderError({ code: "invalid_request", message: `Model refused: ${choice.message.refusal}` });
       }
+      // Checked BEFORE the empty-content check below: for a reasoning-
+      // capable model, `max_completion_tokens` covers hidden reasoning
+      // tokens too, so a response can be truncated (finish_reason:
+      // "length") with EITHER partial/invalid JSON or, if reasoning alone
+      // consumed the whole budget, no visible content at all. Either way
+      // this is a distinct, actionable failure (see provider/errors.ts's
+      // "truncated" doc comment) — not an ordinary malformed/empty
+      // response, and never silently reclassified as one.
+      if (choice?.finish_reason === "length") {
+        throw new ProviderError({
+          code: "truncated",
+          message: "OpenAI's response was cut off by the output token limit before it finished.",
+        });
+      }
       const content = choice?.message.content;
       if (!content) {
         throw new ProviderError({ code: "malformed_response", message: "OpenAI response had no content." });
@@ -138,6 +153,28 @@ export class OpenAiProvider implements AiProvider {
 
       const result = schema.safeParse(nullsToUndefinedDeep(rawParsed));
       if (!result.success) {
+        // Operator-facing diagnostic only — structural (property paths, zod
+        // error codes/messages), never the model's actual field values,
+        // which could echo back user prompt content. This is the ONE piece
+        // of information every prior "malformed_response" investigation on
+        // this codebase has had to reconstruct indirectly (job/DB
+        // archaeology) because nothing safe was ever logged at the point of
+        // failure — see buildSafeSummary's own "detailed operator
+        // diagnostics belong in structured logs, never persisted on the job
+        // row" contract.
+        console.error(
+          "[appbuilder-ai] OpenAI response failed schema validation",
+          buildSafeSummary({
+            schemaName,
+            model: this.model,
+            issueCount: result.error.issues.length,
+            issues: result.error.issues.slice(0, 20).map((issue) => ({
+              path: issue.path.join("."),
+              code: issue.code,
+              message: issue.message,
+            })),
+          }),
+        );
         throw new ProviderError({
           code: "malformed_response",
           message: "OpenAI response did not match the requested schema.",

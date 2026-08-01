@@ -1,0 +1,21 @@
+-- Adds `provider_response_truncated` to `generation_job_failure_code` — see
+-- lib/db/schema.ts's doc comment on that value and lib/generation/errors.ts.
+-- Distinct from `malformed_provider_response`: a response cut off by the
+-- output token limit (OpenAI finish_reason: "length") is usually a
+-- request/config-shaped problem (raise APPBUILDER_AI_MAX_OUTPUT_TOKENS /
+-- OPENAI_MAX_OUTPUT_TOKENS), not a one-off model slip.
+--
+-- Note: drizzle-kit's diff also proposed re-adding `provider_timeout` to all
+-- three failure-code enums and the `correlation_id` columns/indexes —
+-- migrations 0016 and 0015 already added those by hand (with `IF NOT
+-- EXISTS`), but were never run back through `drizzle-kit generate`, so the
+-- snapshot tracking never caught up. This migration's SQL is trimmed to only
+-- the genuinely new statement; its `meta/0017_snapshot.json` still reflects
+-- the FULL current schema.ts, so future `pnpm db:generate` runs stop
+-- re-proposing the already-applied 0015/0016 changes.
+--
+-- `ALTER TYPE ... ADD VALUE` is allowed inside a transaction from PostgreSQL
+-- 12 onward provided the new value is not USED in the same transaction —
+-- this migration only declares it.
+
+ALTER TYPE "generation_job_failure_code" ADD VALUE IF NOT EXISTS 'provider_response_truncated';
