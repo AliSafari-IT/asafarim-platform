@@ -119,6 +119,12 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
   const router = useRouter();
   const [job, setJob] = useState<GenerationJob | null | undefined>(undefined); // undefined = not loaded yet
   const [busy, setBusy] = useState(false);
+  // Separate from `busy`: the Cancel button is visible at the same time as
+  // the clarification form (both render whenever the job is non-terminal),
+  // and shares `busy` for its own disabled state. Without a dedicated flag,
+  // clicking Cancel would flip the Submit button's label to "Submitting…"
+  // even though nothing was being submitted.
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -198,6 +204,7 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
   const submitClarification = async (round: ClarificationRound) => {
     if (!job) return;
     setBusy(true);
+    setSubmitting(true);
     setError(null);
     try {
       const payload = {
@@ -220,6 +227,7 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
       setError(err instanceof Error ? err.message : "Failed to submit answers.");
     } finally {
       setBusy(false);
+      setSubmitting(false);
     }
   };
 
@@ -411,7 +419,7 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
                     // dead with no way forward but to invent an answer.
                     disabled={busy}
                   >
-                    {busy ? "Submitting…" : "Submit answers"}
+                    {submitting ? "Submitting…" : "Submit answers"}
                   </Button>
                   {skippedCount > 0 ? (
                     <p className="ui-hint" aria-live="polite">
