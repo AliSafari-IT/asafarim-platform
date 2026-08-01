@@ -223,10 +223,33 @@ async function runAnalyzingPhase(deps: PipelineDeps, job: GenerationJobRow): Pro
   if (requiresClarification(analysis)) {
     const roundNumber = clarificationState.rounds.length + 1;
     if (roundNumber > PLANNING_LIMITS.MAX_CLARIFICATION_ROUNDS) {
-      throw new GenerationJobError(
-        "invalid_request",
-        "Too many clarification rounds were needed to safely interpret this request.",
-      );
+      // The round cap is a limit on how much back-and-forth is safe to ask
+      // for, never a reason to discard everything the user already
+      // answered. `analysis` already carries a full, usable structure
+      // (entities/pages/roles/etc.) alongside its trailing questions — the
+      // model produces its best-effort read on every call, clarification
+      // questions or not. So: proceed to planning with that structure,
+      // folding the unresolved questions into `assumptions` (visible,
+      // reviewable in the generated app's history) instead of failing the
+      // job and losing a real user's multi-round, multi-day answers.
+      const foldedAssumptions = [
+        ...analysis.assumptions,
+        ...analysis.clarificationQuestions.map(
+          (q) => `Proceeded without further clarification on: ${q.question}`,
+        ),
+      ].slice(0, PLANNING_LIMITS.MAX_ASSUMPTIONS);
+
+      return transitionStatus(deps.db, job.id, "analyzing", "planning", {
+        phase: "planning:template_selection",
+        normalizedRequirements: {
+          ...analysis,
+          assumptions: foldedAssumptions,
+          clarificationQuestions: [],
+        },
+        providerName: deps.provider.name,
+        providerModel: usage.model,
+        usage: accumulateUsage(job.usage, usage),
+      });
     }
     const nextState: ClarificationStateType = {
       rounds: [
