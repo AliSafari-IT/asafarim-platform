@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import {
   createFakeProvider,
   value,
+  errorStep,
+  ProviderError,
   PLANNING_LIMITS,
   CONSTRUCTION_TASK_MANAGEMENT_SCRIPT,
   CLARIFICATION_NEEDED_SCRIPT,
@@ -21,7 +23,14 @@ import {
 } from "../repositories/generationJobs";
 import { applyTemplateVersion } from "../repositories/templateApplication";
 import { runGenerationJob } from "./pipeline";
-import { creationRequests, generationOperationBatches, previewBuilds, specifications, specificationVersions } from "../db/schema";
+import {
+  creationRequests,
+  generationJobs as generationJobsTable,
+  generationOperationBatches,
+  previewBuilds,
+  specifications,
+  specificationVersions,
+} from "../db/schema";
 import { getTemplate } from "@asafarim/appbuilder-runtime";
 
 const db = getTestDb();
@@ -112,6 +121,62 @@ describe("runGenerationJob — golden path", () => {
     expect(second.id).toBe(first.id);
     const versions = await db.select().from(specificationVersions).where(eq(specificationVersions.appId, app.id));
     expect(versions.filter((v) => v.summary.startsWith("Applied template:"))).toHaveLength(1);
+  });
+});
+
+describe("runGenerationJob — resuming a mid-flight \"applying\" status", () => {
+  it("resumes cleanly after a crash between the planning->applying transition and the next one, instead of getting stuck in a dead end", async () => {
+    // Reproduces a real production/dev failure: `runPlanningIteration`
+    // commits `"planning" -> "applying"` and THEN calls the provider's
+    // `proposeOperations`. If that call fails (a real transient provider
+    // error — timeout, rate limit, brief outage), the job is correctly left
+    // at "applying" for a retry... but `runPhase`'s switch had no case for
+    // "applying" at all, so every retry (and the eventual stale-lease sweep
+    // reclaim) hit its own `default:` branch and threw "Job is in a status
+    // the worker does not know how to advance." — itself classified as
+    // retryable, so it burned all 3 attempts hitting the exact same dead
+    // end before finally failing for good.
+    const script = {
+      analyzeRequirements: [
+        value({
+          appPurpose: "A simple task tracker.",
+          confidence: "high",
+          entities: [{ name: "Task", importantFields: [{ name: "title" }] }],
+          pages: [{ name: "Tasks", primaryEntity: "Task" }],
+        }),
+      ],
+      recommendTemplate: [value({ templateId: "task_management", reasoningSummary: "Matches a task tracker.", confidence: "high" })],
+      proposeOperations: [
+        errorStep(new ProviderError({ code: "unavailable", message: "Simulated transient provider outage." })),
+        value({ reasoningSummary: "Nothing more needed beyond the template.", isFinalBatch: true, operations: [] }),
+      ],
+    };
+
+    const { job } = await makeAppAndJob("Build a simple task tracker.", "applying-resume");
+    const provider = createFakeProvider(script);
+
+    const claimed0 = await claimJobById(db, job.id, "test-worker-a0", 120_000);
+    const firstAttempt = await runGenerationJob(
+      { db, provider, workerId: "test-worker-a0", leaseDurationMs: 120_000, signal: new AbortController().signal },
+      claimed0!,
+    );
+    // The simulated outage strikes AFTER the planning->applying transition
+    // already committed — a retryable outcome, not a failure, and the job
+    // is left sitting at "applying" in the database.
+    expect(firstAttempt.kind).toBe("retry_later");
+
+    const [midflight] = await db.select().from(generationJobsTable).where(eq(generationJobsTable.id, job.id));
+    expect(midflight.status).toBe("applying");
+
+    const reclaimed = await claimJobById(db, job.id, "test-worker-a1", 120_000);
+    const secondAttempt = await runGenerationJob(
+      { db, provider, workerId: "test-worker-a1", leaseDurationMs: 120_000, signal: new AbortController().signal },
+      reclaimed!,
+    );
+    expect(secondAttempt.kind).toBe("yielded");
+    if (secondAttempt.kind !== "yielded") throw new Error("unreachable");
+    expect(secondAttempt.job.status).toBe("ready");
+    expect(secondAttempt.job.failureCode).toBeNull();
   });
 });
 
