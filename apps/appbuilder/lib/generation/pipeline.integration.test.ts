@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import {
   createFakeProvider,
   value,
+  PLANNING_LIMITS,
   CONSTRUCTION_TASK_MANAGEMENT_SCRIPT,
   CLARIFICATION_NEEDED_SCRIPT,
   TIMEOUT_THEN_RETRY_SCRIPT,
@@ -239,6 +240,59 @@ describe("runGenerationJob — clarification", () => {
     // never silently dropped.
     expect(normalized.clarificationQuestions).toEqual([]);
     expect(normalized.assumptions.some((a) => a.includes("One more open question"))).toBe(true);
+  });
+
+  it("never lets a full assumptions list silently truncate away the folded question that triggered the fallback", async () => {
+    // A model that already emitted MAX_ASSUMPTIONS (20) assumptions, plus
+    // one more clarification question on the round-cap-triggering call —
+    // appending the folded question after 20 existing entries and slicing
+    // to 20 would silently drop it, defeating the whole point of this
+    // fallback (see PR #69 review).
+    const maxedOutAnalysis = {
+      appPurpose: "A team task manager.",
+      confidence: "low" as const,
+      assumptions: Array.from({ length: PLANNING_LIMITS.MAX_ASSUMPTIONS }, (_, i) => `Pre-existing assumption ${i + 1}.`),
+      clarificationQuestions: [{ id: "qN", question: "The one question that must survive the fold." }],
+    };
+    const script = {
+      analyzeRequirements: [
+        value({ appPurpose: "A team task manager.", confidence: "low", clarificationQuestions: [{ id: "q1", question: "Q1?" }] }),
+        value({ appPurpose: "A team task manager.", confidence: "low", clarificationQuestions: [{ id: "q2", question: "Q2?" }] }),
+        value({ appPurpose: "A team task manager.", confidence: "low", clarificationQuestions: [{ id: "q3", question: "Q3?" }] }),
+        value(maxedOutAnalysis),
+      ],
+      recommendTemplate: [value({ templateId: "task_management", reasoningSummary: "Matches.", confidence: "high" })],
+      proposeOperations: [value({ reasoningSummary: "Template alone is sufficient.", isFinalBatch: true, operations: [] })],
+    };
+
+    const { job } = await makeAppAndJob("Build me a task manager for my team.", "maxed-out-assumptions");
+    const provider = createFakeProvider(script);
+    const claimed0 = await claimJobById(db, job.id, "test-worker-m0", 120_000);
+    let outcome = await runGenerationJob(
+      { db, provider, workerId: "test-worker-m0", leaseDurationMs: 120_000, signal: new AbortController().signal },
+      claimed0!,
+    );
+
+    for (let round = 1; round <= 3; round += 1) {
+      if (outcome.kind !== "yielded") throw new Error("unreachable");
+      const state = outcome.job.clarificationState as { rounds: Array<{ questions: Array<{ id: string }> }> };
+      const openRound = state.rounds[state.rounds.length - 1];
+      const resumed = await submitClarificationAnswers(db, owner, outcome.job.appId, outcome.job.id, {
+        roundNumber: round,
+        answers: openRound.questions.map((q) => ({ questionId: q.id, answer: "ok" })),
+      });
+      const claimed = await claimJobById(db, resumed.id, `test-worker-m${round}`, 120_000);
+      outcome = await runGenerationJob(
+        { db, provider, workerId: `test-worker-m${round}`, leaseDurationMs: 120_000, signal: new AbortController().signal },
+        claimed!,
+      );
+    }
+
+    if (outcome.kind !== "yielded") throw new Error("unreachable");
+    expect(outcome.job.status).toBe("ready");
+    const normalized = outcome.job.normalizedRequirements as { assumptions: string[] };
+    expect(normalized.assumptions.length).toBeLessThanOrEqual(PLANNING_LIMITS.MAX_ASSUMPTIONS);
+    expect(normalized.assumptions.some((a) => a.includes("The one question that must survive the fold"))).toBe(true);
   });
 });
 

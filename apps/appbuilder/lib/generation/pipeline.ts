@@ -232,12 +232,20 @@ async function runAnalyzingPhase(deps: PipelineDeps, job: GenerationJobRow): Pro
       // folding the unresolved questions into `assumptions` (visible,
       // reviewable in the generated app's history) instead of failing the
       // job and losing a real user's multi-round, multi-day answers.
-      const foldedAssumptions = [
-        ...analysis.assumptions,
-        ...analysis.clarificationQuestions.map(
-          (q) => `Proceeded without further clarification on: ${q.question}`,
-        ),
-      ].slice(0, PLANNING_LIMITS.MAX_ASSUMPTIONS);
+      //
+      // The folded questions are the whole point of this fallback, so they
+      // are reserved room FIRST — appending them after an already-full
+      // `analysis.assumptions` (bounded by this same MAX_ASSUMPTIONS limit)
+      // would silently truncate every one of them right back out, and each
+      // folded string is clamped to RequirementsAnalysis's own mediumText
+      // bound so `normalizedRequirements` stays schema-valid even though
+      // nothing re-parses it today.
+      const FOLDED_QUESTION_PREFIX = "Proceeded without further clarification on: ";
+      const foldedQuestions = analysis.clarificationQuestions
+        .map((q) => `${FOLDED_QUESTION_PREFIX}${q.question}`.slice(0, PLANNING_LIMITS.MAX_MEDIUM_STRING))
+        .slice(0, PLANNING_LIMITS.MAX_ASSUMPTIONS);
+      const remainingAssumptionBudget = Math.max(0, PLANNING_LIMITS.MAX_ASSUMPTIONS - foldedQuestions.length);
+      const foldedAssumptions = [...foldedQuestions, ...analysis.assumptions.slice(0, remainingAssumptionBudget)];
 
       return transitionStatus(deps.db, job.id, "analyzing", "planning", {
         phase: "planning:template_selection",
