@@ -153,15 +153,17 @@ export class OpenAiProvider implements AiProvider {
 
       const result = schema.safeParse(nullsToUndefinedDeep(rawParsed));
       if (!result.success) {
-        // Operator-facing diagnostic only — structural (property paths, zod
-        // error codes/messages), never the model's actual field values,
-        // which could echo back user prompt content. This is the ONE piece
-        // of information every prior "malformed_response" investigation on
-        // this codebase has had to reconstruct indirectly (job/DB
-        // archaeology) because nothing safe was ever logged at the point of
-        // failure — see buildSafeSummary's own "detailed operator
-        // diagnostics belong in structured logs, never persisted on the job
-        // row" contract.
+        // Operator-facing diagnostic only — structural (property path + zod
+        // issue code), never the model's actual field values. Deliberately
+        // omits zod's own `issue.message`: for several issue codes (e.g.
+        // `invalid_enum_value` -> "...received 'About Section'",
+        // `unrecognized_keys` -> "Unrecognized key(s): 'foo'") that message
+        // embeds the rejected value itself, which is model output derived
+        // from the user's prompt — exactly the content this diagnostic must
+        // never carry. `path` + `code` alone is already enough to diagnose a
+        // schema-conformance failure (e.g. `operations`/`too_big` says the
+        // model exceeded the per-batch cap; `entity.id`/`invalid_string`
+        // says an id violated the stable-id pattern) without it.
         console.error(
           "[appbuilder-ai] OpenAI response failed schema validation",
           buildSafeSummary({
@@ -171,7 +173,6 @@ export class OpenAiProvider implements AiProvider {
             issues: result.error.issues.slice(0, 20).map((issue) => ({
               path: issue.path.join("."),
               code: issue.code,
-              message: issue.message,
             })),
           }),
         );
