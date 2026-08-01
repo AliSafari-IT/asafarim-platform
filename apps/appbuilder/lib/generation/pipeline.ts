@@ -183,6 +183,16 @@ async function runPhase(deps: PipelineDeps, job: GenerationJobRow): Promise<Gene
     case "analyzing":
       return runAnalyzingPhase(deps, job);
     case "planning":
+    // `applying` is a real, resumable mid-flight status (see
+    // lib/generation/stateMachine.ts's FORWARD_TRANSITIONS comment:
+    // "applying loops back to planning for the next iteration, or moves on
+    // to validating"), reachable whenever a worker crashes or a provider
+    // call fails AFTER `runPlanningIteration` has already committed the
+    // planning->applying transition but BEFORE it reaches its own next
+    // transition out of "applying". Both statuses resume through the same
+    // function, which is itself idempotent on re-entry (see its own guard
+    // around that transition).
+    case "applying":
       return runPlanningIteration(deps, job);
     case "validating":
       return runValidatingPhase(deps, job);
@@ -365,10 +375,19 @@ async function runPlanningIteration(deps: PipelineDeps, job: GenerationJobRow): 
     .from(generationOperationBatches)
     .where(eq(generationOperationBatches.jobId, job.id));
 
-  currentJob = await transitionStatus(deps.db, job.id, "planning", "applying", {
-    phase: `applying:iteration-${iteration}`,
-    baseVersionNumber,
-  });
+  // Idempotent on resume: if a prior attempt already committed this exact
+  // transition and then crashed (worker restart, provider timeout) before
+  // reaching this function's own next transition out of "applying", `job`
+  // (the untouched parameter — see runPhase's `case "applying"`) already
+  // reflects that. Re-attempting `"planning" -> "applying"` here would find
+  // no row still at `"planning"` and throw StaleJobStateError for no real
+  // reason — the job hasn't gone stale, it just hasn't finished this step yet.
+  if (job.status !== "applying") {
+    currentJob = await transitionStatus(deps.db, job.id, "planning", "applying", {
+      phase: `applying:iteration-${iteration}`,
+      baseVersionNumber,
+    });
+  }
 
   let batch: OperationBatchType;
   let providerModel: string;
