@@ -49,6 +49,12 @@ const PROVIDER_CODE_TO_FAILURE_CODE: Record<ProviderErrorCode, ModificationJobFa
   timeout: "provider_timeout",
   unavailable: "provider_unavailable",
   malformed_response: "malformed_provider_response",
+  // No dedicated modification_job_failure_code value for this yet (see
+  // lib/generation/errors.ts's provider_response_truncated, added for the
+  // reported generation-pipeline failure) — folded into the same code as an
+  // ordinary malformed response until a modification job actually needs the
+  // distinction.
+  truncated: "malformed_provider_response",
   invalid_request: "invalid_request",
   cancelled: "cancelled",
   unknown: "worker_infrastructure_error",

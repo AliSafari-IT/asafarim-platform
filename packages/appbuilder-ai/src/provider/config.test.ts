@@ -27,7 +27,8 @@ describe("loadAiProviderConfig", () => {
 
   it("applies documented defaults for unset numeric bounds", () => {
     const config = loadAiProviderConfig({});
-    expect(config.requestTimeoutMs).toBe(30_000);
+    // #64: raised from 30s — see DEFAULT_REQUEST_TIMEOUT_MS's doc comment.
+    expect(config.requestTimeoutMs).toBe(120_000);
     expect(config.maxRetries).toBe(2);
     expect(config.maxIterations).toBe(4);
   });

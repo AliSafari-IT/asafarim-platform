@@ -16,6 +16,18 @@ export const PROVIDER_ERROR_CODES = [
   "unavailable",
   /** Response didn't match the requested structured schema. */
   "malformed_response",
+  /**
+   * The response was cut off by the configured output token limit before
+   * the model finished (OpenAI `finish_reason: "length"`). Distinct from
+   * `malformed_response` (a schema-mismatched but COMPLETE answer, often a
+   * one-off model slip) because this is a request/config-shaped problem:
+   * for a reasoning-capable model, the same token budget also has to cover
+   * hidden reasoning tokens, so a request whose expected output is large
+   * (e.g. a rich, multi-round-clarified specification) can reliably run out
+   * of room — retrying with the identical prompt and limit tends to hit the
+   * exact same wall, not a transient blip.
+   */
+  "truncated",
   /** Caller-side misconfiguration (bad model name, invalid request shape). */
   "invalid_request",
   /** Request was aborted via the provided AbortSignal. */
@@ -83,6 +95,8 @@ export function safeProviderErrorMessage(code: ProviderErrorCode): string {
       return "The AI provider is temporarily unavailable. Retrying automatically.";
     case "malformed_response":
       return "The AI provider returned an unexpected response. Retrying automatically.";
+    case "truncated":
+      return "The AI provider's response was cut off before it finished (the configured output limit was too low for this request). Retrying automatically, but this will keep happening for the same request until the limit is raised.";
     case "invalid_request":
       return "This request could not be processed. An operator has been notified.";
     case "cancelled":

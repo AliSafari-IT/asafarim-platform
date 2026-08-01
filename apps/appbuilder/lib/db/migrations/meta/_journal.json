@@ -120,6 +120,13 @@
       "when": 1785500000000,
       "tag": "0016_appbuilder_provider_timeout_failure_code",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785611367692,
+      "tag": "0017_appbuilder_provider_response_truncated",
+      "breakpoints": true
     }
   ]
 }
