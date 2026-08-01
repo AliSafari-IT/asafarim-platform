@@ -167,24 +167,26 @@ async function main(): Promise<void> {
   execSync("pnpm db:migrate:deploy", { stdio: "inherit" });
   applyAppDrizzleMigrations();
 
+  // Clean stale .next directories before building. Turbopack's dev server
+  // generates .next/dev/types/*.d.ts files that can contain broken content
+  // from a previous session; if left around, `next build` picks them up and
+  // fails with "Declaration or statement expected" type errors.
+  console.log("Cleaning .next caches...");
+  const appsDir = join(process.cwd(), "apps");
+  for (const app of readdirSync(appsDir)) {
+    const nextDir = join(appsDir, app, ".next");
+    try {
+      rmSync(nextDir, { recursive: true, force: true });
+    } catch {
+      // ignore if directory doesn't exist
+    }
+  }
+
   console.log("Building packages...");
   execSync("pnpm build --no-cache", { stdio: "inherit" });
 
   console.log("Killing ports...");
   execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008", { stdio: "inherit" });
-
-  // Clean stale .next/dev directories to prevent Turbopack cache conflicts
-  // after the build step above. Build artifacts can confuse the dev server.
-  console.log("Cleaning .next/dev caches...");
-  const appsDir = join(process.cwd(), "apps");
-  for (const app of readdirSync(appsDir)) {
-    const devDir = join(appsDir, app, ".next", "dev");
-    try {
-      rmSync(devDir, { recursive: true, force: true });
-    } catch {
-      // ignore if directory doesn't exist
-    }
-  }
 
   console.log("Starting dev servers...");
   const require = createRequire(import.meta.url);
