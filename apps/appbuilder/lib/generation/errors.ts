@@ -48,6 +48,12 @@ export const RETRYABLE_FAILURE_CODES: ReadonlySet<GenerationJobFailureCode> = ne
   // job (bounded by MAX_JOB_ATTEMPTS) is the right default rather than
   // failing outright on the first miss.
   "malformed_provider_response",
+  // Same "worth a few attempts within MAX_JOB_ATTEMPTS, bounded" logic as
+  // the two above — sampling variance means a retry occasionally produces a
+  // shorter answer that fits. It does NOT make a persistently-too-low
+  // output-token limit self-healing (see the schema enum's own doc
+  // comment): the honest message is what actually fixes the recurring case.
+  "provider_response_truncated",
 ]);
 
 const PROVIDER_CODE_TO_FAILURE_CODE: Record<ProviderErrorCode, GenerationJobFailureCode> = {
@@ -60,6 +66,7 @@ const PROVIDER_CODE_TO_FAILURE_CODE: Record<ProviderErrorCode, GenerationJobFail
   timeout: "provider_timeout",
   unavailable: "provider_unavailable",
   malformed_response: "malformed_provider_response",
+  truncated: "provider_response_truncated",
   invalid_request: "invalid_request",
   cancelled: "cancelled",
   unknown: "worker_infrastructure_error",
@@ -73,6 +80,8 @@ const SAFE_MESSAGES: Record<GenerationJobFailureCode, string> = {
   // Filled in by safeFailureMessage below, which knows the configured limit.
   provider_timeout: "",
   malformed_provider_response: "The AI provider returned an unexpected response. This will be retried automatically.",
+  provider_response_truncated:
+    "The AI provider's response was cut off before it finished — the configured output token limit (APPBUILDER_AI_MAX_OUTPUT_TOKENS / OPENAI_MAX_OUTPUT_TOKENS) is too low for this request. This will be retried automatically, but will keep happening for the same request until the limit is raised.",
   forbidden_operation: "The AI proposed a change outside what this platform allows, so it was rejected.",
   specification_validation_failed: "The proposed changes did not pass specification validation.",
   stale_base_version: "The application was edited elsewhere while generation was in progress.",

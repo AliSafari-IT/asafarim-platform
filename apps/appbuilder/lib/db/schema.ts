@@ -201,6 +201,16 @@ export const generationJobFailureCodeEnum = pgEnum(
     // in exactly the wrong direction.
     "provider_timeout",
     "malformed_provider_response",
+    // Distinct from `malformed_provider_response` on purpose, same reasoning
+    // as `provider_timeout` above: a schema-mismatched-but-complete answer
+    // is often a one-off model slip, worth a blind retry. A response cut off
+    // by the output token limit (finish_reason: "length") is usually a
+    // request/config-shaped problem instead — for a reasoning-capable model
+    // the same budget also covers hidden reasoning tokens, so a request
+    // whose expected output is large can reliably hit the exact same wall on
+    // every retry until the limit (APPBUILDER_AI_MAX_OUTPUT_TOKENS /
+    // OPENAI_MAX_OUTPUT_TOKENS) is raised.
+    "provider_response_truncated",
     "forbidden_operation",
     "specification_validation_failed",
     "stale_base_version",

@@ -44,6 +44,11 @@ const PROVIDER_CODE_TO_FAILURE_CODE: Record<ProviderErrorCode, RepairJobFailureC
   timeout: "provider_timeout",
   unavailable: "provider_unavailable",
   malformed_response: "malformed_provider_response",
+  // No dedicated repair-attempt failure code for this yet (see
+  // lib/generation/errors.ts's provider_response_truncated) — folded into
+  // the same code as an ordinary malformed response until a repair attempt
+  // actually needs the distinction.
+  truncated: "malformed_provider_response",
   invalid_request: "invalid_request",
   cancelled: "cancelled",
   unknown: "worker_infrastructure_error",
