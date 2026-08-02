@@ -96,6 +96,7 @@ Builds depend on `^build` (packages must build before apps). When you change a s
 - `.env.age` / `.env.production.age` — encrypted, committed
 - `.age/key.pub` — recipient key (committed); `.age/key.txt` — private key (never committed)
 - Key sections: `DATABASE_URL`, `AUTH_SECRET`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, S3 credentials, SMTP config, per-app `*_DATABASE_URL`
+- in production, `.env.production` is regenerated from the encrypted `.env.production.age` (tracked in git) via `envage/age`. So editing `.env.production` directly is futile — it gets overwritten on the next decrypt.
 
 ### App Ports
 | App | Local Port | Domain |
@@ -117,3 +118,4 @@ Docker Compose + Caddy reverse proxy on Hostinger VPS (`82.25.116.73`). GitHub A
 - `docs/appbuilder-m13-public-references.md` — SSRF policy, provenance/freshness, cache TTL, GitHub adapter
 - `docs/environment-management.md` — Encryption workflow, key rotation, CI procedures
 - `docs/design-system.md` — UI tokens, mood system, brand components
+
