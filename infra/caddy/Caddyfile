@@ -42,6 +42,27 @@ appbuilder.asafarim.com {
   reverse_proxy appbuilder:3000
 }
 
+# asafarim.be is a separate deployment (asafarim-devtools + logo-normalizer
+# projects, each their own docker-compose project on this same VPS/Docker
+# network) sharing this one Caddy instance for TLS termination.
+asafarim.be {
+  handle /apps/logo-normalizer* {
+    reverse_proxy logo-normalizer:3202
+  }
+  handle {
+    reverse_proxy devtools:3200
+  }
+}
+
+www.asafarim.be {
+  handle /apps/logo-normalizer* {
+    reverse_proxy logo-normalizer:3202
+  }
+  handle {
+    reverse_proxy devtools:3200
+  }
+}
+
 # M11: wildcard managed-app hosting. Every `{app-slug}.apps.asafarim.com`
 # host is routed to the SAME AppBuilder container as the builder itself —
 # there is no per-app container or deployment target. AppBuilder's own
