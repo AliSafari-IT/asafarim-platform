@@ -245,7 +245,11 @@ services:
     restart: "no"
     environment:
       NODE_ENV: production
-      APPBUILDER_DATABASE_URL: postgres://appbuilder:${APPBUILDER_DB_PASSWORD}@appbuilder-postgres:5432/appbuilder
+      # APPBUILDER_DB_PASSWORD_URL is the URL-encoded form of
+      # APPBUILDER_DB_PASSWORD (which may contain chars like '/' that are
+      # illegal unencoded in a URI userinfo). POSTGRES_PASSWORD uses the raw
+      # value; connection strings must use the encoded one.
+      APPBUILDER_DATABASE_URL: postgres://appbuilder:${APPBUILDER_DB_PASSWORD_URL}@appbuilder-postgres:5432/appbuilder
     depends_on:
       appbuilder-postgres:
         condition: service_healthy
@@ -268,7 +272,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      APPBUILDER_DATABASE_URL: postgres://appbuilder:${APPBUILDER_DB_PASSWORD}@appbuilder-postgres:5432/appbuilder
+      APPBUILDER_DATABASE_URL: postgres://appbuilder:${APPBUILDER_DB_PASSWORD_URL}@appbuilder-postgres:5432/appbuilder
       REDIS_URL: redis://redis:6379
       APPBUILDER_AI_PROVIDER: ${APPBUILDER_AI_PROVIDER:-fake}
       APPBUILDER_AI_OPENAI_API_KEY: ${APPBUILDER_AI_OPENAI_API_KEY}
@@ -303,7 +307,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
-      APPBUILDER_DATABASE_URL: postgres://appbuilder:${APPBUILDER_DB_PASSWORD}@appbuilder-postgres:5432/appbuilder
+      APPBUILDER_DATABASE_URL: postgres://appbuilder:${APPBUILDER_DB_PASSWORD_URL}@appbuilder-postgres:5432/appbuilder
       REDIS_URL: redis://redis:6379
       NEXT_PUBLIC_APP_URL: https://appbuilder.asafarim.com
       AUTH_URL: https://appbuilder.asafarim.com
