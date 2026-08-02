@@ -72,7 +72,9 @@ COPY --from=worker-builder /app/apps/appbuilder/worker-dist ./worker-dist
 # Only the deps tsup.worker.config.ts keeps external (native/heavy — bundled
 # workspace packages like @asafarim/appbuilder-ai are already inlined).
 # playwright-core/@axe-core/playwright back M10's browser-driven gates.
-RUN npm install --no-save --omit=dev bullmq@^5.34.0 ioredis@^5.11.1 openai@^4.73.0 pg@^8.13.1 playwright-core@^1.60.0 @axe-core/playwright@^4.10.1
+# drizzle-orm/next-auth/react/zod are externalized by tsup (see
+# tsup.worker.config.ts) and so must be installed here too.
+RUN npm install --no-save --omit=dev bullmq@^5.34.0 ioredis@^5.11.1 openai@^4.73.0 pg@^8.13.1 playwright-core@^1.60.0 @axe-core/playwright@^4.10.1 drizzle-orm@^0.38.2 next-auth@^5.0.0-beta.28 react@^19.2.7 zod@^3.24.1
 RUN npx playwright install --with-deps chromium
 EXPOSE 3008
 CMD ["node", "worker-dist/worker.js"]
