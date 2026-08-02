@@ -27,6 +27,31 @@ fi
 age -d -i .age/key.txt .env.production.age > .env.production
 chmod 600 .env.production
 
+echo "[deploy $(date -Is)] Validating required environment variables..."
+REQUIRED_VARS=(POSTGRES_PASSWORD TESTORA_DB_PASSWORD APPBUILDER_DB_PASSWORD)
+MISSING_VARS=()
+for var in "${REQUIRED_VARS[@]}"; do
+  # Matches KEY=value with a non-empty value; tolerates quoted values.
+  if ! grep -qE "^${var}=[\"']?[^\"'[:space:]]" .env.production; then
+    MISSING_VARS+=("$var")
+  fi
+done
+if (( ${#MISSING_VARS[@]} > 0 )); then
+  echo "FATAL: .env.production is missing values for: ${MISSING_VARS[*]}" >&2
+  echo "Docker Compose would silently interpolate these as blank strings, breaking DB auth." >&2
+  echo "Restore them (see .env.production.example) and re-encrypt with 'pnpm env:encrypt:production'." >&2
+  exit 1
+fi
+
+# Always reclaim dangling images/build cache on exit (success or failure) so
+# repeated failed deploys don't silently fill the disk before the next run.
+cleanup() {
+  echo "[deploy $(date -Is)] Pruning dangling images and build cache..."
+  docker image prune -f >/dev/null 2>&1 || true
+  docker builder prune -f --filter until=24h >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
 export DOCKER_BUILDKIT=1
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-asafarim-com}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
@@ -65,9 +90,6 @@ if [[ -n "${DISCORD_WEBHOOK}" && "${DISCORD_WEBHOOK}" == https://discord.com/api
 else
   echo "WEBHOOK_SECRET_DISCORD not configured — skipping notification."
 fi
-
-echo "[deploy $(date -Is)] Pruning dangling images..."
-docker image prune -f >/dev/null 2>&1 || true
 
 echo "[deploy $(date -Is)] Done. Current state:"
 "${COMPOSE[@]}" ps
