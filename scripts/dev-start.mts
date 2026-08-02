@@ -190,7 +190,7 @@ async function main(): Promise<void> {
   }
 
   console.log("Building packages...");
-  execSync("pnpm build --no-cache", { stdio: "inherit" });
+  execSync("pnpm turbo build --no-cache --concurrency=3", { stdio: "inherit" });
 
   console.log("Starting dev servers...");
   const require = createRequire(import.meta.url);
