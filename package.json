@@ -5,7 +5,7 @@
   "description": "ASafarIM Platform - unified monorepo for all ASafarIM Digital apps and services",
   "author": "Ali Safari",
   "license": "MIT",
-  "packageManager": "pnpm@11.18.0+sha512.33d83c77da82f49fba836925c6f1b841181ec3132b670639bd012f7075f5c7cf634c5f870147c19aae7478fac01df09d8892e880454896edd23ee9b33757563c",
+  "packageManager": "pnpm@11.20.0",
   "scripts": {
     "dev": "tsx scripts/dev-start.mts",
     "clean": "rimraf node_modules .turbo && turbo clean",
@@ -40,7 +40,12 @@
     "bench:vionto:fixtures": "pnpm --filter @asafarim/vionto-benchmark bench:generate",
     "deploy:prod": "bash ./infra/scripts/deploy-prod.sh",
     "runFromVPS": "docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build vionto vionto-worker hub admin showcase testora-migrate testora",
-    "runFromLocal": "ssh vps \"cd /var/repos/asafarim-com && docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build vionto vionto-worker hub admin showcase testora-migrate testora && docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build appbuilder appbuilder-worker\""
+    "runFromLocal": "ssh vps \"cd /var/repos/asafarim-com && docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build vionto vionto-worker hub admin showcase testora-migrate testora && docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build appbuilder appbuilder-worker\"",
+    "inspectVpsStorage": "ssh vps \"df -h\"",
+    "inspectVpsDocker": "ssh vps \"docker ps\"",
+    "inspectVpsDockerImages": "ssh vps \"docker images\"",
+    "inspectVpsDockerContainers": "ssh vps \"docker container ls -a\"",
+    "freeUnusedResources": "ssh vps \"docker system prune -a\""
   },
   "devDependencies": {
     "@asafarim/envage": "^0.4.2",
