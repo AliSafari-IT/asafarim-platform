@@ -110,6 +110,19 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     status: "active",
     access: "authenticated",
   },
+  {
+    // DevTools is a separate deployment on asafarim.be (its own docker-compose
+    // project on the same VPS), not a subdomain of asafarim.com. It is listed
+    // here so the platform launcher and app-switcher link to it; access is
+    // "public" because the DevTools app handles its own auth independently.
+    key: "devtools",
+    name: "DevTools",
+    description: "Developer tooling and utilities — logo normalizer and more.",
+    glyph: "DT",
+    meta: "asafarim.be",
+    status: "active",
+    access: "public",
+  },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────
   {

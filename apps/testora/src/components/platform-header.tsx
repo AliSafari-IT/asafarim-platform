@@ -36,6 +36,7 @@ export async function PlatformHeader() {
             { label: "Showcase", href: links.showcase, meta: "gallery" },
             { label: "Vionto", href: links.vionto, meta: "studio" },
             { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
+            { label: "DevTools", href: links.devtools, meta: "asafarim.be" },
           ]}
         />
         {session?.user ? (

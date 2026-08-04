@@ -33,6 +33,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               { label: "Showcase", href: links.showcase, meta: "gallery" },
               { label: "Testora", href: links.testora, meta: "benchmark" },
               { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
+              { label: "DevTools", href: links.devtools, meta: "asafarim.be" },
             ]}
           />
           <UserMenu
