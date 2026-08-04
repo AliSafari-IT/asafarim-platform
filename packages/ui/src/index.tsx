@@ -33,6 +33,7 @@ export {
 } from "./components/Form";
 export { Hero } from "./components/Hero";
 export { Kicker } from "./components/Kicker";
+export { MenuOutsideClick } from "./components/MenuOutsideClick";
 export { Metric } from "./components/Metric";
 export { PageHeader } from "./components/PageHeader";
 export { Panel } from "./components/Panel";
