@@ -16,6 +16,7 @@ export interface PlatformLinks {
   vionto: string;
   testora: string;
   appbuilder: string;
+  devtools: string;
 }
 
 export function getPlatformLinks(): PlatformLinks {
@@ -27,5 +28,9 @@ export function getPlatformLinks(): PlatformLinks {
     vionto: process.env.NEXT_PUBLIC_VIONTO_URL ?? "http://localhost:3004",
     testora: process.env.NEXT_PUBLIC_TESTORA_URL ?? "http://localhost:3005",
     appbuilder: process.env.NEXT_PUBLIC_APPBUILDER_URL ?? "http://localhost:3006",
+    // devtools lives on a separate domain (asafarim.be) as its own deployment,
+    // not a subdomain of asafarim.com — it is not part of the local dev monorepo,
+    // so the default points at the production URL.
+    devtools: process.env.NEXT_PUBLIC_DEVTOOLS_URL ?? "https://asafarim.be",
   };
 }
