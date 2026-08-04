@@ -6,6 +6,7 @@ import {
   Button,
   ButtonLink,
   LogoMark,
+  MenuOutsideClick,
   UserMenu,
   getPlatformLinks,
 } from "@asafarim/ui";
@@ -22,6 +23,8 @@ export async function PlatformHeader() {
   const signInUrl = `${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.testora}/`)}`;
 
   return (
+    <>
+    <MenuOutsideClick />
     <header className="ui-shell__header">
       <Link href="/" className="ui-shell__brand">
         <LogoMark accent />
@@ -65,5 +68,6 @@ export async function PlatformHeader() {
         )}
       </div>
     </header>
+    </>
   );
 }

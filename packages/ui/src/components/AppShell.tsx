@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BrandWordmark, LogoMark, type ProductName } from "./Brand";
+import { MenuOutsideClick } from "./MenuOutsideClick";
 
 export interface AppShellProps {
   /** Product suffix in the brand chip (Hub, Admin, ...). */
@@ -25,6 +26,7 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <div className="ui-shell">
+      <MenuOutsideClick />
       <header className="ui-shell__header">
         <a href="/" className="ui-shell__brand">
           <LogoMark accent />
