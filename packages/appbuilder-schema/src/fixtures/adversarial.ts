@@ -50,6 +50,35 @@ export const brokenRelationsFixture: unknown = {
   ],
 };
 
+/**
+ * A relation-typed field placed on the "to" side of its relation instead of
+ * the "from" side — Zod-level shape is fine (the field references a real
+ * relation), but a relation field is only ever declared on the `fromEntityId`
+ * side in this MVP's directional model. Mirrors a real bug: a "user_job"
+ * relation declared `fromEntityId: "user"` with a relation field mistakenly
+ * placed on "job" instead, which passed generation but threw
+ * `InvalidRelationTargetError` on every live record read/write.
+ */
+export const wrongDirectionRelationFieldFixture: unknown = {
+  ...baseValid,
+  entities: [
+    { id: "user", machineName: "user", name: "User", fields: [], indexes: [], archived: false },
+    {
+      id: "job",
+      machineName: "job",
+      name: "Job",
+      fields: [
+        { id: "job_user", machineName: "user", name: "User", type: "relation", relationId: "user_job", required: false, archived: false },
+      ],
+      indexes: [],
+      archived: false,
+    },
+  ],
+  relations: [
+    { id: "user_job", name: "User's jobs", fromEntityId: "user", toEntityId: "job", cardinality: "oneToMany", onDelete: "cascade", archived: false },
+  ],
+};
+
 /** A page component bound to an entity that doesn't exist. */
 export const orphanedComponentReferencesFixture: unknown = {
   ...baseValid,
@@ -166,6 +195,7 @@ export const reservedIdentifierFixture: unknown = {
 export const adversarialFixtures = {
   duplicateIdsFixture,
   brokenRelationsFixture,
+  wrongDirectionRelationFieldFixture,
   orphanedComponentReferencesFixture,
   privilegeEscalationFixture,
   scriptInjectionFixture,

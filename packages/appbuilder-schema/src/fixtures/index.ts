@@ -3,6 +3,7 @@ export {
   adversarialFixtures,
   duplicateIdsFixture,
   brokenRelationsFixture,
+  wrongDirectionRelationFieldFixture,
   orphanedComponentReferencesFixture,
   privilegeEscalationFixture,
   scriptInjectionFixture,

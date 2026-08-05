@@ -2,7 +2,7 @@ import { validateSpecification } from "@asafarim/appbuilder-schema";
 import type { GateContext, GateDefinition, GateResult } from "../types";
 import { redactFailures } from "../redaction";
 
-const REFERENCE_CODES = new Set(["orphaned_reference", "circular_reference"]);
+const REFERENCE_CODES = new Set(["orphaned_reference", "circular_reference", "invalid_relation_direction"]);
 
 /**
  * Every cross-reference in the pinned specification resolves: field
@@ -17,10 +17,10 @@ const REFERENCE_CODES = new Set(["orphaned_reference", "circular_reference"]);
  */
 export const referenceIntegrityGate: GateDefinition = {
   key: "reference_integrity",
-  version: "1.0.0",
+  version: "1.1.0",
   mandatory: true,
   title: "Reference integrity",
-  description: "Every cross-reference in the specification (relations, permissions, navigation, workflow targets) resolves to a real, non-archived target.",
+  description: "Every cross-reference in the specification (relations, permissions, navigation, workflow targets) resolves to a real, non-archived target, and every relation field is declared on its relation's \"from\" side.",
   async execute(ctx: GateContext): Promise<GateResult> {
     const result = validateSpecification(ctx.specPayload);
     const referenceIssues = result.errors.filter((e) => REFERENCE_CODES.has(e.code));
