@@ -502,6 +502,10 @@ const healthServer = createServer(async (_req, res) => {
       queues: [GENERATION_QUEUE_NAME, MODIFICATION_QUEUE_NAME, VALIDATION_QUEUE_NAME, REPAIR_QUEUE_NAME, DEPLOYMENT_QUEUE_NAME],
       concurrency: CONCURRENCY,
       activeJobCount,
+      // #66: exposed so tooling (e.g. the e2e suite's global-setup) can
+      // verify at a glance which provider this worker is actually running —
+      // previously only logged to stdout at startup, never queryable.
+      provider: loadAiProviderConfig().provider,
       checks,
       timestamp: new Date().toISOString(),
     }),
