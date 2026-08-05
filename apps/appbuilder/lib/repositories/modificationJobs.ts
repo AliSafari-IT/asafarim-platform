@@ -681,6 +681,13 @@ export async function submitClarificationAnswer(
         clarificationState: newState,
         leaseOwner: null,
         leaseExpiresAt: null,
+        // See generationJobs.ts's submitClarificationAnswers for why this is
+        // reset: attemptCount is the provider-failure retry budget
+        // (MODIFICATION_LIMITS.MAX_JOB_ATTEMPTS), incremented on every claim
+        // including clarification resumes — without resetting it here, a
+        // multi-round clarification conversation silently spends that budget
+        // before the actual modification work ever runs a provider call.
+        attemptCount: 0,
         updatedAt: now,
       })
       .where(eq(modificationJobs.id, jobId))

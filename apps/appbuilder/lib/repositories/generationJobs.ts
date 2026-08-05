@@ -647,6 +647,21 @@ export async function submitClarificationAnswers(
         clarificationState: parsedState.data,
         leaseOwner: null,
         leaseExpiresAt: null,
+        // `attemptCount` is the provider-failure retry budget that
+        // `runGenerationJob`'s canRetry check bounds by
+        // GENERATION_LIMITS.MAX_JOB_ATTEMPTS (see lib/generation/pipeline.ts)
+        // — it is NOT meant to count human clarification round-trips. Every
+        // claim (claimInternal in this file) increments it unconditionally,
+        // so without this reset a job that goes through 3 clarification
+        // rounds already arrives at its post-clarification generation work
+        // with a fully (or over-) spent retry budget: the very first
+        // provider hiccup there fails terminally instead of actually being
+        // retried, contradicting the "This will be retried automatically"
+        // message (lib/generation/errors.ts) and surfacing as the UI's
+        // "attempt N of 3" counter exceeding 3. Resetting to 0 here gives
+        // each post-clarification generation attempt its own full budget,
+        // matching a brand-new claim's starting point.
+        attemptCount: 0,
         updatedAt: now,
       })
       .where(eq(generationJobs.id, jobId))
