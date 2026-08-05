@@ -12,6 +12,9 @@ allowBuilds:
   msgpackr-extract: true
   # eslint-config-next resolver
   unrs-resolver: true
+  # edumatch PDF generation (Chromium download skipped in Docker via
+  # PUPPETEER_SKIP_DOWNLOAD=true — see apps/edumatch/Dockerfile)
+  puppeteer: true
 minimumReleaseAgeExclude:
   - '@asafarim/envage@0.4.2'
 overrides:
