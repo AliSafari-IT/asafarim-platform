@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 
 const SUBJECTS_LIST = [
   "Mathematics",
@@ -174,11 +175,14 @@ export default function TutorProfilePage() {
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold text-[var(--color-text)] mb-2">
-        {exists
-          ? t("edumatch.profile.tutor.title.edit")
-          : t("edumatch.profile.tutor.title.create")}
-      </h1>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">
+          {exists
+            ? t("edumatch.profile.tutor.title.edit")
+            : t("edumatch.profile.tutor.title.create")}
+        </h1>
+        <ContextualHelpLink href="/help/tutors/getting-started" />
+      </div>
       <p className="text-[var(--color-text-muted)] mb-6">
         {exists
           ? t("edumatch.profile.tutor.subtitle.edit")

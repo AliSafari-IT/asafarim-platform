@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 
 type Attachment = {
   url: string;
@@ -257,9 +258,12 @@ export default function TutorRequestsPage() {
         </span>
       </div>
 
-      <h1 className="text-2xl font-bold text-[var(--color-text)] mb-1">
-        {t("edumatch.requests.title")}
-      </h1>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">
+          {t("edumatch.requests.title")}
+        </h1>
+        <ContextualHelpLink href="/help/tutors/finding-and-quoting-requests" />
+      </div>
       <p className="text-sm text-[var(--color-text-muted)] mb-6">
         {t("edumatch.requests.subtitle")}
       </p>

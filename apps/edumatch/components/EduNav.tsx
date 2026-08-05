@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   BookOpenCheck,
   ChevronDown,
   Grid3X3,
   GraduationCap,
+  HelpCircle,
   LayoutDashboard,
   Menu,
   Moon,
@@ -43,6 +45,7 @@ function Brand() {
 }
 
 function ThemeButton() {
+  const { t } = useTranslation();
   const [theme, setTheme] = useState<"light" | "dark">("dark");
 
   useEffect(() => {
@@ -59,13 +62,19 @@ function ThemeButton() {
   }
 
   return (
-    <button className="edu-icon-button" type="button" onClick={toggle} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
+    <button
+      className="edu-icon-button"
+      type="button"
+      onClick={toggle}
+      aria-label={t(theme === "dark" ? "edumatch.nav.switchToLight" : "edumatch.nav.switchToDark")}
+    >
       {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
     </button>
   );
 }
 
 function AppMenu() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -79,12 +88,12 @@ function AppMenu() {
 
   return (
     <div className="edu-menu-anchor" ref={ref}>
-      <button className="edu-icon-button" type="button" onClick={() => setOpen(!open)} aria-label="Open ASafarIM apps" aria-expanded={open}>
+      <button className="edu-icon-button" type="button" onClick={() => setOpen(!open)} aria-label={t("edumatch.nav.appsMenuAria")} aria-expanded={open}>
         <Grid3X3 size={18} />
       </button>
       {open && (
         <div className="edu-popover edu-app-menu">
-          <p>ASafarIM apps</p>
+          <p>{t("edumatch.nav.appsMenuLabel")}</p>
           {appLinks.map(([label, href]) => (
             <a href={href} key={label} onClick={() => setOpen(false)}>
               <span>{label}</span><span>↗</span>
@@ -97,6 +106,7 @@ function AppMenu() {
 }
 
 function AccountMenu() {
+  const { t } = useTranslation();
   const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -111,7 +121,11 @@ function AccountMenu() {
 
   if (status === "loading") return <span className="edu-avatar edu-avatar-loading" />;
   if (!session?.user) {
-    return <a className="edu-nav-cta" href={`${hubUrl}/sign-in?callbackUrl=${encodeURIComponent(edumatchUrl)}`}>Sign in</a>;
+    return (
+      <a className="edu-nav-cta" href={`${hubUrl}/sign-in?callbackUrl=${encodeURIComponent(edumatchUrl)}`}>
+        {t("edumatch.nav.signIn")}
+      </a>
+    );
   }
 
   const initials = (session.user.name || session.user.email || "EM")
@@ -130,8 +144,10 @@ function AccountMenu() {
             <strong>{session.user.name || "EduMatch member"}</strong>
             <span>{session.user.email}</span>
           </div>
-          <a href={`${hubUrl}/profile`}><UserRound size={16} /> Profile & settings</a>
-          <button type="button" onClick={() => signOut({ callbackUrl: edumatchUrl })}>Sign out</button>
+          <a href={`${hubUrl}/profile`}><UserRound size={16} /> {t("edumatch.nav.profileSettings")}</a>
+          <button type="button" onClick={() => signOut({ callbackUrl: edumatchUrl })}>
+            {t("edumatch.nav.signOut")}
+          </button>
         </div>
       )}
     </div>
@@ -139,16 +155,18 @@ function AccountMenu() {
 }
 
 export function EduNav() {
+  const { t } = useTranslation();
   const pathname = usePathname();
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const roles = session?.user?.roles || [];
   const nav = [
-    { label: "Find support", href: "/student/inquiry/new", icon: Search },
-    { label: "Student space", href: "/student", icon: BookOpenCheck },
-    { label: "Tutor studio", href: "/tutor", icon: UsersRound },
+    { labelKey: "edumatch.nav.findSupport", href: "/student/inquiry/new", icon: Search },
+    { labelKey: "edumatch.nav.studentSpace", href: "/student", icon: BookOpenCheck },
+    { labelKey: "edumatch.nav.tutorStudio", href: "/tutor", icon: UsersRound },
+    { labelKey: "edumatch.nav.help", href: "/help", icon: HelpCircle },
     ...(roles.some((role: string) => ["admin", "superadmin", "edumatch_admin"].includes(role))
-      ? [{ label: "Operations", href: "/admin", icon: LayoutDashboard }]
+      ? [{ labelKey: "edumatch.nav.operations", href: "/admin", icon: LayoutDashboard }]
       : []),
   ];
 
@@ -157,9 +175,16 @@ export function EduNav() {
       <div className="edu-topbar-inner">
         <Brand />
         <nav className="edu-desktop-nav" aria-label="EduMatch">
-          {nav.map(({ label, href, icon: Icon }) => {
-            const active = pathname === href || (href !== "/student/inquiry/new" && pathname.startsWith(`${href}/`));
-            return <Link className={active ? "is-active" : ""} href={href} key={href}><Icon size={16} />{label}</Link>;
+          {nav.map(({ labelKey, href, icon: Icon }) => {
+            const active =
+              pathname === href ||
+              (href !== "/student/inquiry/new" && href !== "/help" && pathname.startsWith(`${href}/`)) ||
+              (href === "/help" && pathname.startsWith("/help"));
+            return (
+              <Link className={active ? "is-active" : ""} aria-current={active ? "page" : undefined} href={href} key={href}>
+                <Icon size={16} />{t(labelKey)}
+              </Link>
+            );
           })}
         </nav>
         <div className="edu-topbar-actions">
@@ -168,14 +193,18 @@ export function EduNav() {
           <ThemeButton />
           <AppMenu />
           <AccountMenu />
-          <button className="edu-icon-button edu-mobile-toggle" type="button" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation">
+          <button className="edu-icon-button edu-mobile-toggle" type="button" onClick={() => setMobileOpen(!mobileOpen)} aria-label={t("edumatch.nav.toggleNavAria")} aria-expanded={mobileOpen}>
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
       {mobileOpen && (
         <nav className="edu-mobile-nav" aria-label="EduMatch mobile">
-          {nav.map(({ label, href, icon: Icon }) => <Link href={href} key={href} onClick={() => setMobileOpen(false)}><Icon size={18} />{label}</Link>)}
+          {nav.map(({ labelKey, href, icon: Icon }) => (
+            <Link href={href} key={href} onClick={() => setMobileOpen(false)}>
+              <Icon size={18} />{t(labelKey)}
+            </Link>
+          ))}
         </nav>
       )}
     </header>
