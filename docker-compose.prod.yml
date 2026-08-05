@@ -28,6 +28,7 @@ services:
         NEXT_PUBLIC_SHOWCASE_URL: ${NEXT_PUBLIC_SHOWCASE_URL}
         NEXT_PUBLIC_ADMIN_URL: ${NEXT_PUBLIC_ADMIN_URL}
         NEXT_PUBLIC_VIONTO_URL: ${NEXT_PUBLIC_VIONTO_URL}
+        NEXT_PUBLIC_EDUMATCH_URL: ${NEXT_PUBLIC_EDUMATCH_URL}
         NEXT_PUBLIC_TESTORA_URL: ${NEXT_PUBLIC_TESTORA_URL}
         NEXT_PUBLIC_APPBUILDER_URL: ${NEXT_PUBLIC_APPBUILDER_URL}
         NEXT_PUBLIC_DEVTOOLS_URL: ${NEXT_PUBLIC_DEVTOOLS_URL:-https://asafarim.be}
@@ -146,6 +147,27 @@ services:
         limits:
           cpus: "2"
           memory: 4g
+    networks:
+      - asafarim_net
+
+  edumatch:
+    build:
+      context: .
+      dockerfile: apps/edumatch/Dockerfile
+      args: *public-build-args
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_APP_URL: https://edumatch.asafarim.com
+      NEXT_PUBLIC_EDUMATCH_URL: https://edumatch.asafarim.com
+      AUTH_URL: https://edumatch.asafarim.com
+    depends_on:
+      - postgres
+      - redis
     networks:
       - asafarim_net
 
@@ -340,6 +362,7 @@ services:
       - showcase
       - admin
       - vionto
+      - edumatch
       - testora
       - appbuilder
     networks:

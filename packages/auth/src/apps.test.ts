@@ -26,11 +26,13 @@ const superadmin = { roles: [ROLES.SUPERADMIN], authenticated: true };
 const inactiveAdmin = { roles: [ROLES.ADMIN], authenticated: false };
 
 describe("registry shape", () => {
-  it("registers the seven active platform apps and only those", () => {
+  it("registers the nine active platform apps and only those", () => {
     const active = PLATFORM_APPS.filter((app) => app.status === "active");
     expect(active.map((app) => app.key).sort()).toEqual([
       "admin",
       "appbuilder",
+      "devtools",
+      "edumatch",
       "hub",
       "showcase",
       "testora",
@@ -145,19 +147,20 @@ describe("authenticated apps (appbuilder)", () => {
   });
 });
 
-describe("coming-soon apps", () => {
-  it("deny everyone, including superadmin", () => {
+describe("EduMatch access", () => {
+  it("admits authenticated users", () => {
     expect(getAppAccessDecision(edumatch, superadmin)).toEqual({
-      allowed: false,
-      reason: "coming-soon",
+      allowed: true,
+      reason: "authenticated",
     });
-    expect(canAccessApp(edumatch, superadmin)).toBe(false);
+    expect(canAccessApp(edumatch, superadmin)).toBe(true);
   });
 });
 
 describe("getAccessibleApps", () => {
   it("gives an anonymous visitor only the public apps", () => {
     expect(getAccessibleApps(anonymous).map((app) => app.key).sort()).toEqual([
+      "devtools",
       "showcase",
       "testora",
       "vionto",
@@ -168,6 +171,8 @@ describe("getAccessibleApps", () => {
   it("gives a standard user every app except admin and deferred ones", () => {
     expect(getAccessibleApps(standard).map((app) => app.key).sort()).toEqual([
       "appbuilder",
+      "devtools",
+      "edumatch",
       "hub",
       "showcase",
       "testora",
@@ -180,6 +185,8 @@ describe("getAccessibleApps", () => {
     expect(getAccessibleApps(adminUser).map((app) => app.key).sort()).toEqual([
       "admin",
       "appbuilder",
+      "devtools",
+      "edumatch",
       "hub",
       "showcase",
       "testora",
@@ -191,6 +198,6 @@ describe("getAccessibleApps", () => {
   it("gives a deactivated user only public apps", () => {
     expect(
       getAccessibleApps(inactiveAdmin).map((app) => app.key).sort()
-    ).toEqual(["showcase", "testora", "vionto", "web"]);
+    ).toEqual(["devtools", "showcase", "testora", "vionto", "web"]);
   });
 });
