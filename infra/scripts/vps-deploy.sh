@@ -56,8 +56,63 @@ export DOCKER_BUILDKIT=1
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-asafarim-com}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 
+BUILD_SERVICES=(web hub showcase admin vionto vionto-worker testora-migrate testora appbuilder-migrate appbuilder-worker appbuilder)
+
+# Building ${#BUILD_SERVICES[@]} images sequentially is the single biggest
+# disk consumer in this script (each build leaves layers + build cache
+# behind) — check for headroom BEFORE starting, and proactively reclaim space
+# rather than discovering "no space left on device" partway through a build.
+ensure_disk_space() {
+  local docker_root
+  docker_root="$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)"
+  local min_free_gb="${DEPLOY_MIN_FREE_GB:-10}"
+
+  avail_gb() {
+    # `tr -dc` can leave this empty (e.g. `df` failing) — under `set -euo
+    # pipefail` an empty operand would abort the whole script on the next
+    # arithmetic comparison, so fail safe to 0 (triggers pruning) rather than
+    # crashing the deploy on a disk-space *check* itself.
+    df -BG --output=avail "$docker_root" 2>/dev/null | tail -n1 | tr -dc '0-9' || true
+  }
+
+  local avail
+  avail="$(avail_gb)"; avail="${avail:-0}"
+  echo "[deploy $(date -Is)] ${avail}GB free on ${docker_root} (need >= ${min_free_gb}GB to build ${#BUILD_SERVICES[@]} images sequentially)."
+  if (( avail >= min_free_gb )); then
+    return 0
+  fi
+
+  echo "[deploy $(date -Is)] Low disk space — reclaiming space before building (round 1: dangling images + old build cache)..."
+  docker image prune -f >/dev/null 2>&1 || true
+  docker container prune -f >/dev/null 2>&1 || true
+  docker builder prune -f --filter until=24h >/dev/null 2>&1 || true
+  avail="$(avail_gb)"; avail="${avail:-0}"
+  echo "[deploy $(date -Is)] ${avail}GB free after round 1."
+  if (( avail >= min_free_gb )); then
+    return 0
+  fi
+
+  echo "[deploy $(date -Is)] Still low — reclaiming space (round 2: ALL unused images + full build cache, not just dangling/24h)..."
+  docker image prune -af >/dev/null 2>&1 || true
+  docker builder prune -af >/dev/null 2>&1 || true
+  avail="$(avail_gb)"; avail="${avail:-0}"
+  echo "[deploy $(date -Is)] ${avail}GB free after round 2."
+  if (( avail >= min_free_gb )); then
+    return 0
+  fi
+
+  # Deliberately does NOT touch `docker volume prune` here — an unused-looking
+  # volume can still be a previous release's Postgres data kept for recovery;
+  # freeing space by deleting data is a human decision, not an automated one.
+  echo "FATAL: only ${avail}GB free on ${docker_root} after pruning images and build cache (need ${min_free_gb}GB)." >&2
+  echo "Refusing to start a build that would likely fail mid-way from disk exhaustion." >&2
+  echo "Free space manually (e.g. 'docker volume ls' for stale/orphaned volumes, or check log/backup growth on the VPS) and re-run." >&2
+  return 1
+}
+ensure_disk_space
+
 echo "[deploy $(date -Is)] Building images sequentially (memory-safe on 8GB)..."
-for svc in web hub showcase admin vionto vionto-worker testora-migrate testora appbuilder-migrate appbuilder-worker appbuilder; do
+for svc in "${BUILD_SERVICES[@]}"; do
   echo "[deploy $(date -Is)] ===== build ${svc} ====="
   "${COMPOSE[@]}" build "$svc"
 done
