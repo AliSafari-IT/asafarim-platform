@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
-import { uploadErrorMessage } from "@/lib/upload-error";
+import { isStudentProfileRequiredError, uploadErrorMessage } from "@/lib/upload-error";
 
 /**
  * A persisted inquiry attachment — the shape stored on the EduInquiry row and
@@ -76,6 +76,23 @@ function FileTypeIcon({ mime }: { mime: string }) {
 }
 
 /**
+ * A failed upload, carrying the status/detail needed to tell a routine
+ * rejection (wrong file type, too large) apart from "you don't have a
+ * student profile yet" — the latter needs a different UI response (see
+ * `onNeedsProfile` on `AttachmentUploader`), not just an inline message.
+ */
+class UploadError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public detail: string | undefined,
+  ) {
+    super(message);
+    this.name = "UploadError";
+  }
+}
+
+/**
  * POST the file to our own proxy endpoint (`/api/uploads/upload`).
  * The server presigns and PUTs to storage — the browser never makes a
  * cross-origin request, so no CORS configuration is needed on the bucket.
@@ -119,7 +136,7 @@ function uploadFile(
 
         // An empty message means "use the localized generic message" — the
         // row renders `it.error || t(errGeneric)`.
-        reject(new Error(uploadErrorMessage(detail, xhr.status) ?? ""));
+        reject(new UploadError(uploadErrorMessage(detail, xhr.status) ?? "", xhr.status, detail));
       }
     };
 
@@ -133,13 +150,22 @@ type Props = {
   onChange: (attachments: UploadedAttachment[]) => void;
   /** True while any file is still uploading — parent should block submit. */
   onUploadingChange?: (uploading: boolean) => void;
+  /**
+   * Called when an upload fails because the caller has no student profile
+   * yet (`requireStudent()` in lib/server/profiles.ts, 403). Submitting the
+   * inquiry itself hits the same gate and already prompts inline to create
+   * one — pass the same handler here so attaching a file *before* review
+   * triggers that prompt too, instead of leaving the row stuck on an error
+   * with no way forward.
+   */
+  onNeedsProfile?: () => void;
 };
 
 /**
  * Drag-and-drop + browse uploader for inquiry attachments. Owns the per-file
  * upload lifecycle and reports the settled attachment list up to the form.
  */
-export function AttachmentUploader({ onChange, onUploadingChange }: Props) {
+export function AttachmentUploader({ onChange, onUploadingChange, onNeedsProfile }: Props) {
   const { t } = useTranslation();
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -180,7 +206,13 @@ export function AttachmentUploader({ onChange, onUploadingChange }: Props) {
           ),
         ),
       )
-      .catch((err: unknown) =>
+      .catch((err: unknown) => {
+        if (
+          err instanceof UploadError &&
+          isStudentProfileRequiredError(err.status, err.detail)
+        ) {
+          onNeedsProfile?.();
+        }
         setItems((prev) =>
           prev.map((it) =>
             it.id === id
@@ -191,9 +223,9 @@ export function AttachmentUploader({ onChange, onUploadingChange }: Props) {
                 }
               : it,
           ),
-        ),
-      );
-  }, []);
+        );
+      });
+  }, [onNeedsProfile]);
 
   const addFiles = useCallback(
     (fileList: FileList | File[]) => {

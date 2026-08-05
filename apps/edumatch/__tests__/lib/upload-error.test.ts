@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ERROR_CHARS, uploadErrorMessage } from "@/lib/upload-error";
+import {
+  MAX_ERROR_CHARS,
+  isStudentProfileRequiredError,
+  uploadErrorMessage,
+} from "@/lib/upload-error";
 
 /**
  * The message that motivated this helper: a Prisma P1000 surfaced through the
@@ -56,5 +60,46 @@ describe("uploadErrorMessage", () => {
       expect(uploadErrorMessage("   \n\n  ", 400)).toBeNull();
       expect(uploadErrorMessage(undefined, 400)).toBeNull();
     });
+  });
+});
+
+describe("isStudentProfileRequiredError", () => {
+  /**
+   * requireStudent() (lib/server/profiles.ts) throws exactly this on a 403
+   * when the caller is authenticated but has no EduStudentProfile row.
+   * Attaching a file before the inquiry wizard's own "create your profile"
+   * prompt (only wired to the final submit call) hit this with no way for
+   * the user to get unstuck — see AttachmentUploader's onNeedsProfile.
+   */
+  it("matches the exact error requireStudent() throws", () => {
+    expect(isStudentProfileRequiredError(403, "Student profile required")).toBe(
+      true,
+    );
+  });
+
+  it("is case-insensitive", () => {
+    expect(isStudentProfileRequiredError(403, "STUDENT PROFILE REQUIRED")).toBe(
+      true,
+    );
+  });
+
+  it("rejects a 403 for an unrelated reason", () => {
+    expect(isStudentProfileRequiredError(403, "Tutor profile required")).toBe(
+      false,
+    );
+    expect(isStudentProfileRequiredError(403, "Unauthorized")).toBe(false);
+  });
+
+  it("rejects a matching message on a non-403 status", () => {
+    expect(isStudentProfileRequiredError(401, "Student profile required")).toBe(
+      false,
+    );
+    expect(isStudentProfileRequiredError(500, "Student profile required")).toBe(
+      false,
+    );
+  });
+
+  it("handles a missing message without throwing", () => {
+    expect(isStudentProfileRequiredError(403, undefined)).toBe(false);
   });
 });
