@@ -28,8 +28,9 @@ Completed:
   preferences, booking cancellation/dispute/resolve APIs, tutor verification
   workflow, and audit event helpers.
 
-Verification baseline (2026-08-05): typecheck passes, 182 tests pass, and the
-Next.js production build generates 65 routes.
+Verification baseline (2026-08-06): typecheck passes, 240 tests pass (41 of
+them new, covering the Help Center). Production build not verified as part
+of this baseline — see the Help Center PR for what was and wasn't checked.
 
 ## Stack
 
@@ -80,6 +81,9 @@ pnpm --filter edumatch clean
 | --- | --- |
 | `/` | Public EduMatch landing page |
 | `/docs` | API documentation |
+| `/help` | Help Center home — search, role entry points, popular guides |
+| `/help/students`, `/help/tutors` | Help Center audience indexes |
+| `/help/students/[slug]`, `/help/tutors/[slug]` | Individual Help guides |
 | `/student` | Student dashboard |
 | `/student/profile` | Student profile setup |
 | `/student/inquiry/new` | Student inquiry intake |
@@ -209,6 +213,53 @@ Admin access is enforced at two levels:
    unauthenticated and non-admin users before rendering any admin UI.
 2. **API guard** — all `/api/admin/*` routes use `requireRole("ADMIN")` from
    `lib/server/profiles.ts`, returning 401/403 JSON responses.
+
+## Help Center
+
+Local, dependency-light — no CMS or backend. All content lives in two files:
+
+- `lib/help-content.ts` — the typed content model: one `HelpArticle` per
+  guide (slug, audience, workflow route, ordered steps, related slugs, ...).
+  Slugs are stable, language-neutral route segments — never translate them,
+  and don't rename one without checking for links elsewhere in the app.
+- `lib/i18n-dictionaries.ts` — every string an article references, under
+  `edumatch.help.*` keys, once per base language (`en`, `nl`, `fr`, `de`,
+  `lb`). A key referenced by `help-content.ts` that's missing from any of
+  the five blocks fails `lib/__tests__/help-content.test.ts`.
+
+**Adding a new article**: add a `HelpArticle` entry to `HELP_ARTICLES` in
+`lib/help-content.ts`, then add every key it references (`titleKey`,
+`summaryKey`, each step's `titleKey`/`bodyKey`, `troubleshootingKeys`, ...)
+to all five language blocks in `lib/i18n-dictionaries.ts`. Run
+`pnpm --filter edumatch test` — the translation-completeness tests catch a
+missing key or language immediately rather than at runtime.
+
+**Adding a visual**: `components/help/HelpVisual.tsx` holds a fixed set of
+CSS/SVG mockups (`HelpVisualKind`), not screenshots — screenshots go stale
+the moment a button label changes; these are built from `var(--color-*)`
+tokens so they're correct in both themes automatically. Add a new `kind` to
+`HelpVisualKind` in `lib/help-content.ts` and a matching component in
+`HelpVisual.tsx` if an existing mockup doesn't fit a new step.
+
+**Adding a contextual help link**: import `ContextualHelpLink` from
+`components/help/ContextualHelpLink.tsx` and point its `href` at the most
+relevant article — never bare `/help`. `lib/__tests__/contextual-help-links.test.ts`
+pins the current set of screens and their target articles; add a row there
+for any new placement so a future rename of the target article fails the
+test instead of silently linking to nothing.
+
+**Luxembourgish**: `lib/i18n-dictionaries.ts` has no general-purpose `lb`
+block — non-Help content in `lb` already falls back to English per-key.
+The Help Center's `lb` block is scoped to Help content specifically so it
+doesn't do the same, and was written as a good-faith translation rather
+than by a native speaker; treat it as a first pass pending native review,
+not a finished translation.
+
+**E2E**: `e2e/help-center.spec.ts` covers the signed-out-reachable flows
+(search, filter, locale switch, article navigation). Two flows that start
+from an authenticated screen are present but `test.skip`'d — this suite
+has no working sign-in fixture yet (see the file's top comment); un-skip
+them once one exists.
 
 ## Documentation Tasks
 

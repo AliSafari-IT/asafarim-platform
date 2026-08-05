@@ -10,6 +10,7 @@ import {
   type UploadedAttachment,
 } from "@/components/AttachmentUploader";
 import { isStudentProfileRequiredError } from "@/lib/upload-error";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 
 const SUBJECTS_OF_INTEREST = [
   "Mathematics",
@@ -203,9 +204,12 @@ export default function NewInquiry() {
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold text-[var(--color-text)] mb-6">
-        {t("edumatch.inquiry.new.title")}
-      </h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">
+          {t("edumatch.inquiry.new.title")}
+        </h1>
+        <ContextualHelpLink href="/help/students/ask-a-question" />
+      </div>
 
       {/* Stepper */}
       <div className="flex items-center gap-2 mb-8">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 
 type Attachment = {
   url: string;
@@ -412,11 +413,14 @@ export default function InquiryDetail() {
               {new Date(inquiry.createdAt).toLocaleDateString()}
             </p>
           </div>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${statusInfo.cls}`}
-          >
-            {statusInfo.label}
-          </span>
+          <div className="flex items-center gap-2">
+            <ContextualHelpLink href="/help/students/ask-a-question" />
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium ${statusInfo.cls}`}
+            >
+              {statusInfo.label}
+            </span>
+          </div>
         </div>
         <p className="text-[var(--color-text)] whitespace-pre-wrap leading-relaxed">
           {inquiry.description}

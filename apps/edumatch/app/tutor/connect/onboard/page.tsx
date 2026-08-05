@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 
 export default function ConnectOnboardPage() {
   const { t } = useTranslation();
@@ -81,7 +82,10 @@ export default function ConnectOnboardPage() {
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold text-[var(--color-text)] mb-2">{t("edumatch.connect.title")}</h1>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">{t("edumatch.connect.title")}</h1>
+        <ContextualHelpLink href="/help/tutors/payments-and-settings" />
+      </div>
       <p className="text-[var(--color-text-muted)] mb-6">
         {t("edumatch.connect.subtitle")}
       </p>

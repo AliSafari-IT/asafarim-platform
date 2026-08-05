@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 
 // Stripe Elements would be loaded dynamically in production
 // For now, this is a placeholder that shows the checkout flow
@@ -114,7 +115,10 @@ export default function CheckoutPage({ params }: { params: { quoteId: string } }
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold text-[var(--color-text)] mb-6">{t("edumatch.checkout.title")}</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">{t("edumatch.checkout.title")}</h1>
+        <ContextualHelpLink href="/help/students/tutor-quotes-and-booking" />
+      </div>
 
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] p-6 mb-6">
         <h2 className="text-lg font-semibold text-[var(--color-text)] mb-4">{t("edumatch.checkout.summary")}</h2>
