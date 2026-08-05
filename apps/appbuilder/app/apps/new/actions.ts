@@ -93,6 +93,16 @@ export async function createAppAction(formData: FormData): Promise<void> {
       }
     } catch (enqueueErr) {
       console.error("[appbuilder] failed to auto-enqueue generation job after app creation", enqueueErr);
+      // The app was created regardless (never rolled back for this) — but a
+      // swallowed enqueue failure used to be indistinguishable from "the job
+      // just hasn't started rendering yet": both looked like the same
+      // "Generation has not started for this app yet" hint on the detail
+      // page (see #66). Thread the reason through so GenerationStatusPanel
+      // can render it — self-diagnosing rather than requiring a database
+      // query to find out why nothing happened.
+      if (enqueueErr instanceof ConflictError) {
+        redirect(`${routes.appDetail(app.id)}?generationBlocked=${encodeURIComponent(enqueueErr.message)}`);
+      }
     }
 
     redirect(routes.appDetail(app.id));

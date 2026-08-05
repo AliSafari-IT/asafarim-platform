@@ -284,6 +284,39 @@ export default async function globalSetup(): Promise<void> {
   const db = getDb();
   const ownerActor = { principalId: owner.id, roles: [] as string[] };
 
+  // #66: self-heal from a previous run that left non-terminal generation
+  // jobs behind for these fixture users (e.g. the worker briefly ran against
+  // a real AI provider instead of the fake one, and a golden-path spec's job
+  // got stuck on `needs_clarification` — which is deliberately a non-
+  // terminal, "active" status). Those jobs count against
+  // GENERATION_LIMITS.MAX_ACTIVE_JOBS_PER_USER and silently block every
+  // enqueue for the rest of THIS run too if left alone. Direct update (never
+  // requestCancellation, which needs a real app-scoped actor session) —
+  // same "bypass the repository for fixture bookkeeping" pattern already
+  // used elsewhere in this file.
+  {
+    const { generationJobs } = schema;
+    const { TERMINAL_STATUSES } = await import("../../lib/generation/stateMachine");
+    const { and, inArray, notInArray } = await import("drizzle-orm");
+    const fixtureOwnerIds = [owner.id, editor.id, viewer.id, unrelated.id];
+    const now = new Date();
+    const stale = await db
+      .update(generationJobs)
+      .set({ status: "cancelled", phase: "cancelled", cancelRequestedAt: now, completedAt: now, updatedAt: now })
+      .where(
+        and(
+          inArray(generationJobs.initiatedByPrincipalId, fixtureOwnerIds),
+          notInArray(generationJobs.status, [...TERMINAL_STATUSES]),
+        ),
+      )
+      .returning({ id: generationJobs.id });
+    if (stale.length > 0) {
+      console.warn(
+        `[e2e global-setup] cancelled ${stale.length} stale non-terminal generation job(s) left over from a previous run (see #66) for fixture users.`,
+      );
+    }
+  }
+
   // M12: this fixture set alone creates well over a dozen apps for the ONE
   // demo owner (by design — one fixture per milestone's edge cases) — more
   // than the real-world `apps_per_owner` quota default is meant to allow

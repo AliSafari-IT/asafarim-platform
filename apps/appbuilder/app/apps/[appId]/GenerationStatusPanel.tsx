@@ -115,7 +115,22 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function GenerationStatusPanel({ appId, canManage }: { appId: string; canManage: boolean }) {
+export function GenerationStatusPanel({
+  appId,
+  canManage,
+  initialBlockedReason,
+}: {
+  appId: string;
+  canManage: boolean;
+  /**
+   * Set only when `/apps/new` created this app but its automatic generation
+   * enqueue then failed (e.g. the per-user active-job limit) — see #66. That
+   * failure is deliberately never allowed to block app creation itself, but
+   * it used to be swallowed entirely, leaving "Generation has not started
+   * for this app yet" indistinguishable from "nothing has gone wrong yet".
+   */
+  initialBlockedReason?: string;
+}) {
   const router = useRouter();
   const [job, setJob] = useState<GenerationJob | null | undefined>(undefined); // undefined = not loaded yet
   const [busy, setBusy] = useState(false);
@@ -305,7 +320,11 @@ export function GenerationStatusPanel({ appId, canManage }: { appId: string; can
 
       {!job ? (
         <>
-          <p className="ui-hint">Generation has not started for this app yet.</p>
+          {initialBlockedReason ? (
+            <Alert tone="error">Generation didn&apos;t start automatically: {initialBlockedReason}</Alert>
+          ) : (
+            <p className="ui-hint">Generation has not started for this app yet.</p>
+          )}
           {canManage ? (
             <Button type="button" onClick={start} disabled={busy}>
               Start generation
