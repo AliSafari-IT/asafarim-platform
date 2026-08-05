@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { requireStudent } from "@/lib/server/profiles";
 import { handleEduError, badRequest, serverError } from "@/lib/server";
-import { streamOpenAI, streamAnthropic, buildVisionContent, transcribeAudio } from "@/lib/server/ai-orchestrator";
+import { streamOpenAI, streamAnthropic, buildVisionContent, buildSystemPrompt, transcribeAudio } from "@/lib/server/ai-orchestrator";
 import { moderatePrompt, moderationAllowsGeneration } from "@/lib/server/moderation";
 import { recordEduAuditEvent } from "@/lib/server/audit";
 import { getSignedDownloadUrl } from "@/lib/server/storage";
@@ -28,12 +29,13 @@ export const runtime = "nodejs";
  * Fallback: OpenAI → Anthropic (automatic, no client retry needed)
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { user } = await requireStudent();
     const { id: inquiryId } = await params;
+    const localeHint = resolveLocaleFromCookie(request.headers.get("cookie"));
 
     const inquiry = await prisma.eduInquiry.findUnique({
       where: { id: inquiryId },
@@ -144,14 +146,7 @@ export async function GET(
     }
 
     const content = await buildVisionContent(description, attachments);
-    const systemPrompt = `You are EduMatch AI, a helpful tutor for students.
-Guidelines:
-- Answer in the same language as the student question.
-- Be encouraging and concise; prefer step-by-step explanations.
-- If images are provided, read them carefully and reference specific content.
-- If a question is unclear, ask clarifying questions.
-- Never write exam answers verbatim; guide the student to understanding.
-- Cite any formulas or facts you use.`;
+    const systemPrompt = buildSystemPrompt(localeHint);
 
     const encoder = new TextEncoder();
     let fullOutput = "";
