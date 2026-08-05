@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Builder workspace" };
 
 interface AppDetailPageProps {
   params: Promise<{ appId: string }>;
-  searchParams: Promise<{ actionError?: string }>;
+  searchParams: Promise<{ actionError?: string; generationBlocked?: string }>;
 }
 
 /**
@@ -28,7 +28,7 @@ interface AppDetailPageProps {
  */
 export default async function AppDetailPage({ params, searchParams }: AppDetailPageProps) {
   const { appId } = await params;
-  const { actionError } = await searchParams;
+  const { actionError, generationBlocked } = await searchParams;
   const actor = await requireActor({ callbackUrl: `/apps/${encodeURIComponent(appId)}` });
 
   let overview;
@@ -48,7 +48,7 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
 
   return (
     <div className={styles.workspacePage} data-appbuilder-workspace>
-      <GenerationStatusPanel appId={appId} canManage={roleGrants(role, "app.requestGeneration")} />
+      <GenerationStatusPanel appId={appId} canManage={roleGrants(role, "app.requestGeneration")} initialBlockedReason={generationBlocked} />
       <WorkspaceShell
         appId={appId}
         appName={app.name}

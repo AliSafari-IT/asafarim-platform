@@ -80,7 +80,19 @@ export default defineConfig({
       command: "pnpm --filter @asafarim/appbuilder worker:dev",
       url: `http://localhost:${WORKER_HEALTH_PORT}`,
       cwd: path.join(process.cwd(), "../.."),
-      reuseExistingServer: !process.env.CI,
+      // #66: deliberately NEVER reuse an already-running worker, unlike the
+      // hub/appbuilder web servers above. A worker started by `pnpm dev`
+      // keeps whatever `.env` gave it — typically a real OpenAI key, not
+      // `fake` — and reusing it silently makes this suite exercise a real
+      // model instead of the deterministic fixture, with no warning that
+      // anything changed (see #66's full failure chain: real provider asks
+      // clarifying questions the golden-path specs never answer, those jobs
+      // pile up as non-terminal, and the per-user active-job quota then
+      // blocks every later generation in the run). Refusing to reuse means
+      // a `pnpm dev` worker already holding this port makes Playwright's own
+      // spawn fail loudly on the port conflict instead — surfacing the
+      // problem immediately rather than three-jobs-later.
+      reuseExistingServer: false,
       timeout: 120_000,
       env: {
         APPBUILDER_AI_PROVIDER: "fake",
