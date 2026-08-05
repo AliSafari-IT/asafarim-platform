@@ -124,13 +124,20 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     access: "public",
   },
   {
+    // Landing page is a public marketing/product page with no auth gate
+    // (app/page.tsx renders unconditionally); student/tutor routes gate
+    // themselves individually via requireStudent/requireRole, same split
+    // as vionto and testora. "authenticated" here hid EduMatch from every
+    // platform switcher's anonymous-visitor view (e.g. Hub's, which
+    // filters by canAccessApp), even though the page itself was already
+    // reachable and browsable without signing in.
     key: "edumatch",
     name: "EduMatch",
     description: "AI learning support and an explainable, trusted tutor marketplace.",
     glyph: "EM",
     meta: "edumatch.asafarim.com",
     status: "active",
-    access: "authenticated",
+    access: "public",
   },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────

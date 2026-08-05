@@ -147,11 +147,11 @@ describe("authenticated apps (appbuilder)", () => {
   });
 });
 
-describe("EduMatch access", () => {
-  it("admits authenticated users", () => {
-    expect(getAppAccessDecision(edumatch, superadmin)).toEqual({
+describe("public apps (edumatch)", () => {
+  it("is open to anonymous visitors — student/tutor routes gate themselves inside the app", () => {
+    expect(getAppAccessDecision(edumatch, anonymous)).toEqual({
       allowed: true,
-      reason: "authenticated",
+      reason: "public",
     });
     expect(canAccessApp(edumatch, superadmin)).toBe(true);
   });
@@ -161,6 +161,7 @@ describe("getAccessibleApps", () => {
   it("gives an anonymous visitor only the public apps", () => {
     expect(getAccessibleApps(anonymous).map((app) => app.key).sort()).toEqual([
       "devtools",
+      "edumatch",
       "showcase",
       "testora",
       "vionto",
@@ -198,6 +199,6 @@ describe("getAccessibleApps", () => {
   it("gives a deactivated user only public apps", () => {
     expect(
       getAccessibleApps(inactiveAdmin).map((app) => app.key).sort()
-    ).toEqual(["devtools", "showcase", "testora", "vionto", "web"]);
+    ).toEqual(["devtools", "edumatch", "showcase", "testora", "vionto", "web"]);
   });
 });
