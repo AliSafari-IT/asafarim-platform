@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslation, type TranslateFn } from "@asafarim/shared-i18n";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 
 type AvailabilitySlot = {
   start: string;
@@ -153,9 +154,12 @@ export default function QuotesPage() {
         </span>
       </div>
 
-      <h1 className="text-2xl font-bold text-[var(--color-text)] mb-2">
-        {t("edumatch.quotes.title")}
-      </h1>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">
+          {t("edumatch.quotes.title")}
+        </h1>
+        <ContextualHelpLink href="/help/students/tutor-quotes-and-booking" />
+      </div>
       <p className="text-sm text-[var(--color-text-muted)] mb-6">
         {t("edumatch.quotes.subtitle")}
       </p>
