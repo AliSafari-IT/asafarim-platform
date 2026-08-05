@@ -134,12 +134,14 @@ export function validateSpecification(spec: ApplicationSpecificationType): Valid
 
   // ── Relations ────────────────────────────────────────────────────────
   const relationIds = new Set<string>();
+  const relationsById = new Map<string, ApplicationSpecificationType["relations"][number]>();
   spec.relations.forEach((relation, relationIndex) => {
     const relationPath = ["relations", relationIndex];
     if (relationIds.has(relation.id)) {
       push([...relationPath, "id"], "duplicate_id", `Duplicate relation id "${relation.id}"`);
     }
     relationIds.add(relation.id);
+    relationsById.set(relation.id, relation);
 
     if (!entityIds.has(relation.fromEntityId)) {
       push(
@@ -157,14 +159,28 @@ export function validateSpecification(spec: ApplicationSpecificationType): Valid
     }
   });
 
-  // relation-typed fields must reference a real relation
+  // A relation-typed field must (a) reference a real relation, and (b) live
+  // on that relation's `fromEntityId` side — a relation field is only ever
+  // declared on the "from" side in this MVP's directional model (see
+  // apps/appbuilder/lib/generated-data/relations.ts#validateRelationTarget).
+  // A field placed on the "to" side instead passes schema-shape validation
+  // but throws `InvalidRelationTargetError` on every real read/write at
+  // runtime — this must be caught here, before the specification is ever
+  // considered ready, not discovered as a live 409.
   spec.entities.forEach((entity, entityIndex) => {
     entity.fields.forEach((field, fieldIndex) => {
-      if (field.type === "relation" && !relationIds.has(field.relationId)) {
+      if (field.type !== "relation") return;
+      const fieldPath = ["entities", entityIndex, "fields", fieldIndex, "relationId"];
+      if (!relationIds.has(field.relationId)) {
+        push(fieldPath, "orphaned_reference", `Field "${field.id}" references unknown relation "${field.relationId}"`);
+        return;
+      }
+      const relation = relationsById.get(field.relationId);
+      if (relation && relation.fromEntityId !== entity.id) {
         push(
-          ["entities", entityIndex, "fields", fieldIndex, "relationId"],
-          "orphaned_reference",
-          `Field "${field.id}" references unknown relation "${field.relationId}"`,
+          fieldPath,
+          "invalid_relation_direction",
+          `Field "${field.id}" on entity "${entity.id}" uses relation "${field.relationId}", which is declared from entity "${relation.fromEntityId}" — a relation field must live on the relation's "from" side.`,
         );
       }
     });

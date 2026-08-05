@@ -5,6 +5,7 @@ import {
   constructionTaskManagementFixture,
   duplicateIdsFixture,
   brokenRelationsFixture,
+  wrongDirectionRelationFieldFixture,
   orphanedComponentReferencesFixture,
   privilegeEscalationFixture,
   scriptInjectionFixture,
@@ -37,6 +38,12 @@ describe("validateSpecification", () => {
     const result = validateSpecification(parseLoosely(brokenRelationsFixture));
     expect(result.ok).toBe(false);
     expect(result.errors.some((e) => e.code === "orphaned_reference")).toBe(true);
+  });
+
+  it("rejects a relation field declared on the wrong (\"to\") side of a directional relation", () => {
+    const result = validateSpecification(parseLoosely(wrongDirectionRelationFieldFixture));
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => e.code === "invalid_relation_direction")).toBe(true);
   });
 
   it("rejects a component bound to a nonexistent entity", () => {
