@@ -9,6 +9,7 @@ import {
   humanSize,
   type UploadedAttachment,
 } from "@/components/AttachmentUploader";
+import { isStudentProfileRequiredError } from "@/lib/upload-error";
 
 const SUBJECTS_OF_INTEREST = [
   "Mathematics",
@@ -94,6 +95,13 @@ export default function NewInquiry() {
   const [profileSubjects, setProfileSubjects] = useState<string[]>([]);
   const [creatingProfile, setCreatingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  // What to do once the profile exists: auto-submit the inquiry if the
+  // prompt was triggered by pressing Submit, or just clear the prompt if it
+  // was triggered by attaching a file at an earlier step — the user still
+  // has the question open and can retry the attachment themselves.
+  const [profileTrigger, setProfileTrigger] = useState<"submit" | "upload" | null>(
+    null,
+  );
 
   const gradeLevelLabel =
     GRADE_LEVELS.find((g) => g.value === gradeLevel)?.label ?? gradeLevel;
@@ -112,11 +120,9 @@ export default function NewInquiry() {
       }),
     });
     const data = (await res.json()) as { id?: string; error?: string };
-    if (
-      res.status === 403 &&
-      data.error?.toLowerCase().includes("student profile")
-    ) {
+    if (isStudentProfileRequiredError(res.status, data.error)) {
       setNeedsProfile(true);
+      setProfileTrigger("submit");
       setProfileSubjects(subject ? [subject] : []);
       setSubmitting(false);
       return;
@@ -162,13 +168,28 @@ export default function NewInquiry() {
         return;
       }
       setNeedsProfile(false);
-      setSubmitting(true);
-      await submitInquiry();
+      setCreatingProfile(false);
+      if (profileTrigger === "submit") {
+        setSubmitting(true);
+        await submitInquiry();
+      }
+      // profileTrigger === "upload": the profile now exists, but the file
+      // that failed is still sitting in its own error state in the
+      // uploader — retrying the inquiry submission wouldn't touch it. Leave
+      // the prompt closed and let the user press the attachment's own
+      // Retry, now that requireStudent() will succeed.
+      setProfileTrigger(null);
     } catch {
       setProfileError(t("edumatch.inquiry.new.networkError"));
       setCreatingProfile(false);
     }
   }
+
+  const handleAttachmentNeedsProfile = useCallback(() => {
+    setProfileTrigger("upload");
+    setProfileSubjects((prev) => (prev.length > 0 ? prev : subject ? [subject] : []));
+    setNeedsProfile(true);
+  }, [subject]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -231,7 +252,11 @@ export default function NewInquiry() {
             {t("edumatch.inquiry.new.profile.title")}
           </h2>
           <p className="text-sm text-[var(--color-text-muted)] mb-5">
-            {t("edumatch.inquiry.new.profile.desc")}
+            {t(
+              profileTrigger === "upload"
+                ? "edumatch.inquiry.new.profile.descUpload"
+                : "edumatch.inquiry.new.profile.desc",
+            )}
           </p>
 
           {profileError && (
@@ -409,6 +434,7 @@ export default function NewInquiry() {
             <AttachmentUploader
               onChange={handleAttachmentsChange}
               onUploadingChange={setUploading}
+              onNeedsProfile={handleAttachmentNeedsProfile}
             />
 
             <div className="flex gap-3 pt-2">

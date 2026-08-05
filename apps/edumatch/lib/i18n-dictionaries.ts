@@ -193,6 +193,8 @@ export const edumatchDictionaries: Dictionaries = {
       "One more step — create your student profile",
     "edumatch.inquiry.new.profile.desc":
       "Your grade level is already set from your question. Optionally pick subjects you care about, then we'll submit your inquiry automatically.",
+    "edumatch.inquiry.new.profile.descUpload":
+      "Your grade level is already set from your question. Optionally pick subjects you care about, then attaching files will work.",
     "edumatch.inquiry.new.profile.grade": "Grade Level",
     "edumatch.inquiry.new.profile.subjects": "Subjects of Interest",
     "edumatch.inquiry.new.profile.subjectsOptional": "(optional)",
@@ -1120,6 +1122,8 @@ export const edumatchDictionaries: Dictionaries = {
       "Nog één stap — maak je studentprofiel aan",
     "edumatch.inquiry.new.profile.desc":
       "Je niveau is al ingesteld vanuit je vraag. Kies optioneel vakken die je interesseren, dan dienen we je vraag automatisch in.",
+    "edumatch.inquiry.new.profile.descUpload":
+      "Je niveau is al ingesteld vanuit je vraag. Kies optioneel vakken die je interesseren, dan werkt het bijvoegen van bestanden.",
     "edumatch.inquiry.new.profile.grade": "Niveau",
     "edumatch.inquiry.new.profile.subjects": "Interessegebieden",
     "edumatch.inquiry.new.profile.subjectsOptional": "(optioneel)",
@@ -1882,6 +1886,8 @@ export const edumatchDictionaries: Dictionaries = {
       "Une dernière étape — créez votre profil étudiant",
     "edumatch.inquiry.new.profile.desc":
       "Votre niveau est déjà défini à partir de votre question. Choisissez optionnellement des matières qui vous intéressent, puis nous soumettrons automatiquement votre question.",
+    "edumatch.inquiry.new.profile.descUpload":
+      "Votre niveau est déjà défini à partir de votre question. Choisissez optionnellement des matières qui vous intéressent, puis l'ajout de fichiers fonctionnera.",
     "edumatch.inquiry.new.profile.grade": "Niveau",
     "edumatch.inquiry.new.profile.subjects": "Matières d'intérêt",
     "edumatch.inquiry.new.profile.subjectsOptional": "(optionnel)",
@@ -2622,6 +2628,8 @@ export const edumatchDictionaries: Dictionaries = {
       "Noch ein Schritt — erstelle dein Studentenprofil",
     "edumatch.inquiry.new.profile.desc":
       "Dein Niveau ist bereits aus deiner Frage übernommen. Wähle optional Fächer aus, die dich interessieren, dann reichen wir deine Anfrage automatisch ein.",
+    "edumatch.inquiry.new.profile.descUpload":
+      "Dein Niveau ist bereits aus deiner Frage übernommen. Wähle optional Fächer aus, die dich interessieren, danach funktioniert das Anhängen von Dateien.",
     "edumatch.inquiry.new.profile.grade": "Niveau",
     "edumatch.inquiry.new.profile.subjects": "Interessenfächer",
     "edumatch.inquiry.new.profile.subjectsOptional": "(optional)",

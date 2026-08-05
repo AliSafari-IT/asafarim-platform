@@ -32,3 +32,21 @@ export function uploadErrorMessage(
     ? `${firstLine.slice(0, MAX_ERROR_CHARS).trimEnd()}…`
     : firstLine;
 }
+
+/**
+ * Whether a failed request means "you don't have a student profile yet",
+ * the specific 403 that `requireStudent()` (lib/server/profiles.ts) throws.
+ *
+ * Two call sites need to recognize this: submitting the inquiry itself
+ * (app/student/inquiry/new/page.tsx) and — the gap this fixes — attaching a
+ * file to it (the upload endpoint runs the same `requireStudent()` gate).
+ * Both used to key off `error?.toLowerCase().includes("student profile")`
+ * independently; centralised so the two stay in sync and the check is
+ * covered by a test instead of copy-pasted.
+ */
+export function isStudentProfileRequiredError(
+  status: number,
+  message: string | undefined,
+): boolean {
+  return status === 403 && (message ?? "").toLowerCase().includes("student profile");
+}
