@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { uploadErrorMessage } from "@/lib/upload-error";
 
 /**
  * A persisted inquiry attachment — the shape stored on the EduInquiry row and
@@ -103,15 +104,22 @@ function uploadFile(
           reject(new Error("Invalid response from upload"));
         }
       } else {
-        let message = `Upload failed (${xhr.status})`;
+        let detail: string | undefined;
         try {
           const d = JSON.parse(xhr.responseText) as {
             error?: string;
             message?: string; // dev-mode detail from serverError
           };
-          message = d.message ?? d.error ?? message;
-        } catch { /* ignore */ }
-        reject(new Error(message));
+          detail = d.message ?? d.error;
+        } catch { /* non-JSON body — nothing to show beyond the status */ }
+
+        // Always log the server's full text: it is the only place a developer
+        // can read a stack trace or a Prisma code frame in one piece.
+        console.error(`[edumatch][upload] ${xhr.status}`, detail ?? xhr.responseText);
+
+        // An empty message means "use the localized generic message" — the
+        // row renders `it.error || t(errGeneric)`.
+        reject(new Error(uploadErrorMessage(detail, xhr.status) ?? ""));
       }
     };
 
@@ -386,8 +394,11 @@ export function AttachmentUploader({ onChange, onUploadingChange }: Props) {
                   </div>
                 )}
                 {it.status === "error" && (
-                  <p className="text-xs text-red-500">
-                    {it.error ?? t("edumatch.inquiry.new.attach.errGeneric")}
+                  // break-all, not break-words: the tokens that overflow here
+                  // (bundler chunk ids, file paths) contain no spaces, so
+                  // normal word wrapping leaves them to spill past the card.
+                  <p className="break-all text-xs text-red-500">
+                    {it.error || t("edumatch.inquiry.new.attach.errGeneric")}
                   </p>
                 )}
               </div>
