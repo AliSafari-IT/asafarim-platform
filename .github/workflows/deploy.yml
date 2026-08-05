@@ -35,7 +35,12 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 40m
+          # 12 images built sequentially now include edumatch's Chrome-download
+          # dependency chain; 40m started failing the moment that landed
+          # (Run Command Timeout at 40m37s on 2026-08-05). PUPPETEER_SKIP_DOWNLOAD
+          # in the other 7 Dockerfiles should recover most of that, but 60m
+          # leaves real margin rather than trading one tight ceiling for another.
+          command_timeout: 60m
           script_stop: true
           script: |
             set -e

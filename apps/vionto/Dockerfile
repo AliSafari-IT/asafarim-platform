@@ -28,6 +28,10 @@ ENV NEXT_PUBLIC_COMPANY_NAME=$NEXT_PUBLIC_COMPANY_NAME \
     NEXT_PUBLIC_DEVTOOLS_URL=$NEXT_PUBLIC_DEVTOOLS_URL \
     NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV BUILD_STANDALONE=true
+# The full-workspace install below pulls in edumatch's puppeteer
+# dependency (pnpm-workspace.yaml approves its postinstall script); this
+# app has no use for it, so skip the Chrome/chrome-headless-shell download.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter vionto build

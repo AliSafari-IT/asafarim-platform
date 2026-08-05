@@ -13,6 +13,11 @@ WORKDIR /repo
 
 COPY . .
 
+# Skip Puppeteer's Chrome download: this worker's full-workspace install
+# pulls in edumatch's puppeteer dependency (pnpm-workspace.yaml approves its
+# postinstall script) even though nothing here uses it.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
 # Full install so tsup can resolve all imports while bundling
 RUN pnpm install --frozen-lockfile
 
