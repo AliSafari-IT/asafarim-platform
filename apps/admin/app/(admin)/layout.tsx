@@ -31,6 +31,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               { label: "Hub", href: links.hub, meta: "dashboard" },
               { label: "ASafarIM Digital", href: links.web, meta: "studio" },
               { label: "Showcase", href: links.showcase, meta: "gallery" },
+              { label: "EduMatch", href: links.edumatch, meta: "tutoring" },
               { label: "Testora", href: links.testora, meta: "benchmark" },
               { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
               { label: "DevTools", href: links.devtools, meta: "asafarim.be" },

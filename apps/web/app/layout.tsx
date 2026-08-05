@@ -105,6 +105,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <AppSwitcher
                 links={[
                   { label: "Vionto", href: links.vionto, meta: "photo-to-story" },
+                  { label: "EduMatch", href: links.edumatch, meta: "tutoring" },
                   { label: "Testora", href: links.testora, meta: "benchmark" },
                   { label: "Showcase", href: links.showcase, meta: "gallery" },
                   { label: "Hub", href: links.hub, meta: session?.user ? "dashboard" : "sign in" },

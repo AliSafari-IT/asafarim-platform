@@ -92,11 +92,13 @@ function AppSwitcher() {
 
   const testoraUrl = process.env.NEXT_PUBLIC_TESTORA_URL || "http://localhost:3005";
   const appbuilderUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
+  const edumatchUrl = process.env.NEXT_PUBLIC_EDUMATCH_URL || "http://localhost:3009";
 
   const apps = [
     { label: "ASafarIM Digital", href: webUrl, meta: "public site" },
     { label: "Hub", href: hubUrl, meta: "workspace" },
     { label: "Showcase", href: showcaseUrl, meta: "projects" },
+    { label: "EduMatch", href: edumatchUrl, meta: "tutoring" },
     { label: "Testora", href: testoraUrl, meta: "benchmark" },
     { label: "AppBuilder", href: appbuilderUrl, meta: "builder" },
     { label: "DevTools", href: devtoolsUrl, meta: "asafarim.be" },

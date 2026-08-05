@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Monorepo Overview
 
 **pnpm 11 + Turborepo 2** monorepo with three workspace groups:
-- `apps/*` — 7 Next.js 16 applications (web, hub, showcase, admin, vionto, testora, appbuilder)
+- `apps/*` — 8 Next.js 16 applications (web, hub, showcase, admin, vionto, testora, appbuilder, edumatch)
 - `packages/*` — 12 shared packages (`@asafarim/auth`, `@asafarim/db`, `@asafarim/ui`, etc.)
 - `benchmarks/*` — 4 benchmark suites
 
@@ -108,6 +108,7 @@ Builds depend on `^build` (packages must build before apps). When you change a s
 | vionto | 3004 | vionto.asafarim.com |
 | testora | 3005 | testora.asafarim.com |
 | appbuilder | 3006 | appbuilder.asafarim.com |
+| edumatch | 3009 | edumatch.asafarim.com |
 
 ### Production Deployment
 Docker Compose + Caddy reverse proxy on Hostinger VPS (`82.25.116.73`). GitHub Actions (`push to main`) SSH into VPS and runs `infra/scripts/vps-deploy.sh`, which: decrypts env, builds images sequentially (memory-safe on 8 GB), restarts stack, notifies Discord.
