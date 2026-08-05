@@ -24,7 +24,7 @@ import { migrationDestructiveSafetyGate } from "./migrationDestructiveSafety";
  * stays reproducible/interpretable even after this catalog evolves (see
  * lib/db/schema.ts's validationRuns comment).
  */
-export const GATE_SET_VERSION = "1.1.0";
+export const GATE_SET_VERSION = "1.2.0";
 
 /**
  * The full mandatory gate catalog (issue requirement: 16 gates spanning
