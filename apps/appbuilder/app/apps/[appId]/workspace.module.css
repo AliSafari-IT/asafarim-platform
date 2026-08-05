@@ -12,13 +12,32 @@
  */
 
 /*
+ * Full-bleed: the three-panel workspace wants the whole shell width, not
+ * the shared centered content column — `--width-content` caps at 74rem,
+ * which on any laptop/desktop viewport wider than that left two large idle
+ * gutters on either side of the structure/preview/conversation panels.
+ * Since this stylesheet only loads on this route, it's safe to relax the
+ * shared main wrapper for the main that contains this page. Using `:has()`
+ * (not a 100vw hack) avoids sticky-header/scrollbar pitfalls and leaves
+ * every other route's centered column untouched. Vertical padding is
+ * trimmed too (space-6 → space-4) to close the idle strip that sat above
+ * the top bar; `.workspacePage`'s min-height below is adjusted to match.
+ */
+:global(.ui-shell__main:has([data-appbuilder-workspace])) {
+  max-width: none;
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-4);
+}
+
+/*
  * Gives the whole route (generation-status banner + workspace) a FLOOR of
  * the viewport height, below the shared AppShell's sticky header — measured
- * at ~4rem — and its own top/bottom padding (2 * var(--space-6) = 4rem).
- * Without this, `.workspace` and `.panels` below have no definite height to
- * flex against, so `min-height:0`/`flex:1` on their descendants are no-ops
- * and every panel (most visibly the conversation panel) just grows with its
- * content, pushing the message composer out of view — see the workspace
+ * at ~4rem — and its own top/bottom padding (2 * var(--space-4) = 2rem,
+ * see the full-bleed override above). Without this, `.workspace` and
+ * `.panels` below have no definite height to flex against, so
+ * `min-height:0`/`flex:1` on their descendants are no-ops and every panel
+ * (most visibly the conversation panel) just grows with its content,
+ * pushing the message composer out of view — see the workspace
  * responsiveness fix this comment set accompanies.
  *
  * `min-height`, not `height`: a fixed `height` clips at this value instead of
@@ -37,7 +56,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-height: calc(100dvh - 8rem);
+  min-height: calc(100dvh - 6rem);
 }
 
 .workspace {

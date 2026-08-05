@@ -47,7 +47,7 @@ export default async function AppDetailPage({ params, searchParams }: AppDetailP
   const latestVersion = specification && specification.currentVersionNumber > 0 ? await getLatestVersionForActor(getDb(), actor, appId) : undefined;
 
   return (
-    <div className={styles.workspacePage}>
+    <div className={styles.workspacePage} data-appbuilder-workspace>
       <GenerationStatusPanel appId={appId} canManage={roleGrants(role, "app.requestGeneration")} />
       <WorkspaceShell
         appId={appId}
