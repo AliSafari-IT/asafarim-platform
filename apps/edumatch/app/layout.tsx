@@ -7,8 +7,14 @@ import { EduFooter } from "@/components/EduFooter";
 import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { edumatchDictionaries } from "@/lib/i18n-dictionaries";
-import "./globals.css";
+// @asafarim/ui/styles.css must load before ./globals.css: its base.css sets
+// an unscoped `body { color: var(--ink); background-color: var(--bg) }` for
+// apps that opt into the shared `data-app` mood system. EduMatch uses its
+// own `--color-*` tokens instead, so --ink/--bg are undefined here — if that
+// rule loads last it wins the (equal-specificity, unlayered) cascade and
+// paints body transparent-on-black over EduMatch's real theme.
 import "@asafarim/ui/styles.css";
+import "./globals.css";
 
 const appName = "EduMatch";
 const appDescription =
