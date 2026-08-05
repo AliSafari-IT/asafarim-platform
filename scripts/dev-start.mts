@@ -172,7 +172,7 @@ async function main(): Promise<void> {
   // .next/dev/types/*.d.ts mid-cleanup/build, silently reintroducing the
   // exact broken files this step exists to remove.
   console.log("Killing ports...");
-  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008", { stdio: "inherit" });
+  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009", { stdio: "inherit" });
 
   // Clean stale .next directories before building. Turbopack's dev server
   // generates .next/dev/types/*.d.ts files that can contain broken content

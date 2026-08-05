@@ -38,6 +38,12 @@
       "port": 3005
     },
     {
+      "name": "edumatch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "edumatch", "dev"],
+      "port": 3009
+    },
+    {
       "name": "appbuilder",
       "url": "http://localhost:3006",
       "port": 3006,

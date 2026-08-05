@@ -38,6 +38,7 @@ export async function PlatformHeader() {
             { label: "Hub", href: links.hub, meta: session?.user ? "workspace" : "sign in" },
             { label: "Showcase", href: links.showcase, meta: "gallery" },
             { label: "Vionto", href: links.vionto, meta: "studio" },
+            { label: "EduMatch", href: links.edumatch, meta: "tutoring" },
             { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
             { label: "DevTools", href: links.devtools, meta: "asafarim.be" },
           ]}
