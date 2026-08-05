@@ -8,7 +8,10 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
+    // EduMatch runs on 3009 (see CLAUDE.md's app-port table); this pointed
+    // at 3000 (apps/web) before, so no spec in this suite could ever have
+    // actually run against this app.
+    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3009',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -36,7 +39,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: 'http://localhost:3009',
     reuseExistingServer: !process.env.CI,
   },
 });

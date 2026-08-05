@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 import MessageAttachments, { type AttachmentView } from "@/components/MessageAttachments";
 import VerificationComposer, { type StoredAttachment } from "@/components/VerificationComposer";
 import EmojiReactionBar, { type MessageReactions } from "@/components/EmojiReactionBar";
@@ -90,13 +91,16 @@ export default function TutorVerificationPage() {
         <h1 className="text-2xl font-bold text-[var(--color-text)]">
           {t("edumatch.verification.title")}
         </h1>
-        <span
-          className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-            STATUS_STYLES[statusKey] ?? STATUS_STYLES.PENDING
-          }`}
-        >
-          {t(`edumatch.verification.status.${statusKey}`)}
-        </span>
+        <div className="flex items-center gap-2">
+          <ContextualHelpLink href="/help/tutors/getting-started" />
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+              STATUS_STYLES[statusKey] ?? STATUS_STYLES.PENDING
+            }`}
+          >
+            {t(`edumatch.verification.status.${statusKey}`)}
+          </span>
+        </div>
       </div>
 
       <p className="mb-6 text-sm text-[var(--color-text-muted)]">

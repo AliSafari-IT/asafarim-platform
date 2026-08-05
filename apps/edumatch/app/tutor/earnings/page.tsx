@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 
 type Transaction = {
   id: string;
@@ -68,7 +69,10 @@ export default function TutorEarningsPage() {
         <span className="text-[var(--color-text)]">{t("edumatch.tutor.earnings.title")}</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-[var(--color-text)] mb-1">{t("edumatch.tutor.earnings.title")}</h1>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">{t("edumatch.tutor.earnings.title")}</h1>
+        <ContextualHelpLink href="/help/tutors/payments-and-settings" />
+      </div>
       <p className="text-sm text-[var(--color-text-muted)] mb-6">{t("edumatch.tutor.earnings.subtitle")}</p>
 
       {error && (

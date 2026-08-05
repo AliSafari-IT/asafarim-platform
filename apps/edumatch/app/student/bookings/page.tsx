@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
 
 type Booking = {
   id: string;
@@ -105,7 +106,10 @@ export default function StudentBookingsPage() {
         <span className="text-[var(--color-text)]">{bookingTitle}</span>
       </div>
 
-      <h1 className="mb-1 text-2xl font-bold text-[var(--color-text)]">{bookingTitle}</h1>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">{bookingTitle}</h1>
+        <ContextualHelpLink href="/help/students/bookings-and-support" />
+      </div>
       <p className="mb-6 text-sm text-[var(--color-text-muted)]">{t("edumatch.student.bookings.subtitle")}</p>
 
       {error && (
