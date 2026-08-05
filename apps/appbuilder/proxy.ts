@@ -133,6 +133,12 @@ export async function proxy(request: NextRequest) {
   // https://nextjs.org/docs/app/guides/content-security-policy.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("Content-Security-Policy", csp);
+  // Route the nonce to Server Components too (e.g. the root layout's
+  // `<ThemeScript nonce={...} />` — see app/layout.tsx) — the CSP header
+  // alone only reaches Next.js's own framework-injected scripts, not our own
+  // inline `<script>` tags, which need the matching `nonce` attribute set
+  // explicitly.
+  requestHeaders.set("x-nonce", nonce);
 
   const nextResponse = NextResponse.next({ request: { headers: requestHeaders } });
   nextResponse.headers.set("Content-Security-Policy", csp);

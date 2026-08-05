@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import { auth, signOut, PLATFORM_APPS, canAccessApp, type AppAccessContext } from "@asafarim/auth";
 import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
 import {
@@ -26,6 +27,9 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   const links = getPlatformLinks();
+  // Set by proxy.ts only for the preview route's strict CSP; absent (and
+  // harmless — ThemeScript's `nonce` prop is optional) everywhere else.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   // Registry-driven, same rule Hub's launcher/switcher use — no
   // AppBuilder-specific hardcoded visibility here.
@@ -45,7 +49,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <ThemeScript defaultTheme="system" />
+        <ThemeScript defaultTheme="system" nonce={nonce} />
       </head>
       <body data-app="appbuilder">
         <ThemeProvider defaultTheme="light">
