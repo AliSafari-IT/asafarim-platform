@@ -41,10 +41,20 @@ const DEFAULT_STORAGE_KEY = "asafarim-theme";
 export function ThemeScript({
   storageKey = DEFAULT_STORAGE_KEY,
   defaultTheme = "system",
+  nonce,
 }: {
   storageKey?: string;
   /** Fallback when nothing is stored: "system" | "light" | "dark". */
   defaultTheme?: "system" | Theme;
+  /**
+   * CSP nonce for this request, when the page is served under a strict
+   * `script-src` (e.g. the AppBuilder preview route — see proxy.ts). Without
+   * it, this inline script is silently blocked by the browser under a
+   * nonce/strict-dynamic policy. Read the nonce from the request (e.g. a
+   * middleware-set `x-nonce` header) and pass it through here; omit only on
+   * pages with no such policy.
+   */
+  nonce?: string;
 }) {
   const js = `(function(){try{
 var k=${JSON.stringify(storageKey)};
@@ -55,7 +65,7 @@ var t=s|| (d==='system'?sys:d);
 document.documentElement.setAttribute('data-theme',t);
 }catch(e){}})();`;
   // eslint-disable-next-line react/no-danger
-  return <script dangerouslySetInnerHTML={{ __html: js }} />;
+  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: js }} />;
 }
 
 /* ─── Context ──────────────────────────────────────────────────── */
