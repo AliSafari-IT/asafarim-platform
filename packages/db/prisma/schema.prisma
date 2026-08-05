@@ -51,6 +51,24 @@ model User {
   // Structured, multi-app-scoped addresses (see UserLocation below)
   locations UserLocation[]
 
+  // EduMatch — AI learning support and tutor marketplace
+  eduStudentProfile             EduStudentProfile?
+  eduTutorProfile               EduTutorProfile?
+  eduInquiries                  EduInquiry[]
+  eduQuotes                     EduQuote[]
+  eduStudentBookings            EduBooking[]               @relation("EduBookingStudent")
+  eduTutorBookings              EduBooking[]               @relation("EduBookingTutor")
+  eduTransactions               EduTransaction[]
+  eduWallet                     EduWallet?
+  eduNotifications              EduNotification[]
+  eduMessages                   EduMessage[]
+  eduNotificationPrefs          EduNotificationPreference?
+  eduTutorVerifications         EduTutorVerification[]     @relation("EduTutorVerificationTutor")
+  eduTutorVerificationsReviewed EduTutorVerification[]     @relation("EduTutorVerificationReviewer")
+  eduVerificationMessages       EduVerificationMessage[]   @relation("EduVerificationMessageTutor")
+  eduVerificationMessagesSent   EduVerificationMessage[]   @relation("EduVerificationMessageSender")
+  eduAuditEventsActor           EduAuditEvent[]             @relation("EduAuditActor")
+
   // Vionto — photo-to-story video pipeline
   viontoProjects         ViontoProject[]
   viontoAuditEvents      ViontoAuditEvent[]      @relation("ViontoAuditActor")
@@ -1015,3 +1033,400 @@ model ContactAttachment {
 
   @@index([messageId])
 }
+
+
+// EduMatch — AI learning support and tutor marketplace
+
+model EduStudentProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  gradeLevel         String // K12, UNDERGRAD, GRAD
+  subjectsOfInterest String[] @default([])
+  homeAddress        Json?
+  homeLat            Float?
+  homeLng            Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([gradeLevel])
+}
+
+model EduTutorProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  bio             String?  @db.Text
+  subjectsTaught  String[] @default([])
+  levelsTaught    String[] @default([])
+  hourlyRateCents Int      @default(0)
+  onlineOnly      Boolean  @default(false)
+  serviceRadiusKm Int      @default(10)
+  homeAddress     Json?
+  homeLat         Float?
+  homeLng         Float?
+
+  // Stripe Connect (Phase 4)
+  stripeAccountId String? @unique
+  payoutEnabled   Boolean @default(false)
+
+  // Trust & quality
+  verifiedAt  DateTime?
+  ratingAvg   Float     @default(0)
+  ratingCount Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([onlineOnly])
+  @@index([hourlyRateCents])
+  @@index([ratingAvg])
+  @@index([verifiedAt])
+}
+
+model EduInquiry {
+  id          String  @id @default(cuid())
+  studentId   String
+  subject     String
+  gradeLevel  String
+  description String  @db.Text
+  attachments Json? // [{ type, url, mime, sizeBytes }]
+  aiSummary   String? @db.Text
+  status      String  @default("NEW") // NEW, AI_RESPONDED, TUTOR_REQUESTED, BOOKED, CLOSED, REFUSED
+
+  // Moderation snapshot taken at the time of inquiry/AI generation. Null until
+  // a moderation decision has been made. Decisions are also logged on each
+  // EduAiResponse so we keep history if the inquiry is re-asked.
+  moderationOutcome  String? // ALLOW, REVIEW, REFUSE
+  moderationCategory String? // CHEATING, EXAM_BYPASS, PLAGIARISM, UNSAFE_PERSONAL, OTHER, NONE
+  moderationReason   String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student       User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  aiResponses   EduAiResponse[]
+  quoteRequests EduQuoteRequest[]
+
+  @@index([studentId])
+  @@index([status])
+  @@index([subject])
+  @@index([createdAt])
+  @@index([moderationOutcome])
+}
+
+model EduAiResponse {
+  id               String  @id @default(cuid())
+  inquiryId        String
+  modelUsed        String
+  promptVersion    String
+  explanation      String  @db.Text
+  studyPlan        Json?
+  practiceProblems Json?
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  tokenCostMicros  Int? // 1/1,000,000 of a USD, integer math for billing
+  latencyMs        Int?
+  truncated        Boolean @default(false)
+  stopReason       String?
+
+  // Moderation snapshot for this specific generation attempt. ALLOW responses
+  // contain regular AI output; REFUSE responses contain a redirection message.
+  moderationOutcome  String? // ALLOW, REVIEW, REFUSE
+  moderationCategory String? // CHEATING, EXAM_BYPASS, PLAGIARISM, UNSAFE_PERSONAL, OTHER, NONE
+  moderationReason   String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  inquiry EduInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
+  @@index([inquiryId])
+  @@index([createdAt])
+  @@index([moderationOutcome])
+}
+
+model EduQuoteRequest {
+  id          String   @id @default(cuid())
+  inquiryId   String
+  studentId   String
+  requestedAt DateTime @default(now())
+  expiresAt   DateTime
+  status      String   @default("OPEN") // OPEN, FULFILLED, EXPIRED, CANCELLED
+
+  inquiry EduInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  quotes  EduQuote[]
+
+  @@index([inquiryId])
+  @@index([studentId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model EduQuote {
+  id                String  @id @default(cuid())
+  quoteRequestId    String
+  tutorId           String
+  hourlyRateCents   Int
+  estimatedHours    Float
+  totalCents        Int
+  currency          String  @default("eur")
+  availabilitySlots Json? // [{ start, end, mode }]
+  notes             String? @db.Text
+  pdfUrl            String?
+  status            String  @default("PENDING") // PENDING, SENT, ACCEPTED, DECLINED, EXPIRED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quoteRequest EduQuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  tutor        User            @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  booking      EduBooking?
+
+  @@unique([quoteRequestId, tutorId])
+  @@index([quoteRequestId])
+  @@index([tutorId])
+  @@index([status])
+}
+
+model EduBooking {
+  id                    String    @id @default(cuid())
+  quoteId               String    @unique
+  studentId             String
+  tutorId               String
+  scheduledAt           DateTime
+  durationMinutes       Int
+  mode                  String // ONLINE, IN_PERSON
+  meetingUrl            String?
+  stripePaymentIntentId String?   @unique
+  status                String    @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED, DISPUTED
+  completedAt           DateTime?
+  cancelledAt           DateTime?
+  cancellationReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quote        EduQuote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  student      User             @relation("EduBookingStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  tutor        User             @relation("EduBookingTutor", fields: [tutorId], references: [id], onDelete: Cascade)
+  transactions EduTransaction[]
+  messages     EduMessage[]
+
+  @@index([studentId])
+  @@index([tutorId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model EduTransaction {
+  id               String  @id @default(cuid())
+  bookingId        String
+  tutorId          String
+  type             String // CHARGE, REFUND, PAYOUT, PLATFORM_FEE
+  grossCents       Int
+  platformFeeCents Int     @default(0)
+  netCents         Int
+  currency         String  @default("EUR")
+  stripeChargeId   String?
+  stripePayoutId   String?
+
+  createdAt DateTime @default(now())
+
+  booking EduBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  tutor   User       @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([tutorId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([stripeChargeId])
+}
+
+model EduWallet {
+  tutorId              String    @id
+  balanceCents         Int       @default(0)
+  pendingCents         Int       @default(0)
+  payoutThresholdCents Int       @default(5000)
+  currency             String    @default("EUR")
+  lastPayoutAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tutor User @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+}
+
+model EduNotification {
+  id      String    @id @default(cuid())
+  userId  String
+  type    String // INQUIRY_RECEIVED, AI_RESPONSE_READY, QUOTE_RECEIVED, BOOKING_CONFIRMED, PAYOUT_SENT, ...
+  payload Json?
+  readAt  DateTime?
+  sentAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([readAt])
+  @@index([createdAt])
+}
+
+model EduMessage {
+  id        String @id @default(cuid())
+  bookingId String
+  senderId  String
+  body      String @db.Text
+
+  createdAt DateTime @default(now())
+
+  booking EduBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  sender  User       @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+// ─── EduMatch trust & safety ──────────────────────────────────────────────
+//
+// EduTutorProfile.verifiedAt remains the canonical "is verified now?" field.
+// EduTutorVerification records the workflow around it: each review attempt,
+// the checklist results, admin notes, and the resolution. The current row
+// (latest by createdAt) holds the active workflow status; older rows preserve
+// audit history. A tutor is verified when their profile has verifiedAt set,
+// which is written by the admin verification routes when status -> VERIFIED.
+
+model EduTutorVerification {
+  id         String  @id @default(cuid())
+  tutorId    String
+  reviewerId String?
+
+  // Workflow status for this review iteration.
+  status String @default("PENDING") // PENDING, NEEDS_CHANGES, VERIFIED, REJECTED
+
+  // Optional structured checklist outcome.
+  // Shape (free-form JSON): {
+  //   identityVerified: boolean,
+  //   credentialsVerified: boolean,
+  //   backgroundCheck: boolean,
+  //   profileComplete: boolean,
+  //   notes?: string,
+  // }
+  checklist Json?
+
+  // Free-form admin notes shown only to admins.
+  adminNotes String? @db.Text
+
+  // If status === NEEDS_CHANGES, this is the message shown to the tutor.
+  tutorMessage String? @db.Text
+
+  // When the review was resolved (VERIFIED, REJECTED, or NEEDS_CHANGES sent).
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tutor    User  @relation("EduTutorVerificationTutor", fields: [tutorId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("EduTutorVerificationReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([tutorId])
+  @@index([status])
+  @@index([reviewerId])
+  @@index([createdAt])
+}
+
+// A two-way message thread between admins and a tutor about that tutor's
+// verification. The thread is keyed by `tutorId` (the verification subject).
+// `senderRole` records whether a message came from an ADMIN or the TUTOR.
+// `readAt` is stamped when the *other* party reads the message, powering
+// unread badges on both the admin panel and the tutor's verification page.
+model EduVerificationMessage {
+  id          String    @id @default(cuid())
+  tutorId     String
+  senderId    String
+  senderRole  String // ADMIN | TUTOR
+  body        String    @db.Text
+  // Optional attachments: array of { key, mime, filename, sizeBytes }. Keys are
+  // storage object keys scoped to the uploader; URLs are signed on read because
+  // the bucket is private.
+  attachments Json?
+  // Emoji reactions: { [emoji]: userId[] } — emoji keys are restricted to the
+  // supported set (thumbsup, thumbsdown, check, question, eyes, tada).
+  reactions   Json?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  tutor  User @relation("EduVerificationMessageTutor", fields: [tutorId], references: [id], onDelete: Cascade)
+  sender User @relation("EduVerificationMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([tutorId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+// User-level notification preferences for EduMatch domain events. Created
+// lazily on first lookup; absence of a row means "all defaults" (everything
+// in-app, email enabled where the dispatcher considers it safe).
+model EduNotificationPreference {
+  userId String @id
+
+  // In-app delivery toggles.
+  inAppInquiryReceived    Boolean @default(true)
+  inAppAiResponseReady    Boolean @default(true)
+  inAppQuoteReceived      Boolean @default(true)
+  inAppBookingConfirmed   Boolean @default(true)
+  inAppCancellationUpdate Boolean @default(true)
+  inAppDisputeUpdate      Boolean @default(true)
+  inAppPayoutSent         Boolean @default(true)
+
+  // Email delivery toggles. Defaults are conservative — opt-in for marketing-
+  // adjacent flows, opt-out for transactional safety flows.
+  emailInquiryReceived    Boolean @default(true)
+  emailAiResponseReady    Boolean @default(false)
+  emailQuoteReceived      Boolean @default(true)
+  emailBookingConfirmed   Boolean @default(true)
+  emailCancellationUpdate Boolean @default(true)
+  emailDisputeUpdate      Boolean @default(true)
+  emailPayoutSent         Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Append-only audit trail for EduMatch state changes. Distinct from the
+// generic AuditLog so EduMatch flows can record domain-specific transitions
+// (prevState → nextState) without polluting the platform-wide log. The
+// generic AuditLog remains in use elsewhere.
+model EduAuditEvent {
+  id        String  @id @default(cuid())
+  actorId   String? // null for system events (e.g. webhook-driven payouts)
+  actorRole String? // STUDENT, TUTOR, ADMIN, SYSTEM
+  action    String // INQUIRY_CREATED, AI_RESPONSE_GENERATED, AI_RESPONSE_REFUSED, ...
+  entity    String // EduInquiry, EduAiResponse, EduQuote, EduBooking, EduTutorProfile, ...
+  entityId  String?
+  prevState String?
+  nextState String?
+  reason    String? @db.Text
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  actor User? @relation("EduAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─── Unified Shopping Cart ─────────────────────────────────────

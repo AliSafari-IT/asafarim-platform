@@ -123,17 +123,17 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     status: "active",
     access: "public",
   },
-  // ── Deferred apps: visible as coming-soon metadata only. No access is
-  //    granted until their implementation PRs land. ─────────────────────
   {
     key: "edumatch",
     name: "EduMatch",
-    description: "Explainable tutor-matching benchmark.",
+    description: "AI learning support and an explainable, trusted tutor marketplace.",
     glyph: "EM",
-    meta: "edumatch · planned",
-    status: "coming-soon",
-    access: null,
+    meta: "edumatch.asafarim.com",
+    status: "active",
+    access: "authenticated",
   },
+  // ── Deferred apps: visible as coming-soon metadata only. No access is
+  //    granted until their implementation PRs land. ─────────────────────
   {
     key: "content-generator",
     name: "Content Generator",

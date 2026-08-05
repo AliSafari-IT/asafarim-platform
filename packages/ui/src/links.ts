@@ -14,6 +14,7 @@ export interface PlatformLinks {
   showcase: string;
   admin: string;
   vionto: string;
+  edumatch: string;
   testora: string;
   appbuilder: string;
   devtools: string;
@@ -26,6 +27,7 @@ export function getPlatformLinks(): PlatformLinks {
     showcase: process.env.NEXT_PUBLIC_SHOWCASE_URL ?? "http://localhost:3002",
     admin: process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3003",
     vionto: process.env.NEXT_PUBLIC_VIONTO_URL ?? "http://localhost:3004",
+    edumatch: process.env.NEXT_PUBLIC_EDUMATCH_URL ?? "http://localhost:3009",
     testora: process.env.NEXT_PUBLIC_TESTORA_URL ?? "http://localhost:3005",
     appbuilder: process.env.NEXT_PUBLIC_APPBUILDER_URL ?? "http://localhost:3006",
     // devtools lives on a separate domain (asafarim.be) as its own deployment,

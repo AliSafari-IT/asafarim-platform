@@ -28,6 +28,15 @@ vionto.asafarim.com {
   }
 }
 
+edumatch.asafarim.com {
+  reverse_proxy edumatch:3000 {
+    transport http {
+      read_timeout 600s
+      write_timeout 600s
+    }
+  }
+}
+
 testora.asafarim.com {
   # Test runs stream progress over a long-lived connection; be generous.
   reverse_proxy testora:3000 {

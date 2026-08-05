@@ -17,4 +17,8 @@ export type {
   RolePermission,
   AuditLog,
   PlatformSetting,
+  EduStudentProfile,
+  EduTutorProfile,
+  EduBooking,
+  EduTransaction,
 } from "@prisma/client";
