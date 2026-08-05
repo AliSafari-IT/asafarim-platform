@@ -85,7 +85,7 @@ async function startDatabase(): Promise<void> {
   }
   startDockerDesktop();
   console.log("Starting database container...");
-  execSync("docker compose up -d", { stdio: "inherit" });
+  execSync("docker compose --env-file .env.local up -d", { stdio: "inherit" });
   console.log("Waiting for database to be reachable...");
   const start = Date.now();
   while (Date.now() - start < MAX_WAIT_SECONDS * 1000) {
