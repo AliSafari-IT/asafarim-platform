@@ -29,7 +29,7 @@
     "db:seed": "pnpm --filter @asafarim/db db:seed",
     "db:seed:prod": "pnpm --filter @asafarim/db db:seed:prod",
     "db:migrate:deploy:prod": "pnpm --filter @asafarim/db db:migrate:deploy:prod",
-    "db:up": "docker compose up -d",
+    "db:up": "docker compose --env-file .env.local up -d",
     "bench:testora": "pnpm --filter @asafarim/testora-benchmark test",
     "bench:testora:fixtures": "pnpm --filter @asafarim/testora-benchmark bench:generate",
     "bench:ai-eval": "pnpm --filter @asafarim/ai-eval-benchmark eval",
