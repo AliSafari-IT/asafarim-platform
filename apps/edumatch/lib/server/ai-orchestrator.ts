@@ -16,6 +16,7 @@
  */
 
 import { prisma } from "@asafarim/db";
+import { toBaseLanguage, type BaseLanguage } from "@asafarim/shared-i18n";
 import { objectExists } from "./storage";
 import {
   moderatePrompt,
@@ -267,14 +268,42 @@ export async function generateWithAnthropic(
   };
 }
 
-const DEFAULT_SYSTEM_PROMPT = `You are EduMatch AI, a helpful tutor for students.
+const LANGUAGE_NAMES: Record<BaseLanguage, string> = {
+  en: "English",
+  nl: "Dutch",
+  fr: "French",
+  de: "German",
+  lb: "Luxembourgish",
+};
+
+/**
+ * Build the AI tutor's system prompt.
+ *
+ * "Answer in the same language as the student question" alone is unreliable
+ * for the short, technical inputs this app actually gets — "algebera II" (a
+ * real example) gives a language model almost nothing to detect from, and
+ * it guessed Spanish for a Dutch-locale student. `localeHint` — the
+ * student's app locale, resolved from the `asafarim-lang` cookie by the
+ * caller — gives the model a fallback for exactly that case, while still
+ * letting an unambiguous question in another language (a French student
+ * writing in French while the app happens to be in English) win, since the
+ * instruction order asks it to prefer the question's own language when
+ * that's actually clear.
+ */
+export function buildSystemPrompt(localeHint?: string): string {
+  const languageLine = localeHint
+    ? `- Answer in the same language as the student's question when that language is clearly identifiable from the text. If the question is too short or ambiguous to tell (e.g. a bare technical term or a typo), answer in ${LANGUAGE_NAMES[toBaseLanguage(localeHint)]} instead — that's the language the student's app is set to.`
+    : `- Answer in the same language as the student question.`;
+
+  return `You are EduMatch AI, a helpful tutor for students.
 Guidelines:
-- Answer in the same language as the student question.
+${languageLine}
 - Be encouraging and concise; prefer step-by-step explanations.
 - If images are provided, read them carefully and reference specific content.
 - If a question is unclear, ask clarifying questions.
 - Never write exam answers verbatim; guide the student to understanding.
 - Cite any formulas or facts you use.`;
+}
 
 /**
  * Orchestrate a full AI response for an inquiry.
@@ -287,6 +316,7 @@ Guidelines:
 export async function orchestrateResponse(
   inquiryId: string,
   forceProvider?: "openai" | "anthropic",
+  options?: { localeHint?: string },
 ): Promise<AiResponseResult & { responseId?: string }> {
   const inquiry = await prisma.eduInquiry.findUnique({
     where: { id: inquiryId },
@@ -308,7 +338,7 @@ export async function orchestrateResponse(
 
   // 2) Build prompt
   const baseDescription = inquiry.description + audioText;
-  const systemPrompt = DEFAULT_SYSTEM_PROMPT;
+  const systemPrompt = buildSystemPrompt(options?.localeHint);
 
   // 2a) Moderation pre-check. If REFUSE, short-circuit and persist a
   // refusal-only EduAiResponse + update inquiry without ever calling the
