@@ -125,6 +125,11 @@ export default function StudentProfilePage() {
       if (!res.ok) {
         setError(data.error ?? t("edumatch.profile.student.saveFailed"));
         setSaving(false);
+        // See app/tutor/profile/page.tsx's identical fix: this branch was
+        // missing the scroll the network-error and success paths have, so
+        // a failed submit was invisible while the viewport stayed near the
+        // submit button.
+        noticeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
 
