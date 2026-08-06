@@ -139,6 +139,14 @@ export default function TutorProfilePage() {
       if (!res.ok) {
         setError(data.error ?? t("edumatch.profile.tutor.saveFailed"));
         setSaving(false);
+        // Unlike the network-error and success paths below, this branch was
+        // missing the scroll — the notice renders above the form, but the
+        // viewport is still scrolled down near the submit button after a
+        // failed submit, so the error was invisible unless the user
+        // happened to scroll up. That reads as "nothing happened," and is
+        // exactly the reported symptom: fill the form, click submit, see
+        // no visible result, assume it saved, find it didn't next login.
+        noticeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
 
