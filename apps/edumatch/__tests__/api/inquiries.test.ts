@@ -84,7 +84,11 @@ describe("Inquiries API", () => {
         attachments: [],
       }),
     );
-    expect(orchestrateResponse).toHaveBeenCalledWith("inq-1");
+    // No cookie header on this request → resolveLocaleFromCookie falls back
+    // to the default locale ("en").
+    expect(orchestrateResponse).toHaveBeenCalledWith("inq-1", undefined, {
+      localeHint: "en",
+    });
   });
 
   it("returns 400 for missing subject", async () => {

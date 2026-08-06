@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
+  buildSystemPrompt,
   buildVisionContent,
   generateWithOpenAI,
   generateWithAnthropic,
@@ -7,6 +8,46 @@ import {
   type VisionContent,
 } from "../ai-orchestrator";
 import * as storage from "../storage";
+
+describe("buildSystemPrompt", () => {
+  /**
+   * The bug this fixes: "Answer in the same language as the student
+   * question" is the whole language instruction with no fallback. A real
+   * inquiry description — "algebera II", two words, arguably a typo — gave
+   * the model nothing to detect a language from, and it answered a
+   * Dutch-locale student in Spanish.
+   */
+  it("without a locale hint, only tells the model to mirror the question", () => {
+    const prompt = buildSystemPrompt();
+    expect(prompt).toContain("Answer in the same language as the student question.");
+    expect(prompt).not.toContain("app is set to");
+  });
+
+  it("with a locale hint, gives a named-language fallback for ambiguous questions", () => {
+    const prompt = buildSystemPrompt("nl-BE");
+    expect(prompt).toContain("Dutch");
+    expect(prompt).toContain("too short or ambiguous");
+  });
+
+  it("still prioritises the question's own language when the hint disagrees", () => {
+    // A French-locale student writing clearly in English should still get
+    // an English answer — the hint is a fallback, not an override.
+    const prompt = buildSystemPrompt("fr-BE");
+    expect(prompt).toMatch(/clearly identifiable from the text/);
+    expect(prompt).toContain("French");
+  });
+
+  it("maps every base language to a name a model can act on", () => {
+    for (const locale of ["en", "nl-NL", "fr-LU", "de-LU", "lb-LU"] as const) {
+      expect(buildSystemPrompt(locale)).not.toContain("undefined");
+    }
+  });
+
+  it("falls back to English for an unrecognised locale rather than erroring", () => {
+    expect(() => buildSystemPrompt("xx-YY")).not.toThrow();
+    expect(buildSystemPrompt("xx-YY")).toContain("English");
+  });
+});
 
 describe("transcribeAudio", () => {
   const originalFetch = global.fetch;

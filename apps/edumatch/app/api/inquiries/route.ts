@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { requireStudent } from "@/lib/server/profiles";
 import { handleEduError } from "@/lib/server";
 import { badRequest, serverError } from "@/lib/server/auth";
@@ -28,7 +29,11 @@ export async function POST(req: Request) {
     const created = await createInquiry(user.id, parsed.data);
 
     // Phase 2.2: fire-and-forget in-process AI orchestration (non-blocking).
-    orchestrateResponse(created.id).catch((e) =>
+    // localeHint lets the model fall back sensibly on short/ambiguous
+    // questions ("algebera II") instead of guessing a language from nothing
+    // — see buildSystemPrompt() in ai-orchestrator.ts.
+    const localeHint = resolveLocaleFromCookie(req.headers.get("cookie"));
+    orchestrateResponse(created.id, undefined, { localeHint }).catch((e) =>
       console.warn("[inquiries] AI auto-orchestration failed (non-blocking):", e),
     );
 
