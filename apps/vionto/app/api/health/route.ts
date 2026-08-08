@@ -15,7 +15,7 @@ export async function GET() {
     checks.database = true;
   } catch {}
 
-  const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+  const redis = new Redis(process.env.REDIS_URL ?? "redis://127.0.0.1:6379", {
     lazyConnect: true,
     maxRetriesPerRequest: 0,
     connectTimeout: 1000,

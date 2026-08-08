@@ -73,7 +73,7 @@ function getRedis(): Redis {
     if (!url) {
       throw new Error(
         "REDIS_URL environment variable is required for AppBuilder generation dispatch. " +
-          "Set it to redis://localhost:6390 (dev) or your Redis instance URL.",
+          "Set it to redis://127.0.0.1:6390 (dev) or your Redis instance URL.",
       );
     }
     _redis = new Redis(url, { maxRetriesPerRequest: null });
