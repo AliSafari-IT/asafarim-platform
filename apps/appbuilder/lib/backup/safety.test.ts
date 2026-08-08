@@ -9,7 +9,7 @@ const PROD_URL = "postgres://appbuilder:secret@db.internal:5432/appbuilder";
 
 describe("resolveSourceUrl", () => {
   it("falls back to the local dev default when unset", () => {
-    expect(resolveSourceUrl({})).toContain("localhost:55436/appbuilder");
+    expect(resolveSourceUrl({})).toContain("127.0.0.1:55436/appbuilder");
   });
 
   it("honors APPBUILDER_DATABASE_URL", () => {

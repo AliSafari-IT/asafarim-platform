@@ -7,7 +7,7 @@ import * as schema from "./schema";
 // picks up the root DATABASE_URL (see docs/appbuilder-architecture.md).
 const connectionString =
   process.env.APPBUILDER_DATABASE_URL ??
-  "postgres://appbuilder:appbuilder_dev@localhost:55436/appbuilder";
+  "postgres://appbuilder:appbuilder_dev@127.0.0.1:55436/appbuilder";
 
 let pool: Pool | undefined;
 let db: NodePgDatabase<typeof schema> | undefined;
