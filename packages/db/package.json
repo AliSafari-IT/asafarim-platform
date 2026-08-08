@@ -16,6 +16,7 @@
     "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio",
     "db:seed": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed.ts",
     "db:seed:prod": "dotenv -e ../../.env.production -- tsx prisma/seed.ts",
+    "db:seed:edumatch": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed-edumatch.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
