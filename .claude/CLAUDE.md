@@ -109,6 +109,7 @@ Builds depend on `^build` (packages must build before apps). When you change a s
 | testora | 3005 | testora.asafarim.com |
 | appbuilder | 3006 | appbuilder.asafarim.com |
 | edumatch | 3009 | edumatch.asafarim.com |
+| timelineai | 3007 | tlai.asafarim.com |
 
 ### Production Deployment
 Docker Compose + Caddy reverse proxy on Hostinger VPS (`82.25.116.73`). GitHub Actions (`push to main`) SSH into VPS and runs `infra/scripts/vps-deploy.sh`, which: decrypts env, builds images sequentially (memory-safe on 8 GB), restarts stack, notifies Discord.
