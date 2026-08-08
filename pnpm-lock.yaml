@@ -503,6 +503,9 @@ importers:
       '@asafarim/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@asafarim/theme-toggle':
+        specifier: workspace:*
+        version: link:../../packages/theme-toggle
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui

@@ -1,5 +1,7 @@
 @import "tailwindcss";
-@import "@asafarim/ui/styles.css";
+/* @asafarim/ui/styles.css is imported directly in app/layout.tsx, before
+   this file, so its unscoped body{} defaults don't win the cascade over
+   ours (see apps/edumatch/app/layout.tsx for the same ordering note). */
 
 /*
  * TimelineAI theme tokens, scoped under data-app="timelineai" so the shared
