@@ -38,7 +38,7 @@ export interface AuditEventInput {
   /** Acting user id (the admin performing the mutation), if known. */
   userId: string | null;
   action: string;
-  entity: "User" | "UserRole" | "Role" | "PlatformSetting" | "Admin";
+  entity: "User" | "UserRole" | "Role" | "PlatformSetting" | "Admin" | "TailscaleDevice";
   entityId: string;
   changes?: Record<string, unknown>;
 }
