@@ -170,8 +170,11 @@ export async function acceptQuote(
   quoteId: string,
   studentId: string,
 ): Promise<{ bookingId: string; quoteId: string }> {
+  // Ownership is part of the query itself (not a follow-up check) so a
+  // quote belonging to another student is indistinguishable from a quote
+  // that doesn't exist — same "not found" either way (see #87 AC5).
   const quote = await prisma.eduQuote.findFirst({
-    where: { id: quoteId },
+    where: { id: quoteId, quoteRequest: { studentId } },
     include: {
       quoteRequest: { select: { studentId: true, inquiryId: true, status: true } },
     },
@@ -179,9 +182,6 @@ export async function acceptQuote(
 
   if (!quote) {
     throw new QuoteError("Quote not found.");
-  }
-  if (quote.quoteRequest.studentId !== studentId) {
-    throw new QuoteError("Access denied.");
   }
   if (quote.status !== "PENDING") {
     throw new QuoteError(`Quote cannot be accepted (status: ${quote.status}).`);
@@ -240,12 +240,11 @@ export async function acceptQuote(
  */
 export async function declineQuote(quoteId: string, studentId: string): Promise<void> {
   const quote = await prisma.eduQuote.findFirst({
-    where: { id: quoteId },
+    where: { id: quoteId, quoteRequest: { studentId } },
     include: { quoteRequest: { select: { studentId: true } } },
   });
 
   if (!quote) throw new QuoteError("Quote not found.");
-  if (quote.quoteRequest.studentId !== studentId) throw new QuoteError("Access denied.");
   if (quote.status !== "PENDING") throw new QuoteError("Quote cannot be declined.");
 
   await prisma.eduQuote.update({
