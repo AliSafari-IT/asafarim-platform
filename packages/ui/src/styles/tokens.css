@@ -264,6 +264,50 @@
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
 }
 
+/* ── Mood: apps/timelineai — “Timeline” (soft violet + amber) ─────
+   TimelineAI puts data-app on <html> (same element as data-theme, not
+   a descendant body like most other apps), so the dark override is
+   written as both a descendant selector (for apps that follow the
+   body-level convention) and a same-element compound selector. */
+[data-app="timelineai"] {
+  color-scheme: light;
+
+  --bg: #faf9fc;
+  --surface: #ffffff;
+  --surface-2: #f1eefc;
+  --surface-3: #e9e2fb;
+  --ink: #1b1730;
+  --muted: #6b6483;
+  --line: rgba(27, 23, 48, 0.12);
+  --line-strong: rgba(27, 23, 48, 0.22);
+  --accent: #6d5ef8;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(109, 94, 248, 0.12);
+  --accent-2: #f6a84f;
+  --shadow-1: 0 1px 2px rgba(27, 23, 48, 0.06), 0 2px 8px rgba(27, 23, 48, 0.05);
+  --shadow-2: 0 2px 4px rgba(27, 23, 48, 0.08), 0 12px 28px rgba(27, 23, 48, 0.1);
+}
+
+:root[data-theme="dark"] [data-app="timelineai"],
+[data-app="timelineai"][data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0f0d1a;
+  --surface: #17142a;
+  --surface-2: #1e1a35;
+  --surface-3: #262040;
+  --ink: #f1eefc;
+  --muted: #a29cc2;
+  --line: rgba(241, 238, 252, 0.12);
+  --line-strong: rgba(241, 238, 252, 0.22);
+  --accent: #8577ff;
+  --accent-ink: #0f0d1a;
+  --accent-soft: rgba(133, 119, 255, 0.16);
+  --accent-2: #f6a84f;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
 /* ── Mood: apps/testora — “Test Lab” (deep indigo, violet + sky) ─────
    Dark-only, matching the tool's own Tailwind palette so the shared
    header blends into testora's sidebar UI. */
