@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
 
@@ -77,7 +78,11 @@ export default function UsersPage() {
           {/* Mobile cards */}
           <div className="space-y-3 md:hidden">
             {data.items.map((u) => (
-              <div key={u.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+              <Link
+                key={u.id}
+                href={`/admin/users/${u.id}`}
+                className="block rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-4 hover:border-[var(--color-border-strong,var(--color-border))]"
+              >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0">
                     <p className="font-semibold text-[var(--color-text)] truncate">{u.name ?? "-"}</p>
@@ -111,7 +116,7 @@ export default function UsersPage() {
                   </span>
                   <span>{t("edumatch.admin.users.joined")} {new Date(u.createdAt).toLocaleDateString()}</span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 
@@ -131,7 +136,11 @@ export default function UsersPage() {
               <tbody>
                 {data.items.map((u) => (
                   <tr key={u.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)]">
-                    <td className="px-3 py-2 text-[var(--color-text)]">{u.name ?? "-"}</td>
+                    <td className="px-3 py-2 text-[var(--color-text)]">
+                      <Link href={`/admin/users/${u.id}`} className="hover:underline">
+                        {u.name ?? "-"}
+                      </Link>
+                    </td>
                     <td className="px-3 py-2 text-[var(--color-text-muted)]">{u.email}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
