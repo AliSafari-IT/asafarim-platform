@@ -206,11 +206,14 @@ export async function cancelBooking(input: {
   const booking = await loadBookingOrThrow(bookingId);
 
   // Authorization
+  // Deliberately the exact same message loadBookingOrThrow uses for a
+  // missing booking: a caller who isn't a party to this booking must not be
+  // able to tell "wrong owner" apart from "doesn't exist" (see #87 AC5).
   if (actorRole === "STUDENT" && booking.studentId !== actorId) {
-    throw new BookingTransitionError("Only the booking's student can cancel.");
+    throw new BookingTransitionError("Booking not found");
   }
   if (actorRole === "TUTOR" && booking.tutorId !== actorId) {
-    throw new BookingTransitionError("Only the booking's tutor can cancel.");
+    throw new BookingTransitionError("Booking not found");
   }
 
   if (booking.status === "CANCELLED") {
@@ -259,10 +262,10 @@ export async function disputeBooking(input: {
   const booking = await loadBookingOrThrow(bookingId);
 
   if (actorRole === "STUDENT" && booking.studentId !== actorId) {
-    throw new BookingTransitionError("Only the booking's student can dispute.");
+    throw new BookingTransitionError("Booking not found");
   }
   if (actorRole === "TUTOR" && booking.tutorId !== actorId) {
-    throw new BookingTransitionError("Only the booking's tutor can dispute.");
+    throw new BookingTransitionError("Booking not found");
   }
   if (booking.status === "DISPUTED") {
     throw new BookingTransitionError("A dispute is already open for this booking.");
@@ -319,10 +322,10 @@ export async function respondToDispute(input: {
     throw new BookingTransitionError("Can only respond to open disputes.");
   }
   if (actorRole === "STUDENT" && booking.studentId !== actorId) {
-    throw new BookingTransitionError("Only the booking's student can respond.");
+    throw new BookingTransitionError("Booking not found");
   }
   if (actorRole === "TUTOR" && booking.tutorId !== actorId) {
-    throw new BookingTransitionError("Only the booking's tutor can respond.");
+    throw new BookingTransitionError("Booking not found");
   }
   if (!message?.trim()) {
     throw new BookingTransitionError("Response message is required.");
