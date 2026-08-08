@@ -1034,6 +1034,25 @@ model ContactAttachment {
   @@index([messageId])
 }
 
+/**
+ * Public-site email capture (asafarim.com homepage). Independent of
+ * ContactMessage: this is a standing subscriber list, not a one-off
+ * inquiry. No userId relation — most subscribers aren't platform accounts.
+ */
+model NewsletterSubscriber {
+  id     String  @id @default(cuid())
+  email  String  @unique
+  // Where the signup happened, e.g. "web-home". Lets future sources
+  // (per-app signup forms) share one table without guessing origin.
+  source String  @default("web-home")
+  // Soft opt-out — keep the row (suppress re-sends, avoid re-adding on a
+  // repeat submit) instead of deleting on unsubscribe.
+  unsubscribedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([source])
+}
 
 // EduMatch — AI learning support and tutor marketplace
 

@@ -8,6 +8,7 @@ import {
 } from "@asafarim/shared-i18n/server";
 import webDictionaries from "../lib/i18n-dictionaries";
 import { HomeEffects } from "./_home/HomeEffects";
+import { NewsletterSignup } from "./_home/NewsletterSignup";
 import {
   ArrowUpRight,
   Bot,
@@ -151,8 +152,8 @@ export default async function HomePage() {
               <a href="#hire" className={styles.btnPrimary}>
                 {t("web.home.hero.ctaPrimary")} <Handshake size={16} />
               </a>
-              <a href={GITHUB} target="_blank" rel="noreferrer" className={styles.btnGhost}>
-                <Github size={16} /> {t("web.home.hero.ctaSecondary")}
+              <a href="/projects" className={styles.btnGhost}>
+                {t("web.home.hero.ctaSecondary")} <ArrowUpRight size={16} />
               </a>
             </div>
           </div>
@@ -467,6 +468,19 @@ export default async function HomePage() {
             </a>
           ))}
         </div>
+      </section>
+
+      {/* ── Newsletter ───────────────────────────────────────── */}
+      <section className={styles.section}>
+        <NewsletterSignup
+          kicker={t("web.home.newsletter.kicker")}
+          heading={t("web.home.newsletter.heading")}
+          body={t("web.home.newsletter.body")}
+          placeholder={t("web.home.newsletter.placeholder")}
+          cta={t("web.home.newsletter.cta")}
+          pendingCta={t("web.home.newsletter.pendingCta")}
+          successMessage={t("web.home.newsletter.success")}
+        />
       </section>
 
       {/* ── Contact CTA ──────────────────────────────────────── */}

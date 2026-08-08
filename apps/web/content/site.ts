@@ -6,9 +6,9 @@
 
 export const site = {
   name: "ASafarIM Digital",
-  title: "ASafarIM Digital — Full-Stack & AI Application Studio",
+  title: "ASafarIM Digital — Full-Stack & AI Application Studio in Belgium",
   description:
-    "ASafarIM Digital is a systems-minded studio that designs, builds, and operates full-stack and AI application platforms — from identity and data layers to real-time dashboards and AI-assisted tools.",
+    "ASafarIM Digital is a Belgium-based full-stack & AI application studio run by Ali Safari. We design, build, and operate production platforms — identity and data layers, real-time dashboards, and AI-assisted tools — free, open-source products you can use today.",
 
   organization: {
     name: "ASafarIM Digital",

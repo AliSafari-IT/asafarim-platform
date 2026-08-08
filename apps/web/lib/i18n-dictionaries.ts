@@ -89,6 +89,14 @@ const webDictionaries: Dictionaries = {
     "web.home.sites.github.name": "AliSafari-IT",
     "web.home.sites.github.desc":
       "All my open-source code, packages and experiments.",
+    "web.home.newsletter.kicker": "Stay in the loop",
+    "web.home.newsletter.heading": "I write about building AI systems.",
+    "web.home.newsletter.body":
+      "No spam, no drip campaign — just notes when there's something worth reading. Unsubscribe anytime.",
+    "web.home.newsletter.placeholder": "you@example.com",
+    "web.home.newsletter.cta": "Join the list",
+    "web.home.newsletter.pendingCta": "Joining...",
+    "web.home.newsletter.success": "You're on the list — talk soon.",
     "web.home.contact.heading1": "Let's build",
     "web.home.contact.heading2": "something together.",
     "web.home.contact.body":
@@ -184,6 +192,14 @@ const webDictionaries: Dictionaries = {
     "web.home.sites.github.name": "AliSafari-IT",
     "web.home.sites.github.desc":
       "Al mijn open-source code, pakketten en experimenten.",
+    "web.home.newsletter.kicker": "Blijf op de hoogte",
+    "web.home.newsletter.heading": "Ik schrijf over het bouwen van AI-systemen.",
+    "web.home.newsletter.body":
+      "Geen spam, geen druppelcampagne — alleen berichten als er iets de moeite waard is. Op elk moment uitschrijven.",
+    "web.home.newsletter.placeholder": "jij@voorbeeld.com",
+    "web.home.newsletter.cta": "Schrijf je in",
+    "web.home.newsletter.pendingCta": "Bezig...",
+    "web.home.newsletter.success": "Je staat op de lijst — tot snel.",
     "web.home.contact.heading1": "Laten we",
     "web.home.contact.heading2": "iets bouwen.",
     "web.home.contact.body":
@@ -279,6 +295,14 @@ const webDictionaries: Dictionaries = {
     "web.home.sites.github.name": "AliSafari-IT",
     "web.home.sites.github.desc":
       "Tout mon code open source, packages et expérimentations.",
+    "web.home.newsletter.kicker": "Restez informé",
+    "web.home.newsletter.heading": "J'écris sur la création de systèmes IA.",
+    "web.home.newsletter.body":
+      "Pas de spam, pas de campagne automatisée — juste des notes quand ça vaut la peine d'être lu. Désabonnement à tout moment.",
+    "web.home.newsletter.placeholder": "vous@exemple.com",
+    "web.home.newsletter.cta": "Rejoindre la liste",
+    "web.home.newsletter.pendingCta": "Inscription...",
+    "web.home.newsletter.success": "Vous êtes sur la liste — à bientôt.",
     "web.home.contact.heading1": "Construisons",
     "web.home.contact.heading2": "quelque chose ensemble.",
     "web.home.contact.body":
@@ -373,6 +397,14 @@ const webDictionaries: Dictionaries = {
     "web.home.sites.github.name": "AliSafari-IT",
     "web.home.sites.github.desc":
       "All mein Open-Source-Code, Pakete und Experimente.",
+    "web.home.newsletter.kicker": "Bleiben Sie auf dem Laufenden",
+    "web.home.newsletter.heading": "Ich schreibe über den Aufbau von KI-Systemen.",
+    "web.home.newsletter.body":
+      "Kein Spam, keine Drip-Kampagne — nur Notizen, wenn es etwas Lesenswertes gibt. Jederzeit abbestellbar.",
+    "web.home.newsletter.placeholder": "sie@beispiel.com",
+    "web.home.newsletter.cta": "Zur Liste hinzufügen",
+    "web.home.newsletter.pendingCta": "Wird hinzugefügt...",
+    "web.home.newsletter.success": "Sie stehen auf der Liste — bis bald.",
     "web.home.contact.heading1": "Lassen Sie uns",
     "web.home.contact.heading2": "etwas gemeinsam bauen.",
     "web.home.contact.body":
@@ -468,6 +500,14 @@ const webDictionaries: Dictionaries = {
     "web.home.sites.github.name": "AliSafari-IT",
     "web.home.sites.github.desc":
       "All my open-source code, packages and experiments.",
+    "web.home.newsletter.kicker": "Stay in the loop",
+    "web.home.newsletter.heading": "I write about building AI systems.",
+    "web.home.newsletter.body":
+      "No spam, no drip campaign — just notes when there's something worth reading. Unsubscribe anytime.",
+    "web.home.newsletter.placeholder": "you@example.com",
+    "web.home.newsletter.cta": "Join the list",
+    "web.home.newsletter.pendingCta": "Joining...",
+    "web.home.newsletter.success": "You're on the list — talk soon.",
     "web.home.contact.heading1": "Let's build",
     "web.home.contact.heading2": "something together.",
     "web.home.contact.body":
