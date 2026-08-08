@@ -67,7 +67,7 @@ model User {
   eduTutorVerificationsReviewed EduTutorVerification[]     @relation("EduTutorVerificationReviewer")
   eduVerificationMessages       EduVerificationMessage[]   @relation("EduVerificationMessageTutor")
   eduVerificationMessagesSent   EduVerificationMessage[]   @relation("EduVerificationMessageSender")
-  eduAuditEventsActor           EduAuditEvent[]             @relation("EduAuditActor")
+  eduAuditEventsActor           EduAuditEvent[]            @relation("EduAuditActor")
 
   // Vionto — photo-to-story video pipeline
   viontoProjects         ViontoProject[]
@@ -79,6 +79,10 @@ model User {
 
   // Contact inbox — messages this user sent through the contact workspace
   contactMessages ContactMessage[]
+
+  // TimelineAI — visual timeline builder
+  timelineTimelines   Timeline[]
+  timelineModerations TimelineModerationEvent[] @relation("TimelineModerationActor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -94,9 +98,9 @@ model User {
 /// via `appScope`. Ported shape from the asafarim-digital `UserLocation`
 /// model; trimmed to what this platform actually needs today.
 model UserLocation {
-  id     String @id @default(cuid())
+  id     String  @id @default(cuid())
   userId String
-  type   String @default("home") // home, work, billing, shipping, other
+  type   String  @default("home") // home, work, billing, shipping, other
   label  String? // custom label, e.g. "My apartment"
 
   // Address components
@@ -827,32 +831,32 @@ model ViontoAlbumItem {
 /// The clip replaces the static pan-and-zoom segment for its asset during
 /// final rendering when status=succeeded and accepted=true.
 model ViontoAiClip {
-  id        String  @id @default(cuid())
-  projectId String
-  userId    String
-  versionId String?
-  albumId   String?
+  id          String  @id @default(cuid())
+  projectId   String
+  userId      String
+  versionId   String?
+  albumId     String?
   /// Album item the clip was generated from (kept loose: item may be
   /// removed from the album without invalidating the clip).
   albumItemId String?
   assetId     String
 
-  provider       String @default("kling")
-  model          String
-  mode           String @default("std") // std, pro
-  prompt         String @db.Text
-  negativePrompt String? @db.Text
+  provider        String  @default("kling")
+  model           String
+  mode            String  @default("std") // std, pro
+  prompt          String  @db.Text
+  negativePrompt  String? @db.Text
   /// Requested clip duration (Kling supports 5 or 10 seconds).
-  durationSeconds Int @default(5)
+  durationSeconds Int     @default(5)
 
   /// Provider-side task id used for polling.
-  taskId String?
+  taskId       String?
   /// pending -> submitted -> processing -> succeeded | failed
   status       String  @default("pending")
   errorMessage String? @db.Text
 
   /// Storage key of the downloaded clip in our own object storage.
-  outputStorageKey String?
+  outputStorageKey      String?
   /// Actual duration reported by the provider, seconds.
   outputDurationSeconds Float?
 
@@ -923,7 +927,7 @@ model ViontoProviderCredential {
   provider String
 
   /// Encrypted API key. Format: iv.authTag.ciphertext (base64url).
-  apiKeyEnc String  @db.Text
+  apiKeyEnc    String  @db.Text
   /// Encrypted secret for providers that use key+secret (e.g. Kling).
   apiSecretEnc String? @db.Text
 
@@ -932,8 +936,8 @@ model ViontoProviderCredential {
   maskedKey String?
 
   /// active | invalid (last validation failed)
-  status        String    @default("active")
-  lastError     String?   @db.Text
+  status         String    @default("active")
+  lastError      String?   @db.Text
   lastVerifiedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -986,12 +990,12 @@ model GooglePhotosConnection {
 // pasted HTML content and file attachments, surfaced back to them as an inbox.
 
 model ContactMessage {
-  id       String  @id @default(cuid())
+  id     String  @id @default(cuid())
   // Null for anonymous submissions that are still persisted (currently only
   // authenticated messages are stored); SetNull keeps the record if the user
   // is ever deleted.
-  userId   String?
-  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   name     String
   email    String
@@ -1018,7 +1022,7 @@ model ContactMessage {
 }
 
 model ContactAttachment {
-  id        String @id @default(cuid())
+  id        String         @id @default(cuid())
   messageId String
   message   ContactMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
@@ -1040,11 +1044,11 @@ model ContactAttachment {
  * inquiry. No userId relation — most subscribers aren't platform accounts.
  */
 model NewsletterSubscriber {
-  id     String  @id @default(cuid())
-  email  String  @unique
+  id             String    @id @default(cuid())
+  email          String    @unique
   // Where the signup happened, e.g. "web-home". Lets future sources
   // (per-app signup forms) share one table without guessing origin.
-  source String  @default("web-home")
+  source         String    @default("web-home")
   // Soft opt-out — keep the row (suppress re-sends, avoid re-adding on a
   // repeat submit) instead of deleting on unsubscribe.
   unsubscribedAt DateTime?
@@ -1450,6 +1454,140 @@ model EduAuditEvent {
   @@index([actorId])
   @@index([entity])
   @@index([entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─── TimelineAI — visual timeline builder ─────────────────────
+//
+// Ownership: `ownerUserId` for a Hub-authenticated owner, or `guestIdHash`
+// (a keyed hash of the submitting IP — never the raw IP) for a guest
+// submission. Exactly one of the two is set; enforced in the service layer,
+// not the DB, since Prisma has no portable XOR constraint.
+//
+// Lifecycle is modeled as independent axes rather than one combined status,
+// per the product spec:
+//   visibility       — private | public | unlisted
+//   moderationStatus — not_required | pending | approved | rejected
+//   editingState     — draft | published
+// Authenticated owners default to moderationStatus=not_required and may
+// self-publish (editingState=published, visibility=public) without admin
+// review. Guest submissions default to moderationStatus=pending and stay
+// non-public until an admin approves them.
+//
+// `publicId` is a short unguessable slug (nanoid, generated in the service
+// layer) used for public share URLs — the internal `id` (cuid) is never
+// exposed in a public route.
+
+model Timeline {
+  id       String @id @default(cuid())
+  publicId String @unique
+
+  ownerUserId String?
+  guestIdHash String? // keyed hash of the submitting IP; never the raw IP
+
+  title       String
+  subtitle    String?
+  description String? @db.Text
+
+  // General timeline category the editor pre-fills from, independent of
+  // rendering — e.g. "project", "historical", "roadmap", "gantt",
+  // "calendar", "interactive", "general".
+  timelineType String @default("general")
+
+  // Presentation mode. Content (events) is layout-independent; switching
+  // layout must never drop event data.
+  layout String @default("vertical") // vertical, horizontal, zigzag, radial, roadmap, gantt, calendar, interactive
+
+  // Theme/rendering settings: palette, background, accent/connector colors,
+  // font family + size preset, date format, card style, spacing, visibility
+  // toggles for description/date/image/icon. Kept as JSON so new presets
+  // don't require a migration; validated against a Zod schema in the app.
+  theme Json?
+
+  visibility       String  @default("private") // private, public, unlisted
+  moderationStatus String  @default("not_required") // not_required, pending, approved, rejected
+  moderationReason String? @db.Text
+  editingState     String  @default("draft") // draft, published
+
+  // Optimistic-concurrency guard for concurrent editor saves.
+  version Int @default(1)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  submittedAt DateTime? // guest: when the submission was made
+  approvedAt  DateTime?
+  publishedAt DateTime?
+
+  owner            User?                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  events           TimelineEvent[]
+  moderationEvents TimelineModerationEvent[]
+
+  @@index([ownerUserId])
+  @@index([guestIdHash])
+  @@index([visibility])
+  @@index([moderationStatus])
+  @@index([editingState])
+  @@index([createdAt])
+}
+
+model TimelineEvent {
+  id         String @id @default(cuid())
+  timelineId String
+
+  // Precise date/time (used for chronological sorting and Gantt/calendar
+  // rendering). `displayDate` overrides what's shown when set, so
+  // approximate/historical dates ("circa 1200 BCE") don't need a real
+  // DateTime.
+  startAt     DateTime?
+  endAt       DateTime? // Gantt-style duration bars use start+end
+  displayDate String?
+
+  title       String
+  description String? @db.Text
+
+  imageUrl        String?
+  imageStorageKey String? // @asafarim/storage object key, when uploaded
+
+  icon  String?
+  label String? // category/label chip
+
+  link        String?
+  accentColor String?
+
+  // Manual ordering mode position; chronological mode sorts by startAt at
+  // render time and ignores this field.
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  timeline Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+
+  @@index([timelineId])
+  @@index([timelineId, sortOrder])
+  @@index([timelineId, startAt])
+}
+
+/// Moderation and administrative-action audit trail, distinct from the
+/// generic AuditLog so admin review history (approve/reject/edit/delete
+/// reasons) stays queryable per timeline without joining the platform log.
+model TimelineModerationEvent {
+  id          String  @id @default(cuid())
+  timelineId  String
+  adminUserId String? // null for system/self-publish events
+
+  action   String // SUBMITTED, APPROVED, REJECTED, EDITED, DELETED, PUBLISHED, UNPUBLISHED, VISIBILITY_CHANGED
+  reason   String? @db.Text
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  timeline Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  admin    User?    @relation("TimelineModerationActor", fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([timelineId])
+  @@index([adminUserId])
   @@index([action])
   @@index([createdAt])
 }

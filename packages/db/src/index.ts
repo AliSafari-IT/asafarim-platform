@@ -21,4 +21,7 @@ export type {
   EduTutorProfile,
   EduBooking,
   EduTransaction,
+  Timeline,
+  TimelineEvent,
+  TimelineModerationEvent,
 } from "@prisma/client";

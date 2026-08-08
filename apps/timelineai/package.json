@@ -1,0 +1,51 @@
+{
+  "name": "timelineai",
+  "version": "0.1.0",
+  "description": "TimelineAI: create polished, visual timelines — project, historical, roadmap, Gantt, calendar, and interactive.",
+  "author": "Ali Safari <asafarim@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3007",
+    "build": "next build",
+    "start": "next start --port 3007",
+    "lint": "echo \"Lint skipped for Next.js 16 app; covered by typecheck/build\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf .next .turbo node_modules"
+  },
+  "dependencies": {
+    "@asafarim/auth": "workspace:*",
+    "@asafarim/db": "workspace:*",
+    "@asafarim/storage": "workspace:*",
+    "@asafarim/ui": "workspace:*",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "dotenv": "^17.4.2",
+    "ioredis": "^5.4.1",
+    "lucide-react": "^0.462.0",
+    "nanoid": "^5.0.9",
+    "next": "^16.2.10",
+    "next-auth": "^5.0.0-beta.28",
+    "puppeteer": "^21.11.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "server-only": "^0.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "16.2.10",
+    "node-mocks-http": "^1.15.1",
+    "postcss": "^8.5.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
+  }
+}
