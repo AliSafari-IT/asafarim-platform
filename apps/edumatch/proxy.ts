@@ -6,7 +6,18 @@ export const proxy = createAuthProxy({
   // Public surface: marketing landing, legal pages, the help center (a
   // support surface, not gated content — see #87 AC2), and health/docs
   // probes. Everything else requires an authenticated session.
-  publicRoutes: ["/", "/privacy", "/terms", "/cookies", "/help", "/docs", "/api/health", "/api/docs", "/api/auth"],
+  publicRoutes: [
+    "/",
+    "/privacy",
+    "/terms",
+    "/cookies",
+    "/help",
+    "/docs",
+    "/about-this-project",
+    "/api/health",
+    "/api/docs",
+    "/api/auth",
+  ],
   signInUrl: `${hubUrl}/sign-in`,
 });
 
