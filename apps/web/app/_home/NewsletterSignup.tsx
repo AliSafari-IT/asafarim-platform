@@ -9,6 +9,7 @@ export function NewsletterSignup({
   kicker,
   heading,
   body,
+  incentive,
   placeholder,
   cta,
   pendingCta,
@@ -17,6 +18,7 @@ export function NewsletterSignup({
   kicker: string;
   heading: string;
   body: string;
+  incentive: string;
   placeholder: string;
   cta: string;
   pendingCta: string;
@@ -32,6 +34,7 @@ export function NewsletterSignup({
       <span className={styles.kicker}>{kicker}</span>
       <h2 className={styles.newsletterTitle}>{heading}</h2>
       <p className={styles.newsletterBody}>{body}</p>
+      <p className={styles.newsletterIncentive}>{incentive}</p>
 
       {state.status === "success" ? (
         <p className={styles.newsletterSuccess}>{successMessage}</p>

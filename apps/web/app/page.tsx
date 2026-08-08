@@ -476,6 +476,7 @@ export default async function HomePage() {
           kicker={t("web.home.newsletter.kicker")}
           heading={t("web.home.newsletter.heading")}
           body={t("web.home.newsletter.body")}
+          incentive={t("web.home.newsletter.incentive")}
           placeholder={t("web.home.newsletter.placeholder")}
           cta={t("web.home.newsletter.cta")}
           pendingCta={t("web.home.newsletter.pendingCta")}
