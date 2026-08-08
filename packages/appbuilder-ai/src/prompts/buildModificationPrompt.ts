@@ -2,6 +2,7 @@ import type { ApplicationSpecificationType } from "@asafarim/appbuilder-schema";
 import type { ModificationSelectionContext } from "../provider/types";
 import type { GroundedModificationContext } from "../provider/groundedContext";
 import { wrapUntrustedInput } from "./systemPolicy";
+import { COMPONENT_CONFIG_GUIDE } from "./componentConfigGuide";
 
 export interface ModificationPromptInput {
   userRequest: string;
@@ -73,6 +74,8 @@ export function buildModificationPrompt(input: ModificationPromptInput): string 
   if (grounded) {
     sections.push(...groundedSections(grounded));
   }
+
+  sections.push(COMPONENT_CONFIG_GUIDE);
 
   sections.push(
     "Return a single ModificationDecision with exactly one `outcome`:\n" +
