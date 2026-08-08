@@ -6,9 +6,9 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3007",
+    "dev": "next dev --port 3010",
     "build": "next build",
-    "start": "next start --port 3007",
+    "start": "next start --port 3010",
     "lint": "echo \"Lint skipped for Next.js 16 app; covered by typecheck/build\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

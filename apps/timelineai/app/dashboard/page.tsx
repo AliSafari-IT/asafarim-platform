@@ -2,7 +2,7 @@ import { requireUser } from "@asafarim/auth";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 
 const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || process.env.HUB_URL || "http://localhost:3001";
-const appUrl = process.env.NEXT_PUBLIC_TIMELINEAI_URL || "http://localhost:3007";
+const appUrl = process.env.NEXT_PUBLIC_TIMELINEAI_URL || "http://localhost:3010";
 
 export default async function DashboardPage() {
   await requireUser({
