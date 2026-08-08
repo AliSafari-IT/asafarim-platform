@@ -26,7 +26,7 @@ import { advanceAlbumLifecycleStage } from "./lib/server/album-lifecycle";
 
 const REDIS_URL = process.env.REDIS_URL;
 if (!REDIS_URL) {
-  throw new Error("REDIS_URL environment variable is required. Please set it to redis://localhost:6380 or your Redis instance URL.");
+  throw new Error("REDIS_URL environment variable is required. Please set it to redis://127.0.0.1:6380 or your Redis instance URL.");
 }
 const WORKER_HEALTH_PORT = Number.parseInt(process.env.WORKER_HEALTH_PORT ?? "3007", 10);
 

@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import net from "node:net";
 
-const DB_HOST = "localhost";
+const DB_HOST = "127.0.0.1";
 const DB_PORT = 55435;
 const DOCKER_DESKTOP_PATH =
   "F:\\\\programs\\\\Docker\\\\Docker\\\\Docker Desktop.exe";

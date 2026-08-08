@@ -23,7 +23,7 @@ function getRedis(): Redis {
     if (!url) {
       throw new Error(
         "REDIS_URL environment variable is required for Vionto. " +
-          "Please set it to redis://localhost:6380 or your Redis instance URL."
+          "Please set it to redis://127.0.0.1:6380 or your Redis instance URL."
       );
     }
     _redis = new Redis(url, { maxRetriesPerRequest: null });
