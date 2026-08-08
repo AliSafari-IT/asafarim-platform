@@ -53,7 +53,7 @@
       "name": "timelineai",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "timelineai", "dev"],
-      "port": 3007
+      "port": 3010
     }
   ]
 }
