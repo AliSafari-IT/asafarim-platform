@@ -27,9 +27,11 @@ export async function POST(
       );
     }
 
-    // Verify quote exists and belongs to this student
+    // Ownership is part of the query itself (not a follow-up check) so a
+    // quote belonging to another student is indistinguishable from a quote
+    // that doesn't exist — same "not found" either way (see #87 AC5).
     const quote = await prisma.eduQuote.findFirst({
-      where: { id: quoteId, status: "PENDING" },
+      where: { id: quoteId, status: "PENDING", quoteRequest: { studentId: user.id } },
       include: {
         quoteRequest: {
           select: { studentId: true, inquiry: { select: { subject: true } } },
@@ -42,10 +44,6 @@ export async function POST(
 
     if (!quote) {
       return badRequest("Quote not found or not available for checkout.");
-    }
-
-    if (quote.quoteRequest.studentId !== user.id) {
-      return badRequest("Access denied.");
     }
 
     if (!quote.tutor.eduTutorProfile?.stripeAccountId) {

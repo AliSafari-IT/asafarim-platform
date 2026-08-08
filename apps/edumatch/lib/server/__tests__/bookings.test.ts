@@ -58,6 +58,36 @@ describe("cancelBooking", () => {
     ).rejects.toBeInstanceOf(BookingTransitionError);
   });
 
+  // #87 AC5: a caller who isn't a party to this booking must get the exact
+  // same error as a caller pointing at a booking id that doesn't exist —
+  // otherwise the error message itself confirms the booking's existence
+  // and who it belongs to.
+  it("does not leak booking existence to a non-party caller", async () => {
+    vi.mocked(prisma.eduBooking.findUnique).mockResolvedValueOnce(baseBooking as never);
+    const wrongOwner = cancelBooking({
+      bookingId: "b1",
+      actorId: "stranger",
+      actorRole: "STUDENT",
+      reason: "x",
+    });
+
+    vi.mocked(prisma.eduBooking.findUnique).mockResolvedValueOnce(null);
+    const doesNotExist = cancelBooking({
+      bookingId: "nonexistent",
+      actorId: "s1",
+      actorRole: "STUDENT",
+      reason: "x",
+    });
+
+    const [wrongOwnerError, doesNotExistError] = await Promise.all([
+      wrongOwner.catch((e) => e),
+      doesNotExist.catch((e) => e),
+    ]);
+    expect(wrongOwnerError).toBeInstanceOf(BookingTransitionError);
+    expect(doesNotExistError).toBeInstanceOf(BookingTransitionError);
+    expect(wrongOwnerError.message).toBe(doesNotExistError.message);
+  });
+
   it("rejects when no reason is provided", async () => {
     vi.mocked(prisma.eduBooking.findUnique).mockResolvedValue(baseBooking as never);
     await expect(
@@ -153,6 +183,31 @@ describe("disputeBooking", () => {
       }),
     ).rejects.toBeInstanceOf(BookingTransitionError);
   });
+
+  // #87 AC5 — same guarantee as cancelBooking above.
+  it("does not leak booking existence to a non-party caller", async () => {
+    vi.mocked(prisma.eduBooking.findUnique).mockResolvedValueOnce(baseBooking as never);
+    const wrongOwner = disputeBooking({
+      bookingId: "b1",
+      actorId: "stranger",
+      actorRole: "STUDENT",
+      reason: "x",
+    });
+
+    vi.mocked(prisma.eduBooking.findUnique).mockResolvedValueOnce(null);
+    const doesNotExist = disputeBooking({
+      bookingId: "nonexistent",
+      actorId: "s1",
+      actorRole: "STUDENT",
+      reason: "x",
+    });
+
+    const [wrongOwnerError, doesNotExistError] = await Promise.all([
+      wrongOwner.catch((e) => e),
+      doesNotExist.catch((e) => e),
+    ]);
+    expect(wrongOwnerError.message).toBe(doesNotExistError.message);
+  });
 });
 
 describe("respondToDispute", () => {
@@ -184,6 +239,32 @@ describe("respondToDispute", () => {
         }),
       }),
     );
+  });
+
+  // #87 AC5 — same guarantee as cancelBooking/disputeBooking above.
+  it("does not leak booking existence to a non-party caller", async () => {
+    const disputed = { ...baseBooking, status: "DISPUTED", cancellationReason: null };
+    vi.mocked(prisma.eduBooking.findUnique).mockResolvedValueOnce(disputed as never);
+    const wrongOwner = respondToDispute({
+      bookingId: "b1",
+      actorId: "stranger",
+      actorRole: "STUDENT",
+      message: "x",
+    });
+
+    vi.mocked(prisma.eduBooking.findUnique).mockResolvedValueOnce(null);
+    const doesNotExist = respondToDispute({
+      bookingId: "nonexistent",
+      actorId: "s1",
+      actorRole: "STUDENT",
+      message: "x",
+    });
+
+    const [wrongOwnerError, doesNotExistError] = await Promise.all([
+      wrongOwner.catch((e) => e),
+      doesNotExist.catch((e) => e),
+    ]);
+    expect(wrongOwnerError.message).toBe(doesNotExistError.message);
   });
 });
 
