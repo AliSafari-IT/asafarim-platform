@@ -44,5 +44,8 @@ ENV PORT=3000
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
+# Keep the subscriber incentive private: the server can attach it to email,
+# but it is not exposed as a public static download.
+COPY --from=builder /app/output/pdf/vionto-ai-pipeline-architecture.pdf ./resources/vionto-ai-pipeline-architecture.pdf
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
