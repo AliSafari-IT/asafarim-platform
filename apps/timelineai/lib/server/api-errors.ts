@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { ForbiddenError, NotFoundError } from "./authz";
 import { VersionConflictError } from "./services/timelines";
+import { RateLimitedError } from "./guest-rate-limit";
 
 /**
  * Consistent typed error responses across every route. Non-technical
@@ -28,6 +29,12 @@ export function toErrorResponse(error: unknown): NextResponse {
   }
   if (error instanceof VersionConflictError) {
     return NextResponse.json({ error: "version_conflict", message: error.message }, { status: 409 });
+  }
+  if (error instanceof RateLimitedError) {
+    return NextResponse.json(
+      { error: "rate_limited", message: error.message },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(error.retryAfterMs / 1000)) } }
+    );
   }
 
   console.error("[timelineai] unhandled API error:", error);

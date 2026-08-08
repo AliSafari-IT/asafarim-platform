@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { SessionProvider } from "@/components/SessionProvider";
 import "./globals.css";
 
-const appUrl = process.env.NEXT_PUBLIC_TIMELINEAI_URL ?? "https://timelineai.asafarim.com";
+const appUrl = process.env.NEXT_PUBLIC_TIMELINEAI_URL ?? "https://tlai.asafarim.com";
 const appName = "TimelineAI";
 const appDescription =
   "Create polished, visual timelines — project plans, roadmaps, Gantt charts, calendars, and storytelling — no design skills needed.";
