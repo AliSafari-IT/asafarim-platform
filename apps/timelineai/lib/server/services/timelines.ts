@@ -183,6 +183,15 @@ export async function setLayout(id: string, layout: string, viewer: ViewerContex
   });
 }
 
+export async function renameTimeline(id: string, title: string, viewer: ViewerContext) {
+  const existing = await loadForAccessCheck(id);
+  assertAccess(existing, viewer, "edit");
+  return prisma.timeline.update({
+    where: { id },
+    data: { title, version: { increment: 1 } },
+  });
+}
+
 export async function setVisibility(
   id: string,
   visibility: "private" | "public" | "unlisted",
