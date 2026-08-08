@@ -3,6 +3,7 @@ import { getViewerContext } from "@/lib/server/authz";
 import { toErrorResponse } from "@/lib/server/api-errors";
 import { createTimeline } from "@/lib/server/services/timelines";
 import { listMyTimelines } from "@/lib/server/services/timelines";
+import { enforceGuestRateLimit } from "@/lib/server/guest-rate-limit";
 import { TimelineInputSchema } from "@/lib/schemas";
 
 // Open to guests: ownership is derived server-side from the session (if
@@ -12,6 +13,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const input = TimelineInputSchema.parse(body);
     const viewer = await getViewerContext();
+
+    // Rate-limit guest creation only (spec §4) — authenticated users are
+    // already accountable via their Hub identity and get no extra limit
+    // here. A guest with no resolvable IP hash is already rejected by
+    // createTimeline itself, so there's nothing to rate-limit in that case.
+    if (!viewer.userId && viewer.guestIdHash) {
+      await enforceGuestRateLimit("create", viewer.guestIdHash);
+    }
+
     const timeline = await createTimeline(input, {
       ownerUserId: viewer.userId,
       guestIdHash: viewer.guestIdHash,
