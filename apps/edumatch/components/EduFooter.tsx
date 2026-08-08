@@ -27,6 +27,12 @@ export function EduFooter() {
             <p className="mt-3 max-w-sm text-sm text-[var(--color-text-muted)]">
               {t("edumatch.footer.tagline")}
             </p>
+            <Link
+              href="/about-this-project"
+              className="mt-3 inline-block text-sm text-[var(--color-accent)] hover:underline"
+            >
+              Curious who built this? →
+            </Link>
           </div>
 
           {/* Links */}
