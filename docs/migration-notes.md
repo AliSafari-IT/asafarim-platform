@@ -1,5 +1,54 @@
 # Migration Notes
 
+## EduMatch integration — issue #84 (2026-08-08)
+
+Ported the complete EduMatch marketplace app from
+`asafarim-digital/apps/edumatch` into this monorepo as `apps/edumatch`,
+building on the benchmark from
+[issue #11](https://github.com/AliSafari-IT/asafarim-platform/issues/11)
+and the DB models added for
+[issue #86](https://github.com/AliSafari-IT/asafarim-platform/issues/86).
+Student, tutor, admin, inquiry, quote, booking, payment, notification,
+verification, and trust/safety capabilities all carried over — the
+deliberate differences from the original are:
+
+- **Port changed 3005 → 3009.** The original ran on 3005; that port is
+  already Testora's on this platform (see the app-port table in
+  `CLAUDE.md`), so EduMatch moved to 3009.
+- **Own database → shared platform database.** The original had its own
+  isolated Postgres instance with a manual `db/enable-postgis.sql` step
+  (a `geography(Point, 4326)` column type + GIST spatial index, via the
+  PostGIS extension, for tutor-proximity queries). The ported version
+  uses the shared `@asafarim/db` Prisma schema instead — plain
+  `homeLat`/`homeLng` `Float` columns, no PostGIS dependency, with
+  proximity computed in application code via Haversine
+  (`apps/edumatch/lib/server/tutor-matching.ts`). This trades DB-side
+  spatial indexing for one less infrastructure dependency; it's fine at
+  current data volumes but would be worth revisiting (e.g. `pg_trgm` /
+  bounding-box pre-filtering, or PostGIS after all) if the tutor table
+  grows into the tens of thousands of rows.
+- **Standalone auth → shared `@asafarim/auth`.** The original had its own
+  `next-auth` configuration. The ported version uses the platform's
+  shared auth package for handlers, session reads, and the
+  proxy/middleware layer — EduMatch now participates in the same
+  cross-app SSO as every other platform app, sign-in happens through Hub.
+- **Dropped `@asafarim/navigation` and `@asafarim/location`** — workspace
+  packages that existed in the `asafarim-digital` monorepo and don't
+  exist here. Navigation is the app's own nav components; location/geo
+  concerns live in `lib/server/geocoding.ts` and the country/language
+  selector already shared platform-wide.
+- **Dropped `swagger-ui-react`.** The original `/docs` page rendered an
+  interactive Swagger UI. The ported `/docs` page instead links directly
+  to the raw OpenAPI JSON at `/api/docs` — one less dependency, at the
+  cost of an in-browser "try it" console.
+
+**Verified**: `pnpm --filter edumatch typecheck` and
+`pnpm --filter edumatch build` both pass (build produces all 93
+application + API routes, confirmed by counting the route manifest
+directly — not just a green exit code); `pnpm --filter edumatch test`
+passes 240/240; `.next/` and `.env*` are gitignored, nothing generated or
+secret is committed.
+
 ## Upgrade to Next.js 16 (2026-07-06)
 
 Bumped all four apps from Next.js 15.5.20 to **16.2.10** (React 19.0 →
