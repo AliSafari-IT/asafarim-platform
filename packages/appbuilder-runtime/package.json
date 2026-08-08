@@ -7,7 +7,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./styles.css": "./src/styles/preview.css"
+    "./styles.css": "./src/styles/preview.css",
+    "./registry/configTable": "./src/registry/configTable.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

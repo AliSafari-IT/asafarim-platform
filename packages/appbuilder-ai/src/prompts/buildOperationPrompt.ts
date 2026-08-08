@@ -1,6 +1,7 @@
 import type { ApplicationSpecificationType } from "@asafarim/appbuilder-schema";
 import type { RequirementsAnalysisType } from "../schemas/requirementsAnalysis";
 import { PLANNING_LIMITS } from "../constants";
+import { COMPONENT_CONFIG_GUIDE } from "./componentConfigGuide";
 
 export interface OperationPromptInput {
   analysis: RequirementsAnalysisType;
@@ -49,6 +50,7 @@ export function buildOperationPrompt(input: OperationPromptInput): string {
   sections.push(
     "Every response MUST also include `reasoningSummary` (one sentence — your internal justification for this batch, distinct from any per-operation detail).",
   );
+  sections.push(COMPONENT_CONFIG_GUIDE);
   sections.push(
     "Every `id`/`machineName` you CREATE (a new entity/field/page/component/role/workflow/etc.) MUST match exactly this pattern: " +
       "lowercase letters, digits, underscore, or hyphen, starting with a letter (e.g. `about_section`, `contact-form`, `project_link`) " +

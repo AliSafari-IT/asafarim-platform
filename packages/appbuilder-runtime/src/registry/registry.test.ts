@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ComponentConfigType } from "@asafarim/appbuilder-schema";
 import { getRegistryEntryByTypeId, listRegistryEntries, resolveComponentEntry } from "./registry";
+import { CONFIG_TABLE } from "./configTable";
 
 function component(overrides: Partial<ComponentConfigType>): ComponentConfigType {
   return { id: "c1", kind: "dataTable", config: {}, order: 0, ...overrides };
@@ -27,6 +28,24 @@ describe("registry", () => {
         "statWidget",
       ].sort(),
     );
+  });
+
+  // configTable.ts is a hand-maintained, React-free duplicate of this
+  // registry's (typeId, schemaKind, variant, configSchema) tuples, so that
+  // @asafarim/appbuilder-ai's prompt guide (which needs the real config
+  // schemas but must never pull in .tsx renderer components) can depend on
+  // it directly. This guards against the two lists ever silently diverging.
+  it("configTable.ts stays exactly in sync with the real registry entries", () => {
+    const entries = listRegistryEntries();
+    expect(CONFIG_TABLE.length).toBe(entries.length);
+
+    for (const entry of entries) {
+      const tableEntry = CONFIG_TABLE.find((t) => t.typeId === entry.typeId);
+      expect(tableEntry, `configTable.ts is missing typeId "${entry.typeId}"`).toBeDefined();
+      expect(tableEntry!.schemaKind).toBe(entry.schemaKind);
+      expect(tableEntry!.variant).toBe(entry.variant);
+      expect(tableEntry!.configSchema).toBe(entry.configSchema);
+    }
   });
 
   it("every entry has a non-empty stable typeId, displayName, and version", () => {
