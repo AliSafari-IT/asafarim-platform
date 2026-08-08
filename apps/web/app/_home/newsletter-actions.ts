@@ -1,8 +1,13 @@
 "use server";
 
-import { prisma } from "@asafarim/db";
 import { createTransport } from "@asafarim/auth/mailer";
+import { prisma } from "@asafarim/db";
 import { site } from "../../content/site";
+import {
+  buildNewsletterIncentiveEmail,
+  NEWSLETTER_INCENTIVE_FILENAME,
+  resolveNewsletterIncentivePath,
+} from "./newsletter-incentive";
 
 export type NewsletterFormState =
   | { status: "idle" }
@@ -10,18 +15,34 @@ export type NewsletterFormState =
   | { status: "error"; message: string };
 
 function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
+  if (email.length > 200 || email.length < 3) return false;
+
+  const [local, domain, ...rest] = email.split("@");
+  if (!local || !domain || rest.length > 0 || local.length > 64) return false;
+  if (local.startsWith(".") || local.endsWith(".") || local.includes("..")) {
+    return false;
+  }
+  if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/i.test(local)) return false;
+  if (domain.length > 253 || !domain.includes(".")) return false;
+
+  return domain.split(".").every(
+    (label) =>
+      label.length > 0 &&
+      label.length <= 63 &&
+      /^[a-z0-9-]+$/i.test(label) &&
+      !label.startsWith("-") &&
+      !label.endsWith("-"),
+  );
 }
 
 /**
- * Homepage email capture. Deliberately minimal: no confirmation flow (this
- * isn't sending campaigns itself, just building the list) and no error
- * leaked for a duplicate signup — resubmitting the same address is a no-op,
- * not a failure, from the visitor's point of view.
+ * Homepage email capture and one-time incentive delivery. The subscriber row
+ * is upserted first, then the PDF is sent only when `incentiveSentAt` is empty.
+ * A delivery failure leaves that marker empty so the visitor can retry without
+ * creating a duplicate subscription.
  *
- * `company` is an invisible honeypot field (see NewsletterSignup.tsx): real
- * visitors never fill it, so a non-empty value means a bot and we quietly
- * report success without writing anything.
+ * `company` is an invisible honeypot field: a non-empty value is treated as a
+ * bot submission and quietly returns success without writing or sending.
  */
 export async function subscribeToNewsletter(
   _prevState: NewsletterFormState,
@@ -38,41 +59,63 @@ export async function subscribeToNewsletter(
   }
 
   try {
-    const existing = await prisma.newsletterSubscriber.findUnique({ where: { email } });
+    const subscriber = await prisma.newsletterSubscriber.upsert({
+      where: { email },
+      create: { email, source: "web-home" },
+      update: { unsubscribedAt: null },
+    });
 
-    if (!existing) {
-      await prisma.newsletterSubscriber.create({
-        data: { email, source: "web-home" },
-      });
+    if (subscriber.incentiveSentAt) {
+      return { status: "success" };
+    }
 
-      // Best-effort notification — the subscriber row is already saved
-      // either way, so a mail failure here never turns into a user-facing error.
-      try {
-        const { transporter, from, bcc } = createTransport();
-        await transporter.sendMail({
-          from,
-          to: site.contact.email,
-          bcc,
-          subject: "New newsletter subscriber",
-          text: `${email} joined the asafarim.com mailing list.`,
-        });
-      } catch {
-        // Delivery is best-effort; the subscriber is already stored.
-      }
-    } else if (existing.unsubscribedAt) {
-      // Re-subscribing after a prior opt-out.
-      await prisma.newsletterSubscriber.update({
-        where: { email },
-        data: { unsubscribedAt: null },
+    const attachmentPath = await resolveNewsletterIncentivePath();
+    const { subject, text, html } = buildNewsletterIncentiveEmail();
+    const { transporter, from, bcc } = createTransport();
+    const delivery = await transporter.sendMail({
+      from,
+      to: email,
+      bcc,
+      subject,
+      text,
+      html,
+      attachments: [
+        {
+          filename: NEWSLETTER_INCENTIVE_FILENAME,
+          path: attachmentPath,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+
+    await prisma.newsletterSubscriber.update({
+      where: { id: subscriber.id },
+      data: {
+        incentiveSentAt: new Date(),
+        incentiveMessageId: delivery.messageId || null,
+      },
+    });
+
+    // Preserve the existing owner notification without allowing an internal
+    // notification failure to invalidate successful subscriber delivery.
+    try {
+      await transporter.sendMail({
+        from,
+        to: site.contact.email,
+        subject: "New newsletter subscriber",
+        text: `${email} joined the asafarim.com mailing list and received the Vionto architecture guide.`,
       });
+    } catch {
+      // Best-effort internal notification.
     }
 
     return { status: "success" };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to subscribe.";
+  } catch (error) {
+    console.error("[newsletter] Subscription or incentive delivery failed", error);
     return {
       status: "error",
-      message: `Could not subscribe: ${message}. Please email ${site.contact.email} directly.`,
+      message:
+        "We could not send the guide right now. Please check the address and try again in a moment.",
     };
   }
 }

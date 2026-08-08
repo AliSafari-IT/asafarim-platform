@@ -98,7 +98,7 @@ const webDictionaries: Dictionaries = {
     "web.home.newsletter.placeholder": "you@example.com",
     "web.home.newsletter.cta": "Send me the notes",
     "web.home.newsletter.pendingCta": "Sending...",
-    "web.home.newsletter.success": "You're in. Talk soon.",
+    "web.home.newsletter.success": "Sent. Check your inbox for the PDF guide.",
     "web.home.contact.heading1": "Let's build",
     "web.home.contact.heading2": "something together.",
     "web.home.contact.body":
@@ -203,7 +203,7 @@ const webDictionaries: Dictionaries = {
     "web.home.newsletter.placeholder": "jij@voorbeeld.com",
     "web.home.newsletter.cta": "Stuur me de notities",
     "web.home.newsletter.pendingCta": "Versturen...",
-    "web.home.newsletter.success": "Je zit erin. Tot snel.",
+    "web.home.newsletter.success": "Verzonden. Bekijk je inbox voor de PDF-gids.",
     "web.home.contact.heading1": "Laten we",
     "web.home.contact.heading2": "iets bouwen.",
     "web.home.contact.body":
@@ -308,7 +308,7 @@ const webDictionaries: Dictionaries = {
     "web.home.newsletter.placeholder": "vous@exemple.com",
     "web.home.newsletter.cta": "Envoyez-moi les notes",
     "web.home.newsletter.pendingCta": "Envoi...",
-    "web.home.newsletter.success": "C'est fait. À bientôt.",
+    "web.home.newsletter.success": "Envoyé. Consultez votre boîte mail pour le guide PDF.",
     "web.home.contact.heading1": "Construisons",
     "web.home.contact.heading2": "quelque chose ensemble.",
     "web.home.contact.body":
@@ -412,7 +412,7 @@ const webDictionaries: Dictionaries = {
     "web.home.newsletter.placeholder": "sie@beispiel.com",
     "web.home.newsletter.cta": "Schick mir die Notizen",
     "web.home.newsletter.pendingCta": "Wird gesendet...",
-    "web.home.newsletter.success": "Du bist dabei. Bis bald.",
+    "web.home.newsletter.success": "Gesendet. Der PDF-Leitfaden ist in Ihrem Postfach.",
     "web.home.contact.heading1": "Lassen Sie uns",
     "web.home.contact.heading2": "etwas gemeinsam bauen.",
     "web.home.contact.body":
@@ -517,7 +517,7 @@ const webDictionaries: Dictionaries = {
     "web.home.newsletter.placeholder": "you@example.com",
     "web.home.newsletter.cta": "Send me the notes",
     "web.home.newsletter.pendingCta": "Sending...",
-    "web.home.newsletter.success": "You're in. Talk soon.",
+    "web.home.newsletter.success": "Sent. Check your inbox for the PDF guide.",
     "web.home.contact.heading1": "Let's build",
     "web.home.contact.heading2": "something together.",
     "web.home.contact.body":

@@ -3,6 +3,7 @@ node_modules/
 
 # builds
 .next/
+.next-corrupt-*/
 dist/
 build/
 out/
@@ -26,6 +27,9 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+
+# Local document-generation work files
+tmp/pdfs/
 
 # IDE
 .vscode/

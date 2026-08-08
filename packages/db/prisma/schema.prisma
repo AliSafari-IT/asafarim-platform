@@ -1049,7 +1049,13 @@ model NewsletterSubscriber {
   // repeat submit) instead of deleting on unsubscribe.
   unsubscribedAt DateTime?
 
+  // A null timestamp means the guide has not been delivered yet and a repeat
+  // signup may retry without creating a duplicate subscriber.
+  incentiveSentAt    DateTime?
+  incentiveMessageId String?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([source])
 }
