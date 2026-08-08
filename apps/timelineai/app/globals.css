@@ -1,0 +1,42 @@
+@import "tailwindcss";
+@import "@asafarim/ui/styles.css";
+
+/*
+ * TimelineAI theme tokens, scoped under data-app="timelineai" so the shared
+ * @asafarim/ui mood system (packages/ui/src/styles/tokens.css) can layer
+ * app-specific colors without every app needing its own --color-* set from
+ * scratch. Light/dark handled via the shared data-theme attribute.
+ */
+:root[data-app="timelineai"] {
+  --color-primary: #6d5ef8;
+  --color-accent: #f6a84f;
+}
+
+:root[data-app="timelineai"][data-theme="light"] {
+  --color-bg: #faf9fc;
+  --color-surface: #ffffff;
+  --color-text: #1b1730;
+}
+
+:root[data-app="timelineai"][data-theme="dark"] {
+  --color-bg: #0f0d1a;
+  --color-surface: #17142a;
+  --color-text: #f1eefc;
+}
+
+/* Timeline connector/accent defaults — overridable per-timeline via the
+   theme JSON on Timeline.theme, applied as inline CSS custom properties on
+   the renderer root (see components/timeline/*). */
+.tl-root {
+  --tl-connector: var(--color-primary);
+  --tl-accent: var(--color-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-root * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

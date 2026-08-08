@@ -48,6 +48,12 @@
       "url": "http://localhost:3006",
       "port": 3006,
       "autoPort": false
+    },
+    {
+      "name": "timelineai",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "timelineai", "dev"],
+      "port": 3007
     }
   ]
 }
