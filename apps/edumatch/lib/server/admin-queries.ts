@@ -264,6 +264,76 @@ export async function listAdminUsers(opts: PaginationOpts & {
   };
 }
 
+/**
+ * Full detail for a single user in the admin directory: profile fields,
+ * roles, and — where applicable — student/tutor profile plus rating.
+ * Returns null when no such user exists.
+ */
+export async function getAdminUserDetail(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      bio: true,
+      phone: true,
+      location: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+      userRoles: { select: { role: { select: { name: true } } } },
+      eduStudentProfile: {
+        select: {
+          id: true,
+          gradeLevel: true,
+          subjectsOfInterest: true,
+          homeLat: true,
+          homeLng: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      eduTutorProfile: {
+        select: {
+          id: true,
+          bio: true,
+          subjectsTaught: true,
+          levelsTaught: true,
+          hourlyRateCents: true,
+          onlineOnly: true,
+          serviceRadiusKm: true,
+          payoutEnabled: true,
+          verifiedAt: true,
+          ratingAvg: true,
+          ratingCount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    },
+  });
+
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image,
+    bio: user.bio,
+    phone: user.phone,
+    location: user.location,
+    isActive: user.isActive,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    roles: user.userRoles.map((ur) => ur.role.name),
+    studentProfile: user.eduStudentProfile,
+    tutorProfile: user.eduTutorProfile,
+  };
+}
+
 export async function listAdminInquiries(opts: PaginationOpts & {
   status?: string;
   moderationOutcome?: string;
