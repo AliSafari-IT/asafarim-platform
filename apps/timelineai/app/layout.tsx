@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import { auth, signOut, hasRole, ROLES, PLATFORM_APPS, canAccessApp, type AppAccessContext } from "@asafarim/auth";
 import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
 import { AppShell, AppSwitcher, Button, ButtonLink, TopNav, UserMenu, getPlatformLinks } from "@asafarim/ui";
@@ -33,6 +34,13 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Set only by our own export pipeline (lib/server/services/export.ts)
+  // when headlessly rendering a public timeline page — the export should
+  // be just the timeline, not the platform chrome around it. Never
+  // trusted for anything besides this cosmetic skip: it doesn't bypass
+  // auth or change what data loads, only how this layout renders.
+  const isBareRender = (await headers()).get("x-timelineai-render") === "bare";
+
   const session = await auth();
   const links = getPlatformLinks();
   const isAdmin = hasRole(session, ROLES.ADMIN);
@@ -66,44 +74,48 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body className="antialiased">
         <ThemeProvider defaultTheme="dark">
-          <SessionProvider>
-            <AppShell
-              product="TimelineAI"
-              nav={<TopNav items={navItems} />}
-              user={
-                <>
-                  <ThemeToggle />
-                  <AppSwitcher
-                    links={switcherApps.map((app) => ({
-                      label: app.name,
-                      href: links[app.key as keyof typeof links],
-                      meta: app.meta,
-                    }))}
-                  />
-                  {session?.user ? (
-                    <UserMenu name={session.user.name} email={session.user.email} image={session.user.image} roles={session.user.roles}>
-                      <form
-                        action={async () => {
-                          "use server";
-                          await signOut({ redirectTo: "/" });
-                        }}
-                      >
-                        <Button type="submit" variant="secondary" size="sm">
-                          Sign out
-                        </Button>
-                      </form>
-                    </UserMenu>
-                  ) : (
-                    <ButtonLink href={signInHref} size="sm">
-                      Sign in
-                    </ButtonLink>
-                  )}
-                </>
-              }
-            >
-              {children}
-            </AppShell>
-          </SessionProvider>
+          {isBareRender ? (
+            children
+          ) : (
+            <SessionProvider>
+              <AppShell
+                product="TimelineAI"
+                nav={<TopNav items={navItems} />}
+                user={
+                  <>
+                    <ThemeToggle />
+                    <AppSwitcher
+                      links={switcherApps.map((app) => ({
+                        label: app.name,
+                        href: links[app.key as keyof typeof links],
+                        meta: app.meta,
+                      }))}
+                    />
+                    {session?.user ? (
+                      <UserMenu name={session.user.name} email={session.user.email} image={session.user.image} roles={session.user.roles}>
+                        <form
+                          action={async () => {
+                            "use server";
+                            await signOut({ redirectTo: "/" });
+                          }}
+                        >
+                          <Button type="submit" variant="secondary" size="sm">
+                            Sign out
+                          </Button>
+                        </form>
+                      </UserMenu>
+                    ) : (
+                      <ButtonLink href={signInHref} size="sm">
+                        Sign in
+                      </ButtonLink>
+                    )}
+                  </>
+                }
+              >
+                {children}
+              </AppShell>
+            </SessionProvider>
+          )}
         </ThemeProvider>
       </body>
     </html>
