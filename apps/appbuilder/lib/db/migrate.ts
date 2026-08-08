@@ -4,7 +4,7 @@ import { Pool } from "pg";
 
 const connectionString =
   process.env.APPBUILDER_DATABASE_URL ??
-  "postgres://appbuilder:appbuilder_dev@localhost:55436/appbuilder";
+  "postgres://appbuilder:appbuilder_dev@127.0.0.1:55436/appbuilder";
 
 // Idempotent: drizzle records applied migrations in a journal table
 // (`drizzle.__drizzle_migrations`), so rerunning against an already-migrated

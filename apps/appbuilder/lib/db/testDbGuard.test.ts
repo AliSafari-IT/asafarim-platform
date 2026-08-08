@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assertSafeTestDatabaseUrl, resolveDevDatabaseUrl } from "./testDbGuard";
 
-const DEV_URL = "postgres://appbuilder:appbuilder_dev@localhost:55436/appbuilder";
+const DEV_URL = "postgres://appbuilder:appbuilder_dev@127.0.0.1:55436/appbuilder";
 
 describe("resolveDevDatabaseUrl", () => {
   it("falls back to the local dev default when unset", () => {
@@ -45,13 +45,13 @@ describe("assertSafeTestDatabaseUrl", () => {
   it("refuses a test database whose name doesn't look like a scratch database, even if otherwise distinct", () => {
     expect(() =>
       assertSafeTestDatabaseUrl({
-        APPBUILDER_TEST_DATABASE_URL: "postgres://x:y@localhost:55436/appbuilder_staging",
+        APPBUILDER_TEST_DATABASE_URL: "postgres://x:y@127.0.0.1:55436/appbuilder_staging",
       }),
     ).toThrow(/doesn't look like a scratch database/);
   });
 
   it("allows a test database that is distinct, differently named, and clearly a scratch database", () => {
-    const testUrl = "postgres://x:y@localhost:55436/appbuilder_test";
+    const testUrl = "postgres://x:y@127.0.0.1:55436/appbuilder_test";
     expect(assertSafeTestDatabaseUrl({ APPBUILDER_TEST_DATABASE_URL: testUrl })).toBe(testUrl);
   });
 });

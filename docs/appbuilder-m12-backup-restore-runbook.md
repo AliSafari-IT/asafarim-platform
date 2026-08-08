@@ -60,7 +60,7 @@ SELECT id, kind, status, size_bytes, checksum, completed_at FROM backup_runs ORD
 
 ```bash
 # Optional — defaults to a sibling "<dbname>_restore_rehearsal" database on the same server.
-export APPBUILDER_RESTORE_REHEARSAL_DATABASE_URL="postgres://appbuilder:appbuilder_dev@localhost:55436/appbuilder_restore_rehearsal"
+export APPBUILDER_RESTORE_REHEARSAL_DATABASE_URL="postgres://appbuilder:appbuilder_dev@127.0.0.1:55436/appbuilder_restore_rehearsal"
 pnpm --filter appbuilder backup:restore-rehearsal
 ```
 

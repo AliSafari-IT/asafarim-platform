@@ -11,7 +11,7 @@ export type EnvLike = Record<string, string | undefined>;
 export function resolveSourceUrl(env: EnvLike = process.env): string {
   return (
     env.APPBUILDER_DATABASE_URL ??
-    "postgres://appbuilder:appbuilder_dev@localhost:55436/appbuilder"
+    "postgres://appbuilder:appbuilder_dev@127.0.0.1:55436/appbuilder"
   );
 }
 

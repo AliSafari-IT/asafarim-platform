@@ -6,7 +6,7 @@ import * as schema from "./schema";
 // Postgres. Use TESTORA_DATABASE_URL so it never accidentally picks up the
 // root DATABASE_URL.
 const connectionString =
-  process.env.TESTORA_DATABASE_URL ?? "postgres://e2e_testora:e2e_testora@localhost:55434/e2e-testing-db";
+  process.env.TESTORA_DATABASE_URL ?? "postgres://e2e_testora:e2e_testora@127.0.0.1:55434/e2e-testing-db";
 
 const pool = new Pool({ connectionString });
 

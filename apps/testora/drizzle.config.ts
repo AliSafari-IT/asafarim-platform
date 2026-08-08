@@ -5,6 +5,6 @@ export default defineConfig({
   out: "./src/db/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.TESTORA_DATABASE_URL ?? "postgres://e2e_testora:e2e_testora@localhost:55434/e2e-testing-db",
+    url: process.env.TESTORA_DATABASE_URL ?? "postgres://e2e_testora:e2e_testora@127.0.0.1:55434/e2e-testing-db",
   },
 });

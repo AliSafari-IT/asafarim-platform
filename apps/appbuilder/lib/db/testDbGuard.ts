@@ -17,7 +17,7 @@
 export type EnvLike = Record<string, string | undefined>;
 
 const DEV_DATABASE_URL_DEFAULT =
-  "postgres://appbuilder:appbuilder_dev@localhost:55436/appbuilder";
+  "postgres://appbuilder:appbuilder_dev@127.0.0.1:55436/appbuilder";
 
 export function resolveDevDatabaseUrl(env: EnvLike = process.env): string {
   return env.APPBUILDER_DATABASE_URL ?? DEV_DATABASE_URL_DEFAULT;
@@ -37,7 +37,7 @@ export function assertSafeTestDatabaseUrl(env: EnvLike = process.env): string {
     throw new Error(
       "Refusing to run integration tests: APPBUILDER_TEST_DATABASE_URL is not set. " +
         `resetTestDb() runs TRUNCATE ... CASCADE on every app-owned table (apps, generation_jobs, conversations, specifications, ...) before every test — without this variable it would resolve to "${devUrl}", the same database your dev server uses. ` +
-        "Set APPBUILDER_TEST_DATABASE_URL to a distinctly named scratch database, e.g. postgres://appbuilder:appbuilder_dev@localhost:55436/appbuilder_test.",
+        "Set APPBUILDER_TEST_DATABASE_URL to a distinctly named scratch database, e.g. postgres://appbuilder:appbuilder_dev@127.0.0.1:55436/appbuilder_test.",
     );
   }
   if (testUrl === devUrl) {

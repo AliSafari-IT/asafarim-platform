@@ -305,7 +305,7 @@ pnpm --filter @asafarim/appbuilder db:studio
 ```
 
 Connection string: `APPBUILDER_DATABASE_URL`, defaulting to
-`postgres://appbuilder:appbuilder_dev@localhost:55436/appbuilder` in local
+`postgres://appbuilder:appbuilder_dev@127.0.0.1:55436/appbuilder` in local
 dev (see [`.env.local.example`](.env.local.example)). **Never** point
 AppBuilder product code at the platform's shared `DATABASE_URL`.
 

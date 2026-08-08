@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 const connectionString =
-  process.env.TESTORA_DATABASE_URL ?? "postgres://e2e_testora:e2e_testora@localhost:55434/e2e-testing-db";
+  process.env.TESTORA_DATABASE_URL ?? "postgres://e2e_testora:e2e_testora@127.0.0.1:55434/e2e-testing-db";
 
 async function main() {
   const pool = new Pool({ connectionString });
