@@ -63,7 +63,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     name: "Showcase",
     description: "The exhibition wall: demos, case studies, and experiments.",
     glyph: "SC",
-    meta: "showcase.asafarim.be",
+    meta: "showcase.asafarim.com",
     status: "active",
     access: "public",
   },

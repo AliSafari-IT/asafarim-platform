@@ -103,7 +103,7 @@ Builds depend on `^build` (packages must build before apps). When you change a s
 |---|---|---|
 | web | 3000 | asafarim.com |
 | hub | 3001 | hub.asafarim.com |
-| showcase | 3002 | showcase.asafarim.be |
+| showcase | 3002 | showcase.asafarim.com |
 | admin | 3003 | admin.asafarim.com |
 | vionto | 3004 | vionto.asafarim.com |
 | testora | 3005 | testora.asafarim.com |
