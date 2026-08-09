@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ConfirmDialog } from "@asafarim/ui";
+import { ConfirmDialog, ButtonLink } from "@asafarim/ui";
 import { apiFetch, ApiError } from "@/lib/client/api";
 
 interface TimelineSummary {
@@ -176,9 +176,9 @@ export function DashboardView() {
             {items.length === 0 ? "You haven't created a timeline yet." : "No timelines match this filter."}
           </p>
           {items.length === 0 ? (
-            <a href="/create" className="rounded-lg bg-[var(--color-primary)] px-4 py-2 font-medium text-white">
+            <ButtonLink href="/create" variant="primary">
               Create your first timeline
-            </a>
+            </ButtonLink>
           ) : null}
         </div>
       ) : (
