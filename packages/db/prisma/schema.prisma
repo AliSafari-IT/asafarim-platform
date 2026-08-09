@@ -1497,7 +1497,7 @@ model Timeline {
 
   // Presentation mode. Content (events) is layout-independent; switching
   // layout must never drop event data.
-  layout String @default("vertical") // vertical, horizontal, zigzag, radial, roadmap, gantt, calendar, interactive
+  layout String @default("vertical") // vertical, horizontal, zigzag, radial, roadmap, gantt, calendar, calendar-board, interactive, branch
 
   // Theme/rendering settings: palette, background, accent/connector colors,
   // font family + size preset, date format, card style, spacing, visibility

@@ -24,6 +24,7 @@ export const TIMELINE_LAYOUTS = [
   "roadmap",
   "gantt",
   "calendar",
+  "calendar-board",
   "interactive",
   "branch",
 ] as const;

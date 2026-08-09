@@ -5,6 +5,7 @@ import { RadialTimeline } from "./RadialTimeline";
 import { RoadmapTimeline } from "./RoadmapTimeline";
 import { GanttTimeline } from "./GanttTimeline";
 import { CalendarTimeline } from "./CalendarTimeline";
+import { CalendarBoardTimeline } from "./CalendarBoardTimeline";
 import { InteractiveTimeline } from "./InteractiveTimeline";
 import { BranchTimeline } from "./BranchTimeline";
 import type { RenderableTimeline } from "./types";
@@ -35,6 +36,8 @@ export function TimelineRenderer({
       return <GanttTimeline timeline={timeline} />;
     case "calendar":
       return <CalendarTimeline timeline={timeline} />;
+    case "calendar-board":
+      return <CalendarBoardTimeline timeline={timeline} />;
     case "interactive":
       return <InteractiveTimeline timeline={timeline} />;
     case "branch":
