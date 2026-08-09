@@ -56,7 +56,7 @@ export DOCKER_BUILDKIT=1
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-asafarim-com}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 
-BUILD_SERVICES=(web hub showcase admin vionto vionto-worker edumatch testora-migrate testora appbuilder-migrate appbuilder-worker appbuilder)
+BUILD_SERVICES=(web hub showcase admin vionto vionto-worker edumatch testora-migrate testora appbuilder-migrate appbuilder-worker appbuilder timelineai)
 
 # Building ${#BUILD_SERVICES[@]} images sequentially is the single biggest
 # disk consumer in this script (each build leaves layers + build cache

@@ -51,6 +51,16 @@ appbuilder.asafarim.com {
   reverse_proxy appbuilder:3000
 }
 
+tlai.asafarim.com {
+  # Puppeteer export requests (Task #10) can take several seconds; be generous.
+  reverse_proxy timelineai:3000 {
+    transport http {
+      read_timeout 600s
+      write_timeout 600s
+    }
+  }
+}
+
 # asafarim.be is a separate deployment (asafarim-devtools + logo-normalizer
 # projects, each their own docker-compose project on this same VPS/Docker
 # network) sharing this one Caddy instance for TLS termination.
