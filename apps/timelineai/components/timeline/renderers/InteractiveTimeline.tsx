@@ -20,11 +20,11 @@ export function InteractiveTimeline({ timeline }: { timeline: RenderableTimeline
   const visibleEvents = activeLabel ? timeline.events.filter((e) => e.label === activeLabel) : timeline.events;
 
   return (
-    <div className="tl-root" data-layout="interactive">
+    <div className="tl-layout" data-layout-body="interactive">
       <header className="mb-4">
         <h2 className="text-2xl font-bold">{timeline.title || "Untitled timeline"}</h2>
         {timeline.subtitle ? (
-          <p className="mt-1 text-[var(--color-text-muted,inherit)]">{timeline.subtitle}</p>
+          <p className="mt-1 text-[var(--tl-text-muted)]">{timeline.subtitle}</p>
         ) : null}
       </header>
 
@@ -32,7 +32,7 @@ export function InteractiveTimeline({ timeline }: { timeline: RenderableTimeline
         <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter by category">
           <button
             type="button"
-            className={`rounded-full px-3 py-1 text-xs font-medium ${activeLabel === null ? "bg-[var(--tl-accent)] text-white" : "bg-[var(--color-border,rgba(0,0,0,0.08))]"}`}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${activeLabel === null ? "bg-[var(--tl-accent)] text-[var(--tl-accent-contrast)]" : "bg-[var(--tl-border)]"}`}
             onClick={() => setActiveLabel(null)}
             aria-pressed={activeLabel === null}
           >
@@ -42,7 +42,7 @@ export function InteractiveTimeline({ timeline }: { timeline: RenderableTimeline
             <button
               key={label}
               type="button"
-              className={`rounded-full px-3 py-1 text-xs font-medium ${activeLabel === label ? "bg-[var(--tl-accent)] text-white" : "bg-[var(--color-border,rgba(0,0,0,0.08))]"}`}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${activeLabel === label ? "bg-[var(--tl-accent)] text-[var(--tl-accent-contrast)]" : "bg-[var(--tl-border)]"}`}
               onClick={() => setActiveLabel(label)}
               aria-pressed={activeLabel === label}
             >
@@ -70,7 +70,7 @@ export function InteractiveTimeline({ timeline }: { timeline: RenderableTimeline
                   aria-hidden
                 />
                 <span className="font-medium">{event.title}</span>
-                <time className="ml-auto text-xs text-[var(--color-text-muted,inherit)]">
+                <time className="ml-auto text-xs text-[var(--tl-text-muted)]">
                   {formatEventDate(event, timeline.theme?.dateFormat)}
                 </time>
               </button>

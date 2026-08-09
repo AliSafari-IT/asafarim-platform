@@ -14,11 +14,11 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
   const center = size / 2;
 
   return (
-    <div className="tl-root" data-layout="radial">
+    <div className="tl-layout" data-layout-body="radial">
       <header className="mb-6 text-center">
         <h2 className="text-2xl font-bold">{timeline.title || "Untitled timeline"}</h2>
         {timeline.subtitle ? (
-          <p className="mt-1 text-[var(--color-text-muted,inherit)]">{timeline.subtitle}</p>
+          <p className="mt-1 text-[var(--tl-text-muted)]">{timeline.subtitle}</p>
         ) : null}
       </header>
 
@@ -43,7 +43,7 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
                 y={labelY}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                className="fill-[var(--color-text)] text-[11px] font-medium"
+                className="fill-[var(--tl-text)] text-[11px] font-medium"
               >
                 {event.title.length > 18 ? `${event.title.slice(0, 16)}…` : event.title}
               </text>
@@ -64,7 +64,7 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
           summary view, not the only way to consume this timeline's content. */}
       <ol role="list" className="mx-auto mt-8 grid max-w-md gap-3">
         {events.map((event, index) => (
-          <li key={event.id ?? index} className="rounded-lg border border-[var(--color-border,rgba(0,0,0,0.12))] p-3">
+          <li key={event.id ?? index} className="rounded-lg border border-[var(--tl-border)] p-3">
             <div className="flex items-center gap-2">
               <span
                 className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
@@ -73,7 +73,7 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
               />
               <h3 className="font-semibold">{event.title}</h3>
             </div>
-            <time className="text-xs text-[var(--color-text-muted,inherit)]">
+            <time className="text-xs text-[var(--tl-text-muted)]">
               {formatEventDate(event, theme.dateFormat)}
             </time>
             {event.description ? <p className="mt-1 text-sm">{event.description}</p> : null}

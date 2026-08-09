@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@asafarim/ui";
 import { EventEditorList } from "./EventEditorList";
 import { TimelineRenderer } from "./renderers/TimelineRenderer";
-import { TimelineInputSchema, TIMELINE_TYPES, TIMELINE_LAYOUTS } from "@/lib/schemas";
-import { TYPE_LABELS, LAYOUT_LABELS } from "@/lib/labels";
+import { TimelineAppearance } from "./TimelineAppearance";
+import { TimelineInputSchema, TIMELINE_TYPES } from "@/lib/schemas";
+import { TYPE_LABELS } from "@/lib/labels";
+import { resolveLayoutForType } from "@/lib/timeline-config";
 import { apiFetch, ApiError } from "@/lib/client/api";
 import {
   blankEvent,
@@ -170,37 +172,38 @@ export function TimelineEditor({ mode, timelineId, initial, version, isGuest, on
           />
         </label>
 
-        <div className="grid grid-cols-2 gap-4">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Type</span>
-            <select
-              className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
-              value={state.timelineType}
-              onChange={(e) => setState((s) => ({ ...s, timelineType: e.target.value as EditorState["timelineType"] }))}
-            >
-              {TIMELINE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
-          </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Type</span>
+          <select
+            className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+            value={state.timelineType}
+            onChange={(e) => {
+              const timelineType = e.target.value as EditorState["timelineType"];
+              // Keep the current layout when it still suits the new type,
+              // otherwise fall back to that type's first option. Events are
+              // untouched either way — this is a presentation change.
+              setState((s) => ({
+                ...s,
+                timelineType,
+                layout: resolveLayoutForType(timelineType, s.layout),
+              }));
+            }}
+          >
+            {TIMELINE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </label>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Layout</span>
-            <select
-              className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
-              value={state.layout}
-              onChange={(e) => setState((s) => ({ ...s, layout: e.target.value as EditorState["layout"] }))}
-            >
-              {TIMELINE_LAYOUTS.map((l) => (
-                <option key={l} value={l}>
-                  {LAYOUT_LABELS[l]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <TimelineAppearance
+          timelineType={state.timelineType}
+          layout={state.layout}
+          theme={state.theme}
+          onLayoutChange={(layout) => setState((s) => ({ ...s, layout }))}
+          onThemeChange={(patch) => setState((s) => ({ ...s, theme: { ...(s.theme ?? {}), ...patch } }))}
+        />
 
         <fieldset className="flex items-center gap-4 text-sm">
           <legend className="mb-1 font-medium">Event order</legend>

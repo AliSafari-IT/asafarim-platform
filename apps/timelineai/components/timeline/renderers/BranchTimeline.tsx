@@ -18,9 +18,13 @@ import type { TimelineEventInput } from "@/lib/schemas";
 /**
  * "Branching" interactive layout: a horizontal connector with cards
  * alternating above/below, category icon badges, filter pills, and a
- * click-to-expand detail panel. Deliberately self-contained dark styling
- * (not the app's light/dark toggle) — this is a distinct visual product,
- * same way a themed poster doesn't repaint itself for the room it's in.
+ * click-to-expand detail panel.
+ *
+ * Container colour, text, borders and connectors come from the --tl-* tokens
+ * on the themed wrapper (TimelineRenderer), so this renders in all three
+ * timeline themes. It previously hardcoded a near-black palette, which made
+ * choosing this layout quietly override the author's chosen theme. The
+ * per-category accent rotation below is content colour and stays.
  * Content and interaction still follow the same rules every other layout
  * does: same event data, same filter-by-label pattern as
  * InteractiveTimeline, and it still needs to read sensibly with JS off
@@ -83,13 +87,12 @@ export function BranchTimeline({ timeline }: { timeline: RenderableTimeline }) {
 
   return (
     <div
-      className="tl-root tl-branch rounded-2xl p-8"
-      data-layout="branch"
-      style={{ background: "#0a0a1a", color: "#f1eefc" }}
+      className="tl-branch"
+      data-layout-body="branch"
     >
       <header className="mb-6">
         <h2 className="text-3xl font-bold">{timeline.title || "Untitled timeline"}</h2>
-        {timeline.subtitle ? <p className="mt-1 text-white/60">{timeline.subtitle}</p> : null}
+        {timeline.subtitle ? <p className="mt-1 text-[var(--tl-text-muted)]">{timeline.subtitle}</p> : null}
       </header>
 
       {labels.length > 0 ? (
@@ -99,8 +102,12 @@ export function BranchTimeline({ timeline }: { timeline: RenderableTimeline }) {
             className="flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition"
             style={
               activeLabel === null
-                ? { background: "linear-gradient(135deg,#7c3aed,#4f46e5)", borderColor: "transparent", color: "#fff" }
-                : { borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.75)" }
+                ? {
+                    background: "var(--tl-accent)",
+                    borderColor: "transparent",
+                    color: "var(--tl-accent-contrast)",
+                  }
+                : { borderColor: "var(--tl-border)", color: "var(--tl-text-muted)" }
             }
             onClick={() => setActiveLabel(null)}
             aria-pressed={activeLabel === null}
@@ -120,7 +127,7 @@ export function BranchTimeline({ timeline }: { timeline: RenderableTimeline }) {
                 style={
                   active
                     ? { background: `${color}26`, borderColor: color, color }
-                    : { borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.75)" }
+                    : { borderColor: "var(--tl-border)", color: "var(--tl-text-muted)" }
                 }
                 onClick={() => setActiveLabel(active ? null : label)}
                 aria-pressed={active}
@@ -133,7 +140,7 @@ export function BranchTimeline({ timeline }: { timeline: RenderableTimeline }) {
         </div>
       ) : null}
 
-      <div className="overflow-x-auto pb-4">
+      <div className="tl-scroll-x pb-4">
         <div className="flex min-w-max items-stretch">
           {visibleEvents.map((event, index) => {
             const key = event.id ?? String(index);
@@ -156,7 +163,7 @@ export function BranchTimeline({ timeline }: { timeline: RenderableTimeline }) {
                 <div className="relative flex items-center" style={{ height: 4 }}>
                   <div
                     className="absolute inset-y-0 left-0 right-0 my-auto"
-                    style={{ height: 2, background: "linear-gradient(90deg,#4338ca,#7c3aed)" }}
+                    style={{ height: 2, background: "var(--tl-connector)" }}
                     aria-hidden
                   />
                   <span
@@ -193,8 +200,8 @@ function EventCard({
     <div
       className="rounded-xl border p-4"
       style={{
-        background: "rgba(255,255,255,0.04)",
-        borderColor: isOpen ? color : "rgba(255,255,255,0.1)",
+        background: "var(--tl-surface)",
+        borderColor: isOpen ? color : "var(--tl-border)",
         boxShadow: isOpen ? `0 0 0 1px ${color}, 0 0 24px -4px ${color}` : undefined,
       }}
     >
@@ -207,13 +214,13 @@ function EventCard({
           <Icon size={18} />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-semibold text-white">{event.title}</h3>
-          <time className="flex items-center gap-1 text-xs text-white/50">{formatEventDate(event)}</time>
+          <h3 className="truncate font-semibold text-[var(--tl-text)]">{event.title}</h3>
+          <time className="flex items-center gap-1 text-xs text-[var(--tl-text-muted)]">{formatEventDate(event)}</time>
         </div>
         {event.description ? (
           <button
             type="button"
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-white/15 text-white/70 hover:border-white/40 hover:text-white"
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-[var(--tl-border)] text-[var(--tl-text-muted)] hover:border-[var(--tl-accent)] hover:text-[var(--tl-text)]"
             onClick={onToggle}
             aria-expanded={isOpen}
             aria-label={isOpen ? `Collapse "${event.title}"` : `Expand "${event.title}"`}
@@ -223,7 +230,7 @@ function EventCard({
         ) : null}
       </div>
       {isOpen && event.description ? (
-        <p className="mt-3 border-t border-white/10 pt-3 text-sm text-white/75">{event.description}</p>
+        <p className="mt-3 border-t border-[var(--tl-border)] pt-3 text-sm text-[var(--tl-text-muted)]">{event.description}</p>
       ) : null}
     </div>
   );

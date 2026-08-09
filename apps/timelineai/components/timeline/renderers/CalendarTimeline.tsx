@@ -23,16 +23,16 @@ export function CalendarTimeline({ timeline }: { timeline: RenderableTimeline })
   const sortedKeys = [...groups.keys()].sort();
 
   return (
-    <div className="tl-root" data-layout="calendar">
+    <div className="tl-layout" data-layout-body="calendar">
       <header className="mb-6">
         <h2 className="text-2xl font-bold">{timeline.title || "Untitled timeline"}</h2>
         {timeline.subtitle ? (
-          <p className="mt-1 text-[var(--color-text-muted,inherit)]">{timeline.subtitle}</p>
+          <p className="mt-1 text-[var(--tl-text-muted)]">{timeline.subtitle}</p>
         ) : null}
       </header>
 
       {sortedKeys.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-muted,inherit)]">
+        <p className="text-sm text-[var(--tl-text-muted)]">
           Add a date to at least one event to see it on the calendar.
         </p>
       ) : (
@@ -47,10 +47,10 @@ export function CalendarTimeline({ timeline }: { timeline: RenderableTimeline })
                   .map((event, index) => (
                     <li
                       key={event.id ?? index}
-                      className="rounded-lg border-l-4 bg-[var(--color-surface)] p-3"
+                      className="rounded-lg border-l-4 bg-[var(--tl-surface)] p-3"
                       style={{ borderColor: event.accentColor || "var(--tl-accent)" }}
                     >
-                      <time className="text-xs text-[var(--color-text-muted,inherit)]">
+                      <time className="text-xs text-[var(--tl-text-muted)]">
                         {new Date(event.startAt!).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
                       </time>
                       <div className="font-medium">{event.title}</div>
@@ -65,7 +65,7 @@ export function CalendarTimeline({ timeline }: { timeline: RenderableTimeline })
 
       {undated.length > 0 ? (
         <div className="mt-6">
-          <h3 className="mb-2 text-sm font-medium text-[var(--color-text-muted,inherit)]">Undated</h3>
+          <h3 className="mb-2 text-sm font-medium text-[var(--tl-text-muted)]">Undated</h3>
           <ul className="flex flex-col gap-1 text-sm">
             {undated.map((event, index) => (
               <li key={event.id ?? index}>{event.title}</li>
