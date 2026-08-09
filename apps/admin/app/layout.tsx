@@ -5,6 +5,7 @@ import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import "@asafarim/ui/styles.css";
 import "@asafarim/country-language-selector/styles.css";
+import "./seed-data.css";
 
 export const metadata: Metadata = {
   title: {

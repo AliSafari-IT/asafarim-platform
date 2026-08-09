@@ -38,9 +38,64 @@ export interface AuditEventInput {
   /** Acting user id (the admin performing the mutation), if known. */
   userId: string | null;
   action: string;
-  entity: "User" | "UserRole" | "Role" | "PlatformSetting" | "Admin" | "TailscaleDevice";
+  entity:
+    | "User"
+    | "UserRole"
+    | "Role"
+    | "PlatformSetting"
+    | "Admin"
+    | "TailscaleDevice"
+    // Seed Data management. `SeedProvider` is keyed by the allowlisted
+    // provider id; the other two by their control-plane row id.
+    | "SeedProvider"
+    | "SeedOperation"
+    | "SeedValidationSchedule";
   entityId: string;
   changes?: Record<string, unknown>;
+}
+
+/**
+ * Actions the Seed Data page records. Named as a union so a typo cannot
+ * quietly create a new action string that history filters will never match.
+ */
+export type SeedAuditAction =
+  | "seed.validation.requested"
+  | "seed.status.requested"
+  | "seed.plan.created"
+  | "seed.execution.requested"
+  | "seed.completed"
+  | "seed.failed"
+  | "seed.cancelled"
+  | "seed.schedule.created"
+  | "seed.schedule.updated"
+  | "seed.schedule.deleted";
+
+export interface SeedAuditEventInput {
+  userId: string | null;
+  action: SeedAuditAction;
+  entity: "SeedProvider" | "SeedOperation" | "SeedValidationSchedule";
+  entityId: string;
+  changes: {
+    providerId?: string;
+    environment?: string;
+    operation?: string;
+    planChecksum?: string;
+    definitionChecksum?: string;
+    counts?: Record<string, number>;
+    resultStatus?: string;
+    bulkGroupId?: string;
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Typed front door for seed audit events. Delegates to writeAuditEvent, so
+ * the same redaction and the same non-fatal semantics apply — a failed audit
+ * write never rolls back the operation it describes, and the SeedOperation
+ * row records the outcome regardless.
+ */
+export async function writeSeedAuditEvent(event: SeedAuditEventInput): Promise<void> {
+  await writeAuditEvent(event);
 }
 
 /**

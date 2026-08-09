@@ -1,6 +1,6 @@
 {
   "name": "@asafarim/db",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Shared PostgreSQL/Prisma database package for the ASafarIM Platform",
   "main": "./src/index.ts",
@@ -22,6 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@asafarim/seed-manager": "workspace:*",
     "@prisma/adapter-pg": "7.8.0",
     "@prisma/client": "7.8.0"
   },
