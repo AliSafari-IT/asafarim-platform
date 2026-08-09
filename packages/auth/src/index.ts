@@ -10,6 +10,7 @@ export {
   getAppAccessDecision,
   getPlatformApp,
   getAccessibleApps,
+  getAppSwitcherApps,
   type PlatformApp,
   type PlatformAppAccess,
   type PlatformAppStatus,

@@ -10,7 +10,8 @@
     "./proxy": "./src/proxy.ts",
     "./types": "./src/types.ts",
     "./mailer": "./src/mailer.ts",
-    "./roles": "./src/roles.ts"
+    "./roles": "./src/roles.ts",
+    "./apps": "./src/apps.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

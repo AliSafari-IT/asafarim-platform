@@ -13,6 +13,9 @@ import {
 } from "@/lib/theme";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import { useTranslation } from "@asafarim/shared-i18n";
+// Pure registry module — safe in a client component, unlike the
+// "@asafarim/auth" root entry which carries the server-only Auth.js surface.
+import { getAppSwitcherApps } from "@asafarim/auth/apps";
 
 const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
 const webUrl = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
@@ -20,6 +23,25 @@ const showcaseUrl = process.env.NEXT_PUBLIC_SHOWCASE_URL || "http://localhost:30
 const viontoUrl = process.env.NEXT_PUBLIC_VIONTO_URL || "http://localhost:3004";
 const appbuilderUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
 const devtoolsUrl = process.env.NEXT_PUBLIC_DEVTOOLS_URL || "https://asafarim.be";
+
+/**
+ * Keyed by PLATFORM_APPS keys so the switcher can be driven by the registry.
+ * Vionto deliberately has no @asafarim/ui dependency, so it resolves URLs
+ * here instead of via getPlatformLinks() — but the *list* of apps is no
+ * longer hand-maintained, which is what kept drifting out of date.
+ */
+const appUrls: Record<string, string> = {
+  web: webUrl,
+  hub: hubUrl,
+  showcase: showcaseUrl,
+  admin: process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3003",
+  vionto: viontoUrl,
+  edumatch: process.env.NEXT_PUBLIC_EDUMATCH_URL || "http://localhost:3009",
+  testora: process.env.NEXT_PUBLIC_TESTORA_URL || "http://localhost:3005",
+  appbuilder: appbuilderUrl,
+  timelineai: process.env.NEXT_PUBLIC_TIMELINEAI_URL || "http://localhost:3010",
+  devtools: devtoolsUrl,
+};
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>("dark");
@@ -77,6 +99,7 @@ export function ThemeToggle() {
 /** Cross-app switcher: links to the other platform apps. */
 function AppSwitcher() {
   const { t } = useTranslation();
+  const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -90,19 +113,12 @@ function AppSwitcher() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const testoraUrl = process.env.NEXT_PUBLIC_TESTORA_URL || "http://localhost:3005";
-  const appbuilderUrl = process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006";
-  const edumatchUrl = process.env.NEXT_PUBLIC_EDUMATCH_URL || "http://localhost:3009";
-
-  const apps = [
-    { label: "ASafarIM Digital", href: webUrl, meta: "public site" },
-    { label: "Hub", href: hubUrl, meta: "workspace" },
-    { label: "Showcase", href: showcaseUrl, meta: "projects" },
-    { label: "EduMatch", href: edumatchUrl, meta: "tutoring" },
-    { label: "Testora", href: testoraUrl, meta: "benchmark" },
-    { label: "AppBuilder", href: appbuilderUrl, meta: "builder" },
-    { label: "DevTools", href: devtoolsUrl, meta: "asafarim.be" },
-  ];
+  const apps = getAppSwitcherApps("vionto", {
+    roles: (session?.user?.roles as string[] | undefined) ?? [],
+    authenticated: Boolean(session?.user),
+  })
+    .filter((app) => app.key in appUrls)
+    .map((app) => ({ label: app.name, href: appUrls[app.key], meta: app.meta }));
 
   return (
     <div ref={ref} className="relative">

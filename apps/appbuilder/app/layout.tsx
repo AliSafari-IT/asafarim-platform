@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
-import { auth, signOut, PLATFORM_APPS, canAccessApp, type AppAccessContext } from "@asafarim/auth";
+import { auth, signOut, getAppSwitcherApps } from "@asafarim/auth";
 import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
 import {
   AppShell,
@@ -11,6 +11,7 @@ import {
   TopNav,
   UserMenu,
   getPlatformLinks,
+  toAppSwitcherLinks,
 } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
 
@@ -33,13 +34,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   // Registry-driven, same rule Hub's launcher/switcher use — no
   // AppBuilder-specific hardcoded visibility here.
-  const switcherContext: AppAccessContext = {
+  const switcherApps = getAppSwitcherApps("appbuilder", {
     roles: session?.user?.roles ?? [],
     authenticated: Boolean(session?.user),
-  };
-  const switcherApps = PLATFORM_APPS.filter(
-    (app) => app.key !== "appbuilder" && app.status === "active" && app.key in links && canAccessApp(app, switcherContext),
-  );
+  });
 
   // AppBuilder has no local sign-in page — the platform's centralized flow
   // lives on Hub. The callback preserves the original AppBuilder URL so
@@ -68,11 +66,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <>
               <ThemeToggle />
               <AppSwitcher
-                links={switcherApps.map((app) => ({
-                  label: app.name,
-                  href: links[app.key as keyof typeof links],
-                  meta: app.meta,
-                }))}
+                links={toAppSwitcherLinks(switcherApps, links)}
               />
               {session?.user ? (
                 <UserMenu

@@ -54,4 +54,9 @@ export { StatusBadge, type Status } from "./components/StatusBadge";
 export { Timeline, type TimelineItem } from "./components/Timeline";
 export { TopNav, type NavItem } from "./components/TopNav";
 export { UserMenu } from "./components/UserMenu";
-export { getPlatformLinks, type PlatformLinks } from "./links";
+export {
+  getPlatformLinks,
+  toAppSwitcherLinks,
+  type PlatformLinks,
+  type AppSwitcherSource,
+} from "./links";

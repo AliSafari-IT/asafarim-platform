@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
-import { auth, signOut, hasRole, ROLES, PLATFORM_APPS, canAccessApp, type AppAccessContext } from "@asafarim/auth";
+import { auth, signOut, hasRole, ROLES, getAppSwitcherApps } from "@asafarim/auth";
 import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
-import { AppShell, AppSwitcher, Button, ButtonLink, TopNav, UserMenu, getPlatformLinks } from "@asafarim/ui";
+import { AppShell, AppSwitcher, Button, ButtonLink, TopNav, UserMenu, getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
 import { SessionProvider } from "@/components/SessionProvider";
 import "@asafarim/ui/styles.css";
 import "./globals.css";
@@ -49,13 +49,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // TimelineAI-specific hardcoded visibility here (see packages/auth's
   // PLATFORM_APPS). Excludes itself from its own switcher, same as
   // AppBuilder does — every other active app still shows up.
-  const switcherContext: AppAccessContext = {
+  const switcherApps = getAppSwitcherApps("timelineai", {
     roles: session?.user?.roles ?? [],
     authenticated: Boolean(session?.user),
-  };
-  const switcherApps = PLATFORM_APPS.filter(
-    (app) => app.key !== "timelineai" && app.status === "active" && app.key in links && canAccessApp(app, switcherContext)
-  );
+  });
 
   const signInHref = `${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${appUrl}/`)}`;
 
@@ -85,11 +82,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   <>
                     <ThemeToggle />
                     <AppSwitcher
-                      links={switcherApps.map((app) => ({
-                        label: app.name,
-                        href: links[app.key as keyof typeof links],
-                        meta: app.meta,
-                      }))}
+                      links={toAppSwitcherLinks(switcherApps, links)}
                     />
                     {session?.user ? (
                       <UserMenu name={session.user.name} email={session.user.email} image={session.user.image} roles={session.user.roles}>
