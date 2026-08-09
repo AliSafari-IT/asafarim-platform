@@ -31,6 +31,7 @@
     "db:seed": "pnpm --filter @asafarim/db db:seed",
     "db:seed:prod": "pnpm --filter @asafarim/db db:seed:prod",
     "db:seed:edumatch": "pnpm --filter @asafarim/db db:seed:edumatch",
+    "db:seed:timelineai": "pnpm --filter @asafarim/db db:seed:timelineai",
     "db:migrate:deploy:prod": "pnpm --filter @asafarim/db db:migrate:deploy:prod",
     "db:up": "docker compose --env-file .env.local up -d",
     "bench:testora": "pnpm --filter @asafarim/testora-benchmark test",
