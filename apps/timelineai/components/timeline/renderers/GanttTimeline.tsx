@@ -11,11 +11,11 @@ export function GanttTimeline({ timeline }: { timeline: RenderableTimeline }) {
 
   if (dated.length === 0) {
     return (
-      <div className="tl-root" data-layout="gantt">
+      <div className="tl-layout" data-layout-body="gantt">
         <header className="mb-6">
           <h2 className="text-2xl font-bold">{timeline.title || "Untitled timeline"}</h2>
         </header>
-        <p className="text-sm text-[var(--color-text-muted,inherit)]">
+        <p className="text-sm text-[var(--tl-text-muted)]">
           Add a start date to at least one event to see the Gantt chart.
         </p>
       </div>
@@ -33,15 +33,15 @@ export function GanttTimeline({ timeline }: { timeline: RenderableTimeline }) {
   }
 
   return (
-    <div className="tl-root" data-layout="gantt">
+    <div className="tl-layout" data-layout-body="gantt">
       <header className="mb-6">
         <h2 className="text-2xl font-bold">{timeline.title || "Untitled timeline"}</h2>
         {timeline.subtitle ? (
-          <p className="mt-1 text-[var(--color-text-muted,inherit)]">{timeline.subtitle}</p>
+          <p className="mt-1 text-[var(--tl-text-muted)]">{timeline.subtitle}</p>
         ) : null}
       </header>
 
-      <div className="flex justify-between text-xs text-[var(--color-text-muted,inherit)]">
+      <div className="flex justify-between text-xs text-[var(--tl-text-muted)]">
         <span>{new Date(rangeStart).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
         <span>{new Date(rangeEnd).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
       </div>
@@ -57,7 +57,7 @@ export function GanttTimeline({ timeline }: { timeline: RenderableTimeline }) {
               <span className="w-40 flex-shrink-0 truncate text-sm font-medium" title={event.title}>
                 {event.title}
               </span>
-              <div className="relative h-6 flex-1 rounded bg-[var(--color-border,rgba(0,0,0,0.08))]">
+              <div className="relative h-6 flex-1 rounded bg-[var(--tl-border)]">
                 <div
                   className="absolute top-0 h-full rounded"
                   style={{
@@ -75,7 +75,7 @@ export function GanttTimeline({ timeline }: { timeline: RenderableTimeline }) {
 
       {undated.length > 0 ? (
         <div className="mt-6">
-          <h3 className="mb-2 text-sm font-medium text-[var(--color-text-muted,inherit)]">
+          <h3 className="mb-2 text-sm font-medium text-[var(--tl-text-muted)]">
             Not yet scheduled
           </h3>
           <ul className="flex flex-col gap-1 text-sm">
