@@ -12,7 +12,7 @@ import { projectGroups } from "../../content/projects";
 export const metadata: Metadata = {
   title: "Projects",
   description:
-    "The project wall of ASafarIM Digital: the platform itself, products like Vionto and EduMatch, showcase apps like Testora and SmartOps, and open-source npm packages.",
+    "The project wall of ASafarIM Digital: the platform itself, products like Vionto, TimelineAI and EduMatch, showcase apps like Testora and SmartOps, and open-source npm packages.",
   alternates: { canonical: "/projects" },
 };
 
