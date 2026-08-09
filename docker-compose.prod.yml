@@ -31,6 +31,7 @@ services:
         NEXT_PUBLIC_EDUMATCH_URL: ${NEXT_PUBLIC_EDUMATCH_URL:-https://edumatch.asafarim.com}
         NEXT_PUBLIC_TESTORA_URL: ${NEXT_PUBLIC_TESTORA_URL}
         NEXT_PUBLIC_APPBUILDER_URL: ${NEXT_PUBLIC_APPBUILDER_URL}
+        NEXT_PUBLIC_TIMELINEAI_URL: ${NEXT_PUBLIC_TIMELINEAI_URL:-https://tlai.asafarim.com}
         NEXT_PUBLIC_DEVTOOLS_URL: ${NEXT_PUBLIC_DEVTOOLS_URL:-https://asafarim.be}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
@@ -165,6 +166,34 @@ services:
       NEXT_PUBLIC_APP_URL: https://edumatch.asafarim.com
       NEXT_PUBLIC_EDUMATCH_URL: https://edumatch.asafarim.com
       AUTH_URL: https://edumatch.asafarim.com
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - asafarim_net
+
+  timelineai:
+    build:
+      context: .
+      dockerfile: apps/timelineai/Dockerfile
+      args: *public-build-args
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_APP_URL: https://tlai.asafarim.com
+      NEXT_PUBLIC_TIMELINEAI_URL: https://tlai.asafarim.com
+      AUTH_URL: https://tlai.asafarim.com
+      # Self-referencing URL for the export pipeline's headless Chromium
+      # (lib/server/services/export.ts) — internal container networking,
+      # not the public domain, so exports don't round-trip through Caddy/TLS.
+      TIMELINEAI_INTERNAL_URL: http://localhost:3000
+      TIMELINEAI_GUEST_IP_HASH_KEY: ${TIMELINEAI_GUEST_IP_HASH_KEY}
+      # Caddy is one hop in front of every app in this stack.
+      TIMELINEAI_TRUSTED_PROXY_HOPS: "1"
     depends_on:
       - postgres
       - redis
