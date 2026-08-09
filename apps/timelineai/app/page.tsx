@@ -20,6 +20,9 @@ export default function HomePage() {
         <ButtonLink href="/create" variant="primary">
           Create a timeline
         </ButtonLink>
+        <ButtonLink href="/gallery" variant="secondary">
+          Browse the gallery
+        </ButtonLink>
         <ButtonLink href="/dashboard" variant="secondary">
           Sign in for your dashboard
         </ButtonLink>

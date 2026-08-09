@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@asafarim/ui";
 import { EventEditorList } from "./EventEditorList";
 import { TimelineRenderer } from "./renderers/TimelineRenderer";
 import { TimelineInputSchema, TIMELINE_TYPES, TIMELINE_LAYOUTS } from "@/lib/schemas";
+import { TYPE_LABELS, LAYOUT_LABELS } from "@/lib/labels";
 import { apiFetch, ApiError } from "@/lib/client/api";
 import {
   blankEvent,
@@ -13,27 +14,6 @@ import {
   type EditorEvent,
   type EditorState,
 } from "@/lib/client/editor-types";
-
-const TYPE_LABELS: Record<(typeof TIMELINE_TYPES)[number], string> = {
-  general: "General",
-  project: "Project",
-  historical: "Historical / storytelling",
-  roadmap: "Roadmap",
-  gantt: "Gantt (project schedule)",
-  calendar: "Calendar",
-  interactive: "Interactive",
-};
-
-const LAYOUT_LABELS: Record<(typeof TIMELINE_LAYOUTS)[number], string> = {
-  vertical: "Vertical",
-  horizontal: "Horizontal",
-  zigzag: "Zigzag",
-  radial: "Circular",
-  roadmap: "Roadmap",
-  gantt: "Gantt",
-  calendar: "Calendar",
-  interactive: "Interactive",
-};
 
 export interface TimelineEditorProps {
   mode: "create" | "edit";
