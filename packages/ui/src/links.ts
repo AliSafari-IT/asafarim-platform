@@ -17,6 +17,7 @@ export interface PlatformLinks {
   edumatch: string;
   testora: string;
   appbuilder: string;
+  timelineai: string;
   devtools: string;
 }
 
@@ -30,6 +31,7 @@ export function getPlatformLinks(): PlatformLinks {
     edumatch: process.env.NEXT_PUBLIC_EDUMATCH_URL ?? "http://localhost:3009",
     testora: process.env.NEXT_PUBLIC_TESTORA_URL ?? "http://localhost:3005",
     appbuilder: process.env.NEXT_PUBLIC_APPBUILDER_URL ?? "http://localhost:3006",
+    timelineai: process.env.NEXT_PUBLIC_TIMELINEAI_URL ?? "http://localhost:3010",
     // devtools lives on a separate domain (asafarim.be) as its own deployment,
     // not a subdomain of asafarim.com — it is not part of the local dev monorepo,
     // so the default points at the production URL.
