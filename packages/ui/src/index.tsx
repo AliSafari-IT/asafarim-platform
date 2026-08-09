@@ -50,6 +50,17 @@ export {
 export { ProjectCard } from "./components/ProjectCard";
 export { Section } from "./components/Section";
 export { SideNav } from "./components/SideNav";
+export {
+  ShowcaseAbout,
+  type ShowcaseAboutContent,
+  type ShowcaseAboutFact,
+  type ShowcaseAboutProps,
+} from "./components/ShowcaseAbout";
+export {
+  ShowcaseNotice,
+  type ShowcaseNoticeContent,
+  type ShowcaseNoticeProps,
+} from "./components/ShowcaseNotice";
 export { StatusBadge, type Status } from "./components/StatusBadge";
 export { Timeline, type TimelineItem } from "./components/Timeline";
 export { TopNav, type NavItem } from "./components/TopNav";

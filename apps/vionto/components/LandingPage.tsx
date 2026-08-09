@@ -4,6 +4,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { getShowcaseProject } from "@asafarim/auth/apps";
+import { ShowcaseNotice } from "@asafarim/ui";
 import {
   ArrowRight,
   Clapperboard,
@@ -20,6 +22,8 @@ import {
   Zap,
 } from "lucide-react";
 import { ViontoNav } from "./ViontoNav";
+
+const viontoShowcase = getShowcaseProject("vionto")!;
 
 /* ─── CSS Keyframe animations ───────────────────────────────────────────── */
 
@@ -561,6 +565,30 @@ export function LandingPage() {
           >
             {t("vionto.landing.hero.subtitle")}
           </p>
+
+          {/* Honest positioning — copy is localized here, but the canonical
+              English wording lives in the platform registry
+              (@asafarim/auth/apps → showcase) so no app drifts on its own. */}
+          <div
+            style={{
+              maxWidth: "570px",
+              margin: "-24px auto 40px",
+              position: "relative",
+              zIndex: 1,
+              textAlign: "left",
+            }}
+          >
+            <ShowcaseNotice
+              variant="compact"
+              content={{
+                label: t("vionto.landing.showcase.label"),
+                summary: t("vionto.landing.showcase.summary"),
+                aboutLabel: t("vionto.landing.showcase.about"),
+                aboutHref: viontoShowcase.aboutHref,
+              }}
+              renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
+            />
+          </div>
 
           {/* CTA buttons */}
           <div

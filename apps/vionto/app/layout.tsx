@@ -7,6 +7,9 @@ import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { viontoDictionaries } from "@/lib/i18n-dictionaries";
 import { readThemeFromCookie, themeInitScript } from "@/lib/theme";
+// Imported as a JS import (not CSS @import) because Tailwind CSS v4's PostCSS
+// plugin does not resolve package "exports" maps for CSS @import statements.
+import "@asafarim/ui/styles/components.css";
 import "./globals.css";
 
 const appUrl = process.env.NEXT_PUBLIC_VIONTO_URL ?? "https://vionto.asafarim.com";

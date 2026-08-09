@@ -1538,3 +1538,225 @@ a .ui-card {
   }
 }
 
+
+/* Accent used by the showcase surfaces. Deliberately defaults to
+   currentColor rather than sniffing --accent / --color-accent: those names
+   mean different things per app (EduMatch’s --accent is a fixed brand mint
+   that does not flip with the theme, Testora’s holds bare HSL components),
+   so a guessed default silently produced unreadable text. Each app opts in
+   by setting --ui-showcase-accent to a real, theme-aware colour. */
+:root {
+  --ui-showcase-accent: currentColor;
+}
+
+/* ── Showcase notice: honest positioning for public product apps ──
+   Understated by design: this builds trust, so it must not read as a
+   legal warning. Colours resolve through a fallback chain rather than
+   the shared tokens alone — EduMatch, Vionto, and Testora each carry
+   their own token vocabulary, and Vionto does not load tokens.css at
+   all, so `currentColor` mixes are the only thing guaranteed to sit
+   correctly on every app's surface in both themes. */
+
+.ui-showcase-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+  max-width: 46rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid
+    color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+
+.ui-showcase-notice--compact {
+  padding: 0.7rem 0.95rem;
+  gap: 0.4rem;
+}
+
+.ui-showcase-notice__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ui-showcase-accent);
+}
+
+.ui-showcase-notice__badge::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.75;
+}
+
+.ui-showcase-notice__body {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  opacity: 0.82;
+  text-wrap: pretty;
+}
+
+.ui-showcase-notice--compact .ui-showcase-notice__body {
+  font-size: 0.8125rem;
+}
+
+.ui-showcase-notice__link-wrap a {
+  color: var(--ui-showcase-accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+  white-space: nowrap;
+}
+
+.ui-showcase-notice__link-wrap a::after {
+  content: " →";
+  text-decoration: none;
+}
+
+.ui-showcase-notice__link-wrap a:hover,
+.ui-showcase-notice__link-wrap a:focus-visible {
+  opacity: 0.8;
+}
+
+/* ── "Behind this project" page body ──────────────────────────────
+   Same currentColor-based fallback strategy as .ui-showcase-notice,
+   so the page inherits each app's own palette in both themes. */
+
+.ui-showcase-about {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 4rem 1.25rem 5rem;
+}
+
+.ui-showcase-about__title {
+  margin: 1.25rem 0 0;
+  font-size: clamp(1.9rem, 4vw, 2.75rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.ui-showcase-about__lede {
+  margin: 1.1rem 0 0;
+  max-width: 44rem;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  opacity: 0.8;
+  text-wrap: pretty;
+}
+
+.ui-showcase-about__section {
+  margin-top: 3.5rem;
+}
+
+.ui-showcase-about__heading {
+  margin: 0 0 1.25rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.ui-showcase-about__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+}
+
+.ui-showcase-about__card {
+  padding: 1.35rem;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+
+/* Dashed edge marks the honest exceptions — visually distinct from the
+   "what works" cards without needing a warning colour. */
+.ui-showcase-about__card--synthetic {
+  border-style: dashed;
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.ui-showcase-about__card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.975rem;
+  font-weight: 650;
+}
+
+.ui-showcase-about__card p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  opacity: 0.8;
+}
+
+.ui-showcase-about__list {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.55rem;
+  font-size: 0.925rem;
+  line-height: 1.6;
+  opacity: 0.85;
+}
+
+.ui-showcase-about__status {
+  margin: 0;
+  padding: 1.15rem 1.35rem;
+  border-left: 3px solid var(--ui-showcase-accent);
+  border-radius: 0 0.75rem 0.75rem 0;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.ui-showcase-about__cta {
+  margin-top: 4rem;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 1.5rem;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+
+.ui-showcase-about__cta h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.ui-showcase-about__cta p {
+  margin: 0.9rem auto 0;
+  max-width: 34rem;
+  font-size: 0.925rem;
+  line-height: 1.7;
+  opacity: 0.8;
+}
+
+/* Outlined rather than filled: an app supplies an accent colour but not
+   necessarily a readable ink colour to sit on it, and a filled pill fails
+   contrast the moment that accent is light (EduMatch mint in dark mode).
+   Accent-on-surface stays legible under every palette on the platform. */
+.ui-showcase-about__cta-link {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.7rem 1.4rem;
+  border: 1.5px solid var(--ui-showcase-accent);
+  border-radius: 999px;
+  /* Text colour is inherited, not accent-coloured: several apps carry an
+     unlayered `a { color: ... }` rule whose accent does not flip with the
+     theme, and the accent border already carries the emphasis. */
+  color: inherit;
+  background: transparent;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.ui-showcase-about__cta-link:hover,
+.ui-showcase-about__cta-link:focus-visible {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}

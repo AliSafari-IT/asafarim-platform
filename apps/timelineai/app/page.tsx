@@ -1,4 +1,8 @@
-import { ButtonLink } from "@asafarim/ui";
+import Link from "next/link";
+import { getShowcaseProject } from "@asafarim/auth/apps";
+import { ButtonLink, ShowcaseNotice } from "@asafarim/ui";
+
+const showcase = getShowcaseProject("timelineai")!;
 
 export default function HomePage() {
   return (
@@ -8,6 +12,11 @@ export default function HomePage() {
         Build polished, visual timelines — for projects, history, roadmaps, and more.
         No account required to try it out.
       </p>
+      <ShowcaseNotice
+        content={showcase}
+        className="text-left"
+        renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
+      />
       <div className="flex flex-wrap items-center justify-center gap-4">
         {/* @asafarim/ui's ButtonLink, not a raw Tailwind-styled <a> — the
             shared package's base.css has an unlayered `a { color: var(--accent) }`
