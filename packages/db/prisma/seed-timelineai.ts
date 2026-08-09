@@ -253,6 +253,21 @@ async function seedTimeline(authorId: string, demo: DemoTimelineInput) {
 }
 
 async function main() {
+  // `--only-if-empty` is what the deploy job passes. Re-running this seed is
+  // safe in the sense that it converges (everything is upserted on a fixed
+  // id), but it would also overwrite any edit made to a demo timeline in
+  // production — including a moderator unpublishing one. So on deploy we
+  // only plant the examples into a database that has no timelines at all,
+  // and otherwise leave production content strictly alone.
+  if (process.argv.includes("--only-if-empty")) {
+    const existing = await prisma.timeline.count();
+    if (existing > 0) {
+      console.log(`Skipping TimelineAI demo seed — database already has ${existing} timeline(s).`);
+      return;
+    }
+    console.log("No timelines found — planting the TimelineAI demo examples.");
+  }
+
   const authorId = await seedDemoAuthor();
   for (const demo of DEMOS) {
     await seedTimeline(authorId, demo);
