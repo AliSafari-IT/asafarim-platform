@@ -19,14 +19,15 @@ import type { RenderableTimeline } from "./types";
 import type { TimelineEventInput } from "@/lib/schemas";
 
 /**
- * "Calendar board" layout: a dark, month-column board. Each visible month
- * is a card holding the events that fall inside it, with a left rail of
- * connector dots so it still reads as a timeline rather than a plain
- * agenda list.
+ * "Calendar board" layout: a month-column board. Each visible month is a card
+ * holding the events that fall inside it, with a left rail of connector dots
+ * so it still reads as a timeline rather than a plain agenda list.
  *
- * Like BranchTimeline this commits to its own dark palette instead of
- * following the app's light/dark toggle — it's a distinct visual product,
- * and the export pipeline screenshots it as-is.
+ * Colour comes entirely from the --tl-* tokens set by the themed wrapper in
+ * TimelineRenderer, so this board renders in Canvas, Midnight, or Editorial.
+ * It used to pin its own near-black palette, which meant picking this layout
+ * silently overrode the author's theme. Per-month and per-event accents below
+ * stay as they are — those are content colour, not theme colour.
  *
  * Two view modes share the same windowed month range:
  *   - "agenda"   — month cards side by side (the default)
@@ -141,24 +142,20 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
 
   return (
     <div
-      className="tl-root tl-calendar-board rounded-2xl p-8"
-      data-layout="calendar-board"
-      style={{
-        background: "radial-gradient(120% 90% at 15% 0%, #131034 0%, #0a0a1a 55%, #050510 100%)",
-        color: "#f1eefc",
-      }}
+      className="tl-calendar-board"
+      data-layout-body="calendar-board"
     >
       <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">{timeline.title || "Untitled timeline"}</h2>
-          {timeline.subtitle ? <p className="mt-1 text-white/50">{timeline.subtitle}</p> : null}
+          {timeline.subtitle ? <p className="mt-1 text-[var(--tl-text-muted)]">{timeline.subtitle}</p> : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/70 transition hover:border-white/30 hover:text-white disabled:opacity-30 disabled:hover:border-white/10"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--tl-border)] bg-[var(--tl-surface)] text-[var(--tl-text-muted)] transition hover:border-[var(--tl-accent)] hover:text-[var(--tl-text)] disabled:opacity-30 disabled:hover:border-[var(--tl-border)]"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={safePage === 0}
               aria-label="Previous months"
@@ -166,14 +163,14 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
               <ChevronLeft size={16} />
             </button>
             <span
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-medium"
+              className="rounded-lg border border-[var(--tl-border)] bg-[var(--tl-surface)] px-4 py-1.5 text-sm font-medium"
               aria-live="polite"
             >
               {rangeLabel}
             </span>
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/70 transition hover:border-white/30 hover:text-white disabled:opacity-30 disabled:hover:border-white/10"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--tl-border)] bg-[var(--tl-surface)] text-[var(--tl-text-muted)] transition hover:border-[var(--tl-accent)] hover:text-[var(--tl-text)] disabled:opacity-30 disabled:hover:border-[var(--tl-border)]"
               onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
               disabled={safePage >= pageCount - 1}
               aria-label="Next months"
@@ -183,7 +180,7 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
           </div>
 
           <div
-            className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1"
+            className="flex items-center gap-1 rounded-xl border border-[var(--tl-border)] bg-[var(--tl-surface)] p-1"
             role="group"
             aria-label="View mode"
           >
@@ -202,7 +199,7 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
                   style={
                     active
                       ? { background: "rgba(168,85,247,0.18)", boxShadow: "inset 0 0 0 1px #a855f7", color: "#fff" }
-                      : { color: "rgba(255,255,255,0.6)" }
+                      : { color: "var(--tl-text-muted)" }
                   }
                   onClick={() => setView(mode)}
                   aria-pressed={active}
@@ -217,7 +214,7 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
       </header>
 
       {months.length === 0 ? (
-        <p className="text-sm text-white/50">Add a date to at least one event to see it on the board.</p>
+        <p className="text-sm text-[var(--tl-text-muted)]">Add a date to at least one event to see it on the board.</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-3 md:grid-cols-2">
           {visibleMonths.map((key, monthIndex) => {
@@ -227,7 +224,7 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
               <section
                 key={key}
                 className="rounded-2xl border p-5"
-                style={{ borderColor: `${accent}59`, background: "rgba(255,255,255,0.02)" }}
+                style={{ borderColor: `${accent}59`, background: "var(--tl-surface)" }}
               >
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-xl font-bold">{monthLabel(key)}</h3>
@@ -241,7 +238,7 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
 
                 {/* Relative-load bar: how busy this month is against the
                     busiest month currently on screen. */}
-                <div className="mt-3 h-0.5 w-full rounded-full bg-white/8" aria-hidden>
+                <div className="mt-3 h-0.5 w-full rounded-full bg-[var(--tl-border)]" aria-hidden>
                   <div
                     className="h-full rounded-full"
                     style={{ width: `${(events.length / maxCount) * 100}%`, background: accent }}
@@ -267,10 +264,10 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
 
       {undated.length > 0 ? (
         <div className="mt-8">
-          <h3 className="mb-2 text-sm font-medium text-white/50">Undated</h3>
+          <h3 className="mb-2 text-sm font-medium text-[var(--tl-text-muted)]">Undated</h3>
           <ul className="flex flex-wrap gap-2 text-sm">
             {undated.map((event, index) => (
-              <li key={event.id ?? index} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5">
+              <li key={event.id ?? index} className="rounded-lg border border-[var(--tl-border)] bg-[var(--tl-surface)] px-3 py-1.5">
                 {event.title}
               </li>
             ))}
@@ -295,7 +292,7 @@ function AgendaMonth({
   onToggle: (key: string | null) => void;
 }) {
   if (events.length === 0) {
-    return <p className="mt-5 text-sm text-white/35">No events this month.</p>;
+    return <p className="mt-5 text-sm text-[var(--tl-text-muted)]">No events this month.</p>;
   }
 
   return (
@@ -327,8 +324,8 @@ function AgendaMonth({
             <div
               className="rounded-xl border p-3"
               style={{
-                background: "rgba(255,255,255,0.03)",
-                borderColor: isOpen ? color : "rgba(255,255,255,0.08)",
+                background: "var(--tl-surface)",
+                borderColor: isOpen ? color : "var(--tl-border)",
                 boxShadow: isOpen ? `0 0 24px -6px ${color}` : undefined,
               }}
             >
@@ -350,7 +347,7 @@ function AgendaMonth({
                 {expandable ? (
                   <button
                     type="button"
-                    className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-white/45 transition hover:text-white"
+                    className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[var(--tl-text-muted)] transition hover:text-[var(--tl-text)]"
                     onClick={() => onToggle(isOpen ? null : key)}
                     aria-expanded={isOpen}
                     aria-label={isOpen ? `Collapse "${event.title}"` : `Expand "${event.title}"`}
@@ -364,7 +361,7 @@ function AgendaMonth({
               </div>
 
               {isOpen && event.description ? (
-                <p className="mt-3 border-t border-white/10 pt-3 text-sm text-white/70">{event.description}</p>
+                <p className="mt-3 border-t border-[var(--tl-border)] pt-3 text-sm text-[var(--tl-text-muted)]">{event.description}</p>
               ) : null}
             </div>
           </li>
@@ -396,7 +393,7 @@ function CalendarMonth({
 
   return (
     <div className="mt-5">
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] uppercase tracking-wide text-white/35">
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] uppercase tracking-wide text-[var(--tl-text-muted)]">
         {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((day) => (
           <div key={day}>{day}</div>
         ))}
@@ -417,7 +414,7 @@ function CalendarMonth({
               style={
                 has
                   ? { background: `${color}26`, color, boxShadow: `inset 0 0 0 1px ${color}66` }
-                  : { color: "rgba(255,255,255,0.3)" }
+                  : { color: "var(--tl-text-muted)" }
               }
               title={has ? dayEvents.map((e) => e.title).join(", ") : undefined}
             >
@@ -432,9 +429,9 @@ function CalendarMonth({
         {events.map((event, index) => {
           const color = colorFor(event, index);
           return (
-            <li key={event.id ?? index} className="flex items-center gap-2 text-white/70">
+            <li key={event.id ?? index} className="flex items-center gap-2 text-[var(--tl-text-muted)]">
               <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: color }} aria-hidden />
-              <span className="flex-shrink-0 text-xs text-white/40">{dayChip(event.startAt!)}</span>
+              <span className="flex-shrink-0 text-xs text-[var(--tl-text-muted)]">{dayChip(event.startAt!)}</span>
               <span className="truncate">{event.title}</span>
             </li>
           );

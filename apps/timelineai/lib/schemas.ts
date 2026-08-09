@@ -31,8 +31,16 @@ export const TIMELINE_LAYOUTS = [
 
 export const TIMELINE_VISIBILITY = ["private", "public", "unlisted"] as const;
 
+export const TIMELINE_THEME_PRESETS = ["canvas", "midnight", "editorial"] as const;
+
 export const ThemeSettingsSchema = z
   .object({
+    /**
+     * Visual preset for THIS timeline's viewer only — unrelated to the app's
+     * light/dark setting. Absent on every timeline saved before presets
+     * existed, which is why it stays optional and resolves to "canvas".
+     */
+    preset: z.enum(TIMELINE_THEME_PRESETS).optional(),
     palette: z.string().max(64).optional(),
     background: z.string().max(32).optional(),
     accentColor: z.string().max(32).optional(),

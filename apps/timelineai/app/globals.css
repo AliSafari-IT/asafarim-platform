@@ -28,12 +28,108 @@
   --color-text: #f1eefc;
 }
 
-/* Timeline connector/accent defaults — overridable per-timeline via the
-   theme JSON on Timeline.theme, applied as inline CSS custom properties on
-   the renderer root (see components/timeline/*). */
+/*
+ * ── Timeline viewer themes ──────────────────────────────────────────────
+ *
+ * A timeline theme is a presentation setting for ONE timeline. It is not the
+ * application theme: every token below is prefixed --tl- and every rule is
+ * scoped beneath .tl-root, so nothing here can reach the app shell, the nav,
+ * the editor, a dialog, or a second timeline on the same page.
+ *
+ * Consequences worth keeping true:
+ *   - The app can be light while a timeline is Midnight, and vice versa.
+ *   - These values never read from --color-* or [data-theme], so the page
+ *     theme cannot bleed into a timeline's appearance.
+ *   - Nothing in here sets a variable on :root, html, or body.
+ *
+ * Precedence: preset defaults (here) < per-timeline saved overrides (applied
+ * as inline custom properties on .tl-root) < per-event accentColor (applied
+ * inline by the renderers where an event supports it).
+ */
 .tl-root {
-  --tl-connector: var(--color-primary);
-  --tl-accent: var(--color-accent);
+  /* Canvas is also the fallback for timelines saved before presets existed,
+     so the base .tl-root carries it rather than only [data-timeline-theme]. */
+  --tl-bg: #f7f7fb;
+  --tl-surface: #ffffff;
+  --tl-surface-hover: #f1f0fa;
+  --tl-text: #1b1730;
+  --tl-text-muted: #5b5670;
+  --tl-border: rgba(27, 23, 48, 0.12);
+  --tl-accent: #5d4ee6;
+  --tl-accent-contrast: #ffffff;
+  --tl-accent-soft: rgba(93, 78, 230, 0.12);
+  --tl-connector: rgba(93, 78, 230, 0.35);
+  --tl-shadow: 0 1px 2px rgba(27, 23, 48, 0.06), 0 8px 24px rgba(27, 23, 48, 0.07);
+  --tl-heading-font: var(--font-sans, system-ui, sans-serif);
+  --tl-body-font: var(--font-sans, system-ui, sans-serif);
+
+  background: var(--tl-bg);
+  color: var(--tl-text);
+  font-family: var(--tl-body-font);
+  /* The root paints the themed surface, so it owns the breathing room too —
+     individual layouts must not add their own or it doubles up. */
+  padding: 2rem;
+  border-radius: 1rem;
+}
+
+/* Density is a per-timeline setting; it scales the viewer's padding and the
+   gap rhythm without any layout needing to know about it. */
+.tl-root[data-density="compact"] {
+  padding: 1.25rem;
+}
+
+.tl-root[data-density="spacious"] {
+  padding: 3rem;
+}
+
+@media (max-width: 40rem) {
+  .tl-root {
+    padding: 1.25rem;
+  }
+}
+
+.tl-root h1,
+.tl-root h2,
+.tl-root h3 {
+  font-family: var(--tl-heading-font);
+  color: var(--tl-text);
+}
+
+.tl-root[data-timeline-theme="midnight"] {
+  --tl-bg: #0d1020;
+  --tl-surface: rgba(255, 255, 255, 0.045);
+  --tl-surface-hover: rgba(255, 255, 255, 0.08);
+  --tl-text: #f1eefc;
+  --tl-text-muted: rgba(241, 238, 252, 0.62);
+  --tl-border: rgba(255, 255, 255, 0.12);
+  --tl-accent: #a78bfa;
+  --tl-accent-contrast: #14102b;
+  --tl-accent-soft: rgba(167, 139, 250, 0.18);
+  --tl-connector: rgba(103, 232, 249, 0.5);
+  --tl-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tl-root[data-timeline-theme="editorial"] {
+  --tl-bg: #f8f3e9;
+  --tl-surface: #fffdf8;
+  --tl-surface-hover: #f3ebdb;
+  --tl-text: #241d17;
+  --tl-text-muted: #6b5c4c;
+  --tl-border: rgba(36, 29, 23, 0.16);
+  --tl-accent: #b4552b;
+  --tl-accent-contrast: #fffdf8;
+  --tl-accent-soft: rgba(180, 85, 43, 0.12);
+  --tl-connector: rgba(180, 85, 43, 0.4);
+  --tl-shadow: 0 1px 2px rgba(36, 29, 23, 0.07), 0 10px 26px rgba(36, 29, 23, 0.09);
+  --tl-heading-font: "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+}
+
+/* Horizontal-hungry layouts scroll inside the viewer. Without this the whole
+   application page would scroll sideways on a phone. */
+.tl-root .tl-scroll-x {
+  overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

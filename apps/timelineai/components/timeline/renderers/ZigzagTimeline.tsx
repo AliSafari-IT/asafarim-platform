@@ -8,11 +8,11 @@ export function ZigzagTimeline({ timeline }: { timeline: RenderableTimeline }) {
   const showImages = theme.showImages ?? true;
 
   return (
-    <div className="tl-root" data-layout="zigzag">
+    <div className="tl-layout" data-layout-body="zigzag">
       <header className="mb-6 text-center">
         <h2 className="text-2xl font-bold">{timeline.title || "Untitled timeline"}</h2>
         {timeline.subtitle ? (
-          <p className="mt-1 text-[var(--color-text-muted,inherit)]">{timeline.subtitle}</p>
+          <p className="mt-1 text-[var(--tl-text-muted)]">{timeline.subtitle}</p>
         ) : null}
       </header>
 
@@ -24,7 +24,7 @@ export function ZigzagTimeline({ timeline }: { timeline: RenderableTimeline }) {
             <li key={event.id ?? index} className="relative mb-8 flex last:mb-0">
               <div className={`w-1/2 ${isRight ? "order-2 pl-8 text-left" : "pr-8 text-right"}`}>
                 {showDates ? (
-                  <time className="text-xs text-[var(--color-text-muted,inherit)]">
+                  <time className="text-xs text-[var(--tl-text-muted)]">
                     {formatEventDate(event, theme.dateFormat)}
                   </time>
                 ) : null}

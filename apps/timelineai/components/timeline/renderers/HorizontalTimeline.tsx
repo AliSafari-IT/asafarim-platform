@@ -8,15 +8,15 @@ export function HorizontalTimeline({ timeline }: { timeline: RenderableTimeline 
   const showImages = theme.showImages ?? true;
 
   return (
-    <div className="tl-root" data-layout="horizontal">
+    <div className="tl-layout" data-layout-body="horizontal">
       <header className="mb-6">
         <h2 className="text-2xl font-bold">{timeline.title || "Untitled timeline"}</h2>
         {timeline.subtitle ? (
-          <p className="mt-1 text-[var(--color-text-muted,inherit)]">{timeline.subtitle}</p>
+          <p className="mt-1 text-[var(--tl-text-muted)]">{timeline.subtitle}</p>
         ) : null}
       </header>
 
-      <div className="overflow-x-auto pb-4">
+      <div className="tl-scroll-x pb-4">
         <ol
           role="list"
           className="relative flex min-w-max gap-8 border-t-2 border-[var(--tl-connector)] pt-6"
@@ -30,7 +30,7 @@ export function HorizontalTimeline({ timeline }: { timeline: RenderableTimeline 
                 aria-hidden
               />
               {showDates ? (
-                <time className="text-xs text-[var(--color-text-muted,inherit)]">
+                <time className="text-xs text-[var(--tl-text-muted)]">
                   {formatEventDate(event, theme.dateFormat)}
                 </time>
               ) : null}

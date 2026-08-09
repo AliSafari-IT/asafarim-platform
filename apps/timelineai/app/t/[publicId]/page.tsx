@@ -6,6 +6,7 @@ import { getTimelineForView } from "@/lib/server/services/timelines";
 import { NotFoundError, ForbiddenError } from "@/lib/server/authz";
 import { TimelineRenderer } from "@/components/timeline/renderers/TimelineRenderer";
 import { ExportButtons } from "@/components/timeline/ExportButtons";
+import { isWideLayout } from "@/lib/timeline-config";
 
 type PageProps = { params: Promise<{ publicId: string }> };
 
@@ -65,7 +66,13 @@ export default async function PublicTimelinePage({ params }: PageProps) {
       timeline.moderationStatus === "pending" && !viewer.isAdmin;
 
     return (
-      <div className="mx-auto max-w-3xl px-6 py-10">
+      <div
+        className={`mx-auto px-6 py-10 ${
+          // Horizontal tracks, Gantt bars, roadmap swimlanes and month boards
+          // are unreadable squeezed into a reading-width column.
+          isWideLayout(timeline.layout as never) ? "max-w-6xl" : "max-w-3xl"
+        }`}
+      >
         {isOwnerPreviewingPending ? (
           <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             This timeline is awaiting admin review. Only you can see this link until it's approved.

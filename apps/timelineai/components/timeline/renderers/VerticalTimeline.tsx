@@ -9,11 +9,11 @@ export function VerticalTimeline({ timeline }: { timeline: RenderableTimeline })
   const showIcons = theme.showIcons ?? true;
 
   return (
-    <div className="tl-root" data-layout="vertical">
+    <div className="tl-layout" data-layout-body="vertical">
       <header className="mb-6">
         <h2 className="text-2xl font-bold">{timeline.title || "Untitled timeline"}</h2>
         {timeline.subtitle ? (
-          <p className="mt-1 text-[var(--color-text-muted,inherit)]">{timeline.subtitle}</p>
+          <p className="mt-1 text-[var(--tl-text-muted)]">{timeline.subtitle}</p>
         ) : null}
       </header>
 
@@ -35,7 +35,7 @@ export function VerticalTimeline({ timeline }: { timeline: RenderableTimeline })
               ) : null}
             </div>
             {showDates ? (
-              <time className="text-sm text-[var(--color-text-muted,inherit)]">
+              <time className="text-sm text-[var(--tl-text-muted)]">
                 {formatEventDate(event, theme.dateFormat)}
               </time>
             ) : null}
