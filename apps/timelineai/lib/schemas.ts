@@ -25,6 +25,7 @@ export const TIMELINE_LAYOUTS = [
   "gantt",
   "calendar",
   "interactive",
+  "branch",
 ] as const;
 
 export const TIMELINE_VISIBILITY = ["private", "public", "unlisted"] as const;

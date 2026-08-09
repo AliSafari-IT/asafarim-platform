@@ -19,4 +19,5 @@ export const LAYOUT_LABELS: Record<(typeof TIMELINE_LAYOUTS)[number], string> = 
   gantt: "Gantt",
   calendar: "Calendar",
   interactive: "Interactive",
+  branch: "Branching (interactive, dark)",
 };
