@@ -47,9 +47,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   // Same registry-driven rule Hub's launcher/switcher use — no
   // TimelineAI-specific hardcoded visibility here (see packages/auth's
-  // PLATFORM_APPS). TimelineAI isn't registered there yet (platform-nav
-  // integration is a follow-up task), so it simply doesn't appear in its
-  // own switcher — every other active app does.
+  // PLATFORM_APPS). Excludes itself from its own switcher, same as
+  // AppBuilder does — every other active app still shows up.
   const switcherContext: AppAccessContext = {
     roles: session?.user?.roles ?? [],
     authenticated: Boolean(session?.user),

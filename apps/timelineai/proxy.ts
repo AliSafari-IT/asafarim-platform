@@ -14,6 +14,8 @@ export const proxy = createAuthProxy({
     "/terms",
     "/create",
     "/t", // public timeline share pages: /t/[publicId]
+    "/robots.txt",
+    "/sitemap.xml",
     "/api/health",
     "/api/auth",
     "/api/timelines", // POST create — open to guests; ownership derived server-side
