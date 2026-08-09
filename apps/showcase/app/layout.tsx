@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
-import { auth, signOut } from "@asafarim/auth";
+import { auth, signOut, getAppSwitcherApps } from "@asafarim/auth";
 import { I18nProvider } from "@asafarim/shared-i18n";
 import {
   resolveLocaleFromCookie,
@@ -17,6 +17,7 @@ import {
   TopNav,
   UserMenu,
   getPlatformLinks,
+  toAppSwitcherLinks,
 } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
 import "@asafarim/country-language-selector/styles.css";
@@ -57,15 +58,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <>
               <CountryLanguageSelector lockCountry="BE" />
               <AppSwitcher
-                links={[
-                  { label: "ASafarIM Digital", href: links.web, meta: t("showcase.appSwitcher.studio") },
-                  { label: "Hub", href: links.hub, meta: session?.user ? t("showcase.appSwitcher.dashboard") : t("common.signIn") },
-                  { label: "EduMatch", href: links.edumatch, meta: "tutoring" },
-                  { label: "Testora", href: links.testora, meta: "benchmark" },
-                  { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
-                  { label: "TimelineAI", href: links.timelineai, meta: "timelines" },
-                  { label: "DevTools", href: links.devtools, meta: "asafarim.be" },
-                ]}
+                links={toAppSwitcherLinks(
+                  getAppSwitcherApps("showcase", {
+                    roles: session?.user?.roles ?? [],
+                    authenticated: Boolean(session?.user),
+                  }),
+                  links
+                )}
               />
               {session?.user ? (
                 <UserMenu

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { auth, signOut } from "@asafarim/auth";
+import { auth, signOut, getAppSwitcherApps } from "@asafarim/auth";
 import {
   AppSwitcher,
   BrandWordmark,
@@ -9,6 +9,7 @@ import {
   MenuOutsideClick,
   UserMenu,
   getPlatformLinks,
+  toAppSwitcherLinks,
 } from "@asafarim/ui";
 
 /**
@@ -33,15 +34,13 @@ export async function PlatformHeader() {
       <div className="ui-shell__nav" />
       <div className="ui-shell__actions">
         <AppSwitcher
-          links={[
-            { label: "ASafarIM Digital", href: links.web, meta: "site" },
-            { label: "Hub", href: links.hub, meta: session?.user ? "workspace" : "sign in" },
-            { label: "Showcase", href: links.showcase, meta: "gallery" },
-            { label: "Vionto", href: links.vionto, meta: "studio" },
-            { label: "EduMatch", href: links.edumatch, meta: "tutoring" },
-            { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
-            { label: "DevTools", href: links.devtools, meta: "asafarim.be" },
-          ]}
+          links={toAppSwitcherLinks(
+            getAppSwitcherApps("testora", {
+              roles: session?.user?.roles ?? [],
+              authenticated: Boolean(session?.user),
+            }),
+            links
+          )}
         />
         {session?.user ? (
           <UserMenu

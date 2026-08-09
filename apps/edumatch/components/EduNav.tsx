@@ -21,19 +21,16 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import { getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
+// Subpath import: the registry is a pure module, so this stays out of the
+// client bundle's way — importing "@asafarim/auth" root here would pull the
+// server-only Auth.js/Prisma surface into the browser.
+import { getAppSwitcherApps } from "@asafarim/auth/apps";
 import NotificationBell from "@/components/NotificationBell";
 
-const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
-const edumatchUrl = process.env.NEXT_PUBLIC_EDUMATCH_URL || "http://localhost:3009";
-
-const appLinks = [
-  ["ASafarIM", process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000"],
-  ["Hub", hubUrl],
-  ["Showcase", process.env.NEXT_PUBLIC_SHOWCASE_URL || "http://localhost:3002"],
-  ["Vionto", process.env.NEXT_PUBLIC_VIONTO_URL || "http://localhost:3004"],
-  ["Testora", process.env.NEXT_PUBLIC_TESTORA_URL || "http://localhost:3005"],
-  ["AppBuilder", process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006"],
-] as const;
+const platformLinks = getPlatformLinks();
+const hubUrl = platformLinks.hub;
+const edumatchUrl = platformLinks.edumatch;
 
 function Brand() {
   return (
@@ -75,8 +72,19 @@ function ThemeButton() {
 
 function AppMenu() {
   const { t } = useTranslation();
+  const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Registry-driven, exactly like every other app's switcher — this list
+  // used to be hand-maintained here and had silently fallen behind.
+  const appLinks = toAppSwitcherLinks(
+    getAppSwitcherApps("edumatch", {
+      roles: (session?.user?.roles as string[] | undefined) ?? [],
+      authenticated: Boolean(session?.user),
+    }),
+    platformLinks
+  );
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -94,8 +102,8 @@ function AppMenu() {
       {open && (
         <div className="edu-popover edu-app-menu">
           <p>{t("edumatch.nav.appsMenuLabel")}</p>
-          {appLinks.map(([label, href]) => (
-            <a href={href} key={label} onClick={() => setOpen(false)}>
+          {appLinks.map(({ label, href }) => (
+            <a href={href} key={href} onClick={() => setOpen(false)}>
               <span>{label}</span><span>↗</span>
             </a>
           ))}

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { hasPermission, requireRole, signOut, ROLES } from "@asafarim/auth";
+import { hasPermission, requireRole, signOut, ROLES, getAppSwitcherApps } from "@asafarim/auth";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   AppShell,
@@ -8,6 +8,7 @@ import {
   SideNav,
   UserMenu,
   getPlatformLinks,
+  toAppSwitcherLinks,
 } from "@asafarim/ui";
 
 /**
@@ -30,15 +31,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         <>
           <CountryLanguageSelector lockCountry="BE" />
           <AppSwitcher
-            links={[
-              { label: "Hub", href: links.hub, meta: "dashboard" },
-              { label: "ASafarIM Digital", href: links.web, meta: "studio" },
-              { label: "Showcase", href: links.showcase, meta: "gallery" },
-              { label: "EduMatch", href: links.edumatch, meta: "tutoring" },
-              { label: "Testora", href: links.testora, meta: "benchmark" },
-              { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
-              { label: "DevTools", href: links.devtools, meta: "asafarim.be" },
-            ]}
+            links={toAppSwitcherLinks(
+              getAppSwitcherApps("admin", {
+                roles: session.user.roles ?? [],
+                authenticated: true,
+              }),
+              links
+            )}
           />
           <UserMenu
             name={session.user.name}

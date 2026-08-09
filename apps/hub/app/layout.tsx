@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
-import {
-  auth,
-  signOut,
-  PLATFORM_APPS,
-  canAccessApp,
-  type AppAccessContext,
-} from "@asafarim/auth";
+import { auth, signOut, getAppSwitcherApps } from "@asafarim/auth";
 import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
@@ -19,6 +13,7 @@ import {
   TopNav,
   UserMenu,
   getPlatformLinks,
+  toAppSwitcherLinks,
 } from "@asafarim/ui";
 import { SessionProviderWrapper } from "./_components/SessionProviderWrapper";
 import "@asafarim/ui/styles.css";
@@ -42,17 +37,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // per-app hardcoded visibility here. Coming-soon apps stay out of the
   // compact switcher (they're never actionable); Hub itself is skipped
   // since you're already standing in it.
-  const switcherContext: AppAccessContext = {
+  const switcherApps = getAppSwitcherApps("hub", {
     roles: session?.user?.roles ?? [],
     authenticated: Boolean(session?.user),
-  };
-  const switcherApps = PLATFORM_APPS.filter(
-    (app) =>
-      app.key !== "hub" &&
-      app.status === "active" &&
-      app.key in links &&
-      canAccessApp(app, switcherContext)
-  );
+  });
 
   const cookieStore = await cookies();
   const initialLocale = resolveLocaleFromCookie(cookieStore.toString());
@@ -80,11 +68,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <>
                 <CountryLanguageSelector lockCountry="BE" />
                 <AppSwitcher
-                  links={switcherApps.map((app) => ({
-                    label: app.name,
-                    href: links[app.key as keyof typeof links],
-                    meta: app.meta,
-                  }))}
+                  links={toAppSwitcherLinks(switcherApps, links)}
                 />
                 {session?.user ? (
                   <UserMenu

@@ -240,6 +240,28 @@ export function getPlatformApp(key: string): PlatformApp | undefined {
   return PLATFORM_APPS.find((app) => app.key === key);
 }
 
+/**
+ * The apps to list in an app switcher, in registry order: everything the
+ * user may actually open, minus the app they are already standing in.
+ *
+ * Every app's switcher must go through this. Hand-maintained per-app arrays
+ * silently drift the moment a new app joins the platform — that is exactly
+ * how EduMatch's menu ended up missing TimelineAI, Admin, and DevTools while
+ * Showcase's was missing Vionto. Callers resolve URLs with
+ * `getPlatformLinks()[app.key]`; the keys line up by design.
+ *
+ * Importable from `@asafarim/auth/apps` so client components can use it
+ * without pulling the server-only Auth.js surface into the browser bundle.
+ */
+export function getAppSwitcherApps(
+  currentKey: string,
+  context: AppAccessContext
+): PlatformApp[] {
+  return PLATFORM_APPS.filter(
+    (app) => app.key !== currentKey && canAccessApp(app, context)
+  );
+}
+
 /** Active apps a user may open — e.g. the derived "allowed apps" badges. */
 export function getAccessibleApps(context: AppAccessContext): PlatformApp[] {
   return PLATFORM_APPS.filter((app) => canAccessApp(app, context));

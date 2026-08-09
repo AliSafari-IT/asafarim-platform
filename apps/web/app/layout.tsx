@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
-import { auth, signOut } from "@asafarim/auth";
+import { auth, signOut, getAppSwitcherApps } from "@asafarim/auth";
 import { I18nProvider } from "@asafarim/shared-i18n";
 import {
   resolveLocaleFromCookie,
@@ -18,6 +18,7 @@ import {
   TopNav,
   UserMenu,
   getPlatformLinks,
+  toAppSwitcherLinks,
 } from "@asafarim/ui";
 import { site } from "../content/site";
 import "@asafarim/ui/styles.css";
@@ -108,16 +109,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <ThemeToggle />
               <CountryLanguageSelector lockCountry="BE" />
               <AppSwitcher
-                links={[
-                  { label: "Vionto", href: links.vionto, meta: "photo-to-story" },
-                  { label: "EduMatch", href: links.edumatch, meta: "tutoring" },
-                  { label: "Testora", href: links.testora, meta: "benchmark" },
-                  { label: "Showcase", href: links.showcase, meta: "gallery" },
-                  { label: "Hub", href: links.hub, meta: session?.user ? "dashboard" : "sign in" },
-                  { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
-                  { label: "TimelineAI", href: links.timelineai, meta: "timelines" },
-                  { label: "DevTools", href: links.devtools, meta: "asafarim.be" },
-                ]}
+                links={toAppSwitcherLinks(
+                  getAppSwitcherApps("web", {
+                    roles: session?.user?.roles ?? [],
+                    authenticated: Boolean(session?.user),
+                  }),
+                  links
+                )}
               />
               {session?.user ? (
                 <UserMenu
