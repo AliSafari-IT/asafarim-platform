@@ -79,6 +79,22 @@ Tests: `packages/auth/src/apps.test.ts` (`pnpm --filter @asafarim/auth test`).
 - A user holds a permission when **any** of their roles grants it
   (`hasPermission` in `packages/auth/src/permissions.ts`).
 
+### Seed-data permissions
+
+The `seeds` group governs **Admin Console → Seed Data** (`/seed-data`):
+
+| Permission | Grants |
+|---|---|
+| `seeds.view` | View providers, status, dry-run plans, validation and history. Required to load the page. |
+| `seeds.execute` | Run seed and reconcile in permitted non-production environments. |
+| `seeds.remove` | Remove seed-owned data. Never applies to the protected platform foundation. |
+| `seeds.schedule` | Create, pause, edit or delete read-only validation schedules. |
+
+`admin` receives `seeds.view` and `seeds.execute` by default; `seeds.remove`
+and `seeds.schedule` are opt-in. Production mutations and bulk removal
+additionally require `superadmin`, regardless of grants. Details:
+[Seed data management](./seed-management.md).
+
 ### Superadmin behavior
 
 The bypass is explicit in three places, by design:
@@ -128,6 +144,12 @@ Taxonomy:
 | `role.created` / `role.updated` / `role.permissions.updated` / `role.deleted` | `Role` |
 | `settings.updated` / `settings.reset` | `PlatformSetting` |
 | `admin.access_denied` | `Admin` |
+| `seed.validation.requested` / `seed.status.requested` / `seed.plan.created` / `seed.execution.requested` / `seed.completed` / `seed.failed` / `seed.cancelled` | `SeedProvider`, `SeedOperation` |
+| `seed.schedule.created` / `seed.schedule.updated` / `seed.schedule.deleted` | `SeedValidationSchedule` |
+
+Seed events go through the typed `writeSeedAuditEvent` helper, which delegates
+to `writeAuditEvent` so the same redaction and non-fatal semantics apply. See
+[Seed data management](./seed-management.md).
 
 ### Redaction
 

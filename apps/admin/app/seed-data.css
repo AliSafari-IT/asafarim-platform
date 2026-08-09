@@ -1,0 +1,195 @@
+/* Seed Data page.
+ *
+ * Built on the shared design tokens from @asafarim/ui rather than fresh
+ * colours, so the page reads as part of the console. Status is never
+ * communicated by colour alone — every badge carries a symbol and a label,
+ * and the production banner carries text.
+ */
+
+.seed-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-3, 0.75rem);
+}
+
+.seed-danger {
+  border: 2px solid var(--color-danger, #d33);
+  border-radius: var(--radius-md, 0.5rem);
+  padding: var(--space-4, 1rem);
+  margin-block: var(--space-4, 1rem);
+  display: grid;
+  gap: var(--space-2, 0.5rem);
+}
+
+.seed-envs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 0.5rem);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.seed-env {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: var(--radius-sm, 0.25rem);
+  text-transform: capitalize;
+}
+
+.seed-env--active {
+  border-color: currentColor;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.seed-env:focus-visible,
+.seed-provider__buttons button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.seed-providers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4, 1rem);
+}
+
+.seed-provider {
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: var(--radius-md, 0.5rem);
+  padding: var(--space-4, 1rem);
+  display: grid;
+  gap: var(--space-3, 0.75rem);
+}
+
+.seed-provider__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2, 0.5rem);
+}
+
+.seed-provider__head h3 {
+  margin: 0;
+}
+
+.seed-provider__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.seed-provider__description,
+.seed-provider__note,
+.seed-provider__config,
+.seed-provider__link {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.seed-provider__config {
+  font-weight: 600;
+}
+
+.seed-provider__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-2, 0.5rem);
+  margin: 0;
+}
+
+.seed-provider__facts dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.seed-provider__facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.seed-provider__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 0.5rem);
+}
+
+.seed-provider__outcome {
+  font-size: 0.88rem;
+}
+
+.seed-provider__error {
+  font-weight: 600;
+}
+
+/* Wide content scrolls inside its own container so the page body never
+ * scrolls horizontally on a narrow screen. */
+.seed-table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  font-size: 0.85rem;
+}
+
+.seed-table caption {
+  text-align: left;
+  padding-block: 0.4rem;
+  opacity: 0.75;
+}
+
+.seed-table th,
+.seed-table td {
+  border-bottom: 1px solid var(--color-border, #ddd);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.seed-table td:last-child,
+.seed-table th:last-child {
+  white-space: normal;
+}
+
+.seed-json {
+  overflow-x: auto;
+  font-size: 0.8rem;
+  padding: var(--space-3, 0.75rem);
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: var(--radius-sm, 0.25rem);
+}
+
+.seed-pager {
+  display: flex;
+  gap: var(--space-3, 0.75rem);
+  align-items: center;
+  padding-block-start: var(--space-3, 0.75rem);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seed-provider,
+  .seed-provider__outcome {
+    transition: none !important;
+    animation: none !important;
+  }
+}
