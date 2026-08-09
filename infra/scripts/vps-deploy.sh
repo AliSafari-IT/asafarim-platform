@@ -28,7 +28,12 @@ age -d -i .age/key.txt .env.production.age > .env.production
 chmod 600 .env.production
 
 echo "[deploy $(date -Is)] Validating required environment variables..."
-REQUIRED_VARS=(POSTGRES_PASSWORD TESTORA_DB_PASSWORD APPBUILDER_DB_PASSWORD)
+# TIMELINEAI_GUEST_IP_HASH_KEY is listed here because a blank value does not
+# fail the build or the container start — it fails at request time, on every
+# page that resolves a guest identity, as a 500. It shipped absent and that is
+# how tlai.asafarim.com/t/<publicId> served errors while the container looked
+# perfectly healthy. Better to refuse the deploy than to serve 500s.
+REQUIRED_VARS=(POSTGRES_PASSWORD TESTORA_DB_PASSWORD APPBUILDER_DB_PASSWORD TIMELINEAI_GUEST_IP_HASH_KEY)
 MISSING_VARS=()
 for var in "${REQUIRED_VARS[@]}"; do
   # Matches KEY=value with a non-empty value; tolerates quoted values.
@@ -56,7 +61,7 @@ export DOCKER_BUILDKIT=1
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-asafarim-com}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 
-BUILD_SERVICES=(web hub showcase admin vionto vionto-worker edumatch testora-migrate testora appbuilder-migrate appbuilder-worker appbuilder timelineai)
+BUILD_SERVICES=(platform-migrate web hub showcase admin vionto vionto-worker edumatch testora-migrate testora appbuilder-migrate appbuilder-worker appbuilder timelineai)
 
 # Building ${#BUILD_SERVICES[@]} images sequentially is the single biggest
 # disk consumer in this script (each build leaves layers + build cache
@@ -126,6 +131,25 @@ mapfile -t STALE_REPLACEMENT_CONTAINERS < <(
 if (( ${#STALE_REPLACEMENT_CONTAINERS[@]} > 0 )); then
   echo "[deploy $(date -Is)] Removing stale replacement containers..."
   docker rm -f "${STALE_REPLACEMENT_CONTAINERS[@]}"
+fi
+
+# Run the shared-schema migration BEFORE recreating any app container, and let
+# a failure abort the deploy while the currently-running (working) stack is
+# still untouched. `up -d` would enforce this ordering on its own via
+# depends_on, but doing it as an explicit step keeps the migration output as
+# its own section in the deploy log instead of interleaved with 13 services.
+echo "[deploy $(date -Is)] Applying platform database migrations..."
+"${COMPOSE[@]}" up -d --wait postgres
+# `run --rm` rather than `up --exit-code-from`: the latter implies
+# --abort-on-container-exit, which would tear down the attached `postgres`
+# dependency the moment the migration finishes — stopping the database in the
+# middle of a deploy. `run` propagates the job's exit code without touching
+# anything else, and still honours the service_healthy condition on postgres.
+if ! "${COMPOSE[@]}" run --rm platform-migrate; then
+  echo "FATAL: platform database migration failed — aborting before app containers are replaced." >&2
+  echo "The previous release is still running. Inspect with:" >&2
+  echo "  docker compose -f docker-compose.prod.yml --env-file .env.production logs platform-migrate" >&2
+  exit 1
 fi
 
 echo "[deploy $(date -Is)] Starting stack..."
