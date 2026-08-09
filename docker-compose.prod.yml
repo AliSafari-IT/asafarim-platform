@@ -12,6 +12,38 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Needed so platform-migrate can wait for a database that actually accepts
+    # connections rather than one whose container has merely started; the app
+    # services tolerate a cold database by retrying, but a one-shot migration
+    # job that starts too early just fails the deploy.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asafarim -d asafarim"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - asafarim_net
+
+  # Applies pending Prisma migrations to the SHARED platform database, then
+  # plants the TimelineAI demo timelines if (and only if) none exist yet.
+  # Runs to completion before any app that reads this database starts, so a
+  # deploy can no longer ship an app whose tables were never created — the
+  # failure mode that took tlai.asafarim.com/gallery down with
+  # "table public.Timeline does not exist".
+  platform-migrate:
+    build:
+      context: .
+      dockerfile: packages/db/Dockerfile
+      target: migrator
+    restart: "no"
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - asafarim_net
 
@@ -43,7 +75,10 @@ services:
       NEXT_PUBLIC_APP_URL: https://asafarim.com
       AUTH_URL: https://asafarim.com
     depends_on:
-      - postgres
+      postgres:
+        condition: service_started
+      platform-migrate:
+        condition: service_completed_successfully
     networks:
       - asafarim_net
 
@@ -61,7 +96,10 @@ services:
       NEXT_PUBLIC_APP_URL: https://hub.asafarim.com
       AUTH_URL: https://hub.asafarim.com
     depends_on:
-      - postgres
+      postgres:
+        condition: service_started
+      platform-migrate:
+        condition: service_completed_successfully
     networks:
       - asafarim_net
 
@@ -79,7 +117,10 @@ services:
       NEXT_PUBLIC_APP_URL: https://showcase.asafarim.com
       AUTH_URL: https://showcase.asafarim.com
     depends_on:
-      - postgres
+      postgres:
+        condition: service_started
+      platform-migrate:
+        condition: service_completed_successfully
     networks:
       - asafarim_net
 
@@ -97,7 +138,10 @@ services:
       NEXT_PUBLIC_APP_URL: https://admin.asafarim.com
       AUTH_URL: https://admin.asafarim.com
     depends_on:
-      - postgres
+      postgres:
+        condition: service_started
+      platform-migrate:
+        condition: service_completed_successfully
     networks:
       - asafarim_net
 
@@ -124,8 +168,12 @@ services:
       NEXT_PUBLIC_APP_URL: https://vionto.asafarim.com
       AUTH_URL: https://vionto.asafarim.com
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      platform-migrate:
+        condition: service_completed_successfully
     networks:
       - asafarim_net
 
@@ -141,8 +189,12 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      platform-migrate:
+        condition: service_completed_successfully
     deploy:
       resources:
         limits:
@@ -167,8 +219,12 @@ services:
       NEXT_PUBLIC_EDUMATCH_URL: https://edumatch.asafarim.com
       AUTH_URL: https://edumatch.asafarim.com
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      platform-migrate:
+        condition: service_completed_successfully
     networks:
       - asafarim_net
 
@@ -195,8 +251,12 @@ services:
       # Caddy is one hop in front of every app in this stack.
       TIMELINEAI_TRUSTED_PROXY_HOPS: "1"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      platform-migrate:
+        condition: service_completed_successfully
     networks:
       - asafarim_net
 
@@ -366,6 +426,8 @@ services:
     depends_on:
       postgres:
         condition: service_started
+      platform-migrate:
+        condition: service_completed_successfully
       appbuilder-postgres:
         condition: service_healthy
       appbuilder-migrate:
