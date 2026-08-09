@@ -1,0 +1,185 @@
+/* Gallery card for the exhibition home page. Colors come from the app's
+   mood tokens (tokens.css, [data-app="showcase"]) so the card follows the
+   theme rather than pinning its own palette. */
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color var(--dur-2) var(--ease), transform var(--dur-2) var(--ease),
+    box-shadow var(--dur-2) var(--ease);
+}
+
+.card:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2);
+}
+
+/* The card lifts on hover, which is motion some people ask the OS to stop. */
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Focusing the title link should outline the whole card, since that link's
+   hit area is the card. */
+.card:focus-within {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 7rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  flex: 1;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.index {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+.titleLink {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* Stretches the title link over the whole card so the card is clickable —
+   but only up to the actions footer, which is a sibling with its own
+   stacking context, keeping "Open live" independently clickable. */
+.titleLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.titleLink:hover {
+  color: var(--accent);
+}
+
+/* The card-wide outline in :focus-within already signals focus; a second
+   outline on the stretched link would draw a box around the entire card
+   edge-to-edge. */
+.titleLink:focus-visible {
+  outline: none;
+}
+
+.summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+.actions {
+  position: relative; /* above the stretched title link */
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 0.85rem;
+}
+
+.actionPrimary {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.actionPrimary:hover {
+  text-decoration: underline;
+}
+
+.actionLive {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+
+.actionLive:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.liveDot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.actionDisabled {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
