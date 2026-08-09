@@ -115,6 +115,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   { label: "Showcase", href: links.showcase, meta: "gallery" },
                   { label: "Hub", href: links.hub, meta: session?.user ? "dashboard" : "sign in" },
                   { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
+                  { label: "TimelineAI", href: links.timelineai, meta: "timelines" },
                   { label: "DevTools", href: links.devtools, meta: "asafarim.be" },
                 ]}
               />
