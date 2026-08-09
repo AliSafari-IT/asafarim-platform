@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { requireRole, signOut, ROLES } from "@asafarim/auth";
+import { hasPermission, requireRole, signOut, ROLES } from "@asafarim/auth";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   AppShell,
@@ -19,6 +19,9 @@ import {
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await requireRole([ROLES.ADMIN]);
   const links = getPlatformLinks();
+  // Hiding the entry is a courtesy, not a control — /seed-data re-checks
+  // this permission server-side and redirects to /denied without it.
+  const canViewSeeds = await hasPermission(session, "seeds.view");
 
   return (
     <AppShell
@@ -65,6 +68,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             { label: "Roles", href: "/roles" },
             { label: "Permissions", href: "/permissions" },
             { label: "Audit Logs", href: "/audit-logs" },
+            ...(canViewSeeds ? [{ label: "Seed Data", href: "/seed-data" }] : []),
             { label: "Subscriptions", href: "/subscriptions" },
             { label: "Devices", href: "/devices" },
             { label: "Settings", href: "/settings" },

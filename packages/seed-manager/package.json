@@ -1,0 +1,29 @@
+{
+  "name": "@asafarim/seed-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed, allowlisted seed-data providers shared by the Admin Console and the CLI seed scripts. Server-only.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "bcryptjs": "^2.4.3",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@asafarim/config": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  }
+}

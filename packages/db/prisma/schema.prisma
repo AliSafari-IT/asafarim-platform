@@ -84,6 +84,11 @@ model User {
   timelineTimelines   Timeline[]
   timelineModerations TimelineModerationEvent[] @relation("TimelineModerationActor")
 
+  // Seed Data management — control-plane history and schedules this user owns
+  seedOperations       SeedOperation[]          @relation("SeedOperationActor")
+  seedSchedulesCreated SeedValidationSchedule[] @relation("SeedScheduleCreator")
+  seedSchedulesUpdated SeedValidationSchedule[] @relation("SeedScheduleUpdater")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1593,3 +1598,127 @@ model TimelineModerationEvent {
 }
 
 // ─── Unified Shopping Cart ─────────────────────────────────────
+
+// ─── Seed Data Management (Admin Console control plane) ──────
+//
+// History and scheduling for the Seed Data page. These rows are the control
+// plane only — they record what was asked for and what happened, never the
+// seeded data itself and never a connection string. Everything written here
+// has already passed through the seed-manager redaction layer.
+//
+// Status/kind/level are validated string unions rather than Prisma enums, to
+// match the convention used elsewhere in this schema.
+
+/// One requested seed operation. Created before the job is enqueued, so a
+/// crash between request and execution is still visible in history.
+model SeedOperation {
+  id String @id @default(cuid())
+
+  providerId  String
+  appId       String
+  environment String // development | staging | production
+  operation   String // validate | status | seed | reconcile | remove
+  dryRun      Boolean @default(false)
+
+  /// queued | validating | inspecting | planning | awaiting_execution |
+  /// executing | verifying | succeeded | partially_succeeded | failed |
+  /// cancelled | stale
+  status String @default("queued")
+  /// Finer-grained progress label within the current status.
+  stage    String?
+  progress Int     @default(0)
+
+  requestedByUserId String?
+  /// Deduplicates double submissions of the same intent.
+  idempotencyKey String @unique
+
+  /// Checksum of the approved dry-run plan, revalidated before execution.
+  planChecksum String?
+  /// Version + checksum of the seed definitions this ran against.
+  definitionVersion  String?
+  definitionChecksum String?
+
+  /// Structured, redacted summaries — never raw provider output.
+  planSummary   Json?
+  resultSummary Json?
+
+  errorCode    String?
+  errorMessage String? @db.Text
+
+  queuedAt                DateTime  @default(now())
+  startedAt               DateTime?
+  /// Set the moment the first write happens. Cancellation is refused after.
+  mutationStartedAt       DateTime?
+  completedAt             DateTime?
+  heartbeatAt             DateTime?
+  cancellationRequestedAt DateTime?
+
+  /// Links a retry back to the operation it replaces.
+  retryOfOperationId String?
+  retryOf            SeedOperation?  @relation("SeedOperationRetry", fields: [retryOfOperationId], references: [id], onDelete: SetNull)
+  retries            SeedOperation[] @relation("SeedOperationRetry")
+
+  /// Shared by every child of one bulk action.
+  bulkGroupId String?
+
+  requestedBy User? @relation("SeedOperationActor", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  events SeedOperationEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([providerId, environment, status])
+  @@index([requestedByUserId])
+  @@index([createdAt])
+  @@index([status, heartbeatAt])
+  @@index([bulkGroupId])
+}
+
+/// Append-only, sanitized log line for one operation.
+model SeedOperationEvent {
+  id          String @id @default(cuid())
+  operationId String
+
+  level   String // debug | info | warn | error
+  stage   String
+  message String @db.Text
+  /// Redacted structured context. Never contains secrets or SQL text.
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  operation SeedOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@index([operationId, createdAt])
+  @@index([level])
+}
+
+/// A recurring, strictly read-only validation run. Mutating operations can
+/// never be scheduled — there is no field here that could express one.
+model SeedValidationSchedule {
+  id String @id @default(cuid())
+
+  providerId  String
+  environment String
+  enabled     Boolean @default(true)
+
+  /// Bounded cadence key (e.g. "hourly", "daily", "weekly") rather than a
+  /// free-form cron string, so a schedule cannot be made to run unboundedly.
+  cadence String
+
+  createdByUserId String?
+  updatedByUserId String?
+
+  lastRunAt DateTime?
+  nextRunAt DateTime?
+
+  createdBy User? @relation("SeedScheduleCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("SeedScheduleUpdater", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([providerId, environment])
+  @@index([enabled, nextRunAt])
+}
