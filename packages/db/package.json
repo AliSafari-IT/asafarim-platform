@@ -1,6 +1,6 @@
 {
   "name": "@asafarim/db",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Shared PostgreSQL/Prisma database package for the ASafarIM Platform",
   "main": "./src/index.ts",
@@ -13,7 +13,7 @@
     "db:migrate:deploy": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate deploy",
     "db:migrate:deploy:prod": "dotenv -e ../../.env.production -- tsx scripts/migrate-deploy.ts",
     "db:push": "dotenv -e ../../.env.local -e ../../.env -- prisma db push",
-    "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio",
+    "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --port 5555 --browser none",
     "db:seed": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed.ts",
     "db:seed:prod": "dotenv -e ../../.env.production -- tsx prisma/seed.ts",
     "db:seed:edumatch": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed-edumatch.ts",
