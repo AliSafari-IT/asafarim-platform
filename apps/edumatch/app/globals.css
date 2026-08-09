@@ -340,7 +340,23 @@ button, a { -webkit-tap-highlight-color: transparent; }
  * min() away, silently reintroducing the bug — clamp() has no such
  * collapse to worry about.) */
 .edu-hero { position: relative; width: min(1440px, 100%); min-height: 760px; margin: 0 auto; padding: 92px clamp(32px, calc((100vw - 1240px) / 2), 100px) 100px; display: grid; grid-template-columns: minmax(0, .92fr) minmax(500px, 1.08fr); align-items: center; gap: 56px; }
-.edu-hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .46; background-image: linear-gradient(color-mix(in srgb, var(--color-primary) 6%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 6%, transparent) 1px, transparent 1px); background-size: 54px 54px; mask-image: linear-gradient(to bottom, black, transparent 85%); }
+.edu-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: .46; background-image: linear-gradient(color-mix(in srgb, var(--color-primary) 6%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 6%, transparent) 1px, transparent 1px); background-size: 54px 54px; mask-image: linear-gradient(to bottom, black, transparent 85%); }
+/* Full-bleed hero artwork. The section itself is capped at 1440px, so the
+ * layer breaks out to 100vw to read as a wide band. The image's nodes/links
+ * sit on its right half, which is exactly where the product stage goes — the
+ * scrim below is therefore asymmetric: near-opaque over the copy column, and
+ * a soft radial dim behind the stage so the cards keep their edges.
+ * The transform walks the node cluster left, out from directly behind the
+ * cards and into the gutter between the two columns — mirroring the art
+ * instead would bury it under the near-opaque left scrim. Scale must exceed
+ * the shift (12.5% overhang per side vs a 5% slide) or the translate drags a
+ * bare strip of page background in at the trailing edge; the horizontal mask
+ * feathers both ends so no hard seam can appear at any viewport width. */
+.edu-hero-bg { position: absolute; z-index: 0; top: 0; bottom: 0; left: 50%; width: 100vw; transform: translateX(-50%); pointer-events: none; overflow: hidden; }
+.edu-hero-bg::before { content: ""; position: absolute; inset: 0; background: url("/edumatch-hero-background.webp") center right / cover no-repeat; opacity: 1; transform: scale(1.25) translateX(-4%); transform-origin: center; mask-image: linear-gradient(to bottom, black 55%, transparent 98%), linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%); mask-composite: intersect; -webkit-mask-composite: source-in; }
+.edu-hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--color-bg) 0%, color-mix(in srgb, var(--color-bg) 86%, transparent) 30%, color-mix(in srgb, var(--color-bg) 26%, transparent) 60%, transparent 100%), radial-gradient(58% 54% at 76% 52%, color-mix(in srgb, var(--color-bg) 46%, transparent), transparent 74%), linear-gradient(to bottom, transparent 52%, var(--color-bg) 100%); }
+html[data-theme="light"] .edu-hero-bg::before { opacity: .16; }
+html[data-theme="light"] .edu-hero-bg::after { background: linear-gradient(90deg, var(--color-bg) 0%, color-mix(in srgb, var(--color-bg) 92%, transparent) 40%, color-mix(in srgb, var(--color-bg) 72%, transparent) 100%), linear-gradient(to bottom, transparent 40%, var(--color-bg) 100%); }
 .edu-hero-glow { position: absolute; border-radius: 999px; filter: blur(4px); pointer-events: none; }
 .edu-hero-glow-one { width: 560px; height: 560px; right: 0; top: 10px; background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 19%, transparent), transparent 68%); }
 .edu-hero-glow-two { width: 380px; height: 380px; left: 8%; bottom: 0; background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 68%); }

@@ -51,6 +51,7 @@ export default function HomePage() {
   return (
     <div className="edu-landing">
       <section className="edu-hero">
+        <div className="edu-hero-bg" aria-hidden="true" />
         <div className="edu-hero-glow edu-hero-glow-one" />
         <div className="edu-hero-glow edu-hero-glow-two" />
         <div className="edu-hero-copy">
