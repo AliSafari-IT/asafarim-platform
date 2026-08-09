@@ -57,6 +57,7 @@
     --color-primary-dark: #5b7bff;
     --color-primary-soft: rgba(125, 155, 255, 0.15);
     --color-accent: #5cf0cc;
+    --ui-showcase-accent: var(--color-accent);
     --color-accent-soft: rgba(92, 240, 204, 0.12);
 
     /* success was formerly identical to accent, so a confirmation was
@@ -183,6 +184,7 @@ html[data-theme="light"] {
      * true emerald, so the brand changed hue between modes. This is the
      * same mint darkened until it carries text weight on white. */
     --color-accent: #057960;
+    --ui-showcase-accent: var(--color-accent);
     --color-accent-soft: rgba(5, 121, 96, 0.1);
 
     --color-success: #147b3b;

@@ -10,6 +10,7 @@ export const proxy = createAuthProxy({
   publicRoutes: [
     "/",
     "/create",
+    "/about-this-project", // showcase disclosure — must be readable by anyone
     "/api/health",
     "/api/projects",
     "/api/render",

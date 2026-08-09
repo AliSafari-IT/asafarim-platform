@@ -19,6 +19,11 @@
   --success-foreground: 210 20% 98%;
   --border: 222 18% 18%;
   --radius: 0.75rem;
+
+  /* @asafarim/ui's showcase surfaces expect a real colour value. Testora's
+     shadcn tokens hold bare HSL components, so hand over a wrapped copy —
+     otherwise `color: var(--accent)` is an invalid declaration. */
+  --ui-showcase-accent: hsl(var(--primary));
 }
 
 * {

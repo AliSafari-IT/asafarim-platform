@@ -14,6 +14,7 @@
      see the comment there for why this isn't #6d5ef8 anymore. */
   --color-primary: #5d4ee6;
   --color-accent: #f6a84f;
+  --ui-showcase-accent: var(--color-accent);
 }
 
 :root[data-app="timelineai"][data-theme="light"] {

@@ -609,6 +609,9 @@ importers:
       '@asafarim/shared-i18n':
         specifier: workspace:*
         version: link:../../packages/shared-i18n
+      '@asafarim/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@asafarim/vionto-schemas':
         specifier: workspace:*
         version: link:../../packages/vionto-schemas
