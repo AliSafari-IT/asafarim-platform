@@ -192,6 +192,30 @@ async function main(): Promise<void> {
   console.log("Building packages...");
   execSync("pnpm turbo build --no-cache --concurrency=3", { stdio: "inherit" });
 
+  // Kill ports AGAIN after the build: zombie dev servers from a previous
+  // session can re-grab ports during the multi-minute build step, even
+  // though we killed them at the top. This second kill ensures the ports
+  // are clear right before we start the new dev servers.
+  console.log("Re-killing ports after build...");
+  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010", {
+    stdio: "inherit",
+  });
+
+  // Clean .next directories AGAIN after the build: `next build` produces
+  // production artifacts in .next/ that have a different structure than
+  // what `next dev` (Turbopack) expects. If left in place, dev server
+  // throws ENOENT errors for dev-specific files like
+  // .next/dev/server/app/<route>/page/build-manifest.json.
+  console.log("Cleaning .next caches after build...");
+  for (const app of readdirSync(appsDir)) {
+    const nextDir = join(appsDir, app, ".next");
+    try {
+      rmSync(nextDir, { recursive: true, force: true });
+    } catch {
+      // ignore if directory doesn't exist
+    }
+  }
+
   console.log("Starting dev servers...");
   const require = createRequire(import.meta.url);
   const turboCli = require.resolve("turbo/bin/turbo");
