@@ -73,6 +73,14 @@ export const projectGroups: ProjectGroup[] = [
         href: links.vionto,
       },
       {
+        name: "TimelineAI",
+        status: "live",
+        description:
+          "Visual timeline builder: describe your events once, then render them as a vertical, zigzag, circular, roadmap, Gantt, or calendar-board layout — with live preview, PNG/JPG/PDF export, and a public gallery.",
+        tech: ["Next.js", "TypeScript", "Prisma", "Playwright"],
+        href: links.timelineai,
+      },
+      {
         name: "EduMatch",
         status: "live",
         description:

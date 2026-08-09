@@ -54,6 +54,9 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.projects.vionto.title": "Vionto Studio",
     "showcase.projects.vionto.summary":
       "A transparent AI media-pipeline benchmark: a schema-validated brief-to-render pipeline with approval-gated retry, seeded stage failures, and cost estimation — no live providers, no real media.",
+    "showcase.projects.timelineai.title": "TimelineAI",
+    "showcase.projects.timelineai.summary":
+      "Turn a list of events into a polished visual timeline: nine layouts over one content model — vertical, zigzag, circular, roadmap, Gantt, calendar board, and more — with live preview, PNG/JPG/PDF export, and a public gallery. No account needed to try it.",
     "showcase.project.back": "← Back to the wall",
     "showcase.project.exhibit": "Exhibit №",
     "showcase.project.specSheet": "Spec sheet",
@@ -131,6 +134,9 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.projects.vionto.title": "Vionto Studio",
     "showcase.projects.vionto.summary":
       "Een transparante AI media-pipeline benchmark: een schema-gevalideerde brief-to-render pipeline met approval-gated retry, seeded stage failures en kostenraming — geen live providers, geen echte media.",
+    "showcase.projects.timelineai.title": "TimelineAI",
+    "showcase.projects.timelineai.summary":
+      "Zet een lijst gebeurtenissen om in een verzorgde visuele tijdlijn: negen layouts op één contentmodel — verticaal, zigzag, circulair, roadmap, Gantt, kalenderbord en meer — met live preview, PNG/JPG/PDF-export en een publieke galerij. Geen account nodig om het te proberen.",
     "showcase.project.back": "← Terug naar de muur",
     "showcase.project.exhibit": "Exhibit №",
     "showcase.project.specSheet": "Spec sheet",
@@ -208,6 +214,9 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.projects.vionto.title": "Vionto Studio",
     "showcase.projects.vionto.summary":
       "Un benchmark de pipeline média AI transparent : un pipeline brief-to-render validé par schéma avec retry conditionné par approbation, seeded stage failures et estimation des coûts — aucun provider live, aucun média réel.",
+    "showcase.projects.timelineai.title": "TimelineAI",
+    "showcase.projects.timelineai.summary":
+      "Transformez une liste d'événements en une frise visuelle soignée : neuf mises en page sur un seul modèle de contenu — verticale, zigzag, circulaire, roadmap, Gantt, tableau calendrier et plus — avec aperçu en direct, export PNG/JPG/PDF et une galerie publique. Aucun compte requis pour essayer.",
     "showcase.project.back": "← Retour au mur",
     "showcase.project.exhibit": "Exhibit №",
     "showcase.project.specSheet": "Fiche technique",
@@ -285,6 +294,9 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.projects.vionto.title": "Vionto Studio",
     "showcase.projects.vionto.summary":
       "Ein transparenter AI Media-Pipeline-Benchmark: ein schema-validierter Brief-to-Render-Pipeline mit Approval-gated Retry, seeded Stage Failures und Kostenschätzung — keine Live-Provider, keine echten Medien.",
+    "showcase.projects.timelineai.title": "TimelineAI",
+    "showcase.projects.timelineai.summary":
+      "Verwandle eine Liste von Ereignissen in eine gepflegte visuelle Zeitleiste: neun Layouts auf einem Inhaltsmodell — vertikal, Zickzack, kreisförmig, Roadmap, Gantt, Kalender-Board und mehr — mit Live-Vorschau, PNG/JPG/PDF-Export und einer öffentlichen Galerie. Zum Ausprobieren ist kein Konto nötig.",
     "showcase.project.back": "← Zurück zur Wand",
     "showcase.project.exhibit": "Exhibit №",
     "showcase.project.specSheet": "Datenblatt",
@@ -362,6 +374,9 @@ const showcaseBaseDictionaries: Dictionaries = {
     "showcase.projects.vionto.title": "Vionto Studio",
     "showcase.projects.vionto.summary":
       "A transparent AI media-pipeline benchmark: a schema-validated brief-to-render pipeline with approval-gated retry, seeded stage failures, and cost estimation — no live providers, no real media.",
+    "showcase.projects.timelineai.title": "TimelineAI",
+    "showcase.projects.timelineai.summary":
+      "Turn a list of events into a polished visual timeline: nine layouts over one content model — vertical, zigzag, circular, roadmap, Gantt, calendar board, and more — with live preview, PNG/JPG/PDF export, and a public gallery. No account needed to try it.",
     "showcase.project.back": "← Back to the wall",
     "showcase.project.exhibit": "Exhibit №",
     "showcase.project.specSheet": "Spec sheet",
