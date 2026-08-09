@@ -7,6 +7,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: appUrl, changeFrequency: "weekly", priority: 1 },
     { url: `${appUrl}/create`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${appUrl}/gallery`, changeFrequency: "daily", priority: 0.7 },
   ];
 
   // Only timelines that anonymous visitors can actually see — the exact

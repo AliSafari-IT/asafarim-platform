@@ -13,6 +13,7 @@ export const proxy = createAuthProxy({
     "/privacy",
     "/terms",
     "/create",
+    "/gallery", // public showcase of published timelines
     "/t", // public timeline share pages: /t/[publicId]
     "/robots.txt",
     "/sitemap.xml",

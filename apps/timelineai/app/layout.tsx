@@ -61,6 +61,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   const navItems = [
     { label: "Home", href: "/" },
+    { label: "Gallery", href: "/gallery" },
     { label: "Create", href: "/create" },
     ...(session?.user ? [{ label: "Dashboard", href: "/dashboard" }] : []),
     ...(isAdmin ? [{ label: "Admin", href: "/admin" }] : []),
