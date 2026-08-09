@@ -81,6 +81,17 @@ export const projects: ShowcaseProject[] = [
     glyph: "VS",
     index: "06",
   },
+  {
+    slug: "timelineai",
+    title: "TimelineAI",
+    summary:
+      "Turn a list of events into a polished visual timeline: nine layouts over one content model — vertical, zigzag, circular, roadmap, Gantt, calendar board, and more — with live preview, PNG/JPG/PDF export, and a public gallery. No account needed to try it.",
+    tags: ["Visualization", "Next.js", "Export"],
+    status: "live",
+    glyph: "TL",
+    index: "07",
+    externalUrl: platformLinks.timelineai,
+  },
 ];
 
 export function getProject(slug: string): ShowcaseProject | undefined {
