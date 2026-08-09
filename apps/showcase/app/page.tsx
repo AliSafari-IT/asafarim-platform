@@ -1,4 +1,5 @@
-import { ButtonLink, Hero, ProjectCard, Section } from "@asafarim/ui";
+import { ButtonLink, Hero, Section } from "@asafarim/ui";
+import { ProjectGalleryCard } from "./_components/ProjectGalleryCard";
 import { cookies } from "next/headers";
 import {
   resolveLocaleFromCookie,
@@ -30,19 +31,14 @@ export default async function ShowcaseHomePage() {
         }
       />
 
+      {/* The gallery is the "walk the wall" view: one card per piece, each
+          offering its write-up and — when the project is actually deployed —
+          the running app. The analysis (stacks, dependencies, architecture)
+          lives on /projects so the two pages stop being the same grid twice. */}
       <Section kicker={t("showcase.home.featured.kicker")} kickerIndex="01" title={t("showcase.home.featured.title")}>
         <div className="ui-grid ui-grid--wide">
           {projects.map((project) => (
-            <ProjectCard
-              key={project.slug}
-              title={project.title}
-              summary={project.summary}
-              href={project.externalUrl ?? `/projects/${project.slug}`}
-              tags={project.tags}
-              status={project.status}
-              glyph={project.glyph}
-              index={project.index}
-            />
+            <ProjectGalleryCard key={project.slug} project={project} />
           ))}
         </div>
       </Section>

@@ -7,6 +7,7 @@ import {
   Card,
   PageHeader,
   Panel,
+  Section,
   StatusBadge,
 } from "@asafarim/ui";
 import {
@@ -14,7 +15,7 @@ import {
   getServerTranslator,
 } from "@asafarim/shared-i18n/server";
 import showcaseDictionaries from "../../../lib/i18n-dictionaries";
-import { projects, getProject, getTranslatedProject } from "../data";
+import { projects, getProject, getTranslatedProject, PLATFORM_ELEMENTS } from "../data";
 
 interface ProjectPageProps {
   params: Promise<{ slug: string }>;
@@ -66,17 +67,55 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             slug: {project.slug}
           </p>
           <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-            {project.tags.map((tag) => (
-              <Badge key={tag} tone="info">
-                {tag}
+            {project.stack.map((tech) => (
+              <Badge key={tech} tone="info">
+                {tech}
               </Badge>
             ))}
           </div>
+          {project.externalUrl ? (
+            <p style={{ marginTop: "1rem" }}>
+              <a href={project.externalUrl} target="_blank" rel="noreferrer">
+                Open the live app ↗
+              </a>
+            </p>
+          ) : (
+            <p style={{ marginTop: "1rem" }} className="u-muted">
+              Not deployed yet.
+            </p>
+          )}
         </Panel>
+
+        <Panel title="Built on">
+          <ul style={{ margin: 0, paddingLeft: "1.1rem", lineHeight: 1.7 }}>
+            {project.dependsOn.map((id) => {
+              const element = PLATFORM_ELEMENTS.find((candidate) => candidate.id === id);
+              if (!element) return null;
+              return (
+                <li key={id}>
+                  <strong>{element.name}</strong> <span className="u-mono">{element.package}</span>
+                  <br />
+                  <span className="u-muted">{element.blurb}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+      </div>
+
+      <Section kicker="Detail" kickerIndex="01" title="What's notable">
+        <ul style={{ margin: 0, paddingLeft: "1.1rem", lineHeight: 1.8, maxWidth: "48rem" }}>
+          {project.highlights.map((highlight) => (
+            <li key={highlight}>{highlight}</li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section kicker="Next" kickerIndex="02" title={t("showcase.project.caseStudy")}>
         <Card variant="gallery" title={t("showcase.project.caseStudy")}>
           {t("showcase.project.caseStudyBody")}
         </Card>
-      </div>
+      </Section>
     </>
   );
 }

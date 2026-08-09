@@ -7,6 +7,43 @@ import { getPlatformLinks } from "@asafarim/ui";
 
 const platformLinks = getPlatformLinks();
 
+/**
+ * Shared building blocks every project draws on. `dependsOn` below references
+ * these ids, which is what makes the architecture diagram and the coverage
+ * matrix on /projects real data rather than decoration — add a dependency to
+ * a project and both visuals change with it.
+ */
+export type PlatformElementId =
+  | "auth"
+  | "db"
+  | "ui"
+  | "storage"
+  | "redis"
+  | "worker"
+  | "ai"
+  | "own-db";
+
+export type PlatformTier = "experience" | "shared" | "data";
+
+export interface PlatformElement {
+  id: PlatformElementId;
+  name: string;
+  package: string;
+  tier: PlatformTier;
+  blurb: string;
+}
+
+export const PLATFORM_ELEMENTS: PlatformElement[] = [
+  { id: "ui", name: "Design system", package: "@asafarim/ui", tier: "shared", blurb: "Tokens, moods, and brand components." },
+  { id: "auth", name: "Identity", package: "@asafarim/auth", tier: "shared", blurb: "Auth.js config, SSO cookie, RBAC helpers." },
+  { id: "ai", name: "AI boundary", package: "@asafarim/appbuilder-ai", tier: "shared", blurb: "Server-only provider boundary." },
+  { id: "worker", name: "Job runner", package: "BullMQ worker", tier: "shared", blurb: "Durable background pipelines." },
+  { id: "db", name: "Platform database", package: "@asafarim/db", tier: "data", blurb: "Shared Prisma schema on PostgreSQL." },
+  { id: "own-db", name: "Isolated database", package: "Drizzle + PostgreSQL", tier: "data", blurb: "App-private schema, separate instance." },
+  { id: "storage", name: "Object storage", package: "@asafarim/storage", tier: "data", blurb: "S3-compatible media and exports." },
+  { id: "redis", name: "Queue / cache", package: "Redis", tier: "data", blurb: "Job queues and rate limiting." },
+];
+
 export interface ShowcaseProject {
   slug: string;
   title: string;
@@ -15,8 +52,18 @@ export interface ShowcaseProject {
   status: "live" | "beta" | "planned" | "archived";
   glyph: string;
   index: string;
-  /** If set, the project card links to this external app instead of /projects/:slug. */
+  /**
+   * The deployed app, when there is one. Drives the "Open live" action on the
+   * gallery — a project without this is simply not deployed yet, and the card
+   * offers only its details page.
+   */
   externalUrl?: string;
+  /** Full stack, shown on the details page (`tags` stays the short card set). */
+  stack: string[];
+  /** Shared platform elements this project builds on. */
+  dependsOn: PlatformElementId[];
+  /** Two to four concrete things worth knowing, for the details page. */
+  highlights: string[];
 }
 
 export const projects: ShowcaseProject[] = [
@@ -29,6 +76,13 @@ export const projects: ShowcaseProject[] = [
     status: "beta",
     glyph: "TM",
     index: "01",
+    stack: ["React", "TypeScript", "Node.js", "PostgreSQL", "Prisma"],
+    dependsOn: ["ui", "auth", "db"],
+    highlights: [
+      "Full API + web client vertical, carried over from the asafarim.be ecosystem.",
+      "Task, project, and assignment models live in the shared platform schema.",
+      "Reuses the platform's SSO session rather than holding its own accounts.",
+    ],
   },
   {
     slug: "smart-operations",
@@ -39,6 +93,12 @@ export const projects: ShowcaseProject[] = [
     status: "beta",
     glyph: "SO",
     index: "02",
+    stack: ["React", "TypeScript", "Recharts", "PostgreSQL"],
+    dependsOn: ["ui", "auth", "db"],
+    highlights: [
+      "KPI tiles and trend views composed from the shared design-system primitives.",
+      "Reporting queries read the platform schema directly — no separate warehouse.",
+    ],
   },
   {
     slug: "testora",
@@ -50,6 +110,14 @@ export const projects: ShowcaseProject[] = [
     glyph: "TS",
     index: "03",
     externalUrl: platformLinks.testora,
+    stack: ["Next.js", "TypeScript", "Playwright", "Drizzle", "PostgreSQL"],
+    dependsOn: ["ui", "auth", "own-db"],
+    highlights: [
+      "Seeded sample app with deliberate pass / fail / flaky tests as the fixture.",
+      "Scores a run on detection, flake identification, and artifact completeness.",
+      "Keeps its own Drizzle database, isolated from the shared platform schema.",
+      "Published results are a committed snapshot — nothing executes live.",
+    ],
   },
   {
     slug: "ai-eval",
@@ -60,6 +128,14 @@ export const projects: ShowcaseProject[] = [
     status: "live",
     glyph: "AE",
     index: "04",
+    stack: ["TypeScript", "Zod", "Vitest", "Provider-neutral adapters"],
+    dependsOn: ["ui", "ai"],
+    highlights: [
+      "Versioned prompts and synthetic datasets — no API keys, no employer data.",
+      "Scores correctness, groundedness, format compliance, latency, cost, safety.",
+      "Models appear as provider-neutral aliases so runs stay comparable.",
+      "Latency and cost are representative fixtures, never live measurements.",
+    ],
   },
   {
     slug: "edumatch",
@@ -70,6 +146,14 @@ export const projects: ShowcaseProject[] = [
     status: "live",
     glyph: "EM",
     index: "05",
+    externalUrl: platformLinks.edumatch,
+    stack: ["Next.js", "TypeScript", "Prisma", "PostgreSQL"],
+    dependsOn: ["ui", "auth", "db"],
+    highlights: [
+      "Synthetic students and tutors — no real people, bookings, or payments.",
+      "Transparent weighted-factor engine you can adjust live in the browser.",
+      "Fairness and stability checks run against the committed fixtures.",
+    ],
   },
   {
     slug: "vionto",
@@ -80,17 +164,34 @@ export const projects: ShowcaseProject[] = [
     status: "live",
     glyph: "VS",
     index: "06",
+    externalUrl: platformLinks.vionto,
+    stack: ["Next.js", "BullMQ", "FFmpeg", "Prisma", "S3", "Redis"],
+    dependsOn: ["ui", "auth", "db", "storage", "redis", "worker", "ai"],
+    highlights: [
+      "Schema-validated brief-to-render pipeline with approval-gated retry.",
+      "Seeded stage failures make the recovery path observable, not hypothetical.",
+      "Render work runs on a durable BullMQ worker, not in the request cycle.",
+      "Cost estimation per render, with no live providers and no real media.",
+    ],
   },
   {
     slug: "timelineai",
     title: "TimelineAI",
     summary:
-      "Turn a list of events into a polished visual timeline: nine layouts over one content model — vertical, zigzag, circular, roadmap, Gantt, calendar board, and more — with live preview, PNG/JPG/PDF export, and a public gallery. No account needed to try it.",
+      "Turn a list of events into a polished visual timeline: ten layouts over one content model — vertical, zigzag, circular, roadmap, Gantt, calendar board, and more — with live preview, PNG/JPG/PDF export, and a public gallery. No account needed to try it.",
     tags: ["Visualization", "Next.js", "Export"],
     status: "live",
     glyph: "TL",
     index: "07",
     externalUrl: platformLinks.timelineai,
+    stack: ["Next.js", "TypeScript", "Prisma", "Puppeteer", "Playwright", "Redis"],
+    dependsOn: ["ui", "auth", "db", "redis"],
+    highlights: [
+      "One content model, ten layouts — switching layout never touches event data.",
+      "Live editor preview renders through the exact component the public page uses.",
+      "PNG / JPG / PDF export via headless Chromium against the same renderer.",
+      "Guests can build and submit a timeline without an account; admins moderate.",
+    ],
   },
 ];
 

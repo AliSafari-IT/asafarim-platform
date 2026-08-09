@@ -1,0 +1,440 @@
+/* Analysis visuals for /projects. All colour comes from the app mood tokens
+   so these follow the showcase theme instead of pinning their own palette. */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Architecture diagram ─────────────────────────────────────────── */
+
+.diagram {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tier {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: var(--space-4);
+}
+
+.tierHead {
+  margin-bottom: var(--space-3);
+}
+
+.tierLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+
+.tierNote {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.tierNodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: var(--space-3);
+}
+
+/* The connector between tiers. Purely decorative, hence aria-hidden on the
+   element itself. */
+.tierLink {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--space-2) * -1);
+  width: 2px;
+  height: var(--space-2);
+  background: linear-gradient(to bottom, var(--line-strong), var(--accent));
+}
+
+.appNode,
+.elementNode {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.appNode {
+  border-left: 3px solid var(--muted);
+}
+
+/* A deployed app is reachable right now; an undeployed one is still a plan.
+   Worth seeing at a glance in the top tier. */
+.appNode[data-deployed="true"] {
+  border-left-color: var(--accent);
+}
+
+.elementNode {
+  /* --load is 0..1, set inline from how many projects depend on this element. */
+  border-left: 3px solid color-mix(in srgb, var(--accent) calc(var(--load, 0) * 100%), var(--line-strong));
+  background: color-mix(in srgb, var(--accent-soft) calc(var(--load, 0) * 60%), var(--surface-2));
+}
+
+.appGlyph {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
+.nodeName {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.nodeCode {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent-2);
+}
+
+.nodeMeta {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.nodeCount {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.diagramFoot {
+  margin: var(--space-3) 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* ── Coverage matrix ──────────────────────────────────────────────── */
+
+/* The matrix is the one genuinely wide element here; it scrolls inside its
+   own box so the page itself never overflows horizontally. */
+.matrixScroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  /* A grid/flex item's automatic minimum size is its content, so without
+     these the wide table sets the container's width and the whole PAGE
+     scrolls sideways instead of just this box. */
+  min-width: 0;
+  max-width: 100%;
+}
+
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  min-width: 44rem;
+}
+
+.matrixCaption {
+  caption-side: top;
+  text-align: left;
+  padding: var(--space-3) var(--space-4) 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.matrixCorner,
+.matrixColHead {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  vertical-align: bottom;
+}
+
+.matrixCorner {
+  text-align: left;
+  padding-left: var(--space-4);
+}
+
+.matrixColLabel {
+  display: block;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.matrixRowHead {
+  text-align: left;
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.matrixCell {
+  /* Positioned so the absolutely-positioned .srOnly text inside is laid out
+     against its own cell. Without this the span's containing block is the
+     initial one, it escapes .matrixScroll's clipping entirely (overflow only
+     clips descendants it is a containing block for), and its static position
+     out at the table's full width makes the whole page scroll sideways. */
+  position: relative;
+  text-align: center;
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.matrixDot {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.matrixTotal {
+  text-align: center;
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  color: var(--muted);
+}
+
+/* ── Bar chart ────────────────────────────────────────────────────── */
+
+.barList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: minmax(6rem, 9rem) 1fr 2rem;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.barLabel {
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.barTrack {
+  height: 0.55rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+.barValue {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+@media (max-width: 30rem) {
+  .barRow {
+    grid-template-columns: 1fr 2rem;
+  }
+
+  .barTrack {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}
+
+/* ── Status stack ─────────────────────────────────────────────────── */
+
+.stack {
+  display: flex;
+  height: 0.75rem;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.stackSeg[data-status="live"],
+.legendSwatch[data-status="live"] {
+  background: var(--accent);
+}
+
+.stackSeg[data-status="beta"],
+.legendSwatch[data-status="beta"] {
+  background: var(--accent-2);
+}
+
+.stackSeg[data-status="planned"],
+.legendSwatch[data-status="planned"] {
+  background: var(--line-strong);
+}
+
+.stackSeg[data-status="archived"],
+.legendSwatch[data-status="archived"] {
+  background: var(--muted);
+}
+
+.legend {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.82rem;
+}
+
+.legendSwatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 2px;
+}
+
+.legendLabel {
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.legendValue {
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+/* ── Project detail rows ──────────────────────────────────────────── */
+
+.projectRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: var(--space-5);
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 48rem) {
+  .projectRow {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+}
+
+.projectHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.projectTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.projectTitle {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.projectTitle a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.projectTitle a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.projectSummary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.projectLinks {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+
+.projectLinks a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.projectLinks a:hover {
+  text-decoration: underline;
+}
+
+.highlights {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--ink);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.highlights li::marker {
+  color: var(--accent);
+}
+
+.stackTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.stackTag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.15rem var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: var(--surface-2);
+}
