@@ -139,6 +139,18 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     status: "active",
     access: "public",
   },
+  {
+    // Public landing + guest create/export/submit flow, same public-first
+    // split as vionto/testora/edumatch — dashboard and admin gate
+    // themselves individually inside the app (requireUser/requireRole).
+    key: "timelineai",
+    name: "TimelineAI",
+    description: "Create polished, visual timelines — project plans, roadmaps, and storytelling.",
+    glyph: "TL",
+    meta: "tlai.asafarim.com",
+    status: "active",
+    access: "public",
+  },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────
   {
