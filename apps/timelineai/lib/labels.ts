@@ -18,6 +18,7 @@ export const LAYOUT_LABELS: Record<(typeof TIMELINE_LAYOUTS)[number], string> = 
   roadmap: "Roadmap",
   gantt: "Gantt",
   calendar: "Calendar",
+  "calendar-board": "Calendar board (dark, monthly)",
   interactive: "Interactive",
   branch: "Branching (interactive, dark)",
 };
