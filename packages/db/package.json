@@ -17,6 +17,7 @@
     "db:seed": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed.ts",
     "db:seed:prod": "dotenv -e ../../.env.production -- tsx prisma/seed.ts",
     "db:seed:edumatch": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed-edumatch.ts",
+    "db:seed:timelineai": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed-timelineai.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
