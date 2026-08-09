@@ -18,7 +18,7 @@ import "./globals.css";
 
 const appName = "EduMatch";
 const appDescription =
-  "AI-first homework help and a tutor marketplace — get unstuck or get matched.";
+  "A working showcase project from ASafarIM Digital: a complete AI-guided tutoring-marketplace architecture, deployed on production infrastructure. Not an operating marketplace.";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -28,7 +28,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: `${appName} | AI homework help & tutor marketplace`,
+    default: `${appName} | AI homework help & tutor-matching showcase`,
     template: `%s | ${appName}`,
   },
   description: appDescription,

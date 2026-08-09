@@ -12,6 +12,7 @@ export const proxy = createAuthProxy({
     "/",
     "/privacy",
     "/terms",
+    "/about-this-project", // showcase disclosure — must be readable by anyone
     "/create",
     "/gallery", // public showcase of published timelines
     "/t", // public timeline share pages: /t/[publicId]

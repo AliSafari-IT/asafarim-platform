@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { getShowcaseProject } from "@asafarim/auth/apps";
+import { ShowcaseNotice } from "@asafarim/ui";
 import {
   ArrowRight,
   BadgeCheck,
@@ -25,6 +27,13 @@ import {
 const portalUrl = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
 const edumatchUrl = process.env.NEXT_PUBLIC_EDUMATCH_URL || "http://localhost:3009";
 
+const showcase = getShowcaseProject("edumatch")!;
+
+/**
+ * Illustrative tutor profiles — invented for this showcase. EduMatch has no
+ * real tutor supply, so these are always labelled as example data on screen;
+ * never present them as a roster.
+ */
 const tutorCards = [
   { initials: "LM", name: "Lina M.", subject: "Mathematics · Secondary", rating: "4.9", mode: "Brussels · Online", color: "violet" },
   { initials: "YK", name: "Youssef K.", subject: "Physics · University", rating: "5.0", mode: "Online · French / EN", color: "mint" },
@@ -60,17 +69,22 @@ export default function HomePage() {
           <p>From a difficult homework question to a trusted tutor who gets how you learn—EduMatch combines thoughtful AI guidance with real human expertise.</p>
           <PrimaryActions />
           <div className="edu-proof-row">
-            <span><ShieldCheck size={17} /> Verified tutors</span>
+            <span><ShieldCheck size={17} /> Tutor verification workflow</span>
             <span><WandSparkles size={17} /> Explainable matching</span>
             <span><HeartHandshake size={17} /> Safe by design</span>
           </div>
+          <ShowcaseNotice
+            content={showcase}
+            variant="compact"
+            renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
+          />
         </div>
 
         <div className="edu-hero-stage" aria-label="EduMatch product preview">
           <div className="edu-stage-orbit edu-stage-orbit-a" />
           <div className="edu-stage-orbit edu-stage-orbit-b" />
           <div className="edu-question-card">
-            <div className="edu-question-top"><span><BrainCircuit size={18} /> Smart study companion</span><span className="edu-live-dot">Live</span></div>
+            <div className="edu-question-top"><span><BrainCircuit size={18} /> Smart study companion</span><span className="edu-live-dot">Example</span></div>
             <div className="edu-question-prompt"><span>Physics · Year 11</span><strong>“Why does acceleration stay constant in this problem?”</strong></div>
             <div className="edu-ai-answer"><Sparkles size={18} /><div><strong>Let’s build the intuition first.</strong><p>The net force is unchanged, so by Newton’s second law the acceleration remains constant. Here’s a visual way to see it…</p></div></div>
             <div className="edu-question-footer"><span><Clock3 size={15} /> Answered in 12 sec</span><button type="button">Continue learning <ArrowRight size={14} /></button></div>
@@ -109,7 +123,7 @@ export default function HomePage() {
             <span className="edu-path-number">02</span>
             <h3>Find your person</h3>
             <p>Share your goal once. Our matching engine weighs subject, level, location, availability, trust, and learning preferences.</p>
-            <ul><li><Check size={15} /> Explainable match scores</li><li><Check size={15} /> Verified tutor profiles</li><li><Check size={15} /> Online or nearby</li></ul>
+            <ul><li><Check size={15} /> Explainable match scores</li><li><Check size={15} /> Verification-backed profiles</li><li><Check size={15} /> Online or nearby</li></ul>
             <Link href="/student/inquiry/new">Find a tutor <ArrowRight size={16} /></Link>
           </article>
           <article className="edu-path-card edu-path-grow">
@@ -136,7 +150,7 @@ export default function HomePage() {
           <Link className="edu-text-link" href="/student/inquiry/new">See how matching works <ArrowRight size={16} /></Link>
         </div>
         <div className="edu-tutor-stack">
-          <div className="edu-stack-header"><span>Recommended for you</span><span>3 excellent matches</span></div>
+          <div className="edu-stack-header"><span>Example recommendations</span><span>Illustrative profiles</span></div>
           {tutorCards.map((tutor, index) => (
             <div className="edu-tutor-card" key={tutor.name} style={{ "--delay": `${index * 80}ms` } as React.CSSProperties}>
               <span className={`edu-tutor-avatar ${tutor.color}`}>{tutor.initials}</span>
@@ -155,7 +169,7 @@ export default function HomePage() {
             <article><BadgeCheck /><h3>Verified expertise</h3><p>Structured tutor review, visible status, and an auditable verification trail.</p></article>
             <article><ShieldCheck /><h3>Safer learning</h3><p>Moderation and academic-integrity protections guide every AI-supported question.</p></article>
             <article><MessageCircleMore /><h3>Clear communication</h3><p>Notifications, proposals, booking updates, and support stay connected.</p></article>
-            <article><CalendarCheck2 /><h3>Reliable sessions</h3><p>Transparent scheduling, payments, cancellation, and dispute workflows.</p></article>
+            <article><CalendarCheck2 /><h3>Reliable sessions</h3><p>Transparent scheduling, cancellation, and dispute workflows, with a checkout flow that settles no real money.</p></article>
           </div>
         </div>
       </section>

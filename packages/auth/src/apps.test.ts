@@ -5,6 +5,8 @@ import {
   getAccessibleApps,
   getAppAccessDecision,
   getPlatformApp,
+  getShowcaseApps,
+  getShowcaseProject,
 } from "./apps";
 import { ROLES } from "./roles";
 
@@ -26,7 +28,7 @@ const superadmin = { roles: [ROLES.SUPERADMIN], authenticated: true };
 const inactiveAdmin = { roles: [ROLES.ADMIN], authenticated: false };
 
 describe("registry shape", () => {
-  it("registers the nine active platform apps and only those", () => {
+  it("registers the ten active platform apps and only those", () => {
     const active = PLATFORM_APPS.filter((app) => app.status === "active");
     expect(active.map((app) => app.key).sort()).toEqual([
       "admin",
@@ -36,6 +38,7 @@ describe("registry shape", () => {
       "hub",
       "showcase",
       "testora",
+      "timelineai",
       "vionto",
       "web",
     ]);
@@ -164,6 +167,7 @@ describe("getAccessibleApps", () => {
       "edumatch",
       "showcase",
       "testora",
+      "timelineai",
       "vionto",
       "web",
     ]);
@@ -177,6 +181,7 @@ describe("getAccessibleApps", () => {
       "hub",
       "showcase",
       "testora",
+      "timelineai",
       "vionto",
       "web",
     ]);
@@ -191,6 +196,7 @@ describe("getAccessibleApps", () => {
       "hub",
       "showcase",
       "testora",
+      "timelineai",
       "vionto",
       "web",
     ]);
@@ -199,6 +205,108 @@ describe("getAccessibleApps", () => {
   it("gives a deactivated user only public apps", () => {
     expect(
       getAccessibleApps(inactiveAdmin).map((app) => app.key).sort()
-    ).toEqual(["devtools", "edumatch", "showcase", "testora", "vionto", "web"]);
+    ).toEqual([
+      "devtools",
+      "edumatch",
+      "showcase",
+      "testora",
+      "timelineai",
+      "vionto",
+      "web",
+    ]);
+  });
+});
+
+describe("showcase positioning", () => {
+  it("marks exactly the four public product apps as showcases", () => {
+    expect(getShowcaseApps().map((app) => app.key).sort()).toEqual([
+      "edumatch",
+      "testora",
+      "timelineai",
+      "vionto",
+    ]);
+  });
+
+  it("keeps infrastructure, internal, and studio apps out of it", () => {
+    // web IS ASafarIM Digital; hub/admin are internal; showcase already says
+    // everything on it is a demo. A notice on any of these would either
+    // contradict itself or duplicate messaging.
+    for (const key of ["web", "hub", "admin", "showcase", "appbuilder"]) {
+      expect(getShowcaseProject(key)).toBeUndefined();
+    }
+  });
+
+  it("never marks a coming-soon app as a showcase", () => {
+    for (const app of getShowcaseApps()) {
+      expect(app.status).toBe("active");
+      expect(app.access).toBe("public");
+    }
+  });
+
+  it("gives every showcase app its own copy — no shared boilerplate", () => {
+    const summaries = getShowcaseApps().map((app) => app.showcase!.summary);
+    expect(new Set(summaries).size).toBe(summaries.length);
+
+    const titles = getShowcaseApps().map((app) => app.showcase!.aboutTitle);
+    expect(new Set(titles).size).toBe(titles.length);
+  });
+
+  it("always declares what is synthetic — an omission would read as a claim", () => {
+    for (const app of getShowcaseApps()) {
+      expect(app.showcase!.synthetic.length).toBeGreaterThan(0);
+      expect(app.showcase!.functional.length).toBeGreaterThan(0);
+      expect(app.showcase!.demonstrates.length).toBeGreaterThan(0);
+      expect(app.showcase!.operationalStatus).not.toBe("");
+    }
+  });
+
+  it("points every app at the same in-app about route", () => {
+    for (const app of getShowcaseApps()) {
+      expect(app.showcase!.aboutHref).toBe("/about-this-project");
+    }
+  });
+
+  it("makes no claim of customers, transactions, or an active marketplace", () => {
+    // These phrases are the exact confusion this messaging exists to prevent:
+    // deployed software must never read as an operating business.
+    const banned = [
+      "trusted by",
+      "our customers",
+      "real transactions",
+      "production customer data",
+      "active marketplace",
+    ];
+    for (const app of getShowcaseApps()) {
+      const text = JSON.stringify(app.showcase).toLowerCase();
+      for (const phrase of banned) {
+        expect(text).not.toContain(phrase);
+      }
+    }
+  });
+
+  it("states EduMatch is not an operating marketplace, and that money never moves", () => {
+    const edu = getShowcaseProject("edumatch")!;
+    expect(edu.summary).toContain("not an operating tutor marketplace");
+    expect(edu.synthetic.map((f) => f.title)).toContain(
+      "Money never actually moves"
+    );
+  });
+
+  it("declares Vionto's beta status and its fixture-only benchmark", () => {
+    const vionto = getShowcaseProject("vionto")!;
+    expect(vionto.summary).toContain("beta");
+    expect(JSON.stringify(vionto.synthetic)).toContain("fixture");
+  });
+
+  it("separates Testora's live runs from its committed Showcase evidence", () => {
+    const testora = getShowcaseProject("testora")!;
+    expect(testora.summary).toContain("do not execute live");
+    expect(JSON.stringify(testora.synthetic)).toContain("committed fixture");
+  });
+
+  it("does not imply a marketplace for TimelineAI", () => {
+    const timelineai = getShowcaseProject("timelineai")!;
+    expect(timelineai.summary).toContain("not a commercial service");
+    expect(JSON.stringify(timelineai).toLowerCase()).toContain("no marketplace");
   });
 });

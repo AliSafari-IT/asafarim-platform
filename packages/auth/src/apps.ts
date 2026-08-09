@@ -25,6 +25,45 @@ export type PlatformAppStatus = "active" | "coming-soon";
  */
 export type PlatformAppAccess = "public" | "authenticated" | string[] | null;
 
+/**
+ * Honest positioning for a public product app.
+ *
+ * These apps are real, deployed software running on the platform's production
+ * infrastructure — but they are portfolio/capability showcases, not operating
+ * commercial services. Anything that could read as "we have customers" belongs
+ * here as explicit, per-app copy so no app quietly inherits another's claims.
+ *
+ * Only set this on apps a stranger can land on and mistake for a business.
+ * Infrastructure and internal apps (hub, admin), the studio site itself (web),
+ * and Showcase — which already announces that everything on it is a demo —
+ * deliberately have no `showcase` block.
+ */
+export interface ShowcaseProject {
+  /** Badge label, e.g. "Showcase project". Kept short and understated. */
+  label: string;
+  /** One-paragraph notice for the landing page. App-specific by design. */
+  summary: string;
+  /** Link text for the deeper explanation. */
+  aboutLabel: string;
+  /** In-app path to the "Behind this project" page. */
+  aboutHref: string;
+  /** Headline for the "Behind this project" page. */
+  aboutTitle: string;
+  /** What actually works, end to end, against production infrastructure. */
+  functional: ShowcaseFact[];
+  /** What is synthetic, seeded, mocked, or fixture-backed. Never omit. */
+  synthetic: ShowcaseFact[];
+  /** What the app demonstrates technically. */
+  demonstrates: string[];
+  /** Plain statement of commercial/operational status. */
+  operationalStatus: string;
+}
+
+export interface ShowcaseFact {
+  title: string;
+  body: string;
+}
+
 export interface PlatformApp {
   key: string;
   name: string;
@@ -35,7 +74,12 @@ export interface PlatformApp {
   meta: string;
   status: PlatformAppStatus;
   access: PlatformAppAccess;
+  /** Present only on public product apps presented as working showcases. */
+  showcase?: ShowcaseProject;
 }
+
+const SHOWCASE_ABOUT_HREF = "/about-this-project";
+const SHOWCASE_LABEL = "Showcase project";
 
 export const PLATFORM_APPS: readonly PlatformApp[] = [
   {
@@ -86,6 +130,50 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     meta: "vionto.asafarim.com · beta",
     status: "active",
     access: "public",
+    showcase: {
+      label: SHOWCASE_LABEL,
+      summary:
+        "Vionto is in beta — a live product demonstration built and deployed by ASafarIM Digital. The render pipeline, storage, and background workers run for real on production infrastructure; some provider integrations are not enabled, and the published benchmark runs on fixtures rather than real media.",
+      aboutLabel: "Behind this project",
+      aboutHref: SHOWCASE_ABOUT_HREF,
+      aboutTitle: "A real render pipeline, still in beta.",
+      functional: [
+        {
+          title: "The full render pipeline",
+          body: "Image upload → album → version → queued render → export. Real FFmpeg work runs in a persistent BullMQ worker backed by Redis, not inline in a request.",
+        },
+        {
+          title: "Object storage and exports",
+          body: "Media is stored in S3-compatible object storage and served through signed URLs; finished videos are genuinely downloadable.",
+        },
+        {
+          title: "Its own isolated schema",
+          body: "Projects, albums, versions, and jobs live in the platform database with validation enforced by shared Zod schemas.",
+        },
+      ],
+      synthetic: [
+        {
+          title: "Beta, not general availability",
+          body: "Features move and break. Anything you create should be treated as disposable — this is a demonstration environment, not a service with an uptime commitment.",
+        },
+        {
+          title: "Not every provider is wired up",
+          body: "The AI and voice provider seams are implemented as adapters, and not all of them are enabled on the deployed instance. Where a provider is off, that stage is unavailable rather than silently faked.",
+        },
+        {
+          title: "The published benchmark is fixture-only",
+          body: "The Vionto benchmark on Showcase makes no LLM calls, runs no FFmpeg, and touches no real media. Every brief, script, and asset in it is invented and licensed as a synthetic placeholder.",
+        },
+      ],
+      demonstrates: [
+        "A durable job state machine with approval gates and idempotent retry",
+        "Background processing split from the web tier via a queue and a separate worker process",
+        "Schema-validated multi-stage AI pipelines with a provider adapter seam",
+        "S3-compatible media storage with signed delivery",
+      ],
+      operationalStatus:
+        "Beta showcase product. Free to explore, built on production infrastructure, and not sold as a commercial service.",
+    },
   },
   {
     // Public landing; private apps-under-test gate themselves on a signed-in
@@ -97,6 +185,46 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     meta: "testora.asafarim.com",
     status: "active",
     access: "public",
+    showcase: {
+      label: SHOWCASE_LABEL,
+      summary:
+        "Testora is a working test-automation application built and deployed by ASafarIM Digital, not a commercial service. Signed-in users run real TestCafe executions against real targets; the benchmark results published on Showcase are committed snapshots from a seeded sample app and do not execute live.",
+      aboutLabel: "Behind this project",
+      aboutHref: SHOWCASE_ABOUT_HREF,
+      aboutTitle: "Real test runs here. Committed evidence on Showcase.",
+      functional: [
+        {
+          title: "Requirements, suites, fixtures, and cases",
+          body: "The full authoring model is real and persisted in Testora's own PostgreSQL database, kept deliberately separate from the shared platform schema.",
+        },
+        {
+          title: "Live TestCafe execution",
+          body: "Signed-in users drive a real headless browser against local or remote targets and watch run progress stream in.",
+        },
+        {
+          title: "Results, screenshots, and issue drafting",
+          body: "Every run is stored with pass/fail status and failure screenshots, and a failing result can be turned into a ready-to-file GitHub issue.",
+        },
+      ],
+      synthetic: [
+        {
+          title: "The Showcase demo never executes",
+          body: "The Testora results published on Showcase are committed fixture JSON generated from a benchmark run. That page is read-only evidence — it does not start a browser or run a test.",
+        },
+        {
+          title: "The benchmark's defects are seeded on purpose",
+          body: "The benchmark runs against a small static sample app carrying three intentional defects and one deliberate flake, so results are reproducible. It is a measurement harness, not a real system under test.",
+        },
+      ],
+      demonstrates: [
+        "Traceability from functional requirements through to the tests that prove them",
+        "Orchestrating a real browser-automation runner from a web application",
+        "Streaming long-running job progress to the UI",
+        "An app-isolated database that never shares a schema with the platform core",
+      ],
+      operationalStatus:
+        "A working internal-grade tool, published as a showcase. Not sold, not commercially operated, and not offering support or SLAs.",
+    },
   },
   {
     // Any signed-in active user may open AppBuilder; per-generated-app
@@ -138,6 +266,50 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     meta: "edumatch.asafarim.com",
     status: "active",
     access: "public",
+    showcase: {
+      label: SHOWCASE_LABEL,
+      summary:
+        "A working showcase project built and deployed by ASafarIM Digital. The matching engine, bookings, disputes, and admin workflows are real and running on production infrastructure — but this is not an operating tutor marketplace. The tutors shown are synthetic, and no money changes hands.",
+      aboutLabel: "See what's real and what's demonstration data",
+      aboutHref: SHOWCASE_ABOUT_HREF,
+      aboutTitle: "A complete marketplace architecture — without the marketplace.",
+      functional: [
+        {
+          title: "AI-guided matching and explanations",
+          body: "Student inquiries get moderated AI responses and tutor matches ranked by subject fit, distance, and rating. The engine runs for real; it is not a scripted demo path.",
+        },
+        {
+          title: "Single sign-on and RBAC",
+          body: "One account shared across every ASafarIM app. Student, tutor, admin, and superadmin permissions are enforced and covered by tests.",
+        },
+        {
+          title: "Shared production data layer",
+          body: "PostgreSQL via Prisma, on the same schema conventions and migration pipeline as the rest of the platform — not a throwaway sandbox database.",
+        },
+        {
+          title: "Full booking and dispute lifecycle",
+          body: "Quote → accept → schedule → complete/cancel/dispute → admin resolution, with audit logging and notifications at every step.",
+        },
+      ],
+      synthetic: [
+        {
+          title: "The tutors are invented",
+          body: "The profiles on the landing page and in the seeded data are illustrative. EduMatch has no real tutor supply, no students, and no bookings from members of the public.",
+        },
+        {
+          title: "Money never actually moves",
+          body: "The Stripe Connect checkout flow runs and renders Stripe's own UI, but nothing settles: there is no merchant, no payout, and no commercial transaction on the other side.",
+        },
+      ],
+      demonstrates: [
+        "Explainable ranking with hard constraints reported separately from weighted scoring",
+        "Multi-role RBAC across a shared platform identity",
+        "A long-lived state machine (quote → booking → dispute → resolution) with audit trail",
+        "Moderation and academic-integrity guardrails around an LLM surface",
+      ],
+      operationalStatus:
+        "Not an operating tutor marketplace. EduMatch is a portfolio project in a real-world environment: deployed, explorable, and technically complete, with no commercial activity behind it.",
+    },
   },
   {
     // Public landing + guest create/export/submit flow, same public-first
@@ -150,6 +322,46 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     meta: "tlai.asafarim.com",
     status: "active",
     access: "public",
+    showcase: {
+      label: SHOWCASE_LABEL,
+      summary:
+        "A working showcase product from ASafarIM Digital. Create and export real timelines — no account needed. It runs on the same production infrastructure as the rest of the platform, and it is not a commercial service or marketplace.",
+      aboutLabel: "Behind this project",
+      aboutHref: SHOWCASE_ABOUT_HREF,
+      aboutTitle: "A public tool you can actually use.",
+      functional: [
+        {
+          title: "Guest creation and export",
+          body: "Build a timeline and export it without an account. The editor, layouts, and themes are the real thing, not a canned preview.",
+        },
+        {
+          title: "Accounts, dashboard, and publishing",
+          body: "Signing in adds a dashboard and the ability to publish to the public gallery, using the platform's shared single sign-on.",
+        },
+        {
+          title: "Moderated public gallery",
+          body: "Published timelines pass through an admin moderation queue before they appear, with the same role checks used elsewhere on the platform.",
+        },
+      ],
+      synthetic: [
+        {
+          title: "Gallery content is illustrative",
+          body: "Timelines in the public gallery are examples created to show the tool's range. Treat them as samples rather than as a community of users.",
+        },
+        {
+          title: "No commercial layer at all",
+          body: "There is no marketplace, no seller, no listing, and nothing to buy. TimelineAI is a creation tool and nothing more.",
+        },
+      ],
+      demonstrates: [
+        "A guest-first product flow that upgrades cleanly into an authenticated one",
+        "Curated layout and theming systems driven by content type",
+        "Public publishing behind an admin moderation queue",
+        "Server-rendered export from structured content",
+      ],
+      operationalStatus:
+        "Free public showcase tool from ASafarIM Digital. Genuinely usable, deployed on production infrastructure, and not a commercial service.",
+    },
   },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────
@@ -233,6 +445,21 @@ export function canAccessApp(
   context: AppAccessContext
 ): boolean {
   return getAppAccessDecision(app, context).allowed;
+}
+
+/**
+ * The showcase positioning for an app, or undefined if it has none.
+ *
+ * Landing pages read this rather than hardcoding their own copy, so the
+ * claims an app makes about itself stay in one auditable place.
+ */
+export function getShowcaseProject(key: string): ShowcaseProject | undefined {
+  return getPlatformApp(key)?.showcase;
+}
+
+/** Public product apps presented as working showcases. */
+export function getShowcaseApps(): PlatformApp[] {
+  return PLATFORM_APPS.filter((app) => app.showcase !== undefined);
 }
 
 /** Registry lookup by key. */

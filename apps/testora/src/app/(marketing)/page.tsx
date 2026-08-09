@@ -12,8 +12,12 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { getShowcaseProject } from "@asafarim/auth/apps";
+import { ShowcaseNotice } from "@asafarim/ui";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+
+const showcase = getShowcaseProject("testora")!;
 
 export const metadata: Metadata = {
   title: "Testora — Define, run and track E2E tests",
@@ -114,6 +118,11 @@ export default function HomePage() {
                 <Link href="/about">Read the guide</Link>
               </Button>
             </div>
+            <ShowcaseNotice
+              content={showcase}
+              className="mt-10 text-left"
+              renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
+            />
           </div>
         </div>
       </section>
