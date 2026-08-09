@@ -13,16 +13,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // same rule as canAccess()'s "view" branch (public/unlisted visibility,
   // and not pending/rejected moderation). Pending guest submissions,
   // private, and rejected timelines must never appear here (spec §4/§8).
-  const publicTimelines = await prisma.timeline.findMany({
-    where: {
-      visibility: "public",
-      moderationStatus: { in: ["not_required", "approved"] },
-      editingState: "published",
-    },
-    select: { publicId: true, updatedAt: true },
-    orderBy: { updatedAt: "desc" },
-    take: 5000,
-  });
+  //
+  // The DB query is wrapped in a try/catch so that `next build`'s
+  // prerendering phase never fails if the database is under load or
+  // unreachable — the sitemap falls back to static routes only and
+  // picks up the full list at runtime.
+  let publicTimelines: { publicId: string; updatedAt: Date }[] = [];
+  try {
+    publicTimelines = await prisma.timeline.findMany({
+      where: {
+        visibility: "public",
+        moderationStatus: { in: ["not_required", "approved"] },
+        editingState: "published",
+      },
+      select: { publicId: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+      take: 5000,
+    });
+  } catch {
+    // Build-time prerender or transient DB issue — static routes only.
+  }
 
   const timelineRoutes: MetadataRoute.Sitemap = publicTimelines.map((t) => ({
     url: `${appUrl}/t/${t.publicId}`,
