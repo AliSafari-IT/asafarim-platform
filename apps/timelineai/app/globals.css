@@ -10,7 +10,9 @@
  * scratch. Light/dark handled via the shared data-theme attribute.
  */
 :root[data-app="timelineai"] {
-  --color-primary: #6d5ef8;
+  /* Kept in sync with --accent in packages/ui/src/styles/tokens.css —
+     see the comment there for why this isn't #6d5ef8 anymore. */
+  --color-primary: #5d4ee6;
   --color-accent: #f6a84f;
 }
 
