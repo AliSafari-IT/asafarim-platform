@@ -63,6 +63,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   { label: "EduMatch", href: links.edumatch, meta: "tutoring" },
                   { label: "Testora", href: links.testora, meta: "benchmark" },
                   { label: "AppBuilder", href: links.appbuilder, meta: "builder" },
+                  { label: "TimelineAI", href: links.timelineai, meta: "timelines" },
                   { label: "DevTools", href: links.devtools, meta: "asafarim.be" },
                 ]}
               />
