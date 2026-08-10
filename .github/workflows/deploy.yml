@@ -29,12 +29,36 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # 2026-08-10: a deploy failed with `dial tcp ***:22: i/o timeout` even
+      # though the VPS was up and a prior run had connected ~4 min earlier.
+      # No sshd log entry was produced, so the runner's SYN never arrived — a
+      # transient network drop between the Azure runner and the VPS. The default
+      # 30s connection timeout gave no room to ride it out. This preflight
+      # retries TCP :22 reachability before handing off to ssh-action, and
+      # `timeout: 60s` below widens the SSH handshake window.
+      - name: Wait for VPS reachable on :22 (retry)
+        run: |
+          host="${{ secrets.VPS_HOST }}"
+          for i in 1 2 3 4 5 6; do
+            if nc -z -w5 "$host" 22 2>/dev/null; then
+              echo "VPS reachable on :22 (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i/6 failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::VPS unreachable on :22 after 6 attempts"
+          exit 1
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # Connection (handshake) timeout — distinct from command_timeout.
+          # Default is 30s, which is too tight for transient Azure<->VPS blips.
+          timeout: 60s
           # 12 images built sequentially now include edumatch's Chrome-download
           # dependency chain; 40m started failing the moment that landed
           # (Run Command Timeout at 40m37s on 2026-08-05). PUPPETEER_SKIP_DOWNLOAD
