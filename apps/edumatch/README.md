@@ -1,8 +1,20 @@
 # EduMatch
 
-AI-first homework help and tutor marketplace. The web app, API routes, tutor
-matching, payments, notification flows, and documentation live in this Next.js
-app inside the ASafarIM Platform monorepo.
+A personal learning assistant that understands where a student is struggling,
+helps immediately where it can, and — when human support is worth it —
+prepares, matches, books, and tracks the tutoring. The web app, API routes,
+tutor matching, payments, notification flows, and documentation live in this
+Next.js app inside the ASafarIM Platform monorepo.
+
+The core journey is: **ask → understand → clarify → help now → build a Learning
+Brief → match up to five tutors → compare prepared proposals → book → learn →
+track progress.** It starts at `/student/learn` with one question — "What would
+you like help with?" — and no form.
+
+See [`docs/edumatch-learning-brief.md`](../../docs/edumatch-learning-brief.md)
+for the full design: data model, the interview script, matching weights and the
+no-paid-placement guarantee, prepared proposals, the learning journey, and what
+is not yet built.
 
 ## Status
 
@@ -86,14 +98,20 @@ pnpm --filter edumatch clean
 | `/help/students/[slug]`, `/help/tutors/[slug]` | Individual Help guides |
 | `/student` | Student dashboard |
 | `/student/profile` | Student profile setup |
-| `/student/inquiry/new` | Student inquiry intake |
+| `/student/learn` | Conversational intake, immediate help, and Learning Brief review |
+| `/student/brief/[id]/compare` | Compare prepared tutor proposals |
+| `/student/journey` | Learning record — sessions, progress, patterns |
+| `/student/inquiry/new` | Legacy single-shot inquiry intake |
 | `/student/inquiry/[id]` | Inquiry detail and AI response |
 | `/student/inquiry/[id]/quotes` | Tutor quote comparison |
 | `/student/checkout/[quoteId]` | Booking checkout |
 | `/student/booking/confirmation` | Payment confirmation |
 | `/tutor` | Tutor dashboard |
 | `/tutor/profile` | Tutor profile setup |
-| `/tutor/requests` | Matching quote requests |
+| `/tutor/invites` | Learning Briefs matched to this tutor |
+| `/tutor/invites/[quoteRequestId]` | Student brief + prepared proposal to adjust and send |
+| `/tutor/sessions/[bookingId]` | Write up a completed lesson |
+| `/tutor/requests` | Open marketplace quote requests |
 | `/tutor/quotes` | Tutor quote management |
 | `/tutor/bookings` | Tutor bookings |
 | `/tutor/earnings` | Wallet and earnings |

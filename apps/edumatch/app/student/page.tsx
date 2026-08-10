@@ -83,7 +83,7 @@ export default function StudentDashboard() {
             </p>
           </div>
           <Link
-            href={`${EDUMATCH_URL}/student/inquiry/new`}
+            href={`${EDUMATCH_URL}/student/learn`}
             className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 transition"
           >
             {t("edumatch.student.profileMissing.action")}
@@ -116,7 +116,7 @@ export default function StudentDashboard() {
             })}
           </Link>
           <Link
-            href={`${EDUMATCH_URL}/student/inquiry/new`}
+            href={`${EDUMATCH_URL}/student/learn`}
             className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition"
           >
             {t("edumatch.dashboard.askQuestion")}
@@ -130,7 +130,7 @@ export default function StudentDashboard() {
             {t("edumatch.dashboard.noInquiries")}
           </p>
           <Link
-            href={`${EDUMATCH_URL}/student/inquiry/new`}
+            href={`${EDUMATCH_URL}/student/learn`}
             className="text-[var(--color-primary)] hover:underline"
           >
             {t("edumatch.dashboard.askFirst")}

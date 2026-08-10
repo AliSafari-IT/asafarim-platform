@@ -9,7 +9,9 @@ import {
   CalendarDays,
   CircleDollarSign,
   FileCheck2,
+  GraduationCap,
   HelpCircle,
+  Inbox,
   LayoutDashboard,
   MessageSquareText,
   Settings,
@@ -22,13 +24,15 @@ function Workspace({ children, role }: { children: React.ReactNode; role: "stude
 
   const studentItems = [
     ["edumatch.sidebar.overview", "/student", LayoutDashboard],
-    ["edumatch.sidebar.askQuestion", "/student/inquiry/new", MessageSquareText],
+    ["edumatch.sidebar.learn", "/student/learn", MessageSquareText],
+    ["edumatch.sidebar.journey", "/student/journey", GraduationCap],
     ["edumatch.sidebar.bookings", "/student/bookings", CalendarDays],
     ["edumatch.sidebar.learningProfile", "/student/profile", UserRound],
     ["edumatch.sidebar.help", "/help/students", HelpCircle],
   ] as const;
   const tutorItems = [
     ["edumatch.sidebar.studio", "/tutor", LayoutDashboard],
+    ["edumatch.sidebar.invites", "/tutor/invites", Inbox],
     ["edumatch.sidebar.requests", "/tutor/requests", BookOpenCheck],
     ["edumatch.sidebar.bookings", "/tutor/bookings", CalendarDays],
     ["edumatch.sidebar.quotes", "/tutor/quotes", MessageSquareText],

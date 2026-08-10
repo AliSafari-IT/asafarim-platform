@@ -116,6 +116,7 @@ Docker Compose + Caddy reverse proxy on Hostinger VPS (`82.25.116.73`). GitHub A
 
 ## Key Docs
 - `docs/architecture.md` — Cross-app communication, RBAC layers, protection model
+- `docs/edumatch-learning-brief.md` — EduMatch conversational intake, Learning Brief, matching guarantees, prepared proposals, learning journey
 - `docs/appbuilder-architecture.md` — AppBuilder M01–M12 roadmap, route contracts, security model
 - `docs/appbuilder-m13-public-references.md` — SSRF policy, provenance/freshness, cache TTL, GitHub adapter
 - `docs/environment-management.md` — Encryption workflow, key rotation, CI procedures

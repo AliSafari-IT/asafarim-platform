@@ -69,6 +69,14 @@ model User {
   eduVerificationMessagesSent   EduVerificationMessage[]   @relation("EduVerificationMessageSender")
   eduAuditEventsActor           EduAuditEvent[]            @relation("EduAuditActor")
 
+  // EduMatch — learning-brief experience (conversational intake → journey)
+  eduLearningBriefs        EduLearningBrief[]
+  eduMatchCandidates       EduMatchCandidate[]
+  eduSessionRecordsStudent EduSessionRecord[]  @relation("EduSessionRecordStudent")
+  eduSessionRecordsTutor   EduSessionRecord[]  @relation("EduSessionRecordTutor")
+  eduReviewsWritten        EduReview[]         @relation("EduReviewStudent")
+  eduReviewsReceived       EduReview[]         @relation("EduReviewTutor")
+
   // Vionto — photo-to-story video pipeline
   viontoProjects         ViontoProject[]
   viontoAuditEvents      ViontoAuditEvent[]      @relation("ViontoAuditActor")
@@ -1080,12 +1088,25 @@ model EduStudentProfile {
   homeLat            Float?
   homeLng            Float?
 
+  // Preferred teaching language, as a base language code ("en", "nl", ...).
+  // Used as the default for a learning brief when the student doesn't say.
+  preferredLanguage String?
+
+  // Safeguarding. `isMinor` is student-declared and drives two things: only
+  // tutors cleared to work with minors are matched, and bookings require
+  // guardian approval before payment. Guardian contact is stored only when
+  // the student is a minor.
+  isMinor       Boolean @default(false)
+  guardianName  String?
+  guardianEmail String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([gradeLevel])
+  @@index([isMinor])
 }
 
 model EduTutorProfile {
@@ -1110,6 +1131,29 @@ model EduTutorProfile {
   ratingAvg   Float     @default(0)
   ratingCount Int       @default(0)
 
+  // ── Matching signals (learning-brief experience) ────────────────────────
+  // Everything a brief can be matched on. None of these is purchasable — see
+  // EduMatchCandidate for why that matters.
+  languagesTaught String[] @default([]) // base language codes: ["nl", "en"]
+  qualifications  String[] @default([]) // free text, shown on comparison
+  // STRUCTURED, EXAM_FOCUSED, EXPLORATORY, PATIENT — self-declared, used as a
+  // soft tiebreak against the brief's objective, never as a hard filter.
+  teachingStyle   String?
+  // Recurring weekly availability: [{ day: "MON".."SUN", from, to }]. Used to
+  // score schedule compatibility against the brief before any tutor replies.
+  weeklyAvailability Json?
+
+  // Safeguarding: a tutor is only matched to a minor's brief once an admin has
+  // cleared them. Written by the verification workflow, never self-service.
+  clearedForMinorsAt DateTime?
+
+  // Responsiveness and fairness inputs, maintained by the matching and
+  // proposal services.
+  medianResponseMinutes Int? // null until the tutor has answered an invite
+  invitesReceived       Int       @default(0)
+  proposalsSent         Int       @default(0)
+  lastMatchedAt         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1119,6 +1163,8 @@ model EduTutorProfile {
   @@index([hourlyRateCents])
   @@index([ratingAvg])
   @@index([verifiedAt])
+  @@index([clearedForMinorsAt])
+  @@index([lastMatchedAt])
 }
 
 model EduInquiry {
@@ -1144,6 +1190,7 @@ model EduInquiry {
   student       User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
   aiResponses   EduAiResponse[]
   quoteRequests EduQuoteRequest[]
+  brief         EduLearningBrief?
 
   @@index([studentId])
   @@index([status])
@@ -1191,9 +1238,16 @@ model EduQuoteRequest {
   expiresAt   DateTime
   status      String   @default("OPEN") // OPEN, FULFILLED, EXPIRED, CANCELLED
 
-  inquiry EduInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
-  quotes  EduQuote[]
+  // Set when the request came from a confirmed EduLearningBrief. Brief-driven
+  // requests are invite-only: exactly the tutors in EduMatchCandidate may quote.
+  briefId String?
 
+  inquiry         EduInquiry          @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  quotes          EduQuote[]
+  brief           EduLearningBrief?   @relation(fields: [briefId], references: [id], onDelete: SetNull)
+  matchCandidates EduMatchCandidate[]
+
+  @@index([briefId])
   @@index([inquiryId])
   @@index([studentId])
   @@index([status])
@@ -1211,19 +1265,41 @@ model EduQuote {
   availabilitySlots Json? // [{ start, end, mode }]
   notes             String? @db.Text
   pdfUrl            String?
-  status            String  @default("PENDING") // PENDING, SENT, ACCEPTED, DECLINED, EXPIRED
+  status            String  @default("PENDING") // DRAFT, PENDING, SENT, ACCEPTED, DECLINED, EXPIRED
+
+  // ── Prepared lesson proposal ────────────────────────────────────────────
+  // A quote that originates from a confirmed EduLearningBrief starts life as
+  // a DRAFT that the platform pre-fills from the brief and the tutor's own
+  // profile. The tutor reviews it, optionally adjusts it, and only then does
+  // it become PENDING (visible to the student). Nothing is ever sent to the
+  // student without `sentAt` being stamped by an explicit tutor action.
+  briefId            String?
+  sessionCount       Int? // number of lessons in the proposed plan
+  sessionMinutes     Int? // duration of each lesson
+  mode               String? // ONLINE, IN_PERSON
+  language           String? // teaching language for this proposal
+  earliestStartAt    DateTime? // soonest the tutor can begin
+  planOutline        Json? // [{ session, focus, outcome }]
+  preparationNotes   String?   @db.Text
+  cancellationPolicy String? // FLEXIBLE, MODERATE, STRICT
+  aiDrafted          Boolean   @default(false)
+  tutorAdjusted      Boolean   @default(false)
+  declineReason      String?   @db.Text
+  sentAt             DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  quoteRequest EduQuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
-  tutor        User            @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  quoteRequest EduQuoteRequest   @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  tutor        User              @relation(fields: [tutorId], references: [id], onDelete: Cascade)
   booking      EduBooking?
+  brief        EduLearningBrief? @relation(fields: [briefId], references: [id], onDelete: SetNull)
 
   @@unique([quoteRequestId, tutorId])
   @@index([quoteRequestId])
   @@index([tutorId])
   @@index([status])
+  @@index([briefId])
 }
 
 model EduBooking {
@@ -1244,11 +1320,13 @@ model EduBooking {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  quote        EduQuote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  student      User             @relation("EduBookingStudent", fields: [studentId], references: [id], onDelete: Cascade)
-  tutor        User             @relation("EduBookingTutor", fields: [tutorId], references: [id], onDelete: Cascade)
-  transactions EduTransaction[]
-  messages     EduMessage[]
+  quote         EduQuote          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  student       User              @relation("EduBookingStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  tutor         User              @relation("EduBookingTutor", fields: [tutorId], references: [id], onDelete: Cascade)
+  transactions  EduTransaction[]
+  messages      EduMessage[]
+  sessionRecord EduSessionRecord?
+  review        EduReview?
 
   @@index([studentId])
   @@index([tutorId])
@@ -1460,6 +1538,213 @@ model EduAuditEvent {
   @@index([entity])
   @@index([entityId])
   @@index([action])
+  @@index([createdAt])
+}
+
+// ─── EduMatch learning-brief experience ───────────────────────────────────
+//
+// The learning brief is the spine of the product: the student describes a
+// problem in their own words, the assistant asks only the questions that are
+// still missing, helps immediately where it can, and distils everything into
+// one structured, student-confirmed document. That document is what tutors
+// receive — never a bare "student needs maths help" lead.
+//
+// Lifecycle:
+//   DRAFT      — being built from the conversation; the student may still edit
+//   CONFIRMED  — the student reviewed and approved it; safe to share
+//   MATCHED    — tutors have been invited and prepared proposals exist
+//   ARCHIVED   — closed out (booked and completed, or abandoned)
+//
+// A brief keeps its own copy of the intake facts rather than pointing at the
+// originating EduInquiry, because the inquiry is the legacy single-shot intake
+// and its fields (subject/gradeLevel/description) are a strict subset. The
+// optional `inquiryId` link exists so the AI-answer, moderation, and quote
+// plumbing that already hangs off EduInquiry keeps working unchanged.
+
+model EduLearningBrief {
+  id        String  @id @default(cuid())
+  studentId String
+  inquiryId String? @unique
+
+  // ── What the student is learning ──
+  subject              String
+  topic                String?
+  educationalLevel     String // K12, UNDERGRAD, GRAD — matches GRADE_LEVELS
+  schoolYear           String? // free text, e.g. "5 VWO", "Year 11", "L2"
+  learningObjective    String? @db.Text
+  currentUnderstanding String? @db.Text
+
+  // Specific difficulties the student named, and prerequisite topics the
+  // assistant judged to be missing underneath them.
+  difficulties     String[] @default([])
+  prerequisiteGaps String[] @default([])
+
+  // ── How they want to be taught ──
+  language           String  @default("en") // teaching language, base language code
+  mode               String  @default("EITHER") // ONLINE, IN_PERSON, EITHER
+  locationCity       String?
+  locationLat        Float?
+  locationLng        Float?
+  availability       Json? // [{ day: "MON".."SUN", from: "16:00", to: "19:00" }]
+  deadlineAt         DateTime?
+  deadlineKind       String? // EXAM, ASSIGNMENT, NONE
+  accessibilityNeeds String?   @db.Text
+
+  // ── Proposed shape of the help ──
+  estimatedSessions Int?
+  sessionMinutes    Int?
+
+  // ── Triage ──
+  // SELF_STUDY        — an explanation, exercises, and a plan are enough
+  // TUTOR_RECOMMENDED — ready to match
+  // NEEDS_DIAGNOSTIC  — one short diagnostic step before tutors are selected
+  triageOutcome    String?
+  triageRationale  String? @db.Text
+  // 0..1 — how confident the extraction is that the brief is complete enough
+  // to act on. Never inferred as "high" from a bare subject name; see
+  // computeBriefCompleteness().
+  confidence       Float   @default(0)
+  diagnosticResult Json? // { questions: [...], answers: [...], scorePct }
+
+  // Uploaded exercises and materials, same shape as EduInquiry.attachments.
+  attachments Json?
+
+  status      String    @default("DRAFT")
+  confirmedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student         User                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  inquiry         EduInquiry?         @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+  turns           EduIntakeTurn[]
+  matchCandidates EduMatchCandidate[]
+  quotes          EduQuote[]
+  quoteRequests   EduQuoteRequest[]
+  sessionRecords  EduSessionRecord[]
+
+  @@index([studentId])
+  @@index([status])
+  @@index([subject])
+  @@index([triageOutcome])
+  @@index([createdAt])
+}
+
+// One message in the intake conversation. Kept as rows rather than a JSON blob
+// so the "ask one clear question at a time" rule is auditable: every ASSISTANT
+// turn of kind QUESTION records which brief field it was trying to fill, and
+// we can prove we never asked the same field twice.
+model EduIntakeTurn {
+  id      String @id @default(cuid())
+  briefId String
+
+  role String // STUDENT, ASSISTANT
+  kind String // MESSAGE, QUESTION, HELP, SUMMARY
+
+  content     String  @db.Text
+  // For QUESTION turns: the EduLearningBrief field this question targets.
+  field       String?
+  attachments Json?
+
+  createdAt DateTime @default(now())
+
+  brief EduLearningBrief @relation(fields: [briefId], references: [id], onDelete: Cascade)
+
+  @@index([briefId])
+  @@index([createdAt])
+}
+
+// A tutor the platform selected for a brief, with the full score breakdown
+// that produced the selection. Persisted (rather than recomputed on read) so
+// the ranking a student saw can always be explained after the fact, and so
+// "tutors cannot buy position" is a checkable property: there is no field
+// here that money could write to. `rotationBoost` marks a qualified tutor who
+// was included through the fair-rotation slot rather than on raw score.
+model EduMatchCandidate {
+  id             String  @id @default(cuid())
+  briefId        String
+  quoteRequestId String?
+  tutorId        String
+
+  rank          Int
+  score         Float
+  breakdown     Json // { subject: 0.25, level: 0.15, ... } contributions
+  reasons       String[] @default([])
+  rotationBoost Boolean  @default(false)
+
+  // Stamped when this tutor was actually invited to prepare a proposal.
+  invitedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  brief        EduLearningBrief @relation(fields: [briefId], references: [id], onDelete: Cascade)
+  quoteRequest EduQuoteRequest? @relation(fields: [quoteRequestId], references: [id], onDelete: SetNull)
+  tutor        User             @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@unique([briefId, tutorId])
+  @@index([briefId])
+  @@index([quoteRequestId])
+  @@index([tutorId])
+}
+
+// What actually happened in a lesson. Written by the tutor after the session;
+// the student sees a summary and the next recommended step. This is what turns
+// a one-off booking into a learning journey.
+model EduSessionRecord {
+  id        String  @id @default(cuid())
+  bookingId String  @unique
+  briefId   String?
+  tutorId   String
+  studentId String
+
+  attendance     String   @default("ATTENDED") // ATTENDED, PARTIAL, NO_SHOW
+  topicsCovered  String[] @default([])
+  tutorNotes     String?  @db.Text
+  studentSummary String?  @db.Text
+  homework       String?  @db.Text
+  nextStep       String?  @db.Text
+  resources      Json? // [{ label, url }]
+
+  // 0-100 against the brief's learning objective, as judged by the tutor.
+  goalProgress Int?
+  // Topics the tutor flagged as still shaky — feeds the "areas that still
+  // require attention" section of the learning record.
+  openConcerns String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking EduBooking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  brief   EduLearningBrief? @relation(fields: [briefId], references: [id], onDelete: SetNull)
+  tutor   User              @relation("EduSessionRecordTutor", fields: [tutorId], references: [id], onDelete: Cascade)
+  student User              @relation("EduSessionRecordStudent", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([briefId])
+  @@index([studentId])
+  @@index([tutorId])
+  @@index([createdAt])
+}
+
+// A review is only creatable against a COMPLETED booking, which is why there
+// is no `verified` flag: existence is the verification. One review per booking.
+model EduReview {
+  id        String @id @default(cuid())
+  bookingId String @unique
+  studentId String
+  tutorId   String
+
+  rating  Int // 1-5
+  comment String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking EduBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  student User       @relation("EduReviewStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  tutor   User       @relation("EduReviewTutor", fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tutorId])
+  @@index([studentId])
   @@index([createdAt])
 }
 

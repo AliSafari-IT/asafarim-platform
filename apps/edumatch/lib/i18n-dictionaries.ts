@@ -826,6 +826,240 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.sidebar.verification": "Verification",
     "edumatch.sidebar.profile": "Profile",
     "edumatch.sidebar.settings": "Settings",
+    "edumatch.sidebar.learn": "Get help",
+    "edumatch.sidebar.journey": "My learning",
+    "edumatch.sidebar.invites": "Invitations",
+
+    // ── Learning brief experience ──
+    // Conversational intake
+    "edumatch.learn.title": "What would you like help with?",
+    "edumatch.learn.subtitle":
+      "Describe the problem in your own words, or upload a photo of the exercise. We'll work out the rest.",
+    "edumatch.learn.inputLabel": "Describe what you need help with",
+    "edumatch.learn.inputPlaceholder":
+      "e.g. I don't understand how to solve quadratic equations — I know the formula but I get stuck on the exercises.",
+    "edumatch.learn.emptyHint":
+      "Type a question, or upload a photo of the exercise you're stuck on. No forms, no sign-up questions first.",
+    "edumatch.learn.answerPrompt": "Answer below, or tell us something else",
+    "edumatch.learn.privacyNote":
+      "Only you can see this until you choose to share it.",
+    "edumatch.learn.startBtn": "Get help",
+    "edumatch.learn.sendBtn": "Send",
+    "edumatch.learn.thinking": "Reading what you sent…",
+    "edumatch.learn.turn.question": "One quick question",
+    "edumatch.learn.turn.help": "Here's how this works",
+    "edumatch.learn.completeness": "How complete your brief is",
+    "edumatch.learn.completenessValue": "Learning brief {n}% complete",
+    "edumatch.learn.reviewBriefBtn": "Review my learning brief",
+    "edumatch.learn.stillNeeded": "Still needed: {fields}",
+    "edumatch.learn.error.send": "We couldn't send that. Please try again.",
+    "edumatch.learn.error.network": "Network problem — please try again.",
+    "edumatch.learn.error.confirm": "We couldn't confirm your brief.",
+    "edumatch.learn.error.match": "We couldn't match tutors right now.",
+
+    // Triage
+    "edumatch.learn.triage.SELF_STUDY.title": "You may not need a tutor for this",
+    "edumatch.learn.triage.SELF_STUDY.desc":
+      "The explanation and practice above should be enough. Come back any time if you get stuck again.",
+    "edumatch.learn.triage.TUTOR_RECOMMENDED.title": "A tutor would help here",
+    "edumatch.learn.triage.TUTOR_RECOMMENDED.desc":
+      "This is the kind of gap that's much faster to close with someone working through it with you.",
+    "edumatch.learn.triage.NEEDS_DIAGNOSTIC.title": "Let's check a couple of things first",
+    "edumatch.learn.triage.NEEDS_DIAGNOSTIC.desc":
+      "We don't yet know enough to say whether a tutor is the right call. A few more details will tell us.",
+
+    // Matched
+    "edumatch.learn.matched.title": "{n} tutors have your brief",
+    "edumatch.learn.matched.desc":
+      "Each one received your full learning brief and a prepared lesson plan. They'll send you a proposal or let you know they can't take it.",
+    "edumatch.learn.matched.compareBtn": "Compare proposals",
+    "edumatch.learn.matched.dashboardBtn": "Back to dashboard",
+    "edumatch.learn.matched.requestRef": "Request reference: {id}",
+
+    // The brief itself
+    "edumatch.brief.title": "Your learning brief",
+    "edumatch.brief.subtitle":
+      "This is what tutors will see. Change anything that isn't right — your edits always win.",
+    "edumatch.brief.confirmedBadge": "Confirmed",
+    "edumatch.brief.notSet": "Not set",
+    "edumatch.brief.edit": "Edit",
+    "edumatch.brief.keepTalking": "Keep talking",
+    "edumatch.brief.confirmBtn": "This is right — confirm",
+    "edumatch.brief.shareBtn": "Share with {n} tutors",
+    "edumatch.brief.previewTitle": "{n} tutors we'd send this to",
+    "edumatch.brief.previewDesc":
+      "Nobody has been contacted yet. Tutors can't pay to appear here.",
+    "edumatch.brief.field.subject": "Subject",
+    "edumatch.brief.field.topic": "Topic",
+    "edumatch.brief.field.schoolYear": "Level / school year",
+    "edumatch.brief.field.objective": "Goal",
+    "edumatch.brief.field.understanding": "Where you are now",
+    "edumatch.brief.field.difficulties": "What you're stuck on",
+    "edumatch.brief.field.gaps": "Worth revisiting first",
+    "edumatch.brief.field.location": "Location",
+    "edumatch.brief.field.mode": "Lesson format",
+    "edumatch.brief.field.language": "Teaching language",
+    "edumatch.brief.field.availability": "When you're free",
+    "edumatch.brief.field.deadline": "Deadline",
+    "edumatch.brief.field.support": "Learning support",
+    "edumatch.brief.field.plan": "Suggested plan",
+    "edumatch.brief.field.materials": "Your materials",
+    "edumatch.brief.planValue": "{n} lessons × {m} min",
+    "edumatch.brief.mode.ONLINE": "Online",
+    "edumatch.brief.mode.IN_PERSON": "In person",
+    "edumatch.brief.mode.EITHER": "Either",
+    "edumatch.brief.deadlineKind.EXAM": "exam",
+    "edumatch.brief.deadlineKind.ASSIGNMENT": "assignment",
+    "edumatch.brief.deadlineKind.NONE": "no deadline",
+
+    // Matched tutors
+    "edumatch.match.empty":
+      "No verified tutor matches this brief yet. We'll keep looking and let you know.",
+    "edumatch.match.unnamedTutor": "Tutor",
+    "edumatch.match.verified": "Verified",
+    "edumatch.match.newTutor": "New here",
+    "edumatch.match.newTutorHint":
+      "A verified tutor who meets every requirement but hasn't collected reviews yet. We reserve one slot so new tutors can get started.",
+    "edumatch.match.rating": "{avg}★ from {n} verified lessons",
+    "edumatch.match.noReviewsYet": "No reviews yet",
+    "edumatch.match.perHour": "{price}/hr",
+    "edumatch.match.style.STRUCTURED": "Structured",
+    "edumatch.match.style.EXAM_FOCUSED": "Exam-focused",
+    "edumatch.match.style.EXPLORATORY": "Exploratory",
+    "edumatch.match.style.PATIENT": "Patient",
+
+    // Comparison
+    "edumatch.compare.title": "Compare proposals",
+    "edumatch.compare.subtitle":
+      "{n} tutors sent you a plan. Same fields for each, so you're comparing like with like.",
+    "edumatch.compare.loading": "Loading proposals…",
+    "edumatch.compare.loadError": "We couldn't load the proposals.",
+    "edumatch.compare.acceptError": "We couldn't accept that proposal.",
+    "edumatch.compare.backToBrief": "← Back to your brief",
+    "edumatch.compare.differencesTitle": "What's different",
+    "edumatch.compare.noRankingNote":
+      "We don't rank tutors or mark one as best — these are the facts, the choice is yours.",
+    "edumatch.compare.waiting":
+      "No proposals yet. Tutors usually reply within a day; we'll notify you.",
+    "edumatch.compare.field.lessons": "Lessons",
+    "edumatch.compare.field.start": "Can start",
+    "edumatch.compare.field.format": "Format",
+    "edumatch.compare.field.language": "Language",
+    "edumatch.compare.field.cancellation": "Cancellation",
+    "edumatch.compare.field.style": "Style",
+    "edumatch.compare.cancellation.FLEXIBLE": "Free up to 24h before",
+    "edumatch.compare.cancellation.MODERATE": "Free up to 48h before",
+    "edumatch.compare.cancellation.STRICT": "Non-refundable",
+    "edumatch.compare.showPlan": "See the {n}-lesson plan",
+    "edumatch.compare.session": "Lesson {n}:",
+    "edumatch.compare.chooseBtn": "Choose this tutor",
+    "edumatch.compare.accepting": "Accepting…",
+    "edumatch.compare.accepted": "Accepted",
+
+    // Tutor invitations
+    "edumatch.invites.title": "Invitations",
+    "edumatch.invites.subtitle":
+      "Students we matched you with. Each one comes with a full brief and a proposal already prepared.",
+    "edumatch.invites.loading": "Loading invitations…",
+    "edumatch.invites.empty":
+      "No open invitations right now. We'll notify you when a matching brief arrives.",
+    "edumatch.invites.expires": "Expires {date}",
+    "edumatch.invites.openBtn": "Review and respond",
+
+    // Prepared proposal
+    "edumatch.proposal.subtitle":
+      "The student's brief is on the left. Your proposal is already filled in — adjust anything, then send.",
+    "edumatch.proposal.loading": "Preparing your proposal…",
+    "edumatch.proposal.loadError": "We couldn't load this request.",
+    "edumatch.proposal.sendError": "We couldn't send your proposal.",
+    "edumatch.proposal.declineError": "We couldn't record your decline.",
+    "edumatch.proposal.backToInvites": "← Back to invitations",
+    "edumatch.proposal.briefTitle": "The student's learning brief",
+    "edumatch.proposal.whyYou": "Why we matched you",
+    "edumatch.proposal.draftTitle": "Your prepared proposal",
+    "edumatch.proposal.draftHint":
+      "Prefilled from the brief and your profile. Nothing is sent until you press Send.",
+    "edumatch.proposal.field.sessions": "Lessons",
+    "edumatch.proposal.field.minutes": "Minutes each",
+    "edumatch.proposal.field.rate": "Rate €/hr",
+    "edumatch.proposal.field.start": "Can start",
+    "edumatch.proposal.field.format": "Format",
+    "edumatch.proposal.field.plan": "Proposed plan",
+    "edumatch.proposal.field.prep": "Preparation notes",
+    "edumatch.proposal.total": "Total for the student",
+    "edumatch.proposal.totalBreakdown": "{n} lessons × {m} min at {rate}/hr",
+    "edumatch.proposal.sendBtn": "Send proposal",
+    "edumatch.proposal.sending": "Sending…",
+    "edumatch.proposal.declineBtn": "Decline",
+    "edumatch.proposal.nothingAutoSent":
+      "EduMatch never sends a proposal on your behalf.",
+    "edumatch.proposal.sentTitle": "Proposal sent",
+    "edumatch.proposal.sentDesc":
+      "The student can now compare your plan alongside the others. We'll let you know if they choose you.",
+
+    // Learning journey
+    "edumatch.journey.title": "My learning",
+    "edumatch.journey.subtitle":
+      "Every lesson, what it covered, and what comes next.",
+    "edumatch.journey.loading": "Loading your learning record…",
+    "edumatch.journey.empty":
+      "No lessons yet. Once you've had one, your record starts here.",
+    "edumatch.journey.sessions": "Sessions",
+    "edumatch.journey.lesson": "Lesson",
+    "edumatch.journey.stat.completed": "Completed",
+    "edumatch.journey.stat.upcoming": "Upcoming",
+    "edumatch.journey.stat.progress": "Goal progress",
+    "edumatch.journey.patterns": "What we're noticing",
+    "edumatch.journey.recurring":
+      "{topic} has come up in {n} sessions — it may be worth a focused lesson.",
+    "edumatch.journey.stillOpen": "Still needs attention: {items}",
+    "edumatch.journey.deadlineSoon": "{subject} deadline on {date}.",
+    "edumatch.journey.openBrief": "Open brief",
+    "edumatch.journey.goalProgress": "{n}% toward your goal",
+    "edumatch.journey.covered": "Covered",
+    "edumatch.journey.homework": "Homework",
+    "edumatch.journey.nextStep": "Next step",
+    "edumatch.journey.status.SCHEDULED": "Scheduled",
+    "edumatch.journey.status.COMPLETED": "Completed",
+    "edumatch.journey.status.CANCELLED": "Cancelled",
+    "edumatch.journey.status.DISPUTED": "In dispute",
+
+    // Reviews
+    "edumatch.review.cta": "Leave a review",
+    "edumatch.review.ratingLabel": "How was the lesson?",
+    "edumatch.review.stars": "{n} out of 5",
+    "edumatch.review.commentLabel": "Your review",
+    "edumatch.review.commentPlaceholder":
+      "What helped? What could have been better?",
+    "edumatch.review.submit": "Post review",
+    "edumatch.review.cancel": "Cancel",
+    "edumatch.review.error": "We couldn't post that review.",
+
+    // Session record (tutor)
+    "edumatch.sessionRecord.title": "Write up the lesson",
+    "edumatch.sessionRecord.subtitle":
+      "Two minutes here becomes the student's learning record — and the next lesson's starting point.",
+    "edumatch.sessionRecord.backToBookings": "← Back to bookings",
+    "edumatch.sessionRecord.error": "We couldn't save the record.",
+    "edumatch.sessionRecord.saved": "Saved. The student can see their summary now.",
+    "edumatch.sessionRecord.attendance": "Attendance",
+    "edumatch.sessionRecord.attendance.ATTENDED": "Attended",
+    "edumatch.sessionRecord.attendance.PARTIAL": "Partly attended",
+    "edumatch.sessionRecord.attendance.NO_SHOW": "No show",
+    "edumatch.sessionRecord.topics": "Topics covered",
+    "edumatch.sessionRecord.commaHint": "Separate with commas",
+    "edumatch.sessionRecord.studentSummary": "Summary for the student",
+    "edumatch.sessionRecord.studentSummaryHint":
+      "The student reads this one — keep it encouraging and concrete.",
+    "edumatch.sessionRecord.homework": "Homework",
+    "edumatch.sessionRecord.nextStep": "Next recommended step",
+    "edumatch.sessionRecord.openConcerns": "Still shaky",
+    "edumatch.sessionRecord.goalProgress": "Progress toward the goal: {n}%",
+    "edumatch.sessionRecord.tutorNotes": "Private notes",
+    "edumatch.sessionRecord.tutorNotesHint": "Only you can see these.",
+    "edumatch.sessionRecord.saveBtn": "Save record",
+    "edumatch.sessionRecord.saving": "Saving…",
+
     "edumatch.help.title": "Help Center",
     "edumatch.help.subtitle": "Guides for every EduMatch workflow — for students and for tutors.",
     "edumatch.help.searchLabel": "Search the Help Center",
@@ -1826,6 +2060,231 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.sidebar.verification": "Verificatie",
     "edumatch.sidebar.profile": "Profiel",
     "edumatch.sidebar.settings": "Instellingen",
+    "edumatch.sidebar.learn": "Hulp krijgen",
+    "edumatch.sidebar.journey": "Mijn leertraject",
+    "edumatch.sidebar.invites": "Uitnodigingen",
+
+    // ── Leerbriefing ──
+    "edumatch.learn.title": "Waarmee kunnen we je helpen?",
+    "edumatch.learn.subtitle":
+      "Beschrijf het probleem in je eigen woorden, of upload een foto van de oefening. De rest zoeken wij uit.",
+    "edumatch.learn.inputLabel": "Beschrijf waar je hulp bij nodig hebt",
+    "edumatch.learn.inputPlaceholder":
+      "bv. Ik snap vierkantsvergelijkingen niet — ik ken de formule, maar bij de oefeningen loop ik vast.",
+    "edumatch.learn.emptyHint":
+      "Typ een vraag, of upload een foto van de oefening waar je vastloopt. Geen formulieren of registratievragen vooraf.",
+    "edumatch.learn.answerPrompt": "Antwoord hieronder, of vertel ons iets anders",
+    "edumatch.learn.privacyNote":
+      "Alleen jij ziet dit, tot je zelf kiest om het te delen.",
+    "edumatch.learn.startBtn": "Hulp krijgen",
+    "edumatch.learn.sendBtn": "Versturen",
+    "edumatch.learn.thinking": "We lezen wat je stuurde…",
+    "edumatch.learn.turn.question": "Eén korte vraag",
+    "edumatch.learn.turn.help": "Zo werkt dit",
+    "edumatch.learn.completeness": "Hoe volledig je briefing is",
+    "edumatch.learn.completenessValue": "Leerbriefing {n}% volledig",
+    "edumatch.learn.reviewBriefBtn": "Mijn leerbriefing nakijken",
+    "edumatch.learn.stillNeeded": "Nog nodig: {fields}",
+    "edumatch.learn.error.send": "Versturen lukte niet. Probeer het opnieuw.",
+    "edumatch.learn.error.network": "Netwerkprobleem — probeer het opnieuw.",
+    "edumatch.learn.error.confirm": "We konden je briefing niet bevestigen.",
+    "edumatch.learn.error.match": "We konden nu geen tutoren matchen.",
+
+    "edumatch.learn.triage.SELF_STUDY.title":
+      "Hiervoor heb je waarschijnlijk geen tutor nodig",
+    "edumatch.learn.triage.SELF_STUDY.desc":
+      "De uitleg en oefeningen hierboven zouden moeten volstaan. Kom gerust terug als je opnieuw vastloopt.",
+    "edumatch.learn.triage.TUTOR_RECOMMENDED.title": "Een tutor helpt hier echt",
+    "edumatch.learn.triage.TUTOR_RECOMMENDED.desc":
+      "Dit soort hiaat sluit je veel sneller met iemand die het samen met je doorneemt.",
+    "edumatch.learn.triage.NEEDS_DIAGNOSTIC.title":
+      "Laten we eerst een paar dingen nagaan",
+    "edumatch.learn.triage.NEEDS_DIAGNOSTIC.desc":
+      "We weten nog te weinig om te zeggen of een tutor de juiste keuze is. Een paar details helpen ons verder.",
+
+    "edumatch.learn.matched.title": "{n} tutoren hebben je briefing",
+    "edumatch.learn.matched.desc":
+      "Elk van hen kreeg je volledige leerbriefing en een voorbereid lesplan. Ze sturen je een voorstel of laten weten dat het niet lukt.",
+    "edumatch.learn.matched.compareBtn": "Voorstellen vergelijken",
+    "edumatch.learn.matched.dashboardBtn": "Terug naar dashboard",
+    "edumatch.learn.matched.requestRef": "Aanvraagreferentie: {id}",
+
+    "edumatch.brief.title": "Je leerbriefing",
+    "edumatch.brief.subtitle":
+      "Dit zien tutoren. Pas alles aan wat niet klopt — jouw aanpassingen gaan altijd voor.",
+    "edumatch.brief.confirmedBadge": "Bevestigd",
+    "edumatch.brief.notSet": "Niet ingevuld",
+    "edumatch.brief.edit": "Bewerken",
+    "edumatch.brief.keepTalking": "Verder praten",
+    "edumatch.brief.confirmBtn": "Dit klopt — bevestigen",
+    "edumatch.brief.shareBtn": "Delen met {n} tutoren",
+    "edumatch.brief.previewTitle": "{n} tutoren aan wie we dit sturen",
+    "edumatch.brief.previewDesc":
+      "Er is nog niemand gecontacteerd. Tutoren kunnen niet betalen om hier te staan.",
+    "edumatch.brief.field.subject": "Vak",
+    "edumatch.brief.field.topic": "Onderwerp",
+    "edumatch.brief.field.schoolYear": "Niveau / schooljaar",
+    "edumatch.brief.field.objective": "Doel",
+    "edumatch.brief.field.understanding": "Waar je nu staat",
+    "edumatch.brief.field.difficulties": "Waar je vastloopt",
+    "edumatch.brief.field.gaps": "Eerst opfrissen",
+    "edumatch.brief.field.location": "Locatie",
+    "edumatch.brief.field.mode": "Lesvorm",
+    "edumatch.brief.field.language": "Instructietaal",
+    "edumatch.brief.field.availability": "Wanneer je vrij bent",
+    "edumatch.brief.field.deadline": "Deadline",
+    "edumatch.brief.field.support": "Leerondersteuning",
+    "edumatch.brief.field.plan": "Voorgesteld plan",
+    "edumatch.brief.field.materials": "Jouw materiaal",
+    "edumatch.brief.planValue": "{n} lessen × {m} min",
+    "edumatch.brief.mode.ONLINE": "Online",
+    "edumatch.brief.mode.IN_PERSON": "Fysiek",
+    "edumatch.brief.mode.EITHER": "Maakt niet uit",
+    "edumatch.brief.deadlineKind.EXAM": "examen",
+    "edumatch.brief.deadlineKind.ASSIGNMENT": "opdracht",
+    "edumatch.brief.deadlineKind.NONE": "geen deadline",
+
+    "edumatch.match.empty":
+      "Nog geen geverifieerde tutor die bij deze briefing past. We blijven zoeken en laten het weten.",
+    "edumatch.match.unnamedTutor": "Tutor",
+    "edumatch.match.verified": "Geverifieerd",
+    "edumatch.match.newTutor": "Nieuw hier",
+    "edumatch.match.newTutorHint":
+      "Een geverifieerde tutor die aan alle eisen voldoet maar nog geen beoordelingen heeft. We houden één plek vrij zodat nieuwe tutoren kunnen starten.",
+    "edumatch.match.rating": "{avg}★ uit {n} geverifieerde lessen",
+    "edumatch.match.noReviewsYet": "Nog geen beoordelingen",
+    "edumatch.match.perHour": "{price}/u",
+    "edumatch.match.style.STRUCTURED": "Gestructureerd",
+    "edumatch.match.style.EXAM_FOCUSED": "Examengericht",
+    "edumatch.match.style.EXPLORATORY": "Onderzoekend",
+    "edumatch.match.style.PATIENT": "Geduldig",
+
+    "edumatch.compare.title": "Voorstellen vergelijken",
+    "edumatch.compare.subtitle":
+      "{n} tutoren stuurden een plan. Dezelfde velden voor elk, zodat je appels met appels vergelijkt.",
+    "edumatch.compare.loading": "Voorstellen laden…",
+    "edumatch.compare.loadError": "We konden de voorstellen niet laden.",
+    "edumatch.compare.acceptError": "We konden dat voorstel niet accepteren.",
+    "edumatch.compare.backToBrief": "← Terug naar je briefing",
+    "edumatch.compare.differencesTitle": "Wat verschilt",
+    "edumatch.compare.noRankingNote":
+      "We rangschikken tutoren niet en wijzen er geen aan als de beste — dit zijn de feiten, de keuze is aan jou.",
+    "edumatch.compare.waiting":
+      "Nog geen voorstellen. Tutoren reageren meestal binnen een dag; we brengen je op de hoogte.",
+    "edumatch.compare.field.lessons": "Lessen",
+    "edumatch.compare.field.start": "Kan starten",
+    "edumatch.compare.field.format": "Vorm",
+    "edumatch.compare.field.language": "Taal",
+    "edumatch.compare.field.cancellation": "Annulering",
+    "edumatch.compare.field.style": "Stijl",
+    "edumatch.compare.cancellation.FLEXIBLE": "Gratis tot 24u vooraf",
+    "edumatch.compare.cancellation.MODERATE": "Gratis tot 48u vooraf",
+    "edumatch.compare.cancellation.STRICT": "Niet terugbetaalbaar",
+    "edumatch.compare.showPlan": "Bekijk het plan van {n} lessen",
+    "edumatch.compare.session": "Les {n}:",
+    "edumatch.compare.chooseBtn": "Kies deze tutor",
+    "edumatch.compare.accepting": "Accepteren…",
+    "edumatch.compare.accepted": "Geaccepteerd",
+
+    "edumatch.invites.title": "Uitnodigingen",
+    "edumatch.invites.subtitle":
+      "Studenten waaraan we je gekoppeld hebben. Elk met een volledige briefing en een al voorbereid voorstel.",
+    "edumatch.invites.loading": "Uitnodigingen laden…",
+    "edumatch.invites.empty":
+      "Momenteel geen open uitnodigingen. We verwittigen je zodra er een passende briefing binnenkomt.",
+    "edumatch.invites.expires": "Verloopt {date}",
+    "edumatch.invites.openBtn": "Bekijken en reageren",
+
+    "edumatch.proposal.subtitle":
+      "De briefing van de student staat links. Je voorstel is al ingevuld — pas aan wat je wil en verstuur.",
+    "edumatch.proposal.loading": "Je voorstel wordt voorbereid…",
+    "edumatch.proposal.loadError": "We konden deze aanvraag niet laden.",
+    "edumatch.proposal.sendError": "We konden je voorstel niet versturen.",
+    "edumatch.proposal.declineError": "We konden je weigering niet vastleggen.",
+    "edumatch.proposal.backToInvites": "← Terug naar uitnodigingen",
+    "edumatch.proposal.briefTitle": "De leerbriefing van de student",
+    "edumatch.proposal.whyYou": "Waarom we jou matchten",
+    "edumatch.proposal.draftTitle": "Je voorbereide voorstel",
+    "edumatch.proposal.draftHint":
+      "Vooraf ingevuld op basis van de briefing en je profiel. Er wordt niets verstuurd tot je op Versturen drukt.",
+    "edumatch.proposal.field.sessions": "Lessen",
+    "edumatch.proposal.field.minutes": "Minuten per les",
+    "edumatch.proposal.field.rate": "Tarief €/u",
+    "edumatch.proposal.field.start": "Kan starten",
+    "edumatch.proposal.field.format": "Vorm",
+    "edumatch.proposal.field.plan": "Voorgesteld plan",
+    "edumatch.proposal.field.prep": "Voorbereidingsnotities",
+    "edumatch.proposal.total": "Totaal voor de student",
+    "edumatch.proposal.totalBreakdown": "{n} lessen × {m} min aan {rate}/u",
+    "edumatch.proposal.sendBtn": "Voorstel versturen",
+    "edumatch.proposal.sending": "Versturen…",
+    "edumatch.proposal.declineBtn": "Weigeren",
+    "edumatch.proposal.nothingAutoSent":
+      "EduMatch verstuurt nooit een voorstel in jouw naam.",
+    "edumatch.proposal.sentTitle": "Voorstel verstuurd",
+    "edumatch.proposal.sentDesc":
+      "De student kan je plan nu naast de andere leggen. We laten het weten als ze voor jou kiezen.",
+
+    "edumatch.journey.title": "Mijn leertraject",
+    "edumatch.journey.subtitle":
+      "Elke les, wat er behandeld is, en wat er nu volgt.",
+    "edumatch.journey.loading": "Je leerdossier laden…",
+    "edumatch.journey.empty":
+      "Nog geen lessen. Zodra je er een hebt gehad, begint je dossier hier.",
+    "edumatch.journey.sessions": "Sessies",
+    "edumatch.journey.lesson": "Les",
+    "edumatch.journey.stat.completed": "Afgerond",
+    "edumatch.journey.stat.upcoming": "Gepland",
+    "edumatch.journey.stat.progress": "Voortgang doel",
+    "edumatch.journey.patterns": "Wat ons opvalt",
+    "edumatch.journey.recurring":
+      "{topic} kwam in {n} sessies terug — een gerichte les is misschien de moeite waard.",
+    "edumatch.journey.stillOpen": "Vraagt nog aandacht: {items}",
+    "edumatch.journey.deadlineSoon": "Deadline {subject} op {date}.",
+    "edumatch.journey.openBrief": "Briefing openen",
+    "edumatch.journey.goalProgress": "{n}% richting je doel",
+    "edumatch.journey.covered": "Behandeld",
+    "edumatch.journey.homework": "Huiswerk",
+    "edumatch.journey.nextStep": "Volgende stap",
+    "edumatch.journey.status.SCHEDULED": "Gepland",
+    "edumatch.journey.status.COMPLETED": "Afgerond",
+    "edumatch.journey.status.CANCELLED": "Geannuleerd",
+    "edumatch.journey.status.DISPUTED": "In geschil",
+
+    "edumatch.review.cta": "Beoordeling achterlaten",
+    "edumatch.review.ratingLabel": "Hoe was de les?",
+    "edumatch.review.stars": "{n} van de 5",
+    "edumatch.review.commentLabel": "Je beoordeling",
+    "edumatch.review.commentPlaceholder": "Wat hielp? Wat kon beter?",
+    "edumatch.review.submit": "Beoordeling plaatsen",
+    "edumatch.review.cancel": "Annuleren",
+    "edumatch.review.error": "We konden die beoordeling niet plaatsen.",
+
+    "edumatch.sessionRecord.title": "Les vastleggen",
+    "edumatch.sessionRecord.subtitle":
+      "Twee minuten hier worden het leerdossier van de student — en het vertrekpunt van de volgende les.",
+    "edumatch.sessionRecord.backToBookings": "← Terug naar boekingen",
+    "edumatch.sessionRecord.error": "We konden het verslag niet opslaan.",
+    "edumatch.sessionRecord.saved":
+      "Opgeslagen. De student ziet de samenvatting nu.",
+    "edumatch.sessionRecord.attendance": "Aanwezigheid",
+    "edumatch.sessionRecord.attendance.ATTENDED": "Aanwezig",
+    "edumatch.sessionRecord.attendance.PARTIAL": "Deels aanwezig",
+    "edumatch.sessionRecord.attendance.NO_SHOW": "Niet komen opdagen",
+    "edumatch.sessionRecord.topics": "Behandelde onderwerpen",
+    "edumatch.sessionRecord.commaHint": "Scheiden met komma's",
+    "edumatch.sessionRecord.studentSummary": "Samenvatting voor de student",
+    "edumatch.sessionRecord.studentSummaryHint":
+      "Dit leest de student — houd het bemoedigend en concreet.",
+    "edumatch.sessionRecord.homework": "Huiswerk",
+    "edumatch.sessionRecord.nextStep": "Volgende aanbevolen stap",
+    "edumatch.sessionRecord.openConcerns": "Nog wankel",
+    "edumatch.sessionRecord.goalProgress": "Voortgang richting het doel: {n}%",
+    "edumatch.sessionRecord.tutorNotes": "Privénotities",
+    "edumatch.sessionRecord.tutorNotesHint": "Alleen jij ziet deze.",
+    "edumatch.sessionRecord.saveBtn": "Verslag opslaan",
+    "edumatch.sessionRecord.saving": "Opslaan…",
+
     "edumatch.help.title": "Helpcentrum",
     "edumatch.help.subtitle": "Gidsen voor elke EduMatch-workflow — voor studenten en voor tutoren.",
     "edumatch.help.searchLabel": "Doorzoek het Helpcentrum",
