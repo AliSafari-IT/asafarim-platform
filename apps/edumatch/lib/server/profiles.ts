@@ -233,6 +233,45 @@ export async function upsertStudentProfile(
 }
 
 /**
+ * Resolve the caller as a student, creating a minimal profile if they don't
+ * have one yet.
+ *
+ * The learning-brief experience promises value before paperwork: a student
+ * types their problem and gets help, rather than filling in a grade level and
+ * a subject list they may not know how to answer. The profile still exists —
+ * uploads, matching, and safeguarding all need a row — it is just derived
+ * from the conversation instead of demanded up front. `gradeLevel` is left
+ * empty rather than defaulted, because guessing it is exactly what the
+ * "never pretend to understand the student's level" rule forbids; the brief
+ * fills it in once the student actually says.
+ *
+ * Distinct from `requireStudent`, which stays strict for every surface that
+ * reads an established profile.
+ */
+export async function requireStudentAutoProvision(): Promise<StudentContext> {
+  const user = await getAuthedUser();
+  if (!user) throw new EduAuthError(401, "Unauthorized");
+
+  const existing = await getStudentProfile(user.id);
+  if (existing) return { user, profile: existing };
+
+  const centralLocation = await getPrimaryEduMatchHomeAddress(user.id);
+  const profile = await prisma.eduStudentProfile.create({
+    data: {
+      userId: user.id,
+      gradeLevel: "",
+      subjectsOfInterest: [],
+      homeAddress: (centralLocation?.address ??
+        Prisma.JsonNull) as Prisma.InputJsonValue,
+      homeLat: centralLocation?.lat,
+      homeLng: centralLocation?.lng,
+    },
+  });
+  await assignRoleIfMissing(user.id, "edumatch_student");
+  return { user, profile };
+}
+
+/**
  * Partial update of the caller's EduStudentProfile. Throws 404 when no
  * profile exists — clients should POST first to create one.
  */

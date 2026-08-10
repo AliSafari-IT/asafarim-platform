@@ -169,7 +169,7 @@ export function EduNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const roles = session?.user?.roles || [];
   const nav = [
-    { labelKey: "edumatch.nav.findSupport", href: "/student/inquiry/new", icon: Search },
+    { labelKey: "edumatch.nav.findSupport", href: "/student/learn", icon: Search },
     { labelKey: "edumatch.nav.studentSpace", href: "/student", icon: BookOpenCheck },
     { labelKey: "edumatch.nav.tutorStudio", href: "/tutor", icon: UsersRound },
     { labelKey: "edumatch.nav.help", href: "/help", icon: HelpCircle },
@@ -186,7 +186,7 @@ export function EduNav() {
           {nav.map(({ labelKey, href, icon: Icon }) => {
             const active =
               pathname === href ||
-              (href !== "/student/inquiry/new" && href !== "/help" && pathname.startsWith(`${href}/`)) ||
+              (href !== "/student/learn" && href !== "/help" && pathname.startsWith(`${href}/`)) ||
               (href === "/help" && pathname.startsWith("/help"));
             return (
               <Link className={active ? "is-active" : ""} aria-current={active ? "page" : undefined} href={href} key={href}>
