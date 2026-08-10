@@ -16,9 +16,24 @@ export {
   ButtonLink,
   type ButtonVariant,
 } from "./components/Button";
+export {
+  BulkActionBar,
+  type BulkActionBarProps,
+} from "./components/BulkActionBar";
 export { Card, type CardVariant } from "./components/Card";
 export { ConfirmDialog, type ConfirmDialogProps } from "./components/ConfirmDialog";
+export {
+  DataTable,
+  type ColumnDef,
+  type DataTableProps,
+  type DataTableSelection,
+} from "./components/DataTable";
 export { EmptyState } from "./components/EmptyState";
+export {
+  FilterBar,
+  type FilterBarProps,
+  type FilterField,
+} from "./components/FilterBar";
 export {
   FieldError,
   FieldHint,
@@ -36,6 +51,7 @@ export { Kicker } from "./components/Kicker";
 export { MenuOutsideClick } from "./components/MenuOutsideClick";
 export { Metric } from "./components/Metric";
 export { PageHeader } from "./components/PageHeader";
+export { Pagination, type PaginationProps } from "./components/Pagination";
 export { Panel } from "./components/Panel";
 export {
   PipelineDiagram,
@@ -49,6 +65,14 @@ export {
 } from "./components/PlatformMap";
 export { ProjectCard } from "./components/ProjectCard";
 export { Section } from "./components/Section";
+export {
+  SelectAllCheckbox,
+  type SelectAllCheckboxProps,
+} from "./components/SelectAllCheckbox";
+export {
+  SelectionCount,
+  type SelectionCountProps,
+} from "./components/SelectionCount";
 export { SideNav } from "./components/SideNav";
 export {
   ShowcaseAbout,

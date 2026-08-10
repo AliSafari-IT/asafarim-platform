@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@asafarim/db";
 import {
   ROLES,
@@ -115,6 +116,119 @@ export async function setUserActiveState(input: {
     console.error("[admin] setUserActiveState failed:", error);
     return { ok: false, error: "The change could not be saved. Try again." };
   }
+}
+
+// ─── Bulk activation / deactivation ────────────────────────────
+
+/**
+ * Applies an activation change to every checked row.
+ *
+ * Bulk is where guardrails usually get lost, so this reuses the same
+ * per-user rules as the single-row control — last active superadmin, and
+ * the actor's own account — and reports what it refused instead of
+ * silently skipping. The outcome comes back as a URL notice because the
+ * caller is a plain <form>, not a client component holding state.
+ */
+async function bulkSetActive(formData: FormData, active: boolean): Promise<void> {
+  const ids = formData
+    .getAll("userIds")
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const returnTo = String(formData.get("returnTo") ?? "/users");
+  // Only ever navigate back into this console — never to a caller-supplied
+  // absolute URL.
+  const target = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/users";
+
+  function back(notice: string): never {
+    const separator = target.includes("?") ? "&" : "?";
+    redirect(`${target}${separator}notice=${encodeURIComponent(notice)}`);
+  }
+
+  const actor = await requireActor("users.deactivate");
+  if ("error" in actor) back(actor.error);
+  const actorId = actor.session.user.id;
+
+  if (ids.length === 0) back("Select at least one user first.");
+
+  let changed = 0;
+  let unchanged = 0;
+  const refused: string[] = [];
+
+  try {
+    const targets = await prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+        userRoles: { select: { role: { select: { name: true } } } },
+      },
+    });
+
+    // Counted once, then tracked locally: re-counting per user would let a
+    // batch walk the platform down to zero active superadmins one row at a
+    // time, each deactivation looking legal in isolation.
+    let activeSuperadmins = await countActiveSuperadmins();
+
+    for (const target of targets) {
+      if (target.isActive === active) {
+        unchanged += 1;
+        continue;
+      }
+      const isSuperadmin = target.userRoles.some(
+        (ur) => ur.role.name === ROLES.SUPERADMIN
+      );
+
+      if (!active) {
+        if (target.id === actorId) {
+          refused.push(`${target.email} (your own account)`);
+          continue;
+        }
+        if (isSuperadmin && activeSuperadmins <= 1) {
+          refused.push(`${target.email} (last active superadmin)`);
+          continue;
+        }
+      }
+
+      await prisma.user.update({
+        where: { id: target.id },
+        data: { isActive: active, deactivatedAt: active ? null : new Date() },
+      });
+      if (isSuperadmin) activeSuperadmins += active ? 1 : -1;
+
+      await writeAuditEvent({
+        userId: actorId,
+        action: active ? "user.activated" : "user.deactivated",
+        entity: "User",
+        entityId: target.id,
+        changes: {
+          email: target.email,
+          isActive: { from: target.isActive, to: active },
+          bulk: true,
+        },
+      });
+      changed += 1;
+      revalidatePath(`/users/${target.id}`);
+    }
+  } catch (error) {
+    console.error("[admin] bulkSetActive failed:", error);
+    back("The bulk change could not be completed. Try again.");
+  }
+
+  revalidatePath("/users");
+
+  const verb = active ? "activated" : "deactivated";
+  const parts = [`${changed} ${verb}`];
+  if (unchanged > 0) parts.push(`${unchanged} already ${verb}`);
+  if (refused.length > 0) parts.push(`refused: ${refused.join(", ")}`);
+  back(parts.join(" · "));
+}
+
+export async function bulkActivateUsers(formData: FormData): Promise<void> {
+  await bulkSetActive(formData, true);
+}
+
+export async function bulkDeactivateUsers(formData: FormData): Promise<void> {
+  await bulkSetActive(formData, false);
 }
 
 // ─── Role assignment ───────────────────────────────────────────

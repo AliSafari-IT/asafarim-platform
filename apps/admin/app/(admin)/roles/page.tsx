@@ -4,15 +4,27 @@ import { prisma } from "@asafarim/db";
 import { ROLES, hasPermission, requireRole } from "@asafarim/auth";
 import {
   Badge,
-  Button,
+  DataTable,
   EmptyState,
-  Input,
+  FilterBar,
   PageHeader,
   Panel,
+  type ColumnDef,
 } from "@asafarim/ui";
 import { CreateRoleForm } from "./_components/CreateRoleForm";
 
 export const metadata: Metadata = { title: "Roles" };
+
+interface RoleRow {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  isSystem: boolean;
+  isDefault: boolean;
+  updatedAt: Date;
+  _count: { userRoles: number; rolePermissions: number };
+}
 
 async function getRoles(query: string) {
   try {
@@ -57,6 +69,56 @@ export default async function RolesPage({
   const query = (params.q ?? "").trim();
   const roles = await getRoles(query);
 
+  const columns: ColumnDef<RoleRow>[] = [
+    {
+      id: "role",
+      header: "Role",
+      render: (role) => (
+        <a href={`/roles/${role.id}`} className="ui-table__link">
+          <span className="ui-table__primary">
+            {role.displayName}
+            <span className="ui-table__sub">
+              {role.name}
+              {role.description ? ` — ${role.description}` : ""}
+            </span>
+          </span>
+        </a>
+      ),
+    },
+    {
+      id: "type",
+      header: "Type",
+      render: (role) => (
+        <span className="ui-chips">
+          <Badge tone={role.isSystem ? "info" : "neutral"}>
+            {role.isSystem ? "system" : "custom"}
+          </Badge>
+          {role.isDefault ? <Badge tone="warning">default</Badge> : null}
+        </span>
+      ),
+    },
+    {
+      id: "users",
+      header: "Users",
+      mono: true,
+      render: (role) => role._count.userRoles,
+    },
+    {
+      id: "permissions",
+      header: "Permissions",
+      mono: true,
+      render: (role) =>
+        role.name === ROLES.SUPERADMIN ? "all (bypass)" : role._count.rolePermissions,
+    },
+    {
+      id: "updated",
+      header: "Updated",
+      mono: true,
+      nowrap: true,
+      render: (role) => role.updatedAt.toISOString().slice(0, 10),
+    },
+  ];
+
   return (
     <>
       <PageHeader
@@ -74,93 +136,36 @@ export default async function RolesPage({
         />
       ) : (
         <>
-          <form
-            method="GET"
+          <FilterBar
             action="/roles"
-            style={{
-              display: "flex",
-              gap: "var(--space-3)",
-              flexWrap: "wrap",
-              alignItems: "center",
-              marginBottom: "var(--space-4)",
-            }}
-          >
-            <div style={{ flex: "1 1 16rem", maxWidth: "26rem" }}>
-              <Input
-                type="search"
-                name="q"
-                defaultValue={query}
-                placeholder="Search role name…"
-                aria-label="Search roles"
-              />
-            </div>
-            <Button type="submit" variant="console" size="sm">
-              search
-            </Button>
-            {query ? (
-              <a href="/roles" className="ui-btn ui-btn--ghost ui-btn--sm">
-                clear
-              </a>
-            ) : null}
-          </form>
+            hasFilters={Boolean(query)}
+            clearHref="/roles"
+            submitLabel="search"
+            fields={[
+              {
+                kind: "search",
+                name: "q",
+                label: "search",
+                value: query,
+                placeholder: "role name or display name…",
+                width: 16,
+              },
+            ]}
+          />
 
-          {roles.length === 0 ? (
-            <EmptyState
-              glyph="[rol]"
-              title="No matching roles"
-              description="Nothing in the role catalog matches this search."
-            />
-          ) : (
-            <div className="ui-tablewrap">
-              <table className="ui-table">
-                <thead>
-                  <tr>
-                    <th>Role</th>
-                    <th>Type</th>
-                    <th>Users</th>
-                    <th>Permissions</th>
-                    <th>Updated</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {roles.map((role) => (
-                    <tr key={role.id}>
-                      <td>
-                        <a href={`/roles/${role.id}`} className="ui-table__link">
-                          <span className="ui-table__primary">
-                            {role.displayName}
-                            <span className="ui-table__sub">
-                              {role.name}
-                              {role.description ? ` — ${role.description}` : ""}
-                            </span>
-                          </span>
-                        </a>
-                      </td>
-                      <td>
-                        <span className="ui-chips">
-                          <Badge tone={role.isSystem ? "info" : "neutral"}>
-                            {role.isSystem ? "system" : "custom"}
-                          </Badge>
-                          {role.isDefault ? (
-                            <Badge tone="warning">default</Badge>
-                          ) : null}
-                        </span>
-                      </td>
-                      <td className="u-mono">{role._count.userRoles}</td>
-                      <td className="u-mono">
-                        {role.name === ROLES.SUPERADMIN
-                          ? "all (bypass)"
-                          : role._count.rolePermissions}
-                      </td>
-                      <td className="u-mono">
-                        {role.updatedAt.toISOString().slice(0, 10)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            columns={columns}
+            rows={roles}
+            getRowKey={(role) => role.id}
+            caption="Role catalog"
+            empty={
+              <EmptyState
+                glyph="[rol]"
+                title="No matching roles"
+                description="Nothing in the role catalog matches this search."
+              />
+            }
+          />
 
           {canEdit ? (
             <div style={{ marginTop: "var(--space-5)", maxWidth: "34rem" }}>
