@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import { ROLES, requireRole } from "@asafarim/auth";
-import { Badge, EmptyState, PageHeader, type BadgeTone } from "@asafarim/ui";
+import {
+  Badge,
+  DataTable,
+  EmptyState,
+  PageHeader,
+  type BadgeTone,
+  type ColumnDef,
+} from "@asafarim/ui";
 import {
   getTailnetDevices,
   type TailscaleDevice,
@@ -19,6 +26,59 @@ function onlineBadge(device: TailscaleDevice): { tone: BadgeTone; label: string 
   if (device.online) return { tone: "success", label: "online" };
   return { tone: "neutral", label: "offline" };
 }
+
+const deviceColumns: ColumnDef<TailscaleDevice>[] = [
+  {
+    id: "device",
+    header: "Device",
+    render: (device) => (
+      <>
+        <span className="ui-table__primary">{device.name || device.hostname}</span>
+        {device.isExternal ? <span className="ui-table__sub">shared device</span> : null}
+      </>
+    ),
+  },
+  {
+    id: "status",
+    header: "Status",
+    render: (device) => {
+      const status = onlineBadge(device);
+      return (
+        <>
+          <Badge tone={status.tone}>{status.label}</Badge>
+          {device.updateAvailable ? (
+            <span className="u-muted" style={{ marginLeft: "var(--space-2)" }}>
+              update available
+            </span>
+          ) : null}
+        </>
+      );
+    },
+  },
+  {
+    id: "addresses",
+    header: "Addresses",
+    mono: true,
+    render: (device) => device.addresses.join(", ") || "—",
+  },
+  { id: "os", header: "OS", render: (device) => device.os || "—" },
+  { id: "user", header: "User", render: (device) => device.user || "—" },
+  {
+    id: "lastSeen",
+    header: "Last seen",
+    mono: true,
+    nowrap: true,
+    render: (device) => formatDate(device.lastSeen),
+  },
+  {
+    id: "expires",
+    header: "Key expires",
+    mono: true,
+    nowrap: true,
+    render: (device) =>
+      device.keyExpiryDisabled ? "never" : formatDate(device.expires),
+  },
+];
 
 export default async function DevicesPage() {
   await requireRole([ROLES.ADMIN]);
@@ -80,53 +140,12 @@ export default async function DevicesPage() {
       )}
 
       {result.state === "ok" && result.devices.length > 0 ? (
-        <div className="ui-tablewrap">
-          <table className="ui-table">
-            <thead>
-              <tr>
-                <th>Device</th>
-                <th>Status</th>
-                <th>Addresses</th>
-                <th>OS</th>
-                <th>User</th>
-                <th>Last seen</th>
-                <th>Key expires</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.devices.map((device) => {
-                const status = onlineBadge(device);
-                return (
-                  <tr key={device.id}>
-                    <td>
-                      <span className="ui-table__primary">
-                        {device.name || device.hostname}
-                      </span>
-                      {device.isExternal ? (
-                        <span className="ui-table__sub"> shared device</span>
-                      ) : null}
-                    </td>
-                    <td>
-                      <Badge tone={status.tone}>{status.label}</Badge>
-                      {device.updateAvailable ? (
-                        <span className="u-muted" style={{ marginLeft: "var(--space-2)" }}>
-                          update available
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="u-mono">{device.addresses.join(", ") || "—"}</td>
-                    <td>{device.os || "—"}</td>
-                    <td>{device.user || "—"}</td>
-                    <td className="u-mono">{formatDate(device.lastSeen)}</td>
-                    <td className="u-mono">
-                      {device.keyExpiryDisabled ? "never" : formatDate(device.expires)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={deviceColumns}
+          rows={result.devices}
+          getRowKey={(device) => device.id}
+          caption="Tailnet devices"
+        />
       ) : null}
     </>
   );

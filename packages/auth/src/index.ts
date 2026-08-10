@@ -18,6 +18,21 @@ export {
   type AppAccessDecision,
   type AppAccessReason,
 } from "./apps";
+export {
+  MATRIX_ROLES,
+  MODULE_VISIBILITY_KEY,
+  NAV_MODULES,
+  filterModulesByVisibility,
+  getModuleOverrides,
+  getNavModule,
+  isModuleVisible,
+  parseModuleOverrides,
+  serializeModuleOverrides,
+  type ModuleOverrides,
+  type ModuleVisibilityContext,
+  type NavModule,
+  type NavModuleGroup,
+} from "./modules";
 export { hasPermission, getUserPermissions } from "./permissions";
 export { getSession, requireUser, requireRole } from "./session";
 export { generateUniqueUsername, slugifyUsername } from "./username";
