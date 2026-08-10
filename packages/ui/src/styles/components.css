@@ -1042,6 +1042,85 @@ a .ui-card {
   margin-left: auto;
 }
 
+/* ── Setting field (typed settings catalog) ─────────────────────── */
+
+.ui-setting {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ui-setting:last-child {
+  border-bottom: 0;
+}
+
+.ui-setting__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ui-setting__label {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.ui-setting__description {
+  font-size: var(--text-xs);
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.ui-setting__toggle {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.ui-setting__toggle input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.ui-setting__editor {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.ui-setting__input {
+  flex: 1 1 16rem;
+  max-width: 30rem;
+}
+
+.ui-setting__hint {
+  font-size: var(--text-xs);
+  margin: var(--space-1) 0 0;
+}
+
+.ui-setting__color {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ui-setting__color input[type="color"] {
+  width: 3rem;
+  padding: 0.1rem;
+  cursor: pointer;
+}
+
+.ui-setting__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
 /* ── Pagination ─────────────────────────────────────────────────── */
 
 .ui-pagination {
