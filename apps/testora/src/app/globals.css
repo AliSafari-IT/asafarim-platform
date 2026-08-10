@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
 
 :root {
   --background: 222 28% 7%;
