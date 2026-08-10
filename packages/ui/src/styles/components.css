@@ -962,6 +962,236 @@ a .ui-card {
   white-space: nowrap;
 }
 
+.ui-table th.ui-table__check,
+.ui-table td.ui-table__check {
+  width: 1%;
+  padding-right: 0;
+  white-space: nowrap;
+}
+
+.ui-table__check input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ui-table__check input[type="checkbox"]:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+/* ── Filter bar (GET form above every console table) ────────────── */
+
+.ui-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+  margin-bottom: var(--space-4);
+}
+
+.ui-filterbar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.ui-filterbar__label {
+  display: block;
+}
+
+.ui-filterbar__actions,
+.ui-filterbar__chips,
+.ui-filterbar__trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ui-filterbar__trailing {
+  margin-left: auto;
+}
+
+/* ── Bulk action bar ────────────────────────────────────────────── */
+
+.ui-bulkbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+}
+
+.ui-bulkbar__count {
+  color: var(--ink);
+}
+
+.ui-bulkbar__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ui-bulkbar__hint {
+  font-size: var(--text-xs);
+  margin-left: auto;
+}
+
+/* ── Visibility matrix (module × role) ──────────────────────────── */
+
+.ui-matrix {
+  margin-bottom: var(--space-5);
+}
+
+.ui-matrix__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.ui-matrix__cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease);
+}
+
+.ui-matrix__cell:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.ui-matrix__cell.is-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+/* Amber ring: this cell deviates from the module's registry default. */
+.ui-matrix__cell.is-overridden {
+  box-shadow: 0 0 0 2px #f0b429;
+}
+
+.ui-matrix__cell.is-locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ui-matrix__cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Setting field (typed settings catalog) ─────────────────────── */
+
+.ui-setting {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ui-setting:last-child {
+  border-bottom: 0;
+}
+
+.ui-setting__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ui-setting__label {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.ui-setting__description {
+  font-size: var(--text-xs);
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.ui-setting__toggle {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.ui-setting__toggle input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.ui-setting__editor {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.ui-setting__input {
+  flex: 1 1 16rem;
+  max-width: 30rem;
+}
+
+.ui-setting__hint {
+  font-size: var(--text-xs);
+  margin: var(--space-1) 0 0;
+}
+
+.ui-setting__color {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ui-setting__color input[type="color"] {
+  width: 3rem;
+  padding: 0.1rem;
+  cursor: pointer;
+}
+
+.ui-setting__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+/* ── Pagination ─────────────────────────────────────────────────── */
+
+.ui-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+}
+
+.ui-pagination__actions {
+  margin-left: var(--space-3);
+}
+
 /* ── Chip cluster (roles, apps, permissions) ────────────────────── */
 
 .ui-chips {
@@ -1145,6 +1375,17 @@ a .ui-card {
   background: var(--accent-soft);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   color: var(--accent);
+}
+
+/* Caveats and scope warnings — louder than info, not an error. */
+.ui-alert--warning {
+  background: rgba(240, 180, 41, 0.1);
+  border-color: rgba(240, 180, 41, 0.4);
+  color: #f0b429;
+}
+
+[data-app="web"] .ui-alert--warning {
+  color: #92610a;
 }
 
 /* ── Empty state ────────────────────────────────────────────────── */
@@ -1392,6 +1633,22 @@ a .ui-card {
 
 .u-muted {
   color: var(--muted);
+}
+
+.u-nowrap {
+  white-space: nowrap;
+}
+
+.u-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Wide, matrix-style content that has no readable narrow form: hide it on

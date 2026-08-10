@@ -4,16 +4,36 @@ import { prisma } from "@asafarim/db";
 import { ROLES, hasPermission, requireRole } from "@asafarim/auth";
 import {
   Badge,
-  Button,
+  DataTable,
   EmptyState,
-  Input,
+  FilterBar,
   PageHeader,
+  Pagination,
   type BadgeTone,
+  type ColumnDef,
 } from "@asafarim/ui";
+import {
+  PAGE_SIZE,
+  auditHref,
+  auditQueryString,
+  buildAuditWhere,
+  hasAuditFilters,
+  parseAuditFilters,
+  type AuditFilters,
+} from "./query";
 
 export const metadata: Metadata = { title: "Audit Logs" };
 
-const PAGE_SIZE = 25;
+interface AuditRow {
+  id: string;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  changes: unknown;
+  ipAddress: string | null;
+  createdAt: Date;
+  user: { id: string; email: string } | null;
+}
 
 function formatDateTime(date: Date): string {
   return date.toISOString().replace("T", " ").slice(0, 19);
@@ -21,58 +41,13 @@ function formatDateTime(date: Date): string {
 
 function actionTone(action: string): BadgeTone {
   if (action.includes("denied") || action.includes("deleted")) return "danger";
-  if (action.includes("deactivated") || action.includes("removed")) {
-    return "warning";
-  }
+  if (action.includes("deactivated") || action.includes("removed")) return "warning";
   return "info";
 }
 
-interface Filters {
-  q: string;
-  action: string;
-  entity: string;
-  actor: string;
-  from: string;
-  to: string;
-  page: number;
-}
-
-function buildWhere(filters: Filters) {
-  const createdAt: { gte?: Date; lte?: Date } = {};
-  if (filters.from) createdAt.gte = new Date(`${filters.from}T00:00:00Z`);
-  if (filters.to) createdAt.lte = new Date(`${filters.to}T23:59:59Z`);
-
-  return {
-    ...(filters.action ? { action: filters.action } : {}),
-    ...(filters.entity ? { entity: filters.entity } : {}),
-    ...(filters.actor
-      ? {
-          user: {
-            email: { contains: filters.actor, mode: "insensitive" as const },
-          },
-        }
-      : {}),
-    ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
-    ...(filters.q
-      ? {
-          OR: [
-            { action: { contains: filters.q, mode: "insensitive" as const } },
-            { entity: { contains: filters.q, mode: "insensitive" as const } },
-            { entityId: { contains: filters.q, mode: "insensitive" as const } },
-            {
-              user: {
-                email: { contains: filters.q, mode: "insensitive" as const },
-              },
-            },
-          ],
-        }
-      : {}),
-  };
-}
-
-async function getAuditData(filters: Filters) {
+async function getAuditData(filters: AuditFilters) {
   try {
-    const where = buildWhere(filters);
+    const where = buildAuditWhere(filters);
     const [events, total, actions, entities] = await Promise.all([
       prisma.auditLog.findMany({
         where,
@@ -113,19 +88,6 @@ async function getAuditData(filters: Filters) {
   }
 }
 
-function pageHref(filters: Filters, page: number): string {
-  const params = new URLSearchParams();
-  if (filters.q) params.set("q", filters.q);
-  if (filters.action) params.set("action", filters.action);
-  if (filters.entity) params.set("entity", filters.entity);
-  if (filters.actor) params.set("actor", filters.actor);
-  if (filters.from) params.set("from", filters.from);
-  if (filters.to) params.set("to", filters.to);
-  if (page > 1) params.set("page", String(page));
-  const qs = params.toString();
-  return qs ? `/audit-logs?${qs}` : "/audit-logs";
-}
-
 export default async function AuditLogsPage({
   searchParams,
 }: {
@@ -137,20 +99,83 @@ export default async function AuditLogsPage({
   }
 
   const params = await searchParams;
-  const filters: Filters = {
-    q: (params.q ?? "").trim(),
-    action: (params.action ?? "").trim(),
-    entity: (params.entity ?? "").trim(),
-    actor: (params.actor ?? "").trim(),
-    from: (params.from ?? "").trim(),
-    to: (params.to ?? "").trim(),
-    page: Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1),
-  };
-  const hasFilters = Boolean(
-    filters.q || filters.action || filters.entity || filters.actor || filters.from || filters.to
-  );
-
+  const filters = parseAuditFilters(params);
+  const hasFilters = hasAuditFilters(filters);
   const data = await getAuditData(filters);
+
+  const columns: ColumnDef<AuditRow>[] = [
+    {
+      id: "timestamp",
+      header: "Timestamp (UTC)",
+      mono: true,
+      nowrap: true,
+      render: (event) => formatDateTime(event.createdAt),
+    },
+    {
+      id: "actor",
+      header: "Actor",
+      render: (event) =>
+        event.user ? (
+          <a href={`/users/${event.user.id}`} className="ui-table__link">
+            {event.user.email}
+          </a>
+        ) : (
+          <span className="u-muted">system</span>
+        ),
+    },
+    {
+      id: "action",
+      header: "Action",
+      render: (event) => <Badge tone={actionTone(event.action)}>{event.action}</Badge>,
+    },
+    {
+      id: "target",
+      header: "Target",
+      mono: true,
+      render: (event) => (
+        <>
+          {event.entity}
+          {event.entityId ? <span className="ui-table__sub">{event.entityId}</span> : null}
+        </>
+      ),
+    },
+    {
+      id: "ip",
+      header: "IP",
+      mono: true,
+      nowrap: true,
+      render: (event) => event.ipAddress ?? "—",
+    },
+    {
+      id: "detail",
+      header: "Detail",
+      render: (event) =>
+        event.changes ? (
+          <details>
+            <summary className="u-mono" style={{ cursor: "pointer" }}>
+              changes
+            </summary>
+            <pre
+              style={{
+                margin: "var(--space-2) 0 0",
+                padding: "var(--space-2)",
+                background: "var(--surface-2)",
+                borderRadius: "var(--radius-xs)",
+                fontSize: "var(--text-xs)",
+                maxWidth: "24rem",
+                overflowX: "auto",
+              }}
+            >
+              {JSON.stringify(event.changes, null, 2)}
+            </pre>
+          </details>
+        ) : (
+          <span className="u-muted">—</span>
+        ),
+    },
+  ];
+
+  const exportQs = auditQueryString(filters, { page: 1 });
 
   return (
     <>
@@ -169,223 +194,84 @@ export default async function AuditLogsPage({
         />
       ) : (
         <>
-          <form
-            method="GET"
+          <FilterBar
             action="/audit-logs"
-            style={{
-              display: "flex",
-              gap: "var(--space-3)",
-              flexWrap: "wrap",
-              alignItems: "end",
-              marginBottom: "var(--space-4)",
-            }}
-          >
-            <div style={{ flex: "1 1 14rem", maxWidth: "22rem" }}>
-              <label className="u-mono" htmlFor="audit-q">
-                search
-              </label>
-              <Input
-                id="audit-q"
-                type="search"
-                name="q"
-                defaultValue={filters.q}
-                placeholder="action, entity, id, actor…"
-              />
-            </div>
-            <div>
-              <label className="u-mono" htmlFor="audit-action">
-                action
-              </label>
-              <select
-                id="audit-action"
-                name="action"
-                defaultValue={filters.action}
-                className="ui-input"
-              >
-                <option value="">all</option>
-                {data.actions.map((action) => (
-                  <option key={action} value={action}>
-                    {action}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="u-mono" htmlFor="audit-entity">
-                target
-              </label>
-              <select
-                id="audit-entity"
-                name="entity"
-                defaultValue={filters.entity}
-                className="ui-input"
-              >
-                <option value="">all</option>
-                {data.entities.map((entity) => (
-                  <option key={entity} value={entity}>
-                    {entity}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ maxWidth: "12rem" }}>
-              <label className="u-mono" htmlFor="audit-actor">
-                actor
-              </label>
-              <Input
-                id="audit-actor"
-                name="actor"
-                defaultValue={filters.actor}
-                placeholder="email contains…"
-              />
-            </div>
-            <div>
-              <label className="u-mono" htmlFor="audit-from">
-                from
-              </label>
-              <Input
-                id="audit-from"
-                type="date"
-                name="from"
-                defaultValue={filters.from}
-              />
-            </div>
-            <div>
-              <label className="u-mono" htmlFor="audit-to">
-                to
-              </label>
-              <Input id="audit-to" type="date" name="to" defaultValue={filters.to} />
-            </div>
-            <Button type="submit" variant="console" size="sm">
-              filter
-            </Button>
-            {hasFilters ? (
-              <a href="/audit-logs" className="ui-btn ui-btn--ghost ui-btn--sm">
-                clear
-              </a>
-            ) : null}
-          </form>
+            hasFilters={hasFilters}
+            clearHref="/audit-logs"
+            fields={[
+              {
+                kind: "search",
+                name: "q",
+                label: "search",
+                value: filters.q,
+                placeholder: "action, entity, id, actor…",
+                width: 14,
+              },
+              {
+                kind: "select",
+                name: "action",
+                label: "action",
+                value: filters.action,
+                options: [
+                  { value: "", label: "all" },
+                  ...data.actions.map((action) => ({ value: action, label: action })),
+                ],
+              },
+              {
+                kind: "select",
+                name: "entity",
+                label: "target",
+                value: filters.entity,
+                options: [
+                  { value: "", label: "all" },
+                  ...data.entities.map((entity) => ({ value: entity, label: entity })),
+                ],
+              },
+              {
+                kind: "text",
+                name: "actor",
+                label: "actor",
+                value: filters.actor,
+                placeholder: "email contains…",
+                width: 8,
+              },
+              { kind: "date", name: "from", label: "from", value: filters.from },
+              { kind: "date", name: "to", label: "to", value: filters.to },
+            ]}
+          />
 
-          {data.events.length === 0 ? (
-            <EmptyState
-              glyph="> _"
-              title={hasFilters ? "No matching events" : "No events recorded yet"}
-              description={
-                hasFilters
-                  ? "Nothing in the audit stream matches these filters."
-                  : "The audit stream is armed — administrative actions will appear here as they happen."
+          <DataTable
+            columns={columns}
+            rows={data.events}
+            getRowKey={(event) => event.id}
+            caption="Audit event stream"
+            empty={
+              <EmptyState
+                glyph="> _"
+                title={hasFilters ? "No matching events" : "No events recorded yet"}
+                description={
+                  hasFilters
+                    ? "Nothing in the audit stream matches these filters."
+                    : "The audit stream is armed — administrative actions will appear here as they happen."
+                }
+              />
+            }
+          />
+
+          {data.events.length > 0 ? (
+            <Pagination
+              page={filters.page}
+              pageSize={PAGE_SIZE}
+              total={data.total}
+              noun="event"
+              hrefFor={(page) => auditHref(filters, { page })}
+              actions={
+                <a href={exportQs ? `/audit-logs/export?${exportQs}` : "/audit-logs/export"}>
+                  export csv
+                </a>
               }
             />
-          ) : (
-            <>
-              <div className="ui-tablewrap">
-                <table className="ui-table">
-                  <thead>
-                    <tr>
-                      <th>Timestamp (UTC)</th>
-                      <th>Actor</th>
-                      <th>Action</th>
-                      <th>Target</th>
-                      <th>IP</th>
-                      <th>Detail</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.events.map((event) => (
-                      <tr key={event.id}>
-                        <td className="u-mono">{formatDateTime(event.createdAt)}</td>
-                        <td>
-                          {event.user ? (
-                            <a
-                              href={`/users/${event.user.id}`}
-                              className="ui-table__link"
-                            >
-                              {event.user.email}
-                            </a>
-                          ) : (
-                            <span className="u-muted">system</span>
-                          )}
-                        </td>
-                        <td>
-                          <Badge tone={actionTone(event.action)}>
-                            {event.action}
-                          </Badge>
-                        </td>
-                        <td className="u-mono">
-                          {event.entity}
-                          {event.entityId ? (
-                            <span className="ui-table__sub">{event.entityId}</span>
-                          ) : null}
-                        </td>
-                        <td className="u-mono">{event.ipAddress ?? "—"}</td>
-                        <td>
-                          {event.changes ? (
-                            <details>
-                              <summary
-                                className="u-mono"
-                                style={{ cursor: "pointer" }}
-                              >
-                                changes
-                              </summary>
-                              <pre
-                                style={{
-                                  margin: "var(--space-2) 0 0",
-                                  padding: "var(--space-2)",
-                                  background: "var(--surface-2)",
-                                  borderRadius: "var(--radius-xs)",
-                                  fontSize: "var(--text-xs)",
-                                  maxWidth: "24rem",
-                                  overflowX: "auto",
-                                }}
-                              >
-                                {JSON.stringify(event.changes, null, 2)}
-                              </pre>
-                            </details>
-                          ) : (
-                            <span className="u-muted">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "var(--space-3)",
-                  flexWrap: "wrap",
-                  marginTop: "var(--space-4)",
-                }}
-              >
-                <span className="u-mono">
-                  {data.total} event{data.total === 1 ? "" : "s"} · page{" "}
-                  {filters.page} of {Math.max(1, Math.ceil(data.total / PAGE_SIZE))}
-                </span>
-                <span className="ui-chips">
-                  {filters.page > 1 ? (
-                    <a
-                      href={pageHref(filters, filters.page - 1)}
-                      className="ui-btn ui-btn--console ui-btn--sm"
-                    >
-                      ← prev
-                    </a>
-                  ) : null}
-                  {filters.page * PAGE_SIZE < data.total ? (
-                    <a
-                      href={pageHref(filters, filters.page + 1)}
-                      className="ui-btn ui-btn--console ui-btn--sm"
-                    >
-                      next →
-                    </a>
-                  ) : null}
-                </span>
-              </div>
-            </>
-          )}
+          ) : null}
         </>
       )}
     </>

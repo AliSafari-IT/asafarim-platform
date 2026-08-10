@@ -10,15 +10,25 @@ import {
 } from "@asafarim/auth";
 import {
   Badge,
-  Button,
+  DataTable,
   EmptyState,
-  Input,
+  FilterBar,
   PageHeader,
   Panel,
   Section,
+  type ColumnDef,
 } from "@asafarim/ui";
 
 export const metadata: Metadata = { title: "Permissions" };
+
+interface PermissionRow {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  group: string;
+  rolePermissions: { role: { id: string; name: string } }[];
+}
 
 async function getCatalog() {
   try {
@@ -106,6 +116,85 @@ export default async function PermissionsPage({
     filtered.some((p) => p.group === group)
   );
 
+  const permissionColumns: ColumnDef<PermissionRow>[] = [
+    {
+      id: "permission",
+      header: "Permission",
+      render: (permission) => (
+        <span className="ui-table__primary">
+          {permission.displayName}
+          <span className="ui-table__sub">
+            <span className="u-mono">{permission.name}</span>
+            {permission.description ? ` — ${permission.description}` : ""}
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: "roles",
+      header: "Granted to roles",
+      render: (permission) => {
+        const grantedRoles = permission.rolePermissions.map((rp) => rp.role);
+        return (
+          <span className="ui-chips">
+            {grantedRoles.length === 0 ? (
+              <span className="u-muted">—</span>
+            ) : (
+              grantedRoles.map((role) => (
+                <a
+                  key={role.id}
+                  href={`/roles/${role.id}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  <Badge
+                    tone={
+                      role.name === ROLES.SUPERADMIN
+                        ? "danger"
+                        : role.name === ROLES.ADMIN
+                          ? "info"
+                          : "neutral"
+                    }
+                  >
+                    {role.name}
+                  </Badge>
+                </a>
+              ))
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      id: "apps",
+      header: "Unlocks apps",
+      render: (permission) => {
+        const apps = [
+          ...new Set(
+            permission.rolePermissions.flatMap((rp) => appsUnlockedBy(rp.role.name))
+          ),
+        ];
+        return (
+          <span className="ui-chips">
+            {apps.length === 0 ? (
+              <span className="u-muted">baseline</span>
+            ) : (
+              apps.map((app) => (
+                <Badge key={app} tone="success">
+                  {app}
+                </Badge>
+              ))
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      id: "origin",
+      header: "Origin",
+      render: () => <Badge tone="info">seeded</Badge>,
+    },
+  ];
+
   return (
     <>
       <PageHeader
@@ -115,51 +204,33 @@ export default async function PermissionsPage({
         description="The permission catalog grouped by domain. Grants are managed per role; a user holds a permission when any of their roles grants it — superadmin bypasses all checks."
       />
 
-      <form
-        method="GET"
+      <FilterBar
         action="/permissions"
-        style={{
-          display: "flex",
-          gap: "var(--space-3)",
-          flexWrap: "wrap",
-          alignItems: "center",
-          marginBottom: "var(--space-4)",
+        hasFilters={Boolean(query || groupFilter)}
+        clearHref="/permissions"
+        submitLabel="search"
+        fields={[
+          {
+            kind: "search",
+            name: "q",
+            label: "search",
+            value: params.q ?? "",
+            placeholder: "permission key or description…",
+            width: 16,
+          },
+        ]}
+        chips={{
+          label: "group",
+          options: [
+            { label: "all", href: "/permissions", active: !groupFilter },
+            ...groups.map((group) => ({
+              label: group,
+              href: `/permissions?group=${encodeURIComponent(group)}`,
+              active: groupFilter === group,
+            })),
+          ],
         }}
-      >
-        <div style={{ flex: "1 1 16rem", maxWidth: "26rem" }}>
-          <Input
-            type="search"
-            name="q"
-            defaultValue={params.q ?? ""}
-            placeholder="Search permission key or description…"
-            aria-label="Search permissions"
-          />
-        </div>
-        <Button type="submit" variant="console" size="sm">
-          search
-        </Button>
-        <span className="ui-chips">
-          <a
-            href="/permissions"
-            className={`ui-btn ui-btn--sm ${
-              groupFilter ? "ui-btn--ghost" : "ui-btn--console"
-            }`}
-          >
-            all
-          </a>
-          {groups.map((group) => (
-            <a
-              key={group}
-              href={`/permissions?group=${encodeURIComponent(group)}`}
-              className={`ui-btn ui-btn--sm ${
-                groupFilter === group ? "ui-btn--console" : "ui-btn--ghost"
-              }`}
-            >
-              {group}
-            </a>
-          ))}
-        </span>
-      </form>
+      />
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -174,92 +245,12 @@ export default async function PermissionsPage({
             kicker={group}
             kickerIndex={String(index + 1).padStart(2, "0")}
           >
-            <div className="ui-tablewrap">
-              <table className="ui-table">
-                <thead>
-                  <tr>
-                    <th>Permission</th>
-                    <th>Granted to roles</th>
-                    <th>Unlocks apps</th>
-                    <th>Origin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered
-                    .filter((p) => p.group === group)
-                    .map((permission) => {
-                      const grantedRoles = permission.rolePermissions.map(
-                        (rp) => rp.role
-                      );
-                      const apps = [
-                        ...new Set(
-                          grantedRoles.flatMap((role) =>
-                            appsUnlockedBy(role.name)
-                          )
-                        ),
-                      ];
-                      return (
-                        <tr key={permission.id}>
-                          <td>
-                            <span className="ui-table__primary">
-                              {permission.displayName}
-                              <span className="ui-table__sub">
-                                <span className="u-mono">{permission.name}</span>
-                                {permission.description
-                                  ? ` — ${permission.description}`
-                                  : ""}
-                              </span>
-                            </span>
-                          </td>
-                          <td>
-                            <span className="ui-chips">
-                              {grantedRoles.length === 0 ? (
-                                <span className="u-muted">—</span>
-                              ) : (
-                                grantedRoles.map((role) => (
-                                  <a
-                                    key={role.id}
-                                    href={`/roles/${role.id}`}
-                                    style={{ textDecoration: "none" }}
-                                  >
-                                    <Badge
-                                      tone={
-                                        role.name === ROLES.SUPERADMIN
-                                          ? "danger"
-                                          : role.name === ROLES.ADMIN
-                                            ? "info"
-                                            : "neutral"
-                                      }
-                                    >
-                                      {role.name}
-                                    </Badge>
-                                  </a>
-                                ))
-                              )}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="ui-chips">
-                              {apps.length === 0 ? (
-                                <span className="u-muted">baseline</span>
-                              ) : (
-                                apps.map((app) => (
-                                  <Badge key={app} tone="success">
-                                    {app}
-                                  </Badge>
-                                ))
-                              )}
-                            </span>
-                          </td>
-                          <td>
-                            <Badge tone="info">seeded</Badge>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={permissionColumns}
+              rows={filtered.filter((p) => p.group === group)}
+              getRowKey={(permission) => permission.id}
+              caption={`${group} permissions`}
+            />
           </Section>
         ))
       )}
