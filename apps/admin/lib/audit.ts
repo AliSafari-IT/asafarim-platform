@@ -50,7 +50,8 @@ export interface AuditEventInput {
     | "SeedProvider"
     | "SeedOperation"
     | "SeedValidationSchedule";
-  entityId: string;
+  /** Null for events about a collection rather than one row (e.g. exports). */
+  entityId: string | null;
   changes?: Record<string, unknown>;
 }
 
