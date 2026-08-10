@@ -40,6 +40,11 @@ export type EduAuditAction =
   | "PAYOUT_REQUESTED"
   | "PAYOUT_SENT"
   | "PAYOUT_FAILED"
+  // Learning brief experience
+  | "BRIEF_CREATED"
+  | "BRIEF_CONFIRMED"
+  | "SESSION_RECORDED"
+  | "REVIEW_SUBMITTED"
   // Tutor verification
   | "TUTOR_VERIFICATION_REQUESTED"
   | "TUTOR_VERIFICATION_NEEDS_CHANGES"

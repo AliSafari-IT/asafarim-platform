@@ -43,7 +43,7 @@ const tutorCards = [
 function PrimaryActions() {
   const { data: session } = useSession();
   const roles = session?.user?.roles || [];
-  const studentHref = session?.user ? "/student/inquiry/new" : `${portalUrl}/sign-in?callbackUrl=${encodeURIComponent(edumatchUrl + "/student/inquiry/new")}`;
+  const studentHref = session?.user ? "/student/learn" : `${portalUrl}/sign-in?callbackUrl=${encodeURIComponent(edumatchUrl + "/student/learn")}`;
   const tutorHref = session?.user ? "/tutor" : `${portalUrl}/sign-in?callbackUrl=${encodeURIComponent(edumatchUrl + "/tutor")}`;
   const primaryHref = roles.includes("edumatch_tutor") ? tutorHref : studentHref;
   const primaryLabel = roles.includes("edumatch_tutor") ? "Open tutor studio" : "Ask your first question";
@@ -116,7 +116,7 @@ export default function HomePage() {
             <h3>Understand it now</h3>
             <p>Ask a question in your own words. EduMatch helps you reason through it step by step without simply handing over the answer.</p>
             <ul><li><Check size={15} /> Age-aware explanations</li><li><Check size={15} /> Study plans and practice</li><li><Check size={15} /> Academic integrity guardrails</li></ul>
-            <Link href="/student/inquiry/new">Try the study companion <ArrowRight size={16} /></Link>
+            <Link href="/student/learn">Try the study companion <ArrowRight size={16} /></Link>
           </article>
           <article className="edu-path-card edu-path-human">
             <div className="edu-path-icon"><UsersRound /></div>
@@ -124,7 +124,7 @@ export default function HomePage() {
             <h3>Find your person</h3>
             <p>Share your goal once. Our matching engine weighs subject, level, location, availability, trust, and learning preferences.</p>
             <ul><li><Check size={15} /> Explainable match scores</li><li><Check size={15} /> Verification-backed profiles</li><li><Check size={15} /> Online or nearby</li></ul>
-            <Link href="/student/inquiry/new">Find a tutor <ArrowRight size={16} /></Link>
+            <Link href="/student/learn">Find a tutor <ArrowRight size={16} /></Link>
           </article>
           <article className="edu-path-card edu-path-grow">
             <div className="edu-path-icon"><GraduationCap /></div>
@@ -147,7 +147,7 @@ export default function HomePage() {
             <div><MapPin size={18} /><span><strong>Practical fit</strong>Location, mode, budget, availability</span></div>
             <div><ShieldCheck size={18} /><span><strong>Trust fit</strong>Verification and quality signals</span></div>
           </div>
-          <Link className="edu-text-link" href="/student/inquiry/new">See how matching works <ArrowRight size={16} /></Link>
+          <Link className="edu-text-link" href="/student/learn">See how matching works <ArrowRight size={16} /></Link>
         </div>
         <div className="edu-tutor-stack">
           <div className="edu-stack-header"><span>Example recommendations</span><span>Illustrative profiles</span></div>
