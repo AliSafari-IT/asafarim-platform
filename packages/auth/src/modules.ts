@@ -75,7 +75,10 @@ const CONSOLE_MODULES: readonly NavModule[] = [
     label: "Seed Data",
     description: "Seed provider management.",
     group: "console",
-    defaultRoles: [ROLES.SUPERADMIN],
+    // Admin-visible by default: the real gate is the seeds.view permission
+    // the console layout also checks, and narrowing this to superadmin here
+    // would hide the section from admins who legitimately hold it.
+    defaultRoles: [ROLES.ADMIN, ROLES.SUPERADMIN],
     href: "/seed-data",
   },
   {
