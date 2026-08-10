@@ -8,6 +8,13 @@
  * consolation prize — the student can carry on with the plan and never book
  * anything. Recommending a tutor to someone who doesn't need one is the
  * failure mode this card exists to prevent.
+ *
+ * "Don't push a tutor" is not the same as "offer no way forward", though. A
+ * self-study student who read the explanation and *still* wants a tutor used to
+ * hit a dead end here: the card rendered no action at all, and the only thing
+ * left on the page was an empty message box. So SELF_STUDY keeps its reassuring
+ * framing and its primary "carry on alone" action, and puts the tutor route
+ * beside it as a quiet secondary — available, never nagged.
  */
 
 import { useTranslation } from "@asafarim/shared-i18n";
@@ -17,10 +24,13 @@ export function TriageCard({
   brief,
   onReview,
   canReview,
+  onKeepPractising,
 }: {
   brief: BriefView;
   onReview: () => void;
   canReview: boolean;
+  /** Focus the message box so "ask another question" is one click, not a hunt. */
+  onKeepPractising: () => void;
 }) {
   const { t } = useTranslation();
   if (!brief.triageOutcome) return null;
@@ -67,16 +77,37 @@ export function TriageCard({
         </p>
       </div>
 
-      {brief.triageOutcome !== "SELF_STUDY" && (
-        <button
-          type="button"
-          onClick={onReview}
-          disabled={!canReview}
-          className="mt-4 rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {t("edumatch.learn.reviewBriefBtn")}
-        </button>
-      )}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {brief.triageOutcome === "SELF_STUDY" ? (
+          <>
+            <button
+              type="button"
+              onClick={onKeepPractising}
+              className="rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+            >
+              {t("edumatch.learn.askFollowUp")}
+            </button>
+            <button
+              type="button"
+              onClick={onReview}
+              disabled={!canReview}
+              className="rounded-lg border border-[var(--color-border-strong)] px-5 py-2.5 text-sm text-[var(--color-text)] transition hover:bg-[var(--color-surface)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {t("edumatch.learn.tutorAnywayBtn")}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={onReview}
+            disabled={!canReview}
+            className="rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {t("edumatch.learn.reviewBriefBtn")}
+          </button>
+        )}
+      </div>
+
       {!canReview && brief.blockers.length > 0 && (
         <p className="mt-2 text-xs text-[var(--color-text-muted)]">
           {t("edumatch.learn.stillNeeded", {

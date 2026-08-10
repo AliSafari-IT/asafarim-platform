@@ -128,6 +128,12 @@ Rules:
   work a DIFFERENT example than the one they submitted, and give them practice.
   If the student is asking you to complete an assessment for them, omit "help"
   and set triage.outcome to "NEEDS_DIAGNOSTIC" with a rationale saying so.
+- "help" is a one-time teaching moment, not something to repeat every turn. If
+  an earlier Assistant turn already explained the topic, OMIT "help" entirely
+  on this turn — the student is now just answering logistics questions (school
+  year, city, availability, deadline), not asking to be taught again. Only
+  return "help" again if the student has asked a genuinely new question or
+  named a new topic since the last explanation.
 - Choose SELF_STUDY when an explanation plus practice is plausibly enough.
   Choose TUTOR_RECOMMENDED when the gap is structural, the deadline is tight,
   or the student has already tried and stayed stuck.
@@ -152,6 +158,14 @@ function buildExtractionPrompt(
   const localeLine = localeHint
     ? `The student's app is set to "${toBaseLanguage(localeHint)}". Use that as the language only if the conversation gives no clearer signal.`
     : "";
+  const helpAlreadyGiven = turns.some(
+    (t) => t.role === "ASSISTANT" && t.kind === "HELP",
+  );
+  const helpLine = helpAlreadyGiven
+    ? 'You have already given "help" earlier in this conversation (see the ' +
+      'Assistant turns above). OMIT "help" from your response unless the ' +
+      "student just asked a genuinely new question or named a new topic."
+    : "";
 
   return [
     "Conversation so far:",
@@ -160,6 +174,7 @@ function buildExtractionPrompt(
     "Already established (do not contradict without an explicit correction from the student):",
     knownJson,
     localeLine,
+    helpLine,
     "",
     "Return the JSON object now.",
   ]

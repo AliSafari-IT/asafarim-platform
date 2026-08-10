@@ -62,6 +62,7 @@ export default function LearnPage() {
   const [quoteRequestId, setQuoteRequestId] = useState<string | null>(null);
 
   const transcriptEnd = useRef<HTMLDivElement>(null);
+  const messageBox = useRef<HTMLTextAreaElement>(null);
   const uploaderKey = useRef(0);
 
   const applyStep = useCallback((data: StepResponse) => {
@@ -230,10 +231,16 @@ export default function LearnPage() {
         <>
           <Transcript turns={turns} busy={busy} endRef={transcriptEnd} />
 
-          {question && (
+          {question ? (
             <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
               {t("edumatch.learn.answerPrompt")}
             </p>
+          ) : (
+            brief?.readyForReview && (
+              <p className="mb-3 text-xs text-[var(--color-text-muted)]">
+                {t("edumatch.learn.briefDoneHint")}
+              </p>
+            )
           )}
 
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
@@ -242,6 +249,7 @@ export default function LearnPage() {
             </label>
             <textarea
               id="learn-message"
+              ref={messageBox}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => {
@@ -249,8 +257,14 @@ export default function LearnPage() {
               }}
               rows={turns.length === 0 ? 4 : 2}
               maxLength={4000}
+              // Once the conversation is under way the long worked-example hint
+              // reads as if the assistant re-asked the opening question. Show
+              // the pending question if there is one, otherwise a short nudge.
               placeholder={
-                question?.text ?? t("edumatch.learn.inputPlaceholder")
+                question?.text ??
+                (turns.length === 0
+                  ? t("edumatch.learn.inputPlaceholder")
+                  : t("edumatch.learn.askFollowUp"))
               }
               className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
             />
@@ -287,6 +301,7 @@ export default function LearnPage() {
               brief={brief}
               onReview={() => setPhase("REVIEW")}
               canReview={brief.readyForReview && brief.blockers.length === 0}
+              onKeepPractising={() => messageBox.current?.focus()}
             />
           )}
         </>
