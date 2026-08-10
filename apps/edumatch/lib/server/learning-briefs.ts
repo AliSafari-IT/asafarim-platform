@@ -267,15 +267,30 @@ async function writeAssistantTurns(
   briefId: string,
   analysis: IntakeAnalysis,
   asked: readonly string[],
+  existingTurns: readonly IntakeTurnView[] = [],
 ): Promise<{ question: IntakeStepResult["question"]; help: ImmediateHelp | null }> {
   const creates: Prisma.EduIntakeTurnCreateManyInput[] = [];
 
-  if (analysis.help) {
+  // Belt-and-suspenders: even though the prompt tells the model to omit
+  // "help" once it has already taught this topic, don't trust it blindly —
+  // if the newly produced help renders to text we've already shown the
+  // student, drop it rather than repeat the same explanation every turn.
+  const alreadyRenderedHelp = new Set(
+    existingTurns
+      .filter((t) => t.role === "ASSISTANT" && t.kind === "HELP")
+      .map((t) => t.content),
+  );
+  const help =
+    analysis.help && !alreadyRenderedHelp.has(renderHelp(analysis.help))
+      ? analysis.help
+      : null;
+
+  if (help) {
     creates.push({
       briefId,
       role: "ASSISTANT",
       kind: "HELP",
-      content: renderHelp(analysis.help),
+      content: renderHelp(help),
     });
   }
 
@@ -309,7 +324,7 @@ async function writeAssistantTurns(
     });
   }
 
-  return { question, help: analysis.help };
+  return { question, help };
 }
 
 /** Flatten structured help into the markdown the chat transcript stores. */
@@ -419,7 +434,12 @@ export async function startIntake(
   });
 
   await persistAnalysis(created.id, analysis);
-  const { question, help } = await writeAssistantTurns(created.id, analysis, []);
+  const { question, help } = await writeAssistantTurns(
+    created.id,
+    analysis,
+    [],
+    toIntakeTurnViews(created.turns),
+  );
   return finish(created.id, studentId, moderation, question, help);
 }
 
@@ -480,6 +500,7 @@ export async function replyToIntake(
     briefId,
     analysis,
     askedFields(reloaded.turns),
+    toIntakeTurnViews(reloaded.turns),
   );
   return finish(briefId, studentId, moderation, question, help);
 }

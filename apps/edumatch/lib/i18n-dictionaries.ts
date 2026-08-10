@@ -852,6 +852,10 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.learn.completenessValue": "Learning brief {n}% complete",
     "edumatch.learn.reviewBriefBtn": "Review my learning brief",
     "edumatch.learn.stillNeeded": "Still needed: {fields}",
+    "edumatch.learn.tutorAnywayBtn": "I'd still like a tutor",
+    "edumatch.learn.askFollowUp": "Ask a follow-up question",
+    "edumatch.learn.briefDoneHint":
+      "Your brief is complete. Ask another question below, or pick up where you left off any time.",
     "edumatch.learn.error.send": "We couldn't send that. Please try again.",
     "edumatch.learn.error.network": "Network problem — please try again.",
     "edumatch.learn.error.confirm": "We couldn't confirm your brief.",
@@ -2085,6 +2089,10 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.learn.completenessValue": "Leerbriefing {n}% volledig",
     "edumatch.learn.reviewBriefBtn": "Mijn leerbriefing nakijken",
     "edumatch.learn.stillNeeded": "Nog nodig: {fields}",
+    "edumatch.learn.tutorAnywayBtn": "Ik wil toch een tutor",
+    "edumatch.learn.askFollowUp": "Stel een vervolgvraag",
+    "edumatch.learn.briefDoneHint":
+      "Je briefing is compleet. Stel hieronder gerust nog een vraag, of ga later verder waar je gebleven was.",
     "edumatch.learn.error.send": "Versturen lukte niet. Probeer het opnieuw.",
     "edumatch.learn.error.network": "Netwerkprobleem — probeer het opnieuw.",
     "edumatch.learn.error.confirm": "We konden je briefing niet bevestigen.",
