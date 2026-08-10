@@ -29,6 +29,7 @@ import {
   estimateSessions,
   isBriefReadyForReview,
   nextBriefQuestion,
+  normaliseAvailability,
   resolveBriefLanguage,
   type BriefFields,
   type BriefPatch,
@@ -110,8 +111,11 @@ function rowToFields(row: BriefRow): BriefFields {
     language: row.language || undefined,
     mode: (row.mode as BriefFields["mode"]) || undefined,
     locationCity: row.locationCity ?? undefined,
-    availability:
-      (row.availability as BriefFields["availability"] | null) ?? undefined,
+    availability: Array.isArray(row.availability)
+      ? normaliseAvailability(
+          row.availability as NonNullable<BriefFields["availability"]>,
+        )
+      : undefined,
     deadlineAt: row.deadlineAt ?? undefined,
     deadlineKind: (row.deadlineKind as BriefFields["deadlineKind"]) ?? undefined,
     accessibilityNeeds: row.accessibilityNeeds ?? undefined,
@@ -142,8 +146,9 @@ function fieldsToRowData(fields: BriefFields) {
     locationCity: fields.locationCity ?? null,
     // Prisma distinguishes "leave alone" (undefined) from "write SQL NULL"
     // (DbNull) on nullable JSON columns; a bare null is neither.
-    availability: (fields.availability ??
-      Prisma.DbNull) as Prisma.InputJsonValue,
+    availability: (fields.availability
+      ? normaliseAvailability(fields.availability)
+      : Prisma.DbNull) as Prisma.InputJsonValue,
     deadlineAt: fields.deadlineAt ?? null,
     deadlineKind: fields.deadlineKind ?? null,
     accessibilityNeeds: fields.accessibilityNeeds ?? null,

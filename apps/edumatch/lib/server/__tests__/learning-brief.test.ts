@@ -7,7 +7,9 @@ import {
   isBriefReadyForReview,
   missingBriefFields,
   nextBriefQuestion,
+  normaliseAvailability,
   resolveBriefLanguage,
+  type AvailabilityWindow,
   type BriefFields,
 } from "../learning-brief";
 
@@ -122,6 +124,43 @@ describe("language resolution", () => {
     expect(resolveBriefLanguage({ profilePreferred: "nl", localeHint: "en" })).toBe("nl");
     expect(resolveBriefLanguage({ localeHint: "de-DE" })).toBe("de");
     expect(resolveBriefLanguage({})).toBe("en");
+  });
+});
+
+describe("normaliseAvailability", () => {
+  const mon: AvailabilityWindow = { day: "MON", from: "16:00", to: "19:00" };
+  const wed: AvailabilityWindow = { day: "WED", from: "16:00", to: "19:00" };
+
+  it("collapses the repeated windows found in already-saved briefs", () => {
+    // Exactly the shape that reached the review panel before the merge fix.
+    const stored = [mon, mon, mon, mon, mon, wed, wed];
+    expect(normaliseAvailability(stored)).toEqual([mon, wed]);
+  });
+
+  it("puts windows in weekday order", () => {
+    const out = normaliseAvailability([
+      { day: "SUN", from: "10:00", to: "12:00" },
+      mon,
+      { day: "FRI", from: "09:00", to: "11:00" },
+    ]);
+    expect(out.map((w) => w.day)).toEqual(["MON", "FRI", "SUN"]);
+  });
+
+  it("orders same-day windows by start time", () => {
+    const out = normaliseAvailability([
+      { day: "MON", from: "18:00", to: "20:00" },
+      { day: "MON", from: "09:00", to: "11:00" },
+    ]);
+    expect(out.map((w) => w.from)).toEqual(["09:00", "18:00"]);
+  });
+
+  it("keeps distinct windows on the same day", () => {
+    const morning: AvailabilityWindow = { day: "MON", from: "09:00", to: "11:00" };
+    expect(normaliseAvailability([mon, morning])).toHaveLength(2);
+  });
+
+  it("handles an empty list", () => {
+    expect(normaliseAvailability([])).toEqual([]);
   });
 });
 

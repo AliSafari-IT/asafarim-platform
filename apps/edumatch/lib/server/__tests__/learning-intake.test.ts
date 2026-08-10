@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  EXTRACTION_SYSTEM_PROMPT,
+  INTAKE_PROMPT_VERSION,
   extractJsonObject,
   heuristicExtract,
   heuristicTriage,
   mergeBriefFields,
   parseBriefFields,
+  valueFingerprint,
 } from "../learning-intake";
-import type { BriefFields } from "../learning-brief";
+import type { AvailabilityWindow, BriefFields } from "../learning-brief";
 
 describe("extractJsonObject", () => {
   it("reads a bare object", () => {
@@ -82,6 +85,103 @@ describe("mergeBriefFields", () => {
       { difficulties: ["factorising", "fractions"] },
     );
     expect(merged.difficulties).toEqual(["Factorising", "fractions"]);
+  });
+});
+
+// Regression: a student said "Wednesdays afternoon", then corrected with
+// "I said only on Wednesdays, not any other day(s)" — and the review panel
+// showed MON five times plus WED twice. Two causes: availability was unioned
+// across turns (so a correction could never remove anything), and the
+// fingerprint was key-order sensitive (so re-stated windows didn't dedupe).
+describe("availability is a restatement, not an accumulation", () => {
+  const wed: AvailabilityWindow = { day: "WED", from: "16:00", to: "19:00" };
+  const mon: AvailabilityWindow = { day: "MON", from: "16:00", to: "19:00" };
+
+  it("replaces availability wholesale instead of unioning it", () => {
+    const merged = mergeBriefFields(
+      { availability: [mon, wed] },
+      { availability: [wed] },
+    );
+    expect(merged.availability).toEqual([wed]);
+  });
+
+  it("honours a correction that narrows the days", () => {
+    // Turn 1: "Wednesdays afternoon" — the model also emitted a stray Monday.
+    let fields = mergeBriefFields({}, { availability: [mon, wed] });
+    // Turn 2: "I said only on Wednesdays, not any other day(s)".
+    fields = mergeBriefFields(fields, { availability: [wed] });
+    expect(fields.availability).toEqual([wed]);
+    expect(fields.availability?.some((w) => w.day === "MON")).toBe(false);
+  });
+
+  it("keeps what we had when a turn mentions no availability at all", () => {
+    const merged = mergeBriefFields({ availability: [wed] }, {});
+    expect(merged.availability).toEqual([wed]);
+  });
+
+  it("does not wipe availability on an empty array from the model", () => {
+    const merged = mergeBriefFields(
+      { availability: [wed] },
+      { availability: [] },
+    );
+    expect(merged.availability).toEqual([wed]);
+  });
+
+  it("de-duplicates repeats inside a single extraction", () => {
+    const merged = mergeBriefFields({}, { availability: [wed, wed, wed] });
+    expect(merged.availability).toEqual([wed]);
+  });
+
+  it("still accumulates difficulties, which genuinely add up", () => {
+    const merged = mergeBriefFields(
+      { difficulties: ["word problems"] },
+      { difficulties: ["factorising"] },
+    );
+    expect(merged.difficulties).toEqual(["word problems", "factorising"]);
+  });
+});
+
+describe("valueFingerprint", () => {
+  it("treats objects as equal regardless of key order", () => {
+    // The old JSON.stringify fingerprint failed exactly here, which is why
+    // re-stated availability windows piled up instead of de-duplicating.
+    expect(valueFingerprint({ day: "WED", from: "16:00", to: "19:00" })).toBe(
+      valueFingerprint({ to: "19:00", day: "WED", from: "16:00" }),
+    );
+  });
+
+  it("still distinguishes genuinely different values", () => {
+    expect(valueFingerprint({ day: "WED" })).not.toBe(
+      valueFingerprint({ day: "MON" }),
+    );
+  });
+
+  it("is case- and whitespace-insensitive for scalars", () => {
+    expect(valueFingerprint("  Factorising ")).toBe(valueFingerprint("factorising"));
+  });
+});
+
+describe("extraction prompt", () => {
+  it("offers no copyable availability data for the model to echo back", () => {
+    // Root cause of the stray Mondays: the prompt showed
+    // `{ "day": "MON", "from": "16:00", "to": "19:00" }` as the schema
+    // example, and the model copied it verbatim into its answer. A schema
+    // example must never look like a plausible real value.
+    expect(EXTRACTION_SYSTEM_PROMPT).not.toMatch(/"day"\s*:\s*"(MON|TUE|WED|THU|FRI|SAT|SUN)"/);
+    expect(EXTRACTION_SYSTEM_PROMPT).not.toMatch(/"(from|to)"\s*:\s*"\d{2}:\d{2}"/);
+  });
+
+  it("shows availability as an angle-bracket placeholder instead", () => {
+    expect(EXTRACTION_SYSTEM_PROMPT).toContain('"day": "<MON|TUE|WED|THU|FRI|SAT|SUN>"');
+    expect(EXTRACTION_SYSTEM_PROMPT).toContain('"from": "<HH:MM>"');
+  });
+
+  it("tells the model availability is a complete restatement", () => {
+    expect(EXTRACTION_SYSTEM_PROMPT).toMatch(/COMPLETE restatement/);
+  });
+
+  it("is versioned so a prompt change is visible in stored responses", () => {
+    expect(INTAKE_PROMPT_VERSION).toBe("brief-v1");
   });
 });
 

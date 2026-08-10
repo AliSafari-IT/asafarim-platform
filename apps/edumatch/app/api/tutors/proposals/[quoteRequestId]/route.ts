@@ -3,6 +3,10 @@ import { prisma } from "@asafarim/db";
 import { requireTutor } from "@/lib/server/profiles";
 import { handleBriefError } from "@/lib/server/brief-errors";
 import { getOrCreatePreparedProposal } from "@/lib/server/lesson-proposals";
+import {
+  normaliseAvailability,
+  type AvailabilityWindow,
+} from "@/lib/server/learning-brief";
 import { signAttachments } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
@@ -66,7 +70,13 @@ export async function GET(
         language: brief.language,
         mode: brief.mode,
         locationCity: brief.locationCity,
-        availability: brief.availability,
+        // Normalised on read so a brief stored before the merge fix doesn't
+        // show a tutor a wall of repeated windows.
+        availability: Array.isArray(brief.availability)
+          ? normaliseAvailability(
+              brief.availability as unknown as AvailabilityWindow[],
+            )
+          : null,
         deadlineAt: brief.deadlineAt,
         deadlineKind: brief.deadlineKind,
         accessibilityNeeds: brief.accessibilityNeeds,

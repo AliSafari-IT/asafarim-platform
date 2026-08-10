@@ -65,6 +65,31 @@ export const availabilityWindowSchema = z
   });
 export type AvailabilityWindow = z.infer<typeof availabilityWindowSchema>;
 
+/**
+ * De-duplicate availability and put it in weekday order.
+ *
+ * Applied on every read, not just on write, so briefs saved before the merge
+ * was fixed stop showing repeated windows without needing a data migration.
+ * Ordering is presentational but load-bearing for trust: "MON, WED, MON" reads
+ * like a bug even when the set is correct.
+ */
+export function normaliseAvailability(
+  windows: readonly AvailabilityWindow[],
+): AvailabilityWindow[] {
+  const seen = new Set<string>();
+  const unique: AvailabilityWindow[] = [];
+  for (const w of windows) {
+    const key = `${w.day}|${w.from}|${w.to}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(w);
+  }
+  return unique.sort((a, b) => {
+    const dayDelta = WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day);
+    return dayDelta !== 0 ? dayDelta : a.from.localeCompare(b.from);
+  });
+}
+
 export const diagnosticResultSchema = z.object({
   questions: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
   answers: z.array(z.string().trim().max(1000)).max(10).default([]),

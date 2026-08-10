@@ -15,7 +15,11 @@
 
 import { prisma, type Prisma } from "@asafarim/db";
 import { recordEduAuditEvent } from "./audit";
-import { estimateSessions, type BriefFields } from "./learning-brief";
+import {
+  estimateSessions,
+  normaliseAvailability,
+  type BriefFields,
+} from "./learning-brief";
 import { notifyStudentOfQuoteSubmitted } from "./notifications";
 
 export class ProposalError extends Error {
@@ -241,7 +245,11 @@ function briefFieldsFromRow(row: {
     prerequisiteGaps: row.prerequisiteGaps,
     language: row.language,
     mode: row.mode as BriefFields["mode"],
-    availability: (row.availability as BriefFields["availability"]) ?? undefined,
+    availability: Array.isArray(row.availability)
+      ? normaliseAvailability(
+          row.availability as NonNullable<BriefFields["availability"]>,
+        )
+      : undefined,
     deadlineAt: row.deadlineAt ?? undefined,
     deadlineKind: (row.deadlineKind as BriefFields["deadlineKind"]) ?? undefined,
     accessibilityNeeds: row.accessibilityNeeds ?? undefined,

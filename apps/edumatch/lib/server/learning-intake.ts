@@ -74,17 +74,20 @@ export type IntakeAnalysis = {
 
 // ─── Prompting ────────────────────────────────────────────────────────────
 
-const EXTRACTION_SYSTEM_PROMPT = `You are EduMatch's learning-need analyst.
+export const EXTRACTION_SYSTEM_PROMPT = `You are EduMatch's learning-need analyst.
 
 You read a conversation between a student and a learning assistant and return
 STRICT JSON describing what is actually known. You never invent facts.
 
-Return exactly one JSON object, no prose, no markdown fences, with this shape:
+Return exactly one JSON object, no prose, no markdown fences, with this shape.
+ANGLE BRACKETS mark placeholders describing the allowed form of a value. Never
+copy a placeholder, or any value shown here, into your answer — every value you
+return must come from the conversation.
 
 {
   "fields": {
-    "subject": string,                 // e.g. "Mathematics"
-    "topic": string,                   // e.g. "Quadratic equations"
+    "subject": string,                 // a school subject, as the student named it
+    "topic": string,                   // the specific topic or chapter
     "educationalLevel": "K12" | "UNDERGRAD" | "GRAD",
     "schoolYear": string,              // as the student said it
     "learningObjective": string,       // what they want to be able to do
@@ -94,7 +97,7 @@ Return exactly one JSON object, no prose, no markdown fences, with this shape:
     "language": string,                // ISO 639-1, teaching language
     "mode": "ONLINE" | "IN_PERSON" | "EITHER",
     "locationCity": string,
-    "availability": [{ "day": "MON", "from": "16:00", "to": "19:00" }],
+    "availability": [{ "day": "<MON|TUE|WED|THU|FRI|SAT|SUN>", "from": "<HH:MM>", "to": "<HH:MM>" }],
     "deadlineAt": string,              // ISO 8601 date
     "deadlineKind": "EXAM" | "ASSIGNMENT" | "NONE",
     "accessibilityNeeds": string
@@ -116,6 +119,11 @@ Rules:
 - OMIT any field the student has not actually told you. An absent key is
   correct and expected; a guessed value is a bug. Never infer educationalLevel
   from the subject alone.
+- "availability" is a COMPLETE restatement of when the student is free, not an
+  addition to what you returned before. Return every window they still want and
+  nothing else. If they correct or narrow their availability ("only Wednesdays"),
+  return only the windows that survive the correction. Omit the key entirely if
+  they have not said when they are free.
 - "help" must teach, not solve graded work for the student. Explain the method,
   work a DIFFERENT example than the one they submitted, and give them practice.
   If the student is asking you to complete an assessment for them, omit "help"
@@ -263,6 +271,55 @@ export function parseBriefFields(value: unknown): BriefFields {
 // ─── Merging ──────────────────────────────────────────────────────────────
 
 /**
+ * List fields where a later turn genuinely *adds* to what we knew. A student
+ * who names a second thing they're stuck on is still stuck on the first.
+ *
+ * Everything else that is a list — availability — is a restatement: it
+ * describes a current state of the world, so the newest extraction replaces
+ * the old one. Unioning it means a correction can never remove anything, which
+ * is how "only on Wednesdays" ends up displayed as five Mondays and a
+ * Wednesday.
+ */
+const ADDITIVE_LIST_FIELDS: ReadonlySet<keyof BriefFields> = new Set([
+  "difficulties",
+  "prerequisiteGaps",
+]);
+
+/**
+ * A stable identity for de-duplication.
+ *
+ * `JSON.stringify` is not one: `{day,from,to}` and `{from,to,day}` describe the
+ * same window but serialise differently, and a model has no obligation to emit
+ * keys in the same order twice. Sorting keys makes the fingerprint depend on
+ * the value rather than on how it happened to be written.
+ */
+export function valueFingerprint(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(valueFingerprint).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}:${valueFingerprint(v)}`);
+    return `{${entries.join(",")}}`;
+  }
+  return String(value).trim().toLowerCase();
+}
+
+function dedupe(values: readonly unknown[]): unknown[] {
+  const seen = new Set<string>();
+  const out: unknown[] = [];
+  for (const value of values) {
+    const key = valueFingerprint(value);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+  return out;
+}
+
+/**
  * Merge a freshly extracted set of fields onto what we already knew.
  *
  * Scalars: a new value wins only if we had nothing. The student can still
@@ -270,8 +327,9 @@ export function parseBriefFields(value: unknown): BriefFields {
  * through a model re-reading the transcript and quietly changing its mind on
  * turn six.
  *
- * Lists: union, deduplicated case-insensitively, because later turns
- * legitimately add difficulties rather than replace them.
+ * Lists: additive fields union (de-duplicated); restatement fields are
+ * replaced by any non-empty update, so a correction actually corrects. Both
+ * paths de-duplicate, because a single extraction can repeat itself too.
  */
 export function mergeBriefFields(
   known: BriefFields,
@@ -286,17 +344,17 @@ export function mergeBriefFields(
 
     if (Array.isArray(value)) {
       const existing = (known[key] as unknown[] | undefined) ?? [];
-      const seen = new Set(
-        existing.map((v) => JSON.stringify(v).toLowerCase()),
-      );
-      const additions = value.filter((v) => {
-        const fingerprint = JSON.stringify(v).toLowerCase();
-        if (seen.has(fingerprint)) return false;
-        seen.add(fingerprint);
-        return true;
-      });
-      if (existing.length === 0 && additions.length === 0) continue;
-      (merged[key] as unknown) = [...existing, ...additions];
+
+      if (!ADDITIVE_LIST_FIELDS.has(key)) {
+        // Restatement: an empty update means "the model said nothing this
+        // turn", not "the student is never free". Keep what we had.
+        if (value.length > 0) (merged[key] as unknown) = dedupe(value);
+        continue;
+      }
+
+      const combined = dedupe([...existing, ...value]);
+      if (combined.length === 0) continue;
+      (merged[key] as unknown) = combined;
       continue;
     }
 
