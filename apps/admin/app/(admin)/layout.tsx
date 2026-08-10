@@ -1,5 +1,14 @@
 import type { ReactNode } from "react";
-import { hasPermission, requireRole, signOut, ROLES, getAppSwitcherApps } from "@asafarim/auth";
+import {
+  NAV_MODULES,
+  ROLES,
+  getAppSwitcherApps,
+  getModuleOverrides,
+  hasPermission,
+  isModuleVisible,
+  requireRole,
+  signOut,
+} from "@asafarim/auth";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   AppShell,
@@ -24,6 +33,21 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   // this permission server-side and redirects to /denied without it.
   const canViewSeeds = await hasPermission(session, "seeds.view");
 
+  const roles = session.user.roles ?? [];
+  const overrides = await getModuleOverrides();
+
+  // The console menu is derived from the module registry and filtered by the
+  // visibility matrix, so a new section appears here by being registered —
+  // not by being remembered. Every listed route still re-checks its own
+  // permission server-side; this only decides what is advertised.
+  const navItems = NAV_MODULES.filter(
+    (module) =>
+      module.group === "console" &&
+      module.href !== undefined &&
+      isModuleVisible(module.id, { roles, overrides }) &&
+      (module.id !== "console.seeds" || canViewSeeds)
+  ).map((module) => ({ label: module.label, href: module.href! }));
+
   return (
     <AppShell
       product="Admin"
@@ -32,10 +56,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <CountryLanguageSelector lockCountry="BE" />
           <AppSwitcher
             links={toAppSwitcherLinks(
-              getAppSwitcherApps("admin", {
-                roles: session.user.roles ?? [],
-                authenticated: true,
-              }),
+              // Access is decided by the registry; the matrix only removes
+              // entries an operator chose not to advertise to this role.
+              getAppSwitcherApps("admin", { roles, authenticated: true }).filter(
+                (app) => isModuleVisible(`app.${app.key}`, { roles, overrides })
+              ),
               links
             )}
           />
@@ -58,22 +83,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           </UserMenu>
         </>
       }
-      sideNav={
-        <SideNav
-          title="Console"
-          items={[
-            { label: "Overview", href: "/" },
-            { label: "Users", href: "/users" },
-            { label: "Roles", href: "/roles" },
-            { label: "Permissions", href: "/permissions" },
-            { label: "Audit Logs", href: "/audit-logs" },
-            ...(canViewSeeds ? [{ label: "Seed Data", href: "/seed-data" }] : []),
-            { label: "Subscriptions", href: "/subscriptions" },
-            { label: "Devices", href: "/devices" },
-            { label: "Settings", href: "/settings" },
-          ]}
-        />
-      }
+      sideNav={<SideNav title="Console" items={navItems} />}
     >
       {children}
     </AppShell>
