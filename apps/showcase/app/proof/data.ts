@@ -138,14 +138,71 @@ export const DEPLOYMENT_TOPOLOGY = {
   note: "Host address, credentials, and internal service ports are intentionally not published here — see the Rules section above.",
 };
 
-export const CI_METRICS: ProofMetric[] = [
-  {
-    label: "Build / lint / typecheck",
-    value: "Not yet wired to a public CI artifact",
-    method: "Planned: turbo build && turbo lint && turbo typecheck on every PR, publishing a JSON summary as a workflow artifact.",
-    measuredAt: "2026-08-11",
-    freshness: "not-yet-measured",
-  },
+const CI_STATUS_WORKFLOW = "ci-status.yml";
+const CI_STATUS_REPO = "AliSafari-IT/asafarim-platform";
+
+/**
+ * Reads the latest completed run of ci-status.yml from GitHub's public
+ * Actions API — no token needed for a public repo. This is genuinely live:
+ * fetched per request, not baked in at build time. If the API is
+ * unreachable or the workflow hasn't run yet, this renders that honestly
+ * instead of falling back to a fabricated number.
+ */
+async function getCiStatusMetric(): Promise<ProofMetric> {
+  const method =
+    `GitHub Actions API: latest completed run of ${CI_STATUS_WORKFLOW} on main ` +
+    `(lint + typecheck + package tests — build excluded, needs CI secrets, tracked separately).`;
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${CI_STATUS_REPO}/actions/workflows/${CI_STATUS_WORKFLOW}/runs?branch=main&status=completed&per_page=1`,
+      { next: { revalidate: 300 } }
+    );
+    if (!res.ok) {
+      return {
+        label: "Build / lint / typecheck",
+        value: `GitHub API returned ${res.status} — could not fetch live status`,
+        method,
+        measuredAt: new Date().toISOString().slice(0, 10),
+        freshness: "not-yet-measured",
+      };
+    }
+    const data = (await res.json()) as {
+      workflow_runs?: Array<{ conclusion: string | null; updated_at: string; html_url: string }>;
+    };
+    const run = data.workflow_runs?.[0];
+    if (!run) {
+      return {
+        label: "Build / lint / typecheck",
+        value: "No completed run yet",
+        method,
+        measuredAt: new Date().toISOString().slice(0, 10),
+        freshness: "not-yet-measured",
+      };
+    }
+    return {
+      label: "Build / lint / typecheck",
+      value: run.conclusion === "success" ? "Passing" : `Failing (${run.conclusion ?? "unknown"})`,
+      method,
+      measuredAt: run.updated_at.slice(0, 10),
+      freshness: "live",
+    };
+  } catch {
+    return {
+      label: "Build / lint / typecheck",
+      value: "Live fetch failed — network or rate limit",
+      method,
+      measuredAt: new Date().toISOString().slice(0, 10),
+      freshness: "not-yet-measured",
+    };
+  }
+}
+
+export async function getCiMetrics(): Promise<ProofMetric[]> {
+  return [await getCiStatusMetric(), ...STATIC_QUALITY_METRICS];
+}
+
+const STATIC_QUALITY_METRICS: ProofMetric[] = [
   {
     label: "Accessibility snapshot",
     value: "Not yet measured",

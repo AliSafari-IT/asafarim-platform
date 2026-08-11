@@ -3,10 +3,10 @@ import Link from "next/link";
 import { Badge, Metric, PageHeader, Panel, Section, Timeline } from "@asafarim/ui";
 import {
   ARCHITECTURE_NODES,
-  CI_METRICS,
   DEPLOYMENT_TOPOLOGY,
   SECURITY_BOUNDARIES,
   getChangelog,
+  getCiMetrics,
   getPackageCards,
 } from "./data";
 import styles from "./proof.module.css";
@@ -32,6 +32,7 @@ const freshnessLabel = {
 export default async function ProofPage() {
   const packages = getPackageCards();
   const changelog = getChangelog();
+  const ciMetrics = await getCiMetrics();
 
   return (
     <>
@@ -80,7 +81,7 @@ export default async function ProofPage() {
 
       <Section kicker="Quality" kickerIndex="04" title="Build, accessibility, performance">
         <div className="ui-grid">
-          {CI_METRICS.map((metric) => (
+          {ciMetrics.map((metric) => (
             <Panel key={metric.label} title={metric.label}>
               <Badge tone={metric.freshness === "live" ? "success" : "neutral"}>
                 {freshnessLabel[metric.freshness]}
