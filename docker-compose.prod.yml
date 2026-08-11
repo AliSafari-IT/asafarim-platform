@@ -225,6 +225,17 @@ services:
         condition: service_started
       platform-migrate:
         condition: service_completed_successfully
+    # /api/status pings the database and returns a non-2xx when it can't
+    # reach it (see apps/edumatch/app/api/status/route.ts), so this reflects
+    # real service health, not just "the process is running". The runner
+    # image is node:24-alpine — busybox wget is present by default, curl is
+    # not. #162.
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - asafarim_net
 
