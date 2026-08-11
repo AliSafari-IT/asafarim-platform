@@ -83,7 +83,12 @@ export function HelpSearch() {
             onClick={() => setFilter(value)}
             className={`min-h-[36px] rounded-full border px-3.5 py-1.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)] ${
               filter === value
-                ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                ? // White text on --color-primary (#7d9bff in the dark theme,
+                  // the default) is a WCAG AA contrast failure — 2.62:1
+                  // against the 4.5:1 required. Dark text matches the
+                  // pattern already used for solid-primary surfaces
+                  // elsewhere (see .edu-button-primary in globals.css).
+                  "border-[var(--color-primary)] bg-[var(--color-primary)] text-[#07101a]"
                 : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-primary)]"
             }`}
           >

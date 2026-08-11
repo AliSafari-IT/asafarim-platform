@@ -227,7 +227,7 @@ export default function QuotesPage() {
                       className="h-12 w-12 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)] text-white font-bold text-lg">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)] text-[#07101a] font-bold text-lg">
                       {(quote.tutor.name ?? "T")[0].toUpperCase()}
                     </div>
                   )}
@@ -342,7 +342,7 @@ export default function QuotesPage() {
                     <button
                       onClick={() => accept(quote.id)}
                       disabled={accepting === quote.id}
-                      className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition"
+                      className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 transition"
                     >
                       {accepting === quote.id
                         ? t("edumatch.quotes.booking")

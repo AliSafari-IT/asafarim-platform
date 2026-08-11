@@ -128,7 +128,7 @@ export default function ConnectOnboardPage() {
               <button
                 onClick={startOnboarding}
                 disabled={onboarding}
-                className="mt-3 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                className="mt-3 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50"
               >
                 {onboarding ? t("common.loading") : t("edumatch.connect.completeVerification")}
               </button>
@@ -157,7 +157,7 @@ export default function ConnectOnboardPage() {
             <button
               onClick={startOnboarding}
               disabled={onboarding}
-              className="w-full rounded-lg bg-[var(--color-primary)] px-6 py-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
+              className="w-full rounded-lg bg-[var(--color-primary)] px-6 py-3 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
             >
               {onboarding ? (
                 <>

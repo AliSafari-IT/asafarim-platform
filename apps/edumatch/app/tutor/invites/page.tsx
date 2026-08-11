@@ -113,7 +113,7 @@ export default function TutorInvitesPage() {
 
               <Link
                 href={`/tutor/invites/${invite.quoteRequestId}`}
-                className="mt-4 inline-block rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                className="mt-4 inline-block rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-medium text-[#07101a] transition hover:opacity-90"
               >
                 {t("edumatch.invites.openBtn")}
               </Link>

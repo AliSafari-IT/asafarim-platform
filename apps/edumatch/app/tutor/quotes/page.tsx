@@ -78,7 +78,7 @@ export default function TutorQuotesPage() {
         </div>
         <Link
           href="/tutor/requests"
-          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition"
+          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[#07101a] hover:opacity-90 transition"
         >
           {t("edumatch.tutor.quotes.browseRequests")}
         </Link>
@@ -109,7 +109,7 @@ export default function TutorQuotesPage() {
           <p className="text-[var(--color-text-muted)] text-sm">{t("edumatch.tutor.quotes.empty")}</p>
           <Link
             href="/tutor/requests"
-            className="mt-4 inline-block rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-medium text-white hover:opacity-90 transition"
+            className="mt-4 inline-block rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-medium text-[#07101a] hover:opacity-90 transition"
           >
             {t("edumatch.tutor.quotes.browseOpen")}
           </Link>

@@ -104,7 +104,7 @@ export default function ParentDashboardPage() {
           <button
             type="button"
             onClick={() => setShowAddChild(true)}
-            className="mt-4 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="mt-4 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[#07101a] hover:opacity-90"
           >
             {t("edumatch.parent.addChild")}
           </button>
@@ -190,7 +190,7 @@ export default function ParentDashboardPage() {
                   onClick={() => setChildGrade(g)}
                   className={`rounded-lg border px-2 py-2 text-xs font-medium transition ${
                     childGrade === g
-                      ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                      ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[#07101a]"
                       : "border-[var(--color-border)] text-[var(--color-text)]"
                   }`}
                 >
@@ -203,7 +203,7 @@ export default function ParentDashboardPage() {
             <button
               type="submit"
               disabled={busy}
-              className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t("edumatch.onboarding.continue")}
             </button>

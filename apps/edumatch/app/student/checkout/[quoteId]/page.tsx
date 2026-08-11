@@ -94,7 +94,9 @@ export default function CheckoutPage({ params }: { params: { quoteId: string } }
           <p className="text-red-700">{error ?? t("edumatch.checkout.quoteNotFound")}</p>
           <Link
             href="/student"
-            className="mt-4 inline-block rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            // red-600 (Tailwind v4's #e7000b) against white text is 4.37:1 —
+            // just under the 4.5:1 WCAG AA requires. red-700 clears it.
+            className="mt-4 inline-block rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800"
           >
             {t("edumatch.inquiry.new.backToDashboard")}
           </Link>
@@ -189,7 +191,7 @@ export default function CheckoutPage({ params }: { params: { quoteId: string } }
         <button
           onClick={handlePayment}
           disabled={processing}
-          className="w-full rounded-lg bg-[var(--color-primary)] px-6 py-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
+          className="w-full rounded-lg bg-[var(--color-primary)] px-6 py-3 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
         >
           {processing ? (
             <>
