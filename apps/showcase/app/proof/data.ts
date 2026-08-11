@@ -291,10 +291,31 @@ const STATUS_ENDPOINTS: Array<{ app: string; url: string }> = [
 ];
 
 /**
- * Polls every app's public /api/status endpoint at request time. Genuinely
- * live — not cached, not build-time. A slow or down app degrades to
- * "unreachable" rather than hanging the whole proof page (5s timeout per
- * app, all polled in parallel).
+ * Fetches one URL with a hard timeout via a manually-managed AbortController
+ * rather than AbortSignal.timeout() — under concurrent load (9 of these
+ * firing at once, every page load), AbortSignal.timeout's internal timer can
+ * abort a request racing its own completion and surface an error outside
+ * the normal promise chain on some Node/undici versions, which is
+ * suspected to have crashed the showcase dev process during `pnpm dev`
+ * (all 10 apps + a worker running concurrently). Clearing the timeout
+ * explicitly on both success and failure avoids that race.
+ */
+async function fetchWithTimeout(url: string, timeoutMs: number, revalidateSeconds: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal, next: { revalidate: revalidateSeconds } });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Polls every app's public /api/status endpoint. Genuinely live — each
+ * result is cached for only 15s (Next's data cache), so rapid page reloads
+ * during development don't re-fire 9 real outbound requests every time,
+ * while production visitors still see a fresh-enough number. A slow or down
+ * app degrades to "unreachable" rather than hanging the whole proof page.
  */
 export async function getLiveHealth(): Promise<AppHealth[]> {
   return Promise.all(
@@ -302,7 +323,7 @@ export async function getLiveHealth(): Promise<AppHealth[]> {
       const started = Date.now();
       const measuredAt = new Date().toISOString();
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000), cache: "no-store" });
+        const res = await fetchWithTimeout(url, 5000, 15);
         const responseTimeMs = Date.now() - started;
         if (!res.ok) {
           return { app, url, status: "unreachable", responseTimeMs, measuredAt, freshness: "live" };
