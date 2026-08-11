@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   buildAttachmentKey,
+  buildAvatarKey,
+  createPresignedAvatarUploadUrl,
   createPresignedUploadUrl,
+  isAvatarKeyOwnedBy,
   isKeyOwnedBy,
 } from "../storage";
 
@@ -75,5 +78,73 @@ describe("createPresignedUploadUrl (local-dev stub)", () => {
     expect(presigned.uploadUrl.startsWith("local-stub://")).toBe(true);
     expect(presigned.headers["Content-Type"]).toBe("image/png");
     expect(presigned.key.startsWith("inquiries/u-1/")).toBe(true);
+  });
+});
+
+describe("buildAvatarKey / isAvatarKeyOwnedBy", () => {
+  it("namespaces avatar keys separately from inquiry attachment keys", () => {
+    const key = buildAvatarKey("u-1", "selfie.jpg");
+    expect(key.startsWith("avatars/u-1/")).toBe(true);
+    expect(key.endsWith("/selfie.jpg")).toBe(true);
+  });
+
+  it("accepts a key minted for the same user, rejects another user's", () => {
+    const key = buildAvatarKey("u-1", "selfie.jpg");
+    expect(isAvatarKeyOwnedBy(key, "u-1")).toBe(true);
+    expect(isAvatarKeyOwnedBy(key, "u-2")).toBe(false);
+  });
+
+  it("does not cross-validate against an inquiry attachment key", () => {
+    const inquiryKey = buildAttachmentKey("u-1", "worksheet.pdf");
+    expect(isAvatarKeyOwnedBy(inquiryKey, "u-1")).toBe(false);
+  });
+});
+
+describe("createPresignedAvatarUploadUrl (local-dev stub)", () => {
+  const SPACES_VARS = [
+    "DO_SPACES_ENDPOINT",
+    "DO_SPACES_REGION",
+    "DO_SPACES_BUCKET",
+    "DO_SPACES_ACCESS_KEY",
+    "DO_SPACES_KEY",
+    "DO_SPACES_SECRET",
+  ] as const;
+  const saved: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const k of SPACES_VARS) {
+      saved[k] = process.env[k];
+      delete process.env[k];
+    }
+  });
+
+  afterEach(() => {
+    for (const k of SPACES_VARS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
+  it("returns a stub when storage env vars are absent", async () => {
+    const presigned = await createPresignedAvatarUploadUrl({
+      userId: "u-1",
+      filename: "selfie.jpg",
+      contentType: "image/jpeg",
+      sizeBytes: 1024,
+    });
+    expect(presigned.isLocalStub).toBe(true);
+    expect(presigned.uploadUrl.startsWith("local-stub://")).toBe(true);
+    expect(presigned.key.startsWith("avatars/u-1/")).toBe(true);
+  });
+
+  it("rejects a file over the avatar size cap", async () => {
+    await expect(
+      createPresignedAvatarUploadUrl({
+        userId: "u-1",
+        filename: "huge.png",
+        contentType: "image/png",
+        sizeBytes: 3 * 1024 * 1024,
+      }),
+    ).rejects.toThrow(/exceeds/);
   });
 });

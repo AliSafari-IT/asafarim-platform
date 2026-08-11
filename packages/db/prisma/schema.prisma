@@ -1100,6 +1100,12 @@ model EduStudentProfile {
   guardianName  String?
   guardianEmail String?
 
+  // Source of truth for age-gated rules (currently: the avatar system's
+  // under-13 photo-upload restriction — see lib/server/age.ts). Optional so
+  // legacy profiles keep working; a missing value is treated as the most
+  // restrictive age everywhere it's read.
+  dateOfBirth DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1107,6 +1113,7 @@ model EduStudentProfile {
 
   @@index([gradeLevel])
   @@index([isMinor])
+  @@index([dateOfBirth])
 }
 
 model EduTutorProfile {

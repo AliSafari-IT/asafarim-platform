@@ -320,6 +320,9 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.address.country": "Country",
     "edumatch.profile.student.address.hint":
       "Used for matching with nearby tutors. You can leave this blank and use online-only tutors.",
+    "edumatch.profile.student.dateOfBirth": "Date of Birth",
+    "edumatch.profile.student.dateOfBirthHint":
+      "To use your own photo, add your date of birth. Until then, you can only choose a drawn avatar.",
     "edumatch.profile.student.cancel": "Cancel",
     "edumatch.profile.student.save": "Save Changes",
     "edumatch.profile.student.create": "Create Profile",
@@ -327,6 +330,13 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.savedOk": "Profile saved successfully!",
     "edumatch.profile.student.saveFailed": "Failed to save profile.",
     "edumatch.profile.student.createFailed": "Failed to create profile.",
+
+    // Student avatar
+    "edumatch.profile.student.avatar.title": "Profile Picture / Avatar",
+    "edumatch.profile.student.avatar.under13Message":
+      "You can choose a fun avatar. When you turn 13, you'll be able to upload your own photo.",
+    "edumatch.profile.student.avatar.uploadCta": "Upload your own photo",
+    "edumatch.profile.student.avatar.error": "We couldn't update your avatar. Please try again.",
 
     // Tutor dashboard
     "edumatch.tutor.signInRequired": "Please sign in",
@@ -1754,11 +1764,21 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.address.country": "Land",
     "edumatch.profile.student.address.hint":
       "Gebruikt voor koppeling met tutors in de buurt. Je kunt dit leeg laten en alleen online tutors gebruiken.",
+    "edumatch.profile.student.dateOfBirth": "Geboortedatum",
+    "edumatch.profile.student.dateOfBirthHint":
+      "Om je eigen foto te gebruiken, voeg je geboortedatum toe. Tot die tijd kun je alleen een getekende avatar kiezen.",
     "edumatch.profile.student.cancel": "Annuleren",
     "edumatch.profile.student.save": "Wijzigingen Opslaan",
     "edumatch.profile.student.create": "Profiel Aanmaken",
     "edumatch.profile.student.saving": "Opslaan…",
     "edumatch.profile.student.savedOk": "Profiel succesvol opgeslagen!",
+
+    // Avatar (student)
+    "edumatch.profile.student.avatar.title": "Profielfoto / Avatar",
+    "edumatch.profile.student.avatar.under13Message":
+      "Je kunt een leuke avatar kiezen. Zodra je 13 wordt, kun je je eigen foto uploaden.",
+    "edumatch.profile.student.avatar.uploadCta": "Upload je eigen foto",
+    "edumatch.profile.student.avatar.error": "We konden je avatar niet bijwerken. Probeer het opnieuw.",
 
     // Tutor dashboard
     "edumatch.tutor.signInRequired": "Log alstublieft in",
@@ -3029,11 +3049,22 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.address.country": "Pays",
     "edumatch.profile.student.address.hint":
       "Utilisé pour la mise en relation avec des tuteurs à proximité. Vous pouvez laisser ceci vide et utiliser uniquement des tuteurs en ligne.",
+    "edumatch.profile.student.dateOfBirth": "Date de naissance",
+    "edumatch.profile.student.dateOfBirthHint":
+      "Pour utiliser votre propre photo, ajoutez votre date de naissance. En attendant, vous ne pouvez choisir qu'un avatar dessiné.",
     "edumatch.profile.student.cancel": "Annuler",
     "edumatch.profile.student.save": "Enregistrer les Modifications",
     "edumatch.profile.student.create": "Créer un Profil",
     "edumatch.profile.student.saving": "Enregistrement…",
     "edumatch.profile.student.savedOk": "Profil enregistré avec succès !",
+
+    // Avatar (étudiant)
+    "edumatch.profile.student.avatar.title": "Photo de profil / Avatar",
+    "edumatch.profile.student.avatar.under13Message":
+      "Vous pouvez choisir un avatar amusant. À 13 ans, vous pourrez importer votre propre photo.",
+    "edumatch.profile.student.avatar.uploadCta": "Importer votre propre photo",
+    "edumatch.profile.student.avatar.error":
+      "Nous n'avons pas pu mettre à jour votre avatar. Veuillez réessayer.",
 
     // Tutor dashboard
     "edumatch.tutor.signInRequired": "Veuillez vous connecter",
@@ -4025,11 +4056,22 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.address.country": "Land",
     "edumatch.profile.student.address.hint":
       "Wird verwendet, um dich mit Tutoren in der Nähe zusammenzubringen. Du kannst dies leer lassen und nur Online-Tutoren nutzen.",
+    "edumatch.profile.student.dateOfBirth": "Geburtsdatum",
+    "edumatch.profile.student.dateOfBirthHint":
+      "Um dein eigenes Foto zu verwenden, gib dein Geburtsdatum an. Bis dahin kannst du nur einen gezeichneten Avatar wählen.",
     "edumatch.profile.student.cancel": "Abbrechen",
     "edumatch.profile.student.save": "Änderungen Speichern",
     "edumatch.profile.student.create": "Profil Erstellen",
     "edumatch.profile.student.saving": "Wird gespeichert…",
     "edumatch.profile.student.savedOk": "Profil erfolgreich gespeichert!",
+
+    // Avatar (Student)
+    "edumatch.profile.student.avatar.title": "Profilbild / Avatar",
+    "edumatch.profile.student.avatar.under13Message":
+      "Du kannst einen lustigen Avatar wählen. Sobald du 13 wirst, kannst du dein eigenes Foto hochladen.",
+    "edumatch.profile.student.avatar.uploadCta": "Eigenes Foto hochladen",
+    "edumatch.profile.student.avatar.error":
+      "Wir konnten deinen Avatar nicht aktualisieren. Bitte versuche es erneut.",
 
     // Tutor dashboard
     "edumatch.tutor.signInRequired": "Bitte anmelden",

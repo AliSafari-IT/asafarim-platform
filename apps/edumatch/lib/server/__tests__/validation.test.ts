@@ -3,9 +3,13 @@ import {
   ALLOWED_MIME_TYPES,
   MAX_FILE_BYTES,
   attachmentSchema,
+  avatarPresignRequestSchema,
+  avatarSelectSchema,
   formatZodError,
   inquiryIntakeSchema,
   presignRequestSchema,
+  studentProfilePatchSchema,
+  studentProfileSchema,
 } from "../validation";
 
 describe("presignRequestSchema", () => {
@@ -154,5 +158,95 @@ describe("ALLOWED_MIME_TYPES", () => {
     expect(ALLOWED_MIME_TYPES).toContain("image/jpeg");
     expect(ALLOWED_MIME_TYPES).toContain("video/mp4");
     expect(ALLOWED_MIME_TYPES).toContain("audio/wav");
+  });
+});
+
+describe("studentProfileSchema — dateOfBirth", () => {
+  const base = { gradeLevel: "K12" as const, subjectsOfInterest: [] };
+
+  it("is optional to create a profile", () => {
+    expect(studentProfileSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("accepts a date-only string", () => {
+    const parsed = studentProfileSchema.safeParse({ ...base, dateOfBirth: "2013-08-11" });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.dateOfBirth).toBeInstanceOf(Date);
+  });
+
+  it("accepts a full ISO datetime string", () => {
+    expect(
+      studentProfileSchema.safeParse({ ...base, dateOfBirth: "2013-08-11T00:00:00Z" }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a date of birth in the future", () => {
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    expect(studentProfileSchema.safeParse({ ...base, dateOfBirth: future }).success).toBe(false);
+  });
+
+  it("rejects garbage input", () => {
+    expect(
+      studentProfileSchema.safeParse({ ...base, dateOfBirth: "not-a-date" }).success,
+    ).toBe(false);
+  });
+
+  it("stays optional in the PATCH (partial) schema", () => {
+    expect(studentProfilePatchSchema.safeParse({}).success).toBe(true);
+    expect(
+      studentProfilePatchSchema.safeParse({ dateOfBirth: "2013-08-11" }).success,
+    ).toBe(true);
+  });
+});
+
+describe("avatarPresignRequestSchema", () => {
+  it("accepts a small image under the 2 MB avatar cap", () => {
+    expect(
+      avatarPresignRequestSchema.safeParse({
+        filename: "selfie.jpg",
+        contentType: "image/jpeg",
+        sizeBytes: 500_000,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a file over the avatar size cap even though it's under the general cap", () => {
+    expect(
+      avatarPresignRequestSchema.safeParse({
+        filename: "big.png",
+        contentType: "image/png",
+        sizeBytes: 3 * 1024 * 1024,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a non-image MIME type", () => {
+    expect(
+      avatarPresignRequestSchema.safeParse({
+        filename: "doc.pdf",
+        contentType: "application/pdf",
+        sizeBytes: 1000,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("avatarSelectSchema", () => {
+  it("accepts a preset selection", () => {
+    expect(avatarSelectSchema.safeParse({ type: "preset", id: "cosmo" }).success).toBe(true);
+  });
+
+  it("accepts an upload selection with a key and public URL", () => {
+    expect(
+      avatarSelectSchema.safeParse({
+        type: "upload",
+        key: "avatars/u-1/abc/photo.jpg",
+        publicUrl: "https://cdn.example.com/avatars/u-1/abc/photo.jpg",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an unknown discriminant", () => {
+    expect(avatarSelectSchema.safeParse({ type: "url", value: "x" }).success).toBe(false);
   });
 });

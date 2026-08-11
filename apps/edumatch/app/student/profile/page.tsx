@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { AvatarPicker } from "@/components/profile/AvatarPicker";
 
 const SUBJECTS_OF_INTEREST = [
   "Mathematics",
@@ -47,6 +48,7 @@ type Profile = {
     postalCode?: string;
     country?: string;
   };
+  dateOfBirth?: string | null;
 };
 
 export default function StudentProfilePage() {
@@ -77,6 +79,7 @@ export default function StudentProfilePage() {
     postalCode: "",
     country: "",
   });
+  const [dateOfBirth, setDateOfBirth] = useState("");
 
   useEffect(() => {
     fetch("/api/student/profile")
@@ -95,6 +98,9 @@ export default function StudentProfilePage() {
               country: data.homeAddress.country ?? "",
             });
           }
+          if (data.dateOfBirth) {
+            setDateOfBirth(data.dateOfBirth.slice(0, 10));
+          }
         }
       })
       .catch(() => { /* profile fetch failed — leave form in create mode */ })
@@ -111,6 +117,7 @@ export default function StudentProfilePage() {
       gradeLevel,
       subjectsOfInterest: subjects,
       homeAddress: address.line1 || address.city ? address : undefined,
+      dateOfBirth: dateOfBirth || undefined,
     };
 
     try {
@@ -248,6 +255,27 @@ export default function StudentProfilePage() {
           </p>
         </div>
 
+        {/* Date of birth */}
+        <div className="border-t border-[var(--color-border)] pt-6">
+          <label
+            htmlFor="dateOfBirth"
+            className="mb-2 block text-sm font-medium text-[var(--color-text)]"
+          >
+            {t("edumatch.profile.student.dateOfBirth")}
+          </label>
+          <input
+            id="dateOfBirth"
+            type="date"
+            value={dateOfBirth}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            className="w-full max-w-xs rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          />
+          <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+            {t("edumatch.profile.student.dateOfBirthHint")}
+          </p>
+        </div>
+
         {/* Address (Optional) */}
         <div className="border-t border-[var(--color-border)] pt-6">
           <h3 className="text-sm font-medium text-[var(--color-text)] mb-4">
@@ -308,6 +336,11 @@ export default function StudentProfilePage() {
             </p>
           </div>
         </div>
+
+        {/* Avatar picker saves itself (PATCH /api/student/avatar) rather
+            than joining the profile submit below — it needs a saved profile
+            to read dateOfBirth from in the first place. */}
+        {exists && <AvatarPicker />}
 
         {/* Actions */}
         <div className="flex gap-3 pt-4">
