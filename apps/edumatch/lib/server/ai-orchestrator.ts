@@ -324,6 +324,31 @@ export async function orchestrateResponse(
   });
   if (!inquiry) return { error: "Inquiry not found." };
 
+  // Idempotency guard: this function is only ever invoked as a BullMQ job
+  // processor (see ai-worker.ts), and the enqueue route already refuses to
+  // queue a second job once an inquiry reaches AI_RESPONDED/REFUSED. The one
+  // case that guard can't catch is BullMQ redelivering the *same* job after
+  // it already completed (stalled-job recovery, or a manual retry from a
+  // queue UI) — without this check, that redelivery would call the paid AI
+  // providers again and append a second EduAiResponse row. Reuse the
+  // already-fetched latest response instead of regenerating.
+  if (
+    (inquiry.status === "AI_RESPONDED" || inquiry.status === "REFUSED") &&
+    inquiry.aiResponses[0]
+  ) {
+    const latest = inquiry.aiResponses[0];
+    return {
+      output: latest.explanation,
+      provider: latest.modelUsed.includes("claude") ? "anthropic" : "openai",
+      model: latest.modelUsed,
+      promptTokens: latest.promptTokens ?? undefined,
+      completionTokens: latest.completionTokens ?? undefined,
+      totalTokens: latest.totalTokens ?? undefined,
+      latencyMs: latest.latencyMs ?? 0,
+      responseId: latest.id,
+    };
+  }
+
   const attachments =
     (inquiry.attachments as Array<{ url: string; mime: string }>) ?? [];
 
