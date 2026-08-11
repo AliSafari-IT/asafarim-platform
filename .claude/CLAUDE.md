@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Monorepo Overview
 
 **pnpm 11 + Turborepo 2** monorepo with three workspace groups:
-- `apps/*` — 8 Next.js 16 applications (web, hub, showcase, admin, vionto, testora, appbuilder, edumatch)
-- `packages/*` — 12 shared packages (`@asafarim/auth`, `@asafarim/db`, `@asafarim/ui`, etc.)
+- `apps/*` — 9 Next.js 16 applications (web, hub, showcase, admin, vionto, testora, appbuilder, edumatch, timelineai)
+- `packages/*` — 13 shared packages (`@asafarim/auth`, `@asafarim/db`, `@asafarim/ui`, `@asafarim/config`, etc.)
 - `benchmarks/*` — 4 benchmark suites
 
 All apps: Next.js 16 App Router, TypeScript 5.7, Tailwind CSS 4, React 19, Turbopack, standalone Docker output.
@@ -62,7 +62,7 @@ pnpm deploy:prod          # runs infra/scripts/deploy-prod.sh
 
 ### Database Strategy
 Two ORM layers coexist to avoid schema conflicts:
-- **Prisma 7** (`packages/db`) — shared platform schema (users, RBAC, audit logs, etc.). Used by: web, hub, showcase, admin, vionto.
+- **Prisma 7** (`packages/db`) — shared platform schema (users, RBAC, audit logs, EduMatch, TimelineAI, etc.). Used by: web, hub, showcase, admin, vionto, edumatch, timelineai.
 - **Drizzle ORM** — isolated per-app schemas. **Testora** (`port 55434`) and **AppBuilder** (`port 55436`) each have their own Postgres instance. Never mix these with the platform DB.
 
 ### Background Workers (BullMQ + Redis)
@@ -75,12 +75,16 @@ In dev, `pnpm dev` spawns both worker processes via `turbo worker:dev`.
 ### Shared Packages
 | Package | Purpose |
 |---|---|
-| `@asafarim/auth` | Auth.js config, middleware, RBAC helpers |
+| `@asafarim/auth` | Auth.js config, route proxy, RBAC helpers, platform app registry |
 | `@asafarim/db` | Prisma client + schema + migrations + seed |
-| `@asafarim/ui` | Design system: CSS tokens, brand components |
+| `@asafarim/ui` | Design system: CSS tokens, brand components, AppShell, DataTable |
+| `@asafarim/config` | Shared TypeScript/ESLint/Tailwind configuration (tsconfig presets) |
 | `@asafarim/storage` | S3-compatible object storage (AWS SDK v3) |
+| `@asafarim/shared-i18n` | Locale resolution, dictionaries, React i18n provider (en, nl, fr, de, lb) |
+| `@asafarim/country-language-selector` | Country/language picker UI + region detection |
+| `@asafarim/seed-manager` | Typed, allowlisted seed-data providers (Admin Console + CLI) |
 | `@asafarim/appbuilder-schema` | Versioned app spec contract + Zod schemas |
-| `@asafarim/appbuilder-ai` | Server-only AI provider boundary (OpenAI/Anthropic) |
+| `@asafarim/appbuilder-ai` | Server-only AI provider boundary (OpenAI) |
 | `@asafarim/appbuilder-runtime` | Metadata-driven preview renderer (no DB/auth deps) |
 | `@asafarim/theme-toggle` | Light/dark mode; writes `data-theme` on `<html>` |
 | `@asafarim/vionto-schemas` | Zod validation schemas for Vionto |
