@@ -248,7 +248,7 @@ export default function TutorProfilePage() {
                   }
                   className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
                     active
-                      ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                      ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[#07101a]"
                       : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-primary)]"
                   }`}
                 >
@@ -280,7 +280,7 @@ export default function TutorProfilePage() {
                   }
                   className={`rounded-lg border px-3 py-3 text-sm font-medium text-center transition ${
                     active
-                      ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                      ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[#07101a]"
                       : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] hover:border-[var(--color-primary)]"
                   }`}
                 >
@@ -431,7 +431,7 @@ export default function TutorProfilePage() {
           <button
             type="submit"
             disabled={saving || subjects.length === 0 || levels.length === 0}
-            className="flex-1 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+            className="flex-1 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
           >
             {saving ? (
               <>

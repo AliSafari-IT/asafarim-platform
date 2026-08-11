@@ -486,7 +486,7 @@ export default function InquiryDetail() {
             <button
               onClick={startAiStream}
               disabled={streaming}
-              className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {streaming ? (
                 <>

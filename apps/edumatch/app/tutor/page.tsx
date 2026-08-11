@@ -294,7 +294,7 @@ export default function TutorDashboard() {
             className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
               connectStatus?.payoutEnabled
                 ? "border border-[var(--color-border-strong)] text-[var(--color-text)] hover:bg-[var(--color-surface)]"
-                : "bg-[var(--color-primary)] text-white hover:opacity-90"
+                : "bg-[var(--color-primary)] text-[#07101a] hover:opacity-90"
             }`}
           >
             {connectStatus?.payoutEnabled

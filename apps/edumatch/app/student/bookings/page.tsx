@@ -181,7 +181,7 @@ export default function StudentBookingsPage() {
                       type="button"
                       disabled={busy === booking.id}
                       onClick={() => postDispute(booking, canOpen ? "open" : "respond")}
-                      className="mt-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                      className="mt-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[#07101a] disabled:opacity-50"
                     >
                       {busy === booking.id
                         ? t("edumatch.disputes.submitting")

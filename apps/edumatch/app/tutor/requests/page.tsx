@@ -517,6 +517,7 @@ export default function TutorRequestsPage() {
                                       | "IN_PERSON",
                                   })
                                 }
+                                aria-label={t("edumatch.requests.slots.modeLabel")}
                                 className="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-2 py-1.5 text-xs text-[var(--color-text)] focus:outline-none"
                               >
                                 <option value="ONLINE">
@@ -560,7 +561,7 @@ export default function TutorRequestsPage() {
                         <button
                           onClick={() => submitQuote(req.id)}
                           disabled={isSubmitting}
-                          className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition"
+                          className="flex-1 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 transition"
                         >
                           {isSubmitting
                             ? t("edumatch.requests.submitting")

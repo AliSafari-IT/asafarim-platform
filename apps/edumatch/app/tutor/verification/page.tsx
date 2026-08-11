@@ -121,7 +121,7 @@ export default function TutorVerificationPage() {
                   <div
                     className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${
                       mine
-                        ? "bg-[var(--color-primary)] text-white"
+                        ? "bg-[var(--color-primary)] text-[#07101a]"
                         : "border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)]"
                     }`}
                   >
