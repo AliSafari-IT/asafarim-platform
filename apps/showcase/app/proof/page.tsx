@@ -7,6 +7,7 @@ import {
   SECURITY_BOUNDARIES,
   getChangelog,
   getCiMetrics,
+  getLiveHealth,
   getPackageCards,
 } from "./data";
 import styles from "./proof.module.css";
@@ -33,6 +34,7 @@ export default async function ProofPage() {
   const packages = getPackageCards();
   const changelog = getChangelog();
   const ciMetrics = await getCiMetrics();
+  const liveHealth = await getLiveHealth();
 
   return (
     <>
@@ -79,7 +81,25 @@ export default async function ProofPage() {
         </Panel>
       </Section>
 
-      <Section kicker="Quality" kickerIndex="04" title="Build, accessibility, performance">
+      <Section kicker="Live status" kickerIndex="04" title="Is it actually up right now">
+        <p className={styles.blurb}>
+          Polled from each app&rsquo;s public <code>/api/status</code> endpoint at the moment you loaded this
+          page — genuinely live, not a cached number.
+        </p>
+        <div className={styles.packageGrid}>
+          {liveHealth.map((health) => (
+            <div key={health.app} className={styles.packageCard}>
+              <span className={styles.packageName}>{health.app}</span>
+              <Badge tone={health.status === "ok" ? "success" : health.status === "degraded" ? "warning" : "danger"}>
+                {health.status}
+                {health.responseTimeMs !== null ? ` · ${health.responseTimeMs}ms` : ""}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section kicker="Quality" kickerIndex="05" title="Build, accessibility, performance">
         <div className="ui-grid">
           {ciMetrics.map((metric) => (
             <Panel key={metric.label} title={metric.label}>
@@ -97,7 +117,7 @@ export default async function ProofPage() {
         </div>
       </Section>
 
-      <Section kicker="Versions" kickerIndex="05" title="Shipped packages and apps">
+      <Section kicker="Versions" kickerIndex="06" title="Shipped packages and apps">
         <div className="ui-grid">
           <Metric label="Packages" value={packages.filter((p) => p.kind === "package").length} hint="in packages/*" />
           <Metric label="Apps" value={packages.filter((p) => p.kind === "app").length} hint="in apps/*" />
@@ -112,7 +132,7 @@ export default async function ProofPage() {
         </div>
       </Section>
 
-      <Section kicker="Changelog" kickerIndex="06" title="Recently shipped">
+      <Section kicker="Changelog" kickerIndex="07" title="Recently shipped">
         <Timeline
           items={changelog.map((entry) => ({
             time: entry.date,
