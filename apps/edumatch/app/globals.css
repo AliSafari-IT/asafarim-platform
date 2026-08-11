@@ -321,6 +321,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .edu-nav-cta { padding: 9px 16px; border-radius: 11px; color: #07101b; background: var(--gradient-brand); font-size: .84rem; font-weight: 750; box-shadow: var(--shadow-glow); }
 .edu-account-button { height: 39px; padding: 4px 9px 4px 5px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--color-border); border-radius: 13px; color: var(--color-text); background: var(--color-panel); cursor: pointer; }
 .edu-avatar { width: 29px; height: 29px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; color: #08121e; background: linear-gradient(135deg, #7d9bff, #55e7c7); font-size: .66rem; font-weight: 800; }
+.edu-avatar-image { object-fit: cover; background: none; }
 .edu-avatar-loading { opacity: .45; animation: pulse 1.2s infinite; }
 .edu-account-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; font-weight: 650; }
 .edu-account-menu { display: grid; gap: 3px; }

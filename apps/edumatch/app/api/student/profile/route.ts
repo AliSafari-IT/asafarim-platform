@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@asafarim/db";
 import { getAuthedUser, badRequest, serverError, unauthorized } from "@/lib/server/auth";
 import { handleEduError } from "@/lib/server";
 import {
@@ -20,17 +21,23 @@ export const runtime = "nodejs";
  * Returns the caller's EduStudentProfile, or 404 when they haven't created
  * one yet. This is how the client decides whether to show the first-run
  * intake form.
+ *
+ * `image` is joined in from `User` (not a column on EduStudentProfile) so
+ * the profile page can show the current avatar without a second request.
  */
 export async function GET() {
   try {
     const user = await getAuthedUser();
     if (!user) return unauthorized();
 
-    const profile = await getStudentProfile(user.id);
+    const [profile, dbUser] = await Promise.all([
+      getStudentProfile(user.id),
+      prisma.user.findUnique({ where: { id: user.id }, select: { image: true } }),
+    ]);
     if (!profile) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    return NextResponse.json(profile);
+    return NextResponse.json({ ...profile, image: dbUser?.image ?? null });
   } catch (error) {
     return serverError("student/profile GET", error);
   }

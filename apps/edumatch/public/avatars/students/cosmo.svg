@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Cosmo the curious cat">
+  <circle cx="64" cy="64" r="64" fill="#FDE68A"/>
+  <path d="M40 40 30 18l18 12z" fill="#F59E0B"/>
+  <path d="M88 40l10-22-18 12z" fill="#F59E0B"/>
+  <circle cx="64" cy="66" r="34" fill="#FBBF24"/>
+  <circle cx="52" cy="62" r="5" fill="#1F2937"/>
+  <circle cx="76" cy="62" r="5" fill="#1F2937"/>
+  <path d="M58 78q6 6 12 0" stroke="#1F2937" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

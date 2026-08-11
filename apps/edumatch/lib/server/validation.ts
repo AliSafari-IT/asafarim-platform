@@ -49,6 +49,36 @@ export const presignRequestSchema = z.object({
 export type PresignRequest = z.infer<typeof presignRequestSchema>;
 
 /**
+ * Avatar uploads are strictly tighter than general attachments: real photos
+ * only, capped small — this is a profile picture, not a document.
+ */
+export const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+export const AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export type AvatarMime = (typeof AVATAR_MIME_TYPES)[number];
+
+export const avatarPresignRequestSchema = z.object({
+  filename: safeFilename,
+  contentType: z.enum(AVATAR_MIME_TYPES),
+  sizeBytes: z.number().int().min(MIN_FILE_BYTES).max(AVATAR_MAX_BYTES),
+});
+export type AvatarPresignRequest = z.infer<typeof avatarPresignRequestSchema>;
+
+/**
+ * What the client sends to PATCH /api/student/avatar. `setStudentAvatar()`
+ * re-checks the age rule server-side regardless of which branch is chosen —
+ * this schema only validates shape.
+ */
+export const avatarSelectSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("preset"), id: z.string().trim().min(1).max(40) }),
+  z.object({
+    type: z.literal("upload"),
+    key: z.string().trim().min(1).max(512),
+    publicUrl: z.string().url(),
+  }),
+]);
+export type AvatarSelectInput = z.infer<typeof avatarSelectSchema>;
+
+/**
  * An attachment as it lives on the EduInquiry row. The `key` is the storage
  * key issued by the presign endpoint — the server re-validates it against
  * the authenticated user before persisting, so clients can't smuggle in keys
@@ -102,6 +132,14 @@ export const studentProfileSchema = z.object({
       postalCode: z.string().trim().max(20).optional(),
       country: z.string().trim().max(100).optional(),
     })
+    .optional(),
+  // Optional to create the profile — a missing value is treated as under-13
+  // (the safest default) everywhere it's read. See lib/server/age.ts.
+  dateOfBirth: z
+    .union([z.string().datetime(), z.string().date(), z.date()])
+    .transform((v) => (typeof v === "string" ? new Date(v) : v))
+    .refine((v) => !Number.isNaN(v.getTime()), { message: "Invalid date of birth" })
+    .refine((v) => v <= new Date(), { message: "Date of birth cannot be in the future" })
     .optional(),
 });
 export type StudentProfileInput = z.infer<typeof studentProfileSchema>;

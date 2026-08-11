@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "node:crypto";
-import { MAX_FILE_BYTES, type AllowedMime } from "./validation";
+import { AVATAR_MAX_BYTES, MAX_FILE_BYTES, type AllowedMime, type AvatarMime } from "./validation";
 
 /**
  * Phase 2.1 storage layer.
@@ -142,6 +142,31 @@ export function isKeyOwnedBy(key: string, userId: string): boolean {
   return key.startsWith(`inquiries/${userId}/`);
 }
 
+/**
+ * Avatar uploads get their own key prefix (`avatars/{userId}/...`) rather
+ * than reusing `inquiries/...`, so the two purposes can never be confused by
+ * `isAvatarKeyOwnedBy`/`isKeyOwnedBy` checking each other's namespace.
+ */
+export function buildAvatarKey(userId: string, filename: string): string {
+  const safe = filename
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/\.{2,}/g, "_")
+    .replace(/^[._-]+/, "")
+    .slice(0, 80) || "avatar";
+  return `avatars/${userId}/${randomUUID()}/${safe}`;
+}
+
+export function isAvatarKeyOwnedBy(key: string, userId: string): boolean {
+  return key.startsWith(`avatars/${userId}/`);
+}
+
+/** Public URL for an already-uploaded avatar object, local-stub aware. */
+export function buildPublicAvatarUrl(key: string): string {
+  const handle = getClient();
+  if (!handle) return `local-stub://${key}`;
+  return `${handle.config.publicUrl.replace(/\/$/, "")}/${key}`;
+}
+
 export async function createPresignedUploadUrl(
   input: PresignInput,
 ): Promise<PresignedUpload> {
@@ -156,6 +181,60 @@ export async function createPresignedUploadUrl(
   if (!handle) {
     // Local-dev stub: surface a non-functional URL so the rest of the pipeline
     // can still be exercised end-to-end against an in-memory description.
+    return {
+      key,
+      uploadUrl: `local-stub://${key}`,
+      publicUrl: `local-stub://${key}`,
+      headers,
+      expiresInSec: PRESIGN_EXPIRES_SEC,
+      isLocalStub: true,
+    };
+  }
+
+  const command = new PutObjectCommand({
+    Bucket: handle.config.bucket,
+    Key: key,
+    ContentType: input.contentType,
+  });
+
+  const uploadUrl = await getSignedUrl(handle.client, command, {
+    expiresIn: PRESIGN_EXPIRES_SEC,
+  });
+
+  return {
+    key,
+    uploadUrl,
+    publicUrl: `${handle.config.publicUrl.replace(/\/$/, "")}/${key}`,
+    headers,
+    expiresInSec: PRESIGN_EXPIRES_SEC,
+    isLocalStub: false,
+  };
+}
+
+export type AvatarPresignInput = {
+  userId: string;
+  filename: string;
+  contentType: AvatarMime;
+  sizeBytes: number;
+};
+
+/**
+ * Presign an avatar upload. Deliberately separate from
+ * `createPresignedUploadUrl` (different key namespace, tighter size/MIME
+ * limits) but shares the same client/config plumbing.
+ */
+export async function createPresignedAvatarUploadUrl(
+  input: AvatarPresignInput,
+): Promise<PresignedUpload> {
+  if (input.sizeBytes > AVATAR_MAX_BYTES) {
+    throw new Error(`File exceeds ${AVATAR_MAX_BYTES} bytes`);
+  }
+
+  const key = buildAvatarKey(input.userId, input.filename);
+  const headers = { "Content-Type": input.contentType };
+
+  const handle = getClient();
+  if (!handle) {
     return {
       key,
       uploadUrl: `local-stub://${key}`,
