@@ -1,0 +1,108 @@
+# EduMatch E2E suite (#160, part of #89 "Launch readiness").
+#
+# Runs apps/edumatch/e2e against a disposable Postgres + Hub + EduMatch dev
+# stack. global-setup.ts (see apps/edumatch/e2e/global-setup.ts) signs in a
+# seeded demo student and tutor through Hub's real sign-in form and saves
+# their sessions, so both Hub and EduMatch need to be reachable — Playwright
+# itself starts both via playwright.config.ts's `webServer` array once this
+# workflow has migrated and seeded the database.
+#
+# No package build step: apps/edumatch/next.config.ts and apps/hub/next.config.ts
+# both transpile the workspace packages they depend on (@asafarim/ui,
+# @asafarim/auth, @asafarim/db, etc.) directly from source in dev mode — the
+# only build-time artifact actually required is the generated Prisma client
+# (`pnpm db:generate`).
+#
+# Chromium only for now (see #164 for firefox/webkit/mobile-viewport
+# coverage) — keeps this fast enough to run on every PR touching EduMatch.
+name: EduMatch E2E
+
+on:
+  pull_request:
+    paths:
+      - "apps/edumatch/**"
+      - "apps/hub/**"
+      - "packages/auth/**"
+      - "packages/db/**"
+      - "packages/ui/**"
+      - "packages/shared-i18n/**"
+      - "packages/country-language-selector/**"
+      - ".github/workflows/edumatch-e2e.yml"
+  schedule:
+    # Nightly safety net — catches regressions from changes outside the
+    # paths above (e.g. a shared config bump) that the PR trigger would miss.
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: asafarim
+          POSTGRES_PASSWORD: e2e_ci_password
+          POSTGRES_DB: asafarim
+        ports:
+          - 55435:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://asafarim:e2e_ci_password@127.0.0.1:55435/asafarim
+      # Not a real secret — this stack is torn down at the end of the job.
+      AUTH_SECRET: ci-only-throwaway-secret-do-not-reuse
+      AUTH_URL: http://localhost:3001
+      AUTH_TRUST_HOST: "true"
+      NEXTAUTH_URL: http://localhost:3001
+      NEXT_PUBLIC_HUB_URL: http://localhost:3001
+      NEXT_PUBLIC_EDUMATCH_URL: http://localhost:3009
+      PORTAL_URL: http://localhost:3001
+      PLAYWRIGHT_HUB_URL: http://localhost:3001
+      PLAYWRIGHT_TEST_BASE_URL: http://localhost:3009
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Apply database migrations
+        run: pnpm db:migrate:deploy
+
+      - name: Seed RBAC roles
+        run: pnpm db:seed
+
+      - name: Seed EduMatch demo data
+        run: pnpm db:seed:edumatch
+
+      - name: Install Playwright chromium
+        working-directory: apps/edumatch
+        run: npx playwright install --with-deps chromium
+
+      - name: Run EduMatch E2E suite (chromium)
+        working-directory: apps/edumatch
+        run: npx playwright test --project=chromium
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: edumatch-playwright-report
+          path: |
+            apps/edumatch/playwright-report/
+            apps/edumatch/test-results/
+          retention-days: 14
