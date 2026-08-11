@@ -1,0 +1,51 @@
+# Publishes accessibility/performance snapshots for the public proof board
+# (showcase.asafarim.com/proof, apps/showcase/app/proof/data.ts).
+#
+# Runs Lighthouse against the *deployed* showcase — not a local build — since
+# a fresh build needs decrypted secrets that this workflow deliberately
+# doesn't have (see ci-status.yml's build exclusion for the same reasoning).
+# Only category scores + a timestamp are committed; no raw report content.
+
+name: Lighthouse snapshots
+
+on:
+  schedule:
+    - cron: "17 4 * * *" # daily, off-peak
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            https://showcase.asafarim.com/
+            https://showcase.asafarim.com/proof
+          numberOfRuns: 1
+          uploadArtifacts: true
+          temporaryPublicStorage: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Summarize into the committed public snapshot
+        run: node scripts/lighthouse-summary.mjs
+
+      - name: Commit snapshot if it changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps/showcase/public-data/lighthouse-status.json
+          git diff --cached --quiet || git commit -m "chore: update Lighthouse a11y/perf snapshot [skip ci]"
+          git push
