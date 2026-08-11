@@ -67,18 +67,9 @@ export default function HomePage() {
           <div className="edu-eyebrow"><Sparkles size={15} /> Learning support, beautifully matched</div>
           <h1>Meet the right help.<br /><span>Make learning click.</span></h1>
           <p>From a difficult homework question to a trusted tutor who gets how you learn—EduMatch combines thoughtful AI guidance with real human expertise.</p>
-          <PrimaryActions />
-          <div className="edu-proof-row">
-            <span><ShieldCheck size={17} /> Tutor verification workflow</span>
-            <span><WandSparkles size={17} /> Explainable matching</span>
-            <span><HeartHandshake size={17} /> Safe by design</span>
-          </div>
-          <ShowcaseNotice
-            content={showcase}
-            variant="compact"
-            renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
-          />
         </div>
+
+        <div className="edu-hero-art-space" aria-hidden="true" />
 
         <div className="edu-hero-stage" aria-label="EduMatch product preview">
           <div className="edu-stage-orbit edu-stage-orbit-a" />
@@ -95,6 +86,20 @@ export default function HomePage() {
             <div className="edu-match-rating"><Star size={14} fill="currentColor" />5.0</div>
           </div>
           <div className="edu-session-chip"><Video size={17} /><span><strong>Next session</strong>Today · 17:30</span></div>
+        </div>
+
+        <div className="edu-hero-support">
+          <PrimaryActions />
+          <div className="edu-proof-row">
+            <span><ShieldCheck size={17} /> Tutor verification workflow</span>
+            <span><WandSparkles size={17} /> Explainable matching</span>
+            <span><HeartHandshake size={17} /> Safe by design</span>
+          </div>
+          <ShowcaseNotice
+            content={showcase}
+            variant="compact"
+            renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
+          />
         </div>
       </section>
 
