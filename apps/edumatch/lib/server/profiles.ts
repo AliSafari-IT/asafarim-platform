@@ -5,6 +5,8 @@ import type {
 } from "@asafarim/db";
 import { getAuthedUser, type AuthedUser } from "./auth";
 import { applyDefaultAvatarIfNeeded } from "./avatars";
+import { isUnder16 } from "./age";
+import { StudentGuardError } from "./student-guard";
 import type {
   StudentProfileInput,
   StudentProfilePatch,
@@ -205,11 +207,28 @@ async function getPrimaryEduMatchHomeAddress(userId: string): Promise<{
 /**
  * Create or replace the caller's EduStudentProfile and ensure the
  * `edumatch_student` role is attached. Used by the profile POST route.
+ *
+ * Independence gate: a brand-new, self-serve profile (no existing row yet)
+ * that declares a date of birth under 16 is refused — that's the "students
+ * under 16 cannot create an independent account" rule from the onboarding
+ * flow. It only applies to *first creation*: an already-existing profile
+ * that later records a DOB revealing under-16 is not retroactively deleted
+ * here (it simply can't transact — see student-guard.ts's
+ * authorizeBookingActor, the actual enforcement point for bookings).
  */
 export async function upsertStudentProfile(
   userId: string,
   input: StudentProfileInput,
 ): Promise<EduStudentProfile> {
+  const existing = await prisma.eduStudentProfile.findUnique({ where: { userId } });
+
+  if (!existing && input.dateOfBirth && isUnder16(input.dateOfBirth)) {
+    throw new StudentGuardError(
+      403,
+      "Students under 16 must have an account created and managed by a parent or guardian.",
+    );
+  }
+
   const centralLocation = input.homeAddress
     ? null
     : await getPrimaryEduMatchHomeAddress(userId);

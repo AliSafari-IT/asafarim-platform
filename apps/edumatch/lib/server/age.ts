@@ -1,7 +1,8 @@
 /**
  * Age utilities, built on `EduStudentProfile.dateOfBirth` — the single
- * source of truth for every age-gated rule in EduMatch (currently: the
- * avatar system's under-13 photo restriction — see avatars.ts).
+ * source of truth for every age-gated rule in EduMatch: the avatar system's
+ * under-13 photo restriction (avatars.ts) and the account model's under-16
+ * independence cutoff (student-guard.ts).
  *
  * All comparisons use UTC so a student's actual calendar birthday, not the
  * server's local timezone, decides when they turn a given age.
@@ -15,6 +16,16 @@
 export function isUnder13(dateOfBirth: Date | null | undefined, now = new Date()): boolean {
   if (!dateOfBirth) return true;
   return computeAgeOn(dateOfBirth, now) < 13;
+}
+
+/**
+ * True if `dateOfBirth` puts the student under 16 as of `now` — the cutoff
+ * for creating and managing an independent EduMatch account. Same safest-
+ * default rule as `isUnder13`: no proof of age means under 16.
+ */
+export function isUnder16(dateOfBirth: Date | null | undefined, now = new Date()): boolean {
+  if (!dateOfBirth) return true;
+  return computeAgeOn(dateOfBirth, now) < 16;
 }
 
 /** Whole years between `dateOfBirth` and `now`, computed in UTC. */

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireStudent } from "@/lib/server/profiles";
-import { handleEduError, badRequest, serverError } from "@/lib/server";
+import { getAuthedUser } from "@/lib/server/auth";
+import { handleEduError, badRequest, serverError, unauthorized } from "@/lib/server";
 import { acceptQuote, QuoteError } from "@/lib/server/quotes";
 import { notifyTutorOfQuoteAccepted } from "@/lib/server/notifications";
 import { prisma } from "@asafarim/db";
@@ -10,21 +10,33 @@ export const runtime = "nodejs";
 /**
  * POST /api/quotes/[id]/accept
  *
- * Student accepts a quote, which:
+ * Accepts a quote, which:
  * - Marks the quote as ACCEPTED
  * - Declines all other quotes for the same request
  * - Creates a booking record
  * - Transitions inquiry to BOOKED status
+ *
+ * Ordinarily the caller *is* the student. A parent may instead accept on
+ * behalf of one of their managed children by passing `{ studentId }` in the
+ * body — `acceptQuote`/`authorizeBookingActor` enforce that relationship
+ * server-side; this route doesn't need to know which case it's in.
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { user } = await requireStudent();
+    const user = await getAuthedUser();
+    if (!user) return unauthorized();
     const { id: quoteId } = await params;
 
-    const result = await acceptQuote(quoteId, user.id);
+    const body = (await req.json().catch(() => ({}))) as { studentId?: unknown };
+    const studentId =
+      typeof body.studentId === "string" && body.studentId.length > 0
+        ? body.studentId
+        : undefined;
+
+    const result = await acceptQuote(quoteId, user.id, studentId);
 
     // Fire-and-forget: notify the tutor their quote was accepted
     void (async () => {

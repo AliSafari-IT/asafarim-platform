@@ -118,33 +118,58 @@ export const inquiryIntakeSchema = z.object({
 export type InquiryIntake = z.infer<typeof inquiryIntakeSchema>;
 
 /**
+ * A date of birth, accepted as a date-only or full ISO string. Shared by the
+ * (optional, for self-serve) student profile schema below and the
+ * (required) add-child schema in parent.ts's caller.
+ */
+const dateOfBirthSchema = z
+  .union([z.string().datetime(), z.string().date(), z.date()])
+  .transform((v) => (typeof v === "string" ? new Date(v) : v))
+  .refine((v) => !Number.isNaN(v.getTime()), { message: "Invalid date of birth" })
+  .refine((v) => v <= new Date(), { message: "Date of birth cannot be in the future" });
+
+const homeAddressSchema = z
+  .object({
+    line1: z.string().trim().max(200).optional(),
+    city: z.string().trim().max(100).optional(),
+    region: z.string().trim().max(100).optional(),
+    postalCode: z.string().trim().max(20).optional(),
+    country: z.string().trim().max(100).optional(),
+  })
+  .optional();
+
+/**
  * Student profile input validation. Shared between POST (create) and PATCH
  * (update); PATCH uses `.partial()` so any subset of fields is valid.
  */
 export const studentProfileSchema = z.object({
   gradeLevel: z.enum(GRADE_LEVELS),
   subjectsOfInterest: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
-  homeAddress: z
-    .object({
-      line1: z.string().trim().max(200).optional(),
-      city: z.string().trim().max(100).optional(),
-      region: z.string().trim().max(100).optional(),
-      postalCode: z.string().trim().max(20).optional(),
-      country: z.string().trim().max(100).optional(),
-    })
-    .optional(),
+  homeAddress: homeAddressSchema,
   // Optional to create the profile — a missing value is treated as under-13
-  // (the safest default) everywhere it's read. See lib/server/age.ts.
-  dateOfBirth: z
-    .union([z.string().datetime(), z.string().date(), z.date()])
-    .transform((v) => (typeof v === "string" ? new Date(v) : v))
-    .refine((v) => !Number.isNaN(v.getTime()), { message: "Invalid date of birth" })
-    .refine((v) => v <= new Date(), { message: "Date of birth cannot be in the future" })
-    .optional(),
+  // /under-16 (the safest default) everywhere it's read. See age.ts.
+  // Independent (self-serve) creation additionally requires and validates
+  // this via the onboarding flow — see student-guard.ts.
+  dateOfBirth: dateOfBirthSchema.optional(),
 });
 export type StudentProfileInput = z.infer<typeof studentProfileSchema>;
 export const studentProfilePatchSchema = studentProfileSchema.partial();
 export type StudentProfilePatch = z.infer<typeof studentProfilePatchSchema>;
+
+/**
+ * What a parent submits to add a child. Unlike the self-serve
+ * `studentProfileSchema`, `dateOfBirth` is required — there's no "figure it
+ * out later" path when a parent is explicitly declaring who the account is
+ * for, and the under-16 rules depend on it from the first save.
+ */
+export const addChildSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  dateOfBirth: dateOfBirthSchema,
+  gradeLevel: z.enum(GRADE_LEVELS),
+  subjectsOfInterest: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
+  homeAddress: homeAddressSchema,
+});
+export type AddChildInput = z.infer<typeof addChildSchema>;
 
 /**
  * Tutor profile input validation. `hourlyRateCents` is stored as an integer

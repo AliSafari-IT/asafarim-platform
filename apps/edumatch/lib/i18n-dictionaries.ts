@@ -338,6 +338,28 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.avatar.uploadCta": "Upload your own photo",
     "edumatch.profile.student.avatar.error": "We couldn't update your avatar. Please try again.",
 
+    // Onboarding (role selection)
+    "edumatch.onboarding.title": "Welcome to EduMatch — who's this for?",
+    "edumatch.onboarding.role.parent": "I am a parent or guardian",
+    "edumatch.onboarding.role.student": "I am a student (16 or older)",
+    "edumatch.onboarding.role.tutor": "I want to tutor",
+    "edumatch.onboarding.continue": "Continue",
+    "edumatch.onboarding.back": "← Back",
+    "edumatch.onboarding.dobRequired": "Please enter your date of birth to continue.",
+    "edumatch.onboarding.under16Notice":
+      "Students under 16 must have an account created and managed by a parent or guardian.",
+    "edumatch.onboarding.error": "Something went wrong. Please try again.",
+
+    // Parent dashboard
+    "edumatch.parent.dashboard.title": "Your children",
+    "edumatch.parent.addChild": "Add a child",
+    "edumatch.parent.childName": "Child's first name",
+    "edumatch.parent.noStudents":
+      "You haven't added any children yet. Add your first child to get started.",
+    "edumatch.parent.unnamedChild": "Student",
+    "edumatch.parent.loading": "Loading…",
+    "edumatch.parent.loadError": "We couldn't load this. Please try again.",
+
     // Tutor dashboard
     "edumatch.tutor.signInRequired": "Please sign in",
     "edumatch.tutor.signIn": "Sign in",
@@ -1780,6 +1802,28 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.avatar.uploadCta": "Upload je eigen foto",
     "edumatch.profile.student.avatar.error": "We konden je avatar niet bijwerken. Probeer het opnieuw.",
 
+    // Onboarding (rolkeuze)
+    "edumatch.onboarding.title": "Welkom bij EduMatch — voor wie is dit account?",
+    "edumatch.onboarding.role.parent": "Ik ben ouder of voogd",
+    "edumatch.onboarding.role.student": "Ik ben leerling (16 jaar of ouder)",
+    "edumatch.onboarding.role.tutor": "Ik wil lesgeven",
+    "edumatch.onboarding.continue": "Doorgaan",
+    "edumatch.onboarding.back": "← Terug",
+    "edumatch.onboarding.dobRequired": "Vul je geboortedatum in om door te gaan.",
+    "edumatch.onboarding.under16Notice":
+      "Leerlingen jonger dan 16 moeten een account laten aanmaken en beheren door een ouder of voogd.",
+    "edumatch.onboarding.error": "Er is iets misgegaan. Probeer het opnieuw.",
+
+    // Ouderdashboard
+    "edumatch.parent.dashboard.title": "Jouw kinderen",
+    "edumatch.parent.addChild": "Kind toevoegen",
+    "edumatch.parent.childName": "Voornaam van je kind",
+    "edumatch.parent.noStudents":
+      "Je hebt nog geen kinderen toegevoegd. Voeg je eerste kind toe om te beginnen.",
+    "edumatch.parent.unnamedChild": "Leerling",
+    "edumatch.parent.loading": "Laden…",
+    "edumatch.parent.loadError": "We konden dit niet laden. Probeer het opnieuw.",
+
     // Tutor dashboard
     "edumatch.tutor.signInRequired": "Log alstublieft in",
     "edumatch.tutor.signIn": "Inloggen",
@@ -3066,6 +3110,28 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.avatar.error":
       "Nous n'avons pas pu mettre à jour votre avatar. Veuillez réessayer.",
 
+    // Intégration (choix du rôle)
+    "edumatch.onboarding.title": "Bienvenue sur EduMatch — pour qui est ce compte ?",
+    "edumatch.onboarding.role.parent": "Je suis un parent ou un tuteur",
+    "edumatch.onboarding.role.student": "Je suis étudiant (16 ans ou plus)",
+    "edumatch.onboarding.role.tutor": "Je veux donner des cours",
+    "edumatch.onboarding.continue": "Continuer",
+    "edumatch.onboarding.back": "← Retour",
+    "edumatch.onboarding.dobRequired": "Veuillez indiquer votre date de naissance pour continuer.",
+    "edumatch.onboarding.under16Notice":
+      "Les étudiants de moins de 16 ans doivent avoir un compte créé et géré par un parent ou un tuteur.",
+    "edumatch.onboarding.error": "Une erreur s'est produite. Veuillez réessayer.",
+
+    // Tableau de bord parent
+    "edumatch.parent.dashboard.title": "Vos enfants",
+    "edumatch.parent.addChild": "Ajouter un enfant",
+    "edumatch.parent.childName": "Prénom de l'enfant",
+    "edumatch.parent.noStudents":
+      "Vous n'avez encore ajouté aucun enfant. Ajoutez votre premier enfant pour commencer.",
+    "edumatch.parent.unnamedChild": "Étudiant",
+    "edumatch.parent.loading": "Chargement…",
+    "edumatch.parent.loadError": "Nous n'avons pas pu charger ceci. Veuillez réessayer.",
+
     // Tutor dashboard
     "edumatch.tutor.signInRequired": "Veuillez vous connecter",
     "edumatch.tutor.signIn": "Se connecter",
@@ -4072,6 +4138,28 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.avatar.uploadCta": "Eigenes Foto hochladen",
     "edumatch.profile.student.avatar.error":
       "Wir konnten deinen Avatar nicht aktualisieren. Bitte versuche es erneut.",
+
+    // Onboarding (Rollenwahl)
+    "edumatch.onboarding.title": "Willkommen bei EduMatch — für wen ist dieses Konto?",
+    "edumatch.onboarding.role.parent": "Ich bin Elternteil oder Erziehungsberechtigte(r)",
+    "edumatch.onboarding.role.student": "Ich bin Schüler:in (16 Jahre oder älter)",
+    "edumatch.onboarding.role.tutor": "Ich möchte Nachhilfe geben",
+    "edumatch.onboarding.continue": "Weiter",
+    "edumatch.onboarding.back": "← Zurück",
+    "edumatch.onboarding.dobRequired": "Bitte gib dein Geburtsdatum ein, um fortzufahren.",
+    "edumatch.onboarding.under16Notice":
+      "Für Schüler:innen unter 16 muss ein Konto von einem Elternteil oder Erziehungsberechtigten erstellt und verwaltet werden.",
+    "edumatch.onboarding.error": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+
+    // Eltern-Dashboard
+    "edumatch.parent.dashboard.title": "Deine Kinder",
+    "edumatch.parent.addChild": "Kind hinzufügen",
+    "edumatch.parent.childName": "Vorname des Kindes",
+    "edumatch.parent.noStudents":
+      "Du hast noch keine Kinder hinzugefügt. Füge dein erstes Kind hinzu, um loszulegen.",
+    "edumatch.parent.unnamedChild": "Schüler:in",
+    "edumatch.parent.loading": "Wird geladen…",
+    "edumatch.parent.loadError": "Wir konnten dies nicht laden. Bitte versuche es erneut.",
 
     // Tutor dashboard
     "edumatch.tutor.signInRequired": "Bitte anmelden",
