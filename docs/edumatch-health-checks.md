@@ -142,3 +142,10 @@ is down — `/api/status` only reflects database reachability, by design
 (the things it checks are the platform-wide blocking dependency; a missing
 `STRIPE_SECRET_KEY` is a configuration gap the operator needs to notice
 some other way, e.g. by the payments feature visibly not working).
+
+## Related
+
+See [`docs/edumatch-launch-runbook.md`](edumatch-launch-runbook.md) and
+[`docs/edumatch-rollback-runbook.md`](edumatch-rollback-runbook.md) (#163)
+for how this health check fits into an actual deploy/rollback — the
+launch runbook's post-deploy smoke checks use `/api/status` directly.
