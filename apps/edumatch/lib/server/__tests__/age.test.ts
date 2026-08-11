@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeAgeOn, isUnder13 } from "../age";
+import { computeAgeOn, isUnder13, isUnder16 } from "../age";
 
 describe("computeAgeOn", () => {
   it("counts a full birthday as the new age", () => {
@@ -39,5 +39,22 @@ describe("isUnder13", () => {
 
   it("is false for an adult", () => {
     expect(isUnder13(new Date("1990-01-01"), new Date("2026-08-11"))).toBe(false);
+  });
+});
+
+describe("isUnder16", () => {
+  it("treats a missing date of birth as the safest default (under 16)", () => {
+    expect(isUnder16(null)).toBe(true);
+    expect(isUnder16(undefined)).toBe(true);
+  });
+
+  it("is true the day before turning 16, false on/after the birthday", () => {
+    const now = new Date("2026-08-11");
+    expect(isUnder16(new Date("2010-08-12"), now)).toBe(true);
+    expect(isUnder16(new Date("2010-08-11"), now)).toBe(false);
+  });
+
+  it("is false for an adult", () => {
+    expect(isUnder16(new Date("1990-01-01"), new Date("2026-08-11"))).toBe(false);
   });
 });

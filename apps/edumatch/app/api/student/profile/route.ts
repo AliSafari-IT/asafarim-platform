@@ -12,6 +12,7 @@ import {
   updateStudentProfile,
   upsertStudentProfile,
 } from "@/lib/server/profiles";
+import { StudentGuardError } from "@/lib/server/student-guard";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,9 @@ export async function POST(req: Request) {
     const profile = await upsertStudentProfile(user.id, parsed.data);
     return NextResponse.json(profile, { status: 201 });
   } catch (error) {
+    if (error instanceof StudentGuardError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     if (error instanceof Error && error.name === "EduAuthError") {
       return handleEduError("student/profile POST", error);
     }
