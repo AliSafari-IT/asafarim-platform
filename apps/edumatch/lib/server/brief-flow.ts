@@ -182,6 +182,7 @@ export async function matchAndInvite(
     quoteRequestId: quoteRequest.id,
     subject: brief.subject,
     gradeLevel: brief.educationalLevel,
+    isInvited: true,
   });
 
   void recordEduAuditEvent({
