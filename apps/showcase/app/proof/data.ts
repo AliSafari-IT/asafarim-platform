@@ -36,6 +36,15 @@ export interface ChangelogEntry {
   url: string;
 }
 
+export interface AppHealth {
+  app: string;
+  url: string;
+  status: "ok" | "degraded" | "unreachable";
+  responseTimeMs: number | null;
+  measuredAt: string;
+  freshness: Freshness;
+}
+
 export interface ArchitectureNode {
   id: string;
   name: string;
@@ -263,4 +272,53 @@ export async function getCiMetrics(): Promise<ProofMetric[]> {
 
 export function getPackageCards(): PackageCard[] {
   return readWorkspaceVersions();
+}
+
+// Public subdomains, not private hosts — every one of these is already
+// linked from platform navigation. Each app's app/api/status/route.ts
+// returns only { app, status, db?, timestamp, responseTimeMs } — no
+// hostnames, ports, or connection details beyond the public URL itself.
+const STATUS_ENDPOINTS: Array<{ app: string; url: string }> = [
+  { app: "Web", url: "https://asafarim.com/api/status" },
+  { app: "Hub", url: "https://hub.asafarim.com/api/status" },
+  { app: "Showcase", url: "https://showcase.asafarim.com/api/status" },
+  { app: "Admin", url: "https://admin.asafarim.com/api/status" },
+  { app: "Vionto", url: "https://vionto.asafarim.com/api/status" },
+  { app: "Testora", url: "https://testora.asafarim.com/api/status" },
+  { app: "AppBuilder", url: "https://appbuilder.asafarim.com/api/status" },
+  { app: "EduMatch", url: "https://edumatch.asafarim.com/api/status" },
+  { app: "TimelineAI", url: "https://tlai.asafarim.com/api/status" },
+];
+
+/**
+ * Polls every app's public /api/status endpoint at request time. Genuinely
+ * live — not cached, not build-time. A slow or down app degrades to
+ * "unreachable" rather than hanging the whole proof page (5s timeout per
+ * app, all polled in parallel).
+ */
+export async function getLiveHealth(): Promise<AppHealth[]> {
+  return Promise.all(
+    STATUS_ENDPOINTS.map(async ({ app, url }) => {
+      const started = Date.now();
+      const measuredAt = new Date().toISOString();
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000), cache: "no-store" });
+        const responseTimeMs = Date.now() - started;
+        if (!res.ok) {
+          return { app, url, status: "unreachable", responseTimeMs, measuredAt, freshness: "live" };
+        }
+        const body = (await res.json()) as { status?: string };
+        return {
+          app,
+          url,
+          status: body.status === "ok" ? "ok" : "degraded",
+          responseTimeMs,
+          measuredAt,
+          freshness: "live",
+        };
+      } catch {
+        return { app, url, status: "unreachable", responseTimeMs: null, measuredAt, freshness: "live" };
+      }
+    })
+  );
 }

@@ -3,6 +3,8 @@ export { prisma } from "./client";
 // Alias matching the migration plan's `import { db } from "@asafarim/db"`
 export { prisma as db } from "./client";
 
+export { pingDb } from "./status";
+
 // Re-export types for convenience
 export { PrismaClient, Prisma } from "@prisma/client";
 export type {
