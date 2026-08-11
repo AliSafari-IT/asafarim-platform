@@ -1038,6 +1038,46 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.review.submit": "Post review",
     "edumatch.review.cancel": "Cancel",
     "edumatch.review.error": "We couldn't post that review.",
+    "edumatch.review.aspect.clarity": "Explained things clearly",
+    "edumatch.review.aspect.reliability": "On time and prepared",
+    "edumatch.review.aspect.engagement": "Engaging and patient",
+    "edumatch.review.derivedOverall": "Overall: {value} / 5",
+
+    // Rating filter
+    "edumatch.filter.any": "Any",
+    "edumatch.filter.min40": "4.0+",
+    "edumatch.filter.min45": "4.5+",
+    "edumatch.filter.min48": "4.8+",
+    "edumatch.filter.minRating": "Minimum overall rating",
+    "edumatch.filter.minClarity": "Minimum clarity",
+    "edumatch.filter.minReliability": "Minimum reliability",
+    "edumatch.filter.minEngagement": "Minimum engagement",
+    "edumatch.filter.moreFilters": "More filters",
+    "edumatch.filter.showingCount": "Showing {shown} of {total} tutors",
+    "edumatch.filter.hiddenNote": "{n} tutors hidden by your rating filter.",
+    "edumatch.filter.hiddenNewcomerNote":
+      "New, verified tutors without enough reviews yet are never hidden by this filter.",
+    "edumatch.filter.showAll": "Show all",
+    "edumatch.filter.newBadge": "New",
+    "edumatch.filter.aspectSummary":
+      "Clarity {clarity} · Reliability {reliability} · Engagement {engagement}",
+
+    // Tutor resume
+    "edumatch.resume.loading": "Loading resume…",
+    "edumatch.resume.loadError": "We couldn't load this tutor's resume.",
+    "edumatch.resume.sessionsTaught": "Sessions taught",
+    "edumatch.resume.distinctStudents": "Students helped",
+    "edumatch.resume.hoursTaught": "Hours taught",
+    "edumatch.resume.avgGoalProgress": "Avg. goal progress",
+    "edumatch.resume.ratingBreakdown": "Rating breakdown",
+    "edumatch.resume.overall": "Overall",
+    "edumatch.resume.basedOnN": "Based on {n} verified lessons.",
+    "edumatch.resume.recentReviews": "Recent reviews",
+    "edumatch.resume.milestone.highlyRated": "Highly rated: 4.5+ over 10+ reviews",
+    "edumatch.resume.milestone.hours50": "50 hours of teaching",
+    "edumatch.resume.milestone.students10": "Helped 10 students",
+    "edumatch.resume.milestone.streak4": "Consistent: 4-week streak",
+    "edumatch.resume.milestone.sessions5": "First 5 lessons taught",
 
     // Session record (tutor)
     "edumatch.sessionRecord.title": "Write up the lesson",
@@ -2267,6 +2307,46 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.review.submit": "Beoordeling plaatsen",
     "edumatch.review.cancel": "Annuleren",
     "edumatch.review.error": "We konden die beoordeling niet plaatsen.",
+    "edumatch.review.aspect.clarity": "Legde dingen duidelijk uit",
+    "edumatch.review.aspect.reliability": "Op tijd en voorbereid",
+    "edumatch.review.aspect.engagement": "Betrokken en geduldig",
+    "edumatch.review.derivedOverall": "Totaal: {value} / 5",
+
+    // Beoordelingsfilter
+    "edumatch.filter.any": "Alles",
+    "edumatch.filter.min40": "4,0+",
+    "edumatch.filter.min45": "4,5+",
+    "edumatch.filter.min48": "4,8+",
+    "edumatch.filter.minRating": "Minimale totaalbeoordeling",
+    "edumatch.filter.minClarity": "Minimale duidelijkheid",
+    "edumatch.filter.minReliability": "Minimale betrouwbaarheid",
+    "edumatch.filter.minEngagement": "Minimale betrokkenheid",
+    "edumatch.filter.moreFilters": "Meer filters",
+    "edumatch.filter.showingCount": "{shown} van {total} docenten getoond",
+    "edumatch.filter.hiddenNote": "{n} docenten verborgen door je beoordelingsfilter.",
+    "edumatch.filter.hiddenNewcomerNote":
+      "Nieuwe, geverifieerde docenten zonder voldoende beoordelingen worden door dit filter nooit verborgen.",
+    "edumatch.filter.showAll": "Toon alles",
+    "edumatch.filter.newBadge": "Nieuw",
+    "edumatch.filter.aspectSummary":
+      "Duidelijkheid {clarity} · Betrouwbaarheid {reliability} · Betrokkenheid {engagement}",
+
+    // Docent-cv
+    "edumatch.resume.loading": "Cv laden…",
+    "edumatch.resume.loadError": "We konden het cv van deze docent niet laden.",
+    "edumatch.resume.sessionsTaught": "Gegeven lessen",
+    "edumatch.resume.distinctStudents": "Geholpen leerlingen",
+    "edumatch.resume.hoursTaught": "Lesuren",
+    "edumatch.resume.avgGoalProgress": "Gem. doelvoortgang",
+    "edumatch.resume.ratingBreakdown": "Beoordeling per onderdeel",
+    "edumatch.resume.overall": "Totaal",
+    "edumatch.resume.basedOnN": "Gebaseerd op {n} geverifieerde lessen.",
+    "edumatch.resume.recentReviews": "Recente beoordelingen",
+    "edumatch.resume.milestone.highlyRated": "Hoog gewaardeerd: 4,5+ over 10+ beoordelingen",
+    "edumatch.resume.milestone.hours50": "50 uur lesgegeven",
+    "edumatch.resume.milestone.students10": "10 leerlingen geholpen",
+    "edumatch.resume.milestone.streak4": "Consistent: reeks van 4 weken",
+    "edumatch.resume.milestone.sessions5": "Eerste 5 lessen gegeven",
 
     "edumatch.sessionRecord.title": "Les vastleggen",
     "edumatch.sessionRecord.subtitle":

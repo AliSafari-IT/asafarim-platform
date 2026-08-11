@@ -95,6 +95,10 @@ export type ProposalComparisonView = {
   languagesTaught: string[];
   ratingAvg: number;
   ratingCount: number;
+  clarityAvg: number | null;
+  reliabilityAvg: number | null;
+  engagementAvg: number | null;
+  aspectedCount: number;
   hourlyRateCents: number;
   totalCents: number;
   sessionCount: number | null;
