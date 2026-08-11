@@ -200,3 +200,29 @@ flowchart LR
 ```
 
 See [docs/deployment.md](docs/deployment.md) for VPS setup details.
+
+## 📄 License & Evaluation Notice
+
+This repository is a **portfolio project**, shared publicly so recruiters,
+hiring managers, and prospective employers can review real, working code as
+part of a skills assessment. It is licensed under a custom
+**Portfolio Evaluation & Source-Available License** — see [`./LICENSE`](./LICENSE)
+for the full legal text.
+
+**Permitted:**
+
+- 👀 Viewing and reading the source code
+- 📥 Cloning the repository for local inspection
+- 🖥️ Building and running the project locally, for evaluation, skills
+  assessment, or personal review as part of a hiring process
+
+**Forbidden without prior written consent:**
+
+- 🚫 Commercial use of any kind, including SaaS or hosted deployments
+- 🚫 Selling, renting, or paid distribution of the code
+- 🚫 Sublicensing or redistributing the code to third parties
+- 🚫 Modifying the code to create commercial derivative works
+- 🚫 Re-publishing or re-hosting this source code on another repository or platform
+
+For commercial licensing, collaboration, or any use beyond personal
+evaluation, please reach out: **asafarim@gmail.com**
