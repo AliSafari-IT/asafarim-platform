@@ -13,8 +13,11 @@
 # only build-time artifact actually required is the generated Prisma client
 # (`pnpm db:generate`).
 #
-# Chromium only for now (see #164 for firefox/webkit/mobile-viewport
-# coverage) — keeps this fast enough to run on every PR touching EduMatch.
+# Browser matrix: chromium only on PRs (fast feedback — the full 5-project
+# run took ~6.5 minutes locally with a warm dev server, and every extra
+# project adds another firefox/webkit binary install), all five projects
+# (chromium, firefox, webkit, Mobile Chrome, Mobile Safari) on the nightly
+# schedule and manual dispatch, where run time isn't blocking anyone (#164).
 name: EduMatch E2E
 
 on:
@@ -64,6 +67,13 @@ jobs:
       PORTAL_URL: http://localhost:3001
       PLAYWRIGHT_HUB_URL: http://localhost:3001
       PLAYWRIGHT_TEST_BASE_URL: http://localhost:3009
+      # PRs get chromium only, for fast feedback. Everything else (nightly
+      # schedule, manual dispatch) runs the full browser matrix. Comma-
+      # separated (not space-separated) specifically so "Mobile Chrome"/
+      # "Mobile Safari" survive as single project names once split below —
+      # a stored string's embedded quotes aren't shell syntax, so splitting
+      # on spaces would break those two into four bogus tokens.
+      PROJECTS: ${{ github.event_name == 'pull_request' && 'chromium' || 'chromium,firefox,webkit,Mobile Chrome,Mobile Safari' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -89,13 +99,24 @@ jobs:
       - name: Seed EduMatch demo data
         run: pnpm db:seed:edumatch
 
-      - name: Install Playwright chromium
+      - name: Install Playwright browsers
         working-directory: apps/edumatch
-        run: npx playwright install --with-deps chromium
+        # PROJECTS names double as Playwright's own --project values, but
+        # `playwright install` wants browser names (chromium/firefox/webkit)
+        # — "Mobile Chrome"/"Mobile Safari" are chromium/webkit under a
+        # different device profile, not separate binaries, so installing the
+        # three browser engines always covers all five projects.
+        run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: Run EduMatch E2E suite (chromium)
+      - name: Run EduMatch E2E suite
         working-directory: apps/edumatch
-        run: npx playwright test --project=chromium
+        run: |
+          IFS=',' read -ra PROJECT_ARR <<< "$PROJECTS"
+          ARGS=()
+          for p in "${PROJECT_ARR[@]}"; do
+            ARGS+=(--project="$p")
+          done
+          npx playwright test "${ARGS[@]}"
 
       - name: Upload Playwright report
         if: failure()
