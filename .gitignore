@@ -54,3 +54,9 @@ apps/appbuilder/.local-storage/
 
 # CI status script output (scripts/ci-status-summary.mts), regenerated per run
 /ci-status-artifact/
+
+# Playwright artifacts (test-results/, HTML reports, and saved E2E session
+# cookies from e2e/global-setup.ts — never commit an authenticated session)
+apps/*/test-results/
+apps/*/playwright-report/
+apps/*/e2e/.auth/

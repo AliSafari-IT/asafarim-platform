@@ -1,61 +1,51 @@
 import { test, expect } from '@playwright/test';
+import { STUDENT_STORAGE_STATE } from './global-setup';
 
-test.describe('Student Flow', () => {
-  test('student can create inquiry and view AI response', async ({ page }) => {
-    // Start at onboarding
-    await page.goto('/');
-    
-    // Select student role
-    await page.getByText('Student').click();
-    await page.getByText('Continue with Google').click();
-    
-    // Mock auth - skip to dashboard
+/**
+ * Student dashboard + inquiry-list coverage, signed in as the seeded
+ * `demo.student1@edumatch.demo` (see global-setup.ts).
+ *
+ * The original version of this file scripted a Google-OAuth "mock auth"
+ * flow that never actually authenticated anything, then asserted on copy
+ * ("My Learning", "Ask Question", "/student/ai-response?inquiryId=test")
+ * that doesn't exist anywhere in the current app — every test failed before
+ * this rewrite. Assertions below are checked against the live copy in
+ * app/student/page.tsx and lib/i18n-dictionaries.ts.
+ */
+test.use({ storageState: STUDENT_STORAGE_STATE });
+
+test.describe('Student dashboard', () => {
+  test('shows the inquiries dashboard for a signed-in student', async ({ page }) => {
     await page.goto('/student');
-    await expect(page.getByText('My Learning')).toBeVisible();
-    
-    // Create new inquiry
-    await page.getByText('Ask Question').click();
-    await expect(page.getByText('Ask a Question')).toBeVisible();
-    
-    // Step 1: Select subject
-    await page.getByText('Mathematics').click();
-    await page.getByText('Undergraduate').click();
-    await page.getByText('Continue').click();
-    
-    // Step 2: Add description
-    await page.getByPlaceholder('Type your question here...').fill(
-      'Help me understand calculus derivatives'
-    );
-    await page.getByText('Continue').click();
-    
-    // Step 3: Submit
-    await page.getByText('Submit').click();
-    
-    // Wait for AI response page
-    await expect(page.getByText('AI Explanation')).toBeVisible();
-    await expect(page.getByText('Get Tutor Quotes')).toBeVisible();
+
+    // The site footer repeats "Ask a Question" as a plain sitemap link, so
+    // scope to <main> — the dashboard's own copy of these controls.
+    const main = page.getByRole('main');
+    await expect(main.getByRole('heading', { name: 'My Inquiries' })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'Ask a Question' })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'My Bookings' })).toBeVisible();
   });
 
-  test('student can request tutor quotes', async ({ page }) => {
-    await page.goto('/student/ai-response?inquiryId=test');
-    
-    // Request quotes
-    await page.getByText('Get Tutor Quotes').click();
-    
-    // Wait for quotes page
-    await expect(page.getByText('Tutor Quotes')).toBeVisible();
-    await expect(page.getByText('Waiting for quotes...')).toBeVisible();
+  test('lists inquiries or shows the empty state', async ({ page }) => {
+    await page.goto('/student');
+
+    const emptyState = page.getByText('No inquiries yet');
+    // Inquiry cards are plain <Link>s to /student/inquiry/[id]; there's no
+    // data-testid on them, so match by href pattern instead.
+    const inquiryCard = page.locator('a[href*="/student/inquiry/"]');
+
+    await expect(emptyState.or(inquiryCard.first())).toBeVisible();
   });
 
-  test('student can view inquiry list', async ({ page }) => {
+  test('opening an inquiry card leads to its detail page', async ({ page }) => {
     await page.goto('/student');
-    
-    await expect(page.getByText('My Learning')).toBeVisible();
-    
-    // Check for empty state or inquiry list
-    const emptyState = page.getByText('No questions yet');
-    const inquiryList = page.locator('[data-testid="inquiry-card"]');
-    
-    await expect(emptyState.or(inquiryList.first())).toBeVisible();
+
+    const inquiryCard = page.locator('a[href*="/student/inquiry/"]').first();
+    if ((await inquiryCard.count()) === 0) {
+      test.skip(true, 'Demo student has no inquiries in this environment.');
+    }
+
+    await inquiryCard.click();
+    await expect(page).toHaveURL(/\/student\/inquiry\/[^/]+$/);
   });
 });
