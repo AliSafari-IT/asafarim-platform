@@ -1131,6 +1131,15 @@ model EduTutorProfile {
   ratingAvg   Float     @default(0)
   ratingCount Int       @default(0)
 
+  // Cached per-aspect averages, mirroring ratingAvg/ratingCount, kept fresh by
+  // refreshTutorRating() so the compare/matching list can filter without
+  // recomputing from EduReview on every request. Null until at least one
+  // aspected review exists.
+  clarityAvg     Float?
+  reliabilityAvg Float?
+  engagementAvg  Float?
+  aspectedCount  Int    @default(0)
+
   // ── Matching signals (learning-brief experience) ────────────────────────
   // Everything a brief can be matched on. None of these is purchasable — see
   // EduMatchCandidate for why that matters.
@@ -1165,6 +1174,9 @@ model EduTutorProfile {
   @@index([verifiedAt])
   @@index([clearedForMinorsAt])
   @@index([lastMatchedAt])
+  @@index([clarityAvg])
+  @@index([reliabilityAvg])
+  @@index([engagementAvg])
 }
 
 model EduInquiry {
@@ -1733,8 +1745,16 @@ model EduReview {
   studentId String
   tutorId   String
 
-  rating  Int // 1-5
+  rating  Int // 1-5, derived (weighted average of the three aspects below) for
+  // new reviews; for legacy reviews (clarity/reliability/engagement all null)
+  // this is the only signal and is entered as-is.
   comment String? @db.Text
+
+  // Sub-aspect ratings, 1-5. Nullable so legacy reviews keep working — null
+  // means "not asked", not "zero".
+  clarity     Int?
+  reliability Int?
+  engagement  Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

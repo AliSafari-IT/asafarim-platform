@@ -229,6 +229,10 @@ export type ProposalComparison = {
   languagesTaught: string[];
   ratingAvg: number;
   ratingCount: number;
+  clarityAvg: number | null;
+  reliabilityAvg: number | null;
+  engagementAvg: number | null;
+  aspectedCount: number;
   hourlyRateCents: number;
   totalCents: number;
   sessionCount: number | null;
@@ -283,6 +287,10 @@ export async function compareProposals(
                 teachingStyle: true,
                 ratingAvg: true,
                 ratingCount: true,
+                clarityAvg: true,
+                reliabilityAvg: true,
+                engagementAvg: true,
+                aspectedCount: true,
                 verifiedAt: true,
               },
             },
@@ -312,6 +320,10 @@ export async function compareProposals(
       languagesTaught: profile?.languagesTaught ?? [],
       ratingAvg: profile?.ratingAvg ?? 0,
       ratingCount: profile?.ratingCount ?? 0,
+      clarityAvg: profile?.clarityAvg ?? null,
+      reliabilityAvg: profile?.reliabilityAvg ?? null,
+      engagementAvg: profile?.engagementAvg ?? null,
+      aspectedCount: profile?.aspectedCount ?? 0,
       hourlyRateCents: q.hourlyRateCents,
       totalCents: q.totalCents,
       sessionCount: q.sessionCount,

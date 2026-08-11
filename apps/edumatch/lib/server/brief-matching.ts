@@ -431,6 +431,60 @@ export function selectFinalists(
   return [...merit, { ...newcomer, rotationBoost: true }];
 }
 
+// ─── Rating filter (compare/matches list) ──────────────────────────────────
+
+/**
+ * A minimum-rating filter for the *displayed* list only — it never touches
+ * scoring or rotation-slot allocation (see matchTutorsForBrief/selectFinalists
+ * above). The single rule that matters: a tutor with fewer than
+ * NEW_TUTOR_REVIEW_THRESHOLD reviews (overall or per-aspect) is "unproven,
+ * not below threshold" and is never excluded by this filter — only tutors
+ * with *enough* reviews and an average below the chosen minimum are hidden.
+ * Callers should still surface hidden/unproven counts explicitly rather than
+ * silently shrinking the list.
+ */
+export type RatingFilterInput = {
+  ratingAvg: number;
+  ratingCount: number;
+  clarityAvg?: number | null;
+  reliabilityAvg?: number | null;
+  engagementAvg?: number | null;
+  aspectedCount?: number;
+};
+
+export type RatingFilterOptions = {
+  minRating?: number;
+  minClarity?: number;
+  minReliability?: number;
+  minEngagement?: number;
+};
+
+function passesAspect(
+  avg: number | null | undefined,
+  count: number | undefined,
+  min: number | undefined,
+): boolean {
+  if (min === undefined) return true;
+  if ((count ?? 0) < NEW_TUTOR_REVIEW_THRESHOLD) return true; // unproven: never excluded
+  if (avg === null || avg === undefined) return true;
+  return avg >= min;
+}
+
+export function passesRatingFilter(
+  candidate: RatingFilterInput,
+  filter: RatingFilterOptions,
+): boolean {
+  if (filter.minRating !== undefined) {
+    if (candidate.ratingCount >= NEW_TUTOR_REVIEW_THRESHOLD && candidate.ratingAvg < filter.minRating) {
+      return false;
+    }
+  }
+  if (!passesAspect(candidate.clarityAvg, candidate.aspectedCount, filter.minClarity)) return false;
+  if (!passesAspect(candidate.reliabilityAvg, candidate.aspectedCount, filter.minReliability)) return false;
+  if (!passesAspect(candidate.engagementAvg, candidate.aspectedCount, filter.minEngagement)) return false;
+  return true;
+}
+
 // ─── Entry point ──────────────────────────────────────────────────────────
 
 export type MatchResult = {
