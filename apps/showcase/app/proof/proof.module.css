@@ -3,7 +3,7 @@
 
 .blurb {
   margin-top: var(--space-2);
-  color: var(--fg-muted);
+  color: var(--muted);
   font-size: 0.9375rem;
   line-height: 1.5;
 }
@@ -11,7 +11,7 @@
 .steps {
   margin: var(--space-3) 0 0;
   padding-left: 1.25rem;
-  color: var(--fg-muted);
+  color: var(--muted);
   font-size: 0.9375rem;
   line-height: 1.6;
 }
@@ -22,7 +22,7 @@
 
 .note {
   margin-top: var(--space-3);
-  color: var(--fg-subtle, var(--fg-muted));
+  color: var(--muted);
   font-size: 0.8125rem;
   line-height: 1.5;
 }
@@ -48,10 +48,10 @@
 .packageName {
   font-family: var(--font-mono, monospace);
   font-size: 0.8125rem;
-  color: var(--fg);
+  color: var(--ink);
 }
 
 .packageVersion {
   font-size: 0.75rem;
-  color: var(--fg-muted);
+  color: var(--muted);
 }
