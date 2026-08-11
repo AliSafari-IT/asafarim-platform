@@ -11,6 +11,8 @@ import {
   getPackageCards,
 } from "./data";
 import styles from "./proof.module.css";
+import { RequestFlowDiagram } from "./_components/RequestFlowDiagram";
+import { SecurityFlowDiagram } from "./_components/SecurityFlowDiagram";
 
 export const metadata: Metadata = {
   title: "Engineering Proof",
@@ -47,7 +49,8 @@ export default async function ProofPage() {
       />
 
       <Section kicker="Architecture" kickerIndex="01" title="How the pieces connect">
-        <div className="ui-grid">
+        <RequestFlowDiagram />
+        <div className="ui-grid" style={{ marginTop: "var(--space-5)" }}>
           {ARCHITECTURE_NODES.map((node) => (
             <Panel key={node.id} title={node.name}>
               <Badge tone={node.tier === "data" ? "warning" : node.tier === "shared" ? "info" : "neutral"}>
@@ -60,7 +63,8 @@ export default async function ProofPage() {
       </Section>
 
       <Section kicker="Security" kickerIndex="02" title="SSO and RBAC boundaries">
-        <div className="ui-grid">
+        <SecurityFlowDiagram />
+        <div className="ui-grid" style={{ marginTop: "var(--space-5)" }}>
           {SECURITY_BOUNDARIES.map((item) => (
             <Panel key={item.title} title={item.title}>
               <p className={styles.blurb}>{item.body}</p>
