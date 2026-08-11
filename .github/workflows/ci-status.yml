@@ -1,0 +1,48 @@
+# Publishes a traceable CI status artifact for the public proof board
+# (showcase.asafarim.com/proof, apps/showcase/app/proof/data.ts).
+#
+# Runs the checks that don't need decrypted secrets — lint, typecheck, and
+# package tests. `build` is excluded: a full monorepo build needs decrypted
+# DB/auth secrets, which is a separate infra decision. See
+# docs/proof-board-plan.md and scripts/ci-status-summary.mts.
+#
+# The published artifact (ci-status.json + its .sha256) is what makes the
+# result traceable to the exact commit/run that produced it, per issue #13's
+# "CI publishes signed or traceable benchmark artifacts" acceptance criterion.
+
+name: CI status
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run checks and publish status summary
+        run: pnpm tsx scripts/ci-status-summary.mts
+
+      - name: Upload traceable status artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-status-${{ github.sha }}
+          path: ci-status-artifact/
+          retention-days: 90
+          if-no-files-found: error

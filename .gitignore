@@ -51,3 +51,6 @@ tmp/pdfs/
 apps/vionto/worker-dist/
 apps/vionto/.local-storage/
 apps/appbuilder/.local-storage/
+
+# CI status script output (scripts/ci-status-summary.mts), regenerated per run
+/ci-status-artifact/
