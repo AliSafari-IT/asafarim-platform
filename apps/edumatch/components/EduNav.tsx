@@ -219,6 +219,11 @@ export function EduNav() {
               <Icon size={18} />{t(labelKey)}
             </Link>
           ))}
+          <div className="edu-mobile-nav-actions">
+            <div className="edu-mobile-language"><CountryLanguageSelector compact /></div>
+            <ThemeButton />
+            <AppMenu />
+          </div>
         </nav>
       )}
     </header>
