@@ -77,16 +77,27 @@ export async function POST(req: Request) {
         });
 
         if (booking) {
-          await prisma.eduBooking.update({
-            where: { id: booking.id },
+          // Stripe redelivers webhooks (retries on non-2xx/timeout, and
+          // operators can replay events from the dashboard), so this handler
+          // must tolerate the same event arriving more than once. The
+          // conditional update below is the idempotency guard: it only
+          // flips SCHEDULED -> PAID once, and `count` tells us whether this
+          // delivery was the one that won that race. Only the winner credits
+          // the tutor's wallet — duplicate deliveries are a no-op.
+          const { count } = await prisma.eduBooking.updateMany({
+            where: { id: booking.id, status: { not: "PAID" } },
             data: { status: "PAID", stripePaymentIntentId: paymentIntent.id },
           });
 
-          // Credit tutor wallet (amount minus platform fee already handled by Stripe)
-          const tutorAmount = Math.round(quote.totalCents * 0.85); // 85% to tutor
-          await creditWallet(quote.tutorId, tutorAmount, booking.id);
+          if (count > 0) {
+            // Credit tutor wallet (amount minus platform fee already handled by Stripe)
+            const tutorAmount = Math.round(quote.totalCents * 0.85); // 85% to tutor
+            await creditWallet(quote.tutorId, tutorAmount, booking.id);
 
-          console.log(`[Stripe Webhook] Booking ${booking.id} paid, wallet credited ${tutorAmount} cents`);
+            console.log(`[Stripe Webhook] Booking ${booking.id} paid, wallet credited ${tutorAmount} cents`);
+          } else {
+            console.log(`[Stripe Webhook] Booking ${booking.id} already paid, skipping duplicate wallet credit`);
+          }
         }
         break;
       }
