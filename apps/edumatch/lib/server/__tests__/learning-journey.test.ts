@@ -6,9 +6,9 @@ vi.mock("@asafarim/db", () => ({
     eduReview: {
       findUnique: vi.fn(),
       create: vi.fn(),
-      aggregate: vi.fn(),
     },
     eduTutorProfile: { updateMany: vi.fn() },
+    $queryRaw: vi.fn(),
   },
   Prisma: {},
 }));
@@ -251,10 +251,16 @@ describe("leaveReview", () => {
     });
     mockPrisma.eduReview.findUnique.mockResolvedValue(null);
     mockPrisma.eduReview.create.mockResolvedValue({ id: "r1" });
-    mockPrisma.eduReview.aggregate.mockResolvedValue({
-      _avg: { rating: 4, clarity: 4, reliability: 4, engagement: 4 },
-      _count: { _all: 1 },
-    });
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        rating_avg: 4,
+        rating_count: BigInt(1),
+        clarity_avg: 4,
+        reliability_avg: 4,
+        engagement_avg: 4,
+        aspected_count: BigInt(1),
+      },
+    ]);
     mockPrisma.eduTutorProfile.updateMany.mockResolvedValue({ count: 1 });
 
     await leaveReview("b1", "s1", { clarity: 4, reliability: 4, engagement: 4 });
@@ -277,16 +283,22 @@ describe("refreshTutorRating", () => {
     vi.clearAllMocks();
   });
 
-  it("recomputes all six aggregate fields, leaving aspect averages null when no review has sub-ratings", async () => {
-    mockPrisma.eduReview.aggregate
-      .mockResolvedValueOnce({ _avg: { rating: 3 }, _count: { _all: 2 } }) // overall
-      .mockResolvedValueOnce({ _avg: { clarity: null }, _count: { _all: 0 } }) // clarity
-      .mockResolvedValueOnce({ _avg: { reliability: null } }) // reliability
-      .mockResolvedValueOnce({ _avg: { engagement: null } }); // engagement
+  it("recomputes all six aggregate fields in one query, leaving aspect averages null when no review has sub-ratings", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        rating_avg: 3,
+        rating_count: BigInt(2),
+        clarity_avg: null,
+        reliability_avg: null,
+        engagement_avg: null,
+        aspected_count: BigInt(0),
+      },
+    ]);
     mockPrisma.eduTutorProfile.updateMany.mockResolvedValue({ count: 1 });
 
     await refreshTutorRating("t1");
 
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(mockPrisma.eduTutorProfile.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -302,11 +314,16 @@ describe("refreshTutorRating", () => {
   });
 
   it("mixes legacy (overall-only) and aspected reviews without breaking the aggregates", async () => {
-    mockPrisma.eduReview.aggregate
-      .mockResolvedValueOnce({ _avg: { rating: 4 }, _count: { _all: 3 } }) // overall (3 reviews total)
-      .mockResolvedValueOnce({ _avg: { clarity: 4.5 }, _count: { _all: 2 } }) // 2 aspected
-      .mockResolvedValueOnce({ _avg: { reliability: 4 } })
-      .mockResolvedValueOnce({ _avg: { engagement: 4.5 } });
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        rating_avg: 4,
+        rating_count: BigInt(3),
+        clarity_avg: 4.5,
+        reliability_avg: 4,
+        engagement_avg: 4.5,
+        aspected_count: BigInt(2),
+      },
+    ]);
     mockPrisma.eduTutorProfile.updateMany.mockResolvedValue({ count: 1 });
 
     await refreshTutorRating("t1");

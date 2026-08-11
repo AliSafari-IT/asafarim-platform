@@ -235,34 +235,40 @@ export async function leaveReview(
   return review;
 }
 
+type RatingAggregateRow = {
+  rating_avg: number | null;
+  rating_count: bigint;
+  clarity_avg: number | null;
+  reliability_avg: number | null;
+  engagement_avg: number | null;
+  aspected_count: bigint;
+};
+
 /**
  * Recompute the tutor's rating from their verified reviews. Derived rather
  * than incremented so a deleted or moderated review can never leave the
  * displayed average permanently wrong. Also recomputes the three cached
  * per-aspect averages (null when no review has sub-ratings — i.e. all
  * legacy) so the compare list can filter without re-aggregating.
+ *
+ * One query rather than one aggregate per column: `ratingCount` needs every
+ * review while `aspectedCount` needs only reviews with sub-ratings, which a
+ * single Prisma `aggregate()` call can't express per-column. Postgres'
+ * `FILTER` clause can, so the four aggregates that used to be four
+ * sequential round-trips are now one.
  */
 export async function refreshTutorRating(tutorId: string): Promise<void> {
-  const [overall, clarity, reliability, engagement] = await Promise.all([
-    prisma.eduReview.aggregate({
-      where: { tutorId },
-      _avg: { rating: true },
-      _count: { _all: true },
-    }),
-    prisma.eduReview.aggregate({
-      where: { tutorId, clarity: { not: null } },
-      _avg: { clarity: true },
-      _count: { _all: true },
-    }),
-    prisma.eduReview.aggregate({
-      where: { tutorId, reliability: { not: null } },
-      _avg: { reliability: true },
-    }),
-    prisma.eduReview.aggregate({
-      where: { tutorId, engagement: { not: null } },
-      _avg: { engagement: true },
-    }),
-  ]);
+  const [row] = await prisma.$queryRaw<RatingAggregateRow[]>`
+    SELECT
+      AVG(rating)::float AS rating_avg,
+      COUNT(*) AS rating_count,
+      AVG(clarity)::float AS clarity_avg,
+      AVG(reliability)::float AS reliability_avg,
+      AVG(engagement)::float AS engagement_avg,
+      COUNT(*) FILTER (WHERE clarity IS NOT NULL) AS aspected_count
+    FROM "EduReview"
+    WHERE "tutorId" = ${tutorId}
+  `;
 
   const round2 = (n: number | null) =>
     n === null ? null : Math.round(n * 100) / 100;
@@ -270,12 +276,12 @@ export async function refreshTutorRating(tutorId: string): Promise<void> {
   await prisma.eduTutorProfile.updateMany({
     where: { userId: tutorId },
     data: {
-      ratingAvg: Math.round((overall._avg.rating ?? 0) * 100) / 100,
-      ratingCount: overall._count._all,
-      clarityAvg: round2(clarity._avg.clarity),
-      reliabilityAvg: round2(reliability._avg.reliability),
-      engagementAvg: round2(engagement._avg.engagement),
-      aspectedCount: clarity._count._all,
+      ratingAvg: round2(row?.rating_avg ?? 0) ?? 0,
+      ratingCount: Number(row?.rating_count ?? 0),
+      clarityAvg: round2(row?.clarity_avg ?? null),
+      reliabilityAvg: round2(row?.reliability_avg ?? null),
+      engagementAvg: round2(row?.engagement_avg ?? null),
+      aspectedCount: Number(row?.aspected_count ?? 0),
     },
   });
 }
