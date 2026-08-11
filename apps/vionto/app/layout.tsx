@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Script from "next/script";
 import { cookies } from "next/headers";
 import { SessionProvider } from "@/components/SessionProvider";
 import { I18nProvider } from "@asafarim/shared-i18n";
@@ -59,12 +58,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang={initialLocale} data-theme={theme} style={{ colorScheme: theme }} suppressHydrationWarning>
       <body className="flex min-h-screen flex-col">
-        <Script
+        <script
           id="theme-init"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: themeInitScript,
-          }}
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
         />
         <I18nProvider initialLocale={initialLocale} dictionaries={viontoDictionaries}>
           <SessionProvider>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "@asafarim/shared-i18n";
@@ -958,13 +958,13 @@ export function LandingPage() {
                 position: "relative",
                 zIndex: 1,
               }}
-              onMouseEnter={(e) => {
+              onMouseEnter={(e: ReactMouseEvent<HTMLAnchorElement>) => {
                 const el = e.currentTarget as HTMLAnchorElement;
                 el.style.opacity = "0.92";
                 el.style.transform = "translateY(-3px) scale(1.02)";
                 el.style.boxShadow = "0 22px 58px rgba(243,111,86,0.52)";
               }}
-              onMouseLeave={(e) => {
+              onMouseLeave={(e: ReactMouseEvent<HTMLAnchorElement>) => {
                 const el = e.currentTarget as HTMLAnchorElement;
                 el.style.opacity = "1";
                 el.style.transform = "translateY(0) scale(1)";
@@ -1005,8 +1005,8 @@ export function LandingPage() {
                 key={href}
                 href={href}
                 style={{ color: "var(--muted)", fontSize: "0.84rem", textDecoration: "none", transition: "color 0.18s" }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--text)")}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--muted)")}
+                onMouseEnter={(e: ReactMouseEvent<HTMLAnchorElement>) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--text)")}
+                onMouseLeave={(e: ReactMouseEvent<HTMLAnchorElement>) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--muted)")}
               >
                 {label}
               </Link>
