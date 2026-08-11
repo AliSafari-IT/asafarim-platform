@@ -1,0 +1,35 @@
+# Keeps the public proof board's changelog (showcase.asafarim.com/proof,
+# apps/showcase/app/proof/data.ts) generated from real git history instead
+# of hand-edited — see scripts/generate-changelog.mjs.
+
+name: Changelog
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    # Skip when the pushing actor is this workflow's own bot commit, and
+    # respect [skip ci] like every other workflow here.
+    if: github.actor != 'github-actions[bot]'
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Regenerate changelog.json
+        run: node scripts/generate-changelog.mjs
+
+      - name: Commit if it changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps/showcase/public-data/changelog.json
+          git diff --cached --quiet || git commit -m "chore: regenerate changelog [skip ci]"
+          git push

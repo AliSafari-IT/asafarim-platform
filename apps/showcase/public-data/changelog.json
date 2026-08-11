@@ -1,0 +1,122 @@
+[
+  {
+    "date": "2026-08-11",
+    "title": "Proof-board: live per-app health status, allow-listed (#148)",
+    "sha": "b965be6",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/b965be6"
+  },
+  {
+    "date": "2026-08-11",
+    "title": "Proof-board: Lighthouse accessibility/performance snapshots (#147)",
+    "sha": "1f25550",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1f25550"
+  },
+  {
+    "date": "2026-08-11",
+    "title": "CI: publish traceable CI status for the proof board (#146)",
+    "sha": "be8d685",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/be8d685"
+  },
+  {
+    "date": "2026-08-11",
+    "title": "Showcase: public engineering-proof board (#13)",
+    "sha": "d172021",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d172021"
+  },
+  {
+    "date": "2026-08-11",
+    "title": "EduMatch: internationalize landing page with i18n strings for en/nl/fr",
+    "sha": "95ad0ad",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/95ad0ad"
+  },
+  {
+    "date": "2026-08-11",
+    "title": "EduMatch: age-aware student accounts, parent-managed minors (16+ cutoff)",
+    "sha": "708f4af",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/708f4af"
+  },
+  {
+    "date": "2026-08-11",
+    "title": "EduMatch: student avatar system with 13+ photo restriction",
+    "sha": "ab9b2f0",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ab9b2f0"
+  },
+  {
+    "date": "2026-08-11",
+    "title": "EduMatch: multi-aspect ratings, tutor dynamic resume, rating filter",
+    "sha": "488c65b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/488c65b"
+  },
+  {
+    "date": "2026-08-10",
+    "title": "EduMatch: learning-brief experience — conversational intake, triage, brief-based matching, prepared proposals, learning journey",
+    "sha": "ca6cfb0",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ca6cfb0"
+  },
+  {
+    "date": "2026-08-10",
+    "title": "Admin: advanced platform console — shared table toolkit, settings v2, access matrix, cross-app overview",
+    "sha": "bba7452",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/bba7452"
+  },
+  {
+    "date": "2026-08-10",
+    "title": "Admin: module x role navigation visibility matrix",
+    "sha": "3b72d27",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3b72d27"
+  },
+  {
+    "date": "2026-08-10",
+    "title": "Admin: typed settings catalog v2 — richer types, app scoping, no native dialogs",
+    "sha": "826e097",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/826e097"
+  },
+  {
+    "date": "2026-08-10",
+    "title": "Admin: shared DataTable toolkit, bulk actions, CSV exports",
+    "sha": "e2af1ca",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/e2af1ca"
+  },
+  {
+    "date": "2026-08-09",
+    "title": "Showcase: honest \"showcase project\" positioning across public product apps",
+    "sha": "48d3927",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/48d3927"
+  },
+  {
+    "date": "2026-08-09",
+    "title": "Auth: centralize app switcher logic with registry-driven visibility",
+    "sha": "6519933",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/6519933"
+  },
+  {
+    "date": "2026-08-09",
+    "title": "EduMatch: add full-bleed hero background artwork with asymmetric scrim",
+    "sha": "6f74791",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/6f74791"
+  },
+  {
+    "date": "2026-08-09",
+    "title": "Admin: centralized Seed Data management — read-only core",
+    "sha": "c0077ed",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/c0077ed"
+  },
+  {
+    "date": "2026-08-09",
+    "title": "TimelineAI: curated layouts per type and three timeline-only themes",
+    "sha": "4c6a0c7",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/4c6a0c7"
+  },
+  {
+    "date": "2026-08-09",
+    "title": "Showcase: split the gallery and the analysis into two distinct pages",
+    "sha": "4dc0ddb",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/4dc0ddb"
+  },
+  {
+    "date": "2026-08-09",
+    "title": "Web,showcase: introduce TimelineAI on the projects pages",
+    "sha": "668e9fe",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/668e9fe"
+  }
+]
