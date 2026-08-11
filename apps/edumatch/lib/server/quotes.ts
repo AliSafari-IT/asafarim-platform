@@ -338,11 +338,15 @@ export async function listAvailableQuoteRequestsForTutor(
   });
   if (!tutor) throw new QuoteError("Tutor profile not found.");
 
-  // Fetch all open, non-expired requests with student location
+  // Fetch all open, non-expired requests with student location. Brief-driven
+  // requests are invite-only (see EduQuoteRequest.briefId doc comment) and
+  // must never appear on this open marketplace board — those tutors are
+  // notified separately via /tutor/invites.
   const openRequests = await prisma.eduQuoteRequest.findMany({
     where: {
       status: "OPEN",
       expiresAt: { gt: new Date() },
+      briefId: null,
     },
     orderBy: { requestedAt: "desc" },
     take: 200,
@@ -360,13 +364,18 @@ export async function listAvailableQuoteRequestsForTutor(
     },
   });
 
-  // Filter by subject match
+  // Filter by subject match. Bidirectional substring match so e.g. a tutor
+  // teaching "Mathematics" still matches a request for "Math", and a tutor
+  // teaching "English" matches "English Literature".
   const subjectsLower = tutor.subjectsTaught.map((s) => s.toLowerCase());
   const subjectMatched = tutor.subjectsTaught.length === 0
     ? openRequests
-    : openRequests.filter((r) =>
-        subjectsLower.some((s) => r.inquiry.subject.toLowerCase().includes(s)),
-      );
+    : openRequests.filter((r) => {
+        const reqSubject = r.inquiry.subject.toLowerCase();
+        return subjectsLower.some(
+          (s) => reqSubject.includes(s) || s.includes(reqSubject),
+        );
+      });
 
   // Fetch student profiles for location filtering
   const studentIds = [...new Set(subjectMatched.map((r) => r.inquiry.studentId))];

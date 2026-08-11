@@ -221,14 +221,23 @@ export async function notifyTutorsOfQuoteRequest(opts: {
   quoteRequestId: string;
   subject: string;
   gradeLevel: string;
+  /**
+   * True for brief-driven requests, where the platform selected these exact
+   * tutors and the request is invite-only (never appears on the open
+   * `/tutor/requests` marketplace board). Points the notification at
+   * `/tutor/invites` instead.
+   */
+  isInvited?: boolean;
 }): Promise<void> {
-  const { tutorIds, quoteRequestId, subject, gradeLevel } = opts;
+  const { tutorIds, quoteRequestId, subject, gradeLevel, isInvited } = opts;
   if (tutorIds.length === 0) return;
+
+  const actionUrl = isInvited ? "/tutor/invites" : "/tutor/requests";
 
   const payload: NotificationPayload = {
     title: "New Quote Request",
     message: `A student needs help with ${subject} (${gradeLevel}). Submit a quote before it expires.`,
-    actionUrl: `/tutor/requests`,
+    actionUrl,
     meta: { quoteRequestId, subject, gradeLevel },
   };
 
@@ -249,7 +258,7 @@ export async function notifyTutorsOfQuoteRequest(opts: {
         <p>Hi ${tutor.name ?? "Tutor"},</p>
         <p>A student near you is looking for help with <strong>${subject}</strong> (${gradeLevel}).</p>
         <p>
-          <a href="${process.env.EDUMATCH_URL ?? "https://edumatch.asafarim.com"}/tutor/requests">
+          <a href="${process.env.EDUMATCH_URL ?? "https://edumatch.asafarim.com"}${actionUrl}">
             View and submit your quote →
           </a>
         </p>
