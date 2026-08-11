@@ -735,6 +735,8 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.verification.status.REJECTED": "Rejected",
     "edumatch.admin.verifications.working": "Working...",
     "edumatch.admin.verifications.noTutors": "No tutors in this view.",
+    "edumatch.admin.verifications.highlightNotFound":
+      "The tutor from that notification couldn't be found — they may have been removed.",
     "edumatch.admin.verifications.verifiedDate": "verified",
     "edumatch.admin.verifications.noBio": "(no bio)",
     "edumatch.admin.verifications.subjects": "Subjects",
@@ -2261,6 +2263,8 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.verification.status.REJECTED": "Afgewezen",
     "edumatch.admin.verifications.working": "Bezig...",
     "edumatch.admin.verifications.noTutors": "Geen tutors in deze weergave.",
+    "edumatch.admin.verifications.highlightNotFound":
+      "De tutor uit die melding kon niet worden gevonden — mogelijk verwijderd.",
     "edumatch.admin.matching.title": "Tutor Matching Debug",
     "edumatch.admin.matching.searchParams": "Zoekparameters",
     "edumatch.admin.matching.latitude": "Breedtegraad",
@@ -3648,6 +3652,8 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.verification.status.REJECTED": "Rejeté",
     "edumatch.admin.verifications.working": "En cours...",
     "edumatch.admin.verifications.noTutors": "Aucun tuteur dans cette vue.",
+    "edumatch.admin.verifications.highlightNotFound":
+      "Le tuteur de cette notification est introuvable — il a peut-être été supprimé.",
     "edumatch.admin.matching.title": "Debug Matching Tuteur",
     "edumatch.admin.matching.searchParams": "Paramètres de Recherche",
     "edumatch.admin.matching.findTutors": "Trouver des Tuteurs",
@@ -4762,6 +4768,8 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.verification.status.REJECTED": "Abgelehnt",
     "edumatch.admin.verifications.working": "Wird verarbeitet...",
     "edumatch.admin.verifications.noTutors": "Keine Tutoren in dieser Ansicht.",
+    "edumatch.admin.verifications.highlightNotFound":
+      "Der Tutor aus dieser Benachrichtigung wurde nicht gefunden — möglicherweise wurde er entfernt.",
     "edumatch.admin.matching.title": "Tutor-Matching-Debug",
     "edumatch.admin.matching.searchParams": "Suchparameter",
     "edumatch.admin.matching.findTutors": "Tutoren Finden",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "@asafarim/shared-i18n";
 import MessageAttachments, { type AttachmentView } from "@/components/MessageAttachments";
@@ -48,11 +49,21 @@ const STATUS_BADGE: Record<string, string> = {
 export default function AdminTutorVerificationsPage() {
   const { t } = useTranslation();
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [rows, setRows] = useState<TutorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"ALL" | "OPEN" | "VERIFIED">("OPEN");
+
+  // Deep link from a "Tutor replied about verification" notification
+  // (?tutor=<id> — see notifyVerificationMessage() in lib/server/notifications.ts).
+  // The row it points at may not match the default OPEN filter (e.g. it was
+  // already verified), which is exactly why "all rows shown, none obviously
+  // the right one" happened before this fix. Captured once into state so
+  // clearing the URL afterwards doesn't also drop the highlight.
+  const [highlightTutorId] = useState(() => searchParams.get("tutor"));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,6 +86,15 @@ export default function AdminTutorVerificationsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Arrived via a deep link: switch to ALL so the target row is guaranteed
+  // to be visible regardless of its status, and drop the query param so a
+  // manual filter change or refresh afterwards behaves normally.
+  useEffect(() => {
+    if (!highlightTutorId) return;
+    setFilter("ALL");
+    router.replace("/admin/tutor-verifications", { scroll: false });
+  }, [highlightTutorId, router]);
 
   async function setStatus(
     tutorId: string,
@@ -141,6 +161,12 @@ export default function AdminTutorVerificationsPage() {
         </div>
       )}
 
+      {!loading && highlightTutorId && !rows.some((r) => r.tutorId === highlightTutorId) && (
+        <div className="mb-4 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-400">
+          {t("edumatch.admin.verifications.highlightNotFound")}
+        </div>
+      )}
+
       {loading ? (
         <p className="text-sm text-[var(--color-text-muted)]">{t("edumatch.admin.common.loading")}</p>
       ) : filtered.length === 0 ? (
@@ -154,6 +180,7 @@ export default function AdminTutorVerificationsPage() {
               busy={busyId === r.tutorId}
               onSetStatus={setStatus}
               currentUserId={session?.user?.id ?? null}
+              highlighted={r.tutorId === highlightTutorId}
             />
           ))}
         </div>
@@ -167,6 +194,7 @@ function TutorRowCard({
   busy,
   onSetStatus,
   currentUserId,
+  highlighted = false,
 }: {
   row: TutorRow;
   busy: boolean;
@@ -176,12 +204,17 @@ function TutorRowCard({
     extra?: { tutorMessage?: string; adminNotes?: string },
   ) => Promise<void>;
   currentUserId: string | null;
+  highlighted?: boolean;
 }) {
   const { t } = useTranslation();
   const [needsMsg, setNeedsMsg] = useState("");
   const [adminNotes, setAdminNotes] = useState(
     row.latestReview?.adminNotes ?? "",
   );
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Fades after a beat rather than disappearing the instant the row scrolls
+  // into place — the whole point is "this is the one you're here for".
+  const [showHighlight, setShowHighlight] = useState(highlighted);
 
   // Verification conversation thread (lazy-loaded on expand).
   const [threadOpen, setThreadOpen] = useState(false);
@@ -209,6 +242,22 @@ function TutorRowCard({
     if (next && messages === null) void loadThread();
   }
 
+  // Deep-linked from a "Tutor replied" notification: scroll to it, flash a
+  // highlight, and open the conversation — that's what the notification was
+  // about, so open it rather than making the admin click again to see it.
+  useEffect(() => {
+    if (!highlighted) return;
+    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setThreadOpen(true);
+    if (messages === null) void loadThread();
+    const fade = setTimeout(() => setShowHighlight(false), 3000);
+    return () => clearTimeout(fade);
+    // Intentionally runs once on mount for the row this was rendered for —
+    // `highlighted` doesn't change after the initial render (see
+    // highlightTutorId in the parent, captured once from the URL).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlighted]);
+
   const sendFollowup = useCallback(
     async (body: string, attachments: StoredAttachment[]) => {
       const res = await fetch(
@@ -231,8 +280,13 @@ function TutorRowCard({
 
   return (
     <div
+      ref={cardRef}
       data-testid="tutor-verification-row"
-      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-5 shadow-sm"
+      className={`rounded-lg border p-5 shadow-sm transition-colors duration-1000 ${
+        showHighlight
+          ? "border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/40"
+          : "border-[var(--color-border)] bg-[var(--color-panel)]"
+      }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
