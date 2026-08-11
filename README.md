@@ -1,7 +1,10 @@
 # ASafarIM Platform
 
 Unified monorepo for all **ASafarIM Digital** apps and services: the public
-website, the ASafarIM Hub dashboard, the Showcase, the Admin panel, and shared
+website (web), the Hub dashboard, the Showcase, the Admin panel, Vionto
+(AI photo-to-story video), EduMatch (AI learning support and tutor
+marketplace), AppBuilder (metadata-driven AI application factory), Testora
+(E2E test orchestration), TimelineAI (visual timeline creator), and shared
 packages — built with Next.js, TypeScript, PostgreSQL, pnpm workspaces, and
 Turborepo, deployed with Docker Compose behind Caddy.
 
@@ -26,6 +29,7 @@ flowchart TD
         EduMatch[apps/edumatch]
         AppBuilder[apps/appbuilder]
         Testora[apps/testora]
+        TimelineAI[apps/timelineai]
         Postgres[(PostgreSQL)]
     end
     Auth["@asafarim/auth"]
@@ -40,6 +44,7 @@ flowchart TD
     Caddy --> EduMatch
     Caddy --> AppBuilder
     Caddy --> Testora
+    Caddy --> TimelineAI
     Web --> DB
     Hub --> DB
     Showcase --> DB
@@ -48,12 +53,14 @@ flowchart TD
     EduMatch --> DB
     AppBuilder --> DB
     Testora --> DB
+    TimelineAI --> DB
     Hub --> Auth
     Admin --> Auth
     Vionto --> Auth
     EduMatch --> Auth
     AppBuilder --> Auth
     Testora --> Auth
+    TimelineAI --> Auth
     Auth --> DB
     DB --> Postgres
 ```
@@ -67,7 +74,10 @@ flowchart TD
 | [`apps/showcase`](apps/showcase/README.md)  | Public demos and case studies  | 3002     | showcase.asafarim.com   | Public                      |
 | [`apps/admin`](apps/admin/README.md)     | Internal admin panel           | 3003     | admin.asafarim.com     | admin / superadmin role     |
 | [`apps/vionto`](apps/vionto/README.md)    | AI photo-to-story video app    | 3004     | vionto.asafarim.com    | Login for projects/rendering (see [docs/vionto-architecture.md](docs/vionto-architecture.md)) |
+| [`apps/testora`](apps/testora/README.md)   | E2E test orchestration and runner | 3005  | testora.asafarim.com   | Login (shared SSO) |
+| [`apps/appbuilder`](apps/appbuilder/README.md) | Metadata-driven AI application factory | 3006 | appbuilder.asafarim.com | Login (shared SSO); per-app owner/editor/viewer capabilities |
 | [`apps/edumatch`](apps/edumatch/README.md) | AI learning support and tutor marketplace | 3009 | edumatch.asafarim.com | Public landing; login for student, tutor, and admin workspaces |
+| [`apps/timelineai`](apps/timelineai/README.md) | Visual timeline creator (8 layouts, export, moderation) | 3010 | tlai.asafarim.com | Public gallery; login for dashboard/self-publish; guests can create/submit |
 
 Public website copy is maintained in `apps/web/content/`; PR-specific source,
 asset, and deferral records are kept in `docs/migration-notes.md`.
@@ -77,12 +87,18 @@ asset, and deferral records are kept in `docs/migration-notes.md`.
 | Package             | Purpose                                          |
 | ------------------- | ------------------------------------------------ |
 | `packages/ui`       | Design system: tokens, brand, creative components (see [docs/design-system.md](docs/design-system.md)) |
-| `packages/auth`     | Shared authentication helpers (Phase 5)          |
-| `packages/db`       | Prisma client, schema, and migrations (Phase 4)  |
+| `packages/auth`     | Shared authentication helpers (Auth.js v5, platform app registry, route proxy) |
+| `packages/db`       | Prisma client, schema, and migrations for the shared platform database |
 | `packages/config`   | Shared TypeScript/ESLint/Tailwind configuration  |
 | `packages/shared-i18n` | Locale resolution, dictionaries, React i18n provider (used by Vionto) |
 | `packages/country-language-selector` | Country/language picker UI (used by Vionto) |
 | `packages/vionto-schemas` | Shared Vionto validation schemas |
+| `packages/appbuilder-schema` | Versioned application-specification contract and deterministic controlled-operation engine for AppBuilder |
+| `packages/appbuilder-runtime` | Approved component/template registry and metadata-driven preview renderer for AppBuilder generated apps |
+| `packages/appbuilder-ai` | Server-only AI provider boundary and structured planning schemas for AppBuilder's generation pipeline |
+| `packages/seed-manager` | Typed, allowlisted seed-data providers shared by the Admin Console and CLI seed scripts |
+| `packages/storage` | Shared S3-compatible object storage utilities (DigitalOcean Spaces) |
+| `packages/theme-toggle` | Shared light/dark theme toggle — provider, no-flash script, and toggle button |
 
 ## Getting started
 
@@ -97,7 +113,7 @@ pnpm typecheck  # typecheck the whole workspace
 
 ### Environment
 
-The four apps and database tooling use one root environment. Plaintext files
+The apps and database tooling use one root environment. Plaintext files
 remain local; [Envage](https://alisafari-it.github.io/envage/) encrypts them to
 age files that are safe to commit.
 
@@ -127,8 +143,10 @@ pnpm db:seed                    # seed RBAC roles/permissions (+ SEED_ADMIN_* us
 pnpm db:studio                  # browse the database
 ```
 
-Authentication (Auth.js v5) lives in `packages/auth`; sign in at
-`hub:3001/sign-in`, admin-only area at `admin:3003`.
+Authentication (Auth.js v5) lives in `packages/auth`; sign in is centralized
+at `hub:3001/sign-in`. Every protected app (Hub, Admin, Vionto, EduMatch,
+AppBuilder, Testora, TimelineAI) shares the same session via a `.asafarim.com`
+cookie — there is no per-app login.
 
 ### Auth flow
 
