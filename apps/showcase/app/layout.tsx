@@ -51,6 +51,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 { label: t("showcase.nav.exhibition"), href: "/" },
                 { label: t("showcase.nav.projects"), href: "/projects" },
                 { label: t("showcase.nav.labs"), href: "/labs" },
+                { label: t("showcase.nav.proof"), href: "/proof" },
               ]}
             />
           }
