@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { AvatarPicker } from "@/components/profile/AvatarPicker";
@@ -54,6 +54,7 @@ type Profile = {
 export default function StudentProfilePage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const GRADE_LEVELS: { value: "K12" | "UNDERGRAD" | "GRAD"; label: string }[] =
     [
@@ -79,7 +80,10 @@ export default function StudentProfilePage() {
     postalCode: "",
     country: "",
   });
-  const [dateOfBirth, setDateOfBirth] = useState("");
+  // Prefilled from /onboarding's student (16+) DOB check, which already
+  // decided this student is old enough — this profile save is what actually
+  // enforces it server-side (see upsertStudentProfile).
+  const [dateOfBirth, setDateOfBirth] = useState(searchParams.get("dateOfBirth") ?? "");
 
   useEffect(() => {
     fetch("/api/student/profile")

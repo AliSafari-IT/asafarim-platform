@@ -10,6 +10,7 @@
 import { prisma } from "@asafarim/db";
 import type { AvailabilitySlot } from "./tutor-matching";
 import { signAttachments, type AttachmentView } from "./storage";
+import { authorizeBookingActor, StudentGuardError } from "./student-guard";
 
 export type QuoteRequestInput = {
   inquiryId: string;
@@ -163,12 +164,19 @@ export async function submitQuote(
 }
 
 /**
- * Student accepts a quote.
- * Creates a booking placeholder and updates statuses.
+ * Accept a quote, on behalf of `studentId` (defaults to the caller
+ * themselves — the ordinary self-serve path). Creates a booking placeholder
+ * and updates statuses.
+ *
+ * `callerId` and `studentId` differ exactly once: a parent accepting a
+ * quote for one of their managed children. `authorizeBookingActor` is the
+ * boundary that decides whether that's allowed and, either way, resolves
+ * who the booking's `payerId` is.
  */
 export async function acceptQuote(
   quoteId: string,
-  studentId: string,
+  callerId: string,
+  studentId: string = callerId,
 ): Promise<{ bookingId: string; quoteId: string }> {
   // Ownership is part of the query itself (not a follow-up check) so a
   // quote belonging to another student is indistinguishable from a quote
@@ -188,6 +196,14 @@ export async function acceptQuote(
   }
   if (quote.quoteRequest.status !== "OPEN") {
     throw new QuoteError("Quote request is no longer open.");
+  }
+
+  let payerId: string;
+  try {
+    ({ payerId } = await authorizeBookingActor(callerId, studentId));
+  } catch (error) {
+    if (error instanceof StudentGuardError) throw new QuoteError(error.message);
+    throw error;
   }
 
   // Transaction: accept quote, decline others, mark request fulfilled, create booking
@@ -226,6 +242,7 @@ export async function acceptQuote(
         durationMinutes: Math.round(quote.estimatedHours * 60),
         mode: "ONLINE", // Default; could be derived from quote slots
         status: "SCHEDULED",
+        payerId,
       },
     });
 

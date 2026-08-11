@@ -6,7 +6,9 @@ import {
   requireRole,
   requireStudent,
   requireTutor,
+  upsertStudentProfile,
 } from "../profiles";
+import { StudentGuardError } from "../student-guard";
 import type { AuthedUser } from "../auth";
 
 // Mock the upstream package so we never load next-auth in the test runner.
@@ -16,11 +18,14 @@ vi.mock("@asafarim/auth", () => ({
 
 vi.mock("@asafarim/db", () => ({
   prisma: {
-    eduStudentProfile: { findUnique: vi.fn() },
+    eduStudentProfile: { findUnique: vi.fn(), upsert: vi.fn() },
     eduTutorProfile: { findUnique: vi.fn() },
     role: { findUnique: vi.fn() },
     userRole: { upsert: vi.fn() },
+    userLocation: { findFirst: vi.fn() },
+    user: { findUnique: vi.fn(), update: vi.fn() },
   },
+  Prisma: { JsonNull: null },
 }));
 
 vi.mock("../auth", () => ({
@@ -159,5 +164,80 @@ describe("requireStudent / requireTutor", () => {
     vi.mocked(prisma.eduTutorProfile.findUnique).mockResolvedValue(null);
 
     await expect(requireTutor()).rejects.toBeInstanceOf(EduAuthError);
+  });
+});
+
+describe("upsertStudentProfile — under-16 independence gate", () => {
+  beforeEach(() => {
+    vi.mocked(prisma.eduStudentProfile.findUnique).mockReset();
+    vi.mocked(prisma.eduStudentProfile.upsert).mockReset();
+    vi.mocked(prisma.userLocation.findFirst).mockReset().mockResolvedValue(null);
+    vi.mocked(prisma.user.findUnique).mockReset().mockResolvedValue({ image: null } as never);
+    vi.mocked(prisma.user.update).mockReset();
+  });
+
+  function agedYears(years: number): Date {
+    const d = new Date();
+    d.setUTCFullYear(d.getUTCFullYear() - years);
+    return d;
+  }
+
+  it("refuses first-time self-serve creation with a DOB under 16", async () => {
+    vi.mocked(prisma.eduStudentProfile.findUnique).mockResolvedValue(null); // no existing profile
+
+    await expect(
+      upsertStudentProfile("u-15", {
+        gradeLevel: "K12",
+        subjectsOfInterest: [],
+        dateOfBirth: agedYears(15),
+      }),
+    ).rejects.toBeInstanceOf(StudentGuardError);
+    expect(prisma.eduStudentProfile.upsert).not.toHaveBeenCalled();
+  });
+
+  it("allows first-time self-serve creation at 16+", async () => {
+    vi.mocked(prisma.eduStudentProfile.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.eduStudentProfile.upsert).mockResolvedValue({
+      userId: "u-16",
+      dateOfBirth: agedYears(16),
+    } as never);
+
+    const profile = await upsertStudentProfile("u-16", {
+      gradeLevel: "K12",
+      subjectsOfInterest: [],
+      dateOfBirth: agedYears(16),
+    });
+    expect(profile.userId).toBe("u-16");
+  });
+
+  it("allows creation with no dateOfBirth at all (profile stays incomplete, not rejected)", async () => {
+    vi.mocked(prisma.eduStudentProfile.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.eduStudentProfile.upsert).mockResolvedValue({
+      userId: "u-nodate",
+      dateOfBirth: null,
+    } as never);
+
+    await expect(
+      upsertStudentProfile("u-nodate", { gradeLevel: "K12", subjectsOfInterest: [] }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("does not re-check the gate on an update to an already-existing profile", async () => {
+    vi.mocked(prisma.eduStudentProfile.findUnique).mockResolvedValue({
+      userId: "u-existing",
+      dateOfBirth: agedYears(20),
+    } as never); // profile already exists
+    vi.mocked(prisma.eduStudentProfile.upsert).mockResolvedValue({
+      userId: "u-existing",
+      dateOfBirth: agedYears(15), // editing DOB down doesn't retroactively block the save
+    } as never);
+
+    await expect(
+      upsertStudentProfile("u-existing", {
+        gradeLevel: "K12",
+        subjectsOfInterest: [],
+        dateOfBirth: agedYears(15),
+      }),
+    ).resolves.toBeTruthy();
   });
 });

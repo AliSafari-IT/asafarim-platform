@@ -77,6 +77,9 @@ model User {
   eduReviewsWritten        EduReview[]         @relation("EduReviewStudent")
   eduReviewsReceived       EduReview[]         @relation("EduReviewTutor")
 
+  // EduMatch — age-aware accounts (parent-managed minors)
+  eduParentProfile EduParentProfile?
+
   // Vionto — photo-to-story video pipeline
   viontoProjects         ViontoProject[]
   viontoAuditEvents      ViontoAuditEvent[]      @relation("ViontoAuditActor")
@@ -1100,20 +1103,44 @@ model EduStudentProfile {
   guardianName  String?
   guardianEmail String?
 
-  // Source of truth for age-gated rules (currently: the avatar system's
-  // under-13 photo-upload restriction — see lib/server/age.ts). Optional so
-  // legacy profiles keep working; a missing value is treated as the most
-  // restrictive age everywhere it's read.
+  // Source of truth for age-gated rules — the avatar system's under-13 photo
+  // restriction and the account model's under-16 independence cutoff (see
+  // lib/server/age.ts). Optional so legacy profiles keep working; a missing
+  // value is treated as the most restrictive age everywhere it's read.
   dateOfBirth DateTime?
+
+  // Set when this profile is parent-managed (student is under 16 and cannot
+  // act independently — see lib/server/student-guard.ts). Null for an
+  // independent 16+ student. The parent is the User who owns the
+  // EduParentProfile this student belongs to.
+  parentUserId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent EduParentProfile?  @relation(fields: [parentUserId], references: [userId], onDelete: SetNull)
 
   @@index([gradeLevel])
   @@index([isMinor])
   @@index([dateOfBirth])
+  @@index([parentUserId])
+}
+
+// A user with an EduParentProfile is the parent/guardian of one or more
+// EduStudentProfile rows (via EduStudentProfile.parentUserId). Deliberately
+// minimal today — the fields a real parent dashboard needs (billing address,
+// emergency contact, marketing consent) can be added without a migration
+// that touches the student side.
+model EduParentProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children EduStudentProfile[]
 }
 
 model EduTutorProfile {
@@ -1336,6 +1363,14 @@ model EduBooking {
   cancelledAt           DateTime?
   cancellationReason    String?
 
+  // Who is legally/financially responsible for this booking: the student's
+  // own userId if they can act independently (16+, no parent), otherwise
+  // their parent's userId. Deliberately a plain scalar, not a relation — see
+  // lib/server/student-guard.ts's getPayerId() for how it's derived. This is
+  // the smallest possible payment-responsibility fix; it does not touch
+  // EduTransaction.
+  payerId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1351,6 +1386,7 @@ model EduBooking {
   @@index([tutorId])
   @@index([status])
   @@index([scheduledAt])
+  @@index([payerId])
 }
 
 model EduTransaction {

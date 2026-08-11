@@ -16,4 +16,4 @@ export function handleEduError(scope: string, error: unknown): NextResponse {
 }
 
 // Re-export so route handlers only need one import surface.
-export { getAuthedUser, badRequest, notFound, serverError };
+export { getAuthedUser, badRequest, notFound, serverError, unauthorized };
