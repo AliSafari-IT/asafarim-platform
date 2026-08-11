@@ -1,0 +1,108 @@
+Portfolio Evaluation & Source-Available License
+Copyright (c) 2026 AliSafari (asafarim@gmail.com)
+
+1. GRANT OF LIMITED RIGHTS
+
+Subject to the terms of this License, the copyright holder ("Licensor")
+grants to any individual who is a recruiter, hiring manager, engineering
+interviewer, or prospective employer, or who is otherwise personally
+evaluating the Licensor's work ("Licensee"), a limited, non-exclusive,
+non-transferable, non-sublicensable, revocable license to:
+
+  a. View and read the source code of this repository ("the Software");
+  b. Clone the Software to a local or personal development machine; and
+  c. Build and run the Software locally,
+
+solely for the purposes of candidate evaluation, technical skills
+assessment, code review, and personal, non-commercial review of the
+Licensor's work (collectively, "Permitted Purposes").
+
+No other rights are granted, whether express, implied, by estoppel, or
+otherwise, except as explicitly stated in this License.
+
+2. RESTRICTIONS
+
+Except as expressly permitted under Section 1, Licensee shall NOT, and
+shall not permit any third party to:
+
+  a. Use the Software, in whole or in part, for any commercial purpose,
+     including but not limited to operating it as a hosted or managed
+     service (SaaS), internal business tooling, or as part of a
+     commercial product or offering;
+  b. Deploy the Software, or any derivative of it, to any publicly or
+     privately accessible server, cloud environment, or production
+     environment other than for the Licensee's own local, non-public
+     evaluation;
+  c. Sell, rent, lease, sublicense, distribute, or otherwise make the
+     Software (or copies of it) available to any third party, whether
+     for a fee or free of charge;
+  d. Modify, adapt, or create derivative works of the Software for
+     commercial purposes, or incorporate any part of the Software into
+     another product or codebase that is distributed, sold, or deployed
+     commercially;
+  e. Remove, obscure, or alter any copyright, trademark, or other
+     proprietary notices contained in the Software;
+  f. Re-publish, mirror, or re-host the Software's source code, in
+     whole or in part, on any other repository, website, or platform,
+     public or private, without the Licensor's prior written consent.
+
+Any use beyond the Permitted Purposes described in Section 1 requires a
+separate, explicit written commercial license agreement with the
+Licensor. Requests for commercial licensing, collaboration, or any use
+not covered by this License should be directed to:
+
+  asafarim@gmail.com
+
+3. NO TRADEMARK LICENSE
+
+This License does not grant permission to use the trade names,
+trademarks, service marks, or product names of the Licensor, except as
+required for reasonable and customary use in describing the origin of
+the Software.
+
+4. DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND
+NON-INFRINGEMENT. THE LICENSOR MAKES NO WARRANTY THAT THE SOFTWARE WILL
+BE ERROR-FREE, SECURE, OR OPERATE WITHOUT INTERRUPTION, AND NO WARRANTY
+IS MADE REGARDING THE ACCURACY, RELIABILITY, OR COMPLETENESS OF ANY
+CONTENT OR RESULTS OBTAINED FROM USE OF THE SOFTWARE.
+
+5. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE,
+ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE, INCLUDING WITHOUT LIMITATION ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION),
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+6. TERMINATION
+
+This License and the rights granted under it terminate automatically if
+Licensee breaches any of its terms. Upon termination, Licensee must
+cease all use of the Software and destroy or delete all copies in its
+possession or control.
+
+7. NO OTHER RIGHTS
+
+Nothing in this License shall be construed to grant any rights under
+patent, trademark, or other intellectual property rights of the
+Licensor, except as expressly stated in Section 1.
+
+8. GOVERNING LAW
+
+This License shall be governed by and construed in accordance with the
+laws applicable to the Licensor's place of residence, without regard to
+its conflict-of-laws principles, unless otherwise agreed in writing by
+the Licensor.
+
+---
+
+For commercial licensing, collaboration proposals, or any use not
+covered by the Permitted Purposes above, please contact:
+asafarim@gmail.com
