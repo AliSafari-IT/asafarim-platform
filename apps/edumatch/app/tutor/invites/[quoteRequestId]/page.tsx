@@ -202,7 +202,7 @@ export default function PreparedProposalPage({
         </p>
         <Link
           href="/tutor/invites"
-          className="mt-6 inline-block rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+          className="mt-6 inline-block rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-[#07101a] transition hover:opacity-90"
         >
           {t("edumatch.proposal.backToInvites")}
         </Link>
@@ -376,7 +376,7 @@ export default function PreparedProposalPage({
                   aria-pressed={mode === m}
                   className={`rounded-lg border px-4 py-2 text-sm transition ${
                     mode === m
-                      ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                      ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[#07101a]"
                       : "border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)]"
                   }`}
                 >
@@ -441,7 +441,7 @@ export default function PreparedProposalPage({
               type="button"
               onClick={() => void send()}
               disabled={busy}
-              className="flex-1 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-[#07101a] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? t("edumatch.proposal.sending") : t("edumatch.proposal.sendBtn")}
             </button>

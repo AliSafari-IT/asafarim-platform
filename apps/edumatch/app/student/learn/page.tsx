@@ -285,7 +285,7 @@ export default function LearnPage() {
                 type="button"
                 onClick={() => void send()}
                 disabled={!canSend}
-                className="rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-[#07101a] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {busy
                   ? t("edumatch.learn.thinking")
@@ -331,7 +331,7 @@ export default function LearnPage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href={`/student/brief/${brief.id}/compare`}
-              className="rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+              className="rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-[#07101a] transition hover:opacity-90"
             >
               {t("edumatch.learn.matched.compareBtn")}
             </Link>
@@ -379,7 +379,7 @@ function Transcript({
           key={turn.id}
           className={
             turn.role === "STUDENT"
-              ? "ml-auto max-w-[85%] rounded-xl rounded-br-sm bg-[var(--color-primary)] px-4 py-3 text-sm text-white"
+              ? "ml-auto max-w-[85%] rounded-xl rounded-br-sm bg-[var(--color-primary)] px-4 py-3 text-sm text-[#07101a]"
               : "mr-auto max-w-[92%] rounded-xl rounded-bl-sm border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3 text-sm text-[var(--color-text)]"
           }
         >

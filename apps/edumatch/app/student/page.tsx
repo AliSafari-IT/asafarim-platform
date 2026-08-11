@@ -117,7 +117,7 @@ export default function StudentDashboard() {
           </Link>
           <Link
             href={`${EDUMATCH_URL}/student/learn`}
-            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition"
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[#07101a] hover:opacity-90 transition"
           >
             {t("edumatch.dashboard.askQuestion")}
           </Link>

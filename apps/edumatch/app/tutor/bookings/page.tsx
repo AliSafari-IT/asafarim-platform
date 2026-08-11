@@ -185,7 +185,7 @@ export default function TutorBookingsPage() {
                             type="button"
                             disabled={busy === b.id}
                             onClick={() => respond(b)}
-                            className="mt-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                            className="mt-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[#07101a] disabled:opacity-50"
                           >
                             {busy === b.id ? t("edumatch.disputes.submitting") : t("edumatch.disputes.sendResponse")}
                           </button>

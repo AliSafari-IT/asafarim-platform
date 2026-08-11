@@ -166,7 +166,7 @@ export default function TutorSettingsPage() {
           <button
             onClick={saveSettings}
             disabled={saving}
-            className="rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition"
+            className="rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 transition"
           >
             {saving ? t("edumatch.profile.tutor.saving") : t("edumatch.tutor.settings.save")}
           </button>

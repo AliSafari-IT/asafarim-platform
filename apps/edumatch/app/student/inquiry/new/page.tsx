@@ -220,7 +220,7 @@ export default function NewInquiry() {
                 i < step
                   ? "bg-green-500 text-white"
                   : i === step
-                    ? "bg-[var(--color-primary)] text-white"
+                    ? "bg-[var(--color-primary)] text-[#07101a]"
                     : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
               }`}
             >
@@ -299,7 +299,7 @@ export default function NewInquiry() {
                     }
                     className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                       active
-                        ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[#07101a]"
                         : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-primary)]"
                     }`}
                   >
@@ -313,7 +313,7 @@ export default function NewInquiry() {
           <button
             onClick={handleCreateProfile}
             disabled={creatingProfile}
-            className="w-full rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+            className="w-full rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
           >
             {creatingProfile ? (
               <>
@@ -334,10 +334,11 @@ export default function NewInquiry() {
         {step === 0 && (
           <div className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+              <label htmlFor="inquiry-subject" className="block text-sm font-medium text-[var(--color-text)] mb-2">
                 {t("edumatch.inquiry.new.subject.label")}
               </label>
               <select
+                id="inquiry-subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
@@ -365,7 +366,7 @@ export default function NewInquiry() {
                     onClick={() => setGradeLevel(g.value)}
                     className={`rounded-lg border px-3 py-3 text-sm font-medium text-center transition ${
                       gradeLevel === g.value
-                        ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[#07101a]"
                         : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] hover:border-[var(--color-primary)]"
                     }`}
                   >
@@ -379,7 +380,7 @@ export default function NewInquiry() {
               <button
                 onClick={() => setStep(1)}
                 disabled={!canProceed0}
-                className="rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 {t("edumatch.inquiry.new.next")}
               </button>
@@ -451,7 +452,7 @@ export default function NewInquiry() {
               <button
                 onClick={() => setStep(2)}
                 disabled={!canProceed1 || uploading}
-                className="flex-1 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="flex-1 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 {uploading
                   ? t("edumatch.inquiry.new.attach.waitUploads")
@@ -542,7 +543,7 @@ export default function NewInquiry() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex-1 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                className="flex-1 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <>
