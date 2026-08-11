@@ -1,7 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'node:path';
 
 export default defineConfig({
   testDir: './e2e',
+  // Authenticates a demo student + tutor once via the real Hub sign-in form
+  // and writes their session cookies to e2e/.auth/*.json — see
+  // e2e/global-setup.ts for why this can't just be seed data.
+  globalSetup: require.resolve('./e2e/global-setup.ts'),
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -37,9 +42,22 @@ export default defineConfig({
       use: { ...devices['iPhone 12'] },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3009',
-    reuseExistingServer: !process.env.CI,
-  },
+  // Two servers: EduMatch itself, and Hub — global-setup logs in through
+  // Hub's real sign-in form (session cookies are shared across localhost
+  // ports, see e2e/global-setup.ts), so Hub has to be up before setup runs.
+  webServer: [
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:3009',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: 'npm run dev',
+      cwd: path.resolve(__dirname, '../hub'),
+      url: 'http://localhost:3001',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });

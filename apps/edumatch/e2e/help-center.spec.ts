@@ -1,16 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { STUDENT_STORAGE_STATE, TUTOR_STORAGE_STATE } from './global-setup';
 
 /**
- * Help Center coverage.
- *
- * The two flows that start from an authenticated screen ("Ask a question"
- * -> its guide, "quote form" -> its guide) are written but skipped: this
- * suite has no working auth fixture (no spec here can sign in — the other
- * files under e2e/ reference UI text/flows that no longer match the app,
- * and playwright.config.ts's baseURL pointed at the wrong app's port,
- * :3000 instead of EduMatch's :3009, until this PR). Once a real sign-in
- * fixture exists, drop `.skip` from the two contextual-link tests below —
- * everything else here needs no auth and should run as-is.
+ * Help Center coverage. Signed-out tests below need no auth. The two
+ * contextual-link tests at the bottom need a real session — see
+ * global-setup.ts for how demo.student1/demo.tutor1 get one.
  */
 
 test.describe('Help Center', () => {
@@ -67,23 +61,27 @@ test.describe('Help Center', () => {
     await expect(page.getByRole('heading', { name: 'Aanmelden en je weg vinden' })).toBeVisible();
   });
 
-  test.skip(
+  test(
     'student navigates from "Ask a question" to its contextual guide',
-    async ({ page }) => {
-      // Needs auth: /student/inquiry/new requires a signed-in student session.
+    async ({ browser }) => {
+      const context = await browser.newContext({ storageState: STUDENT_STORAGE_STATE });
+      const page = await context.newPage();
       await page.goto('/student/inquiry/new');
       await page.getByRole('link', { name: 'How this works' }).click();
       await expect(page).toHaveURL(/\/help\/students\/ask-a-question$/);
+      await context.close();
     },
   );
 
-  test.skip(
+  test(
     'tutor navigates from the quote form to its contextual guide',
-    async ({ page }) => {
-      // Needs auth: /tutor/requests requires a signed-in, verified tutor session.
+    async ({ browser }) => {
+      const context = await browser.newContext({ storageState: TUTOR_STORAGE_STATE });
+      const page = await context.newPage();
       await page.goto('/tutor/requests');
       await page.getByRole('link', { name: 'How this works' }).click();
       await expect(page).toHaveURL(/\/help\/tutors\/finding-and-quoting-requests$/);
+      await context.close();
     },
   );
 });
