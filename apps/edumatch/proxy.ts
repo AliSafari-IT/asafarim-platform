@@ -15,14 +15,10 @@ export const proxy = createAuthProxy({
     "/docs",
     "/about-this-project",
     "/api/health",
-    // Unauthenticated by design: the showcase proof board's live health
-    // check (apps/showcase/app/proof/data.ts's getLiveHealth) does a plain
-    // server-to-server fetch with no session cookie, and the same endpoint
-    // doubles as this app's Docker healthcheck target (docker-compose.prod.yml).
-    // Missing from this allowlist, every request to it 401'd — meaning the
-    // proof board's EduMatch health indicator was always reporting
-    // "unreachable" regardless of actual health.
-    "/api/status",
+    // /api/status is deliberately NOT listed here — @asafarim/auth/proxy's
+    // createAuthProxy now always allows it regardless of an app's own
+    // publicRoutes (see #167), so listing it here would just be a second,
+    // driftable source of truth.
     "/api/docs",
     "/api/auth",
   ],

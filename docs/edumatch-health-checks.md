@@ -19,12 +19,13 @@ process started":
   what makes the endpoint usable as an actual healthcheck target (a `200`
   that merely *says* "degraded" in its body would look healthy to anything
   checking only the status code).
-- **Unauthenticated by design.** It's allow-listed in
-  [`apps/edumatch/proxy.ts`](../apps/edumatch/proxy.ts)'s `publicRoutes`
-  (fixed alongside this doc — it was missing, so both the Docker healthcheck
-  and the showcase proof board's cross-app live health check were silently
-  getting `401`s and reporting EduMatch as unreachable regardless of actual
-  health). See #167 for the same gap on other apps.
+- **Unauthenticated by design.** `@asafarim/auth/proxy`'s `createAuthProxy`
+  always allows `/api/status` regardless of an app's own `publicRoutes` (see
+  #167 — it was originally missing from EduMatch's own allowlist, silently
+  401ing both the Docker healthcheck and the showcase proof board's
+  cross-app live health check; fixing it centrally in the shared proxy
+  rather than per-app means every app gets this for free, including future
+  ones).
 
 `/api/health` (also public) exists separately as a plain liveness probe (no
 DB check) — used by nothing that needs a real health signal; `/api/status`

@@ -52,6 +52,17 @@ export function createAuthProxy(options: AuthProxyOptions = {}) {
     // Allow Auth.js API routes
     if (pathname.startsWith("/api/auth")) return NextResponse.next();
 
+    // Always allow the health/status probe, regardless of an app's own
+    // publicRoutes list. It's unauthenticated by necessity: the showcase
+    // proof board's live cross-app health check (getLiveHealth in
+    // apps/showcase/app/proof/data.ts) does a plain server-to-server fetch
+    // with no session cookie, and the same endpoint doubles as each app's
+    // Docker healthcheck target. Leaving this to per-app publicRoutes lists
+    // is exactly how EduMatch's /api/status silently 401'd for months (see
+    // #167) — hardcoding it here means a future app can't repeat that.
+    if (pathname === "/api/status" || pathname.startsWith("/api/status/"))
+      return NextResponse.next();
+
     // Check authentication.
     //
     // cookieName/salt/secureCookie are pinned to match the NextAuth config in
