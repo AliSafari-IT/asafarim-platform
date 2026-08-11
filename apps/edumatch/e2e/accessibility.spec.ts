@@ -74,7 +74,14 @@ test.describe('Automated accessibility scan — tutor', () => {
 });
 
 test.describe('Keyboard navigation', () => {
-  test('landing page: primary CTAs are keyboard-reachable with visible focus', async ({ page }) => {
+  test('landing page: primary CTAs are keyboard-reachable with visible focus', async ({ page, browserName }) => {
+    // Not an app bug: WebKit's default Tab order excludes <a> links
+    // entirely (confirmed by tracing the full Tab sequence on '/' — every
+    // stop was a <button>, never the anchor CTAs) unless the user has macOS
+    // Keyboard Settings' "Full Keyboard Access" enabled — an OS-level
+    // default, not something a page's HTML/CSS can opt back into. Real
+    // Safari users hit the exact same limitation. #164.
+    test.skip(browserName === 'webkit', 'WebKit excludes links from the default Tab order (real Safari behavior, not fixable from the page).');
     await page.goto('/');
 
     // Tab from a known start point until we hit the hero's primary CTA,
@@ -147,7 +154,9 @@ test.describe('Keyboard navigation — student', () => {
 test.describe('Keyboard navigation — tutor', () => {
   test.use({ storageState: TUTOR_STORAGE_STATE });
 
-  test('requests page: back-to-dashboard link is keyboard-reachable', async ({ page }) => {
+  test('requests page: back-to-dashboard link is keyboard-reachable', async ({ page, browserName }) => {
+    // Same WebKit link-tab-order limitation as the landing-page test above.
+    test.skip(browserName === 'webkit', 'WebKit excludes links from the default Tab order (real Safari behavior, not fixable from the page).');
     await page.goto('/tutor/requests');
     let reached = false;
     for (let i = 0; i < 30; i++) {

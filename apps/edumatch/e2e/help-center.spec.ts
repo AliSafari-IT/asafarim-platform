@@ -18,7 +18,14 @@ test.describe('Help Center', () => {
   test('searching for an article and opening it', async ({ page }) => {
     await page.goto('/help');
     const search = page.getByLabel('Search the Help Center');
-    await search.fill('Stripe');
+    // pressSequentially, not fill: WebKit's .fill() sets the input's native
+    // value but doesn't reliably fire the input event React's controlled
+    // component depends on to re-render — real per-character keystrokes do.
+    // Confirmed via isolated debugging (#164): .fill() left the page in its
+    // default, query-less state every time on webkit/Mobile Safari, while
+    // pressSequentially worked identically across all five projects.
+    await search.click();
+    await search.pressSequentially('Stripe');
     await expect(page.getByText('Getting paid: Stripe Connect, earnings, and settings')).toBeVisible();
     await page.getByText('Getting paid: Stripe Connect, earnings, and settings').click();
     await expect(page).toHaveURL(/\/help\/tutors\/payments-and-settings$/);
@@ -27,13 +34,17 @@ test.describe('Help Center', () => {
 
   test('an unmatched search shows the empty state, not a blank page', async ({ page }) => {
     await page.goto('/help');
-    await page.getByLabel('Search the Help Center').fill('xyznonexistentquery123');
+    const search = page.getByLabel('Search the Help Center');
+    await search.click();
+    await search.pressSequentially('xyznonexistentquery123');
     await expect(page.getByText('No guides matched that search.')).toBeVisible();
   });
 
   test('audience filter narrows results to the selected role', async ({ page }) => {
     await page.goto('/help');
-    await page.getByLabel('Search the Help Center').fill('bookings');
+    const search = page.getByLabel('Search the Help Center');
+    await search.click();
+    await search.pressSequentially('bookings');
     await page.getByRole('button', { name: 'Tutors', exact: true }).click();
     await expect(page.getByText('Managing bookings and responding to disputes')).toBeVisible();
     await expect(page.getByText('Managing bookings, cancellations, and disputes')).toHaveCount(0);
