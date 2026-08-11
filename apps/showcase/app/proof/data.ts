@@ -198,26 +198,68 @@ async function getCiStatusMetric(): Promise<ProofMetric> {
   }
 }
 
-export async function getCiMetrics(): Promise<ProofMetric[]> {
-  return [await getCiStatusMetric(), ...STATIC_QUALITY_METRICS];
+const LIGHTHOUSE_STATUS_URL =
+  "https://raw.githubusercontent.com/AliSafari-IT/asafarim-platform/main/apps/showcase/public-data/lighthouse-status.json";
+
+interface LighthouseStatus {
+  measuredAt: string;
+  method: string;
+  results: Array<{ url: string; accessibility: number; performance: number }>;
 }
 
-const STATIC_QUALITY_METRICS: ProofMetric[] = [
-  {
-    label: "Accessibility snapshot",
+/**
+ * Reads the committed Lighthouse snapshot (written by the scheduled
+ * .github/workflows/lighthouse.yml run) from raw.githubusercontent.com — a
+ * public, unauthenticated, always-current view of main. Fetched per
+ * request, same honesty rules as getCiStatusMetric: no run yet or a fetch
+ * error renders as "not yet measured", never a guess.
+ */
+async function getLighthouseMetrics(): Promise<ProofMetric[]> {
+  const method =
+    "Lighthouse CI (treosh/lighthouse-ci-action) against the deployed showcase, on a daily schedule; committed snapshot read from main.";
+  const notYetMeasured = (label: string): ProofMetric => ({
+    label,
     value: "Not yet measured",
-    method: "Planned: Lighthouse CI against the deployed showcase, run on a schedule, published with the report's own timestamp.",
-    measuredAt: "2026-08-11",
+    method,
+    measuredAt: new Date().toISOString().slice(0, 10),
     freshness: "not-yet-measured",
-  },
-  {
-    label: "Performance snapshot",
-    value: "Not yet measured",
-    method: "Planned: Lighthouse CI (performance category), same pipeline as accessibility.",
-    measuredAt: "2026-08-11",
-    freshness: "not-yet-measured",
-  },
-];
+  });
+
+  try {
+    const res = await fetch(LIGHTHOUSE_STATUS_URL, { next: { revalidate: 3600 } });
+    if (!res.ok) {
+      return [notYetMeasured("Accessibility snapshot"), notYetMeasured("Performance snapshot")];
+    }
+    const status = (await res.json()) as LighthouseStatus;
+    const showcaseHome = status.results.find((r) => r.url === "https://showcase.asafarim.com/");
+    if (!showcaseHome) {
+      return [notYetMeasured("Accessibility snapshot"), notYetMeasured("Performance snapshot")];
+    }
+    const measuredAt = status.measuredAt.slice(0, 10);
+    return [
+      {
+        label: "Accessibility snapshot",
+        value: `${showcaseHome.accessibility} / 100`,
+        method,
+        measuredAt,
+        freshness: "live",
+      },
+      {
+        label: "Performance snapshot",
+        value: `${showcaseHome.performance} / 100`,
+        method,
+        measuredAt,
+        freshness: "live",
+      },
+    ];
+  } catch {
+    return [notYetMeasured("Accessibility snapshot"), notYetMeasured("Performance snapshot")];
+  }
+}
+
+export async function getCiMetrics(): Promise<ProofMetric[]> {
+  return [await getCiStatusMetric(), ...(await getLighthouseMetrics())];
+}
 
 export function getPackageCards(): PackageCard[] {
   return readWorkspaceVersions();
