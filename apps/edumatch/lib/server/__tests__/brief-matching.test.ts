@@ -10,6 +10,7 @@ import {
   MAX_MATCHES,
   ineligibilityReason,
   isNewTutor,
+  passesRatingFilter,
   scoreLanguage,
   scoreLevel,
   scoreMode,
@@ -307,5 +308,47 @@ describe("isNewTutor", () => {
     expect(isNewTutor(candidate({ ratingCount: 0 }))).toBe(true);
     expect(isNewTutor(candidate({ ratingCount: 2 }))).toBe(true);
     expect(isNewTutor(candidate({ ratingCount: 3 }))).toBe(false);
+  });
+});
+
+describe("passesRatingFilter — rating filter never excludes unproven tutors", () => {
+  it("hides an established tutor below the minimum overall rating", () => {
+    expect(
+      passesRatingFilter({ ratingAvg: 3.5, ratingCount: 12 }, { minRating: 4.0 }),
+    ).toBe(false);
+  });
+
+  it("keeps an established tutor at or above the minimum", () => {
+    expect(
+      passesRatingFilter({ ratingAvg: 4.2, ratingCount: 12 }, { minRating: 4.0 }),
+    ).toBe(true);
+  });
+
+  it("never excludes a tutor with fewer than NEW_TUTOR_REVIEW_THRESHOLD reviews, however high the minimum", () => {
+    expect(
+      passesRatingFilter({ ratingAvg: 1, ratingCount: 0 }, { minRating: 4.8 }),
+    ).toBe(true);
+    expect(
+      passesRatingFilter({ ratingAvg: 2, ratingCount: 2 }, { minRating: 4.8 }),
+    ).toBe(true);
+  });
+
+  it("applies the same unproven exemption per aspect", () => {
+    expect(
+      passesRatingFilter(
+        { ratingAvg: 5, ratingCount: 10, clarityAvg: 3, aspectedCount: 2 },
+        { minClarity: 4.5 },
+      ),
+    ).toBe(true); // aspectedCount below threshold: exempt
+    expect(
+      passesRatingFilter(
+        { ratingAvg: 5, ratingCount: 10, clarityAvg: 3, aspectedCount: 6 },
+        { minClarity: 4.5 },
+      ),
+    ).toBe(false); // enough aspected reviews, below minimum: hidden
+  });
+
+  it("passes everything when no filter is set", () => {
+    expect(passesRatingFilter({ ratingAvg: 1, ratingCount: 20 }, {})).toBe(true);
   });
 });

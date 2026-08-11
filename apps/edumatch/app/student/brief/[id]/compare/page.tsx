@@ -13,7 +13,7 @@
  * is selling placement.
  */
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
@@ -21,6 +21,47 @@ import {
   formatEuros,
   type ProposalComparisonView,
 } from "@/lib/types/learning";
+
+/** Mirrors NEW_TUTOR_REVIEW_THRESHOLD in lib/server/brief-matching.ts. */
+const NEW_TUTOR_REVIEW_THRESHOLD = 3;
+
+const RATING_FILTER_OPTIONS = [
+  { value: 0, labelKey: "edumatch.filter.any" },
+  { value: 4.0, labelKey: "edumatch.filter.min40" },
+  { value: 4.5, labelKey: "edumatch.filter.min45" },
+  { value: 4.8, labelKey: "edumatch.filter.min48" },
+] as const;
+
+type RatingFilters = {
+  minRating: number;
+  minClarity: number;
+  minReliability: number;
+  minEngagement: number;
+};
+
+const DEFAULT_FILTERS: RatingFilters = {
+  minRating: 0,
+  minClarity: 0,
+  minReliability: 0,
+  minEngagement: 0,
+};
+
+/**
+ * Applies filter never silently erases a verified newcomer: a tutor below
+ * NEW_TUTOR_REVIEW_THRESHOLD (overall or per-aspect) always passes — they're
+ * "unproven, not below threshold". Mirrors passesRatingFilter() server-side.
+ */
+function passesFilters(p: ProposalComparisonView, f: RatingFilters): boolean {
+  if (f.minRating > 0 && p.ratingCount >= NEW_TUTOR_REVIEW_THRESHOLD && p.ratingAvg < f.minRating) {
+    return false;
+  }
+  const aspectOk = (avg: number | null, min: number) =>
+    min === 0 || p.aspectedCount < NEW_TUTOR_REVIEW_THRESHOLD || avg === null || avg >= min;
+  if (!aspectOk(p.clarityAvg, f.minClarity)) return false;
+  if (!aspectOk(p.reliabilityAvg, f.minReliability)) return false;
+  if (!aspectOk(p.engagementAvg, f.minEngagement)) return false;
+  return true;
+}
 
 export default function CompareProposalsPage({
   params,
@@ -36,6 +77,29 @@ export default function CompareProposalsPage({
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<RatingFilters>(DEFAULT_FILTERS);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showAllOverride, setShowAllOverride] = useState(false);
+
+  const filtersActive =
+    filters.minRating > 0 ||
+    filters.minClarity > 0 ||
+    filters.minReliability > 0 ||
+    filters.minEngagement > 0;
+
+  const visibleItems = useMemo(() => {
+    if (showAllOverride || !filtersActive) return items;
+    return items.filter((p) => passesFilters(p, filters));
+  }, [items, filters, filtersActive, showAllOverride]);
+
+  const hiddenCount = items.length - visibleItems.length;
+  const hiddenNewcomerCount = useMemo(
+    () =>
+      items.filter(
+        (p) => !visibleItems.includes(p) && p.ratingCount < NEW_TUTOR_REVIEW_THRESHOLD,
+      ).length,
+    [items, visibleItems],
+  );
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/learning/briefs/${briefId}/proposals`);
@@ -110,6 +174,83 @@ export default function CompareProposalsPage({
         </div>
       )}
 
+      <section className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="text-xs">
+            <span className="block font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+              {t("edumatch.filter.minRating")}
+            </span>
+            <select
+              value={filters.minRating}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, minRating: Number(e.target.value) }))
+              }
+              className="mt-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-sm text-[var(--color-text)]"
+            >
+              {RATING_FILTER_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {t(o.labelKey)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowMoreFilters((v) => !v)}
+            className="text-xs font-medium text-[var(--color-primary)]"
+          >
+            {t("edumatch.filter.moreFilters")}
+          </button>
+        </div>
+
+        {showMoreFilters && (
+          <div className="mt-3 flex flex-wrap gap-4">
+            {(["minClarity", "minReliability", "minEngagement"] as const).map((key) => (
+              <label key={key} className="text-xs">
+                <span className="block font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+                  {t(`edumatch.filter.${key}`)}
+                </span>
+                <select
+                  value={filters[key]}
+                  onChange={(e) =>
+                    setFilters((f) => ({ ...f, [key]: Number(e.target.value) }))
+                  }
+                  className="mt-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-sm text-[var(--color-text)]"
+                >
+                  {RATING_FILTER_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {t(o.labelKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <p className="mt-3 text-xs text-[var(--color-text-muted)]">
+          {t("edumatch.filter.showingCount", {
+            shown: visibleItems.length,
+            total: items.length,
+          })}
+        </p>
+
+        {filtersActive && hiddenCount > 0 && !showAllOverride && (
+          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {t("edumatch.filter.hiddenNote", { n: hiddenCount })}{" "}
+            {hiddenNewcomerCount > 0 &&
+              t("edumatch.filter.hiddenNewcomerNote", { n: hiddenNewcomerCount })}{" "}
+            <button
+              type="button"
+              onClick={() => setShowAllOverride(true)}
+              className="font-medium underline"
+            >
+              {t("edumatch.filter.showAll")}
+            </button>
+          </div>
+        )}
+      </section>
+
       {differences.length > 0 && (
         <section className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] p-5">
           <h2 className="text-sm font-semibold text-[var(--color-text)]">
@@ -132,7 +273,7 @@ export default function CompareProposalsPage({
         </p>
       ) : (
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {items.map((p) => (
+          {visibleItems.map((p) => (
             <article
               key={p.quoteId}
               className="flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] p-5"
@@ -140,21 +281,40 @@ export default function CompareProposalsPage({
               <header className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="flex items-center gap-2 text-base font-semibold text-[var(--color-text)]">
-                    {p.tutorName ?? t("edumatch.match.unnamedTutor")}
+                    <Link
+                      href={`/tutors/${p.tutorId}`}
+                      className="hover:text-[var(--color-primary)] hover:underline"
+                    >
+                      {p.tutorName ?? t("edumatch.match.unnamedTutor")}
+                    </Link>
                     {p.verified && (
                       <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-green-800">
                         {t("edumatch.match.verified")}
                       </span>
                     )}
+                    {p.ratingCount < NEW_TUTOR_REVIEW_THRESHOLD && (
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-800">
+                        {t("edumatch.filter.newBadge")}
+                      </span>
+                    )}
                   </h3>
                   <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
-                    {p.ratingCount > 0
+                    {p.ratingCount >= NEW_TUTOR_REVIEW_THRESHOLD
                       ? t("edumatch.match.rating", {
                           avg: p.ratingAvg.toFixed(1),
                           n: p.ratingCount,
                         })
                       : t("edumatch.match.noReviewsYet")}
                   </p>
+                  {p.aspectedCount >= NEW_TUTOR_REVIEW_THRESHOLD && (
+                    <p className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
+                      {t("edumatch.filter.aspectSummary", {
+                        clarity: (p.clarityAvg ?? 0).toFixed(1),
+                        reliability: (p.reliabilityAvg ?? 0).toFixed(1),
+                        engagement: (p.engagementAvg ?? 0).toFixed(1),
+                      })}
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-lg font-bold text-[var(--color-text)]">

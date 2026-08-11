@@ -54,8 +54,39 @@ export const sessionRecordSchema = z.object({
 });
 export type SessionRecordInput = z.infer<typeof sessionRecordSchema>;
 
+/**
+ * Weights for deriving the overall rating from the three sub-aspects. Clarity
+ * is weighted highest because it's the core of teaching; kept in one place so
+ * the formula is tunable without a migration.
+ */
+export const RATING_ASPECT_WEIGHTS = {
+  clarity: 0.4,
+  reliability: 0.3,
+  engagement: 0.3,
+} as const;
+
+export function deriveOverallRating(aspects: {
+  clarity: number;
+  reliability: number;
+  engagement: number;
+}): number {
+  const raw =
+    aspects.clarity * RATING_ASPECT_WEIGHTS.clarity +
+    aspects.reliability * RATING_ASPECT_WEIGHTS.reliability +
+    aspects.engagement * RATING_ASPECT_WEIGHTS.engagement;
+  return Math.min(5, Math.max(1, Math.round(raw)));
+}
+
+/**
+ * Students never enter a separate overall star rating — it is derived from
+ * the three sub-aspects in leaveReview() via deriveOverallRating(). This
+ * removes the halo effect and any contradiction between an overall and its
+ * parts.
+ */
 export const reviewSchema = z.object({
-  rating: z.number().int().min(1).max(5),
+  clarity: z.number().int().min(1).max(5),
+  reliability: z.number().int().min(1).max(5),
+  engagement: z.number().int().min(1).max(5),
   comment: z.string().trim().max(2000).optional(),
 });
 export type ReviewInput = z.infer<typeof reviewSchema>;
@@ -174,12 +205,17 @@ export async function leaveReview(
     );
   }
 
+  const rating = deriveOverallRating(input);
+
   const review = await prisma.eduReview.create({
     data: {
       bookingId,
       studentId,
       tutorId: booking.tutorId,
-      rating: input.rating,
+      rating,
+      clarity: input.clarity,
+      reliability: input.reliability,
+      engagement: input.engagement,
       comment: input.comment ?? null,
     },
     select: { id: true },
@@ -193,7 +229,7 @@ export async function leaveReview(
     action: "REVIEW_SUBMITTED",
     entity: "EduReview",
     entityId: review.id,
-    metadata: { bookingId, rating: input.rating },
+    metadata: { bookingId, rating },
   });
 
   return review;
@@ -202,19 +238,44 @@ export async function leaveReview(
 /**
  * Recompute the tutor's rating from their verified reviews. Derived rather
  * than incremented so a deleted or moderated review can never leave the
- * displayed average permanently wrong.
+ * displayed average permanently wrong. Also recomputes the three cached
+ * per-aspect averages (null when no review has sub-ratings — i.e. all
+ * legacy) so the compare list can filter without re-aggregating.
  */
 export async function refreshTutorRating(tutorId: string): Promise<void> {
-  const agg = await prisma.eduReview.aggregate({
-    where: { tutorId },
-    _avg: { rating: true },
-    _count: { _all: true },
-  });
+  const [overall, clarity, reliability, engagement] = await Promise.all([
+    prisma.eduReview.aggregate({
+      where: { tutorId },
+      _avg: { rating: true },
+      _count: { _all: true },
+    }),
+    prisma.eduReview.aggregate({
+      where: { tutorId, clarity: { not: null } },
+      _avg: { clarity: true },
+      _count: { _all: true },
+    }),
+    prisma.eduReview.aggregate({
+      where: { tutorId, reliability: { not: null } },
+      _avg: { reliability: true },
+    }),
+    prisma.eduReview.aggregate({
+      where: { tutorId, engagement: { not: null } },
+      _avg: { engagement: true },
+    }),
+  ]);
+
+  const round2 = (n: number | null) =>
+    n === null ? null : Math.round(n * 100) / 100;
+
   await prisma.eduTutorProfile.updateMany({
     where: { userId: tutorId },
     data: {
-      ratingAvg: Math.round((agg._avg.rating ?? 0) * 100) / 100,
-      ratingCount: agg._count._all,
+      ratingAvg: Math.round((overall._avg.rating ?? 0) * 100) / 100,
+      ratingCount: overall._count._all,
+      clarityAvg: round2(clarity._avg.clarity),
+      reliabilityAvg: round2(reliability._avg.reliability),
+      engagementAvg: round2(engagement._avg.engagement),
+      aspectedCount: clarity._count._all,
     },
   });
 }

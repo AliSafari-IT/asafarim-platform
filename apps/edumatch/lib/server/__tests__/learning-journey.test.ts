@@ -1,14 +1,32 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("@asafarim/db", () => ({ prisma: {}, Prisma: {} }));
+vi.mock("@asafarim/db", () => ({
+  prisma: {
+    eduBooking: { findFirst: vi.fn() },
+    eduReview: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      aggregate: vi.fn(),
+    },
+    eduTutorProfile: { updateMany: vi.fn() },
+  },
+  Prisma: {},
+}));
 vi.mock("../audit", () => ({ recordEduAuditEvent: vi.fn() }));
 
+import { prisma } from "@asafarim/db";
 import {
   buildInsights,
+  deriveOverallRating,
+  leaveReview,
+  refreshTutorRating,
   reviewSchema,
   sessionRecordSchema,
   type JourneySession,
 } from "../learning-journey";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockPrisma = prisma as any;
 
 function session(
   overrides: Partial<JourneySession> & { scheduledAt: Date },
@@ -196,10 +214,114 @@ describe("input validation", () => {
     ).toBe(false);
   });
 
-  it("accepts only 1-5 star ratings", () => {
-    expect(reviewSchema.safeParse({ rating: 0 }).success).toBe(false);
-    expect(reviewSchema.safeParse({ rating: 6 }).success).toBe(false);
-    expect(reviewSchema.safeParse({ rating: 5 }).success).toBe(true);
-    expect(reviewSchema.safeParse({ rating: 3.5 }).success).toBe(false);
+  it("accepts only 1-5 star sub-aspect ratings, and no separate overall", () => {
+    const valid = { clarity: 5, reliability: 4, engagement: 5 };
+    expect(reviewSchema.safeParse(valid).success).toBe(true);
+    expect(reviewSchema.safeParse({ ...valid, clarity: 0 }).success).toBe(false);
+    expect(reviewSchema.safeParse({ ...valid, reliability: 6 }).success).toBe(false);
+    expect(reviewSchema.safeParse({ ...valid, engagement: 3.5 }).success).toBe(false);
+    expect(reviewSchema.safeParse({ clarity: 5, reliability: 5 }).success).toBe(false);
+  });
+});
+
+describe("deriveOverallRating", () => {
+  it("weights clarity 0.4, reliability 0.3, engagement 0.3", () => {
+    expect(deriveOverallRating({ clarity: 5, reliability: 5, engagement: 5 })).toBe(5);
+    expect(deriveOverallRating({ clarity: 1, reliability: 1, engagement: 1 })).toBe(1);
+  });
+
+  it("rounds to the nearest whole star for the stored `rating` field", () => {
+    // 4*0.4 + 3*0.3 + 3*0.3 = 3.4 -> rounds to 3
+    expect(deriveOverallRating({ clarity: 4, reliability: 3, engagement: 3 })).toBe(3);
+    // 5*0.4 + 5*0.3 + 4*0.3 = 4.7 -> rounds to 5
+    expect(deriveOverallRating({ clarity: 5, reliability: 5, engagement: 4 })).toBe(5);
+  });
+});
+
+describe("leaveReview", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("derives and persists the overall rating alongside the three aspects", async () => {
+    mockPrisma.eduBooking.findFirst.mockResolvedValue({
+      id: "b1",
+      tutorId: "t1",
+      status: "COMPLETED",
+    });
+    mockPrisma.eduReview.findUnique.mockResolvedValue(null);
+    mockPrisma.eduReview.create.mockResolvedValue({ id: "r1" });
+    mockPrisma.eduReview.aggregate.mockResolvedValue({
+      _avg: { rating: 4, clarity: 4, reliability: 4, engagement: 4 },
+      _count: { _all: 1 },
+    });
+    mockPrisma.eduTutorProfile.updateMany.mockResolvedValue({ count: 1 });
+
+    await leaveReview("b1", "s1", { clarity: 4, reliability: 4, engagement: 4 });
+
+    expect(mockPrisma.eduReview.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          rating: 4,
+          clarity: 4,
+          reliability: 4,
+          engagement: 4,
+        }),
+      }),
+    );
+  });
+});
+
+describe("refreshTutorRating", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("recomputes all six aggregate fields, leaving aspect averages null when no review has sub-ratings", async () => {
+    mockPrisma.eduReview.aggregate
+      .mockResolvedValueOnce({ _avg: { rating: 3 }, _count: { _all: 2 } }) // overall
+      .mockResolvedValueOnce({ _avg: { clarity: null }, _count: { _all: 0 } }) // clarity
+      .mockResolvedValueOnce({ _avg: { reliability: null } }) // reliability
+      .mockResolvedValueOnce({ _avg: { engagement: null } }); // engagement
+    mockPrisma.eduTutorProfile.updateMany.mockResolvedValue({ count: 1 });
+
+    await refreshTutorRating("t1");
+
+    expect(mockPrisma.eduTutorProfile.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ratingAvg: 3,
+          ratingCount: 2,
+          clarityAvg: null,
+          reliabilityAvg: null,
+          engagementAvg: null,
+          aspectedCount: 0,
+        }),
+      }),
+    );
+  });
+
+  it("mixes legacy (overall-only) and aspected reviews without breaking the aggregates", async () => {
+    mockPrisma.eduReview.aggregate
+      .mockResolvedValueOnce({ _avg: { rating: 4 }, _count: { _all: 3 } }) // overall (3 reviews total)
+      .mockResolvedValueOnce({ _avg: { clarity: 4.5 }, _count: { _all: 2 } }) // 2 aspected
+      .mockResolvedValueOnce({ _avg: { reliability: 4 } })
+      .mockResolvedValueOnce({ _avg: { engagement: 4.5 } });
+    mockPrisma.eduTutorProfile.updateMany.mockResolvedValue({ count: 1 });
+
+    await refreshTutorRating("t1");
+
+    expect(mockPrisma.eduTutorProfile.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ratingAvg: 4,
+          ratingCount: 3,
+          clarityAvg: 4.5,
+          reliabilityAvg: 4,
+          engagementAvg: 4.5,
+          aspectedCount: 2,
+        }),
+      }),
+    );
   });
 });
