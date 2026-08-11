@@ -138,11 +138,17 @@ function AccountMenu() {
 
   const initials = (session.user.name || session.user.email || "EM")
     .split(/[\s@]/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  const image = session.user.image;
 
   return (
     <div className="edu-menu-anchor" ref={ref}>
       <button className="edu-account-button" type="button" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span className="edu-avatar">{initials}</span>
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={image} alt="" referrerPolicy="no-referrer" className="edu-avatar edu-avatar-image" />
+        ) : (
+          <span className="edu-avatar">{initials}</span>
+        )}
         <span className="edu-account-name">{session.user.name || session.user.email}</span>
         <ChevronDown size={14} />
       </button>

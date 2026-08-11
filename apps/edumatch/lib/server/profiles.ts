@@ -4,6 +4,7 @@ import type {
   EduTutorProfile,
 } from "@asafarim/db";
 import { getAuthedUser, type AuthedUser } from "./auth";
+import { applyDefaultAvatarIfNeeded } from "./avatars";
 import type {
   StudentProfileInput,
   StudentProfilePatch,
@@ -220,6 +221,7 @@ export async function upsertStudentProfile(
       Prisma.JsonNull) as Prisma.InputJsonValue,
     homeLat: centralLocation?.lat,
     homeLng: centralLocation?.lng,
+    dateOfBirth: input.dateOfBirth ?? null,
   };
 
   const profile = await prisma.eduStudentProfile.upsert({
@@ -229,6 +231,10 @@ export async function upsertStudentProfile(
   });
 
   await assignRoleIfMissing(userId, "edumatch_student");
+  // Every student starts with (or falls back to) a safe drawn avatar — see
+  // avatars.ts. Fire-and-forget-safe here because it only ever touches
+  // User.image, never the profile row this function returns.
+  await applyDefaultAvatarIfNeeded(userId, profile.dateOfBirth);
   return profile;
 }
 
@@ -268,6 +274,9 @@ export async function requireStudentAutoProvision(): Promise<StudentContext> {
     },
   });
   await assignRoleIfMissing(user.id, "edumatch_student");
+  // No dateOfBirth yet on an auto-provisioned profile — applyDefaultAvatarIfNeeded
+  // treats that as under-13 and defaults to a drawn avatar, the safe choice.
+  await applyDefaultAvatarIfNeeded(user.id, profile.dateOfBirth);
   return { user, profile };
 }
 
@@ -288,8 +297,18 @@ export async function updateStudentProfile(
   if (input.homeAddress !== undefined) {
     data.homeAddress = (input.homeAddress ?? Prisma.JsonNull) as Prisma.InputJsonValue;
   }
+  if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth;
 
-  return prisma.eduStudentProfile.update({ where: { userId }, data });
+  const updated = await prisma.eduStudentProfile.update({ where: { userId }, data });
+
+  // Turning 13 doesn't retroactively grant an upload — but newly supplying a
+  // DOB that puts the student under 13 should still fall back to a drawn
+  // avatar if they'd somehow ended up with a real photo (e.g. OAuth).
+  if (input.dateOfBirth !== undefined) {
+    await applyDefaultAvatarIfNeeded(userId, updated.dateOfBirth);
+  }
+
+  return updated;
 }
 
 /**

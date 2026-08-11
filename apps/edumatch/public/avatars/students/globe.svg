@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Globe">
+  <circle cx="64" cy="64" r="64" fill="#BFDBFE"/>
+  <circle cx="64" cy="64" r="38" fill="#3B82F6"/>
+  <ellipse cx="64" cy="64" rx="16" ry="38" fill="none" stroke="#1D4ED8" stroke-width="3"/>
+  <ellipse cx="64" cy="64" rx="38" ry="16" fill="none" stroke="#1D4ED8" stroke-width="3"/>
+  <path d="M26 64h76M64 26v76" stroke="#1D4ED8" stroke-width="3"/>
+</svg>

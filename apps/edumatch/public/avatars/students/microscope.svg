@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Microscope">
+  <circle cx="64" cy="64" r="64" fill="#A5F3FC"/>
+  <rect x="40" y="96" width="48" height="8" rx="4" fill="#0E7490"/>
+  <path d="M60 96V70l-14-14 6-6 14 14h10l14-14 6 6-14 14v26" fill="none" stroke="#0E7490" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="70" cy="34" r="10" fill="#0891B2"/>
+</svg>
