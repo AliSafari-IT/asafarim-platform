@@ -13,7 +13,7 @@
  * is selling placement.
  */
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
@@ -47,20 +47,19 @@ const DEFAULT_FILTERS: RatingFilters = {
 };
 
 /**
- * Applies filter never silently erases a verified newcomer: a tutor below
- * NEW_TUTOR_REVIEW_THRESHOLD (overall or per-aspect) always passes — they're
- * "unproven, not below threshold". Mirrors passesRatingFilter() server-side.
+ * Filtering happens server-side (GET /api/learning/briefs/[id]/proposals
+ * applies passesRatingFilter() from lib/server/brief-matching.ts) so there is
+ * a single source of truth for the "never hide a verified newcomer" rule.
+ * This just turns the selected minimums into query params.
  */
-function passesFilters(p: ProposalComparisonView, f: RatingFilters): boolean {
-  if (f.minRating > 0 && p.ratingCount >= NEW_TUTOR_REVIEW_THRESHOLD && p.ratingAvg < f.minRating) {
-    return false;
-  }
-  const aspectOk = (avg: number | null, min: number) =>
-    min === 0 || p.aspectedCount < NEW_TUTOR_REVIEW_THRESHOLD || avg === null || avg >= min;
-  if (!aspectOk(p.clarityAvg, f.minClarity)) return false;
-  if (!aspectOk(p.reliabilityAvg, f.minReliability)) return false;
-  if (!aspectOk(p.engagementAvg, f.minEngagement)) return false;
-  return true;
+function toQueryString(f: RatingFilters): string {
+  const params = new URLSearchParams();
+  if (f.minRating > 0) params.set("minRating", String(f.minRating));
+  if (f.minClarity > 0) params.set("minClarity", String(f.minClarity));
+  if (f.minReliability > 0) params.set("minReliability", String(f.minReliability));
+  if (f.minEngagement > 0) params.set("minEngagement", String(f.minEngagement));
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
 }
 
 export default function CompareProposalsPage({
@@ -73,6 +72,9 @@ export default function CompareProposalsPage({
   const router = useRouter();
 
   const [items, setItems] = useState<ProposalComparisonView[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hiddenCount, setHiddenCount] = useState(0);
+  const [hiddenNewcomerCount, setHiddenNewcomerCount] = useState(0);
   const [differences, setDifferences] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -87,24 +89,20 @@ export default function CompareProposalsPage({
     filters.minReliability > 0 ||
     filters.minEngagement > 0;
 
-  const visibleItems = useMemo(() => {
-    if (showAllOverride || !filtersActive) return items;
-    return items.filter((p) => passesFilters(p, filters));
-  }, [items, filters, filtersActive, showAllOverride]);
-
-  const hiddenCount = items.length - visibleItems.length;
-  const hiddenNewcomerCount = useMemo(
-    () =>
-      items.filter(
-        (p) => !visibleItems.includes(p) && p.ratingCount < NEW_TUTOR_REVIEW_THRESHOLD,
-      ).length,
-    [items, visibleItems],
-  );
+  // The rating filter is applied server-side; "show all" refetches with no
+  // filter params rather than un-hiding client-side, so there's one place
+  // (passesRatingFilter in brief-matching.ts) that decides who's shown.
+  const effectiveFilters = showAllOverride ? DEFAULT_FILTERS : filters;
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/learning/briefs/${briefId}/proposals`);
+    const res = await fetch(
+      `/api/learning/briefs/${briefId}/proposals${toQueryString(effectiveFilters)}`,
+    );
     const data = (await res.json()) as {
       items?: ProposalComparisonView[];
+      total?: number;
+      hiddenCount?: number;
+      hiddenNewcomerCount?: number;
       differences?: string[];
       error?: string;
     };
@@ -112,14 +110,23 @@ export default function CompareProposalsPage({
       setError(data.error ?? t("edumatch.compare.loadError"));
     } else {
       setItems(data.items ?? []);
+      setTotal(data.total ?? data.items?.length ?? 0);
+      setHiddenCount(data.hiddenCount ?? 0);
+      setHiddenNewcomerCount(data.hiddenNewcomerCount ?? 0);
       setDifferences(data.differences ?? []);
     }
     setLoading(false);
-  }, [briefId, t]);
+  }, [briefId, effectiveFilters, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // A newly chosen filter should re-apply hiding rather than stay overridden
+  // by an earlier "show all" click.
+  useEffect(() => {
+    setShowAllOverride(false);
+  }, [filters]);
 
   async function accept(quoteId: string) {
     setAccepting(quoteId);
@@ -162,7 +169,7 @@ export default function CompareProposalsPage({
         {t("edumatch.compare.title")}
       </h1>
       <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-        {t("edumatch.compare.subtitle", { n: items.length })}
+        {t("edumatch.compare.subtitle", { n: total })}
       </p>
 
       {error && (
@@ -230,8 +237,8 @@ export default function CompareProposalsPage({
 
         <p className="mt-3 text-xs text-[var(--color-text-muted)]">
           {t("edumatch.filter.showingCount", {
-            shown: visibleItems.length,
-            total: items.length,
+            shown: items.length,
+            total,
           })}
         </p>
 
@@ -267,13 +274,13 @@ export default function CompareProposalsPage({
         </section>
       )}
 
-      {items.length === 0 ? (
+      {total === 0 ? (
         <p className="mt-8 text-sm text-[var(--color-text-muted)]">
           {t("edumatch.compare.waiting")}
         </p>
       ) : (
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {visibleItems.map((p) => (
+          {items.map((p) => (
             <article
               key={p.quoteId}
               className="flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] p-5"

@@ -83,7 +83,7 @@ export default function StudentDashboard() {
             </p>
           </div>
           <Link
-            href={`${EDUMATCH_URL}/student/learn`}
+            href={`${EDUMATCH_URL}/student/profile`}
             className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 transition"
           >
             {t("edumatch.student.profileMissing.action")}
