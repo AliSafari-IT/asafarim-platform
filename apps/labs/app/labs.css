@@ -1,29 +1,21 @@
-/* Labs-specific workbench aesthetic layered on top of @asafarim/ui tokens. */
-
-:root {
-  --labs-accent: #10b981;
-  --labs-grid-dot: color-mix(in srgb, var(--fg, #111) 12%, transparent);
-}
-
-[data-app="labs"] body,
-[data-app="labs"] {
-  background-image: radial-gradient(var(--labs-grid-dot) 1px, transparent 1px);
-  background-size: 18px 18px;
-}
+/* Labs-specific workbench aesthetic layered on top of @asafarim/ui tokens.
+   The dotted-grid canvas background itself comes from the shared --bg-deco
+   token (packages/ui/src/styles/tokens.css, [data-app="labs"] mood block) —
+   nothing here needs to touch body background. */
 
 .labs-mono {
-  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.02em;
 }
 
 .labs-accent {
-  color: var(--labs-accent);
+  color: var(--accent);
 }
 
 .labs-canvas {
-  border: 1px solid color-mix(in srgb, var(--labs-accent) 35%, transparent);
-  border-radius: 12px;
-  padding: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
   min-height: 320px;
 }
 
@@ -31,17 +23,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  padding-bottom: 1rem;
-  border-bottom: 1px dashed color-mix(in srgb, var(--labs-accent) 30%, transparent);
-  margin-bottom: 1.5rem;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 30%, transparent);
+  margin-bottom: var(--space-5);
 }
 
 .labs-drawer {
-  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
-  border-radius: 10px;
-  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
 }
 
 .labs-accordion summary {
@@ -50,5 +42,5 @@
 }
 
 .labs-accordion + .labs-accordion {
-  margin-top: 0.5rem;
+  margin-top: var(--space-2);
 }
