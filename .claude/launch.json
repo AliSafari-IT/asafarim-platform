@@ -54,6 +54,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "timelineai", "dev"],
       "port": 3010
+    },
+    {
+      "name": "labs",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@asafarim/labs", "dev"],
+      "port": 3011
     }
   ]
 }
