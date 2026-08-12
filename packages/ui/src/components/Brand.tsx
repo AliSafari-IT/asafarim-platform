@@ -7,7 +7,8 @@ export type ProductName =
   | "Vionto"
   | "Testora"
   | "AppBuilder"
-  | "TimelineAI";
+  | "TimelineAI"
+  | "Labs";
 
 export interface LogoMarkProps {
   /** Use the app accent color instead of ink. */

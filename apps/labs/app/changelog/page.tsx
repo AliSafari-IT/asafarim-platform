@@ -19,7 +19,7 @@ export default function ChangelogPage() {
         title="Changelog"
         description="What's been promoted, paused, or archived in Labs."
       />
-      <ol style={{ borderLeft: "2px solid var(--labs-accent)", paddingLeft: "1rem", marginTop: "1.5rem" }}>
+      <ol style={{ borderLeft: "2px solid var(--accent)", paddingLeft: "1rem", marginTop: "1.5rem" }}>
         {ENTRIES.map((entry) => (
           <li key={entry.date} style={{ marginBottom: "1rem" }}>
             <span className="labs-mono" style={{ opacity: 0.6 }}>

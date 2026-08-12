@@ -474,3 +474,53 @@
   --shadow-1: 0 1px 2px rgba(19, 23, 32, 0.06), 0 2px 8px rgba(19, 23, 32, 0.05);
   --shadow-2: 0 2px 4px rgba(19, 23, 32, 0.08), 0 12px 30px rgba(19, 23, 32, 0.1);
 }
+
+/* ── Mood: apps/labs — "Workbench" (near-black slate + emerald) ─────
+   Dark by default, matching the technical/workbench positioning (see
+   apps/labs/app/about). Labs puts data-app on <html>, same convention
+   as apps/timelineai, so the dark override is written as both a
+   descendant selector and a same-element compound selector. */
+[data-app="labs"] {
+  color-scheme: dark;
+
+  --bg: #0b0d0c;
+  /* Workbench dotted-grid canvas — same technique as apps/showcase's
+     --bg-deco, just the dot layer alone (no radial glow). */
+  --bg-deco: radial-gradient(rgba(231, 244, 238, 0.08) 1px, transparent 1.5px);
+  --bg-deco-size: 18px 18px;
+  --surface: #121514;
+  --surface-2: #171b1a;
+  --surface-3: #1e2321;
+  --ink: #e7f4ee;
+  --muted: #8fa39a;
+  --line: rgba(231, 244, 238, 0.12);
+  --line-strong: rgba(231, 244, 238, 0.22);
+  --accent: #10b981;
+  --accent-ink: #04140d;
+  --accent-soft: rgba(16, 185, 129, 0.16);
+  --accent-2: #34d399;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="light"] [data-app="labs"],
+[data-app="labs"][data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f6f8f7;
+  --bg-deco: radial-gradient(rgba(14, 21, 18, 0.06) 1px, transparent 1.5px);
+  --bg-deco-size: 18px 18px;
+  --surface: #ffffff;
+  --surface-2: #eef2f0;
+  --surface-3: #e3e9e6;
+  --ink: #0e1512;
+  --muted: #4d5e57;
+  --line: rgba(14, 21, 18, 0.12);
+  --line-strong: rgba(14, 21, 18, 0.22);
+  --accent: #059669;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(5, 150, 105, 0.12);
+  --accent-2: #10b981;
+  --shadow-1: 0 1px 2px rgba(14, 21, 18, 0.06), 0 2px 8px rgba(14, 21, 18, 0.05);
+  --shadow-2: 0 2px 4px rgba(14, 21, 18, 0.08), 0 12px 30px rgba(14, 21, 18, 0.1);
+}
