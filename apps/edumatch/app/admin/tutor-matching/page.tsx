@@ -11,8 +11,8 @@ export default function TutorMatchingDebugPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [params, setParams] = useState({
-    lat: 51.5074,
-    lng: -0.1278,
+    lat: 50.943993,
+    lng: 5.264494,
     subject: "Math",
     gradeLevel: "K12",
     maxDistanceKm: 50,
@@ -182,7 +182,7 @@ export default function TutorMatchingDebugPage() {
                   <div className="grid grid-cols-2 gap-2 text-sm text-[var(--color-text)]">
                     <div>
                       <span className="font-medium text-[var(--color-text-muted)]">{t("edumatch.admin.matching.distance")}:</span>{" "}
-                      {tutor.distanceKm} km
+                      {tutor.distanceKm == null ? t("edumatch.admin.matching.distanceOnline") : `${tutor.distanceKm} km`}
                     </div>
                     <div>
                       <span className="font-medium text-[var(--color-text-muted)]">{t("edumatch.admin.matching.rate")}:</span>{" "}
