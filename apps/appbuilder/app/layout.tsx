@@ -48,6 +48,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <head>
         <ThemeScript defaultTheme="system" nonce={nonce} />
+        <script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="e7efaf01-0f6e-466a-98d5-05cd9bf580e5"
+        />
       </head>
       <body data-app="appbuilder">
         <ThemeProvider defaultTheme="light">

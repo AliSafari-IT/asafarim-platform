@@ -28,6 +28,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark" data-theme="dark" suppressHydrationWarning>
       <head>
         <ThemeScript defaultTheme="dark" syncClass="dark" />
+        <script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="e7efaf01-0f6e-466a-98d5-05cd9bf580e5"
+        />
       </head>
       <body data-app="testora">
         <ThemeProvider defaultTheme="dark" syncClass="dark">

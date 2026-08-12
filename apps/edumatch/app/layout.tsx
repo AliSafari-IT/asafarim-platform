@@ -55,6 +55,13 @@ export default async function RootLayout({
       suppressHydrationWarning
       data-theme={initialTheme}
     >
+      <head>
+        <script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="e7efaf01-0f6e-466a-98d5-05cd9bf580e5"
+        />
+      </head>
       <body className="flex min-h-screen flex-col bg-[var(--color-bg)] text-[var(--color-text)] antialiased">
         <I18nProvider
           initialLocale={initialLocale}
