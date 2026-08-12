@@ -10,6 +10,7 @@
 //   SEED_MANAGER_TEST_DATABASE_URL=postgresql://... pnpm --filter @asafarim/seed-manager test
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import bcrypt from "bcryptjs";
 
 import type { SeedProviderContext } from "../contracts";
 import { withPrisma, type SeedPrismaClient } from "../prisma-client";
@@ -203,7 +204,9 @@ describeIfDb("shared-Prisma providers against a disposable database", () => {
           bookings,
         ] = await Promise.all([
           prisma.user.count({
-            where: { email: { endsWith: "@edumatch.demo" } },
+            where: {
+              email: { startsWith: "asafarim+edu", endsWith: "@gmail.com" },
+            },
           }),
           prisma.eduStudentProfile.count(),
           prisma.eduTutorProfile.count({ where: { onlineOnly: false } }),
@@ -238,6 +241,23 @@ describeIfDb("shared-Prisma providers against a disposable database", () => {
           reviews: 51,
           bookings: 58,
         });
+        const seededUsers = await prisma.user.findMany({
+          where: {
+            email: { startsWith: "asafarim+edu", endsWith: "@gmail.com" },
+          },
+          select: { password: true },
+        });
+        expect(seededUsers.every((user) => Boolean(user.password))).toBe(true);
+        expect(
+          await Promise.all(
+            seededUsers.map((user) =>
+              bcrypt.compare(
+                process.env.EDUMATCH_SEED_USERS_PASSWORD!,
+                user.password!
+              )
+            )
+          )
+        ).toEqual(Array(50).fill(true));
       });
     });
 
@@ -252,6 +272,34 @@ describeIfDb("shared-Prisma providers against a disposable database", () => {
           "edumatch.presentation-scenarios",
         ]).toContain(change.seedKey);
       }
+    });
+
+    it("migrates an original unpadded demo alias without duplicating its user", async () => {
+      await withPrisma(CONNECTION!, async (prisma) => {
+        const currentEmail = "asafarim+edustudent01@gmail.com";
+        const legacyEmail = "demo.student1@edumatch.demo";
+        const before = await prisma.user.findUniqueOrThrow({
+          where: { email: currentEmail },
+          select: { id: true },
+        });
+        await prisma.user.update({
+          where: { id: before.id },
+          data: { email: legacyEmail },
+        });
+
+        await seedEdumatch(prisma);
+
+        const migrated = await prisma.user.findUniqueOrThrow({
+          where: { email: currentEmail },
+          select: { id: true },
+        });
+        expect(migrated.id).toBe(before.id);
+        expect(
+          await prisma.user.count({
+            where: { email: { in: [currentEmail, legacyEmail] } },
+          })
+        ).toBe(1);
+      });
     });
 
     it("removes the owned presentation graph and can seed it cleanly again", async () => {
