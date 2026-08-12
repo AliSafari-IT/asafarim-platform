@@ -1,0 +1,23 @@
+[
+  {
+    "model": "claude-sonnet-5",
+    "latencyMs": 820,
+    "tokensPerDollar": 42000,
+    "hallucinationMarkers": 1,
+    "formattingAdherence": 0.98
+  },
+  {
+    "model": "claude-haiku-4-5",
+    "latencyMs": 310,
+    "tokensPerDollar": 96000,
+    "hallucinationMarkers": 3,
+    "formattingAdherence": 0.91
+  },
+  {
+    "model": "claude-opus-5",
+    "latencyMs": 1450,
+    "tokensPerDollar": 18000,
+    "hallucinationMarkers": 0,
+    "formattingAdherence": 0.99
+  }
+]
