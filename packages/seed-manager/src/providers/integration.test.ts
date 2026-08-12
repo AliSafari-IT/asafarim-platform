@@ -76,9 +76,9 @@ describeIfDb("shared-Prisma providers against a disposable database", () => {
     });
 
     it("refuses removal outright", async () => {
-      await expect(platformFoundationProvider.plan(context(), "remove")).rejects.toThrow(
-        /never be removed/i
-      );
+      await expect(
+        platformFoundationProvider.plan(context(), "remove")
+      ).rejects.toThrow(/never be removed/i);
     });
   });
 
@@ -137,7 +137,9 @@ describeIfDb("shared-Prisma providers against a disposable database", () => {
       });
 
       const plan = await timelineaiProvider.plan(ctx, "remove");
-      const author = plan.changes.find((c) => c.seedKey === "timelineai.demo-author");
+      const author = plan.changes.find(
+        (c) => c.seedKey === "timelineai.demo-author"
+      );
       expect(author?.action).toBe("retain");
       expect(author?.reason).toMatch(/did not create/);
       expect(plan.retained).toBe(1);
@@ -146,13 +148,19 @@ describeIfDb("shared-Prisma providers against a disposable database", () => {
 
       // The user's timeline and the account that owns it both survive.
       await withPrisma(CONNECTION!, async (prisma) => {
-        expect(await prisma.timeline.count({ where: { id: USER_TIMELINE_ID } })).toBe(1);
         expect(
-          await prisma.user.count({ where: { email: TIMELINEAI_DEMO_AUTHOR_EMAIL } })
+          await prisma.timeline.count({ where: { id: USER_TIMELINE_ID } })
+        ).toBe(1);
+        expect(
+          await prisma.user.count({
+            where: { email: TIMELINEAI_DEMO_AUTHOR_EMAIL },
+          })
         ).toBe(1);
         // Every seed-owned timeline is gone.
         expect(
-          await prisma.timeline.count({ where: { id: { startsWith: "seed-timeline-" } } })
+          await prisma.timeline.count({
+            where: { id: { startsWith: "seed-timeline-" } },
+          })
         ).toBe(0);
       });
     });
@@ -182,15 +190,80 @@ describeIfDb("shared-Prisma providers against a disposable database", () => {
       const status = await edumatchProvider.inspect(ctx);
       expect(status.health).toBe("clean");
       expect(status.missingCount).toBe(0);
+
+      await withPrisma(CONNECTION!, async (prisma) => {
+        const [
+          members,
+          students,
+          hybridTutors,
+          onlineTutors,
+          parents,
+          briefs,
+          reviews,
+          bookings,
+        ] = await Promise.all([
+          prisma.user.count({
+            where: { email: { endsWith: "@edumatch.demo" } },
+          }),
+          prisma.eduStudentProfile.count(),
+          prisma.eduTutorProfile.count({ where: { onlineOnly: false } }),
+          prisma.eduTutorProfile.count({ where: { onlineOnly: true } }),
+          prisma.eduParentProfile.count(),
+          prisma.eduLearningBrief.count({
+            where: { id: { startsWith: "seed-edumatch-" } },
+          }),
+          prisma.eduReview.count({
+            where: { id: { startsWith: "seed-edumatch-" } },
+          }),
+          prisma.eduBooking.count({
+            where: { id: { startsWith: "seed-edumatch-" } },
+          }),
+        ]);
+        expect({
+          members,
+          students,
+          hybridTutors,
+          onlineTutors,
+          parents,
+          briefs,
+          reviews,
+          bookings,
+        }).toEqual({
+          members: 50,
+          students: 27,
+          hybridTutors: 10,
+          onlineTutors: 5,
+          parents: 5,
+          briefs: 18,
+          reviews: 51,
+          bookings: 58,
+        });
+      });
     });
 
     it("never plans a delete outside the reserved demo domain", async () => {
       const plan = await edumatchProvider.plan(context(), "remove");
       for (const change of plan.changes.filter((c) => c.action === "delete")) {
-        expect(["edumatch.students", "edumatch.tutors", "edumatch.booking-chain"]).toContain(
-          change.seedKey
-        );
+        expect([
+          "edumatch.students",
+          "edumatch.tutors",
+          "edumatch.parents",
+          "edumatch.admins",
+          "edumatch.presentation-scenarios",
+        ]).toContain(change.seedKey);
       }
+    });
+
+    it("removes the owned presentation graph and can seed it cleanly again", async () => {
+      const ctx = context();
+      const plan = await edumatchProvider.plan(ctx, "remove");
+      const result = await edumatchProvider.execute(ctx, plan);
+
+      expect(result.ok).toBe(true);
+      expect(result.deleted).toBe(plan.deletes);
+
+      await withPrisma(CONNECTION!, (prisma) => seedEdumatch(prisma));
+      expect((await edumatchProvider.inspect(ctx)).health).toBe("clean");
     });
   });
 
