@@ -19,6 +19,7 @@ export interface PlatformLinks {
   appbuilder: string;
   timelineai: string;
   devtools: string;
+  labs: string;
 }
 
 /**
@@ -67,5 +68,6 @@ export function getPlatformLinks(): PlatformLinks {
     // not a subdomain of asafarim.com — it is not part of the local dev monorepo,
     // so the default points at the production URL.
     devtools: process.env.NEXT_PUBLIC_DEVTOOLS_URL ?? "https://asafarim.be",
+    labs: process.env.NEXT_PUBLIC_LABS_URL ?? "http://localhost:3011",
   };
 }

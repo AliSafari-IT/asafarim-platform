@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { getAppSwitcherApps } from "@asafarim/auth/apps";
+// Side-effect import: registers @asafarim/auth's next-auth type
+// augmentations (Session.user.roles, etc.) so packages/auth/src/roles.ts
+// type-checks here, even though Labs never calls into Auth.js itself.
+import type {} from "@asafarim/auth/types";
 import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
+import { AppSwitcher, getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
 import "./labs.css";
 
@@ -24,6 +30,12 @@ const NAV = [
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // Labs is public — nobody signs in here, so the switcher context is always
+  // an anonymous visitor. This still resolves the full app list correctly
+  // because "labs" itself is public and every other public app is included.
+  const links = getPlatformLinks();
+  const switcherApps = getAppSwitcherApps("labs", { roles: [], authenticated: false });
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -49,6 +61,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   </Link>
                 ))}
               </nav>
+              <AppSwitcher links={toAppSwitcherLinks(switcherApps, links)} />
               <ThemeToggle />
             </header>
             <main>{children}</main>

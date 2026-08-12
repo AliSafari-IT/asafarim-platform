@@ -65,6 +65,7 @@ services:
         NEXT_PUBLIC_APPBUILDER_URL: ${NEXT_PUBLIC_APPBUILDER_URL}
         NEXT_PUBLIC_TIMELINEAI_URL: ${NEXT_PUBLIC_TIMELINEAI_URL:-https://tlai.asafarim.com}
         NEXT_PUBLIC_DEVTOOLS_URL: ${NEXT_PUBLIC_DEVTOOLS_URL:-https://asafarim.be}
+        NEXT_PUBLIC_LABS_URL: ${NEXT_PUBLIC_LABS_URL:-https://labs.asafarim.com}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     env_file:
@@ -268,6 +269,23 @@ services:
         condition: service_started
       platform-migrate:
         condition: service_completed_successfully
+    networks:
+      - asafarim_net
+
+  # Labs is intentionally the simplest service in this stack: a static
+  # experiment registry with no auth, no shared database, and no worker —
+  # see apps/labs/README.md. It only needs the app switcher's cross-app URLs.
+  labs:
+    build:
+      context: .
+      dockerfile: apps/labs/Dockerfile
+      args: *public-build-args
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: https://labs.asafarim.com
     networks:
       - asafarim_net
 
