@@ -330,6 +330,32 @@ services:
     networks:
       - asafarim_net
 
+  # One-shot: reconciles the DB catalog (apps, requirements, suites, fixtures,
+  # cases, target environments) with the code under src/data — the same thing
+  # the Run page's "Update tests" button does, just run automatically on every
+  # deploy so a catalog change (e.g. adding/removing an app under test) ships
+  # without someone having to click the button in prod afterwards. Runs after
+  # migrations so the schema it writes against is current.
+  testora-seed:
+    build:
+      context: .
+      dockerfile: apps/testora/Dockerfile
+      target: migrator
+    command: ["pnpm", "--filter", "testora", "db:seed"]
+    restart: "no"
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      TESTORA_DATABASE_URL: postgres://e2e_testora:${TESTORA_DB_PASSWORD}@testora-postgres:5432/e2e-testing-db
+    depends_on:
+      testora-postgres:
+        condition: service_healthy
+      testora-migrate:
+        condition: service_completed_successfully
+    networks:
+      - asafarim_net
+
   testora:
     build:
       context: .
@@ -347,6 +373,8 @@ services:
       testora-postgres:
         condition: service_healthy
       testora-migrate:
+        condition: service_completed_successfully
+      testora-seed:
         condition: service_completed_successfully
     networks:
       - asafarim_net
