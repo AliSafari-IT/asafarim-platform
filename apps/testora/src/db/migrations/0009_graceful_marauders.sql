@@ -1,0 +1,2 @@
+ALTER TABLE "functional_requirements" ALTER COLUMN "project_id" SET DEFAULT 'asafarim-timelineai';--> statement-breakpoint
+ALTER TABLE "target_environments" ALTER COLUMN "project_id" SET DEFAULT 'asafarim-timelineai';

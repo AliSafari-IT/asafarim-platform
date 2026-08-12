@@ -14,80 +14,6 @@ import type {
   TestFixtureDefinition,
   TestCaseDefinition,
 } from "@/test-engine/types";
-import {
-  authenticationFR,
-  loginFlowSuite,
-  loginWithEmailFixture,
-  loginTestCases,
-} from "@/data/authentication";
-import {
-  videoGenerationFR,
-  createVideoFromUrlSuite,
-  listingsWizardFixture,
-  videoGenerationTestCases,
-} from "@/data/video-generation";
-import {
-  listingScrapingFR,
-  scraperSitesSuite,
-  scraperRoutingFixture,
-  scraperLiveFixture,
-  scraperTestCases,
-} from "@/data/scraper";
-import {
-  registrationFR,
-  registerFlowSuite,
-  registerApiFixture,
-  registerUiFixture,
-  registrationTestCases,
-} from "@/data/registration";
-import {
-  accountsBillingFR,
-  accountsBillingSuites,
-  accountsBillingFixtures,
-  accountsBillingCases,
-} from "@/data/admin";
-import {
-  mediaAssetsFR,
-  mediaAssetsSuites,
-  mediaAssetsFixtures,
-  mediaAssetsCases,
-} from "@/data/admin-media";
-import {
-  systemOpsFR,
-  systemOpsSuites,
-  systemOpsFixtures,
-  systemOpsCases,
-} from "@/data/admin-system";
-import {
-  platformConfigFR,
-  platformConfigSuites,
-  platformConfigFixtures,
-  platformConfigCases,
-} from "@/data/admin-platform";
-import {
-  profileAccountFR,
-  profileAccountSuites,
-  profileAccountFixtures,
-  profileAccountCases,
-} from "@/data/profile";
-import {
-  publicPlatformFR,
-  publicPlatformSuites,
-  publicPlatformFixtures,
-  publicPlatformCases,
-} from "@/data/public-api";
-import {
-  userWorkspaceFR,
-  userWorkspaceSuites,
-  userWorkspaceFixtures,
-  userWorkspaceCases,
-} from "@/data/user-workspace";
-import {
-  contactSupportFR,
-  contactSupportSuites,
-  contactSupportFixtures,
-  contactSupportCases,
-} from "@/data/contact-flow";
 import { DEFAULT_PROJECT_ID, PROJECTS, projectSeedTargets } from "@/data/projects";
 import {
   asafarimPortalAuthFR,
@@ -113,90 +39,31 @@ import {
   viontoFixtures,
   viontoCases,
 } from "@/data/asafarim/vionto";
+import {
+  timelineaiFR,
+  timelineaiSuites,
+  timelineaiFixtures,
+  timelineaiCases,
+} from "@/data/asafarim/timelineai";
 
 interface SeedBundle {
   fr: FunctionalRequirementDefinition;
   suites: TestSuiteDefinition[];
   fixtures: TestFixtureDefinition[];
   cases: TestCaseDefinition[];
-  /** App this bundle belongs to; defaults to the original web app. */
+  /** App this bundle belongs to; defaults to {@link DEFAULT_PROJECT_ID}. */
   projectId?: string;
 }
 
 const baseBundles: SeedBundle[] = [
+  // ── ASafariM apps (projectId: "asafarim-*") ────────────────────────────────
   {
-    fr: authenticationFR,
-    suites: [loginFlowSuite],
-    fixtures: [loginWithEmailFixture],
-    cases: loginTestCases,
+    fr: timelineaiFR,
+    suites: timelineaiSuites,
+    fixtures: timelineaiFixtures,
+    cases: timelineaiCases,
+    projectId: "asafarim-timelineai",
   },
-  {
-    fr: videoGenerationFR,
-    suites: [createVideoFromUrlSuite],
-    fixtures: [listingsWizardFixture],
-    cases: videoGenerationTestCases,
-  },
-  {
-    fr: listingScrapingFR,
-    suites: [scraperSitesSuite],
-    fixtures: [scraperRoutingFixture, scraperLiveFixture],
-    cases: scraperTestCases,
-  },
-  {
-    fr: registrationFR,
-    suites: [registerFlowSuite],
-    fixtures: [registerApiFixture, registerUiFixture],
-    cases: registrationTestCases,
-  },
-  {
-    fr: accountsBillingFR,
-    suites: accountsBillingSuites,
-    fixtures: accountsBillingFixtures,
-    cases: accountsBillingCases,
-  },
-  {
-    fr: mediaAssetsFR,
-    suites: mediaAssetsSuites,
-    fixtures: mediaAssetsFixtures,
-    cases: mediaAssetsCases,
-  },
-  {
-    fr: systemOpsFR,
-    suites: systemOpsSuites,
-    fixtures: systemOpsFixtures,
-    cases: systemOpsCases,
-  },
-  {
-    fr: platformConfigFR,
-    suites: platformConfigSuites,
-    fixtures: platformConfigFixtures,
-    cases: platformConfigCases,
-  },
-  {
-    fr: profileAccountFR,
-    suites: profileAccountSuites,
-    fixtures: profileAccountFixtures,
-    cases: profileAccountCases,
-  },
-  {
-    fr: publicPlatformFR,
-    suites: publicPlatformSuites,
-    fixtures: publicPlatformFixtures,
-    cases: publicPlatformCases,
-  },
-  {
-    fr: userWorkspaceFR,
-    suites: userWorkspaceSuites,
-    fixtures: userWorkspaceFixtures,
-    cases: userWorkspaceCases,
-  },
-  {
-    fr: contactSupportFR,
-    suites: contactSupportSuites,
-    fixtures: contactSupportFixtures,
-    cases: contactSupportCases,
-  },
-  // ── ASafariM apps (projectId: "asafarim") ──────────────────────────────────
   {
     fr: asafarimPortalAuthFR,
     suites: asafarimPortalSuites,
@@ -227,48 +94,7 @@ const baseBundles: SeedBundle[] = [
   },
 ];
 
-/**
- * Create a deep copy of a seed bundle for another project, prefixing every id
- * (and the internal references between fr / suite / fixture / case) so the
- * duplicate lives in the catalog alongside the original without colliding on
- * primary keys.
- */
-function cloneBundle(bundle: SeedBundle, projectId: string, prefix: string): SeedBundle {
-  const makeId = (id: string) => `${prefix}${id}`;
-
-  const idMap = new Map<string, string>();
-  idMap.set(bundle.fr.id, makeId(bundle.fr.id));
-  for (const suite of bundle.suites) idMap.set(suite.suiteId, makeId(suite.suiteId));
-  for (const fixture of bundle.fixtures) idMap.set(fixture.fixtureId, makeId(fixture.fixtureId));
-  for (const testCase of bundle.cases) idMap.set(testCase.caseId, makeId(testCase.caseId));
-
-  const mapId = (id: string) => idMap.get(id) ?? id;
-
-  return {
-    projectId,
-    fr: { ...bundle.fr, id: mapId(bundle.fr.id), projectId },
-    suites: bundle.suites.map((suite) => ({ ...suite, suiteId: mapId(suite.suiteId), frId: mapId(suite.frId) })),
-    fixtures: bundle.fixtures.map((fixture) => ({
-      ...fixture,
-      fixtureId: mapId(fixture.fixtureId),
-      suiteId: mapId(fixture.suiteId),
-    })),
-    cases: bundle.cases.map((testCase) => ({
-      ...testCase,
-      caseId: mapId(testCase.caseId),
-      fixtureId: mapId(testCase.fixtureId),
-    })),
-  };
-}
-
-const IMMO_LOCAL_ID = "immo-local";
-const IMMO_LOCAL_PREFIX = `${IMMO_LOCAL_ID}:`;
-
-const immoLocalBundles = baseBundles
-  .filter((b) => (b.projectId ?? b.fr.projectId ?? DEFAULT_PROJECT_ID) === DEFAULT_PROJECT_ID)
-  .map((b) => cloneBundle(b, IMMO_LOCAL_ID, IMMO_LOCAL_PREFIX));
-
-const bundles: SeedBundle[] = [...baseBundles, ...immoLocalBundles];
+const bundles: SeedBundle[] = baseBundles;
 
 export interface SeedSummary {
   title: string;
