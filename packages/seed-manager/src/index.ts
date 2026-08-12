@@ -12,7 +12,11 @@ export * from "./redaction";
 export * from "./registry";
 export * from "./safety";
 
-export { createPrismaClient, withPrisma, type SeedPrismaClient } from "./prisma-client";
+export {
+  createPrismaClient,
+  withPrisma,
+  type SeedPrismaClient,
+} from "./prisma-client";
 
 // Definitions — imported by the CLI wrappers in packages/db/prisma.
 export * from "./definitions/foundation";
@@ -35,6 +39,8 @@ export {
   seedEdumatch,
   applyStudents,
   applyTutors,
+  applyParents,
+  applyAdmins,
   applyBookingChain,
   validateEdumatchDefinitions,
 } from "./providers/edumatch";
