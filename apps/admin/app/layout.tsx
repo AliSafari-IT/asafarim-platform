@@ -29,6 +29,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             lives here rather than in (admin) so /sign-in and /denied —
             which are outside that group — switch theme too. */}
         <ThemeScript defaultTheme="dark" />
+        <script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="e7efaf01-0f6e-466a-98d5-05cd9bf580e5"
+        />
       </head>
       <body data-app="admin">
         <ThemeProvider defaultTheme="dark">

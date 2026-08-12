@@ -54,6 +54,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* Labs hangs dark by default, same as TimelineAI's workbench-adjacent
             mood — the light palette only applies once the user picks it. */}
         <ThemeScript defaultTheme="dark" />
+        <script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="e7efaf01-0f6e-466a-98d5-05cd9bf580e5"
+        />
       </head>
       <body className="antialiased">
         <ThemeProvider defaultTheme="dark">

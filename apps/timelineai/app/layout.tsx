@@ -68,6 +68,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en" data-app="timelineai" suppressHydrationWarning>
       <head>
         <ThemeScript defaultTheme="system" />
+        <script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="e7efaf01-0f6e-466a-98d5-05cd9bf580e5"
+        />
       </head>
       <body className="antialiased">
         <ThemeProvider defaultTheme="dark">
