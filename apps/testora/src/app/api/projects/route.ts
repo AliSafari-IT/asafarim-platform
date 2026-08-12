@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
+import { auth, isAdmin } from "@asafarim/auth";
 import { db } from "@/db/client";
 import { projects, functionalRequirements } from "@/db/schema";
 import {
@@ -158,8 +159,11 @@ export async function PATCH(request: Request) {
   return NextResponse.json({ project: sanitize(updated as ProjectRow) });
 }
 
-// Delete a user-created app and its catalog. Built-in (seeded) apps can't be
-// deleted — they'd just reappear on the next re-seed.
+// Delete an app and its catalog. User-created apps can be removed by anyone
+// with access to them. Built-in (seeded) apps are normally protected — they'd
+// just reappear on the next re-seed — but a platform admin/superadmin can
+// still remove one (e.g. to retire it); it stays gone until "Update tests"
+// (re-seed) is run again.
 export async function DELETE(request: Request) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing app id" }, { status: 400 });
@@ -168,8 +172,11 @@ export async function DELETE(request: Request) {
     | ProjectRow
     | undefined;
   if (!row) return NextResponse.json({ error: "App not found" }, { status: 404 });
-  if (row.seeded) {
-    return NextResponse.json({ error: "Built-in apps can't be deleted" }, { status: 403 });
+  if (row.seeded && !isAdmin(await auth())) {
+    return NextResponse.json(
+      { error: "Only an admin can delete a built-in app" },
+      { status: 403 },
+    );
   }
   if (row.visibility === "private" && !(await isViewerAuthenticated())) {
     return NextResponse.json({ error: "Sign in to delete this private app" }, { status: 403 });

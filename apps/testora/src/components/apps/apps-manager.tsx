@@ -43,11 +43,15 @@ const emptyDraft: Draft = {
 
 /**
  * Manage the app registry: add apps (public or private), edit them, delete
- * user-created ones, and select the active app. Privacy is enforced server-side
- * via the platform SSO — a private app's data stays hidden until the viewer is
- * signed in. This UI only mirrors that state.
+ * apps, and select the active app. Privacy is enforced server-side via the
+ * platform SSO — a private app's data stays hidden until the viewer is signed
+ * in. This UI only mirrors that state.
+ *
+ * Deleting a built-in (seeded) app is restricted to admins/superadmins
+ * (`canDeleteBuiltIns`, resolved server-side) — the API re-checks this too.
+ * A deleted built-in stays gone until "Update tests" re-seeds it.
  */
-export function AppsManager() {
+export function AppsManager({ canDeleteBuiltIns = false }: { canDeleteBuiltIns?: boolean }) {
   const router = useRouter();
   const { projects, refreshProjects, projectId, setProjectId } = useRun();
 
@@ -124,7 +128,11 @@ export function AppsManager() {
   }
 
   async function remove(p: ClientProject) {
-    if (!confirm(`Delete app "${p.name}" and all its tests and results? This cannot be undone.`)) {
+    const warning = p.seeded
+      ? `Delete built-in app "${p.name}" and all its tests and results? This cannot be undone. ` +
+        `It will reappear if "Update tests" is run again.`
+      : `Delete app "${p.name}" and all its tests and results? This cannot be undone.`;
+    if (!confirm(warning)) {
       return;
     }
     try {
@@ -319,11 +327,15 @@ export function AppsManager() {
                         Edit
                       </Button>
                     )}
-                    {!p.seeded && !p.locked && (
+                    {!p.locked && (!p.seeded || canDeleteBuiltIns) && (
                       <button
                         type="button"
                         onClick={() => void remove(p)}
-                        title="Delete this app and all its data"
+                        title={
+                          p.seeded
+                            ? "Delete this built-in app and all its data (admin only)"
+                            : "Delete this app and all its data"
+                        }
                         className="rounded p-2 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
