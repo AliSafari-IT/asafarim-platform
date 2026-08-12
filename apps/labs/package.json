@@ -1,0 +1,30 @@
+{
+  "name": "@asafarim/labs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ASafarIM Labs - experimental workbench for what's being explored next (labs.asafarim.com)",
+  "scripts": {
+    "dev": "next dev --port 3011",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@asafarim/auth": "workspace:*",
+    "@asafarim/country-language-selector": "workspace:*",
+    "@asafarim/shared-i18n": "workspace:*",
+    "@asafarim/theme-toggle": "workspace:*",
+    "@asafarim/ui": "workspace:*",
+    "dotenv": "^17.4.2",
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@asafarim/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.7.0"
+  }
+}

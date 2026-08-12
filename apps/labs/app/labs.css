@@ -1,0 +1,54 @@
+/* Labs-specific workbench aesthetic layered on top of @asafarim/ui tokens. */
+
+:root {
+  --labs-accent: #10b981;
+  --labs-grid-dot: color-mix(in srgb, var(--fg, #111) 12%, transparent);
+}
+
+[data-app="labs"] body,
+[data-app="labs"] {
+  background-image: radial-gradient(var(--labs-grid-dot) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.labs-mono {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.labs-accent {
+  color: var(--labs-accent);
+}
+
+.labs-canvas {
+  border: 1px solid color-mix(in srgb, var(--labs-accent) 35%, transparent);
+  border-radius: 12px;
+  padding: 1.5rem;
+  min-height: 320px;
+}
+
+.labs-shell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 1rem;
+  border-bottom: 1px dashed color-mix(in srgb, var(--labs-accent) 30%, transparent);
+  margin-bottom: 1.5rem;
+}
+
+.labs-drawer {
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.labs-accordion summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.labs-accordion + .labs-accordion {
+  margin-top: 0.5rem;
+}

@@ -361,6 +361,52 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  apps/labs:
+    dependencies:
+      '@asafarim/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@asafarim/country-language-selector':
+        specifier: workspace:*
+        version: link:../../packages/country-language-selector
+      '@asafarim/shared-i18n':
+        specifier: workspace:*
+        version: link:../../packages/shared-i18n
+      '@asafarim/theme-toggle':
+        specifier: workspace:*
+        version: link:../../packages/theme-toggle
+      '@asafarim/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
+      next:
+        specifier: ^16.2.10
+        version: 16.2.10(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@asafarim/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   apps/showcase:
     dependencies:
       '@asafarim/auth':
