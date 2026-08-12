@@ -11,6 +11,7 @@ import {
   getPlatformLinks,
   toAppSwitcherLinks,
 } from "@asafarim/ui";
+import { ThemeToggle } from "@asafarim/theme-toggle";
 
 /**
  * The shared platform header — same brand mark, app-switcher and user-menu
@@ -33,6 +34,7 @@ export async function PlatformHeader() {
       </Link>
       <div className="ui-shell__nav" />
       <div className="ui-shell__actions">
+        <ThemeToggle />
         <AppSwitcher
           links={toAppSwitcherLinks(
             getAppSwitcherApps("testora", {

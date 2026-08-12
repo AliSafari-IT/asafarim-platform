@@ -146,6 +146,40 @@
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
 }
 
+/* ── Mood: apps/hub light — toggled via <html data-theme="light"> ──
+   Hub is dark by default (the mood above is unconditional), so the light
+   counterpart is opt-in: it only applies once the user picks light. Same
+   amber signal colour, read as ink on warm paper instead of glow on
+   charcoal. */
+:root[data-theme="light"] [data-app="hub"] {
+  color-scheme: light;
+
+  --bg: #f8f5ef;
+  --bg-deco: radial-gradient(
+      50rem 26rem at 50% -8rem,
+      rgba(180, 83, 9, 0.07),
+      transparent 65%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(28, 25, 23, 0.03) 0 1px,
+      transparent 1px 6rem
+    );
+  --surface: #fffdf8;
+  --surface-2: #f2ece1;
+  --surface-3: #e9e1d2;
+  --ink: #201b14;
+  --muted: #6b6153;
+  --line: #ded4c2;
+  --line-strong: #c3b69a;
+  --accent: #b45309;
+  --accent-ink: #fffdf8;
+  --accent-soft: rgba(180, 83, 9, 0.1);
+  --accent-2: #0369a1;
+  --shadow-1: 0 1px 2px rgba(32, 27, 20, 0.06), 0 2px 8px rgba(32, 27, 20, 0.05);
+  --shadow-2: 0 2px 4px rgba(32, 27, 20, 0.08), 0 12px 28px rgba(32, 27, 20, 0.1);
+}
+
 /* ── Mood: apps/showcase — “The Gallery” (cool dark, emerald) ───── */
 [data-app="showcase"] {
   color-scheme: dark;
@@ -171,6 +205,35 @@
   --accent-2: #38bdf8;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Mood: apps/showcase light — toggled via <html data-theme="light"> ─
+   Gallery walls repainted white; the emerald is darkened from #10b981
+   (2.4:1 on white) to #047857 so accent text still clears WCAG AA. */
+:root[data-theme="light"] [data-app="showcase"] {
+  color-scheme: light;
+
+  --bg: #f5f7f8;
+  --bg-deco: radial-gradient(
+      46rem 24rem at 15% -6rem,
+      rgba(4, 120, 87, 0.07),
+      transparent 60%
+    ),
+    radial-gradient(rgba(15, 20, 23, 0.05) 1px, transparent 1.5px);
+  --bg-deco-size: auto, 26px 26px;
+  --surface: #ffffff;
+  --surface-2: #eef1f3;
+  --surface-3: #e2e7ea;
+  --ink: #131a1f;
+  --muted: #5c6975;
+  --line: #d8dfe4;
+  --line-strong: #b4c0c9;
+  --accent: #047857;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(4, 120, 87, 0.1);
+  --accent-2: #0369a1;
+  --shadow-1: 0 1px 2px rgba(19, 26, 31, 0.06), 0 2px 8px rgba(19, 26, 31, 0.05);
+  --shadow-2: 0 2px 4px rgba(19, 26, 31, 0.08), 0 12px 28px rgba(19, 26, 31, 0.1);
 }
 
 /* ── Mood: apps/admin — “The Console” (near-black, signal green) ── */
@@ -201,6 +264,39 @@
   --accent-2: #d97706;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.5), 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+
+/* ── Mood: apps/admin light — toggled via <html data-theme="light"> ──
+   Daylight console: the same terminal rhythm on paper. Signal green goes
+   from #4ade80 (1.6:1 on white — unreadable as text) to #15803d so the
+   accent stays legible; the amber secondary darkens for the same reason. */
+:root[data-theme="light"] [data-app="admin"] {
+  color-scheme: light;
+
+  --bg: #f4f6f5;
+  --bg-deco: repeating-linear-gradient(
+      to bottom,
+      rgba(11, 13, 14, 0.02) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(
+      40rem 20rem at 80% -6rem,
+      rgba(21, 128, 61, 0.05),
+      transparent 60%
+    );
+  --surface: #ffffff;
+  --surface-2: #eef1f0;
+  --surface-3: #e2e7e5;
+  --ink: #14181a;
+  --muted: #5b656b;
+  --line: #d7dedc;
+  --line-strong: #b2bcba;
+  --accent: #15803d;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(21, 128, 61, 0.1);
+  --accent-2: #b45309;
+  --shadow-1: 0 1px 2px rgba(20, 24, 26, 0.06), 0 2px 8px rgba(20, 24, 26, 0.05);
+  --shadow-2: 0 2px 4px rgba(20, 24, 26, 0.08), 0 12px 28px rgba(20, 24, 26, 0.1);
 }
 
 /* ── Mood: apps/appbuilder — “The Factory” (warm paper, violet accent) ─ */
@@ -315,8 +411,9 @@
 }
 
 /* ── Mood: apps/testora — “Test Lab” (deep indigo, violet + sky) ─────
-   Dark-only, matching the tool's own Tailwind palette so the shared
-   header blends into testora's sidebar UI. */
+   Dark by default, matching the tool's own Tailwind palette so the shared
+   header blends into testora's sidebar UI. The light counterpart below
+   pairs with the shadcn light palette in testora's app/globals.css. */
 [data-app="testora"] {
   color-scheme: dark;
 
@@ -344,4 +441,36 @@
   --accent-2: #2ec5f6;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.5), 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+
+/* ── Mood: apps/testora light — toggled via <html data-theme="light"> ──
+   Violet darkened from #8b5cf6 (3.5:1 on white) to #6d28d9, and the sky
+   secondary from #2ec5f6 to #0369a1, so both clear WCAG AA as text. */
+:root[data-theme="light"] [data-app="testora"] {
+  color-scheme: light;
+
+  --bg: #f5f6f9;
+  --bg-deco: radial-gradient(
+      50rem 26rem at 85% -8%,
+      rgba(109, 40, 217, 0.07),
+      transparent 60%
+    ),
+    radial-gradient(
+      36rem 20rem at 10% -6%,
+      rgba(3, 105, 161, 0.05),
+      transparent 60%
+    );
+  --surface: #ffffff;
+  --surface-2: #eff1f5;
+  --surface-3: #e3e7ee;
+  --ink: #131720;
+  --muted: #5b6675;
+  --line: #dbe0e8;
+  --line-strong: #b6bfcd;
+  --accent: #6d28d9;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(109, 40, 217, 0.12);
+  --accent-2: #0369a1;
+  --shadow-1: 0 1px 2px rgba(19, 23, 32, 0.06), 0 2px 8px rgba(19, 23, 32, 0.05);
+  --shadow-2: 0 2px 4px rgba(19, 23, 32, 0.08), 0 12px 30px rgba(19, 23, 32, 0.1);
 }

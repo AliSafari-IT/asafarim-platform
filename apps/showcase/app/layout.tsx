@@ -9,6 +9,7 @@ import {
 } from "@asafarim/shared-i18n/server";
 import showcaseDictionaries from "../lib/i18n-dictionaries";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
+import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
 import {
   AppShell,
   AppSwitcher,
@@ -41,7 +42,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang={initialLocale} suppressHydrationWarning>
+      <head>
+        {/* The Gallery hangs dark by default; the light mood in tokens.css
+            only applies once the user picks it. */}
+        <ThemeScript defaultTheme="dark" />
+      </head>
       <body data-app="showcase">
+        <ThemeProvider defaultTheme="dark">
         <I18nProvider initialLocale={initialLocale} dictionaries={showcaseDictionaries}>
         <AppShell
           product="Showcase"
@@ -57,6 +64,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           }
           user={
             <>
+              <ThemeToggle />
               <CountryLanguageSelector lockCountry="BE" />
               <AppSwitcher
                 links={toAppSwitcherLinks(
@@ -100,6 +108,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           {children}
         </AppShell>
         </I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

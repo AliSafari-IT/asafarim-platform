@@ -10,6 +10,7 @@ import {
   signOut,
 } from "@asafarim/auth";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
+import { ThemeToggle } from "@asafarim/theme-toggle";
 import {
   AppShell,
   AppSwitcher,
@@ -53,6 +54,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       product="Admin"
       user={
         <>
+          <ThemeToggle />
           <CountryLanguageSelector lockCountry="BE" />
           <AppSwitcher
             links={toAppSwitcherLinks(
