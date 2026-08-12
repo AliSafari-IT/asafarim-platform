@@ -345,10 +345,9 @@ function Environments() {
             <CardDescription>What the seeded examples target out of the box.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm">
-            <KV k="Frontend" v="http://localhost:3233" />
-            <KV k="API" v="http://localhost:3234/api/v1" />
-            <KV k="Secret" v="WEBAPP_ADMIN_PASSWORD (env)" />
-            <KV k="API override" v="WEBAPP_API_URL (env)" />
+            <KV k="Frontend" v="http://localhost:3010" />
+            <KV k="Secret" v="ASAFARIM_ADMIN_PASSWORD (env)" />
+            <KV k="SSO gateway" v="ASAFARIM_HUB_URL (env)" />
           </CardContent>
         </Card>
         <Card className="bg-card/60">
