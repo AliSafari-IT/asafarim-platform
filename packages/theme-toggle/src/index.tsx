@@ -41,11 +41,19 @@ const DEFAULT_STORAGE_KEY = "asafarim-theme";
 export function ThemeScript({
   storageKey = DEFAULT_STORAGE_KEY,
   defaultTheme = "system",
+  syncClass,
   nonce,
 }: {
   storageKey?: string;
   /** Fallback when nothing is stored: "system" | "light" | "dark". */
   defaultTheme?: "system" | Theme;
+  /**
+   * Optional class mirrored onto documentElement while the dark theme is
+   * active — for apps whose Tailwind config uses `darkMode: "class"` (e.g.
+   * testora) and so need a class, not just `data-theme`, to flip `dark:`
+   * utilities. Pass the same value to <ThemeProvider>.
+   */
+  syncClass?: string;
   /**
    * CSP nonce for this request, when the page is served under a strict
    * `script-src` (e.g. the AppBuilder preview route — see proxy.ts). Without
@@ -63,6 +71,8 @@ var s=localStorage.getItem(k);
 var sys=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
 var t=s|| (d==='system'?sys:d);
 document.documentElement.setAttribute('data-theme',t);
+var c=${JSON.stringify(syncClass ?? "")};
+if(c){document.documentElement.classList.toggle(c,t==='dark');}
 }catch(e){}})();`;
   // eslint-disable-next-line react/no-danger
   return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: js }} />;
@@ -105,11 +115,14 @@ export function ThemeProvider({
   children,
   storageKey = DEFAULT_STORAGE_KEY,
   defaultTheme = "dark",
+  syncClass,
 }: {
   children: ReactNode;
   storageKey?: string;
   /** Fallback theme before hydration / when nothing is stored. */
   defaultTheme?: Theme;
+  /** See <ThemeScript>'s `syncClass` — pass the same value to both. */
+  syncClass?: string;
 }) {
   const [theme, setThemeState] = useState<Theme>(defaultTheme);
 
@@ -118,9 +131,15 @@ export function ThemeProvider({
     setThemeState(readInitialTheme(storageKey, defaultTheme));
   }, [storageKey, defaultTheme]);
 
-  const apply = useCallback((next: Theme) => {
-    document.documentElement.setAttribute("data-theme", next);
-  }, []);
+  const apply = useCallback(
+    (next: Theme) => {
+      document.documentElement.setAttribute("data-theme", next);
+      if (syncClass) {
+        document.documentElement.classList.toggle(syncClass, next === "dark");
+      }
+    },
+    [syncClass]
+  );
 
   const setTheme = useCallback(
     (next: Theme) => {

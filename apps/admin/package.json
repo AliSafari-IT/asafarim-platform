@@ -15,6 +15,7 @@
     "@asafarim/db": "workspace:*",
     "@asafarim/seed-manager": "workspace:*",
     "@asafarim/shared-i18n": "workspace:*",
+    "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "dotenv": "^17.4.2",
     "ioredis": "^5.4.1",
