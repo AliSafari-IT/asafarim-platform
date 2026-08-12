@@ -51,6 +51,11 @@ type Profile = {
     postalCode?: string;
     country?: string;
   };
+  // Resolved coordinates (Prisma columns, not part of the homeAddress JSON
+  // blob) — set either from this form or, if left blank, copied from the
+  // shared platform profile location. See upsertTutorProfile in profiles.ts.
+  homeLat?: number | null;
+  homeLng?: number | null;
 };
 
 export default function TutorProfilePage() {
@@ -82,7 +87,12 @@ export default function TutorProfilePage() {
     region: "",
     postalCode: "",
     country: "",
+    lat: null as number | null,
+    lng: null as number | null,
   });
+  const [locating, setLocating] = useState(false);
+  const [locationSource, setLocationSource] = useState<"browser" | "manual" | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/tutor/profile")
@@ -96,20 +106,49 @@ export default function TutorProfilePage() {
           setHourlyRate(Math.round(data.hourlyRateCents / 100));
           setOnlineOnly(data.onlineOnly ?? false);
           setServiceRadius(data.serviceRadiusKm ?? 10);
-          if (data.homeAddress) {
-            setAddress({
-              line1: data.homeAddress.line1 ?? "",
-              city: data.homeAddress.city ?? "",
-              region: data.homeAddress.region ?? "",
-              postalCode: data.homeAddress.postalCode ?? "",
-              country: data.homeAddress.country ?? "",
-            });
-          }
+          setAddress({
+            line1: data.homeAddress?.line1 ?? "",
+            city: data.homeAddress?.city ?? "",
+            region: data.homeAddress?.region ?? "",
+            postalCode: data.homeAddress?.postalCode ?? "",
+            country: data.homeAddress?.country ?? "",
+            lat: data.homeLat ?? null,
+            lng: data.homeLng ?? null,
+          });
         }
       })
       .catch(() => { /* profile fetch failed — leave form in create mode */ })
       .finally(() => setLoading(false));
   }, []);
+
+  function handleUseMyLocation() {
+    setLocationError(null);
+    if (!("geolocation" in navigator)) {
+      setLocationError(t("edumatch.profile.tutor.location.unsupported"));
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setAddress((prev) => ({
+          ...prev,
+          lat: Math.round(position.coords.latitude * 1e6) / 1e6,
+          lng: Math.round(position.coords.longitude * 1e6) / 1e6,
+        }));
+        setLocationSource("browser");
+        setLocating(false);
+      },
+      (err) => {
+        setLocationError(
+          err.code === err.PERMISSION_DENIED
+            ? t("edumatch.profile.tutor.location.denied")
+            : t("edumatch.profile.tutor.location.failed"),
+        );
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -124,7 +163,14 @@ export default function TutorProfilePage() {
       hourlyRateCents: hourlyRate * 100,
       onlineOnly,
       serviceRadiusKm: onlineOnly ? 0 : serviceRadius,
-      homeAddress: address.line1 || address.city ? address : undefined,
+      homeAddress:
+        address.line1 || address.city || address.lat != null
+          ? {
+              ...address,
+              lat: address.lat ?? undefined,
+              lng: address.lng ?? undefined,
+            }
+          : undefined,
     };
 
     try {
@@ -416,6 +462,94 @@ export default function TutorProfilePage() {
                 }
                 className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
               />
+            </div>
+
+            {/* Coordinates — what tutor-matching.ts actually uses to compute
+                distance. The text address above is display-only for
+                students; without lat/lng an in-person tutor simply can't be
+                found by "tutors near me" searches. */}
+            <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium text-[var(--color-text)]">
+                  {t("edumatch.profile.tutor.location.label")}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleUseMyLocation}
+                  disabled={locating}
+                  className="rounded-md bg-[var(--color-primary)]/15 px-2.5 py-1 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/25 disabled:opacity-50 transition"
+                >
+                  {locating
+                    ? t("edumatch.profile.tutor.location.locating")
+                    : `📍 ${t("edumatch.profile.tutor.location.useMyLocation")}`}
+                </button>
+              </div>
+
+              {address.lat != null && address.lng != null && (
+                <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+                  {locationSource === "browser"
+                    ? t("edumatch.profile.tutor.location.detected")
+                    : t("edumatch.profile.tutor.location.set")}
+                </p>
+              )}
+              {locationError && (
+                <p className="mt-2 text-xs text-red-500">{locationError}</p>
+              )}
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="tutor-lat"
+                    className="mb-1 block text-xs text-[var(--color-text-muted)]"
+                  >
+                    {t("edumatch.profile.tutor.location.latitude")}
+                  </label>
+                  <input
+                    id="tutor-lat"
+                    type="number"
+                    step="any"
+                    min={-90}
+                    max={90}
+                    placeholder="e.g. 50.8503"
+                    value={address.lat ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setAddress({ ...address, lat: v === "" ? null : Number(v) });
+                      setLocationSource("manual");
+                    }}
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="tutor-lng"
+                    className="mb-1 block text-xs text-[var(--color-text-muted)]"
+                  >
+                    {t("edumatch.profile.tutor.location.longitude")}
+                  </label>
+                  <input
+                    id="tutor-lng"
+                    type="number"
+                    step="any"
+                    min={-180}
+                    max={180}
+                    placeholder="e.g. 4.3517"
+                    value={address.lng ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setAddress({ ...address, lng: v === "" ? null : Number(v) });
+                      setLocationSource("manual");
+                    }}
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+              </div>
+
+              {!onlineOnly && address.lat == null && (
+                <p className="mt-2 text-xs text-amber-500">
+                  {t("edumatch.profile.tutor.location.missingWarning")}
+                </p>
+              )}
             </div>
           </div>
         </div>

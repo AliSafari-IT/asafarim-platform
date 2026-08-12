@@ -170,7 +170,11 @@ async function getPrimaryEduMatchHomeAddress(userId: string): Promise<{
       userId,
       type: "home",
       isPrimary: true,
-      appScope: { has: "edumatch" },
+      // An empty appScope means "visible to every app" (see the UserLocation
+      // model doc comment) — Prisma's array `has` filter alone would only
+      // match locations that explicitly opted in, silently excluding the
+      // common case (Hub's profile UI doesn't expose per-app scoping at all).
+      OR: [{ appScope: { isEmpty: true } }, { appScope: { has: "edumatch" } }],
     },
     select: {
       formatted: true,
@@ -342,6 +346,10 @@ export async function upsertTutorProfile(
   const centralLocation = input.homeAddress
     ? null
     : await getPrimaryEduMatchHomeAddress(userId);
+  // Coordinates typed/geolocated directly on this form win; otherwise fall
+  // back to the shared platform profile location (Hub → Addresses).
+  const lat = input.homeAddress?.lat ?? centralLocation?.lat;
+  const lng = input.homeAddress?.lng ?? centralLocation?.lng;
   const data = {
     bio: input.bio ?? null,
     subjectsTaught: input.subjectsTaught ?? [],
@@ -352,8 +360,8 @@ export async function upsertTutorProfile(
     homeAddress: (input.homeAddress ??
       centralLocation?.address ??
       Prisma.JsonNull) as Prisma.InputJsonValue,
-    homeLat: centralLocation?.lat,
-    homeLng: centralLocation?.lng,
+    homeLat: lat,
+    homeLng: lng,
   };
 
   const profile = await prisma.eduTutorProfile.upsert({
@@ -386,6 +394,11 @@ export async function updateTutorProfile(
   if (input.serviceRadiusKm !== undefined) data.serviceRadiusKm = input.serviceRadiusKm;
   if (input.homeAddress !== undefined) {
     data.homeAddress = (input.homeAddress ?? Prisma.JsonNull) as Prisma.InputJsonValue;
+    // A submitted address always carries the form's current lat/lng (or
+    // neither, if the tutor cleared them) — mirror that exactly rather than
+    // leaving stale coordinates behind after an edit.
+    data.homeLat = input.homeAddress?.lat ?? null;
+    data.homeLng = input.homeAddress?.lng ?? null;
   }
 
   return prisma.eduTutorProfile.update({ where: { userId }, data });

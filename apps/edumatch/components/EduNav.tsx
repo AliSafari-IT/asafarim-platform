@@ -9,6 +9,7 @@ import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   BookOpenCheck,
   ChevronDown,
+  FileText,
   Grid3X3,
   GraduationCap,
   HelpCircle,
@@ -181,6 +182,12 @@ export function EduNav() {
     { labelKey: "edumatch.nav.help", href: "/help", icon: HelpCircle },
     ...(roles.some((role: string) => ["admin", "superadmin", "edumatch_admin"].includes(role))
       ? [{ labelKey: "edumatch.nav.operations", href: "/admin", icon: LayoutDashboard }]
+      : []),
+    // Strictly superadmin — not "admin" or "edumatch_admin" like Operations
+    // above. The business plan is an internal strategy doc, not part of the
+    // regular admin surface, so it stays invisible to everyone else.
+    ...(roles.includes("superadmin")
+      ? [{ labelKey: "edumatch.nav.businessPlan", href: "/admin/business-plan", icon: FileText }]
       : []),
   ];
 
