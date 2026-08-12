@@ -5,6 +5,7 @@ import { auth, signOut, getAppSwitcherApps } from "@asafarim/auth";
 import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
+import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
 import {
   AppShell,
   AppSwitcher,
@@ -47,7 +48,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang={initialLocale} suppressHydrationWarning>
+      <head>
+        {/* Hub keeps its Mission Control dark as the default; the light mood
+            in tokens.css only applies once the user picks it. */}
+        <ThemeScript defaultTheme="dark" />
+      </head>
       <body data-app="hub">
+        <ThemeProvider defaultTheme="dark">
         <I18nProvider initialLocale={initialLocale}>
         <SessionProviderWrapper session={session}>
           <AppShell
@@ -66,6 +73,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             }
             user={
               <>
+                <ThemeToggle />
                 <CountryLanguageSelector lockCountry="BE" />
                 <AppSwitcher
                   links={toAppSwitcherLinks(switcherApps, links)}
@@ -104,6 +112,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           </AppShell>
         </SessionProviderWrapper>
         </I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

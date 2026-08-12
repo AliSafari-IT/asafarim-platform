@@ -53,6 +53,9 @@ importers:
       '@asafarim/shared-i18n':
         specifier: workspace:*
         version: link:../../packages/shared-i18n
+      '@asafarim/theme-toggle':
+        specifier: workspace:*
+        version: link:../../packages/theme-toggle
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -320,6 +323,9 @@ importers:
       '@asafarim/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@asafarim/theme-toggle':
+        specifier: workspace:*
+        version: link:../../packages/theme-toggle
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -369,6 +375,9 @@ importers:
       '@asafarim/shared-i18n':
         specifier: workspace:*
         version: link:../../packages/shared-i18n
+      '@asafarim/theme-toggle':
+        specifier: workspace:*
+        version: link:../../packages/theme-toggle
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -412,6 +421,9 @@ importers:
       '@asafarim/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@asafarim/theme-toggle':
+        specifier: workspace:*
+        version: link:../../packages/theme-toggle
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -944,7 +956,7 @@ importers:
         version: 7.8.0
       '@prisma/client':
         specifier: 7.8.0
-        version: 7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
+        version: 7.8.0(prisma@7.8.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
     devDependencies:
       '@asafarim/config':
         specifier: workspace:*
@@ -978,7 +990,7 @@ importers:
         version: 7.8.0
       '@prisma/client':
         specifier: 7.8.0
-        version: 7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
+        version: 7.8.0(prisma@7.8.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -10079,7 +10091,7 @@ snapshots:
 
   '@prisma/client-runtime-utils@7.8.0': {}
 
-  '@prisma/client@7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)':
+  '@prisma/client@7.8.0(prisma@7.8.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@prisma/client-runtime-utils': 7.8.0
     optionalDependencies:
@@ -11875,7 +11887,7 @@ snapshots:
   drizzle-orm@0.38.4(@electric-sql/pglite@0.4.1)(@prisma/client@7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3))(@types/pg@8.20.0)(@types/react@19.2.17)(mysql2@3.15.3)(pg@8.22.0)(postgres@3.4.7)(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(react@19.2.7):
     optionalDependencies:
       '@electric-sql/pglite': 0.4.1
-      '@prisma/client': 7.8.0(prisma@7.8.0(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
+      '@prisma/client': 7.8.0(prisma@7.8.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
       '@types/pg': 8.20.0
       '@types/react': 19.2.17
       mysql2: 3.15.3

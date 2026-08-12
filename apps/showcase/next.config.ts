@@ -9,7 +9,7 @@ loadEnv({ path: path.join(process.cwd(), "../../.env") });
 
 const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
-  transpilePackages: ["@asafarim/ui", "@asafarim/shared-i18n", "@asafarim/country-language-selector"],
+  transpilePackages: ["@asafarim/ui", "@asafarim/shared-i18n", "@asafarim/country-language-selector", "@asafarim/theme-toggle"],
   // Hide the floating Next.js dev-tools indicator (dev-only overlay).
   devIndicators: false,
 };

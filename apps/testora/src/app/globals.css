@@ -26,6 +26,29 @@
   --ui-showcase-accent: hsl(var(--primary));
 }
 
+/* Light counterpart, opt-in via the shared theme toggle (<html
+   data-theme="light">). The :root block above stays the default, so
+   testora is dark until the user says otherwise. Primary and accent are
+   darkened from their dark-theme values — the same violet/sky read at
+   only ~3.5:1 and ~2:1 on white — so text and borders clear WCAG AA. */
+:root[data-theme="light"] {
+  --background: 220 24% 97%;
+  --foreground: 222 26% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 26% 10%;
+  --primary: 263 70% 50%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 220 20% 94%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 201 96% 32%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 142 72% 29%;
+  --success-foreground: 0 0% 100%;
+  --border: 220 18% 87%;
+}
+
 * {
   border-color: hsl(var(--border));
 }
