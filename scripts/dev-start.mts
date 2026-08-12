@@ -172,7 +172,7 @@ async function main(): Promise<void> {
   // .next/dev/types/*.d.ts mid-cleanup/build, silently reintroducing the
   // exact broken files this step exists to remove.
   console.log("Killing ports...");
-  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010", { stdio: "inherit" });
+  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010 3011", { stdio: "inherit" });
 
   // Clean stale .next directories before building. Turbopack's dev server
   // generates .next/dev/types/*.d.ts files that can contain broken content
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
   // though we killed them at the top. This second kill ensures the ports
   // are clear right before we start the new dev servers.
   console.log("Re-killing ports after build...");
-  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010", {
+  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010 3011", {
     stdio: "inherit",
   });
 

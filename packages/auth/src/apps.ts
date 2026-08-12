@@ -363,6 +363,19 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
         "Free public showcase tool from ASafarIM Digital. Genuinely usable, deployed on production infrastructure, and not a commercial service.",
     },
   },
+  {
+    // Public, unstable-by-design workbench — see apps/labs/app/about. No
+    // showcase block: it never claims to be a finished product, the /about
+    // page already carries that disclaimer, and every experiment card
+    // states its own status.
+    key: "labs",
+    name: "Labs",
+    description: "The experimental workbench: prototypes and interactive canvases for what's next.",
+    glyph: "LB",
+    meta: "labs.asafarim.com",
+    status: "active",
+    access: "public",
+  },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────
   {

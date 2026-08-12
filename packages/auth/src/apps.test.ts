@@ -28,7 +28,7 @@ const superadmin = { roles: [ROLES.SUPERADMIN], authenticated: true };
 const inactiveAdmin = { roles: [ROLES.ADMIN], authenticated: false };
 
 describe("registry shape", () => {
-  it("registers the ten active platform apps and only those", () => {
+  it("registers the eleven active platform apps and only those", () => {
     const active = PLATFORM_APPS.filter((app) => app.status === "active");
     expect(active.map((app) => app.key).sort()).toEqual([
       "admin",
@@ -36,6 +36,7 @@ describe("registry shape", () => {
       "devtools",
       "edumatch",
       "hub",
+      "labs",
       "showcase",
       "testora",
       "timelineai",
@@ -165,6 +166,7 @@ describe("getAccessibleApps", () => {
     expect(getAccessibleApps(anonymous).map((app) => app.key).sort()).toEqual([
       "devtools",
       "edumatch",
+      "labs",
       "showcase",
       "testora",
       "timelineai",
@@ -179,6 +181,7 @@ describe("getAccessibleApps", () => {
       "devtools",
       "edumatch",
       "hub",
+      "labs",
       "showcase",
       "testora",
       "timelineai",
@@ -194,6 +197,7 @@ describe("getAccessibleApps", () => {
       "devtools",
       "edumatch",
       "hub",
+      "labs",
       "showcase",
       "testora",
       "timelineai",
@@ -208,6 +212,7 @@ describe("getAccessibleApps", () => {
     ).toEqual([
       "devtools",
       "edumatch",
+      "labs",
       "showcase",
       "testora",
       "timelineai",
