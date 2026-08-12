@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-08-12",
-    "title": "EduMatch: add seeded demo credentials (#182)",
-    "sha": "ec35c17",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ec35c17"
+    "title": "Testora: allow admins to delete built-in apps",
+    "sha": "1799b9b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1799b9b"
   }
 ]
