@@ -309,6 +309,7 @@ export function ProfileEditor({
         </form>
       </Card>
 
+      <div id="addresses">
       <Card title="Addresses">
         {locations.map((loc) => (
           <LocationCard
@@ -337,6 +338,7 @@ export function ProfileEditor({
           </button>
         )}
       </Card>
+      </div>
     </div>
   );
 }
