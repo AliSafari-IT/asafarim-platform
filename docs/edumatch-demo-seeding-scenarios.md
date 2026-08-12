@@ -1,6 +1,6 @@
 # EduMatch presentation seeding scenarios
 
-Status: implemented by the EduMatch seed definition version 2.0.0. The roster,
+Status: implemented by the EduMatch seed definition version 2.1.0. The roster,
 foreground stories, and data-coherence rules below are the presentation seed's
 source of truth; no application behavior is changed by the seed.
 
@@ -14,7 +14,7 @@ current product promise:
 > tutors -> compare prepared proposals -> book -> learn -> track progress.
 
 The universe also needs meaningful parent, tutor, trust-and-safety, finance,
-notification, and admin states. Definition version 2.0.0 expands the original
+notification, and admin states. Definition version 2.1.0 expands the original
 3-student, 3-tutor seed to 50 members and deliberately covers the features
 added through the 2026-08-12 repository state, including
 Learning Briefs, fair tutor rotation, parent-managed minors, age-aware avatars,
@@ -23,15 +23,16 @@ admin diagnostics.
 
 ## 2. Demo-data rules
 
-| Rule                | Proposed convention                                                                                  | Why it matters                                                                |
-| ------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Synthetic ownership | Keep the reserved `@edumatch.demo` domain and `seed-` identifiers                                    | Seeded rows remain removable without touching real users.                     |
-| Time                | Define `T0` as the seed execution time; express dates as `T0 +/- duration`                           | Future bookings remain future and payout/dispute windows remain demonstrable. |
-| Repeatability       | Upsert by fixed user email and fixed scenario key                                                    | Re-running the seed produces the same universe.                               |
-| No external effects | No real email, AI, Stripe charge, payout, or storage action                                          | A presentation cannot contact or charge anyone.                               |
-| Honest aggregates   | Derive tutor ratings from seeded reviews and resume facts from completed sessions                    | Public trust signals agree with the underlying history.                       |
-| Privacy             | Synthetic names, locations, messages, files, guardian details, and reviews only                      | The dataset is safe to share on screen.                                       |
-| Presentation access | Use the existing approved non-production shared-auth fixture; never store passwords in this document | Demo identities must be reachable without adding secrets to Git.              |
+| Rule                | Proposed convention                                                                                  | Why it matters                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Synthetic ownership | Exact allowlisted `asafarim+edu…@gmail.com` aliases and `seed-edumatch-` identifiers                 | Seeded rows remain removable without claiming ownership of other Gmail users.                                      |
+| Shared demo login   | Hash `EDUMATCH_SEED_USERS_PASSWORD` with bcrypt for every member                                     | Every student, tutor, parent, and admin can be presented through real credentials without committing the password. |
+| Time                | Define `T0` as the seed execution time; express dates as `T0 +/- duration`                           | Future bookings remain future and payout/dispute windows remain demonstrable.                                      |
+| Repeatability       | Upsert by fixed user email and fixed scenario key                                                    | Re-running the seed produces the same universe.                                                                    |
+| No external effects | No real email, AI, Stripe charge, payout, or storage action                                          | A presentation cannot contact or charge anyone.                                                                    |
+| Honest aggregates   | Derive tutor ratings from seeded reviews and resume facts from completed sessions                    | Public trust signals agree with the underlying history.                                                            |
+| Privacy             | Synthetic names, locations, messages, files, guardian details, and reviews only                      | The dataset is safe to share on screen.                                                                            |
+| Presentation access | Use the existing approved non-production shared-auth fixture; never store passwords in this document | Demo identities must be reachable without adding secrets to Git.                                                   |
 
 ## 3. Population: exactly 50 members
 

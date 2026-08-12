@@ -6,7 +6,8 @@
 //
 // Run packages/db/prisma/seed.ts first. The presentation admins reuse its
 // protected `admin` role; every EduMatch-owned row remains independently
-// identifiable and removable.
+// identifiable and removable. EDUMATCH_SEED_USERS_PASSWORD is required and is
+// stored only as a bcrypt hash on all 50 presentation members.
 //
 // Usage: pnpm --filter @asafarim/db db:seed:edumatch
 

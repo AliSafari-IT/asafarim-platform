@@ -1,6 +1,7 @@
 // EduMatch presentation provider: a deterministic 50-member demo universe.
 
 import { definitionChecksum } from "../checksums";
+import bcrypt from "bcryptjs";
 import type {
   SeedEntityCounts,
   SeedIssue,
@@ -24,7 +25,9 @@ import {
   EDUMATCH_DEFINITION_VERSION,
   EDUMATCH_DEMO_EMAILS,
   EDUMATCH_DEMO_EMAIL_DOMAIN,
+  EDUMATCH_DEMO_EMAIL_PREFIX,
   EDUMATCH_ID_PREFIX,
+  EDUMATCH_LEGACY_DEMO_EMAILS,
   EDUMATCH_MATCH_PLAN,
   EDUMATCH_PARENTS,
   EDUMATCH_STUDENTS,
@@ -94,11 +97,14 @@ export function validateEdumatchDefinitions(): SeedIssue[] {
       });
     }
     emails.add(value);
-    if (!value.endsWith(EDUMATCH_DEMO_EMAIL_DOMAIN)) {
+    if (
+      !value.startsWith(EDUMATCH_DEMO_EMAIL_PREFIX) ||
+      !value.endsWith(EDUMATCH_DEMO_EMAIL_DOMAIN)
+    ) {
       issues.push({
         code: "EMAIL_OUTSIDE_RESERVED_DOMAIN",
         severity: "error",
-        message: `Demo identity "${value}" is outside ${EDUMATCH_DEMO_EMAIL_DOMAIN}.`,
+        message: `Demo identity "${value}" is outside the allowlisted ${EDUMATCH_DEMO_EMAIL_PREFIX}…${EDUMATCH_DEMO_EMAIL_DOMAIN} pattern.`,
       });
     }
   }
@@ -202,33 +208,81 @@ export function validateEdumatchDefinitions(): SeedIssue[] {
 
 async function upsertDemoUser(
   prisma: SeedPrismaClient,
+  key: string,
   email: string,
   name: string,
+  passwordHash: string,
   image?: string
 ) {
-  return prisma.user.upsert({
-    where: { email },
-    update: {
-      name,
-      image: image ?? null,
-      preferredLocale: "en",
-      timezone: "Europe/Brussels",
-    },
-    create: {
+  const role =
+    key[0] === "S"
+      ? "student"
+      : key[0] === "T"
+        ? "tutor"
+        : key[0] === "P"
+          ? "parent"
+          : "admin";
+  const number = Number(key.slice(1));
+  const legacyEmails = [
+    `demo.${role}${key.slice(1)}@edumatch.demo`,
+    ...(number <= 3 && (role === "student" || role === "tutor")
+      ? [`demo.${role}${number}@edumatch.demo`]
+      : []),
+  ];
+  const existing = await prisma.user.findUnique({ where: { email } });
+  const legacy = existing
+    ? null
+    : await prisma.user.findFirst({ where: { email: { in: legacyEmails } } });
+  const data = {
+    name,
+    image: image ?? null,
+    password: passwordHash,
+    preferredLocale: "en",
+    timezone: "Europe/Brussels",
+  };
+  if (existing) {
+    return prisma.user.update({ where: { id: existing.id }, data });
+  }
+  if (legacy) {
+    return prisma.user.update({
+      where: { id: legacy.id },
+      data: { ...data, email },
+    });
+  }
+  return prisma.user.create({
+    data: {
+      ...data,
       email,
-      name,
-      image: image ?? null,
       emailVerified: new Date(),
-      preferredLocale: "en",
-      timezone: "Europe/Brussels",
     },
   });
 }
 
-export async function applyParents(prisma: SeedPrismaClient) {
+async function resolvePasswordHash(passwordHash?: string) {
+  if (passwordHash) return passwordHash;
+  const password = process.env.EDUMATCH_SEED_USERS_PASSWORD?.trim();
+  if (!password) {
+    throw new Error(
+      "EDUMATCH_SEED_USERS_PASSWORD is required to seed EduMatch demo users."
+    );
+  }
+  return bcrypt.hash(password, 12);
+}
+
+export async function applyParents(
+  prisma: SeedPrismaClient,
+  suppliedPasswordHash?: string
+) {
+  const passwordHash = await resolvePasswordHash(suppliedPasswordHash);
   const rows = [];
   for (const parent of EDUMATCH_PARENTS) {
-    const user = await upsertDemoUser(prisma, parent.email, parent.name);
+    const user = await upsertDemoUser(
+      prisma,
+      parent.key,
+      parent.email,
+      parent.name,
+      passwordHash
+    );
     await prisma.eduParentProfile.upsert({
       where: { userId: user.id },
       update: {},
@@ -241,15 +295,19 @@ export async function applyParents(prisma: SeedPrismaClient) {
 
 export async function applyStudents(
   prisma: SeedPrismaClient,
-  knownUsers?: UserMap
+  knownUsers?: UserMap,
+  suppliedPasswordHash?: string
 ) {
+  const passwordHash = await resolvePasswordHash(suppliedPasswordHash);
   const users = knownUsers ?? new Map<string, SeedUser>();
   const rows = [];
   for (const student of EDUMATCH_STUDENTS) {
     const user = await upsertDemoUser(
       prisma,
+      student.key,
       student.email,
       student.name,
+      passwordHash,
       student.avatar
     );
     users.set(student.key, user);
@@ -288,12 +346,20 @@ export async function applyStudents(
 
 export async function applyTutors(
   prisma: SeedPrismaClient,
-  knownUsers?: UserMap
+  knownUsers?: UserMap,
+  suppliedPasswordHash?: string
 ) {
+  const passwordHash = await resolvePasswordHash(suppliedPasswordHash);
   const users = knownUsers ?? new Map<string, SeedUser>();
   const rows = [];
   for (const tutor of EDUMATCH_TUTORS) {
-    const user = await upsertDemoUser(prisma, tutor.email, tutor.name);
+    const user = await upsertDemoUser(
+      prisma,
+      tutor.key,
+      tutor.email,
+      tutor.name,
+      passwordHash
+    );
     users.set(tutor.key, user);
     const verified = tutor.verification === "VERIFIED";
     const ratings = reviewRatings(tutor);
@@ -380,8 +446,10 @@ export async function applyTutors(
 
 export async function applyAdmins(
   prisma: SeedPrismaClient,
-  knownUsers?: UserMap
+  knownUsers?: UserMap,
+  suppliedPasswordHash?: string
 ) {
+  const passwordHash = await resolvePasswordHash(suppliedPasswordHash);
   const users = knownUsers ?? new Map<string, SeedUser>();
   const role = await prisma.role.findUnique({ where: { name: "admin" } });
   if (!role)
@@ -390,7 +458,13 @@ export async function applyAdmins(
     );
   const rows = [];
   for (const admin of EDUMATCH_ADMINS) {
-    const user = await upsertDemoUser(prisma, admin.email, admin.name);
+    const user = await upsertDemoUser(
+      prisma,
+      admin.key,
+      admin.email,
+      admin.name,
+      passwordHash
+    );
     users.set(admin.key, user);
     await prisma.userRole.upsert({
       where: { userId_roleId: { userId: user.id, roleId: role.id } },
@@ -1525,12 +1599,13 @@ async function loadUserMap(prisma: SeedPrismaClient): Promise<UserMap> {
 }
 
 export async function seedEdumatch(prisma: SeedPrismaClient) {
+  const passwordHash = await resolvePasswordHash();
   const users: UserMap = new Map();
-  const parents = await applyParents(prisma);
+  const parents = await applyParents(prisma, passwordHash);
   for (const row of parents) users.set(row.key, row.user);
-  const students = await applyStudents(prisma, users);
-  const tutors = await applyTutors(prisma, users);
-  const admins = await applyAdmins(prisma, users);
+  const students = await applyStudents(prisma, users, passwordHash);
+  const tutors = await applyTutors(prisma, users, passwordHash);
+  const admins = await applyAdmins(prisma, users, passwordHash);
   for (const row of [...students, ...tutors, ...admins])
     users.set(row.key, row.user);
 
@@ -1564,7 +1639,9 @@ interface EdumatchSnapshot {
 
 async function snapshot(prisma: SeedPrismaClient): Promise<EdumatchSnapshot> {
   const demoUsers = await prisma.user.findMany({
-    where: { email: { endsWith: EDUMATCH_DEMO_EMAIL_DOMAIN } },
+    where: {
+      email: { in: [...EDUMATCH_DEMO_EMAILS, ...EDUMATCH_LEGACY_DEMO_EMAILS] },
+    },
     select: {
       email: true,
       name: true,
@@ -1823,7 +1900,14 @@ export const edumatchProvider: SeedProvider = {
   availability: "configured",
   protected: false,
   definitionVersion: EDUMATCH_DEFINITION_VERSION,
-  requiredEnv: requiredEnvVars("shared-prisma"),
+  requiredEnv: Object.fromEntries(
+    Object.entries(requiredEnvVars("shared-prisma")).map(
+      ([environment, names]) => [
+        environment,
+        [...(names ?? []), "EDUMATCH_SEED_USERS_PASSWORD"],
+      ]
+    )
+  ),
   supports: {
     validate: true,
     status: true,
@@ -1839,8 +1923,7 @@ export const edumatchProvider: SeedProvider = {
       ownership: "seed-owned-shared",
       reconcilable: true,
       removable: true,
-      protectedFields: ["password"],
-      notes: `Reserved ${EDUMATCH_DEMO_EMAIL_DOMAIN} identities.`,
+      notes: `Exact allowlisted ${EDUMATCH_DEMO_EMAIL_PREFIX}…${EDUMATCH_DEMO_EMAIL_DOMAIN} aliases; never domain-wide ownership.`,
     },
     {
       seedKey: KEY_STUDENTS,
@@ -1850,7 +1933,6 @@ export const edumatchProvider: SeedProvider = {
       dependsOn: [KEY_PARENTS],
       reconcilable: true,
       removable: true,
-      protectedFields: ["password"],
       notes: "Includes parent-managed and independent age-aware profiles.",
     },
     {
@@ -1860,7 +1942,6 @@ export const edumatchProvider: SeedProvider = {
       ownership: "seed-owned-shared",
       reconcilable: true,
       removable: true,
-      protectedFields: ["password"],
       userControlledFields: ["verifiedAt"],
       notes: "Exactly 10 hybrid and 5 online-only tutors.",
     },
@@ -1871,7 +1952,6 @@ export const edumatchProvider: SeedProvider = {
       ownership: "seed-owned-shared",
       reconcilable: true,
       removable: true,
-      protectedFields: ["password"],
       notes: "Requires the protected platform foundation roles.",
     },
     {
@@ -1889,6 +1969,14 @@ export const edumatchProvider: SeedProvider = {
   async validate(context): Promise<ValidationResult> {
     const startedAt = Date.now();
     const issues = validateEdumatchDefinitions();
+    if (!process.env.EDUMATCH_SEED_USERS_PASSWORD?.trim()) {
+      issues.push({
+        code: "MISSING_SEED_USERS_PASSWORD",
+        severity: "error",
+        message:
+          "EDUMATCH_SEED_USERS_PASSWORD is required to create sign-in-capable demo members.",
+      });
+    }
     let connection: ValidationResult["connection"] = "ok";
     try {
       await withPrisma(context.connectionString, async (prisma) => {
@@ -1933,7 +2021,7 @@ export const edumatchProvider: SeedProvider = {
                 code: "ORPHANED_SEED_ROWS",
                 severity: "warning",
                 seedKey: KEY_SCENARIOS,
-                message: `${snap.orphanEmails.length} undefined reserved-domain identities remain.`,
+                message: `${snap.orphanEmails.length} legacy allowlisted EduMatch aliases remain.`,
               },
             ]
           : [],
@@ -2213,10 +2301,7 @@ async function removeEdumatch(
     const identities = deletableEmails.length
       ? await tx.user.deleteMany({
           where: {
-            email: {
-              in: deletableEmails,
-              endsWith: EDUMATCH_DEMO_EMAIL_DOMAIN,
-            },
+            email: { in: deletableEmails },
           },
         })
       : { count: 0 };

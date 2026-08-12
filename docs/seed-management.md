@@ -36,7 +36,7 @@ primary keys, reserved unique keys, or an explicit provenance column.
 
 **It never touches** user-created data. There is no "delete from table"
 path in the codebase: every deletion is driven by an ownership manifest, and
-a shared row (such as a demo `User`) is *retained* — with a stated reason —
+a shared row (such as a demo `User`) is _retained_ — with a stated reason —
 the moment it holds anything the seed did not create.
 
 **Backups are explicitly out of scope.** This feature creates no backups,
@@ -67,9 +67,9 @@ packages/seed-manager/          server-only, no client-safe exports
 
 Consumers:
 
-| Consumer | Uses |
-|---|---|
-| `apps/admin` — `/seed-data` | registry, safety, providers (read-only calls) |
+| Consumer                      | Uses                                           |
+| ----------------------------- | ---------------------------------------------- |
+| `apps/admin` — `/seed-data`   | registry, safety, providers (read-only calls)  |
 | `packages/db/prisma/seed*.ts` | the exported `seed*` functions and definitions |
 
 ### Three rules the design enforces
@@ -88,14 +88,14 @@ Consumers:
 
 ### Control plane
 
-Three Prisma models on the shared database record *what happened*, never the
+Three Prisma models on the shared database record _what happened_, never the
 seeded data itself:
 
-| Model | Purpose |
-|---|---|
-| `SeedOperation` | one requested operation: target, status, stage, progress, checksums, redacted plan/result summaries, timing, retry and bulk links |
-| `SeedOperationEvent` | append-only sanitized log lines |
-| `SeedValidationSchedule` | recurring **read-only** validation; there is no field that could express a mutating schedule |
+| Model                    | Purpose                                                                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `SeedOperation`          | one requested operation: target, status, stage, progress, checksums, redacted plan/result summaries, timing, retry and bulk links |
+| `SeedOperationEvent`     | append-only sanitized log lines                                                                                                   |
+| `SeedValidationSchedule` | recurring **read-only** validation; there is no field that could express a mutating schedule                                      |
 
 Migration: `packages/db/prisma/migrations/20260809200000_add_seed_management`.
 
@@ -111,14 +111,14 @@ Every app appears on the page. Apps with no seed data are shown explicitly as
 **Not configured** rather than omitted — an absent app is indistinguishable
 from an app with nothing to seed.
 
-| Provider | App | Database | State |
-|---|---|---|---|
-| `platform-foundation` | platform | shared Prisma | **Configured, protected** |
-| `edumatch` | edumatch | shared Prisma | Configured |
-| `timelineai` | timelineai | shared Prisma | Configured |
-| `testora` | testora | Testora Drizzle | Configured, **read-only** |
-| `appbuilder` | appbuilder | AppBuilder Drizzle | Configured, **read-only** |
-| `admin`, `hub`, `web`, `showcase`, `vionto` | — | — | Not configured |
+| Provider                                    | App        | Database           | State                     |
+| ------------------------------------------- | ---------- | ------------------ | ------------------------- |
+| `platform-foundation`                       | platform   | shared Prisma      | **Configured, protected** |
+| `edumatch`                                  | edumatch   | shared Prisma      | Configured                |
+| `timelineai`                                | timelineai | shared Prisma      | Configured                |
+| `testora`                                   | testora    | Testora Drizzle    | Configured, **read-only** |
+| `appbuilder`                                | appbuilder | AppBuilder Drizzle | Configured, **read-only** |
+| `admin`, `hub`, `web`, `showcase`, `vionto` | —          | —                  | Not configured            |
 
 ### Protected foundation
 
@@ -126,7 +126,7 @@ from an app with nothing to seed.
 role→permission grid and the optional initial admin. It is **protected**:
 
 - `supports.remove` is `false`;
-- `safety.ts` refuses removal *before* consulting permissions, so no role,
+- `safety.ts` refuses removal _before_ consulting permissions, so no role,
   grant or configuration flag can reach it;
 - the provider's own `plan()` and `execute()` throw if a removal somehow
   arrives, so it does not depend on its caller for that guarantee.
@@ -149,7 +149,7 @@ the providers declare `supports.seed/reconcile/remove: false`, `safety.ts`
 refuses those operations structurally, and the cards link to each app's own
 seeding surface. Their existing CLI commands and in-app buttons are unchanged.
 
-**AppBuilder scope note.** Only the *platform fixtures* (two seed owners, four
+**AppBuilder scope note.** Only the _platform fixtures_ (two seed owners, four
 apps) are in scope. Per-generated-app runtime demo-data resets are deliberately
 **not** centralised: they are never invoked by "Seed all" or "Remove all
 seeded data", and generated-app tenant data is excluded from every bulk plan.
@@ -158,13 +158,13 @@ seeded data", and generated-app tenant data is excluded from every bulk plan.
 
 ## Seed semantics
 
-| Operation | Writes? | Behaviour |
-|---|---|---|
-| **Validate** | no | Definition integrity (duplicate ids, dangling references, invalid relationships), required configuration, and provider connectivity. |
-| **Status** | no | Counts seed-owned rows and compares them with the definitions. Reports clean / missing / drifted / orphaned / not-configured / unavailable / validation-failed. |
-| **Seed missing** | yes | Inserts missing seed-owned rows only. Never overwrites an existing row, never prunes, never touches user-owned rows. Drifted rows are reported as `retain` with a reason. |
-| **Reconcile** | yes | Inserts missing rows *and* updates drifted ones from the definitions. Prunes only where a provider explicitly defines pruning. Preserves documented user-controlled fields. Idempotent — a second run is a no-op. |
-| **Remove** | yes | Deletes only provably seed-owned rows, in FK-safe order inside a transaction. Retains shared rows that hold non-seed data and reports why. |
+| Operation        | Writes? | Behaviour                                                                                                                                                                                                         |
+| ---------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Validate**     | no      | Definition integrity (duplicate ids, dangling references, invalid relationships), required configuration, and provider connectivity.                                                                              |
+| **Status**       | no      | Counts seed-owned rows and compares them with the definitions. Reports clean / missing / drifted / orphaned / not-configured / unavailable / validation-failed.                                                   |
+| **Seed missing** | yes     | Inserts missing seed-owned rows only. Never overwrites an existing row, never prunes, never touches user-owned rows. Drifted rows are reported as `retain` with a reason.                                         |
+| **Reconcile**    | yes     | Inserts missing rows _and_ updates drifted ones from the definitions. Prunes only where a provider explicitly defines pruning. Preserves documented user-controlled fields. Idempotent — a second run is a no-op. |
+| **Remove**       | yes     | Deletes only provably seed-owned rows, in FK-safe order inside a transaction. Retains shared rows that hold non-seed data and reports why.                                                                        |
 
 Reconciliation **never** removes a user-created row merely because the seed
 code does not define it.
@@ -207,13 +207,13 @@ interface SeedManifestEntry {
 
 How each provider proves ownership:
 
-| Provider | Mechanism |
-|---|---|
-| TimelineAI | Timelines pinned to `seed-timeline-<publicId>`; demo author pinned to `seed-timelineai-demo-author`. |
-| EduMatch | Identities on the reserved `@edumatch.demo` domain; booking chain on fixed `seed-*` ids. |
-| Foundation | Unique permission/role names. Nothing is removable. |
-| Testora | Explicit `seeded` boolean on `projects` and `target_environments`. |
-| AppBuilder | Deterministic `owner_principal_id` (`seed-owner-a`/`-b`) and fixed idempotency keys. |
+| Provider   | Mechanism                                                                                                                                                             |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TimelineAI | Timelines pinned to `seed-timeline-<publicId>`; demo author pinned to `seed-timelineai-demo-author`.                                                                  |
+| EduMatch   | Exact allowlisted `asafarim+edu…@gmail.com` aliases; scenario graph on fixed `seed-edumatch-*` ids. All members use the bcrypt-hashed `EDUMATCH_SEED_USERS_PASSWORD`. |
+| Foundation | Unique permission/role names. Nothing is removable.                                                                                                                   |
+| Testora    | Explicit `seeded` boolean on `projects` and `target_environments`.                                                                                                    |
+| AppBuilder | Deterministic `owner_principal_id` (`seed-owner-a`/`-b`) and fixed idempotency keys.                                                                                  |
 
 Ownership is **never** inferred from a text search or a creation date.
 
@@ -230,7 +230,7 @@ retain 1 Demo author — Shared user retained — it owns 1 timeline(s) this see
 
 If a database ever lacks enough provenance to distinguish seeded from
 user-created rows, add an explicit `seedKey` / `seeded` column in an
-**additive, backward-compatible** migration *before* enabling removal.
+**additive, backward-compatible** migration _before_ enabling removal.
 
 ---
 
@@ -238,12 +238,12 @@ user-created rows, add an explicit `seedKey` / `seeded` column in an
 
 Added to the foundation seed (`definitions/foundation.ts`):
 
-| Permission | Grants |
-|---|---|
-| `seeds.view` | View providers, status, plans, validation results and history. Required to load `/seed-data` at all. |
-| `seeds.execute` | Run seed and reconcile in permitted non-production environments. |
-| `seeds.remove` | Remove seed-owned data. Never applies to the protected foundation. |
-| `seeds.schedule` | Create, pause, edit or delete validation schedules. |
+| Permission       | Grants                                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `seeds.view`     | View providers, status, plans, validation results and history. Required to load `/seed-data` at all. |
+| `seeds.execute`  | Run seed and reconcile in permitted non-production environments.                                     |
+| `seeds.remove`   | Remove seed-owned data. Never applies to the protected foundation.                                   |
+| `seeds.schedule` | Create, pause, edit or delete validation schedules.                                                  |
 
 Default grants: **superadmin** gets all four. **admin** gets `seeds.view` and
 `seeds.execute` only — `seeds.remove` and `seeds.schedule` are deliberately
@@ -253,7 +253,7 @@ Superadmin bypasses ordinary permission checks (matching the platform's
 existing behaviour) but **never** bypasses the structural rules: protected
 providers, unsupported operations, and production enablement.
 
-Beyond ordinary grants, superadmin is *additionally* required for **any
+Beyond ordinary grants, superadmin is _additionally_ required for **any
 production mutation** and for **bulk removal**.
 
 Every check runs server-side. The nav entry is hidden without `seeds.view`,
@@ -267,23 +267,23 @@ Three allowlisted environments: `development`, `staging`, `production`.
 
 Connection strings come only from this table (`environments.ts`):
 
-| Database | development | staging | production |
-|---|---|---|---|
-| shared Prisma | `DATABASE_URL` | `SEED_MANAGER_STAGING_DATABASE_URL` | `SEED_MANAGER_PRODUCTION_DATABASE_URL` |
-| Testora | `TESTORA_DATABASE_URL` | `SEED_MANAGER_STAGING_TESTORA_DATABASE_URL` | `SEED_MANAGER_PRODUCTION_TESTORA_DATABASE_URL` |
-| AppBuilder | `APPBUILDER_DATABASE_URL` | `SEED_MANAGER_STAGING_APPBUILDER_DATABASE_URL` | `SEED_MANAGER_PRODUCTION_APPBUILDER_DATABASE_URL` |
+| Database      | development               | staging                                        | production                                        |
+| ------------- | ------------------------- | ---------------------------------------------- | ------------------------------------------------- |
+| shared Prisma | `DATABASE_URL`            | `SEED_MANAGER_STAGING_DATABASE_URL`            | `SEED_MANAGER_PRODUCTION_DATABASE_URL`            |
+| Testora       | `TESTORA_DATABASE_URL`    | `SEED_MANAGER_STAGING_TESTORA_DATABASE_URL`    | `SEED_MANAGER_PRODUCTION_TESTORA_DATABASE_URL`    |
+| AppBuilder    | `APPBUILDER_DATABASE_URL` | `SEED_MANAGER_STAGING_APPBUILDER_DATABASE_URL` | `SEED_MANAGER_PRODUCTION_APPBUILDER_DATABASE_URL` |
 
 Other server-only settings:
 
-| Variable | Meaning |
-|---|---|
-| `SEED_MANAGER_PRODUCTION_ENABLED` | Must be exactly `true` to allow any production mutation. Absent or any other value = disabled. |
-| `SEED_MANAGER_TIMEOUT_MS` | Default per-provider timeout (default 120 000, clamped to 5 000–900 000). |
-| `SEED_MANAGER_TIMEOUT_MS_<PROVIDER>` | Per-provider override, e.g. `SEED_MANAGER_TIMEOUT_MS_TIMELINEAI`. |
-| `SEED_MANAGER_TEST_DATABASE_URL` | **Tests only.** The integration suite refuses to run without it and never falls back to `DATABASE_URL`. |
+| Variable                             | Meaning                                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `SEED_MANAGER_PRODUCTION_ENABLED`    | Must be exactly `true` to allow any production mutation. Absent or any other value = disabled.          |
+| `SEED_MANAGER_TIMEOUT_MS`            | Default per-provider timeout (default 120 000, clamped to 5 000–900 000).                               |
+| `SEED_MANAGER_TIMEOUT_MS_<PROVIDER>` | Per-provider override, e.g. `SEED_MANAGER_TIMEOUT_MS_TIMELINEAI`.                                       |
+| `SEED_MANAGER_TEST_DATABASE_URL`     | **Tests only.** The integration suite refuses to run without it and never falls back to `DATABASE_URL`. |
 
-A missing variable surfaces as *"`SEED_MANAGER_STAGING_DATABASE_URL` is not
-set on the server"* — the **name**, never the value. Resolved connection
+A missing variable surfaces as _"`SEED_MANAGER_STAGING_DATABASE_URL` is not
+set on the server"_ — the **name**, never the value. Resolved connection
 strings never appear in the UI, logs, errors, audit data or API responses.
 
 ---
@@ -410,15 +410,15 @@ SEED_MANAGER_TEST_DATABASE_URL=<test-url> pnpm --filter @asafarim/seed-manager t
 **There are no backups and no restore action in this feature.** Plan
 accordingly.
 
-| Symptom | What it means | What to do |
-|---|---|---|
-| Provider shows **Database unavailable** | Connection failed; the sanitized reason is on the card | Check the service; other providers keep working. Retry with *Refresh status*. |
-| Provider shows a **missing env var** by name | Server configuration, not data | Set the named variable and redeploy. Never paste a DSN into the UI — there is nowhere to. |
-| **Drift detected** | Database rows differ from the definitions | Dry-run *reconcile* and read the plan before applying. |
-| **Orphaned rows** | Seed-owned rows the code no longer defines | Dry-run *remove*; orphans are listed separately and warned about. |
-| Plan refuses with **CHECKSUM_MISMATCH** | Data changed since the dry run | Working as intended. Re-run the dry run and re-read it. |
-| Plan refuses with **EXPIRED** | Older than 5 minutes | Re-run the dry run. |
-| Accidental removal in production | Irreversible by this feature | Restore from infrastructure snapshots. This feature cannot help. |
+| Symptom                                      | What it means                                          | What to do                                                                                |
+| -------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Provider shows **Database unavailable**      | Connection failed; the sanitized reason is on the card | Check the service; other providers keep working. Retry with _Refresh status_.             |
+| Provider shows a **missing env var** by name | Server configuration, not data                         | Set the named variable and redeploy. Never paste a DSN into the UI — there is nowhere to. |
+| **Drift detected**                           | Database rows differ from the definitions              | Dry-run _reconcile_ and read the plan before applying.                                    |
+| **Orphaned rows**                            | Seed-owned rows the code no longer defines             | Dry-run _remove_; orphans are listed separately and warned about.                         |
+| Plan refuses with **CHECKSUM_MISMATCH**      | Data changed since the dry run                         | Working as intended. Re-run the dry run and re-read it.                                   |
+| Plan refuses with **EXPIRED**                | Older than 5 minutes                                   | Re-run the dry run.                                                                       |
+| Accidental removal in production             | Irreversible by this feature                           | Restore from infrastructure snapshots. This feature cannot help.                          |
 
 Failures are visible through the Seed Data overview, the operation history and
 the platform audit log. There are intentionally no Slack or email

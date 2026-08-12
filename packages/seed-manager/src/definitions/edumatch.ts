@@ -1,11 +1,17 @@
 // EduMatch presentation seed definitions. Every identity and domain row is
 // synthetic, deterministic, and owned through the reserved demo namespace.
 
-export const EDUMATCH_DEFINITION_VERSION = "2.0.0";
-export const EDUMATCH_DEMO_EMAIL_DOMAIN = "@edumatch.demo";
+export const EDUMATCH_DEFINITION_VERSION = "2.1.0";
+export const EDUMATCH_DEMO_EMAIL_DOMAIN = "@gmail.com";
+export const EDUMATCH_DEMO_EMAIL_PREFIX = "asafarim+edu";
 export const EDUMATCH_ID_PREFIX = "seed-edumatch-";
 
-const email = (local: string) => `${local}${EDUMATCH_DEMO_EMAIL_DOMAIN}`;
+const email = (legacyLocal: string) => {
+  const match = /^demo\.(student|tutor|parent|admin)(\d{2})$/.exec(legacyLocal);
+  if (!match) throw new Error(`Invalid EduMatch demo identity: ${legacyLocal}`);
+  return `${EDUMATCH_DEMO_EMAIL_PREFIX}${match[1]}${match[2]}${EDUMATCH_DEMO_EMAIL_DOMAIN}`;
+};
+const legacyEmail = (legacyLocal: string) => `${legacyLocal}@edumatch.demo`;
 export const edumatchSeedId = (kind: string, key: string) =>
   `${EDUMATCH_ID_PREFIX}${kind}-${key.toLowerCase()}`;
 
@@ -937,6 +943,28 @@ export const EDUMATCH_DEMO_EMAILS = [
   ...EDUMATCH_TUTORS.map((item) => item.email),
   ...EDUMATCH_PARENTS.map((item) => item.email),
   ...EDUMATCH_ADMINS.map((item) => item.email),
+];
+
+export const EDUMATCH_LEGACY_DEMO_EMAILS = [
+  ...EDUMATCH_STUDENTS.map((student) =>
+    legacyEmail(`demo.student${student.key.slice(1)}`)
+  ),
+  ...EDUMATCH_TUTORS.map((tutor) =>
+    legacyEmail(`demo.tutor${tutor.key.slice(1)}`)
+  ),
+  ...EDUMATCH_PARENTS.map((parent) =>
+    legacyEmail(`demo.parent${parent.key.slice(1)}`)
+  ),
+  ...EDUMATCH_ADMINS.map((admin) =>
+    legacyEmail(`demo.admin${admin.key.slice(1)}`)
+  ),
+  // The original small fixture used unpadded aliases for its first three
+  // students and tutors. Keep these exact addresses allowlisted for in-place
+  // migration; no other @edumatch.demo identity is seed-owned.
+  ...[1, 2, 3].flatMap((number) => [
+    legacyEmail(`demo.student${number}`),
+    legacyEmail(`demo.tutor${number}`),
+  ]),
 ];
 
 export const EDUMATCH_DEFINITIONS = {

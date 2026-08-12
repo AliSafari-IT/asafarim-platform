@@ -13,6 +13,7 @@ import {
   EDUMATCH_CHAIN_IDS,
   EDUMATCH_DEMO_EMAILS,
   EDUMATCH_DEMO_EMAIL_DOMAIN,
+  EDUMATCH_DEMO_EMAIL_PREFIX,
   EDUMATCH_MATCH_PLAN,
   EDUMATCH_PARENTS,
   EDUMATCH_STUDENTS,
@@ -79,10 +80,14 @@ describe("seed keys are unique and stable", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("edumatch identities stay inside the reserved domain", () => {
+  it("edumatch identities use the exact presentation alias pattern", () => {
     for (const email of EDUMATCH_DEMO_EMAILS) {
       expect(email.endsWith(EDUMATCH_DEMO_EMAIL_DOMAIN)).toBe(true);
+      expect(email.startsWith(EDUMATCH_DEMO_EMAIL_PREFIX)).toBe(true);
     }
+    expect(EDUMATCH_DEMO_EMAILS).toContain("asafarim+edustudent01@gmail.com");
+    expect(EDUMATCH_DEMO_EMAILS).toContain("asafarim+edututor15@gmail.com");
+    expect(new Set(EDUMATCH_DEMO_EMAILS).size).toBe(50);
     for (const id of Object.values(EDUMATCH_CHAIN_IDS)) {
       expect(id.startsWith("seed-")).toBe(true);
     }
