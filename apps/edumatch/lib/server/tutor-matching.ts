@@ -84,7 +84,8 @@ export async function findNearbyTutors(
 
   const nearby: ScoredTutor[] = [];
   for (const t of tutors) {
-    let distanceKm = 0;
+    // null means "no known home location" (e.g. online-only tutor) — never a literal 0 km.
+    let distanceKm: number | null = null;
     if (t.homeLat != null && t.homeLng != null) {
       distanceKm = Math.round(
         haversineKm(studentLocation.lat, studentLocation.lng, t.homeLat, t.homeLng) * 10,
@@ -110,7 +111,9 @@ export async function findNearbyTutors(
     });
   }
 
-  return nearby.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, limit);
+  return nearby
+    .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
+    .slice(0, limit);
 }
 
 /**
@@ -147,7 +150,10 @@ export function scoreTutors(
       const onlineMatch = preferOnline ? t.onlineOnly : true;
 
       // Scoring weights (tune based on business priorities)
-      const distanceScore = Math.max(0, 50 - t.distanceKm) / 50; // 0-1, closer is better
+      // Unknown distance (online-only, no home coords) gets a neutral mid score
+      // rather than the max score a literal 0 km would imply.
+      const distanceScore =
+        t.distanceKm == null ? 0.5 : Math.max(0, 50 - t.distanceKm) / 50; // 0-1, closer is better
       const subjectScore = subjectMatch ? 1 : 0.3; // Partial credit for tutors who might be able to help
       const levelScore = levelMatch ? 1 : 0.5;
       const ratingScore = Math.min(t.ratingAvg / 5, 1); // Normalize 0-5 to 0-1

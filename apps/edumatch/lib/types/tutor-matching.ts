@@ -9,7 +9,7 @@ export type ScoredTutor = {
   ratingAvg: number;
   ratingCount: number;
   verifiedAt: Date | null;
-  distanceKm: number;
+  distanceKm: number | null;
   subjectMatch: boolean;
   levelMatch: boolean;
   availabilityScore: number;
