@@ -14,6 +14,10 @@ export interface LocationLike {
   state: string | null;
   postalCode: string | null;
   country: string | null;
+  lat: number | null;
+  lng: number | null;
+  accuracy: number | null;
+  source: string;
   isPrimary: boolean;
 }
 
@@ -24,6 +28,10 @@ function toAddressValue(loc: LocationLike): AddressFieldsValue {
     state: loc.state ?? "",
     postalCode: loc.postalCode ?? "",
     country: loc.country ?? "",
+    lat: loc.lat,
+    lng: loc.lng,
+    accuracy: loc.accuracy,
+    source: loc.source,
   };
 }
 
@@ -88,6 +96,12 @@ export function LocationCard({
         </span>
       </div>
       <p className="u-muted">{summary || "No address details yet."}</p>
+      {location.lat != null && location.lng != null ? (
+        <p className="u-muted" style={{ fontSize: "var(--text-xs, 12px)" }}>
+          📍 {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+          {location.source === "browser" ? " (from browser)" : ""}
+        </p>
+      ) : null}
       <div className={styles.locationActions}>
         <Button size="sm" variant="secondary" onClick={() => setEditing(true)} disabled={busy}>
           Edit

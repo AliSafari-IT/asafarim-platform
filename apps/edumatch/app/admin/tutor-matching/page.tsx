@@ -1,14 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
 import type { ScoredTutor } from "@/lib/types/tutor-matching";
+
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
+const PROFILE_URL = `${HUB_URL}/profile`;
+
+type MyLocation = { lat: number; lng: number; label: string | null; city: string | null };
 
 export default function TutorMatchingDebugPage() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ScoredTutor[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [myLocation, setMyLocation] = useState<MyLocation | null>(null);
+  const [myLocationLoading, setMyLocationLoading] = useState(true);
 
   const [params, setParams] = useState({
     lat: 50.943993,
@@ -19,6 +27,35 @@ export default function TutorMatchingDebugPage() {
     preferOnline: false,
     limit: 20,
   });
+
+  // Prefill lat/lng from the signed-in admin's own saved address (Hub profile
+  // → Addresses), so the debug tool defaults to somewhere real instead of a
+  // hardcoded coordinate.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/my-location");
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { location: MyLocation | null };
+        if (cancelled || !data.location) return;
+        setMyLocation(data.location);
+        setParams((prev) => ({ ...prev, lat: data.location!.lat, lng: data.location!.lng }));
+      } catch {
+        // Non-fatal — the form still works with its default/manual coordinates.
+      } finally {
+        if (!cancelled) setMyLocationLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function useMySavedLocation() {
+    if (!myLocation) return;
+    setParams((prev) => ({ ...prev, lat: myLocation.lat, lng: myLocation.lng }));
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +120,35 @@ export default function TutorMatchingDebugPage() {
                 onChange={(e) => setParams({ ...params, lng: parseFloat(e.target.value) })}
               />
             </div>
+
+            {!myLocationLoading && (
+              myLocation ? (
+                <div className="flex items-center justify-between gap-2 rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-xs text-[var(--color-text-muted)]">
+                  <span>
+                    📍 {t("edumatch.admin.matching.savedLocation")}: {myLocation.city || myLocation.label || `${myLocation.lat}, ${myLocation.lng}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={useMySavedLocation}
+                    className="shrink-0 rounded bg-emerald-500/15 px-2 py-1 font-medium text-emerald-400 hover:bg-emerald-500/25"
+                  >
+                    {t("edumatch.admin.matching.useSavedLocation")}
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-xs text-[var(--color-text-muted)]">
+                  {t("edumatch.admin.matching.noSavedLocation")}{" "}
+                  <a
+                    href={`${PROFILE_URL}#addresses`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-emerald-400 hover:underline"
+                  >
+                    {t("edumatch.admin.matching.setLocationLink")}
+                  </a>
+                </div>
+              )
+            )}
             <div>
               <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">
                 {t("edumatch.admin.matching.subject")}
