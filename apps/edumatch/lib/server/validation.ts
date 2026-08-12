@@ -189,6 +189,12 @@ export const tutorProfileSchema = z.object({
       region: z.string().trim().max(100).optional(),
       postalCode: z.string().trim().max(20).optional(),
       country: z.string().trim().max(100).optional(),
+      // Coordinates for matching (Haversine distance in tutor-matching.ts).
+      // Optional because a tutor may type a text address without ever
+      // pinning coordinates — see upsertTutorProfile's fallback to the
+      // shared platform profile location when these are omitted.
+      lat: z.number().min(-90).max(90).optional(),
+      lng: z.number().min(-180).max(180).optional(),
     })
     .optional(),
 });
