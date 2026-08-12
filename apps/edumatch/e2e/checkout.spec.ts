@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
-import { STUDENT_STORAGE_STATE } from './global-setup';
+import { test, expect } from "@playwright/test";
+import { STUDENT_STORAGE_STATE } from "./global-setup";
 
 /**
- * Checkout error-state coverage, signed in as `demo.student1@edumatch.demo`.
+ * Checkout error-state coverage, signed in as `asafarim+edustudent01@gmail.com`.
  *
  * The original version of this file pointed every test at a fabricated
  * `test-quote-id` and asserted on copy that doesn't exist in the app
@@ -15,11 +15,17 @@ import { STUDENT_STORAGE_STATE } from './global-setup';
  */
 test.use({ storageState: STUDENT_STORAGE_STATE });
 
-test.describe('Checkout', () => {
-  test('a non-existent quote shows a graceful error, not a crash', async ({ page }) => {
-    await page.goto('/student/checkout/does-not-exist');
+test.describe("Checkout", () => {
+  test("a non-existent quote shows a graceful error, not a crash", async ({
+    page,
+  }) => {
+    await page.goto("/student/checkout/does-not-exist");
 
-    await expect(page.getByRole('heading', { name: 'Checkout Error' })).toBeVisible();
-    await expect(page.getByRole('link', { name: /back to dashboard/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Checkout Error" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /back to dashboard/i })
+    ).toBeVisible();
   });
 });
