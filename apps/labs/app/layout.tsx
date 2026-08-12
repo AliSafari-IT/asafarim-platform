@@ -1,27 +1,39 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
 // Side-effect import: registers @asafarim/auth's next-auth type
 // augmentations (Session.user.roles, etc.) so packages/auth/src/roles.ts
 // type-checks here, even though Labs never calls into Auth.js itself.
 import type {} from "@asafarim/auth/types";
 import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
-import { AppSwitcher, getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
+import { AppShell, AppSwitcher, TopNav, getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
 import "./labs.css";
 
-export const metadata: Metadata = {
-  title: {
-    default: "ASafarIM Labs",
-    template: "%s | ASafarIM Labs",
-  },
-  description:
-    "The experimental workbench for ASafarIM — interact with what's being explored next, not just what's already shipped.",
-  icons: { icon: "/favicon.svg" },
+const appUrl = process.env.NEXT_PUBLIC_LABS_URL ?? "https://labs.asafarim.com";
+const appName = "ASafarIM Labs";
+const appDescription =
+  "The experimental workbench for ASafarIM — interact with what's being explored next, not just what's already shipped.";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
-const NAV = [
+export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
+  title: {
+    default: `${appName} | Prototypes and interactive canvases`,
+    template: "%s | ASafarIM Labs",
+  },
+  description: appDescription,
+  applicationName: appName,
+  icons: { icon: "/favicon.svg" },
+  robots: { index: true, follow: true },
+};
+
+const NAV_ITEMS = [
   { label: "Workbench", href: "/" },
   { label: "Experiments", href: "/experiments" },
   { label: "Ideas", href: "/ideas" },
@@ -37,42 +49,32 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   const switcherApps = getAppSwitcherApps("labs", { roles: [], authenticated: false });
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-app="labs" suppressHydrationWarning>
       <head>
+        {/* Labs hangs dark by default, same as TimelineAI's workbench-adjacent
+            mood — the light palette only applies once the user picks it. */}
         <ThemeScript defaultTheme="dark" />
       </head>
-      <body data-app="labs">
+      <body className="antialiased">
         <ThemeProvider defaultTheme="dark">
-          <div style={{ maxWidth: 1080, margin: "0 auto", padding: "1.5rem" }}>
-            <header
-              className="labs-shell-header"
-              style={{ borderBottom: "none", marginBottom: "2rem" }}
-            >
-              <Link href="/" className="labs-mono" style={{ fontSize: "1.1rem", fontWeight: 700 }}>
-                <span className="labs-accent">▚</span> ASafarIM Labs
-              </Link>
-              <nav
-                className="labs-mono"
-                style={{ display: "flex", gap: "1.25rem", fontSize: "0.85rem" }}
-              >
-                {NAV.map((item) => (
-                  <Link key={item.href} href={item.href}>
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
-              <AppSwitcher links={toAppSwitcherLinks(switcherApps, links)} />
-              <ThemeToggle />
-            </header>
-            <main>{children}</main>
-            <footer
-              className="labs-mono"
-              style={{ marginTop: "3rem", paddingTop: "1rem", fontSize: "0.75rem", opacity: 0.6 }}
-            >
-              Labs is public and unstable by design. Nothing here carries production guarantees —
-              see <Link href="/about">/about</Link> for the kill-switch policy.
-            </footer>
-          </div>
+          <AppShell
+            product="Labs"
+            nav={<TopNav items={NAV_ITEMS} />}
+            user={
+              <>
+                <ThemeToggle />
+                <AppSwitcher links={toAppSwitcherLinks(switcherApps, links)} />
+              </>
+            }
+            footer={
+              <span>
+                Public and unstable by design — see <a href="/about">/about</a> for the kill-switch
+                policy.
+              </span>
+            }
+          >
+            {children}
+          </AppShell>
         </ThemeProvider>
       </body>
     </html>

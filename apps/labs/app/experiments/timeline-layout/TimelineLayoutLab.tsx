@@ -42,7 +42,7 @@ export function TimelineLayoutLab() {
       </div>
 
       {layout === "vertical" && (
-        <ol style={{ borderLeft: "2px solid var(--labs-accent)", paddingLeft: "1rem" }}>
+        <ol style={{ borderLeft: "2px solid var(--accent)", paddingLeft: "1rem" }}>
           {events.map((e) => (
             <li key={e.id} style={{ marginBottom: "0.75rem" }}>
               <span className="labs-mono" style={{ opacity: 0.6 }}>
@@ -57,7 +57,7 @@ export function TimelineLayoutLab() {
       {layout === "horizontal" && (
         <div style={{ display: "flex", gap: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem" }}>
           {events.map((e) => (
-            <div key={e.id} style={{ minWidth: 140, borderTop: "2px solid var(--labs-accent)", paddingTop: "0.5rem" }}>
+            <div key={e.id} style={{ minWidth: 140, borderTop: "2px solid var(--accent)", paddingTop: "0.5rem" }}>
               <div className="labs-mono" style={{ fontSize: "0.75rem", opacity: 0.6 }}>
                 {e.date}
               </div>
@@ -77,7 +77,7 @@ export function TimelineLayoutLab() {
               <div
                 style={{
                   height: 10,
-                  background: "var(--labs-accent)",
+                  background: "var(--accent)",
                   width: `${40 + i * 60}px`,
                   borderRadius: 4,
                 }}
