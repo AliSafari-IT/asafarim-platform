@@ -8,9 +8,15 @@ import {
   SECURITY_CRITICAL_PERMISSIONS,
 } from "./definitions/foundation";
 import {
+  EDUMATCH_ADMINS,
+  EDUMATCH_BRIEFS,
   EDUMATCH_CHAIN_IDS,
   EDUMATCH_DEMO_EMAILS,
   EDUMATCH_DEMO_EMAIL_DOMAIN,
+  EDUMATCH_MATCH_PLAN,
+  EDUMATCH_PARENTS,
+  EDUMATCH_STUDENTS,
+  EDUMATCH_TUTORS,
 } from "./definitions/edumatch";
 import { TIMELINEAI_DEMOS, timelineSeedId } from "./definitions/timelineai";
 import { validateFoundationDefinitions } from "./providers/platform-foundation";
@@ -20,13 +26,19 @@ import { redactText, redactValue, sanitizeError } from "./redaction";
 
 describe("seed definitions validate cleanly", () => {
   it("foundation", () => {
-    expect(validateFoundationDefinitions().filter((i) => i.severity === "error")).toEqual([]);
+    expect(
+      validateFoundationDefinitions().filter((i) => i.severity === "error")
+    ).toEqual([]);
   });
   it("edumatch", () => {
-    expect(validateEdumatchDefinitions().filter((i) => i.severity === "error")).toEqual([]);
+    expect(
+      validateEdumatchDefinitions().filter((i) => i.severity === "error")
+    ).toEqual([]);
   });
   it("timelineai", () => {
-    expect(validateTimelineaiDefinitions().filter((i) => i.severity === "error")).toEqual([]);
+    expect(
+      validateTimelineaiDefinitions().filter((i) => i.severity === "error")
+    ).toEqual([]);
   });
 });
 
@@ -51,13 +63,17 @@ describe("seed keys are unique and stable", () => {
 
   it("no manifest entry is removable on a protected provider", () => {
     for (const provider of listProviders().filter((p) => p.protected)) {
-      expect(provider.manifest.every((entry) => entry.removable === false)).toBe(true);
+      expect(
+        provider.manifest.every((entry) => entry.removable === false)
+      ).toBe(true);
     }
   });
 
   it("timelineai ids are derived deterministically from the publicId", () => {
     for (const demo of TIMELINEAI_DEMOS) {
-      expect(timelineSeedId(demo.publicId)).toBe(`seed-timeline-${demo.publicId}`);
+      expect(timelineSeedId(demo.publicId)).toBe(
+        `seed-timeline-${demo.publicId}`
+      );
     }
     const ids = TIMELINEAI_DEMOS.map((demo) => timelineSeedId(demo.publicId));
     expect(new Set(ids).size).toBe(ids.length);
@@ -71,19 +87,57 @@ describe("seed keys are unique and stable", () => {
       expect(id.startsWith("seed-")).toBe(true);
     }
   });
+
+  it("edumatch defines the presentation population and tutor mode split", () => {
+    expect(EDUMATCH_STUDENTS).toHaveLength(27);
+    expect(EDUMATCH_TUTORS).toHaveLength(15);
+    expect(EDUMATCH_PARENTS).toHaveLength(5);
+    expect(EDUMATCH_ADMINS).toHaveLength(3);
+    expect(EDUMATCH_DEMO_EMAILS).toHaveLength(50);
+    expect(EDUMATCH_TUTORS.filter((tutor) => tutor.onlineOnly)).toHaveLength(5);
+    expect(EDUMATCH_TUTORS.filter((tutor) => !tutor.onlineOnly)).toHaveLength(
+      10
+    );
+    expect(EDUMATCH_BRIEFS).toHaveLength(18);
+  });
+
+  it("edumatch match plans are bounded, valid, and include newcomer rotation", () => {
+    const tutors = new Set(EDUMATCH_TUTORS.map((tutor) => tutor.key));
+    const briefs = new Set(EDUMATCH_BRIEFS.map((brief) => brief.key));
+    const plans = Object.entries(EDUMATCH_MATCH_PLAN);
+    expect(plans.every(([brief]) => briefs.has(brief))).toBe(true);
+    expect(plans.every(([, matches]) => matches.length <= 5)).toBe(true);
+    expect(
+      plans.every(([, matches]) =>
+        matches.every((match) => tutors.has(match.tutor))
+      )
+    ).toBe(true);
+    expect(
+      plans.flatMap(([, matches]) => matches).filter((match) => match.rotation)
+    ).toHaveLength(2);
+  });
 });
 
 describe("foundation permission catalog", () => {
   it("defines the four seed permissions", () => {
     const names = FOUNDATION_PERMISSIONS.map((p) => p.name);
-    for (const permission of ["seeds.view", "seeds.execute", "seeds.remove", "seeds.schedule"]) {
+    for (const permission of [
+      "seeds.view",
+      "seeds.execute",
+      "seeds.remove",
+      "seeds.schedule",
+    ]) {
       expect(names).toContain(permission);
     }
   });
 
   it("grants superadmin everything", () => {
-    const superadmin = FOUNDATION_ROLES.find((role) => role.name === "superadmin")!;
-    expect(superadmin.permissions.sort()).toEqual(FOUNDATION_PERMISSIONS.map((p) => p.name).sort());
+    const superadmin = FOUNDATION_ROLES.find(
+      (role) => role.name === "superadmin"
+    )!;
+    expect(superadmin.permissions.sort()).toEqual(
+      FOUNDATION_PERMISSIONS.map((p) => p.name).sort()
+    );
   });
 
   it("does not grant seeds.remove or seeds.schedule to admin by default", () => {
@@ -95,8 +149,12 @@ describe("foundation permission catalog", () => {
   });
 
   it("does not grant any seed permission to non-administrative roles", () => {
-    for (const role of FOUNDATION_ROLES.filter((r) => ["standard_user", "guest"].includes(r.name))) {
-      expect(role.permissions.some((permission) => permission.startsWith("seeds."))).toBe(false);
+    for (const role of FOUNDATION_ROLES.filter((r) =>
+      ["standard_user", "guest"].includes(r.name)
+    )) {
+      expect(
+        role.permissions.some((permission) => permission.startsWith("seeds."))
+      ).toBe(false);
     }
   });
 
@@ -107,7 +165,9 @@ describe("foundation permission catalog", () => {
 
 describe("checksums", () => {
   it("are stable across key ordering", () => {
-    expect(checksum({ a: 1, b: { c: 2, d: 3 } })).toBe(checksum({ b: { d: 3, c: 2 }, a: 1 }));
+    expect(checksum({ a: 1, b: { c: 2, d: 3 } })).toBe(
+      checksum({ b: { d: 3, c: 2 }, a: 1 })
+    );
   });
 
   it("change when the plan changes", () => {
@@ -116,7 +176,9 @@ describe("checksums", () => {
       environment: "development",
       operation: "seed",
       definitionChecksum: "abc",
-      changes: [{ seedKey: "k", entity: "E", action: "insert" as const, count: 1 }],
+      changes: [
+        { seedKey: "k", entity: "E", action: "insert" as const, count: 1 },
+      ],
     };
     const changed = { ...base, changes: [{ ...base.changes[0]!, count: 2 }] };
     expect(planChecksum(base)).not.toBe(planChecksum(changed));
@@ -134,7 +196,9 @@ describe("checksums", () => {
       definitionChecksum: "abc",
       changes,
     };
-    expect(planChecksum(base)).toBe(planChecksum({ ...base, changes: [...changes].reverse() }));
+    expect(planChecksum(base)).toBe(
+      planChecksum({ ...base, changes: [...changes].reverse() })
+    );
   });
 
   it("differ per environment, so a staging plan cannot approve production work", () => {
@@ -143,26 +207,35 @@ describe("checksums", () => {
       environment: "staging",
       operation: "remove",
       definitionChecksum: "abc",
-      changes: [{ seedKey: "a", entity: "A", action: "delete" as const, count: 1 }],
+      changes: [
+        { seedKey: "a", entity: "A", action: "delete" as const, count: 1 },
+      ],
     };
-    expect(planChecksum(base)).not.toBe(planChecksum({ ...base, environment: "production" }));
+    expect(planChecksum(base)).not.toBe(
+      planChecksum({ ...base, environment: "production" })
+    );
   });
 });
 
 describe("redaction", () => {
   it("strips connection URLs from free text", () => {
-    const text = "connect ECONNREFUSED postgresql://asafarim:hunter2@db.internal:5432/asafarim";
+    const text =
+      "connect ECONNREFUSED postgresql://asafarim:hunter2@db.internal:5432/asafarim";
     const redacted = redactText(text);
     expect(redacted).not.toContain("hunter2");
     expect(redacted).not.toContain("db.internal");
   });
 
   it("strips libpq keyword credentials", () => {
-    expect(redactText("password=hunter2 host=db.internal")).not.toContain("hunter2");
+    expect(redactText("password=hunter2 host=db.internal")).not.toContain(
+      "hunter2"
+    );
   });
 
   it("strips bare user:password@host pairs", () => {
-    expect(redactText("failed for asafarim:hunter2@db")).not.toContain("hunter2");
+    expect(redactText("failed for asafarim:hunter2@db")).not.toContain(
+      "hunter2"
+    );
   });
 
   it("redacts by key name and by value", () => {
@@ -172,8 +245,12 @@ describe("redaction", () => {
       safe: 42,
     }) as Record<string, unknown>;
     expect(redacted.DATABASE_URL).toBe("[redacted]");
-    expect((redacted.nested as Record<string, unknown>).apiKey).toBe("[redacted]");
-    expect((redacted.nested as Record<string, unknown>).note).not.toContain("u:p@h");
+    expect((redacted.nested as Record<string, unknown>).apiKey).toBe(
+      "[redacted]"
+    );
+    expect((redacted.nested as Record<string, unknown>).note).not.toContain(
+      "u:p@h"
+    );
     expect(redacted.safe).toBe(42);
   });
 
@@ -188,11 +265,11 @@ describe("redaction", () => {
   });
 
   it("classifies auth and schema failures distinctly", () => {
-    expect(sanitizeError(new Error("password authentication failed for user")).code).toBe(
-      "DATABASE_AUTH_FAILED"
-    );
-    expect(sanitizeError(new Error('relation "timelines" does not exist')).code).toBe(
-      "SCHEMA_MISMATCH"
-    );
+    expect(
+      sanitizeError(new Error("password authentication failed for user")).code
+    ).toBe("DATABASE_AUTH_FAILED");
+    expect(
+      sanitizeError(new Error('relation "timelines" does not exist')).code
+    ).toBe("SCHEMA_MISMATCH");
   });
 });
