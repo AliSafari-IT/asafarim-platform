@@ -80,7 +80,7 @@ export const functionalRequirements = pgTable("functional_requirements", {
   // Which app/project this requirement belongs to. The Run page filters the
   // whole catalog by the active project so a different target domain runs its
   // OWN tests, not another app's. See src/data/projects.ts for the registry.
-  projectId: text("project_id").notNull().default("immostory"),
+  projectId: text("project_id").notNull().default("asafarim-timelineai"),
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
   // Environment root shared by every suite/fixture/case under this FR (e.g.
@@ -163,7 +163,7 @@ export const testResults = pgTable("test_results", {
 export const targetEnvironments = pgTable("target_environments", {
   // Seeded ids are stable (`${projectId}:${slug}`); custom ones are random uuids.
   id: text("id").primaryKey(),
-  projectId: text("project_id").notNull().default("immostory"),
+  projectId: text("project_id").notNull().default("asafarim-timelineai"),
   name: text("name").notNull(),
   baseUrl: text("base_url").notNull(),
   apiUrl: text("api_url").notNull(),
