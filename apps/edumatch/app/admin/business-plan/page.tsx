@@ -51,6 +51,92 @@ function Pull({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** A horizontal, wrapping flowchart: step chips joined by arrows. */
+function FlowChart({
+  steps,
+  loop = false,
+  onTintedPanel = false,
+}: {
+  steps: string[];
+  /** Adds a closing "↻ back to step 1" chip instead of a trailing arrow. */
+  loop?: boolean;
+  /**
+   * The chips sit on a semi-transparent `bg-[var(--color-primary)]/10` panel
+   * rather than the page background — use `bg-[var(--color-bg)]` for the
+   * chip fill instead of `bg-[var(--color-surface)]` so they read as cards
+   * floating on the tint in both light and dark theme, instead of a
+   * hardcoded color that only worked in one.
+   */
+  onTintedPanel?: boolean;
+}) {
+  const chip = `border-[var(--color-primary)]/25 text-[var(--color-text)] ${
+    onTintedPanel ? "bg-[var(--color-bg)]" : "bg-[var(--color-panel,transparent)] border-[var(--color-border)]"
+  }`;
+  const arrow = "text-[var(--color-primary)]";
+
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-x-1.5 gap-y-3 rounded-lg p-4 ${
+        onTintedPanel ? "" : "border border-[var(--color-border)] bg-[var(--color-surface)]"
+      }`}
+    >
+      {steps.map((step, i) => (
+        <div key={step} className="flex items-center gap-1.5">
+          <span className={`rounded-md border px-3 py-1.5 text-[13px] font-medium leading-tight whitespace-nowrap ${chip}`}>
+            {step}
+          </span>
+          {i < steps.length - 1 && (
+            <span className={arrow} aria-hidden="true">
+              →
+            </span>
+          )}
+        </div>
+      ))}
+      {loop && (
+        <div className="flex items-center gap-1.5">
+          <span className={arrow} aria-hidden="true">
+            →
+          </span>
+          <span className={`rounded-md border px-3 py-1.5 text-[13px] font-medium italic leading-tight whitespace-nowrap ${chip}`}>
+            ↻ back to step 01
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A vertical funnel: stacked stages joined by down-arrows, for pipelines where each step narrows the previous one. */
+function FlowDown({
+  stages,
+}: {
+  stages: { label: string; note?: string; tone?: "default" | "gate" | "result" }[];
+}) {
+  const toneClass: Record<NonNullable<(typeof stages)[number]["tone"]>, string> = {
+    default: "border-[var(--color-border)] bg-[var(--color-surface)]",
+    gate: "border-amber-500/40 bg-amber-500/10",
+    result: "border-[var(--color-primary)]/50 bg-[var(--color-primary)]/10",
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      {stages.map((stage, i) => (
+        <div key={stage.label} className="flex w-full flex-col items-center">
+          <div className={`w-full max-w-lg rounded-lg border px-4 py-3 text-center ${toneClass[stage.tone ?? "default"]}`}>
+            <div className="text-sm font-semibold text-[var(--color-text)]">{stage.label}</div>
+            {stage.note && <div className="mt-1 text-xs leading-snug text-[var(--color-text-muted)]">{stage.note}</div>}
+          </div>
+          {i < stages.length - 1 && (
+            <span className="my-1 text-[var(--color-primary)]" aria-hidden="true">
+              ↓
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Code({ children }: { children: string }) {
   return (
     <code className="whitespace-nowrap rounded bg-[var(--color-primary)]/10 px-1.5 py-0.5 font-mono text-[0.86em] text-[var(--color-primary)]">
@@ -136,7 +222,7 @@ const screens: [string, React.ReactNode, string][] = [
   ["Brief confirmation", "Brief review panel", "Editable summary before anything is shared with a tutor."],
   ["Tutor matches", "Brief matches view", "Up to five tutors, each with an explainable match reason."],
   ["Tutor invite inbox", <Code>/tutor/invites</Code>, "Incoming brief plus AI-drafted proposal, Adjust / Decline / Approve & send."],
-  ["Proposal comparison", <Code>{"/student/brief/[id]/compare"}</Code>, "Side-by-side proposals — price, plan, timing, guarantees."],
+  ["Proposal comparison", <Code>{"/student/brief/[id]/compare"}</Code>, "Side-by-side proposals — price, plan, timing, cancellation terms."],
   ["Checkout", <Code>{"/student/checkout/[quoteId]"}</Code>, "Stripe-backed booking confirmation."],
   ["Learning journey", <Code>/student/journey</Code>, "Session history, goal progress, documents."],
   ["Tutor earnings", <Code>/tutor/earnings</Code>, "Payout view showing the 15% platform fee applied."],
@@ -204,13 +290,13 @@ export default async function BusinessPlanPage() {
 
       <Section title="The one flow that defines us">
         <p>Strip away every feature and this is the shape that&rsquo;s left — also, almost verbatim, the route map already wired through the app:</p>
-        <div className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 font-mono text-[13px] leading-loose text-[var(--color-text-muted)]">
-          Ask <span className="text-[var(--color-primary)]">→</span> Understand <span className="text-[var(--color-primary)]">→</span> Clarify <span className="text-[var(--color-primary)]">→</span> Help now
-          <br />
-          <span className="text-[var(--color-primary)]">→</span> Build brief <span className="text-[var(--color-primary)]">→</span> Confirm <span className="text-[var(--color-primary)]">→</span> Match (≤5) <span className="text-[var(--color-primary)]">→</span> Prepared proposals
-          <br />
-          <span className="text-[var(--color-primary)]">→</span> Compare <span className="text-[var(--color-primary)]">→</span> Book <span className="text-[var(--color-primary)]">→</span> Learn <span className="text-[var(--color-primary)]">→</span> Track
-        </div>
+        <FlowChart
+          steps={[
+            "Ask", "Understand", "Clarify", "Help now",
+            "Build brief", "Confirm", "Match (≤5)", "Prepared proposals",
+            "Compare", "Book", "Learn", "Track",
+          ]}
+        />
         <p>
           In the codebase: <Code>/student/learn</Code>{" "}opens the conversation,{" "}
           <Code>learning-briefs.startIntake</Code>{" "}and <Code>learning-intake.analyseIntake</Code>{" "}
@@ -341,6 +427,26 @@ export default async function BusinessPlanPage() {
           begins; no score buys past them. <Code>ineligibilityReason</Code>{" "}records exactly why a tutor was dropped,
           feeding straight into admin diagnostics.
         </p>
+        <FlowDown
+          stages={[
+            { label: "All tutors matched to the brief's subject", tone: "default" },
+            {
+              label: "Hard filters — pass / drop",
+              note: "Subject match · Verification · Safeguarding clearance (minors) · Reachability (in-person only)",
+              tone: "gate",
+            },
+            {
+              label: "Score the survivors",
+              note: "8 weighted factors: subject, level, language, mode, schedule, rating, responsiveness, proximity",
+              tone: "default",
+            },
+            {
+              label: "Top 4 by score + 1 newcomer on rotation",
+              note: "The 5th seat only ever goes to someone who already cleared every hard filter",
+              tone: "result",
+            },
+          ]}
+        />
         <p>
           New tutors still get a real shot. A qualified, fully verified tutor with zero reviews would otherwise always
           lose a ratings-weighted contest to anyone with history. So the fifth of the five slots is reserved, on
@@ -602,29 +708,26 @@ export default async function BusinessPlanPage() {
       </div>
       <Section>
         <div className="rounded-xl bg-[var(--color-primary)]/10 p-6 sm:p-8">
-          <ol className="space-y-2">
-            {[
+          <FlowChart
+            onTintedPanel
+            loop
+            steps={[
               "Free AI help builds trust",
               "Trust leads into a smart intake",
-              "The intake becomes a confirmed Learning Brief",
-              "The Brief reaches up to five verified tutors",
-              "The AI drafts a tutor-specific proposal",
-              "The tutor approves and sends it — never the AI alone",
-              "The student compares offers on equal footing",
-              "The student books and pays through EduMatch checkout",
-              "EduMatch earns a 15% fee (floor / cap to be validated)",
+              "Confirmed Learning Brief",
+              "Reaches up to 5 verified tutors",
+              "AI drafts a tutor-specific proposal",
+              "Tutor approves & sends — never the AI alone",
+              "Student compares offers on equal footing",
+              "Student books & pays through EduMatch checkout",
+              "EduMatch earns a 15% fee (floor / cap TBD)",
               "The session happens",
               "A verified review is left",
-              "It joins a permanent learning journey",
-              "Follow-up service leads to a repeat booking",
-            ].map((step, i) => (
-              <li key={step} className="flex items-baseline gap-3 text-sm text-[var(--color-text)]">
-                <span className="w-5 shrink-0 font-mono text-xs text-[var(--color-primary)]">{String(i + 1).padStart(2, "0")}</span>
-                {step}
-              </li>
-            ))}
-          </ol>
-          <p className="mt-4 border-t border-[var(--color-primary)]/20 pt-4 font-serif italic text-[var(--color-text)]">
+              "Joins a permanent learning journey",
+              "Follow-up service → repeat booking",
+            ]}
+          />
+          <p className="mt-6 border-t border-[var(--color-primary)]/20 pt-4 font-serif italic text-[var(--color-text)]">
             Every completed loop makes the next one a little better — for the next student, and the next tutor.
           </p>
         </div>
