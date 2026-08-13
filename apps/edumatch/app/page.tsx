@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useTranslation } from "@asafarim/shared-i18n";
+import { useTranslation, toBaseLanguage } from "@asafarim/shared-i18n";
 import { getShowcaseProject } from "@asafarim/auth/apps";
 import { ShowcaseNotice } from "@asafarim/ui";
 import {
@@ -27,8 +27,6 @@ import {
 
 const portalUrl = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
 const edumatchUrl = process.env.NEXT_PUBLIC_EDUMATCH_URL || "http://localhost:3009";
-
-const showcase = getShowcaseProject("edumatch")!;
 
 /**
  * Illustrative tutor profiles — invented for this showcase. EduMatch has no
@@ -61,7 +59,8 @@ function PrimaryActions() {
 }
 
 export default function HomePage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const showcase = getShowcaseProject("edumatch", toBaseLanguage(locale))!;
 
   return (
     <div className="edu-landing">

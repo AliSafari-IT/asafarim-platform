@@ -64,6 +64,15 @@ export interface ShowcaseFact {
   body: string;
 }
 
+/**
+ * Locales the registry can carry translated showcase copy for. Deliberately
+ * not imported from `@asafarim/shared-i18n` — this package stays dependency-
+ * light (see the file-level comment on why the registry is a "pure module"),
+ * and this union only needs to match shared-i18n's `Locale` in spirit, not by
+ * import, since callers pass a base language they've already resolved.
+ */
+export type ShowcaseLocale = "en" | "nl" | "fr" | "de" | "lb";
+
 export interface PlatformApp {
   key: string;
   name: string;
@@ -74,8 +83,20 @@ export interface PlatformApp {
   meta: string;
   status: PlatformAppStatus;
   access: PlatformAppAccess;
-  /** Present only on public product apps presented as working showcases. */
+  /**
+   * Present only on public product apps presented as working showcases.
+   * Always the English copy — the guaranteed fallback `getShowcaseProject`
+   * returns when no translation exists for the requested locale.
+   */
   showcase?: ShowcaseProject;
+  /**
+   * Additional locales for `showcase`, keyed by base language. An app is
+   * free to translate only some fields' worth of locales — whatever isn't
+   * here falls back to `showcase` (English). Not all apps have a language
+   * switcher at all, so this is opt-in per app rather than a required
+   * `Record<ShowcaseLocale, ShowcaseProject>`.
+   */
+  showcaseByLocale?: Partial<Record<ShowcaseLocale, ShowcaseProject>>;
 }
 
 const SHOWCASE_ABOUT_HREF = "/about-this-project";
@@ -310,6 +331,55 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
       operationalStatus:
         "Not an operating tutor marketplace. EduMatch is a portfolio project in a real-world environment: deployed, explorable, and technically complete, with no commercial activity behind it.",
     },
+    // Dutch is EduMatch's other "live" locale (see the app's own i18n
+    // dictionary) — fr/de/lb fall back to the English `showcase` above
+    // until they're translated too, same convention as the rest of the app.
+    showcaseByLocale: {
+      nl: {
+        label: SHOWCASE_LABEL,
+        summary:
+          "Een werkend showcaseproject, gebouwd en uitgerold door ASafarIM Digital. De matching-engine, boekingen, geschillen en beheerworkflows zijn echt en draaien op productie-infrastructuur — maar dit is geen operationele tutor-marktplaats. De getoonde tutors zijn synthetisch en er gaat geen geld om.",
+        aboutLabel: "Bekijk wat echt is en wat demonstratiedata is",
+        aboutHref: SHOWCASE_ABOUT_HREF,
+        aboutTitle: "Een complete marktplaatsarchitectuur — zonder de marktplaats.",
+        functional: [
+          {
+            title: "AI-gestuurde matching en uitleg",
+            body: "Vragen van studenten krijgen gemodereerde AI-antwoorden en tutor-matches gerangschikt op vakgebied, afstand en beoordeling. De engine draait echt; het is geen gescript demopad.",
+          },
+          {
+            title: "Eenmalige aanmelding en RBAC",
+            body: "Eén account gedeeld over elke ASafarIM-app. Rechten voor student, tutor, beheerder en superadmin worden afgedwongen en zijn gedekt door tests.",
+          },
+          {
+            title: "Gedeelde productie-datalaag",
+            body: "PostgreSQL via Prisma, volgens dezelfde schemaconventies en migratiepijplijn als de rest van het platform — geen wegwerp-sandboxdatabase.",
+          },
+          {
+            title: "Volledige boekings- en geschillencyclus",
+            body: "Offerte → accepteren → plannen → afronden/annuleren/betwisten → beheerdersbeslissing, met auditlogging en meldingen bij elke stap.",
+          },
+        ],
+        synthetic: [
+          {
+            title: "De tutors zijn verzonnen",
+            body: "De profielen op de landingspagina en in de geseede data zijn illustratief. EduMatch heeft geen echt tutoraanbod, geen studenten en geen boekingen van het publiek.",
+          },
+          {
+            title: "Er gaat nooit echt geld om",
+            body: "De Stripe Connect-afrekenflow werkt en toont Stripe's eigen interface, maar er wordt niets verrekend: er is geen handelaar, geen uitbetaling en geen commerciële transactie aan de andere kant.",
+          },
+        ],
+        demonstrates: [
+          "Verklaarbare rangschikking waarbij harde randvoorwaarden apart van de gewogen score worden gerapporteerd",
+          "RBAC met meerdere rollen binnen één gedeelde platformidentiteit",
+          "Een langlevende toestandsmachine (offerte → boeking → geschil → beslissing) met auditspoor",
+          "Moderatie en academische-integriteitswaarborgen rond een LLM-oppervlak",
+        ],
+        operationalStatus:
+          "Geen operationele tutor-marktplaats. EduMatch is een portfolioproject in een realistische omgeving: uitgerold, verkenbaar en technisch compleet, zonder commerciële activiteit erachter.",
+      },
+    },
   },
   {
     // Public landing + guest create/export/submit flow, same public-first
@@ -466,8 +536,17 @@ export function canAccessApp(
  * Landing pages read this rather than hardcoding their own copy, so the
  * claims an app makes about itself stay in one auditable place.
  */
-export function getShowcaseProject(key: string): ShowcaseProject | undefined {
-  return getPlatformApp(key)?.showcase;
+export function getShowcaseProject(
+  key: string,
+  locale?: ShowcaseLocale
+): ShowcaseProject | undefined {
+  const app = getPlatformApp(key);
+  if (!app) return undefined;
+  if (locale) {
+    const translated = app.showcaseByLocale?.[locale];
+    if (translated) return translated;
+  }
+  return app.showcase;
 }
 
 /** Public product apps presented as working showcases. */

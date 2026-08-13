@@ -78,6 +78,7 @@ export {
   ShowcaseAbout,
   type ShowcaseAboutContent,
   type ShowcaseAboutFact,
+  type ShowcaseAboutLabels,
   type ShowcaseAboutProps,
 } from "./components/ShowcaseAbout";
 export {
