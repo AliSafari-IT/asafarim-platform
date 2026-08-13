@@ -232,7 +232,14 @@ services:
     # image is node:24-alpine — busybox wget is present by default, curl is
     # not. #162.
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/status"]
+      # Alpine's musl libc resolves "localhost" to ::1 (IPv6) before
+      # 127.0.0.1, and Next.js's standalone server here binds IPv4-only —
+      # so a "localhost" healthcheck gets connection-refused on the IPv6
+      # attempt forever, even while the app serves traffic fine over IPv4.
+      # Confirmed live: `wget http://127.0.0.1:3000/...` succeeds inside the
+      # container while `wget http://localhost:3000/...` and the explicit
+      # `http://[::1]:3000/...` both fail. Use the literal IPv4 loopback.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/status"]
       interval: 30s
       timeout: 5s
       retries: 3
