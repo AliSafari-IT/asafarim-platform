@@ -1,178 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireSuperAdmin } from "./_shared";
+import { requireSuperAdmin, Badge, Part, Section, Pull, FlowChart, FlowDown, Code, Table } from "./_shared";
 
 export const metadata: Metadata = { title: "Business Plan · EduMatch Admin" };
 
 // This page is intentionally not linked from the admin sidebar (AdminShell) —
 // it's reachable only via the "B.Plan" link in the top navbar, and that link
 // only renders for the exact "superadmin" role (see EduNav.tsx). Access is
-// gated by requireSuperAdmin() in ./_shared.ts, shared with the screenshots
-// sub-page.
-
-const badge = {
-  live: "bg-emerald-500/15 text-emerald-400",
-  partial: "bg-amber-500/15 text-amber-400",
-  todo: "bg-red-500/15 text-red-400",
-} as const;
-
-function Badge({ tone, children }: { tone: keyof typeof badge; children: string }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${badge[tone]}`}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {children}
-    </span>
-  );
-}
-
-function Part({ roman, title, id }: { roman: string; title: string; id: string }) {
-  return (
-    <div id={id} className="mt-20 scroll-mt-20 border-t border-[var(--color-border)] pt-8 first:mt-10 first:border-0 first:pt-0">
-      <div className="text-xs font-semibold tracking-[0.14em] text-[var(--color-primary)]">{`PART ${roman}`}</div>
-      <h2 className="mt-1 font-serif text-3xl text-[var(--color-text)]">{title}</h2>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title?: string; children: React.ReactNode }) {
-  return (
-    <section className="mt-10">
-      {title && <h3 className="mb-3 font-serif text-xl text-[var(--color-text)]">{title}</h3>}
-      <div className="space-y-4 text-[15px] leading-relaxed text-[var(--color-text-muted)]">{children}</div>
-    </section>
-  );
-}
-
-function Pull({ children }: { children: React.ReactNode }) {
-  return (
-    <blockquote className="border-l-2 border-[var(--color-primary)] pl-4 font-serif text-lg italic text-[var(--color-text)]">
-      {children}
-    </blockquote>
-  );
-}
-
-/** A horizontal, wrapping flowchart: step chips joined by arrows. */
-function FlowChart({
-  steps,
-  loop = false,
-  onTintedPanel = false,
-}: {
-  steps: string[];
-  /** Adds a closing "↻ back to step 1" chip instead of a trailing arrow. */
-  loop?: boolean;
-  /**
-   * The chips sit on a semi-transparent `bg-[var(--color-primary)]/10` panel
-   * rather than the page background — use `bg-[var(--color-bg)]` for the
-   * chip fill instead of `bg-[var(--color-surface)]` so they read as cards
-   * floating on the tint in both light and dark theme, instead of a
-   * hardcoded color that only worked in one.
-   */
-  onTintedPanel?: boolean;
-}) {
-  const chip = `border-[var(--color-primary)]/25 text-[var(--color-text)] ${
-    onTintedPanel ? "bg-[var(--color-bg)]" : "bg-[var(--color-panel,transparent)] border-[var(--color-border)]"
-  }`;
-  const arrow = "text-[var(--color-primary)]";
-
-  return (
-    <div
-      className={`flex flex-wrap items-center gap-x-1.5 gap-y-3 rounded-lg p-4 ${
-        onTintedPanel ? "" : "border border-[var(--color-border)] bg-[var(--color-surface)]"
-      }`}
-    >
-      {steps.map((step, i) => (
-        <div key={step} className="flex items-center gap-1.5">
-          <span className={`rounded-md border px-3 py-1.5 text-[13px] font-medium leading-tight whitespace-nowrap ${chip}`}>
-            {step}
-          </span>
-          {i < steps.length - 1 && (
-            <span className={arrow} aria-hidden="true">
-              →
-            </span>
-          )}
-        </div>
-      ))}
-      {loop && (
-        <div className="flex items-center gap-1.5">
-          <span className={arrow} aria-hidden="true">
-            →
-          </span>
-          <span className={`rounded-md border px-3 py-1.5 text-[13px] font-medium italic leading-tight whitespace-nowrap ${chip}`}>
-            ↻ back to step 01
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** A vertical funnel: stacked stages joined by down-arrows, for pipelines where each step narrows the previous one. */
-function FlowDown({
-  stages,
-}: {
-  stages: { label: string; note?: string; tone?: "default" | "gate" | "result" }[];
-}) {
-  const toneClass: Record<NonNullable<(typeof stages)[number]["tone"]>, string> = {
-    default: "border-[var(--color-border)] bg-[var(--color-surface)]",
-    gate: "border-amber-500/40 bg-amber-500/10",
-    result: "border-[var(--color-primary)]/50 bg-[var(--color-primary)]/10",
-  };
-
-  return (
-    <div className="flex flex-col items-center">
-      {stages.map((stage, i) => (
-        <div key={stage.label} className="flex w-full flex-col items-center">
-          <div className={`w-full max-w-lg rounded-lg border px-4 py-3 text-center ${toneClass[stage.tone ?? "default"]}`}>
-            <div className="text-sm font-semibold text-[var(--color-text)]">{stage.label}</div>
-            {stage.note && <div className="mt-1 text-xs leading-snug text-[var(--color-text-muted)]">{stage.note}</div>}
-          </div>
-          {i < stages.length - 1 && (
-            <span className="my-1 text-[var(--color-primary)]" aria-hidden="true">
-              ↓
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Code({ children }: { children: string }) {
-  return (
-    <code className="whitespace-nowrap rounded bg-[var(--color-primary)]/10 px-1.5 py-0.5 font-mono text-[0.86em] text-[var(--color-primary)]">
-      {children}
-    </code>
-  );
-}
-
-function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
-  return (
-    <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
-      <table className="w-full min-w-[520px] border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-            {head.map((h) => (
-              <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b border-[var(--color-border)] last:border-0">
-              {row.map((cell, j) => (
-                <td key={j} className={`px-3 py-2.5 align-top ${j === 0 ? "font-medium text-[var(--color-text)]" : "text-[var(--color-text-muted)]"}`}>
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// gated by requireSuperAdmin() in ./_shared.tsx, shared with the screenshots
+// and architecture sub-pages — as are the report-building-block components
+// below (Section, FlowChart, Table, ...), so all three pages read as one
+// document instead of three differently-styled ones.
 
 const modules: [string, React.ReactNode, React.ReactNode][] = [
   ["M01 · Accounts & Auth", <>Student / Tutor / Admin via <Code>@asafarim/auth</Code>{" "}+ Hub SSO</>, <Badge tone="live">Live</Badge>],
@@ -269,6 +107,17 @@ export default async function BusinessPlanPage() {
           a colleague, not a cold lead. This document lays out what that promise costs to keep, what it&rsquo;s worth,
           and what&rsquo;s already built versus what still needs building.
         </p>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+          <p className="m-0 text-[14px] text-[var(--color-text-muted)]">
+            In a hurry? Everything below, condensed to one screen.
+          </p>
+          <Link
+            href="/admin/business-plan/summary"
+            className="shrink-0 rounded-md border border-[var(--color-primary)]/40 px-3.5 py-2 text-sm font-medium text-[var(--color-primary)] transition hover:bg-[var(--color-primary)]/10"
+          >
+            One-page summary →
+          </Link>
+        </div>
       </Section>
 
       {/* PART I */}
@@ -750,6 +599,26 @@ export default async function BusinessPlanPage() {
             className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-medium text-[#07101a] transition hover:opacity-90"
           >
             View captured screens →
+          </Link>
+        </div>
+      </Section>
+
+      <Section title="Appendix — technical architecture review">
+        <p>
+          One deliberate call worth putting in writing: EduMatch starts life as a{" "}
+          <strong className="text-[var(--color-text)]">modular monolith with explicit internal boundaries</strong>,
+          not a microservice system. The full reasoning, with diagrams of the current shape and the extraction path
+          for later, lives on its own page.
+        </p>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 px-4 py-3">
+          <p className="m-0 text-[14px] text-[var(--color-text)]">
+            Module boundaries, deployment shape, and when a service split would actually pay for itself.
+          </p>
+          <Link
+            href="/admin/business-plan/architecture"
+            className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-medium text-[#07101a] transition hover:opacity-90"
+          >
+            View architecture review →
           </Link>
         </div>
       </Section>

@@ -19,12 +19,48 @@ export interface ShowcaseAboutContent {
   operationalStatus: string;
 }
 
+/**
+ * Every static string ShowcaseAbout renders around the registry-sourced
+ * `content`. All optional with English defaults, so existing callers that
+ * don't pass `labels` keep rendering exactly as before — an app opts into
+ * translation by passing its own `t()`-resolved strings, without this
+ * package taking a dependency on any particular i18n system.
+ */
+export interface ShowcaseAboutLabels {
+  sectionWhatWorks?: string;
+  sectionSyntheticData?: string;
+  /** `{appName}` is substituted in for the app's name if present. */
+  sectionDemonstrates?: string;
+  sectionWhereThisStands?: string;
+  ctaHeading?: string;
+  /** `{appName}` is substituted in for the app's name if present. */
+  ctaBody?: string;
+  ctaLinkText?: string;
+}
+
+const DEFAULT_LABELS: Required<ShowcaseAboutLabels> = {
+  sectionWhatWorks: "What actually works",
+  sectionSyntheticData: "What is demonstration data",
+  sectionDemonstrates: "What {appName} demonstrates technically",
+  sectionWhereThisStands: "Where this stands",
+  ctaHeading: "Need something like this?",
+  ctaBody:
+    "{appName} is the kind of system ASafarIM Digital builds end to end — design, architecture, authentication, data, background processing, testing, and deployment. If you want your own version, or something considerably more advanced, let's talk about it.",
+  ctaLinkText: "Discuss a custom solution",
+};
+
+function withAppName(template: string, appName: string): string {
+  return template.replace("{appName}", appName);
+}
+
 export interface ShowcaseAboutProps {
   /** App name, used in the page's own headings. */
   appName: string;
   content: ShowcaseAboutContent;
   /** Absolute URL of the ASafarIM Digital contact page. */
   contactHref: string;
+  /** Translated section/CTA copy — omit for the English defaults. */
+  labels?: ShowcaseAboutLabels;
   /** Optional extra content rendered above the call to action. */
   children?: ReactNode;
 }
@@ -42,8 +78,11 @@ export function ShowcaseAbout({
   appName,
   content,
   contactHref,
+  labels,
   children,
 }: ShowcaseAboutProps) {
+  const l = { ...DEFAULT_LABELS, ...labels };
+
   return (
     <div className="ui-showcase-about">
       <header className="ui-showcase-about__header">
@@ -53,7 +92,7 @@ export function ShowcaseAbout({
       </header>
 
       <section className="ui-showcase-about__section">
-        <h2 className="ui-showcase-about__heading">What actually works</h2>
+        <h2 className="ui-showcase-about__heading">{l.sectionWhatWorks}</h2>
         <div className="ui-showcase-about__grid">
           {content.functional.map((fact) => (
             <article key={fact.title} className="ui-showcase-about__card">
@@ -66,7 +105,7 @@ export function ShowcaseAbout({
 
       <section className="ui-showcase-about__section">
         <h2 className="ui-showcase-about__heading">
-          What is demonstration data
+          {l.sectionSyntheticData}
         </h2>
         <div className="ui-showcase-about__grid">
           {content.synthetic.map((fact) => (
@@ -83,7 +122,7 @@ export function ShowcaseAbout({
 
       <section className="ui-showcase-about__section">
         <h2 className="ui-showcase-about__heading">
-          What {appName} demonstrates technically
+          {withAppName(l.sectionDemonstrates, appName)}
         </h2>
         <ul className="ui-showcase-about__list">
           {content.demonstrates.map((item) => (
@@ -93,23 +132,17 @@ export function ShowcaseAbout({
       </section>
 
       <section className="ui-showcase-about__section">
-        <h2 className="ui-showcase-about__heading">Where this stands</h2>
+        <h2 className="ui-showcase-about__heading">{l.sectionWhereThisStands}</h2>
         <p className="ui-showcase-about__status">{content.operationalStatus}</p>
       </section>
 
       {children}
 
       <section className="ui-showcase-about__cta">
-        <h2>Need something like this?</h2>
-        <p>
-          {appName}
-          {" is the kind of system ASafarIM Digital builds end to end —"}
-          design, architecture, authentication, data, background processing,
-          testing, and deployment. If you want your own version, or something
-          considerably more advanced, let&apos;s talk about it.
-        </p>
+        <h2>{l.ctaHeading}</h2>
+        <p>{withAppName(l.ctaBody, appName)}</p>
         <a className="ui-showcase-about__cta-link" href={contactHref}>
-          Discuss a custom solution
+          {l.ctaLinkText}
         </a>
       </section>
     </div>
