@@ -65,8 +65,22 @@ export default function AdminTutorVerificationsPage() {
   // clearing the URL afterwards doesn't also drop the highlight.
   const [highlightTutorId] = useState(() => searchParams.get("tutor"));
 
+  // Tracks whether the first successful fetch has happened, so subsequent
+  // refetches (after a status change / message send) don't flip `loading`
+  // back to true. A ref rather than state so `load`'s identity stays stable
+  // and doesn't retrigger the mount effect below.
+  const hasLoadedOnce = useRef(false);
+
   const load = useCallback(async () => {
-    setLoading(true);
+    // Only show the full-page loading skeleton on the very first fetch.
+    // `load()` also runs after every status change / message send to refresh
+    // the row list — flipping `loading` true there used to unmount the
+    // `<div>{filtered.map(...)}</div>` list entirely (see the JSX below),
+    // which wiped every TutorRowCard's local state (open conversation
+    // panel, in-progress admin notes edits, etc.) right after the admin
+    // took an action. That's what made "Needs changes" look like it did
+    // nothing — the thread panel would flash open then immediately reset.
+    if (!hasLoadedOnce.current) setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/tutor-verifications");
@@ -76,6 +90,7 @@ export default function AdminTutorVerificationsPage() {
       }
       const data = (await res.json()) as { tutors: TutorRow[] };
       setRows(data.tutors);
+      hasLoadedOnce.current = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -220,6 +235,11 @@ function TutorRowCard({
   const [threadOpen, setThreadOpen] = useState(false);
   const [messages, setMessages] = useState<ThreadMessage[] | null>(null);
   const [threadLoading, setThreadLoading] = useState(false);
+  // Brief confirmation after "Needs changes" sends a tutorMessage — the send
+  // itself has no visible feedback otherwise (see conversation with the user
+  // about this: silently landing in a collapsed thread reads as "nothing
+  // happened").
+  const [needsMsgSent, setNeedsMsgSent] = useState(false);
 
   const loadThread = useCallback(async () => {
     setThreadLoading(true);
@@ -358,12 +378,25 @@ function TutorRowCard({
         </button>
         <button
           disabled={busy || !needsMsg.trim()}
-          onClick={() =>
-            onSetStatus(row.tutorId, "NEEDS_CHANGES", {
+          onClick={async () => {
+            const hadMessage = needsMsg.trim().length > 0;
+            await onSetStatus(row.tutorId, "NEEDS_CHANGES", {
               tutorMessage: needsMsg,
               adminNotes,
-            })
-          }
+            });
+            setNeedsMsg("");
+            if (hadMessage) {
+              // The message we just sent lands in the shared conversation
+              // thread (see setTutorVerificationStatus in
+              // tutor-verification.ts) — open it and refresh so it's
+              // immediately visible, and flash a confirmation since the
+              // send itself is otherwise silent.
+              setThreadOpen(true);
+              void loadThread();
+              setNeedsMsgSent(true);
+              setTimeout(() => setNeedsMsgSent(false), 3000);
+            }
+          }}
           className="rounded-md bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
         >
           {t("edumatch.admin.verifications.needsChanges")}
@@ -379,6 +412,12 @@ function TutorRowCard({
           {t("edumatch.admin.verifications.reject")}
         </button>
       </div>
+
+      {needsMsgSent && (
+        <p className="mt-2 text-xs font-medium text-emerald-500">
+          ✓ {t("edumatch.admin.verifications.messageSent")}
+        </p>
+      )}
 
       {/* Conversation thread with the tutor */}
       <div className="mt-4 border-t border-[var(--color-border)] pt-3">
