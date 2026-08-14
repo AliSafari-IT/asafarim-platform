@@ -1,6 +1,6 @@
 {
   "name": "asafarim-platform",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "ASafarIM Platform - unified monorepo for all ASafarIM Digital apps and services",
   "author": "Ali Safari",
