@@ -55,6 +55,22 @@ export default async function ArchitectureReviewPage() {
         </p>
       </div>
 
+      <Section title="The ecosystem, mapped">
+        <p>
+          The client, the domain modules, persistence, and every third-party dependency EduMatch actually calls
+          today — Auth, Postgres/PostGIS, BullMQ/Redis, S3-compatible storage, OpenAI with an Anthropic failover,
+          Stripe Connect, and the Google Maps geocoding API:
+        </p>
+        <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 sm:p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static diagram from /public, not an optimizable remote asset */}
+          <img
+            src="/business-plan-screenshots/TechStackArchitecture.svg"
+            alt="Component diagram of the EduMatch technical ecosystem: Next.js client, API/AI Orchestrator/Matching/Jobs, Auth/Postgres/Storage, and OpenAI/Anthropic/Stripe/Google Maps as external services"
+            className="mx-auto w-full max-w-3xl"
+          />
+        </div>
+      </Section>
+
       <Section title="The call, stated plainly">
         <p>
           A microservice architecture pays for itself when a system has outgrown one deploy, one database, or one
