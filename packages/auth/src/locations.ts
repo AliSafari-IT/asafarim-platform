@@ -14,7 +14,7 @@ export const LocationSourceSchema = z.enum(["manual", "browser", "geocoded", "ip
 const CountryCodeSchema = z
   .string()
   .length(2)
-  .regex(/^[A-Za-z]{2}$/, "Must be a valid 2-letter country code (e.g. US, NL)")
+  .regex(/^[A-Za-z]{2}$/, "Must be a valid 2-letter country code (e.g. BE, NL)")
   .transform((c) => c.toUpperCase());
 
 /** Treats an empty/whitespace-only string as "field not provided" — forms routinely submit "" for untouched optional inputs. */

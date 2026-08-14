@@ -6,6 +6,10 @@ import type { Dictionaries } from "@asafarim/shared-i18n";
  */
 export const edumatchDictionaries: Dictionaries = {
   en: {
+    // Status badge (top-left, all pages)
+    "edumatch.statusBadge.label": "MVP · Demo",
+    "edumatch.statusBadge.tooltip":
+      "Early-stage demo, not an operating marketplace. Data is synthetic and may be reset or lost without notice.",
     // Navigation
     "edumatch.nav.home": "Home",
     "edumatch.nav.student": "Student",
@@ -1452,6 +1456,10 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.help.article.tutor.paymentsSettings.trouble3": "Payout not arriving? Bank transfers from Stripe typically take one to two business days — check your Stripe Connect status first if it's been longer.",
   },
   nl: {
+    // Status badge (top-left, all pages)
+    "edumatch.statusBadge.label": "MVP · Demo",
+    "edumatch.statusBadge.tooltip":
+      "Vroege demo, geen actieve marktplaats. Gegevens zijn synthetisch en kunnen zonder kennisgeving worden gereset of verloren gaan.",
     // Navigation
     "edumatch.nav.home": "Home",
     "edumatch.nav.student": "Student",
@@ -2870,6 +2878,10 @@ export const edumatchDictionaries: Dictionaries = {
   },
 
   fr: {
+    // Status badge (top-left, all pages)
+    "edumatch.statusBadge.label": "MVP · Démo",
+    "edumatch.statusBadge.tooltip":
+      "Démo à un stade précoce, pas une marketplace en activité. Les données sont synthétiques et peuvent être réinitialisées ou perdues sans préavis.",
     // Navigation
     "edumatch.nav.home": "Accueil",
     "edumatch.nav.student": "Étudiant",
@@ -4002,6 +4014,10 @@ export const edumatchDictionaries: Dictionaries = {
   },
 
   de: {
+    // Status badge (top-left, all pages)
+    "edumatch.statusBadge.label": "MVP · Demo",
+    "edumatch.statusBadge.tooltip":
+      "Frühe Demo, kein aktiver Marktplatz. Daten sind synthetisch und können ohne Vorankündigung zurückgesetzt oder verloren gehen.",
     // Navigation
     "edumatch.nav.home": "Startseite",
     "edumatch.nav.student": "Student",

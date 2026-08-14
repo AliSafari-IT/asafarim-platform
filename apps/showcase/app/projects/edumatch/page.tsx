@@ -46,6 +46,21 @@ export default async function EdumatchOverviewPage() {
       <FixtureBanner />
 
       <Section
+        kicker={t("showcase.edumatch.overview.liveStatus.kicker")}
+        kickerIndex="00"
+        title={t("showcase.edumatch.overview.liveStatus.title")}
+      >
+        <Panel title={t("showcase.edumatch.overview.liveStatus.title")}>
+          <p>{t("showcase.edumatch.overview.liveStatus.body")}</p>
+          <div style={{ marginTop: "0.8rem" }}>
+            <ButtonLink href="https://edumatch.asafarim.com" variant="secondary">
+              {t("showcase.edumatch.overview.liveStatus.cta")}
+            </ButtonLink>
+          </div>
+        </Panel>
+      </Section>
+
+      <Section
         kicker={t("showcase.edumatch.overview.headline.kicker")}
         kickerIndex="01"
         title={t("showcase.edumatch.overview.headline.title")}

@@ -23,6 +23,8 @@ export interface LocationLike {
 
 function toAddressValue(loc: LocationLike): AddressFieldsValue {
   return {
+    type: loc.type || "home",
+    label: loc.label ?? "",
     street1: loc.street1 ?? "",
     city: loc.city ?? "",
     state: loc.state ?? "",

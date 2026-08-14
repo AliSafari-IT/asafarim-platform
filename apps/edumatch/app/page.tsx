@@ -69,6 +69,12 @@ export default function HomePage() {
         <div className="edu-hero-glow edu-hero-glow-one" />
         <div className="edu-hero-glow edu-hero-glow-two" />
         <div className="edu-hero-copy">
+          <ShowcaseNotice
+            content={showcase}
+            variant="inline"
+            className="edu-showcase-banner"
+            renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
+          />
           <div className="edu-eyebrow"><Sparkles size={15} /> {t("edumatch.landing.hero.eyebrow")}</div>
           <h1>{t("edumatch.landing.hero.title")}<br /><span>{t("edumatch.landing.hero.titleHighlight")}</span></h1>
           <p>{t("edumatch.landing.hero.subtitle")}</p>
@@ -100,11 +106,6 @@ export default function HomePage() {
             <span><WandSparkles size={17} /> {t("edumatch.landing.hero.proof.matching")}</span>
             <span><HeartHandshake size={17} /> {t("edumatch.landing.hero.proof.safe")}</span>
           </div>
-          <ShowcaseNotice
-            content={showcase}
-            variant="compact"
-            renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
-          />
         </div>
       </section>
 

@@ -314,6 +314,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .edu-brand { display: inline-flex; align-items: center; gap: 11px; color: var(--color-text); font-size: 1.12rem; font-weight: 760; letter-spacing: -.035em; flex-shrink: 0; }
 .edu-brand > span:last-child span { color: var(--color-accent); }
 .edu-brand-mark { width: 39px; height: 39px; display: inline-flex; align-items: center; justify-content: center; color: #07101b; border-radius: 13px; background: linear-gradient(145deg, var(--color-primary) 0%, #55e9c9 100%); box-shadow: 0 12px 32px -13px color-mix(in srgb, var(--color-accent) 78%, transparent); transform: rotate(-2deg); }
+.edu-brand-group { display: inline-flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.edu-status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px 5px 8px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--color-warning) 55%, transparent); background: var(--color-warning-soft); color: var(--color-warning); font-size: .72rem; font-weight: 750; letter-spacing: .01em; white-space: nowrap; transition: .2s ease; }
+.edu-status-badge:hover { background: color-mix(in srgb, var(--color-warning) 22%, transparent); }
 .edu-desktop-nav { display: flex; align-items: center; gap: 4px; margin-right: auto; }
 .edu-desktop-nav a { display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; color: var(--color-text-muted); border-radius: 999px; font-size: .85rem; font-weight: 600; transition: .2s ease; }
 .edu-desktop-nav a:hover, .edu-desktop-nav a.is-active { color: var(--color-text); background: var(--color-primary-soft); }
@@ -370,6 +373,16 @@ html[data-theme="light"] .edu-hero-bg::after { background: linear-gradient(90deg
 .edu-hero-glow-two { width: 380px; height: 380px; left: 8%; bottom: 0; background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 68%); }
 .edu-hero-copy { position: relative; z-index: 2; grid-column: 1; grid-row: 1; }
 .edu-hero-art-space { grid-column: 2; grid-row: 1; min-height: 360px; pointer-events: none; }
+/* Overrides @asafarim/ui's deliberately-understated .ui-showcase-notice for
+   EduMatch only: this app got flagged for looking more finished than it is,
+   so the homepage notice needs to be seen, not blended into the hero. */
+.edu-showcase-banner.ui-showcase-notice { max-width: none; margin-bottom: 28px; padding: 14px 18px; gap: 6px; border: 1.5px solid var(--color-warning); border-radius: 12px; background: var(--color-warning-soft); box-shadow: 0 8px 28px -16px color-mix(in srgb, var(--color-warning) 65%, transparent); animation: edu-showcase-banner-in .5s ease both; }
+.edu-showcase-banner .ui-showcase-notice__badge { color: var(--color-warning); font-size: .78rem; }
+.edu-showcase-banner .ui-showcase-notice__badge::before { width: .55rem; height: .55rem; box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-warning) 25%, transparent); }
+.edu-showcase-banner .ui-showcase-notice__body { opacity: 1; color: var(--color-text); font-size: .89rem; }
+.edu-showcase-banner .ui-showcase-notice__link-wrap a { color: var(--color-warning); }
+@keyframes edu-showcase-banner-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
 .edu-eyebrow, .edu-kicker { display: inline-flex; align-items: center; gap: 7px; color: var(--color-accent); font-size: .72rem; font-weight: 780; letter-spacing: .105em; text-transform: uppercase; }
 .edu-eyebrow { margin-bottom: 24px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--color-accent) 7%, transparent); }
 .edu-hero h1 { max-width: 680px; margin: 0; color: var(--color-text); font-family: var(--font-display); font-size: clamp(3.4rem, 5.25vw, 5.65rem); line-height: .98; letter-spacing: -.068em; font-weight: 780; }
@@ -410,7 +423,7 @@ html[data-theme="light"] .edu-match-card, html[data-theme="light"] .edu-session-
 }
 @media (max-width: 760px) {
   .edu-hero-bg { --edu-hero-art: url("/hero/hybrid-tutoring-dark-mobile.webp"); }.edu-hero-bg::before { background-position: center bottom; background-size: 100% auto; mask-image: linear-gradient(to bottom, transparent 0%, black 28%, black 88%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 28%, black 88%, transparent 100%); }.edu-hero-bg::after { background: linear-gradient(to bottom, var(--color-bg) 0%, color-mix(in srgb, var(--color-bg) 92%, transparent) 34%, color-mix(in srgb, var(--color-bg) 24%, transparent) 72%, var(--color-bg) 100%); }html[data-theme="light"] .edu-hero-bg { --edu-hero-art: url("/hero/hybrid-tutoring-light-mobile.webp"); }html[data-theme="light"] .edu-hero-bg::after { background: linear-gradient(to bottom, var(--color-bg) 0%, color-mix(in srgb, var(--color-bg) 90%, transparent) 35%, color-mix(in srgb, var(--color-bg) 38%, transparent) 74%, var(--color-bg) 100%); }
-  .edu-topbar-inner { min-height: 64px; padding: 0 16px; }.edu-account-name { display: none; }.edu-account-button { padding-right: 5px; }.edu-account-button > svg { display: none; }
+  .edu-topbar-inner { min-height: 64px; padding: 0 16px; }.edu-account-name { display: none; }.edu-account-button { padding-right: 5px; }.edu-account-button > svg { display: none; }.edu-status-badge span { display: none; }.edu-status-badge { padding: 6px; }
   .edu-hero { min-height: auto; padding: 64px 20px 70px; gap: 35px; }.edu-hero h1 { font-size: clamp(3.15rem, 14vw, 4.6rem); }.edu-hero-copy > p { font-size: .98rem; }.edu-proof-row { gap: 10px; }.edu-hero-stage { min-height: 460px; transform: scale(.95); transform-origin: top center; }.edu-question-card { top: 55px; left: 0; width: 100%; padding: 17px; }.edu-match-card { right: -8px; top: 0; transform: scale(.88); transform-origin: top right; }.edu-session-chip { right: 5px; bottom: 24px; }
   .edu-trust-strip, .edu-section { width: calc(100% - 40px); }.edu-trust-strip { align-items: flex-start; }.edu-trust-strip div { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 20px; }.edu-section { padding: 82px 0; }.edu-path-grid { grid-template-columns: 1fr; }.edu-path-card:last-child { grid-column: auto; }.edu-path-card { min-height: auto; }.edu-path-card > p { min-height: 0; }.edu-tutors-section { grid-template-columns: 1fr; }.edu-safety-panel { padding: 40px 24px; }.edu-safety-panel > div:first-child { grid-template-columns: 1fr; gap: 15px; }.edu-safety-grid { grid-template-columns: 1fr; }.edu-cta-section { width: calc(100% - 40px); padding: 68px 22px; margin-bottom: 80px; }.edu-workspace { display: block; }.edu-sidebar { min-height: 0; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--color-border); overflow-x: auto; }.edu-sidebar > div { display: none; }.edu-sidebar nav { display: flex; width: max-content; }.edu-sidebar nav a { white-space: nowrap; }
 }

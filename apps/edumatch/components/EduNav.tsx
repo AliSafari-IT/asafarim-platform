@@ -28,6 +28,7 @@ import { getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
 // server-only Auth.js/Prisma surface into the browser.
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
 import NotificationBell from "@/components/NotificationBell";
+import { EduStatusBadge } from "@/components/EduStatusBadge";
 
 const platformLinks = getPlatformLinks();
 const hubUrl = platformLinks.hub;
@@ -194,7 +195,10 @@ export function EduNav() {
   return (
     <header className="edu-topbar">
       <div className="edu-topbar-inner">
-        <Brand />
+        <div className="edu-brand-group">
+          <Brand />
+          <EduStatusBadge />
+        </div>
         <nav className="edu-desktop-nav" aria-label="EduMatch">
           {nav.map(({ labelKey, href, icon: Icon }) => {
             const active =

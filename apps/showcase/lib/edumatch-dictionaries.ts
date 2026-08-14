@@ -6,9 +6,14 @@ const edumatchDictionaries: Dictionaries = {
     "showcase.edumatch.overview.hero.title":
       "EduMatch — matching you can inspect and argue with.",
     "showcase.edumatch.overview.hero.lede":
-      "A transparent tutor-matching engine scored on relevance, constraint safety, explainability, fairness, and stability — every recommendation states exactly why it appears, and you can move the weights yourself.",
+      "A transparent tutor-matching engine scored on relevance, constraint safety, explainability, fairness, and stability — every recommendation states exactly why it appears, and you can move the weights yourself. This benchmark isolates and tests the ranking method; the live product built around it runs at edumatch.asafarim.com.",
     "showcase.edumatch.overview.hero.ctaPrimary": "Open the match explorer",
     "showcase.edumatch.overview.hero.ctaSecondary": "Read the case study",
+    "showcase.edumatch.overview.liveStatus.kicker": "Status",
+    "showcase.edumatch.overview.liveStatus.title": "Where the real product stands today",
+    "showcase.edumatch.overview.liveStatus.body":
+      "EduMatch is a live app (edumatch.asafarim.com), not just this benchmark. It ships a full conversational \"Learning Brief\" flow — intake, immediate help, up-to-5 tutor matching, prepared proposals, booking, and progress tracking — built on Auth.js accounts and a real Postgres schema. It currently runs in showcase mode: profiles are synthetic and checkout is a $0 mock, so nothing here is a paying marketplace yet. Guardian approval for minors and full localisation beyond English/Dutch are not built. The production matching engine (apps/edumatch/lib/server/brief-matching.ts) has since diverged from the simplified weights this benchmark demonstrates — see Method below.",
+    "showcase.edumatch.overview.liveStatus.cta": "Open the live app",
     "showcase.edumatch.overview.headline.kicker": "Headline",
     "showcase.edumatch.overview.headline.title": "How the reference run scored",
     "showcase.edumatch.overview.metrics.matchRelevance.label": "Match relevance",
@@ -58,7 +63,7 @@ const edumatchDictionaries: Dictionaries = {
     "showcase.edumatch.overview.method.adjustableWeights.title":
       "Adjustable weights",
     "showcase.edumatch.overview.method.adjustableWeights.body":
-      "Default weights (distance 30% · subject 25% · level 15% · rating 20% · verification 10%) are a starting point, not a fixed policy — the Match Explorer lets you move them and re-rank live, using this exact engine.",
+      "Default weights here (distance 30% · subject 25% · level 15% · rating 20% · verification 10%) are a starting point, not a fixed policy — the Match Explorer lets you move them and re-rank live, using this exact engine. They are illustrative, not what production runs: the live app's matching engine now scores eight factors (subject 24% · level 16% · language 14% · schedule 12% · rating 12% · mode 10% · responsiveness 6% · proximity 6%) and treats verification as a hard eligibility filter rather than a weighted score.",
     "showcase.edumatch.overview.method.sensitiveAttributes.title":
       "Sensitive attributes",
     "showcase.edumatch.overview.method.sensitiveAttributes.body":
@@ -177,9 +182,9 @@ const edumatchDictionaries: Dictionaries = {
     "showcase.edumatch.fairness.edge.table.excludedBecause": "Excluded because",
     "showcase.edumatch.caseStudy.pageHeader.kicker": "Case study",
     "showcase.edumatch.caseStudy.pageHeader.title":
-      "From a tutoring marketplace to an explainable matching benchmark",
+      "The matching engine behind a live, still-synthetic marketplace",
     "showcase.edumatch.caseStudy.pageHeader.description":
-      "The insight worth keeping was never the payments stack — it was how the ranking is built and explained.",
+      "EduMatch (edumatch.asafarim.com) is a real, deployed app today — accounts, bookings, tutor invites — running in showcase mode on synthetic data. This benchmark exists because the part worth inspecting closely, the ranking logic, is easier to trust in isolation than inside a full stateful app.",
     "showcase.edumatch.caseStudy.section.evolution.kicker": "Evolution",
     "showcase.edumatch.caseStudy.section.evolution.title":
       "What was ported, what wasn't",
@@ -194,14 +199,14 @@ const edumatchDictionaries: Dictionaries = {
     "showcase.edumatch.caseStudy.evolution.personalProject.idea":
       "A full tutoring marketplace: intake, tutor discovery, quotes, Stripe-split payments, disputes, verification, notifications.",
     "showcase.edumatch.caseStudy.evolution.personalProject.limit":
-      "The matching algorithm itself — the actual product insight — was buried inside a large, credentialed, stateful app that can't be shown publicly as-is.",
+      "It grew into a real deployed app (edumatch.asafarim.com, Auth.js accounts, Postgres, a conversational Learning Brief flow) — but the matching algorithm's correctness and fairness are hard to see or argue with from inside a full stateful product.",
     "showcase.edumatch.caseStudy.evolution.benchmark.stage": "This benchmark",
     "showcase.edumatch.caseStudy.evolution.benchmark.stack":
       "Pure JS engine · synthetic fixtures · client-side demo",
     "showcase.edumatch.caseStudy.evolution.benchmark.idea":
-      "Extract just the matching logic, make it explainable and adjustable, and prove it with deterministic tests instead of a live marketplace.",
+      "Extract a simplified version of the matching logic, make it explainable and adjustable, and prove it with deterministic tests you can run without a database.",
     "showcase.edumatch.caseStudy.evolution.benchmark.limit":
-      "Deliberately no accounts, payments, geocoding, or verification — the Journey page simulates the workflow shape without any of the real infrastructure.",
+      "Deliberately no accounts, payments, or live infrastructure — and its weights are illustrative, not a live mirror of the production engine, which has since evolved to eight factors (see Method on the overview page).",
     "showcase.edumatch.caseStudy.section.architecture.kicker": "Architecture",
     "showcase.edumatch.caseStudy.section.architecture.title":
       "How the benchmark is built",
@@ -225,9 +230,9 @@ const edumatchDictionaries: Dictionaries = {
     "showcase.edumatch.caseStudy.section.tradeoffs.title":
       "What we gave up, and why",
     "showcase.edumatch.caseStudy.tradeoffs.noLiveMarketplace.title":
-      "No live marketplace in public",
+      "Real app, but not a real marketplace yet",
     "showcase.edumatch.caseStudy.tradeoffs.noLiveMarketplace.body":
-      "The public surface cannot create a real booking or move real money. That rules out 'try it against real tutors' demos, but it's the only honest way to publish a matching demo without a moderated, credentialed backend.",
+      "edumatch.asafarim.com is a live, working app, but every tutor profile is synthetic and checkout is a $0 mock — there is no real tutor supply and no real money moving. This benchmark's fixture-based demo makes the same honesty tradeoff on purpose, rather than dressing up synthetic data as a real marketplace.",
     "showcase.edumatch.caseStudy.tradeoffs.smallFixture.title":
       "Small, hand-reviewed fixture set",
     "showcase.edumatch.caseStudy.tradeoffs.smallFixture.body":
@@ -247,13 +252,13 @@ const edumatchDictionaries: Dictionaries = {
       "Toward a real production version",
     "showcase.edumatch.caseStudy.lessons.production.badge": "evidence-first",
     "showcase.edumatch.caseStudy.towardProduction.0":
-      "Real provider adapters (an LLM for scripts, a render worker for video) implementing the same ScriptProvider/RenderProvider interface, gated behind explicit flags and a cost confirmation step.",
+      "Real tutor supply: manually onboard the first verified tutors in a narrow subject/region niche instead of synthetic profiles, to solve the two-sided cold-start problem.",
     "showcase.edumatch.caseStudy.towardProduction.1":
-      "Real asset storage, licensing, and rights verification for any non-synthetic media.",
+      "Live Stripe checkout in place of the $0 mock, and removal of the public 'showcase' disclaimer once real payments are wired up.",
     "showcase.edumatch.caseStudy.towardProduction.2":
-      "Durable queue/worker infrastructure so a job survives a process restart, with the same state machine and idempotent-retry semantics enforced server-side.",
+      "Guardian approval flow for minors — the data model (isMinor, guardianName, guardianEmail) and the safeguarding match filter exist, but the approval gate before payment is not built yet.",
     "showcase.edumatch.caseStudy.towardProduction.3":
-      "Audit logging and access control around who can approve or reject a run at each gate.",
+      "Localisation of the Learning Brief flow beyond English and Dutch (fr/de/lb currently fall back to English).",
   },
   nl: {},
   fr: {},
