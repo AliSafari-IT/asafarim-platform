@@ -56,6 +56,13 @@
     --color-primary: #7d9bff;
     --color-primary-dark: #5b7bff;
     --color-primary-soft: rgba(125, 155, 255, 0.15);
+    /* Text color for content sitting on a solid --color-primary fill. Dark
+     * theme's primary is a light periwinkle (L*≈0.35), so dark text clears
+     * AAA (~7.5:1). Light theme's primary is a much darker indigo (L*≈0.14),
+     * where this same dark text would fail AA (~3.7:1) — see the light-theme
+     * override below, which flips it to white (~5.4:1). Never hardcode
+     * #07101a or #fff directly against a --color-primary fill; use this. */
+    --color-on-primary: #07101a;
     --color-accent: #5cf0cc;
     --ui-showcase-accent: var(--color-accent);
     --color-accent-soft: rgba(92, 240, 204, 0.12);
@@ -180,6 +187,9 @@ html[data-theme="light"] {
     --color-primary: #3e5de3;
     --color-primary-dark: #2b44bd;
     --color-primary-soft: rgba(62, 93, 227, 0.12);
+    /* See --color-on-primary in :root — light theme's primary is dark
+     * enough that it needs white text instead of dark. */
+    --color-on-primary: #ffffff;
     /* The dark theme's accent is a mint; light previously jumped to a
      * true emerald, so the brand changed hue between modes. This is the
      * same mint darkened until it carries text weight on white. */
