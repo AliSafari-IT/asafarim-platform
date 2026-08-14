@@ -3181,11 +3181,35 @@ export function ViontoPage() {
                       preserveAspectRatio="none"
                       aria-hidden="true"
                     >
+                      <defs>
+                        <linearGradient
+                          id="project-picker-flow-gradient"
+                          gradientUnits="userSpaceOnUse"
+                          x1="-342"
+                          y1="0"
+                          x2="0"
+                          y2="0"
+                        >
+                          <stop offset="0%" stopColor="#f5c518" />
+                          <stop offset="25%" stopColor="#fb923c" />
+                          <stop offset="50%" stopColor="#f43f9c" />
+                          <stop offset="75%" stopColor="#fb923c" />
+                          <stop offset="100%" stopColor="#f5c518" />
+                          <animateTransform
+                            attributeName="gradientTransform"
+                            type="translate"
+                            from="0 0"
+                            to="342 0"
+                            dur="2.5s"
+                            repeatCount="indefinite"
+                          />
+                        </linearGradient>
+                      </defs>
                       <path
                         d="M8,32 C4,14 60,4 171,5 C282,6 338,13 334,30 C338,48 280,56 171,55 C62,55 6,49 10,34"
                         fill="none"
-                        stroke="#f5c518"
-                        strokeWidth={3}
+                        stroke="url(#project-picker-flow-gradient)"
+                        strokeWidth={6}
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         pathLength={1}
