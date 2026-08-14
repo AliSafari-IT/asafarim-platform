@@ -1,8 +1,8 @@
 [
   {
-    "date": "2026-08-14",
-    "title": "Auth: add edumatch, timelineai, and labs to sign-in trusted origins",
-    "sha": "184f55c",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/184f55c"
+    "date": "2026-08-15",
+    "title": "EduMatch: add prominent MVP status badge and improve address handling",
+    "sha": "07d7afa",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/07d7afa"
   }
 ]
