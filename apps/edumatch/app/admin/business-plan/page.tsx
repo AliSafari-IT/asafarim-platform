@@ -740,7 +740,20 @@ export default async function BusinessPlanPage() {
           </p>
           <Link
             href="/admin/business-plan/screenshots"
-            className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-semibold text-[var(--color-on-primary)] transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
+            // Inline style, not a Tailwind text-color utility class: @asafarim/ui's
+            // base.css ships an unlayered `a { color: var(--accent) }` reset (see
+            // the import-order comment in app/layout.tsx). EduMatch never defines
+            // --accent, so that rule is invalid and every anchor's color falls
+            // through to whatever it inherits — and because it's unlayered, it
+            // beats any Tailwind utility class (those live in `@layer utilities`,
+            // which always loses to unlayered CSS regardless of specificity).
+            // An inline style is the one thing nothing in that cascade can
+            // override. (Do not spell out the utility syntax here — Tailwind's
+            // scanner treats any bracket-value string in this file as a
+            // candidate class, comment or not, and will choke generating CSS
+            // for a nonsense one.)
+            style={{ color: "var(--color-on-primary)" }}
+            className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-semibold transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
           >
             View captured screens →
           </Link>
@@ -760,7 +773,11 @@ export default async function BusinessPlanPage() {
           </p>
           <Link
             href="/admin/business-plan/architecture"
-            className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-semibold text-[var(--color-on-primary)] transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
+            // See the comment on the "View captured screens" Link above — an
+            // inline style is required here to survive @asafarim/ui's
+            // unlayered `a { color: var(--accent) }` reset.
+            style={{ color: "var(--color-on-primary)" }}
+            className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-semibold transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
           >
             View architecture review →
           </Link>
