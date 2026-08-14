@@ -19,10 +19,21 @@ body {
   line-height: 1.6;
   color: var(--ink);
   background-color: var(--bg);
+  min-height: 100vh;
+}
+
+/* Decorative background rendered on a separate GPU-composited layer via a
+   fixed pseudo-element instead of background-attachment: fixed, which
+   forces a repaint on every scroll frame.  Visually identical, far
+   cheaper to composite. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background-image: var(--bg-deco);
   background-size: var(--bg-deco-size, auto);
-  background-attachment: fixed;
-  min-height: 100vh;
+  pointer-events: none;
 }
 
 h1,

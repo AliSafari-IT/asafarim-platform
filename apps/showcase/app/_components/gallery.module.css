@@ -12,6 +12,9 @@
   overflow: hidden;
   transition: border-color var(--dur-2) var(--ease), transform var(--dur-2) var(--ease),
     box-shadow var(--dur-2) var(--ease);
+  content-visibility: auto;
+  contain-intrinsic-size: 320px;
+  contain: layout style paint;
 }
 
 .card:hover {
