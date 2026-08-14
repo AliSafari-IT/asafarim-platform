@@ -75,7 +75,7 @@ export default async function BusinessPlanPage() {
       {/* Cover */}
       <div className="-mx-4 -mt-4 mb-10 rounded-b-xl bg-[var(--color-primary)]/10 px-6 py-12 sm:-mx-6 sm:px-10">
         <div className="text-xs font-semibold tracking-[0.14em] text-[var(--color-primary)]">
-          BUSINESS PLAN · V1.0 · 12 AUGUST 2026
+          BUSINESS PLAN · V1.1 · 15 AUGUST 2026
         </div>
         <h1 className="mt-3 font-serif text-4xl leading-tight text-[var(--color-text)] sm:text-5xl">EduMatch</h1>
         <p className="mt-4 max-w-[46ch] border-l-2 border-[var(--color-primary)] pl-4 font-serif text-lg italic leading-relaxed text-[var(--color-text)]">
@@ -785,7 +785,7 @@ export default async function BusinessPlanPage() {
       </Section>
 
       <div className="mt-16 border-t border-[var(--color-border)] pt-6 text-xs text-[var(--color-text-muted)]">
-        EduMatch Business Plan v1.0 · 12 August 2026 · ASafarIM Digital / Probex Belgium
+        EduMatch Business Plan v1.1 · 15 August 2026 · ASafarIM Digital / Probex Belgium
       </div>
     </div>
   );
