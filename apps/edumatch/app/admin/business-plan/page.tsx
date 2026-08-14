@@ -120,6 +120,134 @@ export default async function BusinessPlanPage() {
         </div>
       </Section>
 
+      {/* PART 0 */}
+      <Part roman="0" id="market" title="The market: Belgium first, Europe next" />
+
+      <Section title="The Belgian shadow-education boom">
+        <p>
+          Belgium&rsquo;s exam structure creates recurring, high-stakes demand that doesn&rsquo;t exist the same way
+          in every market: the <strong className="text-[var(--color-text)]">CE1D</strong>{" "}and{" "}
+          <strong className="text-[var(--color-text)]">CESS</strong>{" "}certification exams in Wallonia and Brussels,
+          and the <strong className="text-[var(--color-text)]">Examencommissie</strong>{" "}route in Flanders, push
+          families toward private academic support every spring — not as a luxury, but as exam insurance. That
+          seasonal, high-urgency demand is exactly what EduMatch&rsquo;s &ldquo;help first&rdquo; funnel is built to
+          capture at the moment it&rsquo;s searched for, not weeks later after a family has already committed to an
+          agency.
+        </p>
+        <p>
+          Regional and linguistic fragmentation — Flemish, French, and German-speaking communities each with their
+          own curricula and, often, their own tutoring supply — is a genuine barrier to entry for pan-European or
+          global players, and it is EduMatch&rsquo;s first structural moat. Native multi-language support
+          (<Code>en</Code>, <Code>nl</Code>, <Code>fr</Code>, <Code>de</Code>, <Code>lb</Code>) lets EduMatch operate
+          across every Belgian community from day one, something most competitors treat as an afterthought.
+        </p>
+      </Section>
+
+      <Section title="Where EduMatch sits in the Belgian landscape">
+        <p>
+          The market is currently polarised between two poor options. On one end, traditional agencies (HelloProf,
+          BijlesHuis) sell trust through manual, high-touch matching — at agency prices, with agency markups. On the
+          other, generic directories (Superprof, Eduvik, Apprentus) sell reach through search and volume, funded by
+          pay-to-rank listings that quietly work against the family paying for the search in the first place.
+          EduMatch is built to sit in neither camp: AI-automated matching that keeps operating costs — and therefore
+          fees — competitive with directories, paired with the ethical, no-paid-placement guarantee families
+          associate with agencies.
+        </p>
+        <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 sm:p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static diagram from /public, not an optimizable remote asset */}
+          <img
+            src="/business-plan-screenshots/BelgianPrivateTutoringLandscape.svg"
+            alt="Quadrant chart positioning EduMatch as high-automation, budget-friendly against HelloProf, BijlesHuis, Superprof, Eduvik, and Apprentus"
+            className="mx-auto w-full max-w-md"
+          />
+        </div>
+        <p className="text-[13px] text-[var(--color-text-muted)]">
+          Positioning is illustrative, based on public pricing and stated matching models — not a market-research
+          survey. It should be revisited once EduMatch has real conversion and pricing data of its own.
+        </p>
+      </Section>
+
+      <Section title="SWOT">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[
+            {
+              label: "Strengths",
+              tone: "border-emerald-500/30 bg-emerald-500/5",
+              items: [
+                "Next.js 16 / React 19 stack with async job processing (BullMQ / Redis) — genuinely modern engineering, not a WordPress plugin economy",
+                "Ethical, PostGIS-backed matching with a strict no-paid-placement guarantee",
+                "Zero-friction, AI-driven diagnostic intake that helps before it sells",
+              ],
+            },
+            {
+              label: "Weaknesses",
+              tone: "border-amber-500/30 bg-amber-500/5",
+              items: [
+                "Marketplace liquidity — a cold start requires a critical mass of verified tutors before matching quality is credible",
+                "Parental trust in AI — some families will need convincing that an AI-assisted diagnostic is trustworthy for their child",
+              ],
+            },
+            {
+              label: "Opportunities",
+              tone: "border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5",
+              items: [
+                "Capturing the underserved middle market — automated workflows support lower fees than traditional agencies without directory-level race-to-the-bottom pricing",
+                "B2B partnerships with Belgian schools, CLBs, and training initiatives as an institutional demand channel",
+              ],
+            },
+            {
+              label: "Threats",
+              tone: "border-red-500/30 bg-red-500/5",
+              items: [
+                "Incumbent marketing budgets and SEO footholds already held by established directories",
+                "Regulatory scrutiny under the evolving EU AI Act, specifically regarding AI systems used with minors",
+              ],
+            },
+          ].map((box) => (
+            <div key={box.label} className={`rounded-lg border p-4 ${box.tone}`}>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text)]">{box.label}</div>
+              <ul className="list-disc space-y-1.5 pl-4 text-[13px] leading-snug text-[var(--color-text-muted)]">
+                {box.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Go-to-market: Belgium, then outward in concentric rings">
+        <p>
+          The expansion path is deliberately sequential — each ring only opens once the one before it has real
+          liquidity and a repeatable playbook, not a fixed calendar date:
+        </p>
+        <FlowDown
+          stages={[
+            {
+              label: "Phase 1 — Belgian liquidity (2026–2027)",
+              note: "Hyper-local, supply-led rollout in Leuven, Ghent, Liège — university cities with a natural tutor supply. Marketing timed to Belgian exam-stress peaks (May–June), using free AI help as top-of-funnel lead generation into paid human bookings.",
+              tone: "gate",
+            },
+            {
+              label: "Phase 2 — Benelux (2027–2028)",
+              note: "The Netherlands and Luxembourg — shared language coverage (nl, fr, de), similar regulatory environment, and cross-border families already familiar with the Belgian brand.",
+              tone: "default",
+            },
+            {
+              label: "Phase 3 — Core Europe (2028–2030)",
+              note: "France and Germany first — largest addressable populations for the existing fr/de language support, followed by wider EU expansion once the AI Act compliance groundwork from the Belgian launch is proven.",
+              tone: "default",
+            },
+            {
+              label: "Phase 4 — Global (2030+)",
+              note: "English-first markets and further localisation once the matching engine, trust model, and unit economics are validated across multiple regulatory regimes, not just one.",
+              tone: "result",
+            },
+          ]}
+        />
+        <Pull>Each ring is a decision made with real data from the ring before it — not a growth chart drawn in advance of any usage at all.</Pull>
+      </Section>
+
       {/* PART I */}
       <Part roman="I" id="idea" title="The idea" />
 
@@ -146,6 +274,14 @@ export default async function BusinessPlanPage() {
             "Compare", "Book", "Learn", "Track",
           ]}
         />
+        <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 sm:p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static diagram from /public, not an optimizable remote asset */}
+          <img
+            src="/business-plan-screenshots/UserJourneyFlowchart.svg"
+            alt="Flowchart of the EduMatch help-first user journey: AI diagnosis, instant help or a Learning Brief, matching, prepared proposals, checkout, and learning"
+            className="mx-auto w-full max-w-2xl"
+          />
+        </div>
         <p>
           In the codebase: <Code>/student/learn</Code>{" "}opens the conversation,{" "}
           <Code>learning-briefs.startIntake</Code>{" "}and <Code>learning-intake.analyseIntake</Code>{" "}
@@ -407,6 +543,14 @@ export default async function BusinessPlanPage() {
           Value only really exists once a good match happens, so most of the funnel stays free: self-study help, the
           AI intake and Learning Brief, previewing matched tutors, and receiving and comparing up to five prepared
           proposals all cost nothing. Revenue is earned exactly where value is delivered — at a completed booking.
+          That freemium funnel is deliberate: AI diagnostics and immediate help minimise customer acquisition cost by
+          giving away exactly the thing that&rsquo;s expensive to build and cheap to run, so the paid step only ever
+          happens once trust has already been earned.
+        </p>
+        <p>
+          Revenue is transaction-based and programmatic, never a listing fee: tutors are never charged to appear or
+          to be matched, and parents are never locked into a subscription to receive proposals. The fee only exists
+          because a real booking happened.
         </p>
         <p>
           The 15% platform fee already implemented is the anchor. Two refinements are worth testing once there&rsquo;s
@@ -590,13 +734,13 @@ export default async function BusinessPlanPage() {
           <Code>http://localhost:3009</Code>.
         </p>
         <Table head={["Page", "Route", "What it should show"]} rows={screens} />
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 px-4 py-3">
-          <p className="m-0 text-[14px] text-[var(--color-text)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 px-4 py-3">
+          <p className="m-0 min-w-[18ch] flex-1 text-[14px] text-[var(--color-text)]">
             The captured set now lives in its own gallery, one caption per screen.
           </p>
           <Link
             href="/admin/business-plan/screenshots"
-            className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-medium text-[#07101a] transition hover:opacity-90"
+            className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-semibold text-[var(--color-on-primary)] transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
           >
             View captured screens →
           </Link>
@@ -610,13 +754,13 @@ export default async function BusinessPlanPage() {
           not a microservice system. The full reasoning, with diagrams of the current shape and the extraction path
           for later, lives on its own page.
         </p>
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 px-4 py-3">
-          <p className="m-0 text-[14px] text-[var(--color-text)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 px-4 py-3">
+          <p className="m-0 min-w-[18ch] flex-1 text-[14px] text-[var(--color-text)]">
             Module boundaries, deployment shape, and when a service split would actually pay for itself.
           </p>
           <Link
             href="/admin/business-plan/architecture"
-            className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-medium text-[#07101a] transition hover:opacity-90"
+            className="shrink-0 rounded-md bg-[var(--color-primary)] px-3.5 py-2 text-sm font-semibold text-[var(--color-on-primary)] transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
           >
             View architecture review →
           </Link>
