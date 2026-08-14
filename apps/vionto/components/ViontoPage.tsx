@@ -3173,30 +3173,50 @@ export function ViontoPage() {
                     <ArrowRight size={11} />
                   </a>
                 </div>
-                <div className="project-picker-row mt-1">
-                  <select
-                    className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
-                    value={selectedProjectId ?? ""}
-                    onChange={(e) => selectProject(e.target.value || null)}
-                    disabled={isLoadingProjects || isUploading}
-                  >
-                    <option value="">
-                      {t("vionto.project.selectPlaceholder")}
-                    </option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title}
+                <div className="project-picker-scribble-wrap relative mt-1">
+                  {!selectedProjectId && (
+                    <svg
+                      className="project-picker-scribble"
+                      viewBox="0 0 342 60"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M8,32 C4,14 60,4 171,5 C282,6 338,13 334,30 C338,48 280,56 171,55 C62,55 6,49 10,34"
+                        fill="none"
+                        stroke="#f5c518"
+                        strokeWidth={3}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        pathLength={1}
+                      />
+                    </svg>
+                  )}
+                  <div className="project-picker-row">
+                    <select
+                      className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
+                      value={selectedProjectId ?? ""}
+                      onChange={(e) => selectProject(e.target.value || null)}
+                      disabled={isLoadingProjects || isUploading}
+                    >
+                      <option value="">
+                        {t("vionto.project.selectPlaceholder")}
                       </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setIsCreatingProject(true)}
-                    disabled={isUploading}
-                    className="project-new-button inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
-                  >
-                    <Plus size={16} /> {t("vionto.project.new")}
-                  </button>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.title}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingProject(true)}
+                      disabled={isUploading}
+                      className="project-new-button inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
+                    >
+                      <Plus size={16} /> {t("vionto.project.new")}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Create project inline form */}
