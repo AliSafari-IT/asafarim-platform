@@ -150,6 +150,30 @@ export function FlowDown({
   );
 }
 
+/**
+ * An inline external citation link (market-research sources, etc). Uses an
+ * inline `color` style rather than a Tailwind text-color utility class — see
+ * the comment on the "View captured screens" / "View architecture review"
+ * Links in page.tsx: @asafarim/ui's base.css ships an unlayered
+ * `a { color: var(--accent) }` reset that EduMatch never satisfies (it
+ * doesn't define --accent), and because that rule is unlayered it always
+ * beats a layered Tailwind utility class regardless of specificity. Inline
+ * style is the one thing nothing in that cascade can override.
+ */
+export function RefLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: "var(--color-primary)" }}
+      className="underline decoration-[var(--color-primary)]/40 underline-offset-2 transition hover:decoration-[var(--color-primary)]"
+    >
+      {children}
+    </a>
+  );
+}
+
 export function Code({ children }: { children: string }) {
   return (
     <code className="whitespace-nowrap rounded bg-[var(--color-primary)]/10 px-1.5 py-0.5 font-mono text-[0.86em] text-[var(--color-primary)]">
