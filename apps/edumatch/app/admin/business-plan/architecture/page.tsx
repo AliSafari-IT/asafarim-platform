@@ -11,6 +11,7 @@ import {
   Boundary,
   DomainBox,
 } from "../_shared";
+import { ExportPdfButton } from "../ExportPdfButton";
 
 export const metadata: Metadata = { title: "Technical Architecture Review · Business Plan · EduMatch Admin" };
 
@@ -38,12 +39,15 @@ export default async function ArchitectureReviewPage() {
 
   return (
     <div className="mx-auto max-w-3xl pb-24">
-      <Link
-        href="/admin/business-plan"
-        className="text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]"
-      >
-        ← Back to Business Plan
-      </Link>
+      <div className="flex items-start justify-between gap-4">
+        <Link
+          href="/admin/business-plan"
+          className="print:hidden text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]"
+        >
+          ← Back to Business Plan
+        </Link>
+        <ExportPdfButton floating={false} />
+      </div>
 
       <div className="mt-4">
         <div className="text-xs font-semibold tracking-[0.14em] text-[var(--color-primary)]">APPENDIX</div>
