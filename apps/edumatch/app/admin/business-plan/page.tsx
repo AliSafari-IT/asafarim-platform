@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireSuperAdmin, Badge, Part, Section, Pull, FlowChart, FlowDown, Code, Table, Stat, RefLink } from "./_shared";
+import { ExportPdfButton } from "./ExportPdfButton";
 
 export const metadata: Metadata = { title: "Business Plan · EduMatch Admin" };
 
@@ -73,7 +74,8 @@ export default async function BusinessPlanPage() {
   return (
     <div className="mx-auto max-w-3xl pb-24">
       {/* Cover */}
-      <div className="-mx-4 -mt-4 mb-10 rounded-b-xl bg-[var(--color-primary)]/10 px-6 py-12 sm:-mx-6 sm:px-10">
+      <div className="relative -mx-4 -mt-4 mb-10 rounded-b-xl bg-[var(--color-primary)]/10 px-6 py-12 sm:-mx-6 sm:px-10">
+        <ExportPdfButton />
         <div className="text-xs font-semibold tracking-[0.14em] text-[var(--color-primary)]">
           BUSINESS PLAN · V1.1 · 15 AUGUST 2026
         </div>
@@ -89,7 +91,7 @@ export default async function BusinessPlanPage() {
       </div>
 
       {/* Restricted-visibility note */}
-      <div className="mb-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-xs text-[var(--color-text-muted)]">
+      <div className="print:hidden mb-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-xs text-[var(--color-text-muted)]">
         Visible to superadmin only. This link doesn&rsquo;t appear in the navbar or admin sidebar for any other role.
       </div>
 
