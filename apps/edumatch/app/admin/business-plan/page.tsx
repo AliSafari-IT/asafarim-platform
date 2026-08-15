@@ -152,7 +152,7 @@ export default async function BusinessPlanPage() {
           The existing tutoring platforms in Belgium fall into two groups.{" "}
           <RefLink href="https://www.superprof.com/">Superprof</RefLink>,{" "}
           <RefLink href="https://www.eduvik.com/en">Eduvik</RefLink>, and{" "}
-          <RefLink href="https://www.apprentus.com/en-us/">Apprentus</RefLink> work as large directories, with
+          <RefLink href="https://www.apprentus.com/en-us/">Apprentus</RefLink>{" "} work as large directories, with
           little real matching intelligence. HelloProf and BijlesHuis do manual, agency-style matching, which costs
           more and is hard to scale. EduMatch is built to combine the low cost of a directory with the match
           quality of an agency. See &ldquo;Where EduMatch sits in the Belgian landscape&rdquo; below for more
