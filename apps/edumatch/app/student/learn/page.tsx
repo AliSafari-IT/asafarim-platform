@@ -22,6 +22,7 @@ import {
   AttachmentUploader,
   type UploadedAttachment,
 } from "@/components/AttachmentUploader";
+import { isStudentProfileRequiredError } from "@/lib/upload-error";
 import { BriefReview } from "@/components/learning/BriefReview";
 import { TriageCard } from "@/components/learning/TriageCard";
 import { TutorCandidateList } from "@/components/learning/TutorCandidateList";
@@ -57,6 +58,7 @@ export default function LearnPage() {
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsProfile, setNeedsProfile] = useState(false);
 
   const [candidates, setCandidates] = useState<TutorCandidateView[]>([]);
   const [quoteRequestId, setQuoteRequestId] = useState<string | null>(null);
@@ -64,6 +66,11 @@ export default function LearnPage() {
   const transcriptEnd = useRef<HTMLDivElement>(null);
   const messageBox = useRef<HTMLTextAreaElement>(null);
   const uploaderKey = useRef(0);
+
+  const handleNeedsProfile = useCallback(() => {
+    setError(null);
+    setNeedsProfile(true);
+  }, []);
 
   const applyStep = useCallback((data: StepResponse) => {
     setBrief(data.brief);
@@ -127,10 +134,15 @@ export default function LearnPage() {
       );
       const data = (await res.json()) as StepResponse & { error?: string };
       if (!res.ok) {
+        if (isStudentProfileRequiredError(res.status, data.error)) {
+          setNeedsProfile(true);
+          return;
+        }
         setError(data.error ?? t("edumatch.learn.error.send"));
         return;
       }
       applyStep(data);
+      setNeedsProfile(false);
       setAttachments([]);
       uploaderKey.current += 1;
     } catch {
@@ -218,10 +230,32 @@ export default function LearnPage() {
         </p>
       </header>
 
-      {error && (
+      {needsProfile && (
         <div
           role="alert"
-          className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="mb-4 flex items-start gap-4 rounded-xl border border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-5 py-4"
+        >
+          <div className="flex-1">
+            <p className="font-semibold text-[var(--color-text)]">
+              {t("edumatch.student.profileMissing.title")}
+            </p>
+            <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">
+              {t("edumatch.student.profileMissing.desc")}
+            </p>
+          </div>
+          <Link
+            href="/student/profile"
+            className="shrink-0 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-on-primary)] transition hover:opacity-90"
+          >
+            {t("edumatch.student.profileMissing.action")}
+          </Link>
+        </div>
+      )}
+
+      {error && !needsProfile && (
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-[var(--color-danger)] bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]"
         >
           {error}
         </div>
@@ -274,6 +308,7 @@ export default function LearnPage() {
                 key={uploaderKey.current}
                 onChange={setAttachments}
                 onUploadingChange={setUploading}
+                onNeedsProfile={handleNeedsProfile}
               />
             </div>
 
