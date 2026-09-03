@@ -19,3 +19,61 @@
   padding-left: 1rem;
   opacity: 0.85;
 }
+
+/* Profile review form. The rule the layout follows: a field and its
+   "check this" marker read as one unit, so uncertainty is never separated
+   from the value it applies to. */
+[data-app="jobmatch"] .jm-field {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+[data-app="jobmatch"] .jm-field > span:first-child {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+[data-app="jobmatch"] .jm-field input,
+[data-app="jobmatch"] .jm-field select,
+[data-app="jobmatch"] .jm-field textarea {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+[data-app="jobmatch"] .jm-field input:focus-visible,
+[data-app="jobmatch"] .jm-field select:focus-visible,
+[data-app="jobmatch"] .jm-field textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+[data-app="jobmatch"] .jm-field small {
+  display: block;
+  margin-top: 0.3rem;
+  opacity: 0.75;
+  font-size: 0.8rem;
+}
+
+[data-app="jobmatch"] .jm-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+[data-app="jobmatch"] .jm-list > li {
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-app="jobmatch"] .jm-list > li:last-child {
+  border-bottom: none;
+}

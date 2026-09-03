@@ -10,7 +10,22 @@ built inside. See [`docs/business-plan.md`](docs/business-plan.md) for the
 milestone sequence and [`docs/threat-model.md`](docs/threat-model.md) for
 what M1 does and does not defend against.
 
-## What M1 delivers
+## What M2 delivers
+
+- Private document storage with byte-level type sniffing, a 10 MB cap, and
+  90-day retention. Filenames never build storage keys.
+- Malware scanning as a hard gate: nothing reaches a parser without a clean
+  verdict, and an unavailable scanner quarantines rather than waving through.
+- Local text extraction for PDF, Word, and plain text, with a bounded retry
+  budget and reason codes a candidate can act on.
+- A profile contract with no field for any protected attribute, so age,
+  nationality, and gender have nowhere to land.
+- Immutable, lineage-linked profile versions. Matching reads only a version
+  the candidate has confirmed.
+- GDPR access and erasure as one-click actions, with erasure removing
+  derived data, not just the original file.
+
+## What M1 delivered
 
 - A deployable Next.js app registered in the platform registry, app
   switcher, Caddy routing, and the production compose stack.
@@ -55,6 +70,9 @@ pnpm --filter @asafarim/jobmatch test
 | `JOBMATCH_ENVIRONMENT` | staging, production | `staging` there, `production` in prod; it decides whether secrets may be defaulted. |
 | `NEXT_PUBLIC_JOBMATCH_URL` | all deployments | Inlined at build time; also an allowed SSO callback origin. |
 | `NEXT_PUBLIC_HUB_URL` | all deployments | Where unauthenticated visitors are sent to sign in. |
+| `JOBMATCH_SCANNER_URL` | production (JM-018) | ClamAV sidecar. Without it every upload is quarantined — a fail-closed default, and the reason the CV pipeline is not usable in production yet. |
+| `JOBMATCH_SCANNER` | local only | Set to the exact literal `insecure-accept-all` to run the pipeline without a scanner. Refused on any deployed environment, and it names itself on every document it clears. |
+| `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
 
 Production additionally needs `JOBMATCH_DB_PASSWORD` and its URL-encoded
 form `JOBMATCH_DB_PASSWORD_URL` in `.env.production`, following the same

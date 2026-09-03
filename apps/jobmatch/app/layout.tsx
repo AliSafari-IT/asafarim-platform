@@ -37,6 +37,7 @@ export const metadata: Metadata = {
 const NAV_ITEMS = [
   { label: "Overview", href: "/" },
   { label: "Workspace", href: "/workspace" },
+  { label: "Profile", href: "/profile" },
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -19,15 +19,18 @@
   },
   "dependencies": {
     "@asafarim/auth": "workspace:*",
+    "@asafarim/storage": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "@prisma/adapter-pg": "7.8.0",
     "@prisma/client": "7.8.0",
     "@prisma/client-runtime-utils": "7.8.0",
     "dotenv": "^17.4.2",
+    "mammoth": "^1.12.2",
     "next": "^16.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "unpdf": "^1.8.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

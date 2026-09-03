@@ -1,0 +1,29 @@
+Alexandra Moreau
+Hasselt, Belgium
+alexandra.moreau@example.test
++32 471 22 33 44
+
+SUMMARY
+Backend engineer focused on data pipelines and reliability.
+
+SKILLS
+TypeScript, Node.js, PostgreSQL, Docker, Kubernetes
+Terraform; GitHub Actions; Prometheus
+
+EXPERIENCE
+Senior Software Engineer at Probex  03/2022 - present
+Software Engineer at Kestrel Data  2019 - 02/2022
+Junior Developer at Loomis IT  2017 - 2019
+
+EDUCATION
+MSc Computer Science, KU Leuven  2017
+BSc Informatics  2015
+
+LANGUAGES
+Dutch (native)
+English (fluent)
+French (conversational)
+
+CERTIFICATIONS
+AWS Certified Solutions Architect  2023
+Certified Kubernetes Administrator  2021
