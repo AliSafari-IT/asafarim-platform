@@ -862,6 +862,287 @@ Funding should be released against evidence of source access, match quality, act
 
 ---
 
+# 8. Milestones & Related Issues
+
+This roadmap converts the investment gates into an execution backlog. It is intentionally outcome-led: a milestone is complete only when its exit criteria are demonstrated, not when its code has been merged. Issues should be created in the project tracker with the IDs below so that product, legal, data, security, and go-to-market work remain visible in one delivery sequence.
+
+## Delivery conventions
+
+- **Priority:** `P0` blocks the next gate or creates material legal, privacy, security, or data-rights risk; `P1` is required for the milestone outcome; `P2` improves quality or scale after the gate is proven.
+- **Issue types:** `DEC` decision, `LEGAL` legal/compliance, `PROD` product, `ENG` engineering, `DATA` data/connector, `ML` matching/AI, `SEC` security, `OPS` operations, `GTM` go-to-market, and `MEAS` measurement.
+- **Definition of done:** acceptance criteria are met, tests or evidence are attached, operational ownership is assigned, and known limitations are recorded.
+- **Dependency notation:** an issue may not be marked complete until the listed issue IDs are complete or explicitly waived by the milestone owner.
+- **No silent scope expansion:** new connectors, sensitive attributes, recruiter functionality, or automatic application behavior require a new decision issue and a compliance review.
+
+## Milestone summary
+
+| ID | Milestone | Outcome | Gate | Target exit evidence |
+|---|---|---|---|---|
+| M0 | Commercial, rights, and product decisions | JobMatch can be pursued lawfully and the MVP contract is unambiguous | 0 | Signed/recorded decisions, source-rights register, privacy/DPIA plan, `My-Job` schema |
+| M1 | Platform and delivery foundation | A deployable JobMatch shell is integrated with the platform | 1 | Staging deployment, SSO, CI, database, observability, baseline security |
+| M2 | Candidate profile and CV pipeline | A candidate can safely create and correct a versioned profile | 1–2 | Tested upload, extraction, structured profile, confirmation, deletion |
+| M3 | Authorized job ingestion MVP | One reliable, rights-cleared source produces fresh normalized jobs | 1–2 | Connector agreement, sync metrics, provenance, deduplication, freshness checks |
+| M4 | Search and deterministic eligibility | Candidates can discover explainable, clearly eligible jobs | 2 | Hard-filter reasons, search UI, freshness and duplicate-quality thresholds |
+| M5 | Explainable matching beta | Shortlisted jobs receive evidence-linked, bounded evaluations | 2 | Offline evaluation set, score schema, prompt/model versioning, cost controls |
+| M6 | Candidate workflow and `My-Job` export | Users can act on matches and retain a portable tracking artifact | 2 | Save/reject/apply flow, deterministic export, import/export tests, audit events |
+| M7 | Concierge beta and relevance validation | Real candidates demonstrate usefulness and trust | 2 | Activated-user cohort, top-five relevance results, feedback and support loop |
+| M8 | Belgian source and language expansion | Flanders, Brussels, and Wallonia coverage is added responsibly | 3 | One approved source per region or documented alternative, multilingual quality report |
+| M9 | Production readiness and privacy operations | The service can operate safely at pilot scale | 3 | DPIA decision, deletion/access workflows, incident runbook, load and recovery evidence |
+| M10 | B2C monetization | Paid candidate value and unit economics are validated | 4 | Billing, entitlements, paid pilot, conversion/retention/cost dashboard |
+| M11 | Institutional and partner pilots | Organizations can use JobMatch under controlled agreements | 4 | Pilot contracts, consent model, tenant isolation, partner outcome report |
+| M12 | Recruiter product readiness | A compliant, human-supervised B2B product is ready for a limited launch decision | 5 | AI Act/legal review, recruiter controls, bias/performance audit, go/no-go decision |
+
+## M0 — Commercial, rights, and product decisions
+
+**Objective:** Remove the blockers that cannot be solved by engineering and define what the MVP is allowed to do.
+
+**Exit criteria:** The commercial license or relicense path is documented; source permissions are recorded for the launch source; the controller/processor model and retention assumptions have legal owners; and the `My-Job` contract is approved.
+
+### Related issues
+
+- **JM-001 [P0][LEGAL] Resolve commercial licensing for the platform.** Identify the relevant copyright holders and dependencies, obtain written commercial permission or approve a relicensing plan, and record permitted deployment and modification rights.
+- **JM-002 [P0][DEC] Confirm JobMatch ownership and operating entity.** Decide who owns the product, customer contracts, source agreements, data, models, and incident obligations.
+- **JM-003 [P0][DATA] Create the source-rights register.** Record source owner, access method, agreement, permitted fields, commercial reuse, attribution, rate limits, retention, geographic limits, and termination contact.
+- **JM-004 [P0][DATA] Assess launch sources and select the first authorized connector.** Compare official APIs, licensed feeds, employer feeds, and open-data options; document rejected sources and reasons.
+- **JM-005 [P0][LEGAL] Obtain privacy and AI Act classification advice.** Assess candidate-side recommendations, future recruiter ranking, Article 22 implications, special-category data, DPIA requirements, and human oversight.
+- **JM-006 [P0][DEC] Approve MVP scope and non-goals.** Explicitly exclude automatic applications, employer rejection, pay-to-rank behavior, CV resale, unapproved scraping, and sensitive-attribute inference.
+- **JM-007 [P0][PROD] Define the `My-Job` schema and ownership model.** Approve CSV as the first format, column types, stable job identity, export version, status vocabulary, conflict behavior, and local/cloud roadmap.
+- **JM-008 [P1][LEGAL] Draft candidate terms, privacy notice, consent language, and source attribution text.** Cover CV processing, model providers, retention, deletion, user correction, feedback, and original application links.
+- **JM-009 [P1][MEAS] Define the KPI dictionary and gate thresholds.** Specify activation, precision@5, freshness, duplicate rate, parsing confirmation, cost per evaluation, retention, conversion, and incident thresholds.
+
+## M1 — Platform and delivery foundation
+
+**Objective:** Establish a secure, observable application boundary using existing ASafarIM conventions.
+
+**Dependencies:** JM-001, JM-002, JM-006.
+
+**Exit criteria:** A staging deployment is reachable through the approved platform path; authenticated users can access an isolated JobMatch workspace; CI runs quality checks; secrets are externalized; and critical errors and queue health are observable without logging CV contents.
+
+### Related issues
+
+- **JM-010 [P0][ENG] Scaffold the JobMatch Next.js application.** Add the app entry points, scripts, environment contract, shared UI integration, error/loading states, and initial route structure.
+- **JM-011 [P0][ENG] Register JobMatch in shared authentication and URL systems.** Add the app to the platform registry, SSO configuration, callback URLs, navigation, and authorization boundaries.
+- **JM-012 [P0][ENG] Provision the dedicated PostgreSQL database and Prisma schema baseline.** Configure migrations, least-privilege credentials, backups, and an opaque authenticated user ID without duplicating the platform user table.
+- **JM-013 [P0][ENG] Define environment and secret management.** Separate local, staging, and production configuration; validate required variables at startup; and prevent secrets from entering logs or client bundles.
+- **JM-014 [P1][ENG] Establish CI checks and test harnesses.** Add unit, integration, end-to-end, accessibility, migration, and type/lint/build checks appropriate to the repository.
+- **JM-015 [P1][OPS] Add baseline observability.** Instrument request errors, queue latency, connector runs, evaluation cost, freshness, and storage events with redaction and retention controls.
+- **JM-016 [P1][SEC] Perform threat modeling and dependency/security baseline.** Cover upload handling, signed URLs, IDOR, prompt injection, webhook abuse, SSRF, rate limiting, and dependency scanning.
+
+## M2 — Candidate profile and CV pipeline
+
+**Objective:** Let a candidate create a useful, editable, versioned profile without turning the CV into an uncontrolled source of sensitive data.
+
+**Dependencies:** M1; JM-005, JM-008.
+
+**Exit criteria:** Supported files are validated and malware-scanned, originals are private, extracted data is schema-valid, users can correct it before matching, profile versions are immutable, and deletion removes derived artifacts within the documented SLA.
+
+### Related issues
+
+- **JM-017 [P0][ENG] Implement private candidate-document storage.** Add MIME and size validation, private buckets, encryption, short-lived signed URLs, ownership checks, retention metadata, and deletion hooks.
+- **JM-018 [P0][SEC] Integrate malware scanning and quarantine.** Reject or quarantine unsafe files, record scan outcomes, and ensure untrusted documents never reach parsers or models before approval.
+- **JM-019 [P0][ENG] Build text extraction and OCR workers.** Prefer local extraction, isolate OCR workloads, handle malformed documents, and expose retryable job states.
+- **JM-020 [P0][ML] Define the candidate profile schema and extraction contract.** Include skills, roles, experience, languages, location, work authorization, preferences, certifications, salary expectations, confidence, and provenance; explicitly exclude protected-attribute inference.
+- **JM-021 [P0][PROD] Build profile review and correction UI.** Display extracted facts and uncertainty, require confirmation before matching, allow manual profile creation, and explain how corrections affect results.
+- **JM-022 [P1][ENG] Implement immutable profile versions.** Store source document hash, parser/model/prompt versions, confirmed edits, timestamps, and a reproducible version reference.
+- **JM-023 [P1][SEC] Implement candidate data rights workflows.** Support access, correction, export, deletion, consent withdrawal, and account closure with auditability and no raw CV logging.
+- **JM-024 [P1][MEAS] Create multilingual CV parsing fixtures.** Build consented or synthetic Dutch, French, and English documents covering tables, scans, abbreviations, missing fields, and mixed-language content.
+
+## M3 — Authorized job ingestion MVP
+
+**Objective:** Build a source-transparent ingestion pipeline that is reliable enough for candidate testing.
+
+**Dependencies:** M1; JM-003, JM-004.
+
+**Exit criteria:** The first connector runs within its agreement, stores raw snapshots with controlled retention, normalizes required fields, preserves provenance, detects duplicates, and exposes freshness and failure metrics.
+
+### Related issues
+
+- **JM-025 [P0][DATA] Implement the connector interface and source configuration model.** Require external ID, canonical URL, employer, title, description, location, language, contract, salary, skills, dates, attribution, agreement reference, and capture time.
+- **JM-026 [P0][DATA] Implement the first approved source connector.** Support initial sync, incremental sync, pagination, retries, conditional requests, rate limits, backoff, and connector shutdown.
+- **JM-027 [P0][DATA] Store raw snapshots and normalized postings separately.** Hash content, retain source payloads only as long as justified, and make normalization reproducible.
+- **JM-028 [P0][DATA] Implement canonicalization and deduplication.** Use source ID, URL, employer/title/location, description hash, and dates; retain links between duplicate records and select a display representative.
+- **JM-029 [P1][DATA] Implement freshness and expiry processing.** Track first seen, last seen, publication, expiry, source update, and verification status; label or hide stale listings.
+- **JM-030 [P1][SEC] Add connector security controls.** Validate outbound destinations, prevent SSRF, isolate browser or parser workers, redact secrets, and prohibit proxy rotation used to bypass controls.
+- **JM-031 [P1][MEAS] Add ingestion quality dashboards and alerts.** Monitor sync success, records added/updated/expired, duplicates, parse failures, latency, rate-limit responses, and agreement expiry.
+- **JM-032 [P2][DATA] Build an operator replay and quarantine workflow.** Allow a failed snapshot or normalization version to be reprocessed safely without duplicating postings.
+
+## M4 — Search and deterministic eligibility
+
+**Objective:** Give candidates a fast inventory view where hard exclusions are predictable and explainable.
+
+**Dependencies:** M2, M3.
+
+**Exit criteria:** Users can search and filter normalized jobs; hard exclusions produce user-understandable reasons; expired or unauthorized records are not displayed; and results preserve source attribution.
+
+### Related issues
+
+- **JM-033 [P0][ENG] Implement deterministic eligibility rules.** Cover language, certification, work authorization, location/remote, salary floor, contract, seniority, mandatory technology, expiry, and opt-outs.
+- **JM-034 [P0][ENG] Persist filter decisions and reason codes.** Make each exclusion explainable, version rules, distinguish missing data from failed requirements, and avoid implying certainty when data is incomplete.
+- **JM-035 [P1][ENG] Build candidate search and results UI.** Add filters, sorting, pagination, source labels, freshness labels, original application links, and accessible empty/error states.
+- **JM-036 [P1][DATA] Normalize multilingual fields and controlled vocabularies.** Define language, location, contract, seniority, salary, skill aliases, and employer identity rules without erasing original text.
+- **JM-037 [P1][SEC] Add authorization, rate limits, and abuse controls to search.** Protect candidate data and prevent bulk extraction of job or profile information.
+- **JM-038 [P1][MEAS] Establish search-quality fixtures and thresholds.** Test boundary cases, missing fields, multilingual synonyms, duplicates, expiry, and source attribution.
+
+## M5 — Explainable matching beta
+
+**Objective:** Produce useful recommendations while keeping deterministic filtering, evidence, uncertainty, and model limits visible.
+
+**Dependencies:** M2, M4; JM-005, JM-020, JM-024.
+
+**Exit criteria:** An offline evaluation set meets an agreed precision/relevance threshold across supported languages; every score has evidence and model/prompt versions; prompt injection tests pass; and per-user cost is metered and bounded.
+
+### Related issues
+
+- **JM-039 [P0][ML] Define the matching feature contract.** Specify suitability score, confidence, matching skills, missing skills, uncertain requirements, evidence, explanation, recommended action, and schema validation.
+- **JM-040 [P0][ML] Implement privacy-preserving embedding inputs.** Remove names, contact details, addresses, photographs, and unnecessary identifiers while retaining relevant professional facts.
+- **JM-041 [P0][ML] Implement embedding generation and content-hash caching.** Version embedding models, batch jobs, retry failures, and invalidate only changed content.
+- **JM-042 [P0][ML] Implement shortlist ranking after hard filters.** Combine explicit preferences and vector similarity without presenting similarity as hiring probability.
+- **JM-043 [P0][ML] Implement structured LLM evaluation.** Use provider adapters, schema validation, bounded scores, explicit unknowns, evidence links, and asynchronous queue processing.
+- **JM-044 [P0][SEC] Test prompt-injection and untrusted-job-content isolation.** Ensure job text cannot alter system instructions, reveal candidate data, invoke tools, or change scoring rules.
+- **JM-045 [P1][ML] Build a versioned offline evaluation set.** Include positive, negative, borderline, multilingual, sparse-CV, stale-job, and missing-requirement examples with human judgments.
+- **JM-046 [P1][ML] Add bias and consistency evaluation.** Compare language, formatting, career-gap, seniority, and missing-data effects; do not use protected attributes for ranking.
+- **JM-047 [P1][OPS] Add model, prompt, evaluation, and budget controls.** Store versions, cache by profile/job/prompt/model, configure model cascades, enforce quotas, and support honest degraded mode.
+- **JM-048 [P2][PROD] Design evidence-linked explanation presentation.** Let users inspect the CV fact and job requirement supporting each explanation and report incorrect evidence.
+
+## M6 — Candidate workflow and `My-Job` export
+
+**Objective:** Turn recommendations into a controlled job-search workflow and a durable user-owned artifact.
+
+**Dependencies:** M5; JM-007.
+
+**Exit criteria:** A candidate can save, reject, mark applied, record follow-ups, open the original source, and download a deterministic export without silent local-file overwrites.
+
+### Related issues
+
+- **JM-049 [P0][PROD] Define saved, rejected, and application state transitions.** Specify idempotency, timestamps, user notes, source changes, and behavior when a job expires or is deduplicated.
+- **JM-050 [P0][ENG] Implement saved-job and application records.** Enforce user ownership, unique identities, audit events, optimistic updates, and safe retries.
+- **JM-051 [P0][ENG] Implement deterministic `My-Job` CSV export.** Version headers and formatting, escape values safely, include provenance and score versions, and test fixed fixtures.
+- **JM-052 [P1][PROD] Build tracking and export UI.** Support status, notes, applied/interview/follow-up dates, export preview, and clear download behavior.
+- **JM-053 [P1][ENG] Add export security and privacy controls.** Prevent formula injection, unauthorized downloads, accidental sensitive fields, and cross-user access.
+- **JM-054 [P1][MEAS] Instrument workflow conversion events.** Measure viewed, saved, rejected, application-started, export-created, feedback-submitted, and failure events without raw document content.
+- **JM-055 [P2][ENG] Specify future import and cloud-sync contracts.** Document conflict resolution and consent requirements without implementing silent synchronization in the MVP.
+
+## M7 — Concierge beta and relevance validation
+
+**Objective:** Validate that real candidates trust the product and take better actions, rather than merely generating scores.
+
+**Dependencies:** M6; JM-009, JM-045.
+
+**Exit criteria:** A defined cohort reaches activation; top-five relevance and explanation-trust targets are measured; support findings are converted to backlog issues; and a go/no-go decision is recorded for broader beta.
+
+### Related issues
+
+- **JM-056 [P0][GTM] Recruit and consent the first candidate cohort.** Define inclusion criteria, incentives, consent, feedback cadence, and support ownership across Dutch, French, and English users.
+- **JM-057 [P0][PROD] Run concierge onboarding sessions.** Observe parsing corrections, essential filters, explanation trust, and whether recommendations lead to saves or application starts.
+- **JM-058 [P0][MEAS] Run top-five relevance and calibration study.** Collect human judgments, precision@5, score calibration, false-positive/false-negative examples, and language breakdowns.
+- **JM-059 [P1][PROD] Implement relevance feedback and correction reporting.** Allow users to say why a match is unsuitable and connect feedback to profile, source, rule, or model improvements.
+- **JM-060 [P1][GTM] Create multilingual onboarding and support content.** Explain privacy, scores, limitations, source links, and candidate control in Dutch, French, and English.
+- **JM-061 [P1][MEAS] Publish the beta decision report.** Compare gate thresholds, quality by language/role/source, cost per activated user, retention, incidents, and prioritized next steps.
+
+## M8 — Belgian source and language expansion
+
+**Objective:** Add regional breadth only after the ingestion and quality controls are proven.
+
+**Dependencies:** M7; each connector requires JM-003 and a source-specific approval.
+
+**Exit criteria:** At least one rights-cleared source is operational for each intended region, or a documented coverage decision explains the alternative; multilingual quality is measured; and regional source failures do not take down the product.
+
+### Related issues
+
+- **JM-062 [P0][DATA] Complete VDAB access and partnership decision.** Obtain approved access or document an alternative Flanders source, fields, limits, attribution, and launch impact.
+- **JM-063 [P0][DATA] Assess and onboard an approved Brussels source.** Evaluate Actiris, employer, partner, or licensed options and implement only after rights review.
+- **JM-064 [P0][DATA] Assess and onboard an approved Wallonia source.** Evaluate Le Forem, employer, partner, or licensed options and implement only after rights review.
+- **JM-065 [P1][DATA] Add one private consultancy or employer partner feed.** Use a written pilot agreement, field mapping, freshness SLA, attribution, and termination process.
+- **JM-066 [P1][ML] Expand multilingual normalization and evaluation.** Test Dutch/French/English titles, skills, requirements, salary formats, and explanations with language-specific quality gates.
+- **JM-067 [P1][MEAS] Compare regional coverage and source quality.** Report activated-user relevance, freshness, duplicates, missing-field rates, and connector cost by region.
+- **JM-068 [P2][DATA] Add connector contract-test fixtures.** Detect upstream schema changes, field loss, encoding errors, pagination regressions, and unexpected volume changes.
+
+## M9 — Production readiness and privacy operations
+
+**Objective:** Make the candidate beta safe, supportable, recoverable, and economically observable.
+
+**Dependencies:** M7, M8; JM-005, JM-016, JM-023.
+
+**Exit criteria:** Privacy and security controls are exercised end to end; production recovery is tested; operational runbooks exist; and launch owners have accepted residual risk.
+
+### Related issues
+
+- **JM-069 [P0][LEGAL] Complete DPIA and processing-register review.** Record purposes, data flows, processors, transfers, retention, residual risks, mitigations, and review dates.
+- **JM-070 [P0][SEC] Conduct application and infrastructure security testing.** Test access control, uploads, storage, APIs, queues, SSRF, injection, rate limits, logs, and dependency vulnerabilities.
+- **JM-071 [P0][OPS] Implement backup, restore, disaster recovery, and deletion verification.** Test database restore, object cleanup, queue recovery, RPO/RTO, and evidence generation.
+- **JM-072 [P0][OPS] Create incident response and source takedown runbooks.** Cover data breach, unsafe CV, provider outage, unauthorized source complaint, stale jobs, and model safety incidents.
+- **JM-073 [P1][ENG] Harden production deployment and access.** Apply least privilege, network boundaries, secure headers, secret rotation, admin MFA, and separate worker permissions.
+- **JM-074 [P1][OPS] Establish retention and data-quality jobs.** Expire raw snapshots, delete orphaned artifacts, remove stale postings, and alert on failed scheduled jobs.
+- **JM-075 [P1][MEAS] Build the launch scorecard.** Combine quality, activation, retention, cost, availability, source, privacy, and security metrics with accountable owners.
+
+## M10 — B2C monetization
+
+**Objective:** Validate willingness to pay without degrading candidate trust or allowing paid ranking influence.
+
+**Dependencies:** M9; M7 decision report.
+
+**Exit criteria:** Pricing and entitlements are tested with a small paid cohort; billing is recoverable; usage is metered; cancellations and refunds work; and contribution margin is reported by plan.
+
+### Related issues
+
+- **JM-076 [P0][PROD] Define free and Pro entitlements.** Set profile, refresh, deep-evaluation, export, and career-tool limits with clear user-facing explanations.
+- **JM-077 [P0][ENG] Implement subscription billing and entitlement enforcement.** Handle checkout, webhooks, retries, cancellation, refunds, plan changes, and webhook signature verification.
+- **JM-078 [P0][OPS] Add AI and infrastructure cost metering.** Attribute embedding, evaluation, OCR, storage, and worker costs to usage and plan without exposing provider secrets.
+- **JM-079 [P1][PROD] Build one-time career product workflow.** Start with one bounded product, disclose AI assistance, require user review, and avoid employment guarantees.
+- **JM-080 [P1][GTM] Run pricing and paid-pilot experiments.** Test price points, packaging, messaging, activation-to-paid conversion, retention, refunds, and qualitative objections.
+- **JM-081 [P1][MEAS] Report unit economics and monetization gate.** Track revenue, variable cost, gross margin, CAC, payback, conversion, retention, and support burden.
+
+## M11 — Institutional and partner pilots
+
+**Objective:** Prove controlled distribution and institutional value before exposing candidate data to broader B2B workflows.
+
+**Dependencies:** M9, M10; JM-002, JM-005, JM-008.
+
+**Exit criteria:** Pilot partners have signed agreements, candidate consent and data boundaries are tested, tenant access is isolated, and an outcome report supports continuation or termination.
+
+### Related issues
+
+- **JM-082 [P0][LEGAL] Define institutional pilot contract and data-processing terms.** Cover roles, permitted purposes, data fields, retention, subprocessors, security, support, and exit/export.
+- **JM-083 [P0][ENG] Implement tenant and partner access boundaries.** Prevent cross-organization data access and make every partner action auditable.
+- **JM-084 [P0][PROD] Build candidate consent and visibility controls.** Let candidates understand which institution can see what, revoke consent, and export or delete their data.
+- **JM-085 [P1][GTM] Run university, outplacement, or reskilling pilot.** Define cohort, success metrics, onboarding, support, and a fixed end date.
+- **JM-086 [P1][MEAS] Produce partner outcome and ROI report.** Measure activation, relevance, application starts, completion, satisfaction, operational cost, and data incidents.
+
+## M12 — Recruiter product readiness
+
+**Objective:** Decide whether a recruiter-facing product can launch without turning JobMatch into an opaque or unlawful employment decision system.
+
+**Dependencies:** M9, M11; JM-005, JM-046, JM-069, JM-070.
+
+**Exit criteria:** Legal classification and obligations are documented; recruiter users cannot silently automate rejection; candidate consent and visibility are operational; bias/performance evidence is reviewed; and an explicit launch or defer decision is approved.
+
+### Related issues
+
+- **JM-087 [P0][LEGAL] Complete recruiter-use AI Act and employment-law review.** Confirm classification, provider/deployer obligations, documentation, logging, human oversight, monitoring, and Belgian intermediary obligations.
+- **JM-088 [P0][PROD] Define recruiter human-oversight and contestability workflow.** Require review, prohibit sole reliance for rejection, expose evidence and uncertainty, and record overrides and appeals.
+- **JM-089 [P0][ENG] Implement candidate opt-in discovery and contact controls.** Support consent scope, visibility, withdrawal, controlled messaging, block/report, and audit trails.
+- **JM-090 [P0][ML] Run pre-launch bias and performance audit.** Evaluate false positives/negatives, language, missing data, seniority, career gaps, role families, and source effects using an approved methodology.
+- **JM-091 [P1][PROD] Build recruiter workspace and audit views.** Show provenance, score version, explanation, uncertainty, model limitations, reviewer identity, and action history.
+- **JM-092 [P1][SEC] Perform recruiter-specific abuse and isolation testing.** Test bulk export, inference of hidden attributes, unauthorized contact, tenant escape, prompt injection, and privilege escalation.
+- **JM-093 [P0][DEC] Hold the recruiter go/no-go review.** Approve launch, limited pilot, remediation, or permanent deferral based on legal, quality, consent, safety, and economics evidence.
+
+## Cross-milestone issue standards
+
+Every implementation issue should include:
+
+- **Problem and user/business outcome**
+- **Scope and explicit non-scope**
+- **Dependencies and owner**
+- **Acceptance criteria**
+- **Test/evidence plan**
+- **Privacy, security, source-rights, and accessibility impact**
+- **Telemetry and rollback plan**
+- **Open decisions and residual risks**
+
+The backlog should be reviewed at each gate. A failed gate creates remediation issues rather than being reclassified as complete. In particular, poor relevance, unresolved data rights, unsupported multilingual quality, unsafe model behavior, or uncontrolled AI cost are reasons to pause expansion—not reasons to lower the acceptance threshold.
+
+---
+
 # Investment Conclusion
 
 JobMatch has a credible opportunity if it is built as a **candidate-controlled relevance and decision-support product**, not as an unlicensed scraping operation or autonomous hiring engine.
