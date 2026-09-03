@@ -74,7 +74,10 @@ services:
       POSTGRES_PASSWORD: jobmatch_dev
       POSTGRES_DB: jobmatch
     ports:
-      - "55437:5432"
+      # Loopback only: host-side scripts (migrate/studio) reach it, the
+      # local network does not. Deliberately stricter than the sibling dev
+      # databases above — this one will hold CV-derived data.
+      - "127.0.0.1:55437:5432"
     volumes:
       - jobmatch_pgdata:/var/lib/postgresql/data
     healthcheck:

@@ -9,6 +9,24 @@ describe("JobMatch environment contract", () => {
     expect(env.requiresExplicitSecrets).toBe(false);
   });
 
+  it("refuses to boot deployed without the URLs the sign-in redirect depends on", () => {
+    // A localhost hub URL in production is a broken auth flow that only
+    // shows up once real users are redirected to it.
+    try {
+      resolveEnv({
+        NODE_ENV: "production",
+        JOBMATCH_DATABASE_URL: "postgresql://jobmatch:pw@jobmatch-postgres:5432/jobmatch",
+      });
+      throw new Error("expected a validation failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(EnvValidationError);
+      expect((error as EnvValidationError).variables).toEqual([
+        "NEXT_PUBLIC_HUB_URL",
+        "NEXT_PUBLIC_JOBMATCH_URL",
+      ]);
+    }
+  });
+
   it("refuses to boot staging or production without an explicit database url", () => {
     for (const source of [
       { NODE_ENV: "production" as const },

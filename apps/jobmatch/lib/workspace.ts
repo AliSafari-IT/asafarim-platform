@@ -28,13 +28,28 @@ export async function getOrCreateWorkspace(platformUserId: string): Promise<Work
   });
   if (existing) return existing;
 
-  const created = await db.workspace.create({
-    data: { platformUserId },
-    select: { id: true, createdAt: true },
-  });
+  try {
+    const created = await db.workspace.create({
+      data: { platformUserId },
+      select: { id: true, createdAt: true },
+    });
+    await recordAuditEvent(created.id, "workspace.created");
+    return created;
+  } catch (error) {
+    // Two requests can race here on a user's very first visit — a page
+    // render and a prefetch of the same route both miss the read above.
+    // The unique index on platformUserId is what makes that safe: the
+    // loser re-reads rather than surfacing a 500, and only the winner
+    // writes the workspace.created audit event.
+    if (!isUniqueConstraintViolation(error)) throw error;
 
-  await recordAuditEvent(created.id, "workspace.created");
-  return created;
+    const raced = await db.workspace.findUnique({
+      where: { platformUserId },
+      select: { id: true, createdAt: true },
+    });
+    if (raced) return raced;
+    throw error;
+  }
 }
 
 /**
@@ -79,4 +94,18 @@ export async function recordAuditEvent(
     // when data-rights workflows land in JM-023.
     logError("audit.write.failed", error, { action });
   }
+}
+
+/**
+ * Prisma's unique-constraint error, identified by code rather than by
+ * message text so a driver upgrade cannot silently turn a handled race
+ * into a 500.
+ */
+function isUniqueConstraintViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
 }

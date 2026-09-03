@@ -71,7 +71,13 @@ export function resolveEnv(source: Record<string, string | undefined> = process.
   const requiresExplicitSecrets = environment === "staging" || environment === "production";
 
   const missing: string[] = [];
-  if (requiresExplicitSecrets && !raw.JOBMATCH_DATABASE_URL) missing.push("JOBMATCH_DATABASE_URL");
+  if (requiresExplicitSecrets) {
+    if (!raw.JOBMATCH_DATABASE_URL) missing.push("JOBMATCH_DATABASE_URL");
+    // Without this, proxy.ts would send deployed users to a loopback
+    // sign-in page — a broken auth flow that only shows up in production.
+    if (!raw.NEXT_PUBLIC_HUB_URL) missing.push("NEXT_PUBLIC_HUB_URL");
+    if (!raw.NEXT_PUBLIC_JOBMATCH_URL) missing.push("NEXT_PUBLIC_JOBMATCH_URL");
+  }
   if (missing.length > 0) throw new EnvValidationError(missing);
 
   return {

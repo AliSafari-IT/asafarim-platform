@@ -1,4 +1,5 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import type { NextConfig } from "next";
 
@@ -8,8 +9,11 @@ import type { NextConfig } from "next";
 loadEnv({ path: path.join(process.cwd(), "../../.env.local") });
 loadEnv({ path: path.join(process.cwd(), "../../.env") });
 
+const appRoot = path.dirname(fileURLToPath(import.meta.url));
+
 const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
+  turbopack: { root: path.resolve(appRoot, "../..") },
   transpilePackages: ["@asafarim/ui", "@asafarim/theme-toggle"],
   devIndicators: false,
 };
