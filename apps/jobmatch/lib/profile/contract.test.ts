@@ -105,3 +105,28 @@ describe("candidate profile contract", () => {
     ).toThrow();
   });
 });
+
+describe("date precision and bounds", () => {
+  it("accepts a year or a year-month", () => {
+    const parsed = parseProfileContent({
+      experience: [{ title: "Dev", startedOn: "2021", endedOn: "2024-12" }],
+    });
+    expect(parsed.experience[0].startedOn).toBe("2021");
+    expect(parsed.experience[0].endedOn).toBe("2024-12");
+  });
+
+  it("rejects an impossible month rather than storing it", () => {
+    // "2026-99" would otherwise flow into M4's date comparisons as a
+    // silently nonsensical value.
+    for (const bad of ["2026-99", "2026-00", "2026-13", "2026-1"]) {
+      expect(() =>
+        parseProfileContent({ experience: [{ title: "Dev", startedOn: bad }] }),
+      ).toThrow();
+    }
+  });
+
+  it("applies the same bound to every date field", () => {
+    expect(() => parseProfileContent({ education: [{ qualification: "MSc", completedOn: "2020-13" }] })).toThrow();
+    expect(() => parseProfileContent({ certifications: [{ name: "X", expiresOn: "2027-00" }] })).toThrow();
+  });
+});

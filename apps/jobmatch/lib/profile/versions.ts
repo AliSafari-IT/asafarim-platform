@@ -91,17 +91,23 @@ export async function createVersion(input: CreateVersionInput): Promise<VersionD
 
   const profile = await ensureProfile(input.workspaceId);
 
-  // Serialized so two concurrent writers cannot both claim the same
-  // versionNumber; the unique index would reject the loser anyway, and this
-  // turns that into a correct number rather than an error.
-  const version = await db.$transaction(async (tx) => {
-    const latest = await tx.candidateProfileVersion.findFirst({
+  // Read-then-insert is not atomic, so two concurrent writers can compute
+  // the same versionNumber. The unique index on (profileId, versionNumber)
+  // is what makes that safe rather than corrupting: the loser's insert is
+  // rejected, and it retries with a freshly read number instead of
+  // surfacing an error to a candidate who just pressed Save.
+  //
+  // Retrying beats locking here because contention is rare — it takes two
+  // saves for the same profile in the same instant — and a bounded retry
+  // costs nothing when it does not happen.
+  const version = await withVersionNumberRetry(async () => {
+    const latest = await db.candidateProfileVersion.findFirst({
       where: { profileId: profile.id },
       orderBy: { versionNumber: "desc" },
       select: { versionNumber: true },
     });
 
-    return tx.candidateProfileVersion.create({
+    return db.candidateProfileVersion.create({
       data: {
         profileId: profile.id,
         versionNumber: (latest?.versionNumber ?? 0) + 1,
@@ -257,4 +263,21 @@ function isUniqueViolation(error: unknown): boolean {
     "code" in error &&
     (error as { code?: unknown }).code === "P2002"
   );
+}
+
+/**
+ * Retry a version insert that lost a race for its version number.
+ *
+ * Only a unique-constraint violation is retried, and only a few times: any
+ * other failure is a real error and must surface, and an unbounded retry
+ * would turn a persistent constraint problem into a hang.
+ */
+async function withVersionNumberRetry<T>(insert: () => Promise<T>, attempts = 4): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await insert();
+    } catch (error) {
+      if (!isUniqueViolation(error) || attempt >= attempts) throw error;
+    }
+  }
 }

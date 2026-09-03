@@ -78,12 +78,17 @@ function looksEncrypted(bytes: Uint8Array): boolean {
   return false;
 }
 
-/** Plain text must actually be text — no NUL bytes, valid UTF-8. */
+/**
+ * Plain text must actually be text — no NUL bytes, valid UTF-8, checked
+ * over the WHOLE file rather than a leading sample. A sample would accept a
+ * file that is clean for 8 KB and binary afterwards, which is trivial to
+ * construct and would hand the extractor something it cannot read. The
+ * 10 MB cap, enforced before this runs, bounds the work.
+ */
 function looksLikeText(bytes: Uint8Array): boolean {
-  const sample = bytes.subarray(0, Math.min(bytes.length, 8192));
-  if (sample.includes(0)) return false;
+  if (bytes.includes(0)) return false;
   try {
-    new TextDecoder("utf-8", { fatal: true }).decode(sample);
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     return true;
   } catch {
     return false;

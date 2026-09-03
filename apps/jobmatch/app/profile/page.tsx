@@ -58,7 +58,13 @@ export default async function ProfilePage() {
       />
 
       <section style={{ marginTop: "2rem" }}>
+        {/* Keyed by version id so a newly extracted profile REPLACES the
+            form after router.refresh(). Without the key, the client
+            component keeps its initial useState value and a candidate can
+            confirm an empty profile moments after uploading a CV — the one
+            outcome this whole screen exists to prevent. */}
         <ProfileWorkbench
+          key={latest?.id ?? "empty"}
           initialContent={latest?.content ?? emptyProfile()}
           initialConfidence={latest?.confidence ?? {}}
           versionId={latest?.id ?? null}

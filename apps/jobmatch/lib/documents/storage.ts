@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash, randomUUID } from "node:crypto";
-import { deleteObject, getObjectBytes, putObjectBytes } from "@asafarim/storage";
+import { deleteObject, getObjectBytes, objectExists, putObjectBytes } from "@asafarim/storage";
 
 /**
  * Private candidate-document storage (JM-017).
@@ -75,6 +75,22 @@ export async function readDocumentBytes(
   }
 }
 
-export async function deleteDocumentBytes(key: string): Promise<void> {
+/**
+ * Delete stored bytes and *verify* they are gone.
+ *
+ * `@asafarim/storage`'s `deleteObject` returns void and swallows its own
+ * errors — reasonable for an avatar, useless for a CV, because it makes a
+ * failed delete indistinguishable from a successful one. An erasure that
+ * reports success while the bytes remain is worse than one that reports
+ * failure, so this reads the object back and returns whether it actually
+ * went away.
+ */
+export async function deleteDocumentBytes(key: string): Promise<boolean> {
   await deleteObject(key);
+  try {
+    return !(await objectExists(key));
+  } catch {
+    // Cannot confirm removal, so do not claim it.
+    return false;
+  }
 }

@@ -99,3 +99,23 @@ describe("display filename", () => {
     expect(safeDisplayFilename("///")).toBe("document");
   });
 });
+
+describe("text validation over the whole file", () => {
+  it("rejects a file that is clean UTF-8 for the first 8 KB and binary after", () => {
+    // Trivial to construct, and a leading-sample check would have accepted
+    // it and handed the extractor something it cannot read.
+    const head = encoder.encode("Curriculum Vitae\n".repeat(600));
+    const tail = Uint8Array.from([0xff, 0xfe, 0x00, 0x80, 0x81]);
+    const file = new Uint8Array(head.length + tail.length);
+    file.set(head, 0);
+    file.set(tail, head.length);
+
+    expect(file.length).toBeGreaterThan(8192);
+    expect(validateUpload(file, "text/plain")).toEqual({ ok: false, reason: "UNSUPPORTED_TYPE" });
+  });
+
+  it("still accepts a large, entirely valid text file", () => {
+    const file = encoder.encode("Curriculum Vitae\n".repeat(1000));
+    expect(validateUpload(file, "text/plain")).toMatchObject({ ok: true, contentType: "text/plain" });
+  });
+});

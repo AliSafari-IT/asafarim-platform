@@ -70,7 +70,15 @@ export async function POST(request: Request) {
     });
   }
 
-  const extraction = await extractDocument(workspace.id, result.documentId);
+  // Retries happen here, in the request, because there is no worker yet to
+  // drive them. The budget itself lives on the row, so a restart mid-retry
+  // does not hand the document a fresh set of attempts. When M3 brings
+  // BullMQ in for ingestion, this loop is what a queued job replaces.
+  let extraction = await extractDocument(workspace.id, result.documentId);
+  while (!extraction.ok && extraction.status === "EXTRACTING") {
+    extraction = await extractDocument(workspace.id, result.documentId);
+  }
+
   if (!extraction.ok) {
     return NextResponse.json({
       documentId: result.documentId,

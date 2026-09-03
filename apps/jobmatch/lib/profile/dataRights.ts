@@ -163,12 +163,25 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     select: { id: true, storageKey: true },
   });
 
+  const removedIds: string[] = [];
   let objectsDeleted = 0;
   let objectsFailed = 0;
   for (const document of documents) {
     try {
-      await deleteDocumentBytes(document.storageKey);
-      objectsDeleted += 1;
+      // Verified, not assumed: the shared deleteObject swallows its own
+      // errors, so an unverified call cannot distinguish success from
+      // silent failure.
+      if (await deleteDocumentBytes(document.storageKey)) {
+        objectsDeleted += 1;
+        removedIds.push(document.id);
+      } else {
+        objectsFailed += 1;
+        logError(
+          "datarights.erase.object_failed",
+          new Error("ObjectStillPresent"),
+          { jobId: document.id },
+        );
+      }
     } catch (error) {
       objectsFailed += 1;
       logError("datarights.erase.object_failed", error, { jobId: document.id });
@@ -191,7 +204,12 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
       await tx.candidateProfileVersion.deleteMany({ where: { profileId: profile.id } });
       await tx.candidateProfile.delete({ where: { id: profile.id } });
     }
-    await tx.candidateDocument.deleteMany({ where: { workspaceId } });
+    // Scoped to the ids whose bytes we actually removed, never to the whole
+    // workspace. Two rows would otherwise be destroyed wrongly: one uploaded
+    // after the enumeration above (its object was never deleted, and losing
+    // the row orphans it permanently), and one whose object delete failed
+    // (the same outcome). Both stay, and the caller is told.
+    await tx.candidateDocument.deleteMany({ where: { workspaceId, id: { in: removedIds } } });
   });
 
   // Written after the deletion, and deliberately kept: it holds an action
@@ -203,7 +221,7 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
   });
 
   return {
-    documentsDeleted: documents.length,
+    documentsDeleted: removedIds.length,
     versionsDeleted: profile?._count.versions ?? 0,
     objectsDeleted,
     objectsFailed,

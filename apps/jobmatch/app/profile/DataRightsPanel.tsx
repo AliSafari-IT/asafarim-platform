@@ -28,7 +28,18 @@ export function DataRightsPanel({
     setConfirming(false);
     try {
       const response = await fetch("/api/data-rights", { method: "DELETE" });
-      const body = (await response.json()) as { objectsFailed?: number };
+      const body = (await response.json()) as { objectsFailed?: number; error?: string };
+      // A 401 from an expired session returns JSON too. Without this check
+      // the candidate is told their data was deleted when the server did
+      // nothing at all — the worst possible lie for this particular button.
+      if (!response.ok && response.status !== 207) {
+        setResult(
+          body.error === "Not authorized"
+            ? "Your session has expired, so nothing was deleted. Sign in again and retry."
+            : "The deletion could not be completed. Nothing was removed. Please try again.",
+        );
+        return;
+      }
       setResult(
         body.objectsFailed && body.objectsFailed > 0
           ? "Your profile and CV records were deleted. One or more stored files could not be removed yet; this has been logged and will be retried."

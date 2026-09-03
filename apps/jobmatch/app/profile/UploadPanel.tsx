@@ -97,9 +97,22 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
   const remove = useCallback(
     async (documentId: string) => {
       setBusy(true);
+      setMessage(null);
       try {
-        await fetch(`/api/documents/${documentId}`, { method: "DELETE" });
+        const response = await fetch(`/api/documents/${documentId}`, { method: "DELETE" });
+        if (!response.ok) {
+          // The server refuses to drop the row unless it has confirmed the
+          // stored bytes are gone, so a failure here means the file is still
+          // there. Saying so beats a silent refresh that looks like success.
+          setMessage({
+            tone: "error",
+            text: "That file could not be deleted, so it has not been removed. Please try again.",
+          });
+          return;
+        }
         router.refresh();
+      } catch {
+        setMessage({ tone: "error", text: "That file could not be deleted. Check your connection and try again." });
       } finally {
         setBusy(false);
       }

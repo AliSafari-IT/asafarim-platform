@@ -32,6 +32,15 @@ export const PROFILE_CONTRACT_VERSION = "1.0.0";
 
 const trimmed = (max: number) => z.string().trim().min(1).max(max);
 
+/**
+ * Year, or year-month. Day precision is deliberately not accepted: CV dates
+ * are rarely accurate to the day, and storing one would imply a precision
+ * the source does not have. The month is bounded to 01-12 — a plain
+ * `\d{2}` would accept "2026-99", which then flows into M4 date
+ * comparisons as a silently nonsensical value.
+ */
+const YEAR_MONTH = /^\d{4}(-(0[1-9]|1[0-2]))?$/;
+
 export const proficiencySchema = z.enum(["basic", "conversational", "professional", "native"]);
 
 export const languageSchema = z.object({
@@ -55,12 +64,12 @@ export const experienceSchema = z.object({
   /** ISO year-month, e.g. "2021-03". Day precision is rarely real on a CV. */
   startedOn: z
     .string()
-    .regex(/^\d{4}(-\d{2})?$/)
+    .regex(YEAR_MONTH)
     .nullable()
     .default(null),
   endedOn: z
     .string()
-    .regex(/^\d{4}(-\d{2})?$/)
+    .regex(YEAR_MONTH)
     .nullable()
     .default(null),
   isCurrent: z.boolean().default(false),
@@ -72,7 +81,7 @@ export const educationSchema = z.object({
   institution: trimmed(160).nullable().default(null),
   completedOn: z
     .string()
-    .regex(/^\d{4}(-\d{2})?$/)
+    .regex(YEAR_MONTH)
     .nullable()
     .default(null),
 });
@@ -82,14 +91,14 @@ export const certificationSchema = z.object({
   issuer: trimmed(160).nullable().default(null),
   issuedOn: z
     .string()
-    .regex(/^\d{4}(-\d{2})?$/)
+    .regex(YEAR_MONTH)
     .nullable()
     .default(null),
   /** An expired certification is a hard exclusion in M4, so expiry is a
    *  field rather than something inferred from the issue date. */
   expiresOn: z
     .string()
-    .regex(/^\d{4}(-\d{2})?$/)
+    .regex(YEAR_MONTH)
     .nullable()
     .default(null),
 });

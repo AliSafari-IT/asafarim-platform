@@ -84,7 +84,12 @@ export function explainReasonCode(code: string | null): string {
     case "ENCRYPTED_DOCUMENT":
       return "This document is password-protected. Remove the password and upload it again.";
     case "NO_TEXT_LAYER":
-      return "No text could be read from this document. It may be a scan or an image — a text-based PDF or a Word file works best.";
+      // Covers both causes without asserting either: a scanned image with no
+      // text layer, and a file that is simply too short to build a profile
+      // from. Telling someone their plain-text file "may be a scan" is the
+      // kind of confidently wrong message that makes people distrust the
+      // rest of the screen.
+      return "Not enough text could be read from this document. If it is a scan or an image, a text-based PDF or Word file works better. You can also fill in your profile by hand below.";
     case "EXTRACTION_ERROR":
       return "This document could not be read. You can still build your profile by hand.";
     default:

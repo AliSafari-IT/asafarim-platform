@@ -114,7 +114,12 @@ offending key.
 | Parser error message leaking document content | Parser errors are discarded, not logged; reason codes only | `lib/extraction/text.ts` |
 | Malformed document retried forever | Retry budget on the row, so a restart does not reset it | `lib/documents/pipeline.ts` |
 | Erasure leaving derived personal data behind | Erasure removes bytes, documents, and every profile version | `lib/profile/dataRights.ts` |
-| Erasure leaving orphaned bytes | Objects deleted before rows; failures counted and reported, not assumed | same |
+| Erasure leaving orphaned bytes | Objects deleted first and **read back to confirm**; only confirmed ids have their rows dropped | same |
+| A row uploaded mid-erasure losing its row but keeping its bytes | Row deletion scoped to the enumerated, confirmed ids — never to the whole workspace | same |
+| Upload failing after bytes are stored, leaving an unreferenced CV | The row is written before the bytes; the row is the only handle erasure has | `lib/documents/service.ts` |
+| Retention promised but never enforced | `sweepExpiredDocuments` deletes expired originals; the route is disabled outright when its token is unset | `lib/documents/retention.ts` |
+| A destructive action reported as done when the server refused it | Client handlers check `response.ok` before claiming success | `app/profile/*Panel.tsx` |
+| Confirming a stale profile after an upload | The review form is keyed by version id, so new extraction replaces it | `app/profile/page.tsx` |
 | Decompression bomb producing unbounded text | Extraction output capped; every profile collection bounded | `lib/extraction/text.ts`, `contract.ts` |
 
 ### Deliberately not done in M2

@@ -65,8 +65,14 @@ export async function uploadDocument(
   const contentHash = hashBytes(bytes);
   const storageKey = buildDocumentKey(workspaceId, validation.extension);
 
-  await putDocumentBytes(storageKey, bytes, validation.contentType);
-
+  // The row is written BEFORE the bytes, and this order is deliberate.
+  //
+  // The row is the only handle erasure and retention have on a stored
+  // object. Writing bytes first means a database failure in between leaves
+  // a CV in the bucket that nothing references — invisible to every future
+  // erasure request, forever. Writing the row first means the opposite
+  // failure leaves a row with no object, which is harmless: reads return
+  // "not found" and the deletion path is a no-op.
   const document = await db.candidateDocument.create({
     data: {
       workspaceId,
@@ -84,6 +90,17 @@ export async function uploadDocument(
     },
     select: { id: true },
   });
+
+  try {
+    await putDocumentBytes(storageKey, bytes, validation.contentType);
+  } catch (error) {
+    logError("document.upload.store_failed", error, { jobId: document.id });
+    // Clean up the row we just wrote, and the object in case the write
+    // partially succeeded. Both are safe no-ops if there is nothing there.
+    await deleteDocumentBytes(storageKey).catch(() => false);
+    await db.candidateDocument.delete({ where: { id: document.id } }).catch(() => null);
+    return { ok: false, reasonCode: "EXTRACTION_ERROR" };
+  }
 
   await recordAuditEvent(workspaceId, "document.uploaded", {
     jobId: document.id,
@@ -305,9 +322,16 @@ export async function deleteDocument(workspaceId: string, documentId: string): P
   });
   if (!document) return false;
 
-  await deleteDocumentBytes(document.storageKey);
-  await db.candidateDocument.delete({ where: { id: document.id } });
+  // The row is dropped only once the bytes are confirmed gone. Dropping it
+  // on an unverified delete would leave a CV in the bucket that no future
+  // erasure request could find.
+  const bytesRemoved = await deleteDocumentBytes(document.storageKey);
+  if (!bytesRemoved) {
+    await recordAuditEvent(workspaceId, "document.delete.failed", { jobId: documentId });
+    return false;
+  }
 
+  await db.candidateDocument.delete({ where: { id: document.id } });
   await recordAuditEvent(workspaceId, "document.deleted", { jobId: documentId });
   return true;
 }

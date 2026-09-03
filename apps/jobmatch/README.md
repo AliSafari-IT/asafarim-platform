@@ -72,6 +72,7 @@ pnpm --filter @asafarim/jobmatch test
 | `NEXT_PUBLIC_HUB_URL` | all deployments | Where unauthenticated visitors are sent to sign in. |
 | `JOBMATCH_SCANNER_URL` | production (JM-018) | ClamAV sidecar. Without it every upload is quarantined — a fail-closed default, and the reason the CV pipeline is not usable in production yet. |
 | `JOBMATCH_SCANNER` | local only | Set to the exact literal `insecure-accept-all` to run the pipeline without a scanner. Refused on any deployed environment, and it names itself on every document it clears. |
+| `JOBMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
 | `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
 
 Production additionally needs `JOBMATCH_DB_PASSWORD` and its URL-encoded

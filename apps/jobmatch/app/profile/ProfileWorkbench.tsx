@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Alert, Badge, Button, Card } from "@asafarim/ui";
 import { LOW_CONFIDENCE_THRESHOLD } from "../../lib/profile/contract";
 import type { CandidateProfileContent, ProfileConfidence } from "../../lib/profile/contract";
@@ -61,6 +62,7 @@ export function ProfileWorkbench({
   const [dirty, setDirty] = useState(false);
   const confidence = initialConfidence;
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
   const update = useCallback(<K extends keyof CandidateProfileContent>(key: K, value: CandidateProfileContent[K]) => {
     setContent((previous) => ({ ...previous, [key]: value }));
@@ -83,11 +85,17 @@ export function ProfileWorkbench({
         }
         setDirty(false);
         setState({ kind: "saved", confirmed: confirm });
+        // Pull the new version down so the next edit records the version
+        // just written as its parent. Without this, a second save in the
+        // same session posts the already-superseded parentVersionId and the
+        // recorded lineage is wrong — which is the one thing immutable
+        // versions exist to get right.
+        router.refresh();
       } catch {
         setState({ kind: "error", message: "This profile could not be saved. Check your connection and try again." });
       }
     },
-    [content, versionId],
+    [content, versionId, router],
   );
 
   const listValue = (items: { name: string }[]) => items.map((item) => item.name).join(", ");
