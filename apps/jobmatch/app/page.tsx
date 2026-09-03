@@ -21,23 +21,35 @@ const FOUNDATION = [
     title: "Deny-by-default routing",
     body: "Only the landing and legal pages are public. Every other surface requires a session, checked again at the data boundary.",
   },
+  {
+    title: "Your CV, scanned before it is read",
+    body: "Nothing opens an uploaded file until a malware scanner clears it. If the scanner cannot answer, the file is quarantined rather than processed.",
+  },
+  {
+    title: "No age, nationality, or gender",
+    body: "There is no field for them, so nothing can store or infer them from your CV — and the profile you match with is the one you confirmed, not the one a parser guessed.",
+  },
+  {
+    title: "Delete it whenever you like",
+    body: "One click removes your file, every profile version, and everything read from them. Originals are deleted automatically after 90 days regardless.",
+  },
 ];
 
 export default function JobMatchOverviewPage() {
   return (
     <>
       <PageHeader
-        kicker="Foundation milestone"
-        kickerIndex="M1"
+        kicker="Building in the open"
+        kickerIndex="M2"
         title="JobMatch is not another job board."
-        description="It is a personal, explainable job-search assistant that reduces hundreds of vacancies to the opportunities worth acting on. This is the platform foundation it will be built on."
+        description="It is a personal, explainable job-search assistant that reduces hundreds of vacancies to the opportunities worth acting on. You can build your profile today; the job sources come next."
       />
 
       <Alert tone="info">
         <strong>Nothing to match against yet.</strong>{" "}
-        No job source is connected and no CV can be uploaded. Source access is gated on signed
-        agreements (M0/M3) and CV handling on the privacy work in M2 — neither is something to
-        prototype first and legalize later.
+        You can upload a CV and build your profile, but no job source is connected. Source access
+        is gated on signed agreements rather than on engineering — not something to prototype first
+        and legalize later.
       </Alert>
 
       <section className="jm-grid" style={{ margin: "2rem 0" }}>
@@ -50,8 +62,8 @@ export default function JobMatchOverviewPage() {
 
       <p className="jm-note">
         Signed in?{" "}
-        <Link href="/workspace" className="jm-mono">
-          Open your workspace →
+        <Link href="/profile" className="jm-mono">
+          Build your profile →
         </Link>
       </p>
     </>

@@ -44,6 +44,8 @@ model Workspace {
   updatedAt DateTime @updatedAt
 
   auditEvents AuditEvent[]
+  documents   CandidateDocument[]
+  profile     CandidateProfile?
 
   @@map("workspaces")
 }
@@ -71,4 +73,189 @@ model AuditEvent {
   @@index([workspaceId, createdAt])
   @@index([action, createdAt])
   @@map("audit_events")
+}
+
+// ─── M2: candidate profile and CV pipeline ──────────────────────────────
+//
+// The organising rule for everything below: a document is untrusted until
+// proven otherwise, and derived data is always traceable back to the exact
+// document and parser version that produced it.
+//
+// Deliberately absent: any field that could hold or infer a protected
+// attribute (age, gender, nationality, ethnicity, religion, health,
+// disability, family status). A CV routinely contains these; JobMatch's
+// extraction contract drops them rather than storing them, so there is no
+// column here for one to land in. See lib/profile/contract.ts.
+
+/// Where an uploaded document is in the scan/extract pipeline. A document
+/// moves forward only on evidence; there is no state that means "probably
+/// fine".
+enum DocumentStatus {
+  /// Bytes stored, nothing verified yet. Never read by a parser.
+  UPLOADED
+  /// Handed to the scanner, awaiting a verdict.
+  SCANNING
+  /// Scanner said unsafe, or could not say. Terminal without operator action.
+  QUARANTINED
+  /// Scanned clean; extraction may run.
+  CLEAN
+  /// Text extraction in progress.
+  EXTRACTING
+  /// Text extracted and a draft profile produced.
+  EXTRACTED
+  /// Extraction failed after its retry budget.
+  FAILED
+}
+
+/// Why a document was quarantined or failed. Stored as a code so the UI can
+/// explain it without a parser or scanner message — those can embed file
+/// content — reaching the user or the logs.
+enum DocumentReasonCode {
+  MALWARE_DETECTED
+  SCANNER_UNAVAILABLE
+  UNSUPPORTED_TYPE
+  DECLARED_TYPE_MISMATCH
+  FILE_TOO_LARGE
+  EMPTY_FILE
+  ENCRYPTED_DOCUMENT
+  NO_TEXT_LAYER
+  EXTRACTION_ERROR
+}
+
+/// An uploaded CV. The bytes live in private object storage; this row holds
+/// only metadata and the audit trail.
+model CandidateDocument {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// Object-storage key. Always prefixed with the workspace id so a key
+  /// cannot be guessed across tenants, and never exposed to the client.
+  storageKey String @unique
+
+  /// The user's own filename, kept for display only. Never used to build a
+  /// storage key or a filesystem path.
+  originalFilename String
+
+  /// Content type as *sniffed from the bytes*, not as declared by the
+  /// browser. See lib/documents/fileType.ts.
+  contentType String
+  byteSize    Int
+
+  /// SHA-256 of the stored bytes — the anchor that makes a profile version
+  /// reproducible, and the way a re-upload of the same CV is recognised.
+  contentHash String
+
+  status     DocumentStatus     @default(UPLOADED)
+  reasonCode DocumentReasonCode?
+
+  /// Scanner name and verdict time, so a stale "clean" is visible as stale.
+  scannerName String?
+  scannedAt   DateTime?
+
+  /// Retry accounting for extraction. Bounded so a malformed document
+  /// cannot be retried forever.
+  extractionAttempts Int       @default(0)
+  extractionStartedAt DateTime?
+
+  /// When the stored bytes become eligible for deletion (JM-017 retention).
+  retainUntil DateTime?
+
+  uploadedAt DateTime  @default(now())
+  deletedAt  DateTime?
+
+  profileVersions CandidateProfileVersion[]
+
+  @@index([workspaceId, uploadedAt])
+  @@index([workspaceId, status])
+  @@index([workspaceId, contentHash])
+  @@map("candidate_documents")
+}
+
+/// The candidate's current profile pointer. One per workspace. Holds no
+/// profile data itself — the data lives in immutable versions, and this row
+/// only records which version is in force.
+model CandidateProfile {
+  id String @id @default(cuid())
+
+  workspaceId String    @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// The version the candidate has confirmed. Null until they confirm one:
+  /// matching must never run on unreviewed extraction output.
+  confirmedVersionId String?                  @unique
+  confirmedVersion   CandidateProfileVersion? @relation("ConfirmedVersion", fields: [confirmedVersionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions CandidateProfileVersion[] @relation("ProfileVersions")
+
+  @@map("candidate_profiles")
+}
+
+/// How a version's content came to exist.
+enum ProfileVersionOrigin {
+  /// Produced by the extraction pipeline from a document.
+  EXTRACTED
+  /// The candidate's corrections applied on top of an extracted version.
+  CORRECTED
+  /// Typed in by the candidate with no document at all.
+  MANUAL
+}
+
+/// An immutable snapshot of a candidate profile.
+///
+/// Rows here are never updated after creation — a correction creates a new
+/// version pointing at its parent. That is what makes a past match
+/// explainable: the exact profile that produced it still exists, alongside
+/// the document hash and parser version that produced *it*.
+model CandidateProfileVersion {
+  id String @id @default(cuid())
+
+  profileId String
+  profile   CandidateProfile @relation("ProfileVersions", fields: [profileId], references: [id], onDelete: Cascade)
+
+  /// Monotonic per profile, so a version has a human-quotable reference
+  /// ("v3") as well as an id.
+  versionNumber Int
+
+  origin ProfileVersionOrigin
+
+  /// The version this one corrects, if any. Null for the first version.
+  parentVersionId String?
+  parentVersion   CandidateProfileVersion?  @relation("VersionLineage", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  children        CandidateProfileVersion[] @relation("VersionLineage")
+
+  /// The document this was extracted from. Null for MANUAL versions.
+  documentId String?
+  document   CandidateDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  /// Copied from the document rather than joined, so the provenance survives
+  /// the document's deletion under a retention or erasure request.
+  sourceContentHash String?
+
+  /// Which code produced this content. A profile extracted by parser v1 and
+  /// one extracted by v2 are not comparable, and pretending otherwise is how
+  /// a matching regression becomes invisible.
+  extractorName    String
+  extractorVersion String
+
+  /// Schema-validated profile content (lib/profile/contract.ts). Stored as
+  /// JSON so the contract can gain fields without a migration per field,
+  /// and validated on read as well as on write.
+  content Json
+
+  /// Per-field extraction confidence, same key shape as `content`. Drives
+  /// the "check this" markers in the review UI.
+  confidence Json?
+
+  createdAt DateTime @default(now())
+
+  confirmedFor CandidateProfile? @relation("ConfirmedVersion")
+
+  @@unique([profileId, versionNumber])
+  @@index([profileId, createdAt])
+  @@map("candidate_profile_versions")
 }
