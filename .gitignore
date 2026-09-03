@@ -65,3 +65,7 @@ apps/*/e2e/.auth/
 docs/review/
 
 next-env.d.ts
+
+# JobMatch's own Prisma client is generated into the app (see
+# apps/jobmatch/prisma/schema.prisma for why it cannot live in node_modules).
+apps/jobmatch/lib/db/generated/

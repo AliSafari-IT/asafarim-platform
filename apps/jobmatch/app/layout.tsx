@@ -1,0 +1,78 @@
+import type { Metadata, Viewport } from "next";
+import type { ReactNode } from "react";
+import { getAppSwitcherApps } from "@asafarim/auth/apps";
+// Side-effect import: registers @asafarim/auth's next-auth type
+// augmentations (Session.user.roles, isActive) used by lib/workspace.ts.
+import type {} from "@asafarim/auth/types";
+import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
+import { AppShell, AppSwitcher, TopNav, getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
+import "@asafarim/ui/styles.css";
+import "./jobmatch.css";
+
+const appUrl = process.env.NEXT_PUBLIC_JOBMATCH_URL ?? "https://jobmatch.asafarim.com";
+const appName = "JobMatch";
+const appDescription =
+  "An explainable, source-transparent job-search assistant: fewer vacancies, each with the reason it fits.";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
+export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
+  title: {
+    default: `${appName} | Explainable job search`,
+    template: "%s | JobMatch",
+  },
+  description: appDescription,
+  applicationName: appName,
+  icons: { icon: "/favicon.svg" },
+  // Nothing is indexable until the M0 legal decisions (JM-001, JM-005,
+  // JM-008) are recorded and candidate terms exist.
+  robots: { index: false, follow: false },
+};
+
+const NAV_ITEMS = [
+  { label: "Overview", href: "/" },
+  { label: "Workspace", href: "/workspace" },
+];
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  const links = getPlatformLinks();
+  // The switcher is rendered for an anonymous viewer: the landing page is
+  // public, and resolving the real session here would make every route
+  // dynamic for the sake of a menu.
+  const switcherApps = getAppSwitcherApps("jobmatch", { roles: [], authenticated: false });
+
+  return (
+    <html lang="en" data-app="jobmatch" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
+      <body className="antialiased">
+        <ThemeProvider>
+          <AppShell
+            product="JobMatch"
+            nav={<TopNav items={NAV_ITEMS} />}
+            user={
+              <>
+                <ThemeToggle />
+                <AppSwitcher links={toAppSwitcherLinks(switcherApps, links)} />
+              </>
+            }
+            footer={
+              <span>
+                Foundation milestone (M1). No job sources are connected and no CV can be uploaded
+                yet — see <a href="/">what exists so far</a>.
+              </span>
+            }
+          >
+            {children}
+          </AppShell>
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}

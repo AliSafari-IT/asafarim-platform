@@ -1,0 +1,74 @@
+// JobMatch — dedicated database schema (M1 baseline).
+//
+// JobMatch deliberately does NOT use the shared platform Prisma schema
+// (packages/db). Job listings are high-volume and frequently rewritten by
+// ingestion, and CV-derived data needs a stricter access boundary than
+// identity traffic — see apps/jobmatch/docs/business-plan.md §"Database
+// recommendation". This schema therefore lives on its own PostgreSQL
+// instance (local port 55437) with its own credentials.
+//
+// Identity stays in the platform: JobMatch stores an OPAQUE authenticated
+// user id (the platform user id string) and never duplicates the platform
+// User table, so there is no second place a candidate's identity can drift
+// or leak from.
+//
+// M1 is a foundation milestone: only the tables needed to prove the
+// boundary exist here. The ingestion, profile, and matching entities named
+// in the business plan (JobSource, JobPosting, CandidateProfile, ...) land
+// with M2/M3, each with its own migration and access review.
+
+generator client {
+  provider      = "prisma-client-js"
+  // Generated into the app rather than node_modules/@prisma/client: pnpm
+  // symlinks that path to the shared store, where the PLATFORM client
+  // already lives. Two schemas, two clients, no clobbering.
+  output        = "../lib/db/generated"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// A candidate's JobMatch workspace, keyed by the opaque platform user id.
+/// Holds no name, email, or other platform profile data — those are read
+/// from the session at request time and never persisted here.
+model Workspace {
+  id String @id @default(cuid())
+
+  /// Opaque platform user id (Auth.js `session.user.id`). Unique: one
+  /// workspace per authenticated user.
+  platformUserId String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditEvents AuditEvent[]
+
+  @@map("workspaces")
+}
+
+/// Append-only record of consequential actions inside a workspace.
+///
+/// M1 seeds the table and the write path so that every later milestone has
+/// somewhere to record data-rights actions (JM-023) and connector runs
+/// (JM-031) from day one. `metadata` is a redacted, allow-listed JSON blob:
+/// CV text, extracted personal data, and secrets must never reach it.
+model AuditEvent {
+  id String @id @default(cuid())
+
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// Stable dotted action name, e.g. "workspace.created".
+  action String
+
+  /// Redacted, allow-listed structured context. Never raw documents.
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_events")
+}

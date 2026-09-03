@@ -66,6 +66,7 @@ services:
         NEXT_PUBLIC_TIMELINEAI_URL: ${NEXT_PUBLIC_TIMELINEAI_URL:-https://tlai.asafarim.com}
         NEXT_PUBLIC_DEVTOOLS_URL: ${NEXT_PUBLIC_DEVTOOLS_URL:-https://asafarim.be}
         NEXT_PUBLIC_LABS_URL: ${NEXT_PUBLIC_LABS_URL:-https://labs.asafarim.com}
+        NEXT_PUBLIC_JOBMATCH_URL: ${NEXT_PUBLIC_JOBMATCH_URL:-https://jobmatch.asafarim.com}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     env_file:
@@ -501,6 +502,69 @@ services:
     networks:
       - asafarim_net
 
+  # jobmatch keeps its OWN database, isolated from the shared Prisma
+  # Postgres. pgvector is on the image from the start because M5's embedding
+  # index lands in this same instance; adding the extension later would mean
+  # a base-image swap on a database that already holds candidate data.
+  jobmatch-postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jobmatch
+      POSTGRES_PASSWORD: ${JOBMATCH_DB_PASSWORD}
+      POSTGRES_DB: jobmatch
+    ports:
+      # Loopback only: host-side scripts can reach it; the internet cannot.
+      - "127.0.0.1:5437:5432"
+    volumes:
+      - jobmatch_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobmatch -d jobmatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - asafarim_net
+
+  jobmatch-migrate:
+    build:
+      context: .
+      dockerfile: apps/jobmatch/Dockerfile
+      target: migrator
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      # JOBMATCH_DB_PASSWORD_URL is the URL-encoded form of
+      # JOBMATCH_DB_PASSWORD; connection strings must use the encoded one.
+      JOBMATCH_DATABASE_URL: postgres://jobmatch:${JOBMATCH_DB_PASSWORD_URL}@jobmatch-postgres:5432/jobmatch
+    depends_on:
+      jobmatch-postgres:
+        condition: service_healthy
+    networks:
+      - asafarim_net
+
+  jobmatch:
+    build:
+      context: .
+      dockerfile: apps/jobmatch/Dockerfile
+      args: *public-build-args
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      JOBMATCH_ENVIRONMENT: production
+      JOBMATCH_DATABASE_URL: postgres://jobmatch:${JOBMATCH_DB_PASSWORD_URL}@jobmatch-postgres:5432/jobmatch
+      NEXT_PUBLIC_APP_URL: https://jobmatch.asafarim.com
+      AUTH_URL: https://jobmatch.asafarim.com
+    depends_on:
+      jobmatch-postgres:
+        condition: service_healthy
+      jobmatch-migrate:
+        condition: service_completed_successfully
+    networks:
+      - asafarim_net
+
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -520,6 +584,7 @@ services:
       - edumatch
       - testora
       - appbuilder
+      - jobmatch
     networks:
       - asafarim_net
 
@@ -533,3 +598,4 @@ volumes:
   caddy_config:
   testora_postgres_data:
   appbuilder_postgres_data:
+  jobmatch_postgres_data:

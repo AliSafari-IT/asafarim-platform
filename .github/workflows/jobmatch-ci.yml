@@ -1,0 +1,87 @@
+# JobMatch quality gate (JM-014).
+#
+# JobMatch is kept out of ci-status.yml on purpose: that workflow publishes
+# the traceable proof-board artifact over `packages/*` tests, and widening
+# its method string is a separate decision. This workflow instead runs the
+# checks that are specific to JobMatch — including the one no other app
+# needs, that its Prisma migrations actually apply to an empty database.
+name: JobMatch CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/jobmatch/**"
+      - "packages/auth/**"
+      - "packages/ui/**"
+      - ".github/workflows/jobmatch-ci.yml"
+  pull_request:
+    paths:
+      - "apps/jobmatch/**"
+      - "packages/auth/**"
+      - "packages/ui/**"
+      - ".github/workflows/jobmatch-ci.yml"
+  workflow_dispatch: {}
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      # A throwaway database for the migration check. JobMatch must never be
+      # pointed at a shared or developer database by a test run — see
+      # apps/jobmatch/docs/threat-model.md#test-data-isolation.
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: jobmatch
+          POSTGRES_PASSWORD: jobmatch_ci
+          POSTGRES_DB: jobmatch_ci
+        ports:
+          - 55437:5432
+        options: >-
+          --health-cmd "pg_isready -U jobmatch -d jobmatch_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @asafarim/jobmatch typecheck
+
+      - name: Unit tests
+        run: pnpm --filter @asafarim/jobmatch test
+
+      - name: Registry and auth tests
+        run: pnpm --filter @asafarim/auth test
+
+      - name: Migrations apply to an empty database
+        run: pnpm --filter @asafarim/jobmatch exec prisma migrate deploy --schema prisma/schema.prisma
+        env:
+          JOBMATCH_DATABASE_URL: postgresql://jobmatch:jobmatch_ci@localhost:55437/jobmatch_ci
+
+      - name: Create the throwaway shadow database
+        run: |
+          PGPASSWORD=jobmatch_ci psql -h localhost -p 55437 -U jobmatch -d jobmatch_ci \
+            -c "DROP DATABASE IF EXISTS jobmatch_shadow;" -c "CREATE DATABASE jobmatch_shadow;"
+
+      - name: Schema matches its migrations
+        # Catches the classic drift: a schema.prisma edit shipped without the
+        # migration that would produce it.
+        run: pnpm --filter @asafarim/jobmatch exec prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+        env:
+          JOBMATCH_DATABASE_URL: postgresql://jobmatch:jobmatch_ci@localhost:55437/jobmatch_ci
+          JOBMATCH_SHADOW_DATABASE_URL: postgresql://jobmatch:jobmatch_ci@localhost:55437/jobmatch_shadow

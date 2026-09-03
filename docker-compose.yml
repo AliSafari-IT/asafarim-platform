@@ -60,8 +60,32 @@ services:
       timeout: 5s
       retries: 10
 
+  # jobmatch keeps its own database, isolated from the shared Prisma
+  # Postgres, from testora's, and from appbuilder's. Job listings are
+  # high-volume and CV-derived data needs a stricter access boundary than
+  # identity traffic — see apps/jobmatch/docs/business-plan.md.
+  # Matches JOBMATCH_DATABASE_URL (host port 55437).
+  jobmatch-postgres:
+    image: pgvector/pgvector:pg16
+    container_name: jobmatch-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jobmatch
+      POSTGRES_PASSWORD: jobmatch_dev
+      POSTGRES_DB: jobmatch
+    ports:
+      - "55437:5432"
+    volumes:
+      - jobmatch_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobmatch -d jobmatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
   redis_data:
   testora_pgdata:
   appbuilder_pgdata:
+  jobmatch_pgdata:

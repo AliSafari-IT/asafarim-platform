@@ -28,7 +28,7 @@ const superadmin = { roles: [ROLES.SUPERADMIN], authenticated: true };
 const inactiveAdmin = { roles: [ROLES.ADMIN], authenticated: false };
 
 describe("registry shape", () => {
-  it("registers the eleven active platform apps and only those", () => {
+  it("registers the twelve active platform apps and only those", () => {
     const active = PLATFORM_APPS.filter((app) => app.status === "active");
     expect(active.map((app) => app.key).sort()).toEqual([
       "admin",
@@ -36,6 +36,7 @@ describe("registry shape", () => {
       "devtools",
       "edumatch",
       "hub",
+      "jobmatch",
       "labs",
       "showcase",
       "testora",
@@ -181,6 +182,7 @@ describe("getAccessibleApps", () => {
       "devtools",
       "edumatch",
       "hub",
+      "jobmatch",
       "labs",
       "showcase",
       "testora",
@@ -197,6 +199,7 @@ describe("getAccessibleApps", () => {
       "devtools",
       "edumatch",
       "hub",
+      "jobmatch",
       "labs",
       "showcase",
       "testora",
@@ -313,5 +316,19 @@ describe("showcase positioning", () => {
     const timelineai = getShowcaseProject("timelineai")!;
     expect(timelineai.summary).toContain("not a commercial service");
     expect(JSON.stringify(timelineai).toLowerCase()).toContain("no marketplace");
+  });
+});
+
+describe("jobmatch (M1 foundation)", () => {
+  const jobmatch = PLATFORM_APPS.find((app) => app.key === "jobmatch")!;
+
+  it("is authenticated-only: nothing on it is usable without a session", () => {
+    expect(jobmatch.access).toBe("authenticated");
+    expect(canAccessApp(jobmatch, anonymous)).toBe(false);
+    expect(canAccessApp(jobmatch, standard)).toBe(true);
+  });
+
+  it("makes no showcase claim while it has no working product", () => {
+    expect(getShowcaseProject("jobmatch")).toBeUndefined();
   });
 });

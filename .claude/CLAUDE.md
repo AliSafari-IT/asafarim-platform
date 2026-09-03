@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Monorepo Overview
 
 **pnpm 11 + Turborepo 2** monorepo with three workspace groups:
-- `apps/*` — 10 Next.js 16 applications (web, hub, showcase, admin, vionto, testora, appbuilder, edumatch, timelineai, labs)
+- `apps/*` — 11 Next.js 16 applications (web, hub, showcase, admin, vionto, testora, appbuilder, edumatch, timelineai, labs, jobmatch)
 - `packages/*` — 13 shared packages (`@asafarim/auth`, `@asafarim/db`, `@asafarim/ui`, `@asafarim/config`, etc.)
 - `benchmarks/*` — 4 benchmark suites
 
@@ -64,6 +64,7 @@ pnpm deploy:prod          # runs infra/scripts/deploy-prod.sh
 Two ORM layers coexist to avoid schema conflicts:
 - **Prisma 7** (`packages/db`) — shared platform schema (users, RBAC, audit logs, EduMatch, TimelineAI, etc.). Used by: web, hub, showcase, admin, vionto, edumatch, timelineai.
 - **Drizzle ORM** — isolated per-app schemas. **Testora** (`port 55434`) and **AppBuilder** (`port 55436`) each have their own Postgres instance. Never mix these with the platform DB.
+- **JobMatch** also runs isolated, but on its own *Prisma* schema and its own Postgres (`port 55437`, pgvector image), with the client generated into `apps/jobmatch/lib/db/generated` so it cannot collide with the platform client. It stores an opaque platform user id, never a copy of the user table.
 
 ### Background Workers (BullMQ + Redis)
 Two apps run persistent background workers alongside the Next.js server:
@@ -115,6 +116,7 @@ Builds depend on `^build` (packages must build before apps). When you change a s
 | edumatch | 3009 | edumatch.asafarim.com |
 | timelineai | 3010 | tlai.asafarim.com |
 | labs | 3011 | labs.asafarim.com |
+| jobmatch | 3012 | jobmatch.asafarim.com |
 
 ### Production Deployment
 Docker Compose + Caddy reverse proxy on Hostinger VPS (`82.25.116.73`). GitHub Actions (`push to main`) SSH into VPS and runs `infra/scripts/vps-deploy.sh`, which: decrypts env, builds images sequentially (memory-safe on 8 GB), restarts stack, notifies Discord.
