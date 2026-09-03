@@ -524,3 +524,55 @@
   --shadow-1: 0 1px 2px rgba(14, 21, 18, 0.06), 0 2px 8px rgba(14, 21, 18, 0.05);
   --shadow-2: 0 2px 4px rgba(14, 21, 18, 0.08), 0 12px 30px rgba(14, 21, 18, 0.1);
 }
+
+/* ── Mood: apps/jobmatch — “Signal” (deep slate + indigo, amber signal) ─────
+   The product's whole claim is *fewer, explained* opportunities, so the
+   palette is quiet on purpose: a near-neutral slate ground where the only
+   saturated colour is the accent used to mark a match and its evidence.
+   Light by default — candidates read long job descriptions here, and a
+   light ground is the better default for sustained reading. JobMatch puts
+   data-app on <html> (same element as data-theme), so the dark override is
+   written as both a descendant and a same-element compound selector. */
+[data-app="jobmatch"] {
+  color-scheme: light;
+
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #eef1f6;
+  --surface-3: #e3e8f0;
+  --ink: #131722;
+  --muted: #596072;
+  --line: rgba(19, 23, 34, 0.12);
+  --line-strong: rgba(19, 23, 34, 0.22);
+  --accent: #4a54d8;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(74, 84, 216, 0.12);
+  /* Amber is reserved for "this needs your judgement" — an uncertain
+     requirement or a stale listing — never for a positive match. */
+  /* Darkened from a mid amber so it clears 4.5:1 on --bg (4.59:1) and on
+     --surface (4.88:1) — this token labels uncertainty in text, not just
+     a decorative edge, so it has to be readable. */
+  --accent-2: #a85f0d;
+  --shadow-1: 0 1px 2px rgba(19, 23, 34, 0.06), 0 2px 8px rgba(19, 23, 34, 0.05);
+  --shadow-2: 0 2px 4px rgba(19, 23, 34, 0.08), 0 12px 30px rgba(19, 23, 34, 0.1);
+}
+
+:root[data-theme="dark"] [data-app="jobmatch"],
+[data-app="jobmatch"][data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0d1017;
+  --surface: #141824;
+  --surface-2: #1a1f2d;
+  --surface-3: #222839;
+  --ink: #eef1f6;
+  --muted: #98a1b5;
+  --line: rgba(238, 241, 246, 0.12);
+  --line-strong: rgba(238, 241, 246, 0.22);
+  --accent: #8b93ff;
+  --accent-ink: #0d1017;
+  --accent-soft: rgba(139, 147, 255, 0.16);
+  --accent-2: #eda54a;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
+}
