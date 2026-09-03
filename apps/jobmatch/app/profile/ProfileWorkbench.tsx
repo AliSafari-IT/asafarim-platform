@@ -216,7 +216,7 @@ export function ProfileWorkbench({
           {content.languages.length === 0 ? (
             <p style={{ opacity: 0.75 }}>None read from your CV. Add them if they matter for the roles you want.</p>
           ) : (
-            <ul className="jm-list">
+            <ul className="jm-list jm-list--fields">
               {content.languages.map((language, index) => (
                 <li key={language.code}>
                   <span>{language.label}</span>

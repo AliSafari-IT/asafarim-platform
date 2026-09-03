@@ -69,8 +69,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             }
             footer={
               <span>
-                Foundation milestone (M1). No job sources are connected and no CV can be uploaded
-                yet — see <a href="/">what exists so far</a>.
+                No job sources are connected yet, so nothing is matched against — see{" "}
+                <a href="/">what exists so far</a>.
               </span>
             }
           >

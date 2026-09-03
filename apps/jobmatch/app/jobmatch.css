@@ -77,3 +77,22 @@
 [data-app="jobmatch"] .jm-list > li:last-child {
   border-bottom: none;
 }
+
+/* Language rows: label and proficiency select on one line, with room to
+   breathe. Without this they read as one run-on token ("DutchNative"). */
+[data-app="jobmatch"] .jm-list--fields > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+[data-app="jobmatch"] .jm-list--fields select {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  max-width: 60%;
+}
