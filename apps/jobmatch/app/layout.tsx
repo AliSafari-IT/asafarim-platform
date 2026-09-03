@@ -49,10 +49,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" data-app="jobmatch" suppressHydrationWarning>
       <head>
-        <ThemeScript />
+        {/* Light by default, like the token block in @asafarim/ui: candidates
+            read long job descriptions here and a light ground is the better
+            default for sustained reading. The toggle still wins, and its
+            choice persists. */}
+        <ThemeScript defaultTheme="light" />
       </head>
       <body className="antialiased">
-        <ThemeProvider>
+        <ThemeProvider defaultTheme="light">
           <AppShell
             product="JobMatch"
             nav={<TopNav items={NAV_ITEMS} />}
