@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { execSync, spawn, spawnSync } from "node:child_process";
+import { execFileSync, execSync, spawn, spawnSync } from "node:child_process";
 import { rmSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -8,7 +8,14 @@ import net from "node:net";
 const DB_HOST = "127.0.0.1";
 const DB_PORT = 55435;
 const DOCKER_DESKTOP_PATH =
-  "F:\\\\programs\\\\Docker\\\\Docker\\\\Docker Desktop.exe";
+  "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe";
+const DOCKER_CLI_PATH =
+  "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe";
+const DOCKER_BIN_DIR = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
+const DOCKER_ENV = {
+  ...process.env,
+  Path: `${DOCKER_BIN_DIR};${process.env.Path ?? ""}`,
+};
 const MAX_WAIT_SECONDS = 180;
 
 function isDbReachable(): Promise<boolean> {
@@ -27,7 +34,10 @@ function isDbReachable(): Promise<boolean> {
 
 function isDockerReady(): boolean {
   try {
-    execSync("docker info", { stdio: "ignore" });
+    execFileSync(DOCKER_CLI_PATH, ["info"], {
+      stdio: "ignore",
+      env: DOCKER_ENV,
+    });
     return true;
   } catch {
     return false;
@@ -85,7 +95,11 @@ async function startDatabase(): Promise<void> {
   }
   startDockerDesktop();
   console.log("Starting database container...");
-  execSync("docker compose --env-file .env.local up -d", { stdio: "inherit" });
+  execFileSync(
+    DOCKER_CLI_PATH,
+    ["compose", "--env-file", ".env.local", "up", "-d"],
+    { stdio: "inherit", env: DOCKER_ENV }
+  );
   console.log("Waiting for database to be reachable...");
   const start = Date.now();
   while (Date.now() - start < MAX_WAIT_SECONDS * 1000) {
@@ -172,7 +186,7 @@ async function main(): Promise<void> {
   // .next/dev/types/*.d.ts mid-cleanup/build, silently reintroducing the
   // exact broken files this step exists to remove.
   console.log("Killing ports...");
-  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010 3011", { stdio: "inherit" });
+  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010 3011 3012", { stdio: "inherit" });
 
   // Clean stale .next directories before building. Turbopack's dev server
   // generates .next/dev/types/*.d.ts files that can contain broken content
@@ -197,7 +211,7 @@ async function main(): Promise<void> {
   // though we killed them at the top. This second kill ensures the ports
   // are clear right before we start the new dev servers.
   console.log("Re-killing ports after build...");
-  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010 3011", {
+  execSync("kill-port 3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010 3011 3012", {
     stdio: "inherit",
   });
 
