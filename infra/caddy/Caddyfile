@@ -51,6 +51,10 @@ appbuilder.asafarim.com {
   reverse_proxy appbuilder:3000
 }
 
+jobmatch.asafarim.com {
+  reverse_proxy jobmatch:3000
+}
+
 labs.asafarim.com {
   reverse_proxy labs:3000
 }

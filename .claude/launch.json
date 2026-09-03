@@ -60,6 +60,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@asafarim/labs", "dev"],
       "port": 3011
+    },
+    {
+      "name": "jobmatch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@asafarim/jobmatch", "dev"],
+      "port": 3012
     }
   ]
 }

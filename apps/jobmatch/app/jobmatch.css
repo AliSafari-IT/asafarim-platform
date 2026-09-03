@@ -1,0 +1,21 @@
+/*
+ * JobMatch surface styling. Colours come from @asafarim/ui's design tokens
+ * via [data-app="jobmatch"]; only layout and app-specific accents live here.
+ */
+
+[data-app="jobmatch"] .jm-mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.02em;
+}
+
+[data-app="jobmatch"] .jm-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+[data-app="jobmatch"] .jm-note {
+  border-left: 3px solid var(--color-border, #888);
+  padding-left: 1rem;
+  opacity: 0.85;
+}
