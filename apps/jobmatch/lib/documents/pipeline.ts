@@ -90,6 +90,8 @@ export function explainReasonCode(code: string | null): string {
       // kind of confidently wrong message that makes people distrust the
       // rest of the screen.
       return "Not enough text could be read from this document. If it is a scan or an image, a text-based PDF or Word file works better. You can also fill in your profile by hand below.";
+    case "LAYOUT_UNRELIABLE":
+      return "Your contact details and languages were read, but this document's layout (columns, or a heavily designed template) could not be followed reliably. Rather than fill your profile with text from the wrong part of the page, the remaining fields were left for you. A single-column CV usually reads correctly.";
     case "EXTRACTION_ERROR":
       return "This document could not be read. You can still build your profile by hand.";
     default:
