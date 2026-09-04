@@ -28,11 +28,29 @@ export interface EmbeddingInput {
   includedFields: string[];
 }
 
-/** Fields intentionally excluded, named here so the omission is a decision
- *  a reader can see rather than infer from what is missing. Also the source
- *  of a runtime safety net: if any of these values leak into the built text
- *  by some future change, `buildEmbeddingInput` refuses to return it. */
-const EXCLUDED_FIELDS = ["fullName", "email", "phone", "baseLocation"] as const satisfies readonly (keyof CandidateProfileContent)[];
+/**
+ * Fields intentionally excluded, named here so the omission is a decision a
+ * reader can see rather than infer from what is missing. `email` and
+ * `phone` are also the source of a runtime safety net below: those two
+ * formats essentially never occur coincidentally inside legitimate
+ * professional text, so any match is a real leak.
+ *
+ * `fullName` and `baseLocation` are deliberately *not* checked at runtime.
+ * A city legitimately recurs in an employer or institution name ("Ghent
+ * University"), and a name can legitimately be part of one too ("Jordan
+ * Motors") — a substring check on either would throw on real profiles for
+ * text that was never leaked from the excluded field at all. The allow-list
+ * construction above is what actually keeps them out (verified by
+ * embeddingInput.test.ts); this check exists only for identifiers precise
+ * enough that a false positive is not a realistic concern.
+ */
+const EXCLUDED_FIELDS = ["email", "phone"] as const satisfies readonly (keyof CandidateProfileContent)[];
+
+/** Lowercase and strip everything but letters and digits, so "Jordan@Example.test"
+ *  and "JORDAN@EXAMPLE.TEST", or "+32 470 00 00 00" and "0470-00-00-00", compare equal. */
+function canonicalize(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
 
 export function buildEmbeddingInput(profile: CandidateProfileContent): EmbeddingInput {
   const lines: string[] = [];
@@ -97,9 +115,10 @@ export function buildEmbeddingInput(profile: CandidateProfileContent): Embedding
   }
 
   const text = lines.join("\n");
+  const canonicalText = canonicalize(text);
   for (const field of EXCLUDED_FIELDS) {
     const value = profile[field];
-    if (typeof value === "string" && value.length > 0 && text.includes(value)) {
+    if (typeof value === "string" && value.length > 0 && canonicalText.includes(canonicalize(value))) {
       throw new Error(
         `buildEmbeddingInput would have leaked profile.${field} into the embedding text — refusing to return it.`,
       );

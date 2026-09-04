@@ -71,4 +71,53 @@ describe("privacy-preserving embedding input", () => {
     expect(text).toContain("eea_unrestricted");
     expect(includedFields).toContain("workAuthorization");
   });
+
+  it("does not throw when a city legitimately recurs inside an employer or institution name", () => {
+    // A real false-positive risk: the candidate's base location and part of
+    // an employer/institution name can coincide without any leak at all.
+    expect(() =>
+      buildEmbeddingInput(
+        profile({
+          baseLocation: "Ghent",
+          experience: [
+            {
+              title: "Researcher",
+              employer: "Ghent University",
+              startedOn: null,
+              endedOn: null,
+              isCurrent: false,
+              summary: null,
+            },
+          ],
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("does not throw when a name legitimately recurs inside professional text", () => {
+    expect(() =>
+      buildEmbeddingInput(
+        profile({
+          fullName: "Jordan Example",
+          headline: "Worked at Jordan Motors as a mechanic",
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("throws when an email address leaks in, ignoring case", () => {
+    expect(() =>
+      buildEmbeddingInput(
+        profile({ email: "jordan@example.test", headline: "Reach me at JORDAN@EXAMPLE.TEST" }),
+      ),
+    ).toThrow();
+  });
+
+  it("throws when a phone number leaks in with different punctuation", () => {
+    expect(() =>
+      buildEmbeddingInput(
+        profile({ phone: "+32 470 00 00 00", headline: "Call +32-470-00-00-00 anytime" }),
+      ),
+    ).toThrow();
+  });
 });

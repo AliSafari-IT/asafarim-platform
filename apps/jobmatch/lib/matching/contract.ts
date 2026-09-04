@@ -100,7 +100,35 @@ export const matchResultSchema = z
      *  a placeholder score be mistaken for a real evaluation. */
     degraded: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  .superRefine((result, ctx) => {
+    // The two shapes are mutually exclusive by construction, not just by
+    // convention: a schema that allowed a "degraded" result to also carry
+    // real evidence and provenance would let a caller persist a value that
+    // claims no model ran while still looking like one did, and a
+    // "real" result with no evidence is a model call nobody can audit.
+    if (result.degraded) {
+      if (
+        result.confidence !== 0 ||
+        result.explanation.length > 0 ||
+        result.embeddingModelVersion !== null ||
+        result.evaluationModelVersion !== null
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "A degraded result must carry zero confidence, no evidence, and no model provenance — see buildDegradedMatchResult.",
+          path: ["degraded"],
+        });
+      }
+    } else if (result.explanation.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "A non-degraded result must carry at least one evidence entry explaining its score.",
+        path: ["explanation"],
+      });
+    }
+  });
 
 export type MatchResult = z.infer<typeof matchResultSchema>;
 

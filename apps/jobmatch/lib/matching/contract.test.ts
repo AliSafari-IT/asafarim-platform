@@ -40,18 +40,27 @@ describe("matching feature contract", () => {
     expect(() => parseMatchResult(validResult({ hiringProbability: 0.9 }))).toThrow();
   });
 
-  it("defaults arrays to empty rather than requiring every field", () => {
-    const result = matchResultSchema.parse({
-      suitabilityScore: 0.5,
-      confidence: 0.5,
-      recommendedAction: "consider_with_caveats",
-      promptVersion: "1.0.0",
-    });
+  it("defaults matching/missing/uncertain arrays to empty for a non-degraded result", () => {
+    const result = matchResultSchema.parse(
+      validResult({ matchingSkills: [], missingSkills: [], uncertainRequirements: [] }),
+    );
     expect(result.matchingSkills).toEqual([]);
     expect(result.missingSkills).toEqual([]);
     expect(result.uncertainRequirements).toEqual([]);
-    expect(result.explanation).toEqual([]);
     expect(result.degraded).toBe(false);
+  });
+
+  it("requires an explanation for a non-degraded result rather than defaulting it away", () => {
+    // The degraded/real shapes are mutually exclusive by construction — see
+    // the "degraded/real shapes" describe block below.
+    expect(() =>
+      matchResultSchema.parse({
+        suitabilityScore: 0.5,
+        confidence: 0.5,
+        recommendedAction: "consider_with_caveats",
+        promptVersion: "1.0.0",
+      }),
+    ).toThrow();
   });
 });
 
@@ -65,5 +74,43 @@ describe("degraded mode", () => {
 
   it("produces a schema-valid result", () => {
     expect(() => matchResultSchema.parse(buildDegradedMatchResult("1.0.0"))).not.toThrow();
+  });
+});
+
+describe("the degraded/real shapes are mutually exclusive", () => {
+  it("rejects a degraded result that still carries evidence", () => {
+    expect(() =>
+      matchResultSchema.parse({
+        ...buildDegradedMatchResult("1.0.0"),
+        explanation: [
+          { profileField: "skills[0].name", postingRequirement: "TypeScript", note: "Matches." },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a degraded result that still carries model provenance", () => {
+    expect(() =>
+      matchResultSchema.parse({
+        ...buildDegradedMatchResult("1.0.0"),
+        evaluationModelVersion: "gpt-4.1-mini",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a degraded result with nonzero confidence", () => {
+    expect(() =>
+      matchResultSchema.parse({ ...buildDegradedMatchResult("1.0.0"), confidence: 0.4 }),
+    ).toThrow();
+  });
+
+  it("rejects a non-degraded result with no evidence at all", () => {
+    expect(() =>
+      parseMatchResult(validResult({ degraded: false, explanation: [] })),
+    ).toThrow();
+  });
+
+  it("still accepts a fully populated, non-degraded result", () => {
+    expect(() => parseMatchResult(validResult())).not.toThrow();
   });
 });
