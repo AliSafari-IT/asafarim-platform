@@ -10,6 +10,20 @@ built inside. See [`docs/business-plan.md`](docs/business-plan.md) for the
 milestone sequence and [`docs/threat-model.md`](docs/threat-model.md) for
 what M1 does and does not defend against.
 
+## What M4 delivers
+
+- Deterministic eligibility across seven axes (sponsorship, language,
+  certification, remote/location, salary floor, contract type, employer
+  opt-out), where absence on either side never excludes anyone.
+- Every hard exclusion shown with its reason, except an opted-out employer,
+  which is removed from the query itself rather than merely annotated.
+- Controlled-vocabulary normalisation for Belgian city synonyms, contract
+  types, and language names, without ever overwriting the source's own text.
+- Search with text, location, remote, contract, salary and skill filters,
+  pagination, sorting, freshness labels, and source attribution.
+- A per-workspace rate limit on search, protecting ingested job data from
+  bulk extraction through a signed-in account.
+
 ## What M3 delivers
 
 - A source model that will not sync without a recorded, unexpired agreement

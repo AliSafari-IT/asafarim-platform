@@ -27,6 +27,9 @@ describe("posting normalization", () => {
       salaryCurrency: "eur",
       salaryPeriod: "year",
       skills: ["TypeScript", "typescript", "PostgreSQL"],
+      requiresSponsorship: false,
+      languageRequired: ["Dutch", "Klingon"],
+      requiredCertifications: ["AWS-SA"],
       publishedAt: "2026-08-01T00:00:00Z",
     });
 
@@ -39,6 +42,12 @@ describe("posting normalization", () => {
     // needs the original and must not lose it.
     expect(result.posting.skillsRaw).toEqual(["TypeScript", "PostgreSQL"]);
     expect(result.posting.normalizerVersion).toBe(NORMALIZER_VERSION);
+    // Legal-suffix-stripped, folded form, computed once for opt-out matching.
+    expect(result.posting.employerKey).toBe("example");
+    expect(result.posting.requiresSponsorship).toBe(false);
+    // An unrecognised token ("Klingon") is dropped rather than guessed at.
+    expect(result.posting.languageRequired).toEqual(["nl"]);
+    expect(result.posting.requiredCertifications).toEqual(["AWS-SA"]);
   });
 
   it("rejects a record missing the fields that make it traceable", () => {

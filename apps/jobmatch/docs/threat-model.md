@@ -1,6 +1,6 @@
 # JobMatch threat model — M1 baseline (JM-016)
 
-Scope: the foundation shipped in M1, the CV pipeline shipped in M2, and the job ingestion shipped in M3 — the Next.js app, its dedicated
+Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, and search and eligibility shipped in M4 — the Next.js app, its dedicated
 PostgreSQL database, its use of platform SSO, and its logging. It is written
 to be extended, not rewritten: each later milestone adds a section rather
 than replacing this one.
@@ -219,6 +219,76 @@ to candidates. That is M4, and putting a job in front of someone before the
 eligibility rules exist is how a product starts wasting the time it promised
 to save.
 
+## M4 additions — search and deterministic eligibility
+
+M4 is the first milestone where a candidate sees a job at all, and the
+controls here are less about attackers and more about the product not
+lying to the person using it.
+
+### Absence is never failure
+
+Every exclusion rule in `lib/eligibility/evaluate.ts` follows one law: a
+missing fact — on either side — never excludes anyone. A candidate who left
+their languages blank is not assumed to speak nothing; a posting silent on
+sponsorship is not assumed to refuse it. Only an explicit, stated fact on
+both sides can produce an exclusion, and each one is tested for the
+opposite case too (the axis firing only when data is present, never when
+it is merely absent).
+
+### Two exclusion mechanisms, deliberately different
+
+Every hard exclusion *except* an employer opt-out is shown to the candidate
+*with its reason* rather than silently filtered — a job that does not fit
+still teaches the candidate something (about their profile, or about the
+market) that a job that silently vanished would not have.
+
+An employer opt-out is the one exception, and it is a different code path
+(`isOptedOut`, applied in the database query itself) rather than a louder
+version of the same one: the profile page promises "kept private, nobody
+is told you excluded them," and an ineligible badge on a card the candidate
+can still see would break that promise even without naming the reason.
+
+### Search protects ingested data, not only candidate data
+
+Every other authenticated route protects the signed-in candidate's own
+information. Search is the first route that returns bulk data about
+something else — the platform's own ingested job postings — which makes it
+the natural target for pulling that data back out through a signed-in
+account rather than attacking ingestion directly. Page size is capped,
+results are paginated, and a per-workspace sliding-window rate limit sits
+in front of the route.
+
+### Threats addressed in M4
+
+| Threat | Control | Where |
+|---|---|---|
+| Excluding a candidate on data their CV never stated | Every rule requires the fact on **both** sides before firing | `lib/eligibility/evaluate.ts` |
+| A wrong normalisation silently hiding a real match | Every normaliser returns null rather than guessing; null is never a mismatch | `lib/eligibility/vocabulary.ts` |
+| An opt-out employer still visible, even as "ineligible" | Excluded in the database query itself, never merely annotated | `lib/search/service.ts` |
+| Bulk extraction of ingested job data through a session | Page size capped at 50; per-workspace sliding-window rate limit | `lib/search/query.ts`, `lib/search/rateLimit.ts` |
+| A city preference missing postings written in another language | Belgian city synonyms folded before comparison (Bruxelles/Brussel/Brussels) | `lib/eligibility/vocabulary.ts` |
+| Comparing a salary floor across mismatched currencies | Compared only when currencies agree or either side is unstated | `lib/eligibility/evaluate.ts` |
+
+### Deliberately not done in M4
+
+**Seniority exclusion.** The business plan lists seniority as an axis, but
+the candidate profile carries no seniority preference to compare against —
+inferring one from years of experience would not be deterministic, and this
+milestone's whole premise is that it is. `JobPosting.seniorityLevel` is
+stored for future use and display, not compared against anything yet.
+
+**Mandatory technology as an automatic exclusion.** The profile has no
+field distinguishing a must-have skill from a nice-to-have one, so this
+ships as a candidate-driven search filter (`skills=`) instead of a
+profile-driven hard exclusion — the candidate decides per search what is
+non-negotiable, rather than JobMatch guessing from a skills list that was
+never ranked by importance.
+
+**A distributed rate limiter.** The current one is in-memory and per
+instance, stated as a limitation in its own file. It is enough to slow a
+script against a single-instance deployment with no source yet
+authorised to ingest from; it is not enough once ingestion is live and
+JobMatch runs more than one instance.
 ## Test-data isolation
 
 AppBuilder's integration suite once wiped a developer's database because it

@@ -450,6 +450,7 @@ function toRow(posting: {
   canonicalUrl: string;
   title: string;
   employer: string;
+  employerKey: string;
   description: string;
   language: string | null;
   locationRaw: string | null;
@@ -460,6 +461,9 @@ function toRow(posting: {
   salaryCurrency: string | null;
   salaryPeriod: string | null;
   skillsRaw: string[];
+  requiresSponsorship: boolean | null;
+  languageRequired: string[];
+  requiredCertifications: string[];
   publishedAt: Date | null;
   expiresAt: Date | null;
   sourceUpdatedAt: Date | null;
@@ -471,6 +475,7 @@ function toRow(posting: {
     canonicalUrl: posting.canonicalUrl,
     title: posting.title,
     employer: posting.employer,
+    employerKey: posting.employerKey,
     description: posting.description,
     language: posting.language,
     locationRaw: posting.locationRaw,
@@ -481,6 +486,9 @@ function toRow(posting: {
     salaryCurrency: posting.salaryCurrency,
     salaryPeriod: posting.salaryPeriod,
     skillsRaw: posting.skillsRaw,
+    requiresSponsorship: posting.requiresSponsorship,
+    languageRequired: posting.languageRequired,
+    requiredCertifications: posting.requiredCertifications,
     publishedAt: posting.publishedAt,
     expiresAt: posting.expiresAt,
     sourceUpdatedAt: posting.sourceUpdatedAt,

@@ -425,6 +425,13 @@ model JobPosting {
 
   title       String
   employer    String
+  /// Folded, legal-suffix-stripped form of `employer`, computed once at
+  /// normalisation time. Exists so an employer opt-out ("never show me
+  /// Example") can be enforced as an exact database-level filter -- applied
+  /// before pagination and counting -- rather than as an in-app filter
+  /// applied to an already-paginated page, which silently shrank pages and
+  /// made totalCount overstate what a candidate would actually see.
+  employerKey String
   description String  @db.Text
   /// The posting's language as stated or detected, for M4's filtering.
   language    String?
@@ -441,6 +448,28 @@ model JobPosting {
   /// Skills as the posting words them. Normalisation to a controlled
   /// vocabulary is M4's job and must not erase the original.
   skillsRaw String[]
+
+  // -- M4: deterministic eligibility (JM-033) ---------------------------
+  //
+  // Every field below is nullable/empty by default, and that default means
+  // "the source did not say" -- never "no". A connector that cannot state
+  // whether a role sponsors a visa must leave requiresSponsorship unset,
+  // not guess false, because guessing false would wrongly exclude a
+  // candidate who needed sponsorship from a job that might have offered it.
+
+  /// Whether the employer sponsors a work permit for this role. Null means
+  /// unstated, and unstated never excludes anyone -- only an explicit
+  /// false does, and only for a candidate who explicitly needs sponsorship.
+  requiresSponsorship Boolean?
+  /// Languages the role requires, as ISO 639-1 codes. Empty means the
+  /// posting did not state a requirement; silence never excludes.
+  languageRequired String[] @default([])
+  /// Certifications the role requires, by name as the source wrote them.
+  requiredCertifications String[] @default([])
+  /// Free-text seniority as the source labelled it. Stored for display and
+  /// future filtering; M4 does not exclude on it, because the candidate
+  /// profile carries no seniority preference to compare against yet.
+  seniorityLevel String?
 
   /// Hash over the fields that define the posting, to tell a genuine update
   /// from an unchanged re-fetch.
@@ -473,6 +502,7 @@ model JobPosting {
 
   @@unique([sourceId, externalId])
   @@index([canonicalKey])
+  @@index([employerKey])
   @@index([status, lastSeenAt])
   @@index([sourceId, status])
   @@map("job_postings")
