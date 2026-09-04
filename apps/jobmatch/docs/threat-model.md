@@ -1,6 +1,6 @@
 # JobMatch threat model — M1 baseline (JM-016)
 
-Scope: the foundation shipped in M1 and the CV pipeline shipped in M2 — the Next.js app, its dedicated
+Scope: the foundation shipped in M1, the CV pipeline shipped in M2, and the job ingestion shipped in M3 — the Next.js app, its dedicated
 PostgreSQL database, its use of platform SSO, and its logging. It is written
 to be extended, not rewritten: each later milestone adds a section rather
 than replacing this one.
@@ -141,6 +141,84 @@ deterministic and local.
 separate "withdraw consent but keep the account" flow waits for the consent
 model itself, which is JM-008.
 
+## M3 additions — job ingestion
+
+M3 is where JobMatch starts making outbound requests on its own behalf and
+storing other people's content. Two things change the risk picture, and the
+controls follow from them.
+
+### Nothing is fetched without a recorded agreement
+
+`lib/ingestion/authorization.ts` is the whole of the "no unapproved scraping"
+rule, expressed as a function. A sync is refused unless the source is ACTIVE,
+explicitly enabled, carries an agreement reference, and that agreement has an
+expiry which has not passed. `runSync` asks it first and makes no network
+request when the answer is no.
+
+Requiring an *expiry* is deliberate. An open-ended agreement would mean a
+source is fetched forever because nobody revisited it; requiring an end date
+means every source is re-examined on a known day, and the sync stops itself
+rather than waiting to be switched off.
+
+**No source ships enabled.** Choosing one and agreeing its terms is JM-003
+and JM-004 — commercial and legal work, not engineering. The machinery is
+built and tested; the register is empty on purpose.
+
+### An endpoint is attacker-controlled input
+
+A connector endpoint is operator-supplied configuration, which makes every
+sync a potential server-side request forgery: point a source at the cloud
+metadata service and it fetches credentials on the attacker's behalf.
+
+`lib/ingestion/http.ts` is the only way ingestion reaches the network:
+
+- HTTPS only, to a public address, re-checked at request time rather than
+  only at configuration time.
+- **Redirects are not followed.** A permitted host redirecting to a private
+  address is the standard bypass, and re-validating each hop is more moving
+  parts than refusing is worth.
+- Response size cap and timeout, so a hostile or broken source cannot
+  exhaust memory or hold a sync open.
+- Fetch errors are never logged or surfaced: they embed the full URL, which
+  for a partner API carries the key in its query string.
+
+### Threats addressed in M3
+
+| Threat | Control | Where |
+|---|---|---|
+| Fetching a source nobody agreed terms with | Authorization checked before any request; refusal recorded as a run | `lib/ingestion/authorization.ts`, `run.ts` |
+| An agreement lapsing unnoticed | Expiry is mandatory and enforced; expiring soon is surfaced on the sources page | `authorization.ts`, `status.ts` |
+| SSRF via an operator-supplied endpoint | Public-HTTPS-only policy, private ranges and metadata hosts blocked | `lib/ingestion/http.ts` |
+| SSRF via redirect to a private address | Redirects refused outright, not followed | same |
+| Credentials leaking through an error | Fetch errors discarded; reason codes only | same |
+| A hostile or broken feed exhausting memory | Declared *and* actual size capped; record count capped | `http.ts`, `feedConnector.ts` |
+| Breaching an agreed rate limit | Delay derived from the agreed rate; `Retry-After` obeyed; bounded backoff | `http.ts` |
+| Re-fetching content that has not changed | Conditional requests with ETag and Last-Modified | same |
+| Showing a candidate the same job three times | Deduplication by source id, URL, then canonical key; copies linked, not displayed | `lib/ingestion/dedupe.ts` |
+| Displaying a copy from a source without reuse rights | Representative selection prefers the employer, then a source with commercial reuse granted | same |
+| Wasting a candidate's time on a filled role | Freshness assessed from four separate dates, including silent disappearance | `lib/ingestion/freshness.ts` |
+| Showing postings after an agreement ends | Source termination outranks every date | same |
+| An unfixable normalization bug | Raw snapshots stored before parsing, so a fix is replayed rather than re-fetched | `run.ts` |
+| Retaining a source's content indefinitely | Snapshot payloads dropped at the source's own retention window; the row and hash survive | `run.ts` |
+| A source silently ceasing to sync | Every attempt writes a run row, including refusals | `run.ts`, `status.ts` |
+| The sync endpoint being reachable by anyone | Shared-secret bearer token, constant-time compared; unset disables the route entirely | `app/api/ingestion/sync` |
+
+### Deliberately not done in M3
+
+**Prompt-injection defences for job text.** Descriptions are stored as the
+source wrote them and are not yet fed to a model. That is JM-044, and it
+lands with the matching work rather than before it.
+
+**Browser-based or parser-based connectors.** Only JSON over HTTPS is
+supported. Rendering a page to extract jobs means running a browser over
+untrusted content, which needs the isolation JM-030 asks for and does not
+have yet.
+
+**Search and eligibility.** Postings are ingested but nothing displays them
+to candidates. That is M4, and putting a job in front of someone before the
+eligibility rules exist is how a product starts wasting the time it promised
+to save.
+
 ## Test-data isolation
 
 AppBuilder's integration suite once wiped a developer's database because it
@@ -156,7 +234,6 @@ These are *not* mitigated yet, and no shipped code pretends otherwise.
 | Threat | Owner |
 |---|---|
 | OCR exploitation via malformed documents (OCR not implemented; see M2 additions) | JM-019 |
-| SSRF and proxy abuse from connectors | JM-030 |
 | Prompt injection via job descriptions | JM-044 |
 | Bulk extraction of jobs or profiles through search | JM-037 |
 | Consent withdrawal as a distinct action (access, export, and erasure are done) | JM-008, JM-023 |

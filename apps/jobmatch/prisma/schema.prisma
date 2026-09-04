@@ -263,3 +263,255 @@ model CandidateProfileVersion {
   @@index([profileId, createdAt])
   @@map("candidate_profile_versions")
 }
+
+// ─── M3: authorized job ingestion ───────────────────────────────────────
+//
+// The organising rule: nothing is fetched that is not covered by a recorded
+// agreement, and nothing is shown that cannot be traced back to the exact
+// bytes a source returned.
+//
+// JobMatch does not scrape. A source has to exist as a row, carry an
+// agreement reference, and be explicitly enabled before a single request is
+// made — see lib/ingestion/authorization.ts. That is a product rule from the
+// business plan ("no unapproved scraping"), and giving it a schema of its
+// own is what stops it eroding into a TODO.
+
+/// How a source is reached. Deliberately small: each value is a different
+/// legal and technical posture, so adding one is a decision rather than a
+/// configuration change.
+enum SourceKind {
+  /// A JSON feed an employer or aggregator publishes for syndication.
+  JSON_FEED
+  /// An official API used under a partnership agreement.
+  PARTNER_API
+}
+
+enum SourceStatus {
+  /// Configured but never enabled. Cannot be synced.
+  DRAFT
+  /// Enabled and syncing.
+  ACTIVE
+  /// Temporarily stopped by an operator.
+  PAUSED
+  /// Agreement ended or withdrawn. Terminal, and its postings are hidden.
+  TERMINATED
+}
+
+/// A job source, and the terms JobMatch may use it under.
+///
+/// The agreement fields are not documentation. A sync is refused unless they
+/// are present and unexpired, so an unauthorised source cannot be fetched
+/// even by mistake.
+model JobSource {
+  id  String @id @default(cuid())
+  /// Stable operator-facing key, e.g. "example-employer-feed".
+  key String @unique
+
+  name String
+  kind SourceKind
+
+  /// Where the feed lives. Validated against the outbound allowlist on every
+  /// request, never only at configuration time — see lib/ingestion/http.ts.
+  endpoint String
+
+  status SourceStatus @default(DRAFT)
+  /// The master switch, kept separate from `status` so that pausing a source
+  /// is not the same act as revoking its authorisation.
+  syncEnabled Boolean @default(false)
+
+  /// Reference to the signed agreement in the source-rights register
+  /// (JM-003). Free text on purpose: that register lives outside this system.
+  agreementReference String?
+  /// After this, the source stops syncing on its own.
+  agreementExpiresAt DateTime?
+  /// Attribution the UI must show alongside every posting from here.
+  attributionText String?
+  /// Whether the agreement permits commercial reuse. Absent means unknown,
+  /// which is treated as "no" everywhere it matters.
+  commercialUse Boolean?
+
+  /// Politeness controls, taken from the agreement rather than guessed.
+  requestsPerMinute Int @default(20)
+  /// How long raw payloads may be kept. Snapshots past this are deleted even
+  /// though the normalized posting survives.
+  snapshotRetentionDays Int @default(30)
+
+  lastSyncStartedAt  DateTime?
+  lastSyncFinishedAt DateTime?
+  /// HTTP validators for conditional requests, so a sync that changes
+  /// nothing costs the source nothing.
+  lastEtag     String?
+  lastModified String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  snapshots JobSnapshot[]
+  postings  JobPosting[]
+  runs      IngestionRun[]
+
+  @@map("job_sources")
+}
+
+/// Raw bytes exactly as a source returned them.
+///
+/// Kept separate from the normalized posting so normalization is
+/// reproducible: a parser fix can be replayed against the original payload
+/// rather than needing a re-fetch, which an agreement may not even permit.
+/// Retention is bounded by the source's own policy.
+model JobSnapshot {
+  id String @id @default(cuid())
+
+  sourceId String
+  source   JobSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 of the payload, so a repeat sync returning identical bytes is
+  /// recognised without storing them twice.
+  contentHash String
+  /// The payload itself. Cleared when its retention window closes.
+  payload  String?
+  byteSize Int
+
+  capturedAt  DateTime @default(now())
+  retainUntil DateTime
+
+  /// Which normalization produced postings from this snapshot, so a replay
+  /// can tell old output from new.
+  normalizerVersion String?
+
+  postings JobPosting[]
+
+  @@unique([sourceId, contentHash])
+  @@index([sourceId, capturedAt])
+  @@index([retainUntil])
+  @@map("job_snapshots")
+}
+
+enum PostingStatus {
+  ACTIVE
+  /// Past its expiry, or gone from the feed. Not shown as current.
+  EXPIRED
+  /// A duplicate of another posting. Kept for provenance, never displayed.
+  DUPLICATE
+  /// Source authorisation ended. Hidden regardless of its own dates.
+  WITHDRAWN
+}
+
+/// A normalized job posting.
+///
+/// Every field a candidate sees comes from here, and every one is traceable:
+/// `sourceId` says where it came from, `snapshotId` from which exact
+/// payload, and `canonicalUrl` sends the candidate to apply at the source
+/// rather than through JobMatch.
+model JobPosting {
+  id String @id @default(cuid())
+
+  sourceId String
+  source   JobSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  snapshotId String?
+  snapshot   JobSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+
+  /// The source's own identifier, unique per source, and the first key
+  /// deduplication tries.
+  externalId String
+  /// Where to apply. Always the source's page, never a JobMatch mirror.
+  canonicalUrl String
+
+  title       String
+  employer    String
+  description String  @db.Text
+  /// The posting's language as stated or detected, for M4's filtering.
+  language    String?
+
+  locationRaw  String?
+  isRemote     Boolean?
+  contractType String?
+
+  salaryMin      Int?
+  salaryMax      Int?
+  salaryCurrency String?
+  salaryPeriod   String?
+
+  /// Skills as the posting words them. Normalisation to a controlled
+  /// vocabulary is M4's job and must not erase the original.
+  skillsRaw String[]
+
+  /// Hash over the fields that define the posting, to tell a genuine update
+  /// from an unchanged re-fetch.
+  contentHash String
+  /// Stable key across sources, for cross-source deduplication.
+  canonicalKey String
+
+  /// The posting this duplicates, if any. The representative is the one with
+  /// no parent, and it is the only one ever displayed.
+  duplicateOfId String?
+  duplicateOf   JobPosting?  @relation("Duplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates    JobPosting[] @relation("Duplicates")
+
+  status PostingStatus @default(ACTIVE)
+
+  /// Freshness, all four kept separately: when the source says it was
+  /// published, when it expires, when JobMatch first saw it, and when it was
+  /// last confirmed still present. A stale listing is the most common way a
+  /// job board wastes a candidate's time.
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+  firstSeenAt     DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+  sourceUpdatedAt DateTime?
+
+  normalizerVersion String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceId, externalId])
+  @@index([canonicalKey])
+  @@index([status, lastSeenAt])
+  @@index([sourceId, status])
+  @@map("job_postings")
+}
+
+enum RunOutcome {
+  SUCCEEDED
+  /// Finished, but some records failed to normalize.
+  PARTIAL
+  FAILED
+  /// Refused before any request was made — no agreement, expired, disabled.
+  REFUSED
+}
+
+/// One sync attempt, and what it cost.
+///
+/// Exists so ingestion health is a query rather than a guess (JM-031):
+/// success rate, records added and expired, duplicates, parse failures,
+/// latency, and rate-limit responses are all recorded here.
+model IngestionRun {
+  id String @id @default(cuid())
+
+  sourceId String
+  source   JobSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  outcome    RunOutcome?
+  /// Why a run was refused or failed, as a code. Never a raw error message:
+  /// those carry URLs and credentials.
+  reasonCode String?
+
+  recordsFetched   Int @default(0)
+  recordsAdded     Int @default(0)
+  recordsUpdated   Int @default(0)
+  recordsExpired   Int @default(0)
+  duplicatesFound  Int @default(0)
+  parseFailures    Int @default(0)
+  rateLimitedCount Int @default(0)
+  /// True when the source answered 304 and there was nothing to do.
+  notModified Boolean @default(false)
+
+  durationMs Int?
+
+  @@index([sourceId, startedAt])
+  @@map("ingestion_runs")
+}

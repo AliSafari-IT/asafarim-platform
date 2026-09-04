@@ -10,6 +10,20 @@ built inside. See [`docs/business-plan.md`](docs/business-plan.md) for the
 milestone sequence and [`docs/threat-model.md`](docs/threat-model.md) for
 what M1 does and does not defend against.
 
+## What M3 delivers
+
+- A source model that will not sync without a recorded, unexpired agreement
+  reference. No source ships enabled.
+- Raw snapshots stored before parsing, so a normalization fix is replayed
+  against the original bytes rather than needing a re-fetch.
+- Deduplication across sources, with the copy a candidate sees chosen by
+  authority and reuse rights rather than by arrival order.
+- Freshness from four separate dates, including postings that vanish from a
+  feed without ever being marked expired.
+- SSRF-resistant fetching: public HTTPS only, no redirects followed, size and
+  time bounded, conditional requests, and agreed rate limits obeyed.
+- Every sync attempt recorded, refusals included, and surfaced at `/sources`.
+
 ## What M2 delivers
 
 - Private document storage with byte-level type sniffing, a 10 MB cap, and
@@ -72,6 +86,7 @@ pnpm --filter @asafarim/jobmatch test
 | `NEXT_PUBLIC_HUB_URL` | all deployments | Where unauthenticated visitors are sent to sign in. |
 | `JOBMATCH_SCANNER_URL` | production (JM-018) | ClamAV sidecar. Without it every upload is quarantined — a fail-closed default, and the reason the CV pipeline is not usable in production yet. |
 | `JOBMATCH_SCANNER` | local only | Set to the exact literal `insecure-accept-all` to run the pipeline without a scanner. Refused on any deployed environment, and it names itself on every document it clears. |
+| `JOBMATCH_INGESTION_TOKEN` | production | Bearer token for `POST /api/ingestion/sync`, which runs ingestion, re-assesses freshness and prunes expired snapshots. Unset disables the route entirely (404). Drive it from a scheduler. Holding it does not authorise fetching from a source whose agreement is missing or expired — that is checked per source. |
 | `JOBMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
 | `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
 
