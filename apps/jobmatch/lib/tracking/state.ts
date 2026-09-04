@@ -16,9 +16,7 @@ export const trackedJobStatusSchema = z.enum(["SAVED", "REJECTED", "APPLIED"]);
 export type TrackedJobStatus = z.infer<typeof trackedJobStatusSchema>;
 
 /**
- * Which statuses a transition *to* the key may start from. `SAVED` is the
- * entry point (a job with no tracking record yet is implicitly untracked,
- * so "save" is really "create or no-op"). `APPLIED` is intentionally
+ * Which statuses a transition *to* the key may start from. `APPLIED` is
  * reachable from both `SAVED` and `REJECTED` — a candidate can change their
  * mind about a job they earlier rejected and still apply — but there is no
  * transition back out of `APPLIED`: once recorded, an application is a fact
@@ -40,12 +38,14 @@ export interface TransitionCheck {
 
 /**
  * Whether moving a tracked job from `from` to `to` is a legal transition.
- * `from` is `null` for a job with no tracking record yet, which may only
- * ever start at `SAVED`.
+ * `from` is `null` for a job with no tracking record yet — a candidate's
+ * *first* action on a job is any of the three statuses (save it, reject it
+ * outright, or mark it applied without ever saving first), so creation is
+ * allowed at any status, not only `SAVED`.
  */
 export function checkTransition(from: TrackedJobStatus | null, to: TrackedJobStatus): TransitionCheck {
   if (from === null) {
-    return { allowed: to === "SAVED", isNoop: false };
+    return { allowed: true, isNoop: false };
   }
   return { allowed: TRACKED_JOB_TRANSITIONS[from].includes(to), isNoop: from === to };
 }

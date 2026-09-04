@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { checkTransition } from "./state";
 
 describe("tracked-job state transitions", () => {
-  it("allows creating a new record only as SAVED", () => {
+  it("allows a candidate's first action on a job to be any status", () => {
+    // A candidate can reject or mark applied without ever saving first.
     expect(checkTransition(null, "SAVED")).toEqual({ allowed: true, isNoop: false });
-    expect(checkTransition(null, "REJECTED").allowed).toBe(false);
-    expect(checkTransition(null, "APPLIED").allowed).toBe(false);
+    expect(checkTransition(null, "REJECTED")).toEqual({ allowed: true, isNoop: false });
+    expect(checkTransition(null, "APPLIED")).toEqual({ allowed: true, isNoop: false });
   });
 
   it("allows SAVED to REJECTED and back", () => {
