@@ -56,6 +56,7 @@ export interface PostingForEligibility {
   salaryMin: number | null;
   salaryMax: number | null;
   salaryCurrency: string | null;
+  salaryPeriod: string | null;
   requiresSponsorship: boolean | null;
   languageRequired: string[];
   requiredCertifications: string[];
@@ -104,7 +105,7 @@ export function evaluateEligibility(
   // hold at all, or holds only in an expired form, is a genuine failed
   // requirement — not an absence to be forgiving about, because the posting
   // was specific about what it needs.
-  if (posting.requiredCertifications.length > 0) {
+  if (posting.requiredCertifications.length > 0 && profile.certifications.length > 0) {
     const required = new Set(posting.requiredCertifications.map((name) => name.toLowerCase()));
     const held = profile.certifications.filter((cert) => required.has(cert.name.toLowerCase()));
     const currentlyHeld = held.filter((cert) => !cert.expiresOn || cert.expiresOn >= today());
@@ -138,15 +139,18 @@ export function evaluateEligibility(
     });
   }
 
-  // Salary floor. Compared only when both sides carry a usable number and
-  // the currencies agree — comparing across currencies without a rate would
-  // be a guess dressed up as a fact.
+  // Salary floor. Compared only when both sides carry a usable number, the
+  // currencies are both stated and agree, and the posting is explicitly
+  // annual — the profile's floor has no basis for converting an hourly or
+  // monthly figure, so anything else is treated as unable to compare rather
+  // than guessed at.
   if (
     profile.preferences.salaryFloor !== null &&
     posting.salaryMax !== null &&
-    (!profile.preferences.salaryCurrency ||
-      !posting.salaryCurrency ||
-      profile.preferences.salaryCurrency === posting.salaryCurrency) &&
+    posting.salaryPeriod === "year" &&
+    profile.preferences.salaryCurrency !== null &&
+    posting.salaryCurrency !== null &&
+    profile.preferences.salaryCurrency === posting.salaryCurrency &&
     posting.salaryMax < profile.preferences.salaryFloor
   ) {
     reasons.push({

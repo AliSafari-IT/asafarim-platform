@@ -92,6 +92,9 @@ export function JobsSearch() {
   const [q, setQ] = useState("");
   const [location, setLocation] = useState("");
   const [remote, setRemote] = useState("any");
+  const [contractType, setContractType] = useState("");
+  const [salaryMin, setSalaryMin] = useState("");
+  const [skills, setSkills] = useState("");
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<SearchResult | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
@@ -104,6 +107,9 @@ export function JobsSearch() {
     if (q.trim()) params.set("q", q.trim());
     if (location.trim()) params.set("location", location.trim());
     if (remote !== "any") params.set("remote", remote);
+    if (contractType.trim()) params.set("contractType", contractType.trim());
+    if (salaryMin.trim()) params.set("salaryMin", salaryMin.trim());
+    if (skills.trim()) params.set("skills", skills.trim());
 
     try {
       const response = await fetch(`/api/jobs?${params.toString()}`);
@@ -120,13 +126,13 @@ export function JobsSearch() {
     } catch {
       if (id === requestId.current) setState("error");
     }
-  }, [q, location, remote, page]);
+  }, [q, location, remote, contractType, salaryMin, skills, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => void runSearch(), 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, location, remote, page]);
+  }, [q, location, remote, contractType, salaryMin, skills, page]);
 
   const totalPages = result ? Math.max(1, Math.ceil(result.totalCount / result.pageSize)) : 1;
 
@@ -171,9 +177,47 @@ export function JobsSearch() {
             >
               <option value="any">Any</option>
               <option value="onsite">On site</option>
-              <option value="hybrid">Hybrid</option>
               <option value="remote">Remote</option>
             </select>
+          </label>
+          <label className="jm-field" style={{ flex: "1 1 140px" }}>
+            <span>Contract type</span>
+            <input
+              type="text"
+              value={contractType}
+              onChange={(event) => {
+                setPage(1);
+                setContractType(event.target.value);
+              }}
+              placeholder="e.g. permanent"
+              maxLength={60}
+            />
+          </label>
+          <label className="jm-field" style={{ flex: "1 1 140px" }}>
+            <span>Minimum salary</span>
+            <input
+              type="number"
+              min={0}
+              value={salaryMin}
+              onChange={(event) => {
+                setPage(1);
+                setSalaryMin(event.target.value);
+              }}
+              placeholder="e.g. 50000"
+            />
+          </label>
+          <label className="jm-field" style={{ flex: "2 1 200px" }}>
+            <span>Skills</span>
+            <input
+              type="text"
+              value={skills}
+              onChange={(event) => {
+                setPage(1);
+                setSkills(event.target.value);
+              }}
+              placeholder="Comma-separated, e.g. TypeScript, React"
+              maxLength={400}
+            />
           </label>
         </div>
       </Card>

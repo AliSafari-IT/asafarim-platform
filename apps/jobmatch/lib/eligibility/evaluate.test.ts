@@ -11,6 +11,7 @@ function posting(overrides: Partial<PostingForEligibility> = {}): PostingForElig
     salaryMin: 45000,
     salaryMax: 60000,
     salaryCurrency: "EUR",
+    salaryPeriod: "year",
     requiresSponsorship: null,
     languageRequired: [],
     requiredCertifications: [],
@@ -53,6 +54,30 @@ describe("absence never excludes", () => {
     const result = evaluateEligibility(
       profile({ preferences: { ...emptyProfile().preferences, contractTypes: ["permanent"] } }),
       posting({ contractType: "Something unusual" }),
+    );
+    expect(result.eligible).toBe(true);
+  });
+
+  it("does not exclude on certification when the candidate has entered none at all", () => {
+    // Blank is not the same as "actively lacking a held-but-expired cert" --
+    // a candidate who hasn't gotten to that profile section yet is not
+    // penalised the same as one who does hold certifications, just not this one.
+    const result = evaluateEligibility(profile(), posting({ requiredCertifications: ["AWS-SA"] }));
+    expect(result.eligible).toBe(true);
+  });
+
+  it("does not exclude on salary when the posting's period is not explicitly annual", () => {
+    const result = evaluateEligibility(
+      profile({ preferences: { ...emptyProfile().preferences, salaryFloor: 70000, salaryCurrency: "EUR" } }),
+      posting({ salaryMax: 60000, salaryCurrency: "EUR", salaryPeriod: "month" }),
+    );
+    expect(result.eligible).toBe(true);
+  });
+
+  it("does not exclude on salary when either currency is unstated", () => {
+    const result = evaluateEligibility(
+      profile({ preferences: { ...emptyProfile().preferences, salaryFloor: 70000, salaryCurrency: "EUR" } }),
+      posting({ salaryMax: 60000, salaryCurrency: null, salaryPeriod: "year" }),
     );
     expect(result.eligible).toBe(true);
   });
@@ -101,8 +126,13 @@ describe("language", () => {
 });
 
 describe("certification", () => {
-  it("excludes when the required certification is not on the profile at all", () => {
-    const result = evaluateEligibility(profile(), posting({ requiredCertifications: ["AWS-SA"] }));
+  it("excludes when the candidate holds certifications but not the required one", () => {
+    const result = evaluateEligibility(
+      profile({
+        certifications: [{ name: "CKA", issuer: null, issuedOn: null, expiresOn: null }],
+      }),
+      posting({ requiredCertifications: ["AWS-SA"] }),
+    );
     expect(result.reasons.map((r) => r.code)).toContain("CERTIFICATION_NOT_MET");
   });
 

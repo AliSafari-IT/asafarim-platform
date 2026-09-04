@@ -17,7 +17,10 @@ export const MAX_SKILLS_FILTER = 10;
 export const searchQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
   location: z.string().trim().max(120).optional(),
-  remote: z.enum(["onsite", "hybrid", "remote", "any"]).optional(),
+  // "hybrid" is deliberately not offered: JobPosting.isRemote is a plain
+  // nullable boolean with no honest way to represent it yet, and collapsing
+  // it into either onsite or remote would misrepresent real postings.
+  remote: z.enum(["onsite", "remote", "any"]).optional(),
   contractType: z.string().trim().max(60).optional(),
   salaryMin: z.coerce.number().int().min(0).max(100_000_000).optional(),
   /** "Mandatory technology" as a search filter the candidate applies

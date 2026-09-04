@@ -18,7 +18,7 @@ describe("search query parsing", () => {
       params({
         q: "engineer",
         location: "Hasselt",
-        remote: "hybrid",
+        remote: "remote",
         contractType: "permanent",
         salaryMin: "50000",
         skills: "TypeScript, React , PostgreSQL",
@@ -49,6 +49,10 @@ describe("search query parsing", () => {
 
   it("refuses an out-of-range remote value", () => {
     expect(parseSearchQuery(params({ remote: "underwater" })).ok).toBe(false);
+  });
+
+  it("refuses hybrid, since isRemote cannot honestly represent it", () => {
+    expect(parseSearchQuery(params({ remote: "hybrid" })).ok).toBe(false);
   });
 
   it("refuses a negative salary", () => {

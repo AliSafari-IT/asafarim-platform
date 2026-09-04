@@ -425,6 +425,13 @@ model JobPosting {
 
   title       String
   employer    String
+  /// Folded, legal-suffix-stripped form of `employer`, computed once at
+  /// normalisation time. Exists so an employer opt-out ("never show me
+  /// Example") can be enforced as an exact database-level filter -- applied
+  /// before pagination and counting -- rather than as an in-app filter
+  /// applied to an already-paginated page, which silently shrank pages and
+  /// made totalCount overstate what a candidate would actually see.
+  employerKey String
   description String  @db.Text
   /// The posting's language as stated or detected, for M4's filtering.
   language    String?
@@ -495,6 +502,7 @@ model JobPosting {
 
   @@unique([sourceId, externalId])
   @@index([canonicalKey])
+  @@index([employerKey])
   @@index([status, lastSeenAt])
   @@index([sourceId, status])
   @@map("job_postings")

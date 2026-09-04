@@ -1,12 +1,9 @@
 import "server-only";
 import { getJobmatchDb } from "../db/client";
-import {
-  type EligibilityResult,
-  evaluateEligibility,
-  isOptedOut,
-} from "../eligibility/evaluate";
+import { type EligibilityResult, evaluateEligibility } from "../eligibility/evaluate";
 import { AGEING_AFTER_DAYS, freshnessLabel } from "../ingestion/freshness";
 import { getConfirmedVersion } from "../profile/versions";
+import { foldEmployerName } from "../shared/vocabulary";
 import type { SearchQuery } from "./query";
 
 /**
@@ -93,7 +90,7 @@ export async function searchJobs(workspaceId: string, query: SearchQuery): Promi
     ...(query.salaryMin ? { salaryMax: { gte: query.salaryMin } } : {}),
     ...(query.skills && query.skills.length > 0 ? { skillsRaw: { hasSome: query.skills } } : {}),
     ...(excludedEmployers.length > 0
-      ? { employer: { notIn: excludedEmployers } }
+      ? { employerKey: { notIn: excludedEmployers.map(foldEmployerName) } }
       : {}),
   };
 
@@ -131,11 +128,11 @@ export async function searchJobs(workspaceId: string, query: SearchQuery): Promi
     db.jobPosting.count({ where }),
   ]);
 
-  // Belt and braces against the same fold-based match the query's exact
-  // `notIn` cannot catch (different casing or a legal suffix): filtered here
-  // too, using the same folding the opt-out promise relies on elsewhere.
+  // The employerKey filter above is exact and DB-level (both sides folded
+  // the same way), so no further in-app opt-out filtering is needed here --
+  // doing it after findMany/count would shrink an already-paginated page and
+  // overstate totalCount.
   const items = rows
-    .filter((row) => !confirmed || !isOptedOut(confirmed.content, row.employer))
     .map((row) => ({
       id: row.id,
       title: row.title,
@@ -169,6 +166,7 @@ export async function searchJobs(workspaceId: string, query: SearchQuery): Promi
             salaryMin: row.salaryMin,
             salaryMax: row.salaryMax,
             salaryCurrency: row.salaryCurrency,
+            salaryPeriod: row.salaryPeriod,
             requiresSponsorship: row.requiresSponsorship,
             languageRequired: row.languageRequired,
             requiredCertifications: row.requiredCertifications,

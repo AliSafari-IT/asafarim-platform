@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { foldEmployerName, normalizeLanguageToken } from "../shared/vocabulary";
 
 /**
  * The connector contract and normalization (JM-025, JM-027).
@@ -52,6 +53,14 @@ export const rawPostingSchema = z.object({
 
   skills: z.array(z.string().trim().min(1).max(80)).max(100).nullish(),
 
+  // -- M4 eligibility inputs (JM-033) --------------------------------
+  // Absent by default, and absent means "the source did not say" rather
+  // than "no" -- see lib/eligibility/evaluate.ts, which is what actually
+  // enforces that a missing fact here never becomes an exclusion.
+  requiresSponsorship: z.boolean().nullish(),
+  languageRequired: z.array(z.string().trim().min(1).max(40)).max(20).nullish(),
+  requiredCertifications: z.array(z.string().trim().min(1).max(160)).max(40).nullish(),
+
   publishedAt: z.coerce.date().nullish(),
   expiresAt: z.coerce.date().nullish(),
   updatedAt: z.coerce.date().nullish(),
@@ -64,6 +73,7 @@ export interface NormalizedPosting {
   canonicalUrl: string;
   title: string;
   employer: string;
+  employerKey: string;
   description: string;
   language: string | null;
   locationRaw: string | null;
@@ -74,6 +84,9 @@ export interface NormalizedPosting {
   salaryCurrency: string | null;
   salaryPeriod: string | null;
   skillsRaw: string[];
+  requiresSponsorship: boolean | null;
+  languageRequired: string[];
+  requiredCertifications: string[];
   publishedAt: Date | null;
   expiresAt: Date | null;
   sourceUpdatedAt: Date | null;
@@ -190,6 +203,9 @@ export function buildContentHash(
         posting.salaryCurrency,
         posting.salaryPeriod,
         posting.skillsRaw,
+        posting.requiresSponsorship,
+        posting.languageRequired,
+        posting.requiredCertifications,
         posting.publishedAt?.toISOString() ?? null,
         posting.expiresAt?.toISOString() ?? null,
       ]),
@@ -217,6 +233,7 @@ export function normalizePosting(raw: unknown): NormalizationResult {
     canonicalUrl,
     title: tidy(record.title),
     employer: tidy(record.employer),
+    employerKey: foldEmployerName(tidy(record.employer)),
     description: tidy(record.description),
     language: record.language ? record.language.toLowerCase().slice(0, 16) : null,
     locationRaw: record.location ? tidy(record.location) : null,
@@ -229,6 +246,15 @@ export function normalizePosting(raw: unknown): NormalizationResult {
     // Deduplicated case-insensitively while keeping the source's own wording,
     // which M4 needs and must not erase.
     skillsRaw: dedupePreservingCase(record.skills ?? []),
+    requiresSponsorship: record.requiresSponsorship ?? null,
+    // Unrecognised language tokens are dropped, never guessed -- see
+    // normalizeLanguageToken's own contract.
+    languageRequired: dedupePreservingCase(
+      (record.languageRequired ?? [])
+        .map((token) => normalizeLanguageToken(token))
+        .filter((code): code is string => code !== null),
+    ),
+    requiredCertifications: dedupePreservingCase(record.requiredCertifications ?? []),
     publishedAt: record.publishedAt ?? null,
     expiresAt: record.expiresAt ?? null,
     sourceUpdatedAt: record.updatedAt ?? null,
