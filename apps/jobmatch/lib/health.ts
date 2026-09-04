@@ -1,3 +1,4 @@
+import { getEnv } from "./env";
 /**
  * Health payload for JobMatch.
  *
@@ -11,6 +12,12 @@ export interface HealthPayload {
   service: "jobmatch";
   version: string;
   checks: Record<string, boolean>;
+  /**
+   * Configuration problems that do not stop the app serving — a loopback
+   * sign-in URL in production, say. Reported rather than thrown, so they are
+   * visible to an operator without being an outage. Names only; never values.
+   */
+  warnings: string[];
   timestamp: string;
 }
 
@@ -18,6 +25,7 @@ export async function buildHealthPayload(
   now: Date = new Date(),
   checkDb: () => Promise<boolean> = defaultCheckDb,
   version: string = process.env.npm_package_version ?? "0.1.0",
+  warnings: string[] = defaultWarnings(),
 ): Promise<HealthPayload> {
   const checks = {
     process: true,
@@ -29,8 +37,19 @@ export async function buildHealthPayload(
     service: "jobmatch",
     version,
     checks,
+    warnings,
     timestamp: now.toISOString(),
   };
+}
+
+function defaultWarnings(): string[] {
+  // Guarded because a health probe must still answer when the environment is
+  // the thing that is broken — that is exactly when someone is reading it.
+  try {
+    return getEnv().warnings;
+  } catch {
+    return ["environment could not be resolved"];
+  }
 }
 
 async function defaultCheckDb(): Promise<boolean> {
