@@ -49,6 +49,7 @@ const NAV_ITEMS = [
   { label: "Workspace", href: "/workspace" },
   { label: "Profile", href: "/profile" },
   { label: "Jobs", href: "/jobs" },
+  { label: "My Jobs", href: "/my-jobs" },
   { label: "Sources", href: "/sources" },
 ];
 

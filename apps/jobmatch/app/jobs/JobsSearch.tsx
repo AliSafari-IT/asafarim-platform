@@ -32,9 +32,30 @@ function formatSalary(item: SearchResultItem): string | null {
   return `${item.salaryCurrency ?? ""} ${range}${period}`.trim();
 }
 
+type TrackedJobStatus = "SAVED" | "REJECTED" | "APPLIED";
+
 function ResultCard({ item }: { item: SearchResultItem }) {
   const eligible = item.eligibility?.eligible ?? null;
   const salary = formatSalary(item);
+  const [status, setStatus] = useState<TrackedJobStatus | null>(null);
+  const [pending, setPending] = useState(false);
+
+  const setTrackedStatus = useCallback(
+    async (next: TrackedJobStatus) => {
+      setPending(true);
+      try {
+        const response = await fetch("/api/tracking", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jobPostingId: item.id, status: next }),
+        });
+        if (response.ok) setStatus(next);
+      } finally {
+        setPending(false);
+      }
+    },
+    [item.id],
+  );
 
   return (
     <Card>
@@ -75,15 +96,40 @@ function ResultCard({ item }: { item: SearchResultItem }) {
         {item.attributionText ? ` — ${item.attributionText}` : ""}
       </p>
 
-      <a
-        href={item.canonicalUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="ui-btn ui-btn--secondary ui-btn--sm"
-        style={{ display: "inline-block", marginTop: "0.4rem" }}
-      >
-        View and apply at the source →
-      </a>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginTop: "0.6rem", flexWrap: "wrap" }}>
+        <a
+          href={item.canonicalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ui-btn ui-btn--secondary ui-btn--sm"
+        >
+          View and apply at the source →
+        </a>
+        <Button
+          variant={status === "SAVED" ? "primary" : "secondary"}
+          size="sm"
+          disabled={pending || status === "APPLIED"}
+          onClick={() => void setTrackedStatus("SAVED")}
+        >
+          {status === "SAVED" ? "Saved" : "Save"}
+        </Button>
+        <Button
+          variant={status === "REJECTED" ? "primary" : "secondary"}
+          size="sm"
+          disabled={pending || status === "APPLIED"}
+          onClick={() => void setTrackedStatus("REJECTED")}
+        >
+          {status === "REJECTED" ? "Rejected" : "Not interested"}
+        </Button>
+        <Button
+          variant={status === "APPLIED" ? "primary" : "secondary"}
+          size="sm"
+          disabled={pending || status === "APPLIED"}
+          onClick={() => void setTrackedStatus("APPLIED")}
+        >
+          {status === "APPLIED" ? "Applied" : "Mark applied"}
+        </Button>
+      </div>
     </Card>
   );
 }

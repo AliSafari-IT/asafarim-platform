@@ -46,6 +46,7 @@ model Workspace {
   auditEvents AuditEvent[]
   documents   CandidateDocument[]
   profile     CandidateProfile?
+  trackedJobs TrackedJob[]
 
   @@map("workspaces")
 }
@@ -500,6 +501,8 @@ model JobPosting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  trackedBy TrackedJob[]
+
   @@unique([sourceId, externalId])
   @@index([canonicalKey])
   @@index([employerKey])
@@ -549,4 +552,53 @@ model IngestionRun {
 
   @@index([sourceId, startedAt])
   @@map("ingestion_runs")
+}
+
+enum TrackedJobStatus {
+  /// The candidate wants to keep this posting visible in their tracker.
+  /// The starting state — every tracked job begins here.
+  SAVED
+  /// The candidate decided against it. Kept, not deleted: JM-049 requires
+  /// the transition itself (and its timestamp) to be recoverable, not just
+  /// the end state, and a candidate can undo a reject back to SAVED.
+  REJECTED
+  /// The candidate applied at the source. One-way from SAVED or REJECTED;
+  /// see TRACKED_JOB_TRANSITIONS in lib/tracking/state.ts for the full
+  /// transition table.
+  APPLIED
+}
+
+/// A candidate's record of one job posting in their own workflow (JM-049,
+/// JM-050) — save it, reject it, mark it applied, leave themselves a note.
+///
+/// Deliberately keyed to (workspaceId, jobPostingId) rather than having its
+/// own free-standing identity: a candidate can only ever have one tracking
+/// record per posting, and re-saving a posting they already track is an
+/// idempotent update to that one row, not a second row to reconcile later.
+model TrackedJob {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  jobPostingId String
+  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  status TrackedJobStatus @default(SAVED)
+
+  /// Free text the candidate writes for themselves. Never sent to a model
+  /// or another user — this is the one field in the whole workflow that is
+  /// entirely the candidate's own.
+  notes String? @db.Text
+
+  appliedAt   DateTime?
+  interviewAt DateTime?
+  followUpAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, jobPostingId])
+  @@index([workspaceId, status])
+  @@map("tracked_jobs")
 }
