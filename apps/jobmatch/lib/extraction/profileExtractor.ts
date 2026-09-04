@@ -94,6 +94,82 @@ const SECTION_HEADING_PREFIXES: Record<string, RegExp> = {
 };
 
 /**
+ * Headings as they appear when a designed CV's columns collide *inside* a
+ * line rather than at its start.
+ *
+ * Real example: `...collaborative teamwork.EDUCATIONEXPERIENCEXiTechniX
+ * (Unlimit-IT) | Geel, Belgium` — the end of one column's paragraph, two
+ * headings, and the start of another column's content, all on one line.
+ * Matching headings only at the start of a line finds nothing in a document
+ * like that, and finding nothing used to mean "no sections", which the
+ * ordering check read as "fine".
+ *
+ * Matched in uppercase only, and only where the heading is fused to
+ * neighbouring text. Both conditions matter: a heading set in title case
+ * mid-sentence is ordinary prose, and one surrounded by spaces is a normal
+ * line the start-anchored matcher already handles.
+ *
+ * Longest alternatives first, so EXPERIENCE does not win over WORK
+ * EXPERIENCE.
+ */
+const FUSED_HEADING =
+  /(PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|TECHNICAL SKILLS|CERTIFICATIONS|CERTIFICATES|EXPERIENCE|EDUCATION|LANGUAGES|REFERENCES|CONTACT ME|ABOUT ME|SKILLS|CONTACT)/g;
+
+/** Which section each fused heading opens. */
+const FUSED_HEADING_SECTIONS: Record<string, string> = {
+  "PROFESSIONAL EXPERIENCE": "experience",
+  "WORK EXPERIENCE": "experience",
+  EXPERIENCE: "experience",
+  "TECHNICAL SKILLS": "skills",
+  SKILLS: "skills",
+  EDUCATION: "education",
+  LANGUAGES: "languages",
+  CERTIFICATIONS: "certifications",
+  CERTIFICATES: "certifications",
+  // Not extracted from, but they still end the previous section. Without
+  // them, an about-me paragraph or a referee's details bleed into whatever
+  // section happened to be open.
+  REFERENCES: "references",
+  "CONTACT ME": "contact",
+  CONTACT: "contact",
+  "ABOUT ME": "about",
+};
+
+/**
+ * Break a line apart at any heading fused into it.
+ *
+ * Returns the pieces in order, with each heading on its own. A line with no
+ * fused heading comes back unchanged, so this is safe to run over every line.
+ */
+export function splitFusedHeadings(line: string): string[] {
+  const pieces: string[] = [];
+  let cursor = 0;
+
+  FUSED_HEADING.lastIndex = 0;
+  for (const match of line.matchAll(FUSED_HEADING)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+
+    const before = line.slice(0, start).at(-1) ?? "";
+    const after = line.slice(end).at(0) ?? "";
+    // Fused means touching text on at least one side. A heading with
+    // whitespace on both sides is already a line of its own as far as the
+    // start-anchored matcher is concerned.
+    const fused = (before !== "" && !/\s/.test(before)) || (after !== "" && !/\s/.test(after));
+    if (!fused) continue;
+
+    const preceding = line.slice(cursor, start).trim();
+    if (preceding.length > 0) pieces.push(preceding);
+    pieces.push(match[0]);
+    cursor = end;
+  }
+
+  const remainder = line.slice(cursor).trim();
+  if (remainder.length > 0) pieces.push(remainder);
+  return pieces.length > 0 ? pieces : [line];
+}
+
+/**
  * Language names in the languages JobMatch supports, mapped to ISO 639-1.
  * Written both ways round — an English CV says "Dutch", a Dutch one says
  * "Nederlands", and both should resolve to `nl`.
@@ -296,19 +372,40 @@ function sectionsOf(text: string): Record<string, string[]> {
 }
 
 function parseSections(text: string): ParsedSections {
-  const lines = text.split("\n").map((line) => line.trim());
   const sections: Record<string, string[]> = {};
   let current: string | null = null;
   let fusedHeadings = 0;
 
-  for (const line of lines) {
+  // Each line is broken apart at any heading buried inside it, so a
+  // column-merged line yields its headings as lines of their own. Whether a
+  // line actually *was* split is tracked, because an ordinary standalone
+  // `SKILLS` heading must not be counted as evidence of disorder — counting
+  // it marked every well-formed single-column CV unreadable.
+  for (const rawLine of text.split("\n")) {
+    const pieces = splitFusedHeadings(rawLine.trim());
+    const wasSplit = pieces.length > 1;
+
+    for (const piece of pieces.map((value) => value.trim()).filter(Boolean)) {
+      const fusedSection = wasSplit ? FUSED_HEADING_SECTIONS[piece] : undefined;
+      if (fusedSection) {
+        current = fusedSection;
+        sections[current] ??= [];
+        fusedHeadings += 1;
+        continue;
+      }
+
+      appendLine(piece);
+    }
+  }
+
+  function appendLine(line: string): void {
     const heading = headingAt(line);
     if (heading) {
       current = heading.section;
       sections[current] ??= [];
       if (heading.fused) fusedHeadings += 1;
       if (heading.rest.length > 0) sections[current].push(heading.rest);
-      continue;
+      return;
     }
     if (current && line.length > 0) sections[current].push(line);
   }
@@ -369,8 +466,11 @@ export function looksReliablyOrdered(
   // sections all still look plausibly sized.
   if (fusedHeadings >= 2) return false;
 
+  // No recognisable section in a document long enough to have them. That is
+  // not a well-ordered CV — it is one whose structure could not be read, and
+  // reporting it as fine is what produced an empty form with no explanation.
   const sizes = Object.values(sections).map((lines) => lines.length);
-  if (sizes.length === 0) return true;
+  if (sizes.length === 0) return false;
 
   for (const [section, lines] of Object.entries(sections)) {
     const ceiling = PLAUSIBLE_SECTION_LINES[section] ?? 30;
@@ -450,12 +550,64 @@ const GENERIC_EMAIL_LOCALS =
  * carrying only a referee's address still yields something; one carrying
  * both now yields the right one.
  */
+/**
+ * Strip prose that a column collision glued onto the front of an address.
+ *
+ * Real example: a sentence ending `...and modeling.` sits directly against
+ * `asafarim@gmail.com`, and since a dot is legal in a local part, the match
+ * swallows the last word of the sentence — the candidate is then shown
+ * `modeling.asafarim@gmail.com` as their own address, with full confidence.
+ *
+ * The tell is that the glued word is ordinary vocabulary from the document:
+ * "modeling" appears three more times in that CV as a standalone word. A
+ * genuine `firstname.lastname` local part does not. So a leading segment is
+ * dropped only when it turns up elsewhere in the text on its own, which
+ * keeps real dotted addresses intact.
+ */
+export function trimGluedPrefix(email: string, text: string, name: string | null = null): string {
+  const [local, domain] = email.split("@");
+  const segments = local.split(".");
+  if (segments.length < 2) return email;
+
+  const nameWords = new Set(
+    (name ?? "")
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((word) => word.length > 0),
+  );
+
+  let start = 0;
+  while (start < segments.length - 1) {
+    const segment = segments[start];
+    if (segment.length < 4) break;
+    // Never strip part of the candidate's own name.
+    if (nameWords.has(segment.toLowerCase())) break;
+
+    // Case-sensitive, and lowercase only. This is the whole distinction: a
+    // glued word comes from running prose and appears in lowercase
+    // ("...environmental modeling."), whereas a first name appears
+    // capitalised as a name ("Alexandra Moreau") and so does not match.
+    // Without the case check this stripped "alexandra" off its owner's own
+    // address.
+    if (segment !== segment.toLowerCase()) break;
+    const standalone = new RegExp(`(?:^|[^\\w.@-])${escapeRegExp(segment)}(?:[^\\w.@-]|$)`, "g");
+    if ((text.match(standalone) ?? []).length === 0) break;
+    start += 1;
+  }
+
+  return start === 0 ? email : `${segments.slice(start).join(".")}@${domain}`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function pickOwnEmail(text: string, name: string | null): string | null {
   const lines = text.split("\n");
   const candidates: { email: string; line: number }[] = [];
   lines.forEach((line, index) => {
     for (const match of line.matchAll(new RegExp(EMAIL.source, "g"))) {
-      candidates.push({ email: match[0], line: index });
+      candidates.push({ email: trimGluedPrefix(match[0], text, name), line: index });
     }
   });
   if (candidates.length === 0) return null;

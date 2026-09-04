@@ -1,0 +1,30 @@
+0484 00 00 00Voorbeeldstraat 48
+BE-0000 EXAMPLEBURG,
+VoorbeeldABOUT MEFull-stack developer skilled in .NET and React, with a focus on clean architecture and
+scalable solutions. At ExampleTech, I gained experience across the full development
+lifecycle from design and implementation to continuous improvement, upholding a
+strong commitment to code quality and collaborative teamwork.EDUCATIONEXPERIENCEExampleTech (Voorbeeld-IT) | Geel, Belgium
+Scientific App Developer
+December 2020 December 2023
+Full-Stack Development: Built and maintained web applications with ASP.NET Core and
+React, implementing scalable backend services and interactive front-end interfaces.
+Database Management: Used MongoDB and SQL Server to design, query, and manage
+databases effectively, supporting application requirements.
+Project Highlights:
+Example Platform: Contributed to the development of a collaborative platform using
+.NET Core and React, implementing UI components and backend services.
+Example Group Project: Developed TypeScript-based modules in React, managing
+project cycles from initiation to delivery.
+Team Collaboration: Conducted code reviews, shared best practices, and supported
+junior developers in implementing standards and improving code quality.Informatics - Programming
+Hogeschool Voorbeeld Campus Noord, Sint-Voorbeeld, Belgium
+2018 2020
+Focused on programming foundations and applied software engineering, building
+a strong foundation for problem-solving and data-driven solutions.
+M.Sc. and B.Sc. in Hydrology and Natural Resources Engineering
+Universiteit Voorbeeld, Elders
+1994 2001
+Specialized in hydrologic engineering and environmental modeling, developing
+foundational knowledge for scientific software applications and modeling.sam.devries@example.test
+S A M D E V R I E S
+I T D E V E L O P E R
