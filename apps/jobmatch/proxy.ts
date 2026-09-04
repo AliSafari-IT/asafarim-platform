@@ -9,7 +9,22 @@ const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || process.env.HUB_URL || "http:/
  * here is deny and the public list stays short by design.
  */
 export const proxy = createAuthProxy({
-  publicRoutes: ["/", "/privacy", "/terms", "/robots.txt", "/api/health", "/api/auth"],
+  publicRoutes: [
+    "/",
+    "/privacy",
+    "/terms",
+    "/robots.txt",
+    "/api/health",
+    "/api/auth",
+    // Scheduler-driven, machine-to-machine endpoints. "Public" here means
+    // only that they carry no session — each one authenticates a bearer
+    // token itself, in constant time, and 404s outright when its secret is
+    // unset. Leaving them behind the session gate made them unreachable by
+    // any scheduler, which is how the retention sweep shipped in M2 unable
+    // to run at all: the proxy answered before the route's own check.
+    "/api/retention",
+    "/api/ingestion/sync",
+  ],
   signInUrl: `${hubUrl}/sign-in`,
 });
 
