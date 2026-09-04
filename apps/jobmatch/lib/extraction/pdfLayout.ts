@@ -153,6 +153,127 @@ function centreOf(item: PositionedItem): number {
   return item.x + item.width / 2;
 }
 
+/**
+ * Section labels, for recognising a label column. Kept here rather than
+ * imported from the profile extractor: this is a judgement about page
+ * geometry — "that narrow strip is a row of headings" — not about what the
+ * headings mean.
+ */
+const LABEL_PATTERN =
+  /^(about\s*me|contact(\s*me)?|profile|summary|skills?|technical skills|competenties|vaardigheden|comp[ée]tences|experience|work experience|professional experience|werkervaring|ervaring|exp[ée]rience|education|opleiding(en)?|studies|formation|languages?|talen|talenkennis|langues|certifications?|certificaten|certificats|references?|referenties|r[ée]f[ée]rences?|interests|hobbies)\s*:?$/i;
+
+/**
+ * A label column holds at most this share of the page's runs. Section labels
+ * are a handful of words beside large blocks of text, so a "column" holding
+ * much more than this is real content, not labels.
+ */
+const MAX_LABEL_COLUMN_SHARE = 0.2;
+
+/**
+ * Nearly everything in the left margin must be a label for the strip to be
+ * a label column rather than a sidebar with content of its own.
+ */
+const MIN_MARGIN_LABEL_PURITY = 0.8;
+
+interface RenderedLine {
+  text: string;
+  y: number;
+}
+
+/** Group a column's runs into lines, keeping each line's vertical position. */
+function toLines(items: PositionedItem[]): RenderedLine[] {
+  if (items.length === 0) return [];
+
+  const textHeight = median(items.map((item) => item.height).filter((height) => height > 0)) || 8;
+  const tolerance = textHeight * LINE_TOLERANCE_RATIO;
+  const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
+
+  const grouped: PositionedItem[][] = [];
+  for (const item of sorted) {
+    const current = grouped.at(-1);
+    if (current && Math.abs(current[0].y - item.y) <= tolerance) current.push(item);
+    else grouped.push([item]);
+  }
+
+  return grouped
+    .map((line) => {
+      const ordered = [...line].sort((a, b) => a.x - b.x);
+      let rendered = "";
+      let previousRight: number | null = null;
+      for (const item of ordered) {
+        if (previousRight !== null && item.x - previousRight > textHeight * SPACE_GAP_RATIO) {
+          rendered += " ";
+        }
+        rendered += item.text;
+        previousRight = item.x + item.width;
+      }
+      return { text: rendered.trim(), y: line[0].y };
+    })
+    .filter((line) => line.text.length > 0);
+}
+
+/**
+ * Place each label from a label column beside the block of content it
+ * introduces.
+ *
+ * The naive placements both fail. Merging by baseline puts the label
+ * *inside* its own block — real documents set the label vertically centred
+ * against the block, so `EXPERIENCE` shares a baseline with the third line
+ * of the first role. Emitting the label column first puts all the headings
+ * together, divorced from everything they label.
+ *
+ * Blocks are what makes it work: content lines separated by a larger than
+ * usual vertical gap are one block, and a label belongs to the block its
+ * baseline falls inside. That places `EXPERIENCE` above the first role
+ * rather than three lines into it.
+ */
+function mergeLabelsIntoContent(labels: RenderedLine[], content: RenderedLine[]): string[] {
+  if (content.length === 0) return labels.map((label) => label.text);
+
+  const gaps: number[] = [];
+  for (let index = 1; index < content.length; index += 1) {
+    gaps.push(content[index - 1].y - content[index].y);
+  }
+  const typicalGap = median(gaps.filter((gap) => gap > 0)) || 12;
+  const blockBreak = typicalGap * 1.8;
+
+  // Blocks, as index ranges into `content`.
+  const blocks: { start: number; end: number; top: number; bottom: number }[] = [];
+  let start = 0;
+  for (let index = 1; index <= content.length; index += 1) {
+    const isBreak =
+      index === content.length || content[index - 1].y - content[index].y > blockBreak;
+    if (!isBreak) continue;
+    blocks.push({
+      start,
+      end: index - 1,
+      top: content[start].y,
+      bottom: content[index - 1].y,
+    });
+    start = index;
+  }
+
+  const insertions = new Map<number, string[]>();
+  for (const label of labels) {
+    const containing =
+      blocks.find((block) => label.y <= block.top && label.y >= block.bottom) ??
+      // No block contains it — attach to the nearest one below, which is the
+      // one a reader would take it to introduce.
+      blocks.find((block) => block.top <= label.y) ??
+      blocks[0];
+
+    const at = containing?.start ?? 0;
+    insertions.set(at, [...(insertions.get(at) ?? []), label.text]);
+  }
+
+  const output: string[] = [];
+  content.forEach((line, index) => {
+    for (const label of insertions.get(index) ?? []) output.push(label);
+    output.push(line.text);
+  });
+  return output;
+}
+
 /** Group a column's runs into lines and render them top to bottom. */
 function renderColumn(items: PositionedItem[]): string {
   if (items.length === 0) return "";
@@ -204,6 +325,21 @@ export function reconstructPage(items: PositionedItem[], pageWidth: number): str
   const usable = items.filter((item) => item.text.trim().length > 0);
   if (usable.length === 0) return "";
 
+  // Margin labels are looked for *before* columns, not after. A label strip
+  // is identified precisely — left-aligned headings, each sharing a baseline
+  // with body text, and nothing else in the margin. The column detector, given
+  // the same strip, sees an ordinary narrow column and emits every heading
+  // together in one block, divorced from the content each one labels. On a
+  // short document the strip can clear the column-share floor, so leaving
+  // this second would be a coin toss decided by document length.
+  const marginLabels = detectMarginLabels(usable, pageWidth);
+  if (marginLabels.labels.length > 0) {
+    return mergeLabelsIntoContent(
+      toLines(marginLabels.labels),
+      toLines(marginLabels.rest),
+    ).join("\n");
+  }
+
   const boundaries = detectColumnBoundaries(usable, pageWidth);
   if (boundaries.length === 0) return renderColumn(usable);
 
@@ -226,4 +362,57 @@ export function reconstructReadingOrder(pages: { items: PositionedItem[]; width:
     .map((page) => reconstructPage(page.items, page.width))
     .filter((page) => page.length > 0)
     .join("\n");
+}
+
+/**
+ * Find a narrow column of section labels beside the body text.
+ *
+ * Deliberately separate from `detectColumnBoundaries`, and deliberately not
+ * a matter of loosening its thresholds. Those thresholds exist to stop a
+ * page number or a stray indent becoming a column, and relaxing them would
+ * let both through. This asks a different question — is there a strip
+ * holding little text, nearly all of which reads as a section heading? —
+ * and only a real label column answers yes.
+ */
+export function detectMarginLabels(
+  items: PositionedItem[],
+  pageWidth: number,
+): { labels: PositionedItem[]; rest: PositionedItem[] } {
+  const none = { labels: [], rest: items };
+  if (items.length < 8) return none;
+
+  const leftEdge = Math.min(...items.map((item) => item.x));
+  const marginWidth = pageWidth * 0.12;
+  const textHeight = median(items.map((item) => item.height).filter((height) => height > 0)) || 8;
+
+  const labels = items.filter((item) => {
+    if (!LABEL_PATTERN.test(item.text.trim())) return false;
+    // Aligned to the left margin. This is what rules out the ordinary word
+    // "experience" sitting mid-sentence in the body, which otherwise reads
+    // as a section label and drags the whole geometry with it.
+    if (item.x > leftEdge + marginWidth) return false;
+    // And sharing its baseline with text further right. A heading on a line
+    // of its own is an ordinary heading and needs no special handling; one
+    // with body text beside it is a margin label.
+    return items.some(
+      (other) =>
+        other !== item &&
+        Math.abs(other.y - item.y) <= textHeight * LINE_TOLERANCE_RATIO &&
+        other.x > item.x + item.width,
+    );
+  });
+
+  if (labels.length < 2) return none;
+  if (labels.length / items.length > MAX_LABEL_COLUMN_SHARE) return none;
+
+  // The margin must hold labels and essentially nothing else. This is what
+  // separates a label strip from a real sidebar: a sidebar's headings also
+  // share baselines with the body column, but it carries its own content
+  // too, and pulling its headings out would wreck the column handling that
+  // makes those documents readable.
+  const inMargin = items.filter((item) => item.x <= leftEdge + marginWidth);
+  if (labels.length / inMargin.length < MIN_MARGIN_LABEL_PURITY) return none;
+
+  const labelSet = new Set(labels);
+  return { labels, rest: items.filter((item) => !labelSet.has(item)) };
 }

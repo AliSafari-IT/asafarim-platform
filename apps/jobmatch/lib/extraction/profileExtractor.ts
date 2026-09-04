@@ -826,38 +826,76 @@ function toIsoMonth(month: string | undefined, year: string): string {
 
 function extractExperience(sections: Record<string, string[]>): CandidateProfileContent["experience"] {
   const entries: CandidateProfileContent["experience"] = [];
+  const lines = sections.experience ?? [];
 
-  for (const line of sections.experience ?? []) {
+  lines.forEach((line, index) => {
+    if (entries.length >= 60) return;
+
     const match = DATE_RANGE.exec(line);
-    if (!match) continue;
+    if (!match) return;
 
     const { startMonth, startYear, end, endMonth, endYear } = match.groups ?? {};
-    if (!startYear) continue;
+    if (!startYear) return;
     const isCurrent = /present|current|heden|nu|aujourd|actuel/i.test(end ?? "");
 
     // Whatever is left after removing the dates is the role description.
-    const title = line
+    const remainder = line
       .replace(DATE_RANGE, "")
       .replace(/^[\s,;:|–—-]+|[\s,;:|–—-]+$/g, "")
       .trim();
-    if (title.length < 2) continue;
 
-    // "Engineer at Probex" / "Engineer, Probex" — the employer, if present,
-    // follows the separator.
-    const split = /^(.*?)\s*(?:\bat\b|\bbij\b|\bchez\b|,|–|—|\|)\s*(.+)$/i.exec(title);
+    let title = remainder;
+    let employer: string | null = null;
+
+    if (remainder.length < 2) {
+      // A line holding only dates. Real CVs lay a role out over three lines
+      // — employer, then title, then the dates — and requiring all of it on
+      // one line skipped every such role in silence.
+      const previous = lines[index - 1]?.trim() ?? "";
+      const beforeThat = lines[index - 2]?.trim() ?? "";
+      if (previous.length < 2 || DATE_RANGE.test(previous)) return;
+
+      title = previous;
+      // The employer line usually carries a location after a separator:
+      // "XiTechniX (Unlimit-IT) | Geel, Belgium".
+      employer =
+        beforeThat.length >= 2 && !DATE_RANGE.test(beforeThat)
+          ? (beforeThat.split(/\s*[|–—]\s*/)[0]?.trim() ?? null)
+          : null;
+    } else {
+      // "Engineer at Probex" / "Engineer, Probex" — the employer, if
+      // present, follows the separator.
+      const split = /^(.*?)\s*(?:\bat\b|\bbij\b|\bchez\b|,|–|—|\|)\s*(.+)$/i.exec(remainder);
+      if (split) {
+        title = split[1].trim();
+        employer = split[2].trim();
+      }
+    }
+
+    if (title.length < 2) return;
 
     entries.push({
-      title: (split ? split[1] : title).slice(0, 120).trim(),
-      employer: split ? split[2].slice(0, 120).trim() : null,
+      title: title.slice(0, 120),
+      employer: employer ? employer.slice(0, 120) : null,
       startedOn: toIsoMonth(startMonth, startYear),
       endedOn: isCurrent ? null : endYear ? toIsoMonth(endMonth, endYear) : null,
       isCurrent,
       summary: null,
     });
-    if (entries.length >= 60) break;
-  }
+  });
+
   return entries;
 }
+
+/**
+ * Words that mark a line as naming a qualification rather than describing
+ * one. An education section is mostly prose — "Focused on programming
+ * principles, full-stack development and project management" is a sentence
+ * about a course, not a degree, and storing it as one gave a candidate
+ * fifteen "qualifications" from a CV listing three.
+ */
+const QUALIFICATION_MARKERS =
+  /\b(bsc|msc|ba|ma|mba|phd|bachelor|master|doctora|licenti|graduat|diplom|degree|engineer|ingenieur|informatics|informatica|opleiding|studie|universit|hogeschool|campus|college|school|academ)\w*/i;
 
 function extractEducation(sections: Record<string, string[]>): CandidateProfileContent["education"] {
   const entries: CandidateProfileContent["education"] = [];
@@ -865,6 +903,14 @@ function extractEducation(sections: Record<string, string[]>): CandidateProfileC
     const year = /\b(19|20)\d{2}\b/.exec(line);
     const qualification = line.replace(/\b(19|20)\d{2}\b/g, "").replace(/[\s,;:|-]+$/g, "").trim();
     if (qualification.length < 3) continue;
+
+    // A line earns an entry by naming something, not merely by sitting in
+    // the section. Either it carries a year, or it reads like the name of a
+    // qualification or an institution.
+    if (!year && !QUALIFICATION_MARKERS.test(qualification)) continue;
+    // Prose that happens to mention a year is still prose.
+    if (qualification.split(/\s+/).length > 14) continue;
+
     entries.push({
       qualification: qualification.slice(0, 160),
       institution: null,

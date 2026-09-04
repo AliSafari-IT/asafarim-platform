@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { type PositionedItem, detectColumnBoundaries, reconstructPage } from "./pdfLayout";
+import {
+  type PositionedItem,
+  detectColumnBoundaries,
+  detectMarginLabels,
+  reconstructPage,
+} from "./pdfLayout";
 
 const PAGE_WIDTH = 596;
 
@@ -120,5 +125,91 @@ describe("reading order", () => {
   it("returns nothing for a page with no text", () => {
     expect(reconstructPage([], PAGE_WIDTH)).toBe("");
     expect(reconstructPage([item("   ", 10, 10, 10)], PAGE_WIDTH)).toBe("");
+  });
+});
+
+describe("margin labels", () => {
+  /**
+   * Some CVs set each section label in the left margin *beside* its block
+   * rather than above it, so the label's baseline lands partway down the
+   * text it introduces. Three runs out of sixty on the reported document —
+   * far too little to be a column, yet carrying every heading there is.
+   */
+  function marginLabelPage(): PositionedItem[] {
+    return [
+      // About block, with its label beside the second line.
+      item("Full-stack developer skilled in .NET and React,", 180, 700, 330),
+      item("ABOUT ME", 27, 685, 88),
+      item("with a focus on clean architecture.", 180, 685, 330),
+      item("Delivered work across the whole lifecycle.", 180, 670, 330),
+      // Experience block, label beside the third line.
+      item("ExampleTech | Geel, Belgium", 180, 620, 330),
+      item("Scientific App Developer", 180, 605, 330),
+      item("EXPERIENCE", 22, 590, 103),
+      item("December 2020 - December 2023", 180, 590, 330),
+      item("Built and maintained web applications.", 180, 575, 330),
+      // Education block.
+      item("Informatics - Programming", 180, 520, 330),
+      item("EDUCATION", 27, 505, 100),
+      item("Hogeschool Example  2018 - 2020", 180, 505, 330),
+      // Enough body text for the labels to be the small minority they are on
+      // a real page — three runs out of sixty on the reported document. A
+      // sparser fixture makes the labels 25% of the page, which is a
+      // document made of headings, not a CV.
+      ...Array.from({ length: 24 }, (_, index) =>
+        item(`Further detail line ${index} of the education block.`, 180, 490 - index * 15, 330),
+      ),
+    ];
+  }
+
+  it("places each label above the block it introduces, not inside it", () => {
+    const lines = reconstructPage(marginLabelPage(), PAGE_WIDTH).split("\n");
+
+    // The failure this replaced: "ABOUT ME with a focus on clean
+    // architecture" — the label merged onto the line it shared a baseline
+    // with, two lines into its own section.
+    expect(lines[0]).toBe("ABOUT ME");
+    expect(lines[1]).toContain("Full-stack developer");
+
+    const experienceAt = lines.indexOf("EXPERIENCE");
+    expect(experienceAt).toBeGreaterThan(0);
+    expect(lines[experienceAt + 1]).toContain("ExampleTech");
+    expect(lines[experienceAt + 2]).toContain("Scientific App Developer");
+  });
+
+  it("never leaves a label merged onto a content line", () => {
+    for (const line of reconstructPage(marginLabelPage(), PAGE_WIDTH).split("\n")) {
+      expect(line).not.toMatch(/ABOUT ME .+architecture/);
+      expect(line).not.toMatch(/EXPERIENCE .+December/);
+    }
+  });
+
+  it("ignores an ordinary word that merely matches a heading name", () => {
+    // "experience" mid-sentence in the body is not a margin label. Matching
+    // it dragged the detected geometry across the page and defeated the
+    // whole mechanism.
+    const { labels } = detectMarginLabels(
+      [
+        ...marginLabelPage(),
+        item("experience", 390, 400, 50),
+      ],
+      PAGE_WIDTH,
+    );
+    expect(labels.map((label) => label.text)).not.toContain("experience");
+  });
+
+  it("leaves a normal heading on its own line alone", () => {
+    // A heading with nothing beside it needs no special handling, and
+    // treating it as a margin label would move it.
+    const items = [
+      item("SKILLS", 60, 700, 60),
+      item("TypeScript, PostgreSQL", 60, 685, 200),
+      item("EXPERIENCE", 60, 650, 90),
+      item("Engineer at Example  2020 - 2024", 60, 635, 250),
+      ...Array.from({ length: 6 }, (_, index) =>
+        item(`Detail line ${index}`, 60, 620 - index * 15, 200),
+      ),
+    ];
+    expect(detectMarginLabels(items, PAGE_WIDTH).labels).toEqual([]);
   });
 });
