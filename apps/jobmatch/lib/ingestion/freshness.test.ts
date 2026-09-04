@@ -96,3 +96,23 @@ describe("status mapping", () => {
     expect(statusForFreshness("WITHDRAWN")).toBe("WITHDRAWN");
   });
 });
+
+describe("review regression — an expired agreement", () => {
+  it("withdraws postings once display rights lapse", () => {
+    // Nothing flips a source's status when a date passes, so checking the
+    // status alone left postings visible for days after the agreement ended.
+    // runSync derives `sourceTerminated` from the expiry as well.
+    const state = assessFreshness(
+      {
+        publishedAt: daysAgo(1),
+        expiresAt: null,
+        lastSeenAt: daysAgo(0),
+        // What runSync now computes: status TERMINATED *or* agreement past.
+        sourceTerminated: true,
+      },
+      now,
+    );
+    expect(state).toBe("WITHDRAWN");
+    expect(isDisplayable(state)).toBe(false);
+  });
+});

@@ -330,6 +330,11 @@ model JobSource {
   /// which is treated as "no" everywhere it matters.
   commercialUse Boolean?
 
+  /// How this feed's fields map onto the connector contract. Per-source
+  /// configuration, because feeds are shaped differently and one mapping
+  /// applied to several sources reads fields from the wrong paths.
+  fieldMapping Json?
+
   /// Politeness controls, taken from the agreement rather than guessed.
   requestsPerMinute Int @default(20)
   /// How long raw payloads may be kept. Snapshots past this are deleted even

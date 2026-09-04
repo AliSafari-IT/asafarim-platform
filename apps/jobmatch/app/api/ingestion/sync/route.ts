@@ -39,6 +39,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
+  // A mapping override applies to one named source only. Feeds are shaped
+  // differently, so one request-level mapping applied across every source
+  // reads fields from the wrong paths in all but the one it was written for.
+  // Each source's own mapping is used otherwise.
+  if (mapping !== undefined && !sourceKey) {
+    return NextResponse.json(
+      { error: "A mapping override requires a sourceKey. Feeds are shaped differently." },
+      { status: 400 },
+    );
+  }
+
   const db = getJobmatchDb();
   const sources = await db.jobSource.findMany({
     where: sourceKey ? { key: sourceKey } : {},

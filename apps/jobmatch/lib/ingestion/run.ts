@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { getJobmatchDb } from "../db/client";
 import { log, logError } from "../observability/logger";
 import { authorizeSource } from "./authorization";
-import { findDuplicate } from "./dedupe";
+import { chooseRepresentative, findDuplicate } from "./dedupe";
 import { type FeedMapping, feedMappingSchema, parseFeed } from "./feedConnector";
 import { assessFreshness, statusForFreshness } from "./freshness";
 import { backoffMs, fetchFeed, isRetryable } from "./http";
@@ -95,7 +95,11 @@ export async function runSync(sourceId: string, mappingInput?: unknown): Promise
     return finish({ ...empty, outcome: "REFUSED", reasonCode: authorization.reasonCode });
   }
 
-  const mapping = parseMapping(mappingInput);
+  // The mapping belongs to the source, not to the request. One mapping
+  // handed to several sources reads fields from the wrong paths in every
+  // feed but the one it was written for; a caller-supplied mapping is only
+  // an override for a single named source.
+  const mapping = parseMapping(mappingInput ?? source.fieldMapping);
   if (!mapping) {
     return finish({ ...empty, outcome: "FAILED", reasonCode: "INVALID_MAPPING" });
   }
@@ -118,6 +122,16 @@ export async function runSync(sourceId: string, mappingInput?: unknown): Promise
     });
 
     if (outcome.ok && "notModified" in outcome) {
+      // 304 means the source confirmed nothing changed — which is a
+      // confirmation that every posting is still there, so lastSeenAt must
+      // advance. Without this, a well-behaved feed answering 304 for three
+      // days had all of its jobs marked DISAPPEARED and expired: conditional
+      // requests, the politeness agreements ask for, would have destroyed
+      // the very data they were saving bandwidth on.
+      await db.jobPosting.updateMany({
+        where: { sourceId: source.id, status: { in: ["ACTIVE", "DUPLICATE"] } },
+        data: { lastSeenAt: new Date() },
+      });
       await db.jobSource.update({
         where: { id: source.id },
         data: { lastSyncFinishedAt: new Date() },
@@ -162,7 +176,12 @@ export async function runSync(sourceId: string, mappingInput?: unknown): Promise
       retainUntil,
       normalizerVersion: NORMALIZER_VERSION,
     },
-    update: { retainUntil, normalizerVersion: NORMALIZER_VERSION },
+    // The payload is restored, not merely left alone. If this snapshot was
+    // pruned and the identical bytes arrive again, extending retention
+    // without putting the content back would leave new postings pointing at
+    // a snapshot that cannot be replayed — which is the whole reason
+    // snapshots exist.
+    update: { payload: body, retainUntil, normalizerVersion: NORMALIZER_VERSION },
     select: { id: true },
   });
 
@@ -199,6 +218,7 @@ export async function runSync(sourceId: string, mappingInput?: unknown): Promise
           publishedAt: true,
           firstSeenAt: true,
           contentHash: true,
+          duplicateOfId: true,
           source: { select: { commercialUse: true, kind: true } },
         },
       });
@@ -235,14 +255,57 @@ export async function runSync(sourceId: string, mappingInput?: unknown): Promise
         await db.jobPosting.update({
           where: { id: verdict.representativeId },
           data: changed
-            ? { ...toRow(posting), snapshotId: snapshot.id, lastSeenAt: new Date(), status: "ACTIVE" }
+            ? {
+                ...toRow(posting),
+                snapshotId: snapshot.id,
+                lastSeenAt: new Date(),
+                // A duplicate whose content changed is still a duplicate.
+                // Resetting it to ACTIVE promoted the copy and put the same
+                // job in front of a candidate twice — the exact thing
+                // deduplication exists to stop.
+                status: row?.duplicateOfId ? "DUPLICATE" : "ACTIVE",
+              }
             : { lastSeenAt: new Date() },
         });
         if (changed) recordsUpdated += 1;
         continue;
       }
 
-      await db.jobPosting.create({
+      // When an incoming copy outranks the one already stored, it takes over
+      // as the representative. Without this, the first copy to arrive wins
+      // permanently — so an employer's own posting stays hidden behind an
+      // aggregator's simply because the aggregator synced first, and the
+      // rights-based preference the whole ranking exists for never applies.
+      const stored = existing.find((entry) => entry.id === verdict.representativeId);
+      const incomingWins =
+        verdict.isDuplicate &&
+        stored !== undefined &&
+        chooseRepresentative([
+          {
+            id: "__incoming__",
+            sourceId: source.id,
+            externalId: posting.externalId,
+            canonicalUrl: posting.canonicalUrl,
+            canonicalKey: posting.canonicalKey,
+            publishedAt: posting.publishedAt,
+            firstSeenAt: new Date(),
+            commercialUse: source.commercialUse,
+            isDirectEmployer: source.kind === "JSON_FEED",
+          },
+          {
+            id: stored.id,
+            sourceId: stored.sourceId,
+            externalId: stored.externalId,
+            canonicalUrl: stored.canonicalUrl,
+            canonicalKey: stored.canonicalKey,
+            publishedAt: stored.publishedAt,
+            firstSeenAt: stored.firstSeenAt,
+            commercialUse: stored.source.commercialUse,
+            isDirectEmployer: stored.source.kind === "JSON_FEED",
+          },
+        ]).id === "__incoming__";
+
+      const created = await db.jobPosting.create({
         data: {
           ...toRow(posting),
           sourceId: source.id,
@@ -250,10 +313,25 @@ export async function runSync(sourceId: string, mappingInput?: unknown): Promise
           externalId: posting.externalId,
           // A duplicate is stored and linked rather than dropped: the copy is
           // provenance, and only the representative is ever displayed.
-          duplicateOfId: verdict.isDuplicate ? (verdict.representativeId ?? null) : null,
-          status: verdict.isDuplicate ? "DUPLICATE" : "ACTIVE",
+          duplicateOfId:
+            verdict.isDuplicate && !incomingWins ? (verdict.representativeId ?? null) : null,
+          status: verdict.isDuplicate && !incomingWins ? "DUPLICATE" : "ACTIVE",
         },
+        select: { id: true },
       });
+
+      if (incomingWins && stored) {
+        // Demote the previous representative and move its own duplicates
+        // across, so the group keeps exactly one displayed member.
+        await db.jobPosting.updateMany({
+          where: { duplicateOfId: stored.id },
+          data: { duplicateOfId: created.id },
+        });
+        await db.jobPosting.update({
+          where: { id: stored.id },
+          data: { status: "DUPLICATE", duplicateOfId: created.id },
+        });
+      }
 
       if (verdict.isDuplicate) duplicatesFound += 1;
       else recordsAdded += 1;
@@ -320,7 +398,7 @@ export async function refreshPostingStates(now: Date = new Date()): Promise<numb
       publishedAt: true,
       expiresAt: true,
       lastSeenAt: true,
-      source: { select: { status: true } },
+      source: { select: { status: true, agreementExpiresAt: true } },
     },
     take: 5000,
   });
@@ -333,7 +411,14 @@ export async function refreshPostingStates(now: Date = new Date()): Promise<numb
           publishedAt: posting.publishedAt,
           expiresAt: posting.expiresAt,
           lastSeenAt: posting.lastSeenAt,
-          sourceTerminated: posting.source.status === "TERMINATED",
+          // An expired agreement ends display rights just as surely as a
+          // terminated source does, and nothing flips the status when a date
+          // passes — so checking the status alone left postings visible for
+          // days after the right to show them lapsed.
+          sourceTerminated:
+            posting.source.status === "TERMINATED" ||
+            (posting.source.agreementExpiresAt !== null &&
+              posting.source.agreementExpiresAt.getTime() <= now.getTime()),
         },
         now,
       ),

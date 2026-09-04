@@ -106,3 +106,23 @@ describe("choosing which copy to display", () => {
     expect(chosen.id).toBe("granted");
   });
 });
+
+describe("review regression — a better copy arriving later", () => {
+  it("ranks an incoming copy against the stored one, not merely among stored ones", () => {
+    // The bug this covers: the first copy to arrive won permanently, so an
+    // employer's own posting stayed hidden behind an aggregator's simply
+    // because the aggregator synced first — and the rights-based preference
+    // the ranking exists for never applied.
+    const storedAggregator = candidate({ id: "aggregator", isDirectEmployer: false });
+    const incomingEmployer = candidate({ id: "__incoming__", isDirectEmployer: true });
+
+    expect(chooseRepresentative([incomingEmployer, storedAggregator]).id).toBe("__incoming__");
+  });
+
+  it("leaves the stored copy in place when the incoming one is weaker", () => {
+    const storedEmployer = candidate({ id: "employer", isDirectEmployer: true });
+    const incomingAggregator = candidate({ id: "__incoming__", isDirectEmployer: false });
+
+    expect(chooseRepresentative([incomingAggregator, storedEmployer]).id).toBe("employer");
+  });
+});
