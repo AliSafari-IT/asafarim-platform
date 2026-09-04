@@ -556,6 +556,11 @@ services:
       JOBMATCH_ENVIRONMENT: production
       JOBMATCH_DATABASE_URL: postgres://jobmatch:${JOBMATCH_DB_PASSWORD_URL}@jobmatch-postgres:5432/jobmatch
       NEXT_PUBLIC_APP_URL: https://jobmatch.asafarim.com
+      # Also passed as a build arg above, where Next inlines it into the
+      # pages. Repeated here so the value exists in the server's own
+      # environment too, rather than the runtime depending on what a build
+      # happened to bake in.
+      NEXT_PUBLIC_JOBMATCH_URL: ${NEXT_PUBLIC_JOBMATCH_URL:-https://jobmatch.asafarim.com}
       AUTH_URL: https://jobmatch.asafarim.com
     depends_on:
       jobmatch-postgres:
