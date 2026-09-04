@@ -4,11 +4,34 @@ An explainable, source-transparent job-search assistant: fewer vacancies,
 each with the reason it fits. Runs at `jobmatch.asafarim.com`, port 3012 in
 local development.
 
-**Status: M1 — platform and delivery foundation.** There is no job source,
-no CV upload, and no matching. What exists is the boundary the rest gets
-built inside. See [`docs/business-plan.md`](docs/business-plan.md) for the
-milestone sequence and [`docs/threat-model.md`](docs/threat-model.md) for
-what M1 does and does not defend against.
+**Status: M5 — explainable matching beta, in progress.** The matching
+feature contract and privacy-preserving embedding input are in place;
+embedding generation, ranking, and structured LLM evaluation are not yet
+built — see "What M5 delivers so far" below for exactly what that means. See
+[`docs/business-plan.md`](docs/business-plan.md) for the milestone sequence
+and [`docs/threat-model.md`](docs/threat-model.md) for what each milestone
+does and does not defend against.
+
+## What M5 delivers so far
+
+- **The matching feature contract (JM-039).** `MatchResult` — suitability
+  score, confidence, matching/missing/uncertain requirements,
+  evidence-linked explanation, recommended action, model/prompt provenance —
+  is defined and schema-validated before anything produces one.
+- **Privacy-preserving embedding input (JM-040).** `buildEmbeddingInput` is
+  the one approved path from a confirmed profile to model-facing text: an
+  allow-list of professional facts only, with a runtime check that refuses
+  to return text containing the candidate's name, email, phone, or base
+  location, even if a future change to the builder tried to include one.
+- **Not yet built:** embedding generation and caching (JM-041), shortlist
+  ranking (JM-042), structured LLM evaluation (JM-043), prompt-injection
+  isolation tests (JM-044), the offline evaluation set (JM-045), bias
+  evaluation (JM-046), budget controls (JM-047), and the evidence UI
+  (JM-048). These require a chosen model provider and budget, and JM-005's
+  privacy/AI Act classification advice is still outstanding — the same kind
+  of non-engineering gate that kept M3's connector unauthorized until
+  JM-003/JM-004 landed. What ships here is real machinery with no live model
+  call behind it yet, not a placeholder.
 
 ## What M4 delivers
 
