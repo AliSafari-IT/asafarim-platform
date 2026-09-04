@@ -1,6 +1,6 @@
 # JobMatch threat model — M1 baseline (JM-016)
 
-Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, search and eligibility shipped in M4, and the matching contract begun in M5 — the Next.js app, its dedicated
+Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, search and eligibility shipped in M4, the matching contract begun in M5, and the candidate workflow shipped in M6 — the Next.js app, its dedicated
 PostgreSQL database, its use of platform SSO, and its logging. It is written
 to be extended, not rewritten: each later milestone adds a section rather
 than replacing this one.
@@ -338,6 +338,53 @@ JM-003/JM-004 landed.
 **Prompt-injection isolation tests (JM-044).** There is no prompt to test
 yet — this follows immediately once JM-043 exists, and must land in the
 same change as the first real model call, not after it.
+
+## M6 additions — candidate workflow and My-Job export
+
+**Every tracked-job write is scoped to the caller's own workspace.** `lib/tracking/service.ts`
+takes `workspaceId` from the session-derived `getCurrentWorkspace()` result,
+never from anything the client sends — the same authorization pattern the
+rest of the app uses (see lib/workspace.ts). A `jobPostingId` from the
+client can only ever create or update *that workspace's own* row, because
+every read and write is scoped to `{ workspaceId, jobPostingId }` together,
+not to a tracked-job id a client could guess or enumerate.
+
+**State transitions are a closed table, not an open string.** `checkTransition`
+(`lib/tracking/state.ts`) rejects anything outside SAVED → REJECTED →
+{SAVED, APPLIED}, so an API caller cannot, for instance, move a job
+backward out of APPLIED. Every transition is idempotent by construction: a
+retried request changes nothing extra and never surfaces an error, which
+matters for a workflow driven by button clicks a flaky connection can
+duplicate.
+
+**A CSV export is a file a spreadsheet application will open unattended.**
+Every field in `buildMyJobCsv` (`lib/export/myJobCsv.ts`) is checked for a
+leading `=`, `+`, `-`, or `@` and prefixed with `'` before it is written —
+without that, a job title from an untrusted source, or a note the candidate
+typed months ago and forgot about, becomes a formula Excel or Google Sheets
+executes the instant the file is opened. The export is also deterministic:
+fixed column order, a versioned header, and UTC ISO 8601 dates, so two
+exports of the same tracked jobs are byte-identical and diffable.
+
+### Threats addressed in M6
+
+| Threat | Control | Where |
+|---|---|---|
+| A tracked-job write reaching another candidate's record | Every read/write scoped to `{ workspaceId, jobPostingId }` from the session, never a client-supplied workspace id | `lib/tracking/service.ts` |
+| A retried save/reject/apply request erroring or resetting a timestamp | Idempotent transitions; `appliedAt` set once and never overwritten by a later save | `lib/tracking/state.ts`, `lib/tracking/service.ts` |
+| A job title or candidate note executing as a spreadsheet formula on open | Every CSV field checked and escaped before being written | `lib/export/myJobCsv.ts` |
+| Two exports of the same data silently differing, defeating a candidate's own diff | Fixed column order, versioned header, no run-time timestamp mixed into data rows | `lib/export/myJobCsv.ts` |
+
+### Deliberately not done yet in M6
+
+**Workflow conversion instrumentation (JM-054).** Viewed/saved/rejected/
+application-started/export-created events are not yet wired to any metrics
+pipeline — the underlying actions exist and audit-log themselves
+(`recordAuditEvent`), but nothing aggregates them into a funnel yet.
+
+**Import and cloud-sync contracts (JM-055).** Out of scope for the MVP by
+design; the business plan asks only that the contract be *specified*, not
+implemented, and no silent synchronization exists.
 
 ## Test-data isolation
 

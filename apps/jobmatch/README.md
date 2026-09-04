@@ -4,13 +4,30 @@ An explainable, source-transparent job-search assistant: fewer vacancies,
 each with the reason it fits. Runs at `jobmatch.asafarim.com`, port 3012 in
 local development.
 
-**Status: M5 — explainable matching beta, in progress.** The matching
-feature contract and privacy-preserving embedding input are in place;
-embedding generation, ranking, and structured LLM evaluation are not yet
-built — see "What M5 delivers so far" below for exactly what that means. See
+**Status: M6 — candidate workflow and `My-Job` export.** A candidate can
+save, reject, and mark a posting applied; leave themselves notes; and
+download a deterministic CSV of everything they've tracked. M5's matching
+scores are not yet live — see "What M5 delivers so far" below for why. See
 [`docs/business-plan.md`](docs/business-plan.md) for the milestone sequence
 and [`docs/threat-model.md`](docs/threat-model.md) for what each milestone
 does and does not defend against.
+
+## What M6 delivers
+
+- Save, reject, and mark-applied state transitions on any search result
+  (JM-049), each idempotent — retrying a request never errors or resets a
+  timestamp — and enforced by an explicit transition table rather than an
+  open-ended status string.
+- A tracked-job record per (workspace, posting), owned the same way every
+  other JobMatch row is: scoped to the caller's session, never to an id a
+  client supplies (JM-050).
+- A deterministic `My-Job` CSV export (JM-051): fixed column order and
+  versioned header, ISO 8601 UTC dates, and formula-injection escaping on
+  every field so a posting title or a candidate's own note can never
+  execute as a spreadsheet formula the moment the file is opened (JM-053).
+- A tracker page (`/my-jobs`) to review, re-tag, and export what's been
+  saved, alongside inline save/reject/applied controls on every search
+  result.
 
 ## What M5 delivers so far
 
