@@ -1,6 +1,6 @@
 # JobMatch threat model — M1 baseline (JM-016)
 
-Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, and search and eligibility shipped in M4 — the Next.js app, its dedicated
+Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, search and eligibility shipped in M4, and the matching contract begun in M5 — the Next.js app, its dedicated
 PostgreSQL database, its use of platform SSO, and its logging. It is written
 to be extended, not rewritten: each later milestone adds a section rather
 than replacing this one.
@@ -289,6 +289,56 @@ instance, stated as a limitation in its own file. It is enough to slow a
 script against a single-instance deployment with no source yet
 authorised to ingest from; it is not enough once ingestion is live and
 JobMatch runs more than one instance.
+
+## M5 additions so far — the matching contract
+
+M5's exit criteria require a live model provider, a chosen budget, and
+JM-005's privacy/AI Act classification advice — none of which are
+engineering decisions this session can make. What ships here is the
+boundary the rest of M5 is built inside, with no model call behind it yet.
+
+**The embedding input boundary is an allow-list, not a deny-list.**
+`buildEmbeddingInput` (`lib/matching/embeddingInput.ts`) names every field it
+will send toward a model explicitly. A field added to the candidate profile
+schema later is excluded by default until someone decides it belongs in
+front of a model — the opposite failure mode from a deny-list, where a new
+field leaks by default until someone remembers to exclude it. It also
+carries a runtime check: if the built text ever contains the candidate's
+name, email, phone, or base location — even if a future change to the
+builder's logic tried to include one — it throws rather than returning text
+that leaked them.
+
+**A match result cannot claim more certainty than it has.** The
+`MatchResult` contract (`lib/matching/contract.ts`) pairs every
+`suitabilityScore` with a `confidence`, and `uncertainRequirements` exists
+specifically so a requirement the model could not evaluate is never quietly
+folded into either "matches" or "gap." `buildDegradedMatchResult` is the
+shape a caller must use when no model call happened at all (no provider
+configured yet, budget exhausted, or a failed call) — it is `degraded: true`
+with a neutral score, never a fabricated evaluation dressed up as a real
+one.
+
+### Threats this addresses now
+
+| Threat | Control | Where |
+|---|---|---|
+| A candidate's name or contact details reaching a third-party model provider | Allow-list of professional facts only, with a runtime leak check | `lib/matching/embeddingInput.ts` |
+| A model result presented as more certain than the model actually was | `confidence` required alongside every score; low-evidence cases score low confidence, not a confident-looking number | `lib/matching/contract.ts` |
+| An absent model call silently presented as a real "not a fit" evaluation | `buildDegradedMatchResult` returns a neutral score with `degraded: true`, never 0 | `lib/matching/contract.ts` |
+
+### Deliberately not done yet in M5
+
+**Any live model call.** Embedding generation, ranking, and structured LLM
+evaluation (JM-041–JM-043) are not implemented. There is no
+`OPENAI_API_KEY` wiring in this codebase yet, and none of it should exist
+before JM-005's classification advice and a model/budget decision — the
+same non-engineering gate that kept M3's connector unauthorized until
+JM-003/JM-004 landed.
+
+**Prompt-injection isolation tests (JM-044).** There is no prompt to test
+yet — this follows immediately once JM-043 exists, and must land in the
+same change as the first real model call, not after it.
+
 ## Test-data isolation
 
 AppBuilder's integration suite once wiped a developer's database because it
