@@ -216,48 +216,103 @@ export function collapseLetterSpacing(line: string): string {
   });
 }
 
-/** The section a line opens, plus any content glued to the heading. */
-function headingAt(line: string): { section: string; rest: string } | null {
+/**
+ * Match a heading against a line while ignoring the spaces inside it, and
+ * report how much of the original line the heading consumed.
+ *
+ * Collapsing letter-spacing alone is not enough. `E X P E R I E N C EBE-3510`
+ * is a letter-spaced heading whose *final* letter is glued to the next
+ * column's text, so the run of single characters ends one letter early and
+ * collapses to `EXPERIENC EBE-3510` — which matches nothing. Comparing
+ * against the line with all spaces removed sidesteps the whole problem, and
+ * walking the original in step keeps the remainder intact.
+ */
+function matchHeadingIgnoringSpaces(
+  line: string,
+  pattern: RegExp,
+): { matched: string; rest: string } | null {
+  const squashed = line.replace(/\s+/g, "");
+  const match = pattern.exec(squashed);
+  if (!match || match.index !== 0) return null;
+
+  // Walk the original line until the same number of non-space characters has
+  // been consumed, so `rest` keeps its own spacing.
+  let consumed = 0;
+  let cursor = 0;
+  while (cursor < line.length && consumed < match[0].length) {
+    if (!/\s/.test(line[cursor])) consumed += 1;
+    cursor += 1;
+  }
+  return { matched: match[0], rest: line.slice(cursor).trim() };
+}
+
+/**
+ * The section a line opens, any content glued to the heading, and whether
+ * that content was *fused* to it with no separator at all.
+ *
+ * `Skills: TypeScript, React` is an ordinary one-line section. `LANGUAGESExample
+ * Engineering` is two columns colliding. The difference is the separator, and
+ * it is the most specific evidence available that the text stream is not in
+ * reading order — which is why it is tracked rather than discarded.
+ */
+function headingAt(line: string): { section: string; rest: string; fused: boolean } | null {
   const collapsed = collapseLetterSpacing(line).trim();
 
   // A whole-line heading is unambiguous, so it is tried first.
   for (const [section, pattern] of Object.entries(SECTION_HEADINGS)) {
-    if (pattern.test(collapsed)) return { section, rest: "" };
+    if (pattern.test(collapsed)) return { section, rest: "", fused: false };
   }
 
-  // Otherwise a heading may open the line with content glued behind it.
-  // Longest match wins, so "work experience" is not read as "experience".
-  let best: { section: string; rest: string; length: number } | null = null;
+  // Otherwise a heading may open the line with content behind it. Longest
+  // match wins, so "work experience" is not read as "experience".
+  let best: { section: string; rest: string; length: number; fused: boolean } | null = null;
   for (const [section, pattern] of Object.entries(SECTION_HEADING_PREFIXES)) {
-    const match = pattern.exec(collapsed);
-    if (!match) continue;
-    const rest = collapsed.slice(match[0].length);
+    const found = matchHeadingIgnoringSpaces(collapsed, pattern);
+    if (!found) continue;
     // What follows must start a new word, or "Skillset" and "Educational"
     // would register as headings.
-    if (rest.length > 0 && /^[a-z]/.test(rest)) continue;
-    if (!best || match[0].length > best.length) {
-      best = { section, rest: rest.trim(), length: match[0].length };
+    if (found.rest.length > 0 && /^[a-z]/.test(found.rest)) continue;
+
+    // Fused when the heading ran straight into the next text with no colon,
+    // dash, or whitespace between them.
+    const separator = collapsed.slice(found.matched.length).match(/^[\s:–—-]*/)?.[0] ?? "";
+    const fused = found.rest.length > 0 && separator.length === 0;
+
+    if (!best || found.matched.length > best.length) {
+      best = { section, rest: found.rest, length: found.matched.length, fused };
     }
   }
-  return best ? { section: best.section, rest: best.rest } : null;
+  return best ? { section: best.section, rest: best.rest, fused: best.fused } : null;
+}
+
+export interface ParsedSections {
+  sections: Record<string, string[]>;
+  /** Headings that ran straight into another column's text. */
+  fusedHeadings: number;
 }
 
 function sectionsOf(text: string): Record<string, string[]> {
+  return parseSections(text).sections;
+}
+
+function parseSections(text: string): ParsedSections {
   const lines = text.split("\n").map((line) => line.trim());
   const sections: Record<string, string[]> = {};
   let current: string | null = null;
+  let fusedHeadings = 0;
 
   for (const line of lines) {
     const heading = headingAt(line);
     if (heading) {
       current = heading.section;
       sections[current] ??= [];
+      if (heading.fused) fusedHeadings += 1;
       if (heading.rest.length > 0) sections[current].push(heading.rest);
       continue;
     }
     if (current && line.length > 0) sections[current].push(line);
   }
-  return sections;
+  return { sections, fusedHeadings };
 }
 
 /**
@@ -298,10 +353,21 @@ const PLAUSIBLE_SECTION_LINES: Record<string, number> = {
   references: Number.POSITIVE_INFINITY,
 };
 
-export function looksReliablyOrdered(text: string, sections: Record<string, string[]>): boolean {
+export function looksReliablyOrdered(
+  text: string,
+  sections: Record<string, string[]>,
+  fusedHeadings = 0,
+): boolean {
   const bodyLines = text.split("\n").filter((line) => line.trim().length > 0).length;
   // Too short to judge; a brief note has no sections to get wrong.
   if (bodyLines < 8) return true;
+
+  // The most specific evidence available. A heading running straight into
+  // other text with no separator is two columns colliding in the extracted
+  // stream; one such line can be a tight layout, but two means the document
+  // is not being read in order. This is what catches a designed CV whose
+  // sections all still look plausibly sized.
+  if (fusedHeadings >= 2) return false;
 
   const sizes = Object.values(sections).map((lines) => lines.length);
   if (sizes.length === 0) return true;
@@ -311,10 +377,20 @@ export function looksReliablyOrdered(text: string, sections: Record<string, stri
     if (lines.length > ceiling) return false;
   }
 
-  // And the blunt check as well: one section holding more than half of every
-  // non-empty line means the parser lost the plot, not that someone wrote a
-  // CV that was 60% experience.
-  return Math.max(...sizes) / bodyLines <= 0.5;
+  // The share check deliberately excludes experience. A senior CV really is
+  // mostly work history — thirteen experience lines out of twenty-four is an
+  // ordinary CV, not a broken one — and treating that as unreadable would
+  // throw away the section the candidate most needs.
+  const nonExperience = Object.entries(sections)
+    .filter(([section]) => section !== "experience")
+    .map(([, lines]) => lines.length);
+
+  if (nonExperience.length > 0 && Math.max(...nonExperience) / bodyLines > 0.5) return false;
+
+  // Experience is bounded far more loosely: it can dominate a CV, but if it
+  // holds essentially everything then the heading was still misplaced.
+  const experienceLines = sections.experience?.length ?? 0;
+  return experienceLines / bodyLines <= 0.85;
 }
 
 /**
@@ -375,21 +451,47 @@ const GENERIC_EMAIL_LOCALS =
  * both now yields the right one.
  */
 export function pickOwnEmail(text: string, name: string | null): string | null {
-  const all = [...text.matchAll(new RegExp(EMAIL.source, "g"))].map((match) => match[0]);
-  if (all.length === 0) return null;
+  const lines = text.split("\n");
+  const candidates: { email: string; line: number }[] = [];
+  lines.forEach((line, index) => {
+    for (const match of line.matchAll(new RegExp(EMAIL.source, "g"))) {
+      candidates.push({ email: match[0], line: index });
+    }
+  });
+  if (candidates.length === 0) return null;
 
   const nameWords = (name ?? "")
     .toLowerCase()
     .split(/\s+/)
     .filter((word) => word.length >= 4);
 
-  const matchesName = all.find((email) => {
+  // A name match is the strongest evidence and beats everything else.
+  const matchesName = candidates.find(({ email }) => {
     const local = email.split("@")[0].toLowerCase();
     return nameWords.some((word) => local.includes(word) || word.includes(local));
   });
-  if (matchesName) return matchesName;
+  if (matchesName) return matchesName.email;
 
-  return all.find((email) => !GENERIC_EMAIL_LOCALS.test(email.split("@")[0])) ?? all[0];
+  // Otherwise, avoid addresses sitting next to a references heading. A
+  // referee's address is often a personal work one, so the generic-local
+  // check alone does not catch it — and in column-ordered text the heading
+  // can appear on either side of the address, hence the window in both
+  // directions.
+  const referenceLines = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /^(references?|referenties|r[ée]f[ée]rences?)\b/i.test(collapseLetterSpacing(line).trim()))
+    .map(({ index }) => index);
+
+  const nearReferences = ({ line }: { line: number }) =>
+    referenceLines.some((reference) => Math.abs(reference - line) <= 3);
+
+  const ranked = [
+    candidates.filter((c) => !nearReferences(c) && !GENERIC_EMAIL_LOCALS.test(c.email.split("@")[0])),
+    candidates.filter((c) => !nearReferences(c)),
+    candidates.filter((c) => !GENERIC_EMAIL_LOCALS.test(c.email.split("@")[0])),
+    candidates,
+  ];
+  return ranked.find((group) => group.length > 0)?.[0].email ?? null;
 }
 
 /**
@@ -402,19 +504,36 @@ export function pickOwnEmail(text: string, name: string | null): string | null {
  * Requiring a proficiency marker on the same segment is what keeps this from
  * matching a passing mention of "English" in a job description.
  */
+/**
+ * How close a language name and its proficiency marker must sit.
+ *
+ * This is what separates `Dutch — good (B2)` from `Professional experience
+ * supporting Russian clients`. Both contain a language and a marker word; only
+ * one of them is a statement about what the candidate speaks. Requiring the
+ * two to be adjacent, with nothing but separators between, keeps ordinary
+ * prose from inventing a language claim on someone's behalf.
+ */
+const MAX_LANGUAGE_MARKER_DISTANCE = 15;
+
 function extractLanguagesAnywhere(text: string): CandidateProfileContent["languages"] {
   const found = new Map<string, CandidateProfileContent["languages"][number]>();
 
   for (const rawLine of text.split("\n")) {
-    // Column-merged lines glue several statements together, so each line is
-    // split further before matching.
-    for (const segment of rawLine.split(/[•·]|(?<=\))\s*(?=[A-Z])/)) {
-      const lower = foldAccents(segment);
-      const proficiency = PROFICIENCY_HINTS.find((hint) => hint.pattern.test(segment))?.value;
-      if (!proficiency) continue;
+    // Column-merged lines glue several statements together, and a single
+    // entry can list several languages ("English native, French basic"), so
+    // the line is split down to one claim per fragment before matching.
+    // Without this, the first marker found on a line was applied to every
+    // language on it.
+    for (const segment of rawLine.split(/[•·,;|]|(?<=\))\s*(?=[A-Z])/)) {
+      const folded = foldAccents(segment);
 
       for (const [name, { code, label }] of Object.entries(LANGUAGE_NAMES)) {
-        if (!lower.includes(name)) continue;
+        const at = folded.indexOf(name);
+        if (at === -1) continue;
+
+        const proficiency = nearestProficiency(segment, at, at + name.length);
+        if (!proficiency) continue;
+
         const existing = found.get(code);
         if (!existing || existing.proficiency === null) {
           found.set(code, { code, label, proficiency });
@@ -423,6 +542,24 @@ function extractLanguagesAnywhere(text: string): CandidateProfileContent["langua
     }
   }
   return [...found.values()].slice(0, 20);
+}
+
+/** The proficiency marker adjacent to a language name, if there is one. */
+function nearestProficiency(
+  segment: string,
+  languageStart: number,
+  languageEnd: number,
+): "basic" | "conversational" | "professional" | "native" | null {
+  for (const hint of PROFICIENCY_HINTS) {
+    const pattern = new RegExp(hint.pattern.source, "gi");
+    for (const match of segment.matchAll(pattern)) {
+      const start = match.index ?? 0;
+      const distance =
+        start >= languageEnd ? start - languageEnd : languageStart - (start + match[0].length);
+      if (distance >= 0 && distance <= MAX_LANGUAGE_MARKER_DISTANCE) return hint.value;
+    }
+  }
+  return null;
 }
 
 function extractLanguagesFromSection(
@@ -574,14 +711,14 @@ const CONFIDENCE = {
 } as const;
 
 export function extractProfileFromText(text: string): ExtractedProfile {
-  const sections = sectionsOf(text);
+  const { sections, fusedHeadings } = parseSections(text);
   const draft = emptyProfile();
   const confidence: ProfileConfidence = {};
 
   // Whether the text came out in reading order decides how much of it can be
   // trusted. Section-derived fields depend entirely on that ordering;
   // pattern-derived ones do not, and are read either way.
-  const orderedLayout = looksReliablyOrdered(text, sections);
+  const orderedLayout = looksReliablyOrdered(text, sections, fusedHeadings);
 
   const name = guessName(text);
   if (name) {

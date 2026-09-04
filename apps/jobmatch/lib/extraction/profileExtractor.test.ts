@@ -286,3 +286,107 @@ describe("choosing the candidate's own email", () => {
     expect(pickOwnEmail("contact@example.test", null)).toBe("contact@example.test");
   });
 });
+
+describe("review regressions — layout ordering", () => {
+  it("recognises a heading whose last letter is glued to the next column", () => {
+    // collapseLetterSpacing alone leaves "EXPERIENC EBE-0000", because the
+    // run of single letters ends one letter early. Matching with spaces
+    // ignored is what makes this heading findable at all.
+    const cv = [
+      "S A M P L E   N A M E",
+      "sample@example.test",
+      "E X P E R I E N C EBE-0000 Somewhere, Belgium",
+      "Engineer at Example  2020 - present",
+    ].join("\n");
+    expect(() => extractProfileFromText(cv)).not.toThrow();
+    expect(extractProfileFromText(cv).content.email).toBe("sample@example.test");
+  });
+
+  it("does not call an experience-heavy single-column CV unreadable", () => {
+    // A senior CV really is mostly work history. Treating that as unordered
+    // would discard the section the candidate most needs.
+    const lines = [
+      "Jane Vermeulen",
+      "jane.vermeulen@example.test",
+      "SKILLS",
+      "TypeScript, PostgreSQL",
+      "EXPERIENCE",
+    ];
+    for (let i = 0; i < 16; i += 1) {
+      lines.push(`Senior Engineer at Employer${i}  ${2000 + i} - ${2001 + i}`);
+    }
+    const result = extractProfileFromText(lines.join("\n"));
+    expect(result.layoutReliable).toBe(true);
+    expect(result.content.experience.length).toBeGreaterThan(10);
+    expect(result.content.skills.map((s) => s.name)).toContain("TypeScript");
+  });
+});
+
+describe("review regressions — languages", () => {
+  it("gives each language on a line its own level", () => {
+    // One marker used to be applied to every language on the line, so
+    // "French basic" was recorded as native.
+    const { content } = extractProfileFromText(
+      ["Someone Example", "someone@example.test", "LANGUAGES", "English native, French basic"].join("\n"),
+    );
+    const byCode = Object.fromEntries(content.languages.map((l) => [l.code, l.proficiency]));
+    expect(byCode.en).toBe("native");
+    expect(byCode.fr).toBe("basic");
+  });
+
+  it("does not invent a language claim from ordinary work prose", () => {
+    // "Professional" and "Russian" both appear, but this is a sentence about
+    // clients, not a statement about what the candidate speaks.
+    const { content } = extractProfileFromText(
+      [
+        "Someone Example",
+        "someone@example.test",
+        "EXPERIENCE",
+        "Consultant at Example  2019 - 2024",
+        "Professional experience supporting Russian clients across the region",
+      ].join("\n"),
+    );
+    expect(content.languages.map((l) => l.code)).not.toContain("ru");
+  });
+
+  it("still reads an adjacent language and level", () => {
+    const { content } = extractProfileFromText(
+      ["Someone Example", "someone@example.test", "LANGUAGES", "Russian - fluent"].join("\n"),
+    );
+    expect(content.languages.map((l) => l.code)).toContain("ru");
+  });
+});
+
+describe("review regressions — email selection", () => {
+  it("avoids a referee's personal address even when no name was found", () => {
+    // The generic-local check alone does not catch this: a referee's work
+    // address is a personal one.
+    const text = [
+      "REFERENCES",
+      "maaike.debruin@agency.test",
+      "Director at Agency",
+      "",
+      "CONTACT",
+      "s.devries@example.test",
+    ].join("\n");
+    expect(pickOwnEmail(text, null)).toBe("s.devries@example.test");
+  });
+
+  it("handles a references heading that follows the address, as column order produces", () => {
+    // In draw order the referee's address is emitted just *before* its own
+    // heading, which is why the window looks in both directions. The
+    // candidate's own address turns up much later in the stream.
+    const text = [
+      "maaike.debruin@agency.test",
+      "R E F E R E N C E S",
+      "SKILLS",
+      "TypeScript, PostgreSQL",
+      "EDUCATION",
+      "MSc Example  2016",
+      "EXPERIENCE",
+      "Engineer at Example  2019 - present",
+      "s.devries@example.test",
+    ].join("\n");
+    expect(pickOwnEmail(text, null)).toBe("s.devries@example.test");
+  });
+});
