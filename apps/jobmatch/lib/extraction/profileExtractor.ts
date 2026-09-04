@@ -518,6 +518,11 @@ function guessName(text: string): string | null {
     if (candidate.length < 3 || candidate.length > 60) continue;
     if (EMAIL.test(candidate) || /\d/.test(candidate)) continue;
     if (/^(curriculum|cv|resume|r[ée]sum[ée])\b/i.test(candidate)) continue;
+    // A section heading is not a name. Once reading order is reconstructed
+    // the first line of a sidebar-first CV is "ABOUT ME", which this
+    // otherwise offered to the candidate as their own name.
+    if (FUSED_HEADING_SECTIONS[collapseLetterSpacing(candidate).trim().toUpperCase()]) continue;
+    if (headingAt(candidate)) continue;
     // A comma or slash means a list. This is what stops "MongoDB, SQL Server"
     // — the first line of a two-column CV whose skills column is drawn first
     // — from being presented to someone as their own name.
@@ -762,13 +767,61 @@ function extractSkills(sections: Record<string, string[]>): CandidateProfileCont
 }
 
 /** `2021 - 2024`, `03/2021 – present`, `2021-03 tot heden`. */
-const DATE_RANGE =
-  /(\d{1,2}[./-])?(\d{4})\s*(?:[-–—]|to|tot|until|jusqu'?[aà]|→)\s*((\d{1,2}[./-])?(\d{4})|present|current|heden|nu|aujourd'?hui|actuel)/i;
+/**
+ * Month names, English plus the Dutch and French forms that differ from it.
+ * Written as prefixes so both "Dec" and "December" match.
+ */
+const MONTH_PREFIXES =
+  "jan|feb|mar|mrt|apr|may|mei|jun|juin|jul|juil|aug|sep|sept|oct|okt|nov|dec|f[ée]vr|avr|ao[uû]t|d[ée]c";
+
+const MONTH_TO_NUMBER: Record<string, string> = {
+  jan: "01",
+  feb: "02",
+  fevr: "02",
+  mar: "03",
+  mrt: "03",
+  apr: "04",
+  avr: "04",
+  may: "05",
+  mei: "05",
+  jun: "06",
+  juin: "06",
+  jul: "07",
+  juil: "07",
+  aug: "08",
+  aou: "08",
+  sep: "09",
+  oct: "10",
+  okt: "10",
+  nov: "11",
+  dec: "12",
+};
+
+/**
+ * `2021 - 2024`, `03/2021 – present`, `Dec 2020-Dec 2023`, `2021-03 tot heden`.
+ *
+ * Month *names* matter as much as numbers: real CVs write "December 2020 –
+ * December 2023" far more often than "12/2020", and a numbers-only pattern
+ * silently skipped every one of those roles.
+ */
+const DATE_RANGE = new RegExp(
+  String.raw`(?<startMonth>\d{1,2}[./-]|(?:${MONTH_PREFIXES})[a-z]*\.?\s+)?(?<startYear>(?:19|20)\d{2})\s*(?:[-–—]|to\b|tot\b|until\b|t/m|jusqu'?[aà]|→)\s*(?<end>(?:(?<endMonth>\d{1,2}[./-]|(?:${MONTH_PREFIXES})[a-z]*\.?\s+)?(?<endYear>(?:19|20)\d{2}))|present|current|heden|nu\b|aujourd'?hui|actuel)`,
+  "i",
+);
 
 function toIsoMonth(month: string | undefined, year: string): string {
   if (!month) return year;
-  const numeric = month.replace(/[./-]/g, "").padStart(2, "0");
-  return `${year}-${numeric}`;
+
+  const trimmed = month.trim().toLowerCase();
+  if (/^\d/.test(trimmed)) {
+    const numeric = trimmed.replace(/[./-]/g, "").padStart(2, "0");
+    return `${year}-${numeric}`;
+  }
+
+  const key = foldAccents(trimmed).replace(/[^a-z]/g, "").slice(0, 4);
+  const number =
+    MONTH_TO_NUMBER[key] ?? MONTH_TO_NUMBER[key.slice(0, 3)] ?? MONTH_TO_NUMBER[key.slice(0, 2)];
+  return number ? `${year}-${number}` : year;
 }
 
 function extractExperience(sections: Record<string, string[]>): CandidateProfileContent["experience"] {
@@ -778,8 +831,9 @@ function extractExperience(sections: Record<string, string[]>): CandidateProfile
     const match = DATE_RANGE.exec(line);
     if (!match) continue;
 
-    const [, startMonth, startYear, endRaw, endMonth, endYear] = match;
-    const isCurrent = /present|current|heden|nu|aujourd|actuel/i.test(endRaw);
+    const { startMonth, startYear, end, endMonth, endYear } = match.groups ?? {};
+    if (!startYear) continue;
+    const isCurrent = /present|current|heden|nu|aujourd|actuel/i.test(end ?? "");
 
     // Whatever is left after removing the dates is the role description.
     const title = line
@@ -886,9 +940,12 @@ export function extractProfileFromText(text: string): ExtractedProfile {
     confidence.email = CONFIDENCE.high;
   }
 
-  // Search only the head of the document: a phone number in the body is
-  // more likely a former employer's than the candidate's.
-  const phone = PHONE.exec(text.split("\n").slice(0, 12).join("\n"))?.[0]?.trim() ?? null;
+  // Contact details sit at the top of a single-column CV, but in a
+  // reconstructed two-column one the sidebar's contact block can be twenty
+  // lines down — behind the whole "about me" paragraph. Widened to match,
+  // and stopped at the first heading that introduces dated content, so a
+  // former employer's number is still out of range.
+  const phone = PHONE.exec(contactRegion(text))?.[0]?.trim() ?? null;
   if (phone && phone.replace(/\D/g, "").length >= 8) {
     draft.phone = phone;
     confidence.phone = CONFIDENCE.guess;
@@ -924,7 +981,49 @@ export function extractProfileFromText(text: string): ExtractedProfile {
   draft.certifications = extractCertifications(sections);
   if (draft.certifications.length > 0) confidence.certifications = CONFIDENCE.guess;
 
+  // A last check on the outcome rather than on the shape. Some layouts set
+  // each section's label *beside* its content block rather than above it, so
+  // the label's baseline lands after the text it introduces. The headings are
+  // found, the sections look plausible, and nothing comes out of any of them.
+  //
+  // Shape-based signals do not separate that case from an ordinary CV — the
+  // proportion of text before the first heading is 27% in one such document
+  // and 26% in a perfectly normal one. What does separate it is the result:
+  // finding headings and extracting nothing from any of them means the
+  // structure was not really captured, and the candidate should be told.
+  const bodyLines = text.split("\n").filter((line) => line.trim().length > 0).length;
+  const gotNothing =
+    draft.skills.length === 0 &&
+    draft.experience.length === 0 &&
+    draft.education.length === 0 &&
+    draft.certifications.length === 0;
+
+  if (gotNothing && bodyLines >= 20 && Object.keys(sections).length > 0) {
+    return { content: parseProfileContent(draft), confidence, layoutReliable: false };
+  }
+
   // Re-parsed rather than returned directly: the contract is the authority,
   // and an extractor bug should surface here rather than in the database.
   return { content: parseProfileContent(draft), confidence, layoutReliable: true };
+}
+
+/**
+ * The part of a document where the candidate's own contact details live.
+ *
+ * Everything up to the first heading that introduces dated history, capped
+ * so a document without such a heading does not have its whole body
+ * searched. Once reading order is reconstructed, a sidebar CV puts the
+ * contact block well below the first line — but always before the work
+ * history, which is where other people's phone numbers appear.
+ */
+function contactRegion(text: string): string {
+  const lines = text.split("\n");
+  const limit = Math.min(lines.length, 40);
+  const stopAt = lines
+    .slice(0, limit)
+    .findIndex((line) => {
+      const section = headingAt(line)?.section;
+      return section === "experience" || section === "education" || section === "references";
+    });
+  return lines.slice(0, stopAt === -1 ? limit : stopAt).join("\n");
 }

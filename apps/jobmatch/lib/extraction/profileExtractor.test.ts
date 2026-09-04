@@ -463,3 +463,93 @@ describe("glued email prefixes", () => {
     expect(trimGluedPrefix("sam@example.test", "sam sam sam")).toBe("sam@example.test");
   });
 });
+
+describe("review regressions — reading-order reconstruction fallout", () => {
+  it("does not offer a section heading as the candidate's name", () => {
+    // Once reading order is reconstructed, a sidebar-first CV opens with
+    // "ABOUT ME" — which the positional name guess happily returned.
+    const cv = [
+      "ABOUT ME",
+      "I am a developer who enjoys building things.",
+      "CONTACT ME",
+      "someone@example.test",
+      "SKILLS",
+      "TypeScript, PostgreSQL",
+    ].join("\n");
+    expect(extractProfileFromText(cv).content.fullName).not.toBe("ABOUT ME");
+  });
+
+  it("finds a phone number below a long about-me paragraph", () => {
+    // In a reconstructed sidebar the contact block sits well below the first
+    // line, so a fixed twelve-line window missed it entirely.
+    const cv = [
+      "ABOUT ME",
+      ...Array.from({ length: 12 }, (_, i) => `Paragraph line ${i} about my work and interests.`),
+      "CONTACT ME",
+      "+32484995707",
+      "someone@example.test",
+      "SKILLS",
+      "TypeScript",
+    ].join("\n");
+    expect(extractProfileFromText(cv).content.phone).toContain("32484995707");
+  });
+
+  it("does not take a phone number out of the work history", () => {
+    const cv = [
+      "Someone Example",
+      "someone@example.test",
+      "EXPERIENCE",
+      "Engineer at Example  2019 - 2024",
+      "Reception desk: +32 11 22 33 44",
+    ].join("\n");
+    expect(extractProfileFromText(cv).content.phone).toBeNull();
+  });
+
+  it("reads a date range written with month names", () => {
+    // "Dec 2020-Dec 2023" is far more common on a real CV than "12/2020",
+    // and a numbers-only pattern skipped every such role silently.
+    const cv = [
+      "Someone Example",
+      "someone@example.test",
+      "EXPERIENCE",
+      "Engineer at Example  Dec 2020-Dec 2023",
+      "Analyst at Other  March 2018 - November 2020",
+    ].join("\n");
+    const roles = extractProfileFromText(cv).content.experience;
+    expect(roles).toHaveLength(2);
+    expect(roles[0].startedOn).toBe("2020-12");
+    expect(roles[0].endedOn).toBe("2023-12");
+    expect(roles[1].startedOn).toBe("2018-03");
+    expect(roles[1].endedOn).toBe("2020-11");
+  });
+
+  it("still reads a numeric date range and an open-ended one", () => {
+    const cv = [
+      "Someone Example",
+      "someone@example.test",
+      "EXPERIENCE",
+      "Engineer at Example  03/2022 - present",
+      "Analyst at Other  2016 - 2019",
+    ].join("\n");
+    const roles = extractProfileFromText(cv).content.experience;
+    expect(roles[0].startedOn).toBe("2022-03");
+    expect(roles[0].isCurrent).toBe(true);
+    expect(roles[1].startedOn).toBe("2016");
+  });
+
+  it("reports a layout that yields headings but no content as unreliable", () => {
+    // Some CVs set each section label *beside* its block rather than above
+    // it, so the label's baseline lands after the text it introduces. The
+    // headings are found and nothing comes out of any of them; the shape
+    // looks ordinary, so only the outcome gives it away.
+    const cv = [
+      ...Array.from({ length: 18 }, (_, i) => `Body prose line ${i} with no parseable structure.`),
+      "EXPERIENCE",
+      "SKILLS",
+      "EDUCATION",
+    ].join("\n");
+    const result = extractProfileFromText(cv);
+    expect(result.content.skills).toEqual([]);
+    expect(result.layoutReliable).toBe(false);
+  });
+});

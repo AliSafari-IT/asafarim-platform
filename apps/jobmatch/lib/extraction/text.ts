@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupportedContentType } from "../documents/fileType";
+import { type PositionedItem, reconstructReadingOrder } from "./pdfLayout";
 
 /**
  * Text extraction (JM-019).
@@ -55,15 +56,50 @@ export function normalizeWhitespace(input: string): string {
 
 async function extractPdf(bytes: Uint8Array): Promise<ExtractionOutcome> {
   try {
-    const { extractText, getDocumentProxy } = await import("unpdf");
+    const { getDocumentProxy } = await import("unpdf");
     const pdf = await getDocumentProxy(bytes);
-    const { text } = await extractText(pdf, { mergePages: true });
-    return finish(Array.isArray(text) ? text.join("\n") : text);
+
+    // Read the runs with their positions rather than taking the library's
+    // flattened string. That string is in drawing order, which for a
+    // multi-column CV interleaves the columns — the single root cause behind
+    // every extraction fault reported so far. See pdfLayout.ts.
+    const pages: { items: PositionedItem[]; width: number }[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 1 });
+      const content = await page.getTextContent();
+
+      const items: PositionedItem[] = [];
+      for (const raw of content.items as PdfTextItem[]) {
+        if (typeof raw.str !== "string" || raw.str.length === 0) continue;
+        items.push({
+          text: raw.str,
+          x: raw.transform[4],
+          y: raw.transform[5],
+          width: raw.width ?? 0,
+          // `height` is 0 for some producers; the transform's vertical scale
+          // is the reliable fallback.
+          height: raw.height || Math.abs(raw.transform[3]) || 0,
+        });
+      }
+      pages.push({ items, width: viewport.width });
+    }
+
+    return finish(reconstructReadingOrder(pages));
   } catch {
     // The parser's own error is deliberately discarded rather than logged:
     // pdf.js messages routinely quote document content.
     return { ok: false, reasonCode: "EXTRACTION_ERROR" };
   }
+}
+
+/** The shape pdf.js returns from getTextContent(). */
+interface PdfTextItem {
+  str?: string;
+  /** [scaleX, skewX, skewY, scaleY, translateX, translateY] */
+  transform: number[];
+  width?: number;
+  height?: number;
 }
 
 async function extractDocx(bytes: Uint8Array): Promise<ExtractionOutcome> {
