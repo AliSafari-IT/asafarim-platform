@@ -7,6 +7,8 @@ import {
   extractProfileFromText,
   looksLikeSkill,
   pickOwnEmail,
+  splitFusedHeadings,
+  trimGluedPrefix,
 } from "./profileExtractor";
 
 /**
@@ -388,5 +390,76 @@ describe("review regressions — email selection", () => {
       "s.devries@example.test",
     ].join("\n");
     expect(pickOwnEmail(text, null)).toBe("s.devries@example.test");
+  });
+});
+
+describe("profile extraction — headings fused inside a line", () => {
+  // A second real CV, reproduced synthetically. Its columns collide *inside*
+  // lines rather than at their starts: "...collaborative teamwork.EDUCATION
+  // EXPERIENCEExampleTech (Voorbeeld-IT)". Start-anchored matching found no
+  // headings at all, and "no sections" was read as "well ordered" — so the
+  // candidate got an empty form, no warning, and a confidently wrong email.
+  const text = fixture("fused-inline-headings");
+  const { content, confidence, layoutReliable } = extractProfileFromText(text);
+
+  it("finds the headings buried inside a line", () => {
+    const pieces = text.split("\n").flatMap((line) => splitFusedHeadings(line.trim()));
+    expect(pieces).toContain("EDUCATION");
+    expect(pieces).toContain("EXPERIENCE");
+    expect(pieces).toContain("ABOUT ME");
+  });
+
+  it("reports the layout as unreliable instead of silently returning nothing", () => {
+    expect(layoutReliable).toBe(false);
+  });
+
+  it("does not absorb the preceding sentence into the email address", () => {
+    // "...and modeling." runs straight into the address, and a dot is legal
+    // in a local part, so the match swallowed the last word of the sentence.
+    expect(content.email).toBe("sam.devries@example.test");
+  });
+
+  it("still reads the phone number", () => {
+    expect(content.phone).toContain("0484");
+    expect(confidence.phone).toBeLessThan(LOW_CONFIDENCE_THRESHOLD);
+  });
+});
+
+describe("no recognisable structure", () => {
+  it("is reported as unreliable in a document long enough to have sections", () => {
+    // Previously this returned true — zero sections was indistinguishable
+    // from a tidy document, so nothing warned the candidate.
+    const lines = Array.from({ length: 20 }, (_, i) => `Some line of prose number ${i} about work`);
+    expect(extractProfileFromText(lines.join("\n")).layoutReliable).toBe(false);
+  });
+
+  it("does not punish a short note that simply has no sections", () => {
+    expect(extractProfileFromText(fixture("sparse")).layoutReliable).toBe(true);
+  });
+});
+
+describe("glued email prefixes", () => {
+  const prose = "Specialized in environmental modeling, developing modeling tools. modeling.";
+
+  it("strips a lowercase word that appears elsewhere as running prose", () => {
+    expect(trimGluedPrefix("modeling.asafarim@example.test", prose)).toBe("asafarim@example.test");
+  });
+
+  it("keeps a genuine firstname.lastname address", () => {
+    // "Alexandra" appears in the document as a capitalised name, not as
+    // lowercase prose, which is the distinction that makes this safe.
+    const cv = "Alexandra Moreau\nalexandra.moreau@example.test\nEngineer";
+    expect(trimGluedPrefix("alexandra.moreau@example.test", cv)).toBe("alexandra.moreau@example.test");
+  });
+
+  it("never strips part of the candidate's own name", () => {
+    const cv = "modeling modeling modeling\nmodeling.smith@example.test";
+    expect(trimGluedPrefix("modeling.smith@example.test", cv, "Modeling Smith")).toBe(
+      "modeling.smith@example.test",
+    );
+  });
+
+  it("leaves a single-segment local part alone", () => {
+    expect(trimGluedPrefix("sam@example.test", "sam sam sam")).toBe("sam@example.test");
   });
 });
