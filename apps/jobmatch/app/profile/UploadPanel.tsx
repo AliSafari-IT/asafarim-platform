@@ -148,8 +148,20 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
             <li key={document.id}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                 <strong>{document.originalFilename}</strong>
-                <Badge tone={STATUS_TONE[document.status] ?? "neutral"}>
-                  {STATUS_LABEL[document.status] ?? document.status.toLowerCase()}
+                {/* A document can be read *and* carry a caveat. Showing a
+                    plain green "read" for a CV whose layout defeated the
+                    parser would tell the candidate everything went fine
+                    while most of their form sits empty. */}
+                <Badge
+                  tone={
+                    document.status === "EXTRACTED" && document.reasonCode
+                      ? "warning"
+                      : (STATUS_TONE[document.status] ?? "neutral")
+                  }
+                >
+                  {document.status === "EXTRACTED" && document.reasonCode
+                    ? "partly read"
+                    : (STATUS_LABEL[document.status] ?? document.status.toLowerCase())}
                 </Badge>
                 <span className="jm-mono" style={{ opacity: 0.6, fontSize: "0.75rem" }}>
                   {formatSize(document.byteSize)}

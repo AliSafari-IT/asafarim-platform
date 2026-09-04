@@ -1,0 +1,58 @@
+Software Development: .NET C#, React, API,
+MVC, Entity Framework & LINQ, NoSQL &
+MongoDB, SQL Server
+front-end technologies (HTML, CSS,
+Typescript, React, ...)
+Testing, DevOps and CI/CD pipelines
+Teamwork with Agile and Scrum
+methodologiesJordi VerlindenMaaike de BruinDirector & CTO at OfficeSoftSenior Information Technology Service
+Management Consultant
+info@example-refs.test
+R E F E R E N C E S
+SKILLS
+CONTACT ME
+2005-2012Universiteit Voorbeeld (UV)PhD in Engineering - Hydrology
+2018-2020Hogeschool Voorbeeld Campus Noord, Sint-VoorbeeldInformatics - Programming
+E D U C A T I O N
+ICT DeveloperDec 2020-Dec 2023
+Voorbeeld-IT (ExampleTech in GEEL)Full-Stack Development: Built and maintained web applications with ASP.NET Core
+and React, implementing scalable back-end services and interactive front-end
+interfaces.
+Database Management: Used MongoDB and SQL Server to design, query, and
+manage databases effectively, supporting application requirements.
+Project Highlights:
+Example Platform: Contributed to the development of a collaborative platform
+using .NET Core and React, implementing UI components and back-end
+services.
+Example Group Project: Developed TypeScript-based modules in React,
+managing project cycles from initiation to delivery.
+Example Testing Framework: Supported an automated testing system by
+integrating TestCafe with Azure DevOps to streamline testing and deployment.
+E X P E R I E N C EBE-0000 EXAMPLEBURG, Voorbeeld
+sam.devries@example.test,
+www.example.test, www.example.test+32400000000I am friendly, easy-going, and genuinely
+passionate about programming. Over the years, I have
+built up broad experience across IT and I really enjoy
+working with different technologies and languages.
+I am always looking for opportunities to grow, improve
+my skills, and give my best in every project.
+I take responsibility seriously and work well both
+independently and within a team. Reliability and
+punctuality matter to me, and I always aim to deliver
+high-quality results.
+Outside of work, I enjoy spending time with my
+family, gardening, and playing chess.
+ABOUT ME
+F U L L S T A C K D E V E L O P E R
+S A M D E V R I E S
+English proficient
+LANGUAGESExample Engineering (VOORBEELD).Net WPF: C# & R.Net DeveloperDuring a brief internship at Example Engineering, I gained hands-on experience and
+foundational skills in .NET WPF development using C# and R.Net.Example Agency (EA)Scientific App DeveloperDuring a six-month internship in 2018 at the Example Agency, I contributed as a
+Scientific App Developer, focusing on hydrologic modeling. My work involved:
+Adapting and enhancing a hydrologic model, coded in FORTRAN, for river flow simulations in a
+research-driven environment.
+Leveraging my foundation in scientific software programming to support and improve the model's
+accuracy and functionality.Dutch good (B2 level)
+Persian native speakerExample Groupa total solution provider in scientific and
+technological domains: CTO as a Service
+info@example-office.test

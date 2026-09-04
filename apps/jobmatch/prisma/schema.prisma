@@ -120,6 +120,10 @@ enum DocumentReasonCode {
   ENCRYPTED_DOCUMENT
   NO_TEXT_LAYER
   EXTRACTION_ERROR
+  /// Text was read, but not in reading order — a multi-column or heavily
+  /// designed document. Section-derived fields are deliberately left empty
+  /// rather than filled from the wrong part of the page.
+  LAYOUT_UNRELIABLE
 }
 
 /// An uploaded CV. The bytes live in private object storage; this row holds

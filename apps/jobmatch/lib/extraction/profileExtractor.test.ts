@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { LOW_CONFIDENCE_THRESHOLD, assertNoProtectedAttributes } from "../profile/contract";
-import { extractProfileFromText } from "./profileExtractor";
+import {
+  collapseLetterSpacing,
+  extractProfileFromText,
+  looksLikeSkill,
+  pickOwnEmail,
+} from "./profileExtractor";
 
 /**
  * Fixtures (JM-024): synthetic Dutch, French, English, mixed-language, and
@@ -164,5 +169,120 @@ describe("extraction determinism", () => {
   it("gives the same result for the same input, which is what makes a match explainable", () => {
     const text = fixture("en-standard");
     expect(extractProfileFromText(text)).toEqual(extractProfileFromText(text));
+  });
+});
+
+describe("profile extraction — multi-column designed CV", () => {
+  // Reproduces, with invented details, the structure of a real two-column CV
+  // that this extractor got badly wrong: PDF text comes out in draw order,
+  // so skills content precedes the SKILLS heading, headings are letter-
+  // spaced ("E D U C A T I O N"), some are glued to the next column
+  // ("E X P E R I E N C EBE-0000 ..."), and a referee's email sits above the
+  // candidate's own. The fixture is synthetic — a real CV is exactly the
+  // special-category data this milestone exists to keep out of a repository.
+  const { content, confidence } = extractProfileFromText(fixture("two-column-designed"));
+
+  it("reports the layout as unreliable instead of guessing", () => {
+    expect(extractProfileFromText(fixture("two-column-designed")).layoutReliable).toBe(false);
+  });
+
+  it("leaves section-derived fields empty rather than filling them with the wrong text", () => {
+    // The failure this replaced: the entire CV, headings and prose and URLs,
+    // pasted into the candidate's skills list.
+    expect(content.skills).toEqual([]);
+    expect(content.experience).toEqual([]);
+    expect(content.education).toEqual([]);
+  });
+
+  it("still reads the candidate's own email, not the referee's", () => {
+    // info@example-refs.test appears first in the text, inside a references
+    // block. Taking the first email on the page produced exactly that.
+    expect(content.email).toBe("sam.devries@example.test");
+  });
+
+  it("still reads languages, which do not depend on section order", () => {
+    const byCode = Object.fromEntries(content.languages.map((l) => [l.code, l.proficiency]));
+    expect(byCode.en).toBe("professional");
+    // "good (B2 level)": B2 is the level job ads treat as professional
+    // working proficiency, and the stronger marker on the line wins.
+    expect(byCode.nl).toBe("professional");
+    expect(byCode.fa).toBe("native");
+  });
+
+  it("does not present a skills column heading as the candidate's name", () => {
+    // "MongoDB, SQL Server" was offered as a full name, because the skills
+    // column is drawn first and looked like a short line near the top.
+    // Null is the right answer here and is what it now returns: the name is
+    // set in letter-spaced capitals with no recoverable word boundaries, so
+    // there is nothing honest to offer. An empty field the candidate fills
+    // in beats a confident wrong one.
+    expect(content.fullName ?? "").not.toMatch(/MongoDB|SQL Server/);
+  });
+
+  it("emits confidence only for what it actually read", () => {
+    expect(confidence.skills).toBeUndefined();
+    expect(confidence.experience).toBeUndefined();
+    expect(confidence.email).toBeGreaterThan(LOW_CONFIDENCE_THRESHOLD);
+  });
+});
+
+describe("layout-ordering detection", () => {
+  it("accepts a well-ordered single-column CV", () => {
+    expect(extractProfileFromText(fixture("en-standard")).layoutReliable).toBe(true);
+    expect(extractProfileFromText(fixture("nl-standard")).layoutReliable).toBe(true);
+    expect(extractProfileFromText(fixture("fr-standard")).layoutReliable).toBe(true);
+  });
+
+  it("does not punish a short, unstructured note", () => {
+    expect(extractProfileFromText(fixture("sparse")).layoutReliable).toBe(true);
+  });
+});
+
+describe("letter-spaced headings", () => {
+  it("collapses tracking so a designed heading is still a heading", () => {
+    expect(collapseLetterSpacing("E D U C A T I O N")).toBe("EDUCATION");
+    expect(collapseLetterSpacing("E X P E R I E N C E")).toBe("EXPERIENCE");
+  });
+
+  it("leaves ordinary prose alone", () => {
+    const prose = "I work with a team of 5 and I enjoy it";
+    expect(collapseLetterSpacing(prose)).toBe(prose);
+  });
+});
+
+describe("skill plausibility", () => {
+  it("accepts short technology names", () => {
+    for (const skill of ["TypeScript", "SQL Server", "Power BI", "Ruby on Rails", ".NET Core"]) {
+      expect(looksLikeSkill(skill)).toBe(true);
+    }
+  });
+
+  it("rejects prose, contact details, and dates", () => {
+    for (const notSkill of [
+      "Used MongoDB and SQL Server to design and query databases",
+      "Database Management:",
+      "sam@example.test",
+      "www.example.test",
+      "2018-2020",
+      "Project Highlights:",
+    ]) {
+      expect(looksLikeSkill(notSkill)).toBe(false);
+    }
+  });
+});
+
+describe("choosing the candidate's own email", () => {
+  it("prefers an address matching the name over one that appears earlier", () => {
+    const text = "REFERENCES\ninfo@agency.test\n\nJane Vermeulen\njane.vermeulen@example.test";
+    expect(pickOwnEmail(text, "Jane Vermeulen")).toBe("jane.vermeulen@example.test");
+  });
+
+  it("prefers a personal address over a generic one when there is no name", () => {
+    const text = "info@agency.test and s.devries@example.test";
+    expect(pickOwnEmail(text, null)).toBe("s.devries@example.test");
+  });
+
+  it("still returns something when only a generic address exists", () => {
+    expect(pickOwnEmail("contact@example.test", null)).toBe("contact@example.test");
   });
 });

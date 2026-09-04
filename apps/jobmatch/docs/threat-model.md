@@ -120,6 +120,8 @@ offending key.
 | Retention promised but never enforced | `sweepExpiredDocuments` deletes expired originals; the route is disabled outright when its token is unset | `lib/documents/retention.ts` |
 | A destructive action reported as done when the server refused it | Client handlers check `response.ok` before claiming success | `app/profile/*Panel.tsx` |
 | Confirming a stale profile after an upload | The review form is keyed by version id, so new extraction replaces it | `app/profile/page.tsx` |
+| A referee's contact details stored as the candidate's own | Emails are resolved against the detected name, and generic locals (info@, hr@) are deprioritised | `lib/extraction/profileExtractor.ts` |
+| A misread layout filling the profile with text from the wrong part of the page | Section sizes are checked for plausibility; an implausible one marks the layout unreliable and section-derived fields are left empty | same |
 | Decompression bomb producing unbounded text | Extraction output capped; every profile collection bounded | `lib/extraction/text.ts`, `contract.ts` |
 
 ### Deliberately not done in M2

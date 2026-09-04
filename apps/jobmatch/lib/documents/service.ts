@@ -237,7 +237,13 @@ export async function extractDocument(
 
     await db.candidateDocument.update({
       where: { id: documentId },
-      data: { status: "EXTRACTED", reasonCode: null },
+      data: {
+        status: "EXTRACTED",
+        // A successful extraction can still carry a caveat. Recording it
+        // here is what lets the UI explain empty fields as a deliberate
+        // refusal to guess rather than as a silent failure.
+        reasonCode: profile.layoutReliable ? null : "LAYOUT_UNRELIABLE",
+      },
     });
 
     log.info("document.extracted", {
