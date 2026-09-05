@@ -24,6 +24,7 @@ export const proxy = createAuthProxy({
     // to run at all: the proxy answered before the route's own check.
     "/api/retention",
     "/api/ingestion/sync",
+    "/api/ingestion/showcase",
   ],
   signInUrl: `${hubUrl}/sign-in`,
 });
