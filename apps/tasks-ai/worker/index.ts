@@ -12,6 +12,7 @@ import { getEnv } from "../lib/env";
 import { pingTasksAiDb } from "../lib/db/readiness";
 import { logger } from "../lib/observability/logger";
 import { buildWorkerHealth } from "./health";
+import { drainOutboxOnce } from "./outbox";
 import { JOB, QUEUE } from "./queues";
 
 const env = getEnv();
@@ -52,9 +53,20 @@ const heartbeat = setInterval(() => {
     .catch((err) => logger.error({ err: String(err) }, "worker.heartbeat_enqueue_failed"));
 }, HEARTBEAT_MS);
 
+// Outbox drainer: notification dispatch, fan-out acks (docs/adr/0005).
+const OUTBOX_MS = 2000;
+const outboxTimer = setInterval(() => {
+  drainOutboxOnce()
+    .then((r) => {
+      if (r.processed || r.dead) logger.info(r, "outbox.drained");
+    })
+    .catch((err) => logger.error({ err: String(err) }, "outbox.drain_failed"));
+}, OUTBOX_MS);
+
 async function shutdown(signal: string) {
   logger.info({ signal }, "worker.shutdown");
   clearInterval(heartbeat);
+  clearInterval(outboxTimer);
   await worker.close();
   await maintenanceQueue.close();
   await connection.quit();

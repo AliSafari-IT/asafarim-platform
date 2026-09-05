@@ -69,6 +69,11 @@ model Workspace {
   activityEvents ActivityEvent[]
   auditEvents   AuditEvent[]
   outboxEvents  OutboxEvent[]
+  invitations   Invitation[]
+  comments      Comment[]
+  attachments   Attachment[]
+  watchers      Watcher[]
+  notifications Notification[]
 
   @@map("workspace")
 }
@@ -89,6 +94,13 @@ model Membership {
   projectMemberships ProjectMembership[]
   assignedTasks     Task[]             @relation("TaskAssignee")
   createdTasks      Task[]             @relation("TaskCreator")
+  sentInvitations   Invitation[]       @relation("InvitationInviter")
+  comments          Comment[]
+  reactions         CommentReaction[]
+  watchers          Watcher[]
+  notifications     Notification[]
+  notificationPreference NotificationPreference?
+  uploadedAttachments Attachment[]
 
   @@unique([workspaceId, platformUserId])
   @@index([workspaceId])
@@ -320,6 +332,9 @@ model Task {
   customFieldValues CustomFieldValue[]
   outgoingRelations TaskRelation[]     @relation("RelationFrom")
   incomingRelations TaskRelation[]     @relation("RelationTo")
+  comments          Comment[]
+  attachments       Attachment[]
+  watchers          Watcher[]
 
   @@index([workspaceId])
   @@index([workspaceId, projectId])
@@ -466,4 +481,161 @@ model IdempotencyKey {
   @@unique([workspaceId, actorId, key])
   @@index([createdAt])
   @@map("idempotency_key")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// M04 — collaboration, realtime, notifications
+// ─────────────────────────────────────────────────────────────────────────
+
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+model Invitation {
+  id          String           @id @default(cuid())
+  workspaceId String
+  email       String
+  emailHash   String
+  role        MemberRole       @default(member)
+  status      InvitationStatus @default(pending)
+  token       String           @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy Membership @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, emailHash, status])
+  @@index([workspaceId])
+  @@map("invitation")
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  workspaceId String
+  taskId      String
+  authorId    String
+  body        String
+  /// membershipIds mentioned via @, resolved server-side at create time.
+  mentions    String[]
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task      Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author    Membership        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reactions CommentReaction[]
+
+  @@index([workspaceId, taskId, createdAt])
+  @@map("comment")
+}
+
+model CommentReaction {
+  id           String @id @default(cuid())
+  commentId    String
+  membershipId String
+  emoji        String
+
+  comment    Comment    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, membershipId, emoji])
+  @@map("comment_reaction")
+}
+
+enum ScanState {
+  pending
+  clean
+  quarantined
+  skipped
+}
+
+/// Attachment metadata only. Bytes live in private object storage; the app
+/// hands out signed, time-limited download URLs and never proxies the file.
+/// A quarantine decision is recorded per object (docs: M00 attachment
+/// security decision) — pending uploads are not downloadable.
+model Attachment {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  taskId       String
+  uploadedById String
+  storageKey   String    @unique
+  filename     String
+  contentType  String
+  byteSize     Int
+  scanState    ScanState @default(pending)
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task       Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy Membership @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, taskId])
+  @@map("attachment")
+}
+
+model Watcher {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  taskId       String
+  membershipId String
+  createdAt    DateTime @default(now())
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task       Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, membershipId])
+  @@index([workspaceId, membershipId])
+  @@map("watcher")
+}
+
+enum NotificationChannel {
+  in_app
+  email
+}
+
+model Notification {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  recipientId  String
+  kind         String   // mention | assigned | comment | watched_change | invite_accepted
+  taskId       String?
+  actorId      String?
+  data         Json
+  /// Set once the recipient has seen it in the inbox.
+  readAt       DateTime?
+  /// Set once it has been included in a delivered email digest.
+  digestedAt   DateTime?
+  dedupeKey    String?
+  createdAt    DateTime @default(now())
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  recipient Membership @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([dedupeKey])
+  @@index([recipientId, readAt, createdAt])
+  @@map("notification")
+}
+
+model NotificationPreference {
+  membershipId    String  @id
+  emailDigest     Boolean @default(true)
+  /// "off" | "hourly" | "daily"
+  digestCadence   String  @default("daily")
+  mentionEmail    Boolean @default(true)
+  assignmentEmail Boolean @default(true)
+  /// Local-time quiet-hours window, e.g. "22:00-07:00", or null.
+  quietHours      String?
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preference")
 }
