@@ -39,7 +39,7 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Experiments from labs.asafarim.be will appear here as they are dusted off and rebuilt on the platform.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "End-to-end task management vertical with API and web client, originally built in the asafarim.be ecosystem.",
+      "A planned AI-native work operating system that turns scattered intent into explainable, outcome-linked execution.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Operations KPI dashboard showcase with real-time views and reporting.",
@@ -120,7 +120,7 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Experimenten van labs.asafarim.be verschijnen hier zodra ze worden opgepoetst en op het platform herbouwd.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "End-to-end task management-verticaal met API en web client, oorspronkelijk gebouwd in het asafarim.be-ecosysteem.",
+      "Een gepland, AI-native werkplatform dat verspreide intenties omzet in uitlegbare, resultaatgerichte uitvoering.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Operations KPI dashboard-showcase met real-time views en rapportage.",
@@ -201,7 +201,7 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Les expériences de labs.asafarim.be apparaîtront ici une fois dépoussiérées et reconstruites sur la plateforme.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "Verticale de gestion de tâches end-to-end avec API et client web, initialement construite dans l'écosystème asafarim.be.",
+      "Un système de gestion du travail natif de l'IA, en projet, qui transforme des intentions dispersées en une exécution explicable et orientée résultats.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Showcase de tableau de bord KPI opérationnel avec vues en temps réel et reporting.",
@@ -282,7 +282,7 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Experimente von labs.asafarim.be erscheinen hier, sobald sie aufpoliert und auf der Plattform neu aufgebaut werden.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "End-to-end Task-Management-Vertikale mit API und Web-Client, ursprünglich im asafarim.be-Ökosystem gebaut.",
+      "Ein geplantes, KI-natives Arbeitsmanagementsystem, das verstreute Absichten in nachvollziehbare, ergebnisorientierte Umsetzung verwandelt.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Operations KPI Dashboard Showcase mit Echtzeit-Ansichten und Reporting.",
@@ -363,7 +363,7 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Experiments from labs.asafarim.be will appear here as they are dusted off and rebuilt on the platform.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "End-to-end task management vertical with API and web client, originally built in the asafarim.be ecosystem.",
+      "A planned AI-native work operating system that turns scattered intent into explainable, outcome-linked execution.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Operations KPI dashboard showcase with real-time views and reporting.",
