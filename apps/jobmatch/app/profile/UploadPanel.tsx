@@ -12,6 +12,9 @@ export interface DocumentRow {
   status: string;
   reasonCode: string | null;
   explanation: string | null;
+  /** Whether this document was quarantined because the scanner was
+   *  unavailable specifically — never true for a real malware verdict. */
+  canRetryScan: boolean;
   uploadedAt: string;
   retainUntil: string | null;
 }
@@ -94,6 +97,41 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
     [router],
   );
 
+  const rescan = useCallback(
+    async (documentId: string) => {
+      setBusy(true);
+      setMessage(null);
+      try {
+        const response = await fetch(`/api/documents/${documentId}/rescan`, { method: "POST" });
+        const body = (await response.json()) as { error?: string; explanation?: string; status?: string };
+        if (!response.ok) {
+          setMessage({
+            tone: "error",
+            text:
+              body.error === "NOT_ELIGIBLE_FOR_RESCAN"
+                ? "This file cannot be rescanned."
+                : "That file could not be rescanned. Please try again.",
+          });
+          return;
+        }
+        if (body.status !== "EXTRACTED") {
+          setMessage({
+            tone: "warning",
+            text: body.explanation ?? "That file was rescanned but could not be read.",
+          });
+        } else {
+          setMessage({ tone: "info", text: "Your CV was read. Check the fields below before confirming." });
+        }
+        router.refresh();
+      } catch {
+        setMessage({ tone: "error", text: "The rescan failed. Check your connection and try again." });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [router],
+  );
+
   const remove = useCallback(
     async (documentId: string) => {
       setBusy(true);
@@ -170,6 +208,11 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
                   <a href={`/api/documents/${document.id}/file`} className="jm-mono">
                     download
                   </a>
+                ) : null}
+                {document.canRetryScan ? (
+                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => void rescan(document.id)}>
+                    retry scan
+                  </Button>
                 ) : null}
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => void remove(document.id)}>
                   delete

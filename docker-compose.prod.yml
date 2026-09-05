@@ -543,6 +543,34 @@ services:
     networks:
       - asafarim_net
 
+  # ClamAV sidecar for CV malware scanning (JM-018, issue #203). Kept on the
+  # internal network only — nothing outside the Docker network can reach
+  # port 3310, and jobmatch is the only service configured to.
+  #
+  # No volume for the virus database is a deliberate simplification for a
+  # single-instance deployment: `/init` (the image's own entrypoint) runs
+  # freshclam once before starting clamd, so the container is unusable for
+  # a few minutes after every restart while it downloads the database fresh
+  # — acceptable because uploads fail closed (quarantine) during that
+  # window rather than unsafely, and jobmatch does not wait on clamav's own
+  # health to start serving. Add a named volume mounted at /var/lib/clamav
+  # if restart frequency ever makes the redownload costly.
+  clamav:
+    image: clamav/clamav-debian:1.4
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          # ClamAV's full signature set easily needs 1-1.5GB resident; this
+          # caps it well short of starving the other services on an 8GB box
+          # while leaving headroom for signature-database growth.
+          memory: 2g
+    networks:
+      - asafarim_net
+    # The image ships its own HEALTHCHECK (clamdcheck.sh) with a 6-minute
+    # start period — freshclam's first run has to finish before clamd can
+    # answer PING, and that is intentionally not shortened here.
+
   jobmatch:
     build:
       context: .
@@ -562,11 +590,18 @@ services:
       # happened to bake in.
       NEXT_PUBLIC_JOBMATCH_URL: ${NEXT_PUBLIC_JOBMATCH_URL:-https://jobmatch.asafarim.com}
       AUTH_URL: https://jobmatch.asafarim.com
+      JOBMATCH_SCANNER_URL: tcp://clamav:3310
     depends_on:
       jobmatch-postgres:
         condition: service_healthy
       jobmatch-migrate:
         condition: service_completed_successfully
+      # Not service_healthy: clamav's first-boot signature download can take
+      # several minutes, and jobmatch is designed to run without it —
+      # uploads quarantine (fail closed) until clamav reports healthy,
+      # rather than jobmatch itself refusing to start.
+      clamav:
+        condition: service_started
     networks:
       - asafarim_net
 

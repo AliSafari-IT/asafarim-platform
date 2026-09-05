@@ -16,6 +16,7 @@ import {
 } from "./fileType";
 import {
   MAX_EXTRACTION_ATTEMPTS,
+  canRetryScan,
   nextStatusAfterExtractionFailure,
   mayExtract,
 } from "./pipeline";
@@ -156,6 +157,37 @@ async function scanDocument(
   });
   await recordAuditEvent(workspaceId, "document.scanned", { jobId: documentId, outcome: "clean" });
   return "CLEAN";
+}
+
+export type RescanResult =
+  | { ok: true; status: string }
+  | { ok: false; reasonCode: "NOT_FOUND" | "NOT_ELIGIBLE_FOR_RESCAN" | "BYTES_MISSING" };
+
+/**
+ * Send a quarantined document back through the scanner (issue #203).
+ *
+ * Only ever reaches a document quarantined because the scanner was
+ * *unavailable* — `canRetryScan` is the single gate for that, checked here
+ * rather than trusted from the caller, so a request crafted against this
+ * function directly still cannot re-open a document ClamAV actually
+ * flagged as infected.
+ */
+export async function rescanDocument(workspaceId: string, documentId: string): Promise<RescanResult> {
+  const db = getJobmatchDb();
+  const document = await db.candidateDocument.findFirst({
+    where: { id: documentId, workspaceId, deletedAt: null },
+  });
+  if (!document) return { ok: false, reasonCode: "NOT_FOUND" };
+
+  if (!canRetryScan(document.status as never, document.reasonCode)) {
+    return { ok: false, reasonCode: "NOT_ELIGIBLE_FOR_RESCAN" };
+  }
+
+  const stored = await readDocumentBytes(document.storageKey);
+  if (!stored) return { ok: false, reasonCode: "BYTES_MISSING" };
+
+  const status = await scanDocument(workspaceId, documentId, stored.bytes);
+  return { ok: true, status };
 }
 
 export type ExtractionResult =

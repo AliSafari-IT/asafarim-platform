@@ -107,6 +107,10 @@ does and does not defend against.
   90-day retention. Filenames never build storage keys.
 - Malware scanning as a hard gate: nothing reaches a parser without a clean
   verdict, and an unavailable scanner quarantines rather than waving through.
+  A ClamAV sidecar is deployed and wired in production (issue #203), with a
+  real `INSTREAM` client, a rescan path for documents quarantined only
+  because the scanner was briefly unreachable, and scanner reachability
+  surfaced on `/api/health` without gating the app's own health check.
 - Local text extraction for PDF, Word, and plain text, with a bounded retry
   budget and reason codes a candidate can act on.
 - A profile contract with no field for any protected attribute, so age,
@@ -161,7 +165,7 @@ pnpm --filter @asafarim/jobmatch test
 | `JOBMATCH_ENVIRONMENT` | staging, production | `staging` there, `production` in prod; it decides whether secrets may be defaulted. |
 | `NEXT_PUBLIC_JOBMATCH_URL` | all deployments | Inlined at build time; also an allowed SSO callback origin. |
 | `NEXT_PUBLIC_HUB_URL` | all deployments | Where unauthenticated visitors are sent to sign in. |
-| `JOBMATCH_SCANNER_URL` | production (JM-018) | ClamAV sidecar. Without it every upload is quarantined — a fail-closed default, and the reason the CV pipeline is not usable in production yet. |
+| `JOBMATCH_SCANNER_URL` | production (issue #203) | ClamAV sidecar, wired directly in `docker-compose.prod.yml` — nothing to set by hand. Without a reachable scanner every upload quarantines — a fail-closed default. |
 | `JOBMATCH_SCANNER` | local only | Set to the exact literal `insecure-accept-all` to run the pipeline without a scanner. Refused on any deployed environment, and it names itself on every document it clears. |
 | `JOBMATCH_INGESTION_TOKEN` | production | Bearer token for `POST /api/ingestion/sync`, which runs ingestion, re-assesses freshness and prunes expired snapshots. Unset disables the route entirely (404). Drive it from a scheduler. Holding it does not authorise fetching from a source whose agreement is missing or expired — that is checked per source. |
 | `JOBMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
