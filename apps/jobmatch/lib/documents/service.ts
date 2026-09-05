@@ -16,7 +16,6 @@ import {
 } from "./fileType";
 import {
   MAX_EXTRACTION_ATTEMPTS,
-  canRetryScan,
   nextStatusAfterExtractionFailure,
   mayExtract,
 } from "./pipeline";
@@ -42,7 +41,7 @@ import {
  */
 
 export type UploadOutcome =
-  | { ok: true; documentId: string; status: string }
+  | { ok: true; documentId: string; status: string; reasonCode: string | null }
   | { ok: false; reasonCode: string };
 
 export async function uploadDocument(
@@ -108,16 +107,28 @@ export async function uploadDocument(
     count: bytes.length,
   });
 
-  const status = await scanDocument(workspaceId, document.id, bytes);
-  return { ok: true, documentId: document.id, status };
+  const scanned = await scanDocument(workspaceId, document.id, bytes);
+  return { ok: true, documentId: document.id, status: scanned.status, reasonCode: scanned.reasonCode };
 }
 
-/** Scan and record the verdict. Returns the resulting status. */
+interface ScanOutcome {
+  status: "QUARANTINED" | "CLEAN";
+  reasonCode: string | null;
+}
+
+/**
+ * Scan and record the verdict. Returns the resulting status *and* the
+ * reason code the verdict actually produced — a caller that only sees
+ * "QUARANTINED" cannot tell a real malware verdict from a scanner outage,
+ * and the upload route used to paper over that distinction by hardcoding
+ * SCANNER_UNAVAILABLE for every quarantine, regardless of which one had
+ * actually happened.
+ */
 async function scanDocument(
   workspaceId: string,
   documentId: string,
   bytes: Uint8Array,
-): Promise<string> {
+): Promise<ScanOutcome> {
   const db = getJobmatchDb();
   const scanner = createScanner();
 
@@ -143,7 +154,7 @@ async function scanDocument(
       jobId: documentId,
       reasonCode: decision.reasonCode,
     });
-    return "QUARANTINED";
+    return { status: "QUARANTINED", reasonCode: decision.reasonCode };
   }
 
   await db.candidateDocument.update({
@@ -156,38 +167,71 @@ async function scanDocument(
     },
   });
   await recordAuditEvent(workspaceId, "document.scanned", { jobId: documentId, outcome: "clean" });
-  return "CLEAN";
+  return { status: "CLEAN", reasonCode: null };
 }
 
 export type RescanResult =
-  | { ok: true; status: string }
+  | { ok: true; status: string; reasonCode: string | null }
   | { ok: false; reasonCode: "NOT_FOUND" | "NOT_ELIGIBLE_FOR_RESCAN" | "BYTES_MISSING" };
 
 /**
  * Send a quarantined document back through the scanner (issue #203).
  *
  * Only ever reaches a document quarantined because the scanner was
- * *unavailable* — `canRetryScan` is the single gate for that, checked here
- * rather than trusted from the caller, so a request crafted against this
- * function directly still cannot re-open a document ClamAV actually
- * flagged as infected.
+ * *unavailable*, and the eligibility check is an atomic claim, not a
+ * read-then-write: `updateMany`'s `where` clause encodes the exact same
+ * condition `canRetryScan` states (QUARANTINED + SCANNER_UNAVAILABLE), and
+ * only the request whose update actually matched a row (`count === 1`)
+ * proceeds to scan. Two concurrent rescan requests racing the same
+ * document therefore cannot both win: the loser's `updateMany` matches
+ * zero rows, because the winner has already moved the row to SCANNING by
+ * the time it runs. Without this, both could pass a read-only eligibility
+ * check, both scan, and both extract — creating duplicate profile
+ * versions from one document.
  */
 export async function rescanDocument(workspaceId: string, documentId: string): Promise<RescanResult> {
   const db = getJobmatchDb();
-  const document = await db.candidateDocument.findFirst({
-    where: { id: documentId, workspaceId, deletedAt: null },
-  });
-  if (!document) return { ok: false, reasonCode: "NOT_FOUND" };
 
-  if (!canRetryScan(document.status as never, document.reasonCode)) {
-    return { ok: false, reasonCode: "NOT_ELIGIBLE_FOR_RESCAN" };
+  const claim = await db.candidateDocument.updateMany({
+    where: {
+      id: documentId,
+      workspaceId,
+      deletedAt: null,
+      status: "QUARANTINED",
+      reasonCode: "SCANNER_UNAVAILABLE",
+    },
+    data: { status: "SCANNING" },
+  });
+
+  if (claim.count === 0) {
+    const exists = await db.candidateDocument.findFirst({
+      where: { id: documentId, workspaceId, deletedAt: null },
+      select: { id: true },
+    });
+    return { ok: false, reasonCode: exists ? "NOT_ELIGIBLE_FOR_RESCAN" : "NOT_FOUND" };
   }
 
-  const stored = await readDocumentBytes(document.storageKey);
-  if (!stored) return { ok: false, reasonCode: "BYTES_MISSING" };
+  const document = await db.candidateDocument.findFirst({
+    where: { id: documentId, workspaceId },
+    select: { storageKey: true },
+  });
+  const stored = document ? await readDocumentBytes(document.storageKey) : null;
+  if (!stored) {
+    // The claim above already moved this row to SCANNING, which
+    // canRetryScan does not recognise — left as-is, the document would be
+    // stuck there forever, ineligible for another rescan attempt. Recorded
+    // as its own terminal reason rather than put back to
+    // SCANNER_UNAVAILABLE: rescanning again cannot recreate missing bytes,
+    // so offering "try again" here would just repeat the same failure.
+    await db.candidateDocument.update({
+      where: { id: documentId },
+      data: { status: "QUARANTINED", reasonCode: "BYTES_MISSING" },
+    });
+    return { ok: false, reasonCode: "BYTES_MISSING" };
+  }
 
-  const status = await scanDocument(workspaceId, documentId, stored.bytes);
-  return { ok: true, status };
+  const scanned = await scanDocument(workspaceId, documentId, stored.bytes);
+  return { ok: true, status: scanned.status, reasonCode: scanned.reasonCode };
 }
 
 export type ExtractionResult =

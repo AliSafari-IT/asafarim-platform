@@ -126,6 +126,12 @@ enum DocumentReasonCode {
   /// designed document. Section-derived fields are deliberately left empty
   /// rather than filled from the wrong part of the page.
   LAYOUT_UNRELIABLE
+  /// The row's stored-object key could not be read back during a rescan —
+  /// the object is gone or the storage backend errored. Never left as
+  /// SCANNING: that status is not eligible for another rescan attempt, so
+  /// the document would otherwise be permanently stuck. Re-uploading is the
+  /// only recovery, since rescanning cannot recreate missing bytes.
+  BYTES_MISSING
 }
 
 /// An uploaded CV. The bytes live in private object storage; this row holds

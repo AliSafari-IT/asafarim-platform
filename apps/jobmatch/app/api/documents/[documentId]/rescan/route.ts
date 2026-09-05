@@ -26,14 +26,25 @@ export async function POST(
 
   if (!result.ok) {
     const status = result.reasonCode === "NOT_FOUND" ? 404 : 409;
-    return NextResponse.json({ error: result.reasonCode }, { status });
+    return NextResponse.json(
+      {
+        error: result.reasonCode,
+        explanation: result.reasonCode === "BYTES_MISSING" ? explainReasonCode("BYTES_MISSING") : undefined,
+      },
+      { status },
+    );
   }
 
   if (result.status === "QUARANTINED") {
+    // The rescan can quarantine for a different reason than the one that
+    // sent it here — the scanner is back, and this time it may report a
+    // real MALWARE_DETECTED verdict, which must never be explained as a
+    // transient "try again later."
     return NextResponse.json({
       documentId,
       status: result.status,
-      explanation: explainReasonCode("SCANNER_UNAVAILABLE"),
+      reasonCode: result.reasonCode,
+      explanation: explainReasonCode(result.reasonCode),
     });
   }
 

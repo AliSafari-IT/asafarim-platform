@@ -113,6 +113,8 @@ export function explainReasonCode(code: string | null): string {
       return "Your contact details and languages were read, but this document's layout (columns, or a heavily designed template) could not be followed reliably. Rather than fill your profile with text from the wrong part of the page, the remaining fields were left for you. A single-column CV usually reads correctly.";
     case "EXTRACTION_ERROR":
       return "This document could not be read. You can still build your profile by hand.";
+    case "BYTES_MISSING":
+      return "This file could no longer be found in storage, so it could not be rescanned. Please upload it again.";
     default:
       return "This document could not be processed.";
   }

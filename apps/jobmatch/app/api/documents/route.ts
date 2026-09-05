@@ -63,10 +63,14 @@ export async function POST(request: Request) {
   // with the reason, not an error, because nothing went wrong with the
   // request itself and the UI needs to explain the state.
   if (result.status === "QUARANTINED") {
+    // The reason the scanner service actually recorded — never assumed to
+    // be SCANNER_UNAVAILABLE, since a real MALWARE_DETECTED verdict must
+    // never be explained to the candidate as "try again later."
     return NextResponse.json({
       documentId: result.documentId,
       status: result.status,
-      explanation: explainReasonCode("SCANNER_UNAVAILABLE"),
+      reasonCode: result.reasonCode,
+      explanation: explainReasonCode(result.reasonCode),
     });
   }
 
