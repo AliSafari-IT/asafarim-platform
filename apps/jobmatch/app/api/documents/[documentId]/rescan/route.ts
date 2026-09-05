@@ -30,10 +30,15 @@ export async function POST(
   }
 
   if (result.status === "QUARANTINED") {
+    // The rescan can quarantine for a different reason than the one that
+    // sent it here — the scanner is back, and this time it may report a
+    // real MALWARE_DETECTED verdict, which must never be explained as a
+    // transient "try again later."
     return NextResponse.json({
       documentId,
       status: result.status,
-      explanation: explainReasonCode("SCANNER_UNAVAILABLE"),
+      reasonCode: result.reasonCode,
+      explanation: explainReasonCode(result.reasonCode),
     });
   }
 
