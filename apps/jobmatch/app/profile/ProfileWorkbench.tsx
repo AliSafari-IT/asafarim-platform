@@ -31,6 +31,17 @@ export interface ProfileWorkbenchProps {
 
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "error"; message: string } | { kind: "saved"; confirmed: boolean };
 
+/** Split a free-typed list on commas or newlines, trimming and dropping
+ *  blanks — shared by every parsed-list field so the "how many entries did
+ *  the user actually type" count used for the over-limit warning is always
+ *  the exact same count that gets sliced and saved. */
+function parseEntries(raw: string): string[] {
+  return raw
+    .split(/[,\n]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 function needsReview(confidence: ProfileConfidence, field: string): boolean {
   const score = confidence[field];
   return score !== undefined && score < LOW_CONFIDENCE_THRESHOLD;
@@ -60,6 +71,20 @@ export function ProfileWorkbench({
   const [content, setContent] = useState<CandidateProfileContent>(initialContent);
   const [state, setState] = useState<SaveState>({ kind: "idle" });
   const [dirty, setDirty] = useState(false);
+  // Skills and excluded-employers are free-typed lists, parsed into
+  // structured data on every keystroke. The textarea's own text must be its
+  // own state, not re-derived by rejoining the parsed array: typing a
+  // trailing comma, newline, or run of whitespace to start the *next* entry
+  // parses back to the *same* array as before that keystroke (an empty
+  // trailing segment is dropped), so a value bound to the rejoined array
+  // would snap back and silently eat exactly what was just typed —
+  // rendering the field un-typable past the first couple of entries.
+  const [skillsText, setSkillsText] = useState(() =>
+    initialContent.skills.map((skill) => skill.name).join(", "),
+  );
+  const [excludedEmployersText, setExcludedEmployersText] = useState(() =>
+    initialContent.preferences.excludedEmployers.join(", "),
+  );
   const confidence = initialConfidence;
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
@@ -97,8 +122,6 @@ export function ProfileWorkbench({
     },
     [content, versionId, router],
   );
-
-  const listValue = (items: { name: string }[]) => items.map((item) => item.name).join(", ");
 
   return (
     <form
@@ -194,20 +217,24 @@ export function ProfileWorkbench({
             <FieldLabel label="Skills" confidence={confidence} field="skills" />
             <textarea
               rows={6}
-              value={listValue(content.skills)}
-              onChange={(event) =>
+              value={skillsText}
+              onChange={(event) => {
+                const raw = event.target.value;
+                setSkillsText(raw);
                 update(
                   "skills",
-                  event.target.value
-                    .split(",")
-                    .map((part) => part.trim())
-                    .filter(Boolean)
+                  parseEntries(raw)
                     .slice(0, 200)
                     .map((name) => ({ name, rawLabel: name, yearsExperience: null })),
-                )
-              }
+                );
+              }}
             />
-            <small>One per line or separated by commas.</small>
+            <small>
+              One per line or separated by commas.
+              {parseEntries(skillsText).length > 200
+                ? " Only the first 200 will be saved — trim the rest before saving."
+                : null}
+            </small>
           </label>
         </Card>
 
@@ -306,19 +333,22 @@ export function ProfileWorkbench({
             <span>Employers to never show me</span>
             <textarea
               rows={3}
-              value={content.preferences.excludedEmployers.join(", ")}
-              onChange={(event) =>
+              value={excludedEmployersText}
+              onChange={(event) => {
+                const raw = event.target.value;
+                setExcludedEmployersText(raw);
                 update("preferences", {
                   ...content.preferences,
-                  excludedEmployers: event.target.value
-                    .split(",")
-                    .map((part) => part.trim())
-                    .filter(Boolean)
-                    .slice(0, 50),
-                })
-              }
+                  excludedEmployers: parseEntries(raw).slice(0, 50),
+                });
+              }}
             />
-            <small>Kept private. Nobody is told you excluded them.</small>
+            <small>
+              Kept private. Nobody is told you excluded them.
+              {parseEntries(excludedEmployersText).length > 50
+                ? " Only the first 50 will be saved — trim the rest before saving."
+                : null}
+            </small>
           </label>
         </Card>
       </div>
