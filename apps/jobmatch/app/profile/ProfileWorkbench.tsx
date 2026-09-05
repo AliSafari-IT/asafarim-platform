@@ -31,6 +31,17 @@ export interface ProfileWorkbenchProps {
 
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "error"; message: string } | { kind: "saved"; confirmed: boolean };
 
+/** Split a free-typed list on commas or newlines, trimming and dropping
+ *  blanks — shared by every parsed-list field so the "how many entries did
+ *  the user actually type" count used for the over-limit warning is always
+ *  the exact same count that gets sliced and saved. */
+function parseEntries(raw: string): string[] {
+  return raw
+    .split(/[,\n]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 function needsReview(confidence: ProfileConfidence, field: string): boolean {
   const score = confidence[field];
   return score !== undefined && score < LOW_CONFIDENCE_THRESHOLD;
@@ -212,16 +223,18 @@ export function ProfileWorkbench({
                 setSkillsText(raw);
                 update(
                   "skills",
-                  raw
-                    .split(/[,\n]/)
-                    .map((part) => part.trim())
-                    .filter(Boolean)
+                  parseEntries(raw)
                     .slice(0, 200)
                     .map((name) => ({ name, rawLabel: name, yearsExperience: null })),
                 );
               }}
             />
-            <small>One per line or separated by commas.</small>
+            <small>
+              One per line or separated by commas.
+              {parseEntries(skillsText).length > 200
+                ? " Only the first 200 will be saved — trim the rest before saving."
+                : null}
+            </small>
           </label>
         </Card>
 
@@ -326,15 +339,16 @@ export function ProfileWorkbench({
                 setExcludedEmployersText(raw);
                 update("preferences", {
                   ...content.preferences,
-                  excludedEmployers: raw
-                    .split(/[,\n]/)
-                    .map((part) => part.trim())
-                    .filter(Boolean)
-                    .slice(0, 50),
+                  excludedEmployers: parseEntries(raw).slice(0, 50),
                 });
               }}
             />
-            <small>Kept private. Nobody is told you excluded them.</small>
+            <small>
+              Kept private. Nobody is told you excluded them.
+              {parseEntries(excludedEmployersText).length > 50
+                ? " Only the first 50 will be saved — trim the rest before saving."
+                : null}
+            </small>
           </label>
         </Card>
       </div>
