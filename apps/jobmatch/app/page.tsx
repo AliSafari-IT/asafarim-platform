@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Alert, Card, PageHeader } from "@asafarim/ui";
+import { ShowcaseNotice } from "./components/ShowcaseNotice";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -44,6 +45,8 @@ export default function JobMatchOverviewPage() {
         title="JobMatch is not another job board."
         description="It is a personal, explainable job-search assistant that reduces hundreds of vacancies to the opportunities worth acting on. You can build your profile today; the job sources come next."
       />
+
+      <ShowcaseNotice />
 
       <Alert tone="info">
         <strong>Nothing to match against yet.</strong>{" "}

@@ -6,6 +6,7 @@ import { emptyProfile } from "../../lib/profile/contract";
 import { ERASURE_SLA_DAYS } from "../../lib/profile/dataRights";
 import { getLatestVersion, listVersions } from "../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../lib/workspace";
+import { ShowcaseNotice } from "../components/ShowcaseNotice";
 import { DataRightsPanel } from "./DataRightsPanel";
 import { ProfileWorkbench } from "./ProfileWorkbench";
 import { UploadPanel } from "./UploadPanel";
@@ -43,6 +44,8 @@ export default async function ProfilePage() {
         title="Your profile, in your words."
         description="Upload a CV to save typing, then correct whatever it got wrong. Nothing is matched against until you confirm it."
       />
+
+      <ShowcaseNotice />
 
       <UploadPanel
         documents={documents.map((document) => ({

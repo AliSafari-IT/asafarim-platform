@@ -4,7 +4,7 @@
   "private": true,
   "description": "ASafarIM Platform - unified monorepo for all ASafarIM Digital apps and services",
   "author": "Ali Safari",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@11.25.0",
   "scripts": {
     "dev": "tsx scripts/dev-start.mts",

@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Badge, Button, Card } from "@asafarim/ui";
 import { MAX_DOCUMENT_BYTES } from "../../lib/documents/fileType";
+import { ShowcaseNotice } from "../components/ShowcaseNotice";
 
 export interface DocumentRow {
   id: string;
@@ -165,6 +166,10 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
         PDF, Word (.docx), or plain text, up to 10 MB. Your file is scanned before anything reads it,
         stored privately, and never shared with an employer. You can delete it at any time.
       </p>
+
+      <div style={{ margin: "1rem 0" }}>
+        <ShowcaseNotice variant="compact" />
+      </div>
 
       <input
         ref={inputRef}
