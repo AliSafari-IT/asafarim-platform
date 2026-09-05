@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_EXTRACTION_ATTEMPTS,
   type DocumentStatusName,
+  canRetryScan,
   canTransition,
   explainReasonCode,
   mayExtract,
@@ -42,7 +43,7 @@ describe("document pipeline state machine", () => {
     expect(reachesClean).toEqual(["SCANNING"]);
   });
 
-  it("never releases a quarantined document", () => {
+  it("never releases a quarantined document through the general transition table", () => {
     for (const target of ALL_STATUSES) {
       expect(canTransition("QUARANTINED", target)).toBe(false);
     }
@@ -84,6 +85,26 @@ describe("document pipeline state machine", () => {
   });
 });
 
+describe("rescan eligibility", () => {
+  it("allows a retry only when quarantined for SCANNER_UNAVAILABLE", () => {
+    expect(canRetryScan("QUARANTINED", "SCANNER_UNAVAILABLE")).toBe(true);
+  });
+
+  it("refuses a retry for an actual malware verdict", () => {
+    expect(canRetryScan("QUARANTINED", "MALWARE_DETECTED")).toBe(false);
+  });
+
+  it("refuses a retry for any non-quarantined status, whatever the reason code says", () => {
+    for (const status of ALL_STATUSES.filter((s) => s !== "QUARANTINED")) {
+      expect(canRetryScan(status, "SCANNER_UNAVAILABLE")).toBe(false);
+    }
+  });
+
+  it("refuses a retry when there is no reason code at all", () => {
+    expect(canRetryScan("QUARANTINED", null)).toBe(false);
+  });
+});
+
 describe("scan verdicts", () => {
   it("advances only on a clean verdict", () => {
     expect(decideFromVerdict({ outcome: "clean", scannerName: "x" })).toEqual({ advance: true });
@@ -98,7 +119,9 @@ describe("scan verdicts", () => {
   it("fails closed when the scanner cannot answer", () => {
     // The important one. An unscanned document must be handled exactly like
     // an infected one — never waved through as a dev-mode convenience.
-    expect(decideFromVerdict({ outcome: "unavailable", scannerName: "x" })).toEqual({
+    expect(
+      decideFromVerdict({ outcome: "unavailable", scannerName: "x", detail: "timeout" }),
+    ).toEqual({
       advance: false,
       reasonCode: "SCANNER_UNAVAILABLE",
     });

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Alert, Card, PageHeader } from "@asafarim/ui";
-import { explainReasonCode } from "../../lib/documents/pipeline";
+import { canRetryScan, explainReasonCode } from "../../lib/documents/pipeline";
 import { listDocuments } from "../../lib/documents/service";
 import { emptyProfile } from "../../lib/profile/contract";
 import { ERASURE_SLA_DAYS } from "../../lib/profile/dataRights";
@@ -52,6 +52,7 @@ export default async function ProfilePage() {
           status: document.status,
           reasonCode: document.reasonCode,
           explanation: document.reasonCode ? explainReasonCode(document.reasonCode) : null,
+          canRetryScan: canRetryScan(document.status as never, document.reasonCode),
           uploadedAt: document.uploadedAt.toISOString(),
           retainUntil: document.retainUntil?.toISOString() ?? null,
         }))}

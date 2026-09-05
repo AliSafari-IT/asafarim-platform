@@ -40,6 +40,25 @@ export function canTransition(from: DocumentStatusName, to: DocumentStatusName):
 }
 
 /**
+ * Whether a quarantined document may be sent back through the scanner
+ * (issue #203's "existing quarantined documents have a safe, authorized
+ * retry/rescan path").
+ *
+ * Deliberately a separate function rather than an edge added to
+ * `ALLOWED_TRANSITIONS["QUARANTINED"]`: that table's own doc comment states
+ * a real security property — QUARANTINED is terminal, never released by
+ * the pipeline itself — and a rescan is a candidate-initiated action, not
+ * something the pipeline does on its own. Narrowed to
+ * `SCANNER_UNAVAILABLE` specifically: a document quarantined because the
+ * scanner was down deserves another attempt once it's back; a document
+ * quarantined because ClamAV actually flagged it must never be offered a
+ * "try again" button that implies the verdict might change.
+ */
+export function canRetryScan(status: DocumentStatusName, reasonCode: string | null): boolean {
+  return status === "QUARANTINED" && reasonCode === "SCANNER_UNAVAILABLE";
+}
+
+/**
  * The one question everything else depends on. Extraction is permitted from
  * exactly two states, and neither is reachable without a clean scan.
  */

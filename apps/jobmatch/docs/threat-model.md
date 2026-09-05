@@ -72,10 +72,9 @@ literal `insecure-accept-all`, it is refused on any deployed environment
 whatever the variable says, and it names itself on every document it clears
 so those rows stay identifiable. A test asserts each of those three.
 
-**Still open:** no ClamAV sidecar is deployed, so on the current production
-stack every upload quarantines. That is the correct failure mode, and it
-also means the CV pipeline is not usable in production until the sidecar
-exists. Standing it up is deployment work, tracked under JM-018.
+A ClamAV sidecar is deployed in production (issue #203) — see "ClamAV
+deployed and wired" below for the full architecture, retention, and
+observability picture.
 
 ### The declared content type is never trusted
 
@@ -440,6 +439,87 @@ notes survive.
 | A scripted burst of feedback submissions | Rate-limited under its own key, independent of search's budget | `app/api/feedback/route.ts` |
 | Feedback reaching another candidate's workspace, or reading someone else's | Every read/write scoped to the caller's own workspace from the session | `lib/feedback/service.ts` |
 | An access export or an erasure omitting a candidate's own feedback | `JobFeedback` included in both `exportWorkspaceData` and `eraseWorkspaceData` | `lib/profile/dataRights.ts` |
+
+## ClamAV deployed and wired (issue #203)
+
+M2 built the fail-closed state machine; this closes the gap it flagged as
+open — no scanner was reachable in production, so every CV upload
+quarantined with "the malware scanner could not check this file." Approach
+1 from the issue (a ClamAV sidecar in the existing Compose stack) was
+chosen: it keeps CV bytes inside the platform's own network boundary
+rather than sending them to a third party, and it fits the pattern already
+used for `jobmatch-postgres`.
+
+**Data handling and retention.** A scanned document's bytes are streamed to
+`clamav` over the internal Docker network (`asafarim_net`) only —
+`clamav`'s port is never published to the host or the internet, so nothing
+outside the compose stack can reach it. ClamAV holds no state about what it
+scanned: `INSTREAM` is a single request/response with nothing written to
+disk on the ClamAV side, and its own container is not sent the document's
+filename, workspace id, or any other identifying context — only bytes. No
+CV data leaves the VPS.
+
+**The wire protocol is a real client, not a stub.** `runInstream` in
+`lib/documents/scanner.ts` implements ClamAV's `INSTREAM` protocol:
+length-prefixed chunks bounded at 1 MB each, terminated by a zero-length
+chunk, with the daemon's single text response parsed into exactly one of
+clean / infected (with the signature name) / unavailable. A 20-second
+scan timeout and a 3-second liveness-probe (`PING`/`PONG`) timeout both
+fail closed.
+
+**Every unavailable case is distinguishable, but only in logs.** Timeout,
+a refused connection, a malformed or truncated response, and a daemon
+reporting its own size limit exceeded are each a distinct
+`ScannerUnavailableDetail`, logged via `log.warn("document.scan.unavailable", ...)`.
+None of that detail reaches the database `reasonCode` or the candidate-
+facing message — both stay the single word `SCANNER_UNAVAILABLE` — because
+the fix for a hung daemon and the fix for a bad response are an operator's
+problem, and the *candidate's* correct experience for all of them is
+identical: try again later.
+
+**Scanner readiness is observable without gating the app's own health.**
+`getScannerHealth()` does a lightweight `PING` (not a full scan) and is
+surfaced on `GET /api/health` as a separate `scanner: { configured,
+reachable }` field — deliberately outside the pass/fail `checks` that
+decide the endpoint's overall `ok`. A ClamAV outage should page someone,
+but it must never flip jobmatch's own Docker healthcheck to unhealthy: that
+would restart the *app* container in a loop that does nothing to fix a
+sidecar that hasn't finished downloading its virus database yet (its own
+healthcheck has a 6-minute start period for exactly that reason).
+
+**A quarantine has two different meanings, and only one is reversible.**
+`canRetryScan` (`lib/documents/pipeline.ts`) allows a rescan only when a
+document is `QUARANTINED` with `reasonCode: "SCANNER_UNAVAILABLE"` —
+deliberately a separate function from the general transition table, not an
+edge added to it, because `ALLOWED_TRANSITIONS["QUARANTINED"]` states a
+real property (quarantine is terminal, never released by the pipeline
+itself) that must stay true for an actual malware verdict. A document
+ClamAV genuinely flagged is never offered a "try again" button that would
+imply the verdict might change if clicked twice.
+
+### Threats addressed by the ClamAV deployment
+
+| Threat | Control | Where |
+|---|---|---|
+| CV bytes reaching a third-party scanning service | Self-hosted ClamAV sidecar on the internal Docker network only, port never published | `docker-compose.prod.yml` |
+| A scanner timeout, crash, or garbled response waved through as "clean" | Every non-OK, non-FOUND response — including empty and malformed ones — maps to `unavailable`, never `clean` | `lib/documents/scanner.ts` |
+| A scanner outage restarting the jobmatch app container in a loop | Scanner reachability reported outside the health endpoint's pass/fail gate | `lib/health.ts` |
+| A "retry scan" action re-opening a document ClamAV actually flagged as infected | `canRetryScan` narrowed to `SCANNER_UNAVAILABLE` specifically, checked server-side, not trusted from the request | `lib/documents/pipeline.ts`, `lib/documents/service.ts` |
+| Rescanning bytes that no longer match what was originally uploaded | Rescan reads the same stored object by its content-addressed key; nothing about the request supplies new bytes | `lib/documents/service.ts` |
+
+### Deliberately not done in this change
+
+**A named volume for ClamAV's virus database.** Every container restart
+re-downloads the full signature set via `freshclam`, costing several
+minutes during which uploads quarantine. Acceptable for a single-instance
+deployment that restarts rarely (only on its own image being rebuilt); add
+a volume mounted at `/var/lib/clamav` if restart frequency ever makes the
+redownload costly.
+
+**Moving scanning off the request path.** Scanning still happens
+synchronously inside the upload request, the same as extraction — a queued
+worker (approach 3 in the issue) is a reasonable future change but not one
+this fix needed to make to close the gap.
 
 ## Test-data isolation
 
