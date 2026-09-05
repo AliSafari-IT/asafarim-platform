@@ -26,7 +26,13 @@ export async function POST(
 
   if (!result.ok) {
     const status = result.reasonCode === "NOT_FOUND" ? 404 : 409;
-    return NextResponse.json({ error: result.reasonCode }, { status });
+    return NextResponse.json(
+      {
+        error: result.reasonCode,
+        explanation: result.reasonCode === "BYTES_MISSING" ? explainReasonCode("BYTES_MISSING") : undefined,
+      },
+      { status },
+    );
   }
 
   if (result.status === "QUARANTINED") {

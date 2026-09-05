@@ -216,7 +216,19 @@ export async function rescanDocument(workspaceId: string, documentId: string): P
     select: { storageKey: true },
   });
   const stored = document ? await readDocumentBytes(document.storageKey) : null;
-  if (!stored) return { ok: false, reasonCode: "BYTES_MISSING" };
+  if (!stored) {
+    // The claim above already moved this row to SCANNING, which
+    // canRetryScan does not recognise — left as-is, the document would be
+    // stuck there forever, ineligible for another rescan attempt. Recorded
+    // as its own terminal reason rather than put back to
+    // SCANNER_UNAVAILABLE: rescanning again cannot recreate missing bytes,
+    // so offering "try again" here would just repeat the same failure.
+    await db.candidateDocument.update({
+      where: { id: documentId },
+      data: { status: "QUARANTINED", reasonCode: "BYTES_MISSING" },
+    });
+    return { ok: false, reasonCode: "BYTES_MISSING" };
+  }
 
   const scanned = await scanDocument(workspaceId, documentId, stored.bytes);
   return { ok: true, status: scanned.status, reasonCode: scanned.reasonCode };

@@ -77,6 +77,7 @@ describe("document pipeline state machine", () => {
       "ENCRYPTED_DOCUMENT",
       "NO_TEXT_LAYER",
       "EXTRACTION_ERROR",
+      "BYTES_MISSING",
     ]) {
       expect(explainReasonCode(code)).not.toBe("This document could not be processed.");
     }

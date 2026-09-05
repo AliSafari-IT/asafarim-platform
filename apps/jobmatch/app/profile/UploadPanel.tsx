@@ -108,9 +108,10 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
           setMessage({
             tone: "error",
             text:
-              body.error === "NOT_ELIGIBLE_FOR_RESCAN"
+              body.explanation ??
+              (body.error === "NOT_ELIGIBLE_FOR_RESCAN"
                 ? "This file cannot be rescanned."
-                : "That file could not be rescanned. Please try again.",
+                : "That file could not be rescanned. Please try again."),
           });
           return;
         }
