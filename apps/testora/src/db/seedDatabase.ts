@@ -210,8 +210,9 @@ async function seedTargetEnvironments(): Promise<void> {
  * Mirror the code-defined apps into the `projects` table. Names/URLs/branding are
  * reconciled from code, but a project's `visibility` and `keyHash` are PRESERVED
  * on conflict — so marking a seeded app private in the UI survives a re-seed.
- * Projects are never pruned here (an app removed from code keeps its DB row, its
- * catalog and results), since deleting one would cascade away real data.
+ * Seeded projects are reconciled with the code registry. A seeded project removed
+ * from the registry is deleted so retired apps do not remain visible or retain
+ * stale catalog data; user-created projects (`seeded = false`) are untouched.
  */
 async function seedProjects(): Promise<void> {
   for (const project of PROJECTS) {
@@ -242,6 +243,18 @@ async function seedProjects(): Promise<void> {
           // NB: visibility + keyHash intentionally omitted — preserve user choice.
         },
       });
+  }
+
+  const currentProjectIds = PROJECTS.map((project) => project.id);
+  if (currentProjectIds.length) {
+    await db
+      .delete(projects)
+      .where(
+        and(
+          eq(projects.seeded, true),
+          notInArray(projects.id, currentProjectIds),
+        ),
+      );
   }
 }
 
