@@ -118,8 +118,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             footer={
               <span>
                 An experimental portfolio showcase — not a recruiting or hiring service, and not for
-                consequential employment decisions. No job sources are connected yet, so nothing is
-                matched against — see <a href="/">what exists so far</a>.
+                consequential employment decisions. No live job sources are connected; any postings
+                shown come from a clearly-labelled synthetic demo source — see{" "}
+                <a href="/">what exists so far</a>.
               </span>
             }
           >

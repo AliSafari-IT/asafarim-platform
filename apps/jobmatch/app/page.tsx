@@ -49,10 +49,11 @@ export default function JobMatchOverviewPage() {
       <ShowcaseNotice />
 
       <Alert tone="info">
-        <strong>Nothing to match against yet.</strong>{" "}
-        You can upload a CV and build your profile, but no job source is connected. Source access
-        is gated on signed agreements rather than on engineering — not something to prototype first
-        and legalize later.
+        <strong>No live job source is connected.</strong>{" "}
+        Access to a real source is gated on signed agreements rather than on engineering — not
+        something to prototype first and legalize later. To walk through the full candidate journey,
+        the showcase can load a clearly-labelled <strong>synthetic demo source</strong> whose
+        postings are fabricated and are never presented as real vacancies.
       </Alert>
 
       <section className="jm-grid" style={{ margin: "2rem 0" }}>

@@ -52,6 +52,10 @@ export interface SearchResult {
    *  no confirmed profile yet, so the UI can explain rather than imply
    *  everything is eligible. */
   eligibilityAvailable: boolean;
+  /** ACTIVE postings across every source, ignoring the current filters. Lets
+   *  the UI tell "no postings are loaded at all" apart from "your filters
+   *  matched nothing". */
+  activePostingsTotal: number;
 }
 
 function isAgeing(publishedAt: Date | null): boolean {
@@ -99,7 +103,7 @@ export async function searchJobs(workspaceId: string, query: SearchQuery): Promi
       ? [{ salaryMax: "desc" as const }, { publishedAt: "desc" as const }]
       : [{ publishedAt: "desc" as const }, { firstSeenAt: "desc" as const }];
 
-  const [rows, totalCount] = await Promise.all([
+  const [rows, totalCount, activePostingsTotal] = await Promise.all([
     db.jobPosting.findMany({
       where,
       orderBy,
@@ -126,6 +130,7 @@ export async function searchJobs(workspaceId: string, query: SearchQuery): Promi
       },
     }),
     db.jobPosting.count({ where }),
+    db.jobPosting.count({ where: { status: "ACTIVE" } }),
   ]);
 
   // The employerKey filter above is exact and DB-level (both sides folded
@@ -180,5 +185,6 @@ export async function searchJobs(workspaceId: string, query: SearchQuery): Promi
     pageSize: query.pageSize,
     totalCount,
     eligibilityAvailable: confirmed !== null,
+    activePostingsTotal,
   };
 }

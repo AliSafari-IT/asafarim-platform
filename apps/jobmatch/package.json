@@ -15,7 +15,8 @@
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "db:migrate": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate dev --schema prisma/schema.prisma",
     "db:migrate:deploy": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate deploy --schema prisma/schema.prisma",
-    "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --schema prisma/schema.prisma --port 5557 --browser none"
+    "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --schema prisma/schema.prisma --port 5557 --browser none",
+    "showcase:load": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/load-showcase-source.mts"
   },
   "dependencies": {
     "@asafarim/auth": "workspace:*",

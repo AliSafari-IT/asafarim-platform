@@ -323,9 +323,18 @@ export function JobsSearch() {
 
       {state === "loading" && !result ? <p className="jm-mono">Searching…</p> : null}
 
-      {result && result.items.length === 0 ? (
+      {result && result.activePostingsTotal === 0 ? (
         <Alert tone="info">
-          No postings match this search. {result.totalCount === 0 && !q && !location ? "There is nothing to search yet — see the sources page for why." : "Try broadening your filters."}
+          <strong>No job postings are loaded yet.</strong> JobMatch only shows postings from a
+          configured source. The showcase ships a synthetic demo source — see the{" "}
+          <a href="/sources">Sources</a> page for its status and what it is.
+        </Alert>
+      ) : result && result.items.length === 0 ? (
+        <Alert tone="info">
+          <strong>No postings match these filters.</strong>{" "}
+          {result.activePostingsTotal.toLocaleString()} posting
+          {result.activePostingsTotal === 1 ? " is" : "s are"} loaded in total — try broadening your
+          search.
         </Alert>
       ) : null}
 
