@@ -128,6 +128,7 @@ export const projects: ShowcaseProject[] = [
     status: "live",
     glyph: "AE",
     index: "04",
+    externalUrl: `${platformLinks.labs}/experiments/ai-eval-explorer`,
     stack: ["TypeScript", "Zod", "Vitest", "Provider-neutral adapters"],
     dependsOn: ["ui", "ai"],
     highlights: [
