@@ -193,6 +193,25 @@ export const projects: ShowcaseProject[] = [
       "Guests can build and submit a timeline without an account; admins moderate.",
     ],
   },
+  {
+    slug: "jobmatch",
+    title: "JobMatch",
+    summary:
+      "An explainable job-search showcase: build a versioned candidate profile, inspect transparent eligibility reasons, and track synthetic demo postings without treating the app as a professional recruiting service.",
+    tags: ["Job Search", "Explainability", "Privacy"],
+    status: "beta",
+    glyph: "JM",
+    index: "08",
+    externalUrl: platformLinks.jobmatch,
+    stack: ["Next.js", "TypeScript", "Prisma", "PostgreSQL", "Zod", "S3-compatible storage"],
+    dependsOn: ["ui", "auth", "own-db", "storage"],
+    highlights: [
+      "CV-derived profiles are editable, explicitly confirmed, and kept as immutable versions.",
+      "Search results preserve source attribution and show deterministic eligibility reasons.",
+      "The current source is a clearly labelled synthetic Belgian demo dataset, not live vacancies.",
+      "The public deployment is a non-commercial portfolio MVP, not a professional hiring service.",
+    ],
+  },
 ];
 
 export function getProject(slug: string): ShowcaseProject | undefined {

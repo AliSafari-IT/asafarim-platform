@@ -32,7 +32,13 @@ export type SettingGroup = "presentation" | "operations" | "features";
  * rest use a key from the PLATFORM_APPS registry so the console can be
  * filtered per app as more apps grow configuration.
  */
-export type SettingScope = "platform" | "web" | "hub" | "showcase" | "admin";
+export type SettingScope =
+  | "platform"
+  | "web"
+  | "hub"
+  | "showcase"
+  | "admin"
+  | "jobmatch";
 
 export interface SettingDefinition {
   key: string;

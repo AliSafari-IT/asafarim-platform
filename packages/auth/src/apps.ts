@@ -448,10 +448,9 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
   },
   {
     // Authenticated-only in the launcher: the landing page at / is public
-    // (proxy.ts allows it) but there is nothing on it to use without a
-    // session, and JobMatch has no showcase block because it is not yet a
-    // working product — M1 is the platform foundation only. See
-    // apps/jobmatch/docs/business-plan.md for the milestone sequence.
+    // (proxy.ts allows it), while the candidate workspace requires a session.
+    // JobMatch is a deployed, non-commercial portfolio showcase with a
+    // synthetic demo source; it is not a professional recruiting service.
     key: "jobmatch",
     name: "JobMatch",
     description: "Explainable job search: fewer vacancies, each with the reason it fits.",
