@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Badge, Button, Card } from "@asafarim/ui";
+import { FeedbackForm } from "../components/FeedbackForm";
 
 /**
  * The candidate's own tracker (JM-052).
@@ -146,6 +147,12 @@ export function MyJobsTracker() {
                 <Button variant="secondary" size="sm" onClick={() => void remove(item.jobPostingId)}>
                   Remove
                 </Button>
+                {/* No eligibility reasons are known on this page (this list
+                    isn't re-evaluated against the confirmed profile), so
+                    the "wrongly excluded" option stays hidden here — see
+                    FeedbackForm's own guard against offering it with
+                    nothing to name. */}
+                <FeedbackForm jobPostingId={item.jobPostingId} />
               </div>
             </Card>
           ))}

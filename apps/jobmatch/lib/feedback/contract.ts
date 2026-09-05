@@ -113,7 +113,11 @@ export const feedbackSubmissionSchema = z
           path: ["relatedEligibilityReasonCode"],
         });
       }
-    } else if (value.relatedEligibilityReasonCode) {
+    } else if (value.relatedEligibilityReasonCode !== undefined) {
+      // Checked for "not undefined" rather than truthiness: an explicit
+      // `null` is still a caller stating something about this field for a
+      // reason code where it means nothing, and the truthy check used to
+      // let that through silently.
       ctx.addIssue({
         code: "custom",
         message: "relatedEligibilityReasonCode is only meaningful for RULE_WRONGLY_EXCLUDED feedback.",

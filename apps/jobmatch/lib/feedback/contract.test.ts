@@ -67,6 +67,17 @@ describe("feedback submission validation", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects an explicit null eligibility reference for an unrelated reason, not only a string", () => {
+    // A truthy check on this field would let an explicit null through,
+    // since null is falsy — this must be rejected the same as a string.
+    const result = feedbackSubmissionSchema.safeParse({
+      jobPostingId: "job-1",
+      reasonCode: "NOT_RELEVANT",
+      relatedEligibilityReasonCode: null,
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects an unrecognised reasonCode", () => {
     const result = feedbackSubmissionSchema.safeParse({
       jobPostingId: "job-1",

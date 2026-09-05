@@ -37,7 +37,14 @@ export interface FeedbackFormProps {
 
 export function FeedbackForm({ jobPostingId, eligibilityReasonCodes = [], onSubmitted }: FeedbackFormProps) {
   const [open, setOpen] = useState(false);
-  const [reasonCode, setReasonCode] = useState(REASON_OPTIONS[0].value);
+  // RULE_WRONGLY_EXCLUDED requires naming a reason that actually fired for
+  // this posting — offering it with nothing to name would guarantee the
+  // submission fails, so it is only ever an option when there is one.
+  const reasonOptions =
+    eligibilityReasonCodes.length > 0
+      ? REASON_OPTIONS
+      : REASON_OPTIONS.filter((option) => option.value !== "RULE_WRONGLY_EXCLUDED");
+  const [reasonCode, setReasonCode] = useState(reasonOptions[0].value);
   const [relatedReason, setRelatedReason] = useState(eligibilityReasonCodes[0] ?? "");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -59,15 +66,22 @@ export function FeedbackForm({ jobPostingId, eligibilityReasonCodes = [], onSubm
     setSubmitting(true);
     setOutcome("idle");
     try {
+      // relatedEligibilityReasonCode is omitted entirely (not sent as null)
+      // when it doesn't apply — the schema now rejects an explicit null for
+      // any reason other than RULE_WRONGLY_EXCLUDED, the same way it always
+      // rejected an arbitrary string.
+      const body: Record<string, unknown> = {
+        jobPostingId,
+        reasonCode,
+        note: note.trim() ? note.trim() : null,
+      };
+      if (reasonCode === "RULE_WRONGLY_EXCLUDED") {
+        body.relatedEligibilityReasonCode = relatedReason;
+      }
       const response = await fetch("/api/feedback", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          jobPostingId,
-          reasonCode,
-          note: note.trim() ? note.trim() : null,
-          relatedEligibilityReasonCode: reasonCode === "RULE_WRONGLY_EXCLUDED" ? relatedReason : null,
-        }),
+        body: JSON.stringify(body),
       });
       if (response.ok) {
         setOutcome("sent");
@@ -99,7 +113,7 @@ export function FeedbackForm({ jobPostingId, eligibilityReasonCodes = [], onSubm
       <label className="jm-field">
         <span>What's wrong?</span>
         <select value={reasonCode} onChange={(event) => setReasonCode(event.target.value)}>
-          {REASON_OPTIONS.map((option) => (
+          {reasonOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

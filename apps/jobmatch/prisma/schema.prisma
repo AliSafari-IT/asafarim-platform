@@ -632,7 +632,11 @@ model JobFeedback {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   jobPostingId String
-  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  /// Restrict, not Cascade: feedback is append-only history, and JobPosting
+  /// has no deletion path today. If one is ever built (retention pruning,
+  /// say), it must decide what happens to this history explicitly rather
+  /// than silently losing it to a cascade nobody meant to reach this table.
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Restrict)
 
   reasonCode FeedbackReasonCode
 

@@ -49,7 +49,8 @@ export async function POST(request: Request) {
 
   const result = await submitFeedback(workspace.id, parsed.data);
   if (!result.ok) {
-    return NextResponse.json({ error: result.reasonCode }, { status: 404 });
+    const status = result.reasonCode === "POSTING_NOT_FOUND" ? 404 : 409;
+    return NextResponse.json({ error: result.reasonCode }, { status });
   }
   return NextResponse.json({ record: result.record });
 }

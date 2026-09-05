@@ -24,4 +24,7 @@ CREATE INDEX "job_feedback_jobPostingId_reasonCode_idx" ON "job_feedback"("jobPo
 ALTER TABLE "job_feedback" ADD CONSTRAINT "job_feedback_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspaces"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "job_feedback" ADD CONSTRAINT "job_feedback_jobPostingId_fkey" FOREIGN KEY ("jobPostingId") REFERENCES "job_postings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Restrict, not Cascade: feedback is append-only history and JobPosting has
+-- no deletion path today. A future one must decide what happens to this
+-- history explicitly rather than losing it to a cascade.
+ALTER TABLE "job_feedback" ADD CONSTRAINT "job_feedback_jobPostingId_fkey" FOREIGN KEY ("jobPostingId") REFERENCES "job_postings"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
