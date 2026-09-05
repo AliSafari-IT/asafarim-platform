@@ -17,6 +17,7 @@ export const proxy = createAuthProxy({
     "/robots.txt",
     "/api/health",
     "/api/auth",
+    "/api/v1/openapi.json",
   ],
   signInUrl: `${hubUrl}/sign-in`,
 });
