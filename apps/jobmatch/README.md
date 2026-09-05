@@ -27,8 +27,11 @@ accuracy guarantee, uptime guarantee, or service continuity promise.
 
 Do not upload sensitive information that is unnecessary for evaluating the
 showcase. The public deployment is subject to the repository's
-[`LICENSE`](../../LICENSE) and the unresolved commercial-licensing review in
-JM-001 / issue #205.
+[`LICENSE`](../../LICENSE). JM-001 (issue #205) is **decided**: the instance
+runs strictly as a non-commercial portfolio showcase operated by the
+Licensor, with a showcase disclosure shown before CV upload. See
+[`docs/jm-001-licensing-decision.md`](docs/jm-001-licensing-decision.md) for
+the decision record, dependency/license inventory, and permissions register.
 
 ## What M7 delivers so far (JM-059)
 

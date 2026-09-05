@@ -900,7 +900,7 @@ This roadmap converts the investment gates into an execution backlog. It is inte
 
 ### Related issues
 
-- **JM-001 [P0][LEGAL] Resolve commercial licensing for the platform.** Identify the relevant copyright holders and dependencies, obtain written commercial permission or approve a relicensing plan, and record permitted deployment and modification rights.
+- **JM-001 [P0][LEGAL] Resolve commercial licensing for the platform.** Identify the relevant copyright holders and dependencies, obtain written commercial permission or approve a relicensing plan, and record permitted deployment and modification rights. **Decided 2026-09-05 (owner: Ali Safari):** the public deployment continues strictly as a non-commercial portfolio showcase operated by the Licensor, under the existing `LICENSE`, with a showcase disclosure shown before CV upload. Decision record, dependency/license inventory, and permissions register: [`docs/jm-001-licensing-decision.md`](jm-001-licensing-decision.md). Commercial/B2B milestones (M10–M12) require a fresh legal review.
 - **JM-002 [P0][DEC] Confirm JobMatch ownership and operating entity.** Decide who owns the product, customer contracts, source agreements, data, models, and incident obligations.
 - **JM-003 [P0][DATA] Create the source-rights register.** Record source owner, access method, agreement, permitted fields, commercial reuse, attribution, rate limits, retention, geographic limits, and termination contact.
 - **JM-004 [P0][DATA] Assess launch sources and select the first authorized connector.** Compare official APIs, licensed feeds, employer feeds, and open-data options; document rejected sources and reasons.
