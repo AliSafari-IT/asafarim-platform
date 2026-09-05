@@ -1,0 +1,34 @@
+// TasksAI dedicated schema — isolated from the platform Prisma client.
+// Client is generated into apps/tasks-ai/lib/db/generated so it can never
+// collide with @asafarim/db's client. See docs/adr/0001-dedicated-database.md.
+//
+// M01 keeps this schema deliberately minimal: just enough to exercise a
+// real migration, a real connection, and the readiness probe. The
+// multi-tenant work graph (Workspace, Project, Task, events, outbox …)
+// lands in M02 — docs/adr/0002 and docs/adr/0005.
+
+generator client {
+  provider = "prisma-client-js"
+  // Generated into the app rather than node_modules: pnpm symlinks that
+  // path to the shared store where the PLATFORM client already lives. Two
+  // schemas, two clients, no clobbering.
+  output        = "../lib/db/generated"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  // url is supplied by prisma.config.ts (datasource.url) so `prisma generate`
+  // works in CI/postinstall without a .env file. Matches the jobmatch pattern.
+}
+
+/// A single row updated by the readiness probe / migration rehearsal.
+/// Lets `/api/health` and the worker prove they can round-trip the
+/// dedicated database without depending on any domain table.
+model HealthProbe {
+  id        String   @id @default("singleton")
+  checkedAt DateTime @updatedAt
+  note      String?
+
+  @@map("health_probe")
+}

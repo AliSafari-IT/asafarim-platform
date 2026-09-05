@@ -1,0 +1,96 @@
+/*
+ * TasksAI surface styling. Colours come from @asafarim/ui's design tokens
+ * via [data-app="tasks-ai"]; only layout and app-specific accents live here.
+ */
+
+[data-app="tasks-ai"] .ta-prose {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+  line-height: 1.6;
+}
+
+[data-app="tasks-ai"] .ta-prose h1 {
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  margin: 0.25rem 0 1rem;
+}
+
+[data-app="tasks-ai"] .ta-prose h2 {
+  margin-top: 2.5rem;
+}
+
+[data-app="tasks-ai"] .ta-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.7;
+  margin: 0;
+}
+
+[data-app="tasks-ai"] .ta-lead {
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+[data-app="tasks-ai"] .ta-callout {
+  border-left: 3px solid var(--color-border, #888);
+  background: var(--color-surface-2, rgba(128, 128, 128, 0.08));
+  padding: 0.85rem 1rem;
+  border-radius: 0 6px 6px 0;
+  margin: 1.5rem 0;
+  font-size: 0.95rem;
+}
+
+[data-app="tasks-ai"] .ta-cards {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+[data-app="tasks-ai"] .ta-cards li {
+  border: 1px solid var(--color-border, #8884);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+[data-app="tasks-ai"] .ta-cards h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+[data-app="tasks-ai"] .ta-cards p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+[data-app="tasks-ai"] .ta-facts {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+[data-app="tasks-ai"] .ta-facts > div {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: 1rem;
+}
+
+[data-app="tasks-ai"] .ta-facts dt {
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+[data-app="tasks-ai"] .ta-facts dd {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  [data-app="tasks-ai"] .ta-facts > div {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+}
