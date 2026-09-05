@@ -4,17 +4,31 @@ An explainable, source-transparent job-search assistant: fewer vacancies,
 each with the reason it fits. Runs at `jobmatch.asafarim.com`, port 3012 in
 local development.
 
-**Status: M6 shipped; M7's relevance-feedback machinery (JM-059) is in
-place ahead of the concierge beta itself.** A candidate can save, reject,
-mark a posting applied, leave themselves notes, download a deterministic
-CSV, and now report why a specific job or exclusion was wrong — routed to
-whichever of profile, source, or rule owns the fix. The rest of M7 (a real
-candidate cohort, live onboarding sessions, a relevance study) needs actual
-people, not code, and M5's matching scores are not yet live — see "What M5
-delivers so far" below for why. See
+**Status: M7 engineering slice shipped (JM-059); the concierge beta is not
+launched.** A candidate can save, reject, mark a posting applied, leave
+themselves notes, download a deterministic CSV, and report why a specific job
+or exclusion was wrong — routed to whichever of profile, source, or rule owns
+the fix. The remaining M7 work (a real candidate cohort, live onboarding
+sessions, a relevance study, and a beta decision report) needs actual people
+and real usage data, not more code. M5's matching scores are also not live —
+see "What M5 delivers so far" below. See
 [`docs/business-plan.md`](docs/business-plan.md) for the milestone sequence
 and [`docs/threat-model.md`](docs/threat-model.md) for what each milestone
 does and does not defend against.
+
+## Showcase-only MVP
+
+JobMatch is an experimental portfolio/showcase MVP, not a professional
+recruiting, hiring, employment-screening, HR, legal, or career-advice service.
+It must not be used as the sole or automated basis for an employment or other
+consequential decision. Results may be incomplete, inaccurate, stale, or
+unavailable, and the deployed instance provides no professional support,
+accuracy guarantee, uptime guarantee, or service continuity promise.
+
+Do not upload sensitive information that is unnecessary for evaluating the
+showcase. The public deployment is subject to the repository's
+[`LICENSE`](../../LICENSE) and the unresolved commercial-licensing review in
+JM-001 / issue #205.
 
 ## What M7 delivers so far (JM-059)
 
@@ -105,12 +119,13 @@ does and does not defend against.
 
 - Private document storage with byte-level type sniffing, a 10 MB cap, and
   90-day retention. Filenames never build storage keys.
-- Malware scanning as a hard gate: nothing reaches a parser without a clean
+- Malware scanning is a hard gate: nothing reaches a parser without a clean
   verdict, and an unavailable scanner quarantines rather than waving through.
-  A ClamAV sidecar is deployed and wired in production (issue #203), with a
-  real `INSTREAM` client, a rescan path for documents quarantined only
-  because the scanner was briefly unreachable, and scanner reachability
-  surfaced on `/api/health` without gating the app's own health check.
+  **Production scanning is not wired yet**: there is no deployed ClamAV
+  sidecar and the current adapter does not perform an `INSTREAM` scan, so
+  production uploads remain quarantined by design. Issue #203 tracks the
+  developer's choice of scanner architecture, scanner integration, health
+  reporting, and safe rescan behavior.
 - Local text extraction for PDF, Word, and plain text, with a bounded retry
   budget and reason codes a candidate can act on.
 - A profile contract with no field for any protected attribute, so age,
@@ -165,7 +180,7 @@ pnpm --filter @asafarim/jobmatch test
 | `JOBMATCH_ENVIRONMENT` | staging, production | `staging` there, `production` in prod; it decides whether secrets may be defaulted. |
 | `NEXT_PUBLIC_JOBMATCH_URL` | all deployments | Inlined at build time; also an allowed SSO callback origin. |
 | `NEXT_PUBLIC_HUB_URL` | all deployments | Where unauthenticated visitors are sent to sign in. |
-| `JOBMATCH_SCANNER_URL` | production (issue #203) | ClamAV sidecar, wired directly in `docker-compose.prod.yml` — nothing to set by hand. Without a reachable scanner every upload quarantines — a fail-closed default. |
+| `JOBMATCH_SCANNER_URL` | when a scanner is deployed | Scanner endpoint selected by the developer. The current production stack has no scanner service, so leaving this unset quarantines every upload — a fail-closed default. |
 | `JOBMATCH_SCANNER` | local only | Set to the exact literal `insecure-accept-all` to run the pipeline without a scanner. Refused on any deployed environment, and it names itself on every document it clears. |
 | `JOBMATCH_INGESTION_TOKEN` | production | Bearer token for `POST /api/ingestion/sync`, which runs ingestion, re-assesses freshness and prunes expired snapshots. Unset disables the route entirely (404). Drive it from a scheduler. Holding it does not authorise fetching from a source whose agreement is missing or expired — that is checked per source. |
 | `JOBMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
