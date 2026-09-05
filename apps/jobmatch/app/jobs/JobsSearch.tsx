@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Badge, Button, Card } from "@asafarim/ui";
 import type { SearchResult, SearchResultItem } from "../../lib/search/service";
+import { FeedbackForm } from "../components/FeedbackForm";
 
 /**
  * The candidate search screen (JM-035).
@@ -147,6 +148,10 @@ function ResultCard({
         >
           {status === "APPLIED" ? "Applied" : "Mark applied"}
         </Button>
+        <FeedbackForm
+          jobPostingId={item.id}
+          eligibilityReasonCodes={item.eligibility?.reasons.map((reason) => reason.code) ?? []}
+        />
       </div>
     </Card>
   );

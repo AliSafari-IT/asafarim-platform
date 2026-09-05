@@ -1,6 +1,6 @@
 # JobMatch threat model — M1 baseline (JM-016)
 
-Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, search and eligibility shipped in M4, the matching contract begun in M5, and the candidate workflow shipped in M6 — the Next.js app, its dedicated
+Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, search and eligibility shipped in M4, the matching contract begun in M5, the candidate workflow shipped in M6, and the relevance-feedback machinery begun in M7 — the Next.js app, its dedicated
 PostgreSQL database, its use of platform SSO, and its logging. It is written
 to be extended, not rewritten: each later milestone adds a section rather
 than replacing this one.
@@ -385,6 +385,37 @@ pipeline — the underlying actions exist and audit-log themselves
 **Import and cloud-sync contracts (JM-055).** Out of scope for the MVP by
 design; the business plan asks only that the contract be *specified*, not
 implemented, and no silent synchronization exists.
+
+## M7 additions so far — relevance feedback (JM-059)
+
+M7's exit criteria are a real candidate cohort, live onboarding sessions,
+and a human relevance study — none of which is code. What ships here is
+JM-059 alone: a candidate's ability to report why a match is wrong,
+independent of the rest of the milestone.
+
+**A reason code is validated, never trusted as free text.** `RULE_WRONGLY_EXCLUDED`
+feedback must name a `relatedEligibilityReasonCode` that is one of the
+exact codes `evaluate.ts` can actually produce (`lib/feedback/contract.ts`)
+— checked against a set built from `ExclusionReasonCode` itself via a
+`Record<ExclusionReasonCode, true>`, so a code renamed or removed there
+without updating this file is a compile error, not a validation gap
+discovered when a candidate's report silently fails to parse.
+
+**Feedback is append-only and rate-limited under its own budget.** Like
+`AuditEvent`, nothing here is ever edited or deleted by a candidate — a
+correction is a new row, so the history of what was reported survives a
+later profile fix. The submission endpoint has its own rate-limit key
+(`feedback:<workspaceId>`), separate from search's, so a burst of feedback
+submissions cannot exhaust the budget search depends on, or vice versa.
+
+### Threats addressed in M7 so far
+
+| Threat | Control | Where |
+|---|---|---|
+| A made-up eligibility reason code reaching triage as if it were real | Validated against a compile-time-synced set derived from `ExclusionReasonCode` | `lib/feedback/contract.ts` |
+| A candidate's feedback silently overwriting an earlier report | Append-only: `JobFeedback` has no update path, only create | `lib/feedback/service.ts` |
+| A scripted burst of feedback submissions | Rate-limited under its own key, independent of search's budget | `app/api/feedback/route.ts` |
+| Feedback reaching another candidate's workspace, or reading someone else's | Every read/write scoped to the caller's own workspace from the session | `lib/feedback/service.ts` |
 
 ## Test-data isolation
 

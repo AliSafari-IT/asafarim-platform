@@ -47,6 +47,7 @@ model Workspace {
   documents   CandidateDocument[]
   profile     CandidateProfile?
   trackedJobs TrackedJob[]
+  feedback    JobFeedback[]
 
   @@map("workspaces")
 }
@@ -502,6 +503,7 @@ model JobPosting {
   updatedAt DateTime @updatedAt
 
   trackedBy TrackedJob[]
+  feedback  JobFeedback[]
 
   @@unique([sourceId, externalId])
   @@index([canonicalKey])
@@ -601,4 +603,53 @@ model TrackedJob {
   @@unique([workspaceId, jobPostingId])
   @@index([workspaceId, status])
   @@map("tracked_jobs")
+}
+
+enum FeedbackReasonCode {
+  PROFILE_SKILL_MISSING
+  PROFILE_DATA_INCORRECT
+  SOURCE_POSTING_STALE
+  SOURCE_DETAILS_INCORRECT
+  RULE_WRONGLY_EXCLUDED
+  RULE_WRONGLY_INCLUDED
+  NOT_RELEVANT
+  OTHER
+}
+
+/// Relevance feedback and correction reporting (JM-059).
+///
+/// Append-only, like AuditEvent: a candidate can leave feedback on the same
+/// posting more than once (a first complaint, then a follow-up once they've
+/// corrected their profile), and nothing here overwrites an earlier
+/// submission. `reasonCode` routes each row to whoever owns the fix --
+/// profile, source, or rule -- via lib/feedback/contract.ts's
+/// `feedbackTargetOf`, so a triage view can group open feedback by what
+/// actually needs fixing without re-deriving that mapping ad hoc.
+model JobFeedback {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  jobPostingId String
+  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  reasonCode FeedbackReasonCode
+
+  /// Free text the candidate adds for context. Never sent to a model —
+  /// there is no model in the loop yet, and even once M5 ships one, this
+  /// module's whole point is that a human reads triage feedback.
+  note String? @db.Text
+
+  /// The specific M4 ExclusionReasonCode this feedback disputes, set only
+  /// alongside RULE_WRONGLY_EXCLUDED -- see the schema-level pairing rule
+  /// in lib/feedback/contract.ts, which is what actually enforces this
+  /// rather than a comment here.
+  relatedEligibilityReasonCode String?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([jobPostingId, reasonCode])
+  @@map("job_feedback")
 }
