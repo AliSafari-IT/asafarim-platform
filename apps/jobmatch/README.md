@@ -4,13 +4,36 @@ An explainable, source-transparent job-search assistant: fewer vacancies,
 each with the reason it fits. Runs at `jobmatch.asafarim.com`, port 3012 in
 local development.
 
-**Status: M6 — candidate workflow and `My-Job` export.** A candidate can
-save, reject, and mark a posting applied; leave themselves notes; and
-download a deterministic CSV of everything they've tracked. M5's matching
-scores are not yet live — see "What M5 delivers so far" below for why. See
+**Status: M6 shipped; M7's relevance-feedback machinery (JM-059) is in
+place ahead of the concierge beta itself.** A candidate can save, reject,
+mark a posting applied, leave themselves notes, download a deterministic
+CSV, and now report why a specific job or exclusion was wrong — routed to
+whichever of profile, source, or rule owns the fix. The rest of M7 (a real
+candidate cohort, live onboarding sessions, a relevance study) needs actual
+people, not code, and M5's matching scores are not yet live — see "What M5
+delivers so far" below for why. See
 [`docs/business-plan.md`](docs/business-plan.md) for the milestone sequence
 and [`docs/threat-model.md`](docs/threat-model.md) for what each milestone
 does and does not defend against.
+
+## What M7 delivers so far (JM-059)
+
+- A candidate can report, on any search result, why it's wrong: a missing
+  profile fact, a stale or misdescribed posting, or an M4 eligibility rule
+  that wrongly excluded or included the job. Each report carries a typed
+  reason code, not just free text, so it routes to whoever owns the fix.
+- Feedback disputing a specific eligibility rule (`RULE_WRONGLY_EXCLUDED`)
+  must name exactly which reason code fired — validated against the same
+  closed set `evaluate.ts` produces, never accepted as an arbitrary string.
+- Rate-limited under its own budget, separate from search, and append-only:
+  a correction is a new report, never an edit to an earlier one.
+- **The rest of M7 is out of engineering scope for now**: recruiting and
+  consenting a real candidate cohort (JM-056), live onboarding sessions
+  (JM-057), a human relevance/calibration study (JM-058), and a published
+  beta decision report (JM-061) all need real people and real usage data —
+  and JM-058 in particular depends on M5's offline evaluation set, which is
+  itself still blocked on a model-provider/budget decision and JM-005's
+  outstanding privacy/AI Act advice.
 
 ## What M6 delivers
 

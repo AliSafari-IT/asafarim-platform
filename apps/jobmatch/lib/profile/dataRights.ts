@@ -60,6 +60,17 @@ export interface DataExport {
     }[];
   } | null;
   auditEvents: { action: string; createdAt: string }[];
+  /** Relevance feedback the candidate submitted (JM-059) — export is a
+   *  statement about everything JobMatch holds, and this is data the
+   *  candidate typed themselves. */
+  feedback: {
+    id: string;
+    jobPostingId: string;
+    reasonCode: string;
+    note: string | null;
+    relatedEligibilityReasonCode: string | null;
+    createdAt: string;
+  }[];
   /** Stated in the export itself so the recipient is not left inferring it. */
   notes: string[];
 }
@@ -73,7 +84,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, auditEvents] = await Promise.all([
+  const [documents, profile, auditEvents, feedback] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -89,6 +100,10 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
       select: { action: true, createdAt: true },
+    }),
+    db.jobFeedback.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
@@ -131,6 +146,14 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       action: event.action,
       createdAt: event.createdAt.toISOString(),
     })),
+    feedback: feedback.map((entry) => ({
+      id: entry.id,
+      jobPostingId: entry.jobPostingId,
+      reasonCode: entry.reasonCode,
+      note: entry.note,
+      relatedEligibilityReasonCode: entry.relatedEligibilityReasonCode,
+      createdAt: entry.createdAt.toISOString(),
+    })),
     notes: [
       "Original uploaded files are not included in this JSON. Download them individually from the profile page while they are still within their retention window.",
       "Your name, email address, and platform account details are held by the ASafarIM platform, not by JobMatch. JobMatch stores only an opaque account identifier.",
@@ -144,6 +167,7 @@ export interface ErasureResult {
   versionsDeleted: number;
   objectsDeleted: number;
   objectsFailed: number;
+  feedbackDeleted: number;
 }
 
 /**
@@ -193,7 +217,7 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     select: { id: true, _count: { select: { versions: true } } },
   });
 
-  await db.$transaction(async (tx) => {
+  const feedbackDeleted = await db.$transaction(async (tx) => {
     if (profile) {
       // The confirmed pointer is cleared first: it references a version row,
       // and deleting versions out from under it would violate the FK.
@@ -210,6 +234,11 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // the row orphans it permanently), and one whose object delete failed
     // (the same outcome). Both stay, and the caller is told.
     await tx.candidateDocument.deleteMany({ where: { workspaceId, id: { in: removedIds } } });
+    // Feedback (JM-059) contains free text the candidate typed themselves —
+    // erasure must remove it in the same transaction as everything else, or
+    // "erased" would be a false claim while these rows survived.
+    const { count } = await tx.jobFeedback.deleteMany({ where: { workspaceId } });
+    return count;
   });
 
   // Written after the deletion, and deliberately kept: it holds an action
@@ -225,5 +254,6 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     versionsDeleted: profile?._count.versions ?? 0,
     objectsDeleted,
     objectsFailed,
+    feedbackDeleted,
   };
 }

@@ -1,6 +1,6 @@
 # JobMatch threat model — M1 baseline (JM-016)
 
-Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, search and eligibility shipped in M4, the matching contract begun in M5, and the candidate workflow shipped in M6 — the Next.js app, its dedicated
+Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, search and eligibility shipped in M4, the matching contract begun in M5, the candidate workflow shipped in M6, and the relevance-feedback machinery begun in M7 — the Next.js app, its dedicated
 PostgreSQL database, its use of platform SSO, and its logging. It is written
 to be extended, not rewritten: each later milestone adds a section rather
 than replacing this one.
@@ -385,6 +385,61 @@ pipeline — the underlying actions exist and audit-log themselves
 **Import and cloud-sync contracts (JM-055).** Out of scope for the MVP by
 design; the business plan asks only that the contract be *specified*, not
 implemented, and no silent synchronization exists.
+
+## M7 additions so far — relevance feedback (JM-059)
+
+M7's exit criteria are a real candidate cohort, live onboarding sessions,
+and a human relevance study — none of which is code. What ships here is
+JM-059 alone: a candidate's ability to report why a match is wrong,
+independent of the rest of the milestone.
+
+**A reason code is validated twice, at two different questions.** The
+schema (`lib/feedback/contract.ts`) checks that `relatedEligibilityReasonCode`
+is a code `evaluate.ts` can produce *at all* — against a set built from
+`ExclusionReasonCode` itself via a `Record<ExclusionReasonCode, true>`, so a
+code renamed or removed there without updating this file is a compile
+error. That alone was not enough: it proved the code was real, not that it
+fired *for this candidate and this posting*. `submitFeedback`
+(`lib/feedback/service.ts`) re-runs `evaluateEligibility` against the
+caller's confirmed profile and the named posting, and rejects
+(`RELATED_REASON_NOT_APPLICABLE`) unless the code is actually among the
+reasons that came back. Without this, an authenticated caller could attach
+any real-looking exclusion code to any posting whether or not it ever
+excluded them, and triage would be reading fiction. This revalidates
+against *current* profile and posting state rather than replaying the
+exact version the candidate saw — a known simplification, acceptable for a
+candidate-honesty check, not a forensic audit.
+
+**Feedback is append-only and rate-limited under its own budget.** Like
+`AuditEvent`, nothing here is ever edited or deleted by a candidate — a
+correction is a new row, so the history of what was reported survives a
+later profile fix. The submission endpoint has its own rate-limit key
+(`feedback:<workspaceId>`), separate from search's, so a burst of feedback
+submissions cannot exhaust the budget search depends on, or vice versa.
+"Append-only" is enforced at the database level too: `JobFeedback.jobPosting`
+uses `ON DELETE RESTRICT`, not `CASCADE` — there is no deletion path for a
+`JobPosting` today, and if one is ever built it must decide explicitly what
+happens to this history rather than silently losing it to a cascade
+nobody meant to reach this table.
+
+**Feedback is exported and erased with everything else.** `lib/profile/dataRights.ts`'s
+export and erasure — the two functions the candidate data-rights workflows
+(JM-023) actually run — now include `JobFeedback`: the export's whole
+premise is "if JobMatch stores it, the export contains it," and erasure
+deletes feedback in the same transaction as documents and profile
+versions, so "erased" cannot be reported while a candidate's own typed
+notes survive.
+
+### Threats addressed in M7 so far
+
+| Threat | Control | Where |
+|---|---|---|
+| A made-up eligibility reason code reaching triage as if it were real | Validated against a compile-time-synced set derived from `ExclusionReasonCode` | `lib/feedback/contract.ts` |
+| A real reason code attached to a posting/candidate it never fired for | Re-evaluated against the caller's confirmed profile and the named posting before the row is written | `lib/feedback/service.ts` |
+| A candidate's feedback silently overwriting an earlier report | Append-only: `JobFeedback` has no update path, only create, and its foreign key to `JobPosting` is `RESTRICT` not `CASCADE` | `lib/feedback/service.ts`, `prisma/schema.prisma` |
+| A scripted burst of feedback submissions | Rate-limited under its own key, independent of search's budget | `app/api/feedback/route.ts` |
+| Feedback reaching another candidate's workspace, or reading someone else's | Every read/write scoped to the caller's own workspace from the session | `lib/feedback/service.ts` |
+| An access export or an erasure omitting a candidate's own feedback | `JobFeedback` included in both `exportWorkspaceData` and `eraseWorkspaceData` | `lib/profile/dataRights.ts` |
 
 ## Test-data isolation
 
