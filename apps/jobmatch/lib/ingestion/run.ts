@@ -40,7 +40,20 @@ export interface SyncResult {
   notModified: boolean;
 }
 
-export async function runSync(sourceId: string, mappingInput?: unknown): Promise<SyncResult> {
+/**
+ * `offlineBody`, when given, is used verbatim in place of a network fetch.
+ * It exists for the synthetic showcase source (JM-004): a committed fixture
+ * is handed straight in, while authorization, snapshotting, normalization,
+ * deduplication, age-out and run recording all still happen exactly as they
+ * do for a fetched feed. It is not a way to bypass a source's agreement —
+ * `authorizeSource` runs first regardless, so a source without a recorded,
+ * unexpired agreement is still refused.
+ */
+export async function runSync(
+  sourceId: string,
+  mappingInput?: unknown,
+  offlineBody?: string,
+): Promise<SyncResult> {
   const db = getJobmatchDb();
   const startedAt = Date.now();
 
@@ -115,46 +128,52 @@ export async function runSync(sourceId: string, mappingInput?: unknown): Promise
   let lastModified: string | null = null;
   let rateLimitedCount = 0;
 
-  for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt += 1) {
-    const outcome = await fetchFeed(source.endpoint, {
-      etag: source.lastEtag,
-      lastModified: source.lastModified,
-    });
-
-    if (outcome.ok && "notModified" in outcome) {
-      // 304 means the source confirmed nothing changed — which is a
-      // confirmation that every posting is still there, so lastSeenAt must
-      // advance. Without this, a well-behaved feed answering 304 for three
-      // days had all of its jobs marked DISAPPEARED and expired: conditional
-      // requests, the politeness agreements ask for, would have destroyed
-      // the very data they were saving bandwidth on.
-      await db.jobPosting.updateMany({
-        where: { sourceId: source.id, status: { in: ["ACTIVE", "DUPLICATE"] } },
-        data: { lastSeenAt: new Date() },
+  if (offlineBody !== undefined) {
+    // An offline source hands its payload in directly; there is no network
+    // request, no conditional-request validators, and nothing to retry.
+    body = offlineBody;
+  } else {
+    for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt += 1) {
+      const outcome = await fetchFeed(source.endpoint, {
+        etag: source.lastEtag,
+        lastModified: source.lastModified,
       });
-      await db.jobSource.update({
-        where: { id: source.id },
-        data: { lastSyncFinishedAt: new Date() },
-      });
-      return finish({ ...empty, outcome: "SUCCEEDED", reasonCode: null, notModified: true });
-    }
 
-    if (outcome.ok) {
-      body = outcome.body;
-      etag = outcome.etag;
-      lastModified = outcome.lastModified;
-      break;
-    }
+      if (outcome.ok && "notModified" in outcome) {
+        // 304 means the source confirmed nothing changed — which is a
+        // confirmation that every posting is still there, so lastSeenAt must
+        // advance. Without this, a well-behaved feed answering 304 for three
+        // days had all of its jobs marked DISAPPEARED and expired: conditional
+        // requests, the politeness agreements ask for, would have destroyed
+        // the very data they were saving bandwidth on.
+        await db.jobPosting.updateMany({
+          where: { sourceId: source.id, status: { in: ["ACTIVE", "DUPLICATE"] } },
+          data: { lastSeenAt: new Date() },
+        });
+        await db.jobSource.update({
+          where: { id: source.id },
+          data: { lastSyncFinishedAt: new Date() },
+        });
+        return finish({ ...empty, outcome: "SUCCEEDED", reasonCode: null, notModified: true });
+      }
 
-    if (outcome.reasonCode === "RATE_LIMITED") rateLimitedCount += 1;
-    if (!isRetryable(outcome.reasonCode) || attempt === MAX_FETCH_ATTEMPTS) {
-      await db.ingestionRun.update({
-        where: { id: run.id },
-        data: { rateLimitedCount },
-      });
-      return finish({ ...empty, outcome: "FAILED", reasonCode: outcome.reasonCode });
+      if (outcome.ok) {
+        body = outcome.body;
+        etag = outcome.etag;
+        lastModified = outcome.lastModified;
+        break;
+      }
+
+      if (outcome.reasonCode === "RATE_LIMITED") rateLimitedCount += 1;
+      if (!isRetryable(outcome.reasonCode) || attempt === MAX_FETCH_ATTEMPTS) {
+        await db.ingestionRun.update({
+          where: { id: run.id },
+          data: { rateLimitedCount },
+        });
+        return finish({ ...empty, outcome: "FAILED", reasonCode: outcome.reasonCode });
+      }
+      await sleep(backoffMs(attempt, outcome.retryAfterSeconds));
     }
-    await sleep(backoffMs(attempt, outcome.retryAfterSeconds));
   }
 
   if (body === null) {

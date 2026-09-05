@@ -104,6 +104,34 @@ the decision record, dependency/license inventory, and permissions register.
 - A per-workspace rate limit on search, protecting ingested job data from
   bulk extraction through a signed-in account.
 
+## Showcase demo source (issue #208, JM-004)
+
+No live job source is connected, and connecting one is gated on signed
+agreements rather than engineering. So the showcase ships a **synthetic,
+deterministic demo source** — clearly labelled, fabricated in
+`lib/ingestion/showcaseFixture.ts`, and loaded through the real M3 ingestion
+pipeline. It makes the full candidate journey work end to end: confirm
+profile → follow the next-step panel → search demo jobs → read eligibility
+reasons → save a job → export My Jobs.
+
+It is not seeded automatically. With the dev server running and
+`JOBMATCH_INGESTION_TOKEN` set:
+
+```bash
+pnpm --filter @asafarim/jobmatch showcase:load
+```
+
+```bash
+pnpm --filter @asafarim/jobmatch showcase:load -- --reset
+```
+
+`showcase:load` is a thin client for `POST /api/ingestion/showcase` (same
+token as the sync route; 404 when the token is unset). The load is
+idempotent; `--reset` wipes the source's postings, snapshots and runs first.
+The postings are demonstration data and are never presented as live
+vacancies. See
+[`docs/jm-004-showcase-source-decision.md`](docs/jm-004-showcase-source-decision.md).
+
 ## What M3 delivers
 
 - A source model that will not sync without a recorded, unexpired agreement
