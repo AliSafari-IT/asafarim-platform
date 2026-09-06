@@ -66,6 +66,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@asafarim/jobmatch", "dev"],
       "port": 3012
+    },
+    {
+      "name": "tasks-ai",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@asafarim/tasks-ai", "dev"],
+      "port": 3013
     }
   ]
 }

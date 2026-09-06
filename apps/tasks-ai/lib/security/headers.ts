@@ -11,24 +11,35 @@ export interface CspOptions {
   connectSrc?: string[];
   reportOnly?: boolean;
   nonce?: string;
+  /**
+   * Loosen the policy for `next dev`: Turbopack's HMR runtime uses eval and
+   * injects inline/blob scripts, and the dev server talks over ws://. The
+   * production policy stays strict — this branch is never taken in a build.
+   */
+  dev?: boolean;
 }
 
 export function contentSecurityPolicy(opts: CspOptions = {}): string {
   const self = "'self'";
+  const scriptSrc = opts.dev
+    ? [self, "'unsafe-inline'", "'unsafe-eval'", "blob:"]
+    : [self, opts.nonce ? `'nonce-${opts.nonce}'` : "'strict-dynamic'"];
   const directives: Record<string, string[]> = {
     "default-src": [self],
     "base-uri": [self],
     "object-src": ["'none'"],
     "frame-ancestors": ["'none'"],
     "form-action": [self],
-    "script-src": [self, opts.nonce ? `'nonce-${opts.nonce}'` : "'strict-dynamic'"],
+    "script-src": scriptSrc,
     "style-src": [self, "'unsafe-inline'"], // design tokens inject inline vars
     "img-src": [self, "data:", "blob:"],
     "font-src": [self, "data:"],
-    "connect-src": [self, ...(opts.connectSrc ?? [])],
-    "worker-src": [self],
+    "connect-src": [self, ...(opts.dev ? ["ws:", "http:"] : []), ...(opts.connectSrc ?? [])],
+    "worker-src": [self, "blob:"],
     "manifest-src": [self],
-    "upgrade-insecure-requests": [],
+    // Only meaningful over https; on a localhost dev origin it just noisily
+    // rewrites requests, so leave it off in dev.
+    ...(opts.dev ? {} : { "upgrade-insecure-requests": [] }),
   };
   return Object.entries(directives)
     .map(([k, v]) => (v.length ? `${k} ${v.join(" ")}` : k))

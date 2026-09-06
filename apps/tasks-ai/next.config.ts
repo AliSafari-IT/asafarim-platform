@@ -32,6 +32,7 @@ const nextConfig: NextConfig = {
     const headers = securityHeaders({
       connectSrc: providerConnect,
       reportOnly: process.env.TASKSAI_CSP_REPORT_ONLY === "true",
+      dev: process.env.NODE_ENV !== "production",
     });
     return [
       {

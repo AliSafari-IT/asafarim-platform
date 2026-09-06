@@ -20,6 +20,14 @@ describe("contentSecurityPolicy", () => {
     expect(contentSecurityPolicy({ nonce: "abc" })).toContain("'nonce-abc'");
     expect(contentSecurityPolicy()).toContain("'strict-dynamic'");
   });
+
+  it("loosens script-src and drops upgrade-insecure-requests in dev", () => {
+    const csp = contentSecurityPolicy({ dev: true });
+    expect(csp).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:");
+    expect(csp).not.toContain("'strict-dynamic'");
+    expect(csp).not.toContain("upgrade-insecure-requests");
+    expect(csp).toContain("connect-src 'self' ws: http:");
+  });
 });
 
 describe("securityHeaders", () => {

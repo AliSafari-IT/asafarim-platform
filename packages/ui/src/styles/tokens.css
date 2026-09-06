@@ -576,3 +576,61 @@
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
 }
+
+/* ── Mood: apps/tasks-ai — “Execution” (graphite ground, verified teal,
+   proposal violet) ─────────────────────────────────────────────────────
+   The product's claim is that AI only ever *proposes* and a human
+   *approves*: two accents carry that split — teal is committed/executed
+   work, violet is an unreviewed AI proposal. Light by default (plans are
+   read for long stretches). TasksAI puts data-app on <html>, the same
+   element as data-theme, so the dark override is written as both a
+   descendant and a same-element compound selector.
+   --color-* aliases exist because apps/tasks-ai/app/tasks-ai.css (the M03+
+   workspace surfaces) was written against those names. */
+[data-app="tasks-ai"] {
+  color-scheme: light;
+
+  --bg: #f5f8f7;
+  --surface: #ffffff;
+  --surface-2: #eaf1ef;
+  --surface-3: #dde8e5;
+  --ink: #12201d;
+  --muted: #53635f;
+  --line: rgba(18, 32, 29, 0.12);
+  --line-strong: rgba(18, 32, 29, 0.22);
+  --accent: #0f766e;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(15, 118, 110, 0.12);
+  /* Violet = "AI proposal, not yet reviewed". Never used for committed work. */
+  --accent-2: #6d5cf0;
+  --accent-2-ink: #ffffff;
+  --accent-2-soft: rgba(109, 92, 240, 0.12);
+  --shadow-1: 0 1px 2px rgba(18, 32, 29, 0.06), 0 2px 8px rgba(18, 32, 29, 0.05);
+  --shadow-2: 0 2px 4px rgba(18, 32, 29, 0.08), 0 12px 30px rgba(18, 32, 29, 0.1);
+
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--line);
+}
+
+:root[data-theme="dark"] [data-app="tasks-ai"],
+[data-app="tasks-ai"][data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0b1210;
+  --surface: #121b19;
+  --surface-2: #1a2623;
+  --surface-3: #223330;
+  --ink: #ecf2f0;
+  --muted: #90a09b;
+  --line: rgba(236, 242, 240, 0.12);
+  --line-strong: rgba(236, 242, 240, 0.22);
+  --accent: #2dd4bf;
+  --accent-ink: #0b1210;
+  --accent-soft: rgba(45, 212, 191, 0.16);
+  --accent-2: #9b8cff;
+  --accent-2-ink: #0b1210;
+  --accent-2-soft: rgba(155, 140, 255, 0.18);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
+}
