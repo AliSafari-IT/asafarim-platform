@@ -100,9 +100,6 @@ async function handle(type: string, payload: Record<string, unknown>): Promise<v
     }
     case "search.index":
       // Acknowledged; the search indexer proper lands with real search infra.
-    case "activity.fanout":
-    case "search.index":
-      // Acknowledged; real work in M05 (search) and M08 (activity rollups).
       return;
     default:
       logger.warn({ type }, "outbox.unknown_type");
