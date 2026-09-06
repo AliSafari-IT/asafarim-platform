@@ -2,6 +2,7 @@ import { requireMembership } from "../../../../lib/workspace-access";
 import { getTasksAiDb } from "../../../../lib/db/client";
 import { dailyBrief, workspaceSignals } from "../../../../lib/intel/service";
 import type { RequestContext } from "../../../../lib/context";
+import { SignalFeedback } from "../../../../components/SignalFeedback";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Focus" };
@@ -70,6 +71,14 @@ export default async function FocusPage({ params }: { params: Promise<{ slug: st
               </p>
               <p className="ta-signals__lim">Limitations: {s.limitations}</p>
               <p className="ta-signals__alt">Options: {s.alternatives.join(" · ")}</p>
+              {s.evidence[0] && (
+                <SignalFeedback
+                  slug={slug}
+                  signalType={s.type}
+                  ruleVersion={s.ruleVersion}
+                  targetId={s.evidence[0].id}
+                />
+              )}
             </li>
           ))}
         </ul>

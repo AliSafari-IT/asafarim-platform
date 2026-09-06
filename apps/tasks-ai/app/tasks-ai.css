@@ -286,3 +286,19 @@
 [data-app="tasks-ai"] .ta-bell__menu p { margin:0; }
 
 [data-app="tasks-ai"] .ta-toggle { display:flex; align-items:center; gap:.5rem; margin:.75rem 0; font-size:.9rem; }
+
+/* ── follow-up: tools UI ────────────────────────────────────────────── */
+[data-app="tasks-ai"] .ta-link, [data-app="tasks-ai"] .ta-linkbtn {
+  color:#1f6feb; background:none; border:none; padding:0; font:inherit; cursor:pointer; text-decoration:underline;
+}
+[data-app="tasks-ai"] .ta-tw__headactions { display:flex; gap:.75rem; align-items:center; }
+[data-app="tasks-ai"] .ta-search__chips { display:flex; flex-wrap:wrap; gap:.4rem; margin:.6rem 0; }
+[data-app="tasks-ai"] .ta-chip { border:1px solid #8884; border-radius:999px; padding:.15rem .6rem; background:transparent; cursor:pointer; font-size:.8rem; color:inherit; }
+[data-app="tasks-ai"] .ta-import__map { display:grid; grid-template-columns:repeat(auto-fit,minmax(9rem,1fr)); gap:.5rem; margin:.5rem 0; }
+[data-app="tasks-ai"] .ta-import__map label { display:grid; gap:.15rem; font-size:.78rem; }
+[data-app="tasks-ai"] .ta-rules { list-style:none; padding:0; display:grid; gap:.6rem; margin:1rem 0; }
+[data-app="tasks-ai"] .ta-rules li { border:1px solid #8883; border-radius:8px; padding:.6rem .75rem; }
+[data-app="tasks-ai"] .ta-rules__head { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; }
+[data-app="tasks-ai"] .ta-rules__actions { display:flex; gap:.4rem; margin-top:.5rem; flex-wrap:wrap; }
+[data-app="tasks-ai"] .ta-runs { list-style:none; padding:.5rem 0 0; margin:0; display:grid; gap:.25rem; font-size:.82rem; }
+[data-app="tasks-ai"] .ta-signals__fb { font-size:.78rem; margin:.3rem 0 0; }
