@@ -645,3 +645,93 @@ model NotificationPreference {
 
   @@map("notification_preference")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M05 — capture, search, import, portability
+// ─────────────────────────────────────────────────────────────────────────
+
+model SavedSearch {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  membershipId String
+  name         String
+  query        String
+  filters      Json?
+  createdAt    DateTime @default(now())
+
+  @@index([workspaceId, membershipId])
+  @@map("saved_search")
+}
+
+model SearchHistory {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  membershipId String
+  query        String
+  ranAt        DateTime @default(now())
+
+  @@index([workspaceId, membershipId, ranAt])
+  @@map("search_history")
+}
+
+enum ImportKind {
+  csv
+  json
+}
+
+enum ImportState {
+  validating
+  dry_run_ready
+  applying
+  completed
+  failed
+}
+
+/// A resumable import job. Rows are staged in `rows` (Json) with a stable
+/// `rowKey` per source row so a re-run applies each row exactly once.
+model ImportJob {
+  id           String      @id @default(cuid())
+  workspaceId  String
+  membershipId String
+  kind         ImportKind
+  filename     String
+  mapping      Json
+  state        ImportState @default(validating)
+  totalRows    Int         @default(0)
+  appliedRows  Int         @default(0)
+  failedRows   Int         @default(0)
+  errors       Json        @default("[]")
+  /// Staged, validated source rows: [{ rowKey, data, status }]
+  rows         Json        @default("[]")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([workspaceId, state])
+  @@map("import_job")
+}
+
+/// A unique inbound-email address per workspace for capture-by-email.
+/// `secret` signs the local-part so a guessed address cannot inject tasks.
+model InboundAddress {
+  id          String   @id @default(cuid())
+  workspaceId String   @unique
+  localPart   String   @unique
+  secret      String
+  projectId   String?
+  createdAt   DateTime @default(now())
+
+  @@map("inbound_address")
+}
+
+/// Replay guard for inbound email: a message-id is accepted at most once
+/// per workspace.
+model InboundMessage {
+  id          String   @id @default(cuid())
+  workspaceId String
+  messageId   String
+  taskId      String?
+  receivedAt  DateTime @default(now())
+
+  @@unique([workspaceId, messageId])
+  @@map("inbound_message")
+}
