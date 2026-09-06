@@ -15,15 +15,13 @@ export const metadata: Metadata = {
   },
   description:
     "Define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-  // Served as plain static files from public/ rather than the app/icon.*
-  // file convention: Next 15 turns app/icon.svg into a generated
-  // /icon.svg/route module whose prerender is racy under parallel builds
+  // Icons are served as plain static files from public/ and linked via
+  // <link> tags in <head> below, NOT via the metadata `icons` field.
+  // Next 15 turns metadata icon references into generated /icon.svg/route
+  // modules whose prerender is racy under parallel builds
   // ("Cannot find module for page: /icon.svg/route"), which aborts
-  // `pnpm dev` at the turbo build step.
-  icons: {
-    icon: "/icon.svg",
-    apple: "/apple-icon.png",
-  },
+  // `pnpm dev` at the turbo build step. Manual <link> tags avoid the
+  // route generation entirely.
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -37,6 +35,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark" data-theme="dark" suppressHydrationWarning>
       <head>
         <ThemeScript defaultTheme="dark" syncClass="dark" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
         <script
           defer
           src="https://cloud.umami.is/script.js"
