@@ -735,3 +735,117 @@ model InboundMessage {
   @@unique([workspaceId, messageId])
   @@map("inbound_message")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M06 — AI safety, evaluation, provider boundary
+// ─────────────────────────────────────────────────────────────────────────
+
+enum AiJobState {
+  queued
+  running
+  succeeded
+  failed
+  cancelled
+  degraded
+}
+
+/// One AI generation request. The state machine and the usage ledger row
+/// are written together. `promptVersion` + `provider` + `model` make every
+/// result reproducible from versioned inputs.
+model AiJob {
+  id            String     @id @default(cuid())
+  workspaceId   String
+  membershipId  String
+  kind          String     // extract_plan | decompose | acceptance_criteria | summarize | nl_query
+  state         AiJobState @default(queued)
+  provider      String
+  model         String
+  promptVersion String
+  /// sha256 of the (redacted) rendered prompt — the cache key.
+  cacheKey      String
+  inputTokens   Int?
+  outputTokens  Int?
+  costUsd       Float?
+  latencyMs     Int?
+  error         String?
+  cancelledAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  proposal Proposal?
+
+  @@index([workspaceId, state])
+  @@index([workspaceId, cacheKey])
+  @@map("ai_job")
+}
+
+/// Append-only spend ledger. One row per billable (or fixture, cost 0)
+/// call. Reconciled against AiJob and used for per-workspace budgets.
+model AiUsageLedger {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  aiJobId      String
+  provider     String
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  costUsd      Float    @default(0)
+  fixture      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("ai_usage_ledger")
+}
+
+/// Per-workspace AI controls. `enabled=false` is the kill switch: AI
+/// features stop, core task management is untouched.
+model AiSettings {
+  workspaceId       String  @id
+  enabled           Boolean @default(true)
+  /// Monthly spend cap in USD. null = provider/plan default.
+  monthlyBudgetUsd  Float?
+  /// Monthly job cap. null = unlimited within budget.
+  monthlyJobQuota   Int?
+  /// Max entities a single proposal may create/update/link.
+  maxBlastRadius    Int     @default(50)
+  provider          String  @default("fixture")
+  model             String  @default("fixture-1")
+  updatedAt         DateTime @updatedAt
+
+  @@map("ai_settings")
+}
+
+enum ProposalState {
+  draft
+  previewed
+  applied
+  partially_applied
+  rejected
+  undone
+  regenerating
+}
+
+/// The only way AI affects data (docs/adr/0004): a reviewable, cited,
+/// undoable set of operations. Nothing here mutates a domain row until a
+/// user applies it.
+model Proposal {
+  id           String        @id @default(cuid())
+  workspaceId  String
+  aiJobId      String        @unique
+  membershipId String
+  kind         String
+  state        ProposalState @default(draft)
+  /// Grouped operations with per-fact citations / assumptions + confidence.
+  operations   Json
+  /// Inverse operations captured at apply time.
+  undoPlan     Json?
+  summary      String?
+  appliedAt    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  aiJob AiJob @relation(fields: [aiJobId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, state])
+  @@map("proposal")
+}
