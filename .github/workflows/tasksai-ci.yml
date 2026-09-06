@@ -80,3 +80,6 @@ jobs:
 
       - name: Integration tests
         run: pnpm --filter @asafarim/tasks-ai test:integration
+
+      - name: AI offline evals (fixture provider — no billable calls)
+        run: pnpm --filter @asafarim/tasks-ai ai:eval

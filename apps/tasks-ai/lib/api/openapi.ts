@@ -378,6 +378,60 @@ export const openapiDocument = {
       get: { summary: "The workspace's capture-by-email address", responses: { "200": { description: "ok" } } },
       post: { summary: "Provision the capture-by-email address (admin+)", responses: { "201": { description: "created" } } },
     },
+
+    "/workspaces/{slug}/ai/settings": {
+      parameters: [pathParam("slug")],
+      get: { summary: "AI settings (kill switch, budget, blast radius, provider)", responses: { "200": { description: "ok" } } },
+      patch: { summary: "Update AI settings (admin+) — enabled:false is the kill switch", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/ai/usage": {
+      parameters: [pathParam("slug")],
+      get: { summary: "This month's AI spend + job count vs budget/quota", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/ai/jobs": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Run an AI job — returns a Proposal in state=draft. Applies nothing.",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["kind", "input"],
+          properties: {
+            kind: { type: "string", enum: ["extract_plan", "decompose", "acceptance_criteria", "summarize", "nl_query"] },
+            input: { type: "string" },
+            projectId: { type: "string" },
+          },
+        }),
+        responses: { "201": { description: "job + draft proposal" }, "403": errorRef(), "429": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/ai/proposals/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      get: { summary: "Get a proposal (draft→previewed) with its operations + citations", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/ai/proposals/{id}/apply": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: {
+        summary: "Apply a proposal (transactional, captures an undo plan). >15 ops or edited ops need ?confirm=high",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["projectId"],
+          properties: {
+            projectId: { type: "string" },
+            accept: { type: "array", items: { type: "integer" } },
+            editedOperations: { type: "array" },
+          },
+        }),
+        responses: { "200": { description: "applied" }, "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/ai/proposals/{id}/reject": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Reject a proposal — changes nothing", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/ai/proposals/{id}/undo": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Undo an applied proposal via its inverse plan", responses: { "200": { description: "ok" } } },
+    },
   },
   // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
   // bearer-token auth, no session) and is documented in docs/portability.md.
