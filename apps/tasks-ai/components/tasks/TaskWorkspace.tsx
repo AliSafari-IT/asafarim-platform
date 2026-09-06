@@ -10,8 +10,10 @@ import {
   type ViewType,
 } from "../../lib/views/model";
 import { measureView, track } from "../../lib/client/telemetry";
+import { VIRTUALIZE_THRESHOLD } from "../../lib/ui/window";
 import { QuickAdd } from "./QuickAdd";
 import { TaskDetailPanel } from "./TaskDetailPanel";
+import { VirtualList } from "./VirtualList";
 
 const VIEW_TABS: { id: ViewType; label: string }[] = [
   { id: "list", label: "List" },
@@ -151,6 +153,32 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading }: TaskWor
   );
 }
 
+function ListRow({
+  t,
+  onOpen,
+  onComplete,
+}: {
+  t: Task;
+  onOpen: (id: string) => void;
+  onComplete: (t: Task) => void;
+}) {
+  return (
+    <div className="ta-list__row" data-done={Boolean(t.completedAt)}>
+      <input
+        type="checkbox"
+        checked={Boolean(t.completedAt)}
+        onChange={() => onComplete(t)}
+        aria-label={`Complete ${t.title}`}
+        disabled={Boolean(t.completedAt)}
+      />
+      <button className="ta-list__title" onClick={() => onOpen(t.id)}>
+        {t.title}
+      </button>
+      {t.dueDate && <span className="ta-list__due">{fmtDate(t.dueDate)}</span>}
+    </div>
+  );
+}
+
 function ListView({
   tasks,
   onOpen,
@@ -160,21 +188,22 @@ function ListView({
   onOpen: (id: string) => void;
   onComplete: (t: Task) => void;
 }) {
+  // Windowed rendering keeps large lists cheap (docs/performance-budgets.md).
+  if (tasks.length > VIRTUALIZE_THRESHOLD) {
+    return (
+      <VirtualList
+        items={tasks}
+        rowHeight={40}
+        ariaLabel="Tasks"
+        renderRow={(t) => <ListRow t={t} onOpen={onOpen} onComplete={onComplete} />}
+      />
+    );
+  }
   return (
     <ul className="ta-list">
       {tasks.map((t) => (
-        <li key={t.id} data-done={Boolean(t.completedAt)}>
-          <input
-            type="checkbox"
-            checked={Boolean(t.completedAt)}
-            onChange={() => onComplete(t)}
-            aria-label={`Complete ${t.title}`}
-            disabled={Boolean(t.completedAt)}
-          />
-          <button className="ta-list__title" onClick={() => onOpen(t.id)}>
-            {t.title}
-          </button>
-          {t.dueDate && <span className="ta-list__due">{fmtDate(t.dueDate)}</span>}
+        <li key={t.id}>
+          <ListRow t={t} onOpen={onOpen} onComplete={onComplete} />
         </li>
       ))}
     </ul>

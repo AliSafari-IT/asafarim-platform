@@ -259,3 +259,10 @@
 /* 200% zoom / small viewports: the workspace grid already collapses at
    820px; ensure the diff + board never force horizontal page scroll. */
 [data-app="tasks-ai"] .ta-diff, [data-app="tasks-ai"] .ta-board { max-width:100%; overflow-x:auto; }
+
+/* ── follow-up: virtualized list ───────────────────────────────────── */
+[data-app="tasks-ai"] .ta-vlist { border:1px solid #8883; border-radius:8px; margin:1rem 0; }
+[data-app="tasks-ai"] .ta-list__row { display:flex; align-items:center; gap:.6rem; padding:.45rem .6rem; height:100%; box-sizing:border-box; }
+[data-app="tasks-ai"] .ta-list__row:hover { background:var(--color-surface-2,#8881); }
+[data-app="tasks-ai"] .ta-list__row[data-done="true"] .ta-list__title { text-decoration:line-through; opacity:.6; }
+[data-app="tasks-ai"] .ta-vlist [role="listitem"] { border-bottom:1px solid #8882; }
