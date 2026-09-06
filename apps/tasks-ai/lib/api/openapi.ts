@@ -432,6 +432,34 @@ export const openapiDocument = {
       parameters: [pathParam("slug"), pathParam("id")],
       post: { summary: "Undo an applied proposal via its inverse plan", responses: { "200": { description: "ok" } } },
     },
+    "/workspaces/{slug}/ai/proposals/{id}/feedback": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: {
+        summary: "Record copilot feedback (outcome, edit distance, time saved, trust, correction reason)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["outcome"],
+          properties: {
+            outcome: { type: "string", enum: ["accepted", "partially_accepted", "rejected", "regenerated"] },
+            editDistance: { type: "number" },
+            timeSavedMin: { type: "integer" },
+            correctionReason: { type: "string" },
+            trust: { type: "integer", minimum: 1, maximum: 5 },
+          },
+        }),
+        responses: { "201": { description: "recorded" } },
+      },
+    },
+    "/workspaces/{slug}/ai/metrics": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "30-day copilot KPIs: acceptance rate, edit distance, time saved, trust, cost",
+        responses: { "200": { description: "ok" } },
+      },
+    },
+  },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
   },
   // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
   // bearer-token auth, no session) and is documented in docs/portability.md.
