@@ -1056,3 +1056,75 @@ model IntegrationEvent {
   @@unique([provider, externalId])
   @@map("integration_event")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M10 — goals, cycles, time & portfolio analytics
+// ─────────────────────────────────────────────────────────────────────────
+
+model KeyResult {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  goalId       String
+  name         String
+  /// numeric target; progress is current/target
+  startValue   Float    @default(0)
+  targetValue  Float
+  currentValue Float    @default(0)
+  unit         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([workspaceId, goalId])
+  @@map("key_result")
+}
+
+model TimeEntry {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  taskId       String
+  membershipId String
+  minutes      Int
+  spentOn      DateTime
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([workspaceId, taskId])
+  @@index([workspaceId, spentOn])
+  @@map("time_entry")
+}
+
+/// Point-in-time metric snapshot. Written when a metric definition changes
+/// or on a schedule, so history survives redefinition (docs: M10).
+model MetricSnapshot {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  scope        String   // "workspace" | "project:<id>" | "cycle:<id>"
+  metric       String   // "cycle_time_p50" | "throughput_7d" | ...
+  value        Float
+  /// the semantics version this value was computed under
+  defVersion   String
+  windowStart  DateTime
+  windowEnd    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([workspaceId, scope, metric, createdAt])
+  @@map("metric_snapshot")
+}
+
+/// A saved forecast with its assumptions + confidence band, versioned so a
+/// later methodology change is attributable.
+model Forecast {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  scope         String
+  /// remaining scope (task count) the forecast is for
+  remaining     Int
+  /// { p50, p80, p95 } completion dates (ISO)
+  bands         Json
+  assumptions   Json
+  method        String   @default("throughput-sample@1")
+  createdAt     DateTime @default(now())
+
+  @@index([workspaceId, scope, createdAt])
+  @@map("forecast")
+}

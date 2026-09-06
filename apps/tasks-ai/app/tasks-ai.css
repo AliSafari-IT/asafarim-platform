@@ -211,3 +211,15 @@
 [data-app="tasks-ai"] .ta-signals li[data-sev="watch"] { border-left-color:#8a6d00; }
 [data-app="tasks-ai"] .ta-signals__title { margin:0 0 .2rem; font-weight:600; }
 [data-app="tasks-ai"] .ta-signals__meta, [data-app="tasks-ai"] .ta-signals__lim, [data-app="tasks-ai"] .ta-signals__alt { margin:.1rem 0; font-size:.78rem; opacity:.8; }
+
+/* ── M10 analytics ──────────────────────────────────────────────────── */
+[data-app="tasks-ai"] .ta-metrics { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:.75rem; margin:1rem 0; }
+[data-app="tasks-ai"] .ta-metric { border:1px solid #8883; border-radius:8px; padding:.7rem .8rem; display:grid; gap:.15rem; }
+[data-app="tasks-ai"] .ta-metric__label { font-size:.75rem; opacity:.7; }
+[data-app="tasks-ai"] .ta-metric__value { font-size:1.4rem; font-weight:700; font-variant-numeric:tabular-nums; }
+[data-app="tasks-ai"] .ta-metric__hint { font-size:.72rem; opacity:.6; }
+[data-app="tasks-ai"] .ta-table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.9rem; }
+[data-app="tasks-ai"] .ta-table th, [data-app="tasks-ai"] .ta-table td { border-bottom:1px solid #8883; text-align:left; padding:.4rem .6rem; }
+[data-app="tasks-ai"] .ta-table .ta-badge[data-h="at_risk"] { background:#b3261e22; color:#b3261e; }
+[data-app="tasks-ai"] .ta-table .ta-badge[data-h="watch"] { background:#8a6d0022; color:#8a6d00; }
+[data-app="tasks-ai"] .ta-table .ta-badge[data-h="on_track"] { background:#1f6feb18; color:#1f6feb; }

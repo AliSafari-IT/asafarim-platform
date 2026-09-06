@@ -25,6 +25,7 @@ const NAV = [
   { label: "Focus", href: (s: string) => `/w/${s}/focus` },
   { label: "Projects", href: (s: string) => `/w/${s}/projects` },
   { label: "Copilot", href: (s: string) => `/w/${s}/copilot` },
+  { label: "Analytics", href: (s: string) => `/w/${s}/analytics` },
 ];
 
 export function WorkspaceShell({
