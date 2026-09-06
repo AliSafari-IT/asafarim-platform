@@ -1359,3 +1359,93 @@ model Referral {
 
   @@map("referral")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M15 — enterprise readiness & ecosystem expansion
+// ─────────────────────────────────────────────────────────────────────────
+
+/// A verified email domain a workspace controls. Once verified, invites to
+/// that domain can be auto-approved and SCIM/SAML bound to it.
+model DomainClaim {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  domain       String    @unique
+  verifyToken  String
+  verifiedAt   DateTime?
+  autoJoin     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  @@index([workspaceId])
+  @@map("domain_claim")
+}
+
+/// A non-human principal (CI, an internal service). Bearer credential is a
+/// hashed API token via the M09 ApiToken table; this row holds the policy.
+model ServiceAccount {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  name         String
+  tokenId      String?   // the ApiToken minted for it
+  /// CIDR allowlist for calls made with this account, or null = any
+  ipAllowlist  String[]
+  disabledAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([workspaceId])
+  @@map("service_account")
+}
+
+/// Per-workspace retention overrides (enterprise, justified). null = the
+/// platform default from the retention schedule.
+model RetentionPolicy {
+  workspaceId        String  @id
+  activityDays       Int?
+  auditDays          Int?
+  outboxDays         Int?
+  notificationDays   Int?
+  updatedAt          DateTime @updatedAt
+
+  @@map("retention_policy")
+}
+
+/// A legal hold suspends retention deletion for matching data until lifted.
+model LegalHold {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  reason       String
+  scope        String    // "workspace" | "project:<id>"
+  placedBy     String
+  liftedAt     DateTime?
+  liftedBy     String?
+  createdAt    DateTime  @default(now())
+
+  @@index([workspaceId, liftedAt])
+  @@map("legal_hold")
+}
+
+/// Streams audit events to an external SIEM endpoint (signed, like webhooks).
+model AuditStream {
+  id           String    @id @default(cuid())
+  workspaceId  String    @unique
+  url          String
+  secret       String
+  active       Boolean   @default(true)
+  cursor       DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+
+  @@map("audit_stream")
+}
+
+/// SCIM-style provisioning log — one row per push, for reconciliation.
+model ScimEvent {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  externalId   String
+  op           String   // "create" | "update" | "deactivate"
+  membershipId String?
+  receivedAt   DateTime @default(now())
+
+  @@unique([workspaceId, externalId, op, receivedAt])
+  @@index([workspaceId])
+  @@map("scim_event")
+}

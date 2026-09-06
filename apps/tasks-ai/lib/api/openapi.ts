@@ -750,6 +750,58 @@ export const openapiDocument = {
       parameters: [pathParam("slug")],
       get: { summary: "Invoice history (owner)", responses: { "200": { description: "ok" } } },
     },
+
+    "/workspaces/{slug}/enterprise/domains": {
+      parameters: [pathParam("slug")],
+      post: { summary: "Claim an email domain — returns a DNS TXT verification token (owner)", responses: { "201": { description: "ok" }, "409": errorRef() } },
+    },
+    "/workspaces/{slug}/enterprise/domains/{id}/verify": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Mark a claimed domain verified + set auto-join (owner)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/enterprise/service-accounts": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Create a service account with a scoped token + IP allowlist (owner)",
+        requestBody: jsonBody({ type: "object", required: ["name", "scopes"], properties: { name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, ipAllowlist: { type: "array", items: { type: "string" } } } }),
+        responses: { "201": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/enterprise/service-accounts/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      delete: { summary: "Disable a service account and revoke its token (owner)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/enterprise/retention": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Effective retention (override → legal hold → platform default)", responses: { "200": { description: "ok" } } },
+      patch: { summary: "Set per-workspace retention overrides (owner)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/enterprise/legal-holds": {
+      parameters: [pathParam("slug")],
+      post: { summary: "Place a legal hold — suspends retention deletion (owner)", responses: { "201": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/enterprise/legal-holds/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      delete: { summary: "Lift a legal hold (owner)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/enterprise/audit-stream": {
+      parameters: [pathParam("slug")],
+      post: { summary: "Configure an https SIEM audit-stream endpoint — returns the signing secret (owner)", responses: { "201": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/enterprise/scim": {
+      parameters: [pathParam("slug")],
+      get: { summary: "SCIM provisioning log (admin+)", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "SCIM push: create | update | deactivate a member by IdP externalId (owner)",
+        requestBody: jsonBody({ type: "object", required: ["externalId", "platformUserId", "op"], properties: { externalId: { type: "string" }, platformUserId: { type: "string" }, op: { type: "string", enum: ["create", "update", "deactivate"] }, role: { type: "string" } } }),
+        responses: { "201": { description: "ok" } },
+      },
+    },
+  },
+  // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer),
+  // POST /api/integrations/github (per-repo HMAC), POST /api/billing/stripe
+  // (Stripe webhook, 404 until billing is open). See docs/billing-launch.md
+  // and docs/enterprise.md.
   },
   // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer),
   // POST /api/integrations/github (per-repo HMAC), POST /api/billing/stripe
