@@ -172,8 +172,6 @@ export interface AiMetrics {
   correctionReasons: string[];
 }
 
-};
-
 export interface Workspace {
   id: string;
   name: string;
