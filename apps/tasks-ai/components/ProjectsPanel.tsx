@@ -49,11 +49,16 @@ export function ProjectsPanel({
     <section className="ta-tw">
       <header className="ta-tw__head">
         <h1>Projects</h1>
-        {canCreate && (
-          <Button size="sm" onClick={() => setOpen((v) => !v)}>
-            {open ? "Cancel" : "New project"}
-          </Button>
-        )}
+        <span className="ta-tw__headactions">
+          <a className="ta-link" href={`/w/${slug}/imports`}>
+            Import tasks
+          </a>
+          {canCreate && (
+            <Button size="sm" onClick={() => setOpen((v) => !v)}>
+              {open ? "Cancel" : "New project"}
+            </Button>
+          )}
+        </span>
       </header>
 
       {open && (

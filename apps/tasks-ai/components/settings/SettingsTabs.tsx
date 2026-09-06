@@ -7,11 +7,14 @@ import {
   ClientApiError,
   type AiSettings,
   type AiUsage,
+  type AuditRow,
   type BillingUsage,
+  type FeedbackItem,
   type Invitation,
 } from "../../lib/client/api";
 
-type Tab = "members" | "ai" | "billing";
+type Tab = "members" | "ai" | "billing" | "audit" | "feedback";
+const TABS: Tab[] = ["members", "ai", "billing", "audit", "feedback"];
 
 export function SettingsTabs({ slug, isAdmin }: { slug: string; isAdmin: boolean }) {
   const [tab, setTab] = useState<Tab>("members");
@@ -20,22 +23,154 @@ export function SettingsTabs({ slug, isAdmin }: { slug: string; isAdmin: boolean
       <header className="ta-tw__head">
         <h1>Settings</h1>
         <div className="ta-tw__tabs" role="tablist" aria-label="Settings section">
-          {(["members", "ai", "billing"] as Tab[]).map((t) => (
+          {TABS.map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
               {t === "ai" ? "AI" : t[0].toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
       </header>
-      {!isAdmin && (
+      {!isAdmin && ["members", "ai", "billing", "audit"].includes(tab) && (
         <div className="ta-callout" role="note">
-          You can view these settings. Changes need an admin or owner.
+          {tab === "audit"
+            ? "The audit log is admin-only."
+            : "You can view these settings. Changes need an admin or owner."}
         </div>
       )}
       {tab === "members" && <MembersTab slug={slug} isAdmin={isAdmin} />}
       {tab === "ai" && <AiTab slug={slug} isAdmin={isAdmin} />}
       {tab === "billing" && <BillingTab slug={slug} />}
+      {tab === "audit" && isAdmin && <AuditTab slug={slug} />}
+      {tab === "feedback" && <FeedbackTab slug={slug} isAdmin={isAdmin} />}
     </section>
+  );
+}
+
+function AuditTab({ slug }: { slug: string }) {
+  const [rows, setRows] = useState<AuditRow[] | null>(null);
+  const [filter, setFilter] = useState("");
+  useEffect(() => {
+    const params: Record<string, string> = { limit: "100" };
+    if (filter) params.name = filter;
+    void api
+      .searchAudit(slug, params)
+      .then((r) => setRows(r.items))
+      .catch(() => setRows([]));
+  }, [slug, filter]);
+
+  return (
+    <div>
+      <h3>Audit log</h3>
+      <FormRow>
+        <Label htmlFor="au-f">Filter by event name</Label>
+        <Input id="au-f" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="e.g. proposal.applied" />
+      </FormRow>
+      <a className="ta-link" href={`/api/v1/workspaces/${slug}/admin/audit/export?${new URLSearchParams(filter ? { name: filter } : {})}`}>
+        Export CSV
+      </a>
+      {rows === null ? (
+        <p className="ta-muted">Loading…</p>
+      ) : (
+        <table className="ta-table">
+          <thead>
+            <tr><th>When</th><th>Event</th><th>Actor</th><th>Target</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>{new Date(r.occurredAt).toLocaleString()}</td>
+                <td><code>{r.name}</code></td>
+                <td>{r.actorType}{r.actorId ? `:${r.actorId.slice(-6)}` : ""}</td>
+                <td>{r.targetType ?? ""}{r.targetId ? `:${r.targetId.slice(-6)}` : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+const SEV_ORDER = ["blocker", "major", "minor", "idea"];
+const STATES = ["triage", "accepted", "in_progress", "resolved", "wont_do"];
+
+function FeedbackTab({ slug, isAdmin }: { slug: string; isAdmin: boolean }) {
+  const [items, setItems] = useState<FeedbackItem[] | null>(null);
+  const [title, setTitle] = useState("");
+  const [detail, setDetail] = useState("");
+  const [severity, setSeverity] = useState("minor");
+
+  async function load() {
+    setItems(await api.listFeedback(slug).catch(() => []));
+  }
+  useEffect(() => {
+    void load();
+  }, [slug]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    await api.createFeedback(slug, { source: "in_app", severity, title: title.trim(), detail: detail.trim() });
+    setTitle("");
+    setDetail("");
+    await load();
+  }
+
+  const byState = (s: string) => (items ?? []).filter((i) => i.state === s);
+
+  return (
+    <div>
+      <h3>Report feedback</h3>
+      <form className="ta-panelform" onSubmit={submit}>
+        <FormRow>
+          <Label htmlFor="fb-title">Title</Label>
+          <Input id="fb-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        </FormRow>
+        <FormRow>
+          <Label htmlFor="fb-sev">Severity</Label>
+          <Select id="fb-sev" value={severity} onChange={(e) => setSeverity(e.target.value)} options={SEV_ORDER.map((v) => ({ value: v, label: v }))} />
+        </FormRow>
+        <FormRow>
+          <Label htmlFor="fb-detail">Detail</Label>
+          <textarea id="fb-detail" rows={3} value={detail} onChange={(e) => setDetail(e.target.value)} />
+        </FormRow>
+        <Button size="sm" type="submit" disabled={!title.trim() || !detail.trim()}>
+          Submit
+        </Button>
+      </form>
+
+      <h3>Triage board</h3>
+      {items === null ? (
+        <p className="ta-muted">Loading…</p>
+      ) : (
+        <div className="ta-board">
+          {STATES.map((st) => (
+            <div key={st} className="ta-board__col">
+              <h3>{st.replace("_", " ")} <span>{byState(st).length}</span></h3>
+              <ul>
+                {byState(st).map((i) => (
+                  <li key={i.id}>
+                    <span>
+                      <span className="ta-badge">{i.severity}</span> {i.title}
+                    </span>
+                    {isAdmin && (
+                      <Select
+                        aria-label={`Move ${i.title}`}
+                        value={i.state}
+                        onChange={async (e) => {
+                          await api.triageFeedback(slug, i.id, { state: e.target.value });
+                          await load();
+                        }}
+                        options={STATES.map((s) => ({ value: s, label: s }))}
+                      />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

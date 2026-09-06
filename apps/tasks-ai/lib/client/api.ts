@@ -132,7 +132,134 @@ export const api = {
   updateAiSettings: (slug: string, body: Record<string, unknown>) =>
     call<AiSettings>(`/workspaces/${slug}/ai/settings`, { method: "PATCH", body: JSON.stringify(body) }),
   billingUsage: (slug: string) => call<BillingUsage>(`/workspaces/${slug}/billing/usage`),
+
+  // --- search (M05) ---
+  search: (slug: string, q: string, types?: string) =>
+    call<{ hits?: SearchHit[]; recent?: { query: string; ranAt: string }[] }>(
+      `/workspaces/${slug}/search?q=${encodeURIComponent(q)}${types ? `&types=${types}` : ""}`,
+    ),
+  listSavedSearches: (slug: string) => call<SavedSearch[]>(`/workspaces/${slug}/saved-searches`),
+  createSavedSearch: (slug: string, body: { name: string; query: string }) =>
+    call<SavedSearch>(`/workspaces/${slug}/saved-searches`, { method: "POST", body: JSON.stringify(body) }),
+  deleteSavedSearch: (slug: string, id: string) =>
+    call<{ deleted: true }>(`/workspaces/${slug}/saved-searches/${id}`, { method: "DELETE" }),
+
+  // --- imports (M05) ---
+  createImport: (
+    slug: string,
+    body: { kind: "csv" | "json"; filename: string; projectId: string; mapping: Record<string, string>; content: string },
+  ) => call<ImportSummary>(`/workspaces/${slug}/imports`, { method: "POST", body: JSON.stringify(body) }),
+  applyImport: (slug: string, id: string) =>
+    call<ImportSummary>(`/workspaces/${slug}/imports/${id}/apply`, { method: "POST" }),
+
+  // --- automations (M09) ---
+  listRules: (slug: string) => call<AutomationRule[]>(`/workspaces/${slug}/automations/rules`),
+  createRule: (slug: string, body: Record<string, unknown>) =>
+    call<AutomationRule>(`/workspaces/${slug}/automations/rules`, { method: "POST", body: JSON.stringify(body) }),
+  setRuleState: (slug: string, id: string, state: "active" | "paused" | "draft") =>
+    call<{ id: string; state: string }>(`/workspaces/${slug}/automations/rules/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state }),
+    }),
+  dryRunRule: (slug: string, id: string, sampleEvent: Record<string, unknown>) =>
+    call<DryRunResult>(`/workspaces/${slug}/automations/rules/${id}/dry-run`, {
+      method: "POST",
+      body: JSON.stringify(sampleEvent),
+    }),
+  listRuns: (slug: string, id: string) =>
+    call<AutomationRun[]>(`/workspaces/${slug}/automations/rules/${id}/runs`),
+
+  // --- audit (M12) ---
+  searchAudit: (slug: string, params: Record<string, string> = {}) =>
+    call<{ items: AuditRow[]; nextCursor: string | null }>(
+      `/workspaces/${slug}/admin/audit?${new URLSearchParams(params)}`,
+    ),
+
+  // --- feedback board (M13) ---
+  listFeedback: (slug: string, query: Record<string, string> = {}) =>
+    call<FeedbackItem[]>(`/workspaces/${slug}/feedback?${new URLSearchParams(query)}`),
+  createFeedback: (slug: string, body: { source: string; severity: string; title: string; detail: string }) =>
+    call<FeedbackItem>(`/workspaces/${slug}/feedback`, { method: "POST", body: JSON.stringify(body) }),
+  triageFeedback: (slug: string, id: string, body: Record<string, unknown>) =>
+    call<FeedbackItem>(`/workspaces/${slug}/feedback/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+
+  // --- signal feedback (M08) ---
+  signalFeedback: (slug: string, body: Record<string, unknown>) =>
+    call<unknown>(`/workspaces/${slug}/signals/feedback`, { method: "POST", body: JSON.stringify(body) }),
 };
+
+export interface SearchHit {
+  type: "task" | "project" | "comment" | "label";
+  id: string;
+  title: string;
+  snippet?: string;
+  projectId?: string;
+}
+export interface SavedSearch {
+  id: string;
+  name: string;
+  query: string;
+  createdAt: string;
+}
+export interface ImportSummary {
+  id: string;
+  state: string;
+  kind: string;
+  filename: string;
+  totalRows: number;
+  appliedRows: number;
+  failedRows: number;
+  duplicateRows: number;
+  okRows: number;
+  errors: { rowKey: string; errors: string[] }[];
+}
+export interface AutomationRule {
+  id: string;
+  name: string;
+  state: "draft" | "active" | "paused";
+  trigger: { event: string; filters: unknown[] };
+  conditions: unknown[];
+  actions: { type: string }[];
+  maxRunsPerHour: number;
+  lastRunAt: string | null;
+}
+export interface DryRunResult {
+  triggered: boolean;
+  conditionsMet: boolean;
+  wouldRun: boolean;
+  plannedActions: { type: string }[];
+  loopRisk: boolean;
+}
+export interface AutomationRun {
+  id: string;
+  state: string;
+  log: unknown[];
+  error: string | null;
+  createdAt: string;
+}
+export interface AuditRow {
+  id: string;
+  name: string;
+  actorType: string;
+  actorId: string | null;
+  targetType: string | null;
+  targetId: string | null;
+  occurredAt: string;
+  data: Record<string, unknown>;
+}
+export interface FeedbackItem {
+  id: string;
+  source: string;
+  severity: string;
+  state: string;
+  title: string;
+  detail: string;
+  ownerId: string | null;
+  respondBy: string;
+  respondedAt: string | null;
+  linkedChange: string | null;
+  createdAt: string;
+}
 
 export interface Comment {
   id: string;
