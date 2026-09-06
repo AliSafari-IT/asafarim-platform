@@ -1,0 +1,82 @@
+# TasksAI quality gate (M01).
+#
+# Runs the checks specific to TasksAI, including the one no other app but
+# JobMatch needs: that its Prisma migrations actually apply to an empty
+# database, and that schema.prisma has not drifted from its migrations.
+name: TasksAI CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/tasks-ai/**"
+      - "packages/auth/**"
+      - "packages/ui/**"
+      - ".github/workflows/tasksai-ci.yml"
+  pull_request:
+    paths:
+      - "apps/tasks-ai/**"
+      - "packages/auth/**"
+      - "packages/ui/**"
+      - ".github/workflows/tasksai-ci.yml"
+  workflow_dispatch: {}
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tasksai
+          POSTGRES_PASSWORD: tasksai_ci
+          POSTGRES_DB: tasksai_ci
+        ports:
+          - 55438:5432
+        options: >-
+          --health-cmd "pg_isready -U tasksai -d tasksai_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TASKSAI_DATABASE_URL: postgresql://tasksai:tasksai_ci@localhost:55438/tasksai_ci
+      TASKSAI_SHADOW_DATABASE_URL: postgresql://tasksai:tasksai_ci@localhost:55438/tasksai_shadow
+      TASKSAI_TEST_DATABASE_URL: postgresql://tasksai:tasksai_ci@localhost:55438/tasksai_test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @asafarim/tasks-ai typecheck
+
+      - name: Unit tests
+        run: pnpm --filter @asafarim/tasks-ai test
+
+      - name: Registry and auth tests
+        run: pnpm --filter @asafarim/auth test
+
+      - name: Create throwaway shadow + test databases
+        run: |
+          PGPASSWORD=tasksai_ci psql -h localhost -p 55438 -U tasksai -d tasksai_ci \
+            -c "DROP DATABASE IF EXISTS tasksai_shadow;" -c "CREATE DATABASE tasksai_shadow;" \
+            -c "DROP DATABASE IF EXISTS tasksai_test;" -c "CREATE DATABASE tasksai_test;"
+
+      - name: Migrations apply to an empty database
+        run: pnpm --filter @asafarim/tasks-ai exec prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Schema matches its migrations
+        run: pnpm --filter @asafarim/tasks-ai exec prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+
+      - name: Integration tests
+        run: pnpm --filter @asafarim/tasks-ai test:integration

@@ -459,6 +459,20 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     status: "active",
     access: "authenticated",
   },
+  {
+    // Public landing at / (proxy.ts allows it); the /workspace surface
+    // requires a platform session. TasksAI is in early development — a
+    // deployable shell, not a launched or commercial product. It keeps its
+    // own isolated database and stores only an opaque platform user id.
+    // See apps/tasks-ai/docs/charter.md and docs/adr/0001-dedicated-database.md.
+    key: "tasksai",
+    name: "TasksAI",
+    description: "AI-native work execution: scattered intent to trusted execution.",
+    glyph: "TA",
+    meta: "tasks-ai.asafarim.com",
+    status: "active",
+    access: "authenticated",
+  },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────
   {

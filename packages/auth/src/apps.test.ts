@@ -28,7 +28,7 @@ const superadmin = { roles: [ROLES.SUPERADMIN], authenticated: true };
 const inactiveAdmin = { roles: [ROLES.ADMIN], authenticated: false };
 
 describe("registry shape", () => {
-  it("registers the twelve active platform apps and only those", () => {
+  it("registers the thirteen active platform apps and only those", () => {
     const active = PLATFORM_APPS.filter((app) => app.status === "active");
     expect(active.map((app) => app.key).sort()).toEqual([
       "admin",
@@ -39,6 +39,7 @@ describe("registry shape", () => {
       "jobmatch",
       "labs",
       "showcase",
+      "tasksai",
       "testora",
       "timelineai",
       "vionto",
@@ -185,6 +186,7 @@ describe("getAccessibleApps", () => {
       "jobmatch",
       "labs",
       "showcase",
+      "tasksai",
       "testora",
       "timelineai",
       "vionto",
@@ -202,6 +204,7 @@ describe("getAccessibleApps", () => {
       "jobmatch",
       "labs",
       "showcase",
+      "tasksai",
       "testora",
       "timelineai",
       "vionto",
@@ -330,5 +333,24 @@ describe("jobmatch (M1 foundation)", () => {
 
   it("makes no showcase claim while it has no working product", () => {
     expect(getShowcaseProject("jobmatch")).toBeUndefined();
+  });
+});
+
+describe("tasksai (M01 foundation)", () => {
+  const tasksai = PLATFORM_APPS.find((app) => app.key === "tasksai")!;
+
+  it("is authenticated-only: the workspace is unusable without a session", () => {
+    expect(tasksai.access).toBe("authenticated");
+    expect(canAccessApp(tasksai, anonymous)).toBe(false);
+    expect(canAccessApp(tasksai, standard)).toBe(true);
+  });
+
+  it("has a registry key that matches its PlatformLinks key", () => {
+    // getAppSwitcherApps callers resolve URLs with getPlatformLinks()[app.key].
+    expect(tasksai.key).toBe("tasksai");
+  });
+
+  it("makes no showcase claim while it has no launched product", () => {
+    expect(getShowcaseProject("tasksai")).toBeUndefined();
   });
 });

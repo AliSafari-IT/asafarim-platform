@@ -86,9 +86,35 @@ services:
       timeout: 5s
       retries: 10
 
+  # TasksAI keeps its own database, isolated from the shared Prisma
+  # Postgres and from every other app's. The tenant work graph needs a
+  # migration cadence and a backup/retention boundary of its own — see
+  # apps/tasks-ai/docs/adr/0001-dedicated-database.md.
+  # Matches TASKSAI_DATABASE_URL (host port 55438).
+  tasksai-postgres:
+    image: postgres:16-alpine
+    container_name: tasksai-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tasksai
+      POSTGRES_PASSWORD: tasksai_dev
+      POSTGRES_DB: tasksai
+    ports:
+      # Loopback only: host-side scripts (migrate/studio) reach it, the
+      # local network does not.
+      - "127.0.0.1:55438:5432"
+    volumes:
+      - tasksai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tasksai -d tasksai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
   redis_data:
   testora_pgdata:
   appbuilder_pgdata:
   jobmatch_pgdata:
+  tasksai_pgdata:

@@ -21,6 +21,7 @@ export interface PlatformLinks {
   devtools: string;
   labs: string;
   jobmatch: string;
+  tasksai: string;
 }
 
 /**
@@ -71,5 +72,6 @@ export function getPlatformLinks(): PlatformLinks {
     devtools: process.env.NEXT_PUBLIC_DEVTOOLS_URL ?? "https://asafarim.be",
     labs: process.env.NEXT_PUBLIC_LABS_URL ?? "http://localhost:3011",
     jobmatch: process.env.NEXT_PUBLIC_JOBMATCH_URL ?? "http://localhost:3012",
+    tasksai: process.env.NEXT_PUBLIC_TASKSAI_URL ?? "http://localhost:3013",
   };
 }

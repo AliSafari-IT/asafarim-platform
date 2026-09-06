@@ -9,7 +9,8 @@ export type ProductName =
   | "AppBuilder"
   | "TimelineAI"
   | "Labs"
-  | "JobMatch";
+  | "JobMatch"
+  | "TasksAI";
 
 export interface LogoMarkProps {
   /** Use the app accent color instead of ink. */
