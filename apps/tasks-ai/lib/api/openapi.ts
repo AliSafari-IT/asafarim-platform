@@ -584,6 +584,43 @@ export const openapiDocument = {
         responses: { "201": { description: "created" } },
       },
     },
+
+    "/workspaces/{slug}/analytics/flow": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Flow dashboard: cycle time, throughput, aging WIP, predictability (all versioned, work-only)",
+        parameters: [{ name: "projectId", in: "query", schema: { type: "string" } }],
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/analytics/portfolio": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Per-project health + goal progress + a versioned forecast band", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/analytics/metrics/{metric}": {
+      parameters: [pathParam("slug"), pathParam("metric")],
+      get: { summary: "Metric snapshot history (value + semantics version + window)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/analytics/snapshot": {
+      parameters: [pathParam("slug")],
+      post: { summary: "Freeze current flow metrics as history-safe snapshots (admin+)", responses: { "201": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/key-results": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Create/update a key result on a goal",
+        requestBody: jsonBody({ type: "object", required: ["goalId", "name", "targetValue"], properties: { goalId: { type: "string" }, name: { type: "string" }, startValue: { type: "number" }, targetValue: { type: "number" }, currentValue: { type: "number" }, unit: { type: "string" } } }),
+        responses: { "201": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/time-entries": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Log time against a task",
+        requestBody: jsonBody({ type: "object", required: ["taskId", "minutes", "spentOn"], properties: { taskId: { type: "string" }, minutes: { type: "integer" }, spentOn: { type: "string", format: "date-time" }, note: { type: "string" } } }),
+        responses: { "201": { description: "ok" } },
+      },
+    },
   },
   // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer
   // token) and POST /api/integrations/github (per-repo HMAC). See
