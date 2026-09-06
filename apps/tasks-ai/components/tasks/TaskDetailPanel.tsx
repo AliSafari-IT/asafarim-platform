@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, ConfirmDialog, Input, Label, Textarea } from "@asafarim/ui";
 import { api, ClientApiError, type Task } from "../../lib/client/api";
+import { CommentsPanel } from "./CommentsPanel";
 
 /**
  * Slide-over task detail. Autosaves title/description/due on blur with
@@ -121,6 +122,8 @@ export function TaskDetailPanel({
                 Delete
               </Button>
             </div>
+
+            <CommentsPanel slug={slug} taskId={task.id} />
           </>
         )}
       </div>
