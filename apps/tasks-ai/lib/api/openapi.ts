@@ -310,7 +310,77 @@ export const openapiDocument = {
         responses: { "200": { description: "text/event-stream" } },
       },
     },
+
+    "/workspaces/{slug}/search": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Global keyword search across authorized tasks/projects/comments/labels",
+        parameters: [
+          { name: "q", in: "query", schema: { type: "string" } },
+          { name: "types", in: "query", schema: { type: "string" }, description: "comma list: task,project,comment,label" },
+        ],
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/saved-searches": {
+      parameters: [pathParam("slug")],
+      get: { summary: "List the caller's saved searches", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Save a search",
+        requestBody: jsonBody({ type: "object", required: ["name", "query"], properties: { name: { type: "string" }, query: { type: "string" } } }),
+        responses: { "201": { description: "created" } },
+      },
+    },
+    "/workspaces/{slug}/saved-searches/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      delete: { summary: "Delete a saved search", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/imports": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Create + dry-run validate a CSV/JSON import (no tasks written)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["kind", "filename", "projectId", "mapping", "content"],
+          properties: {
+            kind: { type: "string", enum: ["csv", "json"] },
+            filename: { type: "string" },
+            projectId: { type: "string" },
+            mapping: { type: "object" },
+            content: { type: "string" },
+          },
+        }),
+        responses: { "201": { description: "dry-run summary" }, "422": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/imports/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      get: { summary: "Import job status + row summary", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/imports/{id}/apply": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Apply staged rows (idempotent, resumable)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/export": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Workspace data export (admin+); ?format=json|csv, formula-injection safe",
+        parameters: [{ name: "format", in: "query", schema: { type: "string", enum: ["json", "csv"] } }],
+        responses: { "200": { description: "file" } },
+      },
+    },
+    "/workspaces/{slug}/deletion-manifest": {
+      parameters: [pathParam("slug")],
+      get: { summary: "What a workspace deletion would remove (owner)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/inbound-address": {
+      parameters: [pathParam("slug")],
+      get: { summary: "The workspace's capture-by-email address", responses: { "200": { description: "ok" } } },
+      post: { summary: "Provision the capture-by-email address (admin+)", responses: { "201": { description: "created" } } },
+    },
   },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
 } as const;
 
 function pathParam(name: string) {
