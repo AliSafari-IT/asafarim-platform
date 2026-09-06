@@ -1134,3 +1134,66 @@ model Forecast {
   @@index([workspaceId, scope, createdAt])
   @@map("forecast")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M12 — security, privacy, admin & reliability
+// ─────────────────────────────────────────────────────────────────────────
+
+enum DsrKind {
+  export
+  delete
+}
+
+enum DsrState {
+  requested
+  processing
+  completed
+  failed
+}
+
+/// A data-subject request (GDPR). `export` produces a manifest + bundle;
+/// `delete` runs the verified-deletion job and records what was removed.
+model DataSubjectRequest {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  /// opaque platform user id the request concerns
+  subjectUserId  String
+  requestedBy    String
+  kind           DsrKind
+  state          DsrState @default(requested)
+  /// manifest of what was found / removed
+  manifest       Json     @default("{}")
+  verification   Json     @default("{}")
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([workspaceId, state])
+  @@map("data_subject_request")
+}
+
+/// Time-boxed elevated access for support / incident response. Every use is
+/// audited; the grant self-expires.
+model BreakGlassGrant {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  grantedTo    String   // platform user id of the operator
+  reason       String
+  ticketRef    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([workspaceId, expiresAt])
+  @@map("break_glass_grant")
+}
+
+/// Sliding-window rate-limit counters (privileged ops + write bursts).
+model RateCounter {
+  id        String   @id @default(cuid())
+  bucketKey String   @unique
+  count     Int      @default(0)
+  windowEnd DateTime
+
+  @@index([windowEnd])
+  @@map("rate_counter")
+}

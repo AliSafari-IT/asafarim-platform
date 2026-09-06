@@ -621,6 +621,55 @@ export const openapiDocument = {
         responses: { "201": { description: "ok" } },
       },
     },
+
+    "/workspaces/{slug}/admin/audit": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Search the workspace audit log (admin+)",
+        parameters: [
+          { name: "name", in: "query", schema: { type: "string" } },
+          { name: "actorId", in: "query", schema: { type: "string" } },
+          { name: "since", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "until", in: "query", schema: { type: "string", format: "date-time" } },
+          { $ref: "#/components/parameters/cursor" },
+        ],
+        responses: { "200": { description: "ok" }, "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/admin/audit/export": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Export audit results as CSV (admin+)", responses: { "200": { description: "text/csv" } } },
+    },
+    "/workspaces/{slug}/admin/members/{id}/revoke": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Revoke a member: archive membership + revoke their API tokens (admin+)", responses: { "200": { description: "ok" }, "403": errorRef() } },
+    },
+    "/workspaces/{slug}/admin/break-glass": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Active break-glass grants (admin+)", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Grant time-boxed elevated access for support/incident response (owner)",
+        requestBody: jsonBody({ type: "object", required: ["grantedTo", "reason"], properties: { grantedTo: { type: "string" }, reason: { type: "string" }, ticketRef: { type: "string" }, minutes: { type: "integer" } } }),
+        responses: { "201": { description: "granted" }, "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/admin/break-glass/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      delete: { summary: "Revoke a break-glass grant early (owner)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/privacy/dsr": {
+      parameters: [pathParam("slug")],
+      get: { summary: "List data-subject requests (owner)", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Create a data-subject request (export | delete) for an opaque platform user id (owner)",
+        requestBody: jsonBody({ type: "object", required: ["subjectUserId", "kind"], properties: { subjectUserId: { type: "string" }, kind: { type: "string", enum: ["export", "delete"] } } }),
+        responses: { "201": { description: "created" }, "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/privacy/dsr/{id}/process": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Run the DSR — export builds a bundle, delete runs verified deletion (owner)", responses: { "200": { description: "ok" } } },
+    },
   },
   // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer
   // token) and POST /api/integrations/github (per-repo HMAC). See
