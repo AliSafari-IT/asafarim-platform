@@ -16,6 +16,7 @@ import {
 } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
 import "./tasks-ai.css";
+import { ServiceWorker } from "../components/pwa/ServiceWorker";
 
 const appUrl = process.env.NEXT_PUBLIC_TASKSAI_URL ?? "https://tasks-ai.asafarim.com";
 const appName = "TasksAI";
@@ -64,6 +65,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <ThemeScript defaultTheme="light" />
       </head>
       <body className="antialiased">
+        <a href="#ta-main" className="ta-skip">Skip to main content</a>
+        <ServiceWorker />
         <ThemeProvider defaultTheme="light">
           <AppShell
             product="TasksAI"
@@ -105,7 +108,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               </span>
             }
           >
-            {children}
+            <div id="ta-main" tabIndex={-1}>
+              {children}
+            </div>
           </AppShell>
         </ThemeProvider>
       </body>

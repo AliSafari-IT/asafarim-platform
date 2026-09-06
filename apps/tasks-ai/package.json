@@ -27,6 +27,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
     "@asafarim/auth": "workspace:*",
+    "@asafarim/shared-i18n": "workspace:*",
     "@asafarim/storage": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
