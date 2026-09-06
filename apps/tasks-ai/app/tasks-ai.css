@@ -223,3 +223,39 @@
 [data-app="tasks-ai"] .ta-table .ta-badge[data-h="at_risk"] { background:#b3261e22; color:#b3261e; }
 [data-app="tasks-ai"] .ta-table .ta-badge[data-h="watch"] { background:#8a6d0022; color:#8a6d00; }
 [data-app="tasks-ai"] .ta-table .ta-badge[data-h="on_track"] { background:#1f6feb18; color:#1f6feb; }
+
+/* ── M11 accessibility & PWA ────────────────────────────────────────── */
+[data-app="tasks-ai"] .ta-skip {
+  position:absolute; left:.5rem; top:-3rem; z-index:200;
+  background:var(--color-surface,#fff); color:inherit; border:1px solid #1f6feb;
+  border-radius:6px; padding:.5rem .9rem; transition:top .15s ease;
+}
+[data-app="tasks-ai"] .ta-skip:focus { top:.5rem; }
+[data-app="tasks-ai"] #ta-main:focus { outline:none; }
+
+/* Visible focus for keyboard users everywhere. */
+[data-app="tasks-ai"] :focus-visible {
+  outline:2px solid #1f6feb; outline-offset:2px; border-radius:3px;
+}
+
+[data-app="tasks-ai"] .ta-offline {
+  position:fixed; left:0; right:0; bottom:0; z-index:150;
+  background:#8a6d00; color:#fff; text-align:center; padding:.5rem 1rem; font-size:.9rem;
+}
+
+/* Respect reduced-motion: no transitions/animations, and the command
+   palette / drawer appear without slide. */
+@media (prefers-reduced-motion: reduce) {
+  [data-app="tasks-ai"] *,
+  [data-app="tasks-ai"] *::before,
+  [data-app="tasks-ai"] *::after {
+    animation-duration:0.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.001ms !important;
+    scroll-behavior:auto !important;
+  }
+}
+
+/* 200% zoom / small viewports: the workspace grid already collapses at
+   820px; ensure the diff + board never force horizontal page scroll. */
+[data-app="tasks-ai"] .ta-diff, [data-app="tasks-ai"] .ta-board { max-width:100%; overflow-x:auto; }

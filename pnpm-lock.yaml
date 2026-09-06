@@ -537,6 +537,9 @@ importers:
       '@asafarim/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@asafarim/shared-i18n':
+        specifier: workspace:*
+        version: link:../../packages/shared-i18n
       '@asafarim/storage':
         specifier: workspace:*
         version: link:../../packages/storage
