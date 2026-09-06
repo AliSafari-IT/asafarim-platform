@@ -111,6 +111,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <div id="ta-main" tabIndex={-1}>
               {children}
             </div>
+            {children}
           </AppShell>
         </ThemeProvider>
       </body>
