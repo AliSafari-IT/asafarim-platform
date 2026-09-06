@@ -71,9 +71,9 @@ export const projects: ShowcaseProject[] = [
     slug: "task-management",
     title: "Task Management",
     summary:
-      "A planned AI-native work operating system that turns scattered intent into explainable, outcome-linked execution.",
+      "An AI-native work operating system that turns scattered intent into explainable, outcome-linked execution. In a closed design-partner beta.",
     tags: ["Next.js", "TypeScript", "AI"],
-    status: "planned",
+    status: "beta",
     glyph: "TM",
     index: "01",
     stack: [
