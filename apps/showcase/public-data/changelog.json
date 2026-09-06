@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "date": "2026-09-06",
+    "title": "Tasksai: M01 platform foundation — app scaffold, dedicated DB, worker, CI",
+    "sha": "9073f63",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9073f63"
+  }
+]
