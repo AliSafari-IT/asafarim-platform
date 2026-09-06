@@ -33,7 +33,7 @@ echo "[deploy $(date -Is)] Validating required environment variables..."
 # page that resolves a guest identity, as a 500. It shipped absent and that is
 # how tlai.asafarim.com/t/<publicId> served errors while the container looked
 # perfectly healthy. Better to refuse the deploy than to serve 500s.
-REQUIRED_VARS=(POSTGRES_PASSWORD TESTORA_DB_PASSWORD APPBUILDER_DB_PASSWORD TIMELINEAI_GUEST_IP_HASH_KEY)
+REQUIRED_VARS=(POSTGRES_PASSWORD TESTORA_DB_PASSWORD APPBUILDER_DB_PASSWORD TASKSAI_DB_PASSWORD TIMELINEAI_GUEST_IP_HASH_KEY)
 MISSING_VARS=()
 for var in "${REQUIRED_VARS[@]}"; do
   # Matches KEY=value with a non-empty value; tolerates quoted values.
@@ -61,7 +61,7 @@ export DOCKER_BUILDKIT=1
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-asafarim-com}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 
-BUILD_SERVICES=(platform-migrate web hub showcase admin vionto vionto-worker edumatch testora-migrate testora-seed testora appbuilder-migrate appbuilder-worker appbuilder timelineai labs jobmatch-migrate jobmatch)
+BUILD_SERVICES=(platform-migrate web hub showcase admin vionto vionto-worker edumatch testora-migrate testora-seed testora appbuilder-migrate appbuilder-worker appbuilder timelineai labs jobmatch-migrate jobmatch tasksai-migrate tasksai-worker tasksai)
 
 # Building ${#BUILD_SERVICES[@]} images sequentially is the single biggest
 # disk consumer in this script (each build leaves layers + build cache

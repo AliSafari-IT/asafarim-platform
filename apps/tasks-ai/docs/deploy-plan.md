@@ -53,3 +53,40 @@ schema-vs-migrations drift check.
 Prod Caddy block activation, prod DNS, first real deploy, monitoring
 dashboards. Tracked for the M12 hardening milestone and the first staging
 cut.
+
+---
+
+## Wired into production (follow-up, issue #226)
+
+TasksAI is now part of the Docker Compose + Caddy prod stack:
+
+- **`infra/caddy/Caddyfile`** — `tasks-ai.asafarim.com { reverse_proxy tasksai:3000 }`.
+- **`docker-compose.prod.yml`** — `tasksai-postgres` (loopback `127.0.0.1:5438`, volume `tasksai_postgres_data`), one-shot `tasksai-migrate` (`target: migrator`), `tasksai-worker` (`target: worker`), `tasksai` (`target: runner`, port 3000). `NEXT_PUBLIC_TASKSAI_URL` added to the shared `&public-build-args`. `tasksai` added to Caddy's `depends_on`.
+- **`infra/scripts/vps-deploy.sh`** — `tasksai-migrate tasksai-worker tasksai` appended to `BUILD_SERVICES`; `TASKSAI_DB_PASSWORD` added to `REQUIRED_VARS`. Migrations run automatically via `depends_on: service_completed_successfully` during `up -d`.
+
+### Required in `.env.production` (add + re-encrypt `.env.production.age`)
+
+| Var | Notes |
+|---|---|
+| `TASKSAI_DB_PASSWORD` | Postgres password for the dedicated `tasksai` DB. **Validated as required by the deploy script.** |
+| `TASKSAI_DB_PASSWORD_URL` | URL-encoded form of the above (used in the connection string). |
+| `NEXT_PUBLIC_TASKSAI_URL` | `https://tasks-ai.asafarim.com` (build arg + runtime). |
+| `AUTH_SECRET` | already present (shared). |
+
+Optional (features degrade gracefully without them): `ANTHROPIC_API_KEY`,
+`OPENAI_API_KEY` (AI providers — default is the fixture), `STRIPE_SECRET_KEY`
+/ `STRIPE_WEBHOOK_SECRET` (billing — closed by the licence gate anyway),
+`TASKSAI_INBOUND_WEBHOOK_SECRET` (email capture route — 404s without it).
+
+### DNS
+
+Add an `A`/`AAAA` record for `tasks-ai.asafarim.com` → the VPS
+(`82.25.116.73`) before the first deploy that includes these services;
+Caddy will provision the TLS cert on first request.
+
+### First-cut smoke
+
+After deploy: `GET https://tasks-ai.asafarim.com/api/health` → `200` with
+`{ "service": "tasks-ai", "checks": { "process": true, "database": true } }`;
+SSO round trip from Hub; worker logs show `worker.ready` + periodic
+`worker.health`.
