@@ -31,6 +31,10 @@ const MAX_ATTEMPTS = 3;
 export async function runAiJob(ctx: RequestContext, input: unknown) {
   const { kind, input: rawInput, projectId } = runJobSchema.parse(input);
   await assertCanRunAiJob(ctx);
+  // Billing gates — no-op until the commercial license is signed (M14).
+  const { assertFeature, assertAllowance, recordUsage } = await import("../billing/service");
+  await assertFeature(ctx, "ai");
+  await assertAllowance(ctx, "ai_proposals");
   const settings = await getAiSettings(ctx);
 
   const { text: redactedInput, counts: redactionCounts } = redact(rawInput);
@@ -158,6 +162,7 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
     degraded,
   }, ctx.correlationId);
 
+  await recordUsage(ctx, "ai_proposals");
   return { job: publicJob(updatedJob), proposal, degraded, groundedRatio: guard.groundedRatio };
 }
 

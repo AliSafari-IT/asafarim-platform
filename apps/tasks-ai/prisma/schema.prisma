@@ -1267,3 +1267,95 @@ model FeedbackItem {
   @@index([workspaceId, respondBy])
   @@map("feedback_item")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M14 — billing, packaging & public launch
+// ─────────────────────────────────────────────────────────────────────────
+
+enum PlanTier {
+  free
+  pro
+  business
+  enterprise
+}
+
+enum SubStatus {
+  trialing
+  active
+  past_due
+  grace
+  canceled
+}
+
+model Subscription {
+  workspaceId       String    @id
+  tier              PlanTier  @default(free)
+  status            SubStatus @default(active)
+  seats             Int       @default(3)
+  /// Stripe ids (test mode) — null on the free plan.
+  stripeCustomerId  String?
+  stripeSubId       String?
+  trialEndsAt       DateTime?
+  currentPeriodEnd  DateTime?
+  graceEndsAt       DateTime?
+  canceledAt        DateTime?
+  updatedAt         DateTime  @updatedAt
+
+  @@map("subscription")
+}
+
+/// A metered allowance window (AI proposals, automation runs). Reset each
+/// billing period; overage is blocked, not silently charged.
+model UsageMeter {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  meter        String   // "ai_proposals" | "automation_runs"
+  periodStart  DateTime
+  periodEnd    DateTime
+  used         Int      @default(0)
+  included     Int
+  /// paid top-up units added on top of `included`
+  topUp        Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([workspaceId, meter, periodStart])
+  @@index([workspaceId, meter])
+  @@map("usage_meter")
+}
+
+model Invoice {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  stripeInvoiceId  String?  @unique
+  amountCents      Int
+  currency         String   @default("eur")
+  status           String   // "draft" | "open" | "paid" | "void" | "uncollectible"
+  periodStart      DateTime
+  periodEnd        DateTime
+  hostedUrl        String?
+  createdAt        DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("invoice")
+}
+
+/// Idempotency for Stripe webhook events.
+model BillingEvent {
+  id          String   @id
+  type        String
+  workspaceId String?
+  processedAt DateTime @default(now())
+
+  @@map("billing_event")
+}
+
+model Referral {
+  id          String   @id @default(cuid())
+  workspaceId String
+  code        String   @unique
+  redeemedBy  String?  // workspace id that signed up with this code
+  redeemedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@map("referral")
+}

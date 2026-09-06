@@ -722,6 +722,38 @@ export const openapiDocument = {
         responses: { "200": { description: "ok" }, "403": errorRef() },
       },
     },
+
+    "/workspaces/{slug}/billing": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Current subscription (tier, status, seats)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/billing/usage": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Usage transparency — meters, remaining, overage flag, the visible cost driver, estimated monthly bill",
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/billing/checkout": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Start a Stripe checkout (owner). Refused by the license gate until billing is open; returns a stub session without a Stripe key.",
+        requestBody: jsonBody({ type: "object", required: ["tier", "seats"], properties: { tier: { type: "string", enum: ["pro", "business"] }, seats: { type: "integer" } } }),
+        responses: { "201": { description: "checkout session" }, "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/billing/cancel": {
+      parameters: [pathParam("slug")],
+      post: { summary: "Cancel the subscription — enters a grace window to period end (owner)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/billing/invoices": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Invoice history (owner)", responses: { "200": { description: "ok" } } },
+    },
+  },
+  // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer),
+  // POST /api/integrations/github (per-repo HMAC), POST /api/billing/stripe
+  // (Stripe webhook, 404 until billing is open). See docs/billing-launch.md.
   },
   // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer
   // token) and POST /api/integrations/github (per-repo HMAC). See
