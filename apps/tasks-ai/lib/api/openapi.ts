@@ -508,7 +508,86 @@ export const openapiDocument = {
       parameters: [pathParam("slug")],
       get: { summary: "Feedback-derived signal quality summary by type + rule version (admin+)", responses: { "200": { description: "ok" }, "403": errorRef() } },
     },
+
+    "/workspaces/{slug}/automations/rules": {
+      parameters: [pathParam("slug")],
+      get: { summary: "List automation rules", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Create an automation rule (draft; admin+)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name", "trigger", "actions"],
+          properties: {
+            name: { type: "string" },
+            trigger: { type: "object" },
+            conditions: { type: "array" },
+            actions: { type: "array" },
+            maxRunsPerHour: { type: "integer" },
+          },
+        }),
+        responses: { "201": { description: "created" }, "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/automations/rules/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      patch: { summary: "Activate / pause a rule", responses: { "200": { description: "ok" } } },
+      delete: { summary: "Return a rule to draft", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/automations/rules/{id}/dry-run": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Predict what a rule would do for a sample event — executes nothing", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/automations/rules/{id}/runs": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      get: { summary: "Rule execution log (per-action outcomes, retries, skips)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/webhooks": {
+      parameters: [pathParam("slug")],
+      get: { summary: "List webhook endpoints", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Register an https webhook endpoint (returns the signing secret once; admin+)",
+        requestBody: jsonBody({ type: "object", required: ["url", "events"], properties: { url: { type: "string" }, events: { type: "array", items: { type: "string" } } } }),
+        responses: { "201": { description: "created" } },
+      },
+    },
+    "/workspaces/{slug}/webhooks/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      delete: { summary: "Delete a webhook endpoint", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/webhooks/{id}/rotate": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Rotate the endpoint signing secret", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/api-tokens": {
+      parameters: [pathParam("slug")],
+      get: { summary: "List scoped API tokens (hashes only)", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Mint a scoped API token — plaintext returned exactly once (admin+)",
+        requestBody: jsonBody({ type: "object", required: ["name", "scopes"], properties: { name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, expiresInDays: { type: "integer" } } }),
+        responses: { "201": { description: "created" } },
+      },
+    },
+    "/workspaces/{slug}/api-tokens/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      delete: { summary: "Revoke a token — access stops immediately", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/api-tokens/{id}/rotate": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Rotate a token (revokes the old, mints a linked new one)", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/integrations/github": {
+      parameters: [pathParam("slug")],
+      get: { summary: "List connected GitHub repos", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Connect a GitHub repo (owner/repo + webhook secret + target project; admin+)",
+        requestBody: jsonBody({ type: "object", required: ["repo", "secret", "projectId"], properties: { repo: { type: "string" }, secret: { type: "string" }, projectId: { type: "string" } } }),
+        responses: { "201": { description: "created" } },
+      },
+    },
   },
+  // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer
+  // token) and POST /api/integrations/github (per-repo HMAC). See
+  // docs/portability.md and docs/automations.md.
   // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
   // bearer-token auth, no session) and is documented in docs/portability.md.
 } as const;

@@ -72,9 +72,34 @@ async function handle(type: string, payload: Record<string, unknown>): Promise<v
       logger.info({ notificationId: id, kind: payload.kind }, "notification.dispatch");
       return;
     }
-    case "activity.fanout":
+    case "activity.fanout": {
+      // M09: drive the automation rules engine off domain events. Loop and
+      // fan-out guards live in runRulesForEvent (causation depth + per-rule
+      // hourly cap).
+      const db = getTasksAiDb();
+      const name = String(payload.name ?? "");
+      const targetType = String(payload.targetType ?? "");
+      const targetId = String(payload.targetId ?? "");
+      if (targetType !== "task" || !targetId) return;
+      const task = await db.task.findUnique({ where: { id: targetId } });
+      if (!task) return;
+      const { runRulesForEvent } = await import("../lib/automations/service");
+      await runRulesForEvent(db, {
+        name,
+        workspaceId: task.workspaceId,
+        data: {
+          id: task.id,
+          title: task.title,
+          statusId: task.statusId,
+          assigneeId: task.assigneeId,
+          projectId: task.projectId,
+          completed: Boolean(task.completedAt),
+        },
+      });
+      return;
+    }
     case "search.index":
-      // Acknowledged; real work in M05 (search) and M08 (activity rollups).
+      // Acknowledged; the search indexer proper lands with real search infra.
       return;
     default:
       logger.warn({ type }, "outbox.unknown_type");

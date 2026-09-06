@@ -18,9 +18,10 @@ export const proxy = createAuthProxy({
     "/api/health",
     "/api/auth",
     "/api/v1/openapi.json",
-    // Machine endpoint: authenticates its own bearer token, carries no
-    // session, 404s when its secret is unset (see the route).
+    // Machine endpoints: authenticate their own token/HMAC, carry no
+    // session (see each route).
     "/api/inbound/email",
+    "/api/integrations/github",
   ],
   signInUrl: `${hubUrl}/sign-in`,
 });

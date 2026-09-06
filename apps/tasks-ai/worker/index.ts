@@ -53,7 +53,7 @@ const heartbeat = setInterval(() => {
     .catch((err) => logger.error({ err: String(err) }, "worker.heartbeat_enqueue_failed"));
 }, HEARTBEAT_MS);
 
-// Outbox drainer: notification dispatch, fan-out acks (docs/adr/0005).
+// Outbox drainer: notification dispatch, automation fan-out (docs/adr/0005).
 const OUTBOX_MS = 2000;
 const outboxTimer = setInterval(() => {
   drainOutboxOnce()
@@ -63,10 +63,22 @@ const outboxTimer = setInterval(() => {
     .catch((err) => logger.error({ err: String(err) }, "outbox.drain_failed"));
 }, OUTBOX_MS);
 
+// Webhook delivery (M09): signed POSTs with exponential backoff + dead-letter.
+const WEBHOOK_MS = 3000;
+const webhookTimer = setInterval(() => {
+  import("../lib/webhooks/service")
+    .then(({ drainWebhooksOnce }) => import("../lib/db/client").then(({ getTasksAiDb }) => drainWebhooksOnce(getTasksAiDb())))
+    .then((r) => {
+      if (r.delivered || r.dead) logger.info(r, "webhooks.drained");
+    })
+    .catch((err) => logger.error({ err: String(err) }, "webhooks.drain_failed"));
+}, WEBHOOK_MS);
+
 async function shutdown(signal: string) {
   logger.info({ signal }, "worker.shutdown");
   clearInterval(heartbeat);
   clearInterval(outboxTimer);
+  clearInterval(webhookTimer);
   await worker.close();
   await maintenanceQueue.close();
   await connection.quit();
