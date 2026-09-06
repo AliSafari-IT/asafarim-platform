@@ -15,6 +15,7 @@ export default defineConfig({
     // dev database must never be a test target (see the AppBuilder incident
     // recorded across the platform).
     include: ["lib/**/*.test.ts", "app/**/*.test.ts", "worker/**/*.test.ts", "evals/**/*.test.ts"],
+    include: ["lib/**/*.test.ts", "app/**/*.test.ts", "worker/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
     environment: "node",
   },
