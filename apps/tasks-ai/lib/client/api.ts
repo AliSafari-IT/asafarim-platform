@@ -72,7 +72,105 @@ export const api = {
     call<Task>(`/workspaces/${slug}/tasks/${id}/complete`, { method: "POST" }),
   deleteTask: (slug: string, id: string, version: number) =>
     call<Task>(`/workspaces/${slug}/tasks/${id}`, { method: "DELETE", version }),
+
+  // --- AI copilot (M06/M07) ---
+  aiSettings: (slug: string) => call<AiSettings>(`/workspaces/${slug}/ai/settings`),
+  aiUsage: (slug: string) => call<AiUsage>(`/workspaces/${slug}/ai/usage`),
+  runAiJob: (slug: string, body: { kind: string; input: string; projectId?: string }) =>
+    call<{ job: AiJob; proposal: ProposalRow; degraded?: boolean }>(
+      `/workspaces/${slug}/ai/jobs`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  getProposal: (slug: string, id: string) =>
+    call<ProposalRow>(`/workspaces/${slug}/ai/proposals/${id}`),
+  applyProposal: (
+    slug: string,
+    id: string,
+    body: { projectId: string; accept?: number[]; editedOperations?: unknown[] },
+    confirmHigh = false,
+  ) =>
+    call<ProposalRow>(
+      `/workspaces/${slug}/ai/proposals/${id}/apply${confirmHigh ? "?confirm=high" : ""}`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  rejectProposal: (slug: string, id: string, reason?: string) =>
+    call<{ rejected: true }>(`/workspaces/${slug}/ai/proposals/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+  undoProposal: (slug: string, id: string) =>
+    call<{ undone: true }>(`/workspaces/${slug}/ai/proposals/${id}/undo`, { method: "POST" }),
+  proposalFeedback: (slug: string, id: string, body: Record<string, unknown>) =>
+    call<unknown>(`/workspaces/${slug}/ai/proposals/${id}/feedback`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  aiMetrics: (slug: string) => call<AiMetrics>(`/workspaces/${slug}/ai/metrics`),
 };
+
+export interface AiSettings {
+  enabled: boolean;
+  monthlyBudgetUsd: number | null;
+  maxBlastRadius: number;
+  provider: string;
+  model: string;
+}
+export interface AiUsage {
+  monthUsd: number;
+  monthJobs: number;
+  budgetUsd: number | null;
+  jobQuota: number | null;
+  enabled: boolean;
+}
+export interface AiJob {
+  id: string;
+  kind: string;
+  state: string;
+  provider: string;
+  model: string;
+  costUsd: number | null;
+}
+export interface ProposalRow {
+  id: string;
+  kind: string;
+  state: string;
+  summary: string | null;
+  operations: AiOperation[];
+}
+export type AiOperation =
+  | {
+      op: "create_task";
+      ref: string;
+      fields: { title: string; description?: string; estimate?: number; parentRef?: string };
+      confidence: number;
+      citations: { span: [number, number] | null; assumption: boolean; quote?: string }[];
+    }
+  | {
+      op: "update_task";
+      taskId: string;
+      fields: { title?: string; description?: string; estimate?: number };
+      confidence: number;
+      citations: { span: [number, number] | null; assumption: boolean }[];
+    }
+  | {
+      op: "link_tasks";
+      fromRef: string;
+      toRef: string;
+      kind: "blocks" | "relates" | "duplicates";
+      confidence: number;
+      citations: { span: [number, number] | null; assumption: boolean }[];
+    };
+export interface AiMetrics {
+  windowDays: number;
+  proposalsGenerated: number;
+  proposalsApplied: number;
+  acceptanceRate: number | null;
+  avgEditDistance: number | null;
+  avgTimeSavedMin: number | null;
+  avgTrust: number | null;
+  costUsd: number;
+  correctionReasons: string[];
+}
 
 export interface Workspace {
   id: string;

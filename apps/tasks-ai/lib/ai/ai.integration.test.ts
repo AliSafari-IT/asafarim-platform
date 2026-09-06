@@ -113,6 +113,29 @@ describe.skipIf(!hasTestDatabase())("AI boundary (integration, fixture provider)
     expect(p?.state).toBe("undone");
   });
 
+  it("feedback + metrics: recording feedback feeds the copilot KPI aggregate", async () => {
+    const { runAiJob } = await import("./job");
+    const { applyProposal } = await import("./proposals");
+    const { recordProposalFeedback, copilotMetrics } = await import("./feedback");
+    const { createProject } = await import("../services/projects");
+    const a = await ws("aifb");
+    const proj = await createProject(a.ctx, { name: "P", key: "FBK" });
+    const { proposal } = await runAiJob(a.ctx, {
+      kind: "extract_plan",
+      input: "one\ntwo\nthree",
+      projectId: proj.id,
+    });
+    await applyProposal(a.ctx, proposal.id, { projectId: proj.id });
+    await recordProposalFeedback(a.ctx, proposal.id, { outcome: "accepted", trust: 5, timeSavedMin: 12 });
+
+    const m = await copilotMetrics(a.ctx);
+    expect(m.proposalsGenerated).toBe(1);
+    expect(m.proposalsApplied).toBe(1);
+    expect(m.acceptanceRate).toBe(1);
+    expect(m.avgTrust).toBe(5);
+    expect(m.avgTimeSavedMin).toBe(12);
+  });
+
   it("prompt injection input still yields only allowlisted ops and an audit record", async () => {
     const { runAiJob } = await import("./job");
     const a = await ws("aiinject");

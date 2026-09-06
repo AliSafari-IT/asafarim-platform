@@ -843,3 +843,29 @@ model Proposal {
   @@index([workspaceId, state])
   @@map("proposal")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M07 — AI copilot: proposal feedback + duplicate suggestions
+// ─────────────────────────────────────────────────────────────────────────
+
+model ProposalFeedback {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  proposalId   String
+  membershipId String
+  /// accepted | partially_accepted | rejected | regenerated
+  outcome      String
+  /// 0..1 normalized edit distance between generated and applied ops
+  editDistance Float?
+  /// user's estimate of minutes saved
+  timeSavedMin Int?
+  /// free-text reason when correcting/rejecting
+  correctionReason String?
+  /// 1..5 trust rating for this interaction
+  trust        Int?
+  createdAt    DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([proposalId])
+  @@map("proposal_feedback")
+}
