@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "date": "2026-09-06",
+    "title": "Tasksai: wire TasksAI into the production Compose + Caddy stack",
+    "sha": "5f5eb0b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5f5eb0b"
+  }
+]
