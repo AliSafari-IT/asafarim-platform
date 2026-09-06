@@ -590,6 +590,19 @@ export const openapiDocument = {
   // docs/portability.md and docs/automations.md.
   // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
   // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
 } as const;
 
 function pathParam(name: string) {
