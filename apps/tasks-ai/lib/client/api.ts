@@ -106,7 +106,77 @@ export const api = {
       body: JSON.stringify(body),
     }),
   aiMetrics: (slug: string) => call<AiMetrics>(`/workspaces/${slug}/ai/metrics`),
+
+  // --- collaboration (M04) ---
+  listComments: (slug: string, taskId: string) =>
+    call<Comment[]>(`/workspaces/${slug}/tasks/${taskId}/comments`),
+  addComment: (slug: string, taskId: string, body: string) =>
+    call<Comment>(`/workspaces/${slug}/tasks/${taskId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+  listNotifications: (slug: string, unreadOnly = false) =>
+    call<Notification[]>(`/workspaces/${slug}/notifications${unreadOnly ? "?unread=true" : ""}`),
+  markNotificationsRead: (slug: string, ids: string[]) =>
+    call<{ marked: number }>(`/workspaces/${slug}/notifications/read`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+
+  // --- workspace admin (M04/M12/M14) ---
+  listInvitations: (slug: string) => call<Invitation[]>(`/workspaces/${slug}/invitations`),
+  createInvitation: (slug: string, body: { email: string; role?: string }) =>
+    call<Invitation>(`/workspaces/${slug}/invitations`, { method: "POST", body: JSON.stringify(body) }),
+  revokeInvitation: (slug: string, id: string) =>
+    call<{ revoked: true }>(`/workspaces/${slug}/invitations/${id}`, { method: "DELETE" }),
+  updateAiSettings: (slug: string, body: Record<string, unknown>) =>
+    call<AiSettings>(`/workspaces/${slug}/ai/settings`, { method: "PATCH", body: JSON.stringify(body) }),
+  billingUsage: (slug: string) => call<BillingUsage>(`/workspaces/${slug}/billing/usage`),
 };
+
+export interface Comment {
+  id: string;
+  taskId: string;
+  authorId: string;
+  body: string;
+  mentions: string[];
+  editedAt: string | null;
+  createdAt: string;
+}
+export interface Notification {
+  id: string;
+  kind: string;
+  taskId: string | null;
+  actorId: string | null;
+  data: Record<string, unknown>;
+  readAt: string | null;
+  createdAt: string;
+}
+export interface Invitation {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt: string;
+  createdAt: string;
+}
+export interface BillingUsage {
+  tier: string;
+  status: string;
+  billingOpen: boolean;
+  estimatedMonthlyCents: number | null;
+  meters: {
+    meter: string;
+    used: number;
+    included: number;
+    topUp: number;
+    limit: number;
+    remaining: number;
+    overage: boolean;
+    pressure: number;
+  }[];
+  costDriver: string;
+  note: string;
+}
 
 export interface AiSettings {
   enabled: boolean;

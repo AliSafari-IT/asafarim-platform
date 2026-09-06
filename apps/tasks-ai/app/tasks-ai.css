@@ -266,3 +266,23 @@
 [data-app="tasks-ai"] .ta-list__row:hover { background:var(--color-surface-2,#8881); }
 [data-app="tasks-ai"] .ta-list__row[data-done="true"] .ta-list__title { text-decoration:line-through; opacity:.6; }
 [data-app="tasks-ai"] .ta-vlist [role="listitem"] { border-bottom:1px solid #8882; }
+/* ── follow-up: comments, notifications, settings ───────────────────── */
+[data-app="tasks-ai"] .ta-comments { margin-top:1rem; border-top:1px solid #8883; padding-top:.75rem; }
+[data-app="tasks-ai"] .ta-comments h4 { margin:0 0 .5rem; font-size:.9rem; }
+[data-app="tasks-ai"] .ta-comments ul { list-style:none; padding:0; margin:0 0 .75rem; display:grid; gap:.6rem; }
+[data-app="tasks-ai"] .ta-comments__meta { margin:0; font-size:.72rem; opacity:.6; }
+[data-app="tasks-ai"] .ta-comments__body { margin:.1rem 0 0; white-space:pre-wrap; font-size:.9rem; }
+[data-app="tasks-ai"] .ta-comments__composer { display:grid; gap:.4rem; }
+
+[data-app="tasks-ai"] .ta-ws__name { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+[data-app="tasks-ai"] .ta-bell { position:relative; }
+[data-app="tasks-ai"] .ta-bell__btn { background:none; border:none; cursor:pointer; font-size:1rem; position:relative; padding:.15rem; line-height:1; }
+[data-app="tasks-ai"] .ta-bell__count { position:absolute; top:-.3rem; right:-.4rem; background:#b3261e; color:#fff; font-size:.6rem; border-radius:999px; padding:0 .3rem; }
+[data-app="tasks-ai"] .ta-bell__menu { position:absolute; right:0; top:100%; margin-top:.35rem; width:16rem; background:var(--color-surface,#fff); border:1px solid #8884; border-radius:8px; box-shadow:0 10px 30px #0002; padding:.4rem; z-index:70; }
+[data-app="tasks-ai"] .ta-bell__menu ul { list-style:none; margin:0; padding:0; display:grid; gap:.1rem; max-height:22rem; overflow:auto; }
+[data-app="tasks-ai"] .ta-bell__menu li { padding:.4rem .5rem; border-radius:6px; font-size:.82rem; }
+[data-app="tasks-ai"] .ta-bell__menu li[data-unread="true"] { background:var(--color-surface-2,#1f6feb12); }
+[data-app="tasks-ai"] .ta-bell__menu time { display:block; font-size:.68rem; opacity:.55; }
+[data-app="tasks-ai"] .ta-bell__menu p { margin:0; }
+
+[data-app="tasks-ai"] .ta-toggle { display:flex; align-items:center; gap:.5rem; margin:.75rem 0; font-size:.9rem; }

@@ -67,6 +67,7 @@ services:
         NEXT_PUBLIC_DEVTOOLS_URL: ${NEXT_PUBLIC_DEVTOOLS_URL:-https://asafarim.be}
         NEXT_PUBLIC_LABS_URL: ${NEXT_PUBLIC_LABS_URL:-https://labs.asafarim.com}
         NEXT_PUBLIC_JOBMATCH_URL: ${NEXT_PUBLIC_JOBMATCH_URL:-https://jobmatch.asafarim.com}
+        NEXT_PUBLIC_TASKSAI_URL: ${NEXT_PUBLIC_TASKSAI_URL:-https://tasks-ai.asafarim.com}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
     env_file:
@@ -605,6 +606,102 @@ services:
     networks:
       - asafarim_net
 
+  # TasksAI keeps its OWN database, isolated from the shared Prisma
+  # Postgres and from every other app's — the tenant work graph needs its
+  # own migration cadence and backup/retention boundary
+  # (apps/tasks-ai/docs/adr/0001-dedicated-database.md).
+  tasksai-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tasksai
+      POSTGRES_PASSWORD: ${TASKSAI_DB_PASSWORD}
+      POSTGRES_DB: tasksai
+    ports:
+      # Loopback only: host-side scripts can reach it; the internet cannot.
+      - "127.0.0.1:5438:5432"
+    volumes:
+      - tasksai_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tasksai -d tasksai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - asafarim_net
+
+  # One-shot: applies TasksAI's Prisma migrations before the app starts, so
+  # a deploy can never ship a TasksAI whose tables were never created.
+  tasksai-migrate:
+    build:
+      context: .
+      dockerfile: apps/tasks-ai/Dockerfile
+      target: migrator
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      # TASKSAI_DB_PASSWORD_URL is the URL-encoded form of TASKSAI_DB_PASSWORD.
+      TASKSAI_DATABASE_URL: postgres://tasksai:${TASKSAI_DB_PASSWORD_URL}@tasksai-postgres:5432/tasksai
+    depends_on:
+      tasksai-postgres:
+        condition: service_healthy
+    networks:
+      - asafarim_net
+
+  # BullMQ background worker: outbox drainer (notifications, automation
+  # fan-out), webhook delivery, rate-counter prune. Same image as the
+  # runner, different entrypoint.
+  tasksai-worker:
+    build:
+      context: .
+      dockerfile: apps/tasks-ai/Dockerfile
+      target: worker
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      TASKSAI_ENVIRONMENT: production
+      TASKSAI_DATABASE_URL: postgres://tasksai:${TASKSAI_DB_PASSWORD_URL}@tasksai-postgres:5432/tasksai
+      TASKSAI_REDIS_URL: redis://redis:6379
+    depends_on:
+      tasksai-postgres:
+        condition: service_healthy
+      tasksai-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    networks:
+      - asafarim_net
+
+  tasksai:
+    build:
+      context: .
+      dockerfile: apps/tasks-ai/Dockerfile
+      args: *public-build-args
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      TASKSAI_ENVIRONMENT: production
+      TASKSAI_DATABASE_URL: postgres://tasksai:${TASKSAI_DB_PASSWORD_URL}@tasksai-postgres:5432/tasksai
+      TASKSAI_REDIS_URL: redis://redis:6379
+      NEXT_PUBLIC_APP_URL: https://tasks-ai.asafarim.com
+      # Also a build arg above (Next inlines it into the pages); repeated
+      # here so the value exists in the server's own environment too.
+      NEXT_PUBLIC_TASKSAI_URL: ${NEXT_PUBLIC_TASKSAI_URL:-https://tasks-ai.asafarim.com}
+      AUTH_URL: https://tasks-ai.asafarim.com
+    depends_on:
+      tasksai-postgres:
+        condition: service_healthy
+      tasksai-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    networks:
+      - asafarim_net
+
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -625,6 +722,7 @@ services:
       - testora
       - appbuilder
       - jobmatch
+      - tasksai
     networks:
       - asafarim_net
 
@@ -638,4 +736,5 @@ volumes:
   caddy_config:
   testora_postgres_data:
   appbuilder_postgres_data:
+  tasksai_postgres_data:
   jobmatch_postgres_data:

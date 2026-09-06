@@ -3,6 +3,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { CommandPalette } from "./CommandPalette";
+import { NotificationBell } from "./NotificationBell";
 
 interface WorkspaceCtx {
   slug: string;
@@ -26,6 +27,7 @@ const NAV = [
   { label: "Projects", href: (s: string) => `/w/${s}/projects` },
   { label: "Copilot", href: (s: string) => `/w/${s}/copilot` },
   { label: "Analytics", href: (s: string) => `/w/${s}/analytics` },
+  { label: "Settings", href: (s: string) => `/w/${s}/settings` },
 ];
 
 export function WorkspaceShell({
@@ -40,7 +42,10 @@ export function WorkspaceShell({
     <Ctx.Provider value={{ slug, workspaceName, role, membershipId }}>
       <div className="ta-ws" data-app="tasks-ai">
         <aside className="ta-ws__nav" aria-label="Workspace">
-          <p className="ta-ws__name">{workspaceName}</p>
+          <p className="ta-ws__name">
+            {workspaceName}
+            <NotificationBell slug={slug} />
+          </p>
           <nav>
             <ul>
               {NAV.map((n) => {
