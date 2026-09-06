@@ -67,6 +67,9 @@ async function shutdown(signal: string) {
   logger.info({ signal }, "worker.shutdown");
   clearInterval(heartbeat);
   clearInterval(outboxTimer);
+async function shutdown(signal: string) {
+  logger.info({ signal }, "worker.shutdown");
+  clearInterval(heartbeat);
   await worker.close();
   await maintenanceQueue.close();
   await connection.quit();

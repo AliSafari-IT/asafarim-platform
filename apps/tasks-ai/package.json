@@ -26,6 +26,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
+    "db:seed": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed.ts"
+  },
+  "dependencies": {
     "@asafarim/auth": "workspace:*",
     "@asafarim/storage": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
