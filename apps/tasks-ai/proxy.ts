@@ -22,6 +22,7 @@ export const proxy = createAuthProxy({
     // session (see each route).
     "/api/inbound/email",
     "/api/integrations/github",
+    "/api/billing/stripe",
   ],
   signInUrl: `${hubUrl}/sign-in`,
 });
