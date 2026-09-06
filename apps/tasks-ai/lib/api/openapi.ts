@@ -228,6 +228,88 @@ export const openapiDocument = {
         responses: { "201": { description: "created" }, "422": errorRef() },
       },
     },
+
+    "/workspaces/{slug}/invitations": {
+      parameters: [pathParam("slug")],
+      get: { summary: "List pending invitations (admin+)", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Invite a member by email (admin+)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["email"],
+          properties: {
+            email: { type: "string", format: "email" },
+            role: { type: "string", enum: ["admin", "member", "guest"] },
+          },
+        }),
+        responses: { "201": { description: "created" }, "403": errorRef(), "409": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/invitations/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      delete: { summary: "Revoke an invitation (admin+)", responses: { "200": { description: "ok" } } },
+    },
+    "/invitations/accept": {
+      post: {
+        summary: "Accept an invitation with its token (session required)",
+        requestBody: jsonBody({ type: "object", required: ["token"], properties: { token: { type: "string" } } }),
+        responses: { "200": { description: "ok" }, "404": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}/comments": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      get: { summary: "List comments on a task", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Add a comment (mentions via @[Name](membershipId))",
+        requestBody: jsonBody({ type: "object", required: ["body"], properties: { body: { type: "string" } } }),
+        responses: { "201": { description: "created" } },
+      },
+    },
+    "/workspaces/{slug}/comments/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      patch: { summary: "Edit own comment", responses: { "200": { description: "ok" }, "403": errorRef() } },
+      delete: {
+        summary: "Delete own comment (or any, as admin/owner)",
+        responses: { "200": { description: "ok" }, "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}/watch": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Watch a task", responses: { "200": { description: "ok" } } },
+      delete: { summary: "Unwatch a task", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/notifications": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "The caller's in-app notification inbox",
+        parameters: [
+          { $ref: "#/components/parameters/limit" },
+          { name: "unread", in: "query", schema: { type: "boolean" } },
+        ],
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/notifications/read": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Mark notifications read",
+        requestBody: jsonBody({ type: "object", properties: { ids: { type: "array", items: { type: "string" } } } }),
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/notification-preferences": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Get notification preferences", responses: { "200": { description: "ok" } } },
+      patch: { summary: "Update notification preferences", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/stream": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Server-Sent Events: activity changes for this workspace",
+        parameters: [{ name: "since", in: "query", schema: { type: "string", format: "date-time" } }],
+        responses: { "200": { description: "text/event-stream" } },
+      },
+    },
   },
 } as const;
 
