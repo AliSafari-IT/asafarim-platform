@@ -63,6 +63,15 @@ const outboxTimer = setInterval(() => {
     .catch((err) => logger.error({ err: String(err) }, "outbox.drain_failed"));
 }, OUTBOX_MS);
 
+// Housekeeping (M12): prune expired rate-limit counters hourly.
+const PRUNE_MS = 3_600_000;
+const pruneTimer = setInterval(() => {
+  import("../lib/db/client")
+    .then(({ getTasksAiDb }) => import("../lib/security/ratelimit").then(({ pruneRateCounters }) => pruneRateCounters(getTasksAiDb())))
+    .then((n) => n && logger.info({ pruned: n }, "ratecounters.pruned"))
+    .catch((err) => logger.error({ err: String(err) }, "ratecounters.prune_failed"));
+}, PRUNE_MS);
+
 // Webhook delivery (M09): signed POSTs with exponential backoff + dead-letter.
 const WEBHOOK_MS = 3000;
 const webhookTimer = setInterval(() => {
@@ -79,6 +88,7 @@ async function shutdown(signal: string) {
   clearInterval(heartbeat);
   clearInterval(outboxTimer);
   clearInterval(webhookTimer);
+  clearInterval(pruneTimer);
   await worker.close();
   await maintenanceQueue.close();
   await connection.quit();
