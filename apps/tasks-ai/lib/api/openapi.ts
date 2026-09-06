@@ -1,0 +1,287 @@
+/**
+ * OpenAPI 3.1 description of /api/v1. Hand-maintained in M02 alongside the
+ * routes; the served document and the checked-in docs/api/openapi.json are
+ * asserted equal in CI so a route change without a spec change fails.
+ */
+export const openapiDocument = {
+  openapi: "3.1.0",
+  info: {
+    title: "TasksAI API",
+    version: "1.0.0",
+    description:
+      "Versioned REST contract for TasksAI. Cursor pagination, stable error codes, " +
+      "optimistic concurrency via If-Match, and Idempotency-Key on POST.",
+  },
+  servers: [{ url: "/api/v1" }],
+  components: {
+    securitySchemes: {
+      session: { type: "apiKey", in: "cookie", name: "authjs.session-token" },
+    },
+    parameters: {
+      cursor: { name: "cursor", in: "query", schema: { type: "string" } },
+      limit: {
+        name: "limit",
+        in: "query",
+        schema: { type: "integer", minimum: 1, maximum: 100, default: 25 },
+      },
+      IfMatch: {
+        name: "If-Match",
+        in: "header",
+        schema: { type: "string" },
+        description: "Optimistic concurrency: the resource version last read.",
+      },
+      IdempotencyKey: {
+        name: "Idempotency-Key",
+        in: "header",
+        schema: { type: "string" },
+        description: "Dedupe token for safe POST retries.",
+      },
+    },
+    schemas: {
+      Error: {
+        type: "object",
+        required: ["error"],
+        properties: {
+          error: {
+            type: "object",
+            required: ["code", "message"],
+            properties: {
+              code: {
+                type: "string",
+                enum: [
+                  "validation_failed",
+                  "unauthenticated",
+                  "forbidden",
+                  "not_found",
+                  "conflict_version",
+                  "conflict_unique",
+                  "idempotency_mismatch",
+                  "rate_limited",
+                  "workspace_required",
+                  "internal",
+                ],
+              },
+              message: { type: "string" },
+              details: {},
+            },
+          },
+        },
+      },
+      Workspace: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          slug: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      Project: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          key: { type: "string" },
+          name: { type: "string" },
+          description: { type: ["string", "null"] },
+          visibility: { type: "string", enum: ["workspace", "private"] },
+          archivedAt: { type: ["string", "null"], format: "date-time" },
+          version: { type: "integer" },
+        },
+      },
+      Task: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          projectId: { type: "string" },
+          parentId: { type: ["string", "null"] },
+          title: { type: "string" },
+          description: { type: ["string", "null"] },
+          assigneeId: { type: ["string", "null"] },
+          statusId: { type: ["string", "null"] },
+          estimate: { type: ["number", "null"] },
+          startDate: { type: ["string", "null"], format: "date-time" },
+          dueDate: { type: ["string", "null"], format: "date-time" },
+          completedAt: { type: ["string", "null"], format: "date-time" },
+          source: { type: "string", enum: ["manual", "quick_capture", "import", "proposal"] },
+          version: { type: "integer" },
+        },
+      },
+    },
+  },
+  security: [{ session: [] }],
+  paths: {
+    "/workspaces": {
+      get: {
+        summary: "List workspaces the caller belongs to",
+        responses: { "200": jsonList("Workspace") },
+      },
+      post: {
+        summary: "Create a workspace (caller becomes owner)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name", "slug"],
+          properties: { name: { type: "string" }, slug: { type: "string" } },
+        }),
+        responses: { "201": jsonOne("Workspace"), "409": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/projects": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "List projects",
+        parameters: [{ $ref: "#/components/parameters/cursor" }, { $ref: "#/components/parameters/limit" }],
+        responses: { "200": jsonPage("Project") },
+      },
+      post: {
+        summary: "Create a project",
+        parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name", "key"],
+          properties: {
+            name: { type: "string" },
+            key: { type: "string" },
+            description: { type: "string" },
+            visibility: { type: "string", enum: ["workspace", "private"] },
+          },
+        }),
+        responses: { "201": jsonOne("Project"), "403": errorRef(), "409": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/projects/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      get: { summary: "Get a project", responses: { "200": jsonOne("Project"), "404": errorRef() } },
+      patch: {
+        summary: "Update a project",
+        parameters: [{ $ref: "#/components/parameters/IfMatch" }],
+        requestBody: jsonBody({ type: "object" }),
+        responses: { "200": jsonOne("Project"), "409": errorRef() },
+      },
+      delete: {
+        summary: "Archive a project (soft)",
+        parameters: [{ $ref: "#/components/parameters/IfMatch" }],
+        responses: { "200": jsonOne("Project"), "409": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/tasks": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "List tasks",
+        parameters: [
+          { $ref: "#/components/parameters/cursor" },
+          { $ref: "#/components/parameters/limit" },
+          { name: "projectId", in: "query", schema: { type: "string" } },
+          { name: "assigneeId", in: "query", schema: { type: "string" } },
+          { name: "statusId", in: "query", schema: { type: "string" } },
+        ],
+        responses: { "200": jsonPage("Task") },
+      },
+      post: {
+        summary: "Create a task",
+        parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["projectId", "title"],
+          properties: {
+            projectId: { type: "string" },
+            title: { type: "string" },
+            description: { type: "string" },
+            parentId: { type: "string" },
+            assigneeId: { type: "string" },
+            dueDate: { type: "string", format: "date-time" },
+          },
+        }),
+        responses: { "201": jsonOne("Task"), "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      get: { summary: "Get a task", responses: { "200": jsonOne("Task"), "404": errorRef() } },
+      patch: {
+        summary: "Update a task",
+        parameters: [{ $ref: "#/components/parameters/IfMatch" }],
+        requestBody: jsonBody({ type: "object" }),
+        responses: { "200": jsonOne("Task"), "409": errorRef() },
+      },
+      delete: {
+        summary: "Delete a task (soft archive)",
+        parameters: [{ $ref: "#/components/parameters/IfMatch" }],
+        responses: { "200": jsonOne("Task") },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}/complete": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: { summary: "Mark a task complete", responses: { "200": jsonOne("Task") } },
+    },
+    "/workspaces/{slug}/tasks/{id}/links": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: {
+        summary: "Link this task to another",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["toTaskId", "kind"],
+          properties: {
+            toTaskId: { type: "string" },
+            kind: { type: "string", enum: ["blocks", "relates", "duplicates"] },
+          },
+        }),
+        responses: { "201": { description: "created" }, "422": errorRef() },
+      },
+    },
+  },
+} as const;
+
+function pathParam(name: string) {
+  return { name, in: "path", required: true, schema: { type: "string" } };
+}
+function jsonBody(schema: unknown) {
+  return { required: true, content: { "application/json": { schema } } };
+}
+function jsonOne(ref: string) {
+  return {
+    description: "ok",
+    content: {
+      "application/json": {
+        schema: {
+          type: "object",
+          properties: { data: { $ref: `#/components/schemas/${ref}` } },
+        },
+      },
+    },
+  };
+}
+function jsonList(ref: string) {
+  return {
+    description: "ok",
+    content: {
+      "application/json": {
+        schema: {
+          type: "object",
+          properties: { data: { type: "array", items: { $ref: `#/components/schemas/${ref}` } } },
+        },
+      },
+    },
+  };
+}
+function jsonPage(ref: string) {
+  return {
+    description: "ok",
+    content: {
+      "application/json": {
+        schema: {
+          type: "object",
+          properties: {
+            data: { type: "array", items: { $ref: `#/components/schemas/${ref}` } },
+            page: { type: "object", properties: { nextCursor: { type: ["string", "null"] } } },
+          },
+        },
+      },
+    },
+  };
+}
+function errorRef() {
+  return {
+    description: "error",
+    content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+  };
+}
