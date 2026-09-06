@@ -22,6 +22,7 @@ export function useWorkspace(): WorkspaceCtx {
 const NAV = [
   { label: "Inbox", href: (s: string) => `/w/${s}/inbox` },
   { label: "My Work", href: (s: string) => `/w/${s}/my-work` },
+  { label: "Focus", href: (s: string) => `/w/${s}/focus` },
   { label: "Projects", href: (s: string) => `/w/${s}/projects` },
   { label: "Copilot", href: (s: string) => `/w/${s}/copilot` },
 ];

@@ -195,3 +195,19 @@
 [data-app="tasks-ai"] .ta-badge--ok { background:#1f6feb22; color:#1f6feb; }
 [data-app="tasks-ai"] .ta-badge--warn { background:#8a6d0022; color:#8a6d00; }
 [data-app="tasks-ai"] .ta-diff__actions { display:flex; gap:.5rem; margin-top:1rem; flex-wrap:wrap; }
+
+/* ── M08 focus & signals ────────────────────────────────────────────── */
+[data-app="tasks-ai"] .ta-focus { list-style:none; padding:0; display:grid; gap:.75rem; margin:1rem 0; }
+[data-app="tasks-ai"] .ta-focus li { border:1px solid #8883; border-radius:8px; padding:.6rem .75rem; }
+[data-app="tasks-ai"] .ta-focus__row { display:flex; gap:.6rem; align-items:baseline; }
+[data-app="tasks-ai"] .ta-focus__score { font-weight:700; font-variant-numeric:tabular-nums; background:#1f6feb18; color:#1f6feb; border-radius:6px; padding:.05rem .45rem; }
+[data-app="tasks-ai"] .ta-focus__title { font-weight:600; }
+[data-app="tasks-ai"] .ta-focus__factors { list-style:none; padding:0; margin:.4rem 0 0; display:flex; flex-wrap:wrap; gap:.3rem; font-size:.75rem; opacity:.85; }
+[data-app="tasks-ai"] .ta-focus__factors li { border:1px solid #8884; border-radius:999px; padding:.05rem .5rem; }
+[data-app="tasks-ai"] .ta-focus__limits { font-size:.78rem; }
+[data-app="tasks-ai"] .ta-signals { list-style:none; padding:0; display:grid; gap:.6rem; margin:1rem 0; }
+[data-app="tasks-ai"] .ta-signals li { border-left:3px solid #8886; padding:.4rem .75rem; }
+[data-app="tasks-ai"] .ta-signals li[data-sev="high"] { border-left-color:#b3261e; }
+[data-app="tasks-ai"] .ta-signals li[data-sev="watch"] { border-left-color:#8a6d00; }
+[data-app="tasks-ai"] .ta-signals__title { margin:0 0 .2rem; font-weight:600; }
+[data-app="tasks-ai"] .ta-signals__meta, [data-app="tasks-ai"] .ta-signals__lim, [data-app="tasks-ai"] .ta-signals__alt { margin:.1rem 0; font-size:.78rem; opacity:.8; }
