@@ -102,6 +102,13 @@ if (!redisUrl) {
   throw new Error("REDIS_URL is required to run the AppBuilder worker.");
 }
 const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
+// An unhandled ioredis 'error' event is re-thrown as an uncaught exception and
+// kills the worker with a silent `exit 1`. Under `pnpm dev` the event loop
+// stalls under load and the Redis socket times out; ioredis reconnects on its
+// own, so just log rather than letting the process die.
+redis.on("error", (err) => {
+  console.error(`[appbuilder-worker] redis connection error: ${err.message}`);
+});
 
 let isShuttingDown = false;
 let activeJobCount = 0;

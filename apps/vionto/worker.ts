@@ -47,6 +47,15 @@ function resolveFfprobeBin(): string {
 }
 const FFPROBE_BIN = resolveFfprobeBin();
 const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: null });
+// ioredis is an EventEmitter: an 'error' with no listener is re-thrown as an
+// uncaught exception and kills the process (silent `exit 1`). Under `pnpm dev`
+// the box runs ~12 Turbopack builds at once, the event loop stalls for
+// seconds, the Redis socket times out, and — without this handler — the whole
+// dev environment used to come down with it (turbo tears every app down when
+// vionto#dev exits non-zero). ioredis reconnects on its own; just log.
+redis.on("error", (err) => {
+  console.error(`[worker] redis connection error: ${err.message}`);
+});
 let isShuttingDown = false;
 
 /** Failure classification for telemetry and retry decisions. */

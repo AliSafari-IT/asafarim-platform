@@ -77,6 +77,12 @@ function getRedis(): Redis {
       );
     }
     _redis = new Redis(url, { maxRetriesPerRequest: null });
+    // An unhandled ioredis 'error' event is re-thrown as an uncaught
+    // exception. This connection is shared by the Next API routes and the
+    // worker; ioredis reconnects on its own, so just log.
+    _redis.on("error", (err) => {
+      console.error(`[appbuilder-queue] redis connection error: ${err.message}`);
+    });
   }
   return _redis;
 }
