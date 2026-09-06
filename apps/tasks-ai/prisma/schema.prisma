@@ -912,3 +912,153 @@ model SignalFeedback {
   @@index([workspaceId, signalType, createdAt])
   @@map("signal_feedback")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M09 — rules, automations & integration platform
+// ─────────────────────────────────────────────────────────────────────────
+
+enum RuleState {
+  draft
+  active
+  paused
+}
+
+enum RunState {
+  dry_run
+  succeeded
+  failed
+  skipped
+  dead
+}
+
+model AutomationRule {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  membershipId String
+  name         String
+  state        RuleState @default(draft)
+  /// { event: "task.status_changed", filters: [{field,op,value}] }
+  trigger      Json
+  /// [{field,op,value}] — ANDed
+  conditions   Json      @default("[]")
+  /// [{type: "set_status"|"assign"|"add_label"|"comment"|"webhook", params}]
+  actions      Json
+  /// per-rule cap to stop runaway executions in a window
+  maxRunsPerHour Int     @default(60)
+  lastRunAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  runs AutomationRun[]
+
+  @@index([workspaceId, state])
+  @@map("automation_rule")
+}
+
+model AutomationRun {
+  id          String   @id @default(cuid())
+  workspaceId String
+  ruleId      String
+  state       RunState
+  /// the triggering event envelope (redacted)
+  trigger     Json
+  /// per-action outcome log
+  log         Json     @default("[]")
+  error       String?
+  attempts    Int      @default(0)
+  /// correlation to prevent an action re-triggering its own rule (loop guard)
+  causationId String?
+  createdAt   DateTime @default(now())
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, ruleId, createdAt])
+  @@map("automation_run")
+}
+
+/// Scoped API token. Only the sha256 hash is stored; the plaintext is shown
+/// once at creation.
+model ApiToken {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  membershipId String
+  name         String
+  tokenHash    String    @unique
+  prefix       String    // first 8 chars, for display / lookup hint
+  /// ["tasks:read","tasks:write","projects:read", ...]
+  scopes       String[]
+  lastUsedAt   DateTime?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  rotatedFrom  String?
+
+  @@index([workspaceId])
+  @@map("api_token")
+}
+
+model WebhookEndpoint {
+  id          String   @id @default(cuid())
+  workspaceId String
+  url         String
+  /// signing secret (sha256-HMAC of the body); rotatable
+  secret      String
+  /// event names this endpoint wants
+  events      String[]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  deliveries WebhookDelivery[]
+
+  @@index([workspaceId])
+  @@map("webhook_endpoint")
+}
+
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  workspaceId String
+  endpointId  String
+  event       String
+  /// idempotency: an event is delivered to an endpoint at most once
+  dedupeKey   String
+  payload     Json
+  status      String   @default("pending") // pending | delivered | failed | dead
+  responseCode Int?
+  attempts    Int      @default(0)
+  nextAttemptAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([endpointId, dedupeKey])
+  @@index([status, nextAttemptAt])
+  @@map("webhook_delivery")
+}
+
+model Integration {
+  id          String   @id @default(cuid())
+  workspaceId String
+  provider    String   // "github"
+  /// external identifier (repo full name for github)
+  externalRef String
+  config      Json     @default("{}")
+  /// inbound webhook signing secret from the provider
+  secret      String
+  createdAt   DateTime @default(now())
+
+  @@unique([workspaceId, provider, externalRef])
+  @@map("integration")
+}
+
+model IntegrationEvent {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  provider      String
+  externalId    String
+  kind          String
+  taskId        String?
+  receivedAt    DateTime @default(now())
+
+  @@unique([provider, externalId])
+  @@map("integration_event")
+}
