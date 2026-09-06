@@ -6,6 +6,10 @@
 // workspaceId (docs/adr/0002-tenant-model.md) and a soft-delete marker.
 // Every mutation writes ActivityEvent + OutboxEvent in the same transaction
 // (docs/adr/0005-event-outbox-strategy.md).
+// M01 keeps this schema deliberately minimal: just enough to exercise a
+// real migration, a real connection, and the readiness probe. The
+// multi-tenant work graph (Workspace, Project, Task, events, outbox …)
+// lands in M02 — docs/adr/0002 and docs/adr/0005.
 
 generator client {
   provider = "prisma-client-js"
@@ -23,6 +27,8 @@ datasource db {
 }
 
 /// A single row updated by the readiness probe / migration rehearsal.
+/// Lets `/api/health` and the worker prove they can round-trip the
+/// dedicated database without depending on any domain table.
 model HealthProbe {
   id        String   @id @default("singleton")
   checkedAt DateTime @updatedAt

@@ -54,6 +54,7 @@ const heartbeat = setInterval(() => {
 }, HEARTBEAT_MS);
 
 // Outbox drainer: notification dispatch, automation fan-out (docs/adr/0005).
+// Outbox drainer: notification dispatch, fan-out acks (docs/adr/0005).
 const OUTBOX_MS = 2000;
 const outboxTimer = setInterval(() => {
   drainOutboxOnce()
@@ -89,6 +90,9 @@ async function shutdown(signal: string) {
   clearInterval(outboxTimer);
   clearInterval(webhookTimer);
   clearInterval(pruneTimer);
+async function shutdown(signal: string) {
+  logger.info({ signal }, "worker.shutdown");
+  clearInterval(heartbeat);
   await worker.close();
   await maintenanceQueue.close();
   await connection.quit();
