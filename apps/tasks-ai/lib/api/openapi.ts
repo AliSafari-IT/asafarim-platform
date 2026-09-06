@@ -670,6 +670,58 @@ export const openapiDocument = {
       parameters: [pathParam("slug"), pathParam("id")],
       post: { summary: "Run the DSR — export builds a bundle, delete runs verified deletion (owner)", responses: { "200": { description: "ok" } } },
     },
+
+    "/workspaces/{slug}/beta": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Beta enrolment + this member's consent status", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/beta/enroll": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Enrol the workspace in the design-partner beta (owner)",
+        requestBody: jsonBody({ type: "object", required: ["cohort"], properties: { cohort: { type: "string", enum: ["concierge", "self_serve"] }, teamType: { type: "string" }, segment: { type: "string" } } }),
+        responses: { "201": { description: "enrolled" }, "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/beta/consent": {
+      parameters: [pathParam("slug")],
+      post: { summary: "Record this member's consent to the current beta terms", responses: { "201": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/beta/metrics": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Beta KPI dashboard: activation, completion, invitation acceptance, AI acceptance/trust/cost, feedback backlog", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/beta/decision": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Record the beta decision (continue | narrow | remediate | stop) (owner)",
+        requestBody: jsonBody({ type: "object", required: ["decision"], properties: { decision: { type: "string", enum: ["continue", "narrow", "remediate", "stop"] } } }),
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/feedback": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "List feedback items (triage board)",
+        parameters: [
+          { name: "state", in: "query", schema: { type: "string" } },
+          { name: "overdue", in: "query", schema: { type: "boolean" } },
+        ],
+        responses: { "200": { description: "ok" } },
+      },
+      post: {
+        summary: "Report feedback — respondBy is derived from severity",
+        requestBody: jsonBody({ type: "object", required: ["source", "severity", "title", "detail"], properties: { source: { type: "string", enum: ["in_app", "interview", "email", "support", "observed"] }, severity: { type: "string", enum: ["blocker", "major", "minor", "idea"] }, title: { type: "string" }, detail: { type: "string" } } }),
+        responses: { "201": { description: "created" } },
+      },
+    },
+    "/workspaces/{slug}/feedback/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      patch: {
+        summary: "Triage a feedback item (state, owner, severity, linkedChange). Changing severity recomputes respondBy; resolving stamps respondedAt. (admin+)",
+        responses: { "200": { description: "ok" }, "403": errorRef() },
+      },
+    },
   },
   // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer
   // token) and POST /api/integrations/github (per-repo HMAC). See

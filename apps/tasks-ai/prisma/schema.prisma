@@ -1197,3 +1197,73 @@ model RateCounter {
   @@index([windowEnd])
   @@map("rate_counter")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M13 — design-partner beta & product-market validation
+// ─────────────────────────────────────────────────────────────────────────
+
+model BetaConsent {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  membershipId   String
+  /// version of the beta terms consented to
+  termsVersion   String
+  consentedAt    DateTime @default(now())
+
+  @@unique([workspaceId, membershipId, termsVersion])
+  @@map("beta_consent")
+}
+
+/// Per-workspace beta enrolment + cohort tag for the concierge study.
+model BetaEnrollment {
+  workspaceId  String   @id
+  cohort       String   // "concierge" | "self_serve"
+  teamType     String?  // "agency" | "consultancy" | "product"
+  enrolledAt   DateTime @default(now())
+  segment      String?
+  decision     String?  // "continue" | "narrow" | "remediate" | "stop"
+  decidedAt    DateTime?
+
+  @@map("beta_enrollment")
+}
+
+enum FeedbackSeverity {
+  blocker
+  major
+  minor
+  idea
+}
+
+enum FeedbackState {
+  triage
+  accepted
+  in_progress
+  resolved
+  wont_do
+}
+
+/// Feedback triage (docs: M13). Every item has severity, source, owner and
+/// a response-SLA deadline; links to the product/rule/model change that
+/// addressed it.
+model FeedbackItem {
+  id           String           @id @default(cuid())
+  workspaceId  String
+  reportedBy   String
+  source       String           // "in_app" | "interview" | "email" | "support" | "observed"
+  severity     FeedbackSeverity
+  state        FeedbackState    @default(triage)
+  title        String
+  detail       String
+  ownerId      String?
+  /// response-SLA deadline derived from severity at creation
+  respondBy    DateTime
+  respondedAt  DateTime?
+  /// e.g. "prompt:extract_plan@2" | "rule:signals@1" | "pr:#221"
+  linkedChange String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([workspaceId, state, severity])
+  @@index([workspaceId, respondBy])
+  @@map("feedback_item")
+}
