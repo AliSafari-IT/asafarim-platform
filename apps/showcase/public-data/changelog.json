@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-06",
-    "title": "Tasksai: UI for comments, notification inbox & workspace settings",
-    "sha": "fa79b11",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fa79b11"
+    "title": "Tasksai: virtualize the task list above 200 rows",
+    "sha": "745f05c",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/745f05c"
   }
 ]
