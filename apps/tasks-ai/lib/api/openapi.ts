@@ -802,6 +802,29 @@ export const openapiDocument = {
   // POST /api/integrations/github (per-repo HMAC), POST /api/billing/stripe
   // (Stripe webhook, 404 until billing is open). See docs/billing-launch.md
   // and docs/enterprise.md.
+  },
+  // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer),
+  // POST /api/integrations/github (per-repo HMAC), POST /api/billing/stripe
+  // (Stripe webhook, 404 until billing is open). See docs/billing-launch.md.
+  },
+  // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer
+  // token) and POST /api/integrations/github (per-repo HMAC). See
+  // docs/portability.md and docs/automations.md.
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
+  // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
+  // bearer-token auth, no session) and is documented in docs/portability.md.
+  },
 } as const;
 
 function pathParam(name: string) {
