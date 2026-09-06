@@ -869,3 +869,40 @@ model ProposalFeedback {
   @@index([proposalId])
   @@map("proposal_feedback")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M08 — focus, risk & workload intelligence
+// ─────────────────────────────────────────────────────────────────────────
+
+model SignalPreference {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  membershipId String
+  /// signal type key, e.g. "due_date_risk" | "stale_work" | "blocker_chain"
+  signalType   String
+  enabled      Boolean  @default(true)
+  /// per-user weight multiplier for focus-ranking factors, 0..2
+  weight       Float    @default(1)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([workspaceId, membershipId, signalType])
+  @@map("signal_preference")
+}
+
+model SignalFeedback {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  membershipId String
+  signalType   String
+  targetType   String
+  targetId     String
+  /// false_alarm | missed | helpful | wrong_evidence
+  verdict      String
+  /// the rule/model version the signal was produced by (reproducibility)
+  ruleVersion  String
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([workspaceId, signalType, createdAt])
+  @@map("signal_feedback")
+}

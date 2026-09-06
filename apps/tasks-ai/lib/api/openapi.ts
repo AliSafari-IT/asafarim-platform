@@ -457,6 +457,57 @@ export const openapiDocument = {
         responses: { "200": { description: "ok" } },
       },
     },
+
+    "/workspaces/{slug}/focus": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Explainable focus ranking of the viewer's open assigned tasks (per-factor breakdown)",
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/brief": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Personal daily brief: top focus items + the signals touching them", responses: { "200": { description: "ok" } } },
+    },
+    "/workspaces/{slug}/signals": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Deterministic risk/workload signals (evidence, freshness, confidence, limitations, alternatives). Never a per-person report.",
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/signal-preferences": {
+      parameters: [pathParam("slug")],
+      get: { summary: "The viewer's signal enable/weight preferences", responses: { "200": { description: "ok" } } },
+      patch: {
+        summary: "Enable/disable or re-weight a signal for the viewer",
+        requestBody: jsonBody({ type: "object", required: ["signalType"], properties: { signalType: { type: "string" }, enabled: { type: "boolean" }, weight: { type: "number" } } }),
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/signals/feedback": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Typed signal feedback tied to its rule version (false_alarm/missed/helpful/wrong_evidence)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["signalType", "targetType", "targetId", "verdict", "ruleVersion"],
+          properties: {
+            signalType: { type: "string" },
+            targetType: { type: "string" },
+            targetId: { type: "string" },
+            verdict: { type: "string", enum: ["false_alarm", "missed", "helpful", "wrong_evidence"] },
+            ruleVersion: { type: "string" },
+            note: { type: "string" },
+          },
+        }),
+        responses: { "201": { description: "recorded" } },
+      },
+    },
+    "/workspaces/{slug}/signals/quality": {
+      parameters: [pathParam("slug")],
+      get: { summary: "Feedback-derived signal quality summary by type + rule version (admin+)", responses: { "200": { description: "ok" }, "403": errorRef() } },
+    },
   },
   // Note: the mail webhook lives at POST /api/inbound/email (outside /api/v1,
   // bearer-token auth, no session) and is documented in docs/portability.md.
