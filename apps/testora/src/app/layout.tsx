@@ -15,6 +15,15 @@ export const metadata: Metadata = {
   },
   description:
     "Define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
+  // Served as plain static files from public/ rather than the app/icon.*
+  // file convention: Next 15 turns app/icon.svg into a generated
+  // /icon.svg/route module whose prerender is racy under parallel builds
+  // ("Cannot find module for page: /icon.svg/route"), which aborts
+  // `pnpm dev` at the turbo build step.
+  icons: {
+    icon: "/icon.svg",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
