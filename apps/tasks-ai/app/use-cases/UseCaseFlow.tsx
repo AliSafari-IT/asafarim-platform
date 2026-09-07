@@ -118,9 +118,8 @@ export function UseCaseFlow({ useCase }: { useCase: UseCase }) {
       zoomOnPinch
       zoomOnDoubleClick
       preventScrolling={false}
-      proOptions={{ hideAttribution: true }}
     >
-      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={tone.default} />
+      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={tone.muted} />
       <Controls showInteractive={false} position="bottom-right" />
     </ReactFlow>
   );

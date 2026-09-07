@@ -415,6 +415,11 @@
   stroke-dasharray: 5 4;
   animation: ta-flow 1.6s linear infinite;
 }
+[data-app="tasks-ai"] .react-flow__attribution {
+  background: transparent;
+  font-size: 0.6rem;
+}
+[data-app="tasks-ai"] .react-flow__attribution a { color: var(--muted); }
 
 /* Legend */
 [data-app="tasks-ai"] .ta-legend {

@@ -34,49 +34,16 @@ export type Theme = "light" | "dark";
 const DEFAULT_STORAGE_KEY = "asafarim-theme";
 
 /* ─── No-flash script ─────────────────────────────────────────────
- * Rendered into <head>; runs before first paint so the correct theme
- * is applied with no flash. It only touches documentElement (which
- * exists during head parsing) — never the body.
+ * Moved to ./theme-script.tsx and exported from the
+ * `@asafarim/theme-toggle/script` subpath — it must render from a
+ * server component, and this module is a client boundary ("use client"
+ * above), which made React 19 re-create (and refuse to execute) the
+ * inline script during hydration.
+ *
+ * This re-export keeps existing imports working but preserves the old
+ * client-rendered behaviour; prefer the subpath import in layouts.
  */
-export function ThemeScript({
-  storageKey = DEFAULT_STORAGE_KEY,
-  defaultTheme = "system",
-  syncClass,
-  nonce,
-}: {
-  storageKey?: string;
-  /** Fallback when nothing is stored: "system" | "light" | "dark". */
-  defaultTheme?: "system" | Theme;
-  /**
-   * Optional class mirrored onto documentElement while the dark theme is
-   * active — for apps whose Tailwind config uses `darkMode: "class"` (e.g.
-   * testora) and so need a class, not just `data-theme`, to flip `dark:`
-   * utilities. Pass the same value to <ThemeProvider>.
-   */
-  syncClass?: string;
-  /**
-   * CSP nonce for this request, when the page is served under a strict
-   * `script-src` (e.g. the AppBuilder preview route — see proxy.ts). Without
-   * it, this inline script is silently blocked by the browser under a
-   * nonce/strict-dynamic policy. Read the nonce from the request (e.g. a
-   * middleware-set `x-nonce` header) and pass it through here; omit only on
-   * pages with no such policy.
-   */
-  nonce?: string;
-}) {
-  const js = `(function(){try{
-var k=${JSON.stringify(storageKey)};
-var d=${JSON.stringify(defaultTheme)};
-var s=localStorage.getItem(k);
-var sys=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
-var t=s|| (d==='system'?sys:d);
-document.documentElement.setAttribute('data-theme',t);
-var c=${JSON.stringify(syncClass ?? "")};
-if(c){document.documentElement.classList.toggle(c,t==='dark');}
-}catch(e){}})();`;
-  // eslint-disable-next-line react/no-danger
-  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: js }} />;
-}
+export { ThemeScript } from "./theme-script";
 
 /* ─── Context ──────────────────────────────────────────────────── */
 interface ThemeContextValue {

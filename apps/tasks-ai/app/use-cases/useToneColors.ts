@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 
 const TOKENS = {
-  default: "--line-strong",
+  // --muted rather than --line-strong: several themes declare the latter at
+  // ~22% alpha, which is too faint for a connector line to read.
+  default: "--muted",
   ok: "--accent",
-  muted: "--muted",
+  muted: "--line-strong",
   warn: "--accent-2",
 } as const;
 
@@ -19,12 +21,36 @@ const FALLBACK: ToneColors = {
   warn: "#8a6d00",
 };
 
+const hex2 = (n: number) => Math.round(n).toString(16).padStart(2, "0");
+
+/**
+ * Normalises a token value to a `#rrggbb[aa]` string.
+ *
+ * Several themes declare tokens as `rgba(18, 32, 29, 0.22)`. React Flow
+ * derives SVG marker ids from the marker props, so parentheses, commas and
+ * spaces would produce an invalid `url(#...)` reference — and an element
+ * with a broken marker reference is not rendered at all.
+ */
+function toHex(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  if (v.startsWith("#")) return v;
+
+  const nums = v.match(/-?[\d.]+/g);
+  if (!nums || nums.length < 3) return null;
+
+  const [r, g, b] = nums.slice(0, 3).map(Number);
+  const a = nums.length > 3 ? Number(nums[3]) : 1;
+  const alpha = a >= 1 ? "" : hex2(a * 255);
+  return `#${hex2(r)}${hex2(g)}${hex2(b)}${alpha}`;
+}
+
 function read(): ToneColors {
   const cs = getComputedStyle(document.documentElement);
   const out = { ...FALLBACK };
   for (const [tone, token] of Object.entries(TOKENS) as [Tone, string][]) {
-    const v = cs.getPropertyValue(token).trim();
-    if (v) out[tone] = v;
+    const hex = toHex(cs.getPropertyValue(token));
+    if (hex) out[tone] = hex;
   }
   return out;
 }

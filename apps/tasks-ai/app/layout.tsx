@@ -4,7 +4,8 @@ import { headers } from "next/headers";
 import { auth, signOut } from "@asafarim/auth";
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
 import type {} from "@asafarim/auth/types";
-import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeProvider, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeScript } from "@asafarim/theme-toggle/script";
 import {
   AppShell,
   AppSwitcher,
