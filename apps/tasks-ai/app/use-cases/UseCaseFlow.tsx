@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Background,
   BackgroundVariant,
+  Controls,
   Handle,
   MarkerType,
   Position,
@@ -14,16 +15,10 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { NodeKind, UseCase } from "./flows";
+import { useToneColors } from "./useToneColors";
 
 type StepData = { label: string; detail?: string; kind: NodeKind };
 type StepNodeType = Node<StepData, "step">;
-
-const TONE_COLOR = {
-  default: "var(--line-strong)",
-  ok: "var(--accent)",
-  muted: "var(--muted)",
-  warn: "var(--accent-2)",
-} as const;
 
 function StepNode({ data }: NodeProps<StepNodeType>) {
   return (
@@ -41,11 +36,32 @@ function StepNode({ data }: NodeProps<StepNodeType>) {
 const nodeTypes = { step: StepNode };
 
 /**
- * Renders one use-case graph. Panning and zooming are disabled so the
- * diagram reads as a static illustration that happens to be inspectable —
- * the page keeps scrolling normally over it.
+ * Renders one use-case graph.
+ *
+ * Zoom is available three ways so small labels are never a dead end:
+ * the built-in Controls (+ / - / fit), ctrl-scroll or pinch, and an
+ * "Enlarge" mode that takes the diagram full-viewport. Plain scrolling
+ * still scrolls the page.
  */
 export function UseCaseFlow({ useCase }: { useCase: UseCase }) {
+  const [expanded, setExpanded] = useState(false);
+  const tone = useToneColors();
+
+  // Escape closes the enlarged view; lock page scroll while it is open.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpanded(false);
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [expanded]);
+
   const { nodes, edges } = useMemo(() => {
     const nodes: StepNodeType[] = useCase.nodes.map((n) => ({
       id: n.id,
@@ -57,7 +73,7 @@ export function UseCaseFlow({ useCase }: { useCase: UseCase }) {
     }));
 
     const edges: Edge[] = useCase.edges.map((e, i) => {
-      const color = TONE_COLOR[e.tone ?? "default"];
+      const color = tone[e.tone ?? "default"];
       return {
         id: `${useCase.id}-e${i}`,
         source: e.from,
@@ -78,33 +94,84 @@ export function UseCaseFlow({ useCase }: { useCase: UseCase }) {
     });
 
     return { nodes, edges };
-  }, [useCase]);
+  }, [useCase, tone]);
+
+  const canvas = (
+    <ReactFlow
+      // remount when the graph or the container size changes so fitView re-runs
+      key={`${useCase.id}-${expanded ? "full" : "inline"}`}
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      fitView
+      fitViewOptions={{ padding: 0.08 }}
+      minZoom={0.4}
+      maxZoom={2.5}
+      nodesDraggable={false}
+      nodesConnectable={false}
+      elementsSelectable={false}
+      // drag to pan once zoomed in; ctrl/⌘-scroll and pinch zoom, so a plain
+      // wheel scroll still moves the page
+      panOnDrag
+      panOnScroll={false}
+      zoomOnScroll={false}
+      zoomOnPinch
+      zoomOnDoubleClick
+      preventScrolling={false}
+      proOptions={{ hideAttribution: true }}
+    >
+      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={tone.default} />
+      <Controls showInteractive={false} position="bottom-right" />
+    </ReactFlow>
+  );
 
   return (
-    <div className="ta-fcanvas">
-      <ReactFlow
-        // remount on use-case change so fitView re-runs against the new graph
-        key={useCase.id}
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.08 }}
-        minZoom={0.4}
-        maxZoom={1}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        panOnDrag={false}
-        panOnScroll={false}
-        zoomOnScroll={false}
-        zoomOnPinch={false}
-        zoomOnDoubleClick={false}
-        preventScrolling={false}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--line)" />
-      </ReactFlow>
-    </div>
+    <>
+      <div className="ta-fcanvas">
+        <button
+          type="button"
+          className="ta-fcanvas__zoom"
+          onClick={() => setExpanded(true)}
+          aria-label="Enlarge diagram"
+        >
+          Enlarge
+        </button>
+        {canvas}
+      </div>
+      <p className="ta-fcanvas__hint">
+        Too small? Use the <strong>+ / −</strong> controls, <kbd>Ctrl</kbd> +
+        scroll to zoom, drag to pan — or <strong>Enlarge</strong> for the
+        full-screen view.
+      </p>
+
+      {expanded ? (
+        <div
+          className="ta-fmodal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${useCase.title} — enlarged diagram`}
+        >
+          <button
+            type="button"
+            className="ta-fmodal__backdrop"
+            onClick={() => setExpanded(false)}
+            aria-label="Close enlarged diagram"
+          />
+          <div className="ta-fmodal__panel">
+            <header className="ta-fmodal__head">
+              <h3>{useCase.title}</h3>
+              <button
+                type="button"
+                className="ta-fcanvas__zoom"
+                onClick={() => setExpanded(false)}
+              >
+                Close (Esc)
+              </button>
+            </header>
+            <div className="ta-fmodal__canvas">{canvas}</div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

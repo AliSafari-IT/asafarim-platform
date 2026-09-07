@@ -241,6 +241,7 @@
 
 /* Diagram canvas */
 [data-app="tasks-ai"] .ta-fcanvas {
+  position: relative;
   height: clamp(20rem, 42vh, 27rem);
   border: 1px solid var(--line);
   border-radius: var(--radius-md, 10px);
@@ -248,8 +249,113 @@
   background: var(--surface-2, var(--surface));
 }
 
+/* Enlarge / close affordance */
+[data-app="tasks-ai"] .ta-fcanvas__zoom {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 6;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  transition: border-color var(--dur-2, 240ms) var(--ease, ease),
+    color var(--dur-2, 240ms) var(--ease, ease);
+}
+[data-app="tasks-ai"] .ta-fcanvas__zoom:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+[data-app="tasks-ai"] .ta-fcanvas__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+[data-app="tasks-ai"] .ta-fcanvas__hint strong { color: var(--ink); }
+[data-app="tasks-ai"] .ta-fcanvas__hint kbd {
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+  font-size: 0.95em;
+}
+
+/* Built-in zoom controls, themed */
+[data-app="tasks-ai"] .react-flow__controls {
+  box-shadow: var(--shadow-1);
+  border-radius: var(--radius-sm, 6px);
+  overflow: hidden;
+}
+[data-app="tasks-ai"] .react-flow__controls-button {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  width: 1.75rem;
+  height: 1.75rem;
+}
+[data-app="tasks-ai"] .react-flow__controls-button:hover {
+  background: var(--accent-soft);
+}
+[data-app="tasks-ai"] .react-flow__controls-button svg {
+  fill: var(--ink);
+}
+
+/* Full-screen enlarged diagram */
+[data-app="tasks-ai"] .ta-fmodal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.75rem, 3vw, 2rem);
+}
+[data-app="tasks-ai"] .ta-fmodal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  background: #0009;
+  cursor: pointer;
+}
+[data-app="tasks-ai"] .ta-fmodal__panel {
+  position: relative;
+  width: min(84rem, 100%);
+  height: min(46rem, 92vh);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
+[data-app="tasks-ai"] .ta-fmodal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+[data-app="tasks-ai"] .ta-fmodal__head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+[data-app="tasks-ai"] .ta-fmodal__head .ta-fcanvas__zoom {
+  position: static;
+}
+[data-app="tasks-ai"] .ta-fmodal__canvas {
+  min-height: 0;
+  background: var(--surface-2, var(--surface));
+}
+
 /* Typed nodes — the border/accent encodes what kind of step it is */
-[data-app="tasks-ai"] .ta-fcanvas .react-flow__node-step { width: 11.5rem; }
+[data-app="tasks-ai"] .react-flow__node-step { width: 11.5rem; }
 [data-app="tasks-ai"] .ta-fnode {
   border: 1px solid var(--line-strong);
   border-left: 4px solid var(--line-strong);
@@ -291,7 +397,7 @@
 }
 
 /* Edges: labels sit directly on the line, no opaque box */
-[data-app="tasks-ai"] .ta-fcanvas .react-flow__handle {
+[data-app="tasks-ai"] .react-flow__handle {
   width: 5px;
   height: 5px;
   min-width: 5px;
@@ -300,12 +406,12 @@
   border: none;
   opacity: 0.6;
 }
-[data-app="tasks-ai"] .ta-fcanvas .react-flow__edge-text {
+[data-app="tasks-ai"] .react-flow__edge-text {
   font-size: 0.7rem;
   font-weight: 600;
   fill: var(--muted);
 }
-[data-app="tasks-ai"] .ta-fcanvas .react-flow__edge.animated path {
+[data-app="tasks-ai"] .react-flow__edge.animated .react-flow__edge-path {
   stroke-dasharray: 5 4;
   animation: ta-flow 1.6s linear infinite;
 }
