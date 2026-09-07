@@ -16,9 +16,27 @@ describe("contentSecurityPolicy", () => {
     expect(csp).not.toContain("api.openai.com");
   });
 
-  it("uses a nonce when given, strict-dynamic otherwise", () => {
-    expect(contentSecurityPolicy({ nonce: "abc" })).toContain("'nonce-abc'");
-    expect(contentSecurityPolicy()).toContain("'strict-dynamic'");
+  it("uses nonce + strict-dynamic when a nonce is given", () => {
+    const csp = contentSecurityPolicy({ nonce: "abc" });
+    expect(csp).toContain("script-src 'self' 'nonce-abc' 'strict-dynamic'");
+  });
+
+  it("falls back to 'self' 'unsafe-inline' (never bare strict-dynamic) with no nonce", () => {
+    const csp = contentSecurityPolicy();
+    expect(csp).toContain("script-src 'self' 'unsafe-inline'");
+    // bare strict-dynamic with no nonce disables host allow-listing and
+    // blocks every /_next chunk — must never ship.
+    expect(csp).not.toContain("'strict-dynamic'");
+  });
+
+  it("allows https: images so cross-origin avatars load", () => {
+    expect(contentSecurityPolicy()).toContain("img-src 'self' data: blob: https:");
+  });
+
+  it("omits the CSP entirely when omitCsp is set", () => {
+    const h = securityHeaders({ omitCsp: true });
+    expect(h["Content-Security-Policy"]).toBeUndefined();
+    expect(h["Strict-Transport-Security"]).toBeTruthy();
   });
 
   it("loosens script-src and drops upgrade-insecure-requests in dev", () => {

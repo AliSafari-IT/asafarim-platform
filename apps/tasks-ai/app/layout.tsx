@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import { auth, signOut } from "@asafarim/auth";
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
 import type {} from "@asafarim/auth/types";
@@ -51,6 +52,9 @@ const NAV_ITEMS = [
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   const links = getPlatformLinks();
+  // proxy.ts sets this per request; the theme bootstrap <script> needs the
+  // matching nonce to run under the strict production CSP.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   const switcherApps = getAppSwitcherApps("tasksai", {
     roles: session?.user?.roles ?? [],
@@ -62,7 +66,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en" data-app="tasks-ai" suppressHydrationWarning>
       <head>
-        <ThemeScript defaultTheme="light" />
+        <ThemeScript defaultTheme="light" nonce={nonce} />
       </head>
       <body className="antialiased">
         <a href="#ta-main" className="ta-skip">Skip to main content</a>

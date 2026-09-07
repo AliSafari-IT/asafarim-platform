@@ -12,16 +12,11 @@ loadEnv({ path: path.join(process.cwd(), "../../.env") });
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 
-// Security headers / CSP (docs/security-privacy.md). Built from
-// lib/security/headers so the policy is unit-tested in one place.
-const providerConnect = [
-  process.env.NEXT_PUBLIC_HUB_URL,
-  "https://api.anthropic.com",
-  "https://api.openai.com",
-]
-  .filter((u): u is string => Boolean(u))
-  .map((u) => (u.startsWith("http") ? new URL(u).origin : u));
-
+// Static security headers (docs/security-privacy.md). The Content-Security-
+// Policy is NOT set here: it needs a fresh per-request nonce for Next.js to
+// hydrate under `script-src 'nonce-…' 'strict-dynamic'`, which a static
+// header can't carry. proxy.ts builds and emits the full CSP (from the same
+// lib/security/headers builder) on every HTML response.
 const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   turbopack: { root: path.resolve(appRoot, "../..") },
@@ -29,11 +24,7 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   poweredByHeader: false,
   async headers() {
-    const headers = securityHeaders({
-      connectSrc: providerConnect,
-      reportOnly: process.env.TASKSAI_CSP_REPORT_ONLY === "true",
-      dev: process.env.NODE_ENV !== "production",
-    });
+    const headers = securityHeaders({ omitCsp: true });
     return [
       {
         source: "/:path*",
