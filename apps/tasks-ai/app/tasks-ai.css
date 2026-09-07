@@ -143,6 +143,216 @@
   50% { r: 11; opacity: 0.7; }
 }
 
+/* ── Use cases page ─────────────────────────────────────────────────── */
+[data-app="tasks-ai"] .ta-hero--slim {
+  grid-template-columns: 1fr;
+  padding-bottom: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+/* Flow explorer: tab rail + one large diagram */
+[data-app="tasks-ai"] .ta-explorer {
+  display: grid;
+  grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
+  gap: clamp(1rem, 2.5vw, 1.75rem);
+  align-items: start;
+  margin: clamp(2rem, 6vw, 4rem) 0;
+}
+
+[data-app="tasks-ai"] .ta-explorer__rail {
+  display: grid;
+  gap: 0.5rem;
+  position: sticky;
+  top: 1rem;
+}
+[data-app="tasks-ai"] .ta-explorer__tab {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "no title" ". badge";
+  gap: 0.25rem 0.6rem;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0.85rem 0.95rem;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color var(--dur-2, 240ms) var(--ease, ease),
+    background var(--dur-2, 240ms) var(--ease, ease),
+    transform var(--dur-2, 240ms) var(--ease, ease);
+}
+[data-app="tasks-ai"] .ta-explorer__tab:hover {
+  border-color: var(--accent);
+  transform: translateX(2px);
+}
+[data-app="tasks-ai"] .ta-explorer__tab[aria-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+[data-app="tasks-ai"] .ta-explorer__tabno {
+  grid-area: no;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+[data-app="tasks-ai"] .ta-explorer__tab[aria-selected="true"] .ta-explorer__tabno {
+  color: var(--accent);
+}
+[data-app="tasks-ai"] .ta-explorer__tabtitle {
+  grid-area: title;
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+[data-app="tasks-ai"] .ta-explorer__tab .ta-badge {
+  grid-area: badge;
+  justify-self: start;
+}
+
+[data-app="tasks-ai"] .ta-explorer__panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--surface);
+  padding: clamp(1.1rem, 2.5vw, 1.6rem);
+}
+[data-app="tasks-ai"] .ta-explorer__head h2 {
+  font-size: clamp(1.2rem, 2.4vw, 1.5rem);
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+[data-app="tasks-ai"] .ta-explorer__head p {
+  margin: 0 0 1.1rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 52rem;
+}
+[data-app="tasks-ai"] .ta-explorer__readas {
+  margin: 1rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--muted);
+  border-left: 3px solid var(--accent);
+  padding-left: 0.85rem;
+}
+[data-app="tasks-ai"] .ta-explorer__readas strong { color: var(--ink); }
+
+/* Diagram canvas */
+[data-app="tasks-ai"] .ta-fcanvas {
+  height: clamp(20rem, 42vh, 27rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 10px);
+  overflow: hidden;
+  background: var(--surface-2, var(--surface));
+}
+
+/* Typed nodes — the border/accent encodes what kind of step it is */
+[data-app="tasks-ai"] .ta-fcanvas .react-flow__node-step { width: 11.5rem; }
+[data-app="tasks-ai"] .ta-fnode {
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--line-strong);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  padding: 0.55rem 0.7rem;
+  display: grid;
+  gap: 0.15rem;
+}
+[data-app="tasks-ai"] .ta-fnode__label {
+  font-weight: 700;
+  font-size: 0.86rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+[data-app="tasks-ai"] .ta-fnode__detail {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+[data-app="tasks-ai"] .ta-fnode[data-kind="input"] { border-left-color: var(--muted); }
+[data-app="tasks-ai"] .ta-fnode[data-kind="process"] { border-left-color: var(--ink); }
+[data-app="tasks-ai"] .ta-fnode[data-kind="ai"] {
+  border-left-color: var(--accent-2);
+  background: linear-gradient(90deg, var(--accent-2-soft), transparent 70%), var(--surface);
+}
+[data-app="tasks-ai"] .ta-fnode[data-kind="gate"] {
+  border-left-color: var(--accent);
+  border-color: var(--accent);
+  background: linear-gradient(90deg, var(--accent-soft), transparent 70%), var(--surface);
+}
+[data-app="tasks-ai"] .ta-fnode[data-kind="gate"] .ta-fnode__label { color: var(--accent); }
+[data-app="tasks-ai"] .ta-fnode[data-kind="output"] { border-left-color: var(--accent); }
+[data-app="tasks-ai"] .ta-fnode[data-kind="alert"] {
+  border-left-color: var(--accent-2);
+  border-style: dashed;
+}
+
+/* Edges: labels sit directly on the line, no opaque box */
+[data-app="tasks-ai"] .ta-fcanvas .react-flow__handle {
+  width: 5px;
+  height: 5px;
+  min-width: 5px;
+  min-height: 5px;
+  background: var(--line-strong);
+  border: none;
+  opacity: 0.6;
+}
+[data-app="tasks-ai"] .ta-fcanvas .react-flow__edge-text {
+  font-size: 0.7rem;
+  font-weight: 600;
+  fill: var(--muted);
+}
+[data-app="tasks-ai"] .ta-fcanvas .react-flow__edge.animated path {
+  stroke-dasharray: 5 4;
+  animation: ta-flow 1.6s linear infinite;
+}
+
+/* Legend */
+[data-app="tasks-ai"] .ta-legend {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+[data-app="tasks-ai"] .ta-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+[data-app="tasks-ai"] .ta-legend__swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+  border: 1px solid var(--line-strong);
+  border-left-width: 3px;
+  background: var(--surface);
+}
+[data-app="tasks-ai"] .ta-legend__swatch[data-kind="input"] { border-left-color: var(--muted); }
+[data-app="tasks-ai"] .ta-legend__swatch[data-kind="process"] { border-left-color: var(--ink); }
+[data-app="tasks-ai"] .ta-legend__swatch[data-kind="ai"] { border-left-color: var(--accent-2); background: var(--accent-2-soft); }
+[data-app="tasks-ai"] .ta-legend__swatch[data-kind="gate"] { border-left-color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+[data-app="tasks-ai"] .ta-legend__swatch[data-kind="output"] { border-left-color: var(--accent); }
+[data-app="tasks-ai"] .ta-legend__swatch[data-kind="alert"] { border-left-color: var(--accent-2); border-style: dashed; }
+
+@media (max-width: 980px) {
+  [data-app="tasks-ai"] .ta-explorer { grid-template-columns: 1fr; }
+  [data-app="tasks-ai"] .ta-explorer__rail {
+    position: static;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(11rem, 1fr);
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+  }
+  [data-app="tasks-ai"] .ta-explorer__tab:hover { transform: none; }
+}
+
 /* Proposal contract */
 [data-app="tasks-ai"] .ta-contract {
   display: grid;

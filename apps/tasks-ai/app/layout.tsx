@@ -46,6 +46,7 @@ export const metadata: Metadata = {
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/" },
+  { label: "Use cases", href: "/use-cases" },
   { label: "Workspace", href: "/workspace" },
 ];
 
