@@ -54,6 +54,8 @@ export function AddressFields({
   const [locationError, setLocationError] = useState("");
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState("");
+  const [filling, setFilling] = useState(false);
+  const [fillError, setFillError] = useState("");
 
   function set<K extends keyof AddressFieldsValue>(key: K, v: AddressFieldsValue[K]) {
     onChange({ ...value, [key]: v });
@@ -123,6 +125,72 @@ export function AddressFields({
     );
   }
 
+  /** Device position → reverse-geocode → fill street/city/postal/state/country. */
+  function handleFillAddressFromLocation() {
+    setFillError("");
+    if (!("geolocation" in navigator)) {
+      setFillError("This browser doesn't support location access.");
+      return;
+    }
+    setFilling(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = Math.round(position.coords.latitude * 1e6) / 1e6;
+        const lng = Math.round(position.coords.longitude * 1e6) / 1e6;
+        try {
+          const res = await fetch("/api/geocode", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lat, lng }),
+          });
+          const data = (await res.json().catch(() => ({}))) as
+            | {
+                lat: number;
+                lng: number;
+                address: {
+                  street1: string;
+                  city: string;
+                  state: string;
+                  postalCode: string;
+                  country: string;
+                };
+              }
+            | { error: string };
+          if (!res.ok || !("address" in data)) {
+            setFillError("error" in data ? data.error : "Couldn't look up an address for your location.");
+            return;
+          }
+          const a = data.address;
+          onChange({
+            ...value,
+            street1: a.street1 || value.street1,
+            city: a.city || value.city,
+            state: a.state || value.state,
+            postalCode: a.postalCode || value.postalCode,
+            country: a.country || value.country,
+            lat,
+            lng,
+            accuracy: position.coords.accuracy ?? null,
+            source: "browser",
+          });
+        } catch {
+          setFillError("Couldn't reach the address lookup service. Please try again.");
+        } finally {
+          setFilling(false);
+        }
+      },
+      (err) => {
+        setFillError(
+          err.code === err.PERMISSION_DENIED
+            ? "Location access was denied. You can allow it in your browser's site settings."
+            : "Couldn't determine your location. Please try again.",
+        );
+        setFilling(false);
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+    );
+  }
+
   return (
     <>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
@@ -147,13 +215,40 @@ export function AddressFields({
         </FormRow>
       </div>
       <FormRow>
-        <Label htmlFor={`${idPrefix}-street1`}>Street address</Label>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.5rem",
+          }}
+        >
+          <Label htmlFor={`${idPrefix}-street1`}>Street address</Label>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleFillAddressFromLocation}
+            disabled={filling}
+            title="Fill the address fields from your device's current location"
+          >
+            {filling ? "Locating…" : "📍 Use my location"}
+          </Button>
+        </div>
         <Input
           id={`${idPrefix}-street1`}
           value={value.street1}
           onChange={(e) => set("street1", e.target.value)}
           autoComplete="address-line1"
         />
+        {fillError ? (
+          <p
+            className="u-muted"
+            style={{ color: "var(--danger, #d33)", fontSize: "var(--text-xs, 12px)", marginTop: "0.25rem" }}
+          >
+            {fillError}
+          </p>
+        ) : null}
       </FormRow>
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.75rem" }}>
         <FormRow>
