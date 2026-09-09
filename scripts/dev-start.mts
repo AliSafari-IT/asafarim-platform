@@ -201,12 +201,13 @@ function ensurePlaintextEnv(target: string, example: string): boolean {
  */
 function bootstrapEnvironment(): boolean {
   const nodeModulesMissing = !existsSync(join(process.cwd(), "node_modules"));
-  const envMissing = !existsSync(".env.local") && !existsSync(".env");
-  if (!nodeModulesMissing && !envMissing) return false;
+  const envLocalMissing = !existsSync(".env.local");
+  const envMissing = !existsSync(".env");
+  if (!nodeModulesMissing && !envLocalMissing && !envMissing) return false;
 
   console.log("First run detected — bootstrapping environment...");
 
-  if (!existsSync(".env.local")) {
+  if (envLocalMissing) {
     // The committed ciphertext is the source of truth, but only a machine
     // with the private key (.age/key.txt, never committed) can decrypt it.
     const canDecrypt =
@@ -230,7 +231,7 @@ function bootstrapEnvironment(): boolean {
       }
     }
   }
-  ensurePlaintextEnv(".env", ".env.example");
+  if (envMissing) ensurePlaintextEnv(".env", ".env.example");
 
   return true;
 }
@@ -301,10 +302,14 @@ function applyPrismaMigrations(): void {
 }
 
 async function main(): Promise<void> {
-  bootstrapEnvironment();
-
+  // Install FIRST: the envage CLI that decrypts the committed .env.local.age
+  // is itself a devDependency, so a fresh clone cannot decrypt (or fall back
+  // to the example env) until node_modules exists. Env restoration must still
+  // happen BEFORE startDatabase() — docker compose reads --env-file .env.local.
   console.log("Installing dependencies...");
   execSync("pnpm install", { stdio: "inherit" });
+
+  bootstrapEnvironment();
 
   // Generate the Prisma client up front: the seed step below and any app that
   // imports @asafarim/db need it BEFORE `turbo build` gets to packages/db.
