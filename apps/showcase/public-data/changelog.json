@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-09",
-    "title": "UI: shared Roadmap component + TasksAI roadmap page",
-    "sha": "3b87092",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3b87092"
+    "title": "Jobmatch: roadmap page using the shared @asafarim/ui Roadmap",
+    "sha": "f288199",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/f288199"
   }
 ]
