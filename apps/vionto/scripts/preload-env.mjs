@@ -25,7 +25,6 @@ for (const envPath of candidates) {
     if (eqIdx < 1) continue;
     const key = trimmed.slice(0, eqIdx).trim();
     if (seen.has(key)) continue; // first (higher-priority) file already set it
-    seen.add(key);
     let val = trimmed.slice(eqIdx + 1).trim();
     if (
       (val.startsWith('"') && val.endsWith('"')) ||
@@ -33,6 +32,11 @@ for (const envPath of candidates) {
     ) {
       val = val.slice(1, -1);
     }
+    // An empty value is a placeholder (e.g. root .env copied from
+    // .env.example) — skip it entirely so a real value from a lower-priority
+    // file can still fill the var.
+    if (val === "") continue;
+    seen.add(key);
     process.env[key] = val;
   }
 }

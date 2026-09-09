@@ -47,7 +47,14 @@ key until they have been decrypted and re-encrypted with the replacement.
 
 ## Local workflow
 
-On a machine that already has the private key:
+`pnpm dev` self-bootstraps a fresh checkout: if plaintext env files are
+missing it decrypts the committed `.env.local.age` (requires `.age/key.txt`),
+or falls back to copying `.env.local.example` with a placeholder-secrets
+warning. It then installs dependencies, generates the Prisma client, starts
+the database containers, applies migrations, and seeds idempotently before
+launching the dev servers.
+
+On a machine that already has the private key, the explicit flow is:
 
 ```bash
 pnpm env:decrypt:local

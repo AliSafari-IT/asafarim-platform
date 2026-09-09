@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { execFileSync, execSync, spawn, spawnSync } from "node:child_process";
-import { rmSync, readdirSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, rmSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import net from "node:net";
@@ -171,15 +171,165 @@ function applyAppDrizzleMigrations(): void {
   }
 }
 
+/**
+ * Copy `example` to `target` when the plaintext env file is missing. Returns
+ * true when a copy was made. Env files are gitignored, so a fresh clone has
+ * none — but `docker compose --env-file .env.local` and every
+ * `dotenv -e .env.local` script in packages/db hard-require them.
+ */
+function ensurePlaintextEnv(target: string, example: string): boolean {
+  if (existsSync(target)) return false;
+  if (!existsSync(example)) {
+    console.error(
+      `  [warn] Neither ${target} nor ${example} exists — create ${target} manually.`,
+    );
+    return false;
+  }
+  copyFileSync(example, target);
+  console.log(`  Created ${target} from ${example}.`);
+  return true;
+}
+
+/**
+ * First-run detection is state-based (missing node_modules / env files), not a
+ * marker file, so it also self-heals a checkout that lost its env files or was
+ * re-cloned. Returns true when this looks like a first run.
+ *
+ * Ordering matters: env files are restored BEFORE the database starts (docker
+ * compose reads `--env-file .env.local`), but AFTER `pnpm install` in main()
+ * because the envage CLI itself is a devDependency.
+ */
+function bootstrapEnvironment(): boolean {
+  const nodeModulesMissing = !existsSync(join(process.cwd(), "node_modules"));
+  const envMissing = !existsSync(".env.local") && !existsSync(".env");
+  if (!nodeModulesMissing && !envMissing) return false;
+
+  console.log("First run detected — bootstrapping environment...");
+
+  if (!existsSync(".env.local")) {
+    // The committed ciphertext is the source of truth, but only a machine
+    // with the private key (.age/key.txt, never committed) can decrypt it.
+    const canDecrypt =
+      existsSync(join(".age", "key.txt")) && existsSync(".env.local.age");
+    if (canDecrypt) {
+      console.log("  Private key found — decrypting env files via envage...");
+      try {
+        execSync("pnpm env:decrypt:local", { stdio: "inherit" });
+      } catch {
+        console.error("  [warn] envage decryption failed — falling back to the example env.");
+      }
+    }
+    if (!existsSync(".env.local")) {
+      const copied = ensurePlaintextEnv(".env.local", ".env.local.example");
+      if (copied && !canDecrypt) {
+        console.error(
+          "  [warn] .env.local was created from .env.local.example with PLACEHOLDER secrets.\n" +
+            "  Real secrets live in .env.local.age — restore .age/key.txt from the team vault,\n" +
+            "  then run `pnpm env:decrypt:local` to replace the placeholders.",
+        );
+      }
+    }
+  }
+  ensurePlaintextEnv(".env", ".env.example");
+
+  return true;
+}
+
+/**
+ * Sync the shared Postgres superuser password to POSTGRES_PASSWORD from
+ * .env.local. A Postgres volume only sets its superuser password on FIRST
+ * initialization, so a volume created while .env.local still held example
+ * credentials keeps accepting only the old password forever — every migration
+ * then fails with Prisma P1000 even though the env file is self-consistent.
+ * Non-destructive: it changes a password, never data. Local dev only.
+ */
+function syncPostgresPasswordFromEnv(): boolean {
+  try {
+    const password = readFileSync(".env.local", "utf-8")
+      .split(/\r?\n/)
+      .find((line) => line.startsWith("POSTGRES_PASSWORD="))
+      ?.slice("POSTGRES_PASSWORD=".length)
+      .trim()
+      .replace(/^["']|["']$/g, "");
+    if (!password) return false;
+    const containerId = execFileSync(
+      DOCKER_CLI_PATH,
+      ["compose", "--env-file", ".env.local", "ps", "-q", "postgres"],
+      { encoding: "utf-8", env: DOCKER_ENV },
+    ).trim();
+    if (!containerId) return false;
+    execFileSync(
+      DOCKER_CLI_PATH,
+      [
+        "exec", "-i", containerId,
+        "psql", "-U", "asafarim", "-d", "asafarim", "-v", "ON_ERROR_STOP=1",
+      ],
+      {
+        input: `ALTER USER asafarim WITH PASSWORD '${password.replace(/'/g, "''")}';\n`,
+        env: DOCKER_ENV,
+      },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `prisma migrate deploy` with one self-heal: on P1000 (bad credentials),
+ * sync the container's password from .env.local and retry once before giving
+ * up. Any other failure is rethrown with the captured output.
+ */
+function applyPrismaMigrations(): void {
+  const result = spawnSync("pnpm", ["db:migrate:deploy"], {
+    stdio: "pipe",
+    shell: true,
+  });
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  if (output.trim()) process.stdout.write(output);
+  if (result.status === 0) return;
+
+  if (output.includes("P1000") && syncPostgresPasswordFromEnv()) {
+    console.log(
+      "  Database credentials were stale (the Postgres volume was initialized with an\n" +
+        "  older password). Synced the 'asafarim' user password from .env.local — retrying...",
+    );
+    execSync("pnpm db:migrate:deploy", { stdio: "inherit" });
+    return;
+  }
+  throw new Error(`Prisma migrations failed with exit code ${result.status}.`);
+}
+
 async function main(): Promise<void> {
+  bootstrapEnvironment();
+
   console.log("Installing dependencies...");
   execSync("pnpm install", { stdio: "inherit" });
+
+  // Generate the Prisma client up front: the seed step below and any app that
+  // imports @asafarim/db need it BEFORE `turbo build` gets to packages/db.
+  console.log("Generating Prisma client...");
+  execSync("pnpm db:generate", { stdio: "inherit" });
 
   await startDatabase();
 
   console.log("Applying migrations...");
-  execSync("pnpm db:migrate:deploy", { stdio: "inherit" });
+  applyPrismaMigrations();
   applyAppDrizzleMigrations();
+
+  // Idempotent by design (seed-manager upserts; existing admin is left
+  // untouched), so this is safe on every startup and rescues a wiped Docker
+  // volume that still has node_modules — state detection alone can't catch
+  // that case, but an empty RBAC table would break every app.
+  console.log("Seeding database (idempotent)...");
+  try {
+    execSync("pnpm db:seed", { stdio: "inherit" });
+  } catch {
+    console.error(
+      "  [warn] Seeding failed — RBAC roles/permissions may be missing. " +
+        "Run `pnpm db:seed` to see the underlying error.",
+    );
+  }
 
   // Kill any dev servers left running from a previous session BEFORE
   // cleaning caches and rebuilding: a live Turbopack process can regenerate
