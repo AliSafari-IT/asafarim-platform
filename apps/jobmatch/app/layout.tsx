@@ -47,6 +47,7 @@ export const metadata: Metadata = {
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/" },
+  { label: "Roadmap", href: "/roadmap" },
   { label: "Workspace", href: "/workspace" },
   { label: "Profile", href: "/profile" },
   { label: "Jobs", href: "/jobs" },
