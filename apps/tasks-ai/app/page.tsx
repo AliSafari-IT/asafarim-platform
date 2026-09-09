@@ -72,7 +72,7 @@ export default async function OverviewPage() {
             <ButtonLink href={workspaceHref}>
               {viewer ? "Open workspace" : "Sign in to continue"}
             </ButtonLink>
-            <a className="ta-ghostlink" href="#roadmap">
+            <a className="ta-ghostlink" href="/roadmap">
               See the roadmap →
             </a>
           </div>
