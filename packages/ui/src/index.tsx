@@ -64,6 +64,15 @@ export {
   type PlatformMapProps,
 } from "./components/PlatformMap";
 export { ProjectCard } from "./components/ProjectCard";
+export {
+  Roadmap,
+  type RoadmapItem,
+  type RoadmapLabels,
+  type RoadmapLink,
+  type RoadmapProps,
+  type RoadmapStatus,
+  type RoadmapView,
+} from "./components/Roadmap";
 export { Section } from "./components/Section";
 export {
   SelectAllCheckbox,
