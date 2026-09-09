@@ -19,6 +19,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <Link href="/about" className="transition-colors hover:text-foreground">
               About &amp; Guide
             </Link>
+            <Link href="/roadmap" className="transition-colors hover:text-foreground">
+              Roadmap
+            </Link>
             <Link href="/dashboard" className="transition-colors hover:text-foreground">
               Open the app
             </Link>
