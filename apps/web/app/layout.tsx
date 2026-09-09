@@ -9,7 +9,8 @@ import {
 } from "@asafarim/shared-i18n/server";
 import webDictionaries from "../lib/i18n-dictionaries";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
-import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeProvider, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeScript } from "@asafarim/theme-toggle/script";
 import {
   AppShell,
   AppSwitcher,

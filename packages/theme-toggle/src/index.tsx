@@ -34,16 +34,13 @@ export type Theme = "light" | "dark";
 const DEFAULT_STORAGE_KEY = "asafarim-theme";
 
 /* ─── No-flash script ─────────────────────────────────────────────
- * Moved to ./theme-script.tsx and exported from the
+ * Lives in ./theme-script.tsx and is exported ONLY from the
  * `@asafarim/theme-toggle/script` subpath — it must render from a
  * server component, and this module is a client boundary ("use client"
  * above), which made React 19 re-create (and refuse to execute) the
- * inline script during hydration.
- *
- * This re-export keeps existing imports working but preserves the old
- * client-rendered behaviour; prefer the subpath import in layouts.
+ * inline script during hydration. Import it in root layouts as:
+ *   import { ThemeScript } from "@asafarim/theme-toggle/script";
  */
-export { ThemeScript } from "./theme-script";
 
 /* ─── Context ──────────────────────────────────────────────────── */
 interface ThemeContextValue {

@@ -145,16 +145,32 @@ function isPortReachable(port: number): boolean {
 }
 
 /**
+ * Wait up to maxWaitSeconds for a TCP port to accept connections. On a first
+ * run the app-specific Postgres containers (testora, appbuilder) are still
+ * initializing their fresh volumes while the main database is already up —
+ * migrating them immediately would misreport "no database reachable" and
+ * leave the app with an empty schema ("relation ... does not exist").
+ */
+async function waitForPort(port: number, maxWaitSeconds: number): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitSeconds * 1000) {
+    if (isPortReachable(port)) return true;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return false;
+}
+
+/**
  * Never fatal. An app whose database container is not up is a normal state —
  * someone working only on the public website should not have `pnpm dev`
  * refuse to start because AppBuilder's Postgres is stopped. A skip or a
  * failure is reported loudly enough to act on and then stepped over.
  */
-function applyAppDrizzleMigrations(): void {
+async function applyAppDrizzleMigrations(): Promise<void> {
   for (const app of DRIZZLE_APPS) {
-    if (!isPortReachable(app.port)) {
+    if (!(await waitForPort(app.port, 60))) {
       console.log(
-        `  [skip] ${app.name}: no database reachable on :${app.port}. ` +
+        `  [skip] ${app.name}: no database reachable on :${app.port} after 60s. ` +
           `Start it with \`pnpm db:up\`, then \`pnpm --filter ${app.name} db:migrate\`.`,
       );
       continue;
@@ -320,7 +336,7 @@ async function main(): Promise<void> {
 
   console.log("Applying migrations...");
   applyPrismaMigrations();
-  applyAppDrizzleMigrations();
+  await applyAppDrizzleMigrations();
 
   // Idempotent by design (seed-manager upserts; existing admin is left
   // untouched), so this is safe on every startup and rescues a wiped Docker

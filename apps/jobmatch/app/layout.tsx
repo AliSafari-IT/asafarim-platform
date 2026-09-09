@@ -5,7 +5,8 @@ import { getAppSwitcherApps } from "@asafarim/auth/apps";
 // Side-effect import: registers @asafarim/auth's next-auth type
 // augmentations (Session.user.roles, isActive) used by lib/workspace.ts.
 import type {} from "@asafarim/auth/types";
-import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeProvider, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeScript } from "@asafarim/theme-toggle/script";
 import {
   AppShell,
   AppSwitcher,

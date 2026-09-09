@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import { auth, signOut, getAppSwitcherApps } from "@asafarim/auth";
-import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeProvider, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeScript } from "@asafarim/theme-toggle/script";
 import {
   AppShell,
   AppSwitcher,

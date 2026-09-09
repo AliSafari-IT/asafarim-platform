@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import { ThemeProvider, ThemeScript } from "@asafarim/theme-toggle";
+import { ThemeProvider } from "@asafarim/theme-toggle";
+// ThemeScript must come from the /script subpath: the main entry is a client
+// boundary ("use client"), which makes React 19 re-create the inline script
+// during hydration and refuse to execute it (console error on every page).
+import { ThemeScript } from "@asafarim/theme-toggle/script";
 // Shared platform design tokens + component styles for the common header.
 // Import the token/component sheets only (not the base reset) so testora's
 // own Tailwind styling of the tool UI is left intact. globals.css last so its

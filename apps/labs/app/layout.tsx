@@ -5,7 +5,8 @@ import { getAppSwitcherApps } from "@asafarim/auth/apps";
 // augmentations (Session.user.roles, etc.) so packages/auth/src/roles.ts
 // type-checks here, even though Labs never calls into Auth.js itself.
 import type {} from "@asafarim/auth/types";
-import { ThemeProvider, ThemeScript, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeProvider, ThemeToggle } from "@asafarim/theme-toggle";
+import { ThemeScript } from "@asafarim/theme-toggle/script";
 import { AppShell, AppSwitcher, TopNav, getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
 import "./labs.css";
