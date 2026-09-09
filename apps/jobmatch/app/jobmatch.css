@@ -96,3 +96,7 @@
   font: inherit;
   max-width: 60%;
 }
+
+[data-app="jobmatch"] .jm-roadmap-page {
+  padding: clamp(1.5rem, 4vw, 3.5rem) 1.25rem 5rem;
+}
