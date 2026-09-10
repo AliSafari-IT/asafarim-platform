@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { RunArtifactBundle, parseRunArtifactBundle } from "./bundle.js";
+import { RunArtifactBundle, parseRunArtifactBundle } from "./bundle";
 import {
   ProvisionTestsRequest,
   ProvisionTestsResponse,
-} from "./provision.js";
+} from "./provision";
 import {
   parseWebhookEvent,
   TestDiagnosisProposal,
   WebhookEnvelope,
-} from "./events.js";
-import { CONTRACT_VERSION, SCHEMA_VERSIONS } from "./version.js";
+} from "./events";
+import { CONTRACT_VERSION, SCHEMA_VERSIONS } from "./version";
 
 const bundle = {
   v: 1,
@@ -77,6 +77,32 @@ describe("RunArtifactBundle", () => {
 
   it("rejects the wrong version discriminant", () => {
     expect(RunArtifactBundle.safeParse({ ...bundle, v: 2 }).success).toBe(false);
+  });
+
+  it("accepts an optional producer context with a previous-pass ref", () => {
+    const withContext = {
+      ...bundle,
+      context: {
+        suiteId: "suite_1",
+        suiteTitle: "Auth",
+        fixtureId: "fix_1",
+        fixtureTitle: "Login form",
+        requirementId: "fr_1",
+        requirementTitle: "Users can authenticate",
+        runIndex: 0,
+        targetBaseUrl: "https://staging.example.com",
+        previousPass: {
+          resultId: "res_prev",
+          createdAt: "2026-09-09T10:00:00.000Z",
+        },
+      },
+    };
+    expect(RunArtifactBundle.safeParse(withContext).success).toBe(true);
+  });
+
+  it("rejects an unknown key inside context", () => {
+    const bad = { ...bundle, context: { sourceFile: "app/page.tsx" } };
+    expect(RunArtifactBundle.safeParse(bad).success).toBe(false);
   });
 });
 

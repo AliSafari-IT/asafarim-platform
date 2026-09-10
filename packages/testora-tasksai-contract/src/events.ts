@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { RunArtifactBundle } from "./bundle.js";
-import { PendingScenarioState } from "./provision.js";
+import { RunArtifactBundle } from "./bundle";
+import { PendingScenarioState } from "./provision";
 
 /**
  * Webhook event envelope + payloads exchanged over signed HTTP both

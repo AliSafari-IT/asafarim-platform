@@ -3,7 +3,7 @@ import {
   DEFAULT_REPLAY_WINDOW_SECONDS,
   signPayload,
   verifySignature,
-} from "./signing.js";
+} from "./signing";
 
 const SECRET = "whsec_testora_tasksai_example";
 const BODY = JSON.stringify({ v: 1, hello: "world" });

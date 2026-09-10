@@ -14,7 +14,13 @@ const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   reactStrictMode: true,
   // Workspace TS packages ship source, not a build — Next must transpile them.
-  transpilePackages: ["@asafarim/auth", "@asafarim/db", "@asafarim/theme-toggle", "@asafarim/ui"],
+  transpilePackages: [
+    "@asafarim/auth",
+    "@asafarim/db",
+    "@asafarim/theme-toggle",
+    "@asafarim/ui",
+    "@asafarim/testora-tasksai-contract",
+  ],
   serverExternalPackages: ["testcafe", "testcafe-hammerhead", "@electron/asar"],
   devIndicators: false,
 };
