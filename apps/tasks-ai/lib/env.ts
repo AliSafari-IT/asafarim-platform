@@ -39,6 +39,8 @@ export interface TasksAiEnv {
   redisUrl: string;
   appUrl: string;
   hubUrl: string;
+  /** Service token for reading Testora artifact bundles (issue #264); unset by default. */
+  testoraBundleReadToken?: string;
   /** True when secrets must be supplied explicitly rather than defaulted. */
   requiresExplicitSecrets: boolean;
   /** Non-fatal misconfigurations, surfaced by /api/health. Names only. */
@@ -59,6 +61,10 @@ const rawSchema = z.object({
   DATABASE_URL: z.string().min(1).optional(),
   NEXT_PUBLIC_TASKSAI_URL: z.string().url().optional(),
   NEXT_PUBLIC_HUB_URL: z.string().url().optional(),
+  /** Service token to read a Testora run-artifact bundle machine-to-machine
+   *  (issue #264). Optional — without it, only bundles delivered inline on
+   *  the webhook are diagnosed. */
+  TESTORA_BUNDLE_READ_TOKEN: z.string().min(1).optional(),
 });
 
 export class EnvValidationError extends Error {
@@ -123,6 +129,7 @@ export function resolveEnv(
     redisUrl: raw.TASKSAI_REDIS_URL ?? LOCAL_REDIS_URL,
     appUrl,
     hubUrl,
+    testoraBundleReadToken: raw.TESTORA_BUNDLE_READ_TOKEN,
     requiresExplicitSecrets,
     warnings,
   };

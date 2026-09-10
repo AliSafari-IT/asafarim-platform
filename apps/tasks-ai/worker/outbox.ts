@@ -1,5 +1,7 @@
 import { getTasksAiDb } from "../lib/db/client";
 import { logger } from "../lib/observability/logger";
+import { OUTBOX_TYPE } from "../lib/events/names";
+import type { TestoraDiagnosePayload } from "../lib/ai/testora-diagnosis";
 
 const BATCH = 50;
 const MAX_ATTEMPTS = 6;
@@ -101,6 +103,14 @@ async function handle(type: string, payload: Record<string, unknown>): Promise<v
     case "search.index":
       // Acknowledged; the search indexer proper lands with real search infra.
       return;
+    case OUTBOX_TYPE.testoraDiagnose: {
+      // Testora regression/flake → the test_diagnosis pipeline (issue #264).
+      // Idempotent: runTestoraDiagnosis re-checks the delivery marker.
+      const { runTestoraDiagnosis } = await import("../lib/ai/testora-diagnosis");
+      const result = await runTestoraDiagnosis(payload as unknown as TestoraDiagnosePayload);
+      logger.info({ ...result, deliveryId: String(payload.deliveryId ?? "") }, "testora.diagnose.handled");
+      return;
+    }
     default:
       logger.warn({ type }, "outbox.unknown_type");
   }

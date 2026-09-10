@@ -28,6 +28,37 @@ export class FixtureProvider implements AiProvider {
         operations: [],
         openQuestions: [],
       };
+    } else if (call.kind === "test_diagnosis") {
+      // One deterministic triage task. The first candidate line is the
+      // scenario title; a keyword scan of the whole bundle picks a class.
+      const scenario = (lines[0] ?? input.slice(0, 120) ?? "failing test").slice(0, 120);
+      const lower = input.toLowerCase();
+      const classification = lower.includes("selector") || lower.includes("locator") || lower.includes("not found")
+        ? "locator/selector"
+        : lower.includes("timeout") || lower.includes("timed out") || lower.includes("race")
+          ? "timing/race condition"
+          : "likely application regression";
+      const titleSpan = spanOf(input, scenario);
+      draft = {
+        summary: `[fixture] test_diagnosis: ${classification}`,
+        operations: [
+          {
+            op: "create_task",
+            ref: "t1",
+            fields: {
+              title: `Investigate failing test: ${scenario}`.slice(0, 500),
+              description:
+                `Classification: ${classification}\n` +
+                `Suspected component: (undetermined by offline triage)\n` +
+                `Suggested fix outline:\n- Reproduce against the failing scenario\n- Compare the failing run's step timeline with the last passing run\n` +
+                `Evidence:\n- ${scenario}`,
+            },
+            confidence: 0.4,
+            citations: [{ span: titleSpan, assumption: titleSpan === null }],
+          },
+        ],
+        openQuestions: ["Offline triage — confirm the classification against the DOM snapshot."],
+      };
     } else if (call.kind === "acceptance_criteria") {
       draft = {
         summary: "[fixture] drafted acceptance criteria",
