@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -65,6 +65,11 @@ describe.skipIf(!hasTestDatabase())("Testora inbound + test_diagnosis (integrati
     });
     process.env.TASKSAI_DATABASE_URL = url;
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
+  });
+  afterEach(async () => {
+    // Don't leak enqueued-but-undrained rows into the shared integration DB —
+    // other suites (e.g. the outbox-drainer test) assert on global outbox state.
+    await db.outboxEvent.deleteMany({ where: { type: "testora.diagnose" } });
   });
   afterAll(async () => {
     await db?.$disconnect();
