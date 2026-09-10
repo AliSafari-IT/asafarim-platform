@@ -1,8 +1,8 @@
 [
   {
-    "date": "2026-09-10",
-    "title": "Testora: run-artifact bundle API (#258)",
-    "sha": "3bb8e61",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3bb8e61"
+    "date": "2026-09-11",
+    "title": "Testora: capture DOM snapshot + step timeline + video on failure (#259)",
+    "sha": "c8871fe",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/c8871fe"
   }
 ]
