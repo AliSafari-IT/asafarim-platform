@@ -70,6 +70,39 @@ test("throws NonTerminalResultError for a running result", () => {
   assert.throws(() => buildRunArtifactBundle(baseRow({ status: "running" })), NonTerminalResultError);
 });
 
+test("maps details.artifactRefs to access-controlled artifact URLs", () => {
+  const future = new Date(Date.now() + 7 * 86_400_000).toISOString();
+  const bundle = buildRunArtifactBundle(
+    baseRow({
+      details: {
+        targetBaseUrl: "https://x.test",
+        steps: [{ index: 0, label: "click #submit", status: "failed", startedAtMs: 0, durationMs: 0 }],
+        artifactRefs: {
+          screenshot: { key: "testora/results/res_1/screenshot.png", bytes: 2048, contentType: "image/png", expiresAt: future },
+          domSnapshot: { key: "testora/results/res_1/domSnapshot.html", bytes: 4096, contentType: "text/html; charset=utf-8", expiresAt: future },
+        },
+      },
+    }),
+    { bundleId: "77777777-7777-7777-7777-777777777777", artifactBaseUrl: "https://testora.asafarim.com" },
+  );
+  assert.equal(RunArtifactBundle.safeParse(bundle).success, true);
+  const shot = bundle.artifacts.find((a) => a.kind === "screenshot");
+  const dom = bundle.artifacts.find((a) => a.kind === "dom_snapshot");
+  assert.equal(shot?.url, "https://testora.asafarim.com/api/results/res_1/artifact/screenshot");
+  assert.equal(shot?.bytes, 2048);
+  assert.equal(typeof shot?.expiresInSeconds, "number");
+  assert.equal(dom?.url, "https://testora.asafarim.com/api/results/res_1/artifact/domSnapshot");
+  assert.equal(bundle.steps.length, 1);
+});
+
+test("falls back to a legacy inline screenshot data URL when no artifactRefs", () => {
+  const bundle = buildRunArtifactBundle(baseRow(), {
+    bundleId: "88888888-8888-8888-8888-888888888888",
+  });
+  assert.equal(bundle.artifacts[0]?.kind, "screenshot");
+  assert.ok(bundle.artifacts[0]?.url.startsWith("data:image/png"));
+});
+
 test("keeps only contract-shaped steps from details", () => {
   const bundle = buildRunArtifactBundle(
     baseRow({

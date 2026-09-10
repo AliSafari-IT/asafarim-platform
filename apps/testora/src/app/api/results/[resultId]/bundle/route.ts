@@ -1,9 +1,8 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { and, desc, eq, lt } from "drizzle-orm";
 import { db } from "@/db/client";
 import { testResults } from "@/db/schema";
-import { isProjectViewable } from "@/lib/app-access";
+import { canReadResultArtifacts } from "@/lib/bundle-access";
 import {
   buildRunArtifactBundle,
   NonTerminalResultError,
@@ -20,17 +19,6 @@ export const dynamic = "force-dynamic";
  * private app's bundle is withheld (403) unless the caller presents the
  * machine-to-machine service token (`TESTORA_BUNDLE_READ_TOKEN`).
  */
-function hasServiceToken(request: Request): boolean {
-  const expected = process.env.TESTORA_BUNDLE_READ_TOKEN;
-  if (!expected) return false;
-  const header = request.headers.get("authorization") ?? "";
-  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
-  if (!match?.[1]) return false;
-  const got = Buffer.from(match[1]);
-  const want = Buffer.from(expected);
-  return got.length === want.length && timingSafeEqual(got, want);
-}
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ resultId: string }> },
@@ -59,7 +47,7 @@ export async function GET(
   const requirement = suite?.functionalRequirement;
   const projectId = requirement?.projectId ?? null;
 
-  if (!hasServiceToken(request) && !(await isProjectViewable(projectId))) {
+  if (!(await canReadResultArtifacts(request, projectId))) {
     return NextResponse.json({ error: "App is locked" }, { status: 403 });
   }
 
@@ -103,7 +91,9 @@ export async function GET(
   };
 
   try {
-    const bundle = buildRunArtifactBundle(source);
+    const bundle = buildRunArtifactBundle(source, {
+      artifactBaseUrl: new URL(request.url).origin,
+    });
     return NextResponse.json(bundle);
   } catch (error) {
     if (error instanceof NonTerminalResultError) {

@@ -17,6 +17,7 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     "@asafarim/auth",
     "@asafarim/db",
+    "@asafarim/storage",
     "@asafarim/theme-toggle",
     "@asafarim/ui",
     "@asafarim/testora-tasksai-contract",

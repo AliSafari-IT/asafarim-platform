@@ -86,22 +86,69 @@ function readString(source: Record<string, unknown> | null, key: string): string
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-/** Screenshot / DOM / video pointers Testora currently keeps on `details`. */
-function collectArtifacts(details: Record<string, unknown> | null): ArtifactRef[] {
+const DEFAULT_ARTIFACT_BASE_URL =
+  process.env.TESTORA_PUBLIC_URL ?? "http://localhost:3005";
+
+/** `details.artifactRefs` (#259): { screenshot?: { key, bytes, contentType, expiresAt }, ... } */
+const ARTIFACT_KIND_MAP = {
+  screenshot: "screenshot",
+  domSnapshot: "dom_snapshot",
+  video: "video",
+} as const;
+
+type StoredRefKind = keyof typeof ARTIFACT_KIND_MAP;
+
+interface StoredRef {
+  key?: unknown;
+  bytes?: unknown;
+  contentType?: unknown;
+  expiresAt?: unknown;
+}
+
+function expiresInSeconds(expiresAt: unknown): number | undefined {
+  if (typeof expiresAt !== "string") return undefined;
+  const ms = Date.parse(expiresAt);
+  if (!Number.isFinite(ms)) return undefined;
+  return Math.max(1, Math.round((ms - Date.now()) / 1000));
+}
+
+/**
+ * Turns the stored refs into contract {@link ArtifactRef}s pointing at the
+ * access-controlled `/api/results/{id}/artifact/{kind}` route (which streams
+ * the object and 410s once past its retention window). Falls back to the
+ * legacy inline `details.screenshot` data URL for rows written before #259.
+ */
+function collectArtifacts(
+  resultId: string,
+  details: Record<string, unknown> | null,
+  baseUrl: string,
+): ArtifactRef[] {
   const artifacts: ArtifactRef[] = [];
-  const screenshot = readString(details, "screenshot");
-  if (screenshot) {
-    artifacts.push({ kind: "screenshot", url: screenshot });
+  const base = baseUrl.replace(/\/+$/, "");
+  const refs = details?.artifactRefs;
+
+  if (refs && typeof refs === "object") {
+    for (const kind of Object.keys(ARTIFACT_KIND_MAP) as StoredRefKind[]) {
+      const ref = (refs as Record<string, StoredRef | undefined>)[kind];
+      if (!ref || typeof ref.key !== "string") continue;
+      const entry: ArtifactRef = {
+        kind: ARTIFACT_KIND_MAP[kind],
+        url: `${base}/api/results/${resultId}/artifact/${kind}`,
+      };
+      if (typeof ref.bytes === "number") entry.bytes = ref.bytes;
+      if (typeof ref.contentType === "string") entry.contentType = ref.contentType;
+      const ttl = expiresInSeconds(ref.expiresAt);
+      if (ttl !== undefined) entry.expiresInSeconds = ttl;
+      artifacts.push(entry);
+    }
   }
-  const domSnapshot = readString(details, "domSnapshot") ?? readString(details, "domSnapshotUrl");
-  if (domSnapshot) {
-    artifacts.push({ kind: "dom_snapshot", url: domSnapshot });
+
+  if (artifacts.length === 0) {
+    const legacyShot = readString(details, "screenshot");
+    if (legacyShot) artifacts.push({ kind: "screenshot", url: legacyShot });
   }
-  const video = readString(details, "videoRef") ?? readString(details, "videoUrl");
-  if (video) {
-    artifacts.push({ kind: "video", url: video });
-  }
-  return artifacts;
+
+  return artifacts.slice(0, 50);
 }
 
 /** Forward-compatible: keep only entries that already match the contract step shape. */
@@ -118,7 +165,7 @@ function collectSteps(details: Record<string, unknown> | null): RunArtifactBundl
 
 export function buildRunArtifactBundle(
   row: BundleSourceRow,
-  options: { bundleId?: string } = {},
+  options: { bundleId?: string; artifactBaseUrl?: string } = {},
 ): RunArtifactBundleType {
   const status = mapStatus(row.status);
   const finishedMs = Date.parse(row.createdAt);
@@ -137,7 +184,11 @@ export function buildRunArtifactBundle(
     startedAt: new Date(Number.isFinite(startedMs) ? startedMs : Date.now()).toISOString(),
     finishedAt: new Date(Number.isFinite(finishedMs) ? finishedMs : Date.now()).toISOString(),
     steps: collectSteps(row.details),
-    artifacts: collectArtifacts(row.details),
+    artifacts: collectArtifacts(
+      row.id,
+      row.details,
+      options.artifactBaseUrl ?? DEFAULT_ARTIFACT_BASE_URL,
+    ),
     context: {
       suiteId: row.suiteId || undefined,
       suiteTitle: row.suiteTitle || undefined,

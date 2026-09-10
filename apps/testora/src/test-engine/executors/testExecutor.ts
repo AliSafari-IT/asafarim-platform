@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -15,6 +15,9 @@ import {
 import { eq } from "drizzle-orm";
 import { generateTestSpec } from "@/test-engine/generators/testGenerator";
 import { resolveFixtureBaseUrl } from "@/test-engine/resolveFixtureBaseUrl";
+import { captureFailureArtifacts } from "@/test-engine/artifacts";
+import { buildStepTimeline, type StepErrorMeta } from "@/test-engine/artifact-timeline";
+import { domSnapshotFileName } from "@/test-engine/generators/testGenerator";
 import type {
   TestCaseDefinition,
   TestFixtureDefinition,
@@ -69,6 +72,11 @@ export async function executeFixture(
   // TestCafe writes failure screenshots here; we read + inline them, then the
   // whole temp dir (specs + screenshots) is removed in `finally`.
   const screenshotsDir = path.join(dir, "screenshots");
+  // Sidecar dirs for the richer failure artifacts added in #259: DOM snapshots
+  // written by the injected __captureDom helper, and TestCafe videos when the
+  // fixture opts in with metadata.recordVideo.
+  const domDir = path.join(dir, "dom");
+  const videoDir = path.join(dir, "video");
   await writeFile(specPath, spec, "utf8");
 
   const testcafe = await createTestCafe();
@@ -122,14 +130,24 @@ export async function executeFixture(
       { name: "spec", output: logStream },
       { name: createCaptureReporter(captured) },
     ] as unknown as string;
+    // The injected __captureDom helper writes page HTML here on the way out of
+    // each test; cleared in `finally` so it never leaks to an unrelated run.
+    const recordVideo = fixture.metadata?.recordVideo === true;
+    process.env.TESTORA_DOM_DIR = domDir;
+
     let failedCount: number;
     try {
-      failedCount = await runner
+      let pending = runner
         .src(specPath)
         .browsers(browser)
         // Auto-capture a screenshot the moment a test fails, so reports can show
         // exactly what the page looked like at the point of failure.
-        .screenshots({ path: screenshotsDir, takeOnFails: true })
+        .screenshots({ path: screenshotsDir, takeOnFails: true });
+      if (recordVideo) {
+        // Only keep video for tests that fail — a green run needs none.
+        pending = pending.video(videoDir, { failedOnly: true, singleFile: false });
+      }
+      failedCount = await pending
         .reporter(reporters)
         .run({
           // Local dev environments (Next.js JIT-compiling routes on first
@@ -177,22 +195,38 @@ export async function executeFixture(
         }
         const errorMessage =
           test.errs.length > 0 ? test.errs.join("\n\n").slice(0, 8000) : null;
-        // Per-test details: shared run info (target) plus this test's failure
-        // screenshot, if any. Read the screenshot file now, after the run has
-        // finished but before the temp directory is removed.
-        const screenshot = test.failed
-          ? await inlineScreenshot(test.screenshotPath, options.onLog)
-          : undefined;
-        if (test.failed && !screenshot) {
-          options.onLog?.(
-            `⚠ No failure screenshot captured for "${test.name}" (path: ${test.screenshotPath ?? "none"}).`,
-          );
+
+        // Per-test details: shared run info (target) plus, for a failure, the
+        // structured step timeline and object-storage refs to the captured
+        // screenshot / DOM snapshot / video. Binaries are uploaded now, after
+        // the run finished but before the temp dir is removed; only small refs
+        // land on the row (issue #259).
+        const resultId = randomUUID();
+        const details: Record<string, unknown> = { ...resultDetails };
+
+        if (test.failed) {
+          const steps = buildStepTimeline(test.errMeta);
+          if (steps.length > 0) details.steps = steps;
+
+          const artifactRefs = await captureFailureArtifacts({
+            resultId,
+            screenshotPath: test.screenshotPath,
+            domSnapshotPath: path.join(domDir, domSnapshotFileName(test.name)),
+            videoPath: test.videoPath,
+            log: options.onLog,
+          });
+          if (Object.keys(artifactRefs).length > 0) {
+            details.artifactRefs = artifactRefs;
+          } else {
+            options.onLog?.(
+              `⚠ No failure artifacts captured for "${test.name}".`,
+            );
+          }
         }
-        const details = screenshot
-          ? { ...resultDetails, screenshot }
-          : resultDetails;
+
         results.push(
           buildResult(
+            resultId,
             caseId,
             test.failed ? "failed" : "passed",
             runIndex,
@@ -210,6 +244,7 @@ export async function executeFixture(
       for (const testCase of cases) {
         results.push(
           buildResult(
+            randomUUID(),
             testCase.caseId,
             status,
             null,
@@ -223,6 +258,7 @@ export async function executeFixture(
   } finally {
     if (abortHandler)
       options.signal?.removeEventListener("abort", abortHandler);
+    delete process.env.TESTORA_DOM_DIR;
     await testcafe.close();
     await rm(dir, { recursive: true, force: true });
   }
@@ -232,6 +268,7 @@ export async function executeFixture(
 }
 
 function buildResult(
+  id: string,
   caseId: string,
   status: TestRunResult["status"],
   runIndex: number | null,
@@ -240,7 +277,7 @@ function buildResult(
   errorMessage: string | null,
 ): TestRunResult {
   return {
-    id: randomUUID(),
+    id,
     caseId,
     status,
     runIndex,
@@ -257,32 +294,16 @@ interface CapturedTest {
   durationMs: number;
   failed: boolean;
   // Path to the screenshot TestCafe took on failure, if any. The file is read
-  // and inlined *after* the run finishes so the temp directory is guaranteed
+  // and uploaded *after* the run finishes so the temp directory is guaranteed
   // to still exist, avoiding a race with the reporter callback.
   screenshotPath?: string;
-}
-
-// Read a TestCafe failure screenshot off disk and inline it as a data URL.
-// Skipped if it's missing or unreasonably large (keeps reports/DB rows sane).
-const MAX_SHOT_BYTES = 3_000_000;
-async function inlineScreenshot(
-  screenshotPath: string | undefined,
-  log?: (line: string) => void,
-): Promise<string | undefined> {
-  if (!screenshotPath) return undefined;
-  try {
-    const buf = await readFile(screenshotPath);
-    if (buf.byteLength > MAX_SHOT_BYTES) {
-      log?.(
-        `⚠ Screenshot ${screenshotPath} (${(buf.byteLength / 1_000_000).toFixed(1)} MB) exceeds ${MAX_SHOT_BYTES / 1_000_000} MB; skipping inline.`,
-      );
-      return undefined;
-    }
-    return `data:image/png;base64,${buf.toString("base64")}`;
-  } catch (err) {
-    log?.(`⚠ Failed to read screenshot ${screenshotPath}: ${err}`);
-    return undefined;
-  }
+  // Path to the TestCafe video for this test, when the fixture opts into
+  // recording and the test failed.
+  videoPath?: string;
+  // Raw `apiFnChain` / `apiFnIndex` off the first TestCafe error, used to
+  // reconstruct the step timeline without holding a reference to the whole
+  // (potentially circular) error adapter.
+  errMeta?: StepErrorMeta;
 }
 
 // Minimal view of the TestCafe ReporterPluginHost that our methods run on.
@@ -307,6 +328,7 @@ function createCaptureReporter(collector: CapturedTest[]) {
           errs?: unknown[];
           durationMs?: number;
           screenshots?: Array<{ screenshotPath?: string; takenOnFail?: boolean }>;
+          videos?: Array<{ videoPath?: string }>;
         },
       ) {
         const host = this as unknown as ReporterHost;
@@ -322,12 +344,22 @@ function createCaptureReporter(collector: CapturedTest[]) {
         const screenshotPath =
           shots.find((s) => s.takenOnFail)?.screenshotPath ??
           shots[0]?.screenshotPath;
+        const videos = Array.isArray(testRunInfo.videos) ? testRunInfo.videos : [];
+        const videoPath = videos.find((v) => v?.videoPath)?.videoPath;
+        const firstErr = rawErrs[0] as
+          | { apiFnChain?: unknown; apiFnIndex?: unknown }
+          | undefined;
+        const errMeta: StepErrorMeta | undefined = firstErr
+          ? { apiFnChain: firstErr.apiFnChain, apiFnIndex: firstErr.apiFnIndex }
+          : undefined;
         collector.push({
           name,
           errs,
           durationMs: testRunInfo.durationMs ?? 0,
           failed,
           screenshotPath,
+          videoPath,
+          errMeta,
         });
       },
       reportTaskDone() {},
