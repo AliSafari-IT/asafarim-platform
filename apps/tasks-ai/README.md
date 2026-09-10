@@ -22,6 +22,18 @@ Dev port **3013** · domain `tasks-ai.asafarim.com`.
 The multi-tenant work graph and `/api/v1` land in **M02**; the task
 experience in **M03**.
 
+## Testora ↔ TasksAI integration
+
+The autonomous quality loop with Testora (epic
+[#269](https://github.com/AliSafari-IT/asafarim-platform/issues/269)) crosses
+an app boundary with isolated databases and no shared session. The trust
+boundary, HMAC signing scheme, data-minimisation rules and versioned payload
+schemas are defined in
+[`docs/testora-tasksai-contract.md`](../../docs/testora-tasksai-contract.md)
+and [ADR 0002](../../docs/adr/0002-testora-tasksai-trust-boundary.md), with the
+schemas shipped in
+[`@asafarim/testora-tasksai-contract`](../../packages/testora-tasksai-contract).
+
 ## Commands
 
 ```bash

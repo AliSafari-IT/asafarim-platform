@@ -105,6 +105,17 @@ High-level flow:
 3. The test-engine executes scenarios and returns structured results
 4. Results are persisted to the database and viewable in the UI
 
+### Testora ↔ TasksAI integration
+
+The autonomous quality loop between Testora and TasksAI (epic
+[#269](https://github.com/AliSafari-IT/asafarim-platform/issues/269)) crosses
+an app boundary with isolated databases. The trust boundary, signing scheme,
+data-minimisation rules and versioned payload schemas are defined in
+[`docs/testora-tasksai-contract.md`](../../docs/testora-tasksai-contract.md)
+and [ADR 0002](../../docs/adr/0002-testora-tasksai-trust-boundary.md), with the
+schemas shipped in
+[`@asafarim/testora-tasksai-contract`](../../packages/testora-tasksai-contract).
+
 ## Useful File References
 - `package.json`: project scripts and deps — [package.json](package.json)
 - DB helpers: [src/db/migrate.ts](src/db/migrate.ts), [src/db/seed.ts](src/db/seed.ts)
