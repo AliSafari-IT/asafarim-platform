@@ -39,13 +39,13 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Experiments from labs.asafarim.be will appear here as they are dusted off and rebuilt on the platform.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "A planned AI-native work operating system that turns scattered intent into explainable, outcome-linked execution.",
+      "An AI-native work operating system that turns scattered intent into explainable, outcome-linked execution. Fifteen milestones shipped as a reviewed PR series; the creative & useful copilot epic is underway.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Operations KPI dashboard showcase with real-time views and reporting.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
-      "A deterministic Playwright benchmark: a seeded sample app with intentional pass/fail/flaky tests, scored on detection, flake identification, and artifact completeness.",
+      "Live end-to-end test automation: author requirements, suites, fixtures and cases, run them in a real headless TestCafe browser with streamed progress, and triage failures with screenshots and AI-drafted issues.",
     "showcase.projects.ai-eval.title": "AI Evaluation Lab",
     "showcase.projects.ai-eval.summary":
       "A provider-neutral, fixture-mode AI benchmark: versioned prompts and synthetic datasets scored for correctness, groundedness, format compliance, latency, cost, and safety — reproducibly, with no API keys.",
@@ -120,13 +120,13 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Experimenten van labs.asafarim.be verschijnen hier zodra ze worden opgepoetst en op het platform herbouwd.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "Een gepland, AI-native werkplatform dat verspreide intenties omzet in uitlegbare, resultaatgerichte uitvoering.",
+      "Een AI-natief werkplatform dat verspreide intenties omzet in uitlegbare, resultaatgerichte uitvoering. Vijftien mijlpalen geleverd als een gereviewde PR-serie; de 'creative & useful copilot'-epic is onderweg.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Operations KPI dashboard-showcase met real-time views en rapportage.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
-      "Een deterministische Playwright-benchmark: een seeded sample app met opzettelijke pass/fail/flaky tests, gescoord op detectie, flake-identificatie en artifact-compleetheid.",
+      "Live end-to-end testautomatisering: requirements, suites, fixtures en cases opstellen, uitvoeren in een echte headless TestCafe-browser met gestreamde voortgang, en faalanalyse met screenshots en AI-ontworpen issues.",
     "showcase.projects.ai-eval.title": "AI Evaluation Lab",
     "showcase.projects.ai-eval.summary":
       "Een provider-neutrale, fixture-mode AI-benchmark: geversioneerde prompts en synthetische datasets gescoord op correctheid, groundedness, format compliance, latency, kosten en veiligheid — reproduceerbaar, zonder API keys.",
@@ -201,13 +201,13 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Les expériences de labs.asafarim.be apparaîtront ici une fois dépoussiérées et reconstruites sur la plateforme.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "Un système de gestion du travail natif de l'IA, en projet, qui transforme des intentions dispersées en une exécution explicable et orientée résultats.",
+      "Un système de gestion du travail natif IA qui transforme des intentions dispersées en une exécution explicable et orientée résultats. Quinze jalons livrés en série de PR relues ; l'épique « copilote créatif et utile » est en route.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Showcase de tableau de bord KPI opérationnel avec vues en temps réel et reporting.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
-      "Un benchmark Playwright déterministe : une sample app seedée avec des tests pass/fail/flaky intentionnels, notés sur la détection, l'identification de flakes et la complétude des artefacts.",
+      "Automatisation de tests end-to-end en direct : rédaction des exigences, suites, fixtures et cas, exécution réelle dans un navigateur TestCafe headless avec progression diffusée en continu, et triage des échecs par captures d'écran et rapports d'incidents rédigés par l'IA.",
     "showcase.projects.ai-eval.title": "AI Evaluation Lab",
     "showcase.projects.ai-eval.summary":
       "Un benchmark AI en mode fixture et neutre vis-à-vis des fournisseurs : prompts versionnés et datasets synthétiques notés pour la correction, la groundedness, le format compliance, la latence, le coût et la sécurité — de manière reproductible, sans API keys.",
@@ -282,13 +282,13 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Experimente von labs.asafarim.be erscheinen hier, sobald sie aufpoliert und auf der Plattform neu aufgebaut werden.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "Ein geplantes, KI-natives Arbeitsmanagementsystem, das verstreute Absichten in nachvollziehbare, ergebnisorientierte Umsetzung verwandelt.",
+      "Ein KI-natives Arbeitsmanagementsystem, das verstreute Absichten in nachvollziehbare, ergebnisorientierte Umsetzung verwandelt. Fünfzehn Meilensteine als geprüfte PR-Serie geliefert; die Epic „creative & useful copilot“ läuft.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Operations KPI Dashboard Showcase mit Echtzeit-Ansichten und Reporting.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
-      "Ein deterministischer Playwright-Benchmark: eine seeded Sample App mit absichtlichen pass/fail/flaky Tests, bewertet auf Detection, Flake-Identifikation und Artifact-Completeness.",
+      "Live End-to-End-Testautomatisierung: Anforderungen, Suites, Fixtures und Cases pflegen, in einem echten headless TestCafe-Browser mit gestreamtem Fortschritt ausführen und Fehler mit Screenshots und KI-entworfenen Issues triagieren.",
     "showcase.projects.ai-eval.title": "AI Evaluation Lab",
     "showcase.projects.ai-eval.summary":
       "Ein provider-neutrales AI-Benchmark im Fixture-Modus: versionierte Prompts und synthetische Datensätze, bewertet auf Korrektheit, Groundedness, Format-Compliance, Latenz, Kosten und Sicherheit — reproduzierbar, ohne API Keys.",
@@ -363,13 +363,13 @@ const showcaseBaseDictionaries: Dictionaries = {
       "Experiments from labs.asafarim.be will appear here as they are dusted off and rebuilt on the platform.",
     "showcase.projects.task-management.title": "Task Management",
     "showcase.projects.task-management.summary":
-      "A planned AI-native work operating system that turns scattered intent into explainable, outcome-linked execution.",
+      "An AI-native work operating system that turns scattered intent into explainable, outcome-linked execution. Fifteen milestones shipped as a reviewed PR series; the creative & useful copilot epic is underway.",
     "showcase.projects.smart-operations.title": "Smart Operations Dashboard",
     "showcase.projects.smart-operations.summary":
       "Operations KPI dashboard showcase with real-time views and reporting.",
     "showcase.projects.testora.title": "Testora",
     "showcase.projects.testora.summary":
-      "A deterministic Playwright benchmark: a seeded sample app with intentional pass/fail/flaky tests, scored on detection, flake identification, and artifact completeness.",
+      "Live end-to-end test automation: author requirements, suites, fixtures and cases, run them in a real headless TestCafe browser with streamed progress, and triage failures with screenshots and AI-drafted issues.",
     "showcase.projects.ai-eval.title": "AI Evaluation Lab",
     "showcase.projects.ai-eval.summary":
       "A provider-neutral, fixture-mode AI benchmark: versioned prompts and synthetic datasets scored for correctness, groundedness, format compliance, latency, cost, and safety — reproducibly, with no API keys.",
