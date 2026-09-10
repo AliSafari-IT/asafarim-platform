@@ -59,6 +59,8 @@ jobs:
       DATABASE_URL: postgresql://asafarim:e2e_ci_password@127.0.0.1:55435/asafarim
       # Not a real secret — this stack is torn down at the end of the job.
       AUTH_SECRET: ci-only-throwaway-secret-do-not-reuse
+      # Shared demo-user password for seeding + global-setup.ts sign-in.
+      EDUMATCH_SEED_USERS_PASSWORD: ci-only-throwaway-edumatch-password
       AUTH_URL: http://localhost:3001
       AUTH_TRUST_HOST: "true"
       NEXTAUTH_URL: http://localhost:3001
