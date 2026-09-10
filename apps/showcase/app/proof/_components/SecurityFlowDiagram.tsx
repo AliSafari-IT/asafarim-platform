@@ -53,7 +53,7 @@ export function SecurityFlowDiagram() {
           <g key={lane.label}>
             <line x1={lane.x} y1={laneTop} x2={lane.x} y2={laneBottom} stroke="currentColor" strokeWidth="1" opacity="0.25" />
             <rect x={lane.x - 45} y={8} width="90" height="26" rx="6" fill="none" stroke="currentColor" strokeWidth="1.2" />
-            <text x={lane.x} y={25} textAnchor="middle" fontSize="12">{lane.label}</text>
+            <text x={lane.x} y={25} textAnchor="middle" fontSize="12" fill="currentColor">{lane.label}</text>
           </g>
         ))}
 
