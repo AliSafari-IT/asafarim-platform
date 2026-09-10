@@ -2,6 +2,7 @@
   "name": "@asafarim/testora-tasksai-contract",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Versioned cross-app contract between Testora and TasksAI — artifact-bundle, provision, webhook-event and green-light schemas plus HMAC signing helpers. No Next.js, database, auth, AI or browser dependency.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

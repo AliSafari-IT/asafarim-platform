@@ -70,6 +70,40 @@ export const ErrorClass = z.enum([
 ]);
 export type ErrorClass = z.infer<typeof ErrorClass>;
 
+/** Pointer to the most recent passing run of the same scenario, so a consumer
+ * can diff fail-vs-pass. Opaque ids only — no scenario body, no source. */
+export const PreviousPassRef = z
+  .object({
+    resultId: z.string().min(1).max(200),
+    runId: z.string().min(1).max(200).optional(),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+export type PreviousPassRef = z.infer<typeof PreviousPassRef>;
+
+/**
+ * Producer-side context that helps a consumer place the run in its hierarchy
+ * and find a baseline. Optional and additive — a producer that has none omits
+ * it entirely. Still test-artifact metadata only: titles and opaque ids, never
+ * application source.
+ */
+export const RunBundleContext = z
+  .object({
+    suiteId: z.string().max(200).optional(),
+    suiteTitle: z.string().max(500).optional(),
+    fixtureId: z.string().max(200).optional(),
+    fixtureTitle: z.string().max(500).optional(),
+    requirementId: z.string().max(200).optional(),
+    requirementTitle: z.string().max(500).optional(),
+    /** 0-based attempt index within a multi-run case, when applicable */
+    runIndex: z.number().int().nonnegative().nullable().optional(),
+    /** deployment origin the run executed against (never a repo path) */
+    targetBaseUrl: z.string().max(2000).nullable().optional(),
+    previousPass: PreviousPassRef.nullable().optional(),
+  })
+  .strict();
+export type RunBundleContext = z.infer<typeof RunBundleContext>;
+
 export const RunArtifactBundle = z
   .object({
     v: z.literal(1),
@@ -88,6 +122,8 @@ export const RunArtifactBundle = z
     errorMessage: z.string().max(5000).optional(),
     steps: z.array(TimelineStep).max(2000),
     artifacts: z.array(ArtifactRef).max(50),
+    /** optional, additive — see RunBundleContext */
+    context: RunBundleContext.optional(),
   })
   .strict();
 export type RunArtifactBundle = z.infer<typeof RunArtifactBundle>;
