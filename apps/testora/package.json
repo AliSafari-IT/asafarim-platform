@@ -23,6 +23,7 @@
   "dependencies": {
     "@asafarim/auth": "workspace:*",
     "@asafarim/db": "workspace:*",
+    "@asafarim/storage": "workspace:*",
     "@asafarim/testora-tasksai-contract": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
