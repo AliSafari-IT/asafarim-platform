@@ -7,6 +7,7 @@ import {
   boolean,
   real,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -29,6 +30,20 @@ export const githubIssueStateEnum = pgEnum("github_issue_state", ["open", "close
 // Who quarantined a case/suite: an operator through the UI/API, or Testora's
 // own auto-quarantine crossing a project's flake threshold (issue #260).
 export const quarantineReasonEnum = pgEnum("quarantine_reason", ["manual", "auto"]);
+
+// Lifecycle of a scenario provisioned from a TasksAI acceptance criterion
+// (issue #262) — mirrors the contract's PendingScenarioState
+// (@asafarim/testora-tasksai-contract). A manually-authored case defaults to
+// "active"; a provisioned scaffold starts "pending" and is excluded from the
+// green-light set (#263) until promoted.
+export const pendingScenarioStateEnum = pgEnum("pending_scenario_state", [
+  "pending",
+  "authoring",
+  "active",
+  "passing",
+  "failing",
+  "quarantined",
+]);
 
 // The app registry. Apps used to be code-only (src/data/projects.ts); they now
 // live here so new apps can be added from the UI and marked private. A private
@@ -166,6 +181,14 @@ export const testCases = pgTable("test_cases", {
   quarantined: boolean("quarantined").notNull().default(false),
   quarantinedAt: timestamp("quarantined_at", { withTimezone: true }),
   quarantineReason: quarantineReasonEnum("quarantine_reason"),
+  // TDD-gate provisioning (issue #262). A manually-authored case is "active";
+  // a case scaffolded from a TasksAI acceptance criterion is "pending" and
+  // carries a loose ref back to its provision + criterion (results get
+  // pruned/re-seeded independently, so no FK — same convention as
+  // issues.resultId above).
+  scenarioState: pendingScenarioStateEnum("scenario_state").notNull().default("active"),
+  provisionId: text("provision_id"),
+  criterionRef: text("criterion_ref"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -267,6 +290,30 @@ export const outboundDeliveries = pgTable("outbound_deliveries", {
   deliveredAt: timestamp("delivered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// TDD-gate provisioning (issue #262): one row per TasksAI task that asked
+// Testora to scaffold acceptance-criteria scenarios. `id` is the contract
+// provisionId from the FIRST request for a given taskRef — re-provisioning
+// (same taskRef) updates this row and its scaffold set rather than minting a
+// new identity, so anything TasksAI already correlated against the original
+// provisionId (a check, a proposal) keeps pointing at the same provision.
+export const provisions = pgTable("provisions", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id").notNull(),
+  frId: text("fr_id").notNull(),
+  taskRef: text("task_ref").notNull(),
+  checkRef: text("check_ref").notNull(),
+  featureTitle: text("feature_title").notNull(),
+  callbackUrl: text("callback_url").notNull(),
+  requiredRuns: integer("required_runs").notNull().default(3),
+  causationId: text("causation_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+
+  // one active provision per TasksAI task
+}, (table) => ({
+  taskRefUnique: uniqueIndex("provisions_task_ref_unique").on(table.taskRef),
+}));
 
 export const functionalRequirementsRelations = relations(functionalRequirements, ({ many }) => ({
   suites: many(testSuites),
