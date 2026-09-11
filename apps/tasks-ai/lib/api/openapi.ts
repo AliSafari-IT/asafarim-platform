@@ -58,6 +58,7 @@ export const openapiDocument = {
                   "idempotency_mismatch",
                   "rate_limited",
                   "workspace_required",
+                  "blocked_by_check",
                   "internal",
                 ],
               },
@@ -211,7 +212,40 @@ export const openapiDocument = {
     },
     "/workspaces/{slug}/tasks/{id}/complete": {
       parameters: [pathParam("slug"), pathParam("id")],
-      post: { summary: "Mark a task complete", responses: { "200": jsonOne("Task") } },
+      post: {
+        summary: "Mark a task complete — refused with blocked_by_check while any required TaskCheck is not satisfied",
+        responses: { "200": jsonOne("Task"), "409": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}/checks": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      get: { summary: "List the task's green-light checks", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Add a required check (manual, or from provisioning; issue #262/#265)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["source", "key"],
+          properties: {
+            source: { type: "string" },
+            key: { type: "string" },
+            externalRef: { type: "string" },
+            evidenceUrl: { type: "string" },
+          },
+        }),
+        responses: { "201": { description: "created" } },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}/checks/{checkId}/override": {
+      parameters: [pathParam("slug"), pathParam("id"), pathParam("checkId")],
+      post: {
+        summary: "Owner/admin override — satisfies a check with a recorded, audited reason",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["reason"],
+          properties: { reason: { type: "string" } },
+        }),
+        responses: { "200": { description: "ok" }, "403": errorRef() },
+      },
     },
     "/workspaces/{slug}/tasks/{id}/links": {
       parameters: [pathParam("slug"), pathParam("id")],

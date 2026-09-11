@@ -27,7 +27,9 @@ export type Action =
   | "label.manage"
   | "customfield.manage"
   | "view.create"
-  | "view.update";
+  | "view.update"
+  | "task.check_manage"
+  | "task.check_override";
 
 const RANK: Record<MemberRole, number> = { guest: 0, member: 1, admin: 2, owner: 3 };
 
@@ -49,6 +51,10 @@ const REQUIRED: Record<Action, MemberRole> = {
   "customfield.manage": "admin",
   "view.create": "member",
   "view.update": "member",
+  "task.check_manage": "member",
+  // The gate assists, it doesn't trap: overriding requires admin+, recorded
+  // and audited (issue #265).
+  "task.check_override": "admin",
 };
 
 export interface Actor {

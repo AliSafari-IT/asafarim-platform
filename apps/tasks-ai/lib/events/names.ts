@@ -24,6 +24,8 @@ export const EVENT = {
   dependencyUnlinked: "dependency.unlinked",
   viewCreated: "view.created",
   viewUpdated: "view.updated",
+  checkAdded: "check.added",
+  checkUpdated: "check.updated",
 } as const;
 
 export type EventName = (typeof EVENT)[keyof typeof EVENT];

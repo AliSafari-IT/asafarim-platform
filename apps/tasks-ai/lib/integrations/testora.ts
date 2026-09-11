@@ -7,6 +7,7 @@ import {
   parseWebhookEvent,
   verifySignature,
   type FlakeDetectedData,
+  type GreenLightData,
   type RegressionDetectedData,
   type WebhookEnvelope,
 } from "@asafarim/testora-tasksai-contract";
@@ -16,6 +17,7 @@ import { authorize } from "../authz";
 import { ApiError } from "../errors";
 import { getTasksAiDb } from "../db/client";
 import { OUTBOX_TYPE } from "../events/names";
+import { applyCheckState } from "../services/task-checks";
 
 /**
  * Testora integration (issue #264). Inbound-only, like the GitHub one:
@@ -92,18 +94,28 @@ export async function receiveTestoraWebhook(args: {
   headers: TestoraWebhookHeaders;
   /** injected in tests; defaults to the singleton */
   db?: PrismaClient;
-}): Promise<{ enqueued?: boolean; deliveryId?: string; ignored?: string }> {
+}): Promise<{ enqueued?: boolean; checkUpdated?: boolean; deliveryId?: string; ignored?: string }> {
   const parsedBody: unknown = JSON.parse(args.rawBody);
   const parsed = parseWebhookEvent(parsedBody);
   if (!parsed.ok) {
     throw new ApiError("validation_failed", { reason: "unrecognised webhook payload" });
   }
   const { envelope, eventType } = parsed;
+  const db = args.db ?? getTasksAiDb();
+  const deliveryId = args.headers.delivery ?? envelope.deliveryId;
+
+  // greenlight.reached (#263/#265) carries no appId — it's routed by the
+  // provision's checkRef, which the TaskCheck it targets stores as
+  // externalRef. That check's own workspace is what determines which
+  // Testora integration's secret verifies the delivery; this is the green-
+  // light gate, deterministic, no AI.
+  if (eventType === "greenlight.reached") {
+    return receiveGreenLight(db, parsed.data as GreenLightData, args, deliveryId);
+  }
 
   const appId = extractAppId(envelope);
   if (!appId) return { ignored: "no appId on payload" };
 
-  const db = args.db ?? getTasksAiDb();
   // The same Testora appId can be connected in more than one workspace
   // (the Integration unique key includes workspaceId). The delivery belongs
   // to whichever integration's shared secret actually verifies the HMAC —
@@ -134,8 +146,6 @@ export async function receiveTestoraWebhook(args: {
   if (!integration) {
     throw new ApiError("forbidden", { reason: `signature ${lastReason}` });
   }
-
-  const deliveryId = args.headers.delivery ?? envelope.deliveryId;
 
   if (eventType !== "regression.detected" && eventType !== "flake.detected") {
     return { ignored: `event ${eventType}`, deliveryId };
@@ -186,6 +196,71 @@ export async function receiveTestoraWebhook(args: {
   }
 
   return { enqueued: true, deliveryId };
+}
+
+/**
+ * greenlight.reached routing + apply (issues #263/#265). Deterministic —
+ * updates the matched TaskCheck's state directly, no AI job, no proposal.
+ * A checkRef with no matching TaskCheck is a no-op (e.g. it was provisioned
+ * from a different environment, or the check was deleted) — never an error.
+ */
+async function receiveGreenLight(
+  db: PrismaClient,
+  data: GreenLightData,
+  args: { rawBody: string; headers: TestoraWebhookHeaders },
+  deliveryId: string,
+): Promise<{ checkUpdated?: boolean; deliveryId?: string; ignored?: string }> {
+  const check = await db.taskCheck.findUnique({ where: { externalRef: data.checkRef } });
+  if (!check) return { ignored: "no matching check for checkRef", deliveryId };
+
+  const integration = await db.integration.findFirst({
+    where: { workspaceId: check.workspaceId, provider: "testora" },
+  });
+  if (!integration) return { ignored: "no testora integration for the check's workspace", deliveryId };
+
+  const verdict = verifySignature({
+    secret: integration.secret,
+    rawBody: args.rawBody,
+    signature: args.headers.signature,
+    timestamp: args.headers.timestamp,
+    deliveryId: args.headers.delivery,
+  });
+  if (!verdict.ok) {
+    throw new ApiError("forbidden", { reason: `signature ${verdict.reason}` });
+  }
+
+  const externalId = `testora:${deliveryId}`;
+  try {
+    await db.$transaction(async (tx) => {
+      const seen = await tx.integrationEvent.findUnique({
+        where: { provider_externalId: { provider: "testora", externalId } },
+      });
+      if (seen) throw new DuplicateDelivery();
+      await tx.integrationEvent.create({
+        data: {
+          workspaceId: check.workspaceId,
+          provider: "testora",
+          externalId,
+          kind: "greenlight.reached",
+          taskId: check.taskId,
+        },
+      });
+      await applyCheckState(tx, {
+        workspaceId: check.workspaceId,
+        checkId: check.id,
+        taskId: check.taskId,
+        state: data.verdict === "green" ? "satisfied" : "failed",
+        reason: data.reason ?? null,
+        correlationId: deliveryId,
+      });
+    });
+  } catch (err) {
+    if (err instanceof DuplicateDelivery) return { ignored: "duplicate delivery", deliveryId };
+    if (isUniqueViolation(err)) return { ignored: "duplicate delivery", deliveryId };
+    throw err;
+  }
+
+  return { checkUpdated: true, deliveryId };
 }
 
 class DuplicateDelivery extends Error {}
