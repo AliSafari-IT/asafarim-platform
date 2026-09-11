@@ -355,6 +355,7 @@ export function ViontoNav() {
     { label: t("vionto.nav.create"), href: "/create" },
     { label: t("vionto.nav.projects"), href: "/projects" },
     { label: t("vionto.nav.organizer"), href: "/organizer" },
+    { label: t("vionto.nav.roadmap"), href: "/roadmap" },
   ];
 
   return (

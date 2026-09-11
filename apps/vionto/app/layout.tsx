@@ -6,8 +6,12 @@ import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { viontoDictionaries } from "@/lib/i18n-dictionaries";
 import { readThemeFromCookie, themeInitScript } from "@/lib/theme";
-// Imported as a JS import (not CSS @import) because Tailwind CSS v4's PostCSS
+// Imported as JS imports (not CSS @import) because Tailwind CSS v4's PostCSS
 // plugin does not resolve package "exports" maps for CSS @import statements.
+// Vionto keeps its own palette in globals.css; the shared token file supplies
+// only the typography, spacing, radius, motion, and layout scales consumed by
+// shared components such as Roadmap.
+import "@asafarim/ui/styles/tokens.css";
 import "@asafarim/ui/styles/components.css";
 import "./globals.css";
 

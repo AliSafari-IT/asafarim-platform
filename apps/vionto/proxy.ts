@@ -11,6 +11,7 @@ export const proxy = createAuthProxy({
     "/",
     "/create",
     "/about-this-project", // showcase disclosure — must be readable by anyone
+    "/roadmap", // public product direction and delivery evidence
     "/api/health",
     "/api/projects",
     "/api/render",

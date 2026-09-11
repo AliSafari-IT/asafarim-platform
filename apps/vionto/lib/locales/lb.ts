@@ -11,6 +11,7 @@ const lbVionto: Dict = {
   "vionto.nav.dashboard": "Iwwersiicht",
   "vionto.nav.projects": "Projeten",
   "vionto.nav.organizer": "Organisateur",
+  "vionto.nav.roadmap": "Roadmap",
   "vionto.nav.create": "Erstellen",
   "vionto.nav.uploads": "Uploaden",
   "vionto.nav.script": "Script",
