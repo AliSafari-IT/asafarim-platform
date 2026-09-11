@@ -33,11 +33,17 @@ describe("getAllUserActivity", () => {
     const { activityAdapters } = await import("./registry");
     expect(Object.keys(activityAdapters).sort()).toEqual([
       "appbuilder",
+      "edumatch",
       "jobmatch",
       "tasksai",
       "testora",
       "timelineai",
       "vionto",
     ]);
+  });
+
+  it("does not register Hub — no backing data exists for its checklist items", async () => {
+    const { activityAdapters } = await import("./registry");
+    expect(activityAdapters.hub).toBeUndefined();
   });
 });
