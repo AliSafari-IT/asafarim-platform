@@ -335,6 +335,7 @@ model Task {
   comments          Comment[]
   attachments       Attachment[]
   watchers          Watcher[]
+  checks            TaskCheck[]
 
   @@index([workspaceId])
   @@index([workspaceId, projectId])
@@ -342,6 +343,52 @@ model Task {
   @@index([workspaceId, dueDate])
   @@index([projectId, archivedAt])
   @@map("task")
+}
+
+enum TaskCheckState {
+  pending
+  satisfied
+  failed
+}
+
+/// The green-light gate (docs/issue #265): a task cannot complete while any
+/// of its TaskChecks is not `satisfied`. Deterministic, not AI — completion
+/// is refused with `blocked_by_check` (see lib/errors.ts) until every check
+/// is satisfied or an owner/admin records an override. Checks are created by
+/// provisioning (#266) or manually, and flipped by the inbound Testora
+/// webhook (greenlight.reached, #264/#263) via `externalRef` = the
+/// provision's checkRef.
+model TaskCheck {
+  id          String         @id @default(cuid())
+  /// loose ref, like Integration/IntegrationEvent above — not an FK, so a
+  /// workspace archival doesn't need to cascade through every check.
+  workspaceId String
+  taskId      String
+  /// "testora" | "manual" | ...
+  source      String
+  /// human label shown in the task detail UI, e.g. "Testora: Password reset"
+  key         String
+  state       TaskCheckState @default(pending)
+  /// link to the shared TestEvidence panel / Testora result (#267)
+  evidenceUrl String?
+  /// opaque correlation id an external system's callback matches against
+  /// (Testora's provision checkRef). Unique so a webhook can find its check
+  /// without a workspace context.
+  externalRef String?
+  /// why the check moved to its current state (e.g. the green-light's
+  /// not_green reason, or the override reason)
+  reason        String?
+  overriddenAt  DateTime?
+  overriddenBy  String?
+  overrideReason String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([externalRef])
+  @@index([workspaceId, taskId])
+  @@map("task_check")
 }
 
 model TaskLabel {

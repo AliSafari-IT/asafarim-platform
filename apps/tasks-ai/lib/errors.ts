@@ -15,6 +15,10 @@ export const ERROR = {
     message: "This Idempotency-Key was used with a different request.",
   },
   rate_limited: { status: 429, message: "Too many requests. Retry after the indicated delay." },
+  blocked_by_check: {
+    status: 409,
+    message: "This task has required checks that are not yet satisfied.",
+  },
   workspace_required: { status: 400, message: "A workspace context is required." },
   internal: { status: 500, message: "An unexpected error occurred." },
 } as const;

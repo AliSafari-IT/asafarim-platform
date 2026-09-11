@@ -206,4 +206,60 @@ describe.skipIf(!hasTestDatabase())("Testora inbound + test_diagnosis (integrati
     });
     expect(count).toBe(1);
   });
+
+  it("greenlight.reached satisfies the matching TaskCheck, routed by checkRef (no appId on the payload); duplicates are ignored", async () => {
+    const s = await setup("greenlight");
+    const { createCheck } = await import("../services/task-checks");
+    const { createProject } = await import("../services/projects");
+    const { createTask } = await import("../services/tasks");
+    const { receiveTestoraWebhook } = await import("./testora");
+
+    const proj = await createProject(s.ctx, { name: "G", key: "GRN" });
+    const task = await createTask(s.ctx, { projectId: proj.id, title: "Ship it" });
+    const check = await createCheck(s.ctx, task.id, {
+      source: "testora",
+      key: "Testora: checkout flow",
+      externalRef: "check-" + randomUUID(),
+    });
+
+    const envelope = {
+      v: 1,
+      deliveryId: randomUUID(),
+      eventType: "greenlight.reached",
+      occurredAt: new Date().toISOString(),
+      source: "testora",
+      data: {
+        provisionId: randomUUID(),
+        taskRef: task.id,
+        checkRef: check.externalRef,
+        verdict: "green",
+        cleanRuns: 3,
+        requiredRuns: 3,
+        flakeCount: 0,
+        artifactsComplete: true,
+        scenarios: [],
+      },
+    };
+    const rawBody = JSON.stringify(envelope);
+    const signed = signPayload({ secret: s.secret, rawBody });
+    const headers = {
+      signature: signed.signature,
+      delivery: signed.deliveryId,
+      timestamp: String(signed.timestamp),
+    };
+
+    const res = await receiveTestoraWebhook({ rawBody, db, headers });
+    expect(res.checkUpdated).toBe(true);
+
+    const updated = await db.taskCheck.findUnique({ where: { id: check.id } });
+    expect(updated?.state).toBe("satisfied");
+
+    const second = await receiveTestoraWebhook({ rawBody, db, headers });
+    expect(second.ignored).toContain("duplicate");
+
+    // completeTask now goes through.
+    const { completeTask } = await import("../services/tasks");
+    const done = await completeTask(s.ctx, task.id);
+    expect(done.completedAt).toBeTruthy();
+  });
 });

@@ -138,6 +138,18 @@ export async function completeTask(ctx: RequestContext, id: string) {
   const current = await getTaskOr404(ctx, id);
   if (current.completedAt) return current;
 
+  // The green-light gate (issue #265) — deterministic, no AI. Every
+  // TaskCheck on this task must be satisfied (or overridden) before
+  // completion is allowed.
+  const blocking = await ctx.db.taskCheck.findMany({
+    where: { workspaceId: ctx.workspaceId, taskId: id, state: { not: "satisfied" } },
+  });
+  if (blocking.length > 0) {
+    throw new ApiError("blocked_by_check", {
+      checks: blocking.map((c) => ({ id: c.id, source: c.source, key: c.key, state: c.state })),
+    });
+  }
+
   return ctx.db.$transaction(async (tx) => {
     const done = await tx.task.update({
       where: { id: current.id },
