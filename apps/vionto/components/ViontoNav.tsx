@@ -13,6 +13,7 @@ import {
 } from "@/lib/theme";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { Menu, X } from "lucide-react";
 // Pure registry module — safe in a client component, unlike the
 // "@asafarim/auth" root entry which carries the server-only Auth.js surface.
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
@@ -104,7 +105,9 @@ function AppSwitcher() {
   const { t } = useTranslation();
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
@@ -123,11 +126,31 @@ function AppSwitcher() {
     .filter((app) => app.key in appUrls)
     .map((app) => ({ label: app.name, href: appUrls[app.key], meta: app.meta }));
 
+  function toggleMenu() {
+    if (!open && btnRef.current) {
+      // Fixed + clamped, like UserMenu below: a right-0-anchored absolute
+      // panel runs off the left edge of the viewport on narrow screens
+      // once its own button sits near the left of a crowded top bar.
+      const r = btnRef.current.getBoundingClientRect();
+      const dropW = 256;
+      const left = Math.max(8, Math.min(r.right - dropW, window.innerWidth - dropW - 8));
+      setDropdownStyle({
+        position: "fixed",
+        top: r.bottom + 8,
+        left,
+        width: dropW,
+        zIndex: 9999,
+      });
+    }
+    setOpen((o) => !o);
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleMenu}
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={t("vionto.topbar.switchApp")}
@@ -143,7 +166,10 @@ function AppSwitcher() {
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-12 z-[9999] w-64 rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-panel)] p-2 shadow-lg">
+        <div
+          style={dropdownStyle}
+          className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-panel)] p-2 shadow-lg"
+        >
           {apps.map((app) => (
             <a
               key={app.href}
@@ -353,6 +379,7 @@ export function ViontoTopbarControls() {
 export function ViontoNav() {
   const { t } = useTranslation();
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const navLinks = [
     { label: t("vionto.nav.dashboard"), href: "/albums" },
     { label: t("vionto.nav.create"), href: "/create" },
@@ -360,6 +387,12 @@ export function ViontoNav() {
     { label: t("vionto.nav.organizer"), href: "/organizer" },
     { label: t("vionto.nav.roadmap"), href: "/roadmap" },
   ];
+
+  // Close the mobile menu on route change so it never stays open behind
+  // the next page.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-xl">
@@ -387,33 +420,49 @@ export function ViontoNav() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
-          <CountryLanguageSelector />
+          <div className="hidden md:flex">
+            <CountryLanguageSelector />
+          </div>
           <ViontoTopbarControls />
+          <button
+            type="button"
+            onClick={() => setMobileOpen((open) => !open)}
+            aria-label={t("vionto.nav.toggleNavAria")}
+            aria-expanded={mobileOpen}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-panel)] text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-text)] md:hidden"
+          >
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
       </div>
-      {/* Mobile nav row */}
-      <nav
-        aria-label="Vionto mobile"
-        className="flex items-center gap-1 overflow-x-auto px-4 pb-2 md:hidden"
-      >
-        {navLinks.map((link) => {
-          const active =
-            pathname === link.href || pathname?.startsWith(link.href + "/");
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                active
-                  ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
-                  : "text-[var(--color-text-muted)]"
-              }`}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Mobile menu: a vertical dropdown, not a horizontally-scrolling row. */}
+      {mobileOpen && (
+        <nav
+          aria-label="Vionto mobile"
+          className="flex flex-col gap-1 border-t border-[var(--color-border)] px-4 py-3 md:hidden"
+        >
+          {navLinks.map((link) => {
+            const active =
+              pathname === link.href || pathname?.startsWith(link.href + "/");
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
+                  active
+                    ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
+                    : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+          <div className="mt-2 border-t border-[var(--color-border)] pt-3">
+            <CountryLanguageSelector />
+          </div>
+        </nav>
+      )}
     </header>
   );
 }
