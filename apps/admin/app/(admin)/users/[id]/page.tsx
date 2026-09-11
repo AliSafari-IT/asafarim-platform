@@ -302,21 +302,35 @@ export default async function UserDetailPage({
           <RoleControls
             userId={user.id}
             isSelf={isSelf}
-            roles={allRoles.map((role) => {
-              const assignment = assignedByRole.get(role.id);
-              return {
-                id: role.id,
-                name: role.name,
-                displayName: role.displayName,
-                description: role.description,
-                isSystem: role.isSystem,
-                assigned: assignedByRole.has(role.id),
-                assignedAt: assignment
-                  ? formatDateTime(assignment.assignedAt)
-                  : null,
-                assignedByEmail: assignment?.assignedByEmail ?? null,
-              };
-            })}
+            roles={allRoles
+              // A non-superadmin cannot grant or revoke superadmin (the server
+              // enforces this too — see assignRoleToUser/removeRoleFromUser),
+              // so the role is hidden from their picker entirely. If the
+              // target already holds it, the row is kept but marked
+              // read-only so the admin sees the user's access without a
+              // toggle that would only produce a server error.
+              .filter((role) =>
+                role.name === ROLES.SUPERADMIN
+                  ? isSuperadmin || assignedByRole.has(role.id)
+                  : true
+              )
+              .map((role) => {
+                const assignment = assignedByRole.get(role.id);
+                return {
+                  id: role.id,
+                  name: role.name,
+                  displayName: role.displayName,
+                  description: role.description,
+                  isSystem: role.isSystem,
+                  assigned: assignedByRole.has(role.id),
+                  assignedAt: assignment
+                    ? formatDateTime(assignment.assignedAt)
+                    : null,
+                  assignedByEmail: assignment?.assignedByEmail ?? null,
+                  readOnly:
+                    role.name === ROLES.SUPERADMIN && !isSuperadmin,
+                };
+              })}
           />
         </Panel>
 
