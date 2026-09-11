@@ -79,6 +79,8 @@ export async function GET(
     requirementId: requirement?.id ?? "",
     requirementTitle: requirement?.title ?? "",
     projectId: projectId ?? "",
+    flakeScore: row.case?.flakeScore ?? null,
+    quarantined: row.case?.quarantined ?? false,
     previousPass: previous
       ? {
           resultId: previous.id,

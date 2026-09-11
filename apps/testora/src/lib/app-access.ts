@@ -32,6 +32,7 @@ export interface ProjectRow {
   // Encrypted PAT — server-only, never surfaced to a viewer.
   githubTokenEnc: string | null;
   seeded: boolean;
+  autoQuarantineFlaky: boolean;
 }
 
 /** A client-safe view of an app — sensitive fields are withheld while locked. */

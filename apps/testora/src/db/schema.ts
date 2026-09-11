@@ -5,6 +5,7 @@ import {
   timestamp,
   integer,
   boolean,
+  real,
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -24,6 +25,10 @@ export const projectVisibilityEnum = pgEnum("project_visibility", ["public", "pr
 export const issueStatusEnum = pgEnum("issue_status", ["draft", "published"]);
 
 export const githubIssueStateEnum = pgEnum("github_issue_state", ["open", "closed"]);
+
+// Who quarantined a case/suite: an operator through the UI/API, or Testora's
+// own auto-quarantine crossing a project's flake threshold (issue #260).
+export const quarantineReasonEnum = pgEnum("quarantine_reason", ["manual", "auto"]);
 
 // The app registry. Apps used to be code-only (src/data/projects.ts); they now
 // live here so new apps can be added from the UI and marked private. A private
@@ -47,6 +52,10 @@ export const projects = pgTable("projects", {
   githubRepo: text("github_repo"),
   githubTokenEnc: text("github_token_enc"),
   seeded: boolean("seeded").notNull().default(false),
+  // Opt-in (issue #260): when true, a case crossing the flake threshold is
+  // quarantined automatically. Off by default — auto-quarantine changes what
+  // blocks a green-light check, so a project opts in deliberately.
+  autoQuarantineFlaky: boolean("auto_quarantine_flaky").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -103,6 +112,11 @@ export const testSuites = pgTable("test_suites", {
   description: text("description").notNull().default(""),
   metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
   version: integer("version").notNull().default(1),
+  // Suite-level manual quarantine (issue #260) — e.g. an environment is down
+  // and every case under the suite is noisy; excludes the whole suite from a
+  // green-light check without touching each case.
+  quarantined: boolean("quarantined").notNull().default(false),
+  quarantinedAt: timestamp("quarantined_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -138,6 +152,20 @@ export const testCases = pgTable("test_cases", {
   script: text("script"),
   metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
   version: integer("version").notNull().default(1),
+  // Automatic flake detection (issue #260). flakeScore is the pass rate over
+  // the last N stored results (0..1); a case whose score is strictly between
+  // 0 and 1, or that failed then passed within one run's repeats, is flaky.
+  // Recomputed after every run; lastFlakeAt only advances when a run is
+  // actually flaky (not on every score refresh).
+  flakeScore: real("flake_score"),
+  lastFlakeAt: timestamp("last_flake_at", { withTimezone: true }),
+  // A quarantined case still executes and records results but is excluded
+  // from the blocking/green-light set (#263). `quarantinedReason` says
+  // whether an operator set it or auto-quarantine crossed the threshold;
+  // manual quarantine/unquarantine always overrides auto.
+  quarantined: boolean("quarantined").notNull().default(false),
+  quarantinedAt: timestamp("quarantined_at", { withTimezone: true }),
+  quarantineReason: quarantineReasonEnum("quarantine_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -171,6 +199,35 @@ export const targetEnvironments = pgTable("target_environments", {
   seeded: boolean("seeded").notNull().default(false),
   // Orders the dropdown; seeded entries come first in their defined order.
   sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const outboundEventStatusEnum = pgEnum("outbound_event_status", [
+  "pending",
+  "sent",
+  "failed",
+  "dead",
+]);
+
+// Testora → TasksAI signed webhooks (issue #260 producer, #261 dispatcher).
+// A producer (flake detection, a future regression detector) enqueues a row
+// here inside the same transaction as its own write; the outbound dispatcher
+// worker (#261) drains `pending` rows, signs and POSTs the event, and only
+// then marks it `sent` — an at-least-once outbox, the same shape as the
+// platform's other transactional-outbox usages.
+export const outboundEvents = pgTable("outbound_events", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id").notNull(),
+  /** contract WebhookEventType, e.g. "flake.detected" */
+  eventType: text("event_type").notNull(),
+  /** the contract event `data` payload (not the signed envelope — the
+   *  dispatcher wraps it, since deliveryId/timestamp are assigned at send time) */
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  status: outboundEventStatusEnum("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  availableAt: timestamp("available_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

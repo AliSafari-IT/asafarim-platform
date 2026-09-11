@@ -39,6 +39,7 @@ function sanitize(row: ProjectRow) {
     githubRepo: row.githubRepo,
     githubConfigured: Boolean(row.githubTokenEnc),
     seeded: row.seeded,
+    autoQuarantineFlaky: row.autoQuarantineFlaky,
   };
 }
 
@@ -58,6 +59,7 @@ const createSchema = z
     companyName: z.string().trim().optional(),
     githubRepo: z.string().trim().optional(),
     githubToken: z.string().trim().optional(),
+    autoQuarantineFlaky: z.boolean().optional(),
   });
 
 export async function POST(request: Request) {
@@ -84,6 +86,7 @@ export async function POST(request: Request) {
         githubRepo: data.githubRepo || null,
         githubTokenEnc: data.githubToken ? encryptToken(data.githubToken) : null,
         seeded: false,
+        autoQuarantineFlaky: data.autoQuarantineFlaky ?? false,
       })
       .returning();
     return NextResponse.json({ project: sanitize(created as ProjectRow) }, { status: 201 });
@@ -107,6 +110,7 @@ const updateSchema = z.object({
   githubRepo: z.string().trim().optional(),
   // Omit to keep the current token; "" to clear it; any value to replace it.
   githubToken: z.string().trim().optional(),
+  autoQuarantineFlaky: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -148,6 +152,9 @@ export async function PATCH(request: Request) {
       ...(data.companyName !== undefined ? { companyName: data.companyName || null } : {}),
       ...(data.githubRepo !== undefined ? { githubRepo: data.githubRepo || null } : {}),
       githubTokenEnc,
+      ...(data.autoQuarantineFlaky !== undefined
+        ? { autoQuarantineFlaky: data.autoQuarantineFlaky }
+        : {}),
       visibility: nextVisibility,
       // No per-app key any more; keep the column null.
       keyHash: null,

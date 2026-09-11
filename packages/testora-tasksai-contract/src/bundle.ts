@@ -100,6 +100,10 @@ export const RunBundleContext = z
     /** deployment origin the run executed against (never a repo path) */
     targetBaseUrl: z.string().max(2000).nullable().optional(),
     previousPass: PreviousPassRef.nullable().optional(),
+    /** automatic flake detection (issue #260) — pass rate over recent runs */
+    flakeScore: z.number().min(0).max(1).nullable().optional(),
+    /** excluded from a green-light check while true */
+    quarantined: z.boolean().optional(),
   })
   .strict();
 export type RunBundleContext = z.infer<typeof RunBundleContext>;

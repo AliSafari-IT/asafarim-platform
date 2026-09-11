@@ -8,6 +8,9 @@ const updateSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   frId: z.string().min(1).optional(),
+  // Suite-level manual quarantine (issue #260) — excludes every case under
+  // the suite from a green-light check without touching each one.
+  quarantined: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ suiteId: string }> }) {
@@ -21,10 +24,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ su
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
+  const { quarantined, ...rest } = parsed.data;
+
   try {
     const [updated] = await db
       .update(testSuites)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set({
+        ...rest,
+        ...(quarantined !== undefined
+          ? { quarantined, quarantinedAt: quarantined ? new Date() : null }
+          : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(testSuites.suiteId, suiteId))
       .returning();
 

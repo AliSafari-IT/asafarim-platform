@@ -27,6 +27,8 @@ function baseRow(overrides: Partial<BundleSourceRow> = {}): BundleSourceRow {
     requirementTitle: "Users can authenticate",
     projectId: "asafarim-web",
     previousPass: { resultId: "res_prev", createdAt: "2026-09-09T09:00:00.000Z" },
+    flakeScore: null,
+    quarantined: false,
     ...overrides,
   };
 }
