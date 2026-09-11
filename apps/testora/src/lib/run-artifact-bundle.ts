@@ -39,6 +39,9 @@ export interface BundleSourceRow {
   projectId: string;
   /** most recent passing run of the same case before this one, if any */
   previousPass: { resultId: string; createdAt: string } | null;
+  /** automatic flake detection (issue #260) */
+  flakeScore: number | null;
+  quarantined: boolean;
 }
 
 export class NonTerminalResultError extends Error {
@@ -201,6 +204,8 @@ export function buildRunArtifactBundle(
       previousPass: row.previousPass
         ? { resultId: row.previousPass.resultId, createdAt: row.previousPass.createdAt }
         : null,
+      flakeScore: row.flakeScore,
+      quarantined: row.quarantined,
     },
   };
 

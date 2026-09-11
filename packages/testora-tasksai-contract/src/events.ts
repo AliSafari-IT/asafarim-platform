@@ -66,7 +66,10 @@ export const FlakeDetectedData = z
     passRate: z.number().min(0).max(1),
     sampleSize: z.number().int().positive(),
     quarantined: z.boolean(),
+    /** the failing run's artifact bundle */
     bundle: BundleReference.optional(),
+    /** the most recent passing run's bundle, for a fail-vs-pass diff */
+    passRunBundle: BundleReference.optional(),
   })
   .strict();
 export type FlakeDetectedData = z.infer<typeof FlakeDetectedData>;

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { testCases } from "@/db/schema";
+import { setCaseQuarantine } from "@/lib/flake-service";
 
 const updateSchema = z
   .object({
@@ -13,6 +14,10 @@ const updateSchema = z
     runs: z.array(z.record(z.unknown())).optional(),
     expected: z.record(z.unknown()).optional(),
     script: z.string().optional(),
+    // Manual quarantine (issue #260) — always available, always overrides
+    // auto-quarantine. Handled separately below (it also stamps
+    // quarantinedAt/quarantineReason).
+    quarantined: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.scriptType === "single" && !value.input) {
@@ -37,15 +42,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ca
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
+  const { quarantined, ...rest } = parsed.data;
+
   try {
-    const [updated] = await db
-      .update(testCases)
-      .set({ ...parsed.data, updatedAt: new Date() })
-      .where(eq(testCases.caseId, caseId))
-      .returning();
+    let updated = Object.keys(rest).length
+      ? (
+          await db
+            .update(testCases)
+            .set({ ...rest, updatedAt: new Date() })
+            .where(eq(testCases.caseId, caseId))
+            .returning()
+        )[0]
+      : await db.query.testCases.findFirst({ where: eq(testCases.caseId, caseId) });
 
     if (!updated) {
       return NextResponse.json({ error: "Case not found" }, { status: 404 });
+    }
+    if (quarantined !== undefined) {
+      updated = (await setCaseQuarantine(caseId, quarantined)) ?? updated;
     }
     return NextResponse.json({ testCase: updated });
   } catch (error) {

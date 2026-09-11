@@ -78,6 +78,13 @@
       "when": 1788691200000,
       "tag": "0010_remove_retired_immostory",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789110436955,
+      "tag": "0011_chilly_reavers",
+      "breakpoints": true
     }
   ]
 }

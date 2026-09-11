@@ -100,6 +100,11 @@ describe("RunArtifactBundle", () => {
     expect(RunArtifactBundle.safeParse(withContext).success).toBe(true);
   });
 
+  it("accepts flakeScore/quarantined in context", () => {
+    const withFlake = { ...bundle, context: { flakeScore: 0.4, quarantined: true } };
+    expect(RunArtifactBundle.safeParse(withFlake).success).toBe(true);
+  });
+
   it("rejects an unknown key inside context", () => {
     const bad = { ...bundle, context: { sourceFile: "app/page.tsx" } };
     expect(RunArtifactBundle.safeParse(bad).success).toBe(false);
@@ -165,6 +170,27 @@ describe("parseWebhookEvent", () => {
     };
     const result = parseWebhookEvent(envelope);
     expect(result.ok).toBe(true);
+  });
+
+  it("accepts flake.detected with both the fail-run and pass-run bundle refs", () => {
+    const envelope = {
+      v: 1,
+      deliveryId: "77777777-7777-7777-7777-777777777777",
+      eventType: "flake.detected",
+      occurredAt: "2026-09-10T10:05:00.000Z",
+      source: "testora",
+      data: {
+        scenarioId: "scn_login",
+        scenarioTitle: "User can sign in",
+        appId: "asafarim-web",
+        passRate: 0.7,
+        sampleSize: 10,
+        quarantined: false,
+        bundle: { bundleId: bundle.bundleId, url: "https://testora.example.com/api/results/r1/bundle" },
+        passRunBundle: { bundleId: bundle.bundleId, url: "https://testora.example.com/api/results/r2/bundle" },
+      },
+    };
+    expect(parseWebhookEvent(envelope).ok).toBe(true);
   });
 
   it("rejects data that does not match the event type", () => {

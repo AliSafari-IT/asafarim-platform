@@ -177,6 +177,10 @@ export interface ReportResultRow {
   // A data-URL PNG of the page at the moment of failure, inlined so it shows in
   // the Results UI and travels with the self-contained HTML/PDF export.
   screenshot: string | null;
+  // Automatic flake detection (issue #260): the case's current pass-rate
+  // score and whether it's excluded from a green-light check.
+  flakeScore: number | null;
+  quarantined: boolean;
 }
 
 /**
@@ -216,6 +220,8 @@ export async function getResultsForReport(
       projectId: fr?.projectId ?? "",
       targetBaseUrl: typeof target === "string" ? target : null,
       screenshot: typeof shot === "string" ? shot : null,
+      flakeScore: row.case?.flakeScore ?? null,
+      quarantined: row.case?.quarantined ?? false,
       status: row.status,
       runIndex: row.runIndex,
       durationMs: row.durationMs,
