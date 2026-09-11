@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-11",
-    "title": "Testora: outbound signed webhook dispatcher (#261)",
-    "sha": "fa02dd2",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fa02dd2"
+    "title": "UI: shared TestEvidence panel rendering a run-artifact bundle (#267)",
+    "sha": "0b799f5",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/0b799f5"
   }
 ]
