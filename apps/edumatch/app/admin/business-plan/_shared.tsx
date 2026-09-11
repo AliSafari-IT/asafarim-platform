@@ -1,20 +1,25 @@
 import { notFound } from "next/navigation";
 import { getAuthedUser } from "@/lib/server/auth";
+import { canViewBusinessPlan } from "@/lib/business-plan-access";
 
 /**
  * Shared gate for every page under /admin/business-plan. The admin layout
  * above this route already requires isAdmin() (admin / superadmin /
  * edumatch_admin) — broader than we want here. This adds a stricter check on
- * top: strictly "superadmin", nothing else. A regular admin who guesses the
- * URL gets a 404, not a "forbidden" page that confirms the route exists.
+ * top: superadmin, or an explicitly allow-listed email (see
+ * lib/business-plan-access.ts). Anyone else who guesses the URL gets a 404,
+ * not a "forbidden" page that confirms the route exists.
  */
-export async function requireSuperAdmin() {
+export async function requireBusinessPlanAccess() {
   const user = await getAuthedUser();
-  if (!user || !user.roles.includes("superadmin")) {
+  if (!canViewBusinessPlan(user)) {
     notFound();
   }
   return user;
 }
+
+// Back-compat alias for the pages imported before the allow-list existed.
+export const requireSuperAdmin = requireBusinessPlanAccess;
 
 // ---------------------------------------------------------------------------
 // Shared "printed report" building blocks — used by the business plan itself

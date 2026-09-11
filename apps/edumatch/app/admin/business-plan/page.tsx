@@ -7,11 +7,13 @@ export const metadata: Metadata = { title: "Business Plan · EduMatch Admin" };
 
 // This page is intentionally not linked from the admin sidebar (AdminShell) —
 // it's reachable only via the "B.Plan" link in the top navbar, and that link
-// only renders for the exact "superadmin" role (see EduNav.tsx). Access is
-// gated by requireSuperAdmin() in ./_shared.tsx, shared with the screenshots
-// and architecture sub-pages — as are the report-building-block components
-// below (Section, FlowChart, Table, ...), so all three pages read as one
-// document instead of three differently-styled ones.
+// only renders when the server-computed showBusinessPlanLink flag is true (see
+// EduNav.tsx + app/layout.tsx). Access is gated by requireBusinessPlanAccess()
+// in ./_shared.tsx, shared with the screenshots and architecture sub-pages —
+// as are the report-building-block components below (Section, FlowChart,
+// Table, ...), so all three pages read as one document instead of three
+// differently-styled ones. The gate honors superadmins and the emails in
+// BUSINESS_PLAN_ALLOWLISTED_EMAILS (see lib/business-plan-access.ts).
 
 const modules: [string, React.ReactNode, React.ReactNode][] = [
   ["M01 · Accounts & Auth", <>Student / Tutor / Admin via <Code>@asafarim/auth</Code>{" "}+ Hub SSO</>, <Badge tone="live">Live</Badge>],
