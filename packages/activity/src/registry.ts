@@ -2,6 +2,7 @@ import { runAdapter } from "./run-adapter";
 import type { ActivityLookup, ActivitySection, UserActivityAdapter } from "./types";
 import { timelineaiActivityAdapter } from "./adapters/timelineai";
 import { viontoActivityAdapter } from "./adapters/vionto";
+import { edumatchActivityAdapter } from "./adapters/edumatch";
 import { createRemoteAdapter } from "./adapters/remote";
 
 function envUrl(name: string, fallback: string): string {
@@ -34,10 +35,20 @@ const tasksaiActivityAdapter = createRemoteAdapter({
 export const activityAdapters: Record<string, UserActivityAdapter> = {
   vionto: viontoActivityAdapter,
   timelineai: timelineaiActivityAdapter,
+  edumatch: edumatchActivityAdapter,
   appbuilder: appbuilderActivityAdapter,
   testora: testoraActivityAdapter,
   jobmatch: jobmatchActivityAdapter,
   tasksai: tasksaiActivityAdapter,
+  // Hub deliberately has no adapter: its checklist items (sign-in events,
+  // profile-edit history, storage usage) have no backing data. Auth uses
+  // the JWT session strategy with no DB adapter, so Prisma's `Session`
+  // table is never populated — using it would silently show "0 sign-ins"
+  // instead of the true "not tracked". `User.updatedAt` is a snapshot, not
+  // an edit history, and no storage-usage model exists for Hub. Per the
+  // issue's "no silent gaps" acceptance criterion, the honest placeholder
+  // is "no adapter yet" (rendered by the User 360 page) rather than an
+  // adapter that fabricates data these models don't have.
 };
 
 /**
