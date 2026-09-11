@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-11",
-    "title": "Tasksai: required external checks on a task (green-light gate) (#265)",
-    "sha": "31bcc9a",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/31bcc9a"
+    "title": "Tasksai: provision-tests action from an applied decomposition (#266)",
+    "sha": "42d45b8",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/42d45b8"
   }
 ]
