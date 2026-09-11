@@ -247,6 +247,28 @@ export const openapiDocument = {
         responses: { "200": { description: "ok" }, "403": errorRef() },
       },
     },
+    "/workspaces/{slug}/tasks/{id}/provision-tests": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: {
+        summary:
+          "Provision Testora pending scenarios + a required check from this task's acceptance criteria (issue #266); idempotent, human-triggered",
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            acceptanceCriteria: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: { ref: { type: "string" }, text: { type: "string" } },
+              },
+            },
+            featureTitle: { type: "string" },
+            requiredRuns: { type: "integer" },
+          },
+        }),
+        responses: { "201": { description: "created" }, "404": errorRef(), "422": errorRef() },
+      },
+    },
     "/workspaces/{slug}/tasks/{id}/links": {
       parameters: [pathParam("slug"), pathParam("id")],
       post: {

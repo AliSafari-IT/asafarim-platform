@@ -23,6 +23,7 @@ import { z } from "zod";
 const LOCAL_DATABASE_URL = "postgres://tasksai:tasksai_dev@127.0.0.1:55438/tasksai";
 const LOCAL_APP_URL = "http://localhost:3013";
 const LOCAL_HUB_URL = "http://localhost:3001";
+const LOCAL_TESTORA_URL = "http://localhost:3005";
 const LOCAL_REDIS_URL = "redis://localhost:6390";
 
 // Read as literal member expressions so Next.js inlines them at build time.
@@ -41,6 +42,10 @@ export interface TasksAiEnv {
   hubUrl: string;
   /** Service token for reading Testora artifact bundles (issue #264); unset by default. */
   testoraBundleReadToken?: string;
+  /** Testora's own server URL, for the provision-tests action (issue #266). */
+  testoraAppUrl: string;
+  /** Shared secret Testora's POST /api/provisions expects (issue #266). */
+  testoraProvisionToken?: string;
   /** True when secrets must be supplied explicitly rather than defaulted. */
   requiresExplicitSecrets: boolean;
   /** Non-fatal misconfigurations, surfaced by /api/health. Names only. */
@@ -65,6 +70,10 @@ const rawSchema = z.object({
    *  (issue #264). Optional — without it, only bundles delivered inline on
    *  the webhook are diagnosed. */
   TESTORA_BUNDLE_READ_TOKEN: z.string().min(1).optional(),
+  /** Testora's own server URL (issue #266). Defaults to the local dev port. */
+  TESTORA_APP_URL: z.string().url().optional(),
+  /** Shared secret for POST {TESTORA_APP_URL}/api/provisions (issue #266). */
+  TESTORA_PROVISION_TOKEN: z.string().min(1).optional(),
 });
 
 export class EnvValidationError extends Error {
@@ -130,6 +139,8 @@ export function resolveEnv(
     appUrl,
     hubUrl,
     testoraBundleReadToken: raw.TESTORA_BUNDLE_READ_TOKEN,
+    testoraAppUrl: raw.TESTORA_APP_URL ?? LOCAL_TESTORA_URL,
+    testoraProvisionToken: raw.TESTORA_PROVISION_TOKEN,
     requiresExplicitSecrets,
     warnings,
   };
