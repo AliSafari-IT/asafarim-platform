@@ -1,13 +1,15 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/server/db";
 
-const appUrl = process.env.NEXT_PUBLIC_TIMELINEAI_URL ?? "https://tlai.asafarim.com";
+const appUrl =
+  process.env.NEXT_PUBLIC_TIMELINEAI_URL ?? "https://tlai.asafarim.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: appUrl, changeFrequency: "weekly", priority: 1 },
     { url: `${appUrl}/create`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${appUrl}/gallery`, changeFrequency: "daily", priority: 0.7 },
+    { url: `${appUrl}/roadmap`, changeFrequency: "weekly", priority: 0.7 },
   ];
 
   // Only timelines that anonymous visitors can actually see — the exact

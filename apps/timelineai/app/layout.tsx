@@ -1,15 +1,31 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
-import { auth, signOut, hasRole, ROLES, getAppSwitcherApps } from "@asafarim/auth";
+import {
+  auth,
+  signOut,
+  hasRole,
+  ROLES,
+  getAppSwitcherApps,
+} from "@asafarim/auth";
 import { ThemeProvider, ThemeToggle } from "@asafarim/theme-toggle";
 import { ThemeScript } from "@asafarim/theme-toggle/script";
-import { AppShell, AppSwitcher, Button, ButtonLink, TopNav, UserMenu, getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
+import {
+  AppShell,
+  AppSwitcher,
+  Button,
+  ButtonLink,
+  TopNav,
+  UserMenu,
+  getPlatformLinks,
+  toAppSwitcherLinks,
+} from "@asafarim/ui";
 import { SessionProvider } from "@/components/SessionProvider";
 import "@asafarim/ui/styles.css";
 import "./globals.css";
 
-const appUrl = process.env.NEXT_PUBLIC_TIMELINEAI_URL ?? "https://tlai.asafarim.com";
+const appUrl =
+  process.env.NEXT_PUBLIC_TIMELINEAI_URL ?? "https://tlai.asafarim.com";
 const appName = "TimelineAI";
 const appDescription =
   "Create polished, visual timelines — project plans, roadmaps, Gantt charts, calendars, and storytelling — no design skills needed.";
@@ -34,7 +50,11 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   // Set only by our own export pipeline (lib/server/services/export.ts)
   // when headlessly rendering a public timeline page — the export should
   // be just the timeline, not the platform chrome around it. Never
@@ -60,6 +80,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const navItems = [
     { label: "Home", href: "/" },
     { label: "Gallery", href: "/gallery" },
+    { label: "Roadmap", href: "/roadmap" },
     { label: "Create", href: "/create" },
     ...(session?.user ? [{ label: "Dashboard", href: "/dashboard" }] : []),
     ...(isAdmin ? [{ label: "Admin", href: "/admin" }] : []),
@@ -91,7 +112,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                       links={toAppSwitcherLinks(switcherApps, links)}
                     />
                     {session?.user ? (
-                      <UserMenu name={session.user.name} email={session.user.email} image={session.user.image} roles={session.user.roles}>
+                      <UserMenu
+                        name={session.user.name}
+                        email={session.user.email}
+                        image={session.user.image}
+                        roles={session.user.roles}
+                      >
                         <form
                           action={async () => {
                             "use server";

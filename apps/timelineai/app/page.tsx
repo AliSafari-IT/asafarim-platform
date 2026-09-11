@@ -7,10 +7,12 @@ const showcase = getShowcaseProject("timelineai")!;
 export default function HomePage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center">
-      <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">TimelineAI</h1>
+      <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+        TimelineAI
+      </h1>
       <p className="text-lg text-[var(--color-text-muted,inherit)]">
-        Build polished, visual timelines — for projects, history, roadmaps, and more.
-        No account required to try it out.
+        Build polished, visual timelines — for projects, history, roadmaps, and
+        more. No account required to try it out.
       </p>
       <ShowcaseNotice
         content={showcase}
@@ -31,6 +33,9 @@ export default function HomePage() {
         </ButtonLink>
         <ButtonLink href="/gallery" variant="secondary">
           Browse the gallery
+        </ButtonLink>
+        <ButtonLink href="/roadmap" variant="secondary">
+          See the roadmap
         </ButtonLink>
         <ButtonLink href="/dashboard" variant="secondary">
           Sign in for your dashboard

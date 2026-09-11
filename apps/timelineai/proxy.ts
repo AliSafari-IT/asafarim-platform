@@ -1,6 +1,9 @@
 import { createAuthProxy } from "@asafarim/auth/proxy";
 
-const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || process.env.HUB_URL || "http://localhost:3001";
+const hubUrl =
+  process.env.NEXT_PUBLIC_HUB_URL ||
+  process.env.HUB_URL ||
+  "http://localhost:3001";
 
 export const proxy = createAuthProxy({
   // Public surface: marketing landing, legal pages, guest editor/export/
@@ -15,6 +18,7 @@ export const proxy = createAuthProxy({
     "/about-this-project", // showcase disclosure — must be readable by anyone
     "/create",
     "/gallery", // public showcase of published timelines
+    "/roadmap", // public history and forward product direction
     "/t", // public timeline share pages: /t/[publicId]
     "/robots.txt",
     "/sitemap.xml",
@@ -32,5 +36,7 @@ export const proxy = createAuthProxy({
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };
