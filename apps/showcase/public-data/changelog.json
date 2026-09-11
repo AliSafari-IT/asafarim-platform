@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-11",
-    "title": "Auth: wire SUPERADMIN_EMAILS allowlist (issue #301 phase 0)",
-    "sha": "43320ea",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/43320ea"
+    "title": "Activity: add UserActivityAdapter contract + Vionto/TimelineAI adapters (issue #301 phase 1)",
+    "sha": "e6de852",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/e6de852"
   }
 ]
