@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-11",
-    "title": "Activity: add UserActivityAdapter contract + Vionto/TimelineAI adapters (issue #301 phase 1)",
-    "sha": "e6de852",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/e6de852"
+    "title": "Admin: User 360 cross-app activity explorer (issue #301 phase 2)",
+    "sha": "b543d02",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/b543d02"
   }
 ]
