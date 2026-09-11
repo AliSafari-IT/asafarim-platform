@@ -1,42 +1,41 @@
 "use client";
 
 /**
- * First-run role selection: parent, student (16+), or tutor.
+ * First-run role selection: parent, student, or tutor.
  *
- * The under-16 rule is enforced server-side (upsertStudentProfile refuses a
- * first-time profile with a DOB under 16 — see lib/server/profiles.ts and
- * student-guard.ts) — the client-side age check here is only there to steer
- * a student who picks the wrong card toward the parent flow before they hit
- * that 403, not to replace the boundary.
+ * The consent-age rule is enforced server-side (upsertStudentProfile
+ * refuses a first-time profile whose declared country/DOB puts it below
+ * that country's GDPR Art. 8 digital-consent age — see
+ * lib/server/profiles.ts, lib/consent-age.ts, and student-guard.ts) — the
+ * client-side check here is only there to steer a student who picks the
+ * wrong card toward the parent flow before they hit that 403, not to
+ * replace the boundary.
  */
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
+import {
+  CONSENT_COUNTRY_LABELS,
+  SUPPORTED_CONSENT_COUNTRIES,
+  isBelowConsentAge,
+  minorConsentAge,
+  type ConsentCountryCode,
+} from "@/lib/consent-age";
 
 type Role = "parent" | "student" | "tutor" | null;
-
-function isUnder16Client(dateOfBirth: string): boolean {
-  const dob = new Date(dateOfBirth);
-  if (Number.isNaN(dob.getTime())) return true;
-  const now = new Date();
-  let age = now.getUTCFullYear() - dob.getUTCFullYear();
-  const m = now.getUTCMonth() - dob.getUTCMonth();
-  const d = now.getUTCDate() - dob.getUTCDate();
-  if (m < 0 || (m === 0 && d < 0)) age -= 1;
-  return age < 16;
-}
 
 export default function OnboardingPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const [role, setRole] = useState<Role>(null);
 
-  // Student (16+) sub-flow
+  // Student sub-flow
   const [dob, setDob] = useState("");
+  const [country, setCountry] = useState<ConsentCountryCode | "">("");
   const [dobChecked, setDobChecked] = useState(false);
-  const under16 = dobChecked && isUnder16Client(dob);
+  const underAge = dobChecked && isBelowConsentAge(dob, country || null);
 
   // Parent sub-flow
   const [childName, setChildName] = useState("");
@@ -51,8 +50,10 @@ export default function OnboardingPage() {
       return;
     }
     setDobChecked(true);
-    if (isUnder16Client(dob)) return; // notice is shown inline; no submit
-    router.push(`/student/profile?dateOfBirth=${encodeURIComponent(dob)}`);
+    if (isBelowConsentAge(dob, country || null)) return; // notice is shown inline; no submit
+    const params = new URLSearchParams({ dateOfBirth: dob });
+    if (country) params.set("countryCode", country);
+    router.push(`/student/profile?${params.toString()}`);
   }
 
   async function submitParentAndChild(e: React.FormEvent) {
@@ -137,9 +138,36 @@ export default function OnboardingPage() {
           {dobChecked && !dob && (
             <p className="mt-2 text-xs text-red-700">{t("edumatch.onboarding.dobRequired")}</p>
           )}
-          {under16 && (
+
+          <label
+            htmlFor="onboarding-country"
+            className="mb-2 mt-4 block text-sm font-medium text-[var(--color-text)]"
+          >
+            {t("edumatch.profile.student.country")}
+          </label>
+          <select
+            id="onboarding-country"
+            value={country}
+            onChange={(e) => {
+              setCountry(e.target.value as ConsentCountryCode | "");
+              setDobChecked(false);
+            }}
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          >
+            <option value="">{t("edumatch.profile.student.countryOther")}</option>
+            {SUPPORTED_CONSENT_COUNTRIES.map((code) => (
+              <option key={code} value={code}>
+                {CONSENT_COUNTRY_LABELS[code]}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-xs text-[var(--color-text-muted)]">
+            {t("edumatch.profile.student.countryHint")}
+          </p>
+
+          {underAge && (
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              {t("edumatch.onboarding.under16Notice")}{" "}
+              {t("edumatch.profile.student.underAgeNotice", { age: minorConsentAge(country || null) })}{" "}
               <button
                 type="button"
                 onClick={() => setRole("parent")}
