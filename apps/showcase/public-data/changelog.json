@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "date": "2026-09-11",
+    "title": "Admin: show avatar in the User 360 identity header (issue #301 phase 2)",
+    "sha": "c1602a4",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/c1602a4"
+  }
+]
