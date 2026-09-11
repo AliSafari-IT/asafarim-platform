@@ -171,6 +171,7 @@ export function ResultsExplorer({
     label: string;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const headerCbRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { rerunCases, running, projects } = useRun();
@@ -380,12 +381,14 @@ export function ResultsExplorer({
 
   function deleteIds(ids: string[], label: string) {
     if (ids.length === 0) return;
+    setDeleteError(null);
     setConfirmDelete({ ids, label });
   }
 
   async function performDelete() {
     if (!confirmDelete) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       const res = await fetch("/api/results", {
         method: "DELETE",
@@ -405,7 +408,7 @@ export function ResultsExplorer({
       setConfirmDelete(null);
     } catch (err) {
       console.error("Delete failed", err);
-      window.alert("Failed to delete results.");
+      setDeleteError("Failed to delete results.");
     } finally {
       setDeleting(false);
     }
@@ -1042,7 +1045,12 @@ export function ResultsExplorer({
       {/* Delete confirmation modal */}
       <Dialog
         open={confirmDelete != null}
-        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDelete(null);
+            setDeleteError(null);
+          }
+        }}
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1078,10 +1086,17 @@ export function ResultsExplorer({
               </div>
             )}
 
+          {deleteError ? (
+            <p className="text-sm text-red-500">{deleteError}</p>
+          ) : null}
+
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
-              onClick={() => setConfirmDelete(null)}
+              onClick={() => {
+                setConfirmDelete(null);
+                setDeleteError(null);
+              }}
               disabled={deleting}
             >
               Cancel

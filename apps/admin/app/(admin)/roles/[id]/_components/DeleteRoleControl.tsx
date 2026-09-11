@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button } from "@asafarim/ui";
+import { Alert, Button, ConfirmDialog } from "@asafarim/ui";
 import { deleteRole } from "../../actions";
 
 export function DeleteRoleControl({
@@ -17,19 +17,11 @@ export function DeleteRoleControl({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [confirming, setConfirming] = useState(false);
 
   async function handleDelete() {
+    setConfirming(false);
     setError("");
-    if (
-      !window.confirm(
-        `Delete the "${roleName}" role permanently?\n\n${userCount} user${
-          userCount === 1 ? "" : "s"
-        } will lose this role. This cannot be undone.`
-      )
-    ) {
-      return;
-    }
-
     setPending(true);
     try {
       const result = await deleteRole({ roleId });
@@ -54,10 +46,21 @@ export function DeleteRoleControl({
         variant="danger"
         size="sm"
         disabled={pending}
-        onClick={handleDelete}
+        onClick={() => setConfirming(true)}
       >
         {pending ? "deleting…" : "delete role"}
       </Button>
+
+      <ConfirmDialog
+        open={confirming}
+        title={`Delete the "${roleName}" role permanently?`}
+        message={`${userCount} user${userCount === 1 ? "" : "s"} will lose this role. This cannot be undone.`}
+        confirmLabel="Delete role"
+        tone="danger"
+        confirmDisabled={pending}
+        onCancel={() => setConfirming(false)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
