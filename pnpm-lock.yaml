@@ -1109,6 +1109,25 @@ importers:
 
   benchmarks/vionto: {}
 
+  packages/activity:
+    dependencies:
+      '@asafarim/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      '@asafarim/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0))
+
   packages/appbuilder-ai:
     dependencies:
       '@asafarim/appbuilder-schema':

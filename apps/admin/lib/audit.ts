@@ -49,7 +49,10 @@ export interface AuditEventInput {
     // provider id; the other two by their control-plane row id.
     | "SeedProvider"
     | "SeedOperation"
-    | "SeedValidationSchedule";
+    | "SeedValidationSchedule"
+    // Superadmin User 360 explorer (issue #301): every view of a user's
+    // cross-app activity is itself audited — "the watcher is watched".
+    | "UserActivityView";
   /** Null for events about a collection rather than one row (e.g. exports). */
   entityId: string | null;
   changes?: Record<string, unknown>;
