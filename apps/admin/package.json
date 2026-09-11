@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@asafarim/activity": "workspace:*",
     "@asafarim/auth": "workspace:*",
     "@asafarim/country-language-selector": "workspace:*",
     "@asafarim/db": "workspace:*",

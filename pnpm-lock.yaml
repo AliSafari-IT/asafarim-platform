@@ -139,6 +139,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@asafarim/activity':
+        specifier: workspace:*
+        version: link:../../packages/activity
       '@asafarim/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -1111,6 +1114,9 @@ importers:
 
   packages/activity:
     dependencies:
+      '@asafarim/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@asafarim/db':
         specifier: workspace:*
         version: link:../db
