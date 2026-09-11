@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Badge, Button } from "@asafarim/ui";
+import { Alert, Badge, Button, ConfirmDialog } from "@asafarim/ui";
 import { setRolePermissions } from "../../actions";
 
 export interface PermissionOption {
@@ -35,6 +35,7 @@ export function PermissionGrantsEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [confirming, setConfirming] = useState(false);
 
   const initial = useMemo(() => new Set(initialGrantedIds), [initialGrantedIds]);
   const added = [...granted].filter((id) => !initial.has(id));
@@ -61,26 +62,15 @@ export function PermissionGrantsEditor({
     });
   }
 
-  async function handleSave() {
-    setError("");
-    const nameOf = (id: string) =>
-      permissions.find((p) => p.id === id)?.name ?? id;
-    const summary = [
-      added.length ? `grant: ${added.map(nameOf).join(", ")}` : null,
-      removed.length ? `revoke: ${removed.map(nameOf).join(", ")}` : null,
-    ]
-      .filter(Boolean)
-      .join("\n");
-    if (
-      !window.confirm(
-        `Apply permission changes to "${roleName}"?\n\n${summary}\n\nThis affects ${affectedUsers} user${
-          affectedUsers === 1 ? "" : "s"
-        } holding the role.`
-      )
-    ) {
-      return;
-    }
+  const nameOf = (id: string) =>
+    permissions.find((p) => p.id === id)?.name ?? id;
 
+  function handleSave() {
+    setError("");
+    setConfirming(true);
+  }
+
+  async function commitSave() {
     setSaving(true);
     try {
       const result = await setRolePermissions({
@@ -164,6 +154,31 @@ export function PermissionGrantsEditor({
         ) : null}
         {saved && !dirty ? <Badge tone="success">saved</Badge> : null}
       </div>
+
+      <ConfirmDialog
+        open={confirming}
+        title={`Apply permission changes to "${roleName}"?`}
+        message={`This affects ${affectedUsers} user${affectedUsers === 1 ? "" : "s"} holding the role.`}
+        confirmLabel="Apply changes"
+        tone="danger"
+        confirmDisabled={saving}
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => {
+          setConfirming(false);
+          void commitSave();
+        }}
+      >
+        {added.length > 0 ? (
+          <p>
+            <strong>Grant:</strong> {added.map(nameOf).join(", ")}
+          </p>
+        ) : null}
+        {removed.length > 0 ? (
+          <p>
+            <strong>Revoke:</strong> {removed.map(nameOf).join(", ")}
+          </p>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Badge, Button } from "@asafarim/ui";
+import { Alert, Badge, Button, ConfirmDialog } from "@asafarim/ui";
 import { setUserActiveState } from "../../actions";
 
 export function StatusControls({
@@ -19,26 +19,9 @@ export function StatusControls({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [confirming, setConfirming] = useState(false);
 
-  async function handleToggle() {
-    setError("");
-
-    let confirmSelf = false;
-    if (!isActive) {
-      // Reactivation is safe — no confirmation needed.
-    } else if (isSelf) {
-      confirmSelf = window.confirm(
-        "You are about to deactivate YOUR OWN account. You will be signed out everywhere and lose access to this console. Continue?"
-      );
-      if (!confirmSelf) return;
-    } else if (
-      !window.confirm(
-        "Deactivate this account? The user will no longer be able to sign in to any platform app."
-      )
-    ) {
-      return;
-    }
-
+  async function commitToggle(confirmSelf: boolean) {
     setPending(true);
     try {
       const result = await setUserActiveState({
@@ -56,6 +39,17 @@ export function StatusControls({
     } finally {
       setPending(false);
     }
+  }
+
+  function handleToggle() {
+    setError("");
+    // Reactivation is safe — no confirmation needed. Deactivation always
+    // asks first, through the shared dialog, never window.confirm.
+    if (!isActive) {
+      void commitToggle(false);
+      return;
+    }
+    setConfirming(true);
   }
 
   return (
@@ -97,6 +91,24 @@ export function StatusControls({
               : "deactivate account"
             : "activate account"}
       </Button>
+
+      <ConfirmDialog
+        open={confirming}
+        title={isSelf ? "Deactivate your own account?" : "Deactivate this account?"}
+        message={
+          isSelf
+            ? "You are about to deactivate YOUR OWN account. You will be signed out everywhere and lose access to this console."
+            : "The user will no longer be able to sign in to any platform app."
+        }
+        confirmLabel="Deactivate"
+        tone="danger"
+        confirmDisabled={pending}
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => {
+          setConfirming(false);
+          void commitToggle(isSelf);
+        }}
+      />
     </div>
   );
 }
