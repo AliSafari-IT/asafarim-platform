@@ -4,7 +4,8 @@
 (deploying) {
   handle_errors {
     @maintenance expression {err.status_code} in [502, 503, 504]
-    respond @maintenance <<HTML 503
+    header @maintenance Content-Type "text/html; charset=utf-8"
+    respond @maintenance <<HTML
 <!doctype html>
 <html><head><meta charset="utf-8"><meta http-equiv="refresh" content="5">
 <title>Deploying…</title>
@@ -21,10 +22,7 @@
   <h1>Deploying an update<span class="dots"></span></h1>
   <p>This page will refresh automatically in a few seconds.</p>
 </div></body></html>
-HTML
-    {
-      Content-Type "text/html; charset=utf-8"
-    }
+HTML 503
   }
 }
 

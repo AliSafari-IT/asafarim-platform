@@ -154,7 +154,21 @@ fi
 
 echo "[deploy $(date -Is)] Starting stack..."
 "${COMPOSE[@]}" up -d --remove-orphans
-"${COMPOSE[@]}" up -d --force-recreate --no-deps caddy
+
+# The Caddyfile is bind-mounted, so applying configuration does not require a
+# container replacement. Force-recreating Caddy briefly closes public ports 80
+# and 443; visitors then see the browser's ERR_CONNECTION_TIMED_OUT page and
+# Caddy cannot serve the friendly 502/503/504 deployment fallback. Validate the
+# new file first, then reload it inside the existing process. `caddy reload`
+# swaps configuration gracefully without interrupting active listeners.
+echo "[deploy $(date -Is)] Validating and gracefully reloading Caddy..."
+if ! "${COMPOSE[@]}" exec -T caddy \
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
+  echo "FATAL: Caddy configuration is invalid — keeping the current proxy configuration." >&2
+  exit 1
+fi
+"${COMPOSE[@]}" exec -T caddy \
+  caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 
 echo "[deploy $(date -Is)] Sending deployment notification..."
 DISCORD_WEBHOOK=""
