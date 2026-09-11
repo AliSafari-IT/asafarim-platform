@@ -1411,9 +1411,9 @@ importers:
 
   packages/ui:
     dependencies:
-      react-dom:
-        specifier: ^19.2.7
-        version: 19.2.7(react@19.2.7)
+      '@asafarim/testora-tasksai-contract':
+        specifier: workspace:*
+        version: link:../testora-tasksai-contract
     devDependencies:
       '@asafarim/config':
         specifier: workspace:*
@@ -1421,12 +1421,21 @@ importers:
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
       react:
         specifier: ^19.2.7
         version: 19.2.7
+      react-dom:
+        specifier: ^19.2.7
+        version: 19.2.7(react@19.2.7)
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.13.2)(lightningcss@1.32.0)(supports-color@7.2.0)
 
   packages/vionto-schemas:
     dependencies:

@@ -12,16 +12,23 @@
     "./styles/components.css": "./src/styles/components.css"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
+  "dependencies": {
+    "@asafarim/testora-tasksai-contract": "workspace:*"
+  },
   "devDependencies": {
     "@asafarim/config": "workspace:*",
     "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "react": "^19.2.7",
-    "typescript": "^5.7.0"
+    "react-dom": "^19.2.7",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
   }
 }
