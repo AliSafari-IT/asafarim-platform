@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { auth, signOut, getAppSwitcherApps } from "@asafarim/auth";
 import {
@@ -18,8 +19,13 @@ import { ThemeToggle } from "@asafarim/theme-toggle";
  * dropdowns used across web/hub/showcase/admin, so testora reads as part of
  * the ASafarIM platform. Server component: reads the SSO session directly and
  * signs out via a server action. testora keeps its own tool sidebar below this.
+ *
+ * `nav` is left empty by default — the signed-in (app) layout already has
+ * SidebarNav for navigation, so filling this slot there would just duplicate
+ * links. The marketing layout passes its own TopNav for visitors who land
+ * without an active tool sidebar.
  */
-export async function PlatformHeader() {
+export async function PlatformHeader({ nav }: { nav?: ReactNode } = {}) {
   const session = await auth();
   const links = getPlatformLinks();
   const signInUrl = `${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.testora}/`)}`;
@@ -32,7 +38,7 @@ export async function PlatformHeader() {
         <LogoMark accent />
         <BrandWordmark product="Testora" />
       </Link>
-      <div className="ui-shell__nav" />
+      <div className="ui-shell__nav">{nav}</div>
       <div className="ui-shell__actions">
         <ThemeToggle />
         <AppSwitcher
