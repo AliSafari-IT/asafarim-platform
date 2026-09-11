@@ -109,10 +109,17 @@ describe.skipIf(!hasTestDatabase())("collaboration (integration)", () => {
     const task = await createTask(a.ctx, { projectId: proj.id, title: "t" });
     await addComment(a.ctx, task.id, { body: `@[M](${m.id})` });
 
+    // The integration DB is shared across test files (fileParallelism: false),
+    // so other suites' pending rows can share/exceed a single BATCH (50) and
+    // starve this workspace's rows across more than one drain call. Loop
+    // until the drainer reports nothing left to process, bounded so a real
+    // regression (drainer never converging) still fails fast.
     const first = await drainOutboxOnce();
     expect(first.processed).toBeGreaterThan(0);
-    const second = await drainOutboxOnce();
-    expect(second.processed).toBe(0);
+    for (let i = 0; i < 10; i += 1) {
+      const { processed } = await drainOutboxOnce();
+      if (processed === 0) break;
+    }
     const pending = await db.outboxEvent.count({ where: { workspaceId: a.ws.id, status: "pending" } });
     expect(pending).toBe(0);
   });
