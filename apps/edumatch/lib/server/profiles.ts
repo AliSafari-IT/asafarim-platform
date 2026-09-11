@@ -160,6 +160,76 @@ export async function assignRoleIfMissing(
   });
 }
 
+const EDUMATCH_LOCATION_SELECT = {
+  id: true,
+  type: true,
+  label: true,
+  isPrimary: true,
+  formatted: true,
+  street1: true,
+  city: true,
+  state: true,
+  postalCode: true,
+  country: true,
+  countryName: true,
+  lat: true,
+  lng: true,
+} as const;
+
+type EduMatchLocationRow = {
+  id: string;
+  type: string;
+  label: string | null;
+  isPrimary: boolean;
+  formatted: string | null;
+  street1: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+  countryName: string | null;
+  lat: number | null;
+  lng: number | null;
+};
+
+function locationToAddress(location: EduMatchLocationRow): Prisma.InputJsonObject {
+  return {
+    formatted: location.formatted ?? undefined,
+    line1: location.street1 ?? undefined,
+    city: location.city ?? undefined,
+    region: location.state ?? undefined,
+    postalCode: location.postalCode ?? undefined,
+    country: location.countryName ?? location.country ?? undefined,
+    // Marks this value as pulled from Hub's shared address book (rather
+    // than typed directly into an EduMatch form) so the GET route knows it
+    // is safe to keep re-resolving live — see resolveHomeAddressForDisplay.
+    source: "central-profile",
+    sourceLocationId: location.id,
+  } as Prisma.InputJsonObject;
+}
+
+function hasAddressContent(location: EduMatchLocationRow | null | undefined): boolean {
+  return Boolean(location?.formatted || location?.street1 || location?.city);
+}
+
+/**
+ * Every address the user has saved in Hub that's visible to EduMatch. An
+ * empty `appScope` means "visible to every app" (see the UserLocation model
+ * doc comment) — Prisma's array `has` filter alone would only match
+ * locations that explicitly opted in, silently excluding the common case
+ * (Hub's profile UI doesn't expose per-app scoping at all).
+ */
+async function listEduMatchLocations(userId: string): Promise<EduMatchLocationRow[]> {
+  return prisma.userLocation.findMany({
+    where: {
+      userId,
+      OR: [{ appScope: { isEmpty: true } }, { appScope: { has: "edumatch" } }],
+    },
+    select: EDUMATCH_LOCATION_SELECT,
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+  });
+}
+
 async function getPrimaryEduMatchHomeAddress(userId: string): Promise<{
   address: Prisma.InputJsonValue;
   lat: number | null;
@@ -170,42 +240,80 @@ async function getPrimaryEduMatchHomeAddress(userId: string): Promise<{
       userId,
       type: "home",
       isPrimary: true,
-      // An empty appScope means "visible to every app" (see the UserLocation
-      // model doc comment) — Prisma's array `has` filter alone would only
-      // match locations that explicitly opted in, silently excluding the
-      // common case (Hub's profile UI doesn't expose per-app scoping at all).
       OR: [{ appScope: { isEmpty: true } }, { appScope: { has: "edumatch" } }],
     },
-    select: {
-      formatted: true,
-      street1: true,
-      city: true,
-      state: true,
-      postalCode: true,
-      country: true,
-      countryName: true,
-      lat: true,
-      lng: true,
-    },
+    select: EDUMATCH_LOCATION_SELECT,
   });
 
-  if (!location?.formatted && !location?.street1 && !location?.city) {
-    return null;
-  }
+  if (!hasAddressContent(location)) return null;
 
-  return {
-    address: {
-      formatted: location.formatted ?? undefined,
-      line1: location.street1 ?? undefined,
-      city: location.city ?? undefined,
-      region: location.state ?? undefined,
-      postalCode: location.postalCode ?? undefined,
-      country: location.countryName ?? location.country ?? undefined,
-      source: "central-profile",
-    } as Prisma.InputJsonObject,
-    lat: location.lat,
-    lng: location.lng,
-  };
+  return { address: locationToAddress(location!), lat: location!.lat, lng: location!.lng };
+}
+
+/**
+ * What to show on GET: the profile's stored `homeAddress` if the student
+ * typed one by hand, but re-resolved live from Hub if it was ever pulled
+ * from there (`source: "central-profile"`) — so editing an address in Hub
+ * shows up here without the student having to touch anything. Falls back
+ * to the stored copy if that Hub location was since deleted.
+ */
+async function resolveHomeAddressForDisplay(
+  userId: string,
+  stored: Prisma.JsonValue | null,
+): Promise<Prisma.JsonValue | null> {
+  const storedObj =
+    stored && typeof stored === "object" && !Array.isArray(stored)
+      ? (stored as Record<string, unknown>)
+      : null;
+  const sourceLocationId =
+    storedObj?.source === "central-profile" && typeof storedObj.sourceLocationId === "string"
+      ? storedObj.sourceLocationId
+      : null;
+
+  if (!sourceLocationId) return stored;
+
+  const location = await prisma.userLocation.findFirst({
+    where: {
+      id: sourceLocationId,
+      userId,
+      OR: [{ appScope: { isEmpty: true } }, { appScope: { has: "edumatch" } }],
+    },
+    select: EDUMATCH_LOCATION_SELECT,
+  });
+
+  return hasAddressContent(location)
+    ? (locationToAddress(location!) as Prisma.JsonValue)
+    : stored;
+}
+
+/**
+ * The addresses available for the "use one of my Hub addresses" dropdown,
+ * shaped for direct client consumption.
+ */
+export async function listAddressChoices(userId: string) {
+  const locations = await listEduMatchLocations(userId);
+  return locations.map((l) => ({
+    id: l.id,
+    type: l.type,
+    label: l.label,
+    isPrimary: l.isPrimary,
+    formatted:
+      l.formatted ??
+      [l.street1, l.city, l.countryName ?? l.country].filter(Boolean).join(", "),
+  }));
+}
+
+/** GET-time view of a student profile: live-resolved address + address choices. */
+export async function getStudentProfileForDisplay(userId: string) {
+  const profile = await getStudentProfile(userId);
+  if (!profile) return null;
+
+  const [homeAddress, addresses] = await Promise.all([
+    resolveHomeAddressForDisplay(userId, profile.homeAddress),
+    listAddressChoices(userId),
+  ]);
+
+  return { ...profile, homeAddress, addresses };
 }
 
 /**
@@ -233,13 +341,21 @@ export async function upsertStudentProfile(
     );
   }
 
-  const centralLocation = input.homeAddress
-    ? null
-    : await getPrimaryEduMatchHomeAddress(userId);
+  let selectedAddress: Prisma.InputJsonObject | null = null;
+  if (input.selectedLocationId) {
+    const locations = await listEduMatchLocations(userId);
+    const chosen = locations.find((l) => l.id === input.selectedLocationId);
+    if (!chosen) throw new StudentGuardError(400, "Address not found.");
+    selectedAddress = locationToAddress(chosen);
+  }
+
+  const centralLocation =
+    input.homeAddress || selectedAddress ? null : await getPrimaryEduMatchHomeAddress(userId);
   const data = {
     gradeLevel: input.gradeLevel,
     subjectsOfInterest: input.subjectsOfInterest ?? [],
-    homeAddress: (input.homeAddress ??
+    homeAddress: (selectedAddress ??
+      input.homeAddress ??
       centralLocation?.address ??
       Prisma.JsonNull) as Prisma.InputJsonValue,
     homeLat: centralLocation?.lat,
@@ -317,7 +433,14 @@ export async function updateStudentProfile(
   const data: Prisma.EduStudentProfileUpdateInput = {};
   if (input.gradeLevel !== undefined) data.gradeLevel = input.gradeLevel;
   if (input.subjectsOfInterest !== undefined) data.subjectsOfInterest = input.subjectsOfInterest;
-  if (input.homeAddress !== undefined) {
+  if (input.selectedLocationId !== undefined) {
+    // Picking one of the Hub addresses wins over a hand-typed homeAddress
+    // in the same request — there's no sane way to honor both.
+    const locations = await listEduMatchLocations(userId);
+    const chosen = locations.find((l) => l.id === input.selectedLocationId);
+    if (!chosen) throw new StudentGuardError(400, "Address not found.");
+    data.homeAddress = locationToAddress(chosen);
+  } else if (input.homeAddress !== undefined) {
     data.homeAddress = (input.homeAddress ?? Prisma.JsonNull) as Prisma.InputJsonValue;
   }
   if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth;

@@ -408,6 +408,10 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.address.country": "Country",
     "edumatch.profile.student.address.hint":
       "Used for matching with nearby tutors. You can leave this blank and use online-only tutors.",
+    "edumatch.profile.student.address.chooseSaved": "Use a saved address",
+    "edumatch.profile.student.address.chooseSavedHint":
+      "Saved from your Hub profile. Add or edit addresses at hub.asafarim.com/profile.",
+    "edumatch.profile.student.address.typeManually": "Type an address instead",
     "edumatch.profile.student.dateOfBirth": "Date of Birth",
     "edumatch.profile.student.dateOfBirthHint":
       "To use your own photo, add your date of birth. Until then, you can only choose a drawn avatar.",
@@ -1999,6 +2003,10 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.address.country": "Land",
     "edumatch.profile.student.address.hint":
       "Gebruikt voor koppeling met tutors in de buurt. Je kunt dit leeg laten en alleen online tutors gebruiken.",
+    "edumatch.profile.student.address.chooseSaved": "Gebruik een opgeslagen adres",
+    "edumatch.profile.student.address.chooseSavedHint":
+      "Opgeslagen vanuit je Hub-profiel. Adressen toevoegen of bewerken op hub.asafarim.com/profile.",
+    "edumatch.profile.student.address.typeManually": "Adres handmatig invoeren",
     "edumatch.profile.student.dateOfBirth": "Geboortedatum",
     "edumatch.profile.student.dateOfBirthHint":
       "Om je eigen foto te gebruiken, voeg je geboortedatum toe. Tot die tijd kun je alleen een getekende avatar kiezen.",
@@ -3427,6 +3435,10 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.address.country": "Pays",
     "edumatch.profile.student.address.hint":
       "Utilisé pour la mise en relation avec des tuteurs à proximité. Vous pouvez laisser ceci vide et utiliser uniquement des tuteurs en ligne.",
+    "edumatch.profile.student.address.chooseSaved": "Utiliser une adresse enregistrée",
+    "edumatch.profile.student.address.chooseSavedHint":
+      "Enregistrée depuis votre profil Hub. Ajoutez ou modifiez vos adresses sur hub.asafarim.com/profile.",
+    "edumatch.profile.student.address.typeManually": "Saisir une adresse manuellement",
     "edumatch.profile.student.dateOfBirth": "Date de naissance",
     "edumatch.profile.student.dateOfBirthHint":
       "Pour utiliser votre propre photo, ajoutez votre date de naissance. En attendant, vous ne pouvez choisir qu'un avatar dessiné.",
@@ -4565,6 +4577,10 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.address.country": "Land",
     "edumatch.profile.student.address.hint":
       "Wird verwendet, um dich mit Tutoren in der Nähe zusammenzubringen. Du kannst dies leer lassen und nur Online-Tutoren nutzen.",
+    "edumatch.profile.student.address.chooseSaved": "Eine gespeicherte Adresse verwenden",
+    "edumatch.profile.student.address.chooseSavedHint":
+      "Gespeichert aus deinem Hub-Profil. Adressen hinzufügen oder bearbeiten unter hub.asafarim.com/profile.",
+    "edumatch.profile.student.address.typeManually": "Adresse manuell eingeben",
     "edumatch.profile.student.dateOfBirth": "Geburtsdatum",
     "edumatch.profile.student.dateOfBirthHint":
       "Um dein eigenes Foto zu verwenden, gib dein Geburtsdatum an. Bis dahin kannst du nur einen gezeichneten Avatar wählen.",

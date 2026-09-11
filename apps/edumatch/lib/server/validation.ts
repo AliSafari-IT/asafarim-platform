@@ -146,6 +146,12 @@ export const studentProfileSchema = z.object({
   gradeLevel: z.enum(GRADE_LEVELS),
   subjectsOfInterest: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
   homeAddress: homeAddressSchema,
+  // Picks one of the user's Hub-managed addresses (UserLocation.id) to use
+  // as this profile's home address, instead of typing one out by hand.
+  // Mutually exclusive with `homeAddress` in practice — see
+  // upsertStudentProfile/updateStudentProfile, which prefer this when both
+  // are present.
+  selectedLocationId: z.string().trim().min(1).max(80).optional(),
   // Optional to create the profile — a missing value is treated as under-13
   // /under-16 (the safest default) everywhere it's read. See age.ts.
   // Independent (self-serve) creation additionally requires and validates

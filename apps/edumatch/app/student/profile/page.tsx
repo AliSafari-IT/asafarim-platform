@@ -47,8 +47,19 @@ type Profile = {
     region?: string;
     postalCode?: string;
     country?: string;
+    source?: string;
+    sourceLocationId?: string;
   };
   dateOfBirth?: string | null;
+  addresses?: AddressChoice[];
+};
+
+type AddressChoice = {
+  id: string;
+  type: string;
+  label: string | null;
+  isPrimary: boolean;
+  formatted: string;
 };
 
 export default function StudentProfilePage() {
@@ -80,6 +91,10 @@ export default function StudentProfilePage() {
     postalCode: "",
     country: "",
   });
+  const [addresses, setAddresses] = useState<AddressChoice[]>([]);
+  // "" means "type an address by hand below"; otherwise the id of one of
+  // the user's Hub-managed addresses (see AddressChoice / listAddressChoices).
+  const [selectedLocationId, setSelectedLocationId] = useState("");
   // Prefilled from /onboarding's student (16+) DOB check, which already
   // decided this student is old enough — this profile save is what actually
   // enforces it server-side (see upsertStudentProfile).
@@ -88,8 +103,16 @@ export default function StudentProfilePage() {
   useEffect(() => {
     fetch("/api/student/profile")
       .then(async (r) => {
+        // Even a 404 (no profile yet) carries the Hub address book — the
+        // create form's picker needs it before any profile row exists.
+        const data: Profile & { addresses?: AddressChoice[] } = await r
+          .json()
+          .catch(() => ({}));
+        setAddresses(data.addresses ?? []);
+        if (data.addresses?.length) {
+          setSelectedLocationId(data.addresses[0].id);
+        }
         if (r.ok) {
-          const data: Profile = await r.json();
           setExists(true);
           setGradeLevel(data.gradeLevel);
           setSubjects(data.subjectsOfInterest ?? []);
@@ -101,6 +124,9 @@ export default function StudentProfilePage() {
               postalCode: data.homeAddress.postalCode ?? "",
               country: data.homeAddress.country ?? "",
             });
+            if (data.homeAddress.source === "central-profile" && data.homeAddress.sourceLocationId) {
+              setSelectedLocationId(data.homeAddress.sourceLocationId);
+            }
           }
           if (data.dateOfBirth) {
             setDateOfBirth(data.dateOfBirth.slice(0, 10));
@@ -120,7 +146,9 @@ export default function StudentProfilePage() {
     const payload = {
       gradeLevel,
       subjectsOfInterest: subjects,
-      homeAddress: address.line1 || address.city ? address : undefined,
+      ...(selectedLocationId
+        ? { selectedLocationId }
+        : { homeAddress: address.line1 || address.city ? address : undefined }),
       dateOfBirth: dateOfBirth || undefined,
     };
 
@@ -286,6 +314,30 @@ export default function StudentProfilePage() {
             {t("edumatch.profile.student.address.title")}
           </h3>
           <div className="space-y-3">
+            {addresses.length > 0 && (
+              <div>
+                <label className="mb-1.5 block text-xs text-[var(--color-text-muted)]">
+                  {t("edumatch.profile.student.address.chooseSaved")}
+                </label>
+                <select
+                  value={selectedLocationId}
+                  onChange={(e) => setSelectedLocationId(e.target.value)}
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  {addresses.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.isPrimary ? `${a.type} (primary)` : a.label || a.type} — {a.formatted}
+                    </option>
+                  ))}
+                  <option value="">{t("edumatch.profile.student.address.typeManually")}</option>
+                </select>
+                <p className="mt-1.5 text-xs text-[var(--color-text-muted)]">
+                  {t("edumatch.profile.student.address.chooseSavedHint")}
+                </p>
+              </div>
+            )}
+            {!selectedLocationId && (
+            <>
             <input
               type="text"
               placeholder={t("edumatch.profile.student.address.street")}
@@ -338,6 +390,8 @@ export default function StudentProfilePage() {
             <p className="text-xs text-[var(--color-text-muted)]">
               {t("edumatch.profile.student.address.hint")}
             </p>
+            </>
+            )}
           </div>
         </div>
 

@@ -8,7 +8,8 @@ import {
   studentProfileSchema,
 } from "@/lib/server/validation";
 import {
-  getStudentProfile,
+  getStudentProfileForDisplay,
+  listAddressChoices,
   updateStudentProfile,
   upsertStudentProfile,
 } from "@/lib/server/profiles";
@@ -32,11 +33,15 @@ export async function GET() {
     if (!user) return unauthorized();
 
     const [profile, dbUser] = await Promise.all([
-      getStudentProfile(user.id),
+      getStudentProfileForDisplay(user.id),
       prisma.user.findUnique({ where: { id: user.id }, select: { image: true } }),
     ]);
     if (!profile) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+      // Still surface the Hub address book on the 404 path — the create
+      // form's address picker needs it before any EduStudentProfile row
+      // exists.
+      const addresses = await listAddressChoices(user.id);
+      return NextResponse.json({ error: "Not found", addresses }, { status: 404 });
     }
     return NextResponse.json({ ...profile, image: dbUser?.image ?? null });
   } catch (error) {
@@ -91,6 +96,9 @@ export async function PATCH(req: Request) {
     const profile = await updateStudentProfile(user.id, parsed.data);
     return NextResponse.json(profile);
   } catch (error) {
+    if (error instanceof StudentGuardError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     if (error instanceof Error && error.name === "EduAuthError") {
       return handleEduError("student/profile PATCH", error);
     }

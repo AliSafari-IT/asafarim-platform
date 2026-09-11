@@ -14,7 +14,7 @@ import { isUnder16 } from "./age";
 
 export class StudentGuardError extends Error {
   constructor(
-    public status: 403,
+    public status: 400 | 403,
     message: string,
   ) {
     super(message);
