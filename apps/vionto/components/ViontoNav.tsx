@@ -13,7 +13,6 @@ import {
 } from "@/lib/theme";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import { useTranslation } from "@asafarim/shared-i18n";
-import { Menu, X } from "lucide-react";
 // Pure registry module — safe in a client component, unlike the
 // "@asafarim/auth" root entry which carries the server-only Auth.js surface.
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
@@ -154,7 +153,7 @@ function AppSwitcher() {
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={t("vionto.topbar.switchApp")}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-panel)] text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-text)]"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-text)]"
       >
         <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
           <path
@@ -168,7 +167,7 @@ function AppSwitcher() {
       {open && (
         <div
           style={dropdownStyle}
-          className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-panel)] p-2 shadow-lg"
+          className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] p-2 shadow-lg"
         >
           {apps.map((app) => (
             <a
@@ -232,9 +231,19 @@ function UserMenu() {
     return (
       <a
         href={signInUrl}
-        className="rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+        aria-label={t("common.signIn")}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary)] text-white transition hover:opacity-90 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
       >
-        {t("common.signIn")}
+        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 sm:hidden" aria-hidden="true">
+          <path
+            d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="hidden text-sm font-semibold sm:inline">{t("common.signIn")}</span>
       </a>
     );
   }
@@ -256,7 +265,7 @@ function UserMenu() {
         onClick={openMenu}
         aria-haspopup="true"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-panel)] px-3 py-2 text-sm font-medium transition hover:border-[var(--color-primary)]"
+        className="flex items-center gap-2 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] px-3 py-2 text-sm font-medium transition hover:border-[var(--color-primary)]"
       >
         {session.user.image ? (
           <img
@@ -284,7 +293,7 @@ function UserMenu() {
       </button>
 
       {open && (
-        <div className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-panel)] p-2 shadow-lg" style={dropdownStyle}>
+        <div className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] p-2 shadow-lg" style={dropdownStyle}>
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
             <p className="text-sm font-semibold">{session.user.name ?? t("vionto.usermenu.user")}</p>
             <p className="mt-1 text-xs text-[var(--color-text-muted)]">{session.user.email}</p>
@@ -376,79 +385,88 @@ export function ViontoTopbarControls() {
 }
 
 
-export function ViontoNav() {
+/**
+ * Nav dropdown shown at every width: a "Menu ▾" text button that opens a
+ * floating panel, matching the AppSwitcher/UserMenu pattern.
+ */
+function NavMenu({
+  navLinks,
+  pathname,
+}: {
+  navLinks: { label: string; href: string }[];
+  pathname: string | null;
+}) {
   const { t } = useTranslation();
-  const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const navLinks = [
-    { label: t("vionto.nav.dashboard"), href: "/albums" },
-    { label: t("vionto.nav.create"), href: "/create" },
-    { label: t("vionto.nav.projects"), href: "/projects" },
-    { label: t("vionto.nav.organizer"), href: "/organizer" },
-    { label: t("vionto.nav.roadmap"), href: "/roadmap" },
-  ];
+  const [open, setOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
-  // Close the mobile menu on route change so it never stays open behind
-  // the next page.
   useEffect(() => {
-    setMobileOpen(false);
+    function handleClick(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Close on route change so it never stays open behind the next page.
+  useEffect(() => {
+    setOpen(false);
   }, [pathname]);
 
+  function toggleMenu() {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const dropW = 224;
+      const left = Math.max(8, Math.min(r.right - dropW, window.innerWidth - dropW - 8));
+      setDropdownStyle({
+        position: "fixed",
+        top: r.bottom + 8,
+        left,
+        width: dropW,
+        zIndex: 9999,
+      });
+    }
+    setOpen((o) => !o);
+  }
+
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-xl">
-      <div className="flex h-16 items-center justify-between gap-4 px-4">
-        <div className="flex items-center gap-6">
-          <ViontoLogo />
-          <nav aria-label="Vionto" className="hidden items-center gap-1 md:flex">
-            {navLinks.map((link) => {
-              const active =
-                pathname === link.href || pathname?.startsWith(link.href + "/");
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`rounded-full px-3.5 py-2 text-sm font-medium transition ${
-                    active
-                      ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
-                      : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden md:flex">
-            <CountryLanguageSelector />
-          </div>
-          <ViontoTopbarControls />
-          <button
-            type="button"
-            onClick={() => setMobileOpen((open) => !open)}
-            aria-label={t("vionto.nav.toggleNavAria")}
-            aria-expanded={mobileOpen}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[var(--color-panel)] text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-text)] md:hidden"
-          >
-            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
-        </div>
-      </div>
-      {/* Mobile menu: a vertical dropdown, not a horizontally-scrolling row. */}
-      {mobileOpen && (
-        <nav
-          aria-label="Vionto mobile"
-          className="flex flex-col gap-1 border-t border-[var(--color-border)] px-4 py-3 md:hidden"
+    <div ref={ref} className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggleMenu}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-label={t("vionto.nav.toggleNavAria")}
+        className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] px-3.5 text-sm font-medium text-[var(--color-text-muted)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-text)]"
+      >
+        {t("vionto.nav.menu")}
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        >
+          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          style={dropdownStyle}
+          className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] p-2 shadow-lg"
         >
           {navLinks.map((link) => {
-            const active =
-              pathname === link.href || pathname?.startsWith(link.href + "/");
+            const active = pathname === link.href || pathname?.startsWith(link.href + "/");
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
+                onClick={() => setOpen(false)}
+                className={`block rounded-xl px-4 py-2.5 text-sm font-medium transition ${
                   active
                     ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
                     : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"
@@ -458,11 +476,40 @@ export function ViontoNav() {
               </Link>
             );
           })}
-          <div className="mt-2 border-t border-[var(--color-border)] pt-3">
+          <div className="mt-2 border-t border-[var(--color-border)] pt-2">
             <CountryLanguageSelector />
           </div>
-        </nav>
+        </div>
       )}
+    </div>
+  );
+}
+
+export function ViontoNav() {
+  const { t } = useTranslation();
+  const pathname = usePathname();
+  const navLinks = [
+    { label: t("vionto.nav.dashboard"), href: "/albums" },
+    { label: t("vionto.nav.create"), href: "/create" },
+    { label: t("vionto.nav.projects"), href: "/projects" },
+    { label: t("vionto.nav.organizer"), href: "/organizer" },
+    { label: t("vionto.nav.roadmap"), href: "/roadmap" },
+  ];
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-xl">
+      <div className="flex h-16 items-center justify-between gap-4 px-4">
+        <div className="flex items-center gap-6">
+          <ViontoLogo />
+          <NavMenu navLinks={navLinks} pathname={pathname} />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex">
+            <CountryLanguageSelector />
+          </div>
+          <ViontoTopbarControls />
+        </div>
+      </div>
     </header>
   );
 }
