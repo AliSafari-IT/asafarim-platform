@@ -15,7 +15,11 @@ const authProxy = createAuthProxy({
   // sign-in prompt rather than an immediate bounce. Everything else —
   // /apps, /apps/new, /apps/[appId], /apps/[appId]/preview, and every
   // /api/* route except health — requires an active session.
-  publicRoutes: ["/", "/api/health"],
+  // /api/internal/user-activity authenticates its own bearer token and
+  // 404s when unset (see the route) — it carries no session, so it must be
+  // public here or the admin console's server-to-server fetch would never
+  // reach the route's own check.
+  publicRoutes: ["/", "/api/health", "/api/internal/user-activity"],
   signInUrl: `${hubUrl}/sign-in`,
 });
 

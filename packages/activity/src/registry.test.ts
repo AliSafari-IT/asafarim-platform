@@ -29,8 +29,15 @@ describe("getAllUserActivity", () => {
     });
   });
 
-  it("registers vionto and timelineai by default", async () => {
+  it("registers every wired-up adapter by default", async () => {
     const { activityAdapters } = await import("./registry");
-    expect(Object.keys(activityAdapters).sort()).toEqual(["timelineai", "vionto"]);
+    expect(Object.keys(activityAdapters).sort()).toEqual([
+      "appbuilder",
+      "jobmatch",
+      "tasksai",
+      "testora",
+      "timelineai",
+      "vionto",
+    ]);
   });
 });
