@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-11",
-    "title": "Testora: automatic flake detection + quarantine state (#260)",
-    "sha": "94c9bed",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/94c9bed"
+    "title": "Testora: outbound signed webhook dispatcher (#261)",
+    "sha": "fa02dd2",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fa02dd2"
   }
 ]
