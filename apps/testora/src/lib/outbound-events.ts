@@ -8,6 +8,9 @@ export interface EnqueueOutboundEventInput {
   /** contract WebhookEventType */
   eventType: string;
   payload: Record<string, unknown>;
+  /** Deliver to this URL directly instead of the project's general webhook
+   *  subscriptions — the green-light callback (#263) uses this. */
+  directUrl?: string;
 }
 
 /**
@@ -24,6 +27,7 @@ export async function enqueueOutboundEvent(input: EnqueueOutboundEventInput): Pr
     projectId: input.projectId,
     eventType: input.eventType,
     payload: input.payload,
+    directUrl: input.directUrl ?? null,
   });
   // Lazy import avoids a require-cycle at module init (dispatcher reads this
   // module's table too) and keeps a slow dispatch from blocking the caller.

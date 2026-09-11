@@ -85,65 +85,95 @@ interface EventRow {
   eventType: string;
   payload: Record<string, unknown>;
   attempts: number;
+  directUrl: string | null;
 }
 
-/** Delivers one event to every enabled webhook on its project. No endpoint
- *  configured is not an error — it's just nothing to deliver. */
+interface DeliveryTarget {
+  webhookId: string;
+  url: string;
+  secret: string;
+}
+
+/**
+ * Delivers one event either to every enabled webhook on its project, or —
+ * when `directUrl` is set (the green-light callback, #263) — to that single
+ * URL, signed with the project's configured webhook secret (same trust
+ * relationship; a workspace connects to Testora once). No endpoint
+ * configured is not an error for a fan-out event — it's just nothing to
+ * deliver; for a direct callback it's a real failure (nothing to sign with).
+ */
 async function deliverToProjectWebhooks(
   event: EventRow,
 ): Promise<{ ok: boolean; lastError?: string }> {
   const webhooks = await db.query.outboundWebhooks.findMany({
     where: and(eq(outboundWebhooks.projectId, event.projectId), eq(outboundWebhooks.enabled, true)),
   });
-  if (webhooks.length === 0) return { ok: true };
+
+  let targets: DeliveryTarget[];
+  if (event.directUrl) {
+    const signer = webhooks[0];
+    if (!signer) {
+      return { ok: false, lastError: "no webhook secret configured for this project's callback" };
+    }
+    targets = [{ webhookId: `direct:${signer.id}`, url: event.directUrl, secret: signer.secret }];
+  } else {
+    if (webhooks.length === 0) return { ok: true };
+    targets = webhooks.map((w) => ({ webhookId: w.id, url: w.url, secret: w.secret }));
+  }
 
   let ok = true;
   let lastError: string | undefined;
-
-  for (const webhook of webhooks) {
-    const envelope = {
-      v: 1 as const,
-      // Stable across retries: the receiver's dedupe (same deliveryId) is a
-      // no-op on replay — the event's own id is already a fresh UUID.
-      deliveryId: event.id,
-      eventType: event.eventType,
-      occurredAt: new Date().toISOString(),
-      source: "testora" as const,
-      data: event.payload,
-    };
-    const rawBody = JSON.stringify(envelope);
-    const signed = signPayload({ secret: webhook.secret, rawBody, deliveryId: event.id });
-
-    let responseStatus: number | undefined;
-    let error: string | undefined;
-    try {
-      const res = await fetchWithTimeout(webhook.url, rawBody, signed.headers);
-      responseStatus = res.status;
-      if (!res.ok) error = `HTTP ${res.status}`;
-    } catch (err) {
-      error = err instanceof Error ? err.message.slice(0, 300) : "network error";
-    }
-
-    await db.insert(outboundDeliveries).values({
-      id: randomUUID(),
-      webhookId: webhook.id,
-      outboundEventId: event.id,
-      eventType: event.eventType,
-      deliveryId: envelope.deliveryId,
-      attempt: event.attempts + 1,
-      status: error ? "failed" : "sent",
-      responseStatus,
-      error,
-      deliveredAt: error ? null : new Date(),
-    });
-
-    if (error) {
+  for (const target of targets) {
+    const result = await deliverOne(event, target);
+    if (!result.ok) {
       ok = false;
-      lastError = error;
+      lastError = result.error;
     }
   }
-
   return { ok, lastError };
+}
+
+async function deliverOne(
+  event: EventRow,
+  target: DeliveryTarget,
+): Promise<{ ok: boolean; error?: string }> {
+  const envelope = {
+    v: 1 as const,
+    // Stable across retries: the receiver's dedupe (same deliveryId) is a
+    // no-op on replay — the event's own id is already a fresh UUID.
+    deliveryId: event.id,
+    eventType: event.eventType,
+    occurredAt: new Date().toISOString(),
+    source: "testora" as const,
+    data: event.payload,
+  };
+  const rawBody = JSON.stringify(envelope);
+  const signed = signPayload({ secret: target.secret, rawBody, deliveryId: event.id });
+
+  let responseStatus: number | undefined;
+  let error: string | undefined;
+  try {
+    const res = await fetchWithTimeout(target.url, rawBody, signed.headers);
+    responseStatus = res.status;
+    if (!res.ok) error = `HTTP ${res.status}`;
+  } catch (err) {
+    error = err instanceof Error ? err.message.slice(0, 300) : "network error";
+  }
+
+  await db.insert(outboundDeliveries).values({
+    id: randomUUID(),
+    webhookId: target.webhookId,
+    outboundEventId: event.id,
+    eventType: event.eventType,
+    deliveryId: envelope.deliveryId,
+    attempt: event.attempts + 1,
+    status: error ? "failed" : "sent",
+    responseStatus,
+    error,
+    deliveredAt: error ? null : new Date(),
+  });
+
+  return { ok: !error, error };
 }
 
 async function fetchWithTimeout(
