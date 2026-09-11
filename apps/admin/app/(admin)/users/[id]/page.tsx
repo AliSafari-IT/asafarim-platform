@@ -237,6 +237,48 @@ export default async function UserDetailPage({
 
       <div className="ui-grid ui-grid--wide">
         <Panel title="identity · users.edit">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-3)",
+              marginBottom: "var(--space-4)",
+            }}
+          >
+            {user.image ? (
+              // eslint-disable-next-line @next/next/no-img-element -- external avatar URL (OAuth provider), not an optimizable local asset
+              <img
+                src={user.image}
+                alt=""
+                width={48}
+                height={48}
+                style={{ borderRadius: "999px", objectFit: "cover" }}
+              />
+            ) : (
+              <div
+                aria-hidden="true"
+                className="u-mono"
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "999px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "var(--surface-2, #2a2a2a)",
+                  fontSize: "var(--text-sm)",
+                }}
+              >
+                {(user.name ?? user.email).slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <div>{user.name ?? "—"}</div>
+              <div className="u-muted" style={{ fontSize: "var(--text-xs)" }}>
+                {user.email}
+              </div>
+            </div>
+          </div>
           <IdentityForm
             userId={user.id}
             initialName={user.name ?? ""}
