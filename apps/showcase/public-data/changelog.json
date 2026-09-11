@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-11",
-    "title": "Admin: hide superadmin role from non-superadmin viewers unless target already has it",
-    "sha": "0c23764",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/0c23764"
+    "title": "EduMatch: formalize edumatch_admin as an app-scoped system role",
+    "sha": "b2ebdc1",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/b2ebdc1"
   }
 ]
