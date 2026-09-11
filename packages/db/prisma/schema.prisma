@@ -1104,10 +1104,20 @@ model EduStudentProfile {
   guardianEmail String?
 
   // Source of truth for age-gated rules — the avatar system's under-13 photo
-  // restriction and the account model's under-16 independence cutoff (see
-  // lib/server/age.ts). Optional so legacy profiles keep working; a missing
-  // value is treated as the most restrictive age everywhere it's read.
+  // restriction and the account model's independence cutoff (see
+  // lib/server/age.ts, lib/consent-age.ts). Optional so legacy profiles keep
+  // working; a missing value is treated as the most restrictive age
+  // everywhere it's read.
   dateOfBirth DateTime?
+
+  // ISO 3166-1 alpha-2 country, captured alongside dateOfBirth specifically
+  // to resolve the GDPR Article 8 digital-consent age, which member states
+  // set individually (Belgium 13, France 15, Netherlands/Luxembourg/Germany
+  // 16) — see lib/consent-age.ts. Deliberately separate from the free-text
+  // country inside homeAddress (optional, collected later, not a reliable
+  // legal-jurisdiction signal). A missing value falls back to the GDPR
+  // ceiling of 16, the safest default.
+  countryCode String?
 
   // Set when this profile is parent-managed (student is under 16 and cannot
   // act independently — see lib/server/student-guard.ts). Null for an

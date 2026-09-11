@@ -157,6 +157,15 @@ export const studentProfileSchema = z.object({
   // Independent (self-serve) creation additionally requires and validates
   // this via the onboarding flow — see student-guard.ts.
   dateOfBirth: dateOfBirthSchema.optional(),
+  // ISO 3166-1 alpha-2, resolves the GDPR Art. 8 consent age alongside
+  // dateOfBirth — see lib/consent-age.ts. An unrecognized or missing code
+  // simply falls back to the GDPR default (16), never lower.
+  countryCode: z
+    .string()
+    .trim()
+    .length(2)
+    .transform((v) => v.toUpperCase())
+    .optional(),
 });
 export type StudentProfileInput = z.infer<typeof studentProfileSchema>;
 export const studentProfilePatchSchema = studentProfileSchema.partial();

@@ -415,6 +415,12 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.dateOfBirth": "Date of Birth",
     "edumatch.profile.student.dateOfBirthHint":
       "To use your own photo, add your date of birth. Until then, you can only choose a drawn avatar.",
+    "edumatch.profile.student.country": "Country",
+    "edumatch.profile.student.countryHint":
+      "Used to apply the correct minimum age for creating your own account.",
+    "edumatch.profile.student.countryOther": "Other / not listed",
+    "edumatch.profile.student.underAgeNotice":
+      "In this country, students must be at least {age} to create and manage their own account.",
     "edumatch.profile.student.cancel": "Cancel",
     "edumatch.profile.student.save": "Save Changes",
     "edumatch.profile.student.create": "Create Profile",
@@ -433,7 +439,7 @@ export const edumatchDictionaries: Dictionaries = {
     // Onboarding (role selection)
     "edumatch.onboarding.title": "Welcome to EduMatch — who's this for?",
     "edumatch.onboarding.role.parent": "I am a parent or guardian",
-    "edumatch.onboarding.role.student": "I am a student (16 or older)",
+    "edumatch.onboarding.role.student": "I am a student",
     "edumatch.onboarding.role.tutor": "I want to tutor",
     "edumatch.onboarding.continue": "Continue",
     "edumatch.onboarding.back": "← Back",
@@ -2010,6 +2016,12 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.dateOfBirth": "Geboortedatum",
     "edumatch.profile.student.dateOfBirthHint":
       "Om je eigen foto te gebruiken, voeg je geboortedatum toe. Tot die tijd kun je alleen een getekende avatar kiezen.",
+    "edumatch.profile.student.country": "Land",
+    "edumatch.profile.student.countryHint":
+      "Wordt gebruikt om de juiste minimumleeftijd toe te passen voor het aanmaken van je eigen account.",
+    "edumatch.profile.student.countryOther": "Anders / niet vermeld",
+    "edumatch.profile.student.underAgeNotice":
+      "In dit land moeten leerlingen minstens {age} jaar oud zijn om hun eigen account aan te maken en te beheren.",
     "edumatch.profile.student.cancel": "Annuleren",
     "edumatch.profile.student.save": "Wijzigingen Opslaan",
     "edumatch.profile.student.create": "Profiel Aanmaken",
@@ -2026,7 +2038,7 @@ export const edumatchDictionaries: Dictionaries = {
     // Onboarding (rolkeuze)
     "edumatch.onboarding.title": "Welkom bij EduMatch — voor wie is dit account?",
     "edumatch.onboarding.role.parent": "Ik ben ouder of voogd",
-    "edumatch.onboarding.role.student": "Ik ben leerling (16 jaar of ouder)",
+    "edumatch.onboarding.role.student": "Ik ben leerling",
     "edumatch.onboarding.role.tutor": "Ik wil lesgeven",
     "edumatch.onboarding.continue": "Doorgaan",
     "edumatch.onboarding.back": "← Terug",
@@ -3442,6 +3454,12 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.dateOfBirth": "Date de naissance",
     "edumatch.profile.student.dateOfBirthHint":
       "Pour utiliser votre propre photo, ajoutez votre date de naissance. En attendant, vous ne pouvez choisir qu'un avatar dessiné.",
+    "edumatch.profile.student.country": "Pays",
+    "edumatch.profile.student.countryHint":
+      "Utilisé pour appliquer l'âge minimum correct pour créer votre propre compte.",
+    "edumatch.profile.student.countryOther": "Autre / non répertorié",
+    "edumatch.profile.student.underAgeNotice":
+      "Dans ce pays, les élèves doivent avoir au moins {age} ans pour créer et gérer leur propre compte.",
     "edumatch.profile.student.cancel": "Annuler",
     "edumatch.profile.student.save": "Enregistrer les Modifications",
     "edumatch.profile.student.create": "Créer un Profil",
@@ -3459,7 +3477,7 @@ export const edumatchDictionaries: Dictionaries = {
     // Intégration (choix du rôle)
     "edumatch.onboarding.title": "Bienvenue sur EduMatch — pour qui est ce compte ?",
     "edumatch.onboarding.role.parent": "Je suis un parent ou un tuteur",
-    "edumatch.onboarding.role.student": "Je suis étudiant (16 ans ou plus)",
+    "edumatch.onboarding.role.student": "Je suis étudiant",
     "edumatch.onboarding.role.tutor": "Je veux donner des cours",
     "edumatch.onboarding.continue": "Continuer",
     "edumatch.onboarding.back": "← Retour",
@@ -4584,6 +4602,12 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.profile.student.dateOfBirth": "Geburtsdatum",
     "edumatch.profile.student.dateOfBirthHint":
       "Um dein eigenes Foto zu verwenden, gib dein Geburtsdatum an. Bis dahin kannst du nur einen gezeichneten Avatar wählen.",
+    "edumatch.profile.student.country": "Land",
+    "edumatch.profile.student.countryHint":
+      "Wird verwendet, um das richtige Mindestalter für die Erstellung deines eigenen Kontos anzuwenden.",
+    "edumatch.profile.student.countryOther": "Andere / nicht aufgeführt",
+    "edumatch.profile.student.underAgeNotice":
+      "In diesem Land müssen Schüler mindestens {age} Jahre alt sein, um ein eigenes Konto zu erstellen und zu verwalten.",
     "edumatch.profile.student.cancel": "Abbrechen",
     "edumatch.profile.student.save": "Änderungen Speichern",
     "edumatch.profile.student.create": "Profil Erstellen",
@@ -4601,7 +4625,7 @@ export const edumatchDictionaries: Dictionaries = {
     // Onboarding (Rollenwahl)
     "edumatch.onboarding.title": "Willkommen bei EduMatch — für wen ist dieses Konto?",
     "edumatch.onboarding.role.parent": "Ich bin Elternteil oder Erziehungsberechtigte(r)",
-    "edumatch.onboarding.role.student": "Ich bin Schüler:in (16 Jahre oder älter)",
+    "edumatch.onboarding.role.student": "Ich bin Schüler:in",
     "edumatch.onboarding.role.tutor": "Ich möchte Nachhilfe geben",
     "edumatch.onboarding.continue": "Weiter",
     "edumatch.onboarding.back": "← Zurück",

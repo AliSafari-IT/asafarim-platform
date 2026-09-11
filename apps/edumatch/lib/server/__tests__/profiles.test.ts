@@ -210,6 +210,35 @@ describe("upsertStudentProfile — under-16 independence gate", () => {
     expect(profile.userId).toBe("u-16");
   });
 
+  it("allows first-time self-serve creation at 14 when the country is Belgium (GDPR Art. 8 consent age 13 there)", async () => {
+    vi.mocked(prisma.eduStudentProfile.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.eduStudentProfile.upsert).mockResolvedValue({
+      userId: "u-be-14",
+      dateOfBirth: agedYears(14),
+      countryCode: "BE",
+    } as never);
+
+    const profile = await upsertStudentProfile("u-be-14", {
+      gradeLevel: "K12",
+      subjectsOfInterest: [],
+      dateOfBirth: agedYears(14),
+      countryCode: "BE",
+    });
+    expect(profile.userId).toBe("u-be-14");
+  });
+
+  it("still refuses a 14-year-old with no country declared (GDPR default of 16)", async () => {
+    vi.mocked(prisma.eduStudentProfile.findUnique).mockResolvedValue(null);
+
+    await expect(
+      upsertStudentProfile("u-14-nocountry", {
+        gradeLevel: "K12",
+        subjectsOfInterest: [],
+        dateOfBirth: agedYears(14),
+      }),
+    ).rejects.toBeInstanceOf(StudentGuardError);
+  });
+
   it("allows creation with no dateOfBirth at all (profile stays incomplete, not rejected)", async () => {
     vi.mocked(prisma.eduStudentProfile.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.eduStudentProfile.upsert).mockResolvedValue({

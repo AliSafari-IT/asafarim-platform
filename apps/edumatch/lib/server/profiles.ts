@@ -6,7 +6,7 @@ import type {
 import { getAuthedUser, type AuthedUser } from "./auth";
 import { isEduAdminRole } from "../roles";
 import { applyDefaultAvatarIfNeeded } from "./avatars";
-import { isUnder16 } from "./age";
+import { isBelowConsentAge, minorConsentAge } from "../consent-age";
 import { StudentGuardError } from "./student-guard";
 import type {
   StudentProfileInput,
@@ -320,12 +320,15 @@ export async function getStudentProfileForDisplay(userId: string) {
  * `edumatch_student` role is attached. Used by the profile POST route.
  *
  * Independence gate: a brand-new, self-serve profile (no existing row yet)
- * that declares a date of birth under 16 is refused — that's the "students
- * under 16 cannot create an independent account" rule from the onboarding
- * flow. It only applies to *first creation*: an already-existing profile
- * that later records a DOB revealing under-16 is not retroactively deleted
- * here (it simply can't transact — see student-guard.ts's
- * authorizeBookingActor, the actual enforcement point for bookings).
+ * that declares a date of birth under the GDPR Art. 8 consent age for its
+ * declared country (see lib/consent-age.ts — 13 in Belgium, 15 in France,
+ * 16 elsewhere/unknown) is refused — that's the "students below the
+ * consent age cannot create an independent account" rule from the
+ * onboarding flow. It only applies to *first creation*: an already-existing
+ * profile that later records a DOB/country revealing it's below that age is
+ * not retroactively deleted here (it simply can't transact — see
+ * student-guard.ts's authorizeBookingActor, the actual enforcement point
+ * for bookings).
  */
 export async function upsertStudentProfile(
   userId: string,
@@ -333,10 +336,10 @@ export async function upsertStudentProfile(
 ): Promise<EduStudentProfile> {
   const existing = await prisma.eduStudentProfile.findUnique({ where: { userId } });
 
-  if (!existing && input.dateOfBirth && isUnder16(input.dateOfBirth)) {
+  if (!existing && input.dateOfBirth && isBelowConsentAge(input.dateOfBirth, input.countryCode)) {
     throw new StudentGuardError(
       403,
-      "Students under 16 must have an account created and managed by a parent or guardian.",
+      `Students under ${minorConsentAge(input.countryCode)} in this country must have an account created and managed by a parent or guardian.`,
     );
   }
 
@@ -360,6 +363,7 @@ export async function upsertStudentProfile(
     homeLat: centralLocation?.lat,
     homeLng: centralLocation?.lng,
     dateOfBirth: input.dateOfBirth ?? null,
+    countryCode: input.countryCode ?? null,
   };
 
   const profile = await prisma.eduStudentProfile.upsert({
@@ -443,6 +447,7 @@ export async function updateStudentProfile(
     data.homeAddress = (input.homeAddress ?? Prisma.JsonNull) as Prisma.InputJsonValue;
   }
   if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth;
+  if (input.countryCode !== undefined) data.countryCode = input.countryCode;
 
   const updated = await prisma.eduStudentProfile.update({ where: { userId }, data });
 

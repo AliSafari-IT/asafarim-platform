@@ -29,27 +29,39 @@ function agedYears(years: number): Date {
 }
 
 describe("profileCanActIndependently", () => {
-  it("is true for a 16-year-old with no parent link", () => {
+  it("is true for a 16-year-old with no parent link and no country on file", () => {
     expect(
-      profileCanActIndependently({ dateOfBirth: agedYears(16), parentUserId: null }),
+      profileCanActIndependently({ dateOfBirth: agedYears(16), parentUserId: null, countryCode: null }),
     ).toBe(true);
   });
 
-  it("is false for a 15-year-old", () => {
+  it("is false for a 15-year-old with no country on file (GDPR default of 16)", () => {
     expect(
-      profileCanActIndependently({ dateOfBirth: agedYears(15), parentUserId: null }),
+      profileCanActIndependently({ dateOfBirth: agedYears(15), parentUserId: null, countryCode: null }),
     ).toBe(false);
   });
 
   it("is false for a 20-year-old who is still parent-managed", () => {
     expect(
-      profileCanActIndependently({ dateOfBirth: agedYears(20), parentUserId: "parent-1" }),
+      profileCanActIndependently({ dateOfBirth: agedYears(20), parentUserId: "parent-1", countryCode: null }),
     ).toBe(false);
   });
 
-  it("treats a missing date of birth as under 16 (safest default)", () => {
+  it("treats a missing date of birth as below the consent age (safest default)", () => {
     expect(
-      profileCanActIndependently({ dateOfBirth: null, parentUserId: null }),
+      profileCanActIndependently({ dateOfBirth: null, parentUserId: null, countryCode: null }),
+    ).toBe(false);
+  });
+
+  it("is true for a 14-year-old in Belgium (GDPR Art. 8 consent age is 13 there)", () => {
+    expect(
+      profileCanActIndependently({ dateOfBirth: agedYears(14), parentUserId: null, countryCode: "BE" }),
+    ).toBe(true);
+  });
+
+  it("is false for a 14-year-old in the Netherlands (consent age stays 16 there)", () => {
+    expect(
+      profileCanActIndependently({ dateOfBirth: agedYears(14), parentUserId: null, countryCode: "NL" }),
     ).toBe(false);
   });
 });

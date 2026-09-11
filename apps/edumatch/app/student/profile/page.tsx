@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { AvatarPicker } from "@/components/profile/AvatarPicker";
+import {
+  CONSENT_COUNTRY_LABELS,
+  SUPPORTED_CONSENT_COUNTRIES,
+  isBelowConsentAge,
+  minorConsentAge,
+  type ConsentCountryCode,
+} from "@/lib/consent-age";
 
 const SUBJECTS_OF_INTEREST = [
   "Mathematics",
@@ -51,6 +58,7 @@ type Profile = {
     sourceLocationId?: string;
   };
   dateOfBirth?: string | null;
+  countryCode?: string | null;
   addresses?: AddressChoice[];
 };
 
@@ -95,10 +103,18 @@ export default function StudentProfilePage() {
   // "" means "type an address by hand below"; otherwise the id of one of
   // the user's Hub-managed addresses (see AddressChoice / listAddressChoices).
   const [selectedLocationId, setSelectedLocationId] = useState("");
-  // Prefilled from /onboarding's student (16+) DOB check, which already
-  // decided this student is old enough — this profile save is what actually
-  // enforces it server-side (see upsertStudentProfile).
+  // Prefilled from /onboarding's student DOB/country check, which already
+  // decided this student is old enough for their declared country — this
+  // profile save is what actually enforces it server-side (see
+  // upsertStudentProfile, lib/consent-age.ts).
   const [dateOfBirth, setDateOfBirth] = useState(searchParams.get("dateOfBirth") ?? "");
+  const [countryCode, setCountryCode] = useState<ConsentCountryCode | "">(
+    (searchParams.get("countryCode") as ConsentCountryCode | null) ?? "",
+  );
+  // The gate only applies to first-time creation (see upsertStudentProfile) —
+  // an already-existing profile is never blocked from saving here, even if
+  // an edited DOB/country would newly read as under age.
+  const underAge = !exists && Boolean(dateOfBirth) && isBelowConsentAge(dateOfBirth, countryCode || null);
 
   useEffect(() => {
     fetch("/api/student/profile")
@@ -131,6 +147,9 @@ export default function StudentProfilePage() {
           if (data.dateOfBirth) {
             setDateOfBirth(data.dateOfBirth.slice(0, 10));
           }
+          if (data.countryCode) {
+            setCountryCode(data.countryCode as ConsentCountryCode);
+          }
         }
       })
       .catch(() => { /* profile fetch failed — leave form in create mode */ })
@@ -150,6 +169,7 @@ export default function StudentProfilePage() {
         ? { selectedLocationId }
         : { homeAddress: address.line1 || address.city ? address : undefined }),
       dateOfBirth: dateOfBirth || undefined,
+      countryCode: countryCode || undefined,
     };
 
     try {
@@ -306,6 +326,38 @@ export default function StudentProfilePage() {
           <p className="mt-2 text-xs text-[var(--color-text-muted)]">
             {t("edumatch.profile.student.dateOfBirthHint")}
           </p>
+
+          <label
+            htmlFor="countryCode"
+            className="mb-2 mt-4 block text-sm font-medium text-[var(--color-text)]"
+          >
+            {t("edumatch.profile.student.country")}
+          </label>
+          <select
+            id="countryCode"
+            value={countryCode}
+            onChange={(e) => setCountryCode(e.target.value as ConsentCountryCode | "")}
+            className="w-full max-w-xs rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          >
+            <option value="">{t("edumatch.profile.student.countryOther")}</option>
+            {SUPPORTED_CONSENT_COUNTRIES.map((code) => (
+              <option key={code} value={code}>
+                {CONSENT_COUNTRY_LABELS[code]}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-xs text-[var(--color-text-muted)]">
+            {t("edumatch.profile.student.countryHint")}
+          </p>
+
+          {underAge && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {t("edumatch.profile.student.underAgeNotice", { age: minorConsentAge(countryCode || null) })}{" "}
+              <Link href="/onboarding" className="font-medium underline">
+                {t("edumatch.onboarding.role.parent")}
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Address (Optional) */}
@@ -410,7 +462,7 @@ export default function StudentProfilePage() {
           </Link>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || underAge}
             className="flex-1 rounded-lg bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-[#07101a] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
           >
             {saving ? (

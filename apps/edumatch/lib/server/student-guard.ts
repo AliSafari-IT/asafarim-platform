@@ -2,15 +2,16 @@
  * The enforcement boundary for age-aware accounts: who can act on their own
  * behalf, and who is financially responsible when they do.
  *
- * A student can act independently once they're 16+ and their profile has no
- * `parentUserId` — i.e. they created their own account rather than being
- * added as a parent's child. A parent-managed profile never acts
+ * A student can act independently once they're at or above their country's
+ * GDPR Art. 8 digital-consent age (see lib/consent-age.ts) and their profile
+ * has no `parentUserId` — i.e. they created their own account rather than
+ * being added as a parent's child. A parent-managed profile never acts
  * independently, regardless of age, until the parent relationship is
  * removed (not implemented yet — out of scope for the initial cutover).
  */
 
 import { prisma, type EduStudentProfile } from "@asafarim/db";
-import { isUnder16 } from "./age";
+import { isBelowConsentAge } from "../consent-age";
 
 export class StudentGuardError extends Error {
   constructor(
@@ -24,16 +25,16 @@ export class StudentGuardError extends Error {
 
 /** Pure: does this profile shape allow the student to act on their own? */
 export function profileCanActIndependently(
-  profile: Pick<EduStudentProfile, "dateOfBirth" | "parentUserId">,
+  profile: Pick<EduStudentProfile, "dateOfBirth" | "parentUserId" | "countryCode">,
 ): boolean {
   if (profile.parentUserId) return false;
-  return !isUnder16(profile.dateOfBirth);
+  return !isBelowConsentAge(profile.dateOfBirth, profile.countryCode);
 }
 
 export async function canActIndependently(userId: string): Promise<boolean> {
   const profile = await prisma.eduStudentProfile.findUnique({
     where: { userId },
-    select: { dateOfBirth: true, parentUserId: true },
+    select: { dateOfBirth: true, parentUserId: true, countryCode: true },
   });
   if (!profile) return false;
   return profileCanActIndependently(profile);
@@ -65,7 +66,7 @@ export async function authorizeBookingActor(
 ): Promise<{ payerId: string }> {
   const profile = await prisma.eduStudentProfile.findUnique({
     where: { userId: studentId },
-    select: { userId: true, dateOfBirth: true, parentUserId: true },
+    select: { userId: true, dateOfBirth: true, parentUserId: true, countryCode: true },
   });
   if (!profile) {
     throw new StudentGuardError(403, "Student profile not found.");
