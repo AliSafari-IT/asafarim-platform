@@ -437,6 +437,7 @@ async function main(): Promise<void> {
   const shutdown = () => {
     if (shuttingDown) return;
     shuttingDown = true;
+    console.log("\nShutting down dev servers (force-killing turbo task tree)...");
 
     killTurboTree();
 

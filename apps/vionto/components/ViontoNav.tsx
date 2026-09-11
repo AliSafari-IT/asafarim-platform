@@ -18,6 +18,7 @@ import { useTranslation } from "@asafarim/shared-i18n";
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
 
 const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
+const viontoUrl = process.env.NEXT_PUBLIC_VIONTO_URL || "http://localhost:3004";
 
 /**
  * Keyed by PLATFORM_APPS keys so the switcher can be driven by the registry.
@@ -34,7 +35,7 @@ const appUrls: Record<string, string> = {
   hub: hubUrl,
   showcase: process.env.NEXT_PUBLIC_SHOWCASE_URL || "http://localhost:3002",
   admin: process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3003",
-  vionto: process.env.NEXT_PUBLIC_VIONTO_URL || "http://localhost:3004",
+  vionto: viontoUrl,
   edumatch: process.env.NEXT_PUBLIC_EDUMATCH_URL || "http://localhost:3009",
   testora: process.env.NEXT_PUBLIC_TESTORA_URL || "http://localhost:3005",
   appbuilder: process.env.NEXT_PUBLIC_APPBUILDER_URL || "http://localhost:3006",
