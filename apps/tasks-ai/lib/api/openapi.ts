@@ -584,6 +584,15 @@ export const openapiDocument = {
         responses: { "201": { description: "created" } },
       },
     },
+    "/workspaces/{slug}/integrations/testora": {
+      parameters: [pathParam("slug")],
+      get: { summary: "List connected integrations", responses: { "200": { description: "ok" } } },
+      post: {
+        summary: "Connect a Testora app (appId + HMAC secret + target project for diagnosis proposals; admin+)",
+        requestBody: jsonBody({ type: "object", required: ["appId", "secret", "projectId"], properties: { appId: { type: "string" }, secret: { type: "string" }, projectId: { type: "string" } } }),
+        responses: { "201": { description: "created" } },
+      },
+    },
 
     "/workspaces/{slug}/analytics/flow": {
       parameters: [pathParam("slug")],

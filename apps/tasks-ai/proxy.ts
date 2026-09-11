@@ -24,6 +24,7 @@ const authProxy = createAuthProxy({
     // Machine endpoints: authenticate their own token/HMAC, carry no
     // session (see each route).
     "/api/inbound/email",
+    "/api/inbound/testora",
     "/api/integrations/github",
     "/api/billing/stripe",
   ],

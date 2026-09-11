@@ -2670,6 +2670,60 @@
         }
       }
     },
+    "/workspaces/{slug}/integrations/testora": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "List connected integrations",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      },
+      "post": {
+        "summary": "Connect a Testora app (appId + HMAC secret + target project for diagnosis proposals; admin+)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "appId",
+                  "secret",
+                  "projectId"
+                ],
+                "properties": {
+                  "appId": {
+                    "type": "string"
+                  },
+                  "secret": {
+                    "type": "string"
+                  },
+                  "projectId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    },
     "/workspaces/{slug}/analytics/flow": {
       "parameters": [
         {

@@ -15,6 +15,10 @@ export const AI_KINDS = [
   "acceptance_criteria",
   "summarize",
   "nl_query",
+  // Testora → TasksAI: triage an automated e2e failure into an audited,
+  // reviewable proposal (issue #264). Still a create_task op — no new
+  // operation type is introduced.
+  "test_diagnosis",
 ] as const;
 export type AiKind = (typeof AI_KINDS)[number];
 

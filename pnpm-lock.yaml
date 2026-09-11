@@ -644,6 +644,9 @@ importers:
       '@asafarim/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@asafarim/testora-tasksai-contract':
+        specifier: workspace:*
+        version: link:../../packages/testora-tasksai-contract
       '@asafarim/theme-toggle':
         specifier: workspace:*
         version: link:../../packages/theme-toggle

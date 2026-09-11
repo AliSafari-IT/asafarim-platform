@@ -33,6 +33,8 @@ export const OUTBOX_TYPE = {
   activityFanout: "activity.fanout",
   searchIndex: "search.index",
   notification: "notification.dispatch",
+  /** Testora regression/flake → run the test_diagnosis pipeline (issue #264). */
+  testoraDiagnose: "testora.diagnose",
 } as const;
 
 export type OutboxType = (typeof OUTBOX_TYPE)[keyof typeof OUTBOX_TYPE];
