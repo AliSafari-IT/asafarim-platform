@@ -15,6 +15,20 @@ REPO_DIR="${REPO_DIR:-/var/repos/asafarim-com}"
 BRANCH="${BRANCH:-main}"
 cd "$REPO_DIR"
 
+# GitHub Actions cancels an older workflow when a newer main revision arrives.
+# Cancellation normally terminates the SSH-side process too, but the lock is the
+# hard safety boundary: if the old remote shell survives briefly, a replacement
+# deploy waits instead of running git, builds, migrations, or Compose operations
+# against the same checkout at the same time. The descriptor releases
+# automatically whenever this process exits, including on signals or failures.
+DEPLOY_LOCK_FILE="${DEPLOY_LOCK_FILE:-${REPO_DIR}/.vps-deploy.lock}"
+DEPLOY_LOCK_WAIT_SECONDS="${DEPLOY_LOCK_WAIT_SECONDS:-900}"
+exec 9>"${DEPLOY_LOCK_FILE}"
+if ! flock -w "${DEPLOY_LOCK_WAIT_SECONDS}" 9; then
+  echo "FATAL: another VPS deployment still holds ${DEPLOY_LOCK_FILE} after ${DEPLOY_LOCK_WAIT_SECONDS}s." >&2
+  exit 75
+fi
+
 echo "[deploy $(date -Is)] Fetching latest ${BRANCH}..."
 git fetch --prune origin "$BRANCH"
 git reset --hard "origin/${BRANCH}"   # tracked files only; ignores .env.production & .age/

@@ -23,7 +23,11 @@ on:
 
 concurrency:
   group: vps-deploy
-  cancel-in-progress: false
+  # main is linear: a newer revision already contains every earlier commit, so
+  # do not spend another full build deploying an obsolete revision. The VPS
+  # script also holds an exclusive lock, which prevents overlapping remote
+  # deploys if a canceled SSH process takes time to exit.
+  cancel-in-progress: true
 
 jobs:
   deploy:
