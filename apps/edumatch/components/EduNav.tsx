@@ -240,6 +240,7 @@ export function EduNav({ showBusinessPlanLink }: { showBusinessPlanLink: boolean
             <div className="edu-mobile-language"><CountryLanguageSelector compact /></div>
             <ThemeButton />
             <AppMenu />
+            <AccountMenu />
           </div>
         </nav>
       )}
