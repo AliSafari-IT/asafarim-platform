@@ -97,6 +97,7 @@ export {
 } from "./components/ShowcaseNotice";
 export { StatusBadge, type Status } from "./components/StatusBadge";
 export { Timeline, type TimelineItem } from "./components/Timeline";
+export { TestEvidence, type TestEvidenceProps } from "./components/TestEvidence";
 export { TopNav, type NavItem } from "./components/TopNav";
 export { UserMenu } from "./components/UserMenu";
 export {
