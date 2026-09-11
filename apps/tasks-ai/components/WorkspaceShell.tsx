@@ -44,10 +44,13 @@ export function WorkspaceShell({
     <Ctx.Provider value={{ slug, workspaceName, role, membershipId }}>
       <div className="ta-ws" data-app="tasks-ai">
         <aside className="ta-ws__nav" aria-label="Workspace">
-          <p className="ta-ws__name">
+          {/* div, not p: the NotificationBell renders a <div>, and a div
+              inside a <p> is invalid HTML — the browser closes the <p> early,
+              which fails hydration on every workspace page. */}
+          <div className="ta-ws__name">
             {workspaceName}
             <NotificationBell slug={slug} />
-          </p>
+          </div>
           <nav>
             <ul>
               {NAV.map((n) => {

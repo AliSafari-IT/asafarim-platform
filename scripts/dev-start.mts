@@ -411,27 +411,41 @@ async function main(): Promise<void> {
   let shuttingDown = false;
   let forceExitTimer: NodeJS.Timeout | undefined;
 
-  const shutdown = () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-
-    if (process.platform !== "win32") {
-      turbo.kill("SIGTERM");
-    }
-
-    forceExitTimer = setTimeout(() => {
-      if (turbo.exitCode === null && turbo.pid) {
-        if (process.platform === "win32") {
+  const killTurboTree = () => {
+    try {
+      if (process.platform === "win32") {
+        // Force-kill immediately: turbo's graceful shutdown hangs on
+        // watch-mode tasks (tsup --watch never exits; cmd/pnpm wrappers sit
+        // at "Terminate batch job (Y/N)?"), which is why "13 tasks shutting
+        // down..." used to spin forever. Every descendant already received
+        // the console Ctrl+C directly, so nothing graceful is lost — the
+        // /T tree-walk reaps whatever is still stuck.
+        if (turbo.pid) {
           spawnSync("taskkill", ["/PID", String(turbo.pid), "/T", "/F"], {
             stdio: "ignore",
             windowsHide: true,
           });
-        } else {
-          turbo.kill("SIGKILL");
         }
+      } else {
+        turbo.kill("SIGTERM");
+      }
+    } catch {
+      // ignore — the backup timer below still force-exits
+    }
+  };
+
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    killTurboTree();
+
+    forceExitTimer = setTimeout(() => {
+      if (process.platform !== "win32" && turbo.exitCode === null) {
+        turbo.kill("SIGKILL");
       }
       process.exit(0);
-    }, 3000);
+    }, 1500);
   };
 
   process.once("SIGINT", shutdown);
