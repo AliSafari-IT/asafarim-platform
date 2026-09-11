@@ -1,0 +1,1 @@
+ALTER TYPE "public"."outbound_event_status" ADD VALUE 'processing' BEFORE 'sent';

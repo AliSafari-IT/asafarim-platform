@@ -205,6 +205,9 @@ export const targetEnvironments = pgTable("target_environments", {
 
 export const outboundEventStatusEnum = pgEnum("outbound_event_status", [
   "pending",
+  // claimed by a dispatch run, in flight — prevents a concurrent dispatch
+  // call (request-path trigger racing a redrive) from double-sending.
+  "processing",
   "sent",
   "failed",
   "dead",
@@ -230,6 +233,39 @@ export const outboundEvents = pgTable("outbound_events", {
   availableAt: timestamp("available_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Per-project outbound endpoint (issue #261). A project can register more
+// than one (e.g. a staging TasksAI workspace and a production one); each has
+// its own signing secret — the same secret TasksAI's Integration row stores
+// for this appId, so its signature also doubles as the delivery's routing
+// key on the receiving end (see @asafarim/testora-tasksai-contract).
+export const outboundWebhooks = pgTable("outbound_webhooks", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id").notNull(),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// One row per delivery attempt, per webhook — the delivery log referenced in
+// the issue's "/settings/webhooks" acceptance. Kept even after the
+// underlying outbound_events row is pruned/reused.
+export const outboundDeliveries = pgTable("outbound_deliveries", {
+  id: text("id").primaryKey(),
+  webhookId: text("webhook_id").notNull(),
+  outboundEventId: text("outbound_event_id").notNull(),
+  eventType: text("event_type").notNull(),
+  /** the deliveryId placed in the signed envelope / x-asafarim-delivery header */
+  deliveryId: text("delivery_id").notNull(),
+  attempt: integer("attempt").notNull().default(1),
+  status: outboundEventStatusEnum("status").notNull().default("pending"),
+  responseStatus: integer("response_status"),
+  error: text("error"),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const functionalRequirementsRelations = relations(functionalRequirements, ({ many }) => ({

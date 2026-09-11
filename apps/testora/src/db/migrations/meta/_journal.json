@@ -85,6 +85,20 @@
       "when": 1789110436955,
       "tag": "0011_chilly_reavers",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789111271048,
+      "tag": "0012_hot_frank_castle",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789111354866,
+      "tag": "0013_fuzzy_mach_iv",
+      "breakpoints": true
     }
   ]
 }
