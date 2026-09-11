@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@asafarim/auth": "workspace:*",
     "@asafarim/db": "workspace:*"
   },
   "devDependencies": {

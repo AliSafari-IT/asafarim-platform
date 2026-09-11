@@ -113,6 +113,15 @@ const CONSOLE_MODULES: readonly NavModule[] = [
     defaultRoles: [ROLES.SUPERADMIN],
     href: "/access-control",
   },
+  {
+    id: "console.user-activity",
+    label: "User Activity",
+    description: "Cross-app activity explorer, embedded in a user's detail page.",
+    group: "console",
+    // No standalone href: this extends /users/[id] rather than being its own
+    // route. The real gate is requireRole([ROLES.SUPERADMIN]) on that page.
+    defaultRoles: [ROLES.SUPERADMIN],
+  },
 ];
 
 /**

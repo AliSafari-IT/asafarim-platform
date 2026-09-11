@@ -13,15 +13,18 @@ import {
 import {
   Badge,
   EmptyState,
+  FilterBar,
   PageHeader,
   Panel,
   Timeline,
   getPlatformLinks,
   type BadgeTone,
 } from "@asafarim/ui";
+import { writeAuditEvent } from "../../../../lib/audit";
 import { IdentityForm } from "./_components/IdentityForm";
 import { StatusControls } from "./_components/StatusControls";
 import { RoleControls } from "./_components/RoleControls";
+import { collectEntryTypes, filterEntries, formatBytes, formatDuration, loadUserActivity } from "@asafarim/activity";
 
 export const metadata: Metadata = { title: "User detail" };
 
@@ -133,8 +136,10 @@ async function loadDetail(id: string) {
 
 export default async function UserDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const session = await requireRole([ROLES.ADMIN]);
   if (!(await hasPermission(session, "users.view"))) {
@@ -142,6 +147,7 @@ export default async function UserDetailPage({
   }
 
   const { id } = await params;
+  const activityFilters = await searchParams;
 
   const detail = await loadDetail(id);
   if (detail === "offline") {
@@ -166,7 +172,24 @@ export default async function UserDetailPage({
 
   const targetRoles = user.userRoles.map((ur) => ur.role.name);
   const isSelf = user.id === session.user.id;
+  const isSuperadmin = session.user.roles.includes(ROLES.SUPERADMIN);
   const links = getPlatformLinks();
+
+  // The User 360 activity explorer is superadmin-only (issue #301). Every
+  // view is itself audited — "the watcher is watched" — so the write
+  // happens here rather than behind a button the viewer could skip.
+  const activitySections = isSuperadmin
+    ? await loadUserActivity({ userId: user.id, email: user.email })
+    : [];
+  if (isSuperadmin) {
+    await writeAuditEvent({
+      userId: session.user.id,
+      action: "user.activity.viewed",
+      entity: "UserActivityView",
+      entityId: user.id,
+      changes: { viewedUserEmail: user.email, filters: activityFilters },
+    });
+  }
   const allowedApps = getAccessibleApps({
     roles: targetRoles,
     authenticated: user.isActive,
@@ -352,6 +375,14 @@ export default async function UserDetailPage({
         ) : null}
       </div>
 
+      {isSuperadmin ? (
+        <UserActivitySection
+          userId={user.id}
+          sections={activitySections}
+          filters={activityFilters}
+        />
+      ) : null}
+
       <div style={{ marginTop: "var(--space-5)" }}>
         <Panel title={`audit history · last ${auditEvents.length} events`}>
           {auditEvents.length === 0 ? (
@@ -370,5 +401,131 @@ export default async function UserDetailPage({
         </Panel>
       </div>
     </>
+  );
+}
+
+/**
+ * Cross-app activity explorer (issue #301 phase 2). Filters are a plain GET
+ * form so a filtered view is a shareable URL — matching every other console
+ * filter bar (see FilterBar's own doc comment).
+ */
+function UserActivitySection({
+  userId,
+  sections,
+  filters,
+}: {
+  userId: string;
+  sections: Awaited<ReturnType<typeof loadUserActivity>>;
+  filters: Record<string, string | undefined>;
+}) {
+  const appFilter = filters.app ?? "";
+  const typeFilter = filters.type ?? "";
+  const fromFilter = filters.from ?? "";
+  const toFilter = filters.to ?? "";
+  const hasFilters = Boolean(appFilter || typeFilter || fromFilter || toFilter);
+
+  const entries = filterEntries(sections, {
+    app: appFilter || undefined,
+    type: typeFilter || undefined,
+    from: fromFilter || undefined,
+    to: toFilter || undefined,
+  });
+  const entryTypes = collectEntryTypes(sections);
+  const basePath = `/users/${userId}`;
+
+  return (
+    <div style={{ marginTop: "var(--space-5)" }}>
+      <Panel title="cross-app activity · superadmin only">
+        <div className="ui-chips" style={{ marginBottom: "var(--space-3)" }}>
+          {sections.map((section) => {
+            const app = PLATFORM_APPS.find((a) => a.key === section.app);
+            const label = app?.name ?? section.app;
+            if (!section.supported) {
+              return (
+                <Badge key={section.app} tone="neutral">
+                  {label} · no adapter yet
+                </Badge>
+              );
+            }
+            if (!section.available) {
+              return (
+                <Badge key={section.app} tone="danger">
+                  {label} · unavailable
+                </Badge>
+              );
+            }
+            return (
+              <Badge key={section.app} tone={section.entries.length > 0 ? "success" : "neutral"}>
+                {label} · {section.entries.length}
+              </Badge>
+            );
+          })}
+        </div>
+
+        <FilterBar
+          action={basePath}
+          fields={[
+            {
+              kind: "select",
+              name: "app",
+              label: "app",
+              value: appFilter,
+              options: [
+                { label: "all apps", value: "" },
+                ...sections
+                  .filter((s) => s.supported)
+                  .map((s) => ({
+                    label: PLATFORM_APPS.find((a) => a.key === s.app)?.name ?? s.app,
+                    value: s.app,
+                  })),
+              ],
+            },
+            {
+              kind: "select",
+              name: "type",
+              label: "type",
+              value: typeFilter,
+              options: [
+                { label: "all types", value: "" },
+                ...entryTypes.map((type) => ({ label: type, value: type })),
+              ],
+            },
+            { kind: "date", name: "from", label: "from", value: fromFilter },
+            { kind: "date", name: "to", label: "to", value: toFilter },
+          ]}
+          hasFilters={hasFilters}
+          clearHref={basePath}
+        />
+
+        <div style={{ marginTop: "var(--space-4)" }}>
+          {entries.length === 0 ? (
+            <EmptyState
+              glyph="[ · ]"
+              title={hasFilters ? "No activity matches these filters" : "No activity yet"}
+              description={
+                hasFilters
+                  ? "Try clearing a filter."
+                  : "This user has no recorded activity in any adapter-backed app."
+              }
+            />
+          ) : (
+            <Timeline
+              items={entries.map((entry) => ({
+                time: formatDateTime(entry.createdAt),
+                title: `${PLATFORM_APPS.find((a) => a.key === entry.app)?.name ?? entry.app} · ${entry.type} · ${entry.title}`,
+                meta: [
+                  entry.status,
+                  formatDuration(entry.metadata.durationSeconds as number | null | undefined),
+                  formatBytes(entry.metadata.fileSizeBytes as number | null | undefined),
+                  entry.href,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              }))}
+            />
+          )}
+        </div>
+      </Panel>
+    </div>
   );
 }
