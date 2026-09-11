@@ -1,0 +1,24 @@
+{
+  "name": "@asafarim/activity",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-app user-activity adapters for the superadmin User 360 explorer",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@asafarim/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@asafarim/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  }
+}
