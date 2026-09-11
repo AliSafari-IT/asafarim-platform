@@ -1,24 +1,60 @@
+# Shared "deploying" page: served instead of a raw 502/503/504 when a
+# backend container is mid-restart (e.g. during vps-deploy.sh's sequential
+# rebuild). Auto-refreshes every 5s so the visitor doesn't have to.
+(deploying) {
+  handle_errors {
+    @maintenance expression {err.status_code} in [502, 503, 504]
+    respond @maintenance <<HTML 503
+<!doctype html>
+<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="5">
+<title>Deploying…</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;
+    display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+  .box{text-align:center;max-width:28rem;padding:2rem}
+  h1{font-size:1.5rem;margin-bottom:.5rem}
+  p{color:#94a3b8}
+  .dots::after{content:'';animation:dots 1.4s infinite}
+  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+</style></head>
+<body><div class="box">
+  <h1>Deploying an update<span class="dots"></span></h1>
+  <p>This page will refresh automatically in a few seconds.</p>
+</div></body></html>
+HTML
+    {
+      Content-Type "text/html; charset=utf-8"
+    }
+  }
+}
+
 asafarim.com {
+  import deploying
   reverse_proxy web:3000
 }
 
 www.asafarim.com {
+  import deploying
   reverse_proxy web:3000
 }
 
 hub.asafarim.com {
+  import deploying
   reverse_proxy hub:3000
 }
 
 admin.asafarim.com {
+  import deploying
   reverse_proxy admin:3000
 }
 
 showcase.asafarim.com {
+  import deploying
   reverse_proxy showcase:3000
 }
 
 vionto.asafarim.com {
+  import deploying
   # Media uploads can be large; give the proxy generous timeouts.
   reverse_proxy vionto:3000 {
     transport http {
@@ -29,6 +65,7 @@ vionto.asafarim.com {
 }
 
 edumatch.asafarim.com {
+  import deploying
   reverse_proxy edumatch:3000 {
     transport http {
       read_timeout 600s
@@ -38,6 +75,7 @@ edumatch.asafarim.com {
 }
 
 testora.asafarim.com {
+  import deploying
   # Test runs stream progress over a long-lived connection; be generous.
   reverse_proxy testora:3000 {
     transport http {
@@ -48,22 +86,27 @@ testora.asafarim.com {
 }
 
 appbuilder.asafarim.com {
+  import deploying
   reverse_proxy appbuilder:3000
 }
 
 jobmatch.asafarim.com {
+  import deploying
   reverse_proxy jobmatch:3000
 }
 
 tasks-ai.asafarim.com {
+  import deploying
   reverse_proxy tasksai:3000
 }
 
 labs.asafarim.com {
+  import deploying
   reverse_proxy labs:3000
 }
 
 tlai.asafarim.com {
+  import deploying
   # Puppeteer export requests (Task #10) can take several seconds; be generous.
   reverse_proxy timelineai:3000 {
     transport http {
