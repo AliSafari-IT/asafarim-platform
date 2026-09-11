@@ -30,6 +30,18 @@
 }
 
 /*
+ * Native select popups are rendered by the browser/OS and do not reliably
+ * inherit `color-scheme` when the closed control uses a transparent
+ * background. Give every TimelineAI option an explicit app-theme surface
+ * and foreground so Type, appearance, dashboard, and admin dropdowns stay
+ * readable in both themes (notably Chromium on Windows).
+ */
+:root[data-app="timelineai"] select option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+/*
  * ── Timeline viewer themes ──────────────────────────────────────────────
  *
  * A timeline theme is a presentation setting for ONE timeline. It is not the
