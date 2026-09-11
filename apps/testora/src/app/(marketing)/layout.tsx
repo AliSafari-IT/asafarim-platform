@@ -1,11 +1,19 @@
 import Link from "next/link";
+import { TopNav } from "@asafarim/ui";
 import { Logo } from "@/components/logo";
 import { PlatformHeader } from "@/components/platform-header";
+
+const navItems = [
+  { label: "Home", href: "/" },
+  { label: "About & Guide", href: "/about-this-project" },
+  { label: "Roadmap", href: "/roadmap" },
+  { label: "Open the app", href: "/dashboard" },
+];
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <PlatformHeader />
+      <PlatformHeader nav={<TopNav items={navItems} />} />
 
       <div className="flex-1">{children}</div>
 
