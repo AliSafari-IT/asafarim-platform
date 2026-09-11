@@ -18,6 +18,12 @@ const updateSchema = z
     // auto-quarantine. Handled separately below (it also stamps
     // quarantinedAt/quarantineReason).
     quarantined: z.boolean().optional(),
+    // Promote a provisioned scaffold (issue #262) — e.g. "pending" →
+    // "active" once a developer has implemented the real scenario. Excluded
+    // from a green-light check (#263) while still pending/authoring/quarantined.
+    scenarioState: z
+      .enum(["pending", "authoring", "active", "passing", "failing", "quarantined"])
+      .optional(),
   })
   .superRefine((value, ctx) => {
     if (value.scriptType === "single" && !value.input) {
