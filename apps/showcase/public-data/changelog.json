@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-11",
-    "title": "UI: shared TestEvidence panel rendering a run-artifact bundle (#267)",
-    "sha": "0b799f5",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/0b799f5"
+    "title": "Testora: inbound provision API + pending-scenario state (#262)",
+    "sha": "a4c8743",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/a4c8743"
   }
 ]
