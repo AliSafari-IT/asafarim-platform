@@ -27,6 +27,7 @@ const authProxy = createAuthProxy({
     "/api/inbound/testora",
     "/api/integrations/github",
     "/api/billing/stripe",
+    "/api/internal/user-activity",
   ],
   signInUrl: `${hubUrl}/sign-in`,
 });
