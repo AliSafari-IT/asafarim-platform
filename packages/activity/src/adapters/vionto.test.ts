@@ -7,6 +7,7 @@ vi.mock("@asafarim/db", () => ({
     viontoExport: { findMany: vi.fn() },
     viontoAlbum: { findMany: vi.fn() },
     viontoUsageMetric: { findMany: vi.fn() },
+    user: { findMany: vi.fn() },
   },
 }));
 
@@ -18,6 +19,7 @@ const mockPrisma = prisma as unknown as {
   viontoRenderJob: { findMany: ReturnType<typeof vi.fn> };
   viontoExport: { findMany: ReturnType<typeof vi.fn> };
   viontoAlbum: { findMany: ReturnType<typeof vi.fn> };
+  user: { findMany: ReturnType<typeof vi.fn> };
   viontoUsageMetric: { findMany: ReturnType<typeof vi.fn> };
 };
 
@@ -96,5 +98,94 @@ describe("viontoActivityAdapter", () => {
     mockPrisma.viontoProject.findMany.mockRejectedValue(new Error("db down"));
 
     await expect(viontoActivityAdapter.getActivity({ userId: "u1" })).rejects.toThrow("db down");
+  });
+});
+
+describe("viontoActivityAdapter.listAll", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPrisma.user.findMany.mockResolvedValue([]);
+  });
+
+  it("maps exports across users, attaching each owner from a batch lookup", async () => {
+    mockPrisma.viontoExport.findMany.mockResolvedValue([
+      {
+        id: "e1",
+        projectId: "p1",
+        userId: "u1",
+        format: "mp4",
+        resolution: "1080p",
+        durationSeconds: 30,
+        fileSizeBytes: 1000,
+        filename: "clip.mp4",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: "u1", email: "a@b.com", name: "Ada" }]);
+
+    const result = await viontoActivityAdapter.listAll!({ limit: 10 });
+
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0]).toMatchObject({
+      id: "e1",
+      app: "vionto",
+      type: "export",
+      owner: { userId: "u1", email: "a@b.com", name: "Ada" },
+    });
+    expect(result.nextCursor).toBeNull();
+  });
+
+  it("sets nextCursor to the last row's createdAt when there's another page", async () => {
+    const rows = Array.from({ length: 11 }, (_, i) => ({
+      id: `e${i}`,
+      projectId: "p1",
+      userId: "u1",
+      format: "mp4",
+      resolution: "1080p",
+      durationSeconds: 30,
+      fileSizeBytes: 1000,
+      filename: `clip-${i}.mp4`,
+      createdAt: new Date(now.getTime() - i * 1000),
+      updatedAt: now,
+    }));
+    mockPrisma.viontoExport.findMany.mockResolvedValue(rows);
+
+    const result = await viontoActivityAdapter.listAll!({ limit: 10 });
+
+    expect(result.entries).toHaveLength(10);
+    expect(result.nextCursor).toBe(rows[9]!.createdAt.toISOString());
+  });
+
+  it("passes the cursor through as a createdAt < filter", async () => {
+    mockPrisma.viontoExport.findMany.mockResolvedValue([]);
+    const cursor = now.toISOString();
+
+    await viontoActivityAdapter.listAll!({ limit: 10, cursor });
+
+    expect(mockPrisma.viontoExport.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { createdAt: { lt: new Date(cursor) } } })
+    );
+  });
+
+  it("falls back to null email/name when the owner lookup misses", async () => {
+    mockPrisma.viontoExport.findMany.mockResolvedValue([
+      {
+        id: "e1",
+        projectId: "p1",
+        userId: "deleted-user",
+        format: "mp4",
+        resolution: null,
+        durationSeconds: null,
+        fileSizeBytes: null,
+        filename: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const result = await viontoActivityAdapter.listAll!({ limit: 10 });
+
+    expect(result.entries[0]!.owner).toEqual({ userId: "deleted-user", email: null, name: null });
   });
 });

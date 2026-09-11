@@ -1,6 +1,21 @@
-export type { ActivityEntry, ActivityLookup, ActivitySection, UserActivityAdapter } from "./types";
+export type {
+  ActivityEntry,
+  ActivityLookup,
+  ActivityOwner,
+  ActivitySection,
+  ListAllOptions,
+  ListAllResult,
+  PlatformActivityEntry,
+  UserActivityAdapter,
+} from "./types";
 export { runAdapter } from "./run-adapter";
-export { activityAdapters, getAllUserActivity } from "./registry";
+export {
+  activityAdapters,
+  getAllUserActivity,
+  getPlatformActivityApps,
+  listPlatformActivity,
+} from "./registry";
+export type { PlatformActivityOptions } from "./registry";
 export { viontoActivityAdapter } from "./adapters/vionto";
 export { timelineaiActivityAdapter } from "./adapters/timelineai";
 export { edumatchActivityAdapter } from "./adapters/edumatch";

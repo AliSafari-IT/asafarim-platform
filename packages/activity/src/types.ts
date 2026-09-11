@@ -41,6 +41,31 @@ export interface ActivityLookup {
   email?: string | null;
 }
 
+/** Who created/owns a platform-wide activity entry — there is no single "the user" to key by, unlike ActivityLookup. */
+export interface ActivityOwner {
+  userId: string;
+  email: string | null;
+  name: string | null;
+}
+
+/** One entry in the cross-user "platform activity" browse view, with its owner attached. */
+export interface PlatformActivityEntry extends ActivityEntry {
+  owner: ActivityOwner;
+}
+
+export interface ListAllOptions {
+  /** Max entries to return. */
+  limit: number;
+  /** Opaque cursor from a previous ListAllResult.nextCursor — omit for the first page. */
+  cursor?: string | null;
+}
+
+export interface ListAllResult {
+  entries: PlatformActivityEntry[];
+  /** Pass back as `cursor` to fetch the next page; null when this was the last page. */
+  nextCursor: string | null;
+}
+
 /**
  * Contract every per-app activity adapter implements. Read-only: an adapter
  * must never mutate data. Must never throw — network/DB failures are
@@ -51,4 +76,12 @@ export interface UserActivityAdapter {
   /** Platform app slug this adapter serves, matching the app registry. */
   readonly app: string;
   getActivity(lookup: ActivityLookup): Promise<ActivitySection>;
+  /**
+   * Optional: browse this app's flagship content across EVERY user, newest
+   * first, for the superadmin platform-activity view — distinct from
+   * getActivity, which is scoped to one user. Adapters that don't implement
+   * this are simply absent from that view, not shown as broken (same
+   * "no adapter yet" principle as the User 360 explorer).
+   */
+  listAll?(options: ListAllOptions): Promise<ListAllResult>;
 }
