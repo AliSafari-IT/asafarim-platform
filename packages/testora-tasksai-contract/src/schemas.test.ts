@@ -172,6 +172,31 @@ describe("parseWebhookEvent", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("accepts run.completed with a capped failedScenarios list", () => {
+    const envelope = {
+      v: 1,
+      deliveryId: "88888888-8888-8888-8888-888888888888",
+      eventType: "run.completed",
+      occurredAt: "2026-09-10T10:05:00.000Z",
+      source: "testora",
+      data: {
+        runId: "run_1",
+        appId: "asafarim-web",
+        total: 10,
+        passed: 8,
+        failed: 2,
+        flaky: 0,
+        failedScenarios: [
+          {
+            scenarioId: "scn_login",
+            bundle: { bundleId: bundle.bundleId, url: "https://testora.example.com/api/results/r1/bundle" },
+          },
+        ],
+      },
+    };
+    expect(parseWebhookEvent(envelope).ok).toBe(true);
+  });
+
   it("accepts flake.detected with both the fail-run and pass-run bundle refs", () => {
     const envelope = {
       v: 1,

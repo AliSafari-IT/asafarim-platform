@@ -1,8 +1,7 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { outboundEvents, testCases, testResults } from "@/db/schema";
+import { testCases, testResults } from "@/db/schema";
 import type { TestRunResult } from "@/test-engine/types";
 import {
   FLAKE_SAMPLE_SIZE,
@@ -11,14 +10,8 @@ import {
   isFlaky,
   shouldAutoQuarantine,
 } from "@/lib/flake";
-
-const DEFAULT_PUBLIC_URL = process.env.TESTORA_PUBLIC_URL ?? "http://localhost:3005";
-
-function bundleRef(resultId: string, baseUrl: string) {
-  // bundleId is a fresh identifier here, not a lookup key — the bundle API
-  // mints the actual bundle (and its own bundleId) on read, from `url`.
-  return { bundleId: randomUUID(), url: `${baseUrl.replace(/\/+$/, "")}/api/results/${resultId}/bundle` };
-}
+import { enqueueOutboundEvent } from "@/lib/outbound-events";
+import { DEFAULT_PUBLIC_URL, bundleRef } from "@/lib/bundle-ref";
 
 /**
  * Recomputes flakiness for every case touched by a just-persisted run, and
@@ -113,8 +106,7 @@ async function updateFlakeStateForCase(
     }),
   ]);
 
-  await db.insert(outboundEvents).values({
-    id: randomUUID(),
+  await enqueueOutboundEvent({
     projectId,
     eventType: "flake.detected",
     payload: {

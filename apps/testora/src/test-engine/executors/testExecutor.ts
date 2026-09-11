@@ -19,6 +19,7 @@ import { captureFailureArtifacts } from "@/test-engine/artifacts";
 import { buildStepTimeline, type StepErrorMeta } from "@/test-engine/artifact-timeline";
 import { domSnapshotFileName } from "@/test-engine/generators/testGenerator";
 import { updateFlakeStateForRun } from "@/lib/flake-service";
+import { enqueueRunCompleted, updateRegressionStateForRun } from "@/lib/run-events-service";
 import type {
   TestCaseDefinition,
   TestFixtureDefinition,
@@ -265,9 +266,12 @@ export async function executeFixture(
   }
 
   await persistResults(results);
-  // Flake detection (#260) runs after persistence so the just-inserted rows
-  // are part of the history it scores against. Never fails the run itself.
+  // Flake + regression detection (#260/#261) run after persistence so the
+  // just-inserted rows are part of the history they score against. Never
+  // fails the run itself.
   await updateFlakeStateForRun(results).catch(() => {});
+  await updateRegressionStateForRun(results).catch(() => {});
+  await enqueueRunCompleted(results, fixture.fixtureId).catch(() => {});
   return results;
 }
 

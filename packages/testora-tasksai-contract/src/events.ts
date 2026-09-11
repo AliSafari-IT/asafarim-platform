@@ -41,6 +41,16 @@ export const RunCompletedData = z
     passed: z.number().int().nonnegative(),
     failed: z.number().int().nonnegative(),
     flaky: z.number().int().nonnegative(),
+    /** the scenarios that failed, each with its bundle — capped, not every
+     *  failure needs a row here for a very large run */
+    failedScenarios: z
+      .array(
+        z
+          .object({ scenarioId: z.string().min(1).max(200), bundle: BundleReference })
+          .strict(),
+      )
+      .max(50)
+      .optional(),
   })
   .strict();
 export type RunCompletedData = z.infer<typeof RunCompletedData>;
