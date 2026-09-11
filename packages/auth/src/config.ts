@@ -52,6 +52,49 @@ export async function ensureDefaultRole(userId: string) {
   });
 }
 
+function getSuperadminEmails(): Set<string> {
+  const raw = process.env.SUPERADMIN_EMAILS;
+  if (!raw) return new Set();
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(
+      parsed
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim().toLowerCase())
+    );
+  } catch {
+    console.warn("SUPERADMIN_EMAILS is not valid JSON; ignoring.");
+    return new Set();
+  }
+}
+
+/**
+ * Grants the `superadmin` role to a user whose email is in the
+ * `SUPERADMIN_EMAILS` allowlist, idempotently (upsert, never duplicated).
+ *
+ * `SEED_ADMIN_EMAIL` seeds the *first* admin at bootstrap time; this
+ * allowlist is the ongoing mechanism — any listed email resolves to
+ * superadmin on every sign-in, independent of the seed.
+ */
+export async function applySuperadminAllowlist(userId: string, email?: string | null) {
+  if (!email) return;
+  const allowlist = getSuperadminEmails();
+  if (!allowlist.has(email.trim().toLowerCase())) return;
+
+  const superadmin = await prisma.role.findUnique({
+    where: { name: "superadmin" },
+    select: { id: true },
+  });
+  if (!superadmin) return;
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId, roleId: superadmin.id } },
+    update: {},
+    create: { userId, roleId: superadmin.id },
+  });
+}
+
 async function ensureAuthUser(user: AuthUserLike, account?: AuthAccountLike) {
   const accountUser = account
     ? await prisma.account.findUnique({
@@ -165,6 +208,7 @@ async function ensureAuthUser(user: AuthUserLike, account?: AuthAccountLike) {
   }
 
   await ensureDefaultRole(dbUser.id);
+  await applySuperadminAllowlist(dbUser.id, dbUser.email);
 
   return prisma.user.findUnique({
     where: { id: dbUser.id },
