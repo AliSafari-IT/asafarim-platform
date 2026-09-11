@@ -20,6 +20,7 @@ import { buildStepTimeline, type StepErrorMeta } from "@/test-engine/artifact-ti
 import { domSnapshotFileName } from "@/test-engine/generators/testGenerator";
 import { updateFlakeStateForRun } from "@/lib/flake-service";
 import { enqueueRunCompleted, updateRegressionStateForRun } from "@/lib/run-events-service";
+import { evaluateGreenLightForRun } from "@/lib/greenlight-service";
 import type {
   TestCaseDefinition,
   TestFixtureDefinition,
@@ -272,6 +273,7 @@ export async function executeFixture(
   await updateFlakeStateForRun(results).catch(() => {});
   await updateRegressionStateForRun(results).catch(() => {});
   await enqueueRunCompleted(results, fixture.fixtureId).catch(() => {});
+  await evaluateGreenLightForRun(results).catch(() => {});
   return results;
 }
 

@@ -250,6 +250,11 @@ export const outboundEvents = pgTable("outbound_events", {
   /** the contract event `data` payload (not the signed envelope — the
    *  dispatcher wraps it, since deliveryId/timestamp are assigned at send time) */
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  // The green-light callback (issue #263) goes to the provision's own
+  // callbackUrl, not the project's general webhook subscriptions — set only
+  // for that event type. Signed with the project's configured webhook
+  // secret (same trust relationship as the general dispatch).
+  directUrl: text("direct_url"),
   status: outboundEventStatusEnum("status").notNull().default("pending"),
   attempts: integer("attempts").notNull().default(0),
   lastError: text("last_error"),
@@ -307,6 +312,10 @@ export const provisions = pgTable("provisions", {
   callbackUrl: text("callback_url").notNull(),
   requiredRuns: integer("required_runs").notNull().default(3),
   causationId: text("causation_id"),
+  // Stamped the first time this provision's linked scenarios go green
+  // (issue #263) — the idempotency marker: greenlight.reached fires exactly
+  // once per provision, on that transition, not on every subsequent clean run.
+  greenAt: timestamp("green_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 
