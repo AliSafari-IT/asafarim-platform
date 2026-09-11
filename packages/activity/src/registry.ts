@@ -1,5 +1,11 @@
 import { runAdapter } from "./run-adapter";
-import type { ActivityLookup, ActivitySection, UserActivityAdapter } from "./types";
+import type {
+  ActivityLookup,
+  ActivitySection,
+  ListAllResult,
+  PlatformActivityEntry,
+  UserActivityAdapter,
+} from "./types";
 import { timelineaiActivityAdapter } from "./adapters/timelineai";
 import { viontoActivityAdapter } from "./adapters/vionto";
 import { edumatchActivityAdapter } from "./adapters/edumatch";
@@ -60,4 +66,72 @@ export async function getAllUserActivity(lookup: ActivityLookup): Promise<Activi
   return Promise.all(
     Object.values(activityAdapters).map((adapter) => runAdapter(adapter, lookup))
   );
+}
+
+/** Apps that support the platform-wide browse view (only those implementing `listAll`). */
+export function getPlatformActivityApps(): string[] {
+  return Object.values(activityAdapters)
+    .filter((adapter) => typeof adapter.listAll === "function")
+    .map((adapter) => adapter.app);
+}
+
+export interface PlatformActivityOptions {
+  limit: number;
+  /** Opaque cursor from a previous call's nextCursor — omit for the first page. */
+  cursor?: string | null;
+  /** Restrict to one app; omit to merge every app that supports listAll. */
+  app?: string;
+}
+
+/**
+ * The superadmin platform-activity browse view: newest-first content across
+ * every user, merged across every adapter that implements `listAll` (an app
+ * without one — most of them, today — simply doesn't appear, same "no
+ * adapter yet" principle as the per-user User 360 explorer).
+ *
+ * Pagination note: filtered to a single `app`, this is exact (that
+ * adapter's own keyset cursor). Merged across apps, each page fetches up to
+ * `limit` items from EVERY app and re-sorts, so on a page boundary an app
+ * with a slower trickle of new items can occasionally resurface an entry
+ * already seen on a previous page. Acceptable for an admin browse tool;
+ * revisit with a real merged keyset if this needs to be exact.
+ */
+export async function listPlatformActivity(
+  options: PlatformActivityOptions
+): Promise<ListAllResult> {
+  const cursors: Record<string, string | null> = options.cursor
+    ? (JSON.parse(options.cursor) as Record<string, string | null>)
+    : {};
+
+  const adapters = Object.values(activityAdapters).filter(
+    (adapter): adapter is UserActivityAdapter & { listAll: NonNullable<UserActivityAdapter["listAll"]> } =>
+      typeof adapter.listAll === "function" && (!options.app || adapter.app === options.app)
+  );
+
+  const perApp = await Promise.all(
+    adapters.map(async (adapter) => {
+      try {
+        return { app: adapter.app, result: await adapter.listAll({ limit: options.limit, cursor: cursors[adapter.app] }) };
+      } catch {
+        // One app's outage never blanks the rest of the merged feed.
+        return { app: adapter.app, result: { entries: [], nextCursor: null } as ListAllResult };
+      }
+    })
+  );
+
+  const merged: PlatformActivityEntry[] = perApp
+    .flatMap((r) => r.result.entries)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, options.limit);
+
+  const nextCursors: Record<string, string | null> = {};
+  for (const { app, result } of perApp) {
+    if (result.nextCursor) nextCursors[app] = result.nextCursor;
+  }
+  const hasMore = Object.keys(nextCursors).length > 0;
+
+  return {
+    entries: merged,
+    nextCursor: hasMore ? JSON.stringify(nextCursors) : null,
+  };
 }

@@ -122,6 +122,14 @@ const CONSOLE_MODULES: readonly NavModule[] = [
     // route. The real gate is requireRole([ROLES.SUPERADMIN]) on that page.
     defaultRoles: [ROLES.SUPERADMIN],
   },
+  {
+    id: "console.platform-activity",
+    label: "Platform Activity",
+    description: "Browse every user's generated content across apps — timelines, Vionto videos, and more.",
+    group: "console",
+    defaultRoles: [ROLES.SUPERADMIN],
+    href: "/platform-activity",
+  },
 ];
 
 /**
