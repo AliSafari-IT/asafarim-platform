@@ -27,6 +27,7 @@ import { getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
 // client bundle's way — importing "@asafarim/auth" root here would pull the
 // server-only Auth.js/Prisma surface into the browser.
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
+import { isEduAdminRole } from "@/lib/roles";
 import NotificationBell from "@/components/NotificationBell";
 import { EduStatusBadge } from "@/components/EduStatusBadge";
 
@@ -181,7 +182,7 @@ export function EduNav({ showBusinessPlanLink }: { showBusinessPlanLink: boolean
     { labelKey: "edumatch.nav.studentSpace", href: "/student", icon: BookOpenCheck },
     { labelKey: "edumatch.nav.tutorStudio", href: "/tutor", icon: UsersRound },
     { labelKey: "edumatch.nav.help", href: "/help", icon: HelpCircle },
-    ...(roles.some((role: string) => ["admin", "superadmin", "edumatch_admin"].includes(role))
+    ...(isEduAdminRole(roles)
       ? [{ labelKey: "edumatch.nav.operations", href: "/admin", icon: LayoutDashboard }]
       : []),
     // Computed by the root layout from the same server-side rule the

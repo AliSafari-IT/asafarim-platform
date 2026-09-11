@@ -451,10 +451,13 @@ export async function applyAdmins(
 ) {
   const passwordHash = await resolvePasswordHash(suppliedPasswordHash);
   const users = knownUsers ?? new Map<string, SeedUser>();
-  const role = await prisma.role.findUnique({ where: { name: "admin" } });
+  // EduMatch's own admin area (apps/edumatch/lib/roles.ts) is gated on this
+  // app-scoped role, not the platform-wide "admin" — these demo accounts
+  // should see EduMatch's admin area only, never the Admin Console.
+  const role = await prisma.role.findUnique({ where: { name: "edumatch_admin" } });
   if (!role)
     throw new Error(
-      "The platform foundation admin role must be seeded before EduMatch presentation admins."
+      "The platform foundation edumatch_admin role must be seeded before EduMatch presentation admins."
     );
   const rows = [];
   for (const admin of EDUMATCH_ADMINS) {
@@ -1685,7 +1688,7 @@ async function snapshot(prisma: SeedPrismaClient): Promise<EdumatchSnapshot> {
     Boolean(row.eduParentProfile)
   );
   const admins = countAndDrift(EDUMATCH_ADMINS, (row) =>
-    row.userRoles.some((item) => item.role.name === "admin")
+    row.userRoles.some((item) => item.role.name === "edumatch_admin")
   );
   const scenarioCounts = await Promise.all([
     prisma.eduInquiry.count({
@@ -1855,7 +1858,8 @@ async function userRetentionReasons(
     if (
       user.userRoles.some(
         (item) =>
-          item.assignedBy !== EDUMATCH_ID_PREFIX || item.role.name !== "admin"
+          item.assignedBy !== EDUMATCH_ID_PREFIX ||
+          item.role.name !== "edumatch_admin"
       )
     ) {
       reasons.set(user.email, "has role assignments outside this seed");

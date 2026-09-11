@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { EDU_ADMIN_ROLE_NAMES } from "@/lib/roles";
 
 type AdminNavItem = {
   labelKey: string;
@@ -62,7 +63,7 @@ export function AdminShell({
               {userEmail}
             </span>
             <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
-              {userRoles.filter((r) => ["admin", "superadmin", "edumatch_admin"].includes(r)).join(", ") || "admin"}
+              {userRoles.filter((r) => (EDU_ADMIN_ROLE_NAMES as readonly string[]).includes(r)).join(", ") || "admin"}
             </span>
           </div>
         </div>
