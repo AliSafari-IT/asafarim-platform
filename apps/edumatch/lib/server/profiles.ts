@@ -4,6 +4,7 @@ import type {
   EduTutorProfile,
 } from "@asafarim/db";
 import { getAuthedUser, type AuthedUser } from "./auth";
+import { isEduAdminRole } from "../roles";
 import { applyDefaultAvatarIfNeeded } from "./avatars";
 import { isUnder16 } from "./age";
 import { StudentGuardError } from "./student-guard";
@@ -36,10 +37,8 @@ export type TutorContext = {
   profile: EduTutorProfile;
 };
 
-const ADMIN_ROLE_NAMES = new Set(["admin", "superadmin", "edumatch_admin"]);
-
 export function isAdmin(user: AuthedUser): boolean {
-  return user.roles.some((r) => ADMIN_ROLE_NAMES.has(r));
+  return isEduAdminRole(user.roles);
 }
 
 export async function requireEduAdmin(): Promise<{ user: AuthedUser; roles: EduRole[] }> {
