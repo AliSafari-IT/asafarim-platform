@@ -94,6 +94,8 @@ model User {
   // TimelineAI — visual timeline builder
   timelineTimelines   Timeline[]
   timelineModerations TimelineModerationEvent[] @relation("TimelineModerationActor")
+  timelineAiProposals TimelineAiProposal[]      @relation("TimelineAiProposalActor")
+  timelineAiEvents    TimelineAiEvent[]         @relation("TimelineAiEventActor")
 
   // Seed Data management — control-plane history and schedules this user owns
   seedOperations       SeedOperation[]          @relation("SeedOperationActor")
@@ -1885,6 +1887,8 @@ model Timeline {
   owner            User?                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   events           TimelineEvent[]
   moderationEvents TimelineModerationEvent[]
+  aiProposals      TimelineAiProposal[]
+  aiEvents         TimelineAiEvent[]
 
   @@index([ownerUserId])
   @@index([guestIdHash])
@@ -1951,6 +1955,66 @@ model TimelineModerationEvent {
 
   @@index([timelineId])
   @@index([adminUserId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+/// An AI-generated suggestion (event extraction, narrative suggestion,
+/// visual recommendation, ...) awaiting an explicit human accept/reject —
+/// AI output never mutates a Timeline/TimelineEvent directly. `payload` is
+/// the provider's proposed change, already validated against the matching
+/// Zod schema in lib/ai/schemas.ts before this row is written. `snapshot`
+/// captures just enough pre-change state to undo an accepted proposal;
+/// left null for proposals that are still pending or were rejected.
+model TimelineAiProposal {
+  id         String @id @default(cuid())
+  timelineId String
+
+  kind    String // events_extraction, narrative_suggestion, visual_recommendation
+  status  String @default("pending") // pending, accepted, rejected, undone
+  payload Json // validated AiProposalPayload
+
+  /// Pre-change snapshot of whatever `payload` would touch, captured at
+  /// accept time — the only state undo() needs to restore.
+  snapshot Json?
+
+  createdByUserId String?
+  resolvedByUserId String?
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  timeline    Timeline          @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  createdBy   User?             @relation("TimelineAiProposalActor", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  events      TimelineAiEvent[]
+
+  @@index([timelineId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Append-only audit trail for the AI boundary: one row per generation,
+/// acceptance, rejection, undo, or provider failure. Deliberately excludes
+/// raw prompts/source content by default (see lib/ai/redact.ts) — `metadata`
+/// carries provider/model identifiers and non-sensitive counters only.
+model TimelineAiEvent {
+  id         String  @id @default(cuid())
+  timelineId String
+  proposalId String?
+
+  action   String // generated, accepted, rejected, undone, provider_failure
+  metadata Json?
+
+  actorUserId String?
+
+  createdAt DateTime @default(now())
+
+  timeline Timeline            @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  proposal TimelineAiProposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  actor    User?               @relation("TimelineAiEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([timelineId])
+  @@index([proposalId])
   @@index([action])
   @@index([createdAt])
 }

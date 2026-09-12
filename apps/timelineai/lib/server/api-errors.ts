@@ -5,6 +5,9 @@ import { ForbiddenError, NotFoundError } from "./authz";
 import { VersionConflictError } from "./services/timelines";
 import { RateLimitedError } from "./guest-rate-limit";
 import { ExportTimeoutError, ExportRenderError } from "./services/export";
+import { AiDisabledError, ProposalStateError } from "./services/ai-proposals";
+import { AiQuotaExceededError, AiUnavailableError } from "./ai-quota";
+import { AiProviderError } from "../ai/provider";
 
 /**
  * Consistent typed error responses across every route. Non-technical
@@ -43,6 +46,27 @@ export function toErrorResponse(error: unknown): NextResponse {
   if (error instanceof ExportRenderError) {
     return NextResponse.json(
       { error: "export_render_failed", message: "We couldn't render this export. Please try again." },
+      { status: 502 }
+    );
+  }
+  if (error instanceof AiDisabledError) {
+    return NextResponse.json({ error: "ai_disabled", message: error.message }, { status: 503 });
+  }
+  if (error instanceof AiUnavailableError) {
+    return NextResponse.json({ error: "ai_unavailable", message: error.message }, { status: 503 });
+  }
+  if (error instanceof AiQuotaExceededError) {
+    return NextResponse.json(
+      { error: "ai_quota_exceeded", message: error.message },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(error.retryAfterMs / 1000)) } }
+    );
+  }
+  if (error instanceof ProposalStateError) {
+    return NextResponse.json({ error: "proposal_state_conflict", message: error.message }, { status: 409 });
+  }
+  if (error instanceof AiProviderError) {
+    return NextResponse.json(
+      { error: "ai_provider_failed", message: "The AI provider couldn't generate a suggestion. Please try again." },
       { status: 502 }
     );
   }
