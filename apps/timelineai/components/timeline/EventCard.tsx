@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, ChevronUp, ChevronDown, Copy, Trash2 } from "lucide-react";
+import { GripVertical, ChevronUp, ChevronDown, Copy, Trash2, Lock, Unlock } from "lucide-react";
 import type { EditorEvent } from "@/lib/client/editor-types";
 
 export interface EventCardProps {
@@ -14,10 +14,24 @@ export interface EventCardProps {
   onDelete: () => void;
   onMove: (direction: "up" | "down") => void;
   errors?: Record<string, string>;
+  /** Absent for an event that hasn't been saved yet — there's nothing to lock until it has an id. */
+  onToggleLock?: () => void;
+  lockPending?: boolean;
 }
 
 /** One event's editable fields, draggable and keyboard-reorderable. */
-export function EventCard({ event, index, count, onChange, onDuplicate, onDelete, onMove, errors }: EventCardProps) {
+export function EventCard({
+  event,
+  index,
+  count,
+  onChange,
+  onDuplicate,
+  onDelete,
+  onMove,
+  errors,
+  onToggleLock,
+  lockPending,
+}: EventCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: event.key,
   });
@@ -32,7 +46,11 @@ export function EventCard({ event, index, count, onChange, onDuplicate, onDelete
     <li
       ref={setNodeRef}
       style={style}
-      className="rounded-lg border border-[var(--color-border,rgba(0,0,0,0.12))] bg-[var(--color-surface)] p-4"
+      className={`rounded-lg border p-4 ${
+        event.aiLocked
+          ? "border-amber-500/40 bg-amber-500/5"
+          : "border-[var(--color-border,rgba(0,0,0,0.12))] bg-[var(--color-surface)]"
+      }`}
     >
       <div className="mb-3 flex items-center gap-2">
         <button
@@ -47,7 +65,28 @@ export function EventCard({ event, index, count, onChange, onDuplicate, onDelete
         <span className="text-sm font-medium text-[var(--color-text-muted,inherit)]">
           Event {index + 1}
         </span>
+        {event.aiLocked ? (
+          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400">
+            Locked from AI
+          </span>
+        ) : null}
         <div className="ml-auto flex items-center gap-1">
+          {onToggleLock ? (
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded p-1.5 text-xs hover:bg-black/5 disabled:opacity-50"
+              onClick={onToggleLock}
+              disabled={lockPending}
+              aria-label={event.aiLocked ? "Unlock this event from AI rewrites" : "Lock this event from AI rewrites"}
+              title={
+                event.aiLocked
+                  ? "The AI copilot won't rewrite this event. Click to unlock."
+                  : "Click to stop the AI copilot from ever rewriting this event."
+              }
+            >
+              {event.aiLocked ? <Lock size={16} aria-hidden /> : <Unlock size={16} aria-hidden />}
+            </button>
+          ) : null}
           <button
             type="button"
             className="rounded p-1.5 hover:bg-black/5 disabled:opacity-30"

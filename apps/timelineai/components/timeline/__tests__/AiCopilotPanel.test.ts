@@ -5,6 +5,7 @@ import {
   isEventAlreadyImported,
   computeDefaultSelectedIndexes,
   conflictSignature,
+  isNarrativeTargetLocked,
 } from "../AiCopilotPanel";
 import type { AiProposalPayload } from "@/lib/ai/schemas";
 
@@ -157,5 +158,23 @@ describe("conflictSignature", () => {
     const a = conflictSignature({ code: "ordering_cycle", eventIds: ["ev1", "ev2"] });
     const b = conflictSignature({ code: "ordering_cycle", eventIds: ["ev1", "ev3"] });
     expect(a).not.toBe(b);
+  });
+});
+
+describe("isNarrativeTargetLocked", () => {
+  it("is locked when a specific target event has aiLocked, regardless of field", () => {
+    expect(isNarrativeTargetLocked({ aiLocked: true }, "description", [])).toBe(true);
+  });
+
+  it("is not locked when a specific target event has aiLocked: false, even if the field name happens to be in aiLockedFields", () => {
+    // Event-level locking ignores aiLockedFields entirely — that list only
+    // applies to the whole-timeline (no target event) scope, mirroring
+    // isNarrativeTargetLocked in lib/server/services/ai-proposals.ts.
+    expect(isNarrativeTargetLocked({ aiLocked: false }, "description", ["description"])).toBe(false);
+  });
+
+  it("falls back to aiLockedFields when there's no target event (whole-timeline scope)", () => {
+    expect(isNarrativeTargetLocked(undefined, "subtitle", ["subtitle"])).toBe(true);
+    expect(isNarrativeTargetLocked(undefined, "subtitle", ["title"])).toBe(false);
   });
 });

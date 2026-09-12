@@ -28,6 +28,7 @@ export default async function EditTimelinePage({ params }: PageProps) {
       layout: timeline.layout as TimelineInput["layout"],
       theme: timeline.theme as ThemeSettings | null,
       sortMode: "manual",
+      aiLockedFields: Array.isArray(timeline.aiLockedFields) ? (timeline.aiLockedFields as string[]) : [],
       events: timeline.events.map((event) => ({
         key: newEventKey(),
         id: event.id,
@@ -46,6 +47,7 @@ export default async function EditTimelinePage({ params }: PageProps) {
         temporalPrecision: TemporalValueSchema.safeParse(event.temporalPrecision).success
           ? TemporalValueSchema.parse(event.temporalPrecision)
           : null,
+        aiLocked: event.aiLocked,
       })),
     };
 

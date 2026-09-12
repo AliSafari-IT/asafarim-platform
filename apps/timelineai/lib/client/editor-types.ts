@@ -14,6 +14,13 @@ export interface EditorEvent extends Omit<TimelineEventInput, "sortOrder"> {
   key: string;
   sortOrder: number;
   temporalPrecision?: TemporalValue | null;
+  /**
+   * Display-only, like temporalPrecision above: read from the server and
+   * toggled through its own dedicated endpoint
+   * (PUT /api/timelines/[id]/events/[eventId]/ai-lock), never through the
+   * main timeline save — see TimelineEditor#handleToggleEventLock.
+   */
+  aiLocked?: boolean;
 }
 
 export interface EditorState {
@@ -26,6 +33,12 @@ export interface EditorState {
   events: EditorEvent[];
   /** "chronological" sorts by startAt at render/save time; "manual" keeps sortOrder as-is. */
   sortMode: "chronological" | "manual";
+  /**
+   * Timeline-level fields (title/subtitle/description) the narrative
+   * copilot must not rewrite. Display-only here too — toggled through
+   * PUT /api/timelines/[id]/ai/lock, not the main timeline save.
+   */
+  aiLockedFields: string[];
 }
 
 /**

@@ -226,21 +226,37 @@ export async function listAiProposals(timelineId: string, viewer: ViewerContext)
   // chunks already produced an accepted event on a *previous* import of
   // the same document — recomputed on every list call (not stored on the
   // proposal) so it stays accurate even after a reload or a later accept.
+  //
+  // For a narrative_suggestion, surface the possibleFactDrift heuristic
+  // generateAiProposal already computed and recorded on the "generated"
+  // audit event's metadata (see the factDriftWarning block above) — it was
+  // never stored on the proposal row itself, only the audit trail, so it's
+  // read back from there rather than recomputed.
   return Promise.all(
     proposals.map(async (proposal) => {
       const payload = proposal.payload as unknown as AiProposalPayload;
-      if (payload.kind !== "events_extraction" || !payload.sourceContentHash) {
-        return { ...proposal, alreadyImportedChunkIds: [] as string[] };
+      let alreadyImportedChunkIds: string[] = [];
+      let possibleFactDrift = false;
+
+      if (payload.kind === "events_extraction" && payload.sourceContentHash) {
+        const chunkIds = payload.events.map((e) => e.sourceChunkId).filter((id): id is string => !!id);
+        if (chunkIds.length > 0) {
+          const rows = await prisma.timelineImportedEvent.findMany({
+            where: { timelineId, contentHash: payload.sourceContentHash, chunkId: { in: chunkIds } },
+            select: { chunkId: true },
+          });
+          alreadyImportedChunkIds = rows.map((r) => r.chunkId);
+        }
+      } else if (payload.kind === "narrative_suggestion") {
+        const generatedEvent = await prisma.timelineAiEvent.findFirst({
+          where: { proposalId: proposal.id, action: "generated" },
+          select: { metadata: true },
+        });
+        const metadata = generatedEvent?.metadata as Record<string, unknown> | null;
+        possibleFactDrift = metadata?.possibleFactDrift === true;
       }
-      const chunkIds = payload.events.map((e) => e.sourceChunkId).filter((id): id is string => !!id);
-      if (chunkIds.length === 0) {
-        return { ...proposal, alreadyImportedChunkIds: [] as string[] };
-      }
-      const rows = await prisma.timelineImportedEvent.findMany({
-        where: { timelineId, contentHash: payload.sourceContentHash, chunkId: { in: chunkIds } },
-        select: { chunkId: true },
-      });
-      return { ...proposal, alreadyImportedChunkIds: rows.map((r) => r.chunkId) };
+
+      return { ...proposal, alreadyImportedChunkIds, possibleFactDrift };
     })
   );
 }

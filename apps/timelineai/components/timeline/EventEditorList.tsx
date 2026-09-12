@@ -25,6 +25,10 @@ export interface EventEditorListProps {
   onDuplicateEvent: (key: string) => void;
   onDeleteEvent: (key: string) => void;
   fieldErrors?: Record<string, Record<string, string>>;
+  /** Omitted entirely (rather than passed as a no-op) when locking isn't available yet, e.g. a brand-new unsaved timeline. */
+  onToggleLock?: (key: string) => void;
+  /** The key of the event whose lock toggle is currently in flight, if any. */
+  lockBusyKey?: string | null;
 }
 
 /**
@@ -40,6 +44,8 @@ export function EventEditorList({
   onDuplicateEvent,
   onDeleteEvent,
   fieldErrors,
+  onToggleLock,
+  lockBusyKey,
 }: EventEditorListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -94,6 +100,8 @@ export function EventEditorList({
               onDelete={() => onDeleteEvent(event.key)}
               onMove={(direction) => moveByButton(event.key, direction)}
               errors={fieldErrors?.[event.key]}
+              onToggleLock={onToggleLock && event.id ? () => onToggleLock(event.key) : undefined}
+              lockPending={lockBusyKey === event.key}
             />
           ))}
         </ol>
