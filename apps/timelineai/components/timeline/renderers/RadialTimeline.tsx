@@ -11,7 +11,15 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
   const events = timeline.events;
   const size = 420;
   const radius = 160;
-  const center = size / 2;
+  // Room for labels beyond the circle itself — without this, a label
+  // centered (textAnchor="middle") near the left/right edge of the viewBox
+  // has its text extend past x=0 or x=size, and SVG clips anything outside
+  // the viewBox by default, cutting off the label's leading or trailing
+  // characters (most visible on the left side, where it eats the first
+  // letter or two of the word).
+  const margin = 70;
+  const viewSize = size + margin * 2;
+  const center = viewSize / 2;
 
   return (
     <div className="tl-layout" data-layout-body="radial">
@@ -23,7 +31,7 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
       </header>
 
       <svg
-        viewBox={`0 0 ${size} ${size}`}
+        viewBox={`0 0 ${viewSize} ${viewSize}`}
         className="mx-auto block max-w-md"
         role="img"
         aria-label={`${timeline.title || "Timeline"}, ${events.length} events arranged in a circle`}
@@ -35,13 +43,20 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
           const y = center + radius * Math.sin(angle);
           const labelX = center + (radius + 34) * Math.cos(angle);
           const labelY = center + (radius + 34) * Math.sin(angle);
+          // Anchor the label so it grows AWAY from the circle instead of
+          // being centered on a point near the canvas edge: right-side
+          // points get left-aligned text (grows rightward), left-side
+          // points get right-aligned text (grows leftward), top/bottom
+          // points stay centered.
+          const cos = Math.cos(angle);
+          const textAnchor = Math.abs(cos) < 0.3 ? "middle" : cos > 0 ? "start" : "end";
           return (
             <g key={event.id ?? index}>
               <circle cx={x} cy={y} r={7} fill={event.accentColor || "var(--tl-accent)"} />
               <text
                 x={labelX}
                 y={labelY}
-                textAnchor="middle"
+                textAnchor={textAnchor}
                 dominantBaseline="middle"
                 className="fill-[var(--tl-text)] text-[11px] font-medium"
               >
