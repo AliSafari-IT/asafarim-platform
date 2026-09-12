@@ -8,9 +8,6 @@ import { NARRATIVE_VARIANTS } from "@/lib/ai/narrative";
 const AcceptInputSchema = z.object({
   /** For narrative_suggestion proposals only — which stored variant to apply. Defaults to the "standard" suggestedText. */
   variant: z.enum(NARRATIVE_VARIANTS).optional(),
-});
-
-const AcceptInputSchema = z.object({
   /** For visual_recommendation proposals only — which candidate index to apply. Defaults to the payload's recommendedIndex. */
   candidateIndex: z.number().int().min(0).max(2).optional(),
 });
@@ -21,12 +18,9 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   try {
     const { proposalId } = await params;
     const body = await req.json().catch(() => ({}));
-    const { candidateIndex } = AcceptInputSchema.parse(body);
+    const { variant, candidateIndex } = AcceptInputSchema.parse(body);
     const viewer = await getViewerContext();
-    const proposal = await acceptAiProposal(proposalId, viewer, { candidateIndex });
-    const { variant } = AcceptInputSchema.parse(body);
-    const viewer = await getViewerContext();
-    const proposal = await acceptAiProposal(proposalId, viewer, { variant });
+    const proposal = await acceptAiProposal(proposalId, viewer, { variant, candidateIndex });
     return NextResponse.json({ proposal });
   } catch (error) {
     return toErrorResponse(error);
