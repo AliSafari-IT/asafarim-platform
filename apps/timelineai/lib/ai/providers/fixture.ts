@@ -54,17 +54,38 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
         model,
       };
     }
-    case "narrative_suggestion":
+    case "narrative_suggestion": {
+      const target = request.narrativeTarget;
+      const field = target?.field ?? "description";
+      const original = (target?.currentText ?? request.sourceContent).trim();
+
+      // Every variant wraps the original text verbatim rather than
+      // rewording it away — a real provider must pass preservesFactualAnchors()
+      // itself, but the fixture guarantees it by construction so the
+      // variant-storage and audience-preset plumbing is exercised safely.
+      const variants = [
+        { variant: "concise" as const, text: original },
+        { variant: "standard" as const, text: `Here's the story: ${original}` },
+        { variant: "immersive" as const, text: `Picture this — ${original} And that's just the beginning.` },
+      ];
+
       return {
         payload: {
           kind: "narrative_suggestion",
-          field: "description",
-          suggestedText: "A clearer, fixture-generated description.",
+          eventId: target?.eventId,
+          field,
+          element: "field_rewrite",
+          audiencePreset: target?.audiencePreset,
+          suggestedText: variants[1]!.text, // "standard" is the default applied variant
+          variants,
+          rationale: "Fixture rewrite: same facts, lightly reframed.",
           confidence: "medium",
+          unsupportedClaim: false,
         },
         warnings: [],
         model,
       };
+    }
     case "visual_recommendation":
       return {
         payload: {

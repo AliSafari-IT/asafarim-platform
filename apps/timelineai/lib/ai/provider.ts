@@ -1,4 +1,5 @@
 import { AiGenerationResultSchema, type AiGenerationResult, type AiProposalKind } from "./schemas";
+import type { NarrativeAudiencePreset } from "./narrative";
 
 /**
  * Provider-neutral generation request. `sourceContent` is untrusted — never
@@ -20,6 +21,18 @@ export interface AiGenerationRequest {
   sourceContentHash?: string;
   /** Set for kind "temporal_correction" — the event whose date is being reinterpreted from `sourceContent`. */
   targetEventId?: string;
+  /**
+   * Set for kind "narrative_suggestion" — which existing field is being
+   * rewritten, in whose voice, and the original text of that field (so the
+   * provider — and preservesFactualAnchors() downstream — can compare
+   * against it rather than the raw sourceContent).
+   */
+  narrativeTarget?: {
+    field: "title" | "subtitle" | "description";
+    eventId?: string;
+    currentText: string;
+    audiencePreset?: NarrativeAudiencePreset;
+  };
 }
 
 export interface AiProvider {

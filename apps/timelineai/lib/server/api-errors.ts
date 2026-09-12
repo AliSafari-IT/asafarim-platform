@@ -5,7 +5,7 @@ import { ForbiddenError, NotFoundError } from "./authz";
 import { VersionConflictError } from "./services/timelines";
 import { RateLimitedError } from "./guest-rate-limit";
 import { ExportTimeoutError, ExportRenderError } from "./services/export";
-import { AiDisabledError, ProposalStateError } from "./services/ai-proposals";
+import { AiDisabledError, ProposalStateError, LockedTargetError, InvalidNarrativeTargetError } from "./services/ai-proposals";
 import { AiQuotaExceededError, AiUnavailableError } from "./ai-quota";
 import { AiProviderError } from "../ai/provider";
 import { UnsupportedSourceError } from "../ai/source-import";
@@ -64,6 +64,12 @@ export function toErrorResponse(error: unknown): NextResponse {
   }
   if (error instanceof ProposalStateError) {
     return NextResponse.json({ error: "proposal_state_conflict", message: error.message }, { status: 409 });
+  }
+  if (error instanceof LockedTargetError) {
+    return NextResponse.json({ error: "locked_target", message: error.message }, { status: 409 });
+  }
+  if (error instanceof InvalidNarrativeTargetError) {
+    return NextResponse.json({ error: "invalid_narrative_target", message: error.message }, { status: 400 });
   }
   if (error instanceof UnsupportedSourceError) {
     return NextResponse.json({ error: "unsupported_source", message: error.message }, { status: 400 });
