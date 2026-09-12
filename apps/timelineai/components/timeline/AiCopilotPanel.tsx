@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/client/api";
 import { AI_PROPOSAL_KINDS, type AiProposalKind, type AiProposalPayload } from "@/lib/ai/schemas";
-import { NARRATIVE_AUDIENCE_PRESETS, type NarrativeAudiencePreset } from "@/lib/ai/narrative";
+import { NARRATIVE_AUDIENCE_PRESETS, NARRATIVE_VARIANTS, type NarrativeAudiencePreset, type NarrativeVariant } from "@/lib/ai/narrative";
 import type { TemporalConflict, TemporalPrecision, TemporalValue } from "@/lib/ai/temporal";
 
 /** Minimal shape the panel needs from a saved event — not the full editor row. */
 export interface AiCopilotTargetEvent {
   id: string;
   title: string;
+  /** True when this event is locked from AI rewrites (TimelineEvent.aiLocked) — excludes it from the narrative target picker. */
+  aiLocked?: boolean;
 }
 
 export interface AiProposalRow {
@@ -20,11 +22,15 @@ export interface AiProposalRow {
   createdAt: string;
   /** events_extraction only — chunk ids that already produced an accepted event on a prior import of the same document. */
   alreadyImportedChunkIds?: string[];
+  /** narrative_suggestion only — the generation-time heuristic flag from the audit trail: the rewrite may have dropped or changed a year/URL/hedge the original asserted. */
+  possibleFactDrift?: boolean;
 }
 
 export interface AiCopilotPanelProps {
   timelineId: string;
   events: AiCopilotTargetEvent[];
+  /** Timeline-level fields (title/subtitle/description) locked from AI rewrites — excludes them from the narrative field picker when the target is "Whole timeline". */
+  aiLockedFields?: string[];
   /** Called after Accept/Undo successfully changes the saved timeline, so the caller can offer to reload. */
   onApplied?: () => void;
 }
@@ -175,6 +181,23 @@ export function computeDefaultSelectedIndexes(
     .filter((i) => overrides?.[i] ?? !isEventAlreadyImported(events[i]!, alreadyImportedChunkIds));
 }
 
+/**
+ * Whether a narrative_suggestion generation targeting `field` would hit
+ * LockedTargetError server-side: a specific event is locked as a whole
+ * (event.aiLocked), or the whole-timeline scope (no target event) has that
+ * field in aiLockedFields. Mirrors isNarrativeTargetLocked in
+ * lib/server/services/ai-proposals.ts — used here only to disable the
+ * option/show a warning before a doomed request, not to re-enforce it.
+ */
+export function isNarrativeTargetLocked(
+  target: { aiLocked?: boolean } | undefined,
+  field: string,
+  aiLockedFields: string[]
+): boolean {
+  if (target) return !!target.aiLocked;
+  return aiLockedFields.includes(field);
+}
+
 export function hasUncitedContent(payload: AiProposalPayload): boolean {
   if (payload.kind === "events_extraction") return payload.events.some((e) => e.uncitedInference);
   if (payload.kind === "temporal_correction") return payload.uncitedInference;
@@ -198,7 +221,7 @@ const STATUS_LABELS: Record<AiProposalRow["status"], string> = {
  * variant compare, visual preview) are separate, more specialized panels
  * layered on top of this later.
  */
-export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanelProps) {
+export function AiCopilotPanel({ timelineId, events, aiLockedFields = [], onApplied }: AiCopilotPanelProps) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [proposals, setProposals] = useState<AiProposalRow[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
@@ -226,6 +249,7 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
   const [busyProposalId, setBusyProposalId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Record<string, Record<number, boolean>>>({});
+  const [selectedVariant, setSelectedVariant] = useState<Record<string, NarrativeVariant>>({});
 
   const [conflicts, setConflicts] = useState<TemporalConflict[] | null>(null);
   const [conflictEvents, setConflictEvents] = useState<ConflictingEventRow[]>([]);
@@ -303,6 +327,13 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
     if (kind === "temporal_correction" && !targetEventId) {
       setGenerateError("Choose which event this date belongs to.");
       return;
+    }
+    if (kind === "narrative_suggestion") {
+      const target = narrativeEventId ? events.find((ev) => ev.id === narrativeEventId) : undefined;
+      if (isNarrativeTargetLocked(target, narrativeField, aiLockedFields)) {
+        setGenerateError("This is locked from AI rewrites. Unlock it first, or choose a different target.");
+        return;
+      }
     }
 
     setGenerating(true);
@@ -415,7 +446,7 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
   async function handleAction(
     proposalId: string,
     action: "accept" | "reject" | "undo",
-    body?: { eventIndexes?: number[] }
+    body?: { eventIndexes?: number[]; variant?: NarrativeVariant }
   ) {
     setActionError(null);
     setBusyProposalId(proposalId);
@@ -590,11 +621,17 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
                 >
                   <option value="">Whole timeline</option>
                   {events.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
+                    <option key={ev.id} value={ev.id} disabled={ev.aiLocked}>
                       {ev.title || "Untitled event"}
+                      {ev.aiLocked ? " (locked)" : ""}
                     </option>
                   ))}
                 </select>
+                {narrativeEventId && events.find((ev) => ev.id === narrativeEventId)?.aiLocked ? (
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    This event is locked from AI rewrites.
+                  </span>
+                ) : null}
               </label>
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-medium">Field</span>
@@ -603,10 +640,26 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
                   value={narrativeField}
                   onChange={(e) => setNarrativeField(e.target.value as typeof narrativeField)}
                 >
-                  <option value="title">Title</option>
-                  <option value="description">Description</option>
-                  {!narrativeEventId ? <option value="subtitle">Subtitle</option> : null}
+                  <option value="title" disabled={!narrativeEventId && aiLockedFields.includes("title")}>
+                    Title{!narrativeEventId && aiLockedFields.includes("title") ? " (locked)" : ""}
+                  </option>
+                  <option
+                    value="description"
+                    disabled={!narrativeEventId && aiLockedFields.includes("description")}
+                  >
+                    Description{!narrativeEventId && aiLockedFields.includes("description") ? " (locked)" : ""}
+                  </option>
+                  {!narrativeEventId ? (
+                    <option value="subtitle" disabled={aiLockedFields.includes("subtitle")}>
+                      Subtitle{aiLockedFields.includes("subtitle") ? " (locked)" : ""}
+                    </option>
+                  ) : null}
                 </select>
+                {!narrativeEventId && aiLockedFields.includes(narrativeField) ? (
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    This field is locked from AI rewrites.
+                  </span>
+                ) : null}
               </label>
               <label className="flex flex-col gap-1 text-sm sm:col-span-2">
                 <span className="font-medium">Audience (optional)</span>
@@ -776,6 +829,95 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
         ) : (
           <ul className="flex flex-col gap-2">
             {pending.map((proposal) => {
+              if (proposal.kind === "narrative_suggestion" && proposal.payload.kind === "narrative_suggestion") {
+                const payload = proposal.payload;
+                const variant = selectedVariant[proposal.id] ?? "standard";
+                const activeText = payload.variants.find((v) => v.variant === variant)?.text ?? payload.suggestedText;
+                return (
+                  <li
+                    key={proposal.id}
+                    className="rounded-lg border border-[var(--color-border,rgba(0,0,0,0.15))] p-3 text-sm"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{KIND_LABELS[proposal.kind]}</span>
+                      <span className="flex gap-1">
+                        {payload.unsupportedClaim ? (
+                          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
+                            Unsupported claim
+                          </span>
+                        ) : null}
+                        {proposal.possibleFactDrift ? (
+                          <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs text-red-600 dark:text-red-400">
+                            Possible fact drift
+                          </span>
+                        ) : null}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[var(--color-text-muted,inherit)]">
+                      Rewrite {payload.eventId ? "an event's" : "the timeline's"} {payload.field}
+                      {payload.audiencePreset ? ` for ${AUDIENCE_LABELS[payload.audiencePreset]}` : ""}
+                    </p>
+                    {payload.rationale ? (
+                      <p className="mt-1 text-xs italic text-[var(--color-text-muted,inherit)]">{payload.rationale}</p>
+                    ) : null}
+
+                    {payload.variants.length > 0 ? (
+                      <fieldset className="mt-2 flex flex-col gap-2">
+                        <legend className="sr-only">Choose a variant</legend>
+                        {NARRATIVE_VARIANTS.filter((v) => payload.variants.some((pv) => pv.variant === v)).map((v) => {
+                          const text = payload.variants.find((pv) => pv.variant === v)?.text;
+                          if (!text) return null;
+                          return (
+                            <label
+                              key={v}
+                              className={`flex cursor-pointer flex-col gap-1 rounded-md border p-2 ${
+                                variant === v
+                                  ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5"
+                                  : "border-[var(--color-border,rgba(0,0,0,0.1))]"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name={`variant-${proposal.id}`}
+                                  checked={variant === v}
+                                  onChange={() => setSelectedVariant((prev) => ({ ...prev, [proposal.id]: v }))}
+                                />
+                                <span className="text-xs font-medium capitalize">{v}</span>
+                              </span>
+                              <span className="text-[var(--color-text-muted,inherit)]">{text}</span>
+                            </label>
+                          );
+                        })}
+                      </fieldset>
+                    ) : (
+                      <p className="mt-2 rounded-md border border-[var(--color-border,rgba(0,0,0,0.1))] p-2">
+                        {activeText}
+                      </p>
+                    )}
+
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                        onClick={() => handleAction(proposal.id, "accept", { variant })}
+                        disabled={busyProposalId === proposal.id}
+                      >
+                        Accept {variant}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-[var(--color-border,currentColor)] px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                        onClick={() => handleAction(proposal.id, "reject")}
+                        disabled={busyProposalId === proposal.id}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </li>
+                );
+              }
+
               if (proposal.kind !== "events_extraction" || proposal.payload.kind !== "events_extraction") {
                 return (
                   <li

@@ -38,8 +38,21 @@ function emptyState(initial?: Partial<EditorState>): EditorState {
     theme: null,
     events: [blankEvent(0)],
     sortMode: "manual",
+    aiLockedFields: [],
     ...initial,
   };
+}
+
+/**
+ * aiLocked/aiLockedFields/temporalPrecision are display-only fields that
+ * persist immediately through their own dedicated endpoints the moment a
+ * user toggles them (see handleToggleEventLock/handleToggleFieldLock below)
+ * — they should never make the editor think there's unsaved manual work,
+ * so the dirty check compares state with them stripped out.
+ */
+function dirtyCheckReplacer(key: string, value: unknown): unknown {
+  if (key === "aiLocked" || key === "aiLockedFields" || key === "temporalPrecision") return undefined;
+  return value;
 }
 
 export function TimelineEditor({ mode, timelineId, initial, version, isGuest, onSaved }: TimelineEditorProps) {
@@ -51,10 +64,59 @@ export function TimelineEditor({ mode, timelineId, initial, version, isGuest, on
   const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmReloadForAi, setConfirmReloadForAi] = useState(false);
-  const isDirty = useMemo(() => JSON.stringify(state) !== JSON.stringify(emptyState(initial)), [state, initial]);
+  const [lockError, setLockError] = useState<string | null>(null);
+  const [lockBusyKey, setLockBusyKey] = useState<string | null>(null);
+  const [fieldLockBusy, setFieldLockBusy] = useState(false);
+  const isDirty = useMemo(
+    () => JSON.stringify(state, dirtyCheckReplacer) !== JSON.stringify(emptyState(initial), dirtyCheckReplacer),
+    [state, initial]
+  );
 
   function updateEvent(key: string, patch: Partial<EditorEvent>) {
     setState((s) => ({ ...s, events: s.events.map((e) => (e.key === key ? { ...e, ...patch } : e)) }));
+  }
+
+  /**
+   * Locking is a protection setting, not an AI-generation action — it
+   * persists immediately through its own endpoint, independent of both the
+   * AI kill switch and the "Save changes" button, and of whether the event
+   * has been saved yet at all (a brand-new, not-yet-saved event has no id
+   * to lock).
+   */
+  async function handleToggleEventLock(key: string) {
+    const target = state.events.find((e) => e.key === key);
+    if (!target?.id || !timelineId) return;
+    setLockError(null);
+    setLockBusyKey(key);
+    const nextLocked = !target.aiLocked;
+    try {
+      await apiFetch(`/api/timelines/${timelineId}/events/${target.id}/ai-lock`, {
+        method: "PUT",
+        body: { locked: nextLocked },
+      });
+      updateEvent(key, { aiLocked: nextLocked });
+    } catch (error) {
+      setLockError(error instanceof ApiError ? error.message : "Couldn't update that lock. Please try again.");
+    } finally {
+      setLockBusyKey(null);
+    }
+  }
+
+  async function handleToggleFieldLock(field: "title" | "subtitle" | "description") {
+    if (!timelineId) return;
+    setLockError(null);
+    setFieldLockBusy(true);
+    const nextFields = state.aiLockedFields.includes(field)
+      ? state.aiLockedFields.filter((f) => f !== field)
+      : [...state.aiLockedFields, field];
+    try {
+      await apiFetch(`/api/timelines/${timelineId}/ai/lock`, { method: "PUT", body: { fields: nextFields } });
+      setState((s) => ({ ...s, aiLockedFields: nextFields }));
+    } catch (error) {
+      setLockError(error instanceof ApiError ? error.message : "Couldn't update that lock. Please try again.");
+    } finally {
+      setFieldLockBusy(false);
+    }
   }
 
   function duplicateEvent(key: string) {
@@ -186,6 +248,34 @@ export function TimelineEditor({ mode, timelineId, initial, version, isGuest, on
           />
         </label>
 
+        {mode === "edit" && timelineId ? (
+          <fieldset className="flex flex-col gap-2 rounded-lg border border-[var(--color-border,rgba(0,0,0,0.15))] p-3 text-sm">
+            <legend className="px-1 font-medium">Protect from AI rewrites</legend>
+            <p className="text-xs text-[var(--color-text-muted,inherit)]">
+              The AI copilot's narrative suggestions will never touch a checked field, whether or not it's
+              currently turned on.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              {(["title", "subtitle", "description"] as const).map((field) => (
+                <label key={field} className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={state.aiLockedFields.includes(field)}
+                    onChange={() => handleToggleFieldLock(field)}
+                    disabled={fieldLockBusy}
+                  />
+                  {field === "title" ? "Title" : field === "subtitle" ? "Subtitle" : "Description"}
+                </label>
+              ))}
+            </div>
+            {lockError ? (
+              <p role="alert" className="text-xs text-red-600">
+                {lockError}
+              </p>
+            ) : null}
+          </fieldset>
+        ) : null}
+
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Type</span>
           <select
@@ -259,13 +349,18 @@ export function TimelineEditor({ mode, timelineId, initial, version, isGuest, on
             onDuplicateEvent={duplicateEvent}
             onDeleteEvent={requestDeleteEvent}
             fieldErrors={fieldErrors}
+            onToggleLock={mode === "edit" && timelineId ? handleToggleEventLock : undefined}
+            lockBusyKey={lockBusyKey}
           />
         </div>
 
         {mode === "edit" && timelineId ? (
           <AiCopilotPanel
             timelineId={timelineId}
-            events={state.events.filter((e): e is EditorEvent & { id: string } => !!e.id).map((e) => ({ id: e.id, title: e.title }))}
+            events={state.events
+              .filter((e): e is EditorEvent & { id: string } => !!e.id)
+              .map((e) => ({ id: e.id, title: e.title, aiLocked: e.aiLocked }))}
+            aiLockedFields={state.aiLockedFields}
             onApplied={handleAiApplied}
           />
         ) : null}
