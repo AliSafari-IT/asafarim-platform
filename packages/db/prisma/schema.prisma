@@ -96,6 +96,7 @@ model User {
   timelineModerations TimelineModerationEvent[] @relation("TimelineModerationActor")
   timelineAiProposals TimelineAiProposal[]      @relation("TimelineAiProposalActor")
   timelineAiEvents    TimelineAiEvent[]         @relation("TimelineAiEventActor")
+  timelineSourceImports TimelineSourceImport[]  @relation("TimelineSourceImportActor")
 
   // Seed Data management — control-plane history and schedules this user owns
   seedOperations       SeedOperation[]          @relation("SeedOperationActor")
@@ -1889,6 +1890,8 @@ model Timeline {
   moderationEvents TimelineModerationEvent[]
   aiProposals      TimelineAiProposal[]
   aiEvents         TimelineAiEvent[]
+  sourceImports    TimelineSourceImport[]
+  importedEvents   TimelineImportedEvent[]
 
   @@index([ownerUserId])
   @@index([guestIdHash])
@@ -2017,6 +2020,49 @@ model TimelineAiEvent {
   @@index([proposalId])
   @@index([action])
   @@index([createdAt])
+}
+
+/// One cited-import source document (TLAI-003), keyed by a hash of its
+/// normalized content — re-importing the same document within a timeline
+/// resolves to this same row rather than creating a duplicate.
+model TimelineSourceImport {
+  id         String @id @default(cuid())
+  timelineId String
+
+  kind          String // paste, markdown, csv, json, url
+  contentHash   String
+  sourceLabel   String? // filename or URL, for display only
+  chunkCount    Int
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  timeline Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("TimelineSourceImportActor", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([timelineId, contentHash])
+  @@index([timelineId])
+}
+
+/// Records which (source chunk -> TimelineEvent) pairs an accepted
+/// events_extraction proposal already created, so re-importing identical
+/// content and re-accepting never creates a duplicate event for the same
+/// chunk (spec: "re-importing identical content does not duplicate
+/// accepted events").
+model TimelineImportedEvent {
+  id          String @id @default(cuid())
+  timelineId  String
+  contentHash String
+  chunkId     String
+  eventId     String
+
+  createdAt DateTime @default(now())
+
+  timeline Timeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+
+  @@unique([timelineId, contentHash, chunkId])
+  @@index([timelineId])
+  @@index([eventId])
 }
 
 // ─── Unified Shopping Cart ─────────────────────────────────────

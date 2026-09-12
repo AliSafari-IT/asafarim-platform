@@ -10,6 +10,14 @@ export interface AiGenerationRequest {
   timelineId: string;
   /** Untrusted free text (pasted source, existing event copy, etc.) fenced by the provider before use. */
   sourceContent: string;
+  /**
+   * Pre-chunked, citable source document (lib/ai/source-import.ts) — set
+   * only for cited-import generations. When present, an events_extraction
+   * provider is expected to trace each proposed event back to a chunk id
+   * via ExtractedEvent#sourceChunkId with a matching citation excerpt.
+   */
+  chunks?: { id: string; text: string }[];
+  sourceContentHash?: string;
 }
 
 export interface AiProvider {

@@ -59,14 +59,24 @@ export const ExtractedEventSchema = z
     endAt: z.string().datetime().optional(),
     citations: z.array(CitationSchema).max(10).default([]),
     confidence: ConfidenceSchema,
+    /** Stable id of the source-document chunk this event was extracted from (lib/ai/source-import.ts). Absent for non-import generations. */
+    sourceChunkId: z.string().max(64).optional(),
+    /** True when the model inferred this event without a directly quotable source passage — surfaced instead of a citation, never silently dropped. */
+    uncitedInference: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  .refine((event) => event.citations.length > 0 || event.uncitedInference, {
+    message: "An extracted event needs at least one citation, or must be flagged as an uncited inference.",
+    path: ["citations"],
+  });
 export type ExtractedEvent = z.infer<typeof ExtractedEventSchema>;
 
 export const EventsExtractionPayloadSchema = z
   .object({
     kind: z.literal("events_extraction"),
     events: z.array(ExtractedEventSchema).min(1).max(100),
+    /** Set when this extraction came from a source import (lib/ai/source-import.ts) — ties events back to their TimelineSourceImport for dedupe. */
+    sourceContentHash: z.string().max(64).optional(),
   })
   .strict();
 

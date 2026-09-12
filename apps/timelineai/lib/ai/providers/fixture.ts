@@ -12,7 +12,30 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
   const model = { provider: "fixture", model: "fixture-v1", requestId: `fx-${request.kind}` };
 
   switch (request.kind) {
-    case "events_extraction":
+    case "events_extraction": {
+      if (request.chunks && request.chunks.length > 0) {
+        // Cited-import path: one event per source chunk, directly quoting
+        // it as the citation excerpt — every event this branch produces is
+        // traceable to the exact text it came from.
+        const MAX_EVENTS_PER_IMPORT = 25;
+        return {
+          payload: {
+            kind: "events_extraction",
+            sourceContentHash: request.sourceContentHash,
+            events: request.chunks.slice(0, MAX_EVENTS_PER_IMPORT).map((chunk) => ({
+              title: chunk.text.slice(0, 80) || "Imported event",
+              description: chunk.text.slice(0, 500),
+              confidence: "medium" as const,
+              sourceChunkId: chunk.id,
+              uncitedInference: false,
+              citations: [{ label: "Imported source", excerpt: chunk.text.slice(0, 500) }],
+            })),
+          },
+          warnings: [],
+          model,
+        };
+      }
+
       return {
         payload: {
           kind: "events_extraction",
@@ -22,12 +45,14 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
               description: request.sourceContent.slice(0, 200) || undefined,
               confidence: "medium",
               citations: [],
+              uncitedInference: true,
             },
           ],
         },
         warnings: [],
         model,
       };
+    }
     case "narrative_suggestion":
       return {
         payload: {
