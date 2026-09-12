@@ -1,6 +1,6 @@
 import "server-only";
 
-export { prisma } from "@asafarim/db";
+export { prisma, Prisma } from "@asafarim/db";
 export type {
   Timeline,
   TimelineEvent,
@@ -9,5 +9,4 @@ export type {
   TimelineAiEvent,
   TimelineSourceImport,
   TimelineImportedEvent,
-  Prisma,
 } from "@asafarim/db";

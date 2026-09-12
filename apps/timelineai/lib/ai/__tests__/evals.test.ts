@@ -31,6 +31,35 @@ describe("AI eval gate — golden (every kind produces valid output)", () => {
     const b = await fixtureProvider.generate(request);
     expect(a).toEqual(b);
   });
+
+  it("produces a cited, day-precision temporal_correction for an ISO date phrase", async () => {
+    const result = await fixtureProvider.generate({
+      kind: "temporal_correction",
+      timelineId: "tl_test",
+      sourceContent: "2021-06-15",
+      targetEventId: "ev_1",
+    });
+    expect(AiGenerationResultSchema.safeParse(result).success).toBe(true);
+    expect(result.payload).toMatchObject({
+      kind: "temporal_correction",
+      eventId: "ev_1",
+      temporalValue: { precision: "day" },
+      uncitedInference: false,
+    });
+  });
+
+  it("produces an honest uncited-inference temporal_correction for an unparseable phrase, never a guessed exact date", async () => {
+    const result = await fixtureProvider.generate({
+      kind: "temporal_correction",
+      timelineId: "tl_test",
+      sourceContent: "sometime last summer, I think",
+      targetEventId: "ev_1",
+    });
+    expect(result.payload).toMatchObject({ kind: "temporal_correction", uncitedInference: true });
+    if (result.payload.kind === "temporal_correction") {
+      expect(result.payload.temporalValue.precision).toBe("unknown");
+    }
+  });
 });
 
 describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", () => {
@@ -110,6 +139,57 @@ describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", (
     expect(() =>
       parseGenerationResult({
         payload: { kind: "visual_recommendation", confidence: "low" },
+      })
+    ).toThrow(AiProviderError);
+  });
+
+  it("rejects a temporal_correction with no citation and no uncited-inference flag", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "temporal_correction",
+          eventId: "ev_1",
+          temporalValue: { precision: "year", era: "CE", year: 2020, displayText: "2020" },
+          confidence: "medium",
+          citations: [],
+          uncitedInference: false,
+          conflictCodes: [],
+        },
+        model: { provider: "x", model: "y" },
+      })
+    ).toThrow(AiProviderError);
+  });
+
+  it("rejects an out-of-range month/day on a day-precision temporal value", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "temporal_correction",
+          eventId: "ev_1",
+          temporalValue: { precision: "day", era: "CE", year: 2020, month: 13, day: 40, displayText: "bad date" },
+          confidence: "medium",
+          citations: [{ label: "src", excerpt: "bad date" }],
+          uncitedInference: false,
+          conflictCodes: [],
+        },
+        model: { provider: "x", model: "y" },
+      })
+    ).toThrow(AiProviderError);
+  });
+
+  it("rejects an unrecognized conflict code (not in the allowlist)", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "temporal_correction",
+          eventId: "ev_1",
+          temporalValue: { precision: "year", era: "CE", year: 2020, displayText: "2020" },
+          confidence: "medium",
+          citations: [{ label: "src", excerpt: "2020" }],
+          uncitedInference: false,
+          conflictCodes: ["time_travel_detected"],
+        },
+        model: { provider: "x", model: "y" },
       })
     ).toThrow(AiProviderError);
   });

@@ -1,6 +1,7 @@
 import type { AiProvider, AiGenerationRequest } from "../provider";
-import { parseGenerationResult } from "../provider";
+import { parseGenerationResult, AiProviderError } from "../provider";
 import type { AiGenerationResult } from "../schemas";
+import { parseTemporalPhrase } from "../temporal-parse";
 
 /**
  * Deterministic, zero-network provider used in CI and local dev by default
@@ -36,7 +37,6 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
         };
       }
 
-    case "events_extraction":
       return {
         payload: {
           kind: "events_extraction",
@@ -76,6 +76,30 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
         warnings: [],
         model,
       };
+    case "temporal_correction": {
+      if (!request.targetEventId) {
+        throw new AiProviderError("temporal_correction requires a targetEventId.");
+      }
+      const temporalValue = parseTemporalPhrase(request.sourceContent);
+      // Honest about uncertainty: an unrecognized phrase is surfaced as an
+      // uncited inference rather than guessing a precision it didn't earn.
+      const recognized = temporalValue.precision !== "unknown";
+      return {
+        payload: {
+          kind: "temporal_correction",
+          eventId: request.targetEventId,
+          temporalValue,
+          confidence: recognized ? "medium" : "low",
+          uncitedInference: !recognized,
+          citations: recognized ? [{ label: "Source phrase", excerpt: request.sourceContent.slice(0, 500) }] : [],
+          conflictCodes: [],
+        },
+        warnings: recognized
+          ? []
+          : [{ code: "unrecognized_phrase", message: "Could not confidently parse a date from this text." }],
+        model,
+      };
+    }
   }
 }
 
