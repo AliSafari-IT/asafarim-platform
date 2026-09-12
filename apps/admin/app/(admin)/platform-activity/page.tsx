@@ -101,11 +101,8 @@ export default async function PlatformActivityPage({
                   items={entries.map((entry) => ({
                     time: formatDateTime(entry.createdAt),
                     title: `${appLabel(entry.app)} · ${entry.type} · ${entry.title}`,
-                    meta: [
-                      entry.status,
-                      `by ${entry.owner.name ?? entry.owner.email ?? entry.owner.userId}`,
-                      entry.href,
-                    ]
+                    href: entry.href ?? undefined,
+                    meta: [entry.status, `by ${entry.owner.name ?? entry.owner.email ?? entry.owner.userId}`]
                       .filter(Boolean)
                       .join(" · "),
                   }))}

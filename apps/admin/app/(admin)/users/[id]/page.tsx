@@ -569,11 +569,11 @@ function UserActivitySection({
               items={entries.map((entry) => ({
                 time: formatDateTime(entry.createdAt),
                 title: `${PLATFORM_APPS.find((a) => a.key === entry.app)?.name ?? entry.app} · ${entry.type} · ${entry.title}`,
+                href: entry.href ?? undefined,
                 meta: [
                   entry.status,
                   formatDuration(entry.metadata.durationSeconds as number | null | undefined),
                   formatBytes(entry.metadata.fileSizeBytes as number | null | undefined),
-                  entry.href,
                 ]
                   .filter(Boolean)
                   .join(" · "),
