@@ -4,6 +4,7 @@ import { getViewerContext } from "@/lib/server/authz";
 import { toErrorResponse } from "@/lib/server/api-errors";
 import { generateAiProposal } from "@/lib/server/services/ai-proposals";
 import { AI_PROPOSAL_KINDS } from "@/lib/ai/schemas";
+import { NARRATIVE_AUDIENCE_PRESETS } from "@/lib/ai/narrative";
 
 const GenerateInputSchema = z
   .object({
@@ -11,6 +12,10 @@ const GenerateInputSchema = z
     sourceContent: z.string().min(1).max(20_000),
     /** Required for kind "temporal_correction" — the event whose date is being reinterpreted. Ignored for every other kind. */
     targetEventId: z.string().min(1).max(64).optional(),
+    /** For kind "narrative_suggestion" only. */
+    narrativeField: z.enum(["title", "subtitle", "description"]).optional(),
+    narrativeEventId: z.string().min(1).max(64).optional(),
+    narrativeAudiencePreset: z.enum(NARRATIVE_AUDIENCE_PRESETS).optional(),
   })
   .refine((input) => input.kind !== "temporal_correction" || !!input.targetEventId, {
     message: "targetEventId is required for temporal_correction.",
@@ -23,9 +28,15 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { kind, sourceContent, targetEventId } = GenerateInputSchema.parse(body);
+    const { kind, sourceContent, targetEventId, narrativeField, narrativeEventId, narrativeAudiencePreset } =
+      GenerateInputSchema.parse(body);
     const viewer = await getViewerContext();
-    const proposal = await generateAiProposal(id, viewer, kind, sourceContent, { targetEventId });
+    const proposal = await generateAiProposal(id, viewer, kind, sourceContent, {
+      targetEventId,
+      narrativeField,
+      narrativeEventId,
+      narrativeAudiencePreset,
+    });
     return NextResponse.json({ proposal }, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);

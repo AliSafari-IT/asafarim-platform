@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TemporalValueSchema } from "./temporal";
+import { NARRATIVE_AUDIENCE_PRESETS, NARRATIVE_ELEMENTS, NARRATIVE_VARIANTS } from "./narrative";
 
 /**
  * Structured shapes for everything an AI provider may propose. These are
@@ -84,14 +85,35 @@ export const EventsExtractionPayloadSchema = z
   })
   .strict();
 
+export const NarrativeVariantSchema = z
+  .object({
+    variant: z.enum(NARRATIVE_VARIANTS),
+    text: z.string().min(1).max(4000),
+  })
+  .strict();
+
+/**
+ * A stylistic rewrite of one existing field — never a new fact. `variants`
+ * carries concise/standard/immersive alternatives alongside the default
+ * `suggestedText` (itself one of the variants) so a whole narrative pass
+ * stores as ONE proposal rather than three; accept picks one (see
+ * AcceptAiProposalOptions#variant in ai-proposals.ts).
+ * `unsupportedClaim` flags text the provider added that isn't grounded in
+ * the field's original content or a citation — surfaced, never silently
+ * dropped or silently accepted as fact.
+ */
 export const NarrativeSuggestionPayloadSchema = z
   .object({
     kind: z.literal("narrative_suggestion"),
     eventId: z.string().min(1).max(64).optional(), // absent = timeline-level (title/subtitle/description)
     field: z.enum(["title", "subtitle", "description"]),
+    element: z.enum(NARRATIVE_ELEMENTS).default("field_rewrite"),
+    audiencePreset: z.enum(NARRATIVE_AUDIENCE_PRESETS).optional(),
     suggestedText: z.string().min(1).max(4000),
+    variants: z.array(NarrativeVariantSchema).max(3).default([]),
     rationale: z.string().max(1000).optional(),
     confidence: ConfidenceSchema,
+    unsupportedClaim: z.boolean().default(false),
   })
   .strict();
 
