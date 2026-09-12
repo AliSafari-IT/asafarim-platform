@@ -14,8 +14,9 @@ function viontoUrl(): string {
 
 /**
  * Vionto (photo-to-story video pipeline) is the flagship activity adapter:
- * projects, render jobs (state/progress/error), exports (format/resolution/
- * duration/size), albums, and storage usage — read-only, keyed by userId.
+ * projects, video versions, render jobs (state/progress/error), exports
+ * (format/resolution/duration/size), albums, and storage usage — read-only,
+ * keyed by userId.
  */
 export const viontoActivityAdapter: UserActivityAdapter = {
   app: "vionto",
@@ -23,11 +24,26 @@ export const viontoActivityAdapter: UserActivityAdapter = {
   async getActivity({ userId }: ActivityLookup): Promise<ActivitySection> {
     const base = viontoUrl();
 
-    const [projects, renderJobs, exports, albums, storageMetrics] = await Promise.all([
+    const [projects, videoVersions, renderJobs, exports, albums, storageMetrics] = await Promise.all([
       prisma.viontoProject.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
         select: { id: true, title: true, status: true, createdAt: true, updatedAt: true },
+      }),
+      prisma.viontoVideoVersion.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          projectId: true,
+          name: true,
+          mode: true,
+          visualStyle: true,
+          resolution: true,
+          aspectRatio: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
       prisma.viontoRenderJob.findMany({
         where: { userId },
@@ -92,6 +108,23 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           updatedAt: p.updatedAt,
           href: `${base}/projects/${p.id}`,
           metadata: {},
+        })
+      ),
+      ...videoVersions.map(
+        (v): ActivityEntry => ({
+          id: v.id,
+          app: "vionto",
+          type: "video_version",
+          title: v.name,
+          status: v.mode,
+          createdAt: v.createdAt,
+          updatedAt: v.updatedAt,
+          href: `${base}/projects/${v.projectId}`,
+          metadata: {
+            visualStyle: v.visualStyle,
+            resolution: v.resolution,
+            aspectRatio: v.aspectRatio,
+          },
         })
       ),
       ...renderJobs.map(

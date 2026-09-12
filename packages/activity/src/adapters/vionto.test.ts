@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@asafarim/db", () => ({
   prisma: {
     viontoProject: { findMany: vi.fn() },
+    viontoVideoVersion: { findMany: vi.fn() },
     viontoRenderJob: { findMany: vi.fn() },
     viontoExport: { findMany: vi.fn() },
     viontoAlbum: { findMany: vi.fn() },
@@ -16,6 +17,7 @@ import { viontoActivityAdapter } from "./vionto";
 
 const mockPrisma = prisma as unknown as {
   viontoProject: { findMany: ReturnType<typeof vi.fn> };
+  viontoVideoVersion: { findMany: ReturnType<typeof vi.fn> };
   viontoRenderJob: { findMany: ReturnType<typeof vi.fn> };
   viontoExport: { findMany: ReturnType<typeof vi.fn> };
   viontoAlbum: { findMany: ReturnType<typeof vi.fn> };
@@ -28,6 +30,7 @@ const now = new Date("2026-01-01T00:00:00Z");
 beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.viontoProject.findMany.mockResolvedValue([]);
+  mockPrisma.viontoVideoVersion.findMany.mockResolvedValue([]);
   mockPrisma.viontoRenderJob.findMany.mockResolvedValue([]);
   mockPrisma.viontoExport.findMany.mockResolvedValue([]);
   mockPrisma.viontoAlbum.findMany.mockResolvedValue([]);
@@ -53,6 +56,35 @@ describe("viontoActivityAdapter", () => {
     expect(mockPrisma.viontoRenderJob.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: "u1" } })
     );
+  });
+
+  it("maps a video version into an entry", async () => {
+    mockPrisma.viontoVideoVersion.findMany.mockResolvedValue([
+      {
+        id: "vv1",
+        projectId: "p1",
+        name: "Family version",
+        mode: "story",
+        visualStyle: "clean_modern_slideshow",
+        resolution: "1080p",
+        aspectRatio: "16:9",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const section = await viontoActivityAdapter.getActivity({ userId: "u1" });
+
+    expect(section.entries).toHaveLength(1);
+    expect(section.entries[0]).toMatchObject({
+      id: "vv1",
+      app: "vionto",
+      type: "video_version",
+      title: "Family version",
+      status: "story",
+      href: expect.stringContaining("/projects/p1"),
+      metadata: expect.objectContaining({ visualStyle: "clean_modern_slideshow", resolution: "1080p" }),
+    });
   });
 
   it("maps a render job with progress and error into an entry", async () => {
