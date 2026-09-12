@@ -42,10 +42,18 @@ function identityFor(viewer: ViewerContext): string {
  * failure is recorded to the audit trail (redacted, no raw source content)
  * and rethrown; nothing partial is ever persisted.
  */
+export interface GenerateAiProposalOptions {
+  /** Pre-chunked source document, set only for cited-import generations (lib/server/services/source-import.ts). */
+  chunks?: { id: string; text: string }[];
+  sourceContentHash?: string;
+}
+
 export async function generateAiProposal(
   timelineId: string,
   viewer: ViewerContext,
   kind: AiProposalKind,
+  sourceContent: string,
+  options: GenerateAiProposalOptions = {}
   sourceContent: string
 ) {
   if (!isAiEnabled()) throw new AiDisabledError();
@@ -55,6 +63,13 @@ export async function generateAiProposal(
   const provider = await getConfiguredProvider();
 
   try {
+    const result = await provider.generate({
+      kind,
+      timelineId,
+      sourceContent,
+      chunks: options.chunks,
+      sourceContentHash: options.sourceContentHash,
+    });
     const result = await provider.generate({ kind, timelineId, sourceContent });
 
     const proposal = await prisma.timelineAiProposal.create({
@@ -147,6 +162,54 @@ async function applyProposal(
       });
       let nextOrder = (maxOrder._max.sortOrder ?? -1) + 1;
 
+      const contentHash = payload.sourceContentHash;
+      const createdEventIds: string[] = [];
+      const skippedChunkIds: string[] = [];
+
+      for (const event of payload.events) {
+        // Cited-import dedupe: a chunk that's already produced an accepted
+        // event for this exact source document is skipped rather than
+        // creating a duplicate — this is what makes re-import idempotent.
+        if (contentHash && event.sourceChunkId) {
+          const existing = await tx.timelineImportedEvent.findUnique({
+            where: {
+              timelineId_contentHash_chunkId: {
+                timelineId,
+                contentHash,
+                chunkId: event.sourceChunkId,
+              },
+            },
+          });
+          if (existing) {
+            skippedChunkIds.push(event.sourceChunkId);
+            continue;
+          }
+        }
+
+        const created = await tx.timelineEvent.create({
+          data: {
+            timelineId,
+            title: event.title,
+            description: event.description ?? null,
+            displayDate: event.displayDate ?? null,
+            startAt: event.startAt ? new Date(event.startAt) : null,
+            endAt: event.endAt ? new Date(event.endAt) : null,
+            sortOrder: nextOrder++,
+          },
+        });
+        createdEventIds.push(created.id);
+
+        if (contentHash && event.sourceChunkId) {
+          await tx.timelineImportedEvent.create({
+            data: { timelineId, contentHash, chunkId: event.sourceChunkId, eventId: created.id },
+          });
+        }
+      }
+
+      if (createdEventIds.length > 0) {
+        await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
+      }
+      return { createdEventIds, skippedChunkIds };
       const created = await Promise.all(
         payload.events.map((event) =>
           tx.timelineEvent.create({
@@ -216,6 +279,12 @@ async function revertProposal(
   snapshot: Record<string, unknown>
 ): Promise<void> {
   if (Array.isArray(snapshot.createdEventIds)) {
+    const eventIds = snapshot.createdEventIds as string[];
+    // Also clears the dedupe record for each created event, so undoing an
+    // import and re-accepting the same (or a fresh) proposal for the same
+    // source chunks recreates them instead of silently skipping.
+    await tx.timelineImportedEvent.deleteMany({ where: { eventId: { in: eventIds } } });
+    await tx.timelineEvent.deleteMany({ where: { id: { in: eventIds } } });
     await tx.timelineEvent.deleteMany({ where: { id: { in: snapshot.createdEventIds as string[] } } });
     await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
     return;

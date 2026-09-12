@@ -4,6 +4,11 @@ import { ZodError } from "zod";
 import { ForbiddenError, NotFoundError } from "./authz";
 import { VersionConflictError } from "./services/timelines";
 import { RateLimitedError } from "./guest-rate-limit";
+import { ExportTimeoutError } from "./services/export";
+import { AiDisabledError, ProposalStateError } from "./services/ai-proposals";
+import { AiQuotaExceededError, AiUnavailableError } from "./ai-quota";
+import { AiProviderError } from "../ai/provider";
+import { UnsupportedSourceError } from "../ai/source-import";
 import { ExportTimeoutError, ExportRenderError } from "./services/export";
 import { AiDisabledError, ProposalStateError } from "./services/ai-proposals";
 import { AiQuotaExceededError, AiUnavailableError } from "./ai-quota";
@@ -63,6 +68,9 @@ export function toErrorResponse(error: unknown): NextResponse {
   }
   if (error instanceof ProposalStateError) {
     return NextResponse.json({ error: "proposal_state_conflict", message: error.message }, { status: 409 });
+  }
+  if (error instanceof UnsupportedSourceError) {
+    return NextResponse.json({ error: "unsupported_source", message: error.message }, { status: 400 });
   }
   if (error instanceof AiProviderError) {
     return NextResponse.json(

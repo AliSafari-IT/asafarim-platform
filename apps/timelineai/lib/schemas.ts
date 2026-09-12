@@ -71,7 +71,7 @@ export type ThemeSettings = z.infer<typeof ThemeSettingsSchema>;
  * an egress-time check in the export pipeline itself, noted there.
  */
 const BLOCKED_HOSTNAMES = new Set(["localhost", "0.0.0.0"]);
-function isBlockedHost(hostname: string): boolean {
+export function isBlockedHost(hostname: string): boolean {
   const host = hostname.toLowerCase();
   if (BLOCKED_HOSTNAMES.has(host)) return true;
   if (host.endsWith(".localhost")) return true;
@@ -91,18 +91,21 @@ function isBlockedHost(hostname: string): boolean {
   return false;
 }
 
+/** Shared by the URL schema below and lib/ai/source-import.ts's URL-fetch guard — one allowlist rule. */
+export function isSafeExternalUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !isBlockedHost(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function safeExternalUrl(message: string) {
   return z
     .string()
     .url(message)
-    .refine((value) => {
-      try {
-        const url = new URL(value);
-        return url.protocol === "https:" && !isBlockedHost(url.hostname);
-      } catch {
-        return false;
-      }
-    }, "That link isn't allowed — please use a public https:// address.");
+    .refine(isSafeExternalUrl, "That link isn't allowed — please use a public https:// address.");
 }
 
 // Non-technical, human-readable validation messages throughout — this

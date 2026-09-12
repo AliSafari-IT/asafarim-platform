@@ -28,4 +28,6 @@ export type {
   TimelineModerationEvent,
   TimelineAiProposal,
   TimelineAiEvent,
+  TimelineSourceImport,
+  TimelineImportedEvent,
 } from "@prisma/client";

@@ -7,5 +7,7 @@ export type {
   TimelineModerationEvent,
   TimelineAiProposal,
   TimelineAiEvent,
+  TimelineSourceImport,
+  TimelineImportedEvent,
   Prisma,
 } from "@asafarim/db";
