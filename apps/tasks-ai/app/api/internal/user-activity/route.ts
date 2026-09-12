@@ -41,39 +41,89 @@ export async function GET(request: Request) {
 
   const memberships = await db.membership.findMany({
     where: { platformUserId: userId },
-    select: { id: true, workspaceId: true },
+    select: { id: true, workspaceId: true, role: true, createdAt: true, updatedAt: true },
   });
   if (memberships.length === 0) {
     return NextResponse.json({ entries: [] });
   }
   const membershipIds = memberships.map((m) => m.id);
+  const workspaceIds = [...new Set(memberships.map((m) => m.workspaceId))];
 
-  const tasks = await db.task.findMany({
-    where: {
-      OR: [{ creatorId: { in: membershipIds } }, { assigneeId: { in: membershipIds } }],
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    select: {
-      id: true,
-      title: true,
-      workspaceId: true,
-      completedAt: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  const [workspaces, tasks, proposals] = await Promise.all([
+    db.workspace.findMany({
+      where: { id: { in: workspaceIds } },
+      select: { id: true, name: true, createdAt: true, updatedAt: true },
+    }),
+    db.task.findMany({
+      where: {
+        OR: [{ creatorId: { in: membershipIds } }, { assigneeId: { in: membershipIds } }],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: {
+        id: true,
+        title: true,
+        workspaceId: true,
+        completedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+    // Copilot proposals this membership requested — Proposal has no direct
+    // platformUserId column, only membershipId, same indirection as Task.
+    db.proposal.findMany({
+      where: { membershipId: { in: membershipIds } },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: {
+        id: true,
+        workspaceId: true,
+        kind: true,
+        state: true,
+        summary: true,
+        appliedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+  ]);
+  const workspaceById = new Map(workspaces.map((w) => [w.id, w]));
 
-  const entries = tasks.map((task) => ({
-    id: task.id,
-    type: "task",
-    title: task.title,
-    status: task.completedAt ? "completed" : "open",
-    createdAt: task.createdAt.toISOString(),
-    updatedAt: task.updatedAt.toISOString(),
-    href: `${base}/workspace/${task.workspaceId}/tasks/${task.id}`,
-    metadata: { completedAt: task.completedAt?.toISOString() ?? null },
-  }));
+  const entries = [
+    ...memberships.map((m) => {
+      const workspace = workspaceById.get(m.workspaceId);
+      return {
+        id: m.id,
+        type: "workspace",
+        title: workspace?.name ?? "Workspace",
+        status: m.role,
+        createdAt: m.createdAt.toISOString(),
+        updatedAt: m.updatedAt.toISOString(),
+        href: `${base}/workspace/${m.workspaceId}`,
+        metadata: { role: m.role },
+      };
+    }),
+    ...tasks.map((task) => ({
+      id: task.id,
+      type: "task",
+      title: task.title,
+      status: task.completedAt ? "completed" : "open",
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
+      href: `${base}/workspace/${task.workspaceId}/tasks/${task.id}`,
+      metadata: { completedAt: task.completedAt?.toISOString() ?? null },
+    })),
+    ...proposals.map((p) => ({
+      id: p.id,
+      type: "copilot_proposal",
+      title: p.summary ?? `Copilot proposal (${p.kind})`,
+      status: p.state,
+      createdAt: p.createdAt.toISOString(),
+      updatedAt: p.updatedAt.toISOString(),
+      href: `${base}/workspace/${p.workspaceId}`,
+      metadata: { kind: p.kind, appliedAt: p.appliedAt?.toISOString() ?? null },
+    })),
+  ];
 
   return NextResponse.json({ entries });
 }
