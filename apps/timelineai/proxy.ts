@@ -24,6 +24,7 @@ export const proxy = createAuthProxy({
     "/sitemap.xml",
     "/api/health",
     "/api/auth",
+    "/api/ai/status", // lightweight AI-enabled flag for the editor's copilot panel — no session required to check it
     "/api/timelines", // POST create — open to guests; ownership derived server-side
     "/api/timelines/public", // public share-page lookups by publicId
     "/api/exports", // guest + authenticated export requests

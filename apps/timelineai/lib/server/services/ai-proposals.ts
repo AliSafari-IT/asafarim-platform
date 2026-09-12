@@ -213,6 +213,16 @@ export async function generateAiProposal(
   }
 }
 
+/** Recent proposals for a timeline's AI copilot panel, newest first. */
+export async function listAiProposals(timelineId: string, viewer: ViewerContext) {
+  await loadTimelineForEdit(timelineId, viewer);
+  return prisma.timelineAiProposal.findMany({
+    where: { timelineId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+}
+
 async function loadPendingOrAcceptedProposal(proposalId: string, viewer: ViewerContext) {
   const proposal = await prisma.timelineAiProposal.findUnique({ where: { id: proposalId } });
   if (!proposal) throw new NotFoundError("That AI proposal doesn't exist.");

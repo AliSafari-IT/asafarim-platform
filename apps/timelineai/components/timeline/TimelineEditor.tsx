@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@asafarim/ui";
 import { EventEditorList } from "./EventEditorList";
 import { TimelineRenderer } from "./renderers/TimelineRenderer";
 import { TimelineAppearance } from "./TimelineAppearance";
+import { AiCopilotPanel } from "./AiCopilotPanel";
 import { TimelineInputSchema, TIMELINE_TYPES } from "@/lib/schemas";
 import { TYPE_LABELS } from "@/lib/labels";
 import { resolveLayoutForType } from "@/lib/timeline-config";
@@ -49,6 +50,7 @@ export function TimelineEditor({ mode, timelineId, initial, version, isGuest, on
   const [fieldErrors, setFieldErrors] = useState<Record<string, Record<string, string>>>({});
   const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmReloadForAi, setConfirmReloadForAi] = useState(false);
   const isDirty = useMemo(() => JSON.stringify(state) !== JSON.stringify(emptyState(initial)), [state, initial]);
 
   function updateEvent(key: string, patch: Partial<EditorEvent>) {
@@ -132,6 +134,18 @@ export function TimelineEditor({ mode, timelineId, initial, version, isGuest, on
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleAiApplied() {
+    // The copilot panel writes straight to the saved timeline, independent
+    // of this component's local draft state — reloading is the simplest
+    // honest way to bring the form fields back in sync with it. Unsaved
+    // manual edits would be lost, so that path is confirmed first.
+    if (isDirty) {
+      setConfirmReloadForAi(true);
+    } else {
+      window.location.reload();
     }
   }
 
@@ -248,6 +262,14 @@ export function TimelineEditor({ mode, timelineId, initial, version, isGuest, on
           />
         </div>
 
+        {mode === "edit" && timelineId ? (
+          <AiCopilotPanel
+            timelineId={timelineId}
+            events={state.events.filter((e): e is EditorEvent & { id: string } => !!e.id).map((e) => ({ id: e.id, title: e.title }))}
+            onApplied={handleAiApplied}
+          />
+        ) : null}
+
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -292,6 +314,15 @@ export function TimelineEditor({ mode, timelineId, initial, version, isGuest, on
         confirmLabel="Discard"
         onConfirm={() => router.back()}
         onCancel={() => setConfirmDiscard(false)}
+      />
+      <ConfirmDialog
+        open={confirmReloadForAi}
+        title="Reload to see the AI change?"
+        message="The AI copilot already saved this change to your timeline. Reloading shows it in the fields above, but any unsaved manual edits here will be lost."
+        tone="danger"
+        confirmLabel="Reload"
+        onConfirm={() => window.location.reload()}
+        onCancel={() => setConfirmReloadForAi(false)}
       />
     </div>
   );

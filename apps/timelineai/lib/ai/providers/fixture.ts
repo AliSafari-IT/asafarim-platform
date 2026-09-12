@@ -58,7 +58,12 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
     case "narrative_suggestion": {
       const target = request.narrativeTarget;
       const field = target?.field ?? "description";
-      const original = (target?.currentText ?? request.sourceContent).trim();
+      // A target field with nothing written yet (currentText === "") has no
+      // text to rewrite — fall back to the requester's own sourceContent so
+      // the fixture still has material to work from, instead of producing
+      // variants built from an empty string (which fails NarrativeVariantSchema's
+      // min(1) on the "concise" variant, which echoes `original` verbatim).
+      const original = (target?.currentText?.trim() ? target.currentText : request.sourceContent).trim();
 
       // Every variant wraps the original text verbatim rather than
       // rewording it away — a real provider must pass preservesFactualAnchors()
