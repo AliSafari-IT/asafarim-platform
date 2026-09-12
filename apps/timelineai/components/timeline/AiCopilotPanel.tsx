@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/client/api";
 import { AI_PROPOSAL_KINDS, type AiProposalKind, type AiProposalPayload } from "@/lib/ai/schemas";
 import { NARRATIVE_AUDIENCE_PRESETS, type NarrativeAudiencePreset } from "@/lib/ai/narrative";
+import type { TemporalConflict, TemporalPrecision, TemporalValue } from "@/lib/ai/temporal";
 
 /** Minimal shape the panel needs from a saved event — not the full editor row. */
 export interface AiCopilotTargetEvent {
@@ -26,6 +27,60 @@ export interface AiCopilotPanelProps {
   events: AiCopilotTargetEvent[];
   /** Called after Accept/Undo successfully changes the saved timeline, so the caller can offer to reload. */
   onApplied?: () => void;
+}
+
+export interface ConflictingEventRow {
+  id: string;
+  title: string;
+  displayDate: string | null;
+  value: TemporalValue;
+}
+
+const CONFLICT_CODE_LABELS: Record<TemporalConflict["code"], string> = {
+  impossible_range: "Impossible range",
+  ordering_cycle: "Contradictory ordering",
+  ordering_violation: "Ordering conflict",
+};
+
+const PRECISION_LABELS: Record<TemporalPrecision, string> = {
+  day: "Exact date",
+  month: "Month",
+  year: "Year",
+  quarter: "Quarter",
+  season: "Season",
+  decade: "Decade",
+  century: "Century",
+  range: "Range",
+  unknown: "Unknown",
+};
+
+const EXACT_PRECISIONS: TemporalPrecision[] = ["day", "month", "year"];
+
+/** A stable key for a conflict so a dismissal survives a reload as long as the same events are still in conflict for the same reason. */
+export function conflictSignature(conflict: Pick<TemporalConflict, "code" | "eventIds">): string {
+  return `${conflict.code}:${[...conflict.eventIds].sort().join(",")}`;
+}
+
+function dismissedConflictsStorageKey(timelineId: string): string {
+  return `timelineai:dismissed-conflicts:${timelineId}`;
+}
+
+function loadDismissedConflicts(timelineId: string): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(dismissedConflictsStorageKey(timelineId));
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissedConflicts(timelineId: string, signatures: Set<string>): void {
+  try {
+    window.localStorage.setItem(dismissedConflictsStorageKey(timelineId), JSON.stringify([...signatures]));
+  } catch {
+    // Best-effort only — a private window or full storage just means dismissals don't persist this session.
+  }
 }
 
 const KIND_LABELS: Record<AiProposalKind, string> = {
@@ -172,6 +227,11 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
   const [actionError, setActionError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Record<string, Record<number, boolean>>>({});
 
+  const [conflicts, setConflicts] = useState<TemporalConflict[] | null>(null);
+  const [conflictEvents, setConflictEvents] = useState<ConflictingEventRow[]>([]);
+  const [conflictsError, setConflictsError] = useState<string | null>(null);
+  const [dismissedConflicts, setDismissedConflicts] = useState<Set<string>>(() => new Set());
+
   useEffect(() => {
     let cancelled = false;
     apiFetch<{ enabled: boolean }>("/api/ai/status")
@@ -196,10 +256,43 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
     }
   }
 
+  async function loadConflicts() {
+    setConflictsError(null);
+    try {
+      const res = await apiFetch<{ conflicts: TemporalConflict[]; events: ConflictingEventRow[] }>(
+        `/api/timelines/${timelineId}/ai/temporal-conflicts`
+      );
+      setConflicts(res.conflicts);
+      setConflictEvents(res.events);
+    } catch (error) {
+      setConflictsError(error instanceof ApiError ? error.message : "Couldn't check for date conflicts.");
+    }
+  }
+
   useEffect(() => {
-    if (enabled) loadProposals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when AI becomes enabled, not on every loadProposals identity change
+    if (enabled) {
+      loadProposals();
+      loadConflicts();
+      setDismissedConflicts(loadDismissedConflicts(timelineId));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when AI becomes enabled, not on every loadProposals/loadConflicts identity change
   }, [enabled, timelineId]);
+
+  function dismissConflict(conflict: TemporalConflict) {
+    setDismissedConflicts((prev) => {
+      const next = new Set(prev).add(conflictSignature(conflict));
+      saveDismissedConflicts(timelineId, next);
+      return next;
+    });
+  }
+
+  /** Jumps to the Generate tab, pre-filled to reinterpret this event's date. */
+  function startReinterpret(eventId: string) {
+    setMode("generate");
+    setKind("temporal_correction");
+    setTargetEventId(eventId);
+    setGenerateError(null);
+  }
 
   async function handleGenerate() {
     setGenerateError(null);
@@ -362,6 +455,7 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
 
   const pending = proposals?.filter((p) => p.status === "pending") ?? [];
   const resolved = proposals?.filter((p) => p.status !== "pending") ?? [];
+  const visibleConflicts = (conflicts ?? []).filter((c) => !dismissedConflicts.has(conflictSignature(c)));
 
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-[var(--color-border,rgba(0,0,0,0.15))] p-4">
@@ -371,6 +465,78 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
           Every suggestion is a proposal you review — nothing is written to your timeline until you accept it.
         </p>
       </div>
+
+      {conflictsError ? (
+        <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
+          {conflictsError}
+        </div>
+      ) : null}
+
+      {visibleConflicts.length > 0 ? (
+        <section className="flex flex-col gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+          <h3 className="text-sm font-medium">
+            Date conflicts ({visibleConflicts.length})
+          </h3>
+          <ul className="flex flex-col gap-2">
+            {visibleConflicts.map((conflict) => {
+              const signature = conflictSignature(conflict);
+              const affected = conflict.eventIds
+                .map((id) => conflictEvents.find((e) => e.id === id))
+                .filter((e): e is ConflictingEventRow => !!e);
+              return (
+                <li key={signature} className="rounded-md border border-amber-500/30 bg-[var(--color-surface)] p-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{CONFLICT_CODE_LABELS[conflict.code]}</span>
+                    <button
+                      type="button"
+                      className="text-xs text-[var(--color-text-muted,inherit)] underline"
+                      onClick={() => dismissConflict(conflict)}
+                    >
+                      Leave unresolved
+                    </button>
+                  </div>
+                  <p className="mt-0.5 text-[var(--color-text-muted,inherit)]">{conflict.message}</p>
+                  {affected.length > 0 ? (
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {affected.map((event) => (
+                        <li
+                          key={event.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded border border-[var(--color-border,rgba(0,0,0,0.1))] px-2 py-1"
+                        >
+                          <span>
+                            <span className="font-medium">{event.title}</span>
+                            {event.displayDate ? (
+                              <span className="text-[var(--color-text-muted,inherit)]"> — {event.displayDate}</span>
+                            ) : null}
+                            <span
+                              className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+                                EXACT_PRECISIONS.includes(event.value.precision)
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                  : event.value.precision === "unknown"
+                                    ? "bg-black/10 dark:bg-white/10"
+                                    : "bg-sky-500/15 text-sky-700 dark:text-sky-400"
+                              }`}
+                            >
+                              {PRECISION_LABELS[event.value.precision]}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-[var(--color-border,currentColor)] px-2 py-1 text-xs font-medium"
+                            onClick={() => startReinterpret(event.id)}
+                          >
+                            Reinterpret this date
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="flex gap-1 rounded-lg border border-[var(--color-border,rgba(0,0,0,0.15))] p-1 text-sm">
         <button

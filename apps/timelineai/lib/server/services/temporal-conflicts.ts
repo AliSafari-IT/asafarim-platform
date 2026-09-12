@@ -1,13 +1,25 @@
 import "server-only";
 import { prisma } from "../db";
 import { assertAccess, NotFoundError, type ViewerContext } from "../authz";
-import { detectTemporalConflicts, TemporalValueSchema } from "../../ai/temporal";
+import { detectTemporalConflicts, TemporalValueSchema, type TemporalValue } from "../../ai/temporal";
+
+export interface ConflictingEvent {
+  id: string;
+  title: string;
+  displayDate: string | null;
+  value: TemporalValue;
+}
 
 /**
  * Read-only: computes conflicts across a timeline's events with a
  * recorded TemporalValue (TLAI-004). Never mutates anything — this feeds a
  * conflict-review panel, and "leave unresolved" is the default; nothing
  * here auto-applies a fix.
+ *
+ * `events` in the return value is only the events referenced by at least
+ * one conflict (not every dated event), so the panel can show each
+ * conflict's evidence — title, displayDate, and precision — without a
+ * second round trip, while staying scoped to what's actually in conflict.
  */
 export async function getTemporalConflicts(timelineId: string, viewer: ViewerContext) {
   const timeline = await prisma.timeline.findUnique({ where: { id: timelineId } });
@@ -16,16 +28,22 @@ export async function getTemporalConflicts(timelineId: string, viewer: ViewerCon
 
   const events = await prisma.timelineEvent.findMany({
     where: { timelineId },
-    select: { id: true, temporalPrecision: true },
+    select: { id: true, title: true, displayDate: true, temporalPrecision: true },
   });
 
   const withValues = events
-    .filter((e) => e.temporalPrecision !== null)
     .map((e) => {
+      if (e.temporalPrecision === null) return null;
       const parsed = TemporalValueSchema.safeParse(e.temporalPrecision);
-      return parsed.success ? { id: e.id, value: parsed.data } : null;
+      if (!parsed.success) return null;
+      return { id: e.id, title: e.title, displayDate: e.displayDate, value: parsed.data };
     })
-    .filter((e): e is { id: string; value: NonNullable<typeof e>["value"] } => e !== null);
+    .filter((e): e is ConflictingEvent => e !== null);
 
-  return detectTemporalConflicts(withValues);
+  const conflicts = detectTemporalConflicts(withValues.map(({ id, value }) => ({ id, value })));
+
+  const conflictEventIds = new Set(conflicts.flatMap((c) => c.eventIds));
+  const conflictingEvents = withValues.filter((e) => conflictEventIds.has(e.id));
+
+  return { conflicts, events: conflictingEvents };
 }
