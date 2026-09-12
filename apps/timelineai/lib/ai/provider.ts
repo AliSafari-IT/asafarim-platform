@@ -1,4 +1,5 @@
 import { AiGenerationResultSchema, type AiGenerationResult, type AiProposalKind } from "./schemas";
+import type { ContentSummary } from "./visual-director";
 import type { NarrativeAudiencePreset } from "./narrative";
 
 /**
@@ -21,6 +22,8 @@ export interface AiGenerationRequest {
   sourceContentHash?: string;
   /** Set for kind "temporal_correction" — the event whose date is being reinterpreted from `sourceContent`. */
   targetEventId?: string;
+  /** Set for kind "visual_recommendation" — a deterministic summary of the timeline's content for the heuristics in lib/ai/visual-director.ts to work from. */
+  contentSummary?: ContentSummary;
   /**
    * Set for kind "narrative_suggestion" — which existing field is being
    * rewritten, in whose voice, and the original text of that field (so the

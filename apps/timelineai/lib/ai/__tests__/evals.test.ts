@@ -32,6 +32,24 @@ describe("AI eval gate — golden (every kind produces valid output)", () => {
     expect(a).toEqual(b);
   });
 
+  it("produces 2-3 accessible visual_recommendation candidates reproducibly from a content summary", async () => {
+    const request = {
+      kind: "visual_recommendation" as const,
+      timelineId: "tl_test",
+      sourceContent: "unused",
+      contentSummary: { eventCount: 25, hasDurations: true, hasManyBranches: false, avgDescriptionLength: 80 },
+    };
+    const a = await fixtureProvider.generate(request);
+    const b = await fixtureProvider.generate(request);
+    expect(a).toEqual(b); // reproducible in fixture mode
+
+    expect(AiGenerationResultSchema.safeParse(a).success).toBe(true);
+    if (a.payload.kind === "visual_recommendation") {
+      expect(a.payload.candidates.length).toBeGreaterThanOrEqual(2);
+      expect(a.payload.candidates[0]!.layout).toBe("gantt"); // duration-heavy content
+    }
+  });
+
   it("produces a cited, day-precision temporal_correction for an ISO date phrase", async () => {
     const result = await fixtureProvider.generate({
       kind: "temporal_correction",
@@ -216,6 +234,14 @@ describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", (
     ).toThrow(AiProviderError);
   });
 
+  it("rejects a visual_recommendation with only one candidate (needs 2-3)", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "visual_recommendation",
+          confidence: "medium",
+          candidates: [
+            { layout: "vertical", backgroundId: "paper", accentId: "indigo", density: "comfortable", cardStyle: "flat", rationale: "x" },
   it("rejects a narrative_suggestion with more than 3 variants", () => {
     expect(() =>
       parseGenerationResult({
@@ -236,6 +262,33 @@ describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", (
     ).toThrow(AiProviderError);
   });
 
+  it("rejects a visual_recommendation candidate using an unapproved color token", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "visual_recommendation",
+          confidence: "medium",
+          candidates: [
+            { layout: "vertical", backgroundId: "paper", accentId: "hot-pink-9000", density: "comfortable", cardStyle: "flat", rationale: "x" },
+            { layout: "vertical", backgroundId: "midnight", accentId: "indigo-light", density: "comfortable", cardStyle: "flat", rationale: "y" },
+          ],
+        },
+        model: { provider: "x", model: "y" },
+      })
+    ).toThrow(AiProviderError);
+  });
+
+  it("rejects a visual_recommendation candidate whose accent/background pairing fails contrast", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "visual_recommendation",
+          confidence: "medium",
+          candidates: [
+            // dark accent on the dark background — fails WCAG AA contrast
+            { layout: "vertical", backgroundId: "midnight", accentId: "indigo", density: "comfortable", cardStyle: "flat", rationale: "x" },
+            { layout: "vertical", backgroundId: "paper", accentId: "amber", density: "comfortable", cardStyle: "flat", rationale: "y" },
+          ],
   it("rejects a narrative_suggestion with an unrecognized narrative element", () => {
     expect(() =>
       parseGenerationResult({
@@ -251,6 +304,33 @@ describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", (
     ).toThrow(AiProviderError);
   });
 
+  it("rejects a visual_recommendation with recommendedIndex out of range", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "visual_recommendation",
+          confidence: "medium",
+          recommendedIndex: 5,
+          candidates: [
+            { layout: "vertical", backgroundId: "paper", accentId: "indigo", density: "comfortable", cardStyle: "flat", rationale: "x" },
+            { layout: "vertical", backgroundId: "midnight", accentId: "indigo-light", density: "comfortable", cardStyle: "flat", rationale: "y" },
+          ],
+        },
+        model: { provider: "x", model: "y" },
+      })
+    ).toThrow(AiProviderError);
+  });
+
+  it("rejects a visual_recommendation layout outside the approved layout vocabulary", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "visual_recommendation",
+          confidence: "medium",
+          candidates: [
+            { layout: "<script>alert(1)</script>", backgroundId: "paper", accentId: "indigo", density: "comfortable", cardStyle: "flat", rationale: "x" },
+            { layout: "vertical", backgroundId: "midnight", accentId: "indigo-light", density: "comfortable", cardStyle: "flat", rationale: "y" },
+          ],
   it("rejects a narrative_suggestion with an unrecognized audience preset", () => {
     expect(() =>
       parseGenerationResult({

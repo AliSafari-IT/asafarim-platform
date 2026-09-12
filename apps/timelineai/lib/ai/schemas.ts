@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { TemporalValueSchema } from "./temporal";
+import { TIMELINE_LAYOUTS } from "../schemas";
+import {
+  checkVisualAccessibility,
+  VISUAL_DIRECTOR_ACCENTS,
+  VISUAL_DIRECTOR_BACKGROUNDS,
+} from "./visual-accessibility";
 import { NARRATIVE_AUDIENCE_PRESETS, NARRATIVE_ELEMENTS, NARRATIVE_VARIANTS } from "./narrative";
 
 /**
@@ -117,12 +123,57 @@ export const NarrativeSuggestionPayloadSchema = z
   })
   .strict();
 
+const VISUAL_BACKGROUND_IDS = VISUAL_DIRECTOR_BACKGROUNDS.map((b) => b.id) as [string, ...string[]];
+const VISUAL_ACCENT_IDS = VISUAL_DIRECTOR_ACCENTS.map((a) => a.id) as [string, ...string[]];
+
+/**
+ * A single visual direction: layout plus a theme built ONLY from the
+ * approved token vocabulary (lib/ai/visual-accessibility.ts) — never a
+ * free-form color, CSS, or HTML string. `theme` here is a strict subset of
+ * lib/schemas.ts#ThemeSettingsSchema (the shape the manual editor accepts)
+ * so this can be persisted through the same field, but with a much
+ * narrower allowlist since it's machine-generated.
+ */
+export const VisualDirectionSchema = z
+  .object({
+    layout: z.enum(TIMELINE_LAYOUTS),
+    backgroundId: z.enum(VISUAL_BACKGROUND_IDS),
+    accentId: z.enum(VISUAL_ACCENT_IDS),
+    density: z.enum(["compact", "comfortable", "spacious"]),
+    cardStyle: z.enum(["flat", "elevated", "outlined"]),
+    rationale: z.string().min(1).max(500),
+  })
+  .strict()
+  .superRefine((direction, ctx) => {
+    const violations = checkVisualAccessibility({
+      backgroundId: direction.backgroundId,
+      accentId: direction.accentId,
+      layout: direction.layout,
+      density: direction.density,
+      eventCount: 0, // per-candidate contrast/token checks only; count-based checks are the heuristic's job before this ever reaches a schema
+    });
+    // Only the token/contrast violations apply without a real event count —
+    // "density_overflow_risk" needs the generator's own count and is
+    // enforced there (lib/ai/visual-director.ts), not re-derivable here.
+    for (const violation of violations.filter((v) => v.code !== "density_overflow_risk")) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: violation.message, path: ["backgroundId"] });
+    }
+  });
+export type VisualDirection = z.infer<typeof VisualDirectionSchema>;
+
+// Not .superRefine()'d here for the same reason noted on
+// TemporalCorrectionPayloadSchema below — a discriminatedUnion member must
+// stay a plain ZodObject. The recommendedIndex-bounds check is enforced on
+// AiProposalPayloadSchema's own .superRefine() instead. Each candidate's
+// accessibility/token validity is still enforced right here via
+// VisualDirectionSchema, since that's a nested array element, not a union
+// member.
 export const VisualRecommendationPayloadSchema = z
   .object({
     kind: z.literal("visual_recommendation"),
-    layout: z.string().min(1).max(32).optional(),
-    theme: z.record(z.string(), z.unknown()).optional(),
-    rationale: z.string().max(1000).optional(),
+    candidates: z.array(VisualDirectionSchema).min(2).max(3),
+    /** Index into `candidates` the provider considers the best default — accept() may still choose a different one. */
+    recommendedIndex: z.number().int().min(0).max(2).default(0),
     confidence: ConfidenceSchema,
   })
   .strict();
@@ -163,6 +214,13 @@ export const AiProposalPayloadSchema = z
         code: z.ZodIssueCode.custom,
         message: "A temporal correction needs at least one citation, or must be flagged as an uncited inference.",
         path: ["citations"],
+      });
+    }
+    if (payload.kind === "visual_recommendation" && payload.recommendedIndex >= payload.candidates.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "recommendedIndex must point at one of the provided candidates.",
+        path: ["recommendedIndex"],
       });
     }
   });
