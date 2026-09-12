@@ -38,6 +38,14 @@ export async function importSource(timelineId: string, viewer: ViewerContext, in
 
   const { contentHash, chunks } = normalizeSourceDocument(rawContent, input.kind);
 
+  // Checked before the upsert so the caller can tell "this exact document
+  // was already imported before" apart from "first time seeing this" —
+  // the upsert alone can't distinguish the two branches it took.
+  const existingImport = await prisma.timelineSourceImport.findUnique({
+    where: { timelineId_contentHash: { timelineId, contentHash } },
+    select: { id: true },
+  });
+
   const sourceImport = await prisma.timelineSourceImport.upsert({
     where: { timelineId_contentHash: { timelineId, contentHash } },
     create: {
@@ -51,13 +59,27 @@ export async function importSource(timelineId: string, viewer: ViewerContext, in
     update: {}, // identical content already recorded — leave the original createdAt/createdBy
   });
 
+  // Chunks that already produced an accepted event on a prior import of
+  // this same document — surfaced to the review UI so "already imported"
+  // is visible per-event, not just enforced silently at accept time (see
+  // applyProposal's events_extraction dedupe in ai-proposals.ts).
+  const alreadyImportedRows = await prisma.timelineImportedEvent.findMany({
+    where: { timelineId, contentHash, chunkId: { in: chunks.map((c) => c.id) } },
+    select: { chunkId: true },
+  });
+
   const combinedText = chunks.map((c) => c.text).join("\n\n");
   const proposal = await generateAiProposal(timelineId, viewer, "events_extraction", combinedText, {
     chunks,
     sourceContentHash: contentHash,
   });
 
-  return { sourceImport, proposal };
+  return {
+    sourceImport,
+    proposal,
+    wasReimport: !!existingImport,
+    alreadyImportedChunkIds: alreadyImportedRows.map((r) => r.chunkId),
+  };
 }
 
 function requireContent(input: ImportSourceInput): string {
