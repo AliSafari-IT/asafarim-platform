@@ -442,7 +442,15 @@ async function applyProposal(
       const previousThemeObject = (previousTheme as Record<string, unknown> | null) ?? {};
       const nextTheme = {
         ...previousThemeObject,
-        background: background.hex,
+        // TimelineRenderer never reads theme.background (it derives
+        // background from theme.preset's CSS, via resolveThemePreset) —
+        // "paper" -> the closest light preset, "midnight" -> the matching
+        // dark preset, so this candidate's chosen background actually shows
+        // up. Recorded here as a real fix, not a new behavior: a
+        // visual_recommendation applied before this line changed the
+        // layout/accent/density/cardStyle but silently left the background
+        // untouched.
+        preset: candidate.backgroundId === "midnight" ? "midnight" : "canvas",
         accentColor: accent.hex,
         density: candidate.density,
         cardStyle: candidate.cardStyle,
