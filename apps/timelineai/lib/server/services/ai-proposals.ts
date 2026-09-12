@@ -7,6 +7,8 @@ import { getConfiguredProvider, AiProviderError } from "../../ai/provider";
 import { redactForAudit } from "../../ai/redact";
 import { preservesFactualAnchors, type NarrativeVariant } from "../../ai/narrative";
 import type { AiProposalKind, AiProposalPayload } from "../../ai/schemas";
+import type { ContentSummary } from "../../ai/visual-director";
+import { VISUAL_DIRECTOR_ACCENTS, VISUAL_DIRECTOR_BACKGROUNDS } from "../../ai/visual-accessibility";
 
 export class AiDisabledError extends Error {
   readonly status = 503;
@@ -64,6 +66,26 @@ async function loadTimelineForEdit(timelineId: string, viewer: ViewerContext) {
   return timeline;
 }
 
+/**
+ * Server-derived, never client-supplied — a client claiming "many branches"
+ * to steer the recommendation would just be describing content it doesn't
+ * have, so this is computed straight from the timeline's own rows.
+ */
+async function summarizeContentForVisualDirector(timelineId: string): Promise<ContentSummary> {
+  const events = await prisma.timelineEvent.findMany({
+    where: { timelineId },
+    select: { startAt: true, endAt: true, description: true, label: true },
+  });
+  const eventCount = events.length;
+  const hasDurations = events.some((e) => e.startAt && e.endAt);
+  const distinctLabels = new Set(events.map((e) => e.label).filter(Boolean));
+  const hasManyBranches = distinctLabels.size > 3;
+  const avgDescriptionLength = eventCount
+    ? Math.round(events.reduce((sum, e) => sum + (e.description?.length ?? 0), 0) / eventCount)
+    : 0;
+  return { eventCount, hasDurations, hasManyBranches, avgDescriptionLength };
+}
+
 function identityFor(viewer: ViewerContext): string {
   const id = viewer.userId ?? viewer.guestIdHash;
   if (!id) throw new ForbiddenError("Could not identify you for AI quota tracking.");
@@ -99,6 +121,7 @@ export async function generateAiProposal(
   await loadTimelineForEdit(timelineId, viewer);
   await enforceAiQuota(identityFor(viewer));
 
+  const contentSummary = kind === "visual_recommendation" ? await summarizeContentForVisualDirector(timelineId) : undefined;
   let narrativeTarget: {
     field: NarrativeField;
     eventId?: string;
@@ -135,6 +158,7 @@ export async function generateAiProposal(
       chunks: options.chunks,
       sourceContentHash: options.sourceContentHash,
       targetEventId: options.targetEventId,
+      contentSummary,
       narrativeTarget,
     });
 
@@ -225,6 +249,8 @@ export async function rejectAiProposal(proposalId: string, viewer: ViewerContext
  * undoAiProposal to reverse it later.
  */
 export interface ApplyProposalOptions {
+  /** For visual_recommendation proposals — which candidate to apply. Defaults to the payload's recommendedIndex. */
+  candidateIndex?: number;
   /** Which narrative_suggestion variant to apply — defaults to the payload's suggestedText (the "standard" variant) when omitted. */
   variant?: NarrativeVariant;
 }
@@ -332,14 +358,41 @@ async function applyProposal(
     }
 
     case "visual_recommendation": {
+      const index = options.candidateIndex ?? payload.recommendedIndex;
+      const candidate = payload.candidates[index];
+      if (!candidate) {
+        throw new NotFoundError("That visual-direction candidate no longer exists on this proposal.");
+      }
+
       const timeline = await tx.timeline.findUniqueOrThrow({ where: { id: timelineId } });
       const previousLayout = timeline.layout;
       const previousTheme = timeline.theme;
+
+      const background = VISUAL_DIRECTOR_BACKGROUNDS.find((b) => b.id === candidate.backgroundId);
+      const accent = VISUAL_DIRECTOR_ACCENTS.find((a) => a.id === candidate.accentId);
+      // Both are schema-validated enum members of these exact lists, so a
+      // miss here would mean the token set changed between generation and
+      // acceptance — treated as "nothing to apply" rather than writing a
+      // half-resolved theme.
+      if (!background || !accent) {
+        throw new NotFoundError("This candidate's color tokens are no longer available.");
+      }
+
+      const previousThemeObject = (previousTheme as Record<string, unknown> | null) ?? {};
+      const nextTheme = {
+        ...previousThemeObject,
+        background: background.hex,
+        accentColor: accent.hex,
+        density: candidate.density,
+        cardStyle: candidate.cardStyle,
+      };
+
+      // Presentation only — this never touches a TimelineEvent row.
       await tx.timeline.update({
         where: { id: timelineId },
         data: {
-          layout: payload.layout ?? timeline.layout,
-          theme: (payload.theme as Prisma.InputJsonValue | undefined) ?? timeline.theme ?? undefined,
+          layout: candidate.layout,
+          theme: nextTheme as unknown as Prisma.InputJsonValue,
           version: { increment: 1 },
         },
       });

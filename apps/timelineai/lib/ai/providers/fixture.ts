@@ -2,6 +2,7 @@ import type { AiProvider, AiGenerationRequest } from "../provider";
 import { parseGenerationResult, AiProviderError } from "../provider";
 import type { AiGenerationResult } from "../schemas";
 import { parseTemporalPhrase } from "../temporal-parse";
+import { recommendVisualDirections, type ContentSummary } from "../visual-director";
 
 /**
  * Deterministic, zero-network provider used in CI and local dev by default
@@ -85,18 +86,41 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
         warnings: [],
         model,
       };
+    case "visual_recommendation": {
+      const summary: ContentSummary = request.contentSummary ?? {
+        eventCount: 10,
+        hasDurations: false,
+        hasManyBranches: false,
+        avgDescriptionLength: 50,
+      };
+      const directions = recommendVisualDirections(summary);
+      if (directions.length < 2) {
+        // Every heuristic candidate already passed the accessibility gate
+        // (visual-director.ts never returns one that didn't) — fewer than
+        // 2 surviving means the token set itself can't cover this content,
+        // which is a provider_failure, not a partial/degraded proposal.
+        throw new AiProviderError("Could not produce enough accessible visual-direction candidates.");
+      }
     }
     case "visual_recommendation":
       return {
         payload: {
           kind: "visual_recommendation",
-          layout: "vertical",
-          rationale: "Fixture recommendation: vertical suits most content lengths.",
-          confidence: "low",
+          candidates: directions.map((d) => ({
+            layout: d.layout,
+            backgroundId: d.backgroundId,
+            accentId: d.accentId,
+            density: d.density,
+            cardStyle: d.cardStyle,
+            rationale: d.rationale,
+          })),
+          recommendedIndex: 0,
+          confidence: "medium",
         },
         warnings: [],
         model,
       };
+    }
     case "temporal_correction": {
       if (!request.targetEventId) {
         throw new AiProviderError("temporal_correction requires a targetEventId.");
