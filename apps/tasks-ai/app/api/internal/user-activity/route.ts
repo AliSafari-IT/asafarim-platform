@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   const [workspaces, tasks, proposals] = await Promise.all([
     db.workspace.findMany({
       where: { id: { in: workspaceIds } },
-      select: { id: true, name: true, createdAt: true, updatedAt: true },
+      select: { id: true, slug: true, name: true, createdAt: true, updatedAt: true },
     }),
     db.task.findMany({
       where: {
@@ -63,10 +63,11 @@ export async function GET(request: Request) {
       select: {
         id: true,
         title: true,
-        workspaceId: true,
         completedAt: true,
         createdAt: true,
         updatedAt: true,
+        workspace: { select: { slug: true } },
+        project: { select: { key: true } },
       },
     }),
     // Copilot proposals this membership requested — Proposal has no direct
@@ -99,7 +100,7 @@ export async function GET(request: Request) {
         status: m.role,
         createdAt: m.createdAt.toISOString(),
         updatedAt: m.updatedAt.toISOString(),
-        href: `${base}/workspace/${m.workspaceId}`,
+        href: workspace ? `${base}/w/${workspace.slug}` : base,
         metadata: { role: m.role },
       };
     }),
@@ -110,19 +111,23 @@ export async function GET(request: Request) {
       status: task.completedAt ? "completed" : "open",
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
-      href: `${base}/workspace/${task.workspaceId}/tasks/${task.id}`,
+      // TasksAI has no per-task detail route yet — link to the task's project board.
+      href: `${base}/w/${task.workspace.slug}/projects/${task.project.key}`,
       metadata: { completedAt: task.completedAt?.toISOString() ?? null },
     })),
-    ...proposals.map((p) => ({
-      id: p.id,
-      type: "copilot_proposal",
-      title: p.summary ?? `Copilot proposal (${p.kind})`,
-      status: p.state,
-      createdAt: p.createdAt.toISOString(),
-      updatedAt: p.updatedAt.toISOString(),
-      href: `${base}/workspace/${p.workspaceId}`,
-      metadata: { kind: p.kind, appliedAt: p.appliedAt?.toISOString() ?? null },
-    })),
+    ...proposals.map((p) => {
+      const workspace = workspaceById.get(p.workspaceId);
+      return {
+        id: p.id,
+        type: "copilot_proposal",
+        title: p.summary ?? `Copilot proposal (${p.kind})`,
+        status: p.state,
+        createdAt: p.createdAt.toISOString(),
+        updatedAt: p.updatedAt.toISOString(),
+        href: workspace ? `${base}/w/${workspace.slug}` : base,
+        metadata: { kind: p.kind, appliedAt: p.appliedAt?.toISOString() ?? null },
+      };
+    }),
   ];
 
   return NextResponse.json({ entries });
