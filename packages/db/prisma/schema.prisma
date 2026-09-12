@@ -1876,6 +1876,11 @@ model Timeline {
   moderationReason String? @db.Text
   editingState     String  @default("draft") // draft, published
 
+  /// Timeline-level fields (subset of "title"|"subtitle"|"description")
+  /// the narrative copilot (TLAI-005) must never rewrite. Checked both
+  /// before generation and again at accept time in ai-proposals.ts.
+  aiLockedFields Json?
+
   // Optimistic-concurrency guard for concurrent editor saves.
   version Int @default(1)
 
@@ -1936,6 +1941,11 @@ model TimelineEvent {
   // Manual ordering mode position; chronological mode sorts by startAt at
   // render time and ignores this field.
   sortOrder Int @default(0)
+
+  /// When true, the narrative copilot (TLAI-005) must never propose or
+  /// apply a rewrite of this event's title/subtitle/description. Checked
+  /// both before generation and again at accept time.
+  aiLocked Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -1,5 +1,6 @@
 import { AiGenerationResultSchema, type AiGenerationResult, type AiProposalKind } from "./schemas";
 import type { ContentSummary } from "./visual-director";
+import type { NarrativeAudiencePreset } from "./narrative";
 
 /**
  * Provider-neutral generation request. `sourceContent` is untrusted — never
@@ -23,6 +24,18 @@ export interface AiGenerationRequest {
   targetEventId?: string;
   /** Set for kind "visual_recommendation" — a deterministic summary of the timeline's content for the heuristics in lib/ai/visual-director.ts to work from. */
   contentSummary?: ContentSummary;
+  /**
+   * Set for kind "narrative_suggestion" — which existing field is being
+   * rewritten, in whose voice, and the original text of that field (so the
+   * provider — and preservesFactualAnchors() downstream — can compare
+   * against it rather than the raw sourceContent).
+   */
+  narrativeTarget?: {
+    field: "title" | "subtitle" | "description";
+    eventId?: string;
+    currentText: string;
+    audiencePreset?: NarrativeAudiencePreset;
+  };
 }
 
 export interface AiProvider {

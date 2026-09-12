@@ -78,6 +78,28 @@ describe("AI eval gate — golden (every kind produces valid output)", () => {
       expect(result.payload.temporalValue.precision).toBe("unknown");
     }
   });
+
+  it("produces a narrative_suggestion with three variants that all preserve the original facts", async () => {
+    const result = await fixtureProvider.generate({
+      kind: "narrative_suggestion",
+      timelineId: "tl_test",
+      sourceContent: "unused when narrativeTarget is set",
+      narrativeTarget: {
+        field: "description",
+        currentText: "Founded in 2019, see https://example.com for the full story.",
+        audiencePreset: "executive_update",
+      },
+    });
+    expect(AiGenerationResultSchema.safeParse(result).success).toBe(true);
+    if (result.payload.kind === "narrative_suggestion") {
+      expect(result.payload.variants).toHaveLength(3);
+      expect(result.payload.audiencePreset).toBe("executive_update");
+      for (const v of result.payload.variants) {
+        expect(v.text).toContain("2019");
+        expect(v.text).toContain("https://example.com");
+      }
+    }
+  });
 });
 
 describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", () => {
@@ -220,6 +242,19 @@ describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", (
           confidence: "medium",
           candidates: [
             { layout: "vertical", backgroundId: "paper", accentId: "indigo", density: "comfortable", cardStyle: "flat", rationale: "x" },
+  it("rejects a narrative_suggestion with more than 3 variants", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "narrative_suggestion",
+          field: "description",
+          suggestedText: "ok",
+          confidence: "medium",
+          variants: [
+            { variant: "concise", text: "a" },
+            { variant: "standard", text: "b" },
+            { variant: "immersive", text: "c" },
+            { variant: "concise", text: "d" },
           ],
         },
         model: { provider: "x", model: "y" },
@@ -254,6 +289,15 @@ describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", (
             { layout: "vertical", backgroundId: "midnight", accentId: "indigo", density: "comfortable", cardStyle: "flat", rationale: "x" },
             { layout: "vertical", backgroundId: "paper", accentId: "amber", density: "comfortable", cardStyle: "flat", rationale: "y" },
           ],
+  it("rejects a narrative_suggestion with an unrecognized narrative element", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "narrative_suggestion",
+          field: "description",
+          element: "plot_twist",
+          suggestedText: "ok",
+          confidence: "medium",
         },
         model: { provider: "x", model: "y" },
       })
@@ -287,6 +331,15 @@ describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", (
             { layout: "<script>alert(1)</script>", backgroundId: "paper", accentId: "indigo", density: "comfortable", cardStyle: "flat", rationale: "x" },
             { layout: "vertical", backgroundId: "midnight", accentId: "indigo-light", density: "comfortable", cardStyle: "flat", rationale: "y" },
           ],
+  it("rejects a narrative_suggestion with an unrecognized audience preset", () => {
+    expect(() =>
+      parseGenerationResult({
+        payload: {
+          kind: "narrative_suggestion",
+          field: "description",
+          audiencePreset: "conspiracy_theorists",
+          suggestedText: "ok",
+          confidence: "medium",
         },
         model: { provider: "x", model: "y" },
       })

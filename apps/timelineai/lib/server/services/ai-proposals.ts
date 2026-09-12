@@ -5,6 +5,7 @@ import { isAiEnabled } from "../../ai/kill-switch";
 import { enforceAiQuota } from "../ai-quota";
 import { getConfiguredProvider, AiProviderError } from "../../ai/provider";
 import { redactForAudit } from "../../ai/redact";
+import { preservesFactualAnchors, type NarrativeVariant } from "../../ai/narrative";
 import type { AiProposalKind, AiProposalPayload } from "../../ai/schemas";
 import type { ContentSummary } from "../../ai/visual-director";
 import { VISUAL_DIRECTOR_ACCENTS, VISUAL_DIRECTOR_BACKGROUNDS } from "../../ai/visual-accessibility";
@@ -23,6 +24,39 @@ export class ProposalStateError extends Error {
     super(message);
     this.name = "ProposalStateError";
   }
+}
+
+export class LockedTargetError extends Error {
+  readonly status = 409;
+  constructor(message = "This content is locked and the AI copilot cannot rewrite it.") {
+    super(message);
+    this.name = "LockedTargetError";
+  }
+}
+
+export class InvalidNarrativeTargetError extends Error {
+  readonly status = 400;
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidNarrativeTargetError";
+  }
+}
+
+type NarrativeField = "title" | "subtitle" | "description";
+
+/** True if the narrative copilot must not touch this field, checked at both generate- and accept-time. */
+async function isNarrativeTargetLocked(
+  timelineId: string,
+  eventId: string | undefined,
+  field: NarrativeField
+): Promise<boolean> {
+  if (eventId) {
+    const event = await prisma.timelineEvent.findUnique({ where: { id: eventId }, select: { aiLocked: true } });
+    return event?.aiLocked ?? false;
+  }
+  const timeline = await prisma.timeline.findUnique({ where: { id: timelineId }, select: { aiLockedFields: true } });
+  const locked = Array.isArray(timeline?.aiLockedFields) ? (timeline!.aiLockedFields as string[]) : [];
+  return locked.includes(field);
 }
 
 async function loadTimelineForEdit(timelineId: string, viewer: ViewerContext) {
@@ -70,6 +104,10 @@ export interface GenerateAiProposalOptions {
   sourceContentHash?: string;
   /** Required for kind "temporal_correction" — the event whose date is being reinterpreted. */
   targetEventId?: string;
+  /** For kind "narrative_suggestion" — which field to rewrite, whose voice, for which event (absent = timeline-level). */
+  narrativeField?: NarrativeField;
+  narrativeEventId?: string;
+  narrativeAudiencePreset?: import("../../ai/narrative").NarrativeAudiencePreset;
 }
 
 export async function generateAiProposal(
@@ -84,6 +122,31 @@ export async function generateAiProposal(
   await enforceAiQuota(identityFor(viewer));
 
   const contentSummary = kind === "visual_recommendation" ? await summarizeContentForVisualDirector(timelineId) : undefined;
+  let narrativeTarget: {
+    field: NarrativeField;
+    eventId?: string;
+    currentText: string;
+    audiencePreset?: import("../../ai/narrative").NarrativeAudiencePreset;
+  } | undefined;
+
+  if (kind === "narrative_suggestion") {
+    const field = options.narrativeField ?? "description";
+    if (await isNarrativeTargetLocked(timelineId, options.narrativeEventId, field)) {
+      throw new LockedTargetError();
+    }
+    if (options.narrativeEventId && field === "subtitle") {
+      throw new InvalidNarrativeTargetError('Events have no "subtitle" field — target "title" or "description" instead.');
+    }
+    const currentText = options.narrativeEventId
+      ? ((await prisma.timelineEvent.findUnique({ where: { id: options.narrativeEventId } }))?.[field as "title" | "description"] ?? "")
+      : ((await prisma.timeline.findUnique({ where: { id: timelineId } }))?.[field] ?? "");
+    narrativeTarget = {
+      field,
+      eventId: options.narrativeEventId,
+      currentText: currentText ?? "",
+      audiencePreset: options.narrativeAudiencePreset,
+    };
+  }
 
   const provider = await getConfiguredProvider();
 
@@ -96,7 +159,16 @@ export async function generateAiProposal(
       sourceContentHash: options.sourceContentHash,
       targetEventId: options.targetEventId,
       contentSummary,
+      narrativeTarget,
     });
+
+    // Advisory only — a rewrite that fails this heuristic still gets
+    // stored as a pending proposal for the human to review, never
+    // auto-rejected (the check itself can false-positive).
+    const factDriftWarning =
+      result.payload.kind === "narrative_suggestion" &&
+      narrativeTarget &&
+      !preservesFactualAnchors(narrativeTarget.currentText, result.payload.suggestedText);
 
     const proposal = await prisma.timelineAiProposal.create({
       data: {
@@ -118,7 +190,8 @@ export async function generateAiProposal(
           kind,
           provider: result.model.provider,
           model: result.model.model,
-          warningCount: result.warnings.length,
+          warningCount: result.warnings.length + (factDriftWarning ? 1 : 0),
+          ...(factDriftWarning ? { possibleFactDrift: true } : {}),
         } as unknown as Prisma.InputJsonValue,
       },
     });
@@ -178,6 +251,8 @@ export async function rejectAiProposal(proposalId: string, viewer: ViewerContext
 export interface ApplyProposalOptions {
   /** For visual_recommendation proposals — which candidate to apply. Defaults to the payload's recommendedIndex. */
   candidateIndex?: number;
+  /** Which narrative_suggestion variant to apply — defaults to the payload's suggestedText (the "standard" variant) when omitted. */
+  variant?: NarrativeVariant;
 }
 
 async function applyProposal(
@@ -246,26 +321,38 @@ async function applyProposal(
 
     case "narrative_suggestion": {
       const field = payload.field;
+      const text = options.variant
+        ? payload.variants.find((v) => v.variant === options.variant)?.text ?? payload.suggestedText
+        : payload.suggestedText;
+
       if (payload.eventId) {
         const event = await tx.timelineEvent.findUnique({ where: { id: payload.eventId } });
         if (!event || event.timelineId !== timelineId) {
           throw new NotFoundError("The event this suggestion targets no longer exists.");
         }
-        // Timeline events only expose a description field for narrative suggestions.
-        const previousValue = event.description;
+        if (event.aiLocked) throw new LockedTargetError();
+        if (field === "subtitle") {
+          throw new InvalidNarrativeTargetError('Events have no "subtitle" field — cannot apply this suggestion.');
+        }
+
+        const eventField = field;
+        const previousValue = event[eventField];
         await tx.timelineEvent.update({
           where: { id: payload.eventId },
-          data: { description: payload.suggestedText },
+          data: { [eventField]: text },
         });
         await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
-        return { target: "event", eventId: payload.eventId, field: "description", previousValue };
+        return { target: "event", eventId: payload.eventId, field: eventField, previousValue };
       }
 
       const timeline = await tx.timeline.findUniqueOrThrow({ where: { id: timelineId } });
+      const lockedFields = Array.isArray(timeline.aiLockedFields) ? (timeline.aiLockedFields as string[]) : [];
+      if (lockedFields.includes(field)) throw new LockedTargetError();
+
       const previousValue = timeline[field as "title" | "subtitle" | "description"];
       await tx.timeline.update({
         where: { id: timelineId },
-        data: { [field]: payload.suggestedText, version: { increment: 1 } },
+        data: { [field]: text, version: { increment: 1 } },
       });
       return { target: "timeline", field, previousValue };
     }
@@ -384,10 +471,10 @@ async function revertProposal(
     return;
   }
 
-  if (snapshot.target === "event" && typeof snapshot.eventId === "string") {
+  if (snapshot.target === "event" && typeof snapshot.eventId === "string" && typeof snapshot.field === "string") {
     await tx.timelineEvent.update({
       where: { id: snapshot.eventId },
-      data: { description: (snapshot.previousValue as string | null) ?? null },
+      data: { [snapshot.field]: (snapshot.previousValue as string | null) ?? null },
     });
     await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
     return;
