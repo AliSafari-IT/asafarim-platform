@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-12",
-    "title": "Admin: superadmin platform-activity browse view (Vionto + TimelineAI)",
-    "sha": "93b84df",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/93b84df"
+    "title": "UI: make activity Timeline entries clickable, not just text",
+    "sha": "815b110",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/815b110"
   }
 ]
