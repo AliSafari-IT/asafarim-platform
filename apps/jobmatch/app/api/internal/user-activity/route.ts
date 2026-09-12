@@ -46,7 +46,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ entries: [] });
   }
 
-  const [documents, trackedJobs] = await Promise.all([
+  const [profile, documents, trackedJobs] = await Promise.all([
+    db.candidateProfile.findUnique({
+      where: { workspaceId: workspace.id },
+      select: { id: true, confirmedVersionId: true, createdAt: true, updatedAt: true },
+    }),
     db.candidateDocument.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { uploadedAt: "desc" },
@@ -56,6 +60,10 @@ export async function GET(request: Request) {
         status: true,
         byteSize: true,
         uploadedAt: true,
+        // Retention state: when the stored bytes become eligible for
+        // deletion, and whether they already were (soft-deleted).
+        retainUntil: true,
+        deletedAt: true,
       },
     }),
     db.trackedJob.findMany({
@@ -72,15 +80,33 @@ export async function GET(request: Request) {
   ]);
 
   const entries = [
+    ...(profile
+      ? [
+          {
+            id: profile.id,
+            type: "candidate_profile",
+            title: "Candidate profile",
+            status: profile.confirmedVersionId ? "confirmed" : "draft",
+            createdAt: profile.createdAt.toISOString(),
+            updatedAt: profile.updatedAt.toISOString(),
+            href: `${base}/profile`,
+            metadata: {},
+          },
+        ]
+      : []),
     ...documents.map((doc) => ({
       id: doc.id,
       type: "document",
       title: doc.originalFilename,
-      status: doc.status,
+      status: doc.deletedAt ? "deleted" : doc.status,
       createdAt: doc.uploadedAt.toISOString(),
       updatedAt: doc.uploadedAt.toISOString(),
       href: `${base}/documents`,
-      metadata: { byteSize: doc.byteSize },
+      metadata: {
+        byteSize: doc.byteSize,
+        retainUntil: doc.retainUntil?.toISOString() ?? null,
+        deletedAt: doc.deletedAt?.toISOString() ?? null,
+      },
     })),
     ...trackedJobs.map((job) => ({
       id: job.id,
