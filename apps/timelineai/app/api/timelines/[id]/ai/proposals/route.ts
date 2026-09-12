@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getViewerContext } from "@/lib/server/authz";
 import { toErrorResponse } from "@/lib/server/api-errors";
-import { generateAiProposal } from "@/lib/server/services/ai-proposals";
+import { generateAiProposal, listAiProposals } from "@/lib/server/services/ai-proposals";
 import { AI_PROPOSAL_KINDS } from "@/lib/ai/schemas";
 import { NARRATIVE_AUDIENCE_PRESETS } from "@/lib/ai/narrative";
 
@@ -23,6 +23,17 @@ const GenerateInputSchema = z
   });
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(_req: NextRequest, { params }: RouteContext) {
+  try {
+    const { id } = await params;
+    const viewer = await getViewerContext();
+    const proposals = await listAiProposals(id, viewer);
+    return NextResponse.json({ proposals });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
+}
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
   try {

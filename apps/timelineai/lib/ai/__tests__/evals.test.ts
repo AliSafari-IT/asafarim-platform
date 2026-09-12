@@ -100,6 +100,26 @@ describe("AI eval gate — golden (every kind produces valid output)", () => {
       }
     }
   });
+
+  it("falls back to sourceContent for a narrative_suggestion whose target field is currently empty", async () => {
+    // A field with nothing written yet (currentText === "") previously made
+    // the fixture build a variant from an empty string, which failed schema
+    // validation (NarrativeVariantSchema requires non-empty text) — this is
+    // the ordinary "write my first draft of this field" case, not an edge case.
+    const result = await fixtureProvider.generate({
+      kind: "narrative_suggestion",
+      timelineId: "tl_test",
+      sourceContent: "A punchy first draft for a general audience.",
+      narrativeTarget: { field: "description", currentText: "" },
+    });
+    expect(AiGenerationResultSchema.safeParse(result).success).toBe(true);
+    if (result.payload.kind === "narrative_suggestion") {
+      for (const v of result.payload.variants) {
+        expect(v.text.length).toBeGreaterThan(0);
+        expect(v.text).toContain("A punchy first draft for a general audience.");
+      }
+    }
+  });
 });
 
 describe("AI eval gate — adversarial (unsafe/malformed output is rejected)", () => {
