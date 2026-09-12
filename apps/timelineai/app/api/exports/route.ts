@@ -5,6 +5,7 @@ import { toErrorResponse } from "@/lib/server/api-errors";
 import { getTimelineForView } from "@/lib/server/services/timelines";
 import { enforceGuestRateLimit } from "@/lib/server/guest-rate-limit";
 import { renderTimelineExport, type ExportFormat } from "@/lib/server/services/export";
+import { createRenderGrant } from "@/lib/server/render-grant";
 
 const ExportRequestSchema = z.object({
   publicId: z.string().min(1).max(64),
@@ -41,7 +42,11 @@ export async function POST(req: NextRequest) {
     }
 
     const url = `${internalOrigin}/t/${encodeURIComponent(timeline.publicId)}`;
-    const buffer = await renderTimelineExport({ url, format });
+    // Minted only after the check above succeeded — vouches to the internal
+    // render request that the real caller was authorized to view this
+    // timeline, since that request carries no session/guest identity of its own.
+    const grant = createRenderGrant(timeline.publicId, format);
+    const buffer = await renderTimelineExport({ url, format, grant });
 
     const safeFilename = timeline.title.replace(/[^a-z0-9-_ ]/gi, "").trim().slice(0, 80) || "timeline";
 

@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { getViewerContext } from "@/lib/server/authz";
-import { getTimelineForView } from "@/lib/server/services/timelines";
+import { getTimelineForView, getTimelineForRenderGrant } from "@/lib/server/services/timelines";
 import { NotFoundError, ForbiddenError } from "@/lib/server/authz";
+import { verifyRenderGrant } from "@/lib/server/render-grant";
 import { TimelineRenderer } from "@/components/timeline/renderers/TimelineRenderer";
 import { ExportButtons } from "@/components/timeline/ExportButtons";
 import { isWideLayout } from "@/lib/timeline-config";
@@ -54,14 +55,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PublicTimelinePage({ params }: PageProps) {
   const { publicId } = await params;
-  const viewer = await getViewerContext();
+  const requestHeaders = await headers();
   // Puppeteer's own request during export (see lib/server/services/export.ts)
   // — hide the interactive export controls from the exported image/PDF
   // itself; app/layout.tsx uses this same header to skip the nav/footer.
-  const isBareRender = (await headers()).get("x-timelineai-render") === "bare";
+  // This header alone is never treated as authorization — see below.
+  const isBareRender = requestHeaders.get("x-timelineai-render") === "bare";
+  const renderGrant = requestHeaders.get("x-timelineai-render-grant");
+  const hasValidRenderGrant = isBareRender && verifyRenderGrant(renderGrant, publicId);
+
+  const viewer = await getViewerContext();
 
   try {
-    const timeline = await getTimelineForView(publicId, viewer);
+    // The internal render request carries no session/guest identity, so it
+    // can never pass the normal view-authorization check below for a
+    // private/pending timeline. A verified grant — minted only by the
+    // export API after it authorized the real caller — stands in for that
+    // check on this exact publicId instead; an invalid/missing/expired
+    // grant falls through to the normal (and here, unauthenticated) check.
+    const timeline = hasValidRenderGrant
+      ? await getTimelineForRenderGrant(publicId)
+      : await getTimelineForView(publicId, viewer);
     const isOwnerPreviewingPending =
       timeline.moderationStatus === "pending" && !viewer.isAdmin;
 
