@@ -1606,6 +1606,19 @@ a .ui-card {
   color: var(--muted);
 }
 
+.ui-timeline__link {
+  color: inherit;
+  text-decoration: none;
+}
+.ui-timeline__link:hover {
+  color: var(--accent, var(--ink));
+  text-decoration: underline;
+}
+.ui-timeline__link span {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
 /* ── Grids ──────────────────────────────────────────────────────── */
 
 .ui-grid {
