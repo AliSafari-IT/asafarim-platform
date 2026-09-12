@@ -171,8 +171,8 @@ export const roadmapItems: RoadmapItem[] = [
   {
     id: "TLAI-006",
     title: "Adaptive visual director",
-    status: "in-progress",
-    timeframe: "In review · Sep 2026",
+    status: "shipped",
+    timeframe: "Shipped 12 Sep 2026",
     summary:
       "Recommend and compare safe layout, density, card, color, and emphasis directions from the content—with explanations and accessibility/export checks before applying.",
     tags: ["ai", "design", "accessibility", "epic #298"],

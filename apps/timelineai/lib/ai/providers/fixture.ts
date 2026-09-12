@@ -86,6 +86,7 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
         warnings: [],
         model,
       };
+    }
     case "visual_recommendation": {
       const summary: ContentSummary = request.contentSummary ?? {
         eventCount: 10,
@@ -101,8 +102,6 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
         // which is a provider_failure, not a partial/degraded proposal.
         throw new AiProviderError("Could not produce enough accessible visual-direction candidates.");
       }
-    }
-    case "visual_recommendation":
       return {
         payload: {
           kind: "visual_recommendation",
