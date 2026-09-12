@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 import { ForbiddenError, NotFoundError } from "./authz";
 import { VersionConflictError } from "./services/timelines";
 import { RateLimitedError } from "./guest-rate-limit";
-import { ExportTimeoutError } from "./services/export";
+import { ExportTimeoutError, ExportRenderError } from "./services/export";
 
 /**
  * Consistent typed error responses across every route. Non-technical
@@ -39,6 +39,12 @@ export function toErrorResponse(error: unknown): NextResponse {
   }
   if (error instanceof ExportTimeoutError) {
     return NextResponse.json({ error: "export_timeout", message: error.message }, { status: 504 });
+  }
+  if (error instanceof ExportRenderError) {
+    return NextResponse.json(
+      { error: "export_render_failed", message: "We couldn't render this export. Please try again." },
+      { status: 502 }
+    );
   }
 
   console.error("[timelineai] unhandled API error:", error);
