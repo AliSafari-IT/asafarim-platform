@@ -35,7 +35,9 @@ export async function GET(request: Request) {
   }
 
   const db = getDb();
-  const [apps, jobs] = await Promise.all([
+  const base = process.env.NEXT_PUBLIC_APPBUILDER_URL ?? "http://localhost:3006";
+
+  const [apps, generationJobs, modificationJobs, deployments, collaborations] = await Promise.all([
     db
       .select({
         id: schema.apps.id,
@@ -60,6 +62,50 @@ export async function GET(request: Request) {
       .from(schema.generationJobs)
       .where(eq(schema.generationJobs.initiatedByPrincipalId, userId))
       .orderBy(desc(schema.generationJobs.createdAt)),
+    db
+      .select({
+        id: schema.modificationJobs.id,
+        appId: schema.modificationJobs.appId,
+        status: schema.modificationJobs.status,
+        phase: schema.modificationJobs.phase,
+        attemptCount: schema.modificationJobs.attemptCount,
+        createdAt: schema.modificationJobs.createdAt,
+        updatedAt: schema.modificationJobs.updatedAt,
+      })
+      .from(schema.modificationJobs)
+      .where(eq(schema.modificationJobs.initiatedByPrincipalId, userId))
+      .orderBy(desc(schema.modificationJobs.createdAt)),
+    // Deployments this user triggered, on any app (not just their own) —
+    // deploying a release someone else's app doesn't require ownership,
+    // just a collaborator grant.
+    db
+      .select({
+        id: schema.deployments.id,
+        appId: schema.deployments.appId,
+        environment: schema.deployments.environment,
+        status: schema.deployments.status,
+        phase: schema.deployments.phase,
+        isRollback: schema.deployments.isRollback,
+        createdAt: schema.deployments.createdAt,
+        updatedAt: schema.deployments.updatedAt,
+      })
+      .from(schema.deployments)
+      .where(eq(schema.deployments.deployedByPrincipalId, userId))
+      .orderBy(desc(schema.deployments.createdAt)),
+    // Apps this user was added to as a collaborator (not apps they own —
+    // that's already covered by `apps` above).
+    db
+      .select({
+        id: schema.collaborators.id,
+        appId: schema.collaborators.appId,
+        role: schema.collaborators.role,
+        status: schema.collaborators.status,
+        createdAt: schema.collaborators.createdAt,
+        updatedAt: schema.collaborators.updatedAt,
+      })
+      .from(schema.collaborators)
+      .where(eq(schema.collaborators.principalId, userId))
+      .orderBy(desc(schema.collaborators.createdAt)),
   ]);
 
   const entries = [
@@ -70,18 +116,48 @@ export async function GET(request: Request) {
       status: app.status,
       createdAt: app.createdAt.toISOString(),
       updatedAt: app.updatedAt.toISOString(),
-      href: `${process.env.NEXT_PUBLIC_APPBUILDER_URL ?? "http://localhost:3006"}/apps/${app.id}`,
+      href: `${base}/apps/${app.id}`,
       metadata: {},
     })),
-    ...jobs.map((job) => ({
+    ...generationJobs.map((job) => ({
       id: job.id,
       type: "generation_job",
       title: `Generation job (${job.phase})`,
       status: job.status,
       createdAt: job.createdAt.toISOString(),
       updatedAt: job.updatedAt.toISOString(),
-      href: `${process.env.NEXT_PUBLIC_APPBUILDER_URL ?? "http://localhost:3006"}/apps/${job.appId}`,
+      href: `${base}/apps/${job.appId}`,
       metadata: { attemptCount: job.attemptCount },
+    })),
+    ...modificationJobs.map((job) => ({
+      id: job.id,
+      type: "modification_job",
+      title: `Modification job (${job.phase})`,
+      status: job.status,
+      createdAt: job.createdAt.toISOString(),
+      updatedAt: job.updatedAt.toISOString(),
+      href: `${base}/apps/${job.appId}`,
+      metadata: { attemptCount: job.attemptCount },
+    })),
+    ...deployments.map((d) => ({
+      id: d.id,
+      type: "deployment",
+      title: `Deployment to ${d.environment}${d.isRollback ? " (rollback)" : ""}`,
+      status: d.status,
+      createdAt: d.createdAt.toISOString(),
+      updatedAt: d.updatedAt.toISOString(),
+      href: `${base}/apps/${d.appId}`,
+      metadata: { environment: d.environment, phase: d.phase, isRollback: d.isRollback },
+    })),
+    ...collaborations.map((c) => ({
+      id: c.id,
+      type: "collaboration",
+      title: `Collaborator (${c.role})`,
+      status: c.status,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+      href: `${base}/apps/${c.appId}`,
+      metadata: { role: c.role },
     })),
   ];
 
