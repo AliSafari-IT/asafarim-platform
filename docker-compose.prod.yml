@@ -269,6 +269,9 @@ services:
       # not the public domain, so exports don't round-trip through Caddy/TLS.
       TIMELINEAI_INTERNAL_URL: http://localhost:3000
       TIMELINEAI_GUEST_IP_HASH_KEY: ${TIMELINEAI_GUEST_IP_HASH_KEY}
+      # HMAC key signing the short-lived render grant for the export pipeline
+      # (lib/server/render-grant.ts). Without this, exports fail.
+      TIMELINEAI_RENDER_GRANT_SECRET: ${TIMELINEAI_RENDER_GRANT_SECRET}
       # Caddy is one hop in front of every app in this stack.
       TIMELINEAI_TRUSTED_PROXY_HOPS: "1"
     depends_on:
