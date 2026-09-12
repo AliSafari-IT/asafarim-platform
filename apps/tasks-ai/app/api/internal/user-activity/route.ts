@@ -57,10 +57,11 @@ export async function GET(request: Request) {
     select: {
       id: true,
       title: true,
-      workspaceId: true,
       completedAt: true,
       createdAt: true,
       updatedAt: true,
+      workspace: { select: { slug: true } },
+      project: { select: { key: true } },
     },
   });
 
@@ -71,7 +72,8 @@ export async function GET(request: Request) {
     status: task.completedAt ? "completed" : "open",
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
-    href: `${base}/workspace/${task.workspaceId}/tasks/${task.id}`,
+    // TasksAI has no per-task detail route yet — link to the task's project board.
+    href: `${base}/w/${task.workspace.slug}/projects/${task.project.key}`,
     metadata: { completedAt: task.completedAt?.toISOString() ?? null },
   }));
 
