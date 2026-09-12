@@ -1,4 +1,5 @@
 import { AiGenerationResultSchema, type AiGenerationResult, type AiProposalKind } from "./schemas";
+import type { ContentSummary } from "./visual-director";
 
 /**
  * Provider-neutral generation request. `sourceContent` is untrusted — never
@@ -20,6 +21,8 @@ export interface AiGenerationRequest {
   sourceContentHash?: string;
   /** Set for kind "temporal_correction" — the event whose date is being reinterpreted from `sourceContent`. */
   targetEventId?: string;
+  /** Set for kind "visual_recommendation" — a deterministic summary of the timeline's content for the heuristics in lib/ai/visual-director.ts to work from. */
+  contentSummary?: ContentSummary;
 }
 
 export interface AiProvider {
