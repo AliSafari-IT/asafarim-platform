@@ -9,7 +9,7 @@ const webUrl = process.env.NEXT_PUBLIC_WEB_URL || "https://asafarim.com";
 export const metadata: Metadata = {
   title: "Behind this project",
   description:
-    "TimelineAI is a working showcase product from ASafarIM Digital: what works, what is demonstration data, what it proves technically, and where it stands commercially.",
+    "TimelineAI is a working showcase product from ASafariM Digital: what works, what is demonstration data, what it proves technically, and where it stands commercially.",
 };
 
 export default function AboutThisProjectPage() {

@@ -45,7 +45,7 @@ const DEFAULT_LABELS: Required<ShowcaseAboutLabels> = {
   sectionWhereThisStands: "Where this stands",
   ctaHeading: "Need something like this?",
   ctaBody:
-    "{appName} is the kind of system ASafarIM Digital builds end to end — design, architecture, authentication, data, background processing, testing, and deployment. If you want your own version, or something considerably more advanced, let's talk about it.",
+    "{appName} is the kind of system ASafariM Digital builds end to end — design, architecture, authentication, data, background processing, testing, and deployment. If you want your own version, or something considerably more advanced, let's talk about it.",
   ctaLinkText: "Discuss a custom solution",
 };
 

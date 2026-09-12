@@ -41,7 +41,7 @@ export function AppShell({
       </div>
       <footer className="ui-shell__footer">
         <span>
-          <strong>ASafarIM Digital</strong> — practical apps, built with care.
+          <strong>ASafariM Digital</strong> — practical apps, built with care.
         </span>
         {footer}
         <span className="ui-shell__footer-meta">

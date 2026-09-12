@@ -40,7 +40,7 @@ export interface BrandWordmarkProps {
 export function BrandWordmark({ product = "Digital" }: BrandWordmarkProps) {
   return (
     <span className="ui-wordmark">
-      <span className="ui-wordmark__name">ASafarIM</span>
+      <span className="ui-wordmark__name">ASafariM</span>
       <span className="ui-wordmark__product">{product}</span>
     </span>
   );
