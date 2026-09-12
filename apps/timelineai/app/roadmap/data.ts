@@ -117,30 +117,31 @@ export const roadmapItems: RoadmapItem[] = [
   },
 
   // Forward work is tracked by the cited AI storytelling studio epic (#298).
-  // TLAI-002..006 landed as backend-only (API + service layer + eval gate);
-  // the matching *-UI issues are what makes each one reachable from the
-  // editor. Each pair only reaches "shipped" together — see epic #298's
-  // 12 Sep 2026 status note.
+  // TLAI-002..006 each landed backend-only first (API + service layer + eval
+  // gate), then got its matching *-UI companion that makes it reachable from
+  // the editor — both are "shipped" only once the pair is complete. As of
+  // 12 Sep 2026 all five pairs are shipped; TLAI-013 and TLAI-007 onward are
+  // what's next.
   {
     id: "TLAI-002",
     title: "Governed AI foundation",
-    status: "in-progress",
-    timeframe: "Backend shipped 12 Sep · UI next",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "A provider-neutral, fixture-first AI boundary with typed proposals, citations, quotas, audit, accept/reject, undo, a kill switch, and golden/adversarial eval gates. Reachable via API only until TLAI-002-UI ships.",
+      "A provider-neutral, fixture-first AI boundary with typed proposals, citations, quotas, audit, accept/reject, undo, a kill switch, and golden/adversarial eval gates.",
     highlights: ["Manual TimelineAI remains fully useful when AI is disabled"],
     tags: ["ai", "safety", "epic #298"],
-    links: [ISSUE(286), PR(322), ISSUE(328)],
+    links: [ISSUE(286), PR(322), ISSUE(328), PR(334)],
   },
   {
     id: "TLAI-002-UI",
     title: "AI copilot panel",
-    status: "planned",
-    timeframe: "Next · unlocks TLAI-003..006 in the editor",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "Generate, review, accept/reject, and undo AI proposals from inside the editor — the review surface every other AI feature below depends on.",
+      "Generate, review, accept/reject, and undo AI proposals from inside the editor — the review surface every other AI feature below builds on.",
     tags: ["ai", "ux", "epic #298"],
-    links: [ISSUE(328)],
+    links: [ISSUE(328), PR(334)],
   },
   {
     id: "TLAI-013",
@@ -155,80 +156,80 @@ export const roadmapItems: RoadmapItem[] = [
   {
     id: "TLAI-003",
     title: "Cited source-to-timeline import",
-    status: "in-progress",
-    timeframe: "Backend shipped 12 Sep · UI next",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "Turn notes, Markdown, CSV/JSON, pasted text, and approved web pages into reviewable event proposals with stable source citations, confidence, and unresolved questions. Reachable via API only until TLAI-003-UI ships.",
+      "Turn notes, Markdown, CSV/JSON, pasted text, and approved web pages into reviewable event proposals with stable source citations, confidence, and unresolved questions.",
     tags: ["ai", "provenance", "epic #298"],
-    links: [ISSUE(287), PR(323), ISSUE(329)],
+    links: [ISSUE(287), PR(323), ISSUE(329), PR(335)],
   },
   {
     id: "TLAI-003-UI",
     title: "Cited import flow",
-    status: "planned",
-    timeframe: "After the AI copilot panel",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "Paste, upload, or link a source and review extracted events with their citations — or an explicit uncited-inference flag — before anything saves.",
+      "Paste, upload, or link a source and review extracted events with their citations — or an explicit uncited-inference flag — with per-event accept/reject and a visible re-import indicator, before anything saves.",
     tags: ["ai", "provenance", "ux", "epic #298"],
-    links: [ISSUE(329)],
+    links: [ISSUE(329), PR(335)],
   },
   {
     id: "TLAI-004",
     title: "Temporal reasoning without false precision",
-    status: "in-progress",
-    timeframe: "Backend shipped 12 Sep · UI next",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "Extract exact dates, ranges, approximate periods, durations, and ordering constraints; surface contradictions and let creators leave uncertainty unresolved. Reachable via API only until TLAI-004-UI ships.",
+      "Extract exact dates, ranges, approximate periods, durations, and ordering constraints; surface contradictions and let creators leave uncertainty unresolved.",
     tags: ["ai", "reasoning", "epic #298"],
-    links: [ISSUE(288), PR(324), ISSUE(330)],
+    links: [ISSUE(288), PR(324), ISSUE(330), PR(336)],
   },
   {
     id: "TLAI-004-UI",
     title: "Temporal conflict-review panel",
-    status: "planned",
-    timeframe: "After the AI copilot panel",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "See detected date conflicts with their evidence, reinterpret an event's date, and leave a conflict unresolved when there isn't a confident answer.",
+      "See detected date conflicts with their evidence and each event's date precision, reinterpret an event's date, and leave a conflict unresolved (persisted) when there isn't a confident answer.",
     tags: ["ai", "reasoning", "ux", "epic #298"],
-    links: [ISSUE(330)],
+    links: [ISSUE(330), PR(336)],
   },
   {
     id: "TLAI-005",
     title: "Narrative copilot",
-    status: "in-progress",
-    timeframe: "Backend shipped 12 Sep · UI next",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "Propose audience-aware hooks, chapters, transitions, pacing, tone, and closing takeaways while separating factual changes from style and respecting locked content. Reachable via API only until TLAI-005-UI ships.",
+      "Propose audience-aware hooks, chapters, transitions, pacing, tone, and closing takeaways while separating factual changes from style and respecting locked content.",
     tags: ["ai", "storytelling", "epic #298"],
-    links: [ISSUE(289), PR(325), ISSUE(331)],
+    links: [ISSUE(289), PR(325), ISSUE(331), PR(337)],
   },
   {
     id: "TLAI-005-UI",
     title: "Narrative copilot UI",
-    status: "planned",
-    timeframe: "After the AI copilot panel",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "Pick an audience, compare concise/standard/immersive variants side by side, and lock events or fields the copilot must never touch.",
+      "Pick an audience, compare concise/standard/immersive variants side by side, see fact-drift/unsupported-claim warnings, and lock events or fields the copilot must never touch — visibly excluded from its own pickers.",
     tags: ["ai", "storytelling", "ux", "epic #298"],
-    links: [ISSUE(331)],
+    links: [ISSUE(331), PR(337)],
   },
   {
     id: "TLAI-006",
     title: "Adaptive visual director",
-    status: "in-progress",
-    timeframe: "Backend shipped 12 Sep · UI next",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "Recommend and compare safe layout, density, card, color, and emphasis directions from the content—with explanations and accessibility/export checks before applying. Reachable via API only until TLAI-006-UI ships.",
+      "Recommend and compare safe layout, density, card, color, and emphasis directions from the content—with explanations and accessibility/export checks before applying.",
     tags: ["ai", "design", "accessibility", "epic #298"],
     links: [ISSUE(290), PR(326), ISSUE(332)],
   },
   {
     id: "TLAI-006-UI",
     title: "Visual director UI",
-    status: "planned",
-    timeframe: "After the AI copilot panel",
+    status: "shipped",
+    timeframe: "12 Sep 2026",
     summary:
-      "Compare 2-3 accessible visual directions side by side with plain-English rationale, apply one in a click, and undo it in a click.",
+      "Compare 2-3 accessible visual directions side by side as live mini-previews with plain-English rationale and the heuristic's own inputs, apply one in a click, and undo it in a click.",
     tags: ["ai", "design", "ux", "epic #298"],
     links: [ISSUE(332)],
   },

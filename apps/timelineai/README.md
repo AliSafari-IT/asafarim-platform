@@ -40,6 +40,36 @@ landed:
 See "Deferred / not done" below for what's intentionally out of scope for
 this MVP.
 
+## AI copilot (Sep 2026)
+
+Optional, fully reviewable AI on top of the manual editor above — every
+suggestion is a typed proposal a creator accepts, rejects, or undoes, never
+a silent write. Disabled by default (`TIMELINEAI_AI_ENABLED`, fails closed);
+the manual editor is 100% usable with it off. See the [in-app
+roadmap](https://tlai.asafarim.com/roadmap) and epic
+[#298](https://github.com/AliSafari-IT/asafarim-platform/issues/298) for
+the full backlog.
+
+- **AI copilot panel** — generate a proposal, review it inline, and
+  accept/reject/undo — the review surface the other four features below
+  are built on.
+- **Cited import** — paste text, upload a `.txt`/`.md`/`.csv`/`.json` file,
+  or import a web page into reviewable events with source citations (or an
+  explicit uncited-inference flag), per-event accept/reject, and a visible
+  re-import indicator so nothing silently duplicates.
+- **Temporal conflict review** — surfaces impossible ranges and ordering
+  conflicts with evidence and each event's date precision, lets a creator
+  reinterpret one event's date, and leave a conflict unresolved (a
+  dismissal that persists) rather than forcing a guess.
+- **Narrative copilot** — audience-aware rewrites of a title/subtitle/
+  description, comparing concise/standard/immersive variants side by side,
+  with fact-drift and unsupported-claim warnings surfaced, and per-event or
+  per-field locks the copilot will never touch.
+- **Visual director** — recommends 2-3 accessible layout/theme directions
+  from the timeline's own content (event count, durations, branching), each
+  shown as a live mini-preview with plain-English rationale, applied or
+  undone in one click.
+
 ## Stack
 
 - Next.js 16 App Router, React 19, TypeScript, Tailwind CSS v4
@@ -83,6 +113,9 @@ this app:
 | `TIMELINEAI_INTERNAL_URL` | Where the app reaches *itself* for the export pipeline's headless Chromium to render its own public pages. Unset in dev (falls back to `NEXT_PUBLIC_TIMELINEAI_URL`); in prod this should be an internal address, not the public HTTPS domain. |
 | `REDIS_URL` | Guest rate limiting. The app degrades gracefully (fails open, logs the error) if Redis is unreachable — it will never block a legitimate request because of an infra blip. |
 | `PUPPETEER_EXECUTABLE_PATH` | Path to a system Chromium for export. Unset in local dev if Puppeteer's own bundled Chromium is available; set explicitly in Docker (see `Dockerfile`, which installs Alpine's `chromium` package). |
+| `TIMELINEAI_RENDER_GRANT_SECRET` | HMAC key signing the short-lived render grant the export API mints for the internal Puppeteer request, proving the caller was already authorized to view the timeline. Generate with `openssl rand -hex 32`. |
+| `TIMELINEAI_AI_ENABLED` | App-wide kill switch for the AI copilot (see below) — every AI proposal endpoint 503s unless this is exactly `"true"`. Fails closed if unset. Core timeline creation/editing never depends on it. |
+| `TIMELINEAI_AI_PROVIDER` | Which AI provider to call. `fixture` is the deterministic, zero-network provider used in CI and local dev by default — fails closed (throws) if unset or unrecognized, rather than silently making real (billable) calls. |
 
 Everything else (`DATABASE_URL`, `AUTH_SECRET`, the cross-app
 `NEXT_PUBLIC_*_URL` variables, S3 credentials for `@asafarim/storage`) is

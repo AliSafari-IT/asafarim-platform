@@ -361,6 +361,7 @@ export function TimelineEditor({ mode, timelineId, initial, version, isGuest, on
               .filter((e): e is EditorEvent & { id: string } => !!e.id)
               .map((e) => ({ id: e.id, title: e.title, aiLocked: e.aiLocked }))}
             aiLockedFields={state.aiLockedFields}
+            previewTimeline={previewInput}
             onApplied={handleAiApplied}
           />
         ) : null}

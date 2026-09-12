@@ -117,6 +117,7 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
             density: d.density,
             cardStyle: d.cardStyle,
             rationale: d.rationale,
+            inputsUsed: d.inputsUsed,
           })),
           recommendedIndex: 0,
           confidence: "medium",

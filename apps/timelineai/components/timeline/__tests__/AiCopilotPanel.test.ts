@@ -6,6 +6,7 @@ import {
   computeDefaultSelectedIndexes,
   conflictSignature,
   isNarrativeTargetLocked,
+  presetForBackground,
 } from "../AiCopilotPanel";
 import type { AiProposalPayload } from "@/lib/ai/schemas";
 
@@ -27,6 +28,8 @@ const narrativeSuggestion: AiProposalPayload = {
   unsupportedClaim: false,
 };
 
+const contentSummary = { eventCount: 5, hasDurations: false, hasManyBranches: false, avgDescriptionLength: 40 };
+
 const visualRecommendation: AiProposalPayload = {
   kind: "visual_recommendation",
   candidates: [
@@ -37,6 +40,7 @@ const visualRecommendation: AiProposalPayload = {
       density: "comfortable",
       cardStyle: "flat",
       rationale: "Clean and legible for a general audience.",
+      inputsUsed: contentSummary,
     },
     {
       layout: "horizontal",
@@ -45,6 +49,7 @@ const visualRecommendation: AiProposalPayload = {
       density: "compact",
       cardStyle: "elevated",
       rationale: "Denser, for many events.",
+      inputsUsed: contentSummary,
     },
   ],
   recommendedIndex: 0,
@@ -176,5 +181,15 @@ describe("isNarrativeTargetLocked", () => {
   it("falls back to aiLockedFields when there's no target event (whole-timeline scope)", () => {
     expect(isNarrativeTargetLocked(undefined, "subtitle", ["subtitle"])).toBe(true);
     expect(isNarrativeTargetLocked(undefined, "subtitle", ["title"])).toBe(false);
+  });
+});
+
+describe("presetForBackground", () => {
+  it("maps 'midnight' to the midnight preset", () => {
+    expect(presetForBackground("midnight")).toBe("midnight");
+  });
+
+  it("maps 'paper' (and any other backgroundId) to canvas — TimelineRenderer only knows canvas/midnight/editorial presets", () => {
+    expect(presetForBackground("paper")).toBe("canvas");
   });
 });

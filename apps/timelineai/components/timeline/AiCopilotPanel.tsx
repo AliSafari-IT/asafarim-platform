@@ -5,6 +5,8 @@ import { apiFetch, ApiError } from "@/lib/client/api";
 import { AI_PROPOSAL_KINDS, type AiProposalKind, type AiProposalPayload } from "@/lib/ai/schemas";
 import { NARRATIVE_AUDIENCE_PRESETS, NARRATIVE_VARIANTS, type NarrativeAudiencePreset, type NarrativeVariant } from "@/lib/ai/narrative";
 import type { TemporalConflict, TemporalPrecision, TemporalValue } from "@/lib/ai/temporal";
+import { TimelineRenderer } from "./renderers/TimelineRenderer";
+import type { RenderableTimeline } from "./renderers/types";
 
 /** Minimal shape the panel needs from a saved event — not the full editor row. */
 export interface AiCopilotTargetEvent {
@@ -31,6 +33,8 @@ export interface AiCopilotPanelProps {
   events: AiCopilotTargetEvent[];
   /** Timeline-level fields (title/subtitle/description) locked from AI rewrites — excludes them from the narrative field picker when the target is "Whole timeline". */
   aiLockedFields?: string[];
+  /** Current title/subtitle/events (unsaved edits included) — used only to render live mini-previews of visual_recommendation candidates. Omit to fall back to a plain text summary per candidate instead. */
+  previewTimeline?: RenderableTimeline;
   /** Called after Accept/Undo successfully changes the saved timeline, so the caller can offer to reload. */
   onApplied?: () => void;
 }
@@ -99,7 +103,7 @@ const KIND_LABELS: Record<AiProposalKind, string> = {
 const KIND_HELP: Record<AiProposalKind, string> = {
   events_extraction: "Paste notes, an article, or a list of dates — the copilot proposes events to add.",
   narrative_suggestion: "Paste or describe what you want said — the copilot proposes a rewrite of one field.",
-  visual_recommendation: "Optional context about the story's tone — the copilot recommends a layout and theme.",
+  visual_recommendation: "Recommends 2-3 accessible layout/theme directions based on this timeline's own content — nothing to type, just click.",
   temporal_correction: "Describe the date in your own words (e.g. \"early spring, 1990\").",
 };
 
@@ -198,6 +202,17 @@ export function isNarrativeTargetLocked(
   return aiLockedFields.includes(field);
 }
 
+/**
+ * Maps a visual_recommendation candidate's backgroundId to the theme
+ * preset TimelineRenderer actually reads (it derives background from
+ * theme.preset's CSS, not a raw hex — see the same mapping applied
+ * server-side in ai-proposals.ts#applyProposal's visual_recommendation
+ * case) — kept in sync here so the live preview matches what Apply does.
+ */
+export function presetForBackground(backgroundId: string): "canvas" | "midnight" {
+  return backgroundId === "midnight" ? "midnight" : "canvas";
+}
+
 export function hasUncitedContent(payload: AiProposalPayload): boolean {
   if (payload.kind === "events_extraction") return payload.events.some((e) => e.uncitedInference);
   if (payload.kind === "temporal_correction") return payload.uncitedInference;
@@ -221,7 +236,13 @@ const STATUS_LABELS: Record<AiProposalRow["status"], string> = {
  * variant compare, visual preview) are separate, more specialized panels
  * layered on top of this later.
  */
-export function AiCopilotPanel({ timelineId, events, aiLockedFields = [], onApplied }: AiCopilotPanelProps) {
+export function AiCopilotPanel({
+  timelineId,
+  events,
+  aiLockedFields = [],
+  previewTimeline,
+  onApplied,
+}: AiCopilotPanelProps) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [proposals, setProposals] = useState<AiProposalRow[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
@@ -320,7 +341,13 @@ export function AiCopilotPanel({ timelineId, events, aiLockedFields = [], onAppl
 
   async function handleGenerate() {
     setGenerateError(null);
-    if (!sourceContent.trim()) {
+    // visual_recommendation ignores sourceContent entirely — the server
+    // derives its candidates straight from the timeline's own events
+    // (see summarizeContentForVisualDirector in ai-proposals.ts) — so this
+    // is a fixed placeholder to satisfy the API's general min(1) requirement,
+    // not something the user should have to type.
+    const effectiveSourceContent = kind === "visual_recommendation" ? "Suggest a visual direction." : sourceContent;
+    if (!effectiveSourceContent.trim()) {
       setGenerateError("Enter some text first.");
       return;
     }
@@ -342,7 +369,7 @@ export function AiCopilotPanel({ timelineId, events, aiLockedFields = [], onAppl
         method: "POST",
         body: {
           kind,
-          sourceContent,
+          sourceContent: effectiveSourceContent,
           ...(kind === "temporal_correction" ? { targetEventId } : {}),
           ...(kind === "narrative_suggestion"
             ? {
@@ -446,7 +473,7 @@ export function AiCopilotPanel({ timelineId, events, aiLockedFields = [], onAppl
   async function handleAction(
     proposalId: string,
     action: "accept" | "reject" | "undo",
-    body?: { eventIndexes?: number[]; variant?: NarrativeVariant }
+    body?: { eventIndexes?: number[]; variant?: NarrativeVariant; candidateIndex?: number }
   ) {
     setActionError(null);
     setBusyProposalId(proposalId);
@@ -697,15 +724,17 @@ export function AiCopilotPanel({ timelineId, events, aiLockedFields = [], onAppl
             </label>
           ) : null}
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">{kind === "temporal_correction" ? "Date phrase" : "Text"}</span>
-            <textarea
-              className="min-h-24 rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
-              value={sourceContent}
-              onChange={(e) => setSourceContent(e.target.value)}
-              maxLength={20_000}
-            />
-          </label>
+          {kind !== "visual_recommendation" ? (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">{kind === "temporal_correction" ? "Date phrase" : "Text"}</span>
+              <textarea
+                className="min-h-24 rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+                value={sourceContent}
+                onChange={(e) => setSourceContent(e.target.value)}
+                maxLength={20_000}
+              />
+            </label>
+          ) : null}
 
           {generateError ? (
             <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
@@ -721,7 +750,11 @@ export function AiCopilotPanel({ timelineId, events, aiLockedFields = [], onAppl
               disabled={generating}
               aria-busy={generating || undefined}
             >
-              {generating ? "Generating…" : "Generate"}
+              {generating
+                ? "Generating…"
+                : kind === "visual_recommendation"
+                  ? "Suggest a look"
+                  : "Generate"}
             </button>
           </div>
         </div>
@@ -829,6 +862,93 @@ export function AiCopilotPanel({ timelineId, events, aiLockedFields = [], onAppl
         ) : (
           <ul className="flex flex-col gap-2">
             {pending.map((proposal) => {
+              if (proposal.kind === "visual_recommendation" && proposal.payload.kind === "visual_recommendation") {
+                const payload = proposal.payload;
+                return (
+                  <li
+                    key={proposal.id}
+                    className="rounded-lg border border-[var(--color-border,rgba(0,0,0,0.15))] p-3 text-sm"
+                  >
+                    <div className="font-medium">{KIND_LABELS[proposal.kind]}</div>
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {payload.candidates.map((candidate, index) => {
+                        const isRecommended = index === payload.recommendedIndex;
+                        const inputs = candidate.inputsUsed;
+                        return (
+                          <div
+                            key={index}
+                            className={`flex flex-col gap-2 rounded-lg border p-2 ${
+                              isRecommended
+                                ? "border-[var(--color-primary)]"
+                                : "border-[var(--color-border,rgba(0,0,0,0.1))]"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-medium capitalize">
+                                {candidate.layout} · {candidate.density}
+                              </span>
+                              {isRecommended ? (
+                                <span className="rounded-full bg-[var(--color-primary)]/15 px-2 py-0.5 text-xs text-[var(--color-primary)]">
+                                  Recommended
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {previewTimeline ? (
+                              <div className="max-h-48 overflow-hidden rounded border border-[var(--color-border,rgba(0,0,0,0.1))]">
+                                <div className="origin-top-left scale-[0.4]" style={{ width: "250%" }}>
+                                  <TimelineRenderer
+                                    layout={candidate.layout}
+                                    timeline={{
+                                      ...previewTimeline,
+                                      theme: {
+                                        ...previewTimeline.theme,
+                                        preset: presetForBackground(candidate.backgroundId),
+                                        density: candidate.density,
+                                        cardStyle: candidate.cardStyle,
+                                      },
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ) : null}
+
+                            <p className="text-xs text-[var(--color-text-muted,inherit)]">{candidate.rationale}</p>
+                            <p className="text-[11px] text-[var(--color-text-muted,inherit)]">
+                              Based on {inputs.eventCount} event{inputs.eventCount === 1 ? "" : "s"}
+                              {inputs.hasDurations ? ", durations" : ""}
+                              {inputs.hasManyBranches ? ", many branches" : ""}
+                              {inputs.avgDescriptionLength > 0
+                                ? `, ~${inputs.avgDescriptionLength}-char descriptions`
+                                : ""}
+                              .
+                            </p>
+                            <button
+                              type="button"
+                              className="mt-auto rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                              onClick={() => handleAction(proposal.id, "accept", { candidateIndex: index })}
+                              disabled={busyProposalId === proposal.id}
+                            >
+                              Apply this look
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        className="rounded-lg border border-[var(--color-border,currentColor)] px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                        onClick={() => handleAction(proposal.id, "reject")}
+                        disabled={busyProposalId === proposal.id}
+                      >
+                        Reject all
+                      </button>
+                    </div>
+                  </li>
+                );
+              }
+
               if (proposal.kind === "narrative_suggestion" && proposal.payload.kind === "narrative_suggestion") {
                 const payload = proposal.payload;
                 const variant = selectedVariant[proposal.id] ?? "standard";

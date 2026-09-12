@@ -134,6 +134,16 @@ const VISUAL_ACCENT_IDS = VISUAL_DIRECTOR_ACCENTS.map((a) => a.id) as [string, .
  * so this can be persisted through the same field, but with a much
  * narrower allowlist since it's machine-generated.
  */
+/** Mirrors lib/ai/visual-director.ts#ContentSummary — duplicated as a zod shape (rather than imported) so this file stays free of that module's own imports. */
+const ContentSummarySchema = z
+  .object({
+    eventCount: z.number().int().min(0),
+    hasDurations: z.boolean(),
+    hasManyBranches: z.boolean(),
+    avgDescriptionLength: z.number().int().min(0),
+  })
+  .strict();
+
 export const VisualDirectionSchema = z
   .object({
     layout: z.enum(TIMELINE_LAYOUTS),
@@ -142,6 +152,8 @@ export const VisualDirectionSchema = z
     density: z.enum(["compact", "comfortable", "spacious"]),
     cardStyle: z.enum(["flat", "elevated", "outlined"]),
     rationale: z.string().min(1).max(500),
+    /** Echoes the heuristic's own inputs (lib/ai/visual-director.ts#recommendVisualDirections) so a recommendation is auditable, not a black box — see TLAI-006-UI. */
+    inputsUsed: ContentSummarySchema,
   })
   .strict()
   .superRefine((direction, ctx) => {

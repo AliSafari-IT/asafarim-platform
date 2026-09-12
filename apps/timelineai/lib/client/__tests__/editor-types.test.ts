@@ -10,6 +10,7 @@ function baseState(events: EditorState["events"]): EditorState {
     layout: "vertical",
     theme: null,
     sortMode: "chronological",
+    aiLockedFields: [],
     events,
   };
 }
