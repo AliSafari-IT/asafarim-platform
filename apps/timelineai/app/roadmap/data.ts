@@ -68,12 +68,12 @@ export const roadmapItems: RoadmapItem[] = [
   {
     id: "M05",
     title: "Native PNG, JPG & PDF export",
-    status: "in-progress",
-    timeframe: "Shipped Aug · hardening next",
+    status: "shipped",
+    timeframe: "Shipped Aug · hardened 12 Sep 2026",
     summary:
-      "Headless Chromium reuses the live renderer for faithful exports. Public exports work; owner-authorized pending/private exports are being hardened so an internal render can never return a 404 artifact.",
+      "Headless Chromium reuses the live renderer for faithful exports. A short-lived, server-signed render grant now authorizes the internal render request, so an owner-authorized pending/private export can no longer return a 404 artifact.",
     tags: ["export", "reliability"],
-    links: [PR(116), ISSUE(285)],
+    links: [PR(116), ISSUE(285), PR(321)],
   },
   {
     id: "M06",
@@ -120,13 +120,13 @@ export const roadmapItems: RoadmapItem[] = [
   {
     id: "TLAI-002",
     title: "Governed AI foundation",
-    status: "planned",
-    timeframe: "Next · foundation",
+    status: "shipped",
+    timeframe: "Shipped 12 Sep 2026",
     summary:
       "A provider-neutral, fixture-first AI boundary with typed proposals, citations, quotas, audit, accept/reject, undo, a kill switch, and golden/adversarial eval gates.",
     highlights: ["Manual TimelineAI remains fully useful when AI is disabled"],
     tags: ["ai", "safety", "epic #298"],
-    links: [ISSUE(286)],
+    links: [ISSUE(286), PR(322)],
   },
   {
     id: "TLAI-013",
@@ -141,42 +141,42 @@ export const roadmapItems: RoadmapItem[] = [
   {
     id: "TLAI-003",
     title: "Cited source-to-timeline import",
-    status: "planned",
-    timeframe: "After AI foundation",
+    status: "shipped",
+    timeframe: "Shipped 12 Sep 2026",
     summary:
       "Turn notes, Markdown, CSV/JSON, pasted text, and approved web pages into reviewable event proposals with stable source citations, confidence, and unresolved questions.",
     tags: ["ai", "provenance", "epic #298"],
-    links: [ISSUE(287)],
+    links: [ISSUE(287), PR(323)],
   },
   {
     id: "TLAI-004",
     title: "Temporal reasoning without false precision",
-    status: "planned",
-    timeframe: "Source intelligence",
+    status: "shipped",
+    timeframe: "Shipped 12 Sep 2026",
     summary:
       "Extract exact dates, ranges, approximate periods, durations, and ordering constraints; surface contradictions and let creators leave uncertainty unresolved.",
     tags: ["ai", "reasoning", "epic #298"],
-    links: [ISSUE(288)],
+    links: [ISSUE(288), PR(324)],
   },
   {
     id: "TLAI-005",
     title: "Narrative copilot",
-    status: "planned",
-    timeframe: "Creation intelligence",
+    status: "shipped",
+    timeframe: "Shipped 12 Sep 2026",
     summary:
       "Propose audience-aware hooks, chapters, transitions, pacing, tone, and closing takeaways while separating factual changes from style and respecting locked content.",
     tags: ["ai", "storytelling", "epic #298"],
-    links: [ISSUE(289)],
+    links: [ISSUE(289), PR(325)],
   },
   {
     id: "TLAI-006",
     title: "Adaptive visual director",
-    status: "planned",
-    timeframe: "Creation intelligence",
+    status: "in-progress",
+    timeframe: "In review · Sep 2026",
     summary:
       "Recommend and compare safe layout, density, card, color, and emphasis directions from the content—with explanations and accessibility/export checks before applying.",
     tags: ["ai", "design", "accessibility", "epic #298"],
-    links: [ISSUE(290)],
+    links: [ISSUE(290), PR(326)],
   },
   {
     id: "TLAI-007",
