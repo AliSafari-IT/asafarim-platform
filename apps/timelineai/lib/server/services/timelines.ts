@@ -109,6 +109,22 @@ export async function getTimelineForView(publicId: string, viewer: ViewerContext
   return timeline;
 }
 
+/**
+ * Fetches a timeline for the internal Puppeteer render path, skipping the
+ * normal viewer-identity authorization check — that request carries no
+ * session/guest identity of its own. Callers MUST verify a render grant
+ * (lib/server/render-grant.ts) bound to this exact publicId first; this
+ * function performs no authorization of its own.
+ */
+export async function getTimelineForRenderGrant(publicId: string) {
+  const timeline = await prisma.timeline.findUnique({
+    where: { publicId },
+    include: { events: { orderBy: { sortOrder: "asc" } } },
+  });
+  if (!timeline) throw new NotFoundError("That timeline doesn't exist.");
+  return timeline;
+}
+
 export class VersionConflictError extends Error {
   readonly status = 409;
   constructor() {

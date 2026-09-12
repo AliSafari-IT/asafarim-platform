@@ -30,10 +30,20 @@ function getBrowser(): Promise<Browser> {
   return _browser;
 }
 
+export class ExportRenderError extends Error {
+  readonly status = 502;
+  constructor(message: string) {
+    super(message);
+    this.name = "ExportRenderError";
+  }
+}
+
 export interface RenderExportOptions {
   /** Full URL of the public timeline page to render (our own origin only — see route handler). */
   url: string;
   format: ExportFormat;
+  /** Short-lived render grant proving the real caller was already authorized to view this timeline. */
+  grant: string;
 }
 
 async function withTimeout<T>(promise: Promise<T>): Promise<T> {
@@ -62,19 +72,35 @@ async function withTimeout<T>(promise: Promise<T>): Promise<T> {
  * which are constrained at the schema level (lib/schemas.ts#safeExternalUrl)
  * to https + non-private hosts, best-effort (no DNS-rebinding protection).
  */
-export async function renderTimelineExport({ url, format }: RenderExportOptions): Promise<Buffer> {
-  return withTimeout(renderInternal(url, format));
+export async function renderTimelineExport({ url, format, grant }: RenderExportOptions): Promise<Buffer> {
+  return withTimeout(renderInternal(url, format, grant));
 }
 
-async function renderInternal(url: string, format: ExportFormat): Promise<Buffer> {
+async function renderInternal(url: string, format: ExportFormat, grant: string): Promise<Buffer> {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
     await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 2 });
-    // Tells app/layout.tsx to skip the platform chrome (nav/footer) — the
-    // export should be just the timeline, not the whole app shell.
-    await page.setExtraHTTPHeaders({ "x-timelineai-render": "bare" });
-    await page.goto(url, { waitUntil: "networkidle0", timeout: RENDER_TIMEOUT_MS });
+    // Tells app/layout.tsx to skip the platform chrome (nav/footer), and
+    // carries the short-lived render grant the page verifies before showing
+    // anything other than what the real caller was already authorized to
+    // view — "bare" alone is never treated as authorization.
+    await page.setExtraHTTPHeaders({
+      "x-timelineai-render": "bare",
+      "x-timelineai-render-grant": grant,
+    });
+    const response = await page.goto(url, { waitUntil: "networkidle0", timeout: RENDER_TIMEOUT_MS });
+
+    if (!response || !response.ok()) {
+      throw new ExportRenderError(
+        `Export render failed: upstream page responded with ${response?.status() ?? "no response"}.`
+      );
+    }
+
+    const hasTimelineRoot = await page.evaluate(() => document.querySelector(".tl-root") !== null);
+    if (!hasTimelineRoot) {
+      throw new ExportRenderError("Export render failed: rendered page did not contain the timeline.");
+    }
 
     // Wait for web fonts to finish loading before capturing — otherwise a
     // screenshot can race a FOUT/FOIT repaint and ship with the fallback

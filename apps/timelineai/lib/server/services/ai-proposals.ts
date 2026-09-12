@@ -54,6 +54,7 @@ export async function generateAiProposal(
   kind: AiProposalKind,
   sourceContent: string,
   options: GenerateAiProposalOptions = {}
+  sourceContent: string
 ) {
   if (!isAiEnabled()) throw new AiDisabledError();
   await loadTimelineForEdit(timelineId, viewer);
@@ -69,6 +70,7 @@ export async function generateAiProposal(
       chunks: options.chunks,
       sourceContentHash: options.sourceContentHash,
     });
+    const result = await provider.generate({ kind, timelineId, sourceContent });
 
     const proposal = await prisma.timelineAiProposal.create({
       data: {
@@ -208,6 +210,24 @@ async function applyProposal(
         await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
       }
       return { createdEventIds, skippedChunkIds };
+      const created = await Promise.all(
+        payload.events.map((event) =>
+          tx.timelineEvent.create({
+            data: {
+              timelineId,
+              title: event.title,
+              description: event.description ?? null,
+              displayDate: event.displayDate ?? null,
+              startAt: event.startAt ? new Date(event.startAt) : null,
+              endAt: event.endAt ? new Date(event.endAt) : null,
+              sortOrder: nextOrder++,
+            },
+          })
+        )
+      );
+
+      await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
+      return { createdEventIds: created.map((e) => e.id) };
     }
 
     case "narrative_suggestion": {
@@ -265,6 +285,7 @@ async function revertProposal(
     // source chunks recreates them instead of silently skipping.
     await tx.timelineImportedEvent.deleteMany({ where: { eventId: { in: eventIds } } });
     await tx.timelineEvent.deleteMany({ where: { id: { in: eventIds } } });
+    await tx.timelineEvent.deleteMany({ where: { id: { in: snapshot.createdEventIds as string[] } } });
     await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
     return;
   }

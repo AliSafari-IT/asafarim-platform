@@ -69,6 +69,8 @@ export const ExtractedEventSchema = z
     message: "An extracted event needs at least one citation, or must be flagged as an uncited inference.",
     path: ["citations"],
   });
+  })
+  .strict();
 export type ExtractedEvent = z.infer<typeof ExtractedEventSchema>;
 
 export const EventsExtractionPayloadSchema = z

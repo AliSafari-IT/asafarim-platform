@@ -9,6 +9,10 @@ import { AiDisabledError, ProposalStateError } from "./services/ai-proposals";
 import { AiQuotaExceededError, AiUnavailableError } from "./ai-quota";
 import { AiProviderError } from "../ai/provider";
 import { UnsupportedSourceError } from "../ai/source-import";
+import { ExportTimeoutError, ExportRenderError } from "./services/export";
+import { AiDisabledError, ProposalStateError } from "./services/ai-proposals";
+import { AiQuotaExceededError, AiUnavailableError } from "./ai-quota";
+import { AiProviderError } from "../ai/provider";
 
 /**
  * Consistent typed error responses across every route. Non-technical
@@ -43,6 +47,12 @@ export function toErrorResponse(error: unknown): NextResponse {
   }
   if (error instanceof ExportTimeoutError) {
     return NextResponse.json({ error: "export_timeout", message: error.message }, { status: 504 });
+  }
+  if (error instanceof ExportRenderError) {
+    return NextResponse.json(
+      { error: "export_render_failed", message: "We couldn't render this export. Please try again." },
+      { status: 502 }
+    );
   }
   if (error instanceof AiDisabledError) {
     return NextResponse.json({ error: "ai_disabled", message: error.message }, { status: 503 });

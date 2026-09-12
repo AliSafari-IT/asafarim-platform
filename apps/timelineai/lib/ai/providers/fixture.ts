@@ -36,6 +36,7 @@ function buildFixtureResult(request: AiGenerationRequest): AiGenerationResult {
         };
       }
 
+    case "events_extraction":
       return {
         payload: {
           kind: "events_extraction",
