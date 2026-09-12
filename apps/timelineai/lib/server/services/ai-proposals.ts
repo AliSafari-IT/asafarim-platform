@@ -216,11 +216,33 @@ export async function generateAiProposal(
 /** Recent proposals for a timeline's AI copilot panel, newest first. */
 export async function listAiProposals(timelineId: string, viewer: ViewerContext) {
   await loadTimelineForEdit(timelineId, viewer);
-  return prisma.timelineAiProposal.findMany({
+  const proposals = await prisma.timelineAiProposal.findMany({
     where: { timelineId },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
+
+  // For a cited-import's events_extraction proposal, flag which of its
+  // chunks already produced an accepted event on a *previous* import of
+  // the same document — recomputed on every list call (not stored on the
+  // proposal) so it stays accurate even after a reload or a later accept.
+  return Promise.all(
+    proposals.map(async (proposal) => {
+      const payload = proposal.payload as unknown as AiProposalPayload;
+      if (payload.kind !== "events_extraction" || !payload.sourceContentHash) {
+        return { ...proposal, alreadyImportedChunkIds: [] as string[] };
+      }
+      const chunkIds = payload.events.map((e) => e.sourceChunkId).filter((id): id is string => !!id);
+      if (chunkIds.length === 0) {
+        return { ...proposal, alreadyImportedChunkIds: [] as string[] };
+      }
+      const rows = await prisma.timelineImportedEvent.findMany({
+        where: { timelineId, contentHash: payload.sourceContentHash, chunkId: { in: chunkIds } },
+        select: { chunkId: true },
+      });
+      return { ...proposal, alreadyImportedChunkIds: rows.map((r) => r.chunkId) };
+    })
+  );
 }
 
 async function loadPendingOrAcceptedProposal(proposalId: string, viewer: ViewerContext) {
@@ -263,6 +285,15 @@ export interface ApplyProposalOptions {
   candidateIndex?: number;
   /** Which narrative_suggestion variant to apply — defaults to the payload's suggestedText (the "standard" variant) when omitted. */
   variant?: NarrativeVariant;
+  /**
+   * For events_extraction proposals only — which indexes into `payload.events`
+   * to actually create, so a creator can drop specific proposed events (e.g.
+   * an uncited one) without rejecting the whole batch. Defaults to all of
+   * them. Indexes outside the payload's range are silently ignored rather
+   * than erroring, since a stale client-side selection shouldn't fail the
+   * whole accept.
+   */
+  eventIndexes?: number[];
 }
 
 async function applyProposal(
@@ -283,7 +314,11 @@ async function applyProposal(
       const createdEventIds: string[] = [];
       const skippedChunkIds: string[] = [];
 
-      for (const event of payload.events) {
+      const selectedEvents = options.eventIndexes
+        ? options.eventIndexes.map((i) => payload.events[i]).filter((e): e is (typeof payload.events)[number] => !!e)
+        : payload.events;
+
+      for (const event of selectedEvents) {
         // Cited-import dedupe: a chunk that's already produced an accepted
         // event for this exact source document is skipped rather than
         // creating a duplicate — this is what makes re-import idempotent.

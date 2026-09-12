@@ -17,6 +17,8 @@ export interface AiProposalRow {
   status: "pending" | "accepted" | "rejected" | "undone";
   payload: AiProposalPayload;
   createdAt: string;
+  /** events_extraction only — chunk ids that already produced an accepted event on a prior import of the same document. */
+  alreadyImportedChunkIds?: string[];
 }
 
 export interface AiCopilotPanelProps {
@@ -49,6 +51,29 @@ const AUDIENCE_LABELS: Record<NarrativeAudiencePreset, string> = {
   launch_narrative: "Launch narrative",
 };
 
+// Mirrors lib/ai/source-import.ts#SOURCE_IMPORT_KINDS — not imported directly
+// since that module pulls in node:crypto, which a client bundle can't ship.
+const SOURCE_IMPORT_KINDS = ["paste", "markdown", "csv", "json", "url"] as const;
+type SourceImportKind = (typeof SOURCE_IMPORT_KINDS)[number];
+
+const IMPORT_KIND_LABELS: Record<SourceImportKind, string> = {
+  paste: "Pasted text",
+  markdown: "Markdown",
+  csv: "CSV",
+  json: "JSON",
+  url: "Web page",
+};
+
+const MAX_IMPORT_CHARS = 20_000;
+
+function extensionToImportKind(filename: string): Exclude<SourceImportKind, "url"> {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  if (ext === "md" || ext === "markdown") return "markdown";
+  if (ext === "csv") return "csv";
+  if (ext === "json") return "json";
+  return "paste";
+}
+
 export function summarizePayload(payload: AiProposalPayload): string {
   switch (payload.kind) {
     case "events_extraction": {
@@ -71,6 +96,30 @@ export function summarizePayload(payload: AiProposalPayload): string {
   }
 }
 
+/** True when this extracted event's source chunk already produced an accepted event on a prior import. */
+export function isEventAlreadyImported(
+  event: { sourceChunkId?: string },
+  alreadyImportedChunkIds: string[] | undefined
+): boolean {
+  return !!(event.sourceChunkId && alreadyImportedChunkIds?.includes(event.sourceChunkId));
+}
+
+/**
+ * Which event indexes an "Accept selected" click should send: every index
+ * the user explicitly toggled, defaulting the rest to "selected" unless
+ * already imported (those default off, since accepting them would be a
+ * silent no-op — the dedupe check would just skip them again).
+ */
+export function computeDefaultSelectedIndexes(
+  events: { sourceChunkId?: string }[],
+  alreadyImportedChunkIds: string[] | undefined,
+  overrides: Record<number, boolean> | undefined
+): number[] {
+  return events
+    .map((_, i) => i)
+    .filter((i) => overrides?.[i] ?? !isEventAlreadyImported(events[i]!, alreadyImportedChunkIds));
+}
+
 export function hasUncitedContent(payload: AiProposalPayload): boolean {
   if (payload.kind === "events_extraction") return payload.events.some((e) => e.uncitedInference);
   if (payload.kind === "temporal_correction") return payload.uncitedInference;
@@ -86,17 +135,20 @@ const STATUS_LABELS: Record<AiProposalRow["status"], string> = {
 };
 
 /**
- * The generic AI copilot surface for the timeline editor (TLAI-002-UI):
- * generate a proposal from any of the four backend kinds, review it inline,
- * and accept/reject/undo. Per-kind review surfaces (cited-import, conflict
- * panel, variant compare, visual preview) are separate, more specialized
- * panels layered on top of this later — this one only guarantees every
- * proposal is reachable, reviewable, and reversible.
+ * The generic AI copilot surface for the timeline editor (TLAI-002-UI),
+ * plus the cited-import entry point (TLAI-003-UI): generate a proposal
+ * from free text or an imported source, review it inline — including
+ * per-event citations for events_extraction — and accept/reject/undo.
+ * Per-kind review surfaces beyond events_extraction (conflict panel,
+ * variant compare, visual preview) are separate, more specialized panels
+ * layered on top of this later.
  */
 export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanelProps) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [proposals, setProposals] = useState<AiProposalRow[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+
+  const [mode, setMode] = useState<"generate" | "import">("generate");
 
   const [kind, setKind] = useState<AiProposalKind>("events_extraction");
   const [sourceContent, setSourceContent] = useState("");
@@ -107,8 +159,18 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
 
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+
+  const [importSourceKind, setImportSourceKind] = useState<SourceImportKind>("paste");
+  const [importContent, setImportContent] = useState("");
+  const [importUrl, setImportUrl] = useState("");
+  const [importLabel, setImportLabel] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
+
   const [busyProposalId, setBusyProposalId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Record<string, Record<number, boolean>>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -176,11 +238,99 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
     }
   }
 
-  async function handleAction(proposalId: string, action: "accept" | "reject" | "undo") {
+  async function handleFileChosen(file: File) {
+    setImportError(null);
+    if (file.size > MAX_IMPORT_CHARS * 4) {
+      // Rough pre-check by bytes before we even read it — the real,
+      // authoritative check is the character count below (and, again,
+      // server-side).
+      setImportError(`That file is too large (max ${MAX_IMPORT_CHARS.toLocaleString()} characters).`);
+      return;
+    }
+    const text = await file.text();
+    if (text.length > MAX_IMPORT_CHARS) {
+      setImportError(
+        `That file is too long (${text.length.toLocaleString()} characters, max ${MAX_IMPORT_CHARS.toLocaleString()}). Try a smaller excerpt.`
+      );
+      return;
+    }
+    setImportSourceKind(extensionToImportKind(file.name));
+    setImportContent(text);
+    setImportLabel(file.name);
+  }
+
+  async function handleImport() {
+    setImportError(null);
+    setImportNotice(null);
+
+    if (importSourceKind === "url") {
+      let parsed: URL;
+      try {
+        parsed = new URL(importUrl);
+      } catch {
+        setImportError("Enter a valid URL, including https://.");
+        return;
+      }
+      if (parsed.protocol !== "https:") {
+        setImportError("Only https:// links can be imported.");
+        return;
+      }
+    } else if (!importContent.trim()) {
+      setImportError("Paste some text or choose a file first.");
+      return;
+    } else if (importContent.length > MAX_IMPORT_CHARS) {
+      setImportError(
+        `That's too long (${importContent.length.toLocaleString()} characters, max ${MAX_IMPORT_CHARS.toLocaleString()}). Try a smaller excerpt.`
+      );
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const res = await apiFetch<{ wasReimport: boolean }>(`/api/timelines/${timelineId}/ai/import`, {
+        method: "POST",
+        body: {
+          kind: importSourceKind,
+          ...(importSourceKind === "url" ? { url: importUrl } : { content: importContent }),
+          label: importLabel || undefined,
+        },
+      });
+      setImportNotice(
+        res.wasReimport
+          ? "You've imported this exact content before — showing fresh suggestions from it. Events already added from it won't be duplicated."
+          : "Imported. Review the proposed events below before accepting."
+      );
+      setImportContent("");
+      setImportUrl("");
+      setImportLabel("");
+      await loadProposals();
+    } catch (error) {
+      setImportError(error instanceof ApiError ? error.message : "Couldn't import that source. Please try again.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function toggleSelected(proposalId: string, index: number, fallback: boolean) {
+    setSelection((prev) => {
+      const current = prev[proposalId] ?? {};
+      const currentlySelected = index in current ? current[index] : fallback;
+      return { ...prev, [proposalId]: { ...current, [index]: !currentlySelected } };
+    });
+  }
+
+  async function handleAction(
+    proposalId: string,
+    action: "accept" | "reject" | "undo",
+    body?: { eventIndexes?: number[] }
+  ) {
     setActionError(null);
     setBusyProposalId(proposalId);
     try {
-      await apiFetch(`/api/timelines/${timelineId}/ai/proposals/${proposalId}/${action}`, { method: "POST" });
+      await apiFetch(`/api/timelines/${timelineId}/ai/proposals/${proposalId}/${action}`, {
+        method: "POST",
+        body,
+      });
       await loadProposals();
       if (action === "accept" || action === "undo") onApplied?.();
     } catch (error) {
@@ -222,37 +372,103 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
         </p>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">What should it do?</span>
-          <select
-            className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
-            value={kind}
-            onChange={(e) => setKind(e.target.value as AiProposalKind)}
-          >
-            {AI_PROPOSAL_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {KIND_LABELS[k]}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-[var(--color-text-muted,inherit)]">{KIND_HELP[kind]}</span>
-        </label>
+      <div className="flex gap-1 rounded-lg border border-[var(--color-border,rgba(0,0,0,0.15))] p-1 text-sm">
+        <button
+          type="button"
+          className={`flex-1 rounded-md px-3 py-1.5 font-medium ${mode === "generate" ? "bg-[var(--color-primary)] text-white" : ""}`}
+          onClick={() => setMode("generate")}
+          aria-pressed={mode === "generate"}
+        >
+          Generate
+        </button>
+        <button
+          type="button"
+          className={`flex-1 rounded-md px-3 py-1.5 font-medium ${mode === "import" ? "bg-[var(--color-primary)] text-white" : ""}`}
+          onClick={() => setMode("import")}
+          aria-pressed={mode === "import"}
+        >
+          Import a source
+        </button>
+      </div>
 
-        {kind === "narrative_suggestion" ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+      {mode === "generate" ? (
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">What should it do?</span>
+            <select
+              className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as AiProposalKind)}
+            >
+              {AI_PROPOSAL_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {KIND_LABELS[k]}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-[var(--color-text-muted,inherit)]">{KIND_HELP[kind]}</span>
+          </label>
+
+          {kind === "narrative_suggestion" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Target</span>
+                <select
+                  className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+                  value={narrativeEventId}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setNarrativeEventId(value);
+                    if (value && narrativeField === "subtitle") setNarrativeField("description");
+                  }}
+                >
+                  <option value="">Whole timeline</option>
+                  {events.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.title || "Untitled event"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Field</span>
+                <select
+                  className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+                  value={narrativeField}
+                  onChange={(e) => setNarrativeField(e.target.value as typeof narrativeField)}
+                >
+                  <option value="title">Title</option>
+                  <option value="description">Description</option>
+                  {!narrativeEventId ? <option value="subtitle">Subtitle</option> : null}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+                <span className="font-medium">Audience (optional)</span>
+                <select
+                  className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+                  value={narrativeAudiencePreset}
+                  onChange={(e) => setNarrativeAudiencePreset(e.target.value as NarrativeAudiencePreset | "")}
+                >
+                  <option value="">No specific audience</option>
+                  {NARRATIVE_AUDIENCE_PRESETS.map((preset) => (
+                    <option key={preset} value={preset}>
+                      {AUDIENCE_LABELS[preset]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null}
+
+          {kind === "temporal_correction" ? (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Target</span>
+              <span className="font-medium">Which event?</span>
               <select
                 className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
-                value={narrativeEventId}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setNarrativeEventId(value);
-                  if (value && narrativeField === "subtitle") setNarrativeField("description");
-                }}
+                value={targetEventId}
+                onChange={(e) => setTargetEventId(e.target.value)}
               >
-                <option value="">Whole timeline</option>
+                {events.length === 0 ? <option value="">Save an event first</option> : null}
                 {events.map((ev) => (
                   <option key={ev.id} value={ev.id}>
                     {ev.title || "Untitled event"}
@@ -260,84 +476,117 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Field</span>
-              <select
-                className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
-                value={narrativeField}
-                onChange={(e) => setNarrativeField(e.target.value as typeof narrativeField)}
-              >
-                <option value="title">Title</option>
-                <option value="description">Description</option>
-                {!narrativeEventId ? <option value="subtitle">Subtitle</option> : null}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="font-medium">Audience (optional)</span>
-              <select
-                className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
-                value={narrativeAudiencePreset}
-                onChange={(e) => setNarrativeAudiencePreset(e.target.value as NarrativeAudiencePreset | "")}
-              >
-                <option value="">No specific audience</option>
-                {NARRATIVE_AUDIENCE_PRESETS.map((preset) => (
-                  <option key={preset} value={preset}>
-                    {AUDIENCE_LABELS[preset]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        ) : null}
+          ) : null}
 
-        {kind === "temporal_correction" ? (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Which event?</span>
+            <span className="font-medium">{kind === "temporal_correction" ? "Date phrase" : "Text"}</span>
+            <textarea
+              className="min-h-24 rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+              value={sourceContent}
+              onChange={(e) => setSourceContent(e.target.value)}
+              maxLength={20_000}
+            />
+          </label>
+
+          {generateError ? (
+            <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
+              {generateError}
+            </div>
+          ) : null}
+
+          <div>
+            <button
+              type="button"
+              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              onClick={handleGenerate}
+              disabled={generating}
+              aria-busy={generating || undefined}
+            >
+              {generating ? "Generating…" : "Generate"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Source type</span>
             <select
               className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
-              value={targetEventId}
-              onChange={(e) => setTargetEventId(e.target.value)}
+              value={importSourceKind}
+              onChange={(e) => setImportSourceKind(e.target.value as SourceImportKind)}
             >
-              {events.length === 0 ? <option value="">Save an event first</option> : null}
-              {events.map((ev) => (
-                <option key={ev.id} value={ev.id}>
-                  {ev.title || "Untitled event"}
+              {SOURCE_IMPORT_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {IMPORT_KIND_LABELS[k]}
                 </option>
               ))}
             </select>
           </label>
-        ) : null}
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">
-            {kind === "temporal_correction" ? "Date phrase" : "Text"}
-          </span>
-          <textarea
-            className="min-h-24 rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
-            value={sourceContent}
-            onChange={(e) => setSourceContent(e.target.value)}
-            maxLength={20_000}
-          />
-        </label>
+          {importSourceKind === "url" ? (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Web page URL</span>
+              <input
+                type="url"
+                className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                placeholder="https://…"
+              />
+            </label>
+          ) : (
+            <>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Upload a file (.txt, .md, .csv, .json)</span>
+                <input
+                  type="file"
+                  accept=".txt,.md,.markdown,.csv,.json,text/plain,text/markdown,text/csv,application/json"
+                  className="text-sm"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleFileChosen(file);
+                  }}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Or paste text</span>
+                <textarea
+                  className="min-h-24 rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+                  value={importContent}
+                  onChange={(e) => setImportContent(e.target.value)}
+                  maxLength={MAX_IMPORT_CHARS}
+                />
+                <span className="text-xs text-[var(--color-text-muted,inherit)]">
+                  {importContent.length.toLocaleString()} / {MAX_IMPORT_CHARS.toLocaleString()} characters
+                </span>
+              </label>
+            </>
+          )}
 
-        {generateError ? (
-          <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
-            {generateError}
+          {importError ? (
+            <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
+              {importError}
+            </div>
+          ) : null}
+          {importNotice ? (
+            <div className="rounded-lg border border-[var(--color-border,rgba(0,0,0,0.15))] bg-black/5 p-3 text-sm dark:bg-white/5">
+              {importNotice}
+            </div>
+          ) : null}
+
+          <div>
+            <button
+              type="button"
+              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              onClick={handleImport}
+              disabled={importing}
+              aria-busy={importing || undefined}
+            >
+              {importing ? "Importing…" : "Import and extract events"}
+            </button>
           </div>
-        ) : null}
-
-        <div>
-          <button
-            type="button"
-            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            onClick={handleGenerate}
-            disabled={generating}
-            aria-busy={generating || undefined}
-          >
-            {generating ? "Generating…" : "Generate"}
-          </button>
         </div>
-      </div>
+      )}
 
       {actionError ? (
         <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
@@ -356,44 +605,133 @@ export function AiCopilotPanel({ timelineId, events, onApplied }: AiCopilotPanel
           <p className="text-sm text-[var(--color-text-muted,inherit)]">Loading…</p>
         ) : pending.length === 0 ? (
           <p className="text-sm text-[var(--color-text-muted,inherit)]">
-            No pending proposals. Generate one above to see it here.
+            No pending proposals. Generate or import one above to see it here.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {pending.map((proposal) => (
-              <li
-                key={proposal.id}
-                className="rounded-lg border border-[var(--color-border,rgba(0,0,0,0.15))] p-3 text-sm"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{KIND_LABELS[proposal.kind]}</span>
-                  {hasUncitedContent(proposal.payload) ? (
-                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
-                      Uncited
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-[var(--color-text-muted,inherit)]">{summarizePayload(proposal.payload)}</p>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-                    onClick={() => handleAction(proposal.id, "accept")}
-                    disabled={busyProposalId === proposal.id}
+            {pending.map((proposal) => {
+              if (proposal.kind !== "events_extraction" || proposal.payload.kind !== "events_extraction") {
+                return (
+                  <li
+                    key={proposal.id}
+                    className="rounded-lg border border-[var(--color-border,rgba(0,0,0,0.15))] p-3 text-sm"
                   >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-lg border border-[var(--color-border,currentColor)] px-3 py-1.5 text-xs font-medium disabled:opacity-50"
-                    onClick={() => handleAction(proposal.id, "reject")}
-                    disabled={busyProposalId === proposal.id}
-                  >
-                    Reject
-                  </button>
-                </div>
-              </li>
-            ))}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{KIND_LABELS[proposal.kind]}</span>
+                      {hasUncitedContent(proposal.payload) ? (
+                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
+                          Uncited
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-[var(--color-text-muted,inherit)]">{summarizePayload(proposal.payload)}</p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                        onClick={() => handleAction(proposal.id, "accept")}
+                        disabled={busyProposalId === proposal.id}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-[var(--color-border,currentColor)] px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                        onClick={() => handleAction(proposal.id, "reject")}
+                        disabled={busyProposalId === proposal.id}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </li>
+                );
+              }
+
+              const payload = proposal.payload;
+              const eventIndexes = computeDefaultSelectedIndexes(
+                payload.events,
+                proposal.alreadyImportedChunkIds,
+                selection[proposal.id]
+              );
+
+              return (
+                <li
+                  key={proposal.id}
+                  className="rounded-lg border border-[var(--color-border,rgba(0,0,0,0.15))] p-3 text-sm"
+                >
+                  <div className="font-medium">{KIND_LABELS[proposal.kind]}</div>
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {payload.events.map((event, index) => {
+                      const alreadyImported = isEventAlreadyImported(event, proposal.alreadyImportedChunkIds);
+                      const selected = selection[proposal.id]?.[index] ?? !alreadyImported;
+                      return (
+                        <li
+                          key={index}
+                          className="rounded-md border border-[var(--color-border,rgba(0,0,0,0.1))] p-2"
+                        >
+                          <label className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              className="mt-1"
+                              checked={selected}
+                              onChange={() => toggleSelected(proposal.id, index, !alreadyImported)}
+                              disabled={alreadyImported}
+                            />
+                            <span className="flex-1">
+                              <span className="font-medium">{event.title}</span>
+                              {event.description ? (
+                                <p className="mt-0.5 text-xs text-[var(--color-text-muted,inherit)]">
+                                  {event.description}
+                                </p>
+                              ) : null}
+                              <span className="mt-1 flex flex-wrap gap-1">
+                                {alreadyImported ? (
+                                  <span className="rounded-full bg-black/10 px-2 py-0.5 text-xs dark:bg-white/10">
+                                    Already imported
+                                  </span>
+                                ) : event.citations.length > 0 ? (
+                                  event.citations.map((c, ci) => (
+                                    <span
+                                      key={ci}
+                                      className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-400"
+                                      title={c.excerpt}
+                                    >
+                                      {c.label}
+                                    </span>
+                                  ))
+                                ) : event.uncitedInference ? (
+                                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
+                                    Uncited inference
+                                  </span>
+                                ) : null}
+                              </span>
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                      onClick={() => handleAction(proposal.id, "accept", { eventIndexes })}
+                      disabled={busyProposalId === proposal.id || eventIndexes.length === 0}
+                    >
+                      Accept selected ({eventIndexes.length})
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-[var(--color-border,currentColor)] px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                      onClick={() => handleAction(proposal.id, "reject")}
+                      disabled={busyProposalId === proposal.id}
+                    >
+                      Reject all
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

@@ -24,8 +24,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     const body = await req.json();
     const input = ImportInputSchema.parse(body);
     const viewer = await getViewerContext();
-    const { sourceImport, proposal } = await importSource(id, viewer, input);
-    return NextResponse.json({ sourceImport, proposal }, { status: 201 });
+    const { sourceImport, proposal, wasReimport, alreadyImportedChunkIds } = await importSource(id, viewer, input);
+    return NextResponse.json({ sourceImport, proposal, wasReimport, alreadyImportedChunkIds }, { status: 201 });
   } catch (error) {
     return toErrorResponse(error);
   }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { summarizePayload, hasUncitedContent } from "../AiCopilotPanel";
+import {
+  summarizePayload,
+  hasUncitedContent,
+  isEventAlreadyImported,
+  computeDefaultSelectedIndexes,
+} from "../AiCopilotPanel";
 import type { AiProposalPayload } from "@/lib/ai/schemas";
 
 const eventsExtraction: AiProposalPayload = {
@@ -93,5 +98,43 @@ describe("hasUncitedContent", () => {
 
   it("never flags visual_recommendation, which carries no factual claims", () => {
     expect(hasUncitedContent(visualRecommendation)).toBe(false);
+  });
+});
+
+describe("isEventAlreadyImported", () => {
+  it("is true when the event's chunk id is in the already-imported list", () => {
+    expect(isEventAlreadyImported({ sourceChunkId: "chunk-1" }, ["chunk-1", "chunk-2"])).toBe(true);
+  });
+
+  it("is false when the chunk id isn't in the list", () => {
+    expect(isEventAlreadyImported({ sourceChunkId: "chunk-3" }, ["chunk-1", "chunk-2"])).toBe(false);
+  });
+
+  it("is false when the event has no sourceChunkId (not from an import)", () => {
+    expect(isEventAlreadyImported({}, ["chunk-1"])).toBe(false);
+  });
+
+  it("is false when the already-imported list is undefined", () => {
+    expect(isEventAlreadyImported({ sourceChunkId: "chunk-1" }, undefined)).toBe(false);
+  });
+});
+
+describe("computeDefaultSelectedIndexes", () => {
+  const events = [{ sourceChunkId: "a" }, { sourceChunkId: "b" }, { sourceChunkId: "c" }, {}];
+
+  it("selects every event by default when none are already imported", () => {
+    expect(computeDefaultSelectedIndexes(events, [], undefined)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("excludes already-imported events by default", () => {
+    expect(computeDefaultSelectedIndexes(events, ["b"], undefined)).toEqual([0, 2, 3]);
+  });
+
+  it("lets an explicit override include an already-imported event", () => {
+    expect(computeDefaultSelectedIndexes(events, ["b"], { 1: true })).toEqual([0, 1, 2, 3]);
+  });
+
+  it("lets an explicit override exclude a non-imported event", () => {
+    expect(computeDefaultSelectedIndexes(events, [], { 0: false })).toEqual([1, 2, 3]);
   });
 });
