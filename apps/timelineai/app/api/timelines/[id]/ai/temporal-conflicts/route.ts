@@ -9,8 +9,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params;
     const viewer = await getViewerContext();
-    const conflicts = await getTemporalConflicts(id, viewer);
-    return NextResponse.json({ conflicts });
+    const result = await getTemporalConflicts(id, viewer);
+    return NextResponse.json(result);
   } catch (error) {
     return toErrorResponse(error);
   }

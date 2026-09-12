@@ -4,6 +4,7 @@ import {
   hasUncitedContent,
   isEventAlreadyImported,
   computeDefaultSelectedIndexes,
+  conflictSignature,
 } from "../AiCopilotPanel";
 import type { AiProposalPayload } from "@/lib/ai/schemas";
 
@@ -136,5 +137,25 @@ describe("computeDefaultSelectedIndexes", () => {
 
   it("lets an explicit override exclude a non-imported event", () => {
     expect(computeDefaultSelectedIndexes(events, [], { 0: false })).toEqual([1, 2, 3]);
+  });
+});
+
+describe("conflictSignature", () => {
+  it("is the same regardless of eventIds order (a dismissal should match either order)", () => {
+    const a = conflictSignature({ code: "ordering_cycle", eventIds: ["ev2", "ev1"] });
+    const b = conflictSignature({ code: "ordering_cycle", eventIds: ["ev1", "ev2"] });
+    expect(a).toBe(b);
+  });
+
+  it("differs by code even for the same events", () => {
+    const a = conflictSignature({ code: "impossible_range", eventIds: ["ev1"] });
+    const b = conflictSignature({ code: "ordering_violation", eventIds: ["ev1"] });
+    expect(a).not.toBe(b);
+  });
+
+  it("differs when the affected events differ", () => {
+    const a = conflictSignature({ code: "ordering_cycle", eventIds: ["ev1", "ev2"] });
+    const b = conflictSignature({ code: "ordering_cycle", eventIds: ["ev1", "ev3"] });
+    expect(a).not.toBe(b);
   });
 });
