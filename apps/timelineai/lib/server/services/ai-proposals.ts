@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma, type Prisma } from "../db";
+import { prisma, Prisma } from "../db";
 import { assertAccess, ForbiddenError, NotFoundError, type ViewerContext } from "../authz";
 import { isAiEnabled } from "../../ai/kill-switch";
 import { enforceAiQuota } from "../ai-quota";
@@ -46,6 +46,8 @@ export interface GenerateAiProposalOptions {
   /** Pre-chunked source document, set only for cited-import generations (lib/server/services/source-import.ts). */
   chunks?: { id: string; text: string }[];
   sourceContentHash?: string;
+  /** Required for kind "temporal_correction" — the event whose date is being reinterpreted. */
+  targetEventId?: string;
 }
 
 export async function generateAiProposal(
@@ -68,6 +70,7 @@ export async function generateAiProposal(
       sourceContent,
       chunks: options.chunks,
       sourceContentHash: options.sourceContentHash,
+      targetEventId: options.targetEventId,
     });
 
     const proposal = await prisma.timelineAiProposal.create({
@@ -250,6 +253,40 @@ async function applyProposal(
       });
       return { target: "timeline", previousLayout, previousTheme };
     }
+
+    case "temporal_correction": {
+      const event = await tx.timelineEvent.findUnique({ where: { id: payload.eventId } });
+      if (!event || event.timelineId !== timelineId) {
+        throw new NotFoundError("The event this correction targets no longer exists.");
+      }
+      const previousValue = {
+        displayDate: event.displayDate,
+        startAt: event.startAt ? event.startAt.toISOString() : null,
+        endAt: event.endAt ? event.endAt.toISOString() : null,
+        temporalPrecision: event.temporalPrecision,
+      };
+
+      // Only day/month/year precision (unambiguously a single point in
+      // time) ever sets startAt — anything coarser (decade, century,
+      // season, range, unknown) is display-only via displayDate, exactly
+      // so an approximate date can never masquerade as an exact one.
+      const value = payload.temporalValue;
+      const canResolveStartAt = value.era === "CE" && ["day", "month", "year"].includes(value.precision);
+      const startAt = canResolveStartAt
+        ? new Date(Date.UTC(value.year!, (value.month ?? 1) - 1, value.day ?? 1))
+        : null;
+
+      await tx.timelineEvent.update({
+        where: { id: payload.eventId },
+        data: {
+          displayDate: value.displayText,
+          startAt,
+          temporalPrecision: value as unknown as Prisma.InputJsonValue,
+        },
+      });
+      await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
+      return { target: "event", eventId: payload.eventId, previousTemporalValue: previousValue };
+    }
   }
 }
 
@@ -265,6 +302,26 @@ async function revertProposal(
     // source chunks recreates them instead of silently skipping.
     await tx.timelineImportedEvent.deleteMany({ where: { eventId: { in: eventIds } } });
     await tx.timelineEvent.deleteMany({ where: { id: { in: eventIds } } });
+    await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
+    return;
+  }
+
+  if (snapshot.target === "event" && typeof snapshot.eventId === "string" && snapshot.previousTemporalValue) {
+    const prev = snapshot.previousTemporalValue as {
+      displayDate: string | null;
+      startAt: string | null;
+      endAt: string | null;
+      temporalPrecision: unknown;
+    };
+    await tx.timelineEvent.update({
+      where: { id: snapshot.eventId },
+      data: {
+        displayDate: prev.displayDate,
+        startAt: prev.startAt ? new Date(prev.startAt) : null,
+        endAt: prev.endAt ? new Date(prev.endAt) : null,
+        temporalPrecision: (prev.temporalPrecision as Prisma.InputJsonValue | null) ?? Prisma.JsonNull,
+      },
+    });
     await tx.timeline.update({ where: { id: timelineId }, data: { version: { increment: 1 } } });
     return;
   }

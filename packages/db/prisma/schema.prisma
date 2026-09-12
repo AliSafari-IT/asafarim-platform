@@ -1913,6 +1913,14 @@ model TimelineEvent {
   endAt       DateTime? // Gantt-style duration bars use start+end
   displayDate String?
 
+  /// Structured precision/era/confidence for this event's date (TLAI-004,
+  /// lib/ai/temporal.ts#TemporalValue) — set only via an accepted
+  /// temporal_correction AI proposal. startAt/endAt above stay
+  /// best-effort/display-oriented; this is the source of truth for
+  /// "how certain was this date, really" and is never inferred from
+  /// startAt/displayDate alone.
+  temporalPrecision Json?
+
   title       String
   description String? @db.Text
 

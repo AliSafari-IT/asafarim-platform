@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TemporalValueSchema } from "./temporal";
 
 /**
  * Structured shapes for everything an AI provider may propose. These are
@@ -11,6 +12,7 @@ export const AI_PROPOSAL_KINDS = [
   "events_extraction",
   "narrative_suggestion",
   "visual_recommendation",
+  "temporal_correction",
 ] as const;
 export type AiProposalKind = (typeof AI_PROPOSAL_KINDS)[number];
 
@@ -57,6 +59,8 @@ export const ExtractedEventSchema = z
     displayDate: z.string().max(64).optional(),
     startAt: z.string().datetime().optional(),
     endAt: z.string().datetime().optional(),
+    /** Structured precision/confidence for this event's date, when the provider can supply one (lib/ai/temporal.ts). */
+    temporalValue: TemporalValueSchema.optional(),
     citations: z.array(CitationSchema).max(10).default([]),
     confidence: ConfidenceSchema,
     /** Stable id of the source-document chunk this event was extracted from (lib/ai/source-import.ts). Absent for non-import generations. */
@@ -101,11 +105,45 @@ export const VisualRecommendationPayloadSchema = z
   })
   .strict();
 
-export const AiProposalPayloadSchema = z.discriminatedUnion("kind", [
-  EventsExtractionPayloadSchema,
-  NarrativeSuggestionPayloadSchema,
-  VisualRecommendationPayloadSchema,
-]);
+/**
+ * A proposed correction to one event's date, with the evidence and any
+ * detected conflicts the review panel should show alongside it. Applying
+ * this never auto-resolves a conflict — `conflictCodes` is informational,
+ * surfaced to the user, not something accept() reacts to differently.
+ */
+// Not .refine()'d here — a discriminatedUnion member must stay a plain
+// ZodObject (refine wraps it in ZodEffects, which discriminatedUnion
+// rejects). The citation-or-uncited-inference rule is enforced instead by
+// the .superRefine() on AiProposalPayloadSchema below, once the branch is
+// already resolved.
+export const TemporalCorrectionPayloadSchema = z
+  .object({
+    kind: z.literal("temporal_correction"),
+    eventId: z.string().min(1).max(64),
+    temporalValue: TemporalValueSchema,
+    citations: z.array(CitationSchema).max(10).default([]),
+    confidence: ConfidenceSchema,
+    uncitedInference: z.boolean().default(false),
+    conflictCodes: z.array(z.enum(["impossible_range", "ordering_cycle", "ordering_violation"])).max(10).default([]),
+  })
+  .strict();
+
+export const AiProposalPayloadSchema = z
+  .discriminatedUnion("kind", [
+    EventsExtractionPayloadSchema,
+    NarrativeSuggestionPayloadSchema,
+    VisualRecommendationPayloadSchema,
+    TemporalCorrectionPayloadSchema,
+  ])
+  .superRefine((payload, ctx) => {
+    if (payload.kind === "temporal_correction" && payload.citations.length === 0 && !payload.uncitedInference) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A temporal correction needs at least one citation, or must be flagged as an uncited inference.",
+        path: ["citations"],
+      });
+    }
+  });
 export type AiProposalPayload = z.infer<typeof AiProposalPayloadSchema>;
 
 /** The full, validated envelope a provider call resolves to. */

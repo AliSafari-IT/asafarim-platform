@@ -18,6 +18,8 @@ export interface AiGenerationRequest {
    */
   chunks?: { id: string; text: string }[];
   sourceContentHash?: string;
+  /** Set for kind "temporal_correction" — the event whose date is being reinterpreted from `sourceContent`. */
+  targetEventId?: string;
 }
 
 export interface AiProvider {
