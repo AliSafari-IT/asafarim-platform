@@ -53,13 +53,13 @@ function SignInPageContentInner() {
   const signUpHref = `/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
   const [method, setMethod] = useState<SignInMethod>("password");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (urlError === "CredentialsSignin") setError("Invalid email or password.");
+    if (urlError === "CredentialsSignin") setError("Invalid username/email or password.");
   }, [urlError]);
 
   const globalDisabled = isLoading || status === "loading";
@@ -74,9 +74,9 @@ function SignInPageContentInner() {
     setIsLoading(true);
     setError("");
     try {
-      const result = await signIn("credentials", { email, password, redirect: false });
+      const result = await signIn("credentials", { identifier, password, redirect: false });
       if (result?.error) {
-        setError("Invalid email or password.");
+        setError("Invalid username/email or password.");
         return;
       }
       if (callbackUrl.startsWith("/")) {
@@ -123,14 +123,14 @@ function SignInPageContentInner() {
         {method === "password" ? (
           <form onSubmit={handlePasswordSubmit}>
             <FormRow>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="identifier">Username or email</Label>
               <Input
-                id="email"
-                type="email"
+                id="identifier"
+                type="text"
                 required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
               />
             </FormRow>
             <PasswordField
