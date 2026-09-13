@@ -105,7 +105,8 @@ export function WorkspaceHome({
           </li>
         </ul>
         <p className="ta-muted ta-whome__note">
-          Press <kbd>⌘</kbd> <kbd>K</kbd> anywhere to jump to a screen or capture a task.
+          Press <kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd> anywhere to jump to a screen or capture a
+          task.
         </p>
       </footer>
     </section>
@@ -162,6 +163,9 @@ function FirstRun({
   );
 }
 
+/** Same shape the API enforces; mirrored here so bad keys never leave the page. */
+const PROJECT_KEY_RE = /^[A-Z][A-Z0-9]+$/;
+
 function CreateFirstProject({ slug, hint }: { slug: string; hint: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -171,12 +175,17 @@ function CreateFirstProject({ slug, hint }: { slug: string; hint: string }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const trimmedKey = key.trim().toUpperCase();
+    if (!PROJECT_KEY_RE.test(trimmedKey)) {
+      setError("A short code is two or more letters or digits, starting with a letter — like WEB.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const created = await api.createProject(slug, {
         name: name.trim(),
-        key: key.trim().toUpperCase(),
+        key: trimmedKey,
       });
       track({ name: "project.created" });
       track({ name: "workspace.activation.project_created", from: "workspace_home" });
@@ -339,9 +348,15 @@ function Oriented({
               Take something from the Inbox
             </a>{" "}
             ·{" "}
-            <a className="ta-link" href={`/w/${slug}/copilot`}>
-              Draft work from notes
-            </a>
+            {counts.aiEnabled ? (
+              <a className="ta-link" href={`/w/${slug}/copilot`}>
+                Draft work from notes
+              </a>
+            ) : (
+              <a className="ta-link" href={`/w/${slug}/imports`}>
+                Import a task list
+              </a>
+            )}
           </p>
         </div>
       )}

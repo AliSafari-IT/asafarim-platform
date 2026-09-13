@@ -134,7 +134,10 @@ export function activationChecklist(counts: WorkspaceHomeCounts): ActivationStep
   const done: Record<ActivationStep["id"], boolean> = {
     project: counts.projectCount > 0,
     capture: counts.openTaskCount > 0 || counts.completedCount > 0,
-    plan: counts.assignedAnyCount > 0,
+    // Completing the last assigned task drops `assignedAnyCount` back to 0.
+    // A finished task is still evidence that planning happened, so the step
+    // stays done rather than regressing to "do this next".
+    plan: counts.assignedAnyCount > 0 || counts.completedCount > 0,
     execute: counts.completedCount > 0,
   };
 
