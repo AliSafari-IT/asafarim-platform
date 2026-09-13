@@ -97,16 +97,20 @@ export function FilterBar({
         );
       })}
 
-      <div className="ui-filterbar__actions">
-        <Button type="submit" variant="console" size="sm">
-          {submitLabel}
-        </Button>
-        {hasFilters && clearHref ? (
-          <a href={clearHref} className="ui-btn ui-btn--ghost ui-btn--sm">
-            clear
-          </a>
-        ) : null}
-      </div>
+      {fields.length > 0 || (hasFilters && clearHref) ? (
+        <div className="ui-filterbar__actions">
+          {fields.length > 0 ? (
+            <Button type="submit" variant="console" size="sm">
+              {submitLabel}
+            </Button>
+          ) : null}
+          {hasFilters && clearHref ? (
+            <a href={clearHref} className="ui-btn ui-btn--ghost ui-btn--sm">
+              clear
+            </a>
+          ) : null}
+        </div>
+      ) : null}
 
       {chips ? (
         <div className="ui-filterbar__chips">

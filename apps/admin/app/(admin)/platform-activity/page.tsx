@@ -69,18 +69,18 @@ export default async function PlatformActivityPage({
           <>
             <FilterBar
               action={basePath}
-              fields={[
-                {
-                  kind: "select",
-                  name: "app",
-                  label: "app",
-                  value: appFilter,
-                  options: [
-                    { label: "all apps", value: "" },
-                    ...supportedApps.map((app) => ({ label: appLabel(app), value: app })),
-                  ],
-                },
-              ]}
+              fields={[]}
+              chips={{
+                label: "app",
+                options: [
+                  { label: "all apps", href: basePath, active: !appFilter },
+                  ...supportedApps.map((app) => ({
+                    label: appLabel(app),
+                    href: `${basePath}?app=${encodeURIComponent(app)}`,
+                    active: appFilter === app,
+                  })),
+                ],
+              }}
               hasFilters={Boolean(appFilter)}
               clearHref={basePath}
             />
