@@ -4,7 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "@asafarim/shared-i18n";
-import { Clapperboard, Clock, FolderOpen, HardDrive, Search, Video } from "lucide-react";
+import {
+  Clapperboard,
+  Clock,
+  Download,
+  FolderOpen,
+  HardDrive,
+  LayoutGrid,
+  List,
+  Search,
+  SlidersHorizontal,
+  Video,
+} from "lucide-react";
+import { VISUAL_STYLE_OPTIONS } from "@/lib/visual-styles";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -16,6 +28,10 @@ interface LibraryExport {
   versionName: string | null;
   filename: string | null;
   mode: string | null;
+  storyMode: string | null;
+  emotionalTone: string | null;
+  visualStyle: string | null;
+  renderMode: string | null;
   aspectRatio: string | null;
   previewTitle: string | null;
   format: string;
@@ -38,26 +54,60 @@ interface ProjectOption {
   title: string;
 }
 
+interface VersionOption {
+  id: string;
+  name: string;
+}
+
+type ViewMode = "grid" | "list";
+
 interface Filters {
   search: string;
   projectId: string;
+  versionId: string;
   mode: string;
   aspectRatio: string;
+  resolution: string;
+  format: string;
+  visualStyle: string;
+  storyMode: string;
+  emotionalTone: string;
+  renderMode: string;
+  durationMin: string;
+  durationMax: string;
   createdFrom: string;
   createdTo: string;
+  sort: string;
+  view: ViewMode;
 }
 
 const MODES = ["cinematic", "slideshow", "social"];
 const ASPECT_RATIOS = ["16:9", "9:16", "1:1", "4:3"];
+const RESOLUTIONS = ["720p", "1080p", "4k"];
+const FORMATS = ["mp4", "mov", "webm"];
+const STORY_MODES = ["memory_film", "travel_recap", "family_archive", "event_recap", "social_reel", "documentary"];
+const EMOTIONAL_TONES = ["nostalgic", "joyful", "calm", "epic", "funny", "romantic", "reflective"];
+const SORT_OPTIONS = ["newest", "oldest", "duration_desc", "duration_asc", "size_desc", "size_asc"] as const;
 
 function filtersFromParams(params: URLSearchParams): Filters {
   return {
     search: params.get("search") ?? "",
     projectId: params.get("projectId") ?? "",
+    versionId: params.get("versionId") ?? "",
     mode: params.get("mode") ?? "",
     aspectRatio: params.get("aspectRatio") ?? "",
+    resolution: params.get("resolution") ?? "",
+    format: params.get("format") ?? "",
+    visualStyle: params.get("visualStyle") ?? "",
+    storyMode: params.get("storyMode") ?? "",
+    emotionalTone: params.get("emotionalTone") ?? "",
+    renderMode: params.get("renderMode") ?? "",
+    durationMin: params.get("durationMin") ?? "",
+    durationMax: params.get("durationMax") ?? "",
     createdFrom: params.get("createdFrom") ?? "",
     createdTo: params.get("createdTo") ?? "",
+    sort: params.get("sort") ?? "newest",
+    view: params.get("view") === "list" ? "list" : "grid",
   };
 }
 
@@ -65,15 +115,37 @@ function filtersToQuery(filters: Filters): string {
   const params = new URLSearchParams();
   if (filters.search) params.set("search", filters.search);
   if (filters.projectId) params.set("projectId", filters.projectId);
+  if (filters.versionId) params.set("versionId", filters.versionId);
   if (filters.mode) params.set("mode", filters.mode);
   if (filters.aspectRatio) params.set("aspectRatio", filters.aspectRatio);
+  if (filters.resolution) params.set("resolution", filters.resolution);
+  if (filters.format) params.set("format", filters.format);
+  if (filters.visualStyle) params.set("visualStyle", filters.visualStyle);
+  if (filters.storyMode) params.set("storyMode", filters.storyMode);
+  if (filters.emotionalTone) params.set("emotionalTone", filters.emotionalTone);
+  if (filters.renderMode) params.set("renderMode", filters.renderMode);
+  if (filters.durationMin) params.set("durationMin", filters.durationMin);
+  if (filters.durationMax) params.set("durationMax", filters.durationMax);
   if (filters.createdFrom) params.set("createdFrom", filters.createdFrom);
   if (filters.createdTo) params.set("createdTo", filters.createdTo);
+  if (filters.sort && filters.sort !== "newest") params.set("sort", filters.sort);
+  if (filters.view === "list") params.set("view", "list");
+  return params.toString();
+}
+
+/** Query string sent to the API — excludes `view`, which is UI-only and unknown to the backend. */
+function filtersToApiQuery(filters: Filters): string {
+  const params = new URLSearchParams(filtersToQuery(filters));
+  params.delete("view");
   return params.toString();
 }
 
 function hasActiveFilters(filters: Filters): boolean {
-  return Object.values(filters).some(Boolean);
+  return Object.entries(filters).some(([key, value]) => {
+    if (key === "view") return false;
+    if (key === "sort") return value !== "newest";
+    return Boolean(value);
+  });
 }
 
 function formatBytes(bytes: number): string {
@@ -108,6 +180,17 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
+async function handleDownload(exportId: string) {
+  try {
+    const res = await fetch(`/api/exports/${exportId}/download`);
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json?.downloadUrl) window.open(json.downloadUrl, "_blank", "noopener,noreferrer");
+  } catch {
+    // Best-effort — a failed download request just does nothing rather than throwing in the UI.
+  }
+}
+
 // ─── Component ──────────────────────────────────────────────────────
 
 export function LibraryPageClient() {
@@ -119,6 +202,7 @@ export function LibraryPageClient() {
   const urlFilters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
   const [searchInput, setSearchInput] = useState(urlFilters.search);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [videos, setVideos] = useState<LibraryExport[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -126,8 +210,8 @@ export function LibraryPageClient() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [versions, setVersions] = useState<VersionOption[]>([]);
 
-  // Keep the search box in sync when filters change via URL (back/forward, clear).
   useEffect(() => {
     setSearchInput(urlFilters.search);
   }, [urlFilters.search]);
@@ -147,7 +231,7 @@ export function LibraryPageClient() {
     searchTimer.current = setTimeout(() => updateFilters({ search: value }), 400);
   }
 
-  // Project options for the filter dropdown — fetched once, authenticated only.
+  // Project options — fetched once, authenticated only.
   useEffect(() => {
     if (status !== "authenticated") return;
     fetch("/api/projects?pageSize=100&sortBy=title&sortOrder=asc")
@@ -160,7 +244,25 @@ export function LibraryPageClient() {
       .catch(() => {});
   }, [status]);
 
-  const queryString = useMemo(() => filtersToQuery(urlFilters), [urlFilters]);
+  // Version options — dependent on the selected project, per the issue's
+  // "populate it after selecting a project" guidance. Reuses the same
+  // endpoint the /create workspace already uses for its version list.
+  useEffect(() => {
+    if (status !== "authenticated" || !urlFilters.projectId) {
+      setVersions([]);
+      return;
+    }
+    fetch(`/api/projects/${urlFilters.projectId}/versions`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.data) {
+          setVersions(json.data.map((v: { id: string; name: string }) => ({ id: v.id, name: v.name })));
+        }
+      })
+      .catch(() => {});
+  }, [status, urlFilters.projectId]);
+
+  const queryString = useMemo(() => filtersToApiQuery(urlFilters), [urlFilters]);
 
   // List + stats — refetch from the top whenever filters change.
   useEffect(() => {
@@ -267,8 +369,8 @@ export function LibraryPageClient() {
         </div>
       ) : null}
 
-      {/* ─── Filters ──────────────────────────────────────────────── */}
-      <div className="mb-6 flex flex-wrap items-end gap-3">
+      {/* ─── Primary filters ─────────────────────────────────────── */}
+      <div className="mb-3 flex flex-wrap items-end gap-3">
         <div className="relative min-w-[16rem] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <input
@@ -283,7 +385,7 @@ export function LibraryPageClient() {
         <FilterSelect
           label={t("vionto.libraryPage.filterProject")}
           value={urlFilters.projectId}
-          onChange={(value) => updateFilters({ projectId: value })}
+          onChange={(value) => updateFilters({ projectId: value, versionId: "" })}
           options={[
             { value: "", label: t("vionto.libraryPage.filterProjectAll") },
             ...projects.map((p) => ({ value: p.id, label: p.title })),
@@ -330,6 +432,20 @@ export function LibraryPageClient() {
           />
         </label>
 
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          aria-expanded={showAdvanced}
+          className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+            showAdvanced
+              ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+              : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] hover:border-[var(--color-accent)]"
+          }`}
+        >
+          <SlidersHorizontal size={14} />
+          {t("vionto.libraryPage.advancedFilters")}
+        </button>
+
         {filtersActive ? (
           <button
             type="button"
@@ -344,13 +460,136 @@ export function LibraryPageClient() {
         ) : null}
       </div>
 
+      {/* ─── Advanced filters (collapsible) ──────────────────────── */}
+      {showAdvanced ? (
+        <div className="mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3">
+          <FilterSelect
+            label={t("vionto.libraryPage.filterVersion")}
+            value={urlFilters.versionId}
+            onChange={(value) => updateFilters({ versionId: value })}
+            options={[
+              { value: "", label: t("vionto.libraryPage.filterVersionAll") },
+              ...versions.map((v) => ({ value: v.id, label: v.name })),
+            ]}
+            disabled={!urlFilters.projectId}
+          />
+          <FilterSelect
+            label={t("vionto.libraryPage.filterResolution")}
+            value={urlFilters.resolution}
+            onChange={(value) => updateFilters({ resolution: value })}
+            options={[
+              { value: "", label: t("vionto.libraryPage.filterResolutionAll") },
+              ...RESOLUTIONS.map((r) => ({ value: r, label: r })),
+            ]}
+          />
+          <FilterSelect
+            label={t("vionto.libraryPage.filterFormat")}
+            value={urlFilters.format}
+            onChange={(value) => updateFilters({ format: value })}
+            options={[
+              { value: "", label: t("vionto.libraryPage.filterFormatAll") },
+              ...FORMATS.map((f) => ({ value: f, label: f.toUpperCase() })),
+            ]}
+          />
+          <FilterSelect
+            label={t("vionto.libraryPage.filterVisualStyle")}
+            value={urlFilters.visualStyle}
+            onChange={(value) => updateFilters({ visualStyle: value })}
+            options={[
+              { value: "", label: t("vionto.libraryPage.filterVisualStyleAll") },
+              ...VISUAL_STYLE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+            ]}
+          />
+          <FilterSelect
+            label={t("vionto.libraryPage.filterStoryMode")}
+            value={urlFilters.storyMode}
+            onChange={(value) => updateFilters({ storyMode: value })}
+            options={[
+              { value: "", label: t("vionto.libraryPage.filterStoryModeAll") },
+              ...STORY_MODES.map((m) => ({ value: m, label: t(`vionto.storyMode.${m}`) })),
+            ]}
+          />
+          <FilterSelect
+            label={t("vionto.libraryPage.filterEmotionalTone")}
+            value={urlFilters.emotionalTone}
+            onChange={(value) => updateFilters({ emotionalTone: value })}
+            options={[
+              { value: "", label: t("vionto.libraryPage.filterEmotionalToneAll") },
+              ...EMOTIONAL_TONES.map((tone) => ({ value: tone, label: t(`vionto.emotionalTone.${tone}`) })),
+            ]}
+          />
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-[var(--color-text-muted)]">
+              {t("vionto.libraryPage.filterDurationMin")}
+            </span>
+            <input
+              type="number"
+              min={0}
+              value={urlFilters.durationMin}
+              onChange={(e) => updateFilters({ durationMin: e.target.value })}
+              className="w-24 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none ring-[var(--color-primary)] focus:ring-2"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-[var(--color-text-muted)]">
+              {t("vionto.libraryPage.filterDurationMax")}
+            </span>
+            <input
+              type="number"
+              min={0}
+              value={urlFilters.durationMax}
+              onChange={(e) => updateFilters({ durationMax: e.target.value })}
+              className="w-24 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none ring-[var(--color-primary)] focus:ring-2"
+            />
+          </label>
+        </div>
+      ) : null}
+
+      {/* ─── Sort + view toggle ──────────────────────────────────── */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <FilterSelect
+          label={t("vionto.libraryPage.sortLabel")}
+          value={urlFilters.sort}
+          onChange={(value) => updateFilters({ sort: value })}
+          options={SORT_OPTIONS.map((s) => ({ value: s, label: t(`vionto.libraryPage.sort.${s}`) }))}
+        />
+        <div className="flex items-center gap-1 rounded-xl border border-[var(--color-border)] p-1">
+          <button
+            type="button"
+            onClick={() => updateFilters({ view: "grid" })}
+            aria-pressed={urlFilters.view === "grid"}
+            title={t("vionto.libraryPage.viewGrid")}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+              urlFilters.view === "grid"
+                ? "bg-[var(--color-primary)] text-white"
+                : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-soft)]"
+            }`}
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => updateFilters({ view: "list" })}
+            aria-pressed={urlFilters.view === "list"}
+            title={t("vionto.libraryPage.viewList")}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+              urlFilters.view === "list"
+                ? "bg-[var(--color-primary)] text-white"
+                : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-soft)]"
+            }`}
+          >
+            <List size={16} />
+          </button>
+        </div>
+      </div>
+
       {stats ? (
         <p className="mb-4 text-xs text-[var(--color-text-muted)]">
           {t("vionto.libraryPage.showingCount", { shown: videos.length, total: stats.totalVideos })}
         </p>
       ) : null}
 
-      {/* ─── Grid ─────────────────────────────────────────────────── */}
+      {/* ─── Results ──────────────────────────────────────────────── */}
       {loading ? (
         <div className="flex items-center justify-center py-24">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
@@ -367,11 +606,36 @@ export function LibraryPageClient() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {videos.map((video) => (
-              <VideoCard key={video.id} video={video} openProjectLabel={t("vionto.libraryPage.openProject")} />
-            ))}
-          </div>
+          {urlFilters.view === "grid" ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {videos.map((video) => (
+                <VideoCard
+                  key={video.id}
+                  video={video}
+                  openProjectLabel={t("vionto.libraryPage.openProject")}
+                  downloadLabel={t("vionto.libraryPage.download")}
+                />
+              ))}
+            </div>
+          ) : (
+            <VideoTable
+              videos={videos}
+              openProjectLabel={t("vionto.libraryPage.openProject")}
+              columns={{
+                title: t("vionto.libraryPage.columnTitle"),
+                project: t("vionto.libraryPage.columnProject"),
+                version: t("vionto.libraryPage.columnVersion"),
+                generated: t("vionto.libraryPage.columnGenerated"),
+                duration: t("vionto.libraryPage.columnDuration"),
+                mode: t("vionto.libraryPage.columnMode"),
+                aspect: t("vionto.libraryPage.columnAspect"),
+                resolution: t("vionto.libraryPage.columnResolution"),
+                size: t("vionto.libraryPage.columnSize"),
+                actions: t("vionto.libraryPage.columnActions"),
+              }}
+              downloadLabel={t("vionto.libraryPage.download")}
+            />
+          )}
 
           {nextCursor ? (
             <div className="mt-6 flex justify-center">
@@ -416,19 +680,22 @@ function FilterSelect({
   value,
   onChange,
   options,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
+  disabled?: boolean;
 }) {
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-medium text-[var(--color-text-muted)]">{label}</span>
       <select
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none ring-[var(--color-primary)] focus:ring-2"
+        className="rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none ring-[var(--color-primary)] focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -440,7 +707,15 @@ function FilterSelect({
   );
 }
 
-function VideoCard({ video, openProjectLabel }: { video: LibraryExport; openProjectLabel: string }) {
+function VideoCard({
+  video,
+  openProjectLabel,
+  downloadLabel,
+}: {
+  video: LibraryExport;
+  openProjectLabel: string;
+  downloadLabel: string;
+}) {
   return (
     <div className="group overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition hover:border-[var(--color-accent)]">
       <div className="relative aspect-video w-full overflow-hidden bg-[var(--color-surface-soft)]">
@@ -467,6 +742,15 @@ function VideoCard({ video, openProjectLabel }: { video: LibraryExport; openProj
             {formatDuration(video.durationSeconds)}
           </span>
         ) : null}
+        <button
+          type="button"
+          onClick={() => handleDownload(video.id)}
+          title={downloadLabel}
+          aria-label={downloadLabel}
+          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100 hover:bg-black/80"
+        >
+          <Download size={13} />
+        </button>
       </div>
       <div className="p-3">
         <p className="truncate text-sm font-medium text-[var(--color-text)]">
@@ -489,6 +773,82 @@ function VideoCard({ video, openProjectLabel }: { video: LibraryExport; openProj
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function VideoTable({
+  videos,
+  openProjectLabel,
+  columns,
+  downloadLabel,
+}: {
+  videos: LibraryExport[];
+  openProjectLabel: string;
+  columns: Record<
+    "title" | "project" | "version" | "generated" | "duration" | "mode" | "aspect" | "resolution" | "size" | "actions",
+    string
+  >;
+  downloadLabel: string;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]">
+      <table className="w-full min-w-[52rem] text-left text-sm">
+        <thead className="bg-[var(--color-surface-soft)] text-[11px] uppercase tracking-wide text-[var(--color-text-muted)]">
+          <tr>
+            <th className="px-3 py-2 font-medium">{columns.title}</th>
+            <th className="px-3 py-2 font-medium">{columns.project}</th>
+            <th className="px-3 py-2 font-medium">{columns.version}</th>
+            <th className="px-3 py-2 font-medium">{columns.generated}</th>
+            <th className="px-3 py-2 font-medium">{columns.duration}</th>
+            <th className="px-3 py-2 font-medium">{columns.mode}</th>
+            <th className="px-3 py-2 font-medium">{columns.aspect}</th>
+            <th className="px-3 py-2 font-medium">{columns.resolution}</th>
+            <th className="px-3 py-2 font-medium">{columns.size}</th>
+            <th className="px-3 py-2 font-medium text-right">{columns.actions}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--color-border)]">
+          {videos.map((video) => (
+            <tr key={video.id} className="hover:bg-[var(--color-surface-soft)]">
+              <td className="max-w-[16rem] truncate px-3 py-2 font-medium text-[var(--color-text)]">
+                {video.previewTitle ?? video.filename ?? "Untitled"}
+              </td>
+              <td className="px-3 py-2 text-[var(--color-text-muted)]">
+                <a
+                  href={`/create?projectId=${video.projectId}`}
+                  title={openProjectLabel}
+                  className="hover:text-[var(--color-accent)]"
+                >
+                  {video.projectTitle}
+                </a>
+              </td>
+              <td className="px-3 py-2 text-[var(--color-text-muted)]">{video.versionName ?? "—"}</td>
+              <td className="px-3 py-2 text-[var(--color-text-muted)]">{timeAgo(video.createdAt)}</td>
+              <td className="px-3 py-2 text-[var(--color-text-muted)]">
+                {video.durationSeconds ? formatDuration(video.durationSeconds) : "—"}
+              </td>
+              <td className="px-3 py-2 text-[var(--color-text-muted)]">{video.mode ?? "—"}</td>
+              <td className="px-3 py-2 text-[var(--color-text-muted)]">{video.aspectRatio ?? "—"}</td>
+              <td className="px-3 py-2 text-[var(--color-text-muted)]">{video.resolution ?? "—"}</td>
+              <td className="px-3 py-2 text-[var(--color-text-muted)]">
+                {video.fileSizeBytes ? formatBytes(video.fileSizeBytes) : "—"}
+              </td>
+              <td className="px-3 py-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => handleDownload(video.id)}
+                  title={downloadLabel}
+                  aria-label={downloadLabel}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface)] hover:text-[var(--color-accent)]"
+                >
+                  <Download size={14} />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

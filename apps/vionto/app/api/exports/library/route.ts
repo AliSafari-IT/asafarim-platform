@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@asafarim/db";
 import { getAuthedUser, unauthorized, serverError } from "@/lib/server/auth";
 import { createPresignedDownloadUrl } from "@/lib/server/storage";
-import { buildLibraryWhere, parseLibraryFilters } from "./shared";
+import { buildLibraryOrderBy, buildLibraryWhere, parseLibraryFilters, parseSort } from "./shared";
 
 export const runtime = "nodejs";
 
@@ -17,10 +17,11 @@ export async function GET(req: Request) {
     const cursor = searchParams.get("cursor");
 
     const where = buildLibraryWhere(parseLibraryFilters(searchParams), user.id);
+    const orderBy = buildLibraryOrderBy(parseSort(searchParams.get("sort")));
 
     const rows = await prisma.viontoExport.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy,
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       select: {
