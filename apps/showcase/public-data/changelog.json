@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-13",
-    "title": "Vionto: Video Library advanced filters, sort, and list view (#352)",
-    "sha": "8c145d7",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/8c145d7"
+    "title": "Auth: allow password sign-in with username or email (#357)",
+    "sha": "ca2b757",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ca2b757"
   }
 ]
