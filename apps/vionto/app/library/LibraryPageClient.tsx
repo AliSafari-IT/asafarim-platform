@@ -14,9 +14,11 @@ import {
   List,
   Search,
   SlidersHorizontal,
+  Trash2,
   Video,
 } from "lucide-react";
 import { VISUAL_STYLE_OPTIONS } from "@/lib/visual-styles";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -211,6 +213,8 @@ export function LibraryPageClient() {
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [versions, setVersions] = useState<VersionOption[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<LibraryExport | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setSearchInput(urlFilters.search);
@@ -307,6 +311,36 @@ export function LibraryPageClient() {
       }
     } finally {
       setLoadingMore(false);
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/exports/${deleteTarget.id}`, { method: "DELETE" });
+      if (res.ok) {
+        const removed = deleteTarget;
+        setVideos((prev) => prev.filter((v) => v.id !== removed.id));
+        setStats((prev) =>
+          prev
+            ? {
+                totalVideos: Math.max(0, prev.totalVideos - 1),
+                totalDurationSeconds: Math.max(0, prev.totalDurationSeconds - (removed.durationSeconds ?? 0)),
+                totalOutputBytes: Math.max(0, prev.totalOutputBytes - (removed.fileSizeBytes ?? 0)),
+                // The removed video may or may not have been its project's
+                // last one — an exact recount would need another request,
+                // so this stays approximate until the next filter change
+                // refetches for real, matching how "showing N of M" already
+                // only ever reflects the last fetch.
+                uniqueProjectCount: prev.uniqueProjectCount,
+              }
+            : prev
+        );
+        setDeleteTarget(null);
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -614,6 +648,8 @@ export function LibraryPageClient() {
                   video={video}
                   openProjectLabel={t("vionto.libraryPage.openProject")}
                   downloadLabel={t("vionto.libraryPage.download")}
+                  deleteLabel={t("vionto.libraryPage.delete")}
+                  onDelete={() => setDeleteTarget(video)}
                 />
               ))}
             </div>
@@ -634,6 +670,8 @@ export function LibraryPageClient() {
                 actions: t("vionto.libraryPage.columnActions"),
               }}
               downloadLabel={t("vionto.libraryPage.download")}
+              deleteLabel={t("vionto.libraryPage.delete")}
+              onDelete={(video) => setDeleteTarget(video)}
             />
           )}
 
@@ -651,6 +689,19 @@ export function LibraryPageClient() {
           ) : null}
         </>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t("vionto.libraryPage.deleteConfirmTitle")}
+        message={t("vionto.libraryPage.deleteConfirmMessage", {
+          title: deleteTarget?.previewTitle ?? deleteTarget?.filename ?? "",
+        })}
+        confirmLabel={deleting ? t("vionto.libraryPage.deleting") : t("vionto.libraryPage.delete")}
+        cancelLabel={t("vionto.libraryPage.cancel")}
+        tone="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </>
   );
 }
@@ -711,10 +762,14 @@ function VideoCard({
   video,
   openProjectLabel,
   downloadLabel,
+  deleteLabel,
+  onDelete,
 }: {
   video: LibraryExport;
   openProjectLabel: string;
   downloadLabel: string;
+  deleteLabel: string;
+  onDelete: () => void;
 }) {
   return (
     <div className="group overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition hover:border-[var(--color-accent)]">
@@ -742,15 +797,26 @@ function VideoCard({
             {formatDuration(video.durationSeconds)}
           </span>
         ) : null}
-        <button
-          type="button"
-          onClick={() => handleDownload(video.id)}
-          title={downloadLabel}
-          aria-label={downloadLabel}
-          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100 hover:bg-black/80"
-        >
-          <Download size={13} />
-        </button>
+        <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => handleDownload(video.id)}
+            title={downloadLabel}
+            aria-label={downloadLabel}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+          >
+            <Download size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            title={deleteLabel}
+            aria-label={deleteLabel}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white hover:bg-red-500/90"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
       <div className="p-3">
         <p className="truncate text-sm font-medium text-[var(--color-text)]">
@@ -782,6 +848,8 @@ function VideoTable({
   openProjectLabel,
   columns,
   downloadLabel,
+  deleteLabel,
+  onDelete,
 }: {
   videos: LibraryExport[];
   openProjectLabel: string;
@@ -790,6 +858,8 @@ function VideoTable({
     string
   >;
   downloadLabel: string;
+  deleteLabel: string;
+  onDelete: (video: LibraryExport) => void;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]">
@@ -835,15 +905,26 @@ function VideoTable({
                 {video.fileSizeBytes ? formatBytes(video.fileSizeBytes) : "—"}
               </td>
               <td className="px-3 py-2 text-right">
-                <button
-                  type="button"
-                  onClick={() => handleDownload(video.id)}
-                  title={downloadLabel}
-                  aria-label={downloadLabel}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface)] hover:text-[var(--color-accent)]"
-                >
-                  <Download size={14} />
-                </button>
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(video.id)}
+                    title={downloadLabel}
+                    aria-label={downloadLabel}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface)] hover:text-[var(--color-accent)]"
+                  >
+                    <Download size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(video)}
+                    title={deleteLabel}
+                    aria-label={deleteLabel}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface)] hover:text-red-500"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
