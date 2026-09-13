@@ -6,7 +6,7 @@ const showcase = getShowcaseProject("timelineai")!;
 
 export default function HomePage() {
   return (
-    <div className="timelineai-hero flex min-h-[32rem] items-center justify-center px-6 py-24 sm:min-h-[40rem] lg:min-h-[44rem]">
+    <div className="timelineai-hero flex min-h-[32rem] items-center justify-center px-6 py-24 sm:min-h-[40rem] lg:min-h-dvh">
       <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
           TimelineAI
