@@ -16,43 +16,71 @@ export const googleProvider = Google({
 });
 
 /**
- * Email/password credentials provider
+ * Password authentication — accepts either a username or an email address
+ * in a single `identifier` (issue #357). A bare "does this look like an
+ * email" check (contains "@") picks the lookup path; usernames are always
+ * stored lowercase (see username.ts's slugifyUsername, the sole path every
+ * username is ever written through), so a case-insensitive username match
+ * is just an exact match against `identifier.toLowerCase()` — no DB
+ * collation/citext work and no loading users into memory to compare.
+ *
+ * Every failure path returns null so NextAuth surfaces one generic
+ * CredentialsSignin error regardless of *which* check failed (unknown
+ * identifier, wrong password, OAuth-only account, deactivated account) —
+ * deliberately not distinguishing them, so a failed attempt can't be used to
+ * enumerate which usernames/emails exist.
+ *
+ * Exported standalone (rather than inlined in `Credentials({ authorize })`)
+ * so it's directly unit-testable — next-auth v5's `Credentials()` factory
+ * replaces `authorize` with a no-op `() => null` stub outside its own
+ * request-handling runtime, so a wrapped version can't be exercised in
+ * plain unit tests at all.
  */
+export async function authorizeCredentials(
+  credentials: Record<string, unknown> | undefined
+): Promise<{ id: string; email: string; name: string | null; image: string | null } | null> {
+  const identifier = String(credentials?.identifier ?? "").trim();
+  const password = String(credentials?.password ?? "");
+  if (!identifier || !password) {
+    return null;
+  }
+
+  const user = identifier.includes("@")
+    ? await prisma.user.findUnique({ where: { email: identifier.toLowerCase() } })
+    : await prisma.user.findUnique({ where: { username: identifier.toLowerCase() } });
+
+  if (!user || !user.password) {
+    // Unknown identifier, or signed up via OAuth (no password set).
+    return null;
+  }
+
+  if (!user.isActive) {
+    // Correct credentials on a deactivated account must still fail —
+    // matches every other authentication path (email-code, OAuth signIn
+    // callback), which this password path previously did not.
+    return null;
+  }
+
+  const isValid = await bcrypt.compare(password, user.password);
+  if (!isValid) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    image: user.image,
+  };
+}
+
 export const credentialsProvider = Credentials({
   name: "credentials",
   credentials: {
-    email: { label: "Email", type: "email" },
+    identifier: { label: "Username or email", type: "text" },
     password: { label: "Password", type: "password" },
   },
-  async authorize(credentials) {
-    if (!credentials?.email || !credentials?.password) {
-      return null;
-    }
-
-    const email = credentials.email as string;
-    const password = credentials.password as string;
-
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user || !user.password) {
-      // User doesn't exist or signed up via OAuth (no password set)
-      return null;
-    }
-
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      return null;
-    }
-
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      image: user.image,
-    };
-  },
+  authorize: authorizeCredentials,
 });
 
 /**

@@ -17,7 +17,7 @@ function SignInForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -28,7 +28,7 @@ function SignInForm() {
     setError(null);
 
     const result = await signIn("credentials", {
-      email,
+      identifier,
       password,
       redirect: false,
     });
@@ -36,7 +36,7 @@ function SignInForm() {
     setPending(false);
 
     if (result?.error) {
-      setError("That email and password combination was not accepted.");
+      setError("That username/email and password combination was not accepted.");
       return;
     }
 
@@ -53,14 +53,14 @@ function SignInForm() {
       <form onSubmit={handleSubmit}>
         {error ? <Alert tone="error">{error}</Alert> : null}
         <FormRow>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="identifier">Username or email</Label>
           <Input
-            id="email"
-            type="email"
+            id="identifier"
+            type="text"
             required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
           />
         </FormRow>
         <FormRow>
