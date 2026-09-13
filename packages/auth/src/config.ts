@@ -275,6 +275,7 @@ async function ensureAuthUser(user: AuthUserLike, account?: AuthAccountLike) {
 
   await ensureDefaultRole(dbUser.id);
   await applySuperadminAllowlist(dbUser.id, dbUser.email);
+  await recordSignInEvent(dbUser.id, account?.provider);
 
   return prisma.user.findUnique({
     where: { id: dbUser.id },
