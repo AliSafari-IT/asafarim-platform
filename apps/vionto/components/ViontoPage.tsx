@@ -27,6 +27,7 @@ import {
   FileAudio,
   Globe,
   ImagePlus,
+  LibraryBig,
   ListChecks,
   Lock,
   MapPin,
@@ -142,6 +143,9 @@ const NAV_ITEMS = [
   { href: "#script", labelKey: "vionto.nav.script", Icon: Captions },
   { href: "#audio", labelKey: "vionto.nav.audio", Icon: FileAudio },
   { href: "#export", labelKey: "vionto.nav.export", Icon: Download },
+  // Cross-project — navigates away from /create, unlike the #anchor items
+  // above which scroll within this same page.
+  { href: "/library", labelKey: "vionto.nav.library", Icon: LibraryBig },
 ] as const;
 
 const UI_MODE_TO_API_MODE: Record<
