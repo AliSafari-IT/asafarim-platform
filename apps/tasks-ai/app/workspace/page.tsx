@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getViewer } from "../../lib/session";
-import { getPlatformLinks } from "@asafarim/ui";
+import { buildHubSignInRedirect } from "../../lib/hub-redirect";
 import { listMyWorkspaces } from "../../lib/services/workspaces";
 import { CreateWorkspaceForm } from "../../components/CreateWorkspaceForm";
 
@@ -11,8 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function WorkspaceIndexPage() {
   const viewer = await getViewer();
   if (!viewer) {
-    const links = getPlatformLinks();
-    redirect(`${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.tasksai}/workspace`)}`);
+    redirect(buildHubSignInRedirect("/workspace"));
   }
 
   const workspaces = await listMyWorkspaces();

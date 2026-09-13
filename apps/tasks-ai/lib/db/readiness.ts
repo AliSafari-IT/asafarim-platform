@@ -1,5 +1,3 @@
-import "server-only";
-
 export interface DbReadiness {
   ok: boolean;
   /** Latency of the probe query in milliseconds, when it succeeded. */
@@ -13,6 +11,11 @@ export interface DbReadiness {
  * /api/health and the worker's health endpoint. Imports the client lazily
  * so a health check can still answer when the client fails to construct
  * (e.g. env not resolved).
+ *
+ * No `import "server-only"` — this module is imported directly by
+ * `worker/index.ts` (plain Node/tsx, not bundled by Next.js), and that
+ * package's resolution fails outside a Next.js build. See client.ts's doc
+ * comment; same root cause, same production incident (issue #363).
  */
 export async function pingTasksAiDb(): Promise<DbReadiness> {
   const started = Date.now();
