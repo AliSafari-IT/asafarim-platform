@@ -13,6 +13,16 @@ function viontoUrl(): string {
 }
 
 /**
+ * Vionto has no `/projects/:id` detail route — every entry point into a
+ * project (the projects list, the albums dashboard) links to the editor as
+ * `/create?projectId=...`. Centralized here after a superadmin hit a 404
+ * clicking through from the User 360 timeline.
+ */
+function projectHref(base: string, projectId: string): string {
+  return `${base}/create?projectId=${projectId}`;
+}
+
+/**
  * Vionto (photo-to-story video pipeline) is the flagship activity adapter:
  * projects, video versions, render jobs (state/progress/error), exports
  * (format/resolution/duration/size), albums, and storage usage — read-only,
@@ -96,6 +106,23 @@ export const viontoActivityAdapter: UserActivityAdapter = {
       }),
     ]);
 
+    // Normalized browser/OS context captured at render-job creation (issue
+    // #349), read back from the generic ViontoAuditEvent trail rather than a
+    // new column on ViontoRenderJob. Jobs created before this existed simply
+    // have no matching event — their entry's metadata.device stays absent,
+    // an honest "not recorded" rather than a fabricated value.
+    const renderJobIds = renderJobs.map((j) => j.id);
+    const deviceEvents =
+      renderJobIds.length > 0
+        ? await prisma.viontoAuditEvent.findMany({
+            where: { entity: "ViontoRenderJob", action: "RENDER_STARTED", entityId: { in: renderJobIds } },
+            select: { entityId: true, metadata: true },
+          })
+        : [];
+    const deviceByJobId = new Map(
+      deviceEvents.map((e) => [e.entityId, (e.metadata as { device?: unknown } | null)?.device ?? null])
+    );
+
     const entries: ActivityEntry[] = [
       ...projects.map(
         (p): ActivityEntry => ({
@@ -106,7 +133,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: p.status,
           createdAt: p.createdAt,
           updatedAt: p.updatedAt,
-          href: `${base}/projects/${p.id}`,
+          href: projectHref(base, p.id),
           metadata: {},
         })
       ),
@@ -119,7 +146,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: v.mode,
           createdAt: v.createdAt,
           updatedAt: v.updatedAt,
-          href: `${base}/projects/${v.projectId}`,
+          href: projectHref(base, v.projectId),
           metadata: {
             visualStyle: v.visualStyle,
             resolution: v.resolution,
@@ -136,13 +163,14 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: j.state,
           createdAt: j.createdAt,
           updatedAt: j.updatedAt,
-          href: `${base}/projects/${j.projectId}`,
+          href: projectHref(base, j.projectId),
           metadata: {
             progressPercent: j.progressPercent,
             errorSummary: j.errorSummary,
             retryCount: j.retryCount,
             startedAt: j.startedAt,
             completedAt: j.completedAt,
+            device: deviceByJobId.get(j.id) ?? null,
           },
         })
       ),
@@ -155,7 +183,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: "exported",
           createdAt: e.createdAt,
           updatedAt: e.updatedAt,
-          href: `${base}/projects/${e.projectId}`,
+          href: projectHref(base, e.projectId),
           metadata: {
             format: e.format,
             resolution: e.resolution,
@@ -173,7 +201,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: a.lifecycleStage,
           createdAt: a.createdAt,
           updatedAt: a.updatedAt,
-          href: `${base}/projects/${a.projectId}`,
+          href: projectHref(base, a.projectId),
           metadata: {},
         })
       ),
@@ -244,7 +272,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: "exported",
           createdAt: e.createdAt,
           updatedAt: e.updatedAt,
-          href: `${base}/projects/${e.projectId}`,
+          href: projectHref(base, e.projectId),
           metadata: {
             format: e.format,
             resolution: e.resolution,

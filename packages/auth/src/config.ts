@@ -1,11 +1,13 @@
 import type { NextAuthConfig } from "next-auth";
-import { prisma } from "@asafarim/db";
+import { headers } from "next/headers";
+import { prisma, Prisma } from "@asafarim/db";
 import {
   googleProvider,
   credentialsProvider,
   emailCodeProvider,
 } from "./providers";
 import { generateUniqueUsername } from "./username";
+import { parseUserAgent, getClientIpFromHeaders } from "./device-context";
 import "./types";
 
 type AuthUserLike = {
@@ -96,6 +98,29 @@ export async function applySuperadminAllowlist(userId: string, email?: string | 
 }
 
 /**
+ * Best-effort request context for the current sign-in, read from
+ * `next/headers` (works because this runs inside the NextAuth route
+ * handler's own request scope). Returns nulls rather than throwing when
+ * headers aren't available (e.g. called outside a request, or a future
+ * caller outside Next's request context) — issue #349 requires existing
+ * and unavailable records to show "not recorded", never a fabricated value.
+ */
+async function captureSignInContext(): Promise<{
+  userAgentRaw: string | null;
+  ipAddress: string | null;
+}> {
+  try {
+    const headerList = await headers();
+    return {
+      userAgentRaw: headerList.get("user-agent"),
+      ipAddress: getClientIpFromHeaders(headerList),
+    };
+  } catch {
+    return { userAgentRaw: null, ipAddress: null };
+  }
+}
+
+/**
  * Records a successful sign-in on the shared AuditLog table (action:
  * "sign_in") rather than a new model — Hub's User 360 adapter
  * (packages/activity/src/adapters/hub.ts) reads these back. This is the
@@ -104,15 +129,31 @@ export async function applySuperadminAllowlist(userId: string, email?: string | 
  * adapter), so without this there is no record anywhere that a sign-in
  * ever happened. Never throws — a failed audit write must never block a
  * sign-in that's otherwise valid.
+ *
+ * Also captures normalized browser/OS context (issue #349) in `changes`,
+ * and the client IP in the existing `ipAddress` column. Both are
+ * best-effort: an unparseable or missing user-agent stores `device: null`
+ * rather than inventing a value.
  */
-export async function recordSignInEvent(userId: string, provider?: string) {
+export async function recordSignInEvent(
+  userId: string,
+  provider?: string,
+  context?: { userAgentRaw?: string | null; ipAddress?: string | null }
+) {
   try {
+    const resolved = context ?? (await captureSignInContext());
     await prisma.auditLog.create({
       data: {
         userId,
         action: "sign_in",
         entity: "auth",
-        changes: { provider: provider ?? "credentials" },
+        changes: {
+          provider: provider ?? "credentials",
+          device: parseUserAgent(resolved.userAgentRaw),
+          // Truncated: only useful for support/debugging, never displayed raw in the UI.
+          userAgentRaw: resolved.userAgentRaw?.slice(0, 300) ?? null,
+        } as unknown as Prisma.InputJsonValue,
+        ipAddress: resolved.ipAddress,
       },
     });
   } catch (error) {
@@ -234,7 +275,6 @@ async function ensureAuthUser(user: AuthUserLike, account?: AuthAccountLike) {
 
   await ensureDefaultRole(dbUser.id);
   await applySuperadminAllowlist(dbUser.id, dbUser.email);
-  await recordSignInEvent(dbUser.id, account?.provider);
 
   return prisma.user.findUnique({
     where: { id: dbUser.id },
@@ -379,6 +419,16 @@ export const authConfig: NextAuthConfig = {
       if (user) {
         const dbUser = await ensureAuthUser(user, account);
         applyDbUserToToken(token, dbUser);
+        // Single hook point for "a sign-in just happened", regardless of
+        // provider: this branch runs exactly once per successful sign-in
+        // (not on token refresh). ensureAuthUser is also called from the
+        // signIn callback below for OAuth providers (to decide isActive
+        // before the token is even built), so the audit write lives here
+        // only — writing it from both places would double-count every
+        // OAuth sign-in in the login-history view (issue #349).
+        if (dbUser) {
+          await recordSignInEvent(dbUser.id, account?.provider);
+        }
       }
 
       if (trigger === "update") {

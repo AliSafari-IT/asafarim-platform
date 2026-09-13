@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Prisma, prisma } from "@asafarim/db";
+import { parseUserAgent } from "@asafarim/auth";
 import { getAuthedUser, unauthorized, badRequest, serverError } from "@/lib/server/auth";
 import { getRenderQueue } from "@/lib/server/queue";
 import { safeParseManifest, subtitleConfigSchema, type RenderAsset, type SubtitleStyle, type SubtitleConfig } from "@/lib/server/render-manifest";
@@ -163,6 +164,26 @@ export async function POST(req: Request) {
         progressPercent: 0,
       },
     });
+
+    // Normalized browser/OS context for the superadmin User 360 view (issue
+    // #349) — best-effort, on the existing generic ViontoAuditEvent model
+    // (no new table). Never blocks render-job creation on failure.
+    try {
+      await prisma.viontoAuditEvent.create({
+        data: {
+          actorId: user.id,
+          actorRole: "CREATOR",
+          action: "RENDER_STARTED",
+          entity: "ViontoRenderJob",
+          entityId: job.id,
+          metadata: {
+            device: parseUserAgent(req.headers.get("user-agent")),
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error) {
+      console.error("[render] failed to record device-context audit event:", error);
+    }
 
     if (!manifest) {
       // If an albumId was provided, validate it belongs to this project.

@@ -32,10 +32,15 @@ const testoraActivityAdapter = createRemoteAdapter({
 const jobmatchActivityAdapter = createRemoteAdapter({
   app: "jobmatch",
   baseUrl: () => envUrl("NEXT_PUBLIC_JOBMATCH_URL", "http://localhost:3012"),
+  // Flagship content for the platform-wide browse view: tracked jobs, not
+  // candidate documents — resumes are more sensitive to surface cross-user
+  // than "this user is tracking job X" (issue #349's privacy-conscious default).
+  listAllPath: "/api/internal/user-activity/browse",
 });
 const tasksaiActivityAdapter = createRemoteAdapter({
   app: "tasksai",
   baseUrl: () => envUrl("NEXT_PUBLIC_TASKSAI_URL", "http://localhost:3013"),
+  listAllPath: "/api/internal/user-activity/browse",
 });
 
 /** Every wired-up adapter, keyed by app slug. Apps without an entry here render as "no adapter yet". */

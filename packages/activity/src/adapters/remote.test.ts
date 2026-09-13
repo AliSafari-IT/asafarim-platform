@@ -1,11 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@asafarim/db", () => ({
+  prisma: { user: { findMany: vi.fn() } },
+}));
+
+import { prisma } from "@asafarim/db";
 import { createRemoteAdapter } from "./remote";
+
+const mockPrisma = prisma as unknown as { user: { findMany: ReturnType<typeof vi.fn> } };
 
 const ORIGINAL_SECRET = process.env.INTERNAL_API_SECRET;
 
 beforeEach(() => {
   process.env.INTERNAL_API_SECRET = "test-secret";
   vi.stubGlobal("fetch", vi.fn());
+  mockPrisma.user.findMany.mockReset();
+  mockPrisma.user.findMany.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -86,5 +96,98 @@ describe("createRemoteAdapter", () => {
     const section = await adapter().getActivity({ userId: "u1" });
 
     expect(section).toMatchObject({ available: false, error: "connection refused", entries: [] });
+  });
+});
+
+describe("createRemoteAdapter — listAll", () => {
+  function browseAdapter() {
+    return createRemoteAdapter({
+      app: "tasksai",
+      baseUrl: () => "http://localhost:3013",
+      listAllPath: "/api/internal/user-activity/browse",
+    });
+  }
+
+  it("has no listAll when listAllPath is not configured — same 'no adapter yet' principle", () => {
+    expect(adapter().listAll).toBeUndefined();
+  });
+
+  it("has listAll when listAllPath is configured", () => {
+    expect(browseAdapter().listAll).toBeTypeOf("function");
+  });
+
+  it("queries the browse endpoint with limit/cursor and resolves owners against the platform DB", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          entries: [
+            {
+              id: "t1",
+              type: "task",
+              title: "Ship the thing",
+              status: "open",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+              href: "http://localhost:3013/w/acme/projects/ENG",
+              metadata: {},
+              ownerUserId: "u1",
+            },
+          ],
+          nextCursor: "2026-01-01T00:00:00.000Z",
+        }),
+        { status: 200 }
+      )
+    );
+    mockPrisma.user.findMany.mockResolvedValue([{ id: "u1", email: "a@b.com", name: "Ali" }]);
+
+    const result = await browseAdapter().listAll!({ limit: 25, cursor: null });
+
+    const [url] = vi.mocked(fetch).mock.calls[0]!;
+    expect(String(url)).toContain("/api/internal/user-activity/browse?limit=25");
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["u1"] } },
+      select: { id: true, email: true, name: true },
+    });
+    expect(result.entries[0]).toMatchObject({
+      app: "tasksai",
+      owner: { userId: "u1", email: "a@b.com", name: "Ali" },
+    });
+    expect(result.nextCursor).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("degrades to an empty page (not a throw) when the browse request fails", async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error("connection refused"));
+
+    const result = await browseAdapter().listAll!({ limit: 25 });
+
+    expect(result).toEqual({ entries: [], nextCursor: null });
+  });
+
+  it("returns owner: null email/name when the platform user row isn't found", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          entries: [
+            {
+              id: "t1",
+              type: "task",
+              title: "x",
+              status: "open",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+              href: null,
+              metadata: {},
+              ownerUserId: "missing-user",
+            },
+          ],
+          nextCursor: null,
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await browseAdapter().listAll!({ limit: 25 });
+
+    expect(result.entries[0]!.owner).toEqual({ userId: "missing-user", email: null, name: null });
   });
 });
