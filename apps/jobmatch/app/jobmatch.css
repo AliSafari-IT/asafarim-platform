@@ -3,6 +3,15 @@
  * via [data-app="jobmatch"]; only layout and app-specific accents live here.
  */
 
+/* .jm-hero below breaks out of AppShell's centered content column using a
+   100vw-based width, which is a few pixels wider than the viewport's actual
+   scrollable width whenever a vertical scrollbar is present (the classic
+   100vw-vs-scrollbar-width gap) — suppressed here rather than left as a
+   few accidental pixels of horizontal scroll on every page. */
+[data-app="jobmatch"] {
+  overflow-x: hidden;
+}
+
 [data-app="jobmatch"] .jm-mono {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   letter-spacing: 0.02em;
@@ -99,4 +108,88 @@
 
 [data-app="jobmatch"] .jm-roadmap-page {
   padding: clamp(1.5rem, 4vw, 3.5rem) 1.25rem 5rem;
+}
+
+/*
+ * Home page hero artwork. .jm-hero handles layout (full-bleed inside
+ * AppShell's centered .ui-shell__main — see the full-bleed trick below —
+ * plus a bounded height band); .jobmatch-hero (assets in
+ * public/images/hero/) handles the theme/breakpoint background image
+ * swap. Kept separate so .jobmatch-hero alone can be reused wherever a
+ * plain themed background is wanted without the full-bleed/height rules.
+ *
+ * The height band is bounded, not viewport-locked (no 100dvh) — a locked
+ * full-viewport height combined with background-size: cover crops hard
+ * into this 16:9 artwork's vertical middle on wide-but-short windows,
+ * cutting its shapes off mid-composition. Bounding it keeps the crop close
+ * to the artwork's native aspect ratio regardless of window shape.
+ */
+[data-app="jobmatch"] .jm-hero {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem;
+  min-height: 26rem;
+}
+
+@media (min-width: 40rem) {
+  [data-app="jobmatch"] .jm-hero {
+    min-height: 30rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  [data-app="jobmatch"] .jm-hero {
+    min-height: 34rem;
+    max-height: 42rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  [data-app="jobmatch"] .jm-hero {
+    min-height: 38rem;
+    max-height: 46rem;
+  }
+}
+
+[data-app="jobmatch"] .jm-hero > * {
+  max-width: 46rem;
+  width: 100%;
+}
+
+[data-app="jobmatch"] .jobmatch-hero {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--bg);
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover;
+}
+
+[data-app="jobmatch"]:not([data-theme="dark"]) .jobmatch-hero {
+  background-image: url("/images/hero/jobmatch-hero-mobile-light.svg");
+}
+[data-app="jobmatch"][data-theme="dark"] .jobmatch-hero {
+  background-image: url("/images/hero/jobmatch-hero-mobile-dark.svg");
+}
+
+@media (min-width: 40rem) {
+  [data-app="jobmatch"]:not([data-theme="dark"]) .jobmatch-hero {
+    background-image: url("/images/hero/jobmatch-hero-tablet-light.svg");
+  }
+  [data-app="jobmatch"][data-theme="dark"] .jobmatch-hero {
+    background-image: url("/images/hero/jobmatch-hero-tablet-dark.svg");
+  }
+}
+
+@media (min-width: 64rem) {
+  [data-app="jobmatch"]:not([data-theme="dark"]) .jobmatch-hero {
+    background-image: url("/images/hero/jobmatch-hero-desktop-light.svg");
+  }
+  [data-app="jobmatch"][data-theme="dark"] .jobmatch-hero {
+    background-image: url("/images/hero/jobmatch-hero-desktop-dark.svg");
+  }
 }
