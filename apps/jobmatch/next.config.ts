@@ -14,7 +14,7 @@ const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   turbopack: { root: path.resolve(appRoot, "../..") },
-  transpilePackages: ["@asafarim/ui", "@asafarim/theme-toggle"],
+  transpilePackages: ["@asafarim/ui", "@asafarim/theme-toggle", "@asafarim/auth", "@asafarim/db"],
   devIndicators: false,
 };
 
