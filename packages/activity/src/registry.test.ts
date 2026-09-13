@@ -34,6 +34,7 @@ describe("getAllUserActivity", () => {
     expect(Object.keys(activityAdapters).sort()).toEqual([
       "appbuilder",
       "edumatch",
+      "hub",
       "jobmatch",
       "tasksai",
       "testora",
@@ -42,8 +43,13 @@ describe("getAllUserActivity", () => {
     ]);
   });
 
-  it("does not register Hub — no backing data exists for its checklist items", async () => {
+  // Hub previously had no adapter (no backing data for its checklist
+  // items existed). It's registered now that packages/auth writes a
+  // sign_in AuditLog row on every sign-in — see hub.ts for what it does
+  // and, just as deliberately, does not report.
+  it("registers Hub", async () => {
     const { activityAdapters } = await import("./registry");
-    expect(activityAdapters.hub).toBeUndefined();
+    expect(activityAdapters.hub).toBeDefined();
+    expect(activityAdapters.hub!.app).toBe("hub");
   });
 });

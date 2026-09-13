@@ -95,6 +95,31 @@ export async function applySuperadminAllowlist(userId: string, email?: string | 
   });
 }
 
+/**
+ * Records a successful sign-in on the shared AuditLog table (action:
+ * "sign_in") rather than a new model — Hub's User 360 adapter
+ * (packages/activity/src/adapters/hub.ts) reads these back. This is the
+ * one thing Hub's JWT session strategy genuinely cannot answer on its
+ * own: Prisma's Session table is never populated (no DB session
+ * adapter), so without this there is no record anywhere that a sign-in
+ * ever happened. Never throws — a failed audit write must never block a
+ * sign-in that's otherwise valid.
+ */
+export async function recordSignInEvent(userId: string, provider?: string) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: "sign_in",
+        entity: "auth",
+        changes: { provider: provider ?? "credentials" },
+      },
+    });
+  } catch (error) {
+    console.error("[auth] failed to record sign-in event:", error);
+  }
+}
+
 async function ensureAuthUser(user: AuthUserLike, account?: AuthAccountLike) {
   const accountUser = account
     ? await prisma.account.findUnique({
@@ -209,6 +234,7 @@ async function ensureAuthUser(user: AuthUserLike, account?: AuthAccountLike) {
 
   await ensureDefaultRole(dbUser.id);
   await applySuperadminAllowlist(dbUser.id, dbUser.email);
+  await recordSignInEvent(dbUser.id, account?.provider);
 
   return prisma.user.findUnique({
     where: { id: dbUser.id },

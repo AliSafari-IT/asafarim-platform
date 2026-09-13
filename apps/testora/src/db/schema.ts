@@ -71,6 +71,13 @@ export const projects = pgTable("projects", {
   // quarantined automatically. Off by default — auto-quarantine changes what
   // blocks a green-light check, so a project opts in deliberately.
   autoQuarantineFlaky: boolean("auto_quarantine_flaky").notNull().default(false),
+  // Platform user id (packages/db's User.id) of whoever created this app.
+  // Nullable: projects created before this column existed, or created
+  // anonymously before sign-in was required, have no recorded creator.
+  // Projects themselves stay team-scoped (anyone with access can edit them);
+  // this only tracks provenance, for the superadmin User 360 activity view
+  // (issue #301) — it is not an ownership/permission check.
+  createdByUserId: text("created_by_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

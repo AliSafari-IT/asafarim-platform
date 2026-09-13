@@ -1,5 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
+import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { db } from "@/db/client";
+import { projects } from "@/db/schema";
 
 /**
  * Read-only, superadmin console-facing activity feed for one platform
@@ -8,11 +11,13 @@ import { NextResponse } from "next/server";
  * the platform's machine-endpoint pattern.
  *
  * Testora's data model (projects, test cases, results, issues) has no
- * per-user ownership column today — projects are team-scoped, not
- * user-scoped — so this always returns an empty, available section rather
- * than guessing at an ownership join that doesn't exist. That is an honest
- * "no per-user activity model yet", distinct from "no adapter" (issue #301's
- * graceful-degradation principle).
+ * per-user activity history — projects are team-scoped, not user-scoped, and
+ * nothing records who ran a test or filed an issue. The one honest signal
+ * available is `projects.createdByUserId`, set when an app is created while
+ * signed in (see src/app/api/projects/route.ts) — this reports exactly that:
+ * which apps this user created, not a full activity trail. Rows created
+ * before that column existed, or created anonymously, simply have no
+ * creator and won't appear here (graceful degradation, issue #301).
  */
 export const dynamic = "force-dynamic";
 
@@ -36,8 +41,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 });
   }
 
+  const createdProjects = await db.query.projects.findMany({
+    where: eq(projects.createdByUserId, userId),
+    orderBy: [desc(projects.createdAt)],
+    limit: 50,
+  });
+
   return NextResponse.json({
-    entries: [],
-    summary: { note: "Testora has no per-user activity model yet — projects are team-scoped." },
+    entries: createdProjects.map((project) => ({
+      id: project.id,
+      type: "project_created",
+      title: project.name,
+      status: project.visibility,
+      createdAt: project.createdAt.toISOString(),
+      updatedAt: project.updatedAt.toISOString(),
+      href: project.baseUrl || null,
+      metadata: { visibility: project.visibility, seeded: project.seeded },
+    })),
+    summary: {
+      note: "Only apps this user created are tracked — Testora has no broader per-user activity history (test runs, issues, etc. are team-scoped, not attributed to a user).",
+    },
   });
 }
