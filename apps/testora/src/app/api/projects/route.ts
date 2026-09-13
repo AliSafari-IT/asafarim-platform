@@ -69,6 +69,7 @@ export async function POST(request: Request) {
   }
   const data = parsed.data;
   const id = slugify(data.id || data.name);
+  const session = await auth();
   try {
     const [created] = await db
       .insert(projects)
@@ -87,6 +88,8 @@ export async function POST(request: Request) {
         githubTokenEnc: data.githubToken ? encryptToken(data.githubToken) : null,
         seeded: false,
         autoQuarantineFlaky: data.autoQuarantineFlaky ?? false,
+        // Provenance only (see schema.ts) — null when created anonymously.
+        createdByUserId: session?.user?.id ?? null,
       })
       .returning();
     return NextResponse.json({ project: sanitize(created as ProjectRow) }, { status: 201 });

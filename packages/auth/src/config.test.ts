@@ -4,15 +4,17 @@ vi.mock("@asafarim/db", () => ({
   prisma: {
     role: { findUnique: vi.fn() },
     userRole: { upsert: vi.fn() },
+    auditLog: { create: vi.fn() },
   },
 }));
 
 import { prisma } from "@asafarim/db";
-import { applySuperadminAllowlist } from "./config";
+import { applySuperadminAllowlist, recordSignInEvent } from "./config";
 
 const mockPrisma = prisma as unknown as {
   role: { findUnique: ReturnType<typeof vi.fn> };
   userRole: { upsert: ReturnType<typeof vi.fn> };
+  auditLog: { create: ReturnType<typeof vi.fn> };
 };
 
 const ORIGINAL_ENV = process.env.SUPERADMIN_EMAILS;
@@ -98,5 +100,43 @@ describe("applySuperadminAllowlist", () => {
     expect(mockPrisma.userRole.upsert).toHaveBeenCalledTimes(2);
     expect(mockPrisma.userRole.upsert.mock.calls[0][0].update).toEqual({});
     expect(mockPrisma.userRole.upsert.mock.calls[1][0].update).toEqual({});
+  });
+});
+
+describe("recordSignInEvent", () => {
+  beforeEach(() => {
+    mockPrisma.auditLog.create.mockReset();
+  });
+
+  it("writes a sign_in AuditLog row with the provider", async () => {
+    await recordSignInEvent("user-1", "google");
+
+    expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        userId: "user-1",
+        action: "sign_in",
+        entity: "auth",
+        changes: { provider: "google" },
+      },
+    });
+  });
+
+  it("defaults the provider to 'credentials' when none is given (email/password and email-OTP sign-ins)", async () => {
+    await recordSignInEvent("user-2", undefined);
+
+    expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        userId: "user-2",
+        action: "sign_in",
+        entity: "auth",
+        changes: { provider: "credentials" },
+      },
+    });
+  });
+
+  it("never throws when the write fails — a broken audit log must not block sign-in", async () => {
+    mockPrisma.auditLog.create.mockRejectedValueOnce(new Error("db unreachable"));
+
+    await expect(recordSignInEvent("user-3", "google")).resolves.toBeUndefined();
   });
 });

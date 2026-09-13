@@ -19,6 +19,7 @@ export type { PlatformActivityOptions } from "./registry";
 export { viontoActivityAdapter } from "./adapters/vionto";
 export { timelineaiActivityAdapter } from "./adapters/timelineai";
 export { edumatchActivityAdapter } from "./adapters/edumatch";
+export { hubActivityAdapter } from "./adapters/hub";
 export { createRemoteAdapter } from "./adapters/remote";
 export type { RemoteActivityEntryDto, RemoteActivityResponse, RemoteAdapterOptions } from "./adapters/remote";
 export type { ActivityFilters } from "./user-360";
