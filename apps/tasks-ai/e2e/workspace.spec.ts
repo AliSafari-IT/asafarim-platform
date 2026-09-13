@@ -27,6 +27,19 @@ test.describe("M03 workspace journeys", () => {
     await expect(page.locator('[data-done="true"]')).toContainText("Draft the brief");
   });
 
+  test("the workspace home explains the product and routes onward (#365)", async ({ page }) => {
+    await page.goto("/w/demo");
+    await expect(page).toHaveURL(/\/w\/demo$/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Other ways to start" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Home" }).first()).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(page.getByRole("link", { name: /import tasks/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^copilot$/i }).first()).toBeVisible();
+  });
+
   test("command palette opens with the keyboard and navigates", async ({ page }) => {
     await page.goto("/w/demo/my-work");
     await page.keyboard.press("Control+k");

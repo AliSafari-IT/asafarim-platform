@@ -963,3 +963,79 @@
 [data-app="tasks-ai"] .ta-rules__actions { display:flex; gap:.4rem; margin-top:.5rem; flex-wrap:wrap; }
 [data-app="tasks-ai"] .ta-runs { list-style:none; padding:.5rem 0 0; margin:0; display:grid; gap:.25rem; font-size:.82rem; }
 [data-app="tasks-ai"] .ta-signals__fb { font-size:.78rem; margin:.3rem 0 0; }
+
+/* ── #365 workspace home & activation ───────────────────────────────── */
+[data-app="tasks-ai"] .ta-callout {
+  border:1px solid var(--line); border-left:3px solid #1f6feb; border-radius:8px;
+  padding:.75rem 1rem; margin:1rem 0; background:var(--surface-2);
+}
+[data-app="tasks-ai"] .ta-callout p { margin:.25rem 0; }
+
+[data-app="tasks-ai"] .ta-whome__head { margin-bottom:1.5rem; }
+[data-app="tasks-ai"] .ta-whome h1 { font-size:1.75rem; margin:.15rem 0 .5rem; line-height:1.2; }
+[data-app="tasks-ai"] .ta-whome__lead { margin:0; max-width:46rem; opacity:.85; }
+[data-app="tasks-ai"] .ta-whome__h2 { font-size:1rem; margin:1.75rem 0 .5rem; }
+[data-app="tasks-ai"] .ta-whome__h3 { font-size:.9rem; margin:0 0 .5rem; opacity:.8; }
+[data-app="tasks-ai"] .ta-whome__note { font-size:.8rem; }
+
+[data-app="tasks-ai"] .ta-whome__flow { margin:1.5rem 0; }
+[data-app="tasks-ai"] .ta-whome__flow .ta-whome__h2 { margin-top:0; }
+[data-app="tasks-ai"] .ta-whome__steps {
+  list-style:none; padding:0; margin:.75rem 0 0;
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(14rem,1fr)); gap:.75rem;
+}
+[data-app="tasks-ai"] .ta-whome__steps li {
+  display:flex; gap:.6rem; align-items:flex-start;
+  border:1px solid var(--line); border-radius:8px; padding:.7rem .8rem;
+}
+[data-app="tasks-ai"] .ta-whome__steps li[data-state="current"] { border-color:#1f6feb; background:#1f6feb0d; }
+[data-app="tasks-ai"] .ta-whome__steps li[data-state="todo"] { opacity:.7; }
+[data-app="tasks-ai"] .ta-whome__stepno {
+  flex:0 0 auto; width:1.5rem; height:1.5rem; border-radius:999px;
+  display:grid; place-items:center; font-size:.8rem; font-weight:700;
+  background:var(--surface-2);
+}
+[data-app="tasks-ai"] .ta-whome__steps li[data-state="done"] .ta-whome__stepno { background:#1f6feb; color:#fff; }
+[data-app="tasks-ai"] .ta-whome__steptext { display:grid; gap:.2rem; font-size:.85rem; }
+[data-app="tasks-ai"] .ta-whome__stepstate { font-weight:400; opacity:.6; font-size:.78rem; }
+
+[data-app="tasks-ai"] .ta-whome__cta { margin:1.5rem 0; }
+[data-app="tasks-ai"] .ta-whome__form {
+  border:1px solid var(--line); border-radius:8px; padding:1rem 1.1rem; max-width:28rem;
+  display:grid; gap:.5rem;
+}
+[data-app="tasks-ai"] .ta-whome__form .ta-whome__h2 { margin-top:0; }
+[data-app="tasks-ai"] .ta-whome__or { font-size:.85rem; margin:.5rem 0 0; }
+[data-app="tasks-ai"] .ta-whome__ctarow { font-size:.85rem; margin:.5rem 0 0; }
+
+[data-app="tasks-ai"] .ta-metric--link { text-decoration:none; color:inherit; }
+[data-app="tasks-ai"] .ta-metric--link:hover { background:var(--surface-2); }
+
+[data-app="tasks-ai"] .ta-whome__cols {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(18rem,1fr)); gap:1.5rem; margin-top:1.5rem;
+}
+[data-app="tasks-ai"] .ta-whome__cols .ta-list { margin:.25rem 0; }
+[data-app="tasks-ai"] .ta-whome__cols .ta-list__title { text-decoration:none; }
+
+[data-app="tasks-ai"] .ta-whome__details { margin-top:1.5rem; }
+[data-app="tasks-ai"] .ta-whome__details summary { cursor:pointer; font-size:.9rem; }
+
+[data-app="tasks-ai"] .ta-whome__foot { margin-top:2rem; border-top:1px solid var(--line); padding-top:.5rem; }
+[data-app="tasks-ai"] .ta-whome__ways {
+  list-style:none; padding:0; margin:.5rem 0 0;
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(15rem,1fr)); gap:.75rem;
+}
+[data-app="tasks-ai"] .ta-whome__ways li { display:grid; gap:.15rem; font-size:.82rem; }
+[data-app="tasks-ai"] .ta-whome__ways a { font-weight:600; }
+[data-app="tasks-ai"] .ta-whome__ways span { opacity:.7; }
+[data-app="tasks-ai"] .ta-whome__foot kbd {
+  border:1px solid var(--line-strong); border-radius:4px; padding:0 .3rem; font-size:.9em;
+}
+
+@media (max-width:640px) {
+  [data-app="tasks-ai"] .ta-whome h1 { font-size:1.4rem; }
+  [data-app="tasks-ai"] .ta-whome__steps,
+  [data-app="tasks-ai"] .ta-whome__ways,
+  [data-app="tasks-ai"] .ta-whome__cols { grid-template-columns:1fr; }
+  [data-app="tasks-ai"] .ta-whome__form { max-width:100%; }
+}

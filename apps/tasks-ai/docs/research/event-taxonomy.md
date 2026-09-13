@@ -115,6 +115,19 @@ Canonical event names and payload shapes. Feeds `ActivityEvent`, `AuditEvent`, a
 | `webhook.delivered` / `webhook.failed` | `{ endpointId, status }` |
 | `integration.synced` | `{ provider, direction, counts }` |
 
+### Activation / first run (#365)
+
+Client-side only (`lib/client/telemetry.ts`) — these measure the workspace-home funnel, not domain facts, so they are not written as `ActivityEvent` rows. They deliberately sit *alongside* the lifecycle events above rather than replacing them: `project.created` fires for every project, `workspace.activation.project_created` only for the one that turns an empty workspace into a usable one.
+
+| Name | data |
+|---|---|
+| `workspace.home.viewed` | `{ stage: "no_projects\|no_tasks\|no_assigned_work\|active", mode: "first_run\|oriented" }` |
+| `workspace.activation.project_created` | `{ from }` — the surface the first project was created from |
+| `workspace.activation.first_task_created` | `{ source }` |
+| `workspace.activation.first_proposal_generated` | `{ kind }` |
+| `workspace.activation.first_proposal_applied` | `{ operations }` |
+| `workspace.activation.my_work_opened` | `{}` |
+
 ### Platform
 | Name | data |
 |---|---|

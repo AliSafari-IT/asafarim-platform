@@ -20,7 +20,10 @@ export function useWorkspace(): WorkspaceCtx {
   return v;
 }
 
-const NAV = [
+const NAV: { label: string; href: (s: string) => string; exact?: boolean }[] = [
+  // Home is the workspace entry point (issue #365) — matched exactly, since
+  // every other workspace route is a prefix of it.
+  { label: "Home", href: (s: string) => `/w/${s}`, exact: true },
   { label: "Inbox", href: (s: string) => `/w/${s}/inbox` },
   { label: "My Work", href: (s: string) => `/w/${s}/my-work` },
   { label: "Focus", href: (s: string) => `/w/${s}/focus` },
@@ -55,7 +58,9 @@ export function WorkspaceShell({
             <ul>
               {NAV.map((n) => {
                 const href = n.href(slug);
-                const active = pathname === href || pathname.startsWith(`${href}/`);
+                const active = n.exact
+                  ? pathname === href
+                  : pathname === href || pathname.startsWith(`${href}/`);
                 return (
                   <li key={n.label}>
                     <a href={href} aria-current={active ? "page" : undefined}>
