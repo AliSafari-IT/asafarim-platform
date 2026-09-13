@@ -5,10 +5,16 @@ import type { WorkspaceHomeData } from "./state";
 
 export type { HomeProject, HomeTask, WorkspaceHomeData } from "./state";
 
-function startOfToday(now: Date): Date {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  return d;
+/**
+ * Due dates are stored as UTC calendar midnights (an HTML date input parsed
+ * with `new Date("YYYY-MM-DD")`), so the overdue / due-today boundaries must
+ * be UTC midnights too — server-local midnight plus 24h misclassifies both on
+ * non-UTC servers and across DST.
+ */
+function utcMidnight(now: Date, dayOffset = 0): Date {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + dayOffset),
+  );
 }
 
 /**
@@ -38,8 +44,8 @@ export async function workspaceHomeData(
     completedAt: null,
     projectId: { in: visibleProjectIds },
   };
-  const today = startOfToday(now);
-  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  const today = utcMidnight(now);
+  const tomorrow = utcMidnight(now, 1);
 
   const [
     openTaskCount,

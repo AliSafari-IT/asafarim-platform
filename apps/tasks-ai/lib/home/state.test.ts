@@ -95,6 +95,32 @@ describe("activationChecklist", () => {
     expect(activationProgress(full)).toEqual({ done: 4, total: 4 });
   });
 
+  it("does not regress plan when the last assigned task gets completed", () => {
+    const before = counts({
+      projectCount: 1,
+      openTaskCount: 1,
+      assignedAnyCount: 1,
+      assignedOpenCount: 1,
+    });
+    expect(activationChecklist(before).map((s) => s.state)).toEqual([
+      "done",
+      "done",
+      "done",
+      "current",
+    ]);
+
+    // The one assigned task is finished: no open assigned work is left.
+    const after = counts({
+      projectCount: 1,
+      openTaskCount: 0,
+      assignedAnyCount: 0,
+      assignedOpenCount: 0,
+      completedCount: 1,
+    });
+    expect(activationChecklist(after).every((s) => s.state === "done")).toBe(true);
+    expect(activationProgress(after).done).toBeGreaterThanOrEqual(activationProgress(before).done);
+  });
+
   it("reports partial progress", () => {
     expect(activationProgress(counts({ projectCount: 1 }))).toEqual({ done: 1, total: 4 });
   });
