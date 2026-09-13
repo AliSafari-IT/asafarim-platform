@@ -131,27 +131,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4rem 1.5rem;
-  min-height: 26rem;
+  padding: 2.5rem 1.5rem;
+  min-height: 18rem;
 }
 
 @media (min-width: 40rem) {
   [data-app="jobmatch"] .jm-hero {
-    min-height: 30rem;
+    min-height: 20rem;
   }
 }
 
 @media (min-width: 64rem) {
   [data-app="jobmatch"] .jm-hero {
-    min-height: 34rem;
-    max-height: 42rem;
+    min-height: 22rem;
+    max-height: 28rem;
   }
 }
 
 @media (min-width: 80rem) {
   [data-app="jobmatch"] .jm-hero {
-    min-height: 38rem;
-    max-height: 46rem;
+    min-height: 24rem;
+    max-height: 32rem;
   }
 }
 
