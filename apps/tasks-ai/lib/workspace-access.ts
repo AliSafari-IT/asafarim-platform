@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { getPlatformLinks } from "@asafarim/ui";
+import { buildHubSignInRedirect } from "./hub-redirect";
 import { getTasksAiDb } from "./db/client";
 import { getViewer } from "./session";
 import type { MemberRole } from "./db/generated";
@@ -18,8 +18,7 @@ export interface ResolvedMembership {
 export async function requireMembership(slug: string): Promise<ResolvedMembership> {
   const viewer = await getViewer();
   if (!viewer) {
-    const links = getPlatformLinks();
-    redirect(`${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.tasksai}/w/${slug}`)}`);
+    redirect(buildHubSignInRedirect(`/w/${slug}`));
   }
   const db = getTasksAiDb();
   const workspace = await db.workspace.findFirst({
