@@ -112,17 +112,21 @@
 
 /*
  * Home page hero artwork. .jm-hero handles layout (full-bleed inside
- * AppShell's centered .ui-shell__main — see the full-bleed trick below —
- * plus a bounded height band); .jobmatch-hero (assets in
- * public/images/hero/) handles the theme/breakpoint background image
- * swap. Kept separate so .jobmatch-hero alone can be reused wherever a
- * plain themed background is wanted without the full-bleed/height rules.
+ * AppShell's centered .ui-shell__main — see the full-bleed trick below);
+ * .jobmatch-hero (assets in public/images/hero/) handles the
+ * theme/breakpoint background image swap. Kept separate so .jobmatch-hero
+ * alone can be reused wherever a plain themed background is wanted
+ * without the full-bleed/padding rules.
  *
- * The height band is bounded, not viewport-locked (no 100dvh) — a locked
- * full-viewport height combined with background-size: cover crops hard
- * into this 16:9 artwork's vertical middle on wide-but-short windows,
- * cutting its shapes off mid-composition. Bounding it keeps the crop close
- * to the artwork's native aspect ratio regardless of window shape.
+ * Deliberately NO min-height/max-height band (tried one first — see PR
+ * history — and even a "bounded" band left a dead gap above/below the
+ * centered PageHeader whenever the content was shorter than the band,
+ * reported live twice). The hero's height is instead exactly
+ * content-height + padding, like any ordinary banner: never a void
+ * regardless of how short the content is, and never viewport-locked
+ * either. background-size: cover still crops the 16:9 artwork some on
+ * very wide screens — that's an accepted trade-off of any full-bleed
+ * cover background, not something a height band was ever going to fix.
  */
 [data-app="jobmatch"] .jm-hero {
   width: 100vw;
@@ -132,26 +136,17 @@
   align-items: center;
   justify-content: center;
   padding: 2.5rem 1.5rem;
-  min-height: 18rem;
 }
 
 @media (min-width: 40rem) {
   [data-app="jobmatch"] .jm-hero {
-    min-height: 20rem;
+    padding: 3rem 1.5rem;
   }
 }
 
 @media (min-width: 64rem) {
   [data-app="jobmatch"] .jm-hero {
-    min-height: 22rem;
-    max-height: 28rem;
-  }
-}
-
-@media (min-width: 80rem) {
-  [data-app="jobmatch"] .jm-hero {
-    min-height: 24rem;
-    max-height: 32rem;
+    padding: 3.5rem 1.5rem;
   }
 }
 
