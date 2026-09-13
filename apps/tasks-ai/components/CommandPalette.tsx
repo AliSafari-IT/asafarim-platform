@@ -46,6 +46,7 @@ export function CommandPalette({ slug }: { slug: string }) {
 
   const commands = useMemo<Command[]>(() => {
     const nav: Command[] = [
+      { id: "nav-home", label: "Go to Home", run: () => router.push(`/w/${slug}`) },
       { id: "nav-inbox", label: "Go to Inbox", run: () => router.push(`/w/${slug}/inbox`) },
       { id: "nav-mywork", label: "Go to My Work", run: () => router.push(`/w/${slug}/my-work`) },
       { id: "nav-projects", label: "Go to Projects", run: () => router.push(`/w/${slug}/projects`) },

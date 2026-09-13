@@ -42,5 +42,21 @@ export default async function CopilotPage({ params }: { params: Promise<{ slug: 
     );
   }
 
-  return <CopilotPanel slug={slug} projects={projects} />;
+  // Activation funnel (issue #365): the first draft and the first applied
+  // draft are the moments worth measuring, not every later one.
+  const [proposalCount, appliedCount] = await Promise.all([
+    db.proposal.count({ where: { workspaceId: m.workspaceId } }),
+    db.proposal.count({
+      where: { workspaceId: m.workspaceId, state: { in: ["applied", "partially_applied"] } },
+    }),
+  ]);
+
+  return (
+    <CopilotPanel
+      slug={slug}
+      projects={projects}
+      firstProposal={proposalCount === 0}
+      firstApply={appliedCount === 0}
+    />
+  );
 }

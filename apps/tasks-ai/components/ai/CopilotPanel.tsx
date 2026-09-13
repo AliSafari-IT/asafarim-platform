@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Select, Textarea } from "@asafarim/ui";
 import { api, ClientApiError, type AiOperation, type ProposalRow } from "../../lib/client/api";
@@ -17,11 +17,18 @@ const KINDS = [
 export function CopilotPanel({
   slug,
   projects,
+  /** True when this workspace has never produced an AI draft (issue #365). */
+  firstProposal = false,
+  /** True when this workspace has never applied one. */
+  firstApply = false,
 }: {
   slug: string;
   projects: { id: string; key: string; name: string }[];
+  firstProposal?: boolean;
+  firstApply?: boolean;
 }) {
   const router = useRouter();
+  const activation = useRef({ generated: firstProposal, applied: firstApply });
   const [kind, setKind] = useState("extract_plan");
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [input, setInput] = useState("");
@@ -38,6 +45,10 @@ export function CopilotPanel({
       const res = await api.runAiJob(slug, { kind, input: input.trim(), projectId });
       setProposal(res.proposal);
       track({ name: "command_palette.action", action: "proposal.generated" });
+      if (activation.current.generated) {
+        activation.current.generated = false;
+        track({ name: "workspace.activation.first_proposal_generated", kind });
+      }
       if (res.degraded) setStatus("AI provider was unavailable — this draft is from the offline model and leans on assumptions.");
     } catch (err) {
       setStatus(
@@ -66,6 +77,10 @@ export function CopilotPanel({
         { projectId, accept, ...(editedChanged ? { editedOperations: edited } : {}) },
         accept.length > 15 || editedChanged,
       );
+      if (activation.current.applied) {
+        activation.current.applied = false;
+        track({ name: "workspace.activation.first_proposal_applied", operations: accept.length });
+      }
       setStatus(`Applied ${accept.length} operation(s).`);
       setShowFeedback(true);
       router.refresh();
