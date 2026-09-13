@@ -56,7 +56,7 @@ export default async function OverviewPage() {
   return (
     <main className="ta-home">
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <section className="ta-hero">
+      <section className="ta-hero ta-hero--background-art">
         <div className="ta-hero__copy">
           <p className="ta-kicker">From scattered intent to trusted execution</p>
           <h1 className="ta-hero__title">

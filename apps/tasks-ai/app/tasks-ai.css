@@ -147,6 +147,68 @@
   50% { r: 11; opacity: 0.7; }
 }
 
+/* Hero background art (home page only, via the --background-art modifier —
+   use-cases' ta-hero--slim is untouched). Violet = AI proposal/unreviewed,
+   teal = human-approved — same semantics as --accent/--accent-2 above, and
+   the same colors, so this reads as one continuous visual language rather
+   than a bolted-on image. Assets in public/images/hero/; these SVGs are
+   transparent decorative layers, --bg still shows through underneath. */
+[data-app="tasks-ai"] .ta-hero--background-art {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--radius-lg, 16px);
+  background-color: var(--bg);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
+/* Keep the real copy/art above the background image. */
+[data-app="tasks-ai"] .ta-hero--background-art > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* The old inline diagram tells the same story the new background art
+   does — hidden (not removed, so it's a one-line revert if wanted) with
+   display: none rather than visibility: hidden, since visibility keeps
+   the grid cell's box (and, on mobile, the art column's order:-1 rule
+   below still puts that now-empty box first) — visibility left a large
+   dead gap above the headline on narrow screens; display: none collapses
+   it out of the layout instead. */
+[data-app="tasks-ai"] .ta-hero--background-art .ta-hero__art {
+  display: none;
+}
+
+[data-app="tasks-ai"]:not([data-theme="dark"]) .ta-hero--background-art,
+[data-app="tasks-ai"][data-theme="light"] .ta-hero--background-art {
+  background-image: url("/images/hero/tasksai-hero-mobile-light.svg");
+}
+[data-app="tasks-ai"][data-theme="dark"] .ta-hero--background-art {
+  background-image: url("/images/hero/tasksai-hero-mobile-dark.svg");
+}
+
+@media (min-width: 40rem) {
+  [data-app="tasks-ai"]:not([data-theme="dark"]) .ta-hero--background-art,
+  [data-app="tasks-ai"][data-theme="light"] .ta-hero--background-art {
+    background-image: url("/images/hero/tasksai-hero-tablet-light.svg");
+  }
+  [data-app="tasks-ai"][data-theme="dark"] .ta-hero--background-art {
+    background-image: url("/images/hero/tasksai-hero-tablet-dark.svg");
+  }
+}
+
+@media (min-width: 64rem) {
+  [data-app="tasks-ai"]:not([data-theme="dark"]) .ta-hero--background-art,
+  [data-app="tasks-ai"][data-theme="light"] .ta-hero--background-art {
+    background-image: url("/images/hero/tasksai-hero-desktop-light.svg");
+  }
+  [data-app="tasks-ai"][data-theme="dark"] .ta-hero--background-art {
+    background-image: url("/images/hero/tasksai-hero-desktop-dark.svg");
+  }
+}
+
 /* ── Use cases page ─────────────────────────────────────────────────── */
 [data-app="tasks-ai"] .ta-hero--slim {
   grid-template-columns: 1fr;
