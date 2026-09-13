@@ -39,14 +39,14 @@ const FOUNDATION = [
 export default function JobMatchOverviewPage() {
   return (
     <>
-      <div className="jobmatch-hero jm-hero">
+      <section className="jm-hero">
         <PageHeader
           kicker="Building in the open"
           kickerIndex="M2"
           title="JobMatch is not another job board."
           description="It is a personal, explainable job-search assistant that reduces hundreds of vacancies to the opportunities worth acting on. You can build your profile today; the job sources come next."
         />
-      </div>
+      </section>
 
       <ShowcaseNotice />
 
