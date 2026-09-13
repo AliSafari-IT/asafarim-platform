@@ -7,12 +7,14 @@ import { useTranslation } from "@asafarim/shared-i18n";
 import {
   Clapperboard,
   Clock,
+  DollarSign,
   Download,
   FolderOpen,
   HardDrive,
   LayoutGrid,
   List,
   Search,
+  Sparkles,
   SlidersHorizontal,
   Trash2,
   Video,
@@ -49,6 +51,14 @@ interface LibraryStats {
   totalDurationSeconds: number;
   totalOutputBytes: number;
   uniqueProjectCount: number;
+  aiMotion: {
+    succeededClips: number;
+    acceptedClips: number;
+    durationSeconds: number;
+    /** Null means "unknown" (some/all succeeded clips have no cost snapshot) — never fabricated as $0. */
+    estimatedCostUsd: number | null;
+    unknownCostCount: number;
+  };
 }
 
 interface ProjectOption {
@@ -334,6 +344,8 @@ export function LibraryPageClient() {
                 // refetches for real, matching how "showing N of M" already
                 // only ever reflects the last fetch.
                 uniqueProjectCount: prev.uniqueProjectCount,
+                // Deleting an export doesn't change AI-clip generation history.
+                aiMotion: prev.aiMotion,
               }
             : prev
         );
@@ -400,6 +412,41 @@ export function LibraryPageClient() {
             value={formatBytes(stats.totalOutputBytes)}
           />
           <StatCard icon={FolderOpen} label={t("vionto.libraryPage.statProjects")} value={stats.uniqueProjectCount} />
+        </div>
+      ) : null}
+
+      {/* AI-motion usage — a separate row, shown only once the user has
+          actually generated a clip, so it doesn't clutter the strip for
+          everyone who has never touched image-to-video. */}
+      {stats && stats.aiMotion.succeededClips > 0 ? (
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard
+            icon={Sparkles}
+            label={t("vionto.libraryPage.statAiClips")}
+            value={
+              stats.aiMotion.acceptedClips === stats.aiMotion.succeededClips
+                ? stats.aiMotion.succeededClips
+                : `${stats.aiMotion.succeededClips} (${stats.aiMotion.acceptedClips} ${t("vionto.libraryPage.statAiAccepted")})`
+            }
+          />
+          <StatCard
+            icon={Clock}
+            label={t("vionto.libraryPage.statAiDuration")}
+            value={formatDurationLong(stats.aiMotion.durationSeconds)}
+          />
+          <StatCard
+            icon={DollarSign}
+            label={
+              stats.aiMotion.unknownCostCount > 0
+                ? t("vionto.libraryPage.statAiSpendPartial")
+                : t("vionto.libraryPage.statAiSpend")
+            }
+            value={
+              stats.aiMotion.estimatedCostUsd === null
+                ? t("vionto.libraryPage.statAiSpendUnknown")
+                : `~$${stats.aiMotion.estimatedCostUsd.toFixed(2)}`
+            }
+          />
         </div>
       ) : null}
 

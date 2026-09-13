@@ -163,6 +163,44 @@ export function getModel(provider: AiProviderId, modelId: string): ModelEntry | 
   return getProvider(provider)?.models.find((m) => m.id === modelId);
 }
 
+export interface ClipCostEstimate {
+  /** Integer USD micros (1 USD = 1_000_000) — never a float, so summing many clips never drifts. */
+  amountMicros: number;
+  /** Only source this function ever produces; "provider_reported" is a distinct, not-yet-implemented source. */
+  source: "registry_estimate";
+  /** The exact registry entry used, captured for reproducibility since the registry itself carries no version id. */
+  snapshot: { provider: AiProviderId; modelId: string; amount: number; unit: string; durationSeconds: number };
+}
+
+/**
+ * Rough USD cost for one image-to-video clip, scaled from the registry's
+ * per-5-second rate to the actual requested duration — the same arithmetic
+ * `AiMotionPanel.tsx` already duplicates client-side for the pre-generation
+ * estimate shown to the user. Returns null (not $0) when the model has no
+ * `approxCost` entry — an unpriced model is unknown cost, not free.
+ *
+ * Call this ONLY at generation time and persist the result — issue #352
+ * explicitly requires cost snapshots, not a figure recomputed later from
+ * whatever the registry says today.
+ */
+export function estimateClipCostUsdMicros(
+  provider: AiProviderId,
+  modelId: string,
+  durationSeconds: number
+): ClipCostEstimate | null {
+  const model = getModel(provider, modelId);
+  if (!model?.approxCost) return null;
+  const { amount, unit } = model.approxCost;
+  if (unit !== "per_5s_clip") return null;
+
+  const amountMicros = Math.round(amount * (durationSeconds / 5) * 1_000_000);
+  return {
+    amountMicros,
+    source: "registry_estimate",
+    snapshot: { provider, modelId, amount, unit, durationSeconds },
+  };
+}
+
 /** BYOK-eligible providers (for the settings UI). */
 export function byokProviders(): ProviderEntry[] {
   return PROVIDER_REGISTRY.filter((p) => p.byok);
