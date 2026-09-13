@@ -97,6 +97,36 @@ describe("hubActivityAdapter", () => {
     expect(section.entries[0]).toMatchObject({ metadata: { provider: "credentials" } });
   });
 
+  it("surfaces device context and ip captured by packages/auth's recordSignInEvent", async () => {
+    mockPrisma.auditLog.findMany.mockResolvedValue([
+      {
+        id: "a1",
+        changes: { provider: "google", device: { browserFamily: "Chrome", osFamily: "Windows" } },
+        createdAt: now,
+        ipAddress: "203.0.113.9",
+      },
+    ]);
+
+    const section = await hubActivityAdapter.getActivity({ userId: "u1" });
+
+    expect(section.entries[0]).toMatchObject({
+      metadata: {
+        device: { browserFamily: "Chrome", osFamily: "Windows" },
+        ipAddress: "203.0.113.9",
+      },
+    });
+  });
+
+  it("reports device: null for a sign-in that predates device-context capture, not a fabricated value", async () => {
+    mockPrisma.auditLog.findMany.mockResolvedValue([
+      { id: "a1", changes: { provider: "credentials" }, createdAt: now, ipAddress: null },
+    ]);
+
+    const section = await hubActivityAdapter.getActivity({ userId: "u1" });
+
+    expect(section.entries[0]).toMatchObject({ metadata: { device: null, ipAddress: null } });
+  });
+
   it("never sets a summary — no storage-usage model exists for Hub", async () => {
     const section = await hubActivityAdapter.getActivity({ userId: "u1" });
     expect(section.summary).toBeUndefined();

@@ -49,7 +49,7 @@ export const hubActivityAdapter: UserActivityAdapter = {
         where: { userId, entity: "auth", action: "sign_in" },
         orderBy: { createdAt: "desc" },
         take: 50,
-        select: { id: true, changes: true, createdAt: true },
+        select: { id: true, changes: true, createdAt: true, ipAddress: true },
       }),
     ]);
 
@@ -74,7 +74,7 @@ export const hubActivityAdapter: UserActivityAdapter = {
     }
 
     for (const event of signIns) {
-      const changes = (event.changes as { provider?: string } | null) ?? {};
+      const changes = (event.changes as { provider?: string; device?: unknown } | null) ?? {};
       entries.push({
         id: event.id,
         app: "hub",
@@ -84,7 +84,14 @@ export const hubActivityAdapter: UserActivityAdapter = {
         createdAt: event.createdAt,
         updatedAt: event.createdAt,
         href: null,
-        metadata: { provider: changes.provider ?? "credentials" },
+        // device is null (not "not recorded" vs "recorded as none" — see
+        // packages/auth's parseUserAgent) for sign-ins before issue #349's
+        // device-context capture existed, or an unparseable user-agent.
+        metadata: {
+          provider: changes.provider ?? "credentials",
+          device: changes.device ?? null,
+          ipAddress: event.ipAddress ?? null,
+        },
       });
     }
 

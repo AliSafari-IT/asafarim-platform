@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@asafarim/db";
+import { Prisma, prisma } from "@asafarim/db";
+import { parseUserAgent } from "@asafarim/auth";
 import { getAuthedUser, unauthorized, badRequest, serverError } from "@/lib/server/auth";
 import { getRenderQueue } from "@/lib/server/queue";
 
@@ -12,7 +13,7 @@ export const runtime = "nodejs";
  * Creates a new render job row, copies the manifest from the old job, and queues it.
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
@@ -56,6 +57,24 @@ export async function POST(
         retryCount: (existing.retryCount ?? 0) + 1,
       },
     });
+
+    // See app/api/render/route.ts's identical block for why this exists.
+    try {
+      await prisma.viontoAuditEvent.create({
+        data: {
+          actorId: user.id,
+          actorRole: "CREATOR",
+          action: "RENDER_STARTED",
+          entity: "ViontoRenderJob",
+          entityId: newJob.id,
+          metadata: {
+            device: parseUserAgent(req.headers.get("user-agent")),
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error) {
+      console.error("[render/retry] failed to record device-context audit event:", error);
+    }
 
     await getRenderQueue().add("vionto-render", {
       jobId: newJob.id,
