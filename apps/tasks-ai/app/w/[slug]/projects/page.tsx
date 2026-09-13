@@ -19,7 +19,16 @@ export default async function ProjectsPage({ params }: { params: Promise<{ slug:
         : {}),
     },
     orderBy: { createdAt: "asc" },
-    select: { id: true, key: true, name: true, description: true, visibility: true, version: true, archivedAt: true },
+    select: {
+      id: true,
+      key: true,
+      name: true,
+      description: true,
+      visibility: true,
+      version: true,
+      archivedAt: true,
+      isInbox: true,
+    },
   });
 
   return (

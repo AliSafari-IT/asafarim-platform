@@ -10,6 +10,12 @@ export interface TaskFilter {
   parentId?: string | null;
   includeArchived?: boolean;
   dueBefore?: Date;
+  /**
+   * Inbox semantics (issue #366): captured but not yet organized. `true`
+   * narrows to the Inbox, `false` excludes it. See lib/capture/inbox.ts for
+   * the rule this implements.
+   */
+  inbox?: boolean;
 }
 
 export interface ListOptions extends TaskFilter {
@@ -30,6 +36,11 @@ function scope(ctx: RequestContext, filter: TaskFilter): Prisma.TaskWhereInput {
         ? { parentId: filter.parentId }
         : {}),
     ...(filter.dueBefore ? { dueDate: { lte: filter.dueBefore } } : {}),
+    ...(filter.inbox === true
+      ? { triagedAt: null, completedAt: null }
+      : filter.inbox === false
+        ? { triagedAt: { not: null } }
+        : {}),
     // Guests are limited to tasks in projects they belong to.
     ...(ctx.actor.role === "guest"
       ? { project: { members: { some: { membership: { platformUserId: ctx.actor.platformUserId } } } } }

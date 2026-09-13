@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "../lib/client/api";
 import { track } from "../lib/client/telemetry";
+import { useCapture } from "./capture/CaptureDialog";
 
 interface Command {
   id: string;
@@ -12,12 +12,18 @@ interface Command {
 }
 
 /**
- * ⌘K / Ctrl-K command palette: quick navigation + quick-capture. Quick
- * capture needs a project, so it prompts for one when the workspace has
- * more than a single project. Fully keyboard-driven; Escape closes.
+ * ⌘K / Ctrl-K command palette: quick navigation + quick capture. Fully
+ * keyboard-driven; Escape closes.
+ *
+ * Capture here hands off to the same global Capture dialog the shell button
+ * opens (issue #366) rather than writing a task itself. That is what stops
+ * the old behaviour — silently creating the task in `projects[0]` — from
+ * being possible at all: the palette no longer chooses a destination, the
+ * dialog shows one and lets the person change it.
  */
 export function CommandPalette({ slug }: { slug: string }) {
   const router = useRouter();
+  const capture = useCapture();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
@@ -46,39 +52,35 @@ export function CommandPalette({ slug }: { slug: string }) {
 
   const commands = useMemo<Command[]>(() => {
     const nav: Command[] = [
+      ...(capture.canCapture
+        ? [
+            {
+              id: "capture-blank",
+              label: "Capture a task",
+              run: () => capture.open("", "command_palette"),
+            },
+          ]
+        : []),
       { id: "nav-home", label: "Go to Home", run: () => router.push(`/w/${slug}`) },
       { id: "nav-inbox", label: "Go to Inbox", run: () => router.push(`/w/${slug}/inbox`) },
       { id: "nav-mywork", label: "Go to My Work", run: () => router.push(`/w/${slug}/my-work`) },
       { id: "nav-projects", label: "Go to Projects", run: () => router.push(`/w/${slug}/projects`) },
     ];
-    const capture: Command[] = query.trim()
-      ? [
-          {
-            id: "capture",
-            label: `Quick add task: “${query.trim()}”`,
-            run: async () => {
-              const projects = await api.listProjects(slug);
-              if (projects.length === 0) {
-                router.push(`/w/${slug}/projects`);
-                return;
-              }
-              await api.createTask(slug, {
-                projectId: projects[0].id,
-                title: query.trim(),
-                source: "quick_capture",
-              });
-              track({ name: "task.created", source: "quick_capture" });
-              router.push(`/w/${slug}/projects/${projects[0].key}`);
-              router.refresh();
+    const captureCommands: Command[] =
+      capture.canCapture && query.trim()
+        ? [
+            {
+              id: "capture",
+              label: `Capture: “${query.trim()}” — you pick where it goes`,
+              run: () => capture.open(query.trim(), "command_palette"),
             },
-          },
-        ]
-      : [];
-    const all = [...capture, ...nav];
+          ]
+        : [];
+    const all = [...captureCommands, ...nav];
     return query.trim()
       ? all.filter((c) => c.label.toLowerCase().includes(query.trim().toLowerCase()) || c.id === "capture")
       : all;
-  }, [query, router, slug]);
+  }, [capture, query, router, slug]);
 
   if (!open) return null;
 

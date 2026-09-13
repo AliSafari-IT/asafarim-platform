@@ -7,6 +7,7 @@ import { ApiError } from "../errors";
 import { getTasksAiDb } from "../db/client";
 import { emitActivity } from "../events/emit";
 import { EVENT } from "../events/names";
+import { initialTriagedAt } from "../capture/inbox";
 
 /**
  * First integration (docs: M09, chosen per M00: GitHub). Read-first: an
@@ -122,7 +123,11 @@ export async function receiveGithubWebhook(args: {
           projectId,
           title: body.issue.title.slice(0, 500),
           description: `From GitHub ${args.repo}#${body.issue.number}\n${body.issue.html_url}\n\n${body.issue.body ?? ""}`.slice(0, 20000),
-          source: "import",
+          source: "integration",
+          // Unattended channel: a GitHub issue arriving on its own has had
+          // no human planning decision, so it waits in the Inbox
+          // (issue #366, lib/capture/inbox.ts).
+          triagedAt: initialTriagedAt({ source: "integration", hasProject: true }),
         },
       });
       await tx.integrationEvent.upsert({

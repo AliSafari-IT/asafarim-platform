@@ -9,7 +9,20 @@ export type ViewType = "inbox" | "my_work" | "list" | "board" | "calendar" | "ti
 export type FilterOp = "eq" | "neq" | "in" | "before" | "after" | "is_set" | "is_unset";
 
 export interface FilterClause {
-  field: "status" | "assignee" | "label" | "project" | "dueDate" | "parent" | "completed";
+  field:
+    | "status"
+    | "assignee"
+    | "label"
+    | "project"
+    | "dueDate"
+    | "parent"
+    | "completed"
+    /**
+     * Inbox semantics (issue #366): `triage is_unset` means "captured but
+     * not organized yet". It is a persisted task field, not a synonym for
+     * "open" — see lib/capture/inbox.ts.
+     */
+    | "triage";
   op: FilterOp;
   value?: string | string[] | null;
 }
@@ -24,16 +37,25 @@ export interface ViewConfig {
 }
 
 export const DEFAULT_VIEWS: Record<ViewType, ViewConfig> = {
+  // Inbox is *captured work awaiting triage*, not "every open task" — that
+  // was the overlap with every other view (issue #366).
   inbox: {
     type: "inbox",
-    filters: [{ field: "completed", op: "eq", value: "false" }],
+    filters: [
+      { field: "triage", op: "is_unset" },
+      { field: "completed", op: "eq", value: "false" },
+    ],
     sort: { field: "createdAt", dir: "desc" },
   },
+  // My Work is *planned* open work assigned to me. An item still waiting in
+  // the Inbox is not planned yet, even if it already has my name on it —
+  // triaging it is what moves it into execution (issue #366).
   my_work: {
     type: "my_work",
     filters: [
       { field: "assignee", op: "eq", value: "@me" },
       { field: "completed", op: "eq", value: "false" },
+      { field: "triage", op: "is_set" },
     ],
     sort: { field: "dueDate", dir: "asc" },
   },
@@ -67,6 +89,12 @@ export function toTaskQuery(
     if (clause.field === "project" && clause.op === "eq" && typeof clause.value === "string") {
       q.projectId = clause.value;
     }
+    if (clause.field === "triage") {
+      // Pushed down to the API so the Inbox is a real query, not a
+      // client-side reinterpretation of a bigger list.
+      if (clause.op === "is_unset") q.inbox = "true";
+      if (clause.op === "is_set") q.inbox = "false";
+    }
   }
   return q;
 }
@@ -77,6 +105,7 @@ export function matchesClientFilters(
     completedAt: string | null;
     dueDate: string | null;
     parentId: string | null;
+    triagedAt?: string | null;
     labelIds?: string[];
   },
   config: ViewConfig,
@@ -88,6 +117,8 @@ export function matchesClientFilters(
       if (Boolean(task.completedAt) !== want) return false;
     }
     if (c.field === "parent" && c.op === "is_unset" && task.parentId) return false;
+    if (c.field === "triage" && c.op === "is_unset" && task.triagedAt) return false;
+    if (c.field === "triage" && c.op === "is_set" && !task.triagedAt) return false;
     if (c.field === "dueDate" && c.op === "before" && typeof c.value === "string") {
       if (!task.dueDate || new Date(task.dueDate) >= new Date(c.value)) return false;
     }

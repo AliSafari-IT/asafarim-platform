@@ -7,11 +7,18 @@ import { EVENT, OUTBOX_TYPE } from "../events/names";
 import { ApiError } from "../errors";
 import { getProjectOr404 } from "../repositories/projects";
 import { getTaskOr404 } from "../repositories/tasks";
+import { CAPTURE_SOURCES, initialTriagedAt, type CaptureSource } from "../capture/inbox";
+import { ensureInboxProject } from "../capture/service";
 
 const isoDate = z.union([z.string().datetime(), z.date()]).transform((v) => new Date(v));
 
 export const createTaskSchema = z.object({
-  projectId: z.string(),
+  /**
+   * Optional since issue #366: capture only requires a title. Without a
+   * project the task lands in the workspace Inbox container — never in
+   * "whatever project happened to be first".
+   */
+  projectId: z.string().optional(),
   title: z.string().min(1).max(500),
   description: z.string().max(20000).optional(),
   parentId: z.string().optional(),
@@ -20,7 +27,9 @@ export const createTaskSchema = z.object({
   estimate: z.number().nonnegative().optional(),
   startDate: isoDate.optional(),
   dueDate: isoDate.optional(),
-  source: z.enum(["manual", "quick_capture", "import", "proposal"]).default("manual"),
+  source: z.enum(CAPTURE_SOURCES as [CaptureSource, ...CaptureSource[]]).default("manual"),
+  /** Force the new task to wait in the Inbox even though a project is set. */
+  captureToInbox: z.boolean().optional(),
 });
 
 export const updateTaskSchema = z
@@ -40,20 +49,36 @@ export const updateTaskSchema = z
 export async function createTask(ctx: RequestContext, input: unknown) {
   authorize(ctx.actor, "task.create");
   const data = createTaskSchema.parse(input);
-  await getProjectOr404(ctx, data.projectId); // scoped existence + visibility
+  // A destination the caller chose, or the workspace Inbox container. The
+  // one thing this must never do is silently pick somebody's first project
+  // (issue #366).
+  const project = data.projectId
+    ? await getProjectOr404(ctx, data.projectId) // scoped existence + visibility
+    : await ensureInboxProject(ctx);
 
   if (data.parentId) {
     const parent = await getTaskOr404(ctx, data.parentId);
-    if (parent.projectId !== data.projectId) {
+    if (parent.projectId !== project.id) {
       throw new ApiError("validation_failed", { parentId: "parent is in a different project" });
     }
   }
+
+  // The Inbox rule lives in exactly one place — see lib/capture/inbox.ts.
+  const triagedAt = initialTriagedAt({
+    source: data.source,
+    hasProject: Boolean(data.projectId),
+    intoInboxProject: project.isInbox,
+    hasAssignee: Boolean(data.assigneeId),
+    hasDueDate: Boolean(data.dueDate),
+    forceInbox: data.captureToInbox,
+  });
 
   return ctx.db.$transaction(async (tx) => {
     const task = await tx.task.create({
       data: {
         workspaceId: ctx.workspaceId,
-        projectId: data.projectId,
+        projectId: project.id,
+        triagedAt,
         parentId: data.parentId,
         title: data.title,
         description: data.description,
@@ -75,7 +100,12 @@ export async function createTask(ctx: RequestContext, input: unknown) {
         targetType: "task",
         targetId: task.id,
         actorId: ctx.actor.membershipId,
-        data: { projectId: task.projectId, parentId: task.parentId, source: task.source },
+        data: {
+          projectId: task.projectId,
+          parentId: task.parentId,
+          source: task.source,
+          inbox: task.triagedAt === null,
+        },
       },
       [{ type: OUTBOX_TYPE.searchIndex, payload: { taskId: task.id } }],
     );

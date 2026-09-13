@@ -18,6 +18,8 @@ export const EVENT = {
   taskStatusChanged: "task.status_changed",
   taskAssigned: "task.assigned",
   taskCompleted: "task.completed",
+  /** An Inbox item was organized and left the Inbox (issue #366). */
+  taskTriaged: "task.triaged",
   taskDeleted: "task.deleted",
   taskRestored: "task.restored",
   dependencyLinked: "dependency.linked",

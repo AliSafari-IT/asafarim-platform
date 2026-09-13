@@ -18,6 +18,7 @@ export function ImportWizard({
   const [kind, setKind] = useState<"csv" | "json">("csv");
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [content, setContent] = useState("");
+  const [toInbox, setToInbox] = useState(false);
   const [titleCol, setTitleCol] = useState("Title");
   const [descCol, setDescCol] = useState("");
   const [dueCol, setDueCol] = useState("");
@@ -40,6 +41,7 @@ export function ImportWizard({
         projectId,
         mapping,
         content,
+        captureToInbox: toInbox,
       });
       setDry(res);
     } catch (err) {
@@ -79,6 +81,18 @@ export function ImportWizard({
         <FormRow>
           <Label htmlFor="im-proj">Into project</Label>
           <Select id="im-proj" value={projectId} onChange={(e) => setProjectId(e.target.value)} options={projects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` }))} />
+        </FormRow>
+        <FormRow>
+          {/* Imports can be treated as capture rather than as planned work
+              (issue #366) — one rule, every channel. */}
+          <label className="ta-toggle">
+            <input
+              type="checkbox"
+              checked={toInbox}
+              onChange={(e) => setToInbox(e.target.checked)}
+            />
+            Review the imported rows in the Inbox before they count as planned work
+          </label>
         </FormRow>
         <FormRow>
           <Label htmlFor="im-content">File contents</Label>

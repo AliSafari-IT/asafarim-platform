@@ -117,6 +117,11 @@ export function ProposalDiff({
           Reject
         </Button>
       </div>
+      {/* Applying is not the same as planning (issue #366). */}
+      <p className="ta-diffcard__hint">
+        Applied tasks that still have no owner and no due date land in your Inbox, so somebody
+        decides those before the work counts as planned.
+      </p>
     </div>
   );
 }

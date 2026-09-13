@@ -6,6 +6,8 @@ import { ApiError } from "../errors";
 import { getTasksAiDb } from "../db/client";
 import { emitActivity } from "../events/emit";
 import { EVENT } from "../events/names";
+import { initialTriagedAt } from "./inbox";
+import { ensureInboxProjectFor } from "./service";
 
 /**
  * Capture-by-email. Each workspace gets one address:
@@ -72,16 +74,16 @@ export async function receiveInboundEmail(email: InboundEmail, correlationId: st
     throw new ApiError("forbidden", { reason: "address signature mismatch" });
   }
 
+  // Where does an email land? Its address's configured project when there
+  // is one, otherwise the workspace Inbox container — never "the oldest
+  // project", which is what this used to do (issue #366). Either way the
+  // task waits in the Inbox: nobody was present to decide anything.
   const project =
     (address.projectId &&
       (await db.project.findFirst({
         where: { id: address.projectId, workspaceId: address.workspaceId, archivedAt: null },
       }))) ||
-    (await db.project.findFirst({
-      where: { workspaceId: address.workspaceId, archivedAt: null },
-      orderBy: { createdAt: "asc" },
-    }));
-  if (!project) throw new ApiError("validation_failed", { reason: "workspace has no project to capture into" });
+    (await ensureInboxProjectFor(db, address.workspaceId));
 
   try {
     return await db.$transaction(async (tx) => {
@@ -94,7 +96,15 @@ export async function receiveInboundEmail(email: InboundEmail, correlationId: st
           projectId: project.id,
           title: email.subject.trim().slice(0, 500) || "(no subject)",
           description: `From: ${email.from}\n\n${email.text}`.slice(0, 20000),
-          source: "import",
+          // Provenance is preserved and sharpened: emailed-in work used to
+          // be indistinguishable from a CSV import.
+          source: "email",
+          // Unattended channel ⇒ always waits for triage (lib/capture/inbox.ts).
+          triagedAt: initialTriagedAt({
+            source: "email",
+            hasProject: Boolean(address.projectId),
+            intoInboxProject: project.isInbox,
+          }),
         },
       });
       await tx.inboundMessage.updateMany({
@@ -106,7 +116,7 @@ export async function receiveInboundEmail(email: InboundEmail, correlationId: st
         targetType: "task",
         targetId: task.id,
         actorType: "system",
-        data: { source: "inbound_email", from: email.from },
+        data: { source: "email", from: email.from, inbox: true },
       });
       return { taskId: task.id, projectId: project.id };
     });

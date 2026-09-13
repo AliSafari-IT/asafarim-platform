@@ -63,6 +63,7 @@ export function WorkspaceHome({
           progress={progress}
           canCreateProject={canCreateProject}
           defaultProjectId={defaultProjectId}
+          defaultProjectName={projects.find((p) => p.id === defaultProjectId)?.name ?? null}
           aiEnabled={counts.aiEnabled}
           hint={headline.hint}
         />
@@ -122,6 +123,7 @@ function FirstRun({
   progress,
   canCreateProject,
   defaultProjectId,
+  defaultProjectName,
   aiEnabled,
   hint,
 }: {
@@ -131,6 +133,7 @@ function FirstRun({
   progress: { done: number; total: number };
   canCreateProject: boolean;
   defaultProjectId: string | null;
+  defaultProjectName: string | null;
   aiEnabled: boolean;
   hint: string;
 }) {
@@ -154,6 +157,7 @@ function FirstRun({
           <CaptureFirstTask
             slug={slug}
             projectId={defaultProjectId}
+            projectName={defaultProjectName}
             aiEnabled={aiEnabled}
             hint={hint}
           />
@@ -245,11 +249,13 @@ function CreateFirstProject({ slug, hint }: { slug: string; hint: string }) {
 function CaptureFirstTask({
   slug,
   projectId,
+  projectName,
   aiEnabled,
   hint,
 }: {
   slug: string;
   projectId: string | null;
+  projectName: string | null;
   aiEnabled: boolean;
   hint: string;
 }) {
@@ -293,6 +299,13 @@ function CaptureFirstTask({
           {busy ? "Adding…" : "Add task"}
         </Button>
       </form>
+      {/* Say where it lands (issue #366) — a capture form that quietly
+          decides the destination teaches people not to trust it. */}
+      <p className="ta-hint">
+        {projectName
+          ? `This goes into ${projectName}. Use Capture in the sidebar to choose somewhere else, or to park it in your Inbox.`
+          : "Pick a project first, or use Capture in the sidebar to park this in your Inbox."}
+      </p>
       {error && <FieldError>{error}</FieldError>}
       <p className="ta-whome__or">
         Or start from something you already wrote:{" "}
