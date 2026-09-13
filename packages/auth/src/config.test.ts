@@ -109,34 +109,60 @@ describe("recordSignInEvent", () => {
   });
 
   it("writes a sign_in AuditLog row with the provider", async () => {
-    await recordSignInEvent("user-1", "google");
+    await recordSignInEvent("user-1", "google", { userAgentRaw: null, ipAddress: null });
 
     expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
       data: {
         userId: "user-1",
         action: "sign_in",
         entity: "auth",
-        changes: { provider: "google" },
+        changes: { provider: "google", device: null, userAgentRaw: null },
+        ipAddress: null,
       },
     });
   });
 
   it("defaults the provider to 'credentials' when none is given (email/password and email-OTP sign-ins)", async () => {
-    await recordSignInEvent("user-2", undefined);
+    await recordSignInEvent("user-2", undefined, { userAgentRaw: null, ipAddress: null });
 
     expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
       data: {
         userId: "user-2",
         action: "sign_in",
         entity: "auth",
-        changes: { provider: "credentials" },
+        changes: { provider: "credentials", device: null, userAgentRaw: null },
+        ipAddress: null,
       },
     });
+  });
+
+  it("parses a recognizable user-agent into normalized browser/OS fields", async () => {
+    await recordSignInEvent("user-3", "credentials", {
+      userAgentRaw:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+      ipAddress: "203.0.113.9",
+    });
+
+    const call = mockPrisma.auditLog.create.mock.calls[0]![0];
+    expect(call.data.ipAddress).toBe("203.0.113.9");
+    expect(call.data.changes.device).toMatchObject({
+      browserFamily: "Chrome",
+      osFamily: "Windows",
+    });
+  });
+
+  it("stores device: null for an unparseable or missing user-agent, never a fabricated value", async () => {
+    await recordSignInEvent("user-4", "credentials", { userAgentRaw: "", ipAddress: null });
+
+    const call = mockPrisma.auditLog.create.mock.calls[0]![0];
+    expect(call.data.changes.device).toBeNull();
   });
 
   it("never throws when the write fails — a broken audit log must not block sign-in", async () => {
     mockPrisma.auditLog.create.mockRejectedValueOnce(new Error("db unreachable"));
 
-    await expect(recordSignInEvent("user-3", "google")).resolves.toBeUndefined();
+    await expect(
+      recordSignInEvent("user-5", "google", { userAgentRaw: null, ipAddress: null })
+    ).resolves.toBeUndefined();
   });
 });

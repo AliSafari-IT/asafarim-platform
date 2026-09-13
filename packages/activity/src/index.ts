@@ -23,4 +23,11 @@ export { hubActivityAdapter } from "./adapters/hub";
 export { createRemoteAdapter } from "./adapters/remote";
 export type { RemoteActivityEntryDto, RemoteActivityResponse, RemoteAdapterOptions } from "./adapters/remote";
 export type { ActivityFilters } from "./user-360";
-export { loadUserActivity, collectEntryTypes, filterEntries, formatBytes, formatDuration } from "./user-360";
+export {
+  loadUserActivity,
+  collectEntryTypes,
+  filterEntries,
+  formatBytes,
+  formatDuration,
+  formatDeviceContext,
+} from "./user-360";

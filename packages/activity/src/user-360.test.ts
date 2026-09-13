@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectEntryTypes, filterEntries, formatBytes, formatDuration } from "./user-360";
+import { collectEntryTypes, filterEntries, formatBytes, formatDuration, formatDeviceContext } from "./user-360";
 import type { ActivityEntry, ActivitySection } from "./types";
 
 function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
@@ -111,5 +111,39 @@ describe("formatDuration", () => {
 
   it("formats minutes and seconds", () => {
     expect(formatDuration(125)).toBe("2m 5s");
+  });
+});
+
+describe("formatDeviceContext", () => {
+  it("returns null for null/undefined/non-object — 'not recorded', never fabricated", () => {
+    expect(formatDeviceContext(null)).toBeNull();
+    expect(formatDeviceContext(undefined)).toBeNull();
+    expect(formatDeviceContext("chrome")).toBeNull();
+  });
+
+  it("returns null when browser and os are both absent", () => {
+    expect(formatDeviceContext({})).toBeNull();
+  });
+
+  it("combines browser and OS with 'on'", () => {
+    expect(
+      formatDeviceContext({
+        browserFamily: "Chrome",
+        browserVersion: "128",
+        osFamily: "Windows",
+        osVersion: "11",
+      })
+    ).toBe("Chrome 128 on Windows 11");
+  });
+
+  it("falls back to whichever of browser/os is present", () => {
+    expect(formatDeviceContext({ browserFamily: "Chrome" })).toBe("Chrome");
+    expect(formatDeviceContext({ osFamily: "Windows" })).toBe("Windows");
+  });
+
+  it("omits a missing version rather than showing an empty one", () => {
+    expect(formatDeviceContext({ browserFamily: "Chrome", osFamily: "Windows" })).toBe(
+      "Chrome on Windows"
+    );
   });
 });

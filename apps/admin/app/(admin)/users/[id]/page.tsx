@@ -24,7 +24,14 @@ import { writeAuditEvent } from "../../../../lib/audit";
 import { IdentityForm } from "./_components/IdentityForm";
 import { StatusControls } from "./_components/StatusControls";
 import { RoleControls } from "./_components/RoleControls";
-import { collectEntryTypes, filterEntries, formatBytes, formatDuration, loadUserActivity } from "@asafarim/activity";
+import {
+  collectEntryTypes,
+  filterEntries,
+  formatBytes,
+  formatDeviceContext,
+  formatDuration,
+  loadUserActivity,
+} from "@asafarim/activity";
 
 export const metadata: Metadata = { title: "User detail" };
 
@@ -572,6 +579,10 @@ function UserActivitySection({
                 href: entry.href ?? undefined,
                 meta: [
                   entry.status,
+                  entry.metadata.provider ? `via ${entry.metadata.provider}` : null,
+                  formatDeviceContext(entry.metadata.device) ?? (
+                    "device" in entry.metadata ? "device not recorded" : null
+                  ),
                   formatDuration(entry.metadata.durationSeconds as number | null | undefined),
                   formatBytes(entry.metadata.fileSizeBytes as number | null | undefined),
                 ]

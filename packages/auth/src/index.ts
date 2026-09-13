@@ -1,7 +1,12 @@
 import "./types";
 
 export { handlers, auth, signIn, signOut } from "./auth";
-export { authConfig, ensureDefaultRole } from "./config";
+export { authConfig, ensureDefaultRole, recordSignInEvent } from "./config";
+export {
+  parseUserAgent,
+  getClientIpFromHeaders,
+  type DeviceContext,
+} from "./device-context";
 export { hashPassword, verifyPassword } from "./providers";
 export { ROLES, hasRole, isAdmin, type RoleName } from "./roles";
 export {

@@ -75,3 +75,26 @@ export function formatDuration(seconds: number | null | undefined): string | nul
   const secs = seconds % 60;
   return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 }
+
+/**
+ * Renders a captured device-context object (issue #349's
+ * `{ browserFamily, browserVersion, osFamily, osVersion }` shape, from
+ * `@asafarim/auth`'s `parseUserAgent`) as "Chrome 128 on Windows 11". Never
+ * invents a value — an entry with no device data (predates capture, or an
+ * unparseable user-agent) returns null so the UI can show "not recorded"
+ * instead of a fabricated browser/OS.
+ */
+export function formatDeviceContext(device: unknown): string | null {
+  if (!device || typeof device !== "object") return null;
+  const d = device as {
+    browserFamily?: string | null;
+    browserVersion?: string | null;
+    osFamily?: string | null;
+    osVersion?: string | null;
+  };
+  const browser = [d.browserFamily, d.browserVersion].filter(Boolean).join(" ");
+  const os = [d.osFamily, d.osVersion].filter(Boolean).join(" ");
+  if (!browser && !os) return null;
+  if (browser && os) return `${browser} on ${os}`;
+  return browser || os || null;
+}

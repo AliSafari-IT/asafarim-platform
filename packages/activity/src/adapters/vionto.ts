@@ -96,6 +96,23 @@ export const viontoActivityAdapter: UserActivityAdapter = {
       }),
     ]);
 
+    // Normalized browser/OS context captured at render-job creation (issue
+    // #349), read back from the generic ViontoAuditEvent trail rather than a
+    // new column on ViontoRenderJob. Jobs created before this existed simply
+    // have no matching event — their entry's metadata.device stays absent,
+    // an honest "not recorded" rather than a fabricated value.
+    const renderJobIds = renderJobs.map((j) => j.id);
+    const deviceEvents =
+      renderJobIds.length > 0
+        ? await prisma.viontoAuditEvent.findMany({
+            where: { entity: "ViontoRenderJob", action: "RENDER_STARTED", entityId: { in: renderJobIds } },
+            select: { entityId: true, metadata: true },
+          })
+        : [];
+    const deviceByJobId = new Map(
+      deviceEvents.map((e) => [e.entityId, (e.metadata as { device?: unknown } | null)?.device ?? null])
+    );
+
     const entries: ActivityEntry[] = [
       ...projects.map(
         (p): ActivityEntry => ({
@@ -143,6 +160,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
             retryCount: j.retryCount,
             startedAt: j.startedAt,
             completedAt: j.completedAt,
+            device: deviceByJobId.get(j.id) ?? null,
           },
         })
       ),

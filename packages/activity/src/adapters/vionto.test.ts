@@ -8,6 +8,7 @@ vi.mock("@asafarim/db", () => ({
     viontoExport: { findMany: vi.fn() },
     viontoAlbum: { findMany: vi.fn() },
     viontoUsageMetric: { findMany: vi.fn() },
+    viontoAuditEvent: { findMany: vi.fn() },
     user: { findMany: vi.fn() },
   },
 }));
@@ -23,6 +24,7 @@ const mockPrisma = prisma as unknown as {
   viontoAlbum: { findMany: ReturnType<typeof vi.fn> };
   user: { findMany: ReturnType<typeof vi.fn> };
   viontoUsageMetric: { findMany: ReturnType<typeof vi.fn> };
+  viontoAuditEvent: { findMany: ReturnType<typeof vi.fn> };
 };
 
 const now = new Date("2026-01-01T00:00:00Z");
@@ -35,6 +37,7 @@ beforeEach(() => {
   mockPrisma.viontoExport.findMany.mockResolvedValue([]);
   mockPrisma.viontoAlbum.findMany.mockResolvedValue([]);
   mockPrisma.viontoUsageMetric.findMany.mockResolvedValue([]);
+  mockPrisma.viontoAuditEvent.findMany.mockResolvedValue([]);
 });
 
 describe("viontoActivityAdapter", () => {
@@ -114,6 +117,39 @@ describe("viontoActivityAdapter", () => {
       href: expect.stringContaining("/projects/p1"),
       metadata: expect.objectContaining({ progressPercent: 42, errorSummary: "ffmpeg crashed" }),
     });
+  });
+
+  it("enriches a render job with device context from the matching ViontoAuditEvent row", async () => {
+    mockPrisma.viontoRenderJob.findMany.mockResolvedValue([
+      { id: "job1", projectId: "p1", state: "completed", progressPercent: 100, errorSummary: null, retryCount: 0, startedAt: now, completedAt: now, createdAt: now, updatedAt: now },
+    ]);
+    mockPrisma.viontoAuditEvent.findMany.mockResolvedValue([
+      { entityId: "job1", metadata: { device: { browserFamily: "Chrome", osFamily: "Windows" } } },
+    ]);
+
+    const section = await viontoActivityAdapter.getActivity({ userId: "u1" });
+
+    expect(mockPrisma.viontoAuditEvent.findMany).toHaveBeenCalledWith({
+      where: { entity: "ViontoRenderJob", action: "RENDER_STARTED", entityId: { in: ["job1"] } },
+      select: { entityId: true, metadata: true },
+    });
+    expect(section.entries[0]!.metadata.device).toEqual({ browserFamily: "Chrome", osFamily: "Windows" });
+  });
+
+  it("reports device: null for a render job with no matching audit event (predates capture, or unparseable UA)", async () => {
+    mockPrisma.viontoRenderJob.findMany.mockResolvedValue([
+      { id: "job1", projectId: "p1", state: "completed", progressPercent: 100, errorSummary: null, retryCount: 0, startedAt: now, completedAt: now, createdAt: now, updatedAt: now },
+    ]);
+
+    const section = await viontoActivityAdapter.getActivity({ userId: "u1" });
+
+    expect(section.entries[0]!.metadata.device).toBeNull();
+  });
+
+  it("does not query ViontoAuditEvent when there are no render jobs", async () => {
+    await viontoActivityAdapter.getActivity({ userId: "u1" });
+
+    expect(mockPrisma.viontoAuditEvent.findMany).not.toHaveBeenCalled();
   });
 
   it("surfaces the most recent storage_mb usage metric as a summary", async () => {
