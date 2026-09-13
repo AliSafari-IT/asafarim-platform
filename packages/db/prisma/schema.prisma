@@ -885,6 +885,30 @@ model ViontoAiClip {
   /// Provider metadata: request ids, credit/cost info, raw task result.
   providerMetadata Json?
 
+  /// Cost snapshot taken AT GENERATION TIME from the (mutable) provider
+  /// registry — never recomputed later from current pricing, so a clip's
+  /// reported cost never silently changes when registry prices change.
+  /// Integer USD micros (1 USD = 1_000_000) rather than a float, so summing
+  /// many clips never accumulates floating-point drift. Null on clips
+  /// created before this column existed, or if no registry price was found
+  /// for the model at generation time — both report as "unknown", never $0.
+  estimatedCostUsdMicros BigInt?
+  /// "registry_estimate" (computed from lib/server/ai/registry.ts at
+  /// generation time) is the only source ever written today. Reserved for
+  /// "provider_reported" once a provider's actual response includes real
+  /// billed cost. Null means no cost was captured (pre-dates this column).
+  costSource             String?
+  /// Whether the API key used was the user's own (BYOK) or the platform's
+  /// server-side key — "user" | "env" | "none", mirrors
+  /// ResolvedCredential.source at generation time. Distinct from cost: a
+  /// user's own key still has an estimated platform-registry cost even
+  /// though the platform isn't the one paying it.
+  credentialSource       String?
+  /// The exact registry entry (provider/model id, amount, unit) used to
+  /// compute estimatedCostUsdMicros — a reproducibility record, since
+  /// lib/server/ai/registry.ts itself carries no version identifier.
+  pricingSnapshot        Json?
+
   project ViontoProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())

@@ -4,6 +4,7 @@ import { Prisma } from "@asafarim/db";
 import { getAuthedUser, unauthorized, badRequest, serverError } from "@/lib/server/auth";
 import { createAiClipsSchema, formatZodError } from "@/lib/server/validation";
 import {
+  estimateClipCostUsdMicros,
   getGenerativeVideoProvider,
   resolveProviderCredential,
   type AiProviderId,
@@ -169,6 +170,10 @@ export async function POST(
     }
 
     const negativePrompt = input.negativePrompt ?? DEFAULT_NEGATIVE_PROMPT;
+    // Snapshotted once per batch, not per clip: every clip in this request
+    // shares the same provider/model/duration, and the registry can't change
+    // mid-request anyway.
+    const costEstimate = estimateClipCostUsdMicros(provider, model, input.durationSeconds);
     const created: Array<Record<string, unknown>> = [];
     for (const item of input.items) {
       const asset = assetById.get(item.assetId)!;
@@ -187,6 +192,10 @@ export async function POST(
           negativePrompt,
           durationSeconds: input.durationSeconds,
           status: "pending",
+          estimatedCostUsdMicros: costEstimate ? BigInt(costEstimate.amountMicros) : null,
+          costSource: costEstimate ? costEstimate.source : null,
+          credentialSource: cred.source,
+          pricingSnapshot: costEstimate ? (costEstimate.snapshot as Prisma.InputJsonValue) : undefined,
         },
         select: CLIP_SELECT,
       });
