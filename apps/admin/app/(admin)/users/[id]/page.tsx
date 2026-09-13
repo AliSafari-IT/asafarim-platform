@@ -525,6 +525,12 @@ function UserActivitySection({
           })}
         </div>
 
+        <p style={{ marginBottom: "var(--space-3)" }}>
+          <a href={`${basePath}/vionto`} className="ui-btn ui-btn--ghost ui-btn--sm">
+            open full, paginated Vionto job history →
+          </a>
+        </p>
+
         <FilterBar
           action={basePath}
           fields={[

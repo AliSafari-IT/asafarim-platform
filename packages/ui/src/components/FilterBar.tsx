@@ -34,6 +34,12 @@ export type FilterField =
       label: string;
       value: string;
       width?: number;
+    }
+  | {
+      /** Carries a value through the form's submission without a visible control — e.g. a tab picked via `chips` that a sibling text/select field must not drop. */
+      kind: "hidden";
+      name: string;
+      value: string;
     };
 
 export interface FilterBarProps {
@@ -73,7 +79,13 @@ export function FilterBar({
 }: FilterBarProps) {
   return (
     <form method="GET" action={action} className="ui-filterbar">
+      {fields.map((field) =>
+        field.kind === "hidden" ? (
+          <input key={field.name} type="hidden" name={field.name} value={field.value} />
+        ) : null
+      )}
       {fields.map((field) => {
+        if (field.kind === "hidden") return null;
         const id = `filter-${field.name}`;
         const flex = field.width ? `1 1 ${field.width}rem` : undefined;
         const maxWidth = field.width ? `${field.width * 1.6}rem` : undefined;
@@ -97,20 +109,23 @@ export function FilterBar({
         );
       })}
 
-      {fields.length > 0 || (hasFilters && clearHref) ? (
-        <div className="ui-filterbar__actions">
-          {fields.length > 0 ? (
-            <Button type="submit" variant="console" size="sm">
-              {submitLabel}
-            </Button>
-          ) : null}
-          {hasFilters && clearHref ? (
-            <a href={clearHref} className="ui-btn ui-btn--ghost ui-btn--sm">
-              clear
-            </a>
-          ) : null}
-        </div>
-      ) : null}
+      {(() => {
+        const visibleFieldCount = fields.filter((f) => f.kind !== "hidden").length;
+        return visibleFieldCount > 0 || (hasFilters && clearHref) ? (
+          <div className="ui-filterbar__actions">
+            {visibleFieldCount > 0 ? (
+              <Button type="submit" variant="console" size="sm">
+                {submitLabel}
+              </Button>
+            ) : null}
+            {hasFilters && clearHref ? (
+              <a href={clearHref} className="ui-btn ui-btn--ghost ui-btn--sm">
+                clear
+              </a>
+            ) : null}
+          </div>
+        ) : null;
+      })()}
 
       {chips ? (
         <div className="ui-filterbar__chips">
