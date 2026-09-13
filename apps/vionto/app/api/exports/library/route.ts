@@ -2,17 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@asafarim/db";
 import { getAuthedUser, unauthorized, serverError } from "@/lib/server/auth";
 import { createPresignedDownloadUrl } from "@/lib/server/storage";
+import { buildLibraryWhere, parseLibraryFilters } from "./shared";
 
 export const runtime = "nodejs";
-
-const MODES = new Set(["cinematic", "slideshow", "social"]);
-const ASPECT_RATIOS = new Set(["16:9", "9:16", "1:1", "4:3"]);
-
-function parseDate(value: string | null): Date | undefined {
-  if (!value) return undefined;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date;
-}
 
 /** GET /api/exports/library - list completed exports for the current user. */
 export async function GET(req: Request) {
@@ -21,39 +13,10 @@ export async function GET(req: Request) {
     if (!user) return unauthorized();
 
     const { searchParams } = new URL(req.url);
-    const mode = searchParams.get("mode");
-    const aspectRatio = searchParams.get("aspectRatio");
-    const projectId = searchParams.get("projectId");
-    const createdFrom = parseDate(searchParams.get("createdFrom"));
-    const createdTo = parseDate(searchParams.get("createdTo"));
-    const search = searchParams.get("search")?.trim() ?? "";
     const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 20) || 20, 1), 50);
     const cursor = searchParams.get("cursor");
 
-    const where = {
-      userId: user.id,
-      ...(projectId ? { projectId } : {}),
-      ...(mode && MODES.has(mode) ? { userMode: mode } : {}),
-      ...(aspectRatio && ASPECT_RATIOS.has(aspectRatio) ? { aspectRatio } : {}),
-      ...(createdFrom || createdTo
-        ? {
-            createdAt: {
-              ...(createdFrom ? { gte: createdFrom } : {}),
-              ...(createdTo ? { lte: createdTo } : {}),
-            },
-          }
-        : {}),
-      ...(search
-        ? {
-            OR: [
-              { previewTitle: { contains: search, mode: "insensitive" as const } },
-              { filename: { contains: search, mode: "insensitive" as const } },
-              { storyKeywords: { array_contains: [search] } },
-            ],
-          }
-        : {}),
-      renderJob: { is: { state: "completed" } },
-    };
+    const where = buildLibraryWhere(parseLibraryFilters(searchParams), user.id);
 
     const rows = await prisma.viontoExport.findMany({
       where,
