@@ -13,6 +13,16 @@ function viontoUrl(): string {
 }
 
 /**
+ * Vionto has no `/projects/:id` detail route — every entry point into a
+ * project (the projects list, the albums dashboard) links to the editor as
+ * `/create?projectId=...`. Centralized here after a superadmin hit a 404
+ * clicking through from the User 360 timeline.
+ */
+function projectHref(base: string, projectId: string): string {
+  return `${base}/create?projectId=${projectId}`;
+}
+
+/**
  * Vionto (photo-to-story video pipeline) is the flagship activity adapter:
  * projects, video versions, render jobs (state/progress/error), exports
  * (format/resolution/duration/size), albums, and storage usage — read-only,
@@ -123,7 +133,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: p.status,
           createdAt: p.createdAt,
           updatedAt: p.updatedAt,
-          href: `${base}/projects/${p.id}`,
+          href: projectHref(base, p.id),
           metadata: {},
         })
       ),
@@ -136,7 +146,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: v.mode,
           createdAt: v.createdAt,
           updatedAt: v.updatedAt,
-          href: `${base}/projects/${v.projectId}`,
+          href: projectHref(base, v.projectId),
           metadata: {
             visualStyle: v.visualStyle,
             resolution: v.resolution,
@@ -153,7 +163,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: j.state,
           createdAt: j.createdAt,
           updatedAt: j.updatedAt,
-          href: `${base}/projects/${j.projectId}`,
+          href: projectHref(base, j.projectId),
           metadata: {
             progressPercent: j.progressPercent,
             errorSummary: j.errorSummary,
@@ -173,7 +183,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: "exported",
           createdAt: e.createdAt,
           updatedAt: e.updatedAt,
-          href: `${base}/projects/${e.projectId}`,
+          href: projectHref(base, e.projectId),
           metadata: {
             format: e.format,
             resolution: e.resolution,
@@ -191,7 +201,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: a.lifecycleStage,
           createdAt: a.createdAt,
           updatedAt: a.updatedAt,
-          href: `${base}/projects/${a.projectId}`,
+          href: projectHref(base, a.projectId),
           metadata: {},
         })
       ),
@@ -262,7 +272,7 @@ export const viontoActivityAdapter: UserActivityAdapter = {
           status: "exported",
           createdAt: e.createdAt,
           updatedAt: e.updatedAt,
-          href: `${base}/projects/${e.projectId}`,
+          href: projectHref(base, e.projectId),
           metadata: {
             format: e.format,
             resolution: e.resolution,

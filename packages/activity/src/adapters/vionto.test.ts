@@ -85,7 +85,7 @@ describe("viontoActivityAdapter", () => {
       type: "video_version",
       title: "Family version",
       status: "story",
-      href: expect.stringContaining("/projects/p1"),
+      href: expect.stringContaining("/create?projectId=p1"),
       metadata: expect.objectContaining({ visualStyle: "clean_modern_slideshow", resolution: "1080p" }),
     });
   });
@@ -114,7 +114,7 @@ describe("viontoActivityAdapter", () => {
       app: "vionto",
       type: "render_job",
       status: "failed",
-      href: expect.stringContaining("/projects/p1"),
+      href: expect.stringContaining("/create?projectId=p1"),
       metadata: expect.objectContaining({ progressPercent: 42, errorSummary: "ffmpeg crashed" }),
     });
   });
