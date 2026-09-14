@@ -117,3 +117,13 @@ last), so the first page is always the most urgent work. Grouping happens
 over everything loaded so far — never per page — and a section past
 `VIRTUALIZE_THRESHOLD` rows switches to windowed rendering
 (`docs/performance-budgets.md`).
+
+Windowing costs something, and the cost is stated rather than hidden: rows
+outside the rendered window are not in the DOM, so a screen reader cannot
+reach them by browse-mode exploration or Tab. What is guaranteed is the
+keyboard path — `j`/`k` move the cursor, the window follows it, the cursor's
+row is kept mounted even when the window has scrolled past it, and real DOM
+focus lands on that row (roving tabindex), so assistive technology announces
+it the ordinary way. Reaching every row by free browse alone would need a
+paginated non-windowed mode or a virtualizer with a full ARIA grid navigation
+model; that is follow-up work, not something this page currently claims.

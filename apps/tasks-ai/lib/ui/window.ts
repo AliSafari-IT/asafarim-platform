@@ -42,5 +42,37 @@ export function computeWindow(input: WindowInput): WindowRange {
   };
 }
 
+/**
+ * The row indices a windowed list must render: the window itself plus the
+ * caller's active row when the window has scrolled past it.
+ *
+ * Returned as one ascending list on purpose. The active row must be a single
+ * keyed instance whether it is inside the window or outside it — rendering it
+ * from a second JSX site with a different key makes React unmount and remount
+ * it when it crosses the window boundary, which drops DOM focus (and with it
+ * keyboard/screen-reader navigation) back to the document. Keeping the list
+ * sorted also means a scroll only adds and removes indices at the ends, so
+ * surviving rows — the focused one included — are never even moved in the DOM.
+ */
+export function rowIndices(
+  window: Pick<WindowRange, "start" | "end">,
+  count: number,
+  activeIndex?: number,
+): number[] {
+  const out: number[] = [];
+  const stray =
+    activeIndex !== undefined &&
+    Number.isInteger(activeIndex) &&
+    activeIndex >= 0 &&
+    activeIndex < count &&
+    (activeIndex < window.start || activeIndex >= window.end)
+      ? activeIndex
+      : null;
+  if (stray !== null && stray < window.start) out.push(stray);
+  for (let i = window.start; i < window.end; i++) out.push(i);
+  if (stray !== null && stray >= window.end) out.push(stray);
+  return out;
+}
+
 /** Above this many rows the list switches to windowed rendering. */
 export const VIRTUALIZE_THRESHOLD = 200;
