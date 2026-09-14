@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { hasTestDatabase, requireTestDatabaseUrl } from "../db/test-database";
 import { PrismaClient } from "../db/generated";
 import type { RequestContext } from "../context";
+import { resetEnvCache } from "../env";
 
 vi.mock("../session", () => ({ getViewer: vi.fn() }));
 
@@ -25,6 +26,18 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
       env: { ...process.env, TASKSAI_DATABASE_URL: url },
       stdio: "inherit",
     });
+    // receiveInboundEmail (lib/capture/inbound.ts) is a machine entrypoint with
+    // no RequestContext, so it reads getTasksAiDb()'s global singleton — which
+    // reads TASKSAI_DATABASE_URL, not TASKSAI_TEST_DATABASE_URL. Point it at
+    // the same throwaway database as `db`, matching the existing convention in
+    // automations.integration.test.ts.
+    process.env.TASKSAI_DATABASE_URL = url;
+    // See the identical comment in automations.integration.test.ts: both
+    // getEnv()'s memoized TASKSAI_DATABASE_URL and getTasksAiDb()'s cached
+    // client ignore later env changes, so clear both before anything in this
+    // file can trigger them.
+    resetEnvCache();
+    delete (globalThis as { tasksAiPrisma?: unknown }).tasksAiPrisma;
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   });
 
