@@ -6,7 +6,7 @@ import { authorize } from "../authz";
 import { ApiError } from "../errors";
 import { emitActivity, recordAudit } from "../events/emit";
 import { EVENT } from "../events/names";
-import { operationSchema, type Operation } from "./types";
+import { TARGET_TASK_REF, operationSchema, type Operation } from "./types";
 import { initialTriagedAt } from "../capture/inbox";
 import { runAiJob } from "./job";
 
@@ -63,6 +63,22 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
   const selected = accept ? allOps.filter((_, i) => accept.includes(i)) : allOps;
 
   const refToTaskId = new Map<string, string>();
+  // A task-scoped draft may address exactly one existing task: the one the
+  // job recorded. Resolving it here — from the proposal row, never from the
+  // operations the client sent back — is what lets decomposition parent real
+  // subtasks and acceptance criteria actually edit the task (PR #377 review).
+  if (p.targetTaskId) {
+    const target = await ctx.db.task.findFirst({
+      where: { id: p.targetTaskId, workspaceId: ctx.workspaceId, archivedAt: null },
+      select: { id: true },
+    });
+    if (!target) {
+      throw new ApiError("validation_failed", {
+        reason: "the task this proposal was drafted for no longer exists",
+      });
+    }
+    refToTaskId.set(TARGET_TASK_REF, target.id);
+  }
   const undo: Record<string, unknown>[] = [];
   let editDistance = 0;
   if (editedOperations) {
@@ -109,8 +125,13 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
           data: { via: "proposal", proposalId: id, ref: op.ref },
         });
       } else if (op.op === "update_task") {
+        // The target task is the only existing task a proposal may edit. An
+        // op naming anything else — a model's guess, or an id slipped into
+        // `editedOperations` — resolves to nothing and is skipped.
+        const taskId = op.taskId === TARGET_TASK_REF ? p.targetTaskId : op.taskId;
+        if (!taskId || taskId !== p.targetTaskId) continue;
         const before = await tx.task.findFirst({
-          where: { id: op.taskId, workspaceId: ctx.workspaceId },
+          where: { id: taskId, workspaceId: ctx.workspaceId },
         });
         if (!before) continue;
         await tx.task.update({

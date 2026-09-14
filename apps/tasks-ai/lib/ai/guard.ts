@@ -1,4 +1,10 @@
-import { operationSchema, proposalDraftSchema, type Operation, type ProposalDraft } from "./types";
+import {
+  TARGET_TASK_REF,
+  operationSchema,
+  proposalDraftSchema,
+  type Operation,
+  type ProposalDraft,
+} from "./types";
 
 /**
  * The blast-radius + allowlist gate. A provider draft is re-validated here
@@ -22,7 +28,22 @@ export interface GuardResult {
   groundedRatio: number;
 }
 
-export function guardDraft(raw: unknown, maxBlastRadius: number): GuardResult {
+export interface GuardOptions {
+  /**
+   * True when the job targets an existing task, which makes TARGET_TASK_REF
+   * a resolvable ref. When false, an operation that names it — or any
+   * update_task at all — could only ever address a task that does not
+   * exist, so the draft is refused rather than applied as a silent no-op
+   * (PR #377 review).
+   */
+  hasTargetTask?: boolean;
+}
+
+export function guardDraft(
+  raw: unknown,
+  maxBlastRadius: number,
+  options: GuardOptions = {},
+): GuardResult {
   const draft = proposalDraftSchema.parse(raw);
   const reasons: string[] = [];
 
@@ -37,10 +58,14 @@ export function guardDraft(raw: unknown, maxBlastRadius: number): GuardResult {
     if (!r.success) reasons.push(`operation failed re-validation: ${r.error.issues[0]?.message}`);
   }
 
-  // Refs must be unique and links must point at known refs.
+  // Refs must be unique and links must point at known refs. The target task,
+  // when there is one, is the single ref that resolves to something the
+  // proposal did not create.
   const refs = new Set<string>();
+  if (options.hasTargetTask) refs.add(TARGET_TASK_REF);
   for (const op of draft.operations) {
     if (op.op === "create_task") {
+      if (op.ref === TARGET_TASK_REF) reasons.push(`${TARGET_TASK_REF} is reserved and cannot be created`);
       if (refs.has(op.ref)) reasons.push(`duplicate ref ${op.ref}`);
       refs.add(op.ref);
     }
@@ -51,6 +76,16 @@ export function guardDraft(raw: unknown, maxBlastRadius: number): GuardResult {
     }
     if (op.op === "link_tasks" && (!refs.has(op.fromRef) || !refs.has(op.toRef))) {
       reasons.push(`link references an unknown ref`);
+    }
+    if (op.op === "update_task") {
+      // The only existing task a draft may address is the one the job was
+      // scoped to. Any other id is a guess, and a guess that misses is
+      // applied as nothing while the review claimed an edit.
+      if (!options.hasTargetTask) {
+        reasons.push("update_task without a target task: nothing it could address exists");
+      } else if (op.taskId !== TARGET_TASK_REF) {
+        reasons.push(`update_task must address ${TARGET_TASK_REF}, not an invented task id`);
+      }
     }
   }
 

@@ -6,7 +6,7 @@ import { ApiError } from "../errors";
 import { recordAudit } from "../events/emit";
 import { AI_KINDS, type AiKind } from "./types";
 import { renderPrompt } from "./prompts";
-import { redact } from "./redact";
+import { mapCitationSpans, redact } from "./redact";
 import { guardDraft } from "./guard";
 import { getProvider } from "./registry";
 import { getAiSettings } from "./settings";
@@ -17,7 +17,16 @@ export const runJobSchema = z.object({
   kind: z.enum(AI_KINDS),
   input: z.string().min(1).max(50_000),
   projectId: z.string().optional(),
+  /**
+   * The existing task a task-scoped intent was launched from ("break this
+   * down", "draft acceptance criteria for this"). Membership-scoped: an id
+   * outside this workspace resolves to nothing and the job is refused.
+   */
+  taskId: z.string().optional(),
 });
+
+/** Proposal states a cached draft may still be reviewed and applied from. */
+const REVIEWABLE_STATES = ["draft", "previewed"] as const;
 
 const MAX_ATTEMPTS = 3;
 
@@ -29,7 +38,7 @@ const MAX_ATTEMPTS = 3;
  *   + a Proposal in `draft` state. NOTHING is applied here.
  */
 export async function runAiJob(ctx: RequestContext, input: unknown) {
-  const { kind, input: rawInput, projectId } = runJobSchema.parse(input);
+  const { kind, input: rawInput, projectId, taskId } = runJobSchema.parse(input);
   await assertCanRunAiJob(ctx);
   // Billing gates — no-op until the commercial license is signed (M14).
   const { assertFeature, assertAllowance, recordUsage } = await import("../billing/service");
@@ -37,16 +46,35 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
   await assertAllowance(ctx, "ai_proposals");
   const settings = await getAiSettings(ctx);
 
-  const { text: redactedInput, counts: redactionCounts } = redact(rawInput);
+  const { text: redactedInput, counts: redactionCounts, edits } = redact(rawInput);
 
-  const context = projectId
-    ? await buildContext(ctx, projectId)
-    : {};
+  // The task a task-scoped draft targets. Resolved through the workspace so a
+  // guessed id reveals nothing and can never be written to.
+  const targetTask = taskId
+    ? await ctx.db.task.findFirst({
+        where: { id: taskId, workspaceId: ctx.workspaceId, archivedAt: null },
+        select: { id: true, title: true },
+      })
+    : null;
+  if (taskId && !targetTask) throw new ApiError("not_found", { field: "taskId" });
+
+  const context = {
+    ...(projectId ? await buildContext(ctx, projectId) : {}),
+    ...(targetTask ? { targetTask: { id: targetTask.id, title: targetTask.title } } : {}),
+  };
   const prompt = renderPrompt({ kind: kind as AiKind, input: redactedInput, context }, redactedInput);
 
-  // Cache: an identical redacted prompt in this workspace → reuse its draft.
+  // Cache: an identical redacted prompt in this workspace → reuse its draft,
+  // but only while that draft is still reviewable. Handing back a proposal
+  // the user already applied or rejected would put a terminal row behind a
+  // fresh-looking review that can no longer be applied (PR #377 review).
   const cached = await ctx.db.aiJob.findFirst({
-    where: { workspaceId: ctx.workspaceId, cacheKey: prompt.cacheKey, state: "succeeded" },
+    where: {
+      workspaceId: ctx.workspaceId,
+      cacheKey: prompt.cacheKey,
+      state: "succeeded",
+      proposal: { is: { state: { in: [...REVIEWABLE_STATES] } } },
+    },
     include: { proposal: true },
     orderBy: { createdAt: "desc" },
   });
@@ -79,6 +107,7 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
         kind: kind as AiKind,
         prompt,
         model: usedProvider === settings.provider ? settings.model : provider.models[0],
+        targetsExistingTask: targetTask !== null,
       });
       break;
     } catch (err) {
@@ -101,9 +130,18 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
     }
   }
 
+  // The provider only ever saw the redacted input, so its citation offsets
+  // index that string. Translate them back to the original before anything is
+  // stored, or review quotes text shifted by every earlier redaction
+  // ([EMAIL] is seven characters; the address it replaced rarely was).
+  const grounded = {
+    ...output.draft,
+    operations: mapCitationSpans(output.draft.operations, edits, rawInput.length),
+  };
+
   let guard;
   try {
-    guard = guardDraft(output.draft, settings.maxBlastRadius);
+    guard = guardDraft(grounded, settings.maxBlastRadius, { hasTargetTask: targetTask !== null });
   } catch (err) {
     await ctx.db.aiJob.update({
       where: { id: job.id },
@@ -133,6 +171,10 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
         membershipId: ctx.actor.membershipId,
         kind,
         state: "draft",
+        // Bound to the task this draft was scoped to, so apply can resolve
+        // TARGET_TASK_REF from the server's own record rather than trusting
+        // whatever the client sends back with the edited operations.
+        targetTaskId: targetTask?.id ?? null,
         operations: guard.draft.operations as Prisma.InputJsonValue,
         summary: guard.draft.summary,
         // Kept rather than dropped: review has to be able to show what the

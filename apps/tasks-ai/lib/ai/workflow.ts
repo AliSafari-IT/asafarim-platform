@@ -32,8 +32,20 @@ export interface WorkflowOperation {
   op: "create_task" | "update_task" | "link_tasks";
   confidence: number;
   citations: { span: [number, number] | null; assumption: boolean; quote?: string }[];
+  /** Proposal-local ref a create_task publishes for later ops to point at. */
+  ref?: string;
+  /** Endpoints of a link_tasks op. */
+  fromRef?: string;
+  toRef?: string;
   fields?: { title?: string; parentRef?: string };
 }
+
+/**
+ * The one ref that already names a real task: the existing task a task-scoped
+ * draft targets. Mirrors TARGET_TASK_REF in lib/ai/types.ts, restated here so
+ * this module stays free of the server-side contract.
+ */
+export const TARGET_REF = "__target_task__";
 
 /* ───────────────────────────── intents ───────────────────────────────── */
 
@@ -415,32 +427,102 @@ export function defaultAcceptanceNotice(ops: WorkflowOperation[]): string | null
 export interface ImpactCounts {
   /** Top-level tasks created. */
   tasks: number;
-  /** Created tasks nested under another created task. */
+  /** Created tasks nested under a parent that will actually exist. */
   subtasks: number;
   /** Existing tasks edited. */
   updates: number;
   /** Dependencies/relations created between tasks. */
   dependencies: number;
+  /**
+   * Selected children whose parent is not among the selected operations.
+   * They are still created — as top-level tasks — and counted in `tasks`,
+   * which is what apply actually does.
+   */
+  orphanedChildren: number;
+  /** Selected links dropped because an endpoint will not exist. */
+  skippedLinks: number;
+  /** Operations that will actually run. Excludes the skipped links. */
   total: number;
 }
 
-/** What the accepted subset of a proposal would actually do. */
-export function impactCounts(ops: WorkflowOperation[], accepted: number[]): ImpactCounts {
+/**
+ * What the accepted subset of a proposal would actually do — mirroring
+ * `applyProposal` (lib/ai/proposals.ts), not the tick boxes.
+ *
+ * Refs resolve in order as the selected creates run, so a child whose parent
+ * is unselected (or created later) lands top-level with `parentId: null`, and
+ * a link whose endpoint is unavailable is skipped outright. Counting the
+ * selection naively promised structure apply would quietly not build, which
+ * is the one thing a confirmation dialog may never do (PR #377 review).
+ *
+ * `externalRefs` are refs that already name real tasks — today just the
+ * existing task a task-scoped draft targets (TARGET_REF).
+ */
+export function impactCounts(
+  ops: WorkflowOperation[],
+  accepted: number[],
+  options: { externalRefs?: string[] } = {},
+): ImpactCounts {
   const set = new Set(accepted);
-  const counts: ImpactCounts = { tasks: 0, subtasks: 0, updates: 0, dependencies: 0, total: 0 };
+  const resolvable = new Set(options.externalRefs ?? []);
+  const counts: ImpactCounts = {
+    tasks: 0,
+    subtasks: 0,
+    updates: 0,
+    dependencies: 0,
+    orphanedChildren: 0,
+    skippedLinks: 0,
+    total: 0,
+  };
   ops.forEach((op, i) => {
     if (!set.has(i)) return;
-    counts.total += 1;
     if (op.op === "create_task") {
-      if (op.fields?.parentRef) counts.subtasks += 1;
-      else counts.tasks += 1;
+      const parentRef = op.fields?.parentRef;
+      if (parentRef && resolvable.has(parentRef)) counts.subtasks += 1;
+      else {
+        counts.tasks += 1;
+        if (parentRef) counts.orphanedChildren += 1;
+      }
+      counts.total += 1;
+      if (op.ref) resolvable.add(op.ref);
     } else if (op.op === "update_task") {
       counts.updates += 1;
+      counts.total += 1;
     } else {
-      counts.dependencies += 1;
+      const both =
+        op.fromRef !== undefined &&
+        op.toRef !== undefined &&
+        resolvable.has(op.fromRef) &&
+        resolvable.has(op.toRef);
+      if (both) {
+        counts.dependencies += 1;
+        counts.total += 1;
+      } else {
+        counts.skippedLinks += 1;
+      }
     }
   });
   return counts;
+}
+
+/**
+ * The difference between what was ticked and what apply will do, said out
+ * loud. `null` when the selection resolves cleanly.
+ */
+export function unresolvedSentence(counts: ImpactCounts): string | null {
+  const parts: string[] = [];
+  if (counts.orphanedChildren > 0) {
+    parts.push(
+      `${plural(counts.orphanedChildren, "selected subtask")} will be created at the top level instead, because the task it would sit under is not selected`,
+    );
+  }
+  if (counts.skippedLinks > 0) {
+    parts.push(
+      `${plural(counts.skippedLinks, "selected dependency", "selected dependencies")} will be skipped, because a task at one end of it is not selected`,
+    );
+  }
+  if (parts.length === 0) return null;
+  return `${listWords(parts).replace(/^./, (c) => c.toUpperCase())}.`;
 }
 
 function plural(n: number, one: string, many = `${one}s`): string {
@@ -476,8 +558,12 @@ function listWords(parts: string[]): string {
  * created task waits in the Inbox until somebody decides those. Expressed
  * here rather than assumed, so a future change to the rule is one edit.
  */
-export function inboxLandingCount(ops: WorkflowOperation[], accepted: number[]): number {
-  const counts = impactCounts(ops, accepted);
+export function inboxLandingCount(
+  ops: WorkflowOperation[],
+  accepted: number[],
+  options: { externalRefs?: string[] } = {},
+): number {
+  const counts = impactCounts(ops, accepted, options);
   return counts.tasks + counts.subtasks;
 }
 

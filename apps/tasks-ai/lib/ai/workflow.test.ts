@@ -25,6 +25,8 @@ import {
   kindForIntent,
   postApplyOutcome,
   providerNotice,
+  TARGET_REF,
+  unresolvedSentence,
   type CopilotFlowState,
   type WorkflowOperation,
 } from "./workflow";
@@ -46,6 +48,19 @@ function create(
     fields: { title, ...(parentRef ? { parentRef } : {}) },
     ...rest,
   };
+}
+
+/** A create with the proposal-local ref later operations point at. */
+function created(
+  ref: string,
+  title: string,
+  patch: Partial<WorkflowOperation> & { parentRef?: string } = {},
+): WorkflowOperation {
+  return { ...create(title, patch), ref };
+}
+
+function linkBetween(fromRef: string, toRef: string): WorkflowOperation {
+  return { ...link(), fromRef, toRef };
 }
 
 function assumed(title: string, confidence = 0.4): WorkflowOperation {
@@ -306,11 +321,11 @@ describe("defaultAccepted", () => {
 
 describe("impact", () => {
   const ops = [
-    create("Design"),
-    create("Build"),
-    create("Sub A", { parentRef: "r1" }),
+    created("r1", "Design"),
+    created("r2", "Build"),
+    created("r3", "Sub A", { parentRef: "r1" }),
     update(),
-    link(),
+    linkBetween("r1", "r2"),
   ];
 
   it("counts only the accepted subset", () => {
@@ -319,6 +334,8 @@ describe("impact", () => {
       subtasks: 1,
       updates: 1,
       dependencies: 1,
+      orphanedChildren: 0,
+      skippedLinks: 0,
       total: 5,
     });
     expect(impactCounts(ops, [0])).toEqual({
@@ -326,8 +343,53 @@ describe("impact", () => {
       subtasks: 0,
       updates: 0,
       dependencies: 0,
+      orphanedChildren: 0,
+      skippedLinks: 0,
       total: 1,
     });
+  });
+
+  // ── what apply will actually do (PR #377 review) ───────────────────────
+  // applyProposal resolves refs as the selected creates run: an unselected
+  // parent becomes `parentId: null`, an unavailable link endpoint drops the
+  // link. The confirmation has to say that, not the naive tick count.
+
+  it("counts a child whose parent is unselected as the top-level task it becomes", () => {
+    const counts = impactCounts(ops, [2]);
+    expect(counts.subtasks).toBe(0);
+    expect(counts.tasks).toBe(1);
+    expect(counts.orphanedChildren).toBe(1);
+    expect(unresolvedSentence(counts)).toMatch(/top level/i);
+  });
+
+  it("does not count a link whose endpoint is unselected", () => {
+    const counts = impactCounts(ops, [0, 4]);
+    expect(counts.dependencies).toBe(0);
+    expect(counts.skippedLinks).toBe(1);
+    expect(counts.total).toBe(1);
+    expect(impactSentence(counts, "WEB")).toBe("This will create 1 task in WEB.");
+    expect(unresolvedSentence(counts)).toMatch(/skipped/i);
+  });
+
+  it("only resolves refs created earlier, exactly as apply iterates", () => {
+    // The child comes before its parent, so apply creates it top-level.
+    const forward = [created("c", "Child", { parentRef: "p" }), created("p", "Parent")];
+    expect(impactCounts(forward, [0, 1]).subtasks).toBe(0);
+    expect(impactCounts(forward, [0, 1]).orphanedChildren).toBe(1);
+  });
+
+  it("resolves the targeted existing task as a real parent", () => {
+    const sub = [created("s1", "Step one", { parentRef: TARGET_REF })];
+    expect(impactCounts(sub, [0]).tasks).toBe(1);
+    expect(impactCounts(sub, [0], { externalRefs: [TARGET_REF] })).toMatchObject({
+      tasks: 0,
+      subtasks: 1,
+      orphanedChildren: 0,
+    });
+  });
+
+  it("says nothing extra when the selection resolves cleanly", () => {
+    expect(unresolvedSentence(impactCounts(ops, [0, 1, 2, 3, 4]))).toBeNull();
   });
 
   it("summarizes the impact in plain language naming the destination", () => {

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Button, ConfirmDialog } from "@asafarim/ui";
 import type { AiOperation, ProposalRow } from "../../lib/client/api";
 import {
+  TARGET_REF,
   assumptionCount,
   defaultAcceptanceNotice,
   defaultAccepted,
@@ -13,6 +14,7 @@ import {
   impactSentence,
   inboxLandingCount,
   inboxLandingSentence,
+  unresolvedSentence,
 } from "../../lib/ai/workflow";
 
 /**
@@ -30,6 +32,7 @@ export function ProposalDiff({
   proposal,
   source,
   destinationLabel,
+  targetTaskTitle = null,
   onApply,
   onReject,
   onRegenerate,
@@ -41,6 +44,12 @@ export function ProposalDiff({
   source: string;
   /** Human label of the destination, e.g. "WEB · Website redesign". */
   destinationLabel: string;
+  /**
+   * Title of the existing task this draft was scoped to, when there is one.
+   * Its presence is also what makes TARGET_REF resolvable, so a subtask
+   * parented under it counts as a subtask rather than a top-level task.
+   */
+  targetTaskTitle?: string | null;
   onApply: (accept: number[], edited: AiOperation[]) => void;
   onReject: (reason?: string) => void;
   onRegenerate: () => void;
@@ -59,9 +68,18 @@ export function ProposalDiff({
   const groups = useMemo(() => groupOps(ops), [ops]);
   const dupes = useMemo(() => dupHints(ops), [ops]);
   const acceptedList = useMemo(() => [...accepted].sort((a, b) => a - b), [accepted]);
-  const counts = useMemo(() => impactCounts(ops, acceptedList), [ops, acceptedList]);
+  // The refs that already name a real task. Only the targeted task qualifies;
+  // everything else has to be created by a selected operation first.
+  const externalRefs = useMemo(() => (targetTaskTitle ? [TARGET_REF] : []), [targetTaskTitle]);
+  const counts = useMemo(
+    () => impactCounts(ops, acceptedList, { externalRefs }),
+    [ops, acceptedList, externalRefs],
+  );
   const impact = impactSentence(counts, destinationLabel);
-  const inboxNote = inboxLandingSentence(inboxLandingCount(ops, acceptedList));
+  const unresolved = unresolvedSentence(counts);
+  const inboxNote = inboxLandingSentence(
+    inboxLandingCount(ops, acceptedList, { externalRefs }),
+  );
   const heldBack = defaultAcceptanceNotice(proposal.operations);
   const assumptions = assumptionCount(ops);
   const openQuestions = proposal.openQuestions ?? [];
@@ -184,7 +202,13 @@ export function ProposalDiff({
                       />
                     ) : op.op === "update_task" ? (
                       <span>
-                        Update <code>{op.taskId}</code>: {Object.keys(op.fields).join(", ")}
+                        Update{" "}
+                        {op.taskId === TARGET_REF && targetTaskTitle ? (
+                          <strong>{targetTaskTitle}</strong>
+                        ) : (
+                          <code>{op.taskId}</code>
+                        )}
+                        : {Object.keys(op.fields).join(", ")}
                       </span>
                     ) : (
                       <span>
@@ -217,6 +241,11 @@ export function ProposalDiff({
       <section className="ta-diff__impact" aria-labelledby="ta-diff-impact">
         <h3 id="ta-diff-impact">If you approve this</h3>
         <p className="ta-diff__impactline">{impact}</p>
+        {unresolved && (
+          <p className="ta-diff__unresolved" role="note">
+            {unresolved}
+          </p>
+        )}
         {inboxNote && <p className="ta-diffcard__hint">{inboxNote}</p>}
       </section>
 
@@ -235,7 +264,7 @@ export function ProposalDiff({
       <ConfirmDialog
         open={confirming}
         title="Apply these changes?"
-        message={`${impact}${inboxNote ? ` ${inboxNote}` : ""}${
+        message={`${impact}${unresolved ? ` ${unresolved}` : ""}${inboxNote ? ` ${inboxNote}` : ""}${
           highBlast ? " This is a large change — everything applied can be undone afterwards." : ""
         }`}
         confirmLabel={`Apply ${accepted.size}`}

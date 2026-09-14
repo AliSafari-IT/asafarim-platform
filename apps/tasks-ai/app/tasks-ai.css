@@ -918,6 +918,9 @@
 }
 [data-app="tasks-ai"] .ta-diff__impact { border:1px solid var(--line); border-radius:8px; padding:.7rem .9rem; margin-top:1rem; }
 [data-app="tasks-ai"] .ta-diff__impact h3 { margin:0 0 .25rem; font-size:.85rem; }
+/* What the selection promises but apply will not build — an unselected
+   parent, a dependency with one end missing (PR #377 review). */
+[data-app="tasks-ai"] .ta-diff__unresolved { margin:.3rem 0 0; font-size:.82rem; color:#8a6d00; }
 [data-app="tasks-ai"] .ta-diff__impactline { margin:0; font-weight:600; }
 
 [data-app="tasks-ai"] .ta-drawer__ai { margin-top:1.25rem; border-top:1px solid var(--line); padding-top:.75rem; }

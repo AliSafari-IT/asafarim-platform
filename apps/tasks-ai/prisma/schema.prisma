@@ -905,6 +905,10 @@ model Proposal {
   /// What the model could not resolve from the source, shown during review
   /// so uncertainty is visible rather than silently dropped (issue #368).
   openQuestions Json?
+  /// The existing task a task-scoped draft was generated for. The only task
+  /// its operations may update, and what the reserved TARGET_TASK_REF parent
+  /// resolves to at apply time (PR #377 review). Null for free-text drafts.
+  targetTaskId String?
   appliedAt    DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

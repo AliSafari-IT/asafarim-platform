@@ -12,9 +12,11 @@ import {
   FIRST_USE_STORAGE_KEY,
   GENERATE_EXPECTATION,
   MIN_SOURCE_LENGTH,
+  TARGET_REF,
   copilotSteps,
   destinationState,
   generateBlock,
+  impactCounts,
   inboxLandingCount,
   intentFor,
   kindForIntent,
@@ -77,6 +79,16 @@ export function CopilotPanel({
   const [projectId, setProjectId] = useState<string>(projects[0]?.id ?? "");
   const [source, setSource] = useState(initialSource);
   const [proposal, setProposal] = useState<ProposalRow | null>(null);
+  // Bumped on every generate. An identical prompt is served from the job
+  // cache, which hands back the same proposal id — so the id alone cannot key
+  // the review surface: React would keep the previous instance and with it
+  // the ticks and inline edits the user made before pressing "Try again"
+  // (PR #377 review).
+  const [generation, setGeneration] = useState(0);
+  // The task this draft is scoped to, captured when it was generated: the
+  // intent radio can change afterwards, and the proposal on screen must keep
+  // describing what it was actually drafted against.
+  const [reviewedTarget, setReviewedTarget] = useState<string | null>(null);
   // The exact text the on-screen proposal was generated from. Editing the
   // textarea afterwards must not silently re-point the citations at text the
   // model never saw.
@@ -153,6 +165,11 @@ export function CopilotPanel({
 
   const generate = useCallback(async () => {
     const text = source.trim();
+    // Task-scoped intents are about one existing task. Sending its id is what
+    // lets the draft parent real subtasks under it and actually edit it —
+    // without it the pipeline could only ever propose unrelated new work
+    // (PR #377 review).
+    const target = intentFor(intentId).aboutATask ? taskContext : null;
     setBusy(true);
     setStatus(null);
     setNotice(null);
@@ -163,8 +180,11 @@ export function CopilotPanel({
         kind: kindForIntent(intentId),
         input: text,
         projectId,
+        ...(target ? { taskId: target.id } : {}),
       });
       setProposal(res.proposal);
+      setGeneration((n) => n + 1);
+      setReviewedTarget(target?.title ?? null);
       setReviewedSource(text);
       setNotice(providerNotice({ degraded: res.degraded }));
       track({
@@ -190,7 +210,7 @@ export function CopilotPanel({
     } finally {
       setBusy(false);
     }
-  }, [intentId, projectId, slug, source]);
+  }, [intentId, projectId, slug, source, taskContext]);
 
   async function apply(accept: number[], edited: AiOperation[]) {
     if (!proposal) return;
@@ -206,6 +226,11 @@ export function CopilotPanel({
         accept.length > 15 || editedChanged,
       );
       const total = edited.length;
+      // What the server actually did, resolved the same way applyProposal
+      // resolves it: a selected link whose endpoint was not selected creates
+      // nothing, so it must not be reported as applied (PR #377 review).
+      const externalRefs = reviewedTarget ? [TARGET_REF] : [];
+      const counts = impactCounts(edited, accept, { externalRefs });
       const partial = accept.length < total;
       track(
         partial
@@ -227,10 +252,10 @@ export function CopilotPanel({
         track({ name: "workspace.activation.first_proposal_applied", operations: accept.length });
       }
       const result = postApplyOutcome({
-        accepted: accept.length,
+        accepted: counts.total,
         total,
         destinationLabel,
-        inboxCount: inboxLandingCount(edited, accept),
+        inboxCount: inboxLandingCount(edited, accept, { externalRefs }),
       });
       setOutcome({
         summary: result.summary,
@@ -446,13 +471,16 @@ export function CopilotPanel({
           {proposal && (
             <div className="ta-copilot__review">
               <ProposalDiff
-                // Regenerating hands back a different proposal; without a
-                // key the review surface would keep the previous draft's
-                // ticks and inline title edits.
-                key={proposal.id}
+                // Regenerating must hand back a review surface with no
+                // memory of the last one. The proposal id is not enough:
+                // an identical prompt is served from the job cache and
+                // repeats the id, so the generation counter is what
+                // guarantees a fresh component (PR #377 review).
+                key={`${proposal.id}:${generation}`}
                 proposal={proposal}
                 source={reviewedSource}
                 destinationLabel={destinationLabel}
+                targetTaskTitle={reviewedTarget}
                 busy={busy}
                 onApply={apply}
                 onReject={reject}

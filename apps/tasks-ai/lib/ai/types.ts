@@ -22,6 +22,17 @@ export const AI_KINDS = [
 ] as const;
 export type AiKind = (typeof AI_KINDS)[number];
 
+/**
+ * The one ref that resolves to a task the proposal did not create: the
+ * existing task a task-scoped draft was launched from ("break this into
+ * subtasks", "draft acceptance criteria for this"). Refs are otherwise
+ * proposal-local, so without it a task-scoped draft had no way to say
+ * "parent these under the task I was opened from" and silently produced
+ * top-level tasks or an update against a task id that does not exist
+ * (PR #377 review).
+ */
+export const TARGET_TASK_REF = "__target_task__";
+
 /** Operations AI may propose. NOTHING else is representable. */
 export const OP_TYPES = ["create_task", "update_task", "link_tasks"] as const;
 export type OpType = (typeof OP_TYPES)[number];
@@ -92,7 +103,16 @@ export interface AiRequest {
   /** Untrusted user text (notes, brief, thread). Redacted before send. */
   input: string;
   /** Least-data tenant context the model may see. */
-  context?: { projectName?: string; existingTaskTitles?: string[] };
+  context?: {
+    projectName?: string;
+    existingTaskTitles?: string[];
+    /**
+     * The existing task a task-scoped draft targets, if any. Only the title
+     * reaches the provider; the id scopes the prompt cache so two tasks that
+     * happen to share a title never share a draft.
+     */
+    targetTask?: { id: string; title: string };
+  };
 }
 
 export interface AiResult {

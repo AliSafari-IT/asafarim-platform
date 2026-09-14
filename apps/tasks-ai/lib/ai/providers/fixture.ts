@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { proposalDraftSchema, type ProposalDraft } from "../types";
+import { TARGET_TASK_REF, proposalDraftSchema, type ProposalDraft } from "../types";
 import type { AiProvider, ProviderCall, ProviderOutput } from "../provider";
 
 /**
@@ -60,26 +60,49 @@ export class FixtureProvider implements AiProvider {
         openQuestions: ["Offline triage — confirm the classification against the DOM snapshot."],
       };
     } else if (call.kind === "acceptance_criteria") {
+      const first = lines[0] ?? null;
+      const criteria = "Acceptance criteria:\n- [ ] " + (first ?? "works");
+      const firstSpan = first ? spanOf(input, first) : null;
       draft = {
         summary: "[fixture] drafted acceptance criteria",
         operations: [
-          {
-            op: "update_task",
-            taskId: "TASK_PLACEHOLDER",
-            fields: { description: "Acceptance criteria:\n- [ ] " + (lines[0] ?? "works") },
-            confidence: 0.5,
-            citations: [{ span: null, assumption: true }],
-          },
+          call.targetsExistingTask
+            ? {
+                // The task the user launched this from — a real row, named by
+                // the reserved ref the server resolves at apply time. Before
+                // PR #377's review fix this was a placeholder id that matched
+                // nothing, so applying reported success and changed nothing.
+                op: "update_task" as const,
+                taskId: TARGET_TASK_REF,
+                fields: { description: criteria },
+                confidence: 0.5,
+                citations: [{ span: null, assumption: true }],
+              }
+            : {
+                // No task was targeted, so there is nothing to update: record
+                // the criteria as new work rather than as a silent no-op.
+                op: "create_task" as const,
+                ref: "t1",
+                fields: { title: (first ?? "Acceptance criteria").slice(0, 120), description: criteria },
+                confidence: 0.5,
+                citations: [{ span: firstSpan, assumption: firstSpan === null }],
+              },
         ],
         openQuestions: [],
       };
     } else {
+      // A decompose launched from a real task parents its subtasks under that
+      // task; without one it falls back to nesting under the first line it
+      // pulled out of the source.
+      const parentRef = call.targetsExistingTask ? TARGET_TASK_REF : "t1";
       const ops = lines.slice(0, 8).map((line, i) => ({
         op: "create_task" as const,
         ref: `t${i + 1}`,
         fields: {
           title: line.slice(0, 120),
-          ...(call.kind === "decompose" && i > 0 ? { parentRef: "t1" } : {}),
+          ...(call.kind === "decompose" && (call.targetsExistingTask || i > 0)
+            ? { parentRef }
+            : {}),
         },
         confidence: 0.6,
         citations: [{ span: spanOf(input, line), assumption: spanOf(input, line) === null }],
