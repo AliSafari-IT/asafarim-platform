@@ -15,6 +15,8 @@ import { Button, Input, Label, Select, Textarea } from "@asafarim/ui";
 import { api, ClientApiError, type Project } from "../../lib/client/api";
 import { track } from "../../lib/client/telemetry";
 import { captureDestinationMessage } from "../../lib/capture/inbox";
+import { copilotHref } from "../../lib/ai/workflow";
+import { useWorkspace } from "../WorkspaceShell";
 
 /**
  * Universal capture (issue #366).
@@ -163,6 +165,7 @@ function CaptureDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { aiEnabled } = useWorkspace();
   const [title, setTitle] = useState(initialTitle);
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [projectId, setProjectId] = useState<string>("");
@@ -383,6 +386,22 @@ function CaptureDialog({
             reopening.
           </span>
         </div>
+
+        {/* More than one task in your head? Capture is one line at a time;
+            the guided workflow turns a whole page of notes into a reviewable
+            proposal (issue #368). */}
+        {aiEnabled && (
+          <p className="ta-hint ta-capture__more-ways">
+            Got a whole page of notes?{" "}
+            <a
+              className="ta-link"
+              href={copilotHref(slug, { intent: "extract_plan", from: "capture_dialog" })}
+            >
+              Paste meeting notes
+            </a>{" "}
+            and review the tasks TasksAI drafts from them. Nothing is created until you approve it.
+          </p>
+        )}
       </form>
     </div>
   );

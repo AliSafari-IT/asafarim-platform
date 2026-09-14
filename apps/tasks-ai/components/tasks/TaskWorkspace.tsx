@@ -11,6 +11,8 @@ import {
 } from "../../lib/views/model";
 import { measureView, track } from "../../lib/client/telemetry";
 import { VIRTUALIZE_THRESHOLD } from "../../lib/ui/window";
+import { copilotHref } from "../../lib/ai/workflow";
+import { useWorkspace } from "../WorkspaceShell";
 import { QuickAdd } from "./QuickAdd";
 import { TaskDetailPanel } from "./TaskDetailPanel";
 import { VirtualList } from "./VirtualList";
@@ -43,6 +45,7 @@ export interface TaskWorkspaceProps {
 }
 
 export function TaskWorkspace({ slug, me, project, fixedView, heading, canPlan }: TaskWorkspaceProps) {
+  const { aiEnabled } = useWorkspace();
   const [view, setView] = useState<ViewType>(fixedView ?? "list");
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +144,28 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading, canPlan }
       ) : tasks.length === 0 ? (
         <EmptyState
           title="Nothing here yet"
-          description={project ? "Add your first task above." : "No tasks match this view."}
+          description={
+            project
+              ? aiEnabled
+                ? "Add your first task above — or start from something you already wrote and review the tasks TasksAI drafts from it. Nothing is created until you approve it."
+                : "Add your first task above, or import a list you already keep."
+              : "No tasks match this view."
+          }
+          action={
+            project && aiEnabled ? (
+              <span className="ta-tw__headactions">
+                <a
+                  className="ta-link"
+                  href={copilotHref(slug, { intent: "extract_plan", from: "project_empty" })}
+                >
+                  Turn a brief into a plan
+                </a>
+                <a className="ta-link" href={`/w/${slug}/imports`}>
+                  Import a task list
+                </a>
+              </span>
+            ) : undefined
+          }
         />
       ) : view === "board" ? (
         <BoardView tasks={tasks} onOpen={setSelected} onComplete={complete} />

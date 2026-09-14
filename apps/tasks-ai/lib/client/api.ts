@@ -425,6 +425,8 @@ export interface ProposalRow {
   state: string;
   summary: string | null;
   operations: AiOperation[];
+  /** What the model could not resolve from the source (#368). */
+  openQuestions?: string[] | null;
 }
 export type AiOperation =
   | {

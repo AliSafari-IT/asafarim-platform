@@ -135,6 +135,9 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
         state: "draft",
         operations: guard.draft.operations as Prisma.InputJsonValue,
         summary: guard.draft.summary,
+        // Kept rather than dropped: review has to be able to show what the
+        // model could not resolve from the source (issue #368).
+        openQuestions: guard.draft.openQuestions as Prisma.InputJsonValue,
       },
     }),
     ctx.db.aiUsageLedger.create({

@@ -11,6 +11,14 @@ interface WorkspaceCtx {
   workspaceName: string;
   role: string;
   membershipId: string;
+  /**
+   * Whether the AI layer is switched on (issue #368). Carried on the shell
+   * context so every surface that offers a contextual Copilot entry point —
+   * Inbox, projects, a task's detail drawer — asks the same question once
+   * instead of each fetching settings, and so an AI-disabled workspace shows
+   * no AI affordances at all rather than links into a dead end.
+   */
+  aiEnabled: boolean;
 }
 
 const Ctx = createContext<WorkspaceCtx | null>(null);
@@ -43,11 +51,12 @@ export function WorkspaceShell({
   workspaceName,
   role,
   membershipId,
+  aiEnabled,
   children,
 }: WorkspaceCtx & { children: ReactNode }) {
   const pathname = usePathname();
   return (
-    <Ctx.Provider value={{ slug, workspaceName, role, membershipId }}>
+    <Ctx.Provider value={{ slug, workspaceName, role, membershipId, aiEnabled }}>
       <CaptureProvider slug={slug} role={role} membershipId={membershipId}>
         <div className="ta-ws" data-app="tasks-ai">
           <aside className="ta-ws__nav" aria-label="Workspace">

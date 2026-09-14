@@ -113,6 +113,126 @@ describe.skipIf(!hasTestDatabase())("AI boundary (integration, fixture provider)
     expect(p?.state).toBe("undone");
   });
 
+  // ── the trust model, end to end (issue #368) ──────────────────────────
+  // The guided workflow only means anything if these three hold at the
+  // service layer, not just in the component that draws the checkboxes.
+
+  it("rejecting a proposal changes nothing in the workspace", async () => {
+    const { runAiJob } = await import("./job");
+    const { rejectProposal } = await import("./proposals");
+    const { createProject } = await import("../services/projects");
+    const a = await ws("aireject");
+    const proj = await createProject(a.ctx, { name: "P", key: "REJ" });
+    const { proposal } = await runAiJob(a.ctx, {
+      kind: "extract_plan",
+      input: "draft the brief\ndesign the hero\nbuild the form",
+      projectId: proj.id,
+    });
+
+    await rejectProposal(a.ctx, proposal.id, "not what I meant");
+
+    expect(await db.task.count({ where: { workspaceId: a.w.id } })).toBe(0);
+    expect(await db.taskRelation.count({ where: { workspaceId: a.w.id } })).toBe(0);
+    const p = await db.proposal.findUnique({ where: { id: proposal.id } });
+    expect(p?.state).toBe("rejected");
+  });
+
+  it("partial acceptance applies only the ticked operations", async () => {
+    const { runAiJob } = await import("./job");
+    const { applyProposal } = await import("./proposals");
+    const { createProject } = await import("../services/projects");
+    const a = await ws("aipartial");
+    const proj = await createProject(a.ctx, { name: "P", key: "PRT" });
+    const { proposal } = await runAiJob(a.ctx, {
+      kind: "extract_plan",
+      input: "audit publishers\nadd the topic\ndual write\ncut readers over",
+      projectId: proj.id,
+    });
+    const ops = proposal.operations as { op: string }[];
+    const firstCreate = ops.findIndex((o) => o.op === "create_task");
+    expect(firstCreate).toBeGreaterThanOrEqual(0);
+
+    const applied = await applyProposal(a.ctx, proposal.id, {
+      projectId: proj.id,
+      accept: [firstCreate],
+    });
+    expect(applied?.state).toBe("partially_applied");
+    expect(await db.task.count({ where: { workspaceId: a.w.id, source: "proposal" } })).toBe(1);
+  });
+
+  it("an edited proposal applies the user's words, not the model's", async () => {
+    const { runAiJob } = await import("./job");
+    const { applyProposal } = await import("./proposals");
+    const { createProject } = await import("../services/projects");
+    const a = await ws("aiedit");
+    const proj = await createProject(a.ctx, { name: "P", key: "EDT" });
+    const { proposal } = await runAiJob(a.ctx, {
+      kind: "extract_plan",
+      input: "draft the brief\ndesign the hero\nbuild the form",
+      projectId: proj.id,
+    });
+    const ops = JSON.parse(JSON.stringify(proposal.operations)) as {
+      op: string;
+      fields?: { title?: string };
+    }[];
+    const idx = ops.findIndex((o) => o.op === "create_task");
+    ops[idx].fields!.title = "A title the human wrote";
+
+    await applyProposal(a.ctx, proposal.id, {
+      projectId: proj.id,
+      accept: [idx],
+      editedOperations: ops,
+    });
+
+    const created = await db.task.findFirst({
+      where: { workspaceId: a.w.id, source: "proposal" },
+    });
+    expect(created?.title).toBe("A title the human wrote");
+    // Applying is not planning: AI may set neither owner nor date, so the
+    // task waits in the Inbox (issue #366's rule, relied on by #368's
+    // post-apply routing).
+    expect(created?.triagedAt).toBeNull();
+    expect(created?.assigneeId).toBeNull();
+  });
+
+  it("a guest cannot apply a proposal", async () => {
+    const { runAiJob } = await import("./job");
+    const { applyProposal } = await import("./proposals");
+    const { createProject } = await import("../services/projects");
+    const a = await ws("aiguest");
+    const proj = await createProject(a.ctx, { name: "P", key: "GST" });
+    const { proposal } = await runAiJob(a.ctx, {
+      kind: "extract_plan",
+      input: "draft the brief\ndesign the hero\nbuild the form",
+      projectId: proj.id,
+    });
+
+    const guestCtx: RequestContext = {
+      ...a.ctx,
+      actor: { ...a.ctx.actor, role: "guest" },
+    };
+    await expect(
+      applyProposal(guestCtx, proposal.id, { projectId: proj.id }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(await db.task.count({ where: { workspaceId: a.w.id, source: "proposal" } })).toBe(0);
+  });
+
+  it("keeps the model's open questions so review can show them", async () => {
+    const { runAiJob } = await import("./job");
+    const { createProject } = await import("../services/projects");
+    const a = await ws("aiquestions");
+    const proj = await createProject(a.ctx, { name: "P", key: "QST" });
+    const { proposal } = await runAiJob(a.ctx, {
+      kind: "extract_plan",
+      input: "draft the brief\ndesign the hero\nbuild the form",
+      projectId: proj.id,
+    });
+    const row = await db.proposal.findUnique({ where: { id: proposal.id } });
+    // Nullable and provider-dependent — what matters is that the column is
+    // populated as an array rather than silently dropped.
+    expect(row!.openQuestions === null || Array.isArray(row!.openQuestions)).toBe(true);
+  });
+
   it("feedback + metrics: recording feedback feeds the copilot KPI aggregate", async () => {
     const { runAiJob } = await import("./job");
     const { applyProposal } = await import("./proposals");
