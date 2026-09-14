@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
-import { computeWindow } from "../../lib/ui/window";
+import { computeWindow, rowIndices } from "../../lib/ui/window";
 
 /**
  * What a caller driving the list from the outside — keyboard navigation, for
@@ -102,14 +102,11 @@ export function VirtualList<T>({
   });
 
   // The cursor's row stays in the DOM even if the window has scrolled past
-  // it, so focus (and therefore the screen reader) can always land on it.
-  const strayActive =
-    activeIndex !== undefined &&
-    activeIndex >= 0 &&
-    activeIndex < items.length &&
-    (activeIndex < w.start || activeIndex >= w.end)
-      ? activeIndex
-      : null;
+  // it, so focus (and therefore the screen reader) can always land on it. It
+  // comes through the same ordered, index-keyed list as every other row —
+  // rendering it from a second site with its own key would unmount the
+  // focused node on the window/stray transition and lose the focus.
+  const rows = rowIndices(w, items.length, activeIndex);
 
   return (
     <div
@@ -125,28 +122,21 @@ export function VirtualList<T>({
       }}
     >
       <div style={{ height: w.totalHeight, position: "relative" }}>
-        <div style={{ transform: `translateY(${w.padTop}px)` }}>
-          {items.slice(w.start, w.end).map((item, i) => (
-            <div role="listitem" style={{ height: rowHeight }} key={w.start + i}>
-              {renderRow(item, w.start + i)}
-            </div>
-          ))}
-        </div>
-        {strayActive !== null && (
+        {rows.map((index) => (
           <div
             role="listitem"
-            key={`active-${strayActive}`}
+            key={index}
             style={{
               position: "absolute",
-              top: strayActive * rowHeight,
+              top: index * rowHeight,
               left: 0,
               right: 0,
               height: rowHeight,
             }}
           >
-            {renderRow(items[strayActive]!, strayActive)}
+            {renderRow(items[index]!, index)}
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
