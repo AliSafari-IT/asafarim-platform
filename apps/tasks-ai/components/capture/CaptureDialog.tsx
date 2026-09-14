@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -34,6 +35,12 @@ interface CaptureApi {
   open: (prefillTitle?: string, from?: string) => void;
   /** False for roles that may not create work (guests). */
   canCapture: boolean;
+  /**
+   * Called after every successful capture. Client lists that hold their own
+   * rows (the Inbox triage list) reload here — `router.refresh()` re-renders
+   * the server tree but does not touch their state.
+   */
+  onCaptured: (listener: () => void) => () => void;
 }
 
 const CaptureCtx = createContext<CaptureApi | null>(null);
@@ -90,6 +97,7 @@ export function CaptureProvider({
   const [open, setOpen] = useState(false);
   const [prefill, setPrefill] = useState("");
   const canCapture = role !== "guest";
+  const listeners = useRef(new Set<() => void>());
 
   const value = useMemo<CaptureApi>(
     () => ({
@@ -100,9 +108,19 @@ export function CaptureProvider({
         setOpen(true);
         track({ name: "capture.opened", from });
       },
+      onCaptured: (listener: () => void) => {
+        listeners.current.add(listener);
+        return () => {
+          listeners.current.delete(listener);
+        };
+      },
     }),
     [canCapture],
   );
+
+  const announce = useCallback(() => {
+    for (const listener of listeners.current) listener();
+  }, []);
 
   return (
     <CaptureCtx.Provider value={value}>
@@ -112,6 +130,7 @@ export function CaptureProvider({
           slug={slug}
           membershipId={membershipId}
           initialTitle={prefill}
+          onCaptured={announce}
           onClose={() => setOpen(false)}
         />
       )}
@@ -134,11 +153,13 @@ function CaptureDialog({
   slug,
   membershipId,
   initialTitle,
+  onCaptured,
   onClose,
 }: {
   slug: string;
   membershipId: string;
   initialTitle: string;
+  onCaptured: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -231,6 +252,9 @@ function CaptureDialog({
         setDescription("");
         focusTitle();
         router.refresh();
+        // …and tell the client-side lists that hold their own rows, which a
+        // server re-render does not reach.
+        onCaptured();
       } catch (err) {
         setError(
           err instanceof ClientApiError && err.code === "forbidden"
@@ -243,7 +267,7 @@ function CaptureDialog({
         setBusy(false);
       }
     },
-    [assignToMe, busy, chosen, description, dueDate, membershipId, projectId, review, router, slug, title],
+    [assignToMe, busy, chosen, description, dueDate, membershipId, onCaptured, projectId, review, router, slug, title],
   );
 
   const projectOptions = [

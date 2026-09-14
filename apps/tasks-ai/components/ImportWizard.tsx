@@ -89,7 +89,12 @@ export function ImportWizard({
             <input
               type="checkbox"
               checked={toInbox}
-              onChange={(e) => setToInbox(e.target.checked)}
+              onChange={(e) => {
+                setToInbox(e.target.checked);
+                // The routing was baked into the dry run, so the preview no
+                // longer describes what applying would do. Force a new one.
+                setDry(null);
+              }}
             />
             Review the imported rows in the Inbox before they count as planned work
           </label>

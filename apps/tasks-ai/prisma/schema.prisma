@@ -155,6 +155,11 @@ model Project {
   /// belongs. It is a normal project row so every existing task query,
   /// export, and analytic keeps working; the UI labels it as the Inbox and
   /// hides it from the "pick a project" lists where it would be confusing.
+  /// "At most one" is enforced in the database by a partial unique index —
+  /// `project_workspaceId_isInbox_key` on ("workspaceId") WHERE "isInbox" —
+  /// added in migration 20260914100000_inbox_project_uniqueness. Prisma has
+  /// no syntax for partial indexes, so it cannot appear in this block; do
+  /// not "fix" the apparent drift by dropping it.
   isInbox     Boolean           @default(false)
   archivedAt  DateTime?
   createdAt   DateTime          @default(now())

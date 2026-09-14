@@ -6,6 +6,7 @@ import type { RequestContext } from "../context";
 vi.mock("../events/emit", () => ({ emitActivity: vi.fn(), recordAudit: vi.fn() }));
 
 import { createTask } from "../services/tasks";
+import { USER_CAPTURE_SOURCES } from "./inbox";
 import { ensureInboxProjectFor, triageTask } from "./service";
 
 /**
@@ -28,7 +29,14 @@ interface FakeProject {
   archivedAt: Date | null;
 }
 
-function makeDb(projects: FakeProject[], tasks: Record<string, unknown>[] = []) {
+function makeDb(
+  projects: FakeProject[],
+  tasks: Record<string, unknown>[] = [],
+  members: { id: string; role: string }[] = [
+    { id: "mem_me", role: "owner" },
+    { id: "mem_other", role: "member" },
+  ],
+) {
   let seq = projects.length;
   const db = {
     project: {
@@ -53,7 +61,13 @@ function makeDb(projects: FakeProject[], tasks: Record<string, unknown>[] = []) 
         return row;
       }),
     },
+    membership: {
+      findFirst: vi.fn(async ({ where }: { where: { id?: string } }) =>
+        members.find((m) => m.id === where.id) ?? null,
+      ),
+    },
     task: {
+      count: vi.fn(async () => 0),
       findFirst: vi.fn(async ({ where }: { where: { id?: string } }) =>
         tasks.find((t) => t.id === where.id) ?? null,
       ),
@@ -190,6 +204,19 @@ describe("global capture", () => {
     expect(emailed.triagedAt).toBeNull();
   });
 
+  it("refuses a system-channel source on a caller-supplied request", async () => {
+    const db = makeDb([project("prj_1", "AAA")]);
+
+    await expect(
+      createTask(
+        ctxFor(db),
+        { title: "not really imported", projectId: "prj_1", source: "import" },
+        { allowedSources: USER_CAPTURE_SOURCES },
+      ),
+    ).rejects.toMatchObject({ code: "validation_failed" });
+    expect(db.task.create).not.toHaveBeenCalled();
+  });
+
   it("refuses a guest: capture is a member capability", async () => {
     const db = makeDb([project("prj_1", "AAA")]);
     await expect(
@@ -265,5 +292,52 @@ describe("triage", () => {
     await expect(
       triageTask(ctxFor(db, "guest"), "tsk_1", { assigneeId: "mem_me" }),
     ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("refuses an owner from another workspace", async () => {
+    const db = makeDb(
+      [project("prj_inbox", "INBOX", { isInbox: true })],
+      [{ id: "tsk_1", workspaceId: "ws_1", projectId: "prj_inbox", parentId: null, triagedAt: null }],
+      [{ id: "mem_me", role: "owner" }],
+    );
+
+    await expect(
+      triageTask(ctxFor(db), "tsk_1", { assigneeId: "mem_in_other_workspace" }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    expect(db.task.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a project move that would strand child tasks", async () => {
+    const db = makeDb(
+      [project("prj_inbox", "INBOX", { isInbox: true }), project("prj_1", "AAA")],
+      [{ id: "tsk_1", workspaceId: "ws_1", projectId: "prj_inbox", parentId: null, triagedAt: null }],
+    );
+    db.task.count.mockResolvedValueOnce(2);
+
+    await expect(
+      triageTask(ctxFor(db), "tsk_1", { projectId: "prj_1" }),
+    ).rejects.toMatchObject({ code: "validation_failed" });
+    expect(db.task.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a stale triage rather than overwriting a concurrent one", async () => {
+    const db = makeDb(
+      [project("prj_inbox", "INBOX", { isInbox: true })],
+      [
+        {
+          id: "tsk_1",
+          workspaceId: "ws_1",
+          projectId: "prj_inbox",
+          parentId: null,
+          triagedAt: null,
+          version: 3,
+        },
+      ],
+    );
+
+    await expect(
+      triageTask(ctxFor(db), "tsk_1", { triaged: true }, 2),
+    ).rejects.toMatchObject({ code: "conflict_version" });
+    expect(db.task.update).not.toHaveBeenCalled();
   });
 });

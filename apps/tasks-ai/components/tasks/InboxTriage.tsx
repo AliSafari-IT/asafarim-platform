@@ -30,10 +30,17 @@ import { TaskDetailPanel } from "./TaskDetailPanel";
  */
 const KEY_HINTS = "j/k move · t organize · a assign to me · d due date · c complete · x dismiss · Enter details";
 
+/** One screenful of triage. More arrives on demand, never silently capped. */
+const PAGE_SIZE = 50;
+/** Safety valve on the member paging loop below. */
+const MAX_MEMBER_PAGES = 20;
+
 export function InboxTriage({ slug, me, role }: { slug: string; me: string; role: string }) {
   const capture = useCapture();
   const canTriage = role !== "guest";
   const [items, setItems] = useState<InboxItem[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [cursor, setCursor] = useState(0);
@@ -44,11 +51,12 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
   const load = useCallback(async () => {
     const done = measureView("inbox");
     try {
-      const rows = await api.listInbox(slug);
-      setItems(rows);
-      setCursor((c) => Math.min(c, Math.max(rows.length - 1, 0)));
+      const first = await api.listInbox(slug, { limit: String(PAGE_SIZE) });
+      setItems(first.items);
+      setNextCursor(first.nextCursor);
+      setCursor((c) => Math.min(c, Math.max(first.items.length - 1, 0)));
       setError(null);
-      track({ name: "inbox.viewed", items: rows.length });
+      track({ name: "inbox.viewed", items: first.items.length });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the Inbox.");
     } finally {
@@ -56,14 +64,48 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
     }
   }, [slug]);
 
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const more = await api.listInbox(slug, { limit: String(PAGE_SIZE), cursor: nextCursor });
+      setItems((cur) => [...(cur ?? []), ...more.items]);
+      setNextCursor(more.nextCursor);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load more Inbox items.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, nextCursor, slug]);
+
   useEffect(() => {
     void load();
   }, [load]);
 
+  // A capture is the most likely reason a new item belongs in this list, and
+  // the dialog's router.refresh() does not reach this client-held state.
+  useEffect(() => capture.onCaptured(() => void load()), [capture, load]);
+
   useEffect(() => {
     if (!canTriage) return;
     let alive = true;
-    void Promise.all([api.listProjects(slug), api.listMembers(slug)])
+    // Members are a picker, not a list, so walk the pages: everybody
+    // assignable has to be selectable.
+    async function allMembers() {
+      const collected: WorkspaceMember[] = [];
+      let cursorAt: string | null = null;
+      for (let i = 0; i < MAX_MEMBER_PAGES; i++) {
+        const chunk: Awaited<ReturnType<typeof api.listMembers>> = await api.listMembers(slug, {
+          limit: "100",
+          ...(cursorAt ? { cursor: cursorAt } : {}),
+        });
+        collected.push(...chunk.items);
+        cursorAt = chunk.nextCursor;
+        if (!cursorAt) break;
+      }
+      return collected;
+    }
+    void Promise.all([api.listProjects(slug), allMembers()])
       .then(([p, m]) => {
         if (!alive) return;
         setProjects(p.filter((x) => !x.isInbox && !x.archivedAt));
@@ -83,18 +125,24 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
       const leaves = body.triaged !== false;
       if (leaves) setItems((cur) => cur?.filter((t) => t.id !== item.id) ?? cur);
       try {
-        await api.triageTask(slug, item.id, body);
+        // The version the row was rendered from: if somebody else triaged it
+        // first, this loses with conflict_version instead of overwriting.
+        await api.triageTask(slug, item.id, body, item.version);
         track({ name: "inbox.triaged", action });
         if (!leaves) await load();
       } catch (err) {
-        setError(
+        const message =
           err instanceof ClientApiError && err.code === "forbidden"
             ? "Your role cannot organize work in this workspace."
-            : err instanceof Error
-              ? err.message
-              : "Could not update that item.",
-        );
+            : err instanceof ClientApiError && err.code === "conflict_version"
+              ? "Somebody else changed that item. It has been reloaded — try again."
+              : err instanceof Error
+                ? err.message
+                : "Could not update that item.";
+        // Reload first: load() clears the error on success, so the message
+        // has to be set after it or it only flashes.
         await load();
+        setError(message);
       } finally {
         setBusyId(null);
       }
@@ -109,8 +157,10 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
         await api.completeTask(slug, item.id);
         track({ name: "inbox.triaged", action: "complete" });
         track({ name: "task.completed" });
-      } catch {
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Could not complete that item.";
         await load();
+        setError(message);
       }
     },
     [load, slug],
@@ -122,8 +172,10 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
       try {
         await api.deleteTask(slug, item.id, item.version);
         track({ name: "inbox.triaged", action: "dismiss" });
-      } catch {
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Could not dismiss that item.";
         await load();
+        setError(message);
       }
     },
     [load, slug],
@@ -340,6 +392,11 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
               );
             })}
           </ul>
+          {nextCursor && (
+            <Button size="sm" variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>
+              {loadingMore ? "Loading…" : "Load older items"}
+            </Button>
+          )}
           {!canTriage && (
             <p className="ta-hint">
               You can read the Inbox, but organizing work needs a member role.

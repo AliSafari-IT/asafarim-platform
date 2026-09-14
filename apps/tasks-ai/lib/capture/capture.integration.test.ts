@@ -64,8 +64,8 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     expect(task.triagedAt).toBeNull();
 
     const inbox = await listInbox(ctx);
-    expect(inbox.map((i) => i.id)).toContain(task.id);
-    expect(inbox.find((i) => i.id === task.id)?.projectIsInbox).toBe(true);
+    expect(inbox.items.map((i) => i.id)).toContain(task.id);
+    expect(inbox.items.find((i) => i.id === task.id)?.projectIsInbox).toBe(true);
   });
 
   it("triage removes the item from the Inbox and puts it into My Work", async () => {
@@ -79,7 +79,7 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     const task = await createTask(ctx, { title: "Chase the invoice", source: "quick_capture" });
 
     // Before triage: in the Inbox, absent from My Work.
-    expect((await listInbox(ctx)).map((i) => i.id)).toContain(task.id);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).toContain(task.id);
     const myWorkBefore = await listTasks(ctx, {
       limit: 50,
       assigneeId: owner.id,
@@ -89,7 +89,7 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
 
     await triageTask(ctx, task.id, { projectId: project.id, assigneeId: owner.id });
 
-    expect((await listInbox(ctx)).map((i) => i.id)).not.toContain(task.id);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).not.toContain(task.id);
     const myWorkAfter = await listTasks(ctx, { limit: 50, assigneeId: owner.id, inbox: false });
     expect(myWorkAfter.items.map((t) => t.id)).toContain(task.id);
     const stored = await db.task.findUniqueOrThrow({ where: { id: task.id } });
@@ -105,7 +105,7 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     const task = await createTask(ctx, { title: "Two-minute job", source: "quick_capture" });
     await completeTask(ctx, task.id);
 
-    expect((await listInbox(ctx)).map((i) => i.id)).not.toContain(task.id);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).not.toContain(task.id);
   });
 
   it("email capture keeps its provenance and waits in the Inbox", async () => {
@@ -128,7 +128,7 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     const stored = await db.task.findUniqueOrThrow({ where: { id: taskId } });
     expect(stored.source).toBe("email");
     expect(stored.triagedAt).toBeNull();
-    expect((await listInbox(ctx)).map((i) => i.id)).toContain(taskId);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).toContain(taskId);
   });
 
   it("imports keep source=import, and land in the Inbox only when asked to", async () => {
@@ -189,7 +189,7 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
       code: "forbidden",
     });
     // The Inbox container is not a project the guest belongs to.
-    expect((await listInbox(guestCtx)).map((i) => i.id)).not.toContain(captured.id);
+    expect((await listInbox(guestCtx)).items.map((i) => i.id)).not.toContain(captured.id);
   });
 
   it("applying an AI proposal without owner or date lands the work in the Inbox", async () => {
@@ -233,7 +233,9 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     await applyProposal(ctx, proposal.id, { projectId: project.id });
 
     const inbox = await listInbox(ctx);
-    expect(inbox.map((i) => i.title)).toContain("Draft the statement of work");
-    expect(inbox.find((i) => i.title === "Draft the statement of work")?.source).toBe("proposal");
+    expect(inbox.items.map((i) => i.title)).toContain("Draft the statement of work");
+    expect(inbox.items.find((i) => i.title === "Draft the statement of work")?.source).toBe(
+      "proposal",
+    );
   });
 });

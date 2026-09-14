@@ -56,13 +56,25 @@ export function parsePagination(url: URL) {
  * opt-out) but a present, stale value is a 409.
  */
 export function assertVersion(req: Request, currentVersion: number) {
-  const raw = req.headers.get("if-match");
-  if (raw == null) return;
-  const expected = Number(raw.replace(/"/g, "").trim());
-  if (Number.isNaN(expected)) throw new ApiError("validation_failed", { header: "If-Match" });
+  const expected = readVersion(req);
+  if (expected == null) return;
   if (expected !== currentVersion) {
     throw new ApiError("conflict_version", { expected, current: currentVersion });
   }
+}
+
+/**
+ * The version the caller claims to have read, or undefined when they opted
+ * out. Services that enforce the version inside their own transaction take
+ * this instead of `assertVersion`, so a concurrent writer cannot slip between
+ * the read and the update.
+ */
+export function readVersion(req: Request): number | undefined {
+  const raw = req.headers.get("if-match");
+  if (raw == null) return undefined;
+  const expected = Number(raw.replace(/"/g, "").trim());
+  if (Number.isNaN(expected)) throw new ApiError("validation_failed", { header: "If-Match" });
+  return expected;
 }
 
 export function hashRequest(method: string, path: string, body: unknown): string {

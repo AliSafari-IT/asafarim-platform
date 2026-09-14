@@ -1,6 +1,7 @@
 import { withIdempotency, workspaceRoute } from "../../../../../../lib/api/handler";
 import { page, parsePagination } from "../../../../../../lib/api/http";
 import { listTasks } from "../../../../../../lib/repositories/tasks";
+import { USER_CAPTURE_SOURCES } from "../../../../../../lib/capture/inbox";
 import { createTask } from "../../../../../../lib/services/tasks";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,9 @@ export const POST = workspaceRoute(async ({ req, ctx }) => {
   const body = await req.json().catch(() => ({}));
   return withIdempotency(ctx, req, body, async () => ({
     status: 201,
-    data: await createTask(ctx, body),
+    // A caller may say they typed this or quick-captured it; "import",
+    // "email", "integration" and "proposal" are provenance only the
+    // corresponding server path gets to claim.
+    data: await createTask(ctx, body, { allowedSources: USER_CAPTURE_SOURCES }),
   }));
 });
