@@ -132,6 +132,15 @@ ensure_disk_space
 
 echo "[deploy $(date -Is)] Building images sequentially (memory-safe on 8GB)..."
 for svc in "${BUILD_SERVICES[@]}"; do
+  # Re-check before EVERY build, not just once at the start. Each of the
+  # ${#BUILD_SERVICES[@]} sequential builds leaves layers + cache behind, so
+  # a machine with enough headroom at minute 0 can still starve by build #15
+  # — this is what actually happened when tasksai-migrate died mid-export
+  # with "no space left on device" 40 minutes into a run that passed the
+  # initial check. Re-running the same escalating-prune gate here catches
+  # that decline early (and prunes proactively) instead of failing the build
+  # itself with a much less recoverable error.
+  ensure_disk_space
   echo "[deploy $(date -Is)] ===== build ${svc} ====="
   "${COMPOSE[@]}" build "$svc"
 done
