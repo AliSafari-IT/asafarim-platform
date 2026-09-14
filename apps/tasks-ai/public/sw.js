@@ -8,9 +8,12 @@
  *    (lib/pwa/queue.ts, IndexedDB) owns replay; the SW just lets them fail
  *    fast when offline so the app can enqueue.
  */
-const SHELL = "tasksai-shell-v1";
+const SHELL = "tasksai-shell-v2";
 const API = "tasksai-api-v1";
-const SHELL_ASSETS = ["/", "/workspace", "/favicon.svg", "/manifest.webmanifest"];
+// /workspace is an authenticated route (redirects to Hub sign-in when
+// signed out) — it doesn't belong in a static app-shell precache, and
+// precaching it is what surfaced the navigation bug documented below.
+const SHELL_ASSETS = ["/", "/favicon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(SHELL).then((c) => c.addAll(SHELL_ASSETS)).then(() => self.skipWaiting()));
@@ -30,6 +33,19 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.method !== "GET") return; // mutations pass straight through
+
+  // Full-page navigations must go straight to the network, uncontrolled.
+  // The Fetch spec forces `request.redirect` to "manual" for any navigation
+  // a service worker observes, so calling fetch(request) here for a
+  // protected route (e.g. /workspace, redirecting an unauthenticated user
+  // to Hub sign-in) resolves to an opaque "opaqueredirect" response instead
+  // of following it. respondWith()-ing that — combined with this app's
+  // Cross-Origin-Opener-Policy header forcing a browsing-context swap on the
+  // cross-origin hop — makes Chrome abandon the navigation with a hard
+  // network error (net::ERR_FAILED) instead of completing the redirect.
+  // Returning early leaves the request unhandled, so the browser performs
+  // the navigation itself with normal redirect handling.
+  if (request.mode === "navigate") return;
 
   if (url.pathname.startsWith("/api/v1/")) {
     event.respondWith(
