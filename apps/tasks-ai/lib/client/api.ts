@@ -5,6 +5,12 @@
  * error handling, the correlation header, and optimistic-concurrency
  * plumbing live in one place (docs/adr/0003-api-first-boundary.md).
  */
+import type {
+  MyWorkContextCounts,
+  MyWorkItem,
+  MyWorkSummary,
+} from "../work/my-work";
+
 export interface ApiErrorShape {
   code: string;
   message: string;
@@ -27,7 +33,11 @@ export class ClientApiError extends Error {
 async function request(
   path: string,
   init: RequestInit & { version?: number } = {},
-): Promise<{ data?: unknown; page?: { nextCursor: string | null } }> {
+): Promise<{
+  data?: unknown;
+  page?: { nextCursor: string | null };
+  meta?: Record<string, unknown>;
+}> {
   const headers = new Headers(init.headers);
   headers.set("content-type", "application/json");
   if (init.version != null) headers.set("if-match", `"${init.version}"`);
@@ -63,6 +73,19 @@ async function callPage<T>(
   return { items: (json.data ?? []) as T[], nextCursor: json.page?.nextCursor ?? null };
 }
 
+/** A page that also carries view-level context (see `page()` in lib/api/http). */
+async function callPageWithMeta<T, M>(
+  path: string,
+  init: RequestInit & { version?: number } = {},
+): Promise<Page<T> & { meta: M }> {
+  const json = await request(path, init);
+  return {
+    items: (json.data ?? []) as T[],
+    nextCursor: json.page?.nextCursor ?? null,
+    meta: (json.meta ?? {}) as M,
+  };
+}
+
 export const api = {
   listWorkspaces: () => call<Workspace[]>("/workspaces"),
   createWorkspace: (body: { name: string; slug: string }) =>
@@ -81,6 +104,13 @@ export const api = {
 
   listTasks: (slug: string, query: Record<string, string> = {}) =>
     call<Task[]>(`/workspaces/${slug}/tasks?${new URLSearchParams(query)}`),
+  /**
+   * One task by id. The detail drawer has to use this rather than picking a
+   * row out of a generic list page: every list is paged and ordered for its
+   * own surface, so a task that is visible in My Work need not appear in the
+   * first page of `listTasks`.
+   */
+  getTask: (slug: string, id: string) => call<Task>(`/workspaces/${slug}/tasks/${id}`),
   createTask: (slug: string, body: Record<string, unknown>) =>
     call<Task>(`/workspaces/${slug}/tasks`, { method: "POST", body: JSON.stringify(body) }),
   updateTask: (slug: string, id: string, version: number, body: Record<string, unknown>) =>
@@ -100,6 +130,23 @@ export const api = {
    */
   triageTask: (slug: string, id: string, body: Record<string, unknown>, version?: number) =>
     call<Task>(`/workspaces/${slug}/tasks/${id}/triage`, {
+      method: "POST",
+      version,
+      body: JSON.stringify(body),
+    }),
+
+  // --- My Work execution view (#367) ---
+  myWork: (slug: string, query: Record<string, string> = {}) =>
+    callPageWithMeta<MyWorkItem, MyWorkMeta>(
+      `/workspaces/${slug}/my-work?${new URLSearchParams(query)}`,
+    ),
+  /**
+   * The scoped quick edit behind My Work's planning actions. `version` is
+   * the row's version: a stale one loses with conflict_version rather than
+   * overwriting somebody else's change.
+   */
+  planTask: (slug: string, id: string, body: Record<string, unknown>, version?: number) =>
+    call<Task>(`/workspaces/${slug}/tasks/${id}/plan`, {
       method: "POST",
       version,
       body: JSON.stringify(body),
@@ -445,6 +492,17 @@ export interface InboxItem {
   createdAt: string;
   version: number;
 }
+/**
+ * View-level context for My Work (#367). The row type itself lives in
+ * lib/work/my-work.ts — a pure module both the server and this client
+ * import, so the contract has exactly one definition.
+ */
+export interface MyWorkMeta {
+  summary: MyWorkSummary;
+  counts: MyWorkContextCounts;
+}
+export type { MyWorkItem, MyWorkSummary, MyWorkContextCounts };
+
 export interface WorkspaceMember {
   id: string;
   role: string;

@@ -292,6 +292,184 @@
           }
         }
       },
+      "MyWorkItem": {
+        "type": "object",
+        "description": "One row of My Work: the caller's open, triaged task plus the cross-project context the execution view needs. Project identity is mandatory — two identically titled tasks from different projects must be distinguishable.",
+        "required": [
+          "id",
+          "title",
+          "projectId",
+          "projectKey",
+          "projectName",
+          "projectIsInbox",
+          "statusName",
+          "statusCategory",
+          "assigneeId",
+          "dueDate",
+          "completedAt",
+          "blockedBy",
+          "blocks",
+          "labels",
+          "position",
+          "updatedAt",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "projectKey": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "projectIsInbox": {
+            "type": "boolean"
+          },
+          "statusName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "statusCategory": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "todo | in_progress | done | canceled"
+          },
+          "assigneeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "blockedBy": {
+            "type": "integer",
+            "description": "Open tasks blocking this one. > 0 means the row is waiting."
+          },
+          "blocks": {
+            "type": "integer",
+            "description": "Open tasks this one blocks."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "position": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer"
+          }
+        }
+      },
+      "MyWorkMeta": {
+        "type": "object",
+        "description": "View-level context for My Work: the summary line's counts over the whole scoped set (not just the page), and the workspace counts that let the page explain why the list is empty.",
+        "required": [
+          "summary",
+          "counts"
+        ],
+        "properties": {
+          "summary": {
+            "type": "object",
+            "description": "Group counts over every task in scope, not only the returned page — so the header line stays true before the rest is paged in.",
+            "required": [
+              "overdue",
+              "today",
+              "blocked",
+              "upcoming",
+              "undated",
+              "total"
+            ],
+            "properties": {
+              "overdue": {
+                "type": "integer"
+              },
+              "today": {
+                "type": "integer"
+              },
+              "blocked": {
+                "type": "integer"
+              },
+              "upcoming": {
+                "type": "integer"
+              },
+              "undated": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            }
+          },
+          "counts": {
+            "type": "object",
+            "required": [
+              "assignedOpen",
+              "assignedInbox",
+              "assignedCompleted",
+              "workspaceOpen",
+              "workspaceUnowned",
+              "inboxWaiting",
+              "canPlan"
+            ],
+            "properties": {
+              "assignedOpen": {
+                "type": "integer"
+              },
+              "assignedInbox": {
+                "type": "integer",
+                "description": "Open tasks assigned to the caller that are still untriaged, so they sit in the Inbox rather than in this list."
+              },
+              "assignedCompleted": {
+                "type": "integer"
+              },
+              "workspaceOpen": {
+                "type": "integer"
+              },
+              "workspaceUnowned": {
+                "type": "integer"
+              },
+              "inboxWaiting": {
+                "type": "integer"
+              },
+              "canPlan": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
       "WorkspaceMember": {
         "type": "object",
         "description": "An assignable membership. TasksAI stores only the opaque platform user id — there is no name or email here.",
@@ -874,6 +1052,179 @@
                       }
                     }
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/my-work": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "The caller's open cross-project work, in execution order",
+        "description": "My Work (issue #367). Assigned to the caller, not completed, already triaged — an untriaged capture is Inbox work, not planned work. Ordered earliest due date first with undated last, so the first page is the most urgent work. The `meta` object carries the summary counts and the workspace counts behind the empty states.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/cursor"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MyWorkItem"
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/MyWorkMeta"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/tasks/{id}/plan": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Quick planning edit from My Work: due date and/or owner",
+        "description": "The scoped quick-edit behind My Work's row actions. Same assignee validation and same optimistic-concurrency contract as triage — it is one editing model, not a second one. Unlike triage it never stamps `triagedAt`: a row in My Work has already been organized.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "anyOf": [
+                  {
+                    "required": [
+                      "dueDate"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "assigneeId"
+                    ]
+                  }
+                ],
+                "properties": {
+                  "dueDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "description": "null clears the date."
+                  },
+                  "assigneeId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "null unassigns."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Task"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }

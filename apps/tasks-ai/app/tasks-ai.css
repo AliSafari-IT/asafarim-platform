@@ -1099,3 +1099,81 @@
   [data-app="tasks-ai"] .ta-inbox__keys { display:none; }
   [data-app="tasks-ai"] .ta-capture { padding-top:4vh; }
 }
+
+/* ── My Work: the daily execution view (issue #367) ───────────────────── */
+[data-app="tasks-ai"] .ta-mywork__summary { margin:.4rem 0 .2rem; font-size:.95rem; }
+[data-app="tasks-ai"] .ta-mywork__keys {
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.72rem;
+}
+[data-app="tasks-ai"] .ta-mywork__group { margin-top:1.25rem; }
+[data-app="tasks-ai"] .ta-mywork__group h2 {
+  font-size:1rem; margin:0; display:flex; align-items:center; gap:.5rem;
+}
+[data-app="tasks-ai"] .ta-mywork__group h2 .ta-badge { background:var(--surface-2); }
+[data-app="tasks-ai"] .ta-mywork__group[data-group="overdue"] h2 { color:#b3261e; }
+[data-app="tasks-ai"] .ta-mywork__list {
+  list-style:none; padding:0; margin:.5rem 0 0; display:grid; gap:.4rem;
+}
+[data-app="tasks-ai"] .ta-mywork__row {
+  border:1px solid var(--line); border-left:3px solid var(--line); border-radius:8px;
+  padding:.5rem .7rem; display:flex; align-items:flex-start; gap:.6rem; flex-wrap:wrap;
+}
+/* Rows inside a windowed section must be exactly ROW_HEIGHT (76px) tall:
+   the virtualizer positions the next row that far down, so anything that
+   wraps would paint over it. Overflow truncates instead of growing. */
+[data-app="tasks-ai"] .ta-mywork__row[data-fixed] {
+  height:76px; box-sizing:border-box; flex-wrap:nowrap; align-items:center; overflow:hidden;
+}
+[data-app="tasks-ai"] .ta-mywork__row[data-fixed] .ta-mywork__main { flex:1 1 auto; }
+[data-app="tasks-ai"] .ta-mywork__row[data-fixed] .ta-list__title {
+  display:block; width:100%; text-align:left;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+[data-app="tasks-ai"] .ta-mywork__row[data-fixed] .ta-mywork__meta {
+  flex-wrap:nowrap; overflow:hidden; white-space:nowrap; min-width:0;
+}
+[data-app="tasks-ai"] .ta-mywork__row[data-fixed] .ta-mywork__meta > * { flex:0 0 auto; }
+[data-app="tasks-ai"] .ta-mywork__row[data-fixed] .ta-mywork__actions {
+  flex-wrap:nowrap; overflow-x:auto; max-width:100%;
+}
+[data-app="tasks-ai"] .ta-mywork__row[data-active="true"] {
+  border-left-color:#1f6feb; background:var(--surface-2);
+}
+[data-app="tasks-ai"] .ta-mywork__row[aria-busy="true"] { opacity:.6; }
+[data-app="tasks-ai"] .ta-mywork__group[data-group="overdue"] .ta-mywork__row { border-left-color:#b3261e; }
+[data-app="tasks-ai"] .ta-mywork__group[data-group="today"] .ta-mywork__row { border-left-color:#1f6feb; }
+[data-app="tasks-ai"] .ta-mywork__group[data-group="blocked"] .ta-mywork__row { border-left-color:#8a6d00; }
+[data-app="tasks-ai"] .ta-mywork__check { margin-top:.3rem; }
+[data-app="tasks-ai"] .ta-mywork__main { display:grid; gap:.2rem; flex:1 1 16rem; min-width:0; }
+[data-app="tasks-ai"] .ta-mywork__main .ta-list__title { font-size:.95rem; }
+[data-app="tasks-ai"] .ta-mywork__meta {
+  display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; font-size:.75rem;
+}
+[data-app="tasks-ai"] .ta-mywork__project {
+  text-decoration:none; background:var(--surface-2); color:inherit;
+}
+[data-app="tasks-ai"] .ta-mywork__project:hover { text-decoration:underline; }
+[data-app="tasks-ai"] .ta-mywork__due { opacity:.8; }
+[data-app="tasks-ai"] .ta-mywork__due[data-late="true"] { color:#b3261e; font-weight:600; opacity:1; }
+[data-app="tasks-ai"] .ta-mywork__actions {
+  display:flex; gap:.35rem; flex-wrap:wrap; align-items:center;
+}
+[data-app="tasks-ai"] .ta-mywork__date { font-size:.8rem; padding:.25rem .4rem; max-width:9.5rem; }
+
+@media (max-width:720px) {
+  /* Mobile keeps every promise the desktop row makes — title, project, due
+     state, completion, details — it just stacks them. */
+  [data-app="tasks-ai"] .ta-mywork__main { flex:1 1 100%; }
+  [data-app="tasks-ai"] .ta-mywork__actions { width:100%; display:grid; grid-template-columns:1fr 1fr; }
+  [data-app="tasks-ai"] .ta-mywork__date { max-width:100%; grid-column:1 / -1; }
+  [data-app="tasks-ai"] .ta-mywork__keys { display:none; }
+  /* Stacking would break the constant row height a windowed section needs,
+     so those rows keep their single line and scroll their actions instead. */
+  [data-app="tasks-ai"] .ta-mywork__row[data-fixed] .ta-mywork__main { flex:1 1 auto; }
+  [data-app="tasks-ai"] .ta-mywork__row[data-fixed] .ta-mywork__actions {
+    width:auto; display:flex; flex-wrap:nowrap; overflow-x:auto;
+  }
+  [data-app="tasks-ai"] .ta-mywork__row[data-fixed] .ta-mywork__date {
+    max-width:9.5rem; grid-column:auto;
+  }
+}

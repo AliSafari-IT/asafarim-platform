@@ -40,6 +40,22 @@ test.describe("M03 workspace journeys", () => {
     await expect(page.getByRole("link", { name: /^copilot$/i }).first()).toBeVisible();
   });
 
+  test("My Work is an execution surface, not a bare list (#367)", async ({ page }) => {
+    await page.goto("/w/demo/my-work");
+    await expect(page.getByRole("heading", { level: 1, name: "My Work" })).toBeVisible();
+    // The bridge to Focus stays visible in every state: My Work is the list,
+    // Focus is the explainable prioritization layer.
+    await expect(page.getByRole("link", { name: /open focus/i })).toBeVisible();
+    // Wait for the fetch to settle first. Asserting on the copy while the
+    // page still says "Loading…" would pass no matter what finally renders,
+    // which is exactly the state this test exists to rule out.
+    await expect(page.getByText("Loading…")).toHaveCount(0);
+    // Either the grouped sections or a guided empty state — never "no tasks
+    // match this view".
+    await expect(page.locator(".ta-mywork__group, .ui-empty").first()).toBeVisible();
+    await expect(page.getByText(/no tasks match/i)).toHaveCount(0);
+  });
+
   test("command palette opens with the keyboard and navigates", async ({ page }) => {
     await page.goto("/w/demo/my-work");
     await page.keyboard.press("Control+k");

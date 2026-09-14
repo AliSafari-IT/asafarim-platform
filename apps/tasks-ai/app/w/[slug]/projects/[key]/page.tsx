@@ -31,6 +31,7 @@ export default async function ProjectPage({
       slug={slug}
       me={m.membershipId}
       project={project}
+      canPlan={m.role !== "guest"}
       heading={`${project.key} · ${project.name}`}
     />
   );
