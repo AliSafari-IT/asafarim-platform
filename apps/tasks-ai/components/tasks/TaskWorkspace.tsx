@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, EmptyState } from "@asafarim/ui";
 import { api, ClientApiError, type Task } from "../../lib/client/api";
 import {
@@ -27,7 +27,11 @@ export interface TaskWorkspaceProps {
   me: string;
   /** When set, scope to one project and allow quick-add. */
   project?: { id: string; key: string; name: string };
-  /** Fixed non-project view (Inbox / My Work). */
+  /**
+   * Fixed non-project view. My Work and the Inbox have their own dedicated
+   * surfaces now (components/tasks/MyWork.tsx, InboxTriage.tsx); this is the
+   * generic saved-view escape hatch.
+   */
   fixedView?: ViewType;
   heading: string;
 }
@@ -60,15 +64,6 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading }: TaskWor
   useEffect(() => {
     void load();
   }, [load]);
-
-  // Activation funnel (issue #365): reaching My Work is the step the
-  // workspace home routes people toward.
-  const myWorkSeen = useRef(false);
-  useEffect(() => {
-    if (fixedView !== "my_work" || myWorkSeen.current) return;
-    myWorkSeen.current = true;
-    track({ name: "workspace.activation.my_work_opened" });
-  }, [fixedView]);
 
   const patch = useCallback(
     async (t: Task, body: Record<string, unknown>) => {
@@ -138,31 +133,10 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading }: TaskWor
       {tasks === null ? (
         <p className="ta-muted">Loading…</p>
       ) : tasks.length === 0 ? (
-        fixedView === "my_work" ? (
-          // Not a dead end (issue #365): say why it is empty and where to go.
-          <EmptyState
-            title="You have no assigned work yet"
-            description="My Work only lists tasks assigned to you. Pick something up from a project, take an unowned item from the Inbox, or capture what you are working on."
-            action={
-              <span className="ta-tw__headactions">
-                <a className="ta-link" href={`/w/${slug}/projects`}>
-                  Browse projects
-                </a>
-                <a className="ta-link" href={`/w/${slug}/inbox`}>
-                  Open the Inbox
-                </a>
-                <a className="ta-link" href={`/w/${slug}`}>
-                  Back to Home
-                </a>
-              </span>
-            }
-          />
-        ) : (
-          <EmptyState
-            title="Nothing here yet"
-            description={project ? "Add your first task above." : "No tasks match this view."}
-          />
-        )
+        <EmptyState
+          title="Nothing here yet"
+          description={project ? "Add your first task above." : "No tasks match this view."}
+        />
       ) : view === "board" ? (
         <BoardView tasks={tasks} onOpen={setSelected} onComplete={complete} />
       ) : view === "calendar" || view === "timeline" ? (

@@ -21,7 +21,7 @@ My Work, projects, Focus  (planned work)
 ```
 
 * **Inbox** — captured work that still needs organizing.
-* **My Work** — planned open work assigned to me.
+* **My Work** — planned open work assigned to me (see `my-work.md`).
 
 They are different questions, so they are different queries. An item does not
 sit in the Inbox forever just because it is incomplete, and an untriaged item

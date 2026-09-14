@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Button, ConfirmDialog, Input, Label, Textarea } from "@asafarim/ui";
-import { api, ClientApiError, type Task } from "../../lib/client/api";
+import { useEffect, useMemo, useState } from "react";
+import { Button, ConfirmDialog, Input, Label, Select, Textarea } from "@asafarim/ui";
+import { api, ClientApiError, type Task, type WorkspaceMember } from "../../lib/client/api";
 import { CommentsPanel } from "./CommentsPanel";
 
 /**
@@ -10,6 +10,11 @@ import { CommentsPanel } from "./CommentsPanel";
  * optimistic-concurrency; a version conflict reloads rather than
  * clobbering. Delete goes through the styled ConfirmDialog (never
  * window.confirm — platform rule).
+ *
+ * The owner picker (issue #367) exists so the assignment My Work can change
+ * from a row is also changeable here, through the same `plan` endpoint and
+ * the same validation — one editing model rather than two surfaces that
+ * disagree about what assigning means.
  */
 export function TaskDetailPanel({
   slug,
@@ -23,6 +28,7 @@ export function TaskDetailPanel({
   onChanged: () => Promise<void> | void;
 }) {
   const [task, setTask] = useState<Task | null>(null);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "conflict">("idle");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -38,6 +44,67 @@ export function TaskDetailPanel({
       alive = false;
     };
   }, [slug, taskId]);
+
+  useEffect(() => {
+    let alive = true;
+    // Members are a picker, not a list: walk the pages so everybody
+    // assignable stays selectable in a large workspace.
+    async function allMembers() {
+      const collected: WorkspaceMember[] = [];
+      const seen = new Set<string>();
+      let cursorAt: string | null = null;
+      for (;;) {
+        const chunk: Awaited<ReturnType<typeof api.listMembers>> = await api.listMembers(slug, {
+          limit: "100",
+          ...(cursorAt ? { cursor: cursorAt } : {}),
+        });
+        collected.push(...chunk.items);
+        if (!chunk.nextCursor || seen.has(chunk.nextCursor)) break;
+        seen.add(chunk.nextCursor);
+        cursorAt = chunk.nextCursor;
+      }
+      return collected;
+    }
+    void allMembers()
+      .then((m) => {
+        if (alive) setMembers(m);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [slug]);
+
+  const memberOptions = useMemo(
+    () => [
+      { value: "", label: "Nobody" },
+      ...members.map((m) => ({ value: m.id, label: m.isMe ? "Me" : m.platformUserId })),
+    ],
+    [members],
+  );
+
+  /**
+   * Assignment goes through the same scoped plan endpoint My Work uses, so
+   * both surfaces validate the membership the same way and both lose the
+   * same 409 when somebody else moved first.
+   */
+  async function assign(assigneeId: string | null) {
+    if (!task) return;
+    setStatus("saving");
+    try {
+      setTask(await api.planTask(slug, task.id, { assigneeId }, task.version));
+      setStatus("saved");
+      await onChanged();
+    } catch (err) {
+      if (err instanceof ClientApiError && err.code === "conflict_version") {
+        setStatus("conflict");
+        const rows = await api.listTasks(slug, {});
+        setTask(rows.find((t) => t.id === taskId) ?? null);
+      } else {
+        setStatus("idle");
+      }
+    }
+  }
 
   async function save(patch: Partial<Task>) {
     if (!task) return;
@@ -92,6 +159,14 @@ export function TaskDetailPanel({
               defaultValue={task.description ?? ""}
               key={`desc-${task.version}`}
               onBlur={(e) => e.target.value !== (task.description ?? "") && save({ description: e.target.value || null })}
+            />
+
+            <Label htmlFor="td-owner">Owner</Label>
+            <Select
+              id="td-owner"
+              value={task.assigneeId ?? ""}
+              options={memberOptions}
+              onChange={(e) => void assign(e.target.value || null)}
             />
 
             <Label htmlFor="td-due">Due date</Label>

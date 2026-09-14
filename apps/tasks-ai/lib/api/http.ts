@@ -16,8 +16,17 @@ export function ok(data: unknown, init?: { status?: number; headers?: HeadersIni
   return NextResponse.json({ data }, { status: init?.status ?? 200, headers: init?.headers });
 }
 
-export function page<T>(items: T[], nextCursor: string | null) {
-  return NextResponse.json({ data: items, page: { nextCursor } });
+/**
+ * One page of a collection. `meta` is for view-level context that is not a
+ * property of any single row — My Work's summary counts, for example — and
+ * stays out of `data` so the item shape never depends on which view asked.
+ */
+export function page<T>(items: T[], nextCursor: string | null, meta?: Record<string, unknown>) {
+  return NextResponse.json({
+    data: items,
+    page: { nextCursor },
+    ...(meta ? { meta } : {}),
+  });
 }
 
 export function fail(err: unknown, cid: string) {

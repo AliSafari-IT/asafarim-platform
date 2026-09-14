@@ -88,3 +88,46 @@ type RawRunner = Pick<PrismaClient, "$queryRaw">;
 export async function lockTaskRow(tx: RawRunner, id: string): Promise<void> {
   await tx.$queryRaw`SELECT "id" FROM "task" WHERE "id" = ${id} FOR UPDATE`;
 }
+
+/** Just enough of a transaction client to update one task. */
+type TaskWriter = Pick<PrismaClient, "task">;
+
+/**
+ * Update one task, carrying the expected version into the WHERE clause when
+ * the caller sent one. No matching row means somebody else got there first,
+ * which is a 409 rather than a silent overwrite.
+ *
+ * The version belongs in the WHERE, not in a read-then-write check: two
+ * concurrent stale writes must not both succeed. Shared by every
+ * version-aware task mutation (triage, My Work quick edits) so they cannot
+ * drift into different concurrency semantics.
+ */
+export async function updateTaskWithVersion(
+  tx: TaskWriter,
+  current: { id: string; version: number },
+  expectedVersion: number | undefined,
+  data: Prisma.TaskUncheckedUpdateInput,
+) {
+  try {
+    return await tx.task.update({
+      where: {
+        id: current.id,
+        ...(expectedVersion === undefined ? {} : { version: expectedVersion }),
+      },
+      data,
+    });
+  } catch (err) {
+    if (
+      expectedVersion !== undefined &&
+      typeof err === "object" &&
+      err !== null &&
+      (err as { code?: unknown }).code === "P2025"
+    ) {
+      // No `current` version here: the one this function was handed predates
+      // the write that just beat it, so reporting it would be a lie. The
+      // caller re-reads the real one once its transaction has rolled back.
+      throw new ApiError("conflict_version", { expected: expectedVersion });
+    }
+    throw err;
+  }
+}

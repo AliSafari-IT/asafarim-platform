@@ -1,13 +1,13 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { Prisma, PrismaClient } from "../db/generated";
+import type { PrismaClient } from "../db/generated";
 import type { RequestContext } from "../context";
 import { authorize } from "../authz";
 import { ApiError } from "../errors";
 import { emitActivity } from "../events/emit";
 import { EVENT, OUTBOX_TYPE } from "../events/names";
-import { getTaskOr404, lockTaskRow } from "../repositories/tasks";
+import { getTaskOr404, lockTaskRow, updateTaskWithVersion } from "../repositories/tasks";
 import {
   INBOX_PROJECT_DESCRIPTION,
   INBOX_PROJECT_KEY,
@@ -117,43 +117,6 @@ export const triageSchema = z.object({
   triaged: z.boolean().default(true),
 });
 
-type TaskWriter = Pick<PrismaClient, "task">;
-
-/**
- * Update the task, carrying the expected version into the WHERE clause when
- * the caller sent one. No matching row means somebody else got there first,
- * which is a 409 rather than a silent overwrite.
- */
-async function updateOrConflict(
-  tx: TaskWriter,
-  current: { id: string; version: number },
-  expectedVersion: number | undefined,
-  data: Prisma.TaskUncheckedUpdateInput,
-) {
-  try {
-    return await tx.task.update({
-      where: {
-        id: current.id,
-        ...(expectedVersion === undefined ? {} : { version: expectedVersion }),
-      },
-      data,
-    });
-  } catch (err) {
-    if (
-      expectedVersion !== undefined &&
-      typeof err === "object" &&
-      err !== null &&
-      (err as { code?: unknown }).code === "P2025"
-    ) {
-      // No `current` here: the version this function was handed predates the
-      // write that just beat it, so reporting it would be a lie. The caller
-      // re-reads the real one once its transaction has rolled back.
-      throw new ApiError("conflict_version", { expected: expectedVersion });
-    }
-    throw err;
-  }
-}
-
 /**
  * Organize one Inbox item in a single round trip: project, owner, date, and
  * the triage stamp together, so the triage list never needs a deep
@@ -227,8 +190,10 @@ export async function triageTask(
       }
 
       // The version is part of the WHERE, not a read-then-write check: two
-      // concurrent stale triages must not both succeed.
-      const updated = await updateOrConflict(tx, current, expectedVersion, {
+      // concurrent stale triages must not both succeed. Shared with the My
+      // Work quick edits (lib/repositories/tasks.ts) so the two organizing
+      // surfaces cannot drift into different concurrency semantics.
+      const updated = await updateTaskWithVersion(tx, current, expectedVersion, {
         ...(data.projectId ? { projectId: data.projectId } : {}),
         ...(data.assigneeId !== undefined ? { assigneeId: data.assigneeId } : {}),
         ...(data.dueDate !== undefined

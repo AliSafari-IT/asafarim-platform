@@ -27,6 +27,12 @@ type TelemetryEvent =
   | { name: "capture.completed"; source: string; destination: "inbox" | "project" }
   | { name: "inbox.viewed"; items: number }
   | { name: "inbox.triaged"; action: string }
+  // Daily execution (issue #367): what the day actually looked like when
+  // My Work opened, and which planning actions people take from it.
+  | { name: "my_work.viewed"; overdue: number; today: number; upcoming: number; blocked: number; undated: number }
+  | { name: "my_work.action"; action: string }
+  | { name: "my_work.empty"; kind: string }
+  | { name: "my_work.focus_opened" }
   | { name: "workspace.home.viewed"; stage: string; mode: string }
   | { name: "workspace.activation.project_created"; from: string }
   | { name: "workspace.activation.first_task_created"; source: string }
