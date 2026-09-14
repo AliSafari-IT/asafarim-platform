@@ -103,7 +103,15 @@ export const openapiDocument = {
           startDate: { type: ["string", "null"], format: "date-time" },
           dueDate: { type: ["string", "null"], format: "date-time" },
           completedAt: { type: ["string", "null"], format: "date-time" },
-          source: { type: "string", enum: ["manual", "quick_capture", "import", "proposal"] },
+          triagedAt: {
+            type: ["string", "null"],
+            format: "date-time",
+            description: "null = still waiting in the Inbox (captured, not organized yet).",
+          },
+          source: {
+            type: "string",
+            enum: ["manual", "quick_capture", "import", "proposal", "email", "integration"],
+          },
           version: { type: "integer" },
         },
       },
@@ -174,25 +182,74 @@ export const openapiDocument = {
           { name: "projectId", in: "query", schema: { type: "string" } },
           { name: "assigneeId", in: "query", schema: { type: "string" } },
           { name: "statusId", in: "query", schema: { type: "string" } },
+          {
+            name: "inbox",
+            in: "query",
+            schema: { type: "boolean" },
+            description:
+              "true = only untriaged, uncompleted work (the Inbox); false = only triaged work. Omitted = both.",
+          },
         ],
         responses: { "200": jsonPage("Task") },
       },
       post: {
-        summary: "Create a task",
+        summary: "Create (capture) a task — only a title is required",
         parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }],
         requestBody: jsonBody({
           type: "object",
-          required: ["projectId", "title"],
+          required: ["title"],
           properties: {
-            projectId: { type: "string" },
+            projectId: {
+              type: "string",
+              description:
+                "Omit to capture into the workspace Inbox container. The API never picks a project on the caller's behalf.",
+            },
             title: { type: "string" },
             description: { type: "string" },
             parentId: { type: "string" },
             assigneeId: { type: "string" },
             dueDate: { type: "string", format: "date-time" },
+            source: {
+              type: "string",
+              enum: ["manual", "quick_capture", "import", "proposal", "email", "integration"],
+            },
+            captureToInbox: {
+              type: "boolean",
+              description: "Keep the task in the Inbox for review even though a project is set.",
+            },
           },
         }),
         responses: { "201": jsonOne("Task"), "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/inbox": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Captured work awaiting triage, with project and provenance context",
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/members": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "Workspace members who can own work (assignee picker)",
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}/triage": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      post: {
+        summary: "Organize an Inbox item: project / owner / due date, and stamp it triaged",
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            projectId: { type: "string" },
+            assigneeId: { type: ["string", "null"] },
+            dueDate: { type: ["string", "null"], format: "date-time" },
+            triaged: { type: "boolean", default: true },
+          },
+        }),
+        responses: { "200": jsonOne("Task"), "403": errorRef(), "404": errorRef() },
       },
     },
     "/workspaces/{slug}/tasks/{id}": {

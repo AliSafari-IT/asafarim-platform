@@ -8,6 +8,7 @@ import { emitActivity } from "../events/emit";
 import { EVENT } from "../events/names";
 import { getProjectOr404 } from "../repositories/projects";
 import { stageRows, type FieldMapping, type StagedRow } from "./parse";
+import { initialTriagedAt } from "../capture/inbox";
 
 export const createImportSchema = z.object({
   kind: z.enum(["csv", "json"]),
@@ -21,6 +22,12 @@ export const createImportSchema = z.object({
     externalId: z.string().optional(),
   }),
   content: z.string().min(1).max(5_000_000),
+  /**
+   * Land the imported rows in the Inbox for review instead of treating the
+   * import as already organized (issue #366). Off by default: an import
+   * names its destination project, which is a deliberate decision.
+   */
+  captureToInbox: z.boolean().default(false),
 });
 
 /** Create + dry-run validate. No tasks are written yet. */
@@ -45,7 +52,11 @@ export async function createImport(ctx: RequestContext, input: unknown) {
       membershipId: ctx.actor.membershipId,
       kind: data.kind,
       filename: data.filename,
-      mapping: { ...data.mapping, projectId: project.id } as Prisma.InputJsonValue,
+      mapping: {
+        ...data.mapping,
+        projectId: project.id,
+        captureToInbox: data.captureToInbox,
+      } as Prisma.InputJsonValue,
       state: "dry_run_ready",
       totalRows: staged.totalRows,
       failedRows,
@@ -84,7 +95,14 @@ export async function applyImport(ctx: RequestContext, id: string) {
     throw new ApiError("validation_failed", { state: job.state });
   }
 
-  const mapping = job.mapping as { projectId: string };
+  const mapping = job.mapping as { projectId: string; captureToInbox?: boolean };
+  // One Inbox rule for every channel (lib/capture/inbox.ts). Jobs staged
+  // before this field existed simply read as "not for review".
+  const triagedAt = initialTriagedAt({
+    source: "import",
+    hasProject: true,
+    forceInbox: mapping.captureToInbox === true,
+  });
   const rows = job.rows as unknown as (StagedRow & { applied?: boolean })[];
   await ctx.db.importJob.update({ where: { id }, data: { state: "applying" } });
 
@@ -101,6 +119,7 @@ export async function applyImport(ctx: RequestContext, id: string) {
           dueDate: row.data.dueDate ? new Date(row.data.dueDate) : undefined,
           estimate: row.data.estimate,
           source: "import",
+          triagedAt,
           creatorId: ctx.actor.membershipId,
         },
       });

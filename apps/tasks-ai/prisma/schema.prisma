@@ -149,6 +149,13 @@ model Project {
   key         String
   description String?
   visibility  ProjectVisibility @default(workspace)
+  /// The workspace-level Inbox container (issue #366). At most one per
+  /// workspace — it is created on demand by `ensureInboxProject` and is the
+  /// destination for work captured before anybody has decided where it
+  /// belongs. It is a normal project row so every existing task query,
+  /// export, and analytic keeps working; the UI labels it as the Inbox and
+  /// hides it from the "pick a project" lists where it would be confusing.
+  isInbox     Boolean           @default(false)
   archivedAt  DateTime?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -311,8 +318,14 @@ model Task {
   completedAt DateTime?
   position    Float     @default(0)
   recurrence  Json?
-  /// "manual" | "quick_capture" | "import" | "proposal"
+  /// "manual" | "quick_capture" | "import" | "proposal" | "email" | "integration"
   source      String    @default("manual")
+  /// Inbox semantics (issue #366). NULL means "captured but not yet
+  /// organized" — that, plus not completed and not archived, is the one
+  /// rule that defines the Inbox (see lib/capture/inbox.ts). Set the moment
+  /// somebody triages the item, or at creation for work that arrives with a
+  /// deliberate destination. Existing rows were backfilled to `createdAt`.
+  triagedAt   DateTime?
   archivedAt  DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -341,6 +354,7 @@ model Task {
   @@index([workspaceId, projectId])
   @@index([workspaceId, assigneeId])
   @@index([workspaceId, dueDate])
+  @@index([workspaceId, triagedAt])
   @@index([projectId, archivedAt])
   @@map("task")
 }

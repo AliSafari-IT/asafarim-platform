@@ -15,6 +15,11 @@ export const GET = workspaceRoute(async ({ req, ctx }) => {
     assigneeId: url.searchParams.get("assigneeId") ?? undefined,
     statusId: url.searchParams.get("statusId") ?? undefined,
     includeArchived: url.searchParams.get("archived") === "true",
+    // `inbox=true` is the persisted Inbox rule (issue #366), not a
+    // client-side reinterpretation of "all open tasks".
+    inbox: url.searchParams.has("inbox")
+      ? url.searchParams.get("inbox") === "true"
+      : undefined,
   });
   return page(items, nextCursor);
 });

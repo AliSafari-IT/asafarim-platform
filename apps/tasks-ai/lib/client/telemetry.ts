@@ -21,6 +21,12 @@ type TelemetryEvent =
   | { name: "task.created"; source: string }
   | { name: "task.completed" }
   | { name: "command_palette.action"; action: string }
+  // Capture + triage funnel (issue #366): how work gets in, and how long it
+  // waits before somebody organizes it.
+  | { name: "capture.opened"; from: string }
+  | { name: "capture.completed"; source: string; destination: "inbox" | "project" }
+  | { name: "inbox.viewed"; items: number }
+  | { name: "inbox.triaged"; action: string }
   | { name: "workspace.home.viewed"; stage: string; mode: string }
   | { name: "workspace.activation.project_created"; from: string }
   | { name: "workspace.activation.first_task_created"; source: string }

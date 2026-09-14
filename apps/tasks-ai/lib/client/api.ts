@@ -68,6 +68,15 @@ export const api = {
       version,
       body: JSON.stringify(body),
     }),
+  // --- capture + Inbox triage (#366) ---
+  listInbox: (slug: string) => call<InboxItem[]>(`/workspaces/${slug}/inbox`),
+  listMembers: (slug: string) => call<WorkspaceMember[]>(`/workspaces/${slug}/members`),
+  triageTask: (slug: string, id: string, body: Record<string, unknown>) =>
+    call<Task>(`/workspaces/${slug}/tasks/${id}/triage`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
   completeTask: (slug: string, id: string) =>
     call<Task>(`/workspaces/${slug}/tasks/${id}/complete`, { method: "POST" }),
   deleteTask: (slug: string, id: string, version: number) =>
@@ -147,7 +156,15 @@ export const api = {
   // --- imports (M05) ---
   createImport: (
     slug: string,
-    body: { kind: "csv" | "json"; filename: string; projectId: string; mapping: Record<string, string>; content: string },
+    body: {
+      kind: "csv" | "json";
+      filename: string;
+      projectId: string;
+      mapping: Record<string, string>;
+      content: string;
+      /** Land the rows in the Inbox for review instead of straight into plan (#366). */
+      captureToInbox?: boolean;
+    },
   ) => call<ImportSummary>(`/workspaces/${slug}/imports`, { method: "POST", body: JSON.stringify(body) }),
   applyImport: (slug: string, id: string) =>
     call<ImportSummary>(`/workspaces/${slug}/imports/${id}/apply`, { method: "POST" }),
@@ -381,8 +398,30 @@ export interface Project {
   name: string;
   description: string | null;
   visibility: "workspace" | "private";
+  /** The workspace Inbox container (#366) — not a project people pick. */
+  isInbox: boolean;
   archivedAt: string | null;
   version: number;
+}
+/** One row of the triage Inbox (#366), with the context triage needs. */
+export interface InboxItem {
+  id: string;
+  title: string;
+  description: string | null;
+  projectId: string;
+  projectName: string;
+  projectIsInbox: boolean;
+  assigneeId: string | null;
+  dueDate: string | null;
+  source: string;
+  createdAt: string;
+  version: number;
+}
+export interface WorkspaceMember {
+  id: string;
+  role: string;
+  platformUserId: string;
+  isMe: boolean;
 }
 export interface Task {
   id: string;
@@ -396,6 +435,8 @@ export interface Task {
   startDate: string | null;
   dueDate: string | null;
   completedAt: string | null;
+  /** NULL = still waiting in the Inbox (#366, lib/capture/inbox.ts). */
+  triagedAt: string | null;
   position: number;
   source: string;
   version: number;

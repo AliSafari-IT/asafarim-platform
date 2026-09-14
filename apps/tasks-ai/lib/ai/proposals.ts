@@ -7,6 +7,7 @@ import { ApiError } from "../errors";
 import { emitActivity, recordAudit } from "../events/emit";
 import { EVENT } from "../events/names";
 import { operationSchema, type Operation } from "./types";
+import { initialTriagedAt } from "../capture/inbox";
 import { runAiJob } from "./job";
 
 async function loadProposal(ctx: RequestContext, id: string) {
@@ -54,7 +55,7 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
 
   const project = await ctx.db.project.findFirst({
     where: { id: projectId, workspaceId: ctx.workspaceId, archivedAt: null },
-    select: { id: true },
+    select: { id: true, isInbox: true },
   });
   if (!project) throw new ApiError("not_found", { field: "projectId" });
 
@@ -81,6 +82,19 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
             description: op.fields.description,
             estimate: op.fields.estimate,
             source: "proposal",
+            // Nothing enters the work graph until a human applies the
+            // proposal — that is the AI boundary (docs/adr/0004). Applying
+            // it is not the same as planning it: an applied task that still
+            // has no owner and no date lands in the Inbox so a person
+            // resolves those, instead of quietly posing as planned work
+            // (issue #366, lib/capture/inbox.ts).
+            triagedAt: initialTriagedAt({
+              source: "proposal",
+              hasProject: true,
+              intoInboxProject: project.isInbox,
+              hasAssignee: false,
+              hasDueDate: false,
+            }),
             creatorId: ctx.actor.membershipId,
           },
         });

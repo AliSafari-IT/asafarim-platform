@@ -209,13 +209,23 @@
             ],
             "format": "date-time"
           },
+          "triagedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "null = still waiting in the Inbox (captured, not organized yet)."
+          },
           "source": {
             "type": "string",
             "enum": [
               "manual",
               "quick_capture",
               "import",
-              "proposal"
+              "proposal",
+              "email",
+              "integration"
             ]
           },
           "version": {
@@ -609,6 +619,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "inbox",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "true = only untriaged, uncompleted work (the Inbox); false = only triaged work. Omitted = both."
           }
         ],
         "responses": {
@@ -644,7 +662,7 @@
         }
       },
       "post": {
-        "summary": "Create a task",
+        "summary": "Create (capture) a task — only a title is required",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -657,12 +675,12 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "projectId",
                   "title"
                 ],
                 "properties": {
                   "projectId": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Omit to capture into the workspace Inbox container. The API never picks a project on the caller's behalf."
                   },
                   "title": {
                     "type": "string"
@@ -679,6 +697,21 @@
                   "dueDate": {
                     "type": "string",
                     "format": "date-time"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "manual",
+                      "quick_capture",
+                      "import",
+                      "proposal",
+                      "email",
+                      "integration"
+                    ]
+                  },
+                  "captureToInbox": {
+                    "type": "boolean",
+                    "description": "Keep the task in the Inbox for review even though a project is set."
                   }
                 }
               }
@@ -702,6 +735,138 @@
             }
           },
           "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/inbox": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Captured work awaiting triage, with project and provenance context",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/members": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Workspace members who can own work (assignee picker)",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/tasks/{id}/triage": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Organize an Inbox item: project / owner / due date, and stamp it triaged",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "projectId": {
+                    "type": "string"
+                  },
+                  "assigneeId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dueDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
+                  "triaged": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Task"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "error",
             "content": {
               "application/json": {

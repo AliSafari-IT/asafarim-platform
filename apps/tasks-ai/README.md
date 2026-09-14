@@ -22,6 +22,15 @@ Dev port **3013** · domain `tasks-ai.asafarim.com`.
 The multi-tenant work graph and `/api/v1` land in **M02**; the task
 experience in **M03**.
 
+## Capture and the Inbox
+
+Capture is a first-class workflow: a global Capture action on every
+workspace page, an Inbox that means "captured but not organized yet"
+(a persisted `task.triagedAt`, not a filter over open tasks), and a
+keyboard-driven triage pass that moves work into normal planning. The rule,
+the channels that use it, and the permissions are written up in
+[`docs/capture-inbox.md`](docs/capture-inbox.md).
+
 ## Testora ↔ TasksAI integration
 
 The autonomous quality loop with Testora (epic
