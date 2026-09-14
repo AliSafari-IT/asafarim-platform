@@ -857,6 +857,83 @@
 [data-app="tasks-ai"] .ta-badge--warn { background:#8a6d0022; color:#8a6d00; }
 [data-app="tasks-ai"] .ta-diff__actions { display:flex; gap:.5rem; margin-top:1rem; flex-wrap:wrap; }
 
+/* ── #368 guided intent-to-plan workflow ────────────────────────────── */
+[data-app="tasks-ai"] .ta-sr-only {
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+[data-app="tasks-ai"] .ta-copilot__trust { display:grid; gap:.4rem; justify-items:start; }
+[data-app="tasks-ai"] .ta-copilot__steps {
+  list-style:none; margin:1rem 0; padding:0; display:grid; gap:.5rem;
+  grid-template-columns:repeat(auto-fit, minmax(14rem, 1fr));
+}
+[data-app="tasks-ai"] .ta-copilot__steps li {
+  display:flex; gap:.6rem; align-items:flex-start; padding:.6rem .7rem;
+  border:1px solid var(--line); border-radius:8px; background:var(--surface-2);
+}
+[data-app="tasks-ai"] .ta-copilot__steps li[data-state="current"] { border-color:var(--accent); }
+[data-app="tasks-ai"] .ta-copilot__steps li[data-state="todo"] { opacity:.6; }
+[data-app="tasks-ai"] .ta-copilot__stepno {
+  flex:none; width:1.5rem; height:1.5rem; border-radius:999px; display:grid; place-items:center;
+  background:var(--surface); border:1px solid var(--line); font-size:.75rem; font-weight:700;
+}
+[data-app="tasks-ai"] .ta-copilot__steptext { display:grid; gap:.15rem; font-size:.82rem; }
+[data-app="tasks-ai"] .ta-copilot__steptext span { color:var(--muted); }
+[data-app="tasks-ai"] .ta-copilot__layout { display:grid; gap:1.5rem; }
+[data-app="tasks-ai"] .ta-copilot__layout[data-review="true"] { grid-template-columns:minmax(18rem, 2fr) 3fr; align-items:start; }
+[data-app="tasks-ai"] .ta-copilot__compose { display:grid; gap:1.5rem; align-content:start; min-width:0; }
+[data-app="tasks-ai"] .ta-copilot__review { min-width:0; }
+[data-app="tasks-ai"] .ta-copilot__h2 { margin:0 0 .25rem; font-size:1rem; }
+[data-app="tasks-ai"] .ta-copilot__field { display:grid; gap:.25rem; font-size:.85rem; font-weight:600; max-width:28rem; }
+[data-app="tasks-ai"] .ta-copilot__destform { display:grid; gap:.6rem; max-width:28rem; margin-top:.5rem; }
+[data-app="tasks-ai"] .ta-copilot__intents { border:0; margin:.5rem 0 0; padding:0; display:grid; gap:.4rem; }
+[data-app="tasks-ai"] .ta-copilot__intents label {
+  display:flex; gap:.6rem; align-items:flex-start; padding:.5rem .6rem;
+  border:1px solid var(--line); border-radius:8px; cursor:pointer;
+}
+[data-app="tasks-ai"] .ta-copilot__intents label[data-on="true"] { border-color:var(--accent); background:var(--surface-2); }
+[data-app="tasks-ai"] .ta-copilot__intents label > span { display:grid; gap:.1rem; font-size:.85rem; }
+[data-app="tasks-ai"] .ta-copilot__examples ul { list-style:none; margin:.4rem 0 0; padding:0; display:grid; gap:.4rem; }
+[data-app="tasks-ai"] .ta-copilot__examples button {
+  text-align:left; font:inherit; font-size:.8rem; color:inherit; cursor:pointer;
+  background:var(--surface-2); border:1px dashed var(--line); border-radius:6px; padding:.5rem .6rem; width:100%;
+}
+[data-app="tasks-ai"] .ta-copilot__examples button:hover { border-color:var(--accent); }
+[data-app="tasks-ai"] .ta-copilot__block { color:#8a6d00; }
+[data-app="tasks-ai"] .ta-copilot__degraded { border-left:3px solid #8a6d00; }
+[data-app="tasks-ai"] .ta-copilot__result { border:1px solid var(--line); border-radius:8px; padding:1rem; display:grid; gap:.6rem; }
+[data-app="tasks-ai"] .ta-copilot__next { list-style:none; margin:0; padding:0; display:grid; gap:.5rem; }
+[data-app="tasks-ai"] .ta-copilot__next li { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+
+[data-app="tasks-ai"] .ta-diff__h2 { margin:0 0 .25rem; font-size:1rem; }
+[data-app="tasks-ai"] .ta-diff__trust { font-size:.85rem; color:var(--muted); }
+[data-app="tasks-ai"] .ta-diff__held { font-size:.85rem; color:#8a6d00; }
+[data-app="tasks-ai"] .ta-diff__questions { border:1px dashed var(--line); border-radius:8px; padding:.6rem .8rem; }
+[data-app="tasks-ai"] .ta-diff__questions h3 { margin:0 0 .3rem; font-size:.85rem; }
+[data-app="tasks-ai"] .ta-diff__questions ul { margin:0; padding-left:1.1rem; font-size:.85rem; }
+[data-app="tasks-ai"] .ta-diff__bulk { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin:.75rem 0; font-size:.82rem; }
+[data-app="tasks-ai"] .ta-diff__quote {
+  flex-basis:100%; margin:.2rem 0 0; padding:.2rem 0 .2rem .6rem;
+  border-left:2px solid var(--line); font-size:.78rem; color:var(--muted);
+}
+[data-app="tasks-ai"] .ta-diff__impact { border:1px solid var(--line); border-radius:8px; padding:.7rem .9rem; margin-top:1rem; }
+[data-app="tasks-ai"] .ta-diff__impact h3 { margin:0 0 .25rem; font-size:.85rem; }
+/* What the selection promises but apply will not build — an unselected
+   parent, a dependency with one end missing (PR #377 review). */
+[data-app="tasks-ai"] .ta-diff__unresolved { margin:.3rem 0 0; font-size:.82rem; color:#8a6d00; }
+[data-app="tasks-ai"] .ta-diff__impactline { margin:0; font-weight:600; }
+
+[data-app="tasks-ai"] .ta-drawer__ai { margin-top:1.25rem; border-top:1px solid var(--line); padding-top:.75rem; }
+[data-app="tasks-ai"] .ta-drawer__ai h3 { margin:0 0 .2rem; font-size:.85rem; }
+[data-app="tasks-ai"] .ta-drawer__ailist { list-style:none; margin:.4rem 0 0; padding:0; display:grid; gap:.35rem; }
+[data-app="tasks-ai"] .ta-drawer__ailist li { display:grid; gap:.1rem; font-size:.82rem; }
+[data-app="tasks-ai"] .ta-capture__more-ways { margin-top:.75rem; }
+[data-app="tasks-ai"] .ta-whome__intents { margin-top:1.5rem; }
+
+@media (max-width: 60rem) {
+  [data-app="tasks-ai"] .ta-copilot__layout[data-review="true"] { grid-template-columns:1fr; }
+}
+
 /* ── M08 focus & signals ────────────────────────────────────────────── */
 [data-app="tasks-ai"] .ta-focus { list-style:none; padding:0; display:grid; gap:.75rem; margin:1rem 0; }
 [data-app="tasks-ai"] .ta-focus li { border:1px solid var(--line); border-radius:8px; padding:.6rem .75rem; }

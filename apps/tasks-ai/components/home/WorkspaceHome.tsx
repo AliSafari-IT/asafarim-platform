@@ -6,6 +6,7 @@ import { Button, FieldError, FormRow, Input, Label } from "@asafarim/ui";
 import { api, ClientApiError } from "../../lib/client/api";
 import { track } from "../../lib/client/telemetry";
 import { formatDate } from "../../lib/i18n/format";
+import { COPILOT_INTENTS, copilotHref } from "../../lib/ai/workflow";
 import {
   activationChecklist,
   activationProgress,
@@ -81,6 +82,33 @@ export function WorkspaceHome({
         />
       )}
 
+      {/*
+        The intent-to-plan workflow, discoverable without already knowing the
+        word "Copilot" (issue #368). Each entry is the outcome, in the words
+        somebody would use before they have read any documentation.
+      */}
+      {counts.aiEnabled && (
+        <section className="ta-whome__intents" aria-labelledby="ta-whome-intents">
+          <h2 className="ta-whome__h2" id="ta-whome-intents">
+            Start from something you already wrote
+          </h2>
+          <p className="ta-muted">
+            Paste notes, a brief or a thread. TasksAI drafts a proposal you review line by line —
+            nothing reaches your workspace until you approve it.
+          </p>
+          <ul className="ta-whome__ways">
+            {COPILOT_INTENTS.map((intent) => (
+              <li key={intent.id}>
+                <a href={copilotHref(slug, { intent: intent.id, from: "workspace_home" })}>
+                  {intent.entryLabel}
+                </a>
+                <span>{intent.outcome}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <footer className="ta-whome__foot">
         <h2 className="ta-whome__h2">Other ways to start</h2>
         <ul className="ta-whome__ways">
@@ -93,7 +121,9 @@ export function WorkspaceHome({
             <span>Bring in a CSV or JSON list you already keep somewhere else.</span>
           </li>
           <li>
-            <a href={`/w/${slug}/copilot`}>Copilot</a>
+            <a href={copilotHref(slug, { from: "workspace_home_footer" })}>
+              Turn notes into a plan
+            </a>
             <span>
               {counts.aiEnabled
                 ? "Paste meeting notes or a brief and review the tasks it drafts. Nothing is saved until you approve it."
@@ -310,7 +340,9 @@ function CaptureFirstTask({
       <p className="ta-whome__or">
         Or start from something you already wrote:{" "}
         {aiEnabled ? (
-          <a href={`/w/${slug}/copilot`}>paste notes into Copilot</a>
+          <a href={copilotHref(slug, { intent: "extract_plan", from: "workspace_home_first_run" })}>
+            paste meeting notes and review the tasks it drafts
+          </a>
         ) : (
           <span className="ta-muted">Copilot is switched off for this workspace</span>
         )}{" "}
@@ -362,7 +394,10 @@ function Oriented({
             </a>{" "}
             ·{" "}
             {counts.aiEnabled ? (
-              <a className="ta-link" href={`/w/${slug}/copilot`}>
+              <a
+                className="ta-link"
+                href={copilotHref(slug, { intent: "extract_plan", from: "workspace_home_oriented" })}
+              >
                 Draft work from notes
               </a>
             ) : (

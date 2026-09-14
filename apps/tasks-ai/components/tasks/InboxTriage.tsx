@@ -11,7 +11,9 @@ import {
 } from "../../lib/client/api";
 import { SOURCE_LABEL, whatIsMissing, type CaptureSource } from "../../lib/capture/inbox";
 import { measureView, track } from "../../lib/client/telemetry";
+import { copilotHref } from "../../lib/ai/workflow";
 import { useCapture } from "../capture/CaptureDialog";
+import { useWorkspace } from "../WorkspaceShell";
 import { TaskDetailPanel } from "./TaskDetailPanel";
 
 /**
@@ -35,6 +37,7 @@ const PAGE_SIZE = 50;
 
 export function InboxTriage({ slug, me, role }: { slug: string; me: string; role: string }) {
   const capture = useCapture();
+  const { aiEnabled } = useWorkspace();
   const canTriage = role !== "guest";
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -301,14 +304,26 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
       ) : items.length === 0 ? (
         <EmptyState
           title="Your Inbox is clear"
-          description="Inbox is where newly captured work waits for review. Capture a task now, or paste meeting notes into Copilot and apply what it drafts."
+          description={
+            aiEnabled
+              ? "Inbox is where newly captured work waits for review. Capture a single task, or paste something you already wrote — notes, a brief, a thread — and review the tasks TasksAI drafts from it before anything is created."
+              : "Inbox is where newly captured work waits for review. Capture a task now, or import a list you already keep."
+          }
           action={
             <span className="ta-tw__headactions">
               <Button size="sm" onClick={() => capture.open("", "inbox_empty")}>
                 Capture task
               </Button>
-              <a className="ta-link" href={`/w/${slug}/copilot`}>
-                Open Copilot
+              {aiEnabled && (
+                <a
+                  className="ta-link"
+                  href={copilotHref(slug, { intent: "extract_plan", from: "inbox_empty" })}
+                >
+                  Paste meeting notes
+                </a>
+              )}
+              <a className="ta-link" href={`/w/${slug}/imports`}>
+                Import a task list
               </a>
             </span>
           }

@@ -38,7 +38,20 @@ type TelemetryEvent =
   | { name: "workspace.activation.first_task_created"; source: string }
   | { name: "workspace.activation.first_proposal_generated"; kind: string }
   | { name: "workspace.activation.first_proposal_applied"; operations: number }
-  | { name: "workspace.activation.my_work_opened" };
+  | { name: "workspace.activation.my_work_opened" }
+  // Intent-to-plan workflow (issue #368). The activation events above stay
+  // as they are — they measure the *first* proposal in a workspace, once.
+  // These measure the funnel every time somebody walks it, which is what
+  // tells us where the workflow loses people. `intent` is the plain-language
+  // outcome the user picked, not the internal AI kind.
+  | { name: "copilot.opened"; from: string; intent: string }
+  | { name: "copilot.source_added"; intent: string; chars: number }
+  | { name: "copilot.proposal_generated"; intent: string; operations: number; degraded: boolean }
+  | { name: "copilot.proposal_reviewed"; intent: string; operations: number; assumptions: number }
+  | { name: "copilot.proposal_partially_applied"; accepted: number; total: number; edited: boolean }
+  | { name: "copilot.proposal_applied"; accepted: number; total: number; edited: boolean }
+  | { name: "copilot.proposal_rejected"; intent: string; operations: number }
+  | { name: "copilot.result_opened"; target: string };
 
 const buffer: (TelemetryEvent & { at: number })[] = [];
 

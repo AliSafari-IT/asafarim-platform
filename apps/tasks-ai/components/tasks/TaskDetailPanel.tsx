@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button, ConfirmDialog, Input, Label, Select, Textarea } from "@asafarim/ui";
 import { api, ClientApiError, type Task, type WorkspaceMember } from "../../lib/client/api";
+import { TASK_INTENTS, copilotHref } from "../../lib/ai/workflow";
+import { track } from "../../lib/client/telemetry";
+import { useWorkspace } from "../WorkspaceShell";
 import { CommentsPanel } from "./CommentsPanel";
 
 /**
@@ -36,6 +39,7 @@ export function TaskDetailPanel({
   onClose: () => void;
   onChanged: () => Promise<void> | void;
 }) {
+  const { aiEnabled } = useWorkspace();
   const [task, setTask] = useState<Task | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "conflict">("idle");
@@ -294,6 +298,45 @@ export function TaskDetailPanel({
                   Delete
                 </Button>
               </div>
+            )}
+
+            {/*
+              Contextual AI actions (issue #368). They are links into the
+              same guided proposal workflow, seeded with this task — never a
+              second, quieter mutation path. Nothing here changes the task;
+              the copilot page still generates a proposal the human has to
+              approve. Gated on `canPlan` because applying one creates work,
+              and on the workspace kill-switch so an AI-disabled workspace
+              shows no AI affordance at all.
+            */}
+            {canPlan && aiEnabled && (
+              <section className="ta-drawer__ai" aria-labelledby="td-ai">
+                <h3 id="td-ai">Ask Copilot</h3>
+                <p className="ta-hint">
+                  Copilot drafts a proposal about this task. You review it and decide — nothing is
+                  changed here until you approve it.
+                </p>
+                <ul className="ta-drawer__ailist">
+                  {TASK_INTENTS.map((intent) => (
+                    <li key={intent.id}>
+                      <a
+                        className="ta-link"
+                        href={copilotHref(slug, {
+                          intent: intent.id,
+                          taskId: task.id,
+                          from: "task_detail",
+                        })}
+                        onClick={() =>
+                          track({ name: "copilot.opened", from: "task_detail", intent: intent.id })
+                        }
+                      >
+                        {intent.entryLabel}
+                      </a>
+                      <span className="ta-hint">{intent.outcome}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
 
             <CommentsPanel slug={slug} taskId={task.id} />

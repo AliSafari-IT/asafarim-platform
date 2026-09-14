@@ -160,7 +160,15 @@ export const api = {
   // --- AI copilot (M06/M07) ---
   aiSettings: (slug: string) => call<AiSettings>(`/workspaces/${slug}/ai/settings`),
   aiUsage: (slug: string) => call<AiUsage>(`/workspaces/${slug}/ai/usage`),
-  runAiJob: (slug: string, body: { kind: string; input: string; projectId?: string }) =>
+  /**
+   * `taskId` scopes the draft to an existing task: the server resolves it,
+   * tells the model it may parent under and update that task, and binds the
+   * proposal to it so apply cannot address anything else (#377).
+   */
+  runAiJob: (
+    slug: string,
+    body: { kind: string; input: string; projectId?: string; taskId?: string },
+  ) =>
     call<{ job: AiJob; proposal: ProposalRow; degraded?: boolean }>(
       `/workspaces/${slug}/ai/jobs`,
       { method: "POST", body: JSON.stringify(body) },
@@ -425,6 +433,8 @@ export interface ProposalRow {
   state: string;
   summary: string | null;
   operations: AiOperation[];
+  /** What the model could not resolve from the source (#368). */
+  openQuestions?: string[] | null;
 }
 export type AiOperation =
   | {

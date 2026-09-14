@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Button, FieldError, FormRow, Input, Label } from "@asafarim/ui";
 import { api, ClientApiError, type Project } from "../lib/client/api";
 import { track } from "../lib/client/telemetry";
+import { copilotHref } from "../lib/ai/workflow";
+import { useWorkspace } from "./WorkspaceShell";
 
 export function ProjectsPanel({
   slug,
@@ -14,6 +16,7 @@ export function ProjectsPanel({
   canCreate: boolean;
   initialProjects: Project[];
 }) {
+  const { aiEnabled } = useWorkspace();
   const [projects, setProjects] = useState(initialProjects);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -86,7 +89,25 @@ export function ProjectsPanel({
       )}
 
       {projects.length === 0 ? (
-        <p className="ta-muted">No projects yet.</p>
+        <div className="ta-callout" role="note">
+          <p>
+            No projects yet. A project is where tasks, plans and AI drafts land — create one above
+            to get started.
+          </p>
+          {aiEnabled && (
+            <p>
+              Already have notes or a brief?{" "}
+              <a
+                className="ta-link"
+                href={copilotHref(slug, { intent: "extract_plan", from: "projects_empty" })}
+              >
+                Turn a brief into a plan
+              </a>{" "}
+              — Copilot will help you create the project as part of the same flow, and nothing is
+              saved until you approve it.
+            </p>
+          )}
+        </div>
       ) : (
         <ul className="ta-cards">
           {projects.map((p) => (
