@@ -115,6 +115,41 @@ export const openapiDocument = {
           version: { type: "integer" },
         },
       },
+      InboxItem: {
+        type: "object",
+        description:
+          "One row of the triage Inbox: the task plus the project and provenance context triage needs.",
+        properties: {
+          id: { type: "string" },
+          title: { type: "string" },
+          description: { type: ["string", "null"] },
+          projectId: { type: "string" },
+          projectName: { type: "string" },
+          projectIsInbox: {
+            type: "boolean",
+            description: "True while the item still sits in the workspace Inbox container.",
+          },
+          assigneeId: { type: ["string", "null"] },
+          dueDate: { type: ["string", "null"], format: "date-time" },
+          source: {
+            type: "string",
+            enum: ["manual", "quick_capture", "import", "proposal", "email", "integration"],
+          },
+          createdAt: { type: "string", format: "date-time" },
+          version: { type: "integer" },
+        },
+      },
+      WorkspaceMember: {
+        type: "object",
+        description:
+          "An assignable membership. TasksAI stores only the opaque platform user id — there is no name or email here.",
+        properties: {
+          id: { type: "string" },
+          role: { type: "string", enum: ["owner", "admin", "member", "guest"] },
+          platformUserId: { type: "string" },
+          isMe: { type: "boolean" },
+        },
+      },
     },
   },
   security: [{ session: [] }],
@@ -211,7 +246,9 @@ export const openapiDocument = {
             dueDate: { type: "string", format: "date-time" },
             source: {
               type: "string",
-              enum: ["manual", "quick_capture", "import", "proposal", "email", "integration"],
+              enum: ["manual", "quick_capture"],
+              description:
+                "Provenance a caller may claim. import / email / integration / proposal are set by the server path that produced the work and are refused here.",
             },
             captureToInbox: {
               type: "boolean",
@@ -226,20 +263,35 @@ export const openapiDocument = {
       parameters: [pathParam("slug")],
       get: {
         summary: "Captured work awaiting triage, with project and provenance context",
-        responses: { "200": { description: "ok" } },
+        parameters: [
+          { $ref: "#/components/parameters/cursor" },
+          { $ref: "#/components/parameters/limit" },
+        ],
+        responses: { "200": jsonPage("InboxItem") },
       },
     },
     "/workspaces/{slug}/members": {
       parameters: [pathParam("slug")],
       get: {
         summary: "Workspace members who can own work (assignee picker)",
-        responses: { "200": { description: "ok" } },
+        parameters: [
+          { $ref: "#/components/parameters/cursor" },
+          { $ref: "#/components/parameters/limit" },
+          {
+            name: "q",
+            in: "query",
+            schema: { type: "string" },
+            description: "Server-side filter on the opaque platform user id.",
+          },
+        ],
+        responses: { "200": jsonPage("WorkspaceMember") },
       },
     },
     "/workspaces/{slug}/tasks/{id}/triage": {
       parameters: [pathParam("slug"), pathParam("id")],
       post: {
         summary: "Organize an Inbox item: project / owner / due date, and stamp it triaged",
+        parameters: [{ $ref: "#/components/parameters/IfMatch" }],
         requestBody: jsonBody({
           type: "object",
           properties: {
@@ -249,7 +301,12 @@ export const openapiDocument = {
             triaged: { type: "boolean", default: true },
           },
         }),
-        responses: { "200": jsonOne("Task"), "403": errorRef(), "404": errorRef() },
+        responses: {
+          "200": jsonOne("Task"),
+          "403": errorRef(),
+          "404": errorRef(),
+          "409": errorRef(),
+        },
       },
     },
     "/workspaces/{slug}/tasks/{id}": {

@@ -1,5 +1,5 @@
 import "server-only";
-import type { Prisma } from "../db/generated";
+import type { Prisma, PrismaClient } from "../db/generated";
 import type { RequestContext } from "../context";
 import { ApiError } from "../errors";
 
@@ -67,4 +67,24 @@ export async function getTaskOr404(ctx: RequestContext, id: string) {
   const task = await getTask(ctx, id);
   if (!task) throw new ApiError("not_found");
   return task;
+}
+
+/** Just enough of a transaction client to take a row lock. */
+type RawRunner = Pick<PrismaClient, "$queryRaw">;
+
+/**
+ * Take a row lock on one task, inside a transaction.
+ *
+ * The parent/child same-project invariant spans two writes that touch
+ * different rows — inserting a subtask (`createTask`) and moving a parent
+ * into another project (`triageTask`) — so neither a conditional UPDATE nor
+ * a pre-flight count can make them exclusive on its own. Both paths lock the
+ * *parent* row first, which serializes them: whoever gets the lock decides
+ * against state the other one will then read.
+ *
+ * A missing row is not an error here; the callers have already established
+ * visibility and re-read under the lock.
+ */
+export async function lockTaskRow(tx: RawRunner, id: string): Promise<void> {
+  await tx.$queryRaw`SELECT "id" FROM "task" WHERE "id" = ${id} FOR UPDATE`;
 }

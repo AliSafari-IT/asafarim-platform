@@ -6,8 +6,13 @@ import { emitActivity } from "../events/emit";
 import { EVENT, OUTBOX_TYPE } from "../events/names";
 import { ApiError } from "../errors";
 import { getProjectOr404 } from "../repositories/projects";
-import { getTaskOr404 } from "../repositories/tasks";
-import { CAPTURE_SOURCES, initialTriagedAt, type CaptureSource } from "../capture/inbox";
+import { getTaskOr404, lockTaskRow } from "../repositories/tasks";
+import {
+  CAPTURE_SOURCES,
+  initialTriagedAt,
+  USER_CAPTURE_SOURCES,
+  type CaptureSource,
+} from "../capture/inbox";
 import { ensureInboxProject } from "../capture/service";
 
 const isoDate = z.union([z.string().datetime(), z.date()]).transform((v) => new Date(v));
@@ -46,9 +51,29 @@ export const updateTaskSchema = z
   })
   .partial();
 
-export async function createTask(ctx: RequestContext, input: unknown) {
+export interface CreateTaskOptions {
+  /**
+   * Which `source` values this caller may claim. The public route passes
+   * `USER_CAPTURE_SOURCES`; trusted server paths (import, inbound email,
+   * proposal apply) omit it and keep the full set.
+   */
+  allowedSources?: readonly CaptureSource[];
+}
+
+export async function createTask(
+  ctx: RequestContext,
+  input: unknown,
+  opts: CreateTaskOptions = {},
+) {
   authorize(ctx.actor, "task.create");
   const data = createTaskSchema.parse(input);
+  // Provenance is a trust signal (it drives the Inbox rule and the source
+  // badge), so a user-supplied request cannot claim a system channel.
+  if (opts.allowedSources && !opts.allowedSources.includes(data.source)) {
+    throw new ApiError("validation_failed", {
+      source: `must be one of: ${opts.allowedSources.join(", ")}`,
+    });
+  }
   // A destination the caller chose, or the workspace Inbox container. The
   // one thing this must never do is silently pick somebody's first project
   // (issue #366).
@@ -74,6 +99,21 @@ export async function createTask(ctx: RequestContext, input: unknown) {
   });
 
   return ctx.db.$transaction(async (tx) => {
+    if (data.parentId) {
+      // Re-check the parent under a row lock: `triageTask` takes the same
+      // lock before moving a parent between projects, so the two cannot
+      // interleave and leave this subtask stranded in the old project.
+      await lockTaskRow(tx, data.parentId);
+      const locked = await tx.task.findFirst({
+        where: { id: data.parentId, workspaceId: ctx.workspaceId },
+        select: { projectId: true },
+      });
+      if (!locked) throw new ApiError("not_found");
+      if (locked.projectId !== project.id) {
+        throw new ApiError("validation_failed", { parentId: "parent is in a different project" });
+      }
+    }
+
     const task = await tx.task.create({
       data: {
         workspaceId: ctx.workspaceId,

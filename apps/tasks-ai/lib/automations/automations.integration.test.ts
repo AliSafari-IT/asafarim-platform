@@ -5,6 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { hasTestDatabase, requireTestDatabaseUrl } from "../db/test-database";
 import { PrismaClient } from "../db/generated";
 import type { RequestContext } from "../context";
+import { resetEnvCache } from "../env";
 
 vi.mock("../session", () => ({ getViewer: async () => ({ id: "noop" }) }));
 
@@ -19,6 +20,15 @@ describe.skipIf(!hasTestDatabase())("automations + integrations (integration)", 
       stdio: "inherit",
     });
     process.env.TASKSAI_DATABASE_URL = url;
+    // getEnv() (lib/env.ts) memoizes TASKSAI_DATABASE_URL in a module-level
+    // variable, and getTasksAiDb() (lib/db/client.ts) memoizes the client
+    // built from it on globalThis — both read once, lazily. If another
+    // integration test file (sharing this worker under `fileParallelism:
+    // false`) triggered either cache first with the wrong URL still in
+    // place, the env override above is too late — clear both so the next
+    // call rebuilds against this test database.
+    resetEnvCache();
+    delete (globalThis as { tasksAiPrisma?: unknown }).tasksAiPrisma;
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   });
   afterAll(async () => {
@@ -119,7 +129,9 @@ describe.skipIf(!hasTestDatabase())("automations + integrations (integration)", 
     const r2 = await receiveGithubWebhook({ repo: "acme/site", deliveryId: "d2", eventType: "issues", rawBody: body, signatureHeader: sig });
     expect(r2.taskId).toBe(r1.taskId); // deduped by github:acme/site#7, no second task
 
-    const tasks = await db.task.count({ where: { workspaceId: a.w.id, source: "import" } });
+    // GitHub issues arrive unattended, so #366 sharpened their provenance
+    // from the generic "import" to "integration" (lib/integrations/github.ts).
+    const tasks = await db.task.count({ where: { workspaceId: a.w.id, source: "integration" } });
     expect(tasks).toBe(1);
 
     await expect(

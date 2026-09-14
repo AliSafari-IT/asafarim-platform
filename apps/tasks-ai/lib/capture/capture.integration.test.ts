@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { hasTestDatabase, requireTestDatabaseUrl } from "../db/test-database";
 import { PrismaClient } from "../db/generated";
 import type { RequestContext } from "../context";
+import { resetEnvCache } from "../env";
 
 vi.mock("../session", () => ({ getViewer: vi.fn() }));
 
@@ -25,6 +26,18 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
       env: { ...process.env, TASKSAI_DATABASE_URL: url },
       stdio: "inherit",
     });
+    // receiveInboundEmail (lib/capture/inbound.ts) is a machine entrypoint with
+    // no RequestContext, so it reads getTasksAiDb()'s global singleton — which
+    // reads TASKSAI_DATABASE_URL, not TASKSAI_TEST_DATABASE_URL. Point it at
+    // the same throwaway database as `db`, matching the existing convention in
+    // automations.integration.test.ts.
+    process.env.TASKSAI_DATABASE_URL = url;
+    // See the identical comment in automations.integration.test.ts: both
+    // getEnv()'s memoized TASKSAI_DATABASE_URL and getTasksAiDb()'s cached
+    // client ignore later env changes, so clear both before anything in this
+    // file can trigger them.
+    resetEnvCache();
+    delete (globalThis as { tasksAiPrisma?: unknown }).tasksAiPrisma;
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   });
 
@@ -64,8 +77,8 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     expect(task.triagedAt).toBeNull();
 
     const inbox = await listInbox(ctx);
-    expect(inbox.map((i) => i.id)).toContain(task.id);
-    expect(inbox.find((i) => i.id === task.id)?.projectIsInbox).toBe(true);
+    expect(inbox.items.map((i) => i.id)).toContain(task.id);
+    expect(inbox.items.find((i) => i.id === task.id)?.projectIsInbox).toBe(true);
   });
 
   it("triage removes the item from the Inbox and puts it into My Work", async () => {
@@ -79,7 +92,7 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     const task = await createTask(ctx, { title: "Chase the invoice", source: "quick_capture" });
 
     // Before triage: in the Inbox, absent from My Work.
-    expect((await listInbox(ctx)).map((i) => i.id)).toContain(task.id);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).toContain(task.id);
     const myWorkBefore = await listTasks(ctx, {
       limit: 50,
       assigneeId: owner.id,
@@ -89,7 +102,7 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
 
     await triageTask(ctx, task.id, { projectId: project.id, assigneeId: owner.id });
 
-    expect((await listInbox(ctx)).map((i) => i.id)).not.toContain(task.id);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).not.toContain(task.id);
     const myWorkAfter = await listTasks(ctx, { limit: 50, assigneeId: owner.id, inbox: false });
     expect(myWorkAfter.items.map((t) => t.id)).toContain(task.id);
     const stored = await db.task.findUniqueOrThrow({ where: { id: task.id } });
@@ -105,7 +118,7 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     const task = await createTask(ctx, { title: "Two-minute job", source: "quick_capture" });
     await completeTask(ctx, task.id);
 
-    expect((await listInbox(ctx)).map((i) => i.id)).not.toContain(task.id);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).not.toContain(task.id);
   });
 
   it("email capture keeps its provenance and waits in the Inbox", async () => {
@@ -128,7 +141,7 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     const stored = await db.task.findUniqueOrThrow({ where: { id: taskId } });
     expect(stored.source).toBe("email");
     expect(stored.triagedAt).toBeNull();
-    expect((await listInbox(ctx)).map((i) => i.id)).toContain(taskId);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).toContain(taskId);
   });
 
   it("imports keep source=import, and land in the Inbox only when asked to", async () => {
@@ -189,7 +202,93 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
       code: "forbidden",
     });
     // The Inbox container is not a project the guest belongs to.
-    expect((await listInbox(guestCtx)).map((i) => i.id)).not.toContain(captured.id);
+    expect((await listInbox(guestCtx)).items.map((i) => i.id)).not.toContain(captured.id);
+  });
+
+  it("a subtask created while its parent is moving never ends up stranded", async () => {
+    const { ctx } = await freshWorkspace("cap-race");
+    const { createProject } = await import("../services/projects");
+    const { createTask } = await import("../services/tasks");
+    const { triageTask } = await import("./service");
+
+    const from = await createProject(ctx, { name: "From", key: "FRM" });
+    const to = await createProject(ctx, { name: "To", key: "TOO" });
+
+    // The check ("does this parent have children?") and the move touch
+    // different rows, so only the shared row lock the two paths take makes
+    // them exclusive. Run them together repeatedly: whichever wins, the
+    // parent and its children must always agree on the project.
+    for (let i = 0; i < 12; i++) {
+      const parent = await createTask(ctx, {
+        title: `parent ${i}`,
+        projectId: from.id,
+        source: "manual",
+      });
+      const outcomes = await Promise.allSettled([
+        triageTask(ctx, parent.id, { projectId: to.id }),
+        createTask(ctx, {
+          title: `child ${i}`,
+          projectId: from.id,
+          parentId: parent.id,
+          source: "manual",
+        }),
+      ]);
+
+      // Exactly one of "move the parent" and "give it a child" can happen.
+      expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+
+      const stored = await db.task.findUniqueOrThrow({ where: { id: parent.id } });
+      const children = await db.task.findMany({ where: { parentId: parent.id } });
+      for (const child of children) expect(child.projectId).toBe(stored.projectId);
+    }
+  });
+
+  it("a lost version race reports the version the winner actually left behind", async () => {
+    const { ctx } = await freshWorkspace("cap-ver");
+    const { createTask } = await import("../services/tasks");
+    const { triageTask } = await import("./service");
+
+    for (let i = 0; i < 8; i++) {
+      const task = await createTask(ctx, { title: `contested ${i}`, source: "quick_capture" });
+      const outcomes = await Promise.allSettled([
+        triageTask(ctx, task.id, { triaged: true }, task.version),
+        triageTask(ctx, task.id, { triaged: true }, task.version),
+      ]);
+
+      const stored = await db.task.findUniqueOrThrow({ where: { id: task.id } });
+      for (const outcome of outcomes) {
+        if (outcome.status !== "rejected") continue;
+        const err = outcome.reason as { code?: string; details?: { current?: number } };
+        expect(err.code).toBe("conflict_version");
+        // Whether the loser was caught by the pre-read or by the conditional
+        // UPDATE, the version it reports has to be the one in the database —
+        // a client that retries against it must not lose again.
+        expect(err.details?.current).toBe(stored.version);
+      }
+    }
+  });
+
+  it("archiving the Inbox container does not wedge capture for the workspace", async () => {
+    const { ctx } = await freshWorkspace("cap-arch");
+    const { createTask } = await import("../services/tasks");
+    const { archiveProject } = await import("../services/projects");
+    const { listInbox } = await import("./service");
+
+    await createTask(ctx, { title: "before", source: "quick_capture" });
+    const inbox = await db.project.findFirstOrThrow({
+      where: { workspaceId: ctx.workspaceId, isInbox: true, archivedAt: null },
+    });
+    await archiveProject(ctx, inbox.id);
+
+    // The uniqueness index covers *active* Inbox containers only, so the
+    // archived one no longer blocks the workspace from getting a new one.
+    const after = await createTask(ctx, { title: "after", source: "quick_capture" });
+    expect(after.projectId).not.toBe(inbox.id);
+    const replacement = await db.project.findFirstOrThrow({
+      where: { workspaceId: ctx.workspaceId, isInbox: true, archivedAt: null },
+    });
+    expect(replacement.id).toBe(after.projectId);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).toContain(after.id);
   });
 
   it("applying an AI proposal without owner or date lands the work in the Inbox", async () => {
@@ -233,7 +332,9 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     await applyProposal(ctx, proposal.id, { projectId: project.id });
 
     const inbox = await listInbox(ctx);
-    expect(inbox.map((i) => i.title)).toContain("Draft the statement of work");
-    expect(inbox.find((i) => i.title === "Draft the statement of work")?.source).toBe("proposal");
+    expect(inbox.items.map((i) => i.title)).toContain("Draft the statement of work");
+    expect(inbox.items.find((i) => i.title === "Draft the statement of work")?.source).toBe(
+      "proposal",
+    );
   });
 });

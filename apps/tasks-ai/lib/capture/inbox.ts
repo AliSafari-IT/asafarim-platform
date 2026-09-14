@@ -63,6 +63,15 @@ export const CAPTURE_SOURCES: CaptureSource[] = [
   "integration",
 ];
 
+/**
+ * The only sources a user-facing request may claim for itself. The rest are
+ * provenance of a system channel — an importer, the inbound-email endpoint,
+ * an integration, an applied AI proposal — and are set by the trusted server
+ * path that actually did the work. Letting a caller pick them would make the
+ * source badge, and the Inbox rule that keys off it, forgeable.
+ */
+export const USER_CAPTURE_SOURCES: CaptureSource[] = ["manual", "quick_capture"];
+
 /** Short human label for a source badge in the triage list. */
 export const SOURCE_LABEL: Record<CaptureSource, string> = {
   manual: "Added by hand",

@@ -27,6 +27,17 @@ export function ImportWizard({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * Every field below is baked into the dry run, so changing any of them
+   * makes the existing preview describe a different import than the one
+   * Apply would run. Drop the preview rather than let Apply commit staged
+   * rows the form no longer shows.
+   */
+  function edit<T>(set: (value: T) => void, value: T) {
+    set(value);
+    setDry(null);
+  }
+
   async function preview() {
     setBusy(true);
     setError(null);
@@ -76,11 +87,11 @@ export function ImportWizard({
       <div className="ta-panelform">
         <FormRow>
           <Label htmlFor="im-kind">Format</Label>
-          <Select id="im-kind" value={kind} onChange={(e) => setKind(e.target.value as "csv" | "json")} options={[{ value: "csv", label: "CSV" }, { value: "json", label: "JSON" }]} />
+          <Select id="im-kind" value={kind} onChange={(e) => edit(setKind, e.target.value as "csv" | "json")} options={[{ value: "csv", label: "CSV" }, { value: "json", label: "JSON" }]} />
         </FormRow>
         <FormRow>
           <Label htmlFor="im-proj">Into project</Label>
-          <Select id="im-proj" value={projectId} onChange={(e) => setProjectId(e.target.value)} options={projects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` }))} />
+          <Select id="im-proj" value={projectId} onChange={(e) => edit(setProjectId, e.target.value)} options={projects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` }))} />
         </FormRow>
         <FormRow>
           {/* Imports can be treated as capture rather than as planned work
@@ -89,20 +100,20 @@ export function ImportWizard({
             <input
               type="checkbox"
               checked={toInbox}
-              onChange={(e) => setToInbox(e.target.checked)}
+              onChange={(e) => edit(setToInbox, e.target.checked)}
             />
             Review the imported rows in the Inbox before they count as planned work
           </label>
         </FormRow>
         <FormRow>
           <Label htmlFor="im-content">File contents</Label>
-          <Textarea id="im-content" rows={8} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Id,Title,Notes,Due&#10;1,Draft brief,,2026-09-10" />
+          <Textarea id="im-content" rows={8} value={content} onChange={(e) => edit(setContent, e.target.value)} placeholder="Id,Title,Notes,Due&#10;1,Draft brief,,2026-09-10" />
         </FormRow>
         <div className="ta-import__map">
-          <label>Title col<Input value={titleCol} onChange={(e) => setTitleCol(e.target.value)} /></label>
-          <label>Description col<Input value={descCol} onChange={(e) => setDescCol(e.target.value)} placeholder="(optional)" /></label>
-          <label>Due col<Input value={dueCol} onChange={(e) => setDueCol(e.target.value)} placeholder="(optional)" /></label>
-          <label>External id col<Input value={idCol} onChange={(e) => setIdCol(e.target.value)} placeholder="(dedup key)" /></label>
+          <label>Title col<Input value={titleCol} onChange={(e) => edit(setTitleCol, e.target.value)} /></label>
+          <label>Description col<Input value={descCol} onChange={(e) => edit(setDescCol, e.target.value)} placeholder="(optional)" /></label>
+          <label>Due col<Input value={dueCol} onChange={(e) => edit(setDueCol, e.target.value)} placeholder="(optional)" /></label>
+          <label>External id col<Input value={idCol} onChange={(e) => edit(setIdCol, e.target.value)} placeholder="(dedup key)" /></label>
         </div>
         {error && <FieldError>{error}</FieldError>}
         <Button size="sm" onClick={preview} disabled={busy || content.trim().length < 5 || !projectId || !titleCol}>

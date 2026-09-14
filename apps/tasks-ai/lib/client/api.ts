@@ -24,10 +24,10 @@ export class ClientApiError extends Error {
   }
 }
 
-async function call<T>(
+async function request(
   path: string,
   init: RequestInit & { version?: number } = {},
-): Promise<T> {
+): Promise<{ data?: unknown; page?: { nextCursor: string | null } }> {
   const headers = new Headers(init.headers);
   headers.set("content-type", "application/json");
   if (init.version != null) headers.set("if-match", `"${init.version}"`);
@@ -39,7 +39,28 @@ async function call<T>(
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};
   if (!res.ok) throw new ClientApiError(res.status, json.error ?? { code: "internal", message: res.statusText });
-  return json.data as T;
+  return json;
+}
+
+async function call<T>(
+  path: string,
+  init: RequestInit & { version?: number } = {},
+): Promise<T> {
+  return (await request(path, init)).data as T;
+}
+
+/** One page of a cursor-paginated collection. */
+export interface Page<T> {
+  items: T[];
+  nextCursor: string | null;
+}
+
+async function callPage<T>(
+  path: string,
+  init: RequestInit & { version?: number } = {},
+): Promise<Page<T>> {
+  const json = await request(path, init);
+  return { items: (json.data ?? []) as T[], nextCursor: json.page?.nextCursor ?? null };
 }
 
 export const api = {
@@ -69,11 +90,18 @@ export const api = {
       body: JSON.stringify(body),
     }),
   // --- capture + Inbox triage (#366) ---
-  listInbox: (slug: string) => call<InboxItem[]>(`/workspaces/${slug}/inbox`),
-  listMembers: (slug: string) => call<WorkspaceMember[]>(`/workspaces/${slug}/members`),
-  triageTask: (slug: string, id: string, body: Record<string, unknown>) =>
+  listInbox: (slug: string, query: Record<string, string> = {}) =>
+    callPage<InboxItem>(`/workspaces/${slug}/inbox?${new URLSearchParams(query)}`),
+  listMembers: (slug: string, query: Record<string, string> = {}) =>
+    callPage<WorkspaceMember>(`/workspaces/${slug}/members?${new URLSearchParams(query)}`),
+  /**
+   * `version` is the InboxItem version the row was rendered from: the server
+   * refuses the triage with conflict_version if somebody else moved first.
+   */
+  triageTask: (slug: string, id: string, body: Record<string, unknown>, version?: number) =>
     call<Task>(`/workspaces/${slug}/tasks/${id}/triage`, {
       method: "POST",
+      version,
       body: JSON.stringify(body),
     }),
 
