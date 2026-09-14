@@ -3,13 +3,17 @@
 AI-native work execution — *from scattered intent to trusted execution*.
 Dev port **3013** · domain `tasks-ai.asafarim.com`.
 
-> **Status: early development (M01).** A deployable shell, not a launched or
-> commercial product. See [`docs/charter.md`](docs/charter.md) and the
-> milestone plan in [`docs/roadmap-implementation-plan.md`](docs/roadmap-implementation-plan.md).
+> **Status: pre-beta (through M07).** The non-AI core task experience,
+> capture/Inbox, My Work, and the proposal-only AI copilot have landed, but
+> this is not a launched or commercial product. See
+> [`docs/charter.md`](docs/charter.md) and the milestone plan in
+> [`docs/roadmap-implementation-plan.md`](docs/roadmap-implementation-plan.md).
+> The commercial-license gate and public launch are M14; design-partner
+> beta begins at M13 ([`docs/beta-plan.md`](docs/beta-plan.md)).
 
-## What exists after M01
+## What exists
 
-- Next.js 16 app shell (public landing + authenticated `/workspace`), shared
+- Next.js 16 app shell (public landing + authenticated `/w/{slug}`), shared
   SSO via Hub, `@asafarim/ui` design system, `data-app="tasks-ai"` theming.
 - **Dedicated PostgreSQL database** (isolated Prisma client under
   `lib/db/generated`), migration boundary, readiness probe.
@@ -19,17 +23,52 @@ Dev port **3013** · domain `tasks-ai.asafarim.com`.
 - Unit tests (Vitest), integration-test harness (gated on a throwaway DB),
   Playwright smoke, and a dedicated CI workflow.
 
-The multi-tenant work graph and `/api/v1` land in **M02**; the task
-experience in **M03**.
+### Surfaces (M03–M07)
 
-## Capture and the Inbox
+- **Workspace Home** ([`docs/`](docs/) · `lib/home/`): a guided first-run
+  activation flow and a single-screen overview of projects, due work, and
+  entry points — the answer to "where do I start?"
+- **Capture & Inbox** ([`docs/capture-inbox.md`](docs/capture-inbox.md)): a
+  global Capture action on every workspace page; an Inbox that means
+  "captured but not organized yet" (a persisted `task.triagedAt`, not a
+  filter over open tasks); a keyboard-driven triage pass that moves work
+  into normal planning.
+- **My Work** ([`docs/my-work.md`](docs/my-work.md)): the daily execution
+  view — everything assigned to me, grouped by Overdue / Today / Blocked /
+  Upcoming / No due date, with quick edit and keyboard control. Deliberately
+  *not* a ranking; Focus is the separate prioritization layer.
+- **Projects** — project list and per-project task workspace
+  (`components/tasks/TaskWorkspace.tsx`).
+- **AI Copilot** ([`docs/copilot.md`](docs/copilot.md)): a guided
+  intent→plan flow at `/w/{slug}/copilot` — paste notes, pick an intent and
+  destination, generate a **proposal**, review a grouped diff (create /
+  update / link) with source citations and confidence, partially accept,
+  edit, apply, undo, and leave feedback. The human is always the author.
+- **Focus** ([`docs/intelligence.md`](docs/intelligence.md)): explainable
+  focus ranking with per-factor transparency and user overrides.
+- Settings, imports, search, analytics, automations, and admin surfaces are
+  scaffolded under `/w/{slug}/*`.
 
-Capture is a first-class workflow: a global Capture action on every
-workspace page, an Inbox that means "captured but not organized yet"
-(a persisted `task.triagedAt`, not a filter over open tasks), and a
-keyboard-driven triage pass that moves work into normal planning. The rule,
-the channels that use it, and the permissions are written up in
-[`docs/capture-inbox.md`](docs/capture-inbox.md).
+The four surfaces that must stay distinct:
+
+| Surface  | Question it answers                          |
+|----------|----------------------------------------------|
+| Inbox    | What still needs organizing?                 |
+| My Work  | What am I responsible for, and when?         |
+| Projects | What is the team doing, in context?          |
+| Focus    | What deserves my attention first, and why?  |
+
+## AI boundary
+
+AI never mutates domain data. Every change is a **proposal** of operations
+drawn from a fixed allowlist (`create_task`, `update_task`, `link_tasks`) —
+assignees, dates, roles, permissions, billing, and messaging are not
+representable in the schema, so prompt injection cannot widen the scope.
+The pipeline, provider boundary (fixture / Anthropic / OpenAI), redaction,
+quotas, kill switch, and offline evals are documented in
+[`docs/ai-boundary.md`](docs/ai-boundary.md) and ADR
+[0004](docs/adr/0004-ai-proposal-model.md). Core task management stays fully
+usable with AI disabled.
 
 ## Testora ↔ TasksAI integration
 
@@ -53,6 +92,7 @@ pnpm --filter @asafarim/tasks-ai test           # unit only, DB-free
 pnpm --filter @asafarim/tasks-ai test:integration   # needs TASKSAI_TEST_DATABASE_URL
 pnpm --filter @asafarim/tasks-ai db:migrate     # prisma migrate dev
 pnpm --filter @asafarim/tasks-ai e2e            # Playwright smoke
+pnpm --filter @asafarim/tasks-ai ai:eval        # offline AI evals (fixture, $0)
 ```
 
 Local infra (Postgres :55438, Redis :6390):
