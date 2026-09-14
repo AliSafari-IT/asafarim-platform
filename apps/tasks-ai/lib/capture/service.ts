@@ -7,7 +7,7 @@ import { authorize } from "../authz";
 import { ApiError } from "../errors";
 import { emitActivity } from "../events/emit";
 import { EVENT, OUTBOX_TYPE } from "../events/names";
-import { getTaskOr404 } from "../repositories/tasks";
+import { getTaskOr404, lockTaskRow } from "../repositories/tasks";
 import {
   INBOX_PROJECT_DESCRIPTION,
   INBOX_PROJECT_KEY,
@@ -80,9 +80,10 @@ export async function ensureInboxProjectFor(db: DbLike, workspaceId: string) {
     } catch (err) {
       if (!isUniqueViolation(err)) throw err;
       // Two captures raced. Either the partial unique index on
-      // (workspaceId) WHERE "isInbox" rejected the second container — the
-      // winner is the one both callers wanted — or the key was taken between
-      // the check and the insert, in which case try the next candidate.
+      // (workspaceId) WHERE "isInbox" AND "archivedAt" IS NULL rejected the
+      // second container — the winner is the one both callers wanted — or
+      // the key was taken between the check and the insert, in which case
+      // try the next candidate.
       const winner = await findInbox(db, workspaceId);
       if (winner) return winner;
     }
@@ -144,10 +145,10 @@ async function updateOrConflict(
       err !== null &&
       (err as { code?: unknown }).code === "P2025"
     ) {
-      throw new ApiError("conflict_version", {
-        expected: expectedVersion,
-        current: current.version,
-      });
+      // No `current` here: the version this function was handed predates the
+      // write that just beat it, so reporting it would be a lie. The caller
+      // re-reads the real one once its transaction has rolled back.
+      throw new ApiError("conflict_version", { expected: expectedVersion });
     }
     throw err;
   }
@@ -172,7 +173,8 @@ export async function triageTask(
     throw new ApiError("conflict_version", { expected: expectedVersion, current: current.version });
   }
 
-  if (data.projectId && data.projectId !== current.projectId) {
+  const movesProject = Boolean(data.projectId && data.projectId !== current.projectId);
+  if (movesProject) {
     const target = await ctx.db.project.findFirst({
       where: { id: data.projectId, workspaceId: ctx.workspaceId, archivedAt: null },
       select: { id: true },
@@ -182,16 +184,6 @@ export async function triageTask(
       // A subtask cannot outrun its parent into another project.
       throw new ApiError("validation_failed", {
         projectId: "detach the subtask before moving it to another project",
-      });
-    }
-    // …and a parent cannot outrun its children either: the same-project
-    // invariant enforced at creation has to survive triage.
-    const children = await ctx.db.task.count({
-      where: { parentId: current.id, archivedAt: null },
-    });
-    if (children > 0) {
-      throw new ApiError("validation_failed", {
-        projectId: "detach the subtasks before moving this task to another project",
       });
     }
   }
@@ -215,50 +207,84 @@ export async function triageTask(
 
   const triagedAt = data.triaged ? (current.triagedAt ?? new Date()) : null;
 
-  return ctx.db.$transaction(async (tx) => {
-    // The version is part of the WHERE, not a read-then-write check: two
-    // concurrent stale triages must not both succeed.
-    const updated = await updateOrConflict(tx, current, expectedVersion, {
-      ...(data.projectId ? { projectId: data.projectId } : {}),
-      ...(data.assigneeId !== undefined ? { assigneeId: data.assigneeId } : {}),
-      ...(data.dueDate !== undefined
-        ? { dueDate: data.dueDate === null ? null : new Date(data.dueDate) }
-        : {}),
-      triagedAt,
-      version: { increment: 1 },
-    });
+  try {
+    return await ctx.db.$transaction(async (tx) => {
+      if (movesProject) {
+        // A parent cannot outrun its children: the same-project invariant
+        // enforced at creation has to survive triage. Counting before the
+        // transaction left a window for a concurrent subtask insert to
+        // strand a child in the old project, so take the row lock
+        // `createTask` also takes, and count under it.
+        await lockTaskRow(tx, current.id);
+        const children = await tx.task.count({
+          where: { parentId: current.id, archivedAt: null },
+        });
+        if (children > 0) {
+          throw new ApiError("validation_failed", {
+            projectId: "detach the subtasks before moving this task to another project",
+          });
+        }
+      }
 
-    await emitActivity(
-      tx,
-      ctx.workspaceId,
-      ctx.correlationId,
-      {
-        name: EVENT.taskTriaged,
-        targetType: "task",
-        targetId: updated.id,
-        actorId: ctx.actor.membershipId,
-        data: {
-          triaged: Boolean(triagedAt),
-          projectId: updated.projectId,
-          assigneeId: updated.assigneeId,
-          source: updated.source,
+      // The version is part of the WHERE, not a read-then-write check: two
+      // concurrent stale triages must not both succeed.
+      const updated = await updateOrConflict(tx, current, expectedVersion, {
+        ...(data.projectId ? { projectId: data.projectId } : {}),
+        ...(data.assigneeId !== undefined ? { assigneeId: data.assigneeId } : {}),
+        ...(data.dueDate !== undefined
+          ? { dueDate: data.dueDate === null ? null : new Date(data.dueDate) }
+          : {}),
+        triagedAt,
+        version: { increment: 1 },
+      });
+
+      await emitActivity(
+        tx,
+        ctx.workspaceId,
+        ctx.correlationId,
+        {
+          name: EVENT.taskTriaged,
+          targetType: "task",
+          targetId: updated.id,
+          actorId: ctx.actor.membershipId,
+          data: {
+            triaged: Boolean(triagedAt),
+            projectId: updated.projectId,
+            assigneeId: updated.assigneeId,
+            source: updated.source,
+          },
         },
-      },
-      [{ type: OUTBOX_TYPE.searchIndex, payload: { taskId: updated.id } }],
-    );
+        [{ type: OUTBOX_TYPE.searchIndex, payload: { taskId: updated.id } }],
+      );
 
-    if (data.assigneeId !== undefined && data.assigneeId !== current.assigneeId) {
-      await emitActivity(tx, ctx.workspaceId, ctx.correlationId, {
-        name: EVENT.taskAssigned,
-        targetType: "task",
-        targetId: updated.id,
-        actorId: ctx.actor.membershipId,
-        data: { assigneeId: data.assigneeId },
+      if (data.assigneeId !== undefined && data.assigneeId !== current.assigneeId) {
+        await emitActivity(tx, ctx.workspaceId, ctx.correlationId, {
+          name: EVENT.taskAssigned,
+          targetType: "task",
+          targetId: updated.id,
+          actorId: ctx.actor.membershipId,
+          data: { assigneeId: data.assigneeId },
+        });
+      }
+
+      return updated;
+    });
+  } catch (err) {
+    // The conditional UPDATE lost the race. Now that our transaction has
+    // rolled back, read the version the winner left behind, so the 409 tells
+    // the client what to reconcile against instead of echoing a stale number.
+    if (err instanceof ApiError && err.code === "conflict_version") {
+      const fresh = await ctx.db.task.findFirst({
+        where: { id: current.id, workspaceId: ctx.workspaceId },
+        select: { version: true },
+      });
+      throw new ApiError("conflict_version", {
+        expected: expectedVersion,
+        ...(fresh ? { current: fresh.version } : {}),
       });
     }
-
-    return updated;
-  });
+    throw err;
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────

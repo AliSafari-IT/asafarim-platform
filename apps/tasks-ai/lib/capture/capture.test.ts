@@ -82,6 +82,9 @@ function makeDb(
         ...data,
       })),
     },
+    // `lockTaskRow` takes a `SELECT … FOR UPDATE` inside the transaction;
+    // there is no row locking to simulate in-process.
+    $queryRaw: vi.fn(async () => []),
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(db),
   };
   return db;

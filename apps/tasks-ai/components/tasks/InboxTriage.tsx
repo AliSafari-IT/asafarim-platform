@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, EmptyState, Select } from "@asafarim/ui";
 import {
   api,
@@ -32,8 +32,6 @@ const KEY_HINTS = "j/k move · t organize · a assign to me · d due date · c c
 
 /** One screenful of triage. More arrives on demand, never silently capped. */
 const PAGE_SIZE = 50;
-/** Safety valve on the member paging loop below. */
-const MAX_MEMBER_PAGES = 20;
 
 export function InboxTriage({ slug, me, role }: { slug: string; me: string; role: string }) {
   const capture = useCapture();
@@ -48,16 +46,25 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
   const [selected, setSelected] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // Bumped by every refresh. A page fetched from a cursor into the *old*
+  // list would append items the refresh has already re-listed, or skip the
+  // ones it pushed across the boundary, so a response from an earlier
+  // generation is discarded rather than applied.
+  const generation = useRef(0);
+
   const load = useCallback(async () => {
     const done = measureView("inbox");
+    const gen = (generation.current += 1);
     try {
       const first = await api.listInbox(slug, { limit: String(PAGE_SIZE) });
+      if (generation.current !== gen) return;
       setItems(first.items);
       setNextCursor(first.nextCursor);
       setCursor((c) => Math.min(c, Math.max(first.items.length - 1, 0)));
       setError(null);
       track({ name: "inbox.viewed", items: first.items.length });
     } catch (err) {
+      if (generation.current !== gen) return;
       setError(err instanceof Error ? err.message : "Could not load the Inbox.");
     } finally {
       done();
@@ -66,12 +73,16 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
 
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) return;
+    const gen = generation.current;
+    const from = nextCursor;
     setLoadingMore(true);
     try {
-      const more = await api.listInbox(slug, { limit: String(PAGE_SIZE), cursor: nextCursor });
+      const more = await api.listInbox(slug, { limit: String(PAGE_SIZE), cursor: from });
+      if (generation.current !== gen) return;
       setItems((cur) => [...(cur ?? []), ...more.items]);
       setNextCursor(more.nextCursor);
     } catch (err) {
+      if (generation.current !== gen) return;
       setError(err instanceof Error ? err.message : "Could not load more Inbox items.");
     } finally {
       setLoadingMore(false);
@@ -93,15 +104,21 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
     // assignable has to be selectable.
     async function allMembers() {
       const collected: WorkspaceMember[] = [];
+      const seen = new Set<string>();
       let cursorAt: string | null = null;
-      for (let i = 0; i < MAX_MEMBER_PAGES; i++) {
+      // No page cap: a member past an arbitrary ceiling would silently stop
+      // being assignable. The loop ends when the server stops handing back a
+      // cursor; a repeated cursor means the server is not advancing, and
+      // stopping there is the only thing that beats looping forever.
+      for (;;) {
         const chunk: Awaited<ReturnType<typeof api.listMembers>> = await api.listMembers(slug, {
           limit: "100",
           ...(cursorAt ? { cursor: cursorAt } : {}),
         });
         collected.push(...chunk.items);
+        if (!chunk.nextCursor || seen.has(chunk.nextCursor)) break;
+        seen.add(chunk.nextCursor);
         cursorAt = chunk.nextCursor;
-        if (!cursorAt) break;
       }
       return collected;
     }

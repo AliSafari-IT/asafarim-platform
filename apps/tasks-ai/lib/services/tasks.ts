@@ -6,7 +6,7 @@ import { emitActivity } from "../events/emit";
 import { EVENT, OUTBOX_TYPE } from "../events/names";
 import { ApiError } from "../errors";
 import { getProjectOr404 } from "../repositories/projects";
-import { getTaskOr404 } from "../repositories/tasks";
+import { getTaskOr404, lockTaskRow } from "../repositories/tasks";
 import {
   CAPTURE_SOURCES,
   initialTriagedAt,
@@ -99,6 +99,21 @@ export async function createTask(
   });
 
   return ctx.db.$transaction(async (tx) => {
+    if (data.parentId) {
+      // Re-check the parent under a row lock: `triageTask` takes the same
+      // lock before moving a parent between projects, so the two cannot
+      // interleave and leave this subtask stranded in the old project.
+      await lockTaskRow(tx, data.parentId);
+      const locked = await tx.task.findFirst({
+        where: { id: data.parentId, workspaceId: ctx.workspaceId },
+        select: { projectId: true },
+      });
+      if (!locked) throw new ApiError("not_found");
+      if (locked.projectId !== project.id) {
+        throw new ApiError("validation_failed", { parentId: "parent is in a different project" });
+      }
+    }
+
     const task = await tx.task.create({
       data: {
         workspaceId: ctx.workspaceId,

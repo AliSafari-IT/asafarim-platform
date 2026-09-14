@@ -205,6 +205,92 @@ describe.skipIf(!hasTestDatabase())("capture and inbox (integration)", () => {
     expect((await listInbox(guestCtx)).items.map((i) => i.id)).not.toContain(captured.id);
   });
 
+  it("a subtask created while its parent is moving never ends up stranded", async () => {
+    const { ctx } = await freshWorkspace("cap-race");
+    const { createProject } = await import("../services/projects");
+    const { createTask } = await import("../services/tasks");
+    const { triageTask } = await import("./service");
+
+    const from = await createProject(ctx, { name: "From", key: "FRM" });
+    const to = await createProject(ctx, { name: "To", key: "TOO" });
+
+    // The check ("does this parent have children?") and the move touch
+    // different rows, so only the shared row lock the two paths take makes
+    // them exclusive. Run them together repeatedly: whichever wins, the
+    // parent and its children must always agree on the project.
+    for (let i = 0; i < 12; i++) {
+      const parent = await createTask(ctx, {
+        title: `parent ${i}`,
+        projectId: from.id,
+        source: "manual",
+      });
+      const outcomes = await Promise.allSettled([
+        triageTask(ctx, parent.id, { projectId: to.id }),
+        createTask(ctx, {
+          title: `child ${i}`,
+          projectId: from.id,
+          parentId: parent.id,
+          source: "manual",
+        }),
+      ]);
+
+      // Exactly one of "move the parent" and "give it a child" can happen.
+      expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+
+      const stored = await db.task.findUniqueOrThrow({ where: { id: parent.id } });
+      const children = await db.task.findMany({ where: { parentId: parent.id } });
+      for (const child of children) expect(child.projectId).toBe(stored.projectId);
+    }
+  });
+
+  it("a lost version race reports the version the winner actually left behind", async () => {
+    const { ctx } = await freshWorkspace("cap-ver");
+    const { createTask } = await import("../services/tasks");
+    const { triageTask } = await import("./service");
+
+    for (let i = 0; i < 8; i++) {
+      const task = await createTask(ctx, { title: `contested ${i}`, source: "quick_capture" });
+      const outcomes = await Promise.allSettled([
+        triageTask(ctx, task.id, { triaged: true }, task.version),
+        triageTask(ctx, task.id, { triaged: true }, task.version),
+      ]);
+
+      const stored = await db.task.findUniqueOrThrow({ where: { id: task.id } });
+      for (const outcome of outcomes) {
+        if (outcome.status !== "rejected") continue;
+        const err = outcome.reason as { code?: string; details?: { current?: number } };
+        expect(err.code).toBe("conflict_version");
+        // Whether the loser was caught by the pre-read or by the conditional
+        // UPDATE, the version it reports has to be the one in the database —
+        // a client that retries against it must not lose again.
+        expect(err.details?.current).toBe(stored.version);
+      }
+    }
+  });
+
+  it("archiving the Inbox container does not wedge capture for the workspace", async () => {
+    const { ctx } = await freshWorkspace("cap-arch");
+    const { createTask } = await import("../services/tasks");
+    const { archiveProject } = await import("../services/projects");
+    const { listInbox } = await import("./service");
+
+    await createTask(ctx, { title: "before", source: "quick_capture" });
+    const inbox = await db.project.findFirstOrThrow({
+      where: { workspaceId: ctx.workspaceId, isInbox: true, archivedAt: null },
+    });
+    await archiveProject(ctx, inbox.id);
+
+    // The uniqueness index covers *active* Inbox containers only, so the
+    // archived one no longer blocks the workspace from getting a new one.
+    const after = await createTask(ctx, { title: "after", source: "quick_capture" });
+    expect(after.projectId).not.toBe(inbox.id);
+    const replacement = await db.project.findFirstOrThrow({
+      where: { workspaceId: ctx.workspaceId, isInbox: true, archivedAt: null },
+    });
+    expect(replacement.id).toBe(after.projectId);
+    expect((await listInbox(ctx)).items.map((i) => i.id)).toContain(after.id);
+  });
+
   it("applying an AI proposal without owner or date lands the work in the Inbox", async () => {
     const { ctx } = await freshWorkspace("cap-g");
     const { createProject } = await import("../services/projects");
