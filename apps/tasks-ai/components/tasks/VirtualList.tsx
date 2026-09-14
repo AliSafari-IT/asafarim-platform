@@ -16,10 +16,23 @@ export interface VirtualListHandle {
 
 /**
  * Fixed-row windowed list. Only the rows near the viewport are in the DOM;
- * spacer divs preserve the scrollbar. Keyboard/AT users still reach every
- * row because focus moving to an off-window row scrolls it into view via
- * the browser's native anchor handling on the container, and because callers
- * can drive the window directly through `handleRef`.
+ * spacer divs preserve the scrollbar.
+ *
+ * Accessibility, honestly stated (PR #375 review, M11 AT objective).
+ * Windowing and assistive technology are in genuine tension: a screen reader
+ * browsing the document can only reach what is mounted, so rows outside the
+ * window are *not* reachable by sequential browse or Tab. What this list
+ * guarantees instead is that the row a caller is navigating to is always
+ * mounted — `activeIndex` is rendered even when the window has moved past it
+ * — so the caller can put real DOM focus on it and a screen reader announces
+ * it through ordinary focus semantics. Callers drive that with `handleRef`
+ * (move the window) plus focusing the row they registered.
+ *
+ * Remaining limitation: free browse-mode exploration of an off-window row is
+ * still not possible. Closing that properly needs either a paginated
+ * non-windowed mode or a virtualizer with a full ARIA grid/listbox
+ * navigation model; both are larger than this component and are tracked as
+ * follow-up work rather than pretended away here.
  */
 export function VirtualList<T>({
   items,
@@ -29,6 +42,7 @@ export function VirtualList<T>({
   renderRow,
   ariaLabel,
   handleRef,
+  activeIndex,
 }: {
   items: T[];
   rowHeight: number;
@@ -36,6 +50,11 @@ export function VirtualList<T>({
   overscan?: number;
   renderRow: (item: T, index: number) => ReactNode;
   ariaLabel?: string;
+  /**
+   * The row the caller's keyboard cursor is on. Kept mounted regardless of
+   * the window, so focusing it is always possible.
+   */
+  activeIndex?: number;
   /**
    * Filled with this list's imperative handle while it is mounted. A plain
    * ref object rather than `forwardRef` so the component stays generic in
@@ -82,6 +101,16 @@ export function VirtualList<T>({
     overscan,
   });
 
+  // The cursor's row stays in the DOM even if the window has scrolled past
+  // it, so focus (and therefore the screen reader) can always land on it.
+  const strayActive =
+    activeIndex !== undefined &&
+    activeIndex >= 0 &&
+    activeIndex < items.length &&
+    (activeIndex < w.start || activeIndex >= w.end)
+      ? activeIndex
+      : null;
+
   return (
     <div
       className="ta-vlist"
@@ -103,6 +132,21 @@ export function VirtualList<T>({
             </div>
           ))}
         </div>
+        {strayActive !== null && (
+          <div
+            role="listitem"
+            key={`active-${strayActive}`}
+            style={{
+              position: "absolute",
+              top: strayActive * rowHeight,
+              left: 0,
+              right: 0,
+              height: rowHeight,
+            }}
+          >
+            {renderRow(items[strayActive]!, strayActive)}
+          </div>
+        )}
       </div>
     </div>
   );

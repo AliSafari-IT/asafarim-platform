@@ -103,6 +103,26 @@ describe("POST /workspaces/{slug}/tasks/{id}/plan idempotency (#375 review)", ()
     expect(planTask).toHaveBeenLastCalledWith(ctx, "t-1", body, 4);
   });
 
+  it("does not replay when the same key comes back with a different If-Match", async () => {
+    const ctx = fakeContext();
+    resolveContext.mockResolvedValue(ctx);
+    planTask.mockResolvedValue({ id: "t-1", version: 5 });
+
+    const { POST } = await import("./route");
+    const body = { dueDate: "2026-09-20T00:00:00.000Z" };
+
+    const first = await POST(request(body, { "idempotency-key": "key-1", "if-match": "4" }), params);
+    expect(first.status).toBe(200);
+
+    // Same key, same JSON, different precondition: that is a different
+    // request, so the stored response must not stand in for the
+    // stale-version check the client asked for.
+    const second = await POST(request(body, { "idempotency-key": "key-1", "if-match": "9" }), params);
+    expect(second.status).toBe(409);
+    expect(await second.json()).toMatchObject({ error: { code: "idempotency_mismatch" } });
+    expect(planTask).toHaveBeenCalledTimes(1);
+  });
+
   it("still executes when the client sends no key at all", async () => {
     resolveContext.mockResolvedValue(fakeContext());
     planTask.mockResolvedValue({ id: "t-1", version: 5 });

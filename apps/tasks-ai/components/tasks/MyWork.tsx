@@ -248,9 +248,15 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
       windows.current.get(group.id)?.current?.scrollToIndex(index);
       break;
     }
-    // Then the page itself, once React has painted the row.
+    // Then the page itself, once React has painted the row — and move real
+    // DOM focus onto it. A CSS-only "active" row is invisible to a screen
+    // reader: focus is what makes the row it announces the row the keyboard
+    // is on, and it is what keeps the cursor reachable at all inside a
+    // windowed section, where nothing else is in the DOM to browse to.
     const frame = requestAnimationFrame(() => {
-      rowNodes.current.get(item.id)?.scrollIntoView?.({ block: "nearest" });
+      const node = rowNodes.current.get(item.id);
+      node?.scrollIntoView?.({ block: "nearest" });
+      node?.focus?.({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [cursor, groups, ordered]);
@@ -440,6 +446,14 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
                     // an off-screen row can be scrolled to — it is not in
                     // the DOM until the window includes it.
                     handleRef={virtualWindowRef(windows.current, group.id)}
+                    // Keeps the cursor's row mounted even when the window
+                    // has moved past it, so focus — and the screen reader
+                    // with it — can always land on the active row.
+                    activeIndex={
+                      cursor >= offset && cursor < offset + group.items.length
+                        ? cursor - offset
+                        : undefined
+                    }
                     renderRow={(item, i) => renderRow(item, i)}
                   />
                 ) : (
@@ -581,6 +595,13 @@ function Row({
     <div
       className="ta-mywork__row"
       ref={nodeRef}
+      id={`my-work-row-${item.id}`}
+      // Roving tabindex: only the row the keyboard cursor is on is a tab
+      // stop, and keyboard navigation focuses it for real. Inside a windowed
+      // section that focus is the only way assistive technology reaches the
+      // active row, so it is not decoration — see VirtualList's note on what
+      // windowing still costs browse-mode users.
+      tabIndex={active ? 0 : -1}
       data-fixed={fixed || undefined}
       data-active={active}
       aria-busy={busy}

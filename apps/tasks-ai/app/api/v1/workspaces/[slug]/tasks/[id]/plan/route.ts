@@ -16,11 +16,17 @@ export const dynamic = "force-dynamic";
  * instead of re-executing. Without that, a versioned retry would lose to its
  * own first attempt with `conflict_version`, and an unversioned one would
  * quietly apply the edit — and its activity event — twice.
+ *
+ * The fingerprint is `{ body, version }`, not the body alone: `If-Match` is
+ * part of the mutation's precondition, so the same key with a new version is
+ * a different request. Fingerprinting only the body would replay the old
+ * response and quietly skip the stale-version check the client asked for.
  */
 export const POST = workspaceRoute(async ({ req, ctx, params }) => {
   const body = await req.json().catch(() => ({}));
-  return withIdempotency(ctx, req, body, async () => ({
+  const version = readVersion(req);
+  return withIdempotency(ctx, req, { body, version }, async () => ({
     status: 200,
-    data: await planTask(ctx, params.id, body, readVersion(req)),
+    data: await planTask(ctx, params.id, body, version),
   }));
 });

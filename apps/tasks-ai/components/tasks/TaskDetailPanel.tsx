@@ -16,8 +16,11 @@ import { CommentsPanel } from "./CommentsPanel";
  * the same validation — one editing model rather than two surfaces that
  * disagree about what assigning means. It is a planning affordance, so it
  * only renders for viewers whose role may actually plan: a guest opening a
- * task they can read gets the read-only drawer rather than a control whose
- * every use the server refuses.
+ * task they can read gets a drawer they can read and comment on rather than
+ * controls whose every use the server refuses. `canPlan` gates every task
+ * mutation here — title, description, owner, due date, complete, delete —
+ * because all of them sit behind the same `member` boundary; commenting does
+ * not, and stays available.
  */
 export function TaskDetailPanel({
   slug,
@@ -107,9 +110,21 @@ export function TaskDetailPanel({
     [members],
   );
 
-  /** Re-read the task after a conflict — again by id, not out of a list. */
+  /**
+   * Re-read the task after a conflict — again by id, not out of a list. A
+   * failing reload lands in the same failed state as a failing first load:
+   * swallowing it would leave the drawer on "Loading…" for good, because
+   * nothing else ever sets `task` again.
+   */
   async function reload() {
-    setTask(await api.getTask(slug, taskId).catch(() => null));
+    setLoadFailed(false);
+    try {
+      setTask(await api.getTask(slug, taskId));
+    } catch {
+      setTask(null);
+      setLoadFailed(true);
+      setStatus("idle");
+    }
   }
 
   /** A failure the user did not cause silently is a failure they get told about. */
@@ -201,7 +216,13 @@ export function TaskDetailPanel({
               id="td-title"
               defaultValue={task.title}
               key={`title-${task.version}`}
-              onBlur={(e) => e.target.value.trim() && e.target.value !== task.title && save({ title: e.target.value.trim() })}
+              readOnly={!canPlan}
+              onBlur={(e) =>
+                canPlan &&
+                e.target.value.trim() &&
+                e.target.value !== task.title &&
+                save({ title: e.target.value.trim() })
+              }
             />
 
             <Label htmlFor="td-desc">Description</Label>
@@ -210,7 +231,12 @@ export function TaskDetailPanel({
               rows={5}
               defaultValue={task.description ?? ""}
               key={`desc-${task.version}`}
-              onBlur={(e) => e.target.value !== (task.description ?? "") && save({ description: e.target.value || null })}
+              readOnly={!canPlan}
+              onBlur={(e) =>
+                canPlan &&
+                e.target.value !== (task.description ?? "") &&
+                save({ description: e.target.value || null })
+              }
             />
 
             {canPlan && (
@@ -238,27 +264,37 @@ export function TaskDetailPanel({
 
             {!canPlan && (
               <p className="ta-hint">
-                You can read this task, but changing owners and dates needs a member role.
+                You can read this task and comment on it, but editing it, changing owners and
+                dates, completing it or deleting it needs a member role.
               </p>
             )}
 
-            <div className="ta-drawer__actions">
-              {!task.completedAt && (
-                <Button
-                  size="sm"
-                  onClick={async () => {
-                    await api.completeTask(slug, task.id);
-                    await onChanged();
-                    onClose();
-                  }}
-                >
-                  Mark complete
+            {/*
+              Editing, completing and deleting are all the `member` boundary
+              (`task.update` / `task.delete`), the same one `canPlan` carries,
+              so a guest gets none of them rather than buttons the server is
+              certain to refuse. Comments stay below: those run a separate
+              service path that viewers with read access are allowed.
+            */}
+            {canPlan && (
+              <div className="ta-drawer__actions">
+                {!task.completedAt && (
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      await api.completeTask(slug, task.id);
+                      await onChanged();
+                      onClose();
+                    }}
+                  >
+                    Mark complete
+                  </Button>
+                )}
+                <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}>
+                  Delete
                 </Button>
-              )}
-              <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}>
-                Delete
-              </Button>
-            </div>
+              </div>
+            )}
 
             <CommentsPanel slug={slug} taskId={task.id} />
           </>
