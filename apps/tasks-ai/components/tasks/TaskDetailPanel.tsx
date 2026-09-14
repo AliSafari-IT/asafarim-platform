@@ -14,38 +14,57 @@ import { CommentsPanel } from "./CommentsPanel";
  * The owner picker (issue #367) exists so the assignment My Work can change
  * from a row is also changeable here, through the same `plan` endpoint and
  * the same validation — one editing model rather than two surfaces that
- * disagree about what assigning means.
+ * disagree about what assigning means. It is a planning affordance, so it
+ * only renders for viewers whose role may actually plan: a guest opening a
+ * task they can read gets the read-only drawer rather than a control whose
+ * every use the server refuses.
  */
 export function TaskDetailPanel({
   slug,
   taskId,
+  canPlan,
   onClose,
   onChanged,
 }: {
   slug: string;
   taskId: string;
+  /** Whether this viewer's role may assign and reschedule work. */
+  canPlan: boolean;
   onClose: () => void;
   onChanged: () => Promise<void> | void;
 }) {
   const [task, setTask] = useState<Task | null>(null);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "conflict">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Fetch the task by id, never by finding it in a list page: every list is
+  // ordered and paged for its own surface, so a row visible in My Work need
+  // not be on the first generic page — the drawer would then hang on
+  // "Loading…" forever.
   useEffect(() => {
     let alive = true;
+    setLoadFailed(false);
     api
-      .listTasks(slug, {})
-      .then((rows) => {
-        if (alive) setTask(rows.find((t) => t.id === taskId) ?? null);
+      .getTask(slug, taskId)
+      .then((t) => {
+        if (alive) setTask(t);
       })
-      .catch(() => setTask(null));
+      .catch(() => {
+        if (alive) {
+          setTask(null);
+          setLoadFailed(true);
+        }
+      });
     return () => {
       alive = false;
     };
   }, [slug, taskId]);
 
   useEffect(() => {
+    if (!canPlan) return;
     let alive = true;
     // Members are a picker, not a list: walk the pages so everybody
     // assignable stays selectable in a large workspace.
@@ -73,7 +92,7 @@ export function TaskDetailPanel({
     return () => {
       alive = false;
     };
-  }, [slug]);
+  }, [canPlan, slug]);
 
   const memberOptions = useMemo(
     () => [
@@ -83,6 +102,23 @@ export function TaskDetailPanel({
     [members],
   );
 
+  /** Re-read the task after a conflict — again by id, not out of a list. */
+  async function reload() {
+    setTask(await api.getTask(slug, taskId).catch(() => null));
+  }
+
+  /** A failure the user did not cause silently is a failure they get told about. */
+  function report(err: unknown, fallback: string) {
+    setStatus("idle");
+    setError(
+      err instanceof ClientApiError && err.code === "forbidden"
+        ? "Your role cannot change that in this workspace."
+        : err instanceof Error
+          ? err.message
+          : fallback,
+    );
+  }
+
   /**
    * Assignment goes through the same scoped plan endpoint My Work uses, so
    * both surfaces validate the membership the same way and both lose the
@@ -91,6 +127,7 @@ export function TaskDetailPanel({
   async function assign(assigneeId: string | null) {
     if (!task) return;
     setStatus("saving");
+    setError(null);
     try {
       setTask(await api.planTask(slug, task.id, { assigneeId }, task.version));
       setStatus("saved");
@@ -98,10 +135,9 @@ export function TaskDetailPanel({
     } catch (err) {
       if (err instanceof ClientApiError && err.code === "conflict_version") {
         setStatus("conflict");
-        const rows = await api.listTasks(slug, {});
-        setTask(rows.find((t) => t.id === taskId) ?? null);
+        await reload();
       } else {
-        setStatus("idle");
+        report(err, "Could not change the owner.");
       }
     }
   }
@@ -109,6 +145,7 @@ export function TaskDetailPanel({
   async function save(patch: Partial<Task>) {
     if (!task) return;
     setStatus("saving");
+    setError(null);
     try {
       const updated = await api.updateTask(slug, task.id, task.version, patch as Record<string, unknown>);
       setTask(updated);
@@ -117,10 +154,9 @@ export function TaskDetailPanel({
     } catch (err) {
       if (err instanceof ClientApiError && err.code === "conflict_version") {
         setStatus("conflict");
-        const rows = await api.listTasks(slug, {});
-        setTask(rows.find((t) => t.id === taskId) ?? null);
+        await reload();
       } else {
-        setStatus("idle");
+        report(err, "Could not save that change.");
       }
     }
   }
@@ -140,7 +176,18 @@ export function TaskDetailPanel({
           </Button>
         </header>
 
-        {!task ? (
+        {error && (
+          <p className="ta-error" role="alert">
+            {error}
+          </p>
+        )}
+
+        {loadFailed ? (
+          <p className="ta-error" role="alert">
+            That task could not be loaded. It may have been deleted, or you may no longer have
+            access to it.
+          </p>
+        ) : !task ? (
           <p className="ta-muted">Loading…</p>
         ) : (
           <>
@@ -161,24 +208,34 @@ export function TaskDetailPanel({
               onBlur={(e) => e.target.value !== (task.description ?? "") && save({ description: e.target.value || null })}
             />
 
-            <Label htmlFor="td-owner">Owner</Label>
-            <Select
-              id="td-owner"
-              value={task.assigneeId ?? ""}
-              options={memberOptions}
-              onChange={(e) => void assign(e.target.value || null)}
-            />
+            {canPlan && (
+              <>
+                <Label htmlFor="td-owner">Owner</Label>
+                <Select
+                  id="td-owner"
+                  value={task.assigneeId ?? ""}
+                  options={memberOptions}
+                  onChange={(e) => void assign(e.target.value || null)}
+                />
 
-            <Label htmlFor="td-due">Due date</Label>
-            <Input
-              id="td-due"
-              type="date"
-              defaultValue={task.dueDate ? task.dueDate.slice(0, 10) : ""}
-              key={`due-${task.version}`}
-              onChange={(e) =>
-                save({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : null })
-              }
-            />
+                <Label htmlFor="td-due">Due date</Label>
+                <Input
+                  id="td-due"
+                  type="date"
+                  defaultValue={task.dueDate ? task.dueDate.slice(0, 10) : ""}
+                  key={`due-${task.version}`}
+                  onChange={(e) =>
+                    save({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : null })
+                  }
+                />
+              </>
+            )}
+
+            {!canPlan && (
+              <p className="ta-hint">
+                You can read this task, but changing owners and dates needs a member role.
+              </p>
+            )}
 
             <div className="ta-drawer__actions">
               {!task.completedAt && (

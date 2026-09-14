@@ -104,6 +104,13 @@ export const api = {
 
   listTasks: (slug: string, query: Record<string, string> = {}) =>
     call<Task[]>(`/workspaces/${slug}/tasks?${new URLSearchParams(query)}`),
+  /**
+   * One task by id. The detail drawer has to use this rather than picking a
+   * row out of a generic list page: every list is paged and ordered for its
+   * own surface, so a task that is visible in My Work need not appear in the
+   * first page of `listTasks`.
+   */
+  getTask: (slug: string, id: string) => call<Task>(`/workspaces/${slug}/tasks/${id}`),
   createTask: (slug: string, body: Record<string, unknown>) =>
     call<Task>(`/workspaces/${slug}/tasks`, { method: "POST", body: JSON.stringify(body) }),
   updateTask: (slug: string, id: string, version: number, body: Record<string, unknown>) =>

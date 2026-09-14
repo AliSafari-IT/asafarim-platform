@@ -262,9 +262,16 @@ export interface MyWorkContextCounts {
   canPlan: boolean;
 }
 
-/** Which empty state to show, or `null` when the list has rows. */
+/**
+ * Which empty state to show, or `null` when the list has rows.
+ *
+ * `capture` is only ever offered to a viewer who may actually create work:
+ * a guest's capture dialog refuses to open, so offering it would be a dead
+ * control in the one place the user has nothing else to do.
+ */
 export function emptyStateFor(counts: MyWorkContextCounts): MyWorkEmptyState | null {
   if (counts.assignedOpen > 0) return null;
+  const capture: MyWorkEmptyAction[] = counts.canPlan ? ["capture"] : [];
 
   if (counts.assignedCompleted > 0) {
     return {
@@ -273,8 +280,8 @@ export function emptyStateFor(counts: MyWorkContextCounts): MyWorkEmptyState | n
       description:
         "Everything assigned to you is finished. Nothing is overdue and nothing is waiting — pick up what is next when you are ready.",
       actions: counts.workspaceUnowned > 0 || counts.inboxWaiting > 0
-        ? ["projects", "inbox", "capture"]
-        : ["projects", "capture"],
+        ? ["projects", "inbox", ...capture]
+        : ["projects", ...capture],
       tone: "positive",
     };
   }
@@ -297,7 +304,7 @@ export function emptyStateFor(counts: MyWorkContextCounts): MyWorkEmptyState | n
     title: "Nothing is assigned to you yet",
     description:
       "My Work is your cross-project list of everything you are responsible for. Capture what you are working on, or pick something up from a project.",
-    actions: ["capture", "projects"],
+    actions: [...capture, "projects"],
     tone: "neutral",
   };
 }

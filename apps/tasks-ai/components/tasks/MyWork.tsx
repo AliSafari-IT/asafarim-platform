@@ -54,6 +54,10 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
   const capture = useCapture();
   const canPlan = role !== "guest";
   const [items, setItems] = useState<MyWorkItem[] | null>(null);
+  // Loading is tracked apart from the data: a failed first load leaves
+  // `items` null forever, and using null as the loading sentinel would then
+  // render "Loading…" under the error message with no way back.
+  const [loading, setLoading] = useState(true);
   const [meta, setMeta] = useState<MyWorkMeta | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -69,6 +73,7 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
   const load = useCallback(async () => {
     const done = measureView("my_work");
     const gen = (generation.current += 1);
+    setLoading(true);
     try {
       const first = await api.myWork(slug, { limit: String(PAGE_SIZE) });
       if (generation.current !== gen) return;
@@ -81,6 +86,7 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
       if (generation.current !== gen) return;
       setError(err instanceof Error ? err.message : "Could not load your work.");
     } finally {
+      if (generation.current === gen) setLoading(false);
       done();
     }
   }, [slug]);
@@ -277,9 +283,13 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
           </p>
         </div>
         <span className="ta-tw__headactions">
-          <Button size="sm" onClick={() => capture.open("", "my_work")}>
-            Capture task
-          </Button>
+          {/* A guest's capture dialog refuses to open, so they never get the
+              button rather than a control that silently does nothing. */}
+          {capture.canCapture && (
+            <Button size="sm" onClick={() => capture.open("", "my_work")}>
+              Capture task
+            </Button>
+          )}
           <a
             className="ta-link"
             href={`/w/${slug}/focus`}
@@ -303,8 +313,20 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
         </p>
       )}
 
-      {items === null ? (
+      {loading && items === null ? (
         <p className="ta-muted">Loading…</p>
+      ) : items === null ? (
+        // The load finished and left us with nothing: a failure, not a state
+        // to sit in. Say so, and offer the way out.
+        <EmptyState
+          title="Your work could not be loaded"
+          description="The request failed before anything could be shown. Nothing has been changed — try again."
+          action={
+            <Button size="sm" onClick={() => void load()}>
+              Try again
+            </Button>
+          }
+        />
       ) : empty ? (
         <EmptyState
           title={empty.title}
@@ -327,6 +349,9 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
           <p className="ta-hint ta-mywork__keys">{KEY_HINTS}</p>
           {groups.map((group) => {
             const offset = ordered.indexOf(group.items[0]);
+            // Windowed sections position every row at exactly ROW_HEIGHT, so
+            // those rows must actually be that tall — see `fixed` on Row.
+            const virtualized = group.items.length > VIRTUALIZE_THRESHOLD;
             const renderRow = (item: MyWorkItem, i: number) => (
               <Row
                 key={item.id}
@@ -334,6 +359,7 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
                 slug={slug}
                 me={me}
                 canPlan={canPlan}
+                fixed={virtualized}
                 active={offset + i === cursor}
                 busy={busyId === item.id}
                 onFocusRow={() => setCursor(offset + i)}
@@ -352,7 +378,7 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
                   {group.title} <span className="ta-badge">{group.items.length}</span>
                 </h2>
                 <p className="ta-hint">{group.description}</p>
-                {group.items.length > VIRTUALIZE_THRESHOLD ? (
+                {virtualized ? (
                   // Windowed rendering keeps very large sections cheap
                   // (docs/performance-budgets.md).
                   <VirtualList
@@ -393,6 +419,7 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
         <TaskDetailPanel
           slug={slug}
           taskId={selected}
+          canPlan={canPlan}
           onClose={() => setSelected(null)}
           onChanged={load}
         />
@@ -433,12 +460,20 @@ function EmptyAction({
  * information stacks rather than disappearing — a mobile row must still say
  * which project the task is in, what state its date is in, and offer
  * completion and details (issue #367, "Responsive UX").
+ *
+ * `fixed` is the exception, and only inside a windowed section: the
+ * virtualizer places rows at a constant ROW_HEIGHT, so a wrapping row would
+ * paint over the next task. A fixed row therefore stays exactly one line
+ * tall — labels collapse to "+N", the metadata truncates with an ellipsis,
+ * the actions scroll sideways — and nothing is lost, because the full row is
+ * one click away in the detail drawer.
  */
 function Row({
   item,
   slug,
   me,
   canPlan,
+  fixed = false,
   active,
   busy,
   onFocusRow,
@@ -452,6 +487,8 @@ function Row({
   slug: string;
   me: string;
   canPlan: boolean;
+  /** Keep the row exactly ROW_HEIGHT tall — required inside a VirtualList. */
+  fixed?: boolean;
   active: boolean;
   busy: boolean;
   onFocusRow: () => void;
@@ -462,9 +499,14 @@ function Row({
   onAssign: (assigneeId: string | null) => void;
 }) {
   const mine = item.assigneeId === me;
+  // In a fixed row only the first couple of labels fit; the rest become a
+  // "+N" badge that names them in its tooltip rather than wrapping.
+  const shownLabels = fixed ? item.labels.slice(0, 2) : item.labels;
+  const hiddenLabels = item.labels.length - shownLabels.length;
   return (
     <div
       className="ta-mywork__row"
+      data-fixed={fixed || undefined}
       data-active={active}
       aria-busy={busy}
       onMouseEnter={onFocusRow}
@@ -515,11 +557,16 @@ function Row({
               No real project
             </span>
           )}
-          {item.labels.map((label) => (
+          {shownLabels.map((label) => (
             <span key={label} className="ta-badge">
               {label}
             </span>
           ))}
+          {hiddenLabels > 0 && (
+            <span className="ta-badge" title={item.labels.slice(shownLabels.length).join(", ")}>
+              +{hiddenLabels}
+            </span>
+          )}
         </span>
       </div>
 

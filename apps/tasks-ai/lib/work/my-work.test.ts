@@ -241,6 +241,35 @@ describe("My Work empty states (#367)", () => {
     })!;
     expect(state.actions).not.toContain("capture");
   });
+
+  // Regression (PR #375 review): the guest gate was only applied to the
+  // unowned-work branch, so a guest with nothing assigned — or with
+  // everything finished — was still offered a capture button whose dialog
+  // refuses to open.
+  it("never offers capture to a viewer who may not create work", () => {
+    const guest = { ...base, canPlan: false };
+    expect(emptyStateFor(guest)!.kind).toBe("nothing_assigned");
+    expect(emptyStateFor(guest)!.actions).not.toContain("capture");
+
+    const done = emptyStateFor({ ...guest, assignedCompleted: 4 })!;
+    expect(done.kind).toBe("all_done");
+    expect(done.actions).not.toContain("capture");
+
+    const doneWithInbox = emptyStateFor({ ...guest, assignedCompleted: 4, inboxWaiting: 2 })!;
+    expect(doneWithInbox.actions).not.toContain("capture");
+    expect(doneWithInbox.actions).toContain("inbox");
+  });
+
+  it("still offers capture in every branch to a viewer who may plan", () => {
+    expect(emptyStateFor(base)!.actions).toContain("capture");
+    expect(emptyStateFor({ ...base, assignedCompleted: 4 })!.actions).toContain("capture");
+    expect(
+      emptyStateFor({ ...base, assignedCompleted: 4, inboxWaiting: 2 })!.actions,
+    ).toContain("capture");
+    expect(
+      emptyStateFor({ ...base, workspaceOpen: 5, workspaceUnowned: 2 })!.actions,
+    ).toContain("capture");
+  });
 });
 
 describe("My Work planning shortcuts (#367)", () => {

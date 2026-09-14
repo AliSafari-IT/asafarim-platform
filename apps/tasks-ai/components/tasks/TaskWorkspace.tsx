@@ -34,9 +34,15 @@ export interface TaskWorkspaceProps {
    */
   fixedView?: ViewType;
   heading: string;
+  /**
+   * Whether this viewer's role may assign and reschedule work. Guests can
+   * read a project they belong to, so the detail drawer has to know not to
+   * offer them planning controls the server will refuse.
+   */
+  canPlan: boolean;
 }
 
-export function TaskWorkspace({ slug, me, project, fixedView, heading }: TaskWorkspaceProps) {
+export function TaskWorkspace({ slug, me, project, fixedView, heading, canPlan }: TaskWorkspaceProps) {
   const [view, setView] = useState<ViewType>(fixedView ?? "list");
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -149,6 +155,7 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading }: TaskWor
         <TaskDetailPanel
           slug={slug}
           taskId={selected}
+          canPlan={canPlan}
           onClose={() => setSelected(null)}
           onChanged={load}
         />
