@@ -143,6 +143,28 @@ export const openapiDocument = {
         type: "object",
         description:
           "One row of My Work: the caller's open, triaged task plus the cross-project context the execution view needs. Project identity is mandatory — two identically titled tasks from different projects must be distinguishable.",
+        // Every field is always sent; the nullable ones are nullable, not
+        // absent. Saying so is the difference between a generated client
+        // that can read `projectKey` and one that has to guard it.
+        required: [
+          "id",
+          "title",
+          "projectId",
+          "projectKey",
+          "projectName",
+          "projectIsInbox",
+          "statusName",
+          "statusCategory",
+          "assigneeId",
+          "dueDate",
+          "completedAt",
+          "blockedBy",
+          "blocks",
+          "labels",
+          "position",
+          "updatedAt",
+          "version",
+        ],
         properties: {
           id: { type: "string" },
           title: { type: "string" },
@@ -172,10 +194,14 @@ export const openapiDocument = {
       MyWorkMeta: {
         type: "object",
         description:
-          "View-level context for My Work: the summary line's counts, and the workspace counts that let the page explain why the list is empty.",
+          "View-level context for My Work: the summary line's counts over the whole scoped set (not just the page), and the workspace counts that let the page explain why the list is empty.",
+        required: ["summary", "counts"],
         properties: {
           summary: {
             type: "object",
+            description:
+              "Group counts over every task in scope, not only the returned page — so the header line stays true before the rest is paged in.",
+            required: ["overdue", "today", "blocked", "upcoming", "undated", "total"],
             properties: {
               overdue: { type: "integer" },
               today: { type: "integer" },
@@ -187,8 +213,22 @@ export const openapiDocument = {
           },
           counts: {
             type: "object",
+            required: [
+              "assignedOpen",
+              "assignedInbox",
+              "assignedCompleted",
+              "workspaceOpen",
+              "workspaceUnowned",
+              "inboxWaiting",
+              "canPlan",
+            ],
             properties: {
               assignedOpen: { type: "integer" },
+              assignedInbox: {
+                type: "integer",
+                description:
+                  "Open tasks assigned to the caller that are still untriaged, so they sit in the Inbox rather than in this list.",
+              },
               assignedCompleted: { type: "integer" },
               workspaceOpen: { type: "integer" },
               workspaceUnowned: { type: "integer" },
@@ -373,7 +413,11 @@ export const openapiDocument = {
         parameters: [{ $ref: "#/components/parameters/IfMatch" }],
         requestBody: jsonBody({
           type: "object",
-          minProperties: 1,
+          // Not `minProperties: 1`: that accepts `{"other": true}`, which the
+          // validator strips and then rejects for having neither field. The
+          // spec has to demand what the implementation demands — one of
+          // these two properties, by name.
+          anyOf: [{ required: ["dueDate"] }, { required: ["assigneeId"] }],
           properties: {
             dueDate: {
               type: ["string", "null"],

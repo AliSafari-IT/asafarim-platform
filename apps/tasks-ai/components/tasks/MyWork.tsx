@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import { Button, EmptyState } from "@asafarim/ui";
 import { api, ClientApiError, type MyWorkMeta } from "../../lib/client/api";
 import {
@@ -8,19 +15,20 @@ import {
   emptyStateFor,
   groupMyWork,
   planShortcutDate,
-  summarize,
   summaryLine,
   PLAN_SHORTCUT_LABEL,
   type MyWorkContextCounts,
   type MyWorkEmptyAction,
+  type MyWorkGroupId,
   type MyWorkItem,
+  type MyWorkSummary,
   type PlanShortcut,
 } from "../../lib/work/my-work";
 import { measureView, track } from "../../lib/client/telemetry";
 import { VIRTUALIZE_THRESHOLD } from "../../lib/ui/window";
 import { useCapture } from "../capture/CaptureDialog";
 import { TaskDetailPanel } from "./TaskDetailPanel";
-import { VirtualList } from "./VirtualList";
+import { VirtualList, type VirtualListHandle } from "./VirtualList";
 
 /**
  * My Work — the cross-project daily execution view (issue #367).
@@ -129,13 +137,19 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
   // Grouping happens over everything loaded so far, never per page — a
   // section is only meaningful if it holds every row that belongs in it.
   const groups = useMemo(() => groupMyWork(items ?? []), [items]);
-  const summary = useMemo(() => summarize(items ?? []), [items]);
+  /**
+   * The summary comes from the server and covers *everything* assigned to
+   * me, not just the pages loaded so far — "3 overdue" has to mean three
+   * overdue tasks exist. Recomputing it from the rendered rows would quietly
+   * undercount the moment the list runs past one page.
+   */
+  const summary: MyWorkSummary | null = meta?.summary ?? null;
   /** The rows in render order — what j/k walks. */
   const ordered = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
   const reportedSummary = useRef(false);
   useEffect(() => {
-    if (items === null || reportedSummary.current) return;
+    if (items === null || summary === null || reportedSummary.current) return;
     reportedSummary.current = true;
     track({
       name: "my_work.viewed",
@@ -208,6 +222,39 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
     [plan],
   );
 
+  // ── Keeping the active row on screen ────────────────────────────────
+  // The cursor is also moved by hovering a row, and scrolling *then* would
+  // fight the mouse. Only a key press asks for the row to be brought into
+  // view, so the request is explicit.
+  const rowNodes = useRef(new Map<string, HTMLDivElement>());
+  const windows = useRef(new Map<MyWorkGroupId, MutableRefObject<VirtualListHandle | null>>());
+  const scrollWanted = useRef(false);
+  const moveCursor = useCallback((next: (c: number) => number) => {
+    scrollWanted.current = true;
+    setCursor(next);
+  }, []);
+
+  useEffect(() => {
+    if (!scrollWanted.current) return;
+    scrollWanted.current = false;
+    const item = ordered[cursor];
+    if (!item) return;
+
+    // A windowed section has to move its window first: until it does, the
+    // row is not in the DOM at all and there is nothing to scroll to.
+    for (const group of groups) {
+      const index = group.items.indexOf(item);
+      if (index === -1) continue;
+      windows.current.get(group.id)?.current?.scrollToIndex(index);
+      break;
+    }
+    // Then the page itself, once React has painted the row.
+    const frame = requestAnimationFrame(() => {
+      rowNodes.current.get(item.id)?.scrollIntoView?.({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [cursor, groups, ordered]);
+
   // Global keys. Typing in a field always wins — nothing here hijacks input.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -231,10 +278,10 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
 
       if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
-        setCursor((c) => Math.min(c + 1, ordered.length - 1));
+        moveCursor((c) => Math.min(c + 1, ordered.length - 1));
       } else if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
-        setCursor((c) => Math.max(c - 1, 0));
+        moveCursor((c) => Math.max(c - 1, 0));
       } else if (e.key === "Enter") {
         e.preventDefault();
         setSelected(item.id);
@@ -259,7 +306,7 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [canPlan, complete, cursor, me, ordered, plan, reschedule, selected, slug]);
+  }, [canPlan, complete, cursor, me, moveCursor, ordered, plan, reschedule, selected, slug]);
 
   const counts: MyWorkContextCounts | null = meta?.counts ?? null;
   const empty = items !== null && ordered.length === 0 && counts ? emptyStateFor(counts) : null;
@@ -300,10 +347,10 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
         </span>
       </header>
 
-      {items !== null && ordered.length > 0 && (
+      {items !== null && summary !== null && ordered.length > 0 && (
         <p className="ta-mywork__summary" aria-live="polite">
           <strong>{summaryLine(summary)}</strong>
-          {nextCursor && <span className="ta-muted"> · more not loaded yet</span>}
+          {nextCursor && <span className="ta-muted"> · not all rows are loaded yet</span>}
         </p>
       )}
 
@@ -362,6 +409,10 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
                 fixed={virtualized}
                 active={offset + i === cursor}
                 busy={busyId === item.id}
+                nodeRef={(el) => {
+                  if (el) rowNodes.current.set(item.id, el);
+                  else rowNodes.current.delete(item.id);
+                }}
                 onFocusRow={() => setCursor(offset + i)}
                 onOpen={() => setSelected(item.id)}
                 onComplete={() => void complete(item)}
@@ -385,6 +436,10 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
                     items={group.items}
                     rowHeight={ROW_HEIGHT}
                     ariaLabel={group.title}
+                    // Keyboard navigation needs to move this window before
+                    // an off-screen row can be scrolled to — it is not in
+                    // the DOM until the window includes it.
+                    handleRef={virtualWindowRef(windows.current, group.id)}
                     renderRow={(item, i) => renderRow(item, i)}
                   />
                 ) : (
@@ -426,6 +481,22 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
       )}
     </section>
   );
+}
+
+/**
+ * A stable ref object per group, so a windowed section keeps the same handle
+ * slot across renders — a fresh object each render would leave the effect
+ * reading a ref nothing ever filled.
+ */
+function virtualWindowRef(
+  store: Map<MyWorkGroupId, MutableRefObject<VirtualListHandle | null>>,
+  group: MyWorkGroupId,
+): MutableRefObject<VirtualListHandle | null> {
+  const existing = store.get(group);
+  if (existing) return existing;
+  const created: MutableRefObject<VirtualListHandle | null> = { current: null };
+  store.set(group, created);
+  return created;
 }
 
 function EmptyAction({
@@ -476,6 +547,7 @@ function Row({
   fixed = false,
   active,
   busy,
+  nodeRef,
   onFocusRow,
   onOpen,
   onComplete,
@@ -491,6 +563,8 @@ function Row({
   fixed?: boolean;
   active: boolean;
   busy: boolean;
+  /** Registers the row's element so keyboard navigation can scroll to it. */
+  nodeRef?: (el: HTMLDivElement | null) => void;
   onFocusRow: () => void;
   onOpen: () => void;
   onComplete: () => void;
@@ -506,6 +580,7 @@ function Row({
   return (
     <div
       className="ta-mywork__row"
+      ref={nodeRef}
       data-fixed={fixed || undefined}
       data-active={active}
       aria-busy={busy}

@@ -94,10 +94,15 @@ export function TaskDetailPanel({
     };
   }, [canPlan, slug]);
 
+  // Guests are members of the workspace but may not own work: `planTask`
+  // refuses a guest assignee. Offering one here would be a choice the server
+  // is guaranteed to reject, so they never reach the picker.
   const memberOptions = useMemo(
     () => [
       { value: "", label: "Nobody" },
-      ...members.map((m) => ({ value: m.id, label: m.isMe ? "Me" : m.platformUserId })),
+      ...members
+        .filter((m) => m.role !== "guest")
+        .map((m) => ({ value: m.id, label: m.isMe ? "Me" : m.platformUserId })),
     ],
     [members],
   );

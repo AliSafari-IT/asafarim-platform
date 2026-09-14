@@ -200,6 +200,7 @@ describe("My Work summary (#367)", () => {
 describe("My Work empty states (#367)", () => {
   const base: MyWorkContextCounts = {
     assignedOpen: 0,
+    assignedInbox: 0,
     assignedCompleted: 0,
     workspaceOpen: 0,
     workspaceUnowned: 0,
@@ -258,6 +259,29 @@ describe("My Work empty states (#367)", () => {
     const doneWithInbox = emptyStateFor({ ...guest, assignedCompleted: 4, inboxWaiting: 2 })!;
     expect(doneWithInbox.actions).not.toContain("capture");
     expect(doneWithInbox.actions).toContain("inbox");
+  });
+
+  // Regression (PR #375 review): an open task assigned to the viewer but
+  // still untriaged is not in `assignedOpen`, so the page used to answer
+  // "you are clear" or "nothing is assigned to you" — both false claims
+  // about work the viewer demonstrably owns.
+  it("sends a viewer whose assigned work is untriaged to the Inbox, not to a false all-clear", () => {
+    const waiting = emptyStateFor({ ...base, assignedInbox: 2 })!;
+    expect(waiting.kind).toBe("assigned_inbox_waiting");
+    expect(waiting.actions).toContain("inbox");
+    expect(waiting.description).toMatch(/untriaged/i);
+
+    // It outranks every other explanation, because it is the only one that
+    // is about the viewer's own work.
+    expect(
+      emptyStateFor({ ...base, assignedInbox: 1, assignedCompleted: 5 })!.kind,
+    ).toBe("assigned_inbox_waiting");
+    expect(
+      emptyStateFor({ ...base, assignedInbox: 1, workspaceOpen: 9, workspaceUnowned: 4 })!.kind,
+    ).toBe("assigned_inbox_waiting");
+
+    // Untriaged work belonging to somebody else still reads as before.
+    expect(emptyStateFor({ ...base, inboxWaiting: 3 })!.kind).toBe("nothing_assigned");
   });
 
   it("still offers capture in every branch to a viewer who may plan", () => {

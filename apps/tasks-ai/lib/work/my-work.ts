@@ -233,7 +233,9 @@ export type MyWorkEmptyKind =
   /** Everything assigned is finished — a good state, not an error. */
   | "all_done"
   /** Work exists in the workspace, but nobody owns it yet. */
-  | "unowned_work_exists";
+  | "unowned_work_exists"
+  /** Assigned work exists, but it is still untriaged and sits in the Inbox. */
+  | "assigned_inbox_waiting";
 
 /** An action the empty state offers. The component maps ids to links/buttons. */
 export type MyWorkEmptyAction = "capture" | "projects" | "inbox" | "focus";
@@ -250,6 +252,12 @@ export interface MyWorkEmptyState {
 export interface MyWorkContextCounts {
   /** Open, triaged tasks assigned to the viewer (what the list renders). */
   assignedOpen: number;
+  /**
+   * Open tasks assigned to the viewer that are *not* triaged yet, so they
+   * live in the Inbox rather than in this list. Real ownership the empty
+   * state must not talk over.
+   */
+  assignedInbox: number;
   /** Tasks assigned to the viewer that are already done. */
   assignedCompleted: number;
   /** Open tasks anywhere in the workspace the viewer can see. */
@@ -272,6 +280,20 @@ export interface MyWorkContextCounts {
 export function emptyStateFor(counts: MyWorkContextCounts): MyWorkEmptyState | null {
   if (counts.assignedOpen > 0) return null;
   const capture: MyWorkEmptyAction[] = counts.canPlan ? ["capture"] : [];
+
+  // Checked before everything else: a viewer who owns untriaged work is
+  // neither finished nor unassigned, and telling them either would be a
+  // false claim about their own workload. The list is empty because the
+  // work has not been organized yet — so send them where it is.
+  if (counts.assignedInbox > 0) {
+    return {
+      kind: "assigned_inbox_waiting",
+      title: "Your work is still waiting in the Inbox",
+      description: `My Work lists work that has been organized. ${counts.assignedInbox} task(s) assigned to you are still untriaged — give them a project and a date in the Inbox and they will appear here.`,
+      actions: ["inbox", "projects"],
+      tone: "neutral",
+    };
+  }
 
   if (counts.assignedCompleted > 0) {
     return {

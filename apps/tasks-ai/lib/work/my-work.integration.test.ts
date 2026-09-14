@@ -347,4 +347,136 @@ describe.skipIf(!hasTestDatabase())("my work (integration)", () => {
     expect(second.items.map((i) => i.title)).toEqual(["undated"]);
     expect(second.nextCursor).toBeNull();
   });
+
+  // Regression (PR #375 review): the query paged in date order while the
+  // page renders in *group* order, so a blocked task could arrive on page
+  // two and then be drawn above rows already on screen.
+  it("pages in the order the view renders: blocked work outranks merely upcoming work", async () => {
+    const { ctx, owner } = await freshWorkspace("mw-k");
+    const { createProject } = await import("../services/projects");
+    const { linkTasks } = await import("../services/tasks");
+    const { myWorkData } = await import("./service");
+    const now = new Date("2026-09-14T09:00:00.000Z");
+
+    const project = await createProject(ctx, { name: "Delivery", key: "DEL" });
+    const soon = await planned(ctx, {
+      title: "upcoming-soon",
+      projectId: project.id,
+      assigneeId: owner.id,
+      dueDate: day("2026-09-16"),
+    });
+    const blocked = await planned(ctx, {
+      title: "blocked-later",
+      projectId: project.id,
+      assigneeId: owner.id,
+      dueDate: day("2026-09-30"),
+    });
+    const blocker = await planned(ctx, {
+      title: "blocker",
+      projectId: project.id,
+      assigneeId: null,
+    });
+    await linkTasks(ctx, blocker.id, { toTaskId: blocked.id, kind: "blocks" });
+
+    // Blocked ranks above upcoming even though its date is later, so it must
+    // be on page one — date order alone would have put `soon` first.
+    const first = await myWorkData(ctx, { limit: 1, now });
+    expect(first.items.map((i) => i.title)).toEqual(["blocked-later"]);
+
+    const second = await myWorkData(ctx, { limit: 1, now, cursor: first.nextCursor! });
+    expect(second.items.map((i) => i.title)).toEqual(["upcoming-soon"]);
+    expect(second.items[0]!.id).toBe(soon.id);
+
+    // And the whole list, paged or not, is the render order.
+    const all = await myWorkData(ctx, { now });
+    expect(all.items.map((i) => i.title)).toEqual(["blocked-later", "upcoming-soon"]);
+  });
+
+  // Regression (PR #375 review): undated rows were ordered by `position` in
+  // the query but by `updatedAt` in the client sort, so the first undated
+  // page could omit the very tasks the section claims to lead with.
+  it("orders undated work most-recently-touched first, in the query as well as the view", async () => {
+    const { ctx, owner } = await freshWorkspace("mw-l");
+    const { createProject } = await import("../services/projects");
+    const { myWorkData } = await import("./service");
+    const now = new Date("2026-09-14T09:00:00.000Z");
+
+    const project = await createProject(ctx, { name: "Delivery", key: "DEL" });
+    const oldest = await planned(ctx, { title: "oldest", projectId: project.id, assigneeId: owner.id });
+    await planned(ctx, { title: "middle", projectId: project.id, assigneeId: owner.id });
+    await planned(ctx, { title: "newest", projectId: project.id, assigneeId: owner.id });
+    // Touch the first one last, so creation order and update order disagree.
+    await db.task.update({ where: { id: oldest.id }, data: { title: "touched-last" } });
+
+    const first = await myWorkData(ctx, { limit: 1, now });
+    expect(first.items.map((i) => i.title)).toEqual(["touched-last"]);
+
+    const { sortWithinGroup } = await import("./my-work");
+    const all = await myWorkData(ctx, { now });
+    // The database order and the client's own comparator agree.
+    expect(sortWithinGroup("undated", all.items).map((i) => i.title)).toEqual(
+      all.items.map((i) => i.title),
+    );
+  });
+
+  // Regression (PR #375 review): the summary was computed from the page, so
+  // "2 overdue" meant "2 overdue on the rows you happen to have loaded".
+  it("summarizes the whole scoped set, not just the page that was returned", async () => {
+    const { ctx, owner } = await freshWorkspace("mw-m");
+    const { createProject } = await import("../services/projects");
+    const { myWorkData } = await import("./service");
+    const now = new Date("2026-09-14T09:00:00.000Z");
+
+    const project = await createProject(ctx, { name: "Delivery", key: "DEL" });
+    for (const d of ["2026-09-01", "2026-09-02", "2026-09-03"]) {
+      await planned(ctx, {
+        title: `late-${d}`,
+        projectId: project.id,
+        assigneeId: owner.id,
+        dueDate: day(d),
+      });
+    }
+    await planned(ctx, {
+      title: "today",
+      projectId: project.id,
+      assigneeId: owner.id,
+      dueDate: day("2026-09-14"),
+    });
+    await planned(ctx, { title: "undated", projectId: project.id, assigneeId: owner.id });
+
+    const onePage = await myWorkData(ctx, { limit: 1, now });
+    expect(onePage.items).toHaveLength(1);
+    expect(onePage.summary).toMatchObject({
+      overdue: 3,
+      today: 1,
+      blocked: 0,
+      upcoming: 0,
+      undated: 1,
+      total: 5,
+    });
+  });
+
+  // Regression (PR #375 review): assigned-but-untriaged work was invisible to
+  // the empty-state logic, which then claimed the viewer was clear.
+  it("does not call a viewer clear while their assigned work waits in the Inbox", async () => {
+    const { ctx, owner } = await freshWorkspace("mw-n");
+    const { createProject } = await import("../services/projects");
+    const { createTask, completeTask } = await import("../services/tasks");
+    const { myWorkData } = await import("./service");
+    const { emptyStateFor } = await import("./my-work");
+
+    const project = await createProject(ctx, { name: "Delivery", key: "DEL" });
+    const done = await planned(ctx, {
+      title: "Finished",
+      projectId: project.id,
+      assigneeId: owner.id,
+    });
+    await completeTask(ctx, done.id);
+    await createTask(ctx, { title: "Captured for me", assigneeId: owner.id, source: "quick_capture" });
+
+    const page = await myWorkData(ctx);
+    expect(page.items).toHaveLength(0);
+    expect(page.counts.assignedInbox).toBe(1);
+    expect(emptyStateFor(page.counts)?.kind).toBe("assigned_inbox_waiting");
+  });
 });
