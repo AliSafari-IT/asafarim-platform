@@ -51,7 +51,10 @@ export function ProjectsPanel({
   return (
     <section className="ta-tw">
       <header className="ta-tw__head">
-        <h1>Projects</h1>
+        <div>
+          <h1>Projects</h1>
+          <p className="ta-tw__subtitle">Organize work into projects, views and plans.</p>
+        </div>
         <span className="ta-tw__headactions">
           <a className="ta-link" href={`/w/${slug}/imports`}>
             Import tasks

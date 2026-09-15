@@ -277,7 +277,10 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
   return (
     <section className="ta-tw">
       <header className="ta-tw__head">
-        <h1>Inbox</h1>
+        <div>
+          <h1>Inbox</h1>
+          <p className="ta-tw__subtitle">Review newly captured work before it enters normal planning.</p>
+        </div>
         <span className="ta-tw__headactions">
           <Button size="sm" onClick={() => capture.open("", "inbox")}>
             Capture task
