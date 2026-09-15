@@ -22,13 +22,23 @@ export default async function FocusPage({ params }: { params: Promise<{ slug: st
   return (
     <section className="ta-tw">
       <header className="ta-tw__head">
-        <h1>Focus</h1>
+        <div>
+          <h1>Focus</h1>
+          <p className="ta-tw__subtitle">
+            An explainable view of what may need attention first, based on dates, dependencies and
+            workload.
+          </p>
+        </div>
       </header>
       <p className="ta-muted">{brief.note}</p>
 
       <h3>Today&apos;s top {brief.topFocus.length}</h3>
       {brief.topFocus.length === 0 ? (
-        <p className="ta-muted">Nothing assigned to you is open.</p>
+        <p className="ta-muted">
+          Nothing assigned to you is open. Focus uses your assigned open work — visit{" "}
+          <a href={`/w/${slug}/my-work`}>My Work</a> or <a href={`/w/${slug}/projects`}>Projects</a>{" "}
+          to pick up something.
+        </p>
       ) : (
         <ol className="ta-focus">
           {brief.topFocus.map((item) => (

@@ -106,7 +106,20 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading, canPlan }
   return (
     <section className="ta-tw">
       <header className="ta-tw__head">
-        <h1>{heading}</h1>
+        <div>
+          {project && (
+            // Preserves parent context on a sub-route (issue #369): the
+            // project name alone in the <h1> doesn't say it's a project.
+            <nav className="ta-tw__crumb" aria-label="Breadcrumb">
+              <a href={`/w/${slug}/projects`}>Projects</a>
+              <span aria-hidden="true"> / </span>
+              <span aria-current="page">
+                {project.key} · {project.name}
+              </span>
+            </nav>
+          )}
+          <h1>{heading}</h1>
+        </div>
         {!fixedView && (
           <div className="ta-tw__tabs" role="tablist" aria-label="View">
             {VIEW_TABS.map((tab) => (
