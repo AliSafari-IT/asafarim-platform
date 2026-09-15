@@ -15,7 +15,7 @@
 .backdrop {
   position: absolute;
   z-index: 0;
-  inset: -1rem -3rem 0 39%;
+  inset: -1rem -2rem 0 39%;
   overflow: hidden;
   pointer-events: none;
   opacity: 0.9;
@@ -143,7 +143,7 @@
 
 @media (max-width: 960px) {
   .backdrop {
-    inset-inline: 46% -4rem;
+    inset-inline: 46% -2rem;
     opacity: 0.64;
   }
 
