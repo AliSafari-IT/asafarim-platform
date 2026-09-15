@@ -1,13 +1,11 @@
 name: Deploy to VPS
 
-# Deploys the full Docker Compose stack (web, hub, showcase, admin, vionto,
-# vionto-worker, testora + postgres, redis, testora-postgres, caddy) to the
-# asafarim.com VPS.
+# Builds immutable application images in GitHub Actions, publishes them to
+# GHCR, then deploys the exact commit SHA to the VPS. The VPS only pulls and
+# starts images; it never compiles the monorepo during a production rollout.
 #
-# How it works: this job only SSHes into the VPS and runs the server-side
-# script infra/scripts/vps-deploy.sh, which pulls the latest main, decrypts
-# the production env with the age key already present on the server, rebuilds
-# the images, and restarts the stack. No secrets other than SSH live here.
+# The GITHUB_TOKEN logs in to GHCR for both publishing and the short-lived
+# remote pull. It is not persisted on the VPS.
 #
 # Required repository secrets (Settings -> Secrets and variables -> Actions):
 #   VPS_HOST            e.g. 82.25.116.73
@@ -29,9 +27,163 @@ concurrency:
   # deploys if a canceled SSH process takes time to exit.
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_REPOSITORY: ghcr.io/alisafari-it/asafarim-platform
+
 jobs:
-  deploy:
+  build-images:
+    name: Build ${{ matrix.image }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: platform-migrate
+            dockerfile: packages/db/Dockerfile
+            target: migrator
+          - image: web
+            dockerfile: apps/web/Dockerfile
+            target: runner
+          - image: hub
+            dockerfile: apps/hub/Dockerfile
+            target: runner
+          - image: showcase
+            dockerfile: apps/showcase/Dockerfile
+            target: runner
+          - image: admin
+            dockerfile: apps/admin/Dockerfile
+            target: runner
+          - image: vionto
+            dockerfile: apps/vionto/Dockerfile
+            target: runner
+          - image: vionto-worker
+            dockerfile: infra/docker/Dockerfile.vionto-worker
+            target: runner
+          - image: edumatch
+            dockerfile: apps/edumatch/Dockerfile
+            target: runner
+          - image: testora-migrator
+            dockerfile: apps/testora/Dockerfile
+            target: migrator
+          - image: testora
+            dockerfile: apps/testora/Dockerfile
+            target: runner
+          - image: appbuilder-migrate
+            dockerfile: apps/appbuilder/Dockerfile
+            target: migrator
+          - image: appbuilder-worker
+            dockerfile: apps/appbuilder/Dockerfile
+            target: worker
+          - image: appbuilder
+            dockerfile: apps/appbuilder/Dockerfile
+            target: runner
+          - image: timelineai
+            dockerfile: apps/timelineai/Dockerfile
+            target: runner
+          - image: labs
+            dockerfile: apps/labs/Dockerfile
+            target: runner
+          - image: jobmatch-migrate
+            dockerfile: apps/jobmatch/Dockerfile
+            target: migrator
+          - image: jobmatch
+            dockerfile: apps/jobmatch/Dockerfile
+            target: runner
+          - image: tasksai-migrate
+            dockerfile: apps/tasks-ai/Dockerfile
+            target: migrator
+          - image: tasksai-worker
+            dockerfile: apps/tasks-ai/Dockerfile
+            target: worker
+          - image: tasksai
+            dockerfile: apps/tasks-ai/Dockerfile
+            target: runner
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # These NEXT_PUBLIC_* values are not secret — they end up verbatim in
+      # the client-side JS bundle — so they live in .env.production.example,
+      # the same committed, unencrypted file that documents what
+      # .env.production.age must contain. Reading them from there (instead of
+      # duplicating them as literals in this workflow) means an operator who
+      # updates a public URL or the company name only has to edit one file
+      # for the build to pick it up, rather than two silently drifting apart.
+      - name: Load public build configuration
+        run: |
+          set -euo pipefail
+          while IFS='=' read -r key value; do
+            value="${value%\"}"
+            value="${value#\"}"
+            echo "${key}=${value}" >> "$GITHUB_ENV"
+          done < <(grep -E '^NEXT_PUBLIC_[A-Z_]+=' .env.production.example)
+
+      - name: Build and publish immutable image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_REPOSITORY }}:${{ matrix.image }}-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            com.asafarim.platform=true
+          build-args: |
+            NEXT_PUBLIC_COMPANY_NAME=${{ env.NEXT_PUBLIC_COMPANY_NAME }}
+            NEXT_PUBLIC_PLATFORM_NAME=${{ env.NEXT_PUBLIC_PLATFORM_NAME }}
+            NEXT_PUBLIC_HUB_NAME=${{ env.NEXT_PUBLIC_HUB_NAME }}
+            NEXT_PUBLIC_WEB_URL=${{ env.NEXT_PUBLIC_WEB_URL }}
+            NEXT_PUBLIC_HUB_URL=${{ env.NEXT_PUBLIC_HUB_URL }}
+            NEXT_PUBLIC_SHOWCASE_URL=${{ env.NEXT_PUBLIC_SHOWCASE_URL }}
+            NEXT_PUBLIC_ADMIN_URL=${{ env.NEXT_PUBLIC_ADMIN_URL }}
+            NEXT_PUBLIC_VIONTO_URL=${{ env.NEXT_PUBLIC_VIONTO_URL }}
+            NEXT_PUBLIC_EDUMATCH_URL=${{ env.NEXT_PUBLIC_EDUMATCH_URL }}
+            NEXT_PUBLIC_TESTORA_URL=${{ env.NEXT_PUBLIC_TESTORA_URL }}
+            NEXT_PUBLIC_APPBUILDER_URL=${{ env.NEXT_PUBLIC_APPBUILDER_URL }}
+            NEXT_PUBLIC_TIMELINEAI_URL=${{ env.NEXT_PUBLIC_TIMELINEAI_URL }}
+            NEXT_PUBLIC_DEVTOOLS_URL=${{ env.NEXT_PUBLIC_DEVTOOLS_URL }}
+            NEXT_PUBLIC_LABS_URL=${{ env.NEXT_PUBLIC_LABS_URL }}
+            NEXT_PUBLIC_JOBMATCH_URL=${{ env.NEXT_PUBLIC_JOBMATCH_URL }}
+            NEXT_PUBLIC_TASKSAI_URL=${{ env.NEXT_PUBLIC_TASKSAI_URL }}
+            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  deploy:
+    needs: build-images
+    runs-on: ubuntu-latest
+    env:
+      # A literal, not a reference to the workflow-level env block above, on
+      # purpose: this job's ssh-action step forwards IMAGE_REPOSITORY to the
+      # VPS via `envs:`, which reads the job's own process environment.
+      # Referencing `${{ env.IMAGE_REPOSITORY }}` here would still depend on
+      # the workflow-level block existing — a future edit that moves it into
+      # build-images' own scope (it looks like the "natural" place, since
+      # only that job's matrix references it directly) would make this
+      # resolve to empty too, and vps-deploy.sh would silently fall back to
+      # its own hardcoded default instead of failing loudly. Keep this in
+      # sync with the workflow-level `env.IMAGE_REPOSITORY` above.
+      IMAGE_REPOSITORY: ghcr.io/alisafari-it/asafarim-platform
+      IMAGE_TAG: ${{ github.sha }}
+      GHCR_USERNAME: ${{ github.actor }}
+      GHCR_TOKEN: ${{ github.token }}
     steps:
       # 2026-08-10: a deploy failed with `dial tcp ***:22: i/o timeout` even
       # though the VPS was up and a prior run had connected ~4 min earlier.
@@ -63,27 +215,31 @@ jobs:
           # Connection (handshake) timeout — distinct from command_timeout.
           # Default is 30s, which is too tight for transient Azure<->VPS blips.
           timeout: 60s
-          # 12 images built sequentially now include edumatch's Chrome-download
-          # dependency chain; 40m started failing the moment that landed
-          # (Run Command Timeout at 40m37s on 2026-08-05). PUPPETEER_SKIP_DOWNLOAD
-          # in the other 7 Dockerfiles should recover most of that, but 60m
-          # leaves real margin rather than trading one tight ceiling for another.
-          command_timeout: 60m
-          script_stop: true
+          # Pulling and replacing prebuilt images should normally take
+          # minutes, but a cold VPS image cache (e.g. right after
+          # cleanup-docker.sh, or a fresh box) has zero layer overlap with
+          # GHCR — a full pull of 20 images can plausibly take much longer
+          # than a warm-cache run. 45m leaves real margin for that case
+          # without masking a genuinely stuck rollout the way 60m (sized for
+          # sequential VPS *builds*, which this pipeline no longer does) would.
+          command_timeout: 45m
+          envs: IMAGE_REPOSITORY,IMAGE_TAG,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -e
             cd /var/repos/asafarim-com
-            git fetch --prune origin main
-            git reset --hard origin/main
+            # vps-deploy.sh does its own authoritative fetch + hard reset to
+            # IMAGE_TAG (this workflow's exact commit) — duplicating it here
+            # first was redundant and, since vps-deploy.sh's reset always
+            # wins, actively misleading about which commit ends up deployed.
             bash infra/scripts/vps-deploy.sh
 
   notify:
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: [build-images, deploy]
     if: always()
     steps:
       - name: Notify Telegram on success
-        if: needs.deploy.result == 'success'
+        if: needs.build-images.result == 'success' && needs.deploy.result == 'success'
         uses: appleboy/telegram-action@v1.0.0
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -95,7 +251,7 @@ jobs:
             Actor: ${{ github.actor }}
 
       - name: Notify Telegram on failure
-        if: needs.deploy.result == 'failure'
+        if: needs.build-images.result == 'failure' || needs.deploy.result == 'failure'
         uses: appleboy/telegram-action@v1.0.0
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}

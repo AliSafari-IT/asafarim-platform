@@ -8,6 +8,7 @@
 #   - age CLI            (apt install age)
 #   - repo cloned at     /var/repos/asafarim-com
 #   - age private key at /var/repos/asafarim-com/.age/key.txt  (chmod 600)
+#   - GHCR authentication for manual runs (Actions supplies a temporary token)
 #
 set -euo pipefail
 
@@ -31,7 +32,22 @@ fi
 
 echo "[deploy $(date -Is)] Fetching latest ${BRANCH}..."
 git fetch --prune origin "$BRANCH"
-git reset --hard "origin/${BRANCH}"   # tracked files only; ignores .env.production & .age/
+
+# GitHub Actions passes the commit whose images it published. Reset to that
+# exact revision so Compose configuration, migrations, and images can never
+# come from different commits if main advances during a deployment.
+if [[ -n "${IMAGE_TAG:-}" ]]; then
+  if ! git cat-file -e "${IMAGE_TAG}^{commit}" 2>/dev/null; then
+    echo "FATAL: image commit ${IMAGE_TAG} is not present in the repository." >&2
+    exit 1
+  fi
+  git reset --hard "${IMAGE_TAG}"
+else
+  git reset --hard "origin/${BRANCH}"
+  IMAGE_TAG="$(git rev-parse HEAD)"
+fi
+export IMAGE_TAG
+export IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}"
 
 echo "[deploy $(date -Is)] Decrypting production environment..."
 if [[ ! -f .age/key.txt ]]; then
@@ -62,88 +78,90 @@ if (( ${#MISSING_VARS[@]} > 0 )); then
   exit 1
 fi
 
-# Always reclaim dangling images/build cache on exit (success or failure) so
-# repeated failed deploys don't silently fill the disk before the next run.
-cleanup() {
-  echo "[deploy $(date -Is)] Pruning dangling images and build cache..."
-  docker image prune -f >/dev/null 2>&1 || true
-  docker builder prune -f --filter until=24h >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
+# Use the workflow's short-lived GITHUB_TOKEN without persisting it in the
+# deploy user's normal Docker configuration. Manual deploys can instead rely
+# on an existing `docker login ghcr.io` session on the VPS.
+DEPLOY_DOCKER_CONFIG=""
 
-export DOCKER_BUILDKIT=1
+# Runs on every exit, success or failure — a deploy that fails partway
+# through (bad migration, invalid Caddyfile) has already pulled up to 20
+# fresh images before it aborts. Without this, a repeatedly-failing deploy
+# re-pulls and accumulates disk usage on every retry with nothing reclaiming
+# it in between, which is the same chronic disk-exhaustion failure mode this
+# script was rewritten to avoid — just moved from the build step to the pull
+# step. `docker image prune -f` (no `-a`) only removes dangling/untagged
+# layers, never the tagged current/previous release images a retry needs.
+cleanup_on_exit() {
+  local exit_code=$?
+  if [[ -n "${DEPLOY_DOCKER_CONFIG}" && -d "${DEPLOY_DOCKER_CONFIG}" ]]; then
+    rm -f -- "${DEPLOY_DOCKER_CONFIG}/config.json"
+    rmdir -- "${DEPLOY_DOCKER_CONFIG}" 2>/dev/null || true
+  fi
+  if (( exit_code != 0 )); then
+    echo "[deploy $(date -Is)] Deploy exited with an error — pruning dangling images and build cache..."
+    docker image prune -f >/dev/null 2>&1 || true
+    docker builder prune -f --filter until=24h >/dev/null 2>&1 || true
+  fi
+  exit "${exit_code}"
+}
+trap cleanup_on_exit EXIT
+
+if [[ -n "${GHCR_TOKEN:-}" ]]; then
+  if [[ -z "${GHCR_USERNAME:-}" ]]; then
+    echo "FATAL: GHCR_TOKEN was provided without GHCR_USERNAME." >&2
+    exit 1
+  fi
+  DEPLOY_DOCKER_CONFIG="$(mktemp -d)"
+  chmod 700 "${DEPLOY_DOCKER_CONFIG}"
+  export DOCKER_CONFIG="${DEPLOY_DOCKER_CONFIG}"
+  printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io \
+    --username "${GHCR_USERNAME}" --password-stdin >/dev/null
+  unset GHCR_TOKEN
+fi
+
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-asafarim-com}"
+export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-4}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 
-BUILD_SERVICES=(platform-migrate web hub showcase admin vionto vionto-worker edumatch testora-migrate testora-seed testora appbuilder-migrate appbuilder-worker appbuilder timelineai labs jobmatch-migrate jobmatch tasksai-migrate tasksai-worker tasksai)
+RELEASE_SERVICES=(platform-migrate web hub showcase admin vionto vionto-worker edumatch testora-migrate testora-seed testora appbuilder-migrate appbuilder-worker appbuilder timelineai labs jobmatch-migrate jobmatch tasksai-migrate tasksai-worker tasksai)
 
-# Building ${#BUILD_SERVICES[@]} images sequentially is the single biggest
-# disk consumer in this script (each build leaves layers + build cache
-# behind) — check for headroom BEFORE starting, and proactively reclaim space
-# rather than discovering "no space left on device" partway through a build.
-ensure_disk_space() {
+available_gb() {
   local docker_root
   docker_root="$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)"
-  local min_free_gb="${DEPLOY_MIN_FREE_GB:-10}"
-
-  avail_gb() {
-    # `tr -dc` can leave this empty (e.g. `df` failing) — under `set -euo
-    # pipefail` an empty operand would abort the whole script on the next
-    # arithmetic comparison, so fail safe to 0 (triggers pruning) rather than
-    # crashing the deploy on a disk-space *check* itself.
-    df -BG --output=avail "$docker_root" 2>/dev/null | tail -n1 | tr -dc '0-9' || true
-  }
-
-  local avail
-  avail="$(avail_gb)"; avail="${avail:-0}"
-  echo "[deploy $(date -Is)] ${avail}GB free on ${docker_root} (need >= ${min_free_gb}GB to build ${#BUILD_SERVICES[@]} images sequentially)."
-  if (( avail >= min_free_gb )); then
-    return 0
-  fi
-
-  echo "[deploy $(date -Is)] Low disk space — reclaiming space before building (round 1: dangling images + old build cache)..."
-  docker image prune -f >/dev/null 2>&1 || true
-  docker container prune -f >/dev/null 2>&1 || true
-  docker builder prune -f --filter until=24h >/dev/null 2>&1 || true
-  avail="$(avail_gb)"; avail="${avail:-0}"
-  echo "[deploy $(date -Is)] ${avail}GB free after round 1."
-  if (( avail >= min_free_gb )); then
-    return 0
-  fi
-
-  echo "[deploy $(date -Is)] Still low — reclaiming space (round 2: ALL unused images + full build cache, not just dangling/24h)..."
-  docker image prune -af >/dev/null 2>&1 || true
-  docker builder prune -af >/dev/null 2>&1 || true
-  avail="$(avail_gb)"; avail="${avail:-0}"
-  echo "[deploy $(date -Is)] ${avail}GB free after round 2."
-  if (( avail >= min_free_gb )); then
-    return 0
-  fi
-
-  # Deliberately does NOT touch `docker volume prune` here — an unused-looking
-  # volume can still be a previous release's Postgres data kept for recovery;
-  # freeing space by deleting data is a human decision, not an automated one.
-  echo "FATAL: only ${avail}GB free on ${docker_root} after pruning images and build cache (need ${min_free_gb}GB)." >&2
-  echo "Refusing to start a build that would likely fail mid-way from disk exhaustion." >&2
-  echo "Free space manually (e.g. 'docker volume ls' for stale/orphaned volumes, or check log/backup growth on the VPS) and re-run." >&2
-  return 1
+  df -BG --output=avail "$docker_root" 2>/dev/null | tail -n1 | tr -dc '0-9' || true
 }
-ensure_disk_space
 
-echo "[deploy $(date -Is)] Building images sequentially (memory-safe on 8GB)..."
-for svc in "${BUILD_SERVICES[@]}"; do
-  # Re-check before EVERY build, not just once at the start. Each of the
-  # ${#BUILD_SERVICES[@]} sequential builds leaves layers + cache behind, so
-  # a machine with enough headroom at minute 0 can still starve by build #15
-  # — this is what actually happened when tasksai-migrate died mid-export
-  # with "no space left on device" 40 minutes into a run that passed the
-  # initial check. Re-running the same escalating-prune gate here catches
-  # that decline early (and prunes proactively) instead of failing the build
-  # itself with a much less recoverable error.
-  ensure_disk_space
-  echo "[deploy $(date -Is)] ===== build ${svc} ====="
-  "${COMPOSE[@]}" build "$svc"
-done
+# shellcheck source=lib/prune-release-images.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/prune-release-images.sh"
+
+# Remove only legacy Compose-built application tags from the old deployment
+# model. Docker refuses to delete an image still used by a container, so the
+# currently running release remains protected. This migration cleanup avoids
+# carrying the ~11GB of failed local builds observed in September 2026.
+mapfile -t LEGACY_IMAGES < <(
+  docker image ls --format '{{.Repository}}:{{.Tag}}' |
+    awk '$0 ~ /^asafarim-com-/ { print }'
+)
+if (( ${#LEGACY_IMAGES[@]} > 0 )); then
+  echo "[deploy $(date -Is)] Removing unused legacy VPS-built image tags..."
+  docker image rm "${LEGACY_IMAGES[@]}" >/dev/null 2>&1 || true
+fi
+
+MIN_PULL_FREE_GB="${DEPLOY_MIN_FREE_GB:-20}"
+AVAIL_GB="$(available_gb)"; AVAIL_GB="${AVAIL_GB:-0}"
+if (( AVAIL_GB < MIN_PULL_FREE_GB )); then
+  echo "[deploy $(date -Is)] Only ${AVAIL_GB}GB free; pruning platform images except the current and previous releases..."
+  prune_superseded_platform_images
+  AVAIL_GB="$(available_gb)"; AVAIL_GB="${AVAIL_GB:-0}"
+fi
+if (( AVAIL_GB < MIN_PULL_FREE_GB )); then
+  echo "FATAL: only ${AVAIL_GB}GB free; ${MIN_PULL_FREE_GB}GB is required for a safe image pull." >&2
+  echo "No volumes were removed. Inspect Docker images, backups, and /var/lib/containerd before retrying." >&2
+  exit 1
+fi
+
+echo "[deploy $(date -Is)] Pulling ${#RELEASE_SERVICES[@]} service images for ${IMAGE_TAG} (${AVAIL_GB}GB free)..."
+"${COMPOSE[@]}" pull "${RELEASE_SERVICES[@]}"
 
 mapfile -t STALE_REPLACEMENT_CONTAINERS < <(
   docker ps -a \
@@ -162,7 +180,19 @@ fi
 # depends_on, but doing it as an explicit step keeps the migration output as
 # its own section in the deploy log instead of interleaved with 13 services.
 echo "[deploy $(date -Is)] Applying platform database migrations..."
-"${COMPOSE[@]}" up -d --wait postgres
+"${COMPOSE[@]}" up -d --wait --no-build postgres
+# `docker compose run` has no `--no-build` flag (only `--build`, to force
+# one) — unlike `up`, it silently builds locally when the image is missing
+# rather than failing. Check the image is actually present first so a gap
+# earlier in this script (pull skipped or silently incomplete for just this
+# one image) fails loudly here instead of falling back to the slow,
+# disk-hungry local build this whole redesign exists to avoid.
+PLATFORM_MIGRATE_IMAGE="${IMAGE_REPOSITORY}:platform-migrate-${IMAGE_TAG}"
+if ! docker image inspect "${PLATFORM_MIGRATE_IMAGE}" >/dev/null 2>&1; then
+  echo "FATAL: ${PLATFORM_MIGRATE_IMAGE} is not present locally — refusing to let" >&2
+  echo "'docker compose run' fall back to building it on the VPS. Re-run the pull step." >&2
+  exit 1
+fi
 # `run --rm` rather than `up --exit-code-from`: the latter implies
 # --abort-on-container-exit, which would tear down the attached `postgres`
 # dependency the moment the migration finishes — stopping the database in the
@@ -176,7 +206,7 @@ if ! "${COMPOSE[@]}" run --rm platform-migrate; then
 fi
 
 echo "[deploy $(date -Is)] Starting stack..."
-"${COMPOSE[@]}" up -d --remove-orphans
+"${COMPOSE[@]}" up -d --remove-orphans --no-build
 
 # The Caddyfile is bind-mounted, so applying configuration does not require a
 # container replacement. Force-recreating Caddy briefly closes public ports 80
@@ -192,6 +222,17 @@ if ! "${COMPOSE[@]}" exec -T caddy \
 fi
 "${COMPOSE[@]}" exec -T caddy \
   caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+
+# Record immutable revisions for operators and retain recent images for a
+# quick rollback. Active container images are always protected by Docker.
+mkdir -p .deploy
+if [[ -f .deploy/current-release ]]; then
+  cp .deploy/current-release .deploy/previous-release
+fi
+printf '%s\n' "${IMAGE_TAG}" > .deploy/current-release
+
+echo "[deploy $(date -Is)] Retaining only the current and previous platform image sets..."
+prune_superseded_platform_images
 
 echo "[deploy $(date -Is)] Sending deployment notification..."
 DISCORD_WEBHOOK=""

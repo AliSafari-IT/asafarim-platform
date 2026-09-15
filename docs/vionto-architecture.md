@@ -556,7 +556,10 @@ Both services depend on successful database migration and healthy Redis. Both re
 
 Nginx terminates TLS, forwards public-origin headers required by Auth.js callbacks, allows 500 MB request bodies, disables request buffering for uploads, and gives long API proxy timeouts for media operations.
 
-The GitHub deployment workflow rsyncs the monorepo to the VPS, installs Nginx configurations, starts PostgreSQL/Redis, builds application images, runs Prisma migrations, conditionally seeds initial data, recreates the services, and verifies web/worker health.
+The GitHub deployment workflow builds commit-tagged application images in
+GitHub Actions and publishes them to GHCR. The VPS pulls those images, runs
+Prisma migrations and conditional seed work, recreates services with Docker
+Compose `--no-build`, and keeps Caddy online while its configuration reloads.
 
 ### 10.3 Essential environment variables
 
@@ -615,4 +618,3 @@ These points are observable current behavior and should be considered when exten
 ---
 
 This document describes the checked-in behavior as of the date above. Where database comments or planning documents differ from executable route/worker code, the executable implementation is treated as authoritative and the mismatch is called out explicitly.
-

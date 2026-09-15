@@ -191,8 +191,12 @@ flowchart LR
 
     Dev -->|push| GH
     GH -->|workflow trigger| Actions
-    Actions -->|build + SSH deploy| VPS
-    VPS -->|docker compose up| Docker
+    Registry[(GHCR)]
+
+    Actions -->|build immutable SHA images| Registry
+    Actions -->|SSH deploy| VPS
+    Registry -->|pull images| VPS
+    VPS -->|docker compose up --no-build| Docker
     Docker --> Apps
     Docker --> Caddy
     Caddy -->|HTTPS| Apps

@@ -81,3 +81,4 @@ apps/tasks-ai/lib/db/generated/
 # own checkout via `exec 9>`/`flock` so overlapping deploy runs can't race
 # each other. It's local machine state, never repo content.
 /.vps-deploy.lock
+/.deploy/
