@@ -73,3 +73,8 @@ apps/jobmatch/lib/db/generated/
 
 # TasksAI's own Prisma client, same reason (docs/adr/0001-dedicated-database.md).
 apps/tasks-ai/lib/db/generated/
+
+# Deploy concurrency lock (infra/scripts/vps-deploy.sh) — created on the VPS's
+# own checkout via `exec 9>`/`flock` so overlapping deploy runs can't race
+# each other. It's local machine state, never repo content.
+/.vps-deploy.lock
