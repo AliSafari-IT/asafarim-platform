@@ -19,8 +19,22 @@
   overflow: hidden;
   pointer-events: none;
   opacity: 0.9;
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.28) 22%, #000 48%, #000 88%, transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.28) 22%, #000 48%, #000 88%, transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.28) 22%,
+    #000 48%,
+    #000 88%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.28) 22%,
+    #000 48%,
+    #000 88%,
+    transparent 100%
+  );
 }
 
 .constellation {
@@ -151,8 +165,18 @@
     height: 12.5rem;
     margin: calc(var(--space-5) * -1) -1rem var(--space-3);
     opacity: 0.7;
-    -webkit-mask-image: radial-gradient(ellipse 74% 86% at 50% 50%, #000 38%, rgba(0, 0, 0, 0.66) 68%, transparent 100%);
-    mask-image: radial-gradient(ellipse 74% 86% at 50% 50%, #000 38%, rgba(0, 0, 0, 0.66) 68%, transparent 100%);
+    -webkit-mask-image: radial-gradient(
+      ellipse 74% 86% at 50% 50%,
+      #000 38%,
+      rgba(0, 0, 0, 0.66) 68%,
+      transparent 100%
+    );
+    mask-image: radial-gradient(
+      ellipse 74% 86% at 50% 50%,
+      #000 38%,
+      rgba(0, 0, 0, 0.66) 68%,
+      transparent 100%
+    );
   }
 
   :global(:root[data-theme="light"]) .backdrop {

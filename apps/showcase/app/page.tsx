@@ -26,7 +26,9 @@ export default async function ShowcaseHomePage() {
           lede={t("showcase.home.hero.lede")}
           actions={
             <>
-              <ButtonLink href="/projects">{t("showcase.home.hero.ctaPrimary")}</ButtonLink>
+              <ButtonLink href="/projects">
+                {t("showcase.home.hero.ctaPrimary")}
+              </ButtonLink>
               <ButtonLink href="/labs" variant="secondary">
                 {t("showcase.home.hero.ctaSecondary")}
               </ButtonLink>
@@ -40,7 +42,11 @@ export default async function ShowcaseHomePage() {
           offering its write-up and — when the project is actually deployed —
           the running app. The analysis (stacks, dependencies, architecture)
           lives on /projects so the two pages stop being the same grid twice. */}
-      <Section kicker={t("showcase.home.featured.kicker")} kickerIndex="01" title={t("showcase.home.featured.title")}>
+      <Section
+        kicker={t("showcase.home.featured.kicker")}
+        kickerIndex="01"
+        title={t("showcase.home.featured.title")}
+      >
         <div className="ui-grid ui-grid--wide">
           {projects.map((project) => (
             <ProjectGalleryCard key={project.slug} project={project} />
