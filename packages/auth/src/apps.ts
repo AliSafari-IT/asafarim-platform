@@ -587,8 +587,12 @@ export function getPlatformApp(key: string): PlatformApp | undefined {
 }
 
 /**
- * The apps to list in an app switcher, in registry order: everything the
- * user may actually open, minus the app they are already standing in.
+ * The apps to list in an app switcher, in registry order: every active app
+ * except the one the user is already standing in — shown regardless of
+ * sign-in state or role, so anonymous visitors see the full platform map
+ * instead of a partial one. Apps that require a session (Hub, Admin,
+ * AppBuilder, JobMatch, TasksAI, …) still gate access inside the app itself;
+ * the switcher is a directory, not an access check.
  *
  * Every app's switcher must go through this. Hand-maintained per-app arrays
  * silently drift the moment a new app joins the platform — that is exactly
@@ -601,10 +605,10 @@ export function getPlatformApp(key: string): PlatformApp | undefined {
  */
 export function getAppSwitcherApps(
   currentKey: string,
-  context: AppAccessContext
+  _context?: AppAccessContext
 ): PlatformApp[] {
   return PLATFORM_APPS.filter(
-    (app) => app.key !== currentKey && canAccessApp(app, context)
+    (app) => app.key !== currentKey && app.status === "active"
   );
 }
 
