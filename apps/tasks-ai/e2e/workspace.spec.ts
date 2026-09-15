@@ -19,12 +19,32 @@ test.describe("M03 workspace journeys", () => {
     await page.getByRole("button", { name: "Create" }).click();
 
     await page.getByRole("link", { name: /WEB Website relaunch/ }).click();
+    // Sub-routes keep parent context visible (issue #369).
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText(
+      "Projects",
+    );
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText(
+      "WEB · Website relaunch",
+    );
     await page.getByLabel("Task title").fill("Draft the brief");
     await page.getByRole("button", { name: "Add" }).click();
     await expect(page.getByText("Draft the brief")).toBeVisible();
 
     await page.getByRole("checkbox", { name: "Complete Draft the brief" }).check();
     await expect(page.locator('[data-done="true"]')).toContainText("Draft the brief");
+  });
+
+  test("workspace navigation is grouped by job, not a flat list (#369)", async ({ page }) => {
+    await page.goto("/w/demo");
+    const nav = page.getByRole("navigation", { name: "Workspace" });
+    for (const group of ["Work", "Planning", "AI & automation", "Insights", "Workspace"]) {
+      await expect(nav.getByText(group, { exact: true })).toBeVisible();
+    }
+    // Descriptions are always available to assistive tech, not hover-only.
+    const homeLink = nav.getByRole("link", { name: "Home" }).first();
+    const describedbyId = await homeLink.getAttribute("aria-describedby");
+    expect(describedbyId).toBeTruthy();
+    await expect(page.locator(`#${describedbyId}`)).toHaveText(/workspace entry point/i);
   });
 
   test("the workspace home explains the product and routes onward (#365)", async ({ page }) => {

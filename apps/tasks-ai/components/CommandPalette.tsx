@@ -64,7 +64,17 @@ export function CommandPalette({ slug }: { slug: string }) {
       { id: "nav-home", label: "Go to Home", run: () => router.push(`/w/${slug}`) },
       { id: "nav-inbox", label: "Go to Inbox", run: () => router.push(`/w/${slug}/inbox`) },
       { id: "nav-mywork", label: "Go to My Work", run: () => router.push(`/w/${slug}/my-work`) },
+      { id: "nav-focus", label: "Go to Focus", run: () => router.push(`/w/${slug}/focus`) },
       { id: "nav-projects", label: "Go to Projects", run: () => router.push(`/w/${slug}/projects`) },
+      { id: "nav-search", label: "Go to Search", run: () => router.push(`/w/${slug}/search`) },
+      {
+        id: "nav-copilot",
+        label: "Open Copilot: turn notes into plan",
+        run: () => router.push(`/w/${slug}/copilot`),
+      },
+      { id: "nav-automations", label: "Go to Automations", run: () => router.push(`/w/${slug}/automations`) },
+      { id: "nav-analytics", label: "Go to Analytics", run: () => router.push(`/w/${slug}/analytics`) },
+      { id: "nav-settings", label: "Go to Settings", run: () => router.push(`/w/${slug}/settings`) },
     ];
     const captureCommands: Command[] =
       capture.canCapture && query.trim()
