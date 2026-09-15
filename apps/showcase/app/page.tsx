@@ -1,5 +1,7 @@
 import { ButtonLink, Hero, Section } from "@asafarim/ui";
+import { AiCapabilityBackdrop } from "./_components/AiCapabilityBackdrop";
 import { ProjectGalleryCard } from "./_components/ProjectGalleryCard";
+import styles from "./_components/home.module.css";
 import { cookies } from "next/headers";
 import {
   resolveLocaleFromCookie,
@@ -16,20 +18,23 @@ export default async function ShowcaseHomePage() {
 
   return (
     <>
-      <Hero
-        kicker={t("showcase.home.hero.kicker")}
-        kickerIndex="00"
-        title={t("showcase.home.hero.title")}
-        lede={t("showcase.home.hero.lede")}
-        actions={
-          <>
-            <ButtonLink href="/projects">{t("showcase.home.hero.ctaPrimary")}</ButtonLink>
-            <ButtonLink href="/labs" variant="secondary">
-              {t("showcase.home.hero.ctaSecondary")}
-            </ButtonLink>
-          </>
-        }
-      />
+      <div className={styles.heroStage}>
+        <Hero
+          kicker={t("showcase.home.hero.kicker")}
+          kickerIndex="00"
+          title={t("showcase.home.hero.title")}
+          lede={t("showcase.home.hero.lede")}
+          actions={
+            <>
+              <ButtonLink href="/projects">{t("showcase.home.hero.ctaPrimary")}</ButtonLink>
+              <ButtonLink href="/labs" variant="secondary">
+                {t("showcase.home.hero.ctaSecondary")}
+              </ButtonLink>
+            </>
+          }
+        />
+        <AiCapabilityBackdrop />
+      </div>
 
       {/* The gallery is the "walk the wall" view: one card per piece, each
           offering its write-up and — when the project is actually deployed —
