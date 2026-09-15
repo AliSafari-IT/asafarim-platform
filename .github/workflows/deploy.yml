@@ -227,10 +227,24 @@ jobs:
           script: |
             set -e
             cd /var/repos/asafarim-com
-            # vps-deploy.sh does its own authoritative fetch + hard reset to
-            # IMAGE_TAG (this workflow's exact commit) — duplicating it here
-            # first was redundant and, since vps-deploy.sh's reset always
-            # wins, actively misleading about which commit ends up deployed.
+            # This reset is NOT redundant with vps-deploy.sh's own internal
+            # git reset, even though that one also lands on IMAGE_TAG —
+            # removing this outer step once caused a real production
+            # incident (2026-09-15): `bash infra/scripts/vps-deploy.sh`
+            # opens the script file as it exists on disk *before* running a
+            # single line. Without this outer reset, that could be an
+            # arbitrarily stale checkout (main advances between deploys via
+            # the changelog bot, for one). vps-deploy.sh's own internal
+            # `git reset --hard` then rewrites its own source file on disk
+            # while bash is still mid-execution of it — bash's already-open
+            # file descriptor keeps reading the pre-reset bytes for the rest
+            # of that run, so the *entire remainder of the script* silently
+            # executes stale, possibly pre-redesign logic (full local
+            # rebuild instead of a GHCR pull) with no error of any kind.
+            # Resetting here first, before vps-deploy.sh is ever opened,
+            # guarantees bash always reads the current commit's script.
+            git fetch --prune origin main
+            git reset --hard "${IMAGE_TAG}"
             bash infra/scripts/vps-deploy.sh
 
   notify:
