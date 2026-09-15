@@ -7,31 +7,32 @@ checklist, and post-deploy smoke checks for shipping EduMatch changes to
 
 ## How a deploy actually works
 
-There is no image registry or version tagging — every deploy rebuilds all
-13 app images **from source**, straight off `main`. "Deploying an older
-version" means checking out an older commit and rebuilding, not swapping an
-image tag (see the rollback runbook).
+Application images are built by GitHub Actions, published to GHCR with the
+full Git commit SHA, and then pulled by the VPS. Production never rebuilds the
+monorepo during a rollout. See [deployment.md](deployment.md) for the complete
+pipeline and rollback commands.
 
 1. A push to `main` triggers [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
    (or `workflow_dispatch` for a manual redeploy without a new commit).
-2. That workflow SSHes into the VPS and runs
+2. GitHub Actions builds 20 unique application images in parallel, publishes
+   immutable `<service>-<commit-sha>` tags, then SSHes into the VPS and runs
    [`infra/scripts/vps-deploy.sh`](../infra/scripts/vps-deploy.sh), which:
-   - `git reset --hard origin/main` (tracked files only — `.env.production`
-     and `.age/` are untouched)
+   - resets to the exact commit that produced the images (tracked files only
+     — `.env.production` and `.age/` are untouched)
    - decrypts `.env.production` from the committed `.env.production.age`
    - validates a handful of required env vars are non-blank, refusing to
      deploy rather than silently starting containers with a blank
      `DATABASE_URL`/similar (see the script's own comment on
      `TIMELINEAI_GUEST_IP_HASH_KEY` for the failure mode this guards
      against)
-   - checks disk space and prunes images/build cache if needed (13 images
-     built sequentially is the single biggest disk consumer on the VPS)
-   - builds all 13 app images sequentially (memory-safe on the VPS's 8GB)
+   - checks that enough disk space exists for a pull without deleting volumes
+   - pulls the already-built images from GHCR
    - runs `platform-migrate` (Prisma `migrate deploy` against the shared
      database) — **before** touching any running app container. If this
      fails, the deploy aborts and the previous release keeps running
      untouched (see the rollback runbook for what to do if you land here)
-   - `docker compose up -d --remove-orphans`, then force-recreates Caddy
+   - `docker compose up -d --remove-orphans --no-build`, then gracefully
+     reloads Caddy
    - posts a Discord notification if `WEBHOOK_SECRET_DISCORD` is set
    - prints `docker compose ps` as the final line of output
 
@@ -75,15 +76,15 @@ git push origin main
 # .github/workflows/deploy.yml picks it up automatically
 ```
 
-Manual redeploy (no new commit — e.g. re-running after a transient
-failure): trigger `workflow_dispatch` on `deploy.yml` from the GitHub
-Actions UI, or run the server-side script directly if you're already SSHed
-into the VPS:
+Manual redeploy (no new commit — e.g. re-running after a transient failure):
+trigger `workflow_dispatch` on `deploy.yml` from the GitHub Actions UI. If the
+VPS already has a persistent GHCR `read:packages` login, the server-side
+script can also deploy the current commit directly:
 
 ```bash
 ssh vps
 cd /var/repos/asafarim-com
-bash infra/scripts/vps-deploy.sh
+IMAGE_TAG="$(git rev-parse HEAD)" bash infra/scripts/vps-deploy.sh
 ```
 
 ## Post-deploy smoke checks

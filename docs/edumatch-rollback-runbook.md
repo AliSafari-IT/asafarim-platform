@@ -39,22 +39,20 @@ docker exec <postgres-container-name> pg_dump -U asafarim -Fc asafarim > /var/ba
 
 ### 1. Bad application code, migration was fine (or there was no migration)
 
-This is the common case and the cheap fix — checkout the previous good
-commit and redeploy. Remember: there's no image tag to swap, `main` gets
-rebuilt from source every time, so "rollback" here literally means
-"deploy an older commit."
+This is the common case and the cheap fix: deploy the immutable image set from
+the previous successful release. The deploy script records that SHA after each
+successful rollout.
 
 ```bash
 ssh vps
 cd /var/repos/asafarim-com
-git log --oneline -10                    # find the last good commit
-git reset --hard <last-good-commit-sha>
-bash infra/scripts/vps-deploy.sh
+cat .deploy/previous-release
+IMAGE_TAG="$(cat .deploy/previous-release)" bash infra/scripts/vps-deploy.sh
 ```
 
-Then push a revert commit to `main` on GitHub too (not just on the VPS) —
-otherwise the next ordinary push-to-main deploy re-introduces the bad
-commit, since `vps-deploy.sh` always does `git reset --hard origin/main`.
+Then push a revert commit to `main` on GitHub too; otherwise the next ordinary
+deployment will reintroduce the bad application code. Image rollback does not
+reverse database migrations.
 
 ### 2. A migration shipped as part of the bad deploy
 

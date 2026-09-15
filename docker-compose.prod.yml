@@ -31,6 +31,7 @@ services:
   # failure mode that took tlai.asafarim.com/gallery down with
   # "table public.Timeline does not exist".
   platform-migrate:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:platform-migrate-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: packages/db/Dockerfile
@@ -48,6 +49,7 @@ services:
       - asafarim_net
 
   web:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:web-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -86,6 +88,7 @@ services:
       - asafarim_net
 
   hub:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:hub-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/hub/Dockerfile
@@ -107,6 +110,7 @@ services:
       - asafarim_net
 
   showcase:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:showcase-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/showcase/Dockerfile
@@ -128,6 +132,7 @@ services:
       - asafarim_net
 
   admin:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:admin-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/admin/Dockerfile
@@ -157,6 +162,7 @@ services:
       - asafarim_net
 
   vionto:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:vionto-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/vionto/Dockerfile
@@ -181,6 +187,7 @@ services:
       - asafarim_net
 
   vionto-worker:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:vionto-worker-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.vionto-worker
@@ -207,6 +214,7 @@ services:
       - asafarim_net
 
   edumatch:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:edumatch-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/edumatch/Dockerfile
@@ -250,6 +258,7 @@ services:
       - asafarim_net
 
   timelineai:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:timelineai-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/timelineai/Dockerfile
@@ -288,6 +297,7 @@ services:
   # experiment registry with no auth, no shared database, and no worker —
   # see apps/labs/README.md. It only needs the app switcher's cross-app URLs.
   labs:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:labs-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/labs/Dockerfile
@@ -326,6 +336,7 @@ services:
   # One-shot: applies pending drizzle migrations, then exits. The app waits for
   # this to complete successfully before starting.
   testora-migrate:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:testora-migrator-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/testora/Dockerfile
@@ -349,6 +360,8 @@ services:
   # without someone having to click the button in prod afterwards. Runs after
   # migrations so the schema it writes against is current.
   testora-seed:
+    # The seed and migration jobs intentionally share one prebuilt image.
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:testora-migrator-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/testora/Dockerfile
@@ -369,6 +382,7 @@ services:
       - asafarim_net
 
   testora:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:testora-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/testora/Dockerfile
@@ -419,6 +433,7 @@ services:
   # this job exists so the database and its migration lifecycle are already
   # correct and testable ahead of that milestone.
   appbuilder-migrate:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:appbuilder-migrate-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/appbuilder/Dockerfile
@@ -446,6 +461,7 @@ services:
   # provider (APPBUILDER_AI_PROVIDER) so this service never makes a billable
   # call until an operator explicitly opts into "openai" with a real key.
   appbuilder-worker:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:appbuilder-worker-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/appbuilder/Dockerfile
@@ -477,6 +493,7 @@ services:
       - asafarim_net
 
   appbuilder:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:appbuilder-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/appbuilder/Dockerfile
@@ -531,6 +548,7 @@ services:
       - asafarim_net
 
   jobmatch-migrate:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:jobmatch-migrate-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/jobmatch/Dockerfile
@@ -576,6 +594,7 @@ services:
     # answer PING, and that is intentionally not shortened here.
 
   jobmatch:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:jobmatch-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/jobmatch/Dockerfile
@@ -636,6 +655,7 @@ services:
   # One-shot: applies TasksAI's Prisma migrations before the app starts, so
   # a deploy can never ship a TasksAI whose tables were never created.
   tasksai-migrate:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:tasksai-migrate-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/tasks-ai/Dockerfile
@@ -655,6 +675,7 @@ services:
   # fan-out), webhook delivery, rate-counter prune. Same image as the
   # runner, different entrypoint.
   tasksai-worker:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:tasksai-worker-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/tasks-ai/Dockerfile
@@ -678,6 +699,7 @@ services:
       - asafarim_net
 
   tasksai:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:tasksai-${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/tasks-ai/Dockerfile
