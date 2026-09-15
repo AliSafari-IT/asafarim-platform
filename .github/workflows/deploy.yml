@@ -227,25 +227,35 @@ jobs:
           script: |
             set -e
             cd /var/repos/asafarim-com
-            # This reset is NOT redundant with vps-deploy.sh's own internal
-            # git reset, even though that one also lands on IMAGE_TAG —
-            # removing this outer step once caused a real production
-            # incident (2026-09-15): `bash infra/scripts/vps-deploy.sh`
-            # opens the script file as it exists on disk *before* running a
-            # single line. Without this outer reset, that could be an
-            # arbitrarily stale checkout (main advances between deploys via
-            # the changelog bot, for one). vps-deploy.sh's own internal
-            # `git reset --hard` then rewrites its own source file on disk
-            # while bash is still mid-execution of it — bash's already-open
-            # file descriptor keeps reading the pre-reset bytes for the rest
-            # of that run, so the *entire remainder of the script* silently
-            # executes stale, possibly pre-redesign logic (full local
-            # rebuild instead of a GHCR pull) with no error of any kind.
-            # Resetting here first, before vps-deploy.sh is ever opened,
-            # guarantees bash always reads the current commit's script.
             git fetch --prune origin main
-            git reset --hard "${IMAGE_TAG}"
-            bash infra/scripts/vps-deploy.sh
+            # Extract the target commit's vps-deploy.sh into an untracked,
+            # uniquely-named copy under infra/scripts/ (so its relative
+            # `lib/` source still resolves) and run THAT, instead of
+            # resetting the tracked working tree and opening the tracked
+            # file directly. Two hazards, one fix:
+            #   - self-modification (2026-09-15 incident): the tracked
+            #     vps-deploy.sh does its own `git reset --hard` partway
+            #     through, rewriting itself on disk while bash is still
+            #     mid-execution of it. Bash's already-open file descriptor
+            #     keeps reading the pre-reset bytes for the rest of that
+            #     run, so it silently finishes executing whatever was
+            #     checked out *before* this script started — a fully
+            #     stale, possibly pre-redesign version — with no error.
+            #     Running from a separate, untracked file means that
+            #     internal reset can never touch the file bash is reading.
+            #   - overlapping deploys (Devin review on PR #383): resetting
+            #     the whole tree here, before vps-deploy.sh acquires its
+            #     flock lock, let a canceled-but-still-alive older deploy
+            #     have the shared checkout rewritten out from under it
+            #     mid-rollout. `git show <ref>:<path>` reads straight from
+            #     the object database and touches no tracked file, so the
+            #     only full-tree `git reset --hard` now happens inside
+            #     vps-deploy.sh itself, after it holds the lock — a second
+            #     deploy blocks on that lock instead of racing the first.
+            BOOTSTRAP="infra/scripts/.vps-deploy.${IMAGE_TAG}.sh"
+            trap 'rm -f "$BOOTSTRAP"' EXIT
+            git show "${IMAGE_TAG}:infra/scripts/vps-deploy.sh" > "$BOOTSTRAP"
+            bash "$BOOTSTRAP"
 
   notify:
     runs-on: ubuntu-latest
