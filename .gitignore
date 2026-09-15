@@ -73,3 +73,4 @@ apps/jobmatch/lib/db/generated/
 
 # TasksAI's own Prisma client, same reason (docs/adr/0001-dedicated-database.md).
 apps/tasks-ai/lib/db/generated/
+.claude.json
