@@ -16,18 +16,6 @@ import type {
 } from "@/test-engine/types";
 import { DEFAULT_PROJECT_ID, PROJECTS, projectSeedTargets } from "@/data/projects";
 import {
-  asafarimPortalAuthFR,
-  asafarimPortalSuites,
-  asafarimPortalFixtures,
-  asafarimPortalCases,
-} from "@/data/asafarim/portal-auth";
-import {
-  portalAdminFR,
-  portalAdminSuites,
-  portalAdminFixtures,
-  portalAdminCases,
-} from "@/data/asafarim/portal-admin";
-import {
   edumatchFR,
   edumatchSuites,
   edumatchFixtures,
@@ -63,20 +51,6 @@ const baseBundles: SeedBundle[] = [
     fixtures: timelineaiFixtures,
     cases: timelineaiCases,
     projectId: "asafarim-timelineai",
-  },
-  {
-    fr: asafarimPortalAuthFR,
-    suites: asafarimPortalSuites,
-    fixtures: asafarimPortalFixtures,
-    cases: asafarimPortalCases,
-    projectId: "asafarim-portal",
-  },
-  {
-    fr: portalAdminFR,
-    suites: portalAdminSuites,
-    fixtures: portalAdminFixtures,
-    cases: portalAdminCases,
-    projectId: "asafarim-portal",
   },
   {
     fr: edumatchFR,

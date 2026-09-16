@@ -51,14 +51,6 @@ const TIMELINEAI_REMOTE_BASE =
 // each is its own project with its own default URL. Selecting the app pre-fills
 // the right origin (a single shared default would point edumatch runs at the
 // portal and vice-versa).
-const ASAFARIM_PORTAL: ProjectDef = {
-  id: "asafarim-portal",
-  name: "ASafariM · Portal",
-  baseUrl: process.env.NEXT_PUBLIC_ASAFARIM_PORTAL_URL || "https://portal.asafarim.com",
-  apiUrl: process.env.NEXT_PUBLIC_ASAFARIM_PORTAL_URL || "https://portal.asafarim.com",
-  brand: { productName: "ASafariM", companyName: "ASafariM Digital" },
-};
-
 const ASAFARIM_EDUMATCH: ProjectDef = {
   id: "asafarim-edumatch",
   name: "ASafariM · EduMatch",
@@ -93,7 +85,6 @@ const ASAFARIM_TIMELINEAI: ProjectDef = {
 
 export const PROJECTS: ProjectDef[] = [
   ASAFARIM_TIMELINEAI,
-  ASAFARIM_PORTAL,
   ASAFARIM_EDUMATCH,
   ASAFARIM_VIONTO,
 ];
