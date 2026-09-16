@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-16",
-    "title": "Jobmatch: embedding generation + content-hash cache (pgvector)",
-    "sha": "fa0b064",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fa0b064"
+    "title": "Jobmatch: shortlist ranking after M4 hard filters (JM-042)",
+    "sha": "2a7edcf",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2a7edcf"
   }
 ]
