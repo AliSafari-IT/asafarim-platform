@@ -1,5 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ASafarIM Admin">
-  <rect width="64" height="64" rx="14" fill="#101112"/>
-  <path d="M32 10 50 17v13c0 11.5-7.7 20-18 24-10.3-4-18-12.5-18-24V17l18-7Z" fill="#ef4444" opacity="0.92"/>
-  <path d="m24.5 32.5 5.5 5.5 10-11" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <defs>
+    <radialGradient id="adm-glow" cx="0.8" cy="0.05" r="0.9">
+      <stop offset="0" stop-color="#4ade80" stop-opacity="0.14"/>
+      <stop offset="0.6" stop-color="#4ade80" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- "The Console": near-black tile matching apps/admin --bg (#0b0d0e),
+       with the same faint green top glow as --bg-deco. -->
+  <rect width="64" height="64" rx="14" fill="#0b0d0e"/>
+  <rect width="64" height="64" rx="14" fill="url(#adm-glow)"/>
+  <!-- Terminal prompt ">_" in signal green (#4ade80, the console accent):
+       a chevron + block cursor — the console motif, readable at 16px. -->
+  <path d="M18 20 L31 32 L18 44" fill="none" stroke="#4ade80" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="35" y="39" width="12" height="6" rx="2.5" fill="#4ade80"/>
 </svg>
