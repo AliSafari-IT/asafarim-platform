@@ -83,12 +83,31 @@ const webhookTimer = setInterval(() => {
     .catch((err) => logger.error({ err: String(err) }, "webhooks.drain_failed"));
 }, WEBHOOK_MS);
 
+// Proactive daily brief delivery (issue #242): every opted-in member gets
+// one push to the notification inbox per local morning. No per-member
+// BullMQ cron precedent existed in this file, so this follows the same
+// setInterval sweep pattern as the prune/webhook timers above rather than
+// scheduling one job per member — the sweep itself skips anyone whose
+// local time isn't morning, is in quiet hours, or already saw today's
+// brief via the pull endpoint.
+const BRIEF_DELIVERY_MS = 15 * 60_000;
+const briefDeliveryTimer = setInterval(() => {
+  import("../lib/intel/brief-delivery")
+    .then(({ runBriefDeliverySweep }) => import("../lib/db/client").then(({ getTasksAiDb }) => runBriefDeliverySweep(getTasksAiDb())))
+    .then((results) => {
+      const delivered = results.filter((r) => r.delivered).length;
+      if (results.length) logger.info({ candidates: results.length, delivered }, "brief_delivery.swept");
+    })
+    .catch((err) => logger.error({ err: String(err) }, "brief_delivery.sweep_failed"));
+}, BRIEF_DELIVERY_MS);
+
 async function shutdown(signal: string) {
   logger.info({ signal }, "worker.shutdown");
   clearInterval(heartbeat);
   clearInterval(outboxTimer);
   clearInterval(webhookTimer);
   clearInterval(pruneTimer);
+  clearInterval(briefDeliveryTimer);
   await worker.close();
   await maintenanceQueue.close();
   await connection.quit();

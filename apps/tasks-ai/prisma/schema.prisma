@@ -712,6 +712,14 @@ model NotificationPreference {
   assignmentEmail Boolean @default(true)
   /// Local-time quiet-hours window, e.g. "22:00-07:00", or null.
   quietHours      String?
+  /// Explicit per-member opt-in (issue #242): proactive daily brief pushed
+  /// to the in-app inbox. Off by default — no surprise pushes.
+  briefDelivery   Boolean @default(false)
+  /// IANA timezone (e.g. "Europe/Brussels") used to resolve "local morning"
+  /// for the brief-delivery worker job and to interpret `quietHours`.
+  /// Defaults to UTC — no per-member timezone was modeled anywhere else in
+  /// the schema before this field.
+  timezone        String  @default("UTC")
 
   membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
