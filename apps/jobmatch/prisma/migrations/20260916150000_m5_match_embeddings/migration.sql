@@ -33,7 +33,7 @@ CREATE TABLE "match_embeddings" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "match_embeddings_workspaceId_kind_sourceId_embeddingModelV_key" ON "match_embeddings"("workspaceId", "kind", "sourceId", "embeddingModelVersion");
+CREATE UNIQUE INDEX "match_embeddings_workspaceId_kind_sourceId_embeddingModelVe_key" ON "match_embeddings"("workspaceId", "kind", "sourceId", "embeddingModelVersion");
 
 -- CreateIndex
 CREATE INDEX "match_embeddings_workspaceId_kind_idx" ON "match_embeddings"("workspaceId", "kind");
