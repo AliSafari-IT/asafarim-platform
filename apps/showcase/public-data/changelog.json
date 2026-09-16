@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-16",
-    "title": "Hub: add sign-up variant, sky-blue car, and skyline to checkpoint scene",
-    "sha": "33214d1",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/33214d1"
+    "title": "Hub: rework auth layout and shrink the checkpoint scene to a strip",
+    "sha": "782a8d1",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/782a8d1"
   }
 ]
