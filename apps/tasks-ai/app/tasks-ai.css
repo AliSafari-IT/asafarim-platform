@@ -935,6 +935,29 @@
 [data-app="tasks-ai"] .ta-diff__unresolved { margin:.3rem 0 0; font-size:.82rem; color:#8a6d00; }
 [data-app="tasks-ai"] .ta-diff__impactline { margin:0; font-weight:600; }
 
+[data-app="tasks-ai"] .ta-drawer__parent { margin:0 0 .5rem; font-size:.82rem; opacity:.75; }
+
+[data-app="tasks-ai"] .ta-drawer__panel section { margin-top:1.1rem; border-top:1px solid var(--line); padding-top:.7rem; }
+[data-app="tasks-ai"] .ta-drawer__panel section h3 { margin:0 0 .4rem; font-size:.85rem; }
+
+[data-app="tasks-ai"] .ta-drawer__subtasks,
+[data-app="tasks-ai"] .ta-drawer__deps,
+[data-app="tasks-ai"] .ta-drawer__checks { list-style:none; margin:0; padding:0; display:grid; gap:.4rem; font-size:.85rem; }
+[data-app="tasks-ai"] .ta-drawer__subtasks button.ta-link { text-align:left; }
+[data-app="tasks-ai"] .ta-drawer__deps li { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+[data-app="tasks-ai"] .ta-drawer__deps li[data-blocked="true"] { color:#8a6d00; }
+[data-app="tasks-ai"] .ta-drawer__checks li { display:flex; align-items:baseline; gap:.3rem; flex-wrap:wrap; }
+[data-app="tasks-ai"] .ta-drawer__checks li[data-state="satisfied"] { opacity:.7; }
+[data-app="tasks-ai"] .ta-drawer__checks li[data-state="failed"] { color:#b3261e; }
+
+[data-app="tasks-ai"] .ta-drawer__inlineform { display:flex; gap:.4rem; margin-top:.5rem; }
+[data-app="tasks-ai"] .ta-drawer__inlineform input { flex:1; }
+
+[data-app="tasks-ai"] .ta-drawer__deppicker { margin-top:.6rem; display:grid; gap:.4rem; }
+[data-app="tasks-ai"] .ta-drawer__depresults { list-style:none; margin:0; padding:.2rem 0 0; display:grid; gap:.2rem; font-size:.82rem; border:1px solid var(--line); border-radius:6px; max-height:8rem; overflow:auto; }
+[data-app="tasks-ai"] .ta-drawer__depresults li { padding:.2rem .4rem; }
+[data-app="tasks-ai"] .ta-drawer__depresults li:hover { background:var(--surface-2); }
+
 [data-app="tasks-ai"] .ta-drawer__ai { margin-top:1.25rem; border-top:1px solid var(--line); padding-top:.75rem; }
 [data-app="tasks-ai"] .ta-drawer__ai h3 { margin:0 0 .2rem; font-size:.85rem; }
 [data-app="tasks-ai"] .ta-drawer__ailist { list-style:none; margin:.4rem 0 0; padding:0; display:grid; gap:.35rem; }
@@ -1025,6 +1048,32 @@
 [data-app="tasks-ai"] .ta-comments__composer { display:grid; gap:.4rem; }
 
 [data-app="tasks-ai"] .ta-ws__name { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+[data-app="tasks-ai"] .ta-ws__switcherlabel { font-weight:700; }
+[data-app="tasks-ai"] .ta-ws__switcher { position:relative; min-width:0; }
+[data-app="tasks-ai"] .ta-ws__switcherbtn {
+  background:none; border:none; cursor:pointer; font:inherit; font-weight:700; padding:.15rem 0;
+  display:flex; align-items:center; gap:.3rem; color:inherit; max-width:100%;
+}
+[data-app="tasks-ai"] .ta-ws__switcherbtn > span:first-child,
+[data-app="tasks-ai"] .ta-ws__switcherbtn { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+[data-app="tasks-ai"] .ta-ws__switchercaret { font-size:.7em; opacity:.6; flex:0 0 auto; }
+[data-app="tasks-ai"] .ta-ws__switchermenu {
+  position:absolute; left:0; top:100%; margin-top:.35rem; width:16rem; background:var(--surface);
+  border:1px solid var(--line); border-radius:8px; box-shadow:0 10px 30px #0002; padding:.4rem; z-index:70;
+}
+[data-app="tasks-ai"] .ta-ws__switchermenu ul { list-style:none; margin:0; padding:0; display:grid; gap:.1rem; max-height:18rem; overflow:auto; }
+[data-app="tasks-ai"] .ta-ws__switchermenu a {
+  display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.4rem .5rem;
+  border-radius:6px; text-decoration:none; color:inherit; font-size:.85rem;
+}
+[data-app="tasks-ai"] .ta-ws__switchermenu a:hover { background:var(--surface-2); }
+[data-app="tasks-ai"] .ta-ws__switchermenu a[aria-current="true"] { background:var(--surface-2); font-weight:600; }
+[data-app="tasks-ai"] .ta-ws__switcherrole { font-size:.7rem; opacity:.6; text-transform:capitalize; }
+[data-app="tasks-ai"] .ta-ws__switcherall {
+  display:block; margin-top:.3rem; padding-top:.4rem; border-top:1px solid var(--line);
+  font-size:.8rem; text-align:center; text-decoration:none; color:inherit; opacity:.75;
+}
+[data-app="tasks-ai"] .ta-ws__switcherall:hover { opacity:1; }
 [data-app="tasks-ai"] .ta-bell { position:relative; }
 [data-app="tasks-ai"] .ta-bell__btn { background:none; border:none; cursor:pointer; font-size:1rem; position:relative; padding:.15rem; line-height:1; }
 [data-app="tasks-ai"] .ta-bell__count { position:absolute; top:-.3rem; right:-.4rem; background:#b3261e; color:#fff; font-size:.6rem; border-radius:999px; padding:0 .3rem; }

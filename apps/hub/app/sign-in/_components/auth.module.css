@@ -1,99 +1,173 @@
 /* Scoped styles for the Hub sign-in/sign-up experience. Colors come from the
    shared Mission Control mood tokens so it stays on-theme. */
 
-.screen {
-  position: relative;
-  isolation: isolate;
-  min-height: clamp(34rem, 69vh, 48rem);
-  margin: calc(var(--space-6) * -1);
-  padding: clamp(2.5rem, 6vw, 5rem) var(--space-6);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
-  column-gap: clamp(2rem, 6vw, 6rem);
-  align-items: center;
+/* The heading and the form sit side by side as siblings in the top row
+   (heading left, form top-right); the checkpoint scene is a full-width band
+   underneath, so nothing is ever layered on top of the animation. The scene
+   also runs full viewport width, same as the navbar bar — this relaxes the
+   shared shell's content gutter for this page only (scoped via the data
+   attribute) and reapplies it just to the heading/form via .topRow. */
+:global(.ui-shell__main:has([data-scene-fullbleed])) {
+  max-width: none;
+  padding-inline: 0;
 }
 
-.screen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--bg) 20%, transparent) 0%,
-    color-mix(in srgb, var(--bg) 64%, transparent) 48%,
-    color-mix(in srgb, var(--bg) 94%, transparent) 72%
-  );
+.screen {
+  display: grid;
+  /* Grid items default to min-width: auto (their max-content size), which
+     silently overrides width:min(...,100%) below and pushes the page into
+     horizontal scroll. min-width: 0 lets the column actually shrink to the
+     viewport instead of to its content's natural width. */
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: clamp(var(--space-4), 3vw, var(--space-6));
+  padding-block: clamp(1.5rem, 4vw, 3rem);
+}
+
+.topRow {
+  width: min(64rem, 100%);
+  min-width: 0;
+  display: flex;
+  /* Stay side by side down to the tablet breakpoint below — the columns
+     shrink (via min-width: 0 + flex-shrink) instead of wrapping, so a
+     tablet-width viewport still shows the form beside the heading rather
+     than stacking early. */
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: clamp(var(--space-4), 4vw, var(--space-6));
+  padding-inline: clamp(1.25rem, 4vw, var(--space-6));
+}
+
+.intro {
+  flex: 1 1 16rem;
+  min-width: 0;
+  padding-top: 0.25rem;
+}
+
+.stage {
+  width: 100%;
 }
 
 .content {
-  width: min(28rem, 100%);
-  margin-left: auto;
-  grid-column: 2;
-  padding: clamp(1.2rem, 2vw, 1.8rem);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  box-shadow: var(--shadow-2);
-  backdrop-filter: blur(12px);
-  position: relative;
-  z-index: 1;
-}
-
-.deskHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--line);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.deskTitle {
-  color: var(--muted);
-}
-
-.deskSignal {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--accent);
-}
-
-.deskSignal::before {
-  content: "";
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 0 0.2rem color-mix(in srgb, currentColor 14%, transparent);
-}
-
-.deskSignal[data-state="checking"] {
-  animation: signal-pulse 1.1s ease-in-out infinite;
-}
-
-.deskSignal[data-state="success"] {
-  color: var(--checkpoint-signal, #4ade80);
-}
-
-.deskSignal[data-state="error"] {
-  color: var(--checkpoint-error, #fb7185);
+  flex: 0 1 32rem;
+  min-width: 0;
+  width: min(32rem, 100%);
 }
 
 .card {
-  max-width: 30rem;
+  max-width: 32rem;
+  margin: 0 auto;
+}
+
+/* Compact form rhythm: fields sit closer together than the default
+   .ui-formrow spacing, and paired fields (name/username, password/confirm)
+   share a row so the card doesn't run taller than it needs to. */
+.card form :global(.ui-formrow) {
+  margin-bottom: var(--space-3);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 0.9rem;
+}
+
+@media (max-width: 480px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: var(--space-4);
+}
+
+.cardIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.cardIcon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.cardEyebrow {
+  margin: 0 0 0.15rem;
+  font: 700 var(--text-xs, 12px) / 1 var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.cardTitle {
   margin: 0;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  backdrop-filter: blur(10px);
-  box-shadow: none;
+  font: 700 1.05rem/1.2 var(--font-sans);
+  color: var(--ink);
+}
+
+/* Left-column value props — gives the heading side its own visual weight
+   instead of sitting empty next to the (now shorter) form. */
+.introFeatures {
+  list-style: none;
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.featureItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.featureIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin-top: 0.05rem;
+  border-radius: 50%;
+  background: color-mix(
+    in srgb,
+    var(--checkpoint-signal, #4ade80) 18%,
+    transparent
+  );
+  color: var(--checkpoint-signal, #4ade80);
+}
+
+.featureIcon svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.introStat {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  font: 600 var(--text-xs, 12px) / 1 var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.introStat strong {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .googleBtn {
@@ -214,49 +288,22 @@
   text-decoration: underline;
 }
 
-.footNote {
-  text-align: center;
-  margin-top: 1.25rem;
-  color: var(--muted);
-  font-size: var(--text-xs, 12px);
-}
-
 .addressToggle {
   margin: 0.5rem 0;
 }
 
-@keyframes signal-pulse {
-  50% {
-    opacity: 0.55;
-  }
-}
-
 @media (max-width: 760px) {
   .screen {
-    min-height: 44rem;
-    margin-inline: 0;
-    padding: 2rem var(--space-4) 11rem;
-    display: block;
-    align-items: start;
+    padding-block: 1.5rem;
   }
 
-  .screen::after {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg) 96%, transparent) 0%,
-      color-mix(in srgb, var(--bg) 82%, transparent) 62%,
-      color-mix(in srgb, var(--bg) 24%, transparent) 100%
-    );
+  .topRow {
+    flex-direction: column;
   }
 
+  .intro,
   .content {
-    margin-inline: auto;
-    grid-column: auto;
-    padding: 1rem;
-    background: color-mix(in srgb, var(--surface) 88%, transparent);
-  }
-
-  .screen > [data-auth-state] {
-    --checkpoint-mobile-top: 23rem;
+    flex-basis: auto;
+    width: 100%;
   }
 }

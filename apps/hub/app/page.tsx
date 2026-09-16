@@ -8,9 +8,8 @@ export default async function HubHomePage() {
 
   if (session?.user) {
     return (
-      <div className={styles.home}>
-        <AuthCheckpointScene />
-        <div className={styles.content}>
+      <div className={styles.home} data-scene-fullbleed>
+        <div className={styles.gutter}>
           <Hero
             kicker="Mission control"
             kickerIndex="00"
@@ -26,14 +25,14 @@ export default async function HubHomePage() {
             }
           />
         </div>
+        <AuthCheckpointScene />
       </div>
     );
   }
 
   return (
-    <div className={styles.home}>
-      <AuthCheckpointScene />
-      <div className={styles.content}>
+    <div className={styles.home} data-scene-fullbleed>
+      <div className={styles.gutter}>
         <Hero
           kicker="Mission control"
           kickerIndex="00"
@@ -41,6 +40,9 @@ export default async function HubHomePage() {
           lede="The Hub is the logged-in heart of the platform: launch apps, manage your identity, and keep your settings in one place."
           actions={<ButtonLink href="/sign-in">Sign in to the Hub</ButtonLink>}
         />
+      </div>
+      <AuthCheckpointScene />
+      <div className={styles.gutter}>
         <div className="ui-grid">
           <Card title="Launchpad">
             Every platform app — website, showcase, admin — one grid, one click.

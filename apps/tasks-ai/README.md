@@ -3,10 +3,14 @@
 AI-native work execution — *from scattered intent to trusted execution*.
 Dev port **3013** · domain `tasks-ai.asafarim.com`.
 
-> **Status: pre-beta (through M07).** The non-AI core task experience,
-> capture/Inbox, My Work, and the proposal-only AI copilot have landed, but
-> this is not a launched or commercial product. See
-> [`docs/charter.md`](docs/charter.md) and the milestone plan in
+> **Status: beta.** The non-AI core task experience, capture/Inbox, My Work,
+> the proposal-only AI copilot, Focus, Automations, Analytics, Search, and a
+> real task-detail planning surface (subtasks, dependencies, completion
+> checks) have all landed, but this is not a launched or commercial product.
+> Per the milestone plan, a Showcase entry stays `planned` → `beta` only at
+> M13 → `live` only at M14, which is why the public
+> [`/projects`](https://asafarim.com/projects) page lists TasksAI as beta.
+> See [`docs/charter.md`](docs/charter.md) and the milestone plan in
 > [`docs/roadmap-implementation-plan.md`](docs/roadmap-implementation-plan.md).
 > The commercial-license gate and public launch are M14; design-partner
 > beta begins at M13 ([`docs/beta-plan.md`](docs/beta-plan.md)).
@@ -23,7 +27,18 @@ Dev port **3013** · domain `tasks-ai.asafarim.com`.
 - Unit tests (Vitest), integration-test harness (gated on a throwaway DB),
   Playwright smoke, and a dedicated CI workflow.
 
-### Surfaces (M03–M07)
+### Navigation
+
+Workspace navigation is grouped by job, not one flat list: **Work** (Home,
+Inbox, My Work, Focus) · **Planning** (Projects, Search) · **AI &
+Automation** (Copilot, Automations) · **Insights** (Analytics) ·
+**Workspace** (Settings). Every destination carries an always-available
+(not hover-only) description, a workspace switcher replaces the old static
+workspace-name label once a viewer belongs to more than one workspace, and
+project sub-routes show a breadcrumb back to Projects. The command palette
+(⌘K) covers every destination, not just a handful.
+
+### Surfaces (M03–M10)
 
 - **Workspace Home** ([`docs/`](docs/) · `lib/home/`): a guided first-run
   activation flow and a single-screen overview of projects, due work, and
@@ -39,6 +54,14 @@ Dev port **3013** · domain `tasks-ai.asafarim.com`.
   *not* a ranking; Focus is the separate prioritization layer.
 - **Projects** — project list and per-project task workspace
   (`components/tasks/TaskWorkspace.tsx`).
+- **Task detail** (`components/tasks/TaskDetailPanel.tsx`): the authoritative
+  planning surface for one task — owner, due date, subtasks (with parent
+  breadcrumb navigation), dependencies (`blocks`/`blocked by` in plain
+  language, `relates`/`duplicates` as secondary), and completion checks
+  (the green-light gate `completeTask()` enforces — a blocked completion
+  names which checks are pending instead of a generic error). Status and
+  labels are not yet wired up here; see
+  [issue #387](https://github.com/AliSafari-IT/asafarim-platform/issues/387).
 - **AI Copilot** ([`docs/copilot.md`](docs/copilot.md)): a guided
   intent→plan flow at `/w/{slug}/copilot` — paste notes, pick an intent and
   destination, generate a **proposal**, review a grouped diff (create /
@@ -46,8 +69,16 @@ Dev port **3013** · domain `tasks-ai.asafarim.com`.
   edit, apply, undo, and leave feedback. The human is always the author.
 - **Focus** ([`docs/intelligence.md`](docs/intelligence.md)): explainable
   focus ranking with per-factor transparency and user overrides.
-- Settings, imports, search, analytics, automations, and admin surfaces are
-  scaffolded under `/w/{slug}/*`.
+- **Automations**: trigger → conditions → actions rules, created as drafts,
+  dry-run before activation.
+- **Analytics**: cycle time, throughput, aging, predictability, and
+  per-project portfolio health — reports on work, never on individuals.
+- **Search**: full-text search across tasks, projects, comments, and labels,
+  with saved searches.
+- Settings, imports, and admin surfaces live under `/w/{slug}/*`.
+
+Every major empty state (Inbox, My Work, Projects, Focus, Search,
+Automations, Analytics) points at a next action rather than a dead end.
 
 The four surfaces that must stay distinct:
 

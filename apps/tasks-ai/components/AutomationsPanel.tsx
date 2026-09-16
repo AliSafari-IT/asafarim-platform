@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, FieldError, FormRow, Input, Label, Select } from "@asafarim/ui";
+import { Button, EmptyState, FieldError, FormRow, Input, Label, Select } from "@asafarim/ui";
 import { api, ClientApiError, type AutomationRule, type AutomationRun, type DryRunResult } from "../lib/client/api";
 
 const EVENTS = ["task.created", "task.status_changed", "task.assigned", "task.updated", "task.completed"];
@@ -105,7 +105,20 @@ export function AutomationsPanel({ slug, canManage }: { slug: string; canManage:
       {rules === null ? (
         <p className="ta-muted">Loading…</p>
       ) : rules.length === 0 ? (
-        <p className="ta-muted">No rules yet.</p>
+        <EmptyState
+          glyph="[ ⚡ ]"
+          title="No rules yet"
+          description="Create rules for repetitive workflow actions — e.g. add a label when a task is assigned, or nudge a due date when status changes."
+          action={
+            canManage ? (
+              <Button size="sm" onClick={() => setOpen(true)}>
+                New rule
+              </Button>
+            ) : (
+              <span className="ta-muted">Ask a workspace member or admin to create one.</span>
+            )
+          }
+        />
       ) : (
         <ul className="ta-rules">
           {rules.map((r) => (

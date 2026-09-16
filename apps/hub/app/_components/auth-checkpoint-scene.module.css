@@ -1,15 +1,14 @@
-/* Primary tuning knobs: duration, scene opacity and overall illustration scale. */
+/* Primary tuning knobs: duration, scene opacity and overall illustration scale.
+   The scene is an in-flow band, not a backdrop — page content stacks above and
+   below it so nothing can cover the animation. */
 .scene {
   --checkpoint-duration: 24s;
-  --checkpoint-opacity: 0.68;
+  --checkpoint-opacity: 1;
   --checkpoint-scale: 1;
-  --checkpoint-sky-top: color-mix(in srgb, var(--bg) 94%, var(--accent) 6%);
-  --checkpoint-sky-bottom: color-mix(
-    in srgb,
-    var(--bg) 88%,
-    var(--surface-2) 12%
-  );
-  --checkpoint-grid: color-mix(in srgb, var(--line) 46%, transparent);
+  --checkpoint-min-height: 12rem;
+  /* Flat ground-level background — no sky gradient, since the band is
+     cropped to just the road/checkpoint strip. */
+  --checkpoint-bg: color-mix(in srgb, var(--bg) 94%, var(--accent) 6%);
   --checkpoint-road: color-mix(in srgb, var(--surface-3) 74%, var(--ink) 26%);
   --checkpoint-road-edge: color-mix(
     in srgb,
@@ -17,37 +16,73 @@
     var(--accent) 10%
   );
   --checkpoint-signal: #4ade80;
+  --checkpoint-car: #38bdf8;
+  --checkpoint-car-glass: #bae6fd;
   --checkpoint-error: #fb7185;
 
-  position: absolute;
-  inset: 0;
+  position: relative;
+  width: 100%;
+  /* The height is locked to the SVG's own viewBox ratio (1200:159 — a
+     narrow strip, features drawn at 0.5x and cropped tight to road level)
+     so it always matches the drawn width exactly — no vw-based guess that
+     can drift out of sync with the actual rendered width and crop content
+     off. min-height only kicks in on narrow phones, where it causes a small
+     masked left/right crop instead — much less noticeable than losing the
+     tops of buildings. */
+  aspect-ratio: 1200 / 159;
+  min-height: var(--checkpoint-min-height);
   overflow: hidden;
+  border-radius: var(--radius-md, 12px);
   opacity: var(--checkpoint-opacity);
   pointer-events: none;
   user-select: none;
-  z-index: -1;
+  /* The road runs off both edges, so fade the sides instead of hard-cropping. */
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 7%,
+    #000 93%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 7%,
+    #000 93%,
+    transparent 100%
+  );
 }
 
 .svg {
+  display: block;
   width: 100%;
   height: 100%;
-  min-height: 32rem;
   max-width: none;
   transform: scale(var(--checkpoint-scale));
   transform-origin: center;
 }
 
-.horizonGlow {
-  opacity: 0.45;
-  animation: breathe var(--checkpoint-duration) ease-in-out infinite;
-}
-
-.hillsFar path {
-  fill: color-mix(in srgb, var(--surface-2) 52%, transparent);
-}
-
 .hillsNear path {
   fill: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+
+.cityRight rect {
+  fill: color-mix(in srgb, var(--surface-3) 60%, transparent);
+}
+
+.cityWindows path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 35%, transparent);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.treesRight .treeTrunk {
+  fill: color-mix(in srgb, var(--ink) 38%, var(--surface-3));
+}
+
+.treesRight .treeCanopy {
+  fill: color-mix(in srgb, var(--checkpoint-signal) 32%, var(--surface-2));
 }
 
 .roadShadow,
@@ -59,19 +94,19 @@
 
 .roadShadow {
   stroke: color-mix(in srgb, #000 32%, transparent);
-  stroke-width: 58;
+  stroke-width: 29;
   opacity: 0.45;
 }
 
 .road {
   stroke: url(#checkpoint-road);
-  stroke-width: 46;
+  stroke-width: 23;
 }
 
 .laneMarks {
   stroke: color-mix(in srgb, var(--accent) 43%, transparent);
-  stroke-width: 2;
-  stroke-dasharray: 16 22;
+  stroke-width: 1.2;
+  stroke-dasharray: 10 14;
 }
 
 .checkpointAura {
@@ -200,20 +235,39 @@
 }
 
 .carBody {
-  fill: color-mix(in srgb, var(--accent) 78%, var(--surface));
-  stroke: color-mix(in srgb, var(--accent) 58%, var(--ink));
+  fill: color-mix(in srgb, var(--checkpoint-car) 88%, var(--surface));
+  stroke: color-mix(in srgb, var(--checkpoint-car) 55%, var(--ink));
   stroke-width: 2;
 }
 
-.carWindow {
-  fill: color-mix(in srgb, var(--accent-2) 36%, var(--bg));
-  stroke: color-mix(in srgb, var(--ink) 30%, transparent);
+.carGreenhouse {
+  fill: color-mix(in srgb, var(--checkpoint-car-glass) 55%, var(--bg));
+  stroke: color-mix(in srgb, var(--checkpoint-car) 55%, var(--ink));
+  stroke-width: 1.5;
+}
+
+.carPillar,
+.carDoor {
+  fill: none;
+  stroke: color-mix(in srgb, var(--checkpoint-car) 55%, var(--ink));
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.carDoor {
+  stroke: color-mix(in srgb, var(--checkpoint-car) 40%, var(--ink));
+  stroke-width: 1;
+  opacity: 0.6;
 }
 
 .carTrim {
   fill: none;
-  stroke: color-mix(in srgb, var(--ink) 44%, transparent);
+  stroke: color-mix(in srgb, var(--checkpoint-car) 30%, var(--ink));
   stroke-width: 1.5;
+}
+
+.wheelArch {
+  fill: color-mix(in srgb, var(--checkpoint-car) 70%, var(--ink));
 }
 
 .wheel {
@@ -230,9 +284,13 @@
   fill: #fde68a;
 }
 
+.taillight {
+  fill: var(--checkpoint-error);
+}
+
 .credential {
   opacity: 0;
-  transform-origin: 545px 310px;
+  transform-origin: 600px 340px;
   animation: credential var(--checkpoint-duration) var(--ease) infinite;
 }
 
@@ -251,6 +309,17 @@
   stroke: var(--muted);
   stroke-width: 1.3;
   stroke-linecap: round;
+}
+
+.credentialNew {
+  stroke: var(--checkpoint-signal);
+  stroke-width: 2;
+}
+
+/* Enrolment reverses the exchange: rather than the driver presenting a pass
+   for inspection, the booth issues a fresh one and the driver keeps it. */
+.scene[data-variant="enroll"] .credential {
+  animation-name: credential-issue;
 }
 
 /* Live auth state accents are additive; the calm ambient journey keeps its loop. */
@@ -279,47 +348,43 @@
   animation: live-error 520ms var(--ease) both;
 }
 
+/* The road is flat, so the car holds a constant y and only travels along x —
+   it can never drift off the surface. Cruise stays linear; the approach eases
+   out into the checkpoint stop and eases back in on departure, so the eased
+   stretches enter and leave at cruise speed instead of snapping. */
 @keyframes car-journey {
   0% {
     opacity: 0;
-    transform: translate(-90px, 349px) rotate(-7deg);
+    transform: translate(-371px, 367px);
   }
-  3% {
+  4% {
     opacity: 1;
+    transform: translate(-287px, 367px);
   }
-  12% {
-    transform: translate(82px, 316px) rotate(-9deg);
+  /* The checkpoint cluster is drawn at 0.5x scale around (655, 371), so the
+     stop point has to sit that much closer to 655 too — otherwise the car
+     parks with a visible gap in front of the (now smaller) scanner. */
+  40% {
+    transform: translate(562px, 367px);
+    animation-timing-function: ease-out;
   }
-  22% {
-    transform: translate(226px, 369px) rotate(10deg);
+  45% {
+    transform: translate(593px, 367px);
   }
-  32% {
-    transform: translate(376px, 318px) rotate(-9deg);
-  }
-  41% {
-    transform: translate(518px, 349px) rotate(4deg);
-  }
-  45%,
   65% {
-    opacity: 1;
-    transform: translate(536px, 350px) rotate(0deg);
+    transform: translate(593px, 367px);
+    animation-timing-function: ease-in;
   }
   71% {
-    transform: translate(682px, 359px) rotate(2deg);
-  }
-  80% {
-    transform: translate(824px, 314px) rotate(-8deg);
-  }
-  89% {
-    transform: translate(984px, 357px) rotate(8deg);
+    transform: translate(629px, 367px);
   }
   97% {
     opacity: 1;
-    transform: translate(1184px, 321px) rotate(-5deg);
+    transform: translate(1149px, 367px);
   }
   100% {
     opacity: 0;
-    transform: translate(1280px, 315px) rotate(-5deg);
+    transform: translate(1212px, 367px);
   }
 }
 
@@ -335,6 +400,25 @@
   61% {
     opacity: 1;
     transform: translate(20px, 0) scale(1);
+  }
+}
+
+/* Slides out of the booth slot, over to the car, and stays with the driver. */
+@keyframes credential-issue {
+  0%,
+  46% {
+    opacity: 0;
+    transform: translate(46px, 6px) scale(0.7);
+  }
+  50%,
+  61% {
+    opacity: 1;
+    transform: translate(4px, 0) scale(1);
+  }
+  66%,
+  100% {
+    opacity: 0;
+    transform: translate(-4px, 8px) scale(0.85);
   }
 }
 
@@ -429,18 +513,6 @@
   }
 }
 
-@keyframes breathe {
-  0%,
-  100% {
-    opacity: 0.34;
-    transform: scale(0.96);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.04);
-  }
-}
-
 @keyframes live-scan {
   0%,
   100% {
@@ -493,23 +565,11 @@
 
 @media (max-width: 760px) {
   .scene {
-    --checkpoint-opacity: 0.5;
-    top: var(--checkpoint-mobile-top, 18rem);
-    right: 0;
-    bottom: auto;
-    left: 0;
-    height: 23rem;
-  }
-
-  .svg {
-    min-height: 23rem;
-    width: 100%;
-    margin-left: 0;
+    --checkpoint-min-height: 10rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .horizonGlow,
   .checkpointAura,
   .statusIdle,
   .statusSuccess,
@@ -524,12 +584,16 @@
 
   .car {
     opacity: 1;
-    transform: translate(536px, 350px);
+    transform: translate(593px, 367px);
   }
 
   .credential {
     opacity: 1;
     transform: translate(20px, 0);
+  }
+
+  .scene[data-variant="enroll"] .credential {
+    transform: translate(4px, 0);
   }
 
   .scene[data-auth-state="checking"] .scanLine {

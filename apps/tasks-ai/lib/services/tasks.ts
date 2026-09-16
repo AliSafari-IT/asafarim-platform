@@ -14,6 +14,7 @@ import {
   type CaptureSource,
 } from "../capture/inbox";
 import { ensureInboxProject } from "../capture/service";
+import { isUniqueViolation } from "./task-checks";
 
 const isoDate = z.union([z.string().datetime(), z.date()]).transform((v) => new Date(v));
 
@@ -267,9 +268,15 @@ export async function linkTasks(ctx: RequestContext, fromId: string, input: unkn
   await getTaskOr404(ctx, toTaskId);
 
   return ctx.db.$transaction(async (tx) => {
-    const rel = await tx.taskRelation.create({
-      data: { workspaceId: ctx.workspaceId, fromTaskId: fromId, toTaskId, kind },
-    });
+    let rel;
+    try {
+      rel = await tx.taskRelation.create({
+        data: { workspaceId: ctx.workspaceId, fromTaskId: fromId, toTaskId, kind },
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) throw new ApiError("conflict_unique", { field: "toTaskId" });
+      throw err;
+    }
     await emitActivity(tx, ctx.workspaceId, ctx.correlationId, {
       name: EVENT.dependencyLinked,
       targetType: "task",
@@ -278,5 +285,53 @@ export async function linkTasks(ctx: RequestContext, fromId: string, input: unkn
       data: { toTaskId, kind },
     });
     return rel;
+  });
+}
+
+/**
+ * Every relation touching a task, in both directions — a "blocks" row where
+ * this task is `toTaskId` is a dependency ON this task, not one it created.
+ * Includes just enough of the other side (title, completedAt) for "Blocked
+ * by X" / "Blocks Y" to render without a second round trip per relation.
+ */
+export async function listTaskRelations(ctx: RequestContext, taskId: string) {
+  await getTaskOr404(ctx, taskId);
+  const pick = { id: true, title: true, completedAt: true, archivedAt: true } as const;
+  const [outgoing, incoming] = await Promise.all([
+    ctx.db.taskRelation.findMany({
+      where: { workspaceId: ctx.workspaceId, fromTaskId: taskId },
+      orderBy: { createdAt: "asc" },
+      include: { toTask: { select: pick } },
+    }),
+    ctx.db.taskRelation.findMany({
+      where: { workspaceId: ctx.workspaceId, toTaskId: taskId },
+      orderBy: { createdAt: "asc" },
+      include: { fromTask: { select: pick } },
+    }),
+  ]);
+  return {
+    outgoing: outgoing.map((r) => ({ id: r.id, kind: r.kind, task: r.toTask })),
+    incoming: incoming.map((r) => ({ id: r.id, kind: r.kind, task: r.fromTask })),
+  };
+}
+
+export async function unlinkTasks(ctx: RequestContext, fromId: string, relationId: string) {
+  authorize(ctx.actor, "task.update");
+  await getTaskOr404(ctx, fromId);
+  const rel = await ctx.db.taskRelation.findFirst({
+    where: { id: relationId, workspaceId: ctx.workspaceId, fromTaskId: fromId },
+  });
+  if (!rel) throw new ApiError("not_found");
+
+  return ctx.db.$transaction(async (tx) => {
+    await tx.taskRelation.delete({ where: { id: relationId } });
+    await emitActivity(tx, ctx.workspaceId, ctx.correlationId, {
+      name: EVENT.dependencyUnlinked,
+      targetType: "task",
+      targetId: fromId,
+      actorId: ctx.actor.membershipId,
+      data: { toTaskId: rel.toTaskId, kind: rel.kind },
+    });
+    return { ok: true };
   });
 }

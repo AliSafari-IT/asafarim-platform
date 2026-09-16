@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button, Input } from "@asafarim/ui";
+import { Button, EmptyState, Input } from "@asafarim/ui";
 import { api, type SavedSearch, type SearchHit } from "../lib/client/api";
 
 export function SearchPanel({ slug }: { slug: string }) {
@@ -49,7 +49,12 @@ export function SearchPanel({ slug }: { slug: string }) {
 
   return (
     <section className="ta-tw">
-      <header className="ta-tw__head"><h1>Search</h1></header>
+      <header className="ta-tw__head">
+        <div>
+          <h1>Search</h1>
+          <p className="ta-tw__subtitle">Find any task, project, comment or label across the workspace.</p>
+        </div>
+      </header>
       <Input
         value={q}
         onChange={(e) => run(e.target.value)}
@@ -100,7 +105,16 @@ export function SearchPanel({ slug }: { slug: string }) {
         <>
           <h3>{hits.length} result(s)</h3>
           {hits.length === 0 ? (
-            <p className="ta-muted">Nothing matched.</p>
+            <EmptyState
+              glyph="[ ? ]"
+              title="Nothing matched"
+              description={`No tasks, projects, comments or labels matched "${q.trim()}".`}
+              action={
+                <a className="ta-link" href={`/w/${slug}/my-work`}>
+                  Browse My Work instead
+                </a>
+              }
+            />
           ) : (
             <ul className="ta-list">
               {hits.map((h) => (

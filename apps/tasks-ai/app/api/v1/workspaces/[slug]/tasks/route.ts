@@ -15,6 +15,8 @@ export const GET = workspaceRoute(async ({ req, ctx }) => {
     projectId: url.searchParams.get("projectId") ?? undefined,
     assigneeId: url.searchParams.get("assigneeId") ?? undefined,
     statusId: url.searchParams.get("statusId") ?? undefined,
+    // Subtasks (#370): a task's children are just its parentId siblings.
+    parentId: url.searchParams.get("parentId") ?? undefined,
     includeArchived: url.searchParams.get("archived") === "true",
     // `inbox=true` is the persisted Inbox rule (issue #366), not a
     // client-side reinterpretation of "all open tasks".

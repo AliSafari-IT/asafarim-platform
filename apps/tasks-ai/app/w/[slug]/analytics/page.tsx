@@ -1,3 +1,4 @@
+import { EmptyState } from "@asafarim/ui";
 import { requireMembership } from "../../../../lib/workspace-access";
 import { getTasksAiDb } from "../../../../lib/db/client";
 import { flowDashboard, portfolio } from "../../../../lib/analytics/service";
@@ -20,31 +21,52 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ slug
 
   return (
     <section className="ta-tw">
-      <header className="ta-tw__head"><h1>Analytics</h1></header>
-      <p className="ta-muted">{flow.note}</p>
+      <header className="ta-tw__head">
+        <div>
+          <h1>Analytics</h1>
+          <p className="ta-tw__subtitle">See how work is moving across the workspace — cycle time, throughput, and per-project health.</p>
+        </div>
+      </header>
 
-      <div className="ta-metrics">
-        <Metric label="Cycle time p50" value={`${flow.cycleTime.p50}d`} hint={`${flow.cycleTime.count} completed`} />
-        <Metric label="Throughput" value={`${flow.throughput.perDay}/day`} hint={`${flow.throughput.completed} in window`} />
-        <Metric label="Open (aging)" value={String(flow.aging.open)} hint={`${flow.aging.buckets["30d+"]} over 30d`} />
-        <Metric label="Predictability CV" value={String(flow.predictability.coefficientOfVariation)} hint="lower = steadier" />
-      </div>
+      {port.projects.length === 0 ? (
+        <EmptyState
+          glyph="[ ▲ ]"
+          title="Nothing to analyze yet"
+          description="Analytics is computed from projects and their tasks. Create a project and get some work moving to see cycle time, throughput, and portfolio health here."
+          action={
+            <a className="ta-link" href={`/w/${slug}/projects`}>
+              Go to Projects
+            </a>
+          }
+        />
+      ) : (
+        <>
+          <p className="ta-muted">{flow.note}</p>
 
-      <h3>Portfolio</h3>
-      <table className="ta-table">
-        <thead><tr><th>Project</th><th>Open</th><th>Overdue</th><th>Health</th><th>Forecast p80</th></tr></thead>
-        <tbody>
-          {port.projects.map((p) => (
-            <tr key={p.project.id}>
-              <td>{p.project.key} · {p.project.name}</td>
-              <td>{p.open}</td>
-              <td>{p.overdue}</td>
-              <td><span className="ta-badge" data-h={p.health}>{p.health}</span></td>
-              <td>{p.forecast.reliable ? new Date(p.forecast.p80).toLocaleDateString() : "n/a (short history)"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          <div className="ta-metrics">
+            <Metric label="Cycle time p50" value={`${flow.cycleTime.p50}d`} hint={`${flow.cycleTime.count} completed`} />
+            <Metric label="Throughput" value={`${flow.throughput.perDay}/day`} hint={`${flow.throughput.completed} in window`} />
+            <Metric label="Open (aging)" value={String(flow.aging.open)} hint={`${flow.aging.buckets["30d+"]} over 30d`} />
+            <Metric label="Predictability CV" value={String(flow.predictability.coefficientOfVariation)} hint="lower = steadier" />
+          </div>
+
+          <h3>Portfolio</h3>
+          <table className="ta-table">
+            <thead><tr><th>Project</th><th>Open</th><th>Overdue</th><th>Health</th><th>Forecast p80</th></tr></thead>
+            <tbody>
+              {port.projects.map((p) => (
+                <tr key={p.project.id}>
+                  <td>{p.project.key} · {p.project.name}</td>
+                  <td>{p.open}</td>
+                  <td>{p.overdue}</td>
+                  <td><span className="ta-badge" data-h={p.health}>{p.health}</span></td>
+                  <td>{p.forecast.reliable ? new Date(p.forecast.p80).toLocaleDateString() : "n/a (short history)"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
 
       {port.goals.length > 0 && (
         <>

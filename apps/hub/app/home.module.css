@@ -1,54 +1,31 @@
+/* The checkpoint scene sits in the flow between the hero and the card grid, so
+   no page element is ever layered over the animation. It also runs full
+   viewport width, same as the navbar bar — this relaxes the shared shell's
+   content gutter for this page only (scoped via the data attribute) and
+   reapplies it just to the text/card content via .gutter. */
+:global(.ui-shell__main:has([data-scene-fullbleed])) {
+  max-width: none;
+  padding-inline: 0;
+}
+
 .home {
-  position: relative;
-  isolation: isolate;
-  min-height: clamp(34rem, 68vh, 48rem);
-  margin: calc(var(--space-6) * -1);
-  padding: clamp(3rem, 7vw, 6rem) var(--space-6);
-  overflow: hidden;
+  display: grid;
+  /* Grid items default to min-width: auto (their max-content size), which
+     silently overrides width:min(...,100%) below and pushes the page into
+     horizontal scroll. min-width: 0 lets the column actually shrink to the
+     viewport instead of to its content's natural width. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(var(--space-5), 4vw, var(--space-7));
+  padding-block: clamp(1rem, 3vw, 2.5rem);
 }
 
-.home::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--bg) 78%, transparent) 0%,
-    color-mix(in srgb, var(--bg) 34%, transparent) 52%,
-    color-mix(in srgb, var(--bg) 86%, transparent) 100%
-  );
+.gutter {
+  width: min(var(--width-content, 72rem), 100%);
+  min-width: 0;
+  margin-inline: auto;
+  padding-inline: clamp(1.25rem, 4vw, var(--space-6));
 }
 
-.content {
-  position: relative;
-  z-index: 1;
-}
-
-.content :global(.ui-hero) {
+.home :global(.ui-hero) {
   max-width: 48rem;
-  background: color-mix(in srgb, var(--bg) 44%, transparent);
-  backdrop-filter: blur(2px);
-}
-
-.content :global(.ui-grid) {
-  margin-top: var(--space-6);
-}
-
-@media (max-width: 760px) {
-  .home {
-    min-height: 43rem;
-    margin-inline: 0;
-    padding: 2.5rem var(--space-4) 12rem;
-  }
-
-  .home::after {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg) 94%, transparent) 0%,
-      color-mix(in srgb, var(--bg) 78%, transparent) 64%,
-      color-mix(in srgb, var(--bg) 25%, transparent) 100%
-    );
-  }
 }

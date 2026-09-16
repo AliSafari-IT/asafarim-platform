@@ -156,7 +156,7 @@ export async function blockingChecks(ctx: RequestContext, taskId: string) {
   });
 }
 
-function isUniqueViolation(err: unknown): boolean {
+export function isUniqueViolation(err: unknown): boolean {
   return (
     typeof err === "object" &&
     err !== null &&
