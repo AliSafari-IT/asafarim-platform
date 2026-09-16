@@ -19,7 +19,8 @@
     "db:migrate:deploy": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate deploy --schema prisma/schema.prisma",
     "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --schema prisma/schema.prisma --port 5557 --browser none",
     "showcase:load": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/load-showcase-source.mts",
-    "ai:eval": "dotenv -e ../../.env.local -e ../../.env -- tsx evals/run.ts"
+    "ai:eval": "dotenv -e ../../.env.local -e ../../.env -- tsx evals/run.ts",
+    "ai:eval:bias": "dotenv -e ../../.env.local -e ../../.env -- tsx evals/runBiasEval.ts"
   },
   "dependencies": {
     "@asafarim/auth": "workspace:*",
