@@ -5,6 +5,7 @@ import { logError } from "../../observability/logger";
 import { parseProfileContent, type CandidateProfileContent } from "../../profile/contract";
 import { buildEmbeddingInput } from "../embeddingInput";
 import { getEmbeddingProvider, type EmbeddingProvider } from "./embeddings";
+import { assertCanRunProviderCall, recordUsage } from "./quota";
 
 /**
  * Embedding compute + content-hash cache (JM-041).
@@ -158,10 +159,22 @@ async function ensureEmbeddingRow(input: EnsureRowInput): Promise<EnsuredEmbeddi
 
   const existing = await findEmbeddingRow(workspaceId, kind, sourceId, provider.modelVersion);
   if (existing && existing.contentHash === contentHash) {
+    // Cache hit: this is precisely the "zero provider calls" path (JM-041's
+    // whole point, and JM-047's acceptance criterion for MatchRun's
+    // equivalent). The budget guard below must never run on this branch --
+    // a workspace already at its budget must still be able to reuse
+    // embeddings it already paid for.
     return { id: existing.id, reused: true, modelVersion: provider.modelVersion, contentHash };
   }
 
+  // JM-047: budget checked before every provider call, embed included. This
+  // throws QuotaExceededError rather than silently skipping the embed --
+  // see lib/matching/ai/degraded.ts's module doc comment for why the
+  // embedding layer itself does not swallow this into a fake result.
+  await assertCanRunProviderCall(workspaceId, "embed");
+
   const [vector] = await embedWithRetry(provider, [text]);
+  await recordUsage({ workspaceId, kind: "embed", provider: provider.name, model: provider.modelVersion });
   const id = await upsertEmbeddingRow({
     id: existing?.id,
     workspaceId,

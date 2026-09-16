@@ -26,6 +26,7 @@ export const proxy = createAuthProxy({
     "/api/ingestion/sync",
     "/api/ingestion/showcase",
     "/api/internal/user-activity",
+    "/api/internal/ai-spend",
   ],
   signInUrl: `${hubUrl}/sign-in`,
 });
