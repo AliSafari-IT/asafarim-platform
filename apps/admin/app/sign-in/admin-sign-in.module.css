@@ -1,0 +1,267 @@
+.screen {
+  --admin-scene-opacity: 0.86;
+  position: relative;
+  isolation: isolate;
+  min-height: min(48rem, calc(100svh - 2rem));
+  overflow: hidden;
+  padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 5vw, 4rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(19rem, 25rem);
+  gap: clamp(2rem, 7vw, 7rem);
+  align-items: center;
+}
+
+.screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(
+      circle at 18% 42%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 21rem
+    ),
+    linear-gradient(
+      115deg,
+      color-mix(in srgb, var(--bg) 80%, var(--accent) 20%),
+      var(--bg) 55%
+    );
+}
+
+.screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0 47%,
+    color-mix(in srgb, var(--bg) 82%, transparent) 76%
+  );
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: var(--admin-scene-opacity);
+  pointer-events: none;
+  user-select: none;
+}
+
+.sceneSvg {
+  width: 100%;
+  height: 100%;
+  min-height: 34rem;
+}
+
+.orbit {
+  transform-origin: 360px 250px;
+  animation: orbit 18s linear infinite;
+}
+
+.orbitSlow {
+  transform-origin: 360px 250px;
+  animation: orbit-reverse 26s linear infinite;
+}
+
+.packet {
+  offset-path: path("M 95 342 C 170 165 270 404 365 246 S 585 93 730 255");
+  animation: packet 7s var(--ease) infinite;
+}
+
+.pulse {
+  animation: pulse 2.4s ease-in-out infinite;
+  transform-origin: 360px 250px;
+}
+
+.stateChecking .packet {
+  animation-duration: 1.2s;
+}
+
+.stateChecking .pulse {
+  animation-duration: 0.8s;
+}
+
+.stateSuccess .core {
+  fill: var(--accent);
+  filter: url(#adminGlow);
+}
+
+.stateError .core {
+  fill: #fb7185;
+  filter: url(#adminGlow);
+}
+
+.formColumn {
+  position: relative;
+  z-index: 1;
+  width: min(25rem, 100%);
+  margin-left: auto;
+  grid-column: 2;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
+  border-right: 3px solid var(--accent);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(14px);
+}
+
+.formHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+  font: 600 var(--text-xs) / 1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.signal {
+  color: var(--accent);
+}
+
+.signal::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 0.22rem color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.stateChecking .signal {
+  animation: signal 0.9s ease-in-out infinite;
+}
+.stateSuccess .signal {
+  color: var(--accent);
+}
+.stateError .signal {
+  color: #fb7185;
+}
+
+.formCard {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.formCard :global(.ui-card--console) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.formCard :global(.ui-btn--console) {
+  width: 100%;
+  min-height: 2.8rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.formCard :global(.ui-btn--console:hover) {
+  background: color-mix(in srgb, var(--accent) 82%, white);
+}
+
+.footerNote {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font: var(--text-xs) / 1.5 var(--font-mono);
+}
+
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes orbit-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes packet {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10%,
+  84% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+}
+@keyframes signal {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (max-width: 760px) {
+  .screen {
+    min-height: 52rem;
+    display: block;
+    padding: 1.5rem 1rem 6rem;
+  }
+
+  .screen::after {
+    background: linear-gradient(
+      180deg,
+      transparent 0 36%,
+      color-mix(in srgb, var(--bg) 82%, transparent) 64%
+    );
+  }
+
+  .scene {
+    inset: 0 0 auto;
+    height: 19rem;
+    opacity: 0.72;
+  }
+
+  .sceneSvg {
+    min-height: 19rem;
+  }
+
+  .formColumn {
+    width: 100%;
+    margin: 15rem auto 0;
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit,
+  .orbitSlow,
+  .packet,
+  .pulse,
+  .signal {
+    animation: none !important;
+  }
+  .packet {
+    offset-distance: 48%;
+    opacity: 1;
+  }
+}

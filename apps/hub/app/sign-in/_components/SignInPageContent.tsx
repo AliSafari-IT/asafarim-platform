@@ -128,6 +128,18 @@ function SignInPageContentInner() {
     <div className={styles.screen}>
       <AuthCheckpointScene state={sceneState} />
       <div className={styles.content}>
+        <div className={styles.deskHeader}>
+          <span className={styles.deskTitle}>Identity desk</span>
+          <span className={styles.deskSignal} data-state={sceneState}>
+            {sceneState === "checking"
+              ? "Checking"
+              : sceneState === "success"
+                ? "Authorized"
+                : sceneState === "error"
+                  ? "Needs review"
+                  : "Ready"}
+          </span>
+        </div>
         <Kicker index="ID">Authentication</Kicker>
         <h1 style={{ marginBottom: "0.35rem" }}>Sign in to ASafarIM</h1>
         <p className="u-muted" style={{ marginBottom: "var(--space-5)" }}>
