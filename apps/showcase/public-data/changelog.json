@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-16",
-    "title": "Admin: redesign favicon to match console theme and terminal motif",
-    "sha": "db70483",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/db70483"
+    "title": "Jobmatch: embedding generation + content-hash cache (pgvector)",
+    "sha": "fa0b064",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fa0b064"
   }
 ]
