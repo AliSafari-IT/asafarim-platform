@@ -108,7 +108,15 @@ export async function workspaceSignals(ctx: RequestContext): Promise<{ ruleVersi
   return payload;
 }
 
-/** Personal daily brief: top focus items + the signals that touch them. */
+/**
+ * Personal daily brief: top focus items + the signals that touch them.
+ *
+ * Records a `brief.viewed` audit event so the proactive delivery worker
+ * (issue #242) can tell whether the member already pulled today's brief
+ * through this endpoint before it pushes a redundant inbox copy. Recording
+ * is best-effort (recordAudit never throws) — a missed audit write degrades
+ * dedup, it never breaks the pull path.
+ */
 export async function dailyBrief(ctx: RequestContext) {
   const [focus, sig] = await Promise.all([focusList(ctx, 5), workspaceSignals(ctx)]);
   const myTaskIds = new Set(focus.items.map((i) => i.task.id));
@@ -122,6 +130,7 @@ export async function dailyBrief(ctx: RequestContext) {
     note: "Suggestions, not instructions. Every item links to the work it came from.",
   };
   assertNoSurveillance(brief);
+  await recordAudit(ctx.db, ctx.workspaceId, "brief.viewed", ctx.actor.membershipId, {}, ctx.correlationId);
   return brief;
 }
 
