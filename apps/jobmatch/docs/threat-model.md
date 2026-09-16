@@ -205,8 +205,12 @@ metadata service and it fetches credentials on the attacker's behalf.
 ### Deliberately not done in M3
 
 **Prompt-injection defences for job text.** Descriptions are stored as the
-source wrote them and are not yet fed to a model. That is JM-044, and it
-lands with the matching work rather than before it.
+source wrote them and are not yet fed to a model at ingestion time. A
+cheap, model-free heuristic scan (`lib/ingestion/injectionHeuristics.ts`)
+does run at this normalize step now, per JM-044 (see the "M5 additions"
+section below) — but it only annotates the row for operator review, and
+the actual defence for the moment a description *is* fed to a model lives
+in JM-044's evaluation-step isolation suite plus JM-043's prompt fence.
 
 **Browser-based or parser-based connectors.** Only JSON over HTTPS is
 supported. Rendering a page to extract jobs means running a browser over
@@ -334,9 +338,32 @@ before JM-005's classification advice and a model/budget decision — the
 same non-engineering gate that kept M3's connector unauthorized until
 JM-003/JM-004 landed.
 
-**Prompt-injection isolation tests (JM-044).** There is no prompt to test
-yet — this follows immediately once JM-043 exists, and must land in the
-same change as the first real model call, not after it.
+**Prompt-injection isolation tests (JM-044) — done.** A categorised
+adversarial-posting corpus (`lib/matching/ai/__fixtures__/injection/corpus.ts`
+— fence-break, instruction-override, profile-exfiltration, tool-invocation,
+score-forcing, unicode/homoglyph fence evasion, and nl/fr multilingual
+variants) is run through the evaluation step (prompt render → fixture
+provider → `parseMatchResult()`) in `lib/matching/ai/injectionCorpus.test.ts`,
+a CI merge gate. For every entry it asserts: `suitabilityScore`/`confidence`
+are not moved toward the attacker's target relative to a clean control
+posting; no candidate-derived canary string (built via
+`buildEmbeddingInput`) ever appears in the output; the output always parses
+as `MatchResult` (a real provider's non-conforming response is what
+`evaluate.ts`'s separate schema-guard try/catch around `parseMatchResult`
+exists to turn into a thrown, unpersisted failure — see `evaluate.test.ts`'s
+"schema guard vs. degraded mode" cases); and the fence sentinels
+(`prompts.ts`) always still wrap the posting text regardless of what the
+posting itself contains. The absence of a tool/function-calling surface is
+a type-level guarantee (`EvaluateProviderCall`/`EvaluateProviderOutput`,
+`evaluateProvider.ts`, have no such field), documented rather than
+runtime-asserted. A separate, model-free heuristic scanner
+(`lib/ingestion/injectionHeuristics.ts`) now runs once per posting at M3's
+`normalizePosting` step and flags `JobPosting.flaggedForInjectionReview` /
+`injectionPatternCodes` for operator review — this is an ingestion-time
+annotation only, never consulted by the M5 evaluation pipeline itself. A
+manual run against the chosen real provider (once JM-005's classification
+advice and a provider are decided) remains a documented step on the M5
+flip-on checklist, not something CI can exercise.
 
 ## M6 additions — candidate workflow and My-Job export
 
@@ -536,7 +563,6 @@ These are *not* mitigated yet, and no shipped code pretends otherwise.
 | Threat | Owner |
 |---|---|
 | OCR exploitation via malformed documents (OCR not implemented; see M2 additions) | JM-019 |
-| Prompt injection via job descriptions | JM-044 |
 | Bulk extraction of jobs or profiles through search | JM-037 |
 | Consent withdrawal as a distinct action (access, export, and erasure are done) | JM-008, JM-023 |
 | Dependency scanning and an incident runbook | JM-016 remaining scope, M9 |

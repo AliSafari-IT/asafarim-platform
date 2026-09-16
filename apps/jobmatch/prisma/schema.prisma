@@ -505,6 +505,19 @@ model JobPosting {
 
   normalizerVersion String
 
+  /// JM-044: cheap, model-free heuristic scan for instruction-like /
+  /// prompt-injection-shaped text, run once at normalize time (never per
+  /// match). True means at least one pattern in
+  /// lib/ingestion/injectionHeuristics.ts matched -- an operator-review
+  /// signal, not a hard block: the posting is still ingested and matched
+  /// normally, since M5's actual defence against a live injection is the
+  /// evaluate.ts fence + parseMatchResult() guard, not this flag.
+  flaggedForInjectionReview Boolean @default(false)
+  /// Which heuristic pattern codes matched (see injectionHeuristics.ts's
+  /// InjectionPatternCode), for an operator to see *why* without re-running
+  /// the scanner. Empty when flaggedForInjectionReview is false.
+  injectionPatternCodes String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -516,6 +529,7 @@ model JobPosting {
   @@index([employerKey])
   @@index([status, lastSeenAt])
   @@index([sourceId, status])
+  @@index([flaggedForInjectionReview])
   @@map("job_postings")
 }
 
