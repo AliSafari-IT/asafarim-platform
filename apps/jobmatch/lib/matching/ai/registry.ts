@@ -1,4 +1,5 @@
 import type { JobMatchAiProvider } from "../../env";
+import type { EvaluationProvider } from "./evaluateProvider";
 
 /**
  * Model / prompt registry (JM-047).
@@ -16,10 +17,13 @@ import type { JobMatchAiProvider } from "../../env";
  * whatever this registry says "current" is at call time.
  */
 
-/** Current prompt version for the (not-yet-built) evaluation step. Bump this
- *  string whenever the evaluation prompt's wording changes in a way that
- *  should invalidate the MatchRun cache -- the cache key includes it. */
-export const EVALUATION_PROMPT_VERSION = "match-eval-1";
+/** Current prompt version for the evaluation step (JM-043). Bump this
+ *  string whenever lib/matching/ai/prompts.ts's evaluation prompt wording
+ *  changes in a way that should invalidate the MatchRun cache -- the cache
+ *  key includes it. Single source of truth: prompts.ts's
+ *  `renderEvaluatePrompt` reads this constant rather than hard-coding its
+ *  own copy, so the registry and the rendered prompt can never drift. */
+export const EVALUATION_PROMPT_VERSION = "match_evaluate@1";
 
 /** Per-provider evaluation model version, named the same way
  *  `fixtureEmbeddingProvider.modelVersion` is for embeddings: a stable
@@ -63,3 +67,41 @@ export const DEFAULT_MODEL_CASCADE: ModelCascadeConfig = {
   escalateModel: EVALUATION_MODEL_VERSIONS.fixture,
   escalateBelowConfidence: 0.4,
 };
+
+const evaluationProviderCache = new Map<string, EvaluationProvider>();
+
+/**
+ * Resolve an evaluation provider by name (JM-043). Mirrors
+ * lib/matching/ai/embeddings.ts's `getEmbeddingProvider` lazy-import
+ * pattern: `fixture` is constructed eagerly (no SDK, no network), while
+ * `openai`/`anthropic` are loaded from ./providers/evalOpenai.ts /
+ * ./providers/evalAnthropic.ts only when actually selected, so importing
+ * this module never pulls in a provider SDK.
+ */
+export async function getEvaluationProvider(name: JobMatchAiProvider): Promise<EvaluationProvider> {
+  const cached = evaluationProviderCache.get(name);
+  if (cached) return cached;
+
+  let provider: EvaluationProvider;
+  switch (name) {
+    case "fixture": {
+      const { EvaluationFixtureProvider } = await import("./providers/evalFixture");
+      provider = new EvaluationFixtureProvider();
+      break;
+    }
+    case "openai": {
+      const { OpenAiEvaluationProvider } = await import("./providers/evalOpenai");
+      provider = new OpenAiEvaluationProvider();
+      break;
+    }
+    case "anthropic": {
+      const { AnthropicEvaluationProvider } = await import("./providers/evalAnthropic");
+      provider = new AnthropicEvaluationProvider();
+      break;
+    }
+    default:
+      throw new Error(`unknown JobMatch evaluation provider: ${name as string}`);
+  }
+  evaluationProviderCache.set(name, provider);
+  return provider;
+}
