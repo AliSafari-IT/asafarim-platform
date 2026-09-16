@@ -21,6 +21,10 @@ describe("feedback routing table", () => {
     expect(feedbackTargetOf("NOT_RELEVANT")).toBe("other");
     expect(feedbackTargetOf("OTHER")).toBe("other");
   });
+
+  it("routes incorrect match evidence to match", () => {
+    expect(feedbackTargetOf("INCORRECT_MATCH_EVIDENCE")).toBe("match");
+  });
 });
 
 describe("feedback submission validation", () => {
@@ -82,6 +86,35 @@ describe("feedback submission validation", () => {
     const result = feedbackSubmissionSchema.safeParse({
       jobPostingId: "job-1",
       reasonCode: "IT_SMELLS_WRONG",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts INCORRECT_MATCH_EVIDENCE with the evidence row named", () => {
+    const result = feedbackSubmissionSchema.safeParse({
+      jobPostingId: "job-1",
+      reasonCode: "INCORRECT_MATCH_EVIDENCE",
+      relatedProfileVersionId: "version-1",
+      relatedProfileField: "skills[2].name",
+      relatedPostingRequirement: "5+ years TypeScript",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects INCORRECT_MATCH_EVIDENCE with no evidence row named", () => {
+    const result = feedbackSubmissionSchema.safeParse({
+      jobPostingId: "job-1",
+      reasonCode: "INCORRECT_MATCH_EVIDENCE",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects match-evidence fields attached to an unrelated feedback reason", () => {
+    const result = feedbackSubmissionSchema.safeParse({
+      jobPostingId: "job-1",
+      reasonCode: "NOT_RELEVANT",
+      relatedProfileField: "skills[2].name",
+      relatedPostingRequirement: "5+ years TypeScript",
     });
     expect(result.success).toBe(false);
   });

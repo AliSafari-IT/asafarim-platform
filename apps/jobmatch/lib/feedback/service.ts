@@ -35,6 +35,9 @@ export interface FeedbackRecord {
   reasonCode: FeedbackSubmission["reasonCode"];
   note: string | null;
   relatedEligibilityReasonCode: string | null;
+  relatedProfileVersionId: string | null;
+  relatedProfileField: string | null;
+  relatedPostingRequirement: string | null;
   createdAt: Date;
 }
 
@@ -83,6 +86,9 @@ export async function submitFeedback(
       reasonCode: input.reasonCode,
       note: input.note ?? null,
       relatedEligibilityReasonCode: input.relatedEligibilityReasonCode ?? null,
+      relatedProfileVersionId: input.relatedProfileVersionId ?? null,
+      relatedProfileField: input.relatedProfileField ?? null,
+      relatedPostingRequirement: input.relatedPostingRequirement ?? null,
     },
   });
 

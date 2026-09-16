@@ -633,6 +633,10 @@ enum FeedbackReasonCode {
   RULE_WRONGLY_EXCLUDED
   RULE_WRONGLY_INCLUDED
   NOT_RELEVANT
+  /// A specific MatchEvidence row in JM-048's evidence-linked explanation
+  /// panel is wrong — pairs with relatedProfileField /
+  /// relatedPostingRequirement below.
+  INCORRECT_MATCH_EVIDENCE
   OTHER
 }
 
@@ -670,6 +674,16 @@ model JobFeedback {
   /// in lib/feedback/contract.ts, which is what actually enforces this
   /// rather than a comment here.
   relatedEligibilityReasonCode String?
+
+  /// The confirmed profile version a disputed MatchEvidence row was
+  /// resolved against (JM-048) — set only alongside
+  /// INCORRECT_MATCH_EVIDENCE, so the report stays traceable to the fact
+  /// the candidate actually saw even if the profile is edited afterwards.
+  relatedProfileVersionId String?
+  /// The MatchEvidence.profileField reference the report is about.
+  relatedProfileField String?
+  /// The MatchEvidence.postingRequirement the report is about.
+  relatedPostingRequirement String?
 
   createdAt DateTime @default(now())
 

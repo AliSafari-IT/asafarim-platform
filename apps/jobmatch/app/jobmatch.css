@@ -31,6 +31,171 @@
   opacity: 0.85;
 }
 
+/* Evidence-linked match explanation panel (JM-048). */
+[data-app="jobmatch"] .jm-match-panel {
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: 0.6rem;
+  padding: 0.85rem 1rem;
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Degraded results get a visually distinct container — dashed border, a
+   different background tint, no score bar at all — so a "not evaluated"
+   result is never mistakable for a real one even at a glance. */
+[data-app="jobmatch"] .jm-match-panel--degraded {
+  border-style: dashed;
+  border-color: var(--color-warning-border, #c9a227);
+  background: var(--color-warning-bg, rgba(201, 162, 39, 0.08));
+}
+
+[data-app="jobmatch"] .jm-match-panel__degraded-label {
+  margin: 0;
+  font-weight: 600;
+}
+
+[data-app="jobmatch"] .jm-match-panel__score-bar-track {
+  width: 100%;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--color-border, #e2e2e2);
+  overflow: hidden;
+}
+
+[data-app="jobmatch"] .jm-match-panel__score-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-primary, #2f6feb);
+  transition: width 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-app="jobmatch"] .jm-match-panel__score-bar-fill {
+    transition: none;
+  }
+}
+
+[data-app="jobmatch"] .jm-match-panel__score-text {
+  display: inline-block;
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+}
+
+[data-app="jobmatch"] .jm-match-panel__action {
+  margin: 0;
+  font-weight: 500;
+}
+
+[data-app="jobmatch"] .jm-match-panel__skill-lists {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+[data-app="jobmatch"] .jm-skill-list h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+[data-app="jobmatch"] .jm-skill-list ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+
+[data-app="jobmatch"] .jm-skill-list--matching h4 {
+  color: var(--color-success-text, #1a7f37);
+}
+
+[data-app="jobmatch"] .jm-skill-list--missing h4 {
+  color: var(--color-danger-text, #b00020);
+}
+
+[data-app="jobmatch"] .jm-skill-list--uncertain h4 {
+  color: var(--color-warning-text, #9a6700);
+}
+
+[data-app="jobmatch"] .jm-evidence-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+[data-app="jobmatch"] .jm-evidence-row {
+  border-top: 1px solid var(--color-border, #eee);
+  padding-top: 0.5rem;
+}
+
+[data-app="jobmatch"] .jm-evidence-row__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+  font-size: 0.85rem;
+}
+
+[data-app="jobmatch"] .jm-evidence-row__fact {
+  font-weight: 600;
+}
+
+[data-app="jobmatch"] .jm-evidence-row__connector {
+  opacity: 0.6;
+}
+
+[data-app="jobmatch"] .jm-evidence-row__note {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+[data-app="jobmatch"] .jm-evidence-row__report-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 0.35rem;
+  color: var(--color-primary, #2f6feb);
+  font-size: 0.75rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+[data-app="jobmatch"] .jm-evidence-row__report-toggle:focus-visible,
+[data-app="jobmatch"] .jm-evidence-row__report-actions button:focus-visible {
+  outline: 2px solid var(--color-primary, #2f6feb);
+  outline-offset: 2px;
+}
+
+[data-app="jobmatch"] .jm-evidence-row__report-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+[data-app="jobmatch"] .jm-evidence-row__report-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+}
+
+[data-app="jobmatch"] .jm-evidence-row__report-status--error {
+  color: var(--color-danger-text, #b00020);
+}
+
+[data-app="jobmatch"] .jm-match-panel__provenance {
+  margin: 0;
+  font-size: 0.7rem;
+  opacity: 0.55;
+}
+
 /* Profile review form. The rule the layout follows: a field and its
    "check this" marker read as one unit, so uncertainty is never separated
    from the value it applies to. */
