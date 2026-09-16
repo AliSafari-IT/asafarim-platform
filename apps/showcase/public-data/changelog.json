@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-16",
-    "title": "Tasks-ai: grounded context retrieval (RAG) for the copilot",
-    "sha": "bbf7712",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/bbf7712"
+    "title": "Jobmatch: add BullMQ worker skeleton (M5 async matching substrate)",
+    "sha": "5531c26",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5531c26"
   }
 ]
