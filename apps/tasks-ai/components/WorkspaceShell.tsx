@@ -4,6 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { CommandPalette } from "./CommandPalette";
 import { NotificationBell } from "./NotificationBell";
+import { WorkspaceSwitcher, type SwitcherWorkspace } from "./WorkspaceSwitcher";
 import { CaptureButton, CaptureProvider } from "./capture/CaptureDialog";
 
 interface WorkspaceCtx {
@@ -126,8 +127,9 @@ export function WorkspaceShell({
   role,
   membershipId,
   aiEnabled,
+  workspaces,
   children,
-}: WorkspaceCtx & { children: ReactNode }) {
+}: WorkspaceCtx & { workspaces: SwitcherWorkspace[]; children: ReactNode }) {
   const pathname = usePathname();
   return (
     <Ctx.Provider value={{ slug, workspaceName, role, membershipId, aiEnabled }}>
@@ -138,7 +140,7 @@ export function WorkspaceShell({
                 inside a <p> is invalid HTML — the browser closes the <p> early,
                 which fails hydration on every workspace page. */}
             <div className="ta-ws__name">
-              {workspaceName}
+              <WorkspaceSwitcher slug={slug} workspaceName={workspaceName} workspaces={workspaces} />
               <NotificationBell slug={slug} />
             </div>
             {/* The primary action on every workspace page (issue #366). ⌘K
