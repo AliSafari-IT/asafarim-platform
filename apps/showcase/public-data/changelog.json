@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-16",
-    "title": "Jobmatch: structured LLM evaluation pipeline (JM-043)",
-    "sha": "eb978bd",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/eb978bd"
+    "title": "Jobmatch: add versioned offline evaluation set (JM-045)",
+    "sha": "742efce",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/742efce"
   }
 ]
