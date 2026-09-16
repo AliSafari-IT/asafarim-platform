@@ -45,10 +45,15 @@ describe.skipIf(!hasTestDatabase())("task dependencies (integration)", () => {
     return { w, actorMember, ctx };
   }
 
+  // A project key is unique per workspace. Several tests need two tasks in
+  // the same workspace, so `tag` alone can't be the key — a second makeTask
+  // call with the same tag would collide with the first project it made.
+  let projectSeq = 0;
   async function makeTask(ctx: RequestContext, tag: string, title: string) {
     const { createProject } = await import("./projects");
     const { createTask } = await import("./tasks");
-    const proj = await createProject(ctx, { name: "P", key: tag.slice(0, 4).toUpperCase() });
+    const key = `${tag.slice(0, 2)}${(++projectSeq).toString(36)}`.toUpperCase();
+    const proj = await createProject(ctx, { name: "P", key });
     return createTask(ctx, { projectId: proj.id, title });
   }
 
