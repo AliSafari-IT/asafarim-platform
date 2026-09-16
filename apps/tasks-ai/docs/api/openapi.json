@@ -1798,6 +1798,14 @@
           }
         }
       ],
+      "get": {
+        "summary": "This task's dependencies, both directions",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      },
       "post": {
         "summary": "Link this task to another",
         "requestBody": {
@@ -1832,6 +1840,52 @@
             "description": "created"
           },
           "422": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/tasks/{id}/links/{relationId}": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "relationId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Remove a dependency this task created",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "404": {
             "description": "error",
             "content": {
               "application/json": {

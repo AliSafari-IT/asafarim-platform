@@ -491,6 +491,7 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
           canPlan={canPlan}
           onClose={() => setSelected(null)}
           onChanged={load}
+          onOpenTask={setSelected}
         />
       )}
     </section>
