@@ -3,16 +3,15 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import {
-  Alert,
-  Button,
-  FormRow,
-  Input,
-  Kicker,
-  Label,
-} from "@asafarim/ui";
+import { Alert, Button, FormRow, Input, Kicker, Label } from "@asafarim/ui";
+import { AdminSignInScene, type AdminAuthState } from "./AdminSignInScene";
+import styles from "./admin-sign-in.module.css";
 
-function SignInForm() {
+function SignInForm({
+  onStateChange,
+}: {
+  onStateChange: (state: AdminAuthState) => void;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
@@ -26,6 +25,7 @@ function SignInForm() {
     event.preventDefault();
     setPending(true);
     setError(null);
+    onStateChange("checking");
 
     const result = await signIn("credentials", {
       identifier,
@@ -36,9 +36,14 @@ function SignInForm() {
     setPending(false);
 
     if (result?.error) {
-      setError("That username/email and password combination was not accepted.");
+      setError(
+        "That username/email and password combination was not accepted."
+      );
+      onStateChange("error");
       return;
     }
+
+    onStateChange("success");
 
     if (callbackUrl.startsWith("/")) {
       router.push(callbackUrl);
@@ -83,16 +88,45 @@ function SignInForm() {
 }
 
 export default function SignInPage() {
+  const [authState, setAuthState] = useState<AdminAuthState>("idle");
+
   return (
-    <div style={{ maxWidth: "26rem", margin: "4rem auto", padding: "0 1rem" }}>
-      <Kicker index="SYS">Console access</Kicker>
-      <h1 style={{ marginBottom: "var(--space-5)" }}>ASafarIM Admin</h1>
-      <Suspense fallback={null}>
-        <SignInForm />
-      </Suspense>
-      <p className="u-mono" style={{ marginTop: "var(--space-4)" }}>
-        system access is limited to authorized roles
-      </p>
-    </div>
+    <main className={styles.screen}>
+      <AdminSignInScene state={authState} />
+      <section
+        className={`${styles.formColumn} ${
+          authState === "checking"
+            ? styles.stateChecking
+            : authState === "success"
+              ? styles.stateSuccess
+              : authState === "error"
+                ? styles.stateError
+                : ""
+        }`}
+      >
+        <div className={styles.formHeader}>
+          <span>Console access</span>
+          <span className={styles.signal}>
+            {authState === "checking"
+              ? "checking"
+              : authState === "success"
+                ? "authorized"
+                : authState === "error"
+                  ? "blocked"
+                  : "online"}
+          </span>
+        </div>
+        <Kicker index="SYS">Admin gateway</Kicker>
+        <h1 style={{ marginBottom: "var(--space-5)" }}>ASafarIM Admin</h1>
+        <Suspense fallback={null}>
+          <div className={styles.formCard}>
+            <SignInForm onStateChange={setAuthState} />
+          </div>
+        </Suspense>
+        <p className={styles.footerNote}>
+          system access is limited to authorized roles
+        </p>
+      </section>
+    </main>
   );
 }
