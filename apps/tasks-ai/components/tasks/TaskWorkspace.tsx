@@ -195,6 +195,7 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading, canPlan }
           canPlan={canPlan}
           onClose={() => setSelected(null)}
           onChanged={load}
+          onOpenTask={setSelected}
         />
       )}
     </section>

@@ -935,6 +935,29 @@
 [data-app="tasks-ai"] .ta-diff__unresolved { margin:.3rem 0 0; font-size:.82rem; color:#8a6d00; }
 [data-app="tasks-ai"] .ta-diff__impactline { margin:0; font-weight:600; }
 
+[data-app="tasks-ai"] .ta-drawer__parent { margin:0 0 .5rem; font-size:.82rem; opacity:.75; }
+
+[data-app="tasks-ai"] .ta-drawer__panel section { margin-top:1.1rem; border-top:1px solid var(--line); padding-top:.7rem; }
+[data-app="tasks-ai"] .ta-drawer__panel section h3 { margin:0 0 .4rem; font-size:.85rem; }
+
+[data-app="tasks-ai"] .ta-drawer__subtasks,
+[data-app="tasks-ai"] .ta-drawer__deps,
+[data-app="tasks-ai"] .ta-drawer__checks { list-style:none; margin:0; padding:0; display:grid; gap:.4rem; font-size:.85rem; }
+[data-app="tasks-ai"] .ta-drawer__subtasks button.ta-link { text-align:left; }
+[data-app="tasks-ai"] .ta-drawer__deps li { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+[data-app="tasks-ai"] .ta-drawer__deps li[data-blocked="true"] { color:#8a6d00; }
+[data-app="tasks-ai"] .ta-drawer__checks li { display:flex; align-items:baseline; gap:.3rem; flex-wrap:wrap; }
+[data-app="tasks-ai"] .ta-drawer__checks li[data-state="satisfied"] { opacity:.7; }
+[data-app="tasks-ai"] .ta-drawer__checks li[data-state="failed"] { color:#b3261e; }
+
+[data-app="tasks-ai"] .ta-drawer__inlineform { display:flex; gap:.4rem; margin-top:.5rem; }
+[data-app="tasks-ai"] .ta-drawer__inlineform input { flex:1; }
+
+[data-app="tasks-ai"] .ta-drawer__deppicker { margin-top:.6rem; display:grid; gap:.4rem; }
+[data-app="tasks-ai"] .ta-drawer__depresults { list-style:none; margin:0; padding:.2rem 0 0; display:grid; gap:.2rem; font-size:.82rem; border:1px solid var(--line); border-radius:6px; max-height:8rem; overflow:auto; }
+[data-app="tasks-ai"] .ta-drawer__depresults li { padding:.2rem .4rem; }
+[data-app="tasks-ai"] .ta-drawer__depresults li:hover { background:var(--surface-2); }
+
 [data-app="tasks-ai"] .ta-drawer__ai { margin-top:1.25rem; border-top:1px solid var(--line); padding-top:.75rem; }
 [data-app="tasks-ai"] .ta-drawer__ai h3 { margin:0 0 .2rem; font-size:.85rem; }
 [data-app="tasks-ai"] .ta-drawer__ailist { list-style:none; margin:.4rem 0 0; padding:0; display:grid; gap:.35rem; }

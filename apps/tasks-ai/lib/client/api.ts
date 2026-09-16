@@ -157,6 +157,29 @@ export const api = {
   deleteTask: (slug: string, id: string, version: number) =>
     call<Task>(`/workspaces/${slug}/tasks/${id}`, { method: "DELETE", version }),
 
+  // --- subtasks (#370): children are just tasks filtered by parentId ---
+  listSubtasks: (slug: string, parentId: string) =>
+    callPage<Task>(`/workspaces/${slug}/tasks?parentId=${parentId}`),
+
+  // --- dependencies (#370) ---
+  listTaskRelations: (slug: string, id: string) =>
+    call<TaskRelations>(`/workspaces/${slug}/tasks/${id}/links`),
+  linkTasks: (slug: string, id: string, body: { toTaskId: string; kind: TaskRelationKind }) =>
+    call<{ id: string }>(`/workspaces/${slug}/tasks/${id}/links`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  unlinkTasks: (slug: string, id: string, relationId: string) =>
+    call<{ ok: true }>(`/workspaces/${slug}/tasks/${id}/links/${relationId}`, { method: "DELETE" }),
+
+  // --- completion checks (#370) — the green-light gate task.complete() enforces ---
+  listChecks: (slug: string, id: string) => call<TaskCheck[]>(`/workspaces/${slug}/tasks/${id}/checks`),
+  overrideCheck: (slug: string, id: string, checkId: string, reason: string) =>
+    call<TaskCheck>(`/workspaces/${slug}/tasks/${id}/checks/${checkId}/override`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
   // --- AI copilot (M06/M07) ---
   aiSettings: (slug: string) => call<AiSettings>(`/workspaces/${slug}/ai/settings`),
   aiUsage: (slug: string) => call<AiUsage>(`/workspaces/${slug}/ai/usage`),
@@ -536,4 +559,37 @@ export interface Task {
   position: number;
   source: string;
   version: number;
+}
+
+// --- dependencies (#370) ---
+export type TaskRelationKind = "blocks" | "relates" | "duplicates";
+export interface RelatedTaskRef {
+  id: string;
+  title: string;
+  completedAt: string | null;
+  archivedAt: string | null;
+}
+export interface TaskRelations {
+  /** Relations this task points at — e.g. "this blocks that". */
+  outgoing: { id: string; kind: TaskRelationKind; task: RelatedTaskRef }[];
+  /** Relations pointing at this task — e.g. "that blocks this". */
+  incoming: { id: string; kind: TaskRelationKind; task: RelatedTaskRef }[];
+}
+
+// --- completion checks (#370) ---
+export type TaskCheckState = "pending" | "satisfied" | "failed";
+export interface TaskCheck {
+  id: string;
+  taskId: string;
+  source: string;
+  key: string;
+  state: TaskCheckState;
+  evidenceUrl: string | null;
+  externalRef: string | null;
+  reason: string | null;
+  overriddenAt: string | null;
+  overriddenBy: string | null;
+  overrideReason: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

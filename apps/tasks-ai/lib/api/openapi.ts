@@ -550,6 +550,10 @@ export const openapiDocument = {
     },
     "/workspaces/{slug}/tasks/{id}/links": {
       parameters: [pathParam("slug"), pathParam("id")],
+      get: {
+        summary: "This task's dependencies, both directions",
+        responses: { "200": { description: "ok" } },
+      },
       post: {
         summary: "Link this task to another",
         requestBody: jsonBody({
@@ -561,6 +565,13 @@ export const openapiDocument = {
           },
         }),
         responses: { "201": { description: "created" }, "422": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}/links/{relationId}": {
+      parameters: [pathParam("slug"), pathParam("id"), pathParam("relationId")],
+      delete: {
+        summary: "Remove a dependency this task created",
+        responses: { "200": { description: "ok" }, "404": errorRef() },
       },
     },
 

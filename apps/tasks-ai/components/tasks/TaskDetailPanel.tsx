@@ -2,11 +2,31 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button, ConfirmDialog, Input, Label, Select, Textarea } from "@asafarim/ui";
-import { api, ClientApiError, type Task, type WorkspaceMember } from "../../lib/client/api";
+import {
+  api,
+  ClientApiError,
+  type SearchHit,
+  type Task,
+  type TaskCheck,
+  type TaskRelationKind,
+  type TaskRelations,
+  type WorkspaceMember,
+} from "../../lib/client/api";
 import { TASK_INTENTS, copilotHref } from "../../lib/ai/workflow";
 import { track } from "../../lib/client/telemetry";
 import { useWorkspace } from "../WorkspaceShell";
 import { CommentsPanel } from "./CommentsPanel";
+
+const RELATION_LABEL: Record<TaskRelationKind, string> = {
+  blocks: "Blocks",
+  relates: "Relates to",
+  duplicates: "Duplicates",
+};
+const CHECK_STATE_GLYPH: Record<TaskCheck["state"], string> = {
+  satisfied: "✓",
+  pending: "○",
+  failed: "✗",
+};
 
 /**
  * Slide-over task detail. Autosaves title/description/due on blur with
@@ -31,6 +51,7 @@ export function TaskDetailPanel({
   canPlan,
   onClose,
   onChanged,
+  onOpenTask,
 }: {
   slug: string;
   taskId: string;
@@ -38,6 +59,9 @@ export function TaskDetailPanel({
   canPlan: boolean;
   onClose: () => void;
   onChanged: () => Promise<void> | void;
+  /** Re-point this same drawer at a different task — parent/subtask navigation
+   * without a full page transition, matching how the drawer already opens. */
+  onOpenTask: (id: string) => void;
 }) {
   const { aiEnabled } = useWorkspace();
   const [task, setTask] = useState<Task | null>(null);
@@ -46,6 +70,18 @@ export function TaskDetailPanel({
   const [error, setError] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Planning context (issue #370): parent, subtasks, dependencies, and
+  // completion checks. Read for every viewer with access to the task —
+  // only adding/removing them is gated on canPlan, same as everything else.
+  const [parentTitle, setParentTitle] = useState<string | null>(null);
+  const [subtasks, setSubtasks] = useState<Task[]>([]);
+  const [newSubtask, setNewSubtask] = useState("");
+  const [relations, setRelations] = useState<TaskRelations | null>(null);
+  const [depQuery, setDepQuery] = useState("");
+  const [depKind, setDepKind] = useState<TaskRelationKind>("blocks");
+  const [depResults, setDepResults] = useState<SearchHit[]>([]);
+  const [checks, setChecks] = useState<TaskCheck[]>([]);
 
   // Fetch the task by id, never by finding it in a list page: every list is
   // ordered and paged for its own surface, so a row visible in My Work need
@@ -100,6 +136,98 @@ export function TaskDetailPanel({
       alive = false;
     };
   }, [canPlan, slug]);
+
+  async function refreshSubtasks(id: string) {
+    try {
+      setSubtasks((await api.listSubtasks(slug, id)).items);
+    } catch {
+      /* non-critical section — leave the previous list rather than erroring the whole drawer */
+    }
+  }
+  async function refreshRelations(id: string) {
+    try {
+      setRelations(await api.listTaskRelations(slug, id));
+    } catch {
+      /* see refreshSubtasks */
+    }
+  }
+  async function refreshChecks(id: string) {
+    try {
+      setChecks(await api.listChecks(slug, id));
+    } catch {
+      /* see refreshSubtasks */
+    }
+  }
+
+  // Keyed on id/parentId, not on `task` itself: title/description/due-date
+  // autosaves replace `task` with a new object on every save, and none of
+  // that should re-fetch four extra endpoints.
+  useEffect(() => {
+    if (!task) return;
+    let alive = true;
+    void refreshSubtasks(task.id);
+    void refreshRelations(task.id);
+    void refreshChecks(task.id);
+    if (task.parentId) {
+      api
+        .getTask(slug, task.parentId)
+        .then((p) => alive && setParentTitle(p.title))
+        .catch(() => alive && setParentTitle(null));
+    } else {
+      setParentTitle(null);
+    }
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, task?.id, task?.parentId]);
+
+  useEffect(() => {
+    if (!depQuery.trim()) {
+      setDepResults([]);
+      return;
+    }
+    let alive = true;
+    const t = setTimeout(() => {
+      void api
+        .search(slug, depQuery.trim(), "task")
+        .then((r) => alive && setDepResults((r.hits ?? []).filter((h) => h.id !== task?.id)))
+        .catch(() => alive && setDepResults([]));
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [slug, depQuery, task?.id]);
+
+  async function addSubtask() {
+    if (!task || !newSubtask.trim()) return;
+    await api.createTask(slug, { title: newSubtask.trim(), parentId: task.id, projectId: task.projectId });
+    setNewSubtask("");
+    await refreshSubtasks(task.id);
+    await onChanged();
+  }
+
+  async function addDependency(hit: SearchHit) {
+    if (!task) return;
+    try {
+      await api.linkTasks(slug, task.id, { toTaskId: hit.id, kind: depKind });
+      setDepQuery("");
+      setDepResults([]);
+      await refreshRelations(task.id);
+    } catch (err) {
+      report(err, "Could not link that task.");
+    }
+  }
+
+  /** `fromId` is the task the relation is scoped under — the other task's id
+   * for an incoming relation, since the server only lets a relation be
+   * removed from the side that created it. */
+  async function removeDependency(fromId: string, relationId: string) {
+    if (!task) return;
+    await api.unlinkTasks(slug, fromId, relationId);
+    await refreshRelations(task.id);
+  }
 
   // Guests are members of the workspace but may not own work: `planTask`
   // refuses a guest assignee. Offering one here would be a choice the server
@@ -215,6 +343,19 @@ export function TaskDetailPanel({
           <p className="ta-muted">Loading…</p>
         ) : (
           <>
+            {task.parentId && (
+              <p className="ta-drawer__parent">
+                Subtask of{" "}
+                {parentTitle ? (
+                  <button className="ta-link" type="button" onClick={() => onOpenTask(task.parentId!)}>
+                    {parentTitle}
+                  </button>
+                ) : (
+                  <span className="ta-muted">…</span>
+                )}
+              </p>
+            )}
+
             <Label htmlFor="td-title">Title</Label>
             <Input
               id="td-title"
@@ -273,6 +414,130 @@ export function TaskDetailPanel({
               </p>
             )}
 
+            {/* Hierarchy (issue #370): break vague work into concrete steps,
+                and see where a task fits without leaving the drawer. */}
+            <section aria-labelledby="td-subtasks">
+              <h3 id="td-subtasks">Subtasks{subtasks.length > 0 ? ` (${subtasks.length})` : ""}</h3>
+              {subtasks.length === 0 ? (
+                <p className="ta-hint">No subtasks yet.</p>
+              ) : (
+                <ul className="ta-drawer__subtasks">
+                  {subtasks.map((s) => (
+                    <li key={s.id}>
+                      <button className="ta-link" type="button" onClick={() => onOpenTask(s.id)}>
+                        {s.completedAt ? "✓" : "○"} {s.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canPlan && (
+                <form
+                  className="ta-drawer__inlineform"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void addSubtask();
+                  }}
+                >
+                  <Input
+                    aria-label="New subtask title"
+                    placeholder="Add subtask…"
+                    value={newSubtask}
+                    onChange={(e) => setNewSubtask(e.target.value)}
+                  />
+                  <Button size="sm" type="submit" disabled={!newSubtask.trim()}>
+                    Add
+                  </Button>
+                </form>
+              )}
+            </section>
+
+            {/* Dependencies (issue #370): make it obvious in plain language
+                why a task cannot proceed. `relates`/`duplicates` are
+                secondary — only `blocks` changes whether work can start. */}
+            <section aria-labelledby="td-deps">
+              <h3 id="td-deps">Dependencies</h3>
+              {(relations?.incoming ?? []).filter((r) => r.kind === "blocks").length === 0 &&
+              (relations?.outgoing ?? []).length === 0 &&
+              (relations?.incoming ?? []).filter((r) => r.kind !== "blocks").length === 0 ? (
+                <p className="ta-hint">No dependencies.</p>
+              ) : (
+                <ul className="ta-drawer__deps">
+                  {(relations?.incoming ?? [])
+                    .filter((r) => r.kind === "blocks")
+                    .map((r) => (
+                      <li key={r.id} data-blocked={!r.task.completedAt}>
+                        <span className="ta-badge" data-h={r.task.completedAt ? "on_track" : "at_risk"}>
+                          Blocked by
+                        </span>{" "}
+                        <button className="ta-link" type="button" onClick={() => onOpenTask(r.task.id)}>
+                          {r.task.title}
+                        </button>
+                        {canPlan && (
+                          <Button size="sm" variant="secondary" onClick={() => void removeDependency(r.task.id, r.id)}>
+                            Remove
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  {(relations?.outgoing ?? []).map((r) => (
+                    <li key={r.id}>
+                      <span className="ta-badge">{RELATION_LABEL[r.kind]}</span>{" "}
+                      <button className="ta-link" type="button" onClick={() => onOpenTask(r.task.id)}>
+                        {r.task.title}
+                      </button>
+                      {canPlan && (
+                        <Button size="sm" variant="secondary" onClick={() => void removeDependency(task.id, r.id)}>
+                          Remove
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                  {(relations?.incoming ?? [])
+                    .filter((r) => r.kind !== "blocks")
+                    .map((r) => (
+                      <li key={r.id}>
+                        <span className="ta-badge">{RELATION_LABEL[r.kind]} (of this)</span>{" "}
+                        <button className="ta-link" type="button" onClick={() => onOpenTask(r.task.id)}>
+                          {r.task.title}
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              )}
+              {canPlan && (
+                <div className="ta-drawer__deppicker">
+                  <Select
+                    aria-label="Dependency kind"
+                    value={depKind}
+                    options={[
+                      { value: "blocks", label: "Blocks" },
+                      { value: "relates", label: "Relates to" },
+                      { value: "duplicates", label: "Duplicates" },
+                    ]}
+                    onChange={(e) => setDepKind(e.target.value as TaskRelationKind)}
+                  />
+                  <Input
+                    aria-label="Search tasks to link"
+                    placeholder="Search a task to link…"
+                    value={depQuery}
+                    onChange={(e) => setDepQuery(e.target.value)}
+                  />
+                  {depResults.length > 0 && (
+                    <ul className="ta-drawer__depresults">
+                      {depResults.map((h) => (
+                        <li key={h.id}>
+                          <button className="ta-link" type="button" onClick={() => void addDependency(h)}>
+                            {h.title}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </section>
+
             {/*
               Editing, completing and deleting are all the `member` boundary
               (`task.update` / `task.delete`), the same one `canPlan` carries,
@@ -280,15 +545,55 @@ export function TaskDetailPanel({
               certain to refuse. Comments stay below: those run a separate
               service path that viewers with read access are allowed.
             */}
+            {/* Completion checks (issue #370): the green-light gate
+                task.complete() enforces server-side. Shown for every viewer
+                with read access — knowing why a task can't finish yet isn't
+                a planning action. */}
+            {checks.length > 0 && (
+              <section aria-labelledby="td-checks">
+                <h3 id="td-checks">Completion checks</h3>
+                <ul className="ta-drawer__checks">
+                  {checks.map((c) => (
+                    <li key={c.id} data-state={c.state}>
+                      <span aria-hidden>{CHECK_STATE_GLYPH[c.state]}</span> {c.source}: {c.key}
+                      {c.state === "failed" && c.reason && <span className="ta-hint"> — {c.reason}</span>}
+                      {c.evidenceUrl && (
+                        <a className="ta-link" href={c.evidenceUrl} target="_blank" rel="noreferrer">
+                          Evidence
+                        </a>
+                      )}
+                      {c.overriddenAt && <span className="ta-hint"> (overridden)</span>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             {canPlan && (
               <div className="ta-drawer__actions">
                 {!task.completedAt && (
                   <Button
                     size="sm"
                     onClick={async () => {
-                      await api.completeTask(slug, task.id);
-                      await onChanged();
-                      onClose();
+                      try {
+                        await api.completeTask(slug, task.id);
+                        await onChanged();
+                        onClose();
+                      } catch (err) {
+                        if (err instanceof ClientApiError && err.code === "blocked_by_check") {
+                          const blocking = (err.details as { checks?: TaskCheck[] } | undefined)?.checks ?? [];
+                          setError(
+                            blocking.length > 0
+                              ? `Blocked by ${blocking.length} unfinished check${blocking.length > 1 ? "s" : ""}: ${blocking
+                                  .map((c) => `${c.source}: ${c.key}`)
+                                  .join(", ")}.`
+                              : "This task has unfinished completion checks.",
+                          );
+                          await refreshChecks(task.id);
+                        } else {
+                          report(err, "Could not complete that task.");
+                        }
+                      }
                     }}
                   >
                     Mark complete

@@ -447,6 +447,7 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
           canPlan={canTriage}
           onClose={() => setSelected(null)}
           onChanged={load}
+          onOpenTask={setSelected}
         />
       )}
     </section>
