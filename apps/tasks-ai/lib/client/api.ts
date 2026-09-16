@@ -192,10 +192,13 @@ export const api = {
     slug: string,
     body: { kind: string; input: string; projectId?: string; taskId?: string },
   ) =>
-    call<{ job: AiJob; proposal: ProposalRow; degraded?: boolean }>(
-      `/workspaces/${slug}/ai/jobs`,
-      { method: "POST", body: JSON.stringify(body) },
-    ),
+    call<{
+      job: AiJob;
+      proposal: ProposalRow;
+      degraded?: boolean;
+      /** Retrieved-context entities the draft could cite via citation.source (issue #232). */
+      retrieved?: { id: string; title: string }[];
+    }>(`/workspaces/${slug}/ai/jobs`, { method: "POST", body: JSON.stringify(body) }),
   getProposal: (slug: string, id: string) =>
     call<ProposalRow>(`/workspaces/${slug}/ai/proposals/${id}`),
   applyProposal: (
@@ -465,14 +468,14 @@ export type AiOperation =
       ref: string;
       fields: { title: string; description?: string; estimate?: number; parentRef?: string };
       confidence: number;
-      citations: { span: [number, number] | null; assumption: boolean; quote?: string }[];
+      citations: { span: [number, number] | null; assumption: boolean; quote?: string; source?: string }[];
     }
   | {
       op: "update_task";
       taskId: string;
       fields: { title?: string; description?: string; estimate?: number };
       confidence: number;
-      citations: { span: [number, number] | null; assumption: boolean }[];
+      citations: { span: [number, number] | null; assumption: boolean; source?: string }[];
     }
   | {
       op: "link_tasks";
@@ -480,7 +483,7 @@ export type AiOperation =
       toRef: string;
       kind: "blocks" | "relates" | "duplicates";
       confidence: number;
-      citations: { span: [number, number] | null; assumption: boolean }[];
+      citations: { span: [number, number] | null; assumption: boolean; source?: string }[];
     };
 export interface AiMetrics {
   windowDays: number;

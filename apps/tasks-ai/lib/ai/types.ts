@@ -47,6 +47,18 @@ const citation = z.object({
   span: z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]).nullable(),
   assumption: z.boolean().default(false),
   quote: z.string().max(400).optional(),
+  /**
+   * A retrieved entity this fact is grounded in, e.g. "task:cimr..." — the
+   * id of a `[RELATED ...]` snippet the model was actually given (issue
+   * #232). Alternative to `span` for facts drawn from retrieved context
+   * rather than the pasted input. guardDraft() rejects/downgrades a
+   * `source` that was never in the retrieved set, since the model could
+   * still invent one despite instructions.
+   */
+  source: z
+    .string()
+    .regex(/^(task|comment|project):[A-Za-z0-9_-]+$/)
+    .optional(),
 });
 
 const createOp = z.object({
@@ -112,6 +124,12 @@ export interface AiRequest {
      * happen to share a title never share a draft.
      */
     targetTask?: { id: string; title: string };
+    /**
+     * Redacted snippets retrieved for grounding (issue #232) — task/comment/
+     * project entries the model may cite via `citation.source`. Rendered
+     * inside the untrusted fence in prompts.ts, never outside it.
+     */
+    retrieved?: { id: string; title: string; body: string }[];
   };
 }
 

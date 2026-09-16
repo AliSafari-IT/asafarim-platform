@@ -825,6 +825,12 @@ model AiJob {
   promptVersion String
   /// sha256 of the (redacted) rendered prompt — the cache key.
   cacheKey      String
+  /// Retrieved-context entity ids ("task:<id>" | "comment:<id>" |
+  /// "project:<id>") the draft was grounded against (issue #232),
+  /// independent of which ones the model actually cited. Recorded for
+  /// reproducibility — a re-run against the same evidence set should be
+  /// explainable even if live data has since changed underneath it.
+  retrievedIds  String[]   @default([])
   inputTokens   Int?
   outputTokens  Int?
   costUsd       Float?

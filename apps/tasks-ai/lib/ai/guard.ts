@@ -37,6 +37,17 @@ export interface GuardOptions {
    * (PR #377 review).
    */
   hasTargetTask?: boolean;
+  /**
+   * Ids of the retrieved context snippets the model was actually given
+   * (issue #232), e.g. "task:cimr...". A citation.source that names
+   * something outside this set is not evidence — the model could invent an
+   * id despite instructions — so it does not count toward groundedRatio.
+   * Unlike an unknown ref/parentRef/taskId elsewhere in this file, a
+   * hallucinated source is not rejected outright: it is simply treated as
+   * ungrounded, the same as an omitted citation, because it does not touch
+   * the blast-radius/allowlist safety this function otherwise enforces.
+   */
+  retrievedIds?: Set<string>;
 }
 
 export function guardDraft(
@@ -91,8 +102,13 @@ export function guardDraft(
 
   if (reasons.length) throw new GuardError(reasons);
 
+  const retrievedIds = options.retrievedIds ?? new Set<string>();
   const facts = draft.operations.flatMap((o: Operation) => o.citations);
-  const grounded = facts.filter((c) => c.span !== null && !c.assumption).length;
+  const grounded = facts.filter(
+    (c) =>
+      (c.span !== null && !c.assumption) ||
+      (c.source != null && retrievedIds.has(c.source)),
+  ).length;
   return {
     draft,
     operationCount: draft.operations.length,

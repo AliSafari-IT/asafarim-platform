@@ -58,6 +58,66 @@ describe("prompt registry", () => {
     expect(a.user).toBe(b.user);
     expect(a.cacheKey).not.toBe(b.cacheKey);
   });
+
+  // ── retrieved-context grounding (issue #232) ────────────────────────────
+
+  it("renders retrieved snippets inside the fence as citable [RELATED ...] entries", () => {
+    const p = renderPrompt(
+      {
+        kind: "extract_plan",
+        input: "x",
+        context: { retrieved: [{ id: "task:abc", title: "Existing task", body: "some description" }] },
+      },
+      "x",
+    );
+    const fenceOpenIdx = p.user.indexOf("<<<UNTRUSTED_INPUT");
+    const relatedIdx = p.user.indexOf("[RELATED task:abc]");
+    expect(relatedIdx).toBeGreaterThan(-1);
+    expect(relatedIdx).toBeGreaterThan(fenceOpenIdx);
+    expect(p.user).toContain("Existing task");
+    expect(p.user).toContain("some description");
+    expect(p.system).toMatch(/source.*task:<id>/);
+  });
+
+  it("never renders retrieved snippets outside the fence or in SYSTEM_BASE", () => {
+    const p = renderPrompt(
+      {
+        kind: "extract_plan",
+        input: "x",
+        context: { retrieved: [{ id: "task:abc", title: "Leaky title", body: "leaky body" }] },
+      },
+      "x",
+    );
+    expect(p.system).not.toContain("Leaky title");
+    const fenceOpenIdx = p.user.indexOf("<<<UNTRUSTED_INPUT");
+    const fenceCloseIdx = p.user.indexOf("UNTRUSTED_INPUT>>>");
+    const titleIdx = p.user.indexOf("Leaky title");
+    expect(titleIdx).toBeGreaterThan(fenceOpenIdx);
+    expect(titleIdx).toBeLessThan(fenceCloseIdx);
+  });
+
+  it("scopes the cache key by the retrieved id set, not just the rendered words", () => {
+    const withRetrieved = renderPrompt(
+      {
+        kind: "summarize",
+        input: "x",
+        context: { retrieved: [{ id: "task:a", title: "T", body: "B" }] },
+      },
+      "x",
+    );
+    const withoutRetrieved = renderPrompt({ kind: "summarize", input: "x" }, "x");
+    expect(withRetrieved.cacheKey).not.toBe(withoutRetrieved.cacheKey);
+
+    const differentRetrieved = renderPrompt(
+      {
+        kind: "summarize",
+        input: "x",
+        context: { retrieved: [{ id: "task:z", title: "T", body: "B" }] },
+      },
+      "x",
+    );
+    expect(withRetrieved.cacheKey).not.toBe(differentRetrieved.cacheKey);
+  });
 });
 
 describe("fixture provider", () => {
