@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm db:generate && next dev --port 3012",
+    "worker:dev": "tsx watch worker/index.ts",
+    "worker:start": "tsx worker/index.ts",
     "prebuild": "pnpm db:generate",
     "build": "next build",
     "start": "next start",
@@ -26,7 +28,9 @@
     "@prisma/adapter-pg": "7.8.0",
     "@prisma/client": "7.8.0",
     "@prisma/client-runtime-utils": "7.8.0",
+    "bullmq": "^5.34.0",
     "dotenv": "^17.4.2",
+    "ioredis": "^5.4.2",
     "mammoth": "^1.12.2",
     "next": "^16.2.10",
     "react": "^19.2.7",
@@ -41,6 +45,7 @@
     "@types/react-dom": "^19.2.3",
     "dotenv-cli": "^7.4.2",
     "prisma": "7.8.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.10"
   }
