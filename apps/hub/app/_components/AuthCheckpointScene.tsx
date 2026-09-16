@@ -74,6 +74,16 @@ export function AuthCheckpointScene({
               strokeWidth="1"
             />
           </pattern>
+          <pattern
+            id="checkpoint-hazard"
+            width="14"
+            height="14"
+            patternTransform="rotate(45)"
+            patternUnits="userSpaceOnUse"
+          >
+            <rect width="14" height="14" fill="var(--checkpoint-hazard-a)" />
+            <rect width="7" height="14" fill="var(--checkpoint-hazard-b)" />
+          </pattern>
         </defs>
 
         <rect width="1200" height="520" fill="url(#checkpoint-sky)" />
@@ -92,65 +102,127 @@ export function AuthCheckpointScene({
           fill="url(#checkpoint-glow)"
         />
 
-        <g className={styles.hillsFar}>
-          <path d="M0 330 C125 246 230 272 345 330 S550 370 680 282 S935 228 1200 322 V520 H0Z" />
-        </g>
-
-        {/* City skyline on the horizon, right of the checkpoint. */}
-        <g className={styles.cityRight}>
-          <rect x="838" y="268" width="30" height="104" />
-          <rect x="872" y="238" width="38" height="134" />
-          <rect x="914" y="286" width="26" height="86" />
-          <rect x="944" y="216" width="34" height="156" />
-          <rect x="982" y="256" width="28" height="116" />
-          <rect x="1014" y="196" width="24" height="176" />
-          <rect x="1042" y="272" width="32" height="100" />
-          <rect x="1078" y="244" width="26" height="128" />
-          <rect x="1108" y="292" width="34" height="80" />
-          <g className={styles.cityWindows}>
-            <path d="M844 280h6m6 0h6m-18 14h6m6 0h6m-18 14h6m6 0h6m-18 14h6m6 0h6" />
-            <path d="M879 250h6m6 0h6m-18 16h6m6 0h6m-18 16h6m6 0h6m-18 16h6m6 0h6m-18 16h6m6 0h6" />
-            <path d="M950 228h6m6 0h6m-18 18h6m6 0h6m-18 18h6m6 0h6m-18 18h6m6 0h6m-18 18h6m6 0h6" />
-            <path d="M1020 208h6m6 0h6m-18 20h6m6 0h6m-18 20h6m6 0h6m-18 20h6m6 0h6" />
+        {/* Drifting clouds. */}
+        <g className={styles.clouds}>
+          <g transform="translate(160 78)">
+            <ellipse cx="0" cy="0" rx="30" ry="14" />
+            <ellipse cx="24" cy="-6" rx="22" ry="12" />
+            <ellipse cx="-26" cy="4" rx="20" ry="10" />
+          </g>
+          <g transform="translate(560 56)">
+            <ellipse cx="0" cy="0" rx="36" ry="16" />
+            <ellipse cx="30" cy="-6" rx="24" ry="13" />
+            <ellipse cx="-30" cy="5" rx="22" ry="11" />
+          </g>
+          <g transform="translate(1010 92)">
+            <ellipse cx="0" cy="0" rx="26" ry="12" />
+            <ellipse cx="20" cy="-5" rx="18" ry="10" />
           </g>
         </g>
 
-        {/* Roadside trees, right of the checkpoint, in front of the skyline. */}
-        <g className={styles.treesRight}>
-          <g transform="translate(806 371)">
-            <rect
-              className={styles.treeTrunk}
-              x="-2.5"
-              y="-20"
-              width="5"
-              height="20"
-            />
-            <circle className={styles.treeCanopy} cx="0" cy="-30" r="16" />
-          </g>
-          <g transform="translate(958 371) scale(0.85)">
-            <rect
-              className={styles.treeTrunk}
-              x="-2.5"
-              y="-20"
-              width="5"
-              height="20"
-            />
-            <circle className={styles.treeCanopy} cx="0" cy="-30" r="16" />
-          </g>
-          <g transform="translate(1152 371) scale(1.1)">
-            <rect
-              className={styles.treeTrunk}
-              x="-2.5"
-              y="-20"
-              width="5"
-              height="20"
-            />
-            <circle className={styles.treeCanopy} cx="0" cy="-30" r="16" />
-          </g>
+        {/* Jagged mountain range, two depths for parallax. */}
+        <g className={styles.mountainsFar}>
+          <path d="M0 372 60 240 150 300 230 190 320 280 420 220 520 300 610 210 700 290 800 230 900 310 1000 200 1100 280 1200 240 1200 372Z" />
+        </g>
+        <g className={styles.mountainsNear}>
+          <path d="M0 372 80 300 170 340 260 280 360 345 460 300 560 350 660 310 760 355 860 315 960 350 1060 300 1150 340 1200 320 1200 372Z" />
         </g>
 
-        <g className={styles.hillsNear}>
+        <g className={styles.groundGrass}>
           <path d="M0 372 H1200 V520 H0Z" />
+        </g>
+
+        {/* Stone viaduct the road rides over, arches punched through the deck. */}
+        <g className={styles.viaduct}>
+          <rect x="380" y="372" width="460" height="56" rx="4" />
+          <rect
+            className={styles.viaductArch}
+            x="410"
+            y="372"
+            width="66"
+            height="46"
+            rx="23"
+          />
+          <rect
+            className={styles.viaductArch}
+            x="570"
+            y="372"
+            width="66"
+            height="46"
+            rx="23"
+          />
+          <rect
+            className={styles.viaductArch}
+            x="730"
+            y="372"
+            width="66"
+            height="46"
+            rx="23"
+          />
+        </g>
+
+        {/* Pine treeline, both sides of the checkpoint. */}
+        <g className={styles.pines}>
+          <g transform="translate(96 371) scale(1.05)">
+            <rect
+              className={styles.pineTrunk}
+              x="-3"
+              y="-14"
+              width="6"
+              height="14"
+            />
+            <path className={styles.pineTier} d="M-15 -14 15 -14 0 -29Z" />
+            <path className={styles.pineTier} d="M-12 -24 12 -24 0 -39Z" />
+            <path className={styles.pineTier} d="M-9 -34 9 -34 0 -47Z" />
+          </g>
+          <g transform="translate(236 371) scale(0.8)">
+            <rect
+              className={styles.pineTrunk}
+              x="-3"
+              y="-14"
+              width="6"
+              height="14"
+            />
+            <path className={styles.pineTier} d="M-15 -14 15 -14 0 -29Z" />
+            <path className={styles.pineTier} d="M-12 -24 12 -24 0 -39Z" />
+            <path className={styles.pineTier} d="M-9 -34 9 -34 0 -47Z" />
+          </g>
+          <g transform="translate(878 371) scale(0.9)">
+            <rect
+              className={styles.pineTrunk}
+              x="-3"
+              y="-14"
+              width="6"
+              height="14"
+            />
+            <path className={styles.pineTier} d="M-15 -14 15 -14 0 -29Z" />
+            <path className={styles.pineTier} d="M-12 -24 12 -24 0 -39Z" />
+            <path className={styles.pineTier} d="M-9 -34 9 -34 0 -47Z" />
+          </g>
+          <g transform="translate(1000 371) scale(1.15)">
+            <rect
+              className={styles.pineTrunk}
+              x="-3"
+              y="-14"
+              width="6"
+              height="14"
+            />
+            <path className={styles.pineTier} d="M-15 -14 15 -14 0 -29Z" />
+            <path className={styles.pineTier} d="M-12 -24 12 -24 0 -39Z" />
+            <path className={styles.pineTier} d="M-9 -34 9 -34 0 -47Z" />
+          </g>
+          <g transform="translate(1140 371) scale(0.85)">
+            <rect
+              className={styles.pineTrunk}
+              x="-3"
+              y="-14"
+              width="6"
+              height="14"
+            />
+            <path className={styles.pineTier} d="M-15 -14 15 -14 0 -29Z" />
+            <path className={styles.pineTier} d="M-12 -24 12 -24 0 -39Z" />
+            <path className={styles.pineTier} d="M-9 -34 9 -34 0 -47Z" />
+          </g>
         </g>
 
         <path className={styles.roadShadow} d="M-30 379 H1230" />
@@ -165,25 +237,46 @@ export function AuthCheckpointScene({
             rx="112"
             ry="64"
           />
-          <path className={styles.postShadow} d="M655 230v151" />
-          <rect
-            className={styles.post}
-            x="642"
-            y="224"
-            width="26"
-            height="158"
-            rx="7"
+
+          {/* Guardhouse: roof, flag, lit window, ground shadow. */}
+          <ellipse
+            className={styles.cabinShadow}
+            cx="649"
+            cy="384"
+            rx="56"
+            ry="8"
           />
           <rect
-            className={styles.postPanel}
-            x="648"
-            y="238"
-            width="14"
-            height="34"
-            rx="4"
+            className={styles.cabinBody}
+            x="614"
+            y="246"
+            width="70"
+            height="136"
+            rx="6"
           />
-          <circle className={styles.statusIdle} cx="655" cy="247" r="3.5" />
-          <circle className={styles.statusSuccess} cx="655" cy="261" r="3.5" />
+          <path className={styles.cabinRoof} d="M604 246 649 196 694 246Z" />
+          <path className={styles.flagPole} d="M649 196V160" />
+          <g className={styles.flag}>
+            <path d="M649 160 649 178 671 169Z" />
+          </g>
+          <rect
+            className={styles.cabinDoor}
+            x="650"
+            y="332"
+            width="20"
+            height="50"
+            rx="2"
+          />
+          <rect
+            className={styles.cabinWindow}
+            x="626"
+            y="266"
+            width="20"
+            height="28"
+            rx="3"
+          />
+          <circle className={styles.statusIdle} cx="636" cy="276" r="3.5" />
+          <circle className={styles.statusSuccess} cx="636" cy="290" r="3.5" />
 
           <g className={styles.scanner}>
             <rect x="568" y="293" width="46" height="54" rx="8" />
@@ -207,10 +300,6 @@ export function AuthCheckpointScene({
               width="122"
               height="11"
               rx="5.5"
-            />
-            <path
-              className={styles.barrierStripe}
-              d="M674 282v11m24-11v11m24-11v11m24-11v11"
             />
           </g>
 

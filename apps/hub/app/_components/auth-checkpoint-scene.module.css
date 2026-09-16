@@ -23,6 +23,8 @@
   --checkpoint-car: #38bdf8;
   --checkpoint-car-glass: #bae6fd;
   --checkpoint-error: #fb7185;
+  --checkpoint-hazard-a: color-mix(in srgb, var(--accent) 82%, var(--ink));
+  --checkpoint-hazard-b: color-mix(in srgb, var(--surface) 92%, var(--accent));
 
   position: relative;
   width: 100%;
@@ -63,31 +65,43 @@
   animation: breathe var(--checkpoint-duration) ease-in-out infinite;
 }
 
-.hillsFar path {
-  fill: color-mix(in srgb, var(--surface-2) 52%, transparent);
+.clouds ellipse {
+  fill: color-mix(in srgb, var(--surface) 60%, transparent);
+  opacity: 0.55;
 }
 
-.hillsNear path {
+.mountainsFar path {
+  fill: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+
+.mountainsNear path {
+  fill: color-mix(in srgb, var(--surface-3) 62%, var(--ink) 8%);
+}
+
+.groundGrass path {
   fill: color-mix(in srgb, var(--surface) 80%, transparent);
 }
 
-.cityRight rect {
-  fill: color-mix(in srgb, var(--surface-3) 60%, transparent);
+.viaduct rect:not(.viaductArch) {
+  fill: color-mix(in srgb, var(--surface-3) 88%, var(--ink) 12%);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
 }
 
-.cityWindows path {
-  fill: none;
-  stroke: color-mix(in srgb, var(--accent) 35%, transparent);
-  stroke-width: 2;
-  stroke-linecap: round;
+.viaductArch {
+  fill: url(#checkpoint-sky);
+  stroke: color-mix(in srgb, var(--ink) 25%, transparent);
+  stroke-width: 1;
 }
 
-.treesRight .treeTrunk {
+.pines .pineTrunk {
   fill: color-mix(in srgb, var(--ink) 38%, var(--surface-3));
 }
 
-.treesRight .treeCanopy {
-  fill: color-mix(in srgb, var(--checkpoint-signal) 32%, var(--surface-2));
+.pines .pineTier {
+  fill: color-mix(in srgb, var(--checkpoint-signal) 30%, var(--surface-2));
+  stroke: color-mix(in srgb, var(--checkpoint-signal) 20%, var(--ink) 20%);
+  stroke-width: 0.75;
 }
 
 .roadShadow,
@@ -121,22 +135,48 @@
   animation: checkpoint-aura var(--checkpoint-duration) ease-in-out infinite;
 }
 
-.postShadow {
-  stroke: color-mix(in srgb, #000 35%, transparent);
-  stroke-width: 33;
-  stroke-linecap: round;
-  opacity: 0.35;
+.cabinShadow {
+  fill: #000;
+  opacity: 0.22;
 }
 
-.post {
+.cabinBody {
   fill: var(--surface-2);
   stroke: var(--line-strong);
   stroke-width: 2;
 }
 
-.postPanel {
+.cabinRoof {
+  fill: color-mix(in srgb, var(--checkpoint-hazard-a) 70%, var(--ink) 20%);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.cabinDoor {
+  fill: color-mix(in srgb, var(--surface-3) 80%, var(--ink) 10%);
+  stroke: var(--line);
+}
+
+.cabinWindow {
   fill: color-mix(in srgb, var(--bg) 70%, transparent);
   stroke: var(--line);
+}
+
+.flagPole {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.flag {
+  transform-origin: 649px 160px;
+  animation: flag-wave 2.4s ease-in-out infinite;
+}
+
+.flag path {
+  fill: var(--accent);
 }
 
 .statusIdle {
@@ -183,15 +223,8 @@
 }
 
 .barrierArm {
-  fill: color-mix(in srgb, var(--surface-3) 84%, var(--ink) 16%);
+  fill: url(#checkpoint-hazard);
   stroke: var(--line-strong);
-}
-
-.barrierStripe {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 9;
-  opacity: 0.8;
 }
 
 .successMark,
@@ -461,6 +494,16 @@
   }
 }
 
+@keyframes flag-wave {
+  0%,
+  100% {
+    transform: skewX(0deg) scaleX(1);
+  }
+  50% {
+    transform: skewX(-14deg) scaleX(0.94);
+  }
+}
+
 @keyframes status-idle {
   0%,
   48%,
@@ -590,6 +633,7 @@
   .statusSuccess,
   .scanLine,
   .barrier,
+  .flag,
   .successMark,
   .errorMark,
   .credential,
