@@ -663,3 +663,55 @@ model JobFeedback {
   @@index([jobPostingId, reasonCode])
   @@map("job_feedback")
 }
+
+// ─── M5: embedding cache (JM-041) ───────────────────────────────────────
+//
+// The vector layer JM-042 ranking sits on. A row is cached content — see
+// lib/matching/ai/embeddingCache.ts for the cache-key and invalidation
+// rules — never a place profile or posting text lands untransformed: the
+// text that gets embedded is `buildEmbeddingInput(profile).text` for a
+// profile (lib/matching/embeddingInput.ts's privacy-preserving allow-list)
+// or the normalised description for a posting, and nothing else.
+
+enum EmbeddingKind {
+  PROFILE
+  POSTING
+}
+
+/// Cached vector embedding for a candidate profile or a job posting.
+/// `contentHash` is sha256(embeddingModelVersion + text); recomputation
+/// happens only when it changes, so a re-confirm with no professional-fact
+/// change reuses the row with no embed() call.
+///
+/// `workspaceId` is a real workspace id for a PROFILE row (derived data
+/// belonging to that candidate, wired into the JM-023 erasure path — see
+/// lib/profile/dataRights.ts) and the constant
+/// `GLOBAL_EMBEDDING_WORKSPACE_ID` for a POSTING row: a posting embedding is
+/// not candidate-specific and is deliberately shared across every workspace
+/// that might match against it, never duplicated per candidate.
+model MatchEmbedding {
+  id String @id @default(cuid())
+
+  workspaceId String
+  kind        EmbeddingKind
+  /// CandidateProfile.id for PROFILE, JobPosting.id for POSTING.
+  sourceId    String
+
+  embeddingModelVersion String
+  contentHash           String
+
+  /// pgvector column. Prisma cannot model pgvector natively, so this field
+  /// is intentionally `Unsupported` — every read/write goes through raw SQL
+  /// (see lib/matching/ai/embeddingCache.ts). The dimension (384) is
+  /// documented and owned by lib/matching/ai/embeddings.ts
+  /// (FIXTURE_EMBEDDING_DIMENSIONS); the migration hand-writes the real
+  /// column type and the `vector` extension.
+  vector Unsupported("vector(384)")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, kind, sourceId, embeddingModelVersion])
+  @@index([workspaceId, kind])
+  @@map("match_embeddings")
+}

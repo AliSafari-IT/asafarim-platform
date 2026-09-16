@@ -1,6 +1,7 @@
 import "server-only";
 import { getJobmatchDb } from "../db/client";
 import { deleteDocumentBytes } from "../documents/storage";
+import { deleteProfileEmbeddings } from "../matching/ai/embeddingCache";
 import { logError } from "../observability/logger";
 import { recordAuditEvent } from "../workspace";
 import { parseProfileContent } from "./contract";
@@ -168,6 +169,9 @@ export interface ErasureResult {
   objectsDeleted: number;
   objectsFailed: number;
   feedbackDeleted: number;
+  /** Cached profile vector embeddings removed (JM-041). Derived data — see
+   *  lib/matching/ai/embeddingCache.ts's deleteProfileEmbeddings. */
+  embeddingsDeleted: number;
 }
 
 /**
@@ -217,8 +221,18 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     select: { id: true, _count: { select: { versions: true } } },
   });
 
+  let embeddingsDeleted = 0;
   const feedbackDeleted = await db.$transaction(async (tx) => {
     if (profile) {
+      // Derived data goes before the row it derives from: a profile
+      // embedding (JM-041) is computed from the confirmed version's content,
+      // so it must be gone before that content itself is. Doing this after
+      // the profile row's own delete would still be correct FK-wise (the
+      // embedding table has no FK to CandidateProfile — see
+      // lib/matching/ai/embeddingCache.ts) but would leave a window where
+      // the row is gone and a derived vector of it still is not.
+      embeddingsDeleted = await deleteProfileEmbeddings(tx, workspaceId);
+
       // The confirmed pointer is cleared first: it references a version row,
       // and deleting versions out from under it would violate the FK.
       await tx.candidateProfile.update({
@@ -255,5 +269,6 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     objectsDeleted,
     objectsFailed,
     feedbackDeleted,
+    embeddingsDeleted,
   };
 }

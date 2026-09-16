@@ -32,9 +32,10 @@ import { Queue, Worker, type Job } from "bullmq";
 import IORedis from "ioredis";
 import { pingJobMatchDb } from "../lib/db/readiness";
 import { getEnv } from "../lib/env";
+import { ensurePostingEmbedding, ensureProfileEmbedding } from "../lib/matching/ai/embeddingCache";
 import { log, logError } from "../lib/observability/logger";
 import { buildWorkerHealth } from "./health";
-import { JOB, QUEUE } from "./queues";
+import { JOB, QUEUE, type EmbeddingComputeJobData } from "./queues";
 
 // Validates the environment contract (including the JM-005 AI provider
 // gate) and emits the boot-time "env.ai_provider" log line for this process.
@@ -94,6 +95,37 @@ worker.on("failed", (job, err) => {
 
 worker.on("ready", () => log.info("worker.ready"));
 
+// JM-041: a second queue/worker pair for embedding (re)computation, kept
+// separate from `maintenance` so a slow embed() batch never delays health
+// pings, and separate from `match.evaluate` (JM-043's still-unattached
+// stub) so this issue does not accidentally claim that queue's name.
+const embeddingQueue = new Queue(QUEUE.embedding, { connection });
+
+async function handleEmbeddingJob(job: Job<EmbeddingComputeJobData>): Promise<unknown> {
+  if (job.name !== JOB.embeddingCompute) {
+    log.warn("worker.unknown_job", { jobId: job.id, queue: QUEUE.embedding });
+    return undefined;
+  }
+  const { kind, workspaceId, sourceId } = job.data;
+  const result =
+    kind === "profile"
+      ? await ensureProfileEmbedding(workspaceId, sourceId)
+      : await ensurePostingEmbedding(sourceId);
+  log.info("worker.embedding_computed", { kind, reused: result?.reused ?? null, found: result !== null });
+  return result;
+}
+
+const embeddingWorker = new Worker(QUEUE.embedding, handleEmbeddingJob, {
+  connection,
+  concurrency: 4,
+});
+
+embeddingWorker.on("failed", (job, err) => {
+  logError("worker.embedding_job_failed", err, { jobId: job?.id });
+});
+
+embeddingWorker.on("ready", () => log.info("worker.embedding_ready"));
+
 // Heartbeat: enqueue a health-ping every 60s so the worker's own liveness
 // (and its view of Redis + the dedicated DB) is observable in logs, mirrors
 // apps/tasks-ai/worker/index.ts.
@@ -108,8 +140,10 @@ async function shutdown(signal: string): Promise<void> {
   log.info("worker.shutdown", { reasonCode: signal });
   clearInterval(heartbeat);
   await worker.close();
+  await embeddingWorker.close();
   await maintenanceQueue.close();
   await matchEvaluateQueue.close();
+  await embeddingQueue.close();
   await connection.quit();
   process.exit(0);
 }
