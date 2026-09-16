@@ -240,12 +240,19 @@ model Cycle {
 }
 
 model Status {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   projectId   String?
   name        String
-  category    String   @default("todo") // todo | in_progress | done | canceled
-  position    Int      @default(0)
+  category    String    @default("todo") // todo | in_progress | done | canceled
+  position    Int       @default(0)
+  /// Seeded on workspace creation (issue #387) so a brand-new workspace
+  /// never presents an empty status picker. Not enforced anywhere beyond
+  /// seeding — a workspace may freely create more, non-default statuses.
+  isDefault   Boolean   @default(false)
+  /// Soft-delete: an archived status stays on tasks that already reference
+  /// it (statusId is not cleared) but is excluded from the picker/list.
+  archivedAt  DateTime?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   project   Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -256,10 +263,13 @@ model Status {
 }
 
 model Label {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   name        String
-  color       String   @default("#8b8b8b")
+  color       String    @default("#8b8b8b")
+  /// Soft-delete (issue #387): keeps history/search stable for tasks that
+  /// already carry the label while hiding it from the create/assign picker.
+  archivedAt  DateTime?
 
   workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks     TaskLabel[]

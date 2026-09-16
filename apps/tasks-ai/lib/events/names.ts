@@ -28,6 +28,13 @@ export const EVENT = {
   viewUpdated: "view.updated",
   checkAdded: "check.added",
   checkUpdated: "check.updated",
+  statusCreated: "status.created",
+  statusReordered: "status.reordered",
+  statusArchived: "status.archived",
+  labelCreated: "label.created",
+  labelArchived: "label.archived",
+  labelAssigned: "label.assigned",
+  labelRemoved: "label.removed",
 } as const;
 
 export type EventName = (typeof EVENT)[keyof typeof EVENT];

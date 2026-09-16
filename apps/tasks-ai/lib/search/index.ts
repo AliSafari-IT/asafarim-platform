@@ -90,7 +90,7 @@ export async function globalSearch(
 
   if (wants("label") && !guest) {
     const rows = await ctx.db.label.findMany({
-      where: { workspaceId: ws, name: { contains: query, mode: "insensitive" } },
+      where: { workspaceId: ws, archivedAt: null, name: { contains: query, mode: "insensitive" } },
       take: LIMIT_PER_TYPE,
       select: { id: true, name: true },
     });

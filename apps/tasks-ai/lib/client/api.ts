@@ -180,6 +180,38 @@ export const api = {
       body: JSON.stringify({ reason }),
     }),
 
+  // --- statuses (#387): workspace-level with optional per-project override ---
+  listStatuses: (slug: string, projectId?: string) =>
+    call<StatusRow[]>(`/workspaces/${slug}/statuses${projectId ? `?projectId=${projectId}` : ""}`),
+  createStatus: (slug: string, body: Record<string, unknown>) =>
+    call<StatusRow>(`/workspaces/${slug}/statuses`, { method: "POST", body: JSON.stringify(body) }),
+  reorderStatuses: (slug: string, ids: string[]) =>
+    call<StatusRow[]>(`/workspaces/${slug}/statuses/reorder`, {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
+  archiveStatus: (slug: string, id: string) =>
+    call<StatusRow>(`/workspaces/${slug}/statuses/${id}`, { method: "DELETE" }),
+
+  // --- labels (#387) ---
+  listLabels: (slug: string) => call<LabelRow[]>(`/workspaces/${slug}/labels`),
+  createLabel: (slug: string, body: { name: string; color?: string }) =>
+    call<LabelRow>(`/workspaces/${slug}/labels`, { method: "POST", body: JSON.stringify(body) }),
+  archiveLabel: (slug: string, id: string) =>
+    call<LabelRow>(`/workspaces/${slug}/labels/${id}`, { method: "DELETE" }),
+  listTaskLabels: (slug: string, taskId: string) =>
+    call<LabelRow[]>(`/workspaces/${slug}/tasks/${taskId}/labels`),
+  assignLabel: (slug: string, taskId: string, labelId: string) =>
+    call<{ taskId: string; labelId: string }>(`/workspaces/${slug}/tasks/${taskId}/labels`, {
+      method: "POST",
+      body: JSON.stringify({ labelId }),
+    }),
+  removeLabel: (slug: string, taskId: string, labelId: string) =>
+    call<{ taskId: string; labelId: string }>(
+      `/workspaces/${slug}/tasks/${taskId}/labels/${labelId}`,
+      { method: "DELETE" },
+    ),
+
   // --- AI copilot (M06/M07) ---
   aiSettings: (slug: string) => call<AiSettings>(`/workspaces/${slug}/ai/settings`),
   aiUsage: (slug: string) => call<AiUsage>(`/workspaces/${slug}/ai/usage`),
@@ -559,6 +591,25 @@ export interface Task {
   position: number;
   source: string;
   version: number;
+}
+
+// --- statuses + labels (#387) ---
+export interface StatusRow {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  name: string;
+  category: "todo" | "in_progress" | "done" | "canceled";
+  position: number;
+  isDefault: boolean;
+  archivedAt: string | null;
+}
+export interface LabelRow {
+  id: string;
+  workspaceId: string;
+  name: string;
+  color: string;
+  archivedAt: string | null;
 }
 
 // --- dependencies (#370) ---

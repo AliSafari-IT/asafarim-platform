@@ -5,7 +5,9 @@ import { Button, ConfirmDialog, Input, Label, Select, Textarea } from "@asafarim
 import {
   api,
   ClientApiError,
+  type LabelRow,
   type SearchHit,
+  type StatusRow,
   type Task,
   type TaskCheck,
   type TaskRelationKind,
@@ -83,6 +85,14 @@ export function TaskDetailPanel({
   const [depResults, setDepResults] = useState<SearchHit[]>([]);
   const [checks, setChecks] = useState<TaskCheck[]>([]);
 
+  // Status + labels (issue #387). Statuses populate a picker next to the
+  // other single-field task edits; labels are a checkbox-based multi-select
+  // tucked into "More details" per the original #370 progressive-disclosure
+  // guidance — assigning them is common but shouldn't crowd the primary panel.
+  const [statuses, setStatuses] = useState<StatusRow[]>([]);
+  const [allLabels, setAllLabels] = useState<LabelRow[]>([]);
+  const [taskLabels, setTaskLabels] = useState<LabelRow[]>([]);
+
   // Fetch the task by id, never by finding it in a list page: every list is
   // ordered and paged for its own surface, so a row visible in My Work need
   // not be on the first generic page — the drawer would then hang on
@@ -137,6 +147,22 @@ export function TaskDetailPanel({
     };
   }, [canPlan, slug]);
 
+  useEffect(() => {
+    if (!canPlan) return;
+    let alive = true;
+    void api
+      .listStatuses(slug)
+      .then((rows) => alive && setStatuses(rows))
+      .catch(() => undefined);
+    void api
+      .listLabels(slug)
+      .then((rows) => alive && setAllLabels(rows))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [canPlan, slug]);
+
   async function refreshSubtasks(id: string) {
     try {
       setSubtasks((await api.listSubtasks(slug, id)).items);
@@ -158,6 +184,13 @@ export function TaskDetailPanel({
       /* see refreshSubtasks */
     }
   }
+  async function refreshTaskLabels(id: string) {
+    try {
+      setTaskLabels(await api.listTaskLabels(slug, id));
+    } catch {
+      /* see refreshSubtasks */
+    }
+  }
 
   // Keyed on id/parentId, not on `task` itself: title/description/due-date
   // autosaves replace `task` with a new object on every save, and none of
@@ -168,6 +201,7 @@ export function TaskDetailPanel({
     void refreshSubtasks(task.id);
     void refreshRelations(task.id);
     void refreshChecks(task.id);
+    void refreshTaskLabels(task.id);
     if (task.parentId) {
       api
         .getTask(slug, task.parentId)
@@ -241,6 +275,29 @@ export function TaskDetailPanel({
     ],
     [members],
   );
+
+  const statusOptions = useMemo(
+    () => [
+      { value: "", label: "No status" },
+      ...statuses.filter((s) => !s.archivedAt).map((s) => ({ value: s.id, label: s.name })),
+    ],
+    [statuses],
+  );
+
+  async function toggleLabel(label: LabelRow, on: boolean) {
+    if (!task) return;
+    try {
+      if (on) {
+        await api.assignLabel(slug, task.id, label.id);
+        setTaskLabels((cur) => (cur.some((l) => l.id === label.id) ? cur : [...cur, label]));
+      } else {
+        await api.removeLabel(slug, task.id, label.id);
+        setTaskLabels((cur) => cur.filter((l) => l.id !== label.id));
+      }
+    } catch (err) {
+      report(err, "Could not change that label.");
+    }
+  }
 
   /**
    * Re-read the task after a conflict — again by id, not out of a list. A
@@ -394,6 +451,14 @@ export function TaskDetailPanel({
                   onChange={(e) => void assign(e.target.value || null)}
                 />
 
+                <Label htmlFor="td-status">Status</Label>
+                <Select
+                  id="td-status"
+                  value={task.statusId ?? ""}
+                  options={statusOptions}
+                  onChange={(e) => void save({ statusId: e.target.value || null })}
+                />
+
                 <Label htmlFor="td-due">Due date</Label>
                 <Input
                   id="td-due"
@@ -537,6 +602,59 @@ export function TaskDetailPanel({
                 </div>
               )}
             </section>
+
+            {/* Labels (issue #387, per original #370 spec): tucked behind a
+                native <details> disclosure so tagging doesn't crowd the
+                primary panel — it's read here by every viewer with access,
+                same as checks below, but only canPlan viewers get the
+                checkboxes to change it. */}
+            <details className="ta-drawer__more">
+              <summary>More details{taskLabels.length > 0 ? ` (${taskLabels.length} label${taskLabels.length > 1 ? "s" : ""})` : ""}</summary>
+              <section aria-labelledby="td-labels">
+                <h3 id="td-labels">Labels</h3>
+                {!canPlan ? (
+                  taskLabels.length === 0 ? (
+                    <p className="ta-hint">No labels.</p>
+                  ) : (
+                    <ul className="ta-drawer__labels">
+                      {taskLabels.map((l) => (
+                        <li key={l.id}>
+                          <span className="ta-badge" style={{ backgroundColor: l.color }}>
+                            {l.name}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                ) : allLabels.length === 0 ? (
+                  <p className="ta-hint">
+                    No labels exist yet in this workspace. Create one from workspace settings.
+                  </p>
+                ) : (
+                  <ul className="ta-drawer__labelpicker">
+                    {allLabels
+                      .filter((l) => !l.archivedAt)
+                      .map((l) => {
+                        const checked = taskLabels.some((tl) => tl.id === l.id);
+                        return (
+                          <li key={l.id}>
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => void toggleLabel(l, e.target.checked)}
+                              />
+                              <span className="ta-badge" style={{ backgroundColor: l.color }}>
+                                {l.name}
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                  </ul>
+                )}
+              </section>
+            </details>
 
             {/*
               Editing, completing and deleting are all the `member` boundary

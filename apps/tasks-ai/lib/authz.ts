@@ -25,6 +25,7 @@ export type Action =
   | "task.update"
   | "task.delete"
   | "label.manage"
+  | "status.manage"
   | "customfield.manage"
   | "view.create"
   | "view.update"
@@ -48,6 +49,11 @@ const REQUIRED: Record<Action, MemberRole> = {
   "task.update": "member",
   "task.delete": "member",
   "label.manage": "member",
+  // Statuses shape every workflow (board columns, automations' set_status),
+  // so creating/reordering/archiving them is scoped like project.archive —
+  // owner/admin only (issue #387). Assigning an existing status to a task
+  // stays under task.update, same as any other task field.
+  "status.manage": "admin",
   "customfield.manage": "admin",
   "view.create": "member",
   "view.update": "member",

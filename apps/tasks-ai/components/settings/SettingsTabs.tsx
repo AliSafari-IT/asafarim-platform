@@ -11,10 +11,12 @@ import {
   type BillingUsage,
   type FeedbackItem,
   type Invitation,
+  type LabelRow,
+  type StatusRow,
 } from "../../lib/client/api";
 
-type Tab = "members" | "ai" | "billing" | "audit" | "feedback";
-const TABS: Tab[] = ["members", "ai", "billing", "audit", "feedback"];
+type Tab = "members" | "statuses" | "labels" | "ai" | "billing" | "audit" | "feedback";
+const TABS: Tab[] = ["members", "statuses", "labels", "ai", "billing", "audit", "feedback"];
 
 export function SettingsTabs({ slug, isAdmin }: { slug: string; isAdmin: boolean }) {
   const [tab, setTab] = useState<Tab>("members");
@@ -30,7 +32,7 @@ export function SettingsTabs({ slug, isAdmin }: { slug: string; isAdmin: boolean
           ))}
         </div>
       </header>
-      {!isAdmin && ["members", "ai", "billing", "audit"].includes(tab) && (
+      {!isAdmin && ["members", "statuses", "ai", "billing", "audit"].includes(tab) && (
         <div className="ta-callout" role="note">
           {tab === "audit"
             ? "The audit log is admin-only."
@@ -38,6 +40,8 @@ export function SettingsTabs({ slug, isAdmin }: { slug: string; isAdmin: boolean
         </div>
       )}
       {tab === "members" && <MembersTab slug={slug} isAdmin={isAdmin} />}
+      {tab === "statuses" && <StatusesTab slug={slug} isAdmin={isAdmin} />}
+      {tab === "labels" && <LabelsTab slug={slug} isAdmin={isAdmin} />}
       {tab === "ai" && <AiTab slug={slug} isAdmin={isAdmin} />}
       {tab === "billing" && <BillingTab slug={slug} />}
       {tab === "audit" && isAdmin && <AuditTab slug={slug} />}
@@ -267,6 +271,228 @@ function MembersTab({ slug, isAdmin }: { slug: string; isAdmin: boolean }) {
               </Button>
             </li>
           ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Workspace-level statuses only (issue #387) — per-project overrides are
+ * created from the project's own settings surface, not built here yet. */
+function StatusesTab({ slug, isAdmin }: { slug: string; isAdmin: boolean }) {
+  const [rows, setRows] = useState<StatusRow[] | null>(null);
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("todo");
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      setRows((await api.listStatuses(slug)).filter((s) => !s.projectId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load statuses.");
+    }
+  }
+  useEffect(() => {
+    void load();
+  }, [slug]);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api.createStatus(slug, { name: name.trim(), category });
+      setName("");
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof ClientApiError && err.code === "conflict_unique"
+          ? "A status with that name already exists."
+          : err instanceof Error
+            ? err.message
+            : "Could not create that status.",
+      );
+    }
+  }
+
+  async function move(id: string, dir: -1 | 1) {
+    if (!rows) return;
+    const idx = rows.findIndex((r) => r.id === id);
+    const swapIdx = idx + dir;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= rows.length) return;
+    const next = [...rows];
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+    setRows(next);
+    try {
+      await api.reorderStatuses(slug, next.map((r) => r.id));
+    } catch {
+      await load();
+    }
+  }
+
+  return (
+    <div>
+      <h3>Statuses</h3>
+      <p className="ta-hint">
+        Workspace-wide statuses shown in the task detail picker and board/list badges. Todo, In
+        Progress and Done are seeded automatically when a workspace is created.
+      </p>
+      {isAdmin && (
+        <form className="ta-panelform" onSubmit={create} noValidate>
+          <FormRow>
+            <Label htmlFor="st-name">Name</Label>
+            <Input id="st-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          </FormRow>
+          <FormRow>
+            <Label htmlFor="st-cat">Category</Label>
+            <Select
+              id="st-cat"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              options={[
+                { value: "todo", label: "Todo" },
+                { value: "in_progress", label: "In progress" },
+                { value: "done", label: "Done" },
+                { value: "canceled", label: "Canceled" },
+              ]}
+            />
+          </FormRow>
+          {error && <FieldError>{error}</FieldError>}
+          <Button type="submit" size="sm" disabled={!name.trim()}>
+            Add status
+          </Button>
+        </form>
+      )}
+
+      {rows === null ? (
+        <p className="ta-muted">Loading…</p>
+      ) : (
+        <ul className="ta-list">
+          {rows.map((r, i) => (
+            <li key={r.id}>
+              <span className="ta-list__title">
+                <span className="ta-badge" data-h={r.category}>{r.name}</span>
+                {r.isDefault && <span className="ta-hint"> default</span>}
+              </span>
+              {isAdmin && (
+                <span className="ta-drawer__inlineform">
+                  <Button size="sm" variant="secondary" disabled={i === 0} onClick={() => void move(r.id, -1)}>
+                    Up
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={i === rows.length - 1}
+                    onClick={() => void move(r.id, 1)}
+                  >
+                    Down
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={async () => {
+                      await api.archiveStatus(slug, r.id);
+                      await load();
+                    }}
+                  >
+                    Archive
+                  </Button>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Label CRUD (issue #387). `label.manage` is actually a `member`-level
+ * action (lib/authz.ts), but this settings surface only exposes the
+ * create/archive form to admins for now — a lighter, member-facing entry
+ * point can follow once there's a natural place for it outside Settings. */
+function LabelsTab({ slug, isAdmin }: { slug: string; isAdmin: boolean }) {
+  const [rows, setRows] = useState<LabelRow[] | null>(null);
+  const [name, setName] = useState("");
+  const [color, setColor] = useState("#8b8b8b");
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      setRows(await api.listLabels(slug));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load labels.");
+    }
+  }
+  useEffect(() => {
+    void load();
+  }, [slug]);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api.createLabel(slug, { name: name.trim(), color });
+      setName("");
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof ClientApiError && err.code === "conflict_unique"
+          ? "A label with that name already exists."
+          : err instanceof Error
+            ? err.message
+            : "Could not create that label.",
+      );
+    }
+  }
+
+  return (
+    <div>
+      <h3>Labels</h3>
+      <p className="ta-hint">Assignable from any task's detail panel, and searchable by name.</p>
+      {isAdmin && (
+        <form className="ta-panelform" onSubmit={create} noValidate>
+          <FormRow>
+            <Label htmlFor="lb-name">Name</Label>
+            <Input id="lb-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          </FormRow>
+          <FormRow>
+            <Label htmlFor="lb-color">Color</Label>
+            <Input id="lb-color" type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+          </FormRow>
+          {error && <FieldError>{error}</FieldError>}
+          <Button type="submit" size="sm" disabled={!name.trim()}>
+            Add label
+          </Button>
+        </form>
+      )}
+
+      {rows === null ? (
+        <p className="ta-muted">Loading…</p>
+      ) : rows.filter((r) => !r.archivedAt).length === 0 ? (
+        <p className="ta-muted">None yet.</p>
+      ) : (
+        <ul className="ta-list">
+          {rows
+            .filter((r) => !r.archivedAt)
+            .map((r) => (
+              <li key={r.id}>
+                <span className="ta-badge" style={{ backgroundColor: r.color }}>
+                  {r.name}
+                </span>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={async () => {
+                      await api.archiveLabel(slug, r.id);
+                      await load();
+                    }}
+                  >
+                    Archive
+                  </Button>
+                )}
+              </li>
+            ))}
         </ul>
       )}
     </div>

@@ -233,6 +233,72 @@
           }
         }
       },
+      "Status": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "todo",
+              "in_progress",
+              "done",
+              "canceled"
+            ]
+          },
+          "position": {
+            "type": "integer"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "archivedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "Label": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "archivedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "InboxItem": {
         "type": "object",
         "description": "One row of the triage Inbox: the task plus the project and provenance context triage needs.",
@@ -828,6 +894,505 @@
             }
           },
           "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/statuses": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "List statuses (workspace + optional project override)",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Status"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a status (owner/admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "todo",
+                      "in_progress",
+                      "done",
+                      "canceled"
+                    ]
+                  },
+                  "projectId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Status"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/statuses/reorder": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Persist a new status ordering within one scope (owner/admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ids"
+                ],
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Status"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/statuses/{id}": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Archive a status (soft, owner/admin only)",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Status"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/labels": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "List labels",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Label"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a label (member+)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Label"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/labels/{id}": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Archive a label (soft, member+)",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Label"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/tasks/{id}/labels": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "List a task's labels",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Label"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Assign a label to a task (same boundary as any other task edit)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "labelId"
+                ],
+                "properties": {
+                  "labelId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ok"
+          },
+          "403": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{slug}/tasks/{id}/labels/{labelId}": {
+      "parameters": [
+        {
+          "name": "slug",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "labelId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Remove a label from a task",
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "403": {
             "description": "error",
             "content": {
               "application/json": {
