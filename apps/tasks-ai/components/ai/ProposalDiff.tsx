@@ -33,6 +33,7 @@ export function ProposalDiff({
   source,
   destinationLabel,
   targetTaskTitle = null,
+  retrieved = [],
   onApply,
   onReject,
   onRegenerate,
@@ -50,6 +51,13 @@ export function ProposalDiff({
    * parented under it counts as a subtask rather than a top-level task.
    */
   targetTaskTitle?: string | null;
+  /**
+   * Retrieved-context entities the draft could cite via citation.source
+   * (issue #232) — used to render a title next to an evidence id instead
+   * of a bare "task:cimr..." string. Entries the model never actually
+   * cited are simply unused here.
+   */
+  retrieved?: { id: string; title: string }[];
   onApply: (accept: number[], edited: AiOperation[]) => void;
   onReject: (reason?: string) => void;
   onRegenerate: () => void;
@@ -57,6 +65,11 @@ export function ProposalDiff({
   onReviewed: () => void;
   busy: boolean;
 }) {
+  const retrievedTitle = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of retrieved) m.set(r.id, r.title);
+    return m;
+  }, [retrieved]);
   const [ops, setOps] = useState<AiOperation[]>(proposal.operations);
   // Low-confidence assumptions start unticked: a high-impact guess must not
   // be accepted by inattention (issue #368, step 5).
@@ -184,6 +197,7 @@ export function ProposalDiff({
             {g.items.map(({ index, op }) => {
               const ev = evidenceFor(op);
               const cited = evidenceText(source, op);
+              const relatedTitle = ev.sourceId ? retrievedTitle.get(ev.sourceId) ?? null : null;
               return (
                 <li key={index} data-off={!accepted.has(index)}>
                   <input
@@ -227,7 +241,17 @@ export function ProposalDiff({
                     </span>
                     {cited && (
                       <blockquote className="ta-diff__quote">
-                        <span className="ta-muted">Because you wrote:</span> “{cited}”
+                        <span className="ta-muted">Because you wrote:</span> "{cited}"
+                      </blockquote>
+                    )}
+                    {!cited && ev.sourceId && (
+                      // No deep-link route to a task exists yet (mirrors
+                      // components/SearchPanel.tsx's `type === "task"` case),
+                      // so this is evidence text, not a link — the title
+                      // alone is still a meaningfully checkable claim.
+                      <blockquote className="ta-diff__quote" data-source-evidence={ev.sourceId}>
+                        <span className="ta-muted">Because of related work:</span>{" "}
+                        {relatedTitle ? `"${relatedTitle}"` : <code>{ev.sourceId}</code>}
                       </blockquote>
                     )}
                   </div>

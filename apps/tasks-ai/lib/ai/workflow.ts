@@ -31,7 +31,13 @@
 export interface WorkflowOperation {
   op: "create_task" | "update_task" | "link_tasks";
   confidence: number;
-  citations: { span: [number, number] | null; assumption: boolean; quote?: string }[];
+  citations: {
+    span: [number, number] | null;
+    assumption: boolean;
+    quote?: string;
+    /** A retrieved entity id this fact cites instead of/alongside a span (issue #232). */
+    source?: string;
+  }[];
   /** Proposal-local ref a create_task publishes for later ops to point at. */
   ref?: string;
   /** Endpoints of a link_tasks op. */
@@ -354,30 +360,38 @@ export const GENERATE_EXPECTATION =
 export const LOW_CONFIDENCE = 0.6;
 
 export interface OperationEvidence {
-  /** At least one citation points at a real span of the source. */
+  /** At least one citation points at a real span of the source, or a retrieved entity. */
   grounded: boolean;
   /** The strongest quote backing this operation, if the model gave one. */
   quote: string | null;
   /** The span to highlight in the source, if any. */
   span: [number, number] | null;
+  /** A retrieved entity id this operation is grounded in (issue #232), e.g. "task:cimr...". */
+  sourceId: string | null;
   confidence: number;
   /** Label rendered on the badge: what the user is actually being told. */
-  label: "From your notes" | "Assumption";
+  label: "From your notes" | "From related work" | "Assumption";
 }
 
 /**
- * Whether an operation is grounded in the pasted source or is the model's
- * own inference. The distinction is the trust model — it is never inferred
- * from confidence, only from whether a citation points at real text.
+ * Whether an operation is grounded in the pasted source, in retrieved
+ * related work, or is the model's own inference. The distinction is the
+ * trust model — it is never inferred from confidence, only from whether a
+ * citation points at real text or a retrieved entity id (issue #232).
  */
 export function evidenceFor(op: WorkflowOperation): OperationEvidence {
-  const cited = op.citations.find((c) => c.span !== null && !c.assumption) ?? null;
+  const spanCited = op.citations.find((c) => c.span !== null && !c.assumption) ?? null;
+  const sourceCited = spanCited
+    ? null
+    : op.citations.find((c) => !c.assumption && c.source != null) ?? null;
+  const cited = spanCited ?? sourceCited;
   return {
     grounded: cited !== null,
     quote: cited?.quote ?? null,
-    span: cited?.span ?? null,
+    span: spanCited?.span ?? null,
+    sourceId: sourceCited?.source ?? null,
     confidence: op.confidence,
-    label: cited !== null ? "From your notes" : "Assumption",
+    label: spanCited !== null ? "From your notes" : sourceCited !== null ? "From related work" : "Assumption",
   };
 }
 

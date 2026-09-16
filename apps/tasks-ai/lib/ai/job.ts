@@ -8,6 +8,7 @@ import { AI_KINDS, type AiKind } from "./types";
 import { renderPrompt } from "./prompts";
 import { mapCitationSpans, redact } from "./redact";
 import { guardDraft } from "./guard";
+import { retrieveContext } from "./retrieval";
 import { getProvider } from "./registry";
 import { getAiSettings } from "./settings";
 import { assertCanRunAiJob } from "./quota";
@@ -58,9 +59,23 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
     : null;
   if (taskId && !targetTask) throw new ApiError("not_found", { field: "taskId" });
 
+  // Grounded context retrieval (issue #232): an authorization-scoped set of
+  // the most relevant existing tasks/comments/project brief, derived from
+  // the already-redacted input so nothing unredacted reaches the query
+  // builder. Only reached once assertCanRunAiJob() above has confirmed AI
+  // is enabled for this workspace — a disabled workspace never queries for
+  // retrieval context, let alone calls a provider with it.
+  const retrieved = await retrieveContext(ctx, {
+    kind: kind as AiKind,
+    redactedInput,
+    projectId,
+  });
+  const retrievedIds = new Set(retrieved.map((s) => s.id));
+
   const context = {
     ...(projectId ? await buildContext(ctx, projectId) : {}),
     ...(targetTask ? { targetTask: { id: targetTask.id, title: targetTask.title } } : {}),
+    ...(retrieved.length ? { retrieved: retrieved.map(({ id, title, body }) => ({ id, title, body })) } : {}),
   };
   const prompt = renderPrompt({ kind: kind as AiKind, input: redactedInput, context }, redactedInput);
 
@@ -79,7 +94,12 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
     orderBy: { createdAt: "desc" },
   });
   if (cached?.proposal) {
-    return { job: publicJob(cached), proposal: cached.proposal, cached: true };
+    return {
+      job: publicJob(cached),
+      proposal: cached.proposal,
+      cached: true,
+      retrieved: retrieved.map(({ id, title }) => ({ id, title })),
+    };
   }
 
   const job = await ctx.db.aiJob.create({
@@ -92,6 +112,9 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
       model: settings.model,
       promptVersion: prompt.version,
       cacheKey: prompt.cacheKey,
+      // Recorded for reproducibility (issue #232): exactly which entities
+      // grounded this draft, independent of what the model chose to cite.
+      retrievedIds: [...retrievedIds],
     },
   });
 
@@ -141,7 +164,10 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
 
   let guard;
   try {
-    guard = guardDraft(grounded, settings.maxBlastRadius, { hasTargetTask: targetTask !== null });
+    guard = guardDraft(grounded, settings.maxBlastRadius, {
+      hasTargetTask: targetTask !== null,
+      retrievedIds,
+    });
   } catch (err) {
     await ctx.db.aiJob.update({
       where: { id: job.id },
@@ -208,7 +234,15 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
   }, ctx.correlationId);
 
   await recordUsage(ctx, "ai_proposals");
-  return { job: publicJob(updatedJob), proposal, degraded, groundedRatio: guard.groundedRatio };
+  return {
+    job: publicJob(updatedJob),
+    proposal,
+    degraded,
+    groundedRatio: guard.groundedRatio,
+    // So the review UI can render source-based citations as an evidence
+    // link (id + title) without a second round-trip (issue #232).
+    retrieved: retrieved.map(({ id, title }) => ({ id, title })),
+  };
 }
 
 async function buildContext(ctx: RequestContext, projectId: string) {

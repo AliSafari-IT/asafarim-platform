@@ -79,6 +79,10 @@ export function CopilotPanel({
   const [projectId, setProjectId] = useState<string>(projects[0]?.id ?? "");
   const [source, setSource] = useState(initialSource);
   const [proposal, setProposal] = useState<ProposalRow | null>(null);
+  // The retrieved-context entities the draft could cite via citation.source
+  // (issue #232), so ProposalDiff can render a title next to an evidence id
+  // instead of a bare "task:cimr...".
+  const [retrieved, setRetrieved] = useState<{ id: string; title: string }[]>([]);
   // Bumped on every generate. An identical prompt is served from the job
   // cache, which hands back the same proposal id — so the id alone cannot key
   // the review surface: React would keep the previous instance and with it
@@ -183,6 +187,7 @@ export function CopilotPanel({
         ...(target ? { taskId: target.id } : {}),
       });
       setProposal(res.proposal);
+      setRetrieved(res.retrieved ?? []);
       setGeneration((n) => n + 1);
       setReviewedTarget(target?.title ?? null);
       setReviewedSource(text);
@@ -481,6 +486,7 @@ export function CopilotPanel({
                 source={reviewedSource}
                 destinationLabel={destinationLabel}
                 targetTaskTitle={reviewedTarget}
+                retrieved={retrieved}
                 busy={busy}
                 onApply={apply}
                 onReject={reject}

@@ -111,4 +111,45 @@ describe("guardDraft", () => {
     };
     expect(() => guardDraft(bad, 50, { hasTargetTask: true })).toThrow(/reserved/);
   });
+
+  // ── retrieved-context citations (issue #232) ────────────────────────────
+
+  const sourced = (source: string) => ({
+    summary: "grounded on retrieved context",
+    operations: [
+      {
+        op: "create_task",
+        ref: "t1",
+        fields: { title: "Follow-up" },
+        confidence: 0.6,
+        citations: [{ span: null, assumption: false, source }],
+      },
+    ],
+    openQuestions: [],
+  });
+
+  it("counts a citation whose source was actually retrieved as grounded", () => {
+    const r = guardDraft(sourced("task:abc123"), 50, {
+      retrievedIds: new Set(["task:abc123"]),
+    });
+    expect(r.groundedRatio).toBe(1);
+  });
+
+  it("does not count a hallucinated source id as grounded", () => {
+    const r = guardDraft(sourced("task:invented"), 50, {
+      retrievedIds: new Set(["task:abc123"]),
+    });
+    expect(r.groundedRatio).toBe(0);
+  });
+
+  it("does not count a source id as grounded when nothing was retrieved", () => {
+    const r = guardDraft(sourced("task:abc123"), 50);
+    expect(r.groundedRatio).toBe(0);
+  });
+
+  it("still passes the guard (not rejected) for a hallucinated source — treated as ungrounded, not fatal", () => {
+    expect(() =>
+      guardDraft(sourced("task:invented"), 50, { retrievedIds: new Set(["task:abc123"]) }),
+    ).not.toThrow();
+  });
 });
