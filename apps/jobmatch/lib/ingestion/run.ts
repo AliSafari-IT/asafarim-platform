@@ -503,6 +503,8 @@ function toRow(posting: {
   contentHash: string;
   canonicalKey: string;
   normalizerVersion: string;
+  flaggedForInjectionReview: boolean;
+  injectionPatternCodes: string[];
 }) {
   return {
     canonicalUrl: posting.canonicalUrl,
@@ -528,6 +530,8 @@ function toRow(posting: {
     contentHash: posting.contentHash,
     canonicalKey: posting.canonicalKey,
     normalizerVersion: posting.normalizerVersion,
+    flaggedForInjectionReview: posting.flaggedForInjectionReview,
+    injectionPatternCodes: posting.injectionPatternCodes,
   };
 }
 

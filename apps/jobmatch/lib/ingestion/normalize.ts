@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { foldEmployerName, normalizeLanguageToken } from "../shared/vocabulary";
+import { scanForInjectionHeuristics } from "./injectionHeuristics";
 
 /**
  * The connector contract and normalization (JM-025, JM-027).
@@ -93,6 +94,11 @@ export interface NormalizedPosting {
   contentHash: string;
   canonicalKey: string;
   normalizerVersion: string;
+  /** JM-044: cheap heuristic scan result, computed here so it runs exactly
+   *  once per normalize (never re-run per match) -- see
+   *  ./injectionHeuristics.ts's module doc comment. */
+  flaggedForInjectionReview: boolean;
+  injectionPatternCodes: string[];
 }
 
 export type NormalizationReason = "INVALID_RECORD" | "UNSAFE_URL" | "SALARY_RANGE_INVERTED";
@@ -184,7 +190,10 @@ export function buildCanonicalKey(input: {
 
 /** Hash of the fields that define a posting, to tell an update from a re-fetch. */
 export function buildContentHash(
-  posting: Omit<NormalizedPosting, "contentHash" | "canonicalKey" | "normalizerVersion">,
+  posting: Omit<
+    NormalizedPosting,
+    "contentHash" | "canonicalKey" | "normalizerVersion" | "flaggedForInjectionReview" | "injectionPatternCodes"
+  >,
 ): string {
   return createHash("sha256")
     .update(
@@ -260,6 +269,10 @@ export function normalizePosting(raw: unknown): NormalizationResult {
     sourceUpdatedAt: record.updatedAt ?? null,
   };
 
+  // JM-044: scanned once, here, at normalize time -- never re-run per
+  // match (see evaluate.ts, which never reads this field at all).
+  const heuristics = scanForInjectionHeuristics(base.description);
+
   return {
     ok: true,
     posting: {
@@ -271,6 +284,8 @@ export function normalizePosting(raw: unknown): NormalizationResult {
         location: base.locationRaw,
       }),
       normalizerVersion: NORMALIZER_VERSION,
+      flaggedForInjectionReview: heuristics.flagged,
+      injectionPatternCodes: heuristics.patternCodes,
     },
   };
 }
