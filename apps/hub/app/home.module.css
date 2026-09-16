@@ -1,54 +1,11 @@
+/* The checkpoint scene sits in the flow between the hero and the card grid, so
+   no page element is ever layered over the animation. */
 .home {
-  position: relative;
-  isolation: isolate;
-  min-height: clamp(34rem, 68vh, 48rem);
-  margin: calc(var(--space-6) * -1);
-  padding: clamp(3rem, 7vw, 6rem) var(--space-6);
-  overflow: hidden;
+  display: grid;
+  gap: clamp(var(--space-5), 4vw, var(--space-7));
+  padding-block: clamp(1rem, 3vw, 2.5rem);
 }
 
-.home::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--bg) 78%, transparent) 0%,
-    color-mix(in srgb, var(--bg) 34%, transparent) 52%,
-    color-mix(in srgb, var(--bg) 86%, transparent) 100%
-  );
-}
-
-.content {
-  position: relative;
-  z-index: 1;
-}
-
-.content :global(.ui-hero) {
+.home :global(.ui-hero) {
   max-width: 48rem;
-  background: color-mix(in srgb, var(--bg) 44%, transparent);
-  backdrop-filter: blur(2px);
-}
-
-.content :global(.ui-grid) {
-  margin-top: var(--space-6);
-}
-
-@media (max-width: 760px) {
-  .home {
-    min-height: 43rem;
-    margin-inline: 0;
-    padding: 2.5rem var(--space-4) 12rem;
-  }
-
-  .home::after {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg) 94%, transparent) 0%,
-      color-mix(in srgb, var(--bg) 78%, transparent) 64%,
-      color-mix(in srgb, var(--bg) 25%, transparent) 100%
-    );
-  }
 }

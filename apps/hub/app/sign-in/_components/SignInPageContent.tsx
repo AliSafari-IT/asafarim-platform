@@ -126,11 +126,10 @@ function SignInPageContentInner() {
 
   return (
     <div className={styles.screen}>
-      <AuthCheckpointScene state={sceneState} />
-      <div className={styles.content}>
+      <div className={styles.intro}>
         <Kicker index="ID">Authentication</Kicker>
         <h1 style={{ marginBottom: "0.35rem" }}>Sign in to ASafarIM</h1>
-        <p className="u-muted" style={{ marginBottom: "var(--space-5)" }}>
+        <p className="u-muted" style={{ margin: 0 }}>
           New here?{" "}
           <Link
             href={signUpHref}
@@ -139,7 +138,13 @@ function SignInPageContentInner() {
             Create an account
           </Link>
         </p>
+      </div>
 
+      <div className={styles.stage}>
+        <AuthCheckpointScene state={sceneState} />
+      </div>
+
+      <div className={styles.content}>
         <div className={`ui-card ui-card--elevated ${styles.card}`}>
           {justCreated ? (
             <Alert tone="info">Account created — sign in below.</Alert>

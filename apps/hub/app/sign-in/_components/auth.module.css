@@ -1,42 +1,30 @@
 /* Scoped styles for the Hub sign-in/sign-up experience. Colors come from the
    shared Mission Control mood tokens so it stays on-theme. */
 
+/* Heading, checkpoint scene and form are stacked in the flow: the animation
+   gets its own band and nothing is layered on top of it. */
 .screen {
-  position: relative;
-  isolation: isolate;
-  min-height: clamp(34rem, 69vh, 48rem);
-  margin: calc(var(--space-6) * -1);
-  padding: clamp(2.5rem, 6vw, 5rem) var(--space-6);
   display: grid;
-  align-items: center;
+  justify-items: center;
+  gap: clamp(var(--space-4), 3vw, var(--space-6));
+  padding-block: clamp(1.5rem, 4vw, 3rem);
 }
 
-.screen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--bg) 20%, transparent) 0%,
-    color-mix(in srgb, var(--bg) 64%, transparent) 48%,
-    color-mix(in srgb, var(--bg) 94%, transparent) 72%
-  );
+.intro {
+  width: min(30rem, 100%);
+}
+
+.stage {
+  width: min(56rem, 100%);
 }
 
 .content {
   width: min(30rem, 100%);
-  margin-left: auto;
-  position: relative;
-  z-index: 1;
 }
 
 .card {
   max-width: 30rem;
   margin: 0 auto;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  backdrop-filter: blur(10px);
 }
 
 .googleBtn {
@@ -170,26 +158,6 @@
 
 @media (max-width: 760px) {
   .screen {
-    min-height: 44rem;
-    margin-inline: 0;
-    padding: 2rem var(--space-4) 11rem;
-    align-items: start;
-  }
-
-  .screen::after {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg) 96%, transparent) 0%,
-      color-mix(in srgb, var(--bg) 82%, transparent) 62%,
-      color-mix(in srgb, var(--bg) 24%, transparent) 100%
-    );
-  }
-
-  .content {
-    margin-inline: auto;
-  }
-
-  .screen > [data-auth-state] {
-    --checkpoint-mobile-top: 23rem;
+    padding-block: 1.5rem;
   }
 }

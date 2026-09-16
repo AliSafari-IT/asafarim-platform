@@ -26,8 +26,8 @@ export function AuthCheckpointScene({
     >
       <svg
         className={styles.svg}
-        viewBox="0 0 1200 520"
-        preserveAspectRatio="xMidYMid slice"
+        viewBox="0 0 1200 460"
+        preserveAspectRatio="xMidYMax slice"
         focusable="false"
       >
         <defs>
@@ -87,21 +87,12 @@ export function AuthCheckpointScene({
           <path d="M0 330 C125 246 230 272 345 330 S550 370 680 282 S935 228 1200 322 V520 H0Z" />
         </g>
         <g className={styles.hillsNear}>
-          <path d="M0 383 C120 302 205 427 338 350 S505 310 612 365 C722 423 803 303 920 346 S1085 398 1200 330 V520 H0Z" />
+          <path d="M0 372 H1200 V520 H0Z" />
         </g>
 
-        <path
-          className={styles.roadShadow}
-          d="M-30 390 C118 304 211 431 342 354 S505 314 612 368 C720 422 805 307 921 349 S1088 401 1230 331"
-        />
-        <path
-          className={styles.road}
-          d="M-30 382 C118 296 211 423 342 346 S505 306 612 360 C720 414 805 299 921 341 S1088 393 1230 323"
-        />
-        <path
-          className={styles.laneMarks}
-          d="M-30 382 C118 296 211 423 342 346 S505 306 612 360 C720 414 805 299 921 341 S1088 393 1230 323"
-        />
+        <path className={styles.roadShadow} d="M-30 379 H1230" />
+        <path className={styles.road} d="M-30 371 H1230" />
+        <path className={styles.laneMarks} d="M-30 371 H1230" />
 
         <g className={styles.checkpoint}>
           <ellipse
