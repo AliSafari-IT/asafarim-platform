@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, EmptyState } from "@asafarim/ui";
-import { api, ClientApiError, type Task } from "../../lib/client/api";
+import { api, ClientApiError, type StatusRow, type Task } from "../../lib/client/api";
 import {
   DEFAULT_VIEWS,
   matchesClientFilters,
@@ -50,6 +50,21 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading, canPlan }
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  // Statuses (issue #387): fetched once per workspace and looked up by id
+  // to render the board/list badges — the same `data-h` category-driven
+  // styling the drawer already uses for check/dependency state.
+  const [statuses, setStatuses] = useState<StatusRow[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    void api
+      .listStatuses(slug)
+      .then((rows) => alive && setStatuses(rows))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [slug]);
 
   const config = useMemo(() => {
     const base = DEFAULT_VIEWS[view];
@@ -181,11 +196,11 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading, canPlan }
           }
         />
       ) : view === "board" ? (
-        <BoardView tasks={tasks} onOpen={setSelected} onComplete={complete} />
+        <BoardView tasks={tasks} statuses={statuses} onOpen={setSelected} onComplete={complete} />
       ) : view === "calendar" || view === "timeline" ? (
         <DateView tasks={tasks} onOpen={setSelected} />
       ) : (
-        <ListView tasks={tasks} onOpen={setSelected} onComplete={complete} />
+        <ListView tasks={tasks} statuses={statuses} onOpen={setSelected} onComplete={complete} />
       )}
 
       {selected && (
@@ -202,12 +217,27 @@ export function TaskWorkspace({ slug, me, project, fixedView, heading, canPlan }
   );
 }
 
+/** Status name + category-driven `data-h` badge (issue #387) — `undefined`
+ * for a task with no statusId, or one whose status was archived after the
+ * task last saw it. Renders nothing rather than a stale/blank chip. */
+function StatusBadge({ statusId, statuses }: { statusId: string | null; statuses: StatusRow[] }) {
+  const status = statusId ? statuses.find((s) => s.id === statusId) : undefined;
+  if (!status) return null;
+  return (
+    <span className="ta-badge" data-h={status.category}>
+      {status.name}
+    </span>
+  );
+}
+
 function ListRow({
   t,
+  statuses,
   onOpen,
   onComplete,
 }: {
   t: Task;
+  statuses: StatusRow[];
   onOpen: (id: string) => void;
   onComplete: (t: Task) => void;
 }) {
@@ -223,6 +253,7 @@ function ListRow({
       <button className="ta-list__title" onClick={() => onOpen(t.id)}>
         {t.title}
       </button>
+      <StatusBadge statusId={t.statusId} statuses={statuses} />
       {t.dueDate && <span className="ta-list__due">{fmtDate(t.dueDate)}</span>}
     </div>
   );
@@ -230,10 +261,12 @@ function ListRow({
 
 function ListView({
   tasks,
+  statuses,
   onOpen,
   onComplete,
 }: {
   tasks: Task[];
+  statuses: StatusRow[];
   onOpen: (id: string) => void;
   onComplete: (t: Task) => void;
 }) {
@@ -244,7 +277,7 @@ function ListView({
         items={tasks}
         rowHeight={40}
         ariaLabel="Tasks"
-        renderRow={(t) => <ListRow t={t} onOpen={onOpen} onComplete={onComplete} />}
+        renderRow={(t) => <ListRow t={t} statuses={statuses} onOpen={onOpen} onComplete={onComplete} />}
       />
     );
   }
@@ -252,7 +285,7 @@ function ListView({
     <ul className="ta-list">
       {tasks.map((t) => (
         <li key={t.id}>
-          <ListRow t={t} onOpen={onOpen} onComplete={onComplete} />
+          <ListRow t={t} statuses={statuses} onOpen={onOpen} onComplete={onComplete} />
         </li>
       ))}
     </ul>
@@ -261,10 +294,12 @@ function ListView({
 
 function BoardView({
   tasks,
+  statuses,
   onOpen,
   onComplete,
 }: {
   tasks: Task[];
+  statuses: StatusRow[];
   onOpen: (id: string) => void;
   onComplete: (t: Task) => void;
 }) {
@@ -283,6 +318,7 @@ function BoardView({
             {col.items.map((t) => (
               <li key={t.id}>
                 <button onClick={() => onOpen(t.id)}>{t.title}</button>
+                <StatusBadge statusId={t.statusId} statuses={statuses} />
                 {!t.completedAt && (
                   <Button size="sm" variant="secondary" onClick={() => onComplete(t)}>
                     Done

@@ -5,6 +5,7 @@ import { emitActivity } from "../events/emit";
 import { EVENT } from "../events/names";
 import { ApiError } from "../errors";
 import { getViewer } from "../session";
+import { seedDefaultStatuses } from "./statuses";
 
 export const createWorkspaceSchema = z.object({
   name: z.string().min(1).max(120),
@@ -37,6 +38,9 @@ export async function createWorkspace(input: unknown, correlationId: string) {
     const membership = await tx.membership.create({
       data: { workspaceId: workspace.id, platformUserId: viewer.id, role: "owner" },
     });
+    // Todo / In Progress / Done (issue #387) — a brand-new workspace must
+    // never present an empty status picker.
+    await seedDefaultStatuses(tx, workspace.id);
     await emitActivity(tx, workspace.id, correlationId, {
       name: EVENT.workspaceCreated,
       targetType: "workspace",

@@ -115,6 +115,29 @@ export const openapiDocument = {
           version: { type: "integer" },
         },
       },
+      Status: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          workspaceId: { type: "string" },
+          projectId: { type: ["string", "null"] },
+          name: { type: "string" },
+          category: { type: "string", enum: ["todo", "in_progress", "done", "canceled"] },
+          position: { type: "integer" },
+          isDefault: { type: "boolean" },
+          archivedAt: { type: ["string", "null"], format: "date-time" },
+        },
+      },
+      Label: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          workspaceId: { type: "string" },
+          name: { type: "string" },
+          color: { type: "string" },
+          archivedAt: { type: ["string", "null"], format: "date-time" },
+        },
+      },
       InboxItem: {
         type: "object",
         description:
@@ -304,6 +327,86 @@ export const openapiDocument = {
         summary: "Archive a project (soft)",
         parameters: [{ $ref: "#/components/parameters/IfMatch" }],
         responses: { "200": jsonOne("Project"), "409": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/statuses": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary: "List statuses (workspace + optional project override)",
+        parameters: [{ name: "projectId", in: "query", schema: { type: "string" } }],
+        responses: { "200": jsonOne("Status") },
+      },
+      post: {
+        summary: "Create a status (owner/admin only)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string" },
+            category: { type: "string", enum: ["todo", "in_progress", "done", "canceled"] },
+            projectId: { type: "string" },
+          },
+        }),
+        responses: { "201": jsonOne("Status"), "403": errorRef(), "409": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/statuses/reorder": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary: "Persist a new status ordering within one scope (owner/admin only)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["ids"],
+          properties: { ids: { type: "array", items: { type: "string" } } },
+        }),
+        responses: { "200": jsonOne("Status"), "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/statuses/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      delete: {
+        summary: "Archive a status (soft, owner/admin only)",
+        responses: { "200": jsonOne("Status"), "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/labels": {
+      parameters: [pathParam("slug")],
+      get: { summary: "List labels", responses: { "200": jsonOne("Label") } },
+      post: {
+        summary: "Create a label (member+)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name"],
+          properties: { name: { type: "string" }, color: { type: "string" } },
+        }),
+        responses: { "201": jsonOne("Label"), "403": errorRef(), "409": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/labels/{id}": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      delete: {
+        summary: "Archive a label (soft, member+)",
+        responses: { "200": jsonOne("Label"), "403": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}/labels": {
+      parameters: [pathParam("slug"), pathParam("id")],
+      get: { summary: "List a task's labels", responses: { "200": jsonOne("Label") } },
+      post: {
+        summary: "Assign a label to a task (same boundary as any other task edit)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["labelId"],
+          properties: { labelId: { type: "string" } },
+        }),
+        responses: { "201": { description: "ok" }, "403": errorRef(), "404": errorRef() },
+      },
+    },
+    "/workspaces/{slug}/tasks/{id}/labels/{labelId}": {
+      parameters: [pathParam("slug"), pathParam("id"), pathParam("labelId")],
+      delete: {
+        summary: "Remove a label from a task",
+        responses: { "200": { description: "ok" }, "403": errorRef() },
       },
     },
     "/workspaces/{slug}/tasks": {
