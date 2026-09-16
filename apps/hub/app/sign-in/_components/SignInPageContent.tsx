@@ -21,6 +21,7 @@ import {
   AuthCheckpointScene,
   type AuthCheckpointState,
 } from "../../_components/AuthCheckpointScene";
+import { CheckIcon, LockIcon } from "../../_components/AuthIcons";
 import styles from "./auth.module.css";
 
 const links = getPlatformLinks();
@@ -125,87 +126,124 @@ function SignInPageContentInner() {
   }
 
   return (
-    <div className={styles.screen}>
-      <div className={styles.intro}>
-        <Kicker index="ID">Authentication</Kicker>
-        <h1 style={{ marginBottom: "0.35rem" }}>Sign in to ASafarIM</h1>
-        <p className="u-muted" style={{ margin: 0 }}>
-          New here?{" "}
-          <Link
-            href={signUpHref}
-            style={{ color: "var(--accent)", fontWeight: 600 }}
-          >
-            Create an account
-          </Link>
-        </p>
+    <div className={styles.screen} data-scene-fullbleed>
+      <div className={styles.topRow}>
+        <div className={styles.intro}>
+          <Kicker index="ID">Authentication</Kicker>
+          <h1 style={{ marginBottom: "0.35rem" }}>Sign in to ASafarIM</h1>
+          <p className="u-muted" style={{ margin: 0 }}>
+            New here?{" "}
+            <Link
+              href={signUpHref}
+              style={{ color: "var(--accent)", fontWeight: 600 }}
+            >
+              Create an account
+            </Link>
+          </p>
+
+          <ul className={styles.introFeatures}>
+            <li className={styles.featureItem}>
+              <span className={styles.featureIcon}>
+                <CheckIcon />
+              </span>
+              One identity, every ASafarIM app
+            </li>
+            <li className={styles.featureItem}>
+              <span className={styles.featureIcon}>
+                <CheckIcon />
+              </span>
+              Password, Google, or a one-time email code
+            </li>
+            <li className={styles.featureItem}>
+              <span className={styles.featureIcon}>
+                <CheckIcon />
+              </span>
+              Your session follows you across the platform
+            </li>
+          </ul>
+
+          <p className={styles.introStat}>
+            <strong>11 apps</strong> &middot; one sign-in
+          </p>
+        </div>
+
+        <div className={styles.content}>
+          <div className={`ui-card ui-card--elevated ${styles.card}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardIcon}>
+                <LockIcon />
+              </span>
+              <div>
+                <p className={styles.cardEyebrow}>Secure sign-in</p>
+                <p className={styles.cardTitle}>Welcome back</p>
+              </div>
+            </div>
+
+            {justCreated ? (
+              <Alert tone="info">Account created — sign in below.</Alert>
+            ) : null}
+            {error ? <Alert tone="error">{error}</Alert> : null}
+
+            <GoogleButton
+              onClick={handleGoogleSignIn}
+              disabled={globalDisabled}
+              label="Continue with Google"
+            />
+
+            <div className={styles.divider}>
+              <span className={styles.dividerLabel}>or</span>
+            </div>
+
+            <MethodTabs
+              active={method}
+              onChange={handleMethodChange}
+              disabled={globalDisabled}
+            />
+
+            {method === "password" ? (
+              <form onSubmit={handlePasswordSubmit}>
+                <div className={styles.formGrid}>
+                  <FormRow>
+                    <Label htmlFor="identifier">Username or email</Label>
+                    <Input
+                      id="identifier"
+                      type="text"
+                      required
+                      autoComplete="username"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                    />
+                  </FormRow>
+                  <PasswordField
+                    id="password"
+                    label="Password"
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete="current-password"
+                    required
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={globalDisabled}
+                  style={{ width: "100%" }}
+                >
+                  {isLoading ? "Signing in…" : "Sign in →"}
+                </Button>
+              </form>
+            ) : (
+              <EmailCodeForm
+                callbackUrl={callbackUrl}
+                disabled={globalDisabled}
+                onAuthStateChange={setSceneState}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
       <div className={styles.stage}>
         <AuthCheckpointScene state={sceneState} />
-      </div>
-
-      <div className={styles.content}>
-        <div className={`ui-card ui-card--elevated ${styles.card}`}>
-          {justCreated ? (
-            <Alert tone="info">Account created — sign in below.</Alert>
-          ) : null}
-          {error ? <Alert tone="error">{error}</Alert> : null}
-
-          <GoogleButton
-            onClick={handleGoogleSignIn}
-            disabled={globalDisabled}
-            label="Continue with Google"
-          />
-
-          <div className={styles.divider}>
-            <span className={styles.dividerLabel}>or</span>
-          </div>
-
-          <MethodTabs
-            active={method}
-            onChange={handleMethodChange}
-            disabled={globalDisabled}
-          />
-
-          {method === "password" ? (
-            <form onSubmit={handlePasswordSubmit}>
-              <FormRow>
-                <Label htmlFor="identifier">Username or email</Label>
-                <Input
-                  id="identifier"
-                  type="text"
-                  required
-                  autoComplete="username"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                />
-              </FormRow>
-              <PasswordField
-                id="password"
-                label="Password"
-                value={password}
-                onChange={setPassword}
-                autoComplete="current-password"
-                required
-              />
-              <Button
-                type="submit"
-                disabled={globalDisabled}
-                style={{ width: "100%" }}
-              >
-                {isLoading ? "Signing in…" : "Sign in →"}
-              </Button>
-            </form>
-          ) : (
-            <EmailCodeForm
-              callbackUrl={callbackUrl}
-              disabled={globalDisabled}
-              onAuthStateChange={setSceneState}
-            />
-          )}
-        </div>
-
-        <p className={styles.footNote}>one account · every asafarim app</p>
       </div>
     </div>
   );

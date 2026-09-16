@@ -35,23 +35,15 @@ export function AuthCheckpointScene({
     >
       <svg
         className={styles.svg}
-        viewBox="0 0 1200 460"
+        viewBox="0 261 1200 159"
         preserveAspectRatio="xMidYMax slice"
         focusable="false"
       >
         <defs>
-          <linearGradient id="checkpoint-sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="var(--checkpoint-sky-top)" />
-            <stop offset="1" stopColor="var(--checkpoint-sky-bottom)" />
-          </linearGradient>
           <linearGradient id="checkpoint-road" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="var(--checkpoint-road)" />
             <stop offset="1" stopColor="var(--checkpoint-road-edge)" />
           </linearGradient>
-          <radialGradient id="checkpoint-glow">
-            <stop offset="0" stopColor="var(--accent)" stopOpacity=".2" />
-            <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
-          </radialGradient>
           <filter
             id="checkpoint-soft-glow"
             x="-100%"
@@ -61,43 +53,24 @@ export function AuthCheckpointScene({
           >
             <feGaussianBlur stdDeviation="6" />
           </filter>
-          <pattern
-            id="checkpoint-grid"
-            width="48"
-            height="48"
-            patternUnits="userSpaceOnUse"
-          >
-            <path
-              d="M 48 0 L 0 0 0 48"
-              fill="none"
-              stroke="var(--checkpoint-grid)"
-              strokeWidth="1"
-            />
-          </pattern>
         </defs>
 
-        <rect width="1200" height="520" fill="url(#checkpoint-sky)" />
+        {/* No sky — oversized so it still covers the band at any viewBox. */}
         <rect
-          width="1200"
-          height="520"
-          fill="url(#checkpoint-grid)"
-          opacity=".5"
-        />
-        <ellipse
-          className={styles.horizonGlow}
-          cx="610"
-          cy="338"
-          rx="310"
-          ry="160"
-          fill="url(#checkpoint-glow)"
+          x="-100"
+          y="-1000"
+          width="1400"
+          height="3000"
+          fill="var(--checkpoint-bg)"
         />
 
-        <g className={styles.hillsFar}>
-          <path d="M0 330 C125 246 230 272 345 330 S550 370 680 282 S935 228 1200 322 V520 H0Z" />
-        </g>
-
-        {/* City skyline on the horizon, right of the checkpoint. */}
-        <g className={styles.cityRight}>
+        {/* City skyline on the horizon, right of the checkpoint. Scaled down
+            (0.5x) around the cluster's own ground-center so it stays put and
+            just gets smaller, rather than growing/shrinking the whole canvas. */}
+        <g
+          className={styles.cityRight}
+          transform="translate(973 372) scale(0.5) translate(-973 -372)"
+        >
           <rect x="838" y="268" width="30" height="104" />
           <rect x="872" y="238" width="38" height="134" />
           <rect x="914" y="286" width="26" height="86" />
@@ -115,9 +88,11 @@ export function AuthCheckpointScene({
           </g>
         </g>
 
-        {/* Roadside trees, right of the checkpoint, in front of the skyline. */}
+        {/* Roadside trees, right of the checkpoint, in front of the skyline.
+            Each is already anchored to its own ground point, so the extra
+            0.5x just shrinks it in place. */}
         <g className={styles.treesRight}>
-          <g transform="translate(806 371)">
+          <g transform="translate(806 371) scale(0.5)">
             <rect
               className={styles.treeTrunk}
               x="-2.5"
@@ -127,7 +102,7 @@ export function AuthCheckpointScene({
             />
             <circle className={styles.treeCanopy} cx="0" cy="-30" r="16" />
           </g>
-          <g transform="translate(958 371) scale(0.85)">
+          <g transform="translate(958 371) scale(0.425)">
             <rect
               className={styles.treeTrunk}
               x="-2.5"
@@ -137,7 +112,7 @@ export function AuthCheckpointScene({
             />
             <circle className={styles.treeCanopy} cx="0" cy="-30" r="16" />
           </g>
-          <g transform="translate(1152 371) scale(1.1)">
+          <g transform="translate(1152 371) scale(0.55)">
             <rect
               className={styles.treeTrunk}
               x="-2.5"
@@ -157,7 +132,12 @@ export function AuthCheckpointScene({
         <path className={styles.road} d="M-30 371 H1230" />
         <path className={styles.laneMarks} d="M-30 371 H1230" />
 
-        <g className={styles.checkpoint}>
+        {/* Checkpoint booth, scaled down (0.5x) around its own base so it
+            shrinks in place instead of drifting off the road. */}
+        <g
+          className={styles.checkpoint}
+          transform="translate(655 371) scale(0.5) translate(-655 -371)"
+        >
           <ellipse
             className={styles.checkpointAura}
             cx="615"
@@ -226,44 +206,61 @@ export function AuthCheckpointScene({
 
         <g className={styles.car}>
           {/* Compact hatchback silhouette — Focus-style single greenhouse,
-              short overhangs, sky-blue paint (see .carBody). */}
-          <ellipse className={styles.carShadow} cx="0" cy="20" rx="39" ry="8" />
-          <path
-            className={styles.carBody}
-            d="M-41 7 v-3 q0-5 5-6 l13-2 6-13 q2-4 6-4 h24 q4 0 6 4 l6 12 9 2 q7 1 7 8 v2 h4 q3 0 3 3 v3 h-89 Z"
-          />
-          <path
-            className={styles.carGreenhouse}
-            d="M-19 -8 -14 -18 q1-2 3-2 h22 q2 0 3 2 l5 10 z"
-          />
-          <path className={styles.carPillar} d="M0 -9 v-11" />
-          <path className={styles.carTrim} d="M-33 8h74" />
-          <path className={styles.carDoor} d="M-3 8v-16" />
-          <circle className={styles.wheelArch} cx="-24" cy="20" r="11" />
-          <circle className={styles.wheelArch} cx="26" cy="20" r="11" />
-          <circle className={styles.wheel} cx="-24" cy="20" r="9" />
-          <circle className={styles.wheelHub} cx="-24" cy="20" r="3.5" />
-          <circle className={styles.wheel} cx="26" cy="20" r="9" />
-          <circle className={styles.wheelHub} cx="26" cy="20" r="3.5" />
-          <circle className={styles.headlight} cx="40" cy="8" r="3" />
-          <rect
-            className={styles.taillight}
-            x="-44"
-            y="3"
-            width="3"
-            height="6"
-            rx="1.2"
-          />
+              short overhangs, sky-blue paint (see .carBody). Scaled 0.5x
+              around its own local origin, which CSS positions along the
+              road, so the shrink doesn't disturb the travel path. */}
+          <g transform="scale(0.5)">
+            <ellipse
+              className={styles.carShadow}
+              cx="0"
+              cy="20"
+              rx="39"
+              ry="8"
+            />
+            <path
+              className={styles.carBody}
+              d="M-41 7 v-3 q0-5 5-6 l13-2 6-13 q2-4 6-4 h24 q4 0 6 4 l6 12 9 2 q7 1 7 8 v2 h4 q3 0 3 3 v3 h-89 Z"
+            />
+            <path
+              className={styles.carGreenhouse}
+              d="M-19 -8 -14 -18 q1-2 3-2 h22 q2 0 3 2 l5 10 z"
+            />
+            <path className={styles.carPillar} d="M0 -9 v-11" />
+            <path className={styles.carTrim} d="M-33 8h74" />
+            <path className={styles.carDoor} d="M-3 8v-16" />
+            <circle className={styles.wheelArch} cx="-24" cy="20" r="11" />
+            <circle className={styles.wheelArch} cx="26" cy="20" r="11" />
+            <circle className={styles.wheel} cx="-24" cy="20" r="9" />
+            <circle className={styles.wheelHub} cx="-24" cy="20" r="3.5" />
+            <circle className={styles.wheel} cx="26" cy="20" r="9" />
+            <circle className={styles.wheelHub} cx="26" cy="20" r="3.5" />
+            <circle className={styles.headlight} cx="40" cy="8" r="3" />
+            <rect
+              className={styles.taillight}
+              x="-44"
+              y="3"
+              width="3"
+              height="6"
+              rx="1.2"
+            />
+          </g>
         </g>
 
         <g className={styles.credential}>
-          <rect x="531" y="300" width="28" height="20" rx="4" />
-          <circle cx="538" cy="307" r="2.5" />
-          {variant === "enroll" ? (
-            <path className={styles.credentialNew} d="M544 308.5h10m-5-5v10" />
-          ) : (
-            <path d="M544 306h9m-9 5h7" />
-          )}
+          {/* Shares the checkpoint's own anchor/scale so it shrinks and sits
+              in the same place as the scanner it's sliding into. */}
+          <g transform="translate(655 371) scale(0.5) translate(-655 -371)">
+            <rect x="531" y="300" width="28" height="20" rx="4" />
+            <circle cx="538" cy="307" r="2.5" />
+            {variant === "enroll" ? (
+              <path
+                className={styles.credentialNew}
+                d="M544 308.5h10m-5-5v10"
+              />
+            ) : (
+              <path d="M544 306h9m-9 5h7" />
+            )}
+          </g>
         </g>
       </svg>
     </div>

@@ -1,9 +1,29 @@
 /* The checkpoint scene sits in the flow between the hero and the card grid, so
-   no page element is ever layered over the animation. */
+   no page element is ever layered over the animation. It also runs full
+   viewport width, same as the navbar bar — this relaxes the shared shell's
+   content gutter for this page only (scoped via the data attribute) and
+   reapplies it just to the text/card content via .gutter. */
+:global(.ui-shell__main:has([data-scene-fullbleed])) {
+  max-width: none;
+  padding-inline: 0;
+}
+
 .home {
   display: grid;
+  /* Grid items default to min-width: auto (their max-content size), which
+     silently overrides width:min(...,100%) below and pushes the page into
+     horizontal scroll. min-width: 0 lets the column actually shrink to the
+     viewport instead of to its content's natural width. */
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(var(--space-5), 4vw, var(--space-7));
   padding-block: clamp(1rem, 3vw, 2.5rem);
+}
+
+.gutter {
+  width: min(var(--width-content, 72rem), 100%);
+  min-width: 0;
+  margin-inline: auto;
+  padding-inline: clamp(1.25rem, 4vw, var(--space-6));
 }
 
 .home :global(.ui-hero) {

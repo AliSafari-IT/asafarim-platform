@@ -5,14 +5,10 @@
   --checkpoint-duration: 24s;
   --checkpoint-opacity: 1;
   --checkpoint-scale: 1;
-  --checkpoint-height: clamp(12rem, 26vw, 19rem);
-  --checkpoint-sky-top: color-mix(in srgb, var(--bg) 94%, var(--accent) 6%);
-  --checkpoint-sky-bottom: color-mix(
-    in srgb,
-    var(--bg) 88%,
-    var(--surface-2) 12%
-  );
-  --checkpoint-grid: color-mix(in srgb, var(--line) 46%, transparent);
+  --checkpoint-min-height: 12rem;
+  /* Flat ground-level background — no sky gradient, since the band is
+     cropped to just the road/checkpoint strip. */
+  --checkpoint-bg: color-mix(in srgb, var(--bg) 94%, var(--accent) 6%);
   --checkpoint-road: color-mix(in srgb, var(--surface-3) 74%, var(--ink) 26%);
   --checkpoint-road-edge: color-mix(
     in srgb,
@@ -26,7 +22,15 @@
 
   position: relative;
   width: 100%;
-  height: var(--checkpoint-height);
+  /* The height is locked to the SVG's own viewBox ratio (1200:159 — a
+     narrow strip, features drawn at 0.5x and cropped tight to road level)
+     so it always matches the drawn width exactly — no vw-based guess that
+     can drift out of sync with the actual rendered width and crop content
+     off. min-height only kicks in on narrow phones, where it causes a small
+     masked left/right crop instead — much less noticeable than losing the
+     tops of buildings. */
+  aspect-ratio: 1200 / 159;
+  min-height: var(--checkpoint-min-height);
   overflow: hidden;
   border-radius: var(--radius-md, 12px);
   opacity: var(--checkpoint-opacity);
@@ -56,15 +60,6 @@
   max-width: none;
   transform: scale(var(--checkpoint-scale));
   transform-origin: center;
-}
-
-.horizonGlow {
-  opacity: 0.45;
-  animation: breathe var(--checkpoint-duration) ease-in-out infinite;
-}
-
-.hillsFar path {
-  fill: color-mix(in srgb, var(--surface-2) 52%, transparent);
 }
 
 .hillsNear path {
@@ -99,19 +94,19 @@
 
 .roadShadow {
   stroke: color-mix(in srgb, #000 32%, transparent);
-  stroke-width: 58;
+  stroke-width: 29;
   opacity: 0.45;
 }
 
 .road {
   stroke: url(#checkpoint-road);
-  stroke-width: 46;
+  stroke-width: 23;
 }
 
 .laneMarks {
   stroke: color-mix(in srgb, var(--accent) 43%, transparent);
-  stroke-width: 2;
-  stroke-dasharray: 16 22;
+  stroke-width: 1.2;
+  stroke-dasharray: 10 14;
 }
 
 .checkpointAura {
@@ -295,7 +290,7 @@
 
 .credential {
   opacity: 0;
-  transform-origin: 545px 310px;
+  transform-origin: 600px 340px;
   animation: credential var(--checkpoint-duration) var(--ease) infinite;
 }
 
@@ -360,33 +355,36 @@
 @keyframes car-journey {
   0% {
     opacity: 0;
-    transform: translate(-371px, 352px);
+    transform: translate(-371px, 367px);
   }
   4% {
     opacity: 1;
-    transform: translate(-287px, 352px);
+    transform: translate(-287px, 367px);
   }
+  /* The checkpoint cluster is drawn at 0.5x scale around (655, 371), so the
+     stop point has to sit that much closer to 655 too — otherwise the car
+     parks with a visible gap in front of the (now smaller) scanner. */
   40% {
-    transform: translate(469px, 352px);
+    transform: translate(562px, 367px);
     animation-timing-function: ease-out;
   }
   45% {
-    transform: translate(530px, 352px);
+    transform: translate(593px, 367px);
   }
   65% {
-    transform: translate(530px, 352px);
+    transform: translate(593px, 367px);
     animation-timing-function: ease-in;
   }
   71% {
-    transform: translate(603px, 352px);
+    transform: translate(629px, 367px);
   }
   97% {
     opacity: 1;
-    transform: translate(1149px, 352px);
+    transform: translate(1149px, 367px);
   }
   100% {
     opacity: 0;
-    transform: translate(1212px, 352px);
+    transform: translate(1212px, 367px);
   }
 }
 
@@ -515,18 +513,6 @@
   }
 }
 
-@keyframes breathe {
-  0%,
-  100% {
-    opacity: 0.34;
-    transform: scale(0.96);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.04);
-  }
-}
-
 @keyframes live-scan {
   0%,
   100% {
@@ -579,12 +565,11 @@
 
 @media (max-width: 760px) {
   .scene {
-    --checkpoint-height: clamp(10rem, 42vw, 14rem);
+    --checkpoint-min-height: 10rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .horizonGlow,
   .checkpointAura,
   .statusIdle,
   .statusSuccess,
@@ -599,7 +584,7 @@
 
   .car {
     opacity: 1;
-    transform: translate(530px, 352px);
+    transform: translate(593px, 367px);
   }
 
   .credential {

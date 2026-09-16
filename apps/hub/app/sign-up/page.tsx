@@ -14,6 +14,7 @@ import {
   AuthCheckpointScene,
   type AuthCheckpointState,
 } from "../_components/AuthCheckpointScene";
+import { CheckIcon, UserPlusIcon } from "../_components/AuthIcons";
 import styles from "../sign-in/_components/auth.module.css";
 
 function SignUpPageContent() {
@@ -76,115 +77,156 @@ function SignUpPageContent() {
   }
 
   return (
-    <div className={styles.screen}>
-      <div className={styles.intro}>
-        <Kicker index="ID">Authentication</Kicker>
-        <h1 style={{ marginBottom: "0.35rem" }}>Create your account</h1>
-        <p className="u-muted" style={{ margin: 0 }}>
-          Already have one?{" "}
-          <Link
-            href={signInHref}
-            style={{ color: "var(--accent)", fontWeight: 600 }}
-          >
-            Sign in
-          </Link>
-        </p>
+    <div className={styles.screen} data-scene-fullbleed>
+      <div className={styles.topRow}>
+        <div className={styles.intro}>
+          <Kicker index="ID">Authentication</Kicker>
+          <h1 style={{ marginBottom: "0.35rem" }}>Create your account</h1>
+          <p className="u-muted" style={{ margin: 0 }}>
+            Already have one?{" "}
+            <Link
+              href={signInHref}
+              style={{ color: "var(--accent)", fontWeight: 600 }}
+            >
+              Sign in
+            </Link>
+          </p>
+
+          <ul className={styles.introFeatures}>
+            <li className={styles.featureItem}>
+              <span className={styles.featureIcon}>
+                <CheckIcon />
+              </span>
+              Free account, ready in under a minute
+            </li>
+            <li className={styles.featureItem}>
+              <span className={styles.featureIcon}>
+                <CheckIcon />
+              </span>
+              One login for every ASafarIM app
+            </li>
+            <li className={styles.featureItem}>
+              <span className={styles.featureIcon}>
+                <CheckIcon />
+              </span>
+              Address is optional — only if an app needs it
+            </li>
+          </ul>
+
+          <p className={styles.introStat}>
+            <strong>0</strong> extra passwords to remember
+          </p>
+        </div>
+
+        <div className={styles.content}>
+          <div className={`ui-card ui-card--elevated ${styles.card}`}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardIcon}>
+                <UserPlusIcon />
+              </span>
+              <div>
+                <p className={styles.cardEyebrow}>New member</p>
+                <p className={styles.cardTitle}>Set up your account</p>
+              </div>
+            </div>
+
+            {error ? <Alert tone="error">{error}</Alert> : null}
+
+            <form onSubmit={handleSubmit}>
+              <div className={styles.formGrid}>
+                <FormRow>
+                  <Label htmlFor="name">Full name</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoComplete="name"
+                  />
+                </FormRow>
+                <FormRow>
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    required
+                    minLength={3}
+                    maxLength={24}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
+                  />
+                </FormRow>
+              </div>
+              <FormRow>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </FormRow>
+              <div className={styles.formGrid}>
+                <PasswordField
+                  id="password"
+                  label="Password"
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete="new-password"
+                  required
+                />
+                <PasswordField
+                  id="confirm-password"
+                  label="Confirm password"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAddress((v) => !v)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--accent)",
+                  fontWeight: 600,
+                  fontSize: "var(--text-sm)",
+                  cursor: "pointer",
+                  padding: 0,
+                  margin: "0.5rem 0 1rem",
+                }}
+              >
+                {showAddress
+                  ? "− Hide address (optional)"
+                  : "+ Add your address (optional)"}
+              </button>
+
+              {showAddress ? (
+                <AddressFields
+                  value={address}
+                  onChange={setAddress}
+                  idPrefix="signup-addr"
+                />
+              ) : null}
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                style={{ width: "100%", marginTop: "0.5rem" }}
+              >
+                {isLoading ? "Creating account…" : "Create account →"}
+              </Button>
+            </form>
+          </div>
+        </div>
       </div>
 
       <div className={styles.stage}>
         <AuthCheckpointScene state={sceneState} variant="enroll" />
-      </div>
-
-      <div className={styles.content}>
-        <div className={`ui-card ui-card--elevated ${styles.card}`}>
-          {error ? <Alert tone="error">{error}</Alert> : null}
-
-          <form onSubmit={handleSubmit}>
-            <FormRow>
-              <Label htmlFor="name">Full name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-              />
-            </FormRow>
-            <FormRow>
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                required
-                minLength={3}
-                maxLength={24}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
-              />
-            </FormRow>
-            <FormRow>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </FormRow>
-            <PasswordField
-              id="password"
-              label="Password"
-              value={password}
-              onChange={setPassword}
-              autoComplete="new-password"
-              required
-            />
-            <PasswordField
-              id="confirm-password"
-              label="Confirm password"
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              autoComplete="new-password"
-              required
-            />
-
-            <button
-              type="button"
-              onClick={() => setShowAddress((v) => !v)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--accent)",
-                fontWeight: 600,
-                fontSize: "var(--text-sm)",
-                cursor: "pointer",
-                padding: 0,
-                margin: "0.5rem 0 1rem",
-              }}
-            >
-              {showAddress
-                ? "− Hide address (optional)"
-                : "+ Add your address (optional)"}
-            </button>
-
-            {showAddress ? (
-              <AddressFields
-                value={address}
-                onChange={setAddress}
-                idPrefix="signup-addr"
-              />
-            ) : null}
-
-            <Button
-              type="submit"
-              disabled={isLoading}
-              style={{ width: "100%", marginTop: "0.5rem" }}
-            >
-              {isLoading ? "Creating account…" : "Create account →"}
-            </Button>
-          </form>
-        </div>
       </div>
     </div>
   );
