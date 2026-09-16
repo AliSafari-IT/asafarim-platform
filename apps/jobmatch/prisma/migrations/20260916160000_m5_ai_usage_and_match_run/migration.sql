@@ -43,7 +43,7 @@ CREATE TABLE "match_run" (
 CREATE INDEX "ai_usage_ledger_workspaceId_createdAt_idx" ON "ai_usage_ledger"("workspaceId", "createdAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "match_run_workspaceId_profileVersionId_postingId_promptVer_key" ON "match_run"("workspaceId", "profileVersionId", "postingId", "promptVersion", "evaluationModelVersion");
+CREATE UNIQUE INDEX "match_run_workspaceId_profileVersionId_postingId_promptVers_key" ON "match_run"("workspaceId", "profileVersionId", "postingId", "promptVersion", "evaluationModelVersion");
 
 -- CreateIndex
 CREATE INDEX "match_run_workspaceId_createdAt_idx" ON "match_run"("workspaceId", "createdAt");
