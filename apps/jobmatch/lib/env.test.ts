@@ -115,4 +115,92 @@ describe("JobMatch environment contract", () => {
     expect(env.appUrl).toBe("https://jobmatch.asafarim.com");
     expect(env.hubUrl).toBe("https://hub.asafarim.com");
   });
+
+  describe("JM-005 AI provider gate (issue #255)", () => {
+    const prodBase = {
+      NODE_ENV: "production" as const,
+      JOBMATCH_DATABASE_URL: "postgresql://jobmatch:pw@jobmatch-postgres:5432/jobmatch",
+    };
+
+    it("(a) defaults to fixture with no keys and validates fine locally", () => {
+      const env = resolveEnv({ NODE_ENV: "development" });
+      expect(env.aiProvider).toBe("fixture");
+      expect(env.aiEvalProvider).toBe("fixture");
+      expect(env.aiClassificationSignedOff).toBe(false);
+      expect(env.aiMonthlyBudgetUsd).toBe(20);
+    });
+
+    it("(b) production + openai + no sign-off + no key refuses, naming the gate variable and no key material", () => {
+      try {
+        resolveEnv({ ...prodBase, JOBMATCH_AI_PROVIDER: "openai" });
+        throw new Error("expected a validation failure");
+      } catch (error) {
+        expect(error).toBeInstanceOf(EnvValidationError);
+        const message = (error as Error).message;
+        expect(message).toContain("JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF");
+        expect(message.toLowerCase()).not.toContain("sk-");
+      }
+    });
+
+    it("(c) production + openai + sign-off + key validates", () => {
+      const env = resolveEnv({
+        ...prodBase,
+        JOBMATCH_AI_PROVIDER: "openai",
+        JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
+        OPENAI_API_KEY: "sk-test-not-a-real-key",
+      });
+      expect(env.aiProvider).toBe("openai");
+      expect(env.aiClassificationSignedOff).toBe(true);
+    });
+
+    it("(c) production + anthropic + sign-off + key validates", () => {
+      const env = resolveEnv({
+        ...prodBase,
+        JOBMATCH_AI_EVAL_PROVIDER: "anthropic",
+        JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
+        ANTHROPIC_API_KEY: "test-not-a-real-key",
+      });
+      expect(env.aiEvalProvider).toBe("anthropic");
+    });
+
+    it("(d) sign-off true but key missing still refuses — both are required", () => {
+      expect(() =>
+        resolveEnv({
+          ...prodBase,
+          JOBMATCH_AI_PROVIDER: "openai",
+          JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
+        }),
+      ).toThrow(EnvValidationError);
+    });
+
+    it("sign-off + key present but for the wrong provider still refuses", () => {
+      expect(() =>
+        resolveEnv({
+          ...prodBase,
+          JOBMATCH_AI_PROVIDER: "anthropic",
+          JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
+          OPENAI_API_KEY: "sk-test-not-a-real-key",
+        }),
+      ).toThrow(EnvValidationError);
+    });
+
+    it("(e) test/CI environment defaults still resolve to fixture cleanly", () => {
+      const env = resolveEnv({ NODE_ENV: "test" });
+      expect(env.aiProvider).toBe("fixture");
+      expect(env.aiEvalProvider).toBe("fixture");
+      expect(env.requiresExplicitSecrets).toBe(false);
+    });
+
+    it("local/dev is not gated — a real provider may be selected without sign-off or a key", () => {
+      const env = resolveEnv({ NODE_ENV: "development", JOBMATCH_AI_PROVIDER: "openai" });
+      expect(env.aiProvider).toBe("openai");
+    });
+
+    it("JOBMATCH_AI_MONTHLY_BUDGET_USD=0 freezes spend and is distinguishable from unset", () => {
+      const frozen = resolveEnv({ NODE_ENV: "development", JOBMATCH_AI_MONTHLY_BUDGET_USD: "0" });
+      expect(frozen.aiMonthlyBudgetUsd).toBe(0);
+      const defaulted = resolveEnv({ NODE_ENV: "development" });
+      expect(defaulted.aiMonthlyBudgetUsd).toBe(20);
+    });
+  });
 });

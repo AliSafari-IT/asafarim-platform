@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { log } from "./observability/logger";
 
 /**
  * JobMatch environment contract (JM-013).
@@ -18,6 +19,32 @@ import { z } from "zod";
  * Client bundles get nothing from here: this module is server-only, and the
  * only variables the browser sees are the `NEXT_PUBLIC_*` cross-app URLs
  * that Next.js inlines at build time.
+ *
+ * --- AI provider gate (M5 / JM-005, issue #255) ---------------------------
+ *
+ * `JOBMATCH_AI_PROVIDER` / `JOBMATCH_AI_EVAL_PROVIDER` select which model
+ * backend the (not-yet-built) classification and eval layers talk to. Both
+ * default to `fixture` — a deterministic, network-free provider, the same
+ * shape as `APPBUILDER_AI_PROVIDER=fake` in `.env.example`.
+ *
+ * The gate mirrors `apps/tasks-ai/lib/billing/gate.ts`'s inert-flag pattern
+ * (`TASKSAI_COMMERCIAL_LICENSE_SIGNED=true` before paid plans open): a
+ * feature stays off in every deployed environment until a named env var is
+ * flipped, and the code never argues with that decision, it just checks the
+ * flag. Here the flag is `JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF` (JM-005),
+ * and unlike the billing gate it is combined with "a key is present" — a
+ * signed-off flag with no key would still be inert, but failing loud on
+ * *either* missing piece surfaces a half-configured deploy at boot instead
+ * of at first use.
+ *
+ * The gate only applies where `requiresExplicitSecrets` is true (staging /
+ * production, using the same `JOBMATCH_ENVIRONMENT` resolution as the
+ * database check above). Locally and in tests/CI, `fixture` is always free,
+ * and — deliberately, so engineers can dev against a real provider without
+ * touching deploy config — flipping to `openai`/`anthropic` locally is not
+ * gated either. Local `.env` is not a deployed surface: nothing there ships
+ * unsigned-off spend to production, and the sign-off's entire purpose is to
+ * stop a deployed environment from spending money before JM-005 is closed.
  */
 
 const LOCAL_DATABASE_URL = "postgresql://jobmatch:jobmatch_dev@localhost:55437/jobmatch";
@@ -43,6 +70,8 @@ const BUILD_TIME_HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
 export type JobMatchEnvironment = "development" | "test" | "staging" | "production";
 
+export type JobMatchAiProvider = "fixture" | "openai" | "anthropic";
+
 export interface JobMatchEnv {
   environment: JobMatchEnvironment;
   databaseUrl: string;
@@ -56,6 +85,14 @@ export interface JobMatchEnv {
    * turning a cosmetic mistake into an outage.
    */
   warnings: string[];
+  /** Model backend for classification (JM-005 gated). Default `fixture`. */
+  aiProvider: JobMatchAiProvider;
+  /** Model backend for the eval runner. Default `fixture`. */
+  aiEvalProvider: JobMatchAiProvider;
+  /** JM-005 sign-off flag. Must be true before a real provider can be selected in a deployed environment. */
+  aiClassificationSignedOff: boolean;
+  /** JM-047 monthly spend ceiling in USD. `0` freezes AI spend entirely. */
+  aiMonthlyBudgetUsd: number;
 }
 
 /** Build-time values, injectable so the contract stays testable. */
@@ -64,6 +101,9 @@ export interface BuildTimeUrls {
   hubUrl?: string;
 }
 
+const AI_PROVIDER_ENUM = z.enum(["fixture", "openai", "anthropic"]);
+const DEFAULT_AI_MONTHLY_BUDGET_USD = 20;
+
 const rawSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   /** Set to "staging" on the staging deployment; production leaves it unset. */
@@ -71,6 +111,28 @@ const rawSchema = z.object({
   JOBMATCH_DATABASE_URL: z.string().min(1).optional(),
   NEXT_PUBLIC_JOBMATCH_URL: z.string().url().optional(),
   NEXT_PUBLIC_HUB_URL: z.string().url().optional(),
+  /** Classification model backend (M5 / JM-005). Never `openai`/`anthropic`
+   *  in a deployed environment unless the gate below is satisfied. */
+  JOBMATCH_AI_PROVIDER: AI_PROVIDER_ENUM.default("fixture"),
+  /** Eval runner's model backend; same gate as JOBMATCH_AI_PROVIDER. */
+  JOBMATCH_AI_EVAL_PROVIDER: AI_PROVIDER_ENUM.default("fixture"),
+  /** JM-005 sign-off. Only "true" counts; anything else (including unset) is false. */
+  JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: z
+    .string()
+    .optional()
+    .transform((value) => value === "true"),
+  /** JM-047 monthly spend ceiling in USD; "0" freezes spend. */
+  JOBMATCH_AI_MONTHLY_BUDGET_USD: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === "" ? undefined : Number(value)))
+    .refine((value) => value === undefined || (Number.isFinite(value) && value >= 0), {
+      message: "must be a non-negative number",
+    }),
+  /** Shared platform key (see .env.example). Unused unless a provider selects it. Never logged. */
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  /** Shared platform key (see .env.example). Unused unless a provider selects it. Never logged. */
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
 });
 
 export class EnvValidationError extends Error {
@@ -111,6 +173,21 @@ export function resolveEnv(
     throw new EnvValidationError(["JOBMATCH_DATABASE_URL"]);
   }
 
+  // JM-005 gate: a non-fixture provider may not be selected on a deployed
+  // environment until sign-off is recorded AND the matching key is present.
+  // Mirrors apps/tasks-ai/lib/billing/gate.ts's inert-flag pattern — the
+  // flag decides, the code just enforces it. Local/test/dev is intentionally
+  // ungated (see the module doc comment above).
+  if (requiresExplicitSecrets) {
+    for (const provider of [raw.JOBMATCH_AI_PROVIDER, raw.JOBMATCH_AI_EVAL_PROVIDER]) {
+      if (provider === "fixture") continue;
+      const key = provider === "openai" ? raw.OPENAI_API_KEY : raw.ANTHROPIC_API_KEY;
+      if (!raw.JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF || !key) {
+        throw new EnvValidationError(["JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF"]);
+      }
+    }
+  }
+
   // Runtime value first (a real env var overrides), then the value Next
   // inlined at build, then the local default.
   const appUrl = raw.NEXT_PUBLIC_JOBMATCH_URL ?? buildTime.appUrl ?? LOCAL_APP_URL;
@@ -133,6 +210,10 @@ export function resolveEnv(
     hubUrl,
     requiresExplicitSecrets,
     warnings,
+    aiProvider: raw.JOBMATCH_AI_PROVIDER,
+    aiEvalProvider: raw.JOBMATCH_AI_EVAL_PROVIDER,
+    aiClassificationSignedOff: raw.JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF ?? false,
+    aiMonthlyBudgetUsd: raw.JOBMATCH_AI_MONTHLY_BUDGET_USD ?? DEFAULT_AI_MONTHLY_BUDGET_USD,
   };
 }
 
@@ -149,7 +230,17 @@ let cached: JobMatchEnv | undefined;
 
 /** Memoized accessor for request handlers. */
 export function getEnv(): JobMatchEnv {
-  cached ??= resolveEnv();
+  if (!cached) {
+    cached = resolveEnv();
+    // Boot-time visibility only: provider name and a boolean, never a key.
+    // Fires once per process (Next.js server and the standalone worker each
+    // get their own), the moment this module is first consulted.
+    log.info("env.ai_provider", {
+      provider: cached.aiProvider,
+      evalProvider: cached.aiEvalProvider,
+      classificationSignedOff: cached.aiClassificationSignedOff,
+    });
+  }
   return cached;
 }
 
