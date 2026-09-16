@@ -4,11 +4,23 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
-import { Alert, Button, FormRow, Input, Kicker, Label, getPlatformLinks } from "@asafarim/ui";
+import {
+  Alert,
+  Button,
+  FormRow,
+  Input,
+  Kicker,
+  Label,
+  getPlatformLinks,
+} from "@asafarim/ui";
 import { GoogleButton } from "./GoogleButton";
 import { PasswordField } from "../../_components/PasswordField";
 import { MethodTabs, type SignInMethod } from "./MethodTabs";
 import { EmailCodeForm } from "./EmailCodeForm";
+import {
+  AuthCheckpointScene,
+  type AuthCheckpointState,
+} from "../../_components/AuthCheckpointScene";
 import styles from "./auth.module.css";
 
 const links = getPlatformLinks();
@@ -30,7 +42,8 @@ const trustedOrigins = new Set(
 function normalizeCallbackUrl(raw: string | null): string {
   if (!raw) return "/dashboard";
   if (raw.startsWith("/") && !raw.startsWith("//")) {
-    if (raw.startsWith("/sign-in") || raw.startsWith("/sign-up")) return "/dashboard";
+    if (raw.startsWith("/sign-in") || raw.startsWith("/sign-up"))
+      return "/dashboard";
     return raw;
   }
   try {
@@ -57,9 +70,13 @@ function SignInPageContentInner() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [sceneState, setSceneState] = useState<AuthCheckpointState>("idle");
 
   useEffect(() => {
-    if (urlError === "CredentialsSignin") setError("Invalid username/email or password.");
+    if (urlError === "CredentialsSignin") {
+      setError("Invalid username/email or password.");
+      setSceneState("error");
+    }
   }, [urlError]);
 
   const globalDisabled = isLoading || status === "loading";
@@ -67,18 +84,26 @@ function SignInPageContentInner() {
   async function handleMethodChange(m: SignInMethod) {
     setMethod(m);
     setError("");
+    setSceneState("idle");
   }
 
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setSceneState("checking");
     try {
-      const result = await signIn("credentials", { identifier, password, redirect: false });
+      const result = await signIn("credentials", {
+        identifier,
+        password,
+        redirect: false,
+      });
       if (result?.error) {
         setError("Invalid username/email or password.");
+        setSceneState("error");
         return;
       }
+      setSceneState("success");
       if (callbackUrl.startsWith("/")) {
         router.push(callbackUrl);
         router.refresh();
@@ -87,6 +112,7 @@ function SignInPageContentInner() {
       }
     } catch {
       setError("Something went wrong. Please try again.");
+      setSceneState("error");
     } finally {
       setIsLoading(false);
     }
@@ -94,63 +120,88 @@ function SignInPageContentInner() {
 
   async function handleGoogleSignIn() {
     setIsLoading(true);
+    setSceneState("checking");
     await signIn("google", { callbackUrl, redirect: true });
   }
 
   return (
-    <div style={{ maxWidth: "30rem", margin: "3rem auto" }}>
-      <Kicker index="ID">Authentication</Kicker>
-      <h1 style={{ marginBottom: "0.35rem" }}>Sign in to ASafarIM</h1>
-      <p className="u-muted" style={{ marginBottom: "var(--space-5)" }}>
-        New here?{" "}
-        <Link href={signUpHref} style={{ color: "var(--accent)", fontWeight: 600 }}>
-          Create an account
-        </Link>
-      </p>
+    <div className={styles.screen}>
+      <AuthCheckpointScene state={sceneState} />
+      <div className={styles.content}>
+        <Kicker index="ID">Authentication</Kicker>
+        <h1 style={{ marginBottom: "0.35rem" }}>Sign in to ASafarIM</h1>
+        <p className="u-muted" style={{ marginBottom: "var(--space-5)" }}>
+          New here?{" "}
+          <Link
+            href={signUpHref}
+            style={{ color: "var(--accent)", fontWeight: 600 }}
+          >
+            Create an account
+          </Link>
+        </p>
 
-      <div className={`ui-card ui-card--elevated ${styles.card}`}>
-        {justCreated ? <Alert tone="info">Account created — sign in below.</Alert> : null}
-        {error ? <Alert tone="error">{error}</Alert> : null}
+        <div className={`ui-card ui-card--elevated ${styles.card}`}>
+          {justCreated ? (
+            <Alert tone="info">Account created — sign in below.</Alert>
+          ) : null}
+          {error ? <Alert tone="error">{error}</Alert> : null}
 
-        <GoogleButton onClick={handleGoogleSignIn} disabled={globalDisabled} label="Continue with Google" />
+          <GoogleButton
+            onClick={handleGoogleSignIn}
+            disabled={globalDisabled}
+            label="Continue with Google"
+          />
 
-        <div className={styles.divider}>
-          <span className={styles.dividerLabel}>or</span>
+          <div className={styles.divider}>
+            <span className={styles.dividerLabel}>or</span>
+          </div>
+
+          <MethodTabs
+            active={method}
+            onChange={handleMethodChange}
+            disabled={globalDisabled}
+          />
+
+          {method === "password" ? (
+            <form onSubmit={handlePasswordSubmit}>
+              <FormRow>
+                <Label htmlFor="identifier">Username or email</Label>
+                <Input
+                  id="identifier"
+                  type="text"
+                  required
+                  autoComplete="username"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                />
+              </FormRow>
+              <PasswordField
+                id="password"
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                autoComplete="current-password"
+                required
+              />
+              <Button
+                type="submit"
+                disabled={globalDisabled}
+                style={{ width: "100%" }}
+              >
+                {isLoading ? "Signing in…" : "Sign in →"}
+              </Button>
+            </form>
+          ) : (
+            <EmailCodeForm
+              callbackUrl={callbackUrl}
+              disabled={globalDisabled}
+              onAuthStateChange={setSceneState}
+            />
+          )}
         </div>
 
-        <MethodTabs active={method} onChange={handleMethodChange} disabled={globalDisabled} />
-
-        {method === "password" ? (
-          <form onSubmit={handlePasswordSubmit}>
-            <FormRow>
-              <Label htmlFor="identifier">Username or email</Label>
-              <Input
-                id="identifier"
-                type="text"
-                required
-                autoComplete="username"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-              />
-            </FormRow>
-            <PasswordField
-              id="password"
-              label="Password"
-              value={password}
-              onChange={setPassword}
-              autoComplete="current-password"
-              required
-            />
-            <Button type="submit" disabled={globalDisabled} style={{ width: "100%" }}>
-              {isLoading ? "Signing in…" : "Sign in →"}
-            </Button>
-          </form>
-        ) : (
-          <EmailCodeForm callbackUrl={callbackUrl} disabled={globalDisabled} />
-        )}
+        <p className={styles.footNote}>one account · every asafarim app</p>
       </div>
-
-      <p className={styles.footNote}>one account · every asafarim app</p>
     </div>
   );
 }

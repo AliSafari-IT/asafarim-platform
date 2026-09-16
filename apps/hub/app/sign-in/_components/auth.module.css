@@ -1,9 +1,42 @@
 /* Scoped styles for the Hub sign-in/sign-up experience. Colors come from the
    shared Mission Control mood tokens so it stays on-theme. */
 
+.screen {
+  position: relative;
+  isolation: isolate;
+  min-height: clamp(34rem, 69vh, 48rem);
+  margin: calc(var(--space-6) * -1);
+  padding: clamp(2.5rem, 6vw, 5rem) var(--space-6);
+  display: grid;
+  align-items: center;
+}
+
+.screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bg) 20%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 64%, transparent) 48%,
+    color-mix(in srgb, var(--bg) 94%, transparent) 72%
+  );
+}
+
+.content {
+  width: min(30rem, 100%);
+  margin-left: auto;
+  position: relative;
+  z-index: 1;
+}
+
 .card {
   max-width: 30rem;
   margin: 0 auto;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(10px);
 }
 
 .googleBtn {
@@ -65,7 +98,9 @@
   color: var(--muted);
   font: 600 var(--text-sm) / 1 var(--font-sans);
   cursor: pointer;
-  transition: background var(--dur-1, 130ms) var(--ease), color var(--dur-1, 130ms) var(--ease);
+  transition:
+    background var(--dur-1, 130ms) var(--ease),
+    color var(--dur-1, 130ms) var(--ease);
 }
 .methodTab[aria-selected="true"] {
   background: var(--accent);
@@ -93,7 +128,9 @@
 .otpInput {
   width: 100%;
   text-align: center;
-  font: 700 1.4rem/1 ui-monospace, monospace;
+  font:
+    700 1.4rem/1 ui-monospace,
+    monospace;
   letter-spacing: 0.4em;
   padding: 0.75rem 0.5rem;
 }
@@ -129,4 +166,30 @@
 
 .addressToggle {
   margin: 0.5rem 0;
+}
+
+@media (max-width: 760px) {
+  .screen {
+    min-height: 44rem;
+    margin-inline: 0;
+    padding: 2rem var(--space-4) 11rem;
+    align-items: start;
+  }
+
+  .screen::after {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg) 96%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 82%, transparent) 62%,
+      color-mix(in srgb, var(--bg) 24%, transparent) 100%
+    );
+  }
+
+  .content {
+    margin-inline: auto;
+  }
+
+  .screen > [data-auth-state] {
+    --checkpoint-mobile-top: 23rem;
+  }
 }
