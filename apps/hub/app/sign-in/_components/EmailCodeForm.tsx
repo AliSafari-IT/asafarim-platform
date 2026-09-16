@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Alert, Button, FormRow, Input, Label } from "@asafarim/ui";
 import { OtpInput } from "./OtpInput";
+import type { AuthCheckpointState } from "../../_components/AuthCheckpointScene";
 import styles from "./auth.module.css";
 
 /**
@@ -13,7 +14,15 @@ import styles from "./auth.module.css";
  * canonical security gate for the verify step — this component only calls
  * the request API and then signIn("email-code", ...).
  */
-export function EmailCodeForm({ callbackUrl, disabled }: { callbackUrl: string; disabled: boolean }) {
+export function EmailCodeForm({
+  callbackUrl,
+  disabled,
+  onAuthStateChange,
+}: {
+  callbackUrl: string;
+  disabled: boolean;
+  onAuthStateChange?: (state: AuthCheckpointState) => void;
+}) {
   const router = useRouter();
   const [step, setStep] = useState<"request" | "verify">("request");
   const [email, setEmail] = useState("");
@@ -27,12 +36,14 @@ export function EmailCodeForm({ callbackUrl, disabled }: { callbackUrl: string; 
     setCode("");
     setError("");
     setSuccess("");
+    onAuthStateChange?.("idle");
   }
 
   async function handleRequestCode(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    onAuthStateChange?.("checking");
     try {
       const res = await fetch("/api/auth/email-code/request", {
         method: "POST",
@@ -42,12 +53,17 @@ export function EmailCodeForm({ callbackUrl, disabled }: { callbackUrl: string; 
       const data = (await res.json()) as { message?: string; error?: string };
       if (!res.ok) {
         setError(data.error ?? "Failed to send code. Please try again.");
+        onAuthStateChange?.("error");
         return;
       }
-      setSuccess(data.message ?? "Check your email for a 6-character login code.");
+      setSuccess(
+        data.message ?? "Check your email for a 6-character login code."
+      );
       setStep("verify");
+      onAuthStateChange?.("idle");
     } catch {
       setError("Something went wrong. Please try again.");
+      onAuthStateChange?.("error");
     } finally {
       setIsLoading(false);
     }
@@ -57,12 +73,19 @@ export function EmailCodeForm({ callbackUrl, disabled }: { callbackUrl: string; 
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    onAuthStateChange?.("checking");
     try {
-      const result = await signIn("email-code", { email, code, redirect: false });
+      const result = await signIn("email-code", {
+        email,
+        code,
+        redirect: false,
+      });
       if (result?.error) {
         setError("Invalid or expired code. Please try again.");
+        onAuthStateChange?.("error");
         return;
       }
+      onAuthStateChange?.("success");
       if (callbackUrl.startsWith("/")) {
         router.push(callbackUrl);
         router.refresh();
@@ -71,6 +94,7 @@ export function EmailCodeForm({ callbackUrl, disabled }: { callbackUrl: string; 
       }
     } catch {
       setError("Something went wrong. Please try again.");
+      onAuthStateChange?.("error");
     } finally {
       setIsLoading(false);
     }
@@ -93,7 +117,11 @@ export function EmailCodeForm({ callbackUrl, disabled }: { callbackUrl: string; 
             onChange={(e) => setEmail(e.target.value)}
           />
         </FormRow>
-        <Button type="submit" disabled={isDisabled || !email.includes("@")} style={{ width: "100%" }}>
+        <Button
+          type="submit"
+          disabled={isDisabled || !email.includes("@")}
+          style={{ width: "100%" }}
+        >
           {isLoading ? "Sending code…" : "Send login code →"}
         </Button>
       </form>
@@ -107,19 +135,30 @@ export function EmailCodeForm({ callbackUrl, disabled }: { callbackUrl: string; 
 
       <div className={styles.sentTo}>
         <div>
-          <div className="u-mono" style={{ fontSize: "0.7rem", textTransform: "uppercase" }}>
+          <div
+            className="u-mono"
+            style={{ fontSize: "0.7rem", textTransform: "uppercase" }}
+          >
             Code sent to
           </div>
           <div>{email}</div>
         </div>
-        <button type="button" className={styles.linkBtn} onClick={resetToRequest}>
+        <button
+          type="button"
+          className={styles.linkBtn}
+          onClick={resetToRequest}
+        >
           Change
         </button>
       </div>
 
       <form onSubmit={handleVerifyCode}>
         <OtpInput value={code} onChange={setCode} disabled={isDisabled} />
-        <Button type="submit" disabled={isDisabled || code.length !== 6} style={{ width: "100%" }}>
+        <Button
+          type="submit"
+          disabled={isDisabled || code.length !== 6}
+          style={{ width: "100%" }}
+        >
           {isLoading ? "Verifying…" : "Sign in →"}
         </Button>
       </form>
