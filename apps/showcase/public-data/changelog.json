@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-16",
-    "title": "Jobmatch: prompt-injection isolation corpus + ingestion heuristic scanner (JM-044)",
-    "sha": "a59c063",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/a59c063"
+    "title": "Jobmatch: add versioned offline evaluation set (JM-045)",
+    "sha": "742efce",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/742efce"
   }
 ]
