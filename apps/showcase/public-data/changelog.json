@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-16",
-    "title": "Jobmatch: add BullMQ worker skeleton (M5 async matching substrate)",
-    "sha": "5531c26",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5531c26"
+    "title": "Tasks-ai: status and label CRUD + task detail picker (#387)",
+    "sha": "d43c556",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d43c556"
   }
 ]
