@@ -11,8 +11,9 @@ const ISSUE = (n: number) => ({
 
 /**
  * The TasksAI milestone journey. M00–M15 shipped as a stacked PR series
- * (tracking issue #226); the forward column is the "creative & useful
- * copilot" epic #244 and its workstreams.
+ * (tracking issue #226); the "first real workspace" pass (#365–#387)
+ * followed, and the forward column is the "creative & useful copilot"
+ * epic #244 and its workstreams.
  */
 export const roadmapItems: RoadmapItem[] = [
   {
@@ -174,26 +175,100 @@ export const roadmapItems: RoadmapItem[] = [
     links: [PR(225)],
   },
 
-  // ── Forward: the "creative & useful copilot" epic (#244) ──────────
+  // ── Post-M15: the "first real workspace" pass ─────────────────────
+  {
+    id: "#365",
+    title: "Guided workspace home & first-run activation",
+    status: "shipped",
+    timeframe: "Sep 2026",
+    summary:
+      "A real landing surface inside each workspace — projects, due work and the next obvious action — plus a first-run activation flow instead of an empty shell.",
+    tags: ["ux"],
+    links: [ISSUE(365), PR(371)],
+  },
+  {
+    id: "#366",
+    title: "Universal capture & a real Inbox",
+    status: "shipped",
+    timeframe: "Sep 2026",
+    summary:
+      "A Capture action on every workspace page feeding an Inbox that means \"captured, not organized yet\" — a persisted triagedAt, not a filter — with a keyboard-driven triage pass.",
+    tags: ["ux"],
+    links: [ISSUE(366), PR(373)],
+  },
+  {
+    id: "#367",
+    title: "My Work — the daily execution view",
+    status: "shipped",
+    timeframe: "Sep 2026",
+    summary:
+      "Everything assigned to me across projects, grouped Overdue / Today / Blocked / Upcoming / No date, with quick edit and full keyboard control — deliberately not a ranking.",
+    tags: ["ux"],
+    links: [ISSUE(367), PR(375)],
+  },
+  {
+    id: "#368",
+    title: "Copilot as a guided intent-to-plan workflow",
+    status: "shipped",
+    timeframe: "Sep 2026",
+    summary:
+      "The copilot walks four visible steps — source, intended outcome, destination, generate → review → approve — with contextual entry points across Home, Inbox, Projects and Capture.",
+    tags: ["ai"],
+    links: [ISSUE(368), PR(377)],
+  },
+  {
+    id: "#369",
+    title: "Navigation around user jobs + task detail",
+    status: "shipped",
+    timeframe: "Sep 2026",
+    summary:
+      "Workspace navigation reorganized around what you're trying to do, contextual guidance and empty states, the task detail panel grown into a real planning surface, and status & label CRUD with a picker.",
+    tags: ["ux"],
+    links: [ISSUE(369), ISSUE(370), ISSUE(387), PR(381), PR(385), PR(394)],
+  },
+
+  // ── Epic #244 items that have shipped ─────────────────────────────
   {
     id: "#232",
     title: "Grounded context retrieval (RAG) for the copilot",
-    status: "planned",
-    timeframe: "Next",
+    status: "shipped",
+    timeframe: "Sep 2026",
     summary:
-      "Replace the 30-title context stub with authorization-scoped retrieval over real tasks, comments and briefs — Postgres FTS first, pgvector behind a flag. The biggest lever on proposal quality.",
+      "Replaced the 30-title context stub with authorization-scoped retrieval over real tasks, comments and briefs — the biggest lever on proposal quality, landed.",
     tags: ["ai", "epic #244"],
-    links: [ISSUE(232)],
+    links: [ISSUE(232), PR(392)],
   },
+  {
+    id: "#242",
+    title: "Proactive daily brief",
+    status: "shipped",
+    timeframe: "Sep 2026",
+    summary:
+      "The copilot writes a short daily brief — what's due, what's blocked, what changed — into the notification inbox instead of waiting to be asked.",
+    tags: ["ai", "epic #244"],
+    links: [ISSUE(242), PR(396)],
+  },
+
+  // ── Forward: the "creative & useful copilot" epic (#244) ──────────
   {
     id: "#233",
     title: "Richer AI kinds",
     status: "planned",
     timeframe: "Next",
     summary:
-      "Risks & open questions, project brief, and a plain-English “what changed” digest — summary-first, staying inside the M06 operation boundary.",
+      "Risks & open questions, project brief, and a plain-English “what changed” digest — summary-first, staying inside the M06 operation boundary, each gated on green evals.",
     tags: ["ai", "epic #244"],
     links: [ISSUE(233), ISSUE(243)],
+  },
+  {
+    id: "#234",
+    title: "Cross-project duplicate detection",
+    status: "planned",
+    timeframe: "Next",
+    summary:
+      "Surface duplicate and near-duplicate tasks across projects, built on the grounded retrieval that #232 landed.",
+    tags: ["ai", "epic #244"],
+    links: [ISSUE(234)],
   },
   {
     id: "#235",
@@ -202,7 +277,7 @@ export const roadmapItems: RoadmapItem[] = [
     summary:
       "Let the copilot propose labels, a status suggestion, a dependency edge and a due-date suggestion. Still confirm + undo + audit; still never assigns people or writes committed dates.",
     tags: ["ai", "epic #244"],
-    links: [ISSUE(235), ISSUE(234)],
+    links: [ISSUE(235)],
   },
   {
     id: "#236",
@@ -238,6 +313,6 @@ export const roadmapItems: RoadmapItem[] = [
     summary:
       "Wire natural-language queries into real saved views, and add a read-only “ask” mode answered from retrieval with citations.",
     tags: ["ai", "ux", "epic #244"],
-    links: [ISSUE(241), ISSUE(242)],
+    links: [ISSUE(241)],
   },
 ];
