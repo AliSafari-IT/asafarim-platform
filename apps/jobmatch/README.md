@@ -217,6 +217,11 @@ pnpm --filter @asafarim/jobmatch test
 | `JOBMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
 | `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
 | `REDIS_URL` | worker (all environments) | The platform's shared Redis instance (same variable Vionto's and AppBuilder's workers read — not a JobMatch-specific `JOBMATCH_REDIS_URL`). Required to start `worker/index.ts`; see [worker/](#worker) below. |
+| `JOBMATCH_AI_PROVIDER` | none — default `fixture` everywhere | Classification model backend (M5 / JM-005). `openai`/`anthropic` are accepted in staging/production only once `JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF=true` **and** the matching API key is set; otherwise startup refuses, naming the gate variable, never a value. Local dev may flip this freely. |
+| `JOBMATCH_AI_EVAL_PROVIDER` | none — default `fixture` everywhere | Same enum and gate as `JOBMATCH_AI_PROVIDER`, for the eval runner's target. |
+| `JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF` | staging, production (only if a real provider is selected) | JM-005 gate. Flipping this is a config-only change on the epic's checklist — no code edit. |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | staging, production (only if the matching provider is selected) | Shared platform keys (see root `.env.example`). Unused while both AI vars stay `fixture`. |
+| `JOBMATCH_AI_MONTHLY_BUDGET_USD` | none — default `20` | JM-047 monthly spend ceiling in USD. `0` freezes AI spend entirely. |
 
 ## Worker
 

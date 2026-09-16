@@ -31,9 +31,14 @@ loadEnv({ path: path.join(process.cwd(), "../../.env") });
 import { Queue, Worker, type Job } from "bullmq";
 import IORedis from "ioredis";
 import { pingJobMatchDb } from "../lib/db/readiness";
+import { getEnv } from "../lib/env";
 import { log, logError } from "../lib/observability/logger";
 import { buildWorkerHealth } from "./health";
 import { JOB, QUEUE } from "./queues";
+
+// Validates the environment contract (including the JM-005 AI provider
+// gate) and emits the boot-time "env.ai_provider" log line for this process.
+getEnv();
 
 const redisUrl = process.env.REDIS_URL;
 if (!redisUrl) {
