@@ -65,6 +65,10 @@ apps/*/e2e/.auth/
 # review documents
 docs/review/
 
+# billable AI eval report artifacts (evals/run.ts, JM-045) — regenerated
+# per run against a real provider, never committed
+apps/*/evals/reports/
+
 next-env.d.ts
 
 # JobMatch's own Prisma client is generated into the app (see
