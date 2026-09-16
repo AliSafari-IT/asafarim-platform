@@ -92,7 +92,7 @@ function SignUpPageContent() {
       </div>
 
       <div className={styles.stage}>
-        <AuthCheckpointScene state={sceneState} />
+        <AuthCheckpointScene state={sceneState} variant="enroll" />
       </div>
 
       <div className={styles.content}>

@@ -20,6 +20,8 @@
     var(--accent) 10%
   );
   --checkpoint-signal: #4ade80;
+  --checkpoint-car: #38bdf8;
+  --checkpoint-car-glass: #bae6fd;
   --checkpoint-error: #fb7185;
 
   position: relative;
@@ -67,6 +69,25 @@
 
 .hillsNear path {
   fill: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+
+.cityRight rect {
+  fill: color-mix(in srgb, var(--surface-3) 60%, transparent);
+}
+
+.cityWindows path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 35%, transparent);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.treesRight .treeTrunk {
+  fill: color-mix(in srgb, var(--ink) 38%, var(--surface-3));
+}
+
+.treesRight .treeCanopy {
+  fill: color-mix(in srgb, var(--checkpoint-signal) 32%, var(--surface-2));
 }
 
 .roadShadow,
@@ -219,20 +240,39 @@
 }
 
 .carBody {
-  fill: color-mix(in srgb, var(--accent) 78%, var(--surface));
-  stroke: color-mix(in srgb, var(--accent) 58%, var(--ink));
+  fill: color-mix(in srgb, var(--checkpoint-car) 88%, var(--surface));
+  stroke: color-mix(in srgb, var(--checkpoint-car) 55%, var(--ink));
   stroke-width: 2;
 }
 
-.carWindow {
-  fill: color-mix(in srgb, var(--accent-2) 36%, var(--bg));
-  stroke: color-mix(in srgb, var(--ink) 30%, transparent);
+.carGreenhouse {
+  fill: color-mix(in srgb, var(--checkpoint-car-glass) 55%, var(--bg));
+  stroke: color-mix(in srgb, var(--checkpoint-car) 55%, var(--ink));
+  stroke-width: 1.5;
+}
+
+.carPillar,
+.carDoor {
+  fill: none;
+  stroke: color-mix(in srgb, var(--checkpoint-car) 55%, var(--ink));
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.carDoor {
+  stroke: color-mix(in srgb, var(--checkpoint-car) 40%, var(--ink));
+  stroke-width: 1;
+  opacity: 0.6;
 }
 
 .carTrim {
   fill: none;
-  stroke: color-mix(in srgb, var(--ink) 44%, transparent);
+  stroke: color-mix(in srgb, var(--checkpoint-car) 30%, var(--ink));
   stroke-width: 1.5;
+}
+
+.wheelArch {
+  fill: color-mix(in srgb, var(--checkpoint-car) 70%, var(--ink));
 }
 
 .wheel {
@@ -247,6 +287,10 @@
 
 .headlight {
   fill: #fde68a;
+}
+
+.taillight {
+  fill: var(--checkpoint-error);
 }
 
 .credential {
@@ -270,6 +314,17 @@
   stroke: var(--muted);
   stroke-width: 1.3;
   stroke-linecap: round;
+}
+
+.credentialNew {
+  stroke: var(--checkpoint-signal);
+  stroke-width: 2;
+}
+
+/* Enrolment reverses the exchange: rather than the driver presenting a pass
+   for inspection, the booth issues a fresh one and the driver keeps it. */
+.scene[data-variant="enroll"] .credential {
+  animation-name: credential-issue;
 }
 
 /* Live auth state accents are additive; the calm ambient journey keeps its loop. */
@@ -347,6 +402,25 @@
   61% {
     opacity: 1;
     transform: translate(20px, 0) scale(1);
+  }
+}
+
+/* Slides out of the booth slot, over to the car, and stays with the driver. */
+@keyframes credential-issue {
+  0%,
+  46% {
+    opacity: 0;
+    transform: translate(46px, 6px) scale(0.7);
+  }
+  50%,
+  61% {
+    opacity: 1;
+    transform: translate(4px, 0) scale(1);
+  }
+  66%,
+  100% {
+    opacity: 0;
+    transform: translate(-4px, 8px) scale(0.85);
   }
 }
 
@@ -531,6 +605,10 @@
   .credential {
     opacity: 1;
     transform: translate(20px, 0);
+  }
+
+  .scene[data-variant="enroll"] .credential {
+    transform: translate(4px, 0);
   }
 
   .scene[data-auth-state="checking"] .scanLine {
