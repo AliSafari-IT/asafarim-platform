@@ -15,9 +15,9 @@
  * so JobMatch does not get its own Redis instance the way it has its own
  * Postgres.
  *
- * No real matching work happens here. `match.evaluate` (JM-043) is
- * registered as a queue name only in `./queues.ts` — this worker does not
- * attach a processor to it yet.
+ * `match.evaluate` (JM-043) runs the structured LLM evaluation pipeline
+ * (lib/matching/ai/evaluate.ts's `evaluateMatch`) — see
+ * `handleMatchEvaluateJob` below.
  */
 import path from "node:path";
 import { config as loadEnv } from "dotenv";
@@ -33,9 +33,10 @@ import IORedis from "ioredis";
 import { pingJobMatchDb } from "../lib/db/readiness";
 import { getEnv } from "../lib/env";
 import { ensurePostingEmbedding, ensureProfileEmbedding } from "../lib/matching/ai/embeddingCache";
+import { evaluateMatch } from "../lib/matching/ai/evaluate";
 import { log, logError } from "../lib/observability/logger";
 import { buildWorkerHealth } from "./health";
-import { JOB, QUEUE, type EmbeddingComputeJobData } from "./queues";
+import { JOB, QUEUE, type EmbeddingComputeJobData, type MatchEvaluateJobData } from "./queues";
 
 // Validates the environment contract (including the JM-005 AI provider
 // gate) and emits the boot-time "env.ai_provider" log line for this process.
@@ -62,9 +63,9 @@ connection.on("error", (err) => {
 
 const maintenanceQueue = new Queue(QUEUE.maintenance, { connection });
 
-// M5 substrate only: the queue is created so a producer (or JM-043's own
-// worker registration) has somewhere to enqueue into, but no processor is
-// attached. Real matching logic is explicitly out of scope for this issue.
+// JM-043: the real structured-evaluation pipeline consumer. Kept as its own
+// queue/worker pair, like `embedding` above, so a slow LLM evaluation call
+// never delays health pings or embedding jobs.
 const matchEvaluateQueue = new Queue(QUEUE.matchEvaluate, { connection });
 
 async function handleJob(job: Job): Promise<unknown> {
@@ -97,8 +98,8 @@ worker.on("ready", () => log.info("worker.ready"));
 
 // JM-041: a second queue/worker pair for embedding (re)computation, kept
 // separate from `maintenance` so a slow embed() batch never delays health
-// pings, and separate from `match.evaluate` (JM-043's still-unattached
-// stub) so this issue does not accidentally claim that queue's name.
+// pings, and separate from `match.evaluate` (JM-043, below) so a slow
+// embedding batch never delays a queued evaluation or vice versa.
 const embeddingQueue = new Queue(QUEUE.embedding, { connection });
 
 async function handleEmbeddingJob(job: Job<EmbeddingComputeJobData>): Promise<unknown> {
@@ -126,6 +127,35 @@ embeddingWorker.on("failed", (job, err) => {
 
 embeddingWorker.on("ready", () => log.info("worker.embedding_ready"));
 
+// JM-043: match.evaluate consumer. evaluateMatch() itself never throws for
+// budget exhaustion or provider-call exhaustion (both degrade internally
+// and return a MatchResult) -- only a genuine schema-guard failure or a
+// not-found profile version/posting escapes as an exception, which BullMQ
+// records as a failed job (visible via the `failed` handler below) rather
+// than silently disappearing.
+async function handleMatchEvaluateJob(job: Job<MatchEvaluateJobData>): Promise<unknown> {
+  const { workspaceId, profileVersionId, postingId } = job.data;
+  const result = await evaluateMatch(workspaceId, profileVersionId, postingId);
+  log.info("worker.match_evaluate_completed", {
+    workspaceId,
+    postingId,
+    degraded: result.degraded,
+    suitabilityScore: result.suitabilityScore,
+  });
+  return result;
+}
+
+const matchEvaluateWorker = new Worker(QUEUE.matchEvaluate, handleMatchEvaluateJob, {
+  connection,
+  concurrency: 2,
+});
+
+matchEvaluateWorker.on("failed", (job, err) => {
+  logError("worker.match_evaluate_job_failed", err, { jobId: job?.id });
+});
+
+matchEvaluateWorker.on("ready", () => log.info("worker.match_evaluate_ready"));
+
 // Heartbeat: enqueue a health-ping every 60s so the worker's own liveness
 // (and its view of Redis + the dedicated DB) is observable in logs, mirrors
 // apps/tasks-ai/worker/index.ts.
@@ -141,6 +171,7 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(heartbeat);
   await worker.close();
   await embeddingWorker.close();
+  await matchEvaluateWorker.close();
   await maintenanceQueue.close();
   await matchEvaluateQueue.close();
   await embeddingQueue.close();
