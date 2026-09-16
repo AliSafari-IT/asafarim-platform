@@ -715,3 +715,65 @@ model MatchEmbedding {
   @@index([workspaceId, kind])
   @@map("match_embeddings")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// M5 — model/prompt/budget controls & honest degraded mode (JM-047)
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Append-only spend ledger for JobMatch's two provider-call types. Mirrors
+/// apps/tasks-ai/lib/ai/quota.ts's AiUsageLedger (see that schema's own
+/// AiUsageLedger model), adapted to JobMatch's isolated schema. Loose
+/// workspaceId, no FK -- same convention as MatchEmbedding above: a
+/// posting-embed call's workspaceId is GLOBAL_EMBEDDING_WORKSPACE_ID
+/// (lib/matching/ai/embeddingCache.ts), which is not a real Workspace row,
+/// so a foreign key here would reject exactly the row that cache produces.
+model AiUsageLedger {
+  id          String   @id @default(cuid())
+  workspaceId String
+  /// "embed" | "evaluate" -- JobMatch has two provider-call types, unlike
+  /// tasks-ai's single "AI job" concept. See lib/matching/ai/quota.ts.
+  kind        String
+  provider    String
+  model       String
+  /// Only meaningful for kind = "evaluate" (an embed call has no prompt).
+  promptVersion String?
+  inputTokens Int      @default(0)
+  outputTokens Int     @default(0)
+  costUsd     Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("ai_usage_ledger")
+}
+
+/// One evaluation of one (profile version, posting) pair -- JM-047's cache
+/// and cost-reconciliation unit. `result` is the full serialized
+/// `MatchResult` (lib/matching/contract.ts's matchResultSchema), so a cache
+/// hit needs no re-evaluation and the spend view (JM-009 KPI) can report
+/// cost-per-evaluation and degraded-run ratio without re-deriving anything.
+/// The unique key below is the literal cache lookup: `getCachedMatchRun`
+/// (lib/matching/ai/matchRunCache.ts) is a single indexed read against it.
+model MatchRun {
+  id                     String   @id @default(cuid())
+  workspaceId            String
+  profileVersionId       String
+  postingId              String
+  promptVersion          String
+  evaluationModelVersion String
+  costUsd                Float    @default(0)
+  /// Mirrors MatchResult.degraded -- true when this row was produced by
+  /// buildDegradedMatchResult (no provider / retries exhausted / budget
+  /// out), never a fabricated score.
+  degraded               Boolean  @default(false)
+  /// Serialized MatchResult -- Json, following AutomationRule.trigger /
+  /// SavedView.config's precedent elsewhere in this codebase for storing a
+  /// schema-validated structured value rather than flattening it into
+  /// columns.
+  result                 Json
+  createdAt              DateTime @default(now())
+
+  @@unique([workspaceId, profileVersionId, postingId, promptVersion, evaluationModelVersion])
+  @@index([workspaceId, createdAt])
+  @@index([profileVersionId])
+  @@map("match_run")
+}

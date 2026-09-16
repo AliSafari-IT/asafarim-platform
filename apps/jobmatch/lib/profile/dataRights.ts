@@ -172,6 +172,9 @@ export interface ErasureResult {
   /** Cached profile vector embeddings removed (JM-041). Derived data — see
    *  lib/matching/ai/embeddingCache.ts's deleteProfileEmbeddings. */
   embeddingsDeleted: number;
+  /** Cached MatchRun rows removed (JM-047). Derived evaluation data keyed to
+   *  this workspace's own profile versions — see the note below. */
+  matchRunsDeleted: number;
 }
 
 /**
@@ -222,6 +225,7 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
   });
 
   let embeddingsDeleted = 0;
+  let matchRunsDeleted = 0;
   const feedbackDeleted = await db.$transaction(async (tx) => {
     if (profile) {
       // Derived data goes before the row it derives from: a profile
@@ -232,6 +236,22 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
       // lib/matching/ai/embeddingCache.ts) but would leave a window where
       // the row is gone and a derived vector of it still is not.
       embeddingsDeleted = await deleteProfileEmbeddings(tx, workspaceId);
+
+      // MatchRun rows (JM-047) key to this workspace's own profile versions
+      // (profileVersionId) — they are candidate-specific derived evaluation
+      // data in exactly the same sense as an embedding, so they are erased
+      // here too, before the versions they reference are deleted below.
+      // AiUsageLedger is deliberately left untouched: it is a workspace-level
+      // spend ledger (kind/provider/model/cost only — no CV content, no
+      // profileVersionId, no postingId), the same category as AuditEvent,
+      // which this function already keeps for the same reason (see the
+      // module doc comment above). Scrubbing spend history on erasure would
+      // also break JM-009's cost-per-evaluation reconciliation for the
+      // workspace's remaining history, for no privacy benefit — deleting a
+      // ledger row containing only "$0.002, fixture, evaluate" protects
+      // nothing.
+      const { count } = await tx.matchRun.deleteMany({ where: { workspaceId } });
+      matchRunsDeleted = count;
 
       // The confirmed pointer is cleared first: it references a version row,
       // and deleting versions out from under it would violate the FK.
@@ -270,5 +290,6 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     objectsFailed,
     feedbackDeleted,
     embeddingsDeleted,
+    matchRunsDeleted,
   };
 }
