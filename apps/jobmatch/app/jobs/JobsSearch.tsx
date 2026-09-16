@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Badge, Button, Card } from "@asafarim/ui";
 import type { SearchResult, SearchResultItem } from "../../lib/search/service";
+import type { MatchResult } from "../../lib/matching/contract";
+import type { CandidateProfileContent } from "../../lib/profile/contract";
 import { FeedbackForm } from "../components/FeedbackForm";
+import { MatchPanel } from "../components/MatchPanel";
 
 /**
  * The candidate search screen (JM-035).
@@ -48,6 +51,32 @@ function ResultCard({
   const salary = formatSalary(item);
   const [status, setStatus] = useState<TrackedJobStatus | null>(initialStatus);
   const [pending, setPending] = useState(false);
+  const [matchState, setMatchState] = useState<"idle" | "loading" | "error" | "loaded">("idle");
+  const [match, setMatch] = useState<{
+    result: MatchResult;
+    profileVersionId: string;
+    profile: CandidateProfileContent;
+  } | null>(null);
+
+  const loadMatch = useCallback(async () => {
+    setMatchState("loading");
+    try {
+      const response = await fetch(`/api/jobs/${item.id}/match`);
+      if (!response.ok) {
+        setMatchState("error");
+        return;
+      }
+      const body = (await response.json()) as {
+        result: MatchResult;
+        profileVersionId: string;
+        profile: CandidateProfileContent;
+      };
+      setMatch(body);
+      setMatchState("loaded");
+    } catch {
+      setMatchState("error");
+    }
+  }, [item.id]);
 
   // A new search response can carry the same job with tracking state that
   // changed since it was last rendered (e.g. tracked from another tab, or
@@ -152,7 +181,31 @@ function ResultCard({
           jobPostingId={item.id}
           eligibilityReasonCodes={item.eligibility?.reasons.map((reason) => reason.code) ?? []}
         />
+        {matchState === "idle" || matchState === "error" ? (
+          <Button variant="secondary" size="sm" onClick={() => void loadMatch()} disabled={matchState !== "idle" && matchState !== "error"}>
+            {matchState === "error" ? "Try again" : "Show match details"}
+          </Button>
+        ) : matchState === "loading" ? (
+          <span className="jm-mono" style={{ fontSize: "0.8rem", opacity: 0.7 }} aria-live="polite">
+            Evaluating match…
+          </span>
+        ) : null}
       </div>
+
+      {matchState === "error" ? (
+        <p className="jm-mono" style={{ fontSize: "0.75rem", color: "var(--ui-danger, #b00020)", marginTop: "0.4rem" }}>
+          Could not load match details. Try again.
+        </p>
+      ) : null}
+
+      {matchState === "loaded" && match ? (
+        <MatchPanel
+          result={match.result}
+          profile={match.profile}
+          jobPostingId={item.id}
+          profileVersionId={match.profileVersionId}
+        />
+      ) : null}
     </Card>
   );
 }

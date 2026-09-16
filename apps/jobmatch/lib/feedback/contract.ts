@@ -59,20 +59,26 @@ export const FEEDBACK_REASON_CODES = [
   /** Nothing above fits — the job just isn't relevant to this candidate,
    *  for reasons no rule or field captures. */
   "NOT_RELEVANT",
+  /** A specific `MatchEvidence` row in JM-048's evidence-linked explanation
+   *  panel misreads the candidate's profile, misstates the posting
+   *  requirement, or draws a connection between them that doesn't hold —
+   *  pair with `relatedProfileField` / `relatedPostingRequirement` so the
+   *  report is traceable to the exact row, not just the posting. */
+  "INCORRECT_MATCH_EVIDENCE",
   "OTHER",
 ] as const;
 
 export const feedbackReasonCodeSchema = z.enum(FEEDBACK_REASON_CODES);
 export type FeedbackReasonCode = (typeof FEEDBACK_REASON_CODES)[number];
 
-export type FeedbackTarget = "profile" | "source" | "rule" | "other";
+export type FeedbackTarget = "profile" | "source" | "rule" | "match" | "other";
 
 /** Which area owns a fix for each reason code — the routing table feedback
  *  exists to produce (JM-059: "connect feedback to profile, source, rule,
- *  or model improvements"). No reason code maps to "model" yet, because no
- *  model-produced score exists to dispute until M5's live evaluation ships;
- *  this table is where that mapping gets added when it does, not a reason
- *  to invent a placeholder category now. */
+ *  or model improvements"). `INCORRECT_MATCH_EVIDENCE` (JM-048) is the
+ *  first reason code that maps to "match": it disputes a specific
+ *  `MatchEvidence` row from M5's live evaluation, not the profile, the
+ *  source posting, or an M4 eligibility rule. */
 export const FEEDBACK_TARGET: Record<FeedbackReasonCode, FeedbackTarget> = {
   PROFILE_SKILL_MISSING: "profile",
   PROFILE_DATA_INCORRECT: "profile",
@@ -81,6 +87,7 @@ export const FEEDBACK_TARGET: Record<FeedbackReasonCode, FeedbackTarget> = {
   RULE_WRONGLY_EXCLUDED: "rule",
   RULE_WRONGLY_INCLUDED: "rule",
   NOT_RELEVANT: "other",
+  INCORRECT_MATCH_EVIDENCE: "match",
   OTHER: "other",
 };
 
@@ -100,6 +107,16 @@ export const feedbackSubmissionSchema = z
      *  since that is the only case where a specific fired rule exists to
      *  name. */
     relatedEligibilityReasonCode: z.string().trim().min(1).max(64).nullable().optional(),
+    /** Which confirmed profile version the disputed `MatchEvidence` row was
+     *  resolved against — required exactly when `reasonCode` is
+     *  `INCORRECT_MATCH_EVIDENCE`, so the report stays traceable to the
+     *  fact the candidate actually saw even if they edit their profile
+     *  afterwards. */
+    relatedProfileVersionId: z.string().trim().min(1).max(64).nullable().optional(),
+    /** The `MatchEvidence.profileField` reference the report is about. */
+    relatedProfileField: z.string().trim().min(1).max(120).nullable().optional(),
+    /** The `MatchEvidence.postingRequirement` the report is about. */
+    relatedPostingRequirement: z.string().trim().min(1).max(400).nullable().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.reasonCode === "RULE_WRONGLY_EXCLUDED") {
@@ -122,6 +139,27 @@ export const feedbackSubmissionSchema = z
         code: "custom",
         message: "relatedEligibilityReasonCode is only meaningful for RULE_WRONGLY_EXCLUDED feedback.",
         path: ["relatedEligibilityReasonCode"],
+      });
+    }
+
+    if (value.reasonCode === "INCORRECT_MATCH_EVIDENCE") {
+      if (!value.relatedProfileField || !value.relatedPostingRequirement) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "INCORRECT_MATCH_EVIDENCE feedback must name the disputed evidence row (relatedProfileField and relatedPostingRequirement).",
+          path: ["relatedProfileField"],
+        });
+      }
+    } else if (
+      value.relatedProfileField !== undefined ||
+      value.relatedPostingRequirement !== undefined ||
+      value.relatedProfileVersionId !== undefined
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "The match-evidence fields are only meaningful for INCORRECT_MATCH_EVIDENCE feedback.",
+        path: ["relatedProfileField"],
       });
     }
   });
