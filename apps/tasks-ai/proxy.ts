@@ -17,6 +17,7 @@ const authProxy = createAuthProxy({
     "/",
     "/privacy",
     "/terms",
+    "/roadmap", // public product direction, no session required
     "/robots.txt",
     "/api/health",
     "/api/auth",
