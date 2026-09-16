@@ -1,8 +1,1 @@
-[
-  {
-    "date": "2026-09-15",
-    "title": "Deploy: build images in GitHub Actions, publish to GHCR, VPS only pulls",
-    "sha": "7396c20",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/7396c20"
-  }
-]
+[]
