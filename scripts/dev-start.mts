@@ -404,10 +404,14 @@ async function main(): Promise<void> {
   console.log("Starting dev servers...");
   const require = createRequire(import.meta.url);
   const turboCli = require.resolve("turbo/bin/turbo");
-  const turbo = spawn(process.execPath, [turboCli, "dev", "@asafarim/appbuilder#worker:dev"], {
-    stdio: "inherit",
-    shell: false,
-  });
+  const turbo = spawn(
+    process.execPath,
+    [turboCli, "dev", "@asafarim/appbuilder#worker:dev", "@asafarim/jobmatch#worker:dev"],
+    {
+      stdio: "inherit",
+      shell: false,
+    },
+  );
   let shuttingDown = false;
   let forceExitTimer: NodeJS.Timeout | undefined;
 

@@ -216,6 +216,20 @@ pnpm --filter @asafarim/jobmatch test
 | `JOBMATCH_INGESTION_TOKEN` | production | Bearer token for `POST /api/ingestion/sync`, which runs ingestion, re-assesses freshness and prunes expired snapshots. Unset disables the route entirely (404). Drive it from a scheduler. Holding it does not authorise fetching from a source whose agreement is missing or expired — that is checked per source. |
 | `JOBMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
 | `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
+| `REDIS_URL` | worker (all environments) | The platform's shared Redis instance (same variable Vionto's and AppBuilder's workers read — not a JobMatch-specific `JOBMATCH_REDIS_URL`). Required to start `worker/index.ts`; see [worker/](#worker) below. |
+
+## Worker
+
+`apps/jobmatch/worker/` is a standalone BullMQ process (issue #246), mirroring `apps/tasks-ai/worker/`. It is the durable substrate JM-041/JM-043 build the real async matching pipeline on — this milestone ships no matching logic, only the queue/health/shutdown scaffolding.
+
+```bash
+pnpm --filter @asafarim/jobmatch worker:dev    # tsx watch, picked up by `pnpm dev` via turbo
+pnpm --filter @asafarim/jobmatch worker:start  # production entrypoint
+```
+
+- `jobmatch.maintenance` queue: a `health-ping` job (60s heartbeat, logs Redis + database liveness) and a `noop` job that proves the enqueue → process → complete loop.
+- `jobmatch.match.evaluate` queue: registered as a name only in `worker/queues.ts`. No processor is attached yet — JM-043 fills it in.
+- Uses the same isolated Prisma client (`lib/db/generated`) and redacting logger (`lib/observability/logger.ts`) as the Next.js app.
 
 Production additionally needs `JOBMATCH_DB_PASSWORD` and its URL-encoded
 form `JOBMATCH_DB_PASSWORD_URL` in `.env.production`, following the same
