@@ -27,14 +27,26 @@ ssh "${SERVER_USER}@${SERVER_HOST}" << EOF
 
   echo "Fetching latest code..."
   git fetch --prune origin "${BRANCH}"
-  git reset --hard "origin/${BRANCH}"
 
   # Images for this commit must already have been published by deploy.yml.
   # Manual deployments use the VPS's existing GHCR login session (created via
   # "docker login ghcr.io" — backticks avoided here on purpose: this text
   # sits inside an unquoted <<EOF heredoc, so bash performs command
   # substitution on backticks even inside a "#" comment).
-  export IMAGE_TAG="\$(git rev-parse HEAD)"
+  #
+  # Does not reset the tracked working tree here, and does not open the
+  # tracked infra/scripts/vps-deploy.sh directly — see that script and
+  # .github/workflows/deploy.yml for why: the reset and the script file it
+  # opens both need to happen inside vps-deploy.sh's own flock lock, or an
+  # overlapping deploy can rewrite the shared checkout out from under one
+  # already in flight, and a script that rewrites itself mid-execution via
+  # its own git reset silently finishes running whatever was on disk before
+  # it started. Reading the target script straight out of the object
+  # database into an untracked, uniquely-named copy sidesteps both.
+  export IMAGE_TAG="\$(git rev-parse "origin/${BRANCH}")"
   export BRANCH="${BRANCH}"
-  bash infra/scripts/vps-deploy.sh
+  BOOTSTRAP="infra/scripts/.vps-deploy.\${IMAGE_TAG}.sh"
+  trap 'rm -f "\$BOOTSTRAP"' EXIT
+  git show "\${IMAGE_TAG}:infra/scripts/vps-deploy.sh" > "\$BOOTSTRAP"
+  bash "\$BOOTSTRAP"
 EOF

@@ -82,3 +82,9 @@ apps/tasks-ai/lib/db/generated/
 # each other. It's local machine state, never repo content.
 /.vps-deploy.lock
 /.deploy/
+
+# Untracked, per-commit copy of vps-deploy.sh that deploy.yml/deploy-prod.sh
+# extract via `git show <ref>:path` and run directly, so opening it can never
+# race the tracked file it's a snapshot of (see infra/scripts/deploy-prod.sh).
+# Self-removed on exit; ignored here only as a safety net against a crash.
+/infra/scripts/.vps-deploy.*.sh
