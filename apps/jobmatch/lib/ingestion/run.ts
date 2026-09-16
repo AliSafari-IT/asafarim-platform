@@ -1,6 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { getJobmatchDb } from "../db/client";
+import { GLOBAL_EMBEDDING_WORKSPACE_ID } from "../matching/ai/embeddingCache";
+import { enqueueEmbeddingCompute } from "../matching/ai/embeddingQueue";
 import { log, logError } from "../observability/logger";
 import { authorizeSource } from "./authorization";
 import { chooseRepresentative, findDuplicate } from "./dedupe";
@@ -354,6 +356,18 @@ export async function runSync(
 
       if (verdict.isDuplicate) duplicatesFound += 1;
       else recordsAdded += 1;
+
+      // JM-041: only a posting that is actually displayed (the
+      // representative of its group, not a hidden duplicate) needs an
+      // embedding — matching never reads a DUPLICATE row. Async, off the
+      // ingestion path, same posture as the profile-confirm trigger.
+      if (!(verdict.isDuplicate && !incomingWins)) {
+        void enqueueEmbeddingCompute({
+          kind: "posting",
+          workspaceId: GLOBAL_EMBEDDING_WORKSPACE_ID,
+          sourceId: created.id,
+        });
+      }
     } catch (error) {
       logError("ingestion.posting.failed", error, { sourceKey: source.key });
     }
