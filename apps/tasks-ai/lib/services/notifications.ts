@@ -5,7 +5,7 @@ import { OUTBOX_TYPE } from "../events/names";
 
 export interface NotifySpec {
   recipientId: string;
-  kind: "mention" | "assigned" | "comment" | "watched_change" | "invite_accepted";
+  kind: "mention" | "assigned" | "comment" | "watched_change" | "invite_accepted" | "daily_brief";
   taskId?: string;
   actorId?: string;
   data?: Record<string, unknown>;
@@ -99,6 +99,8 @@ export async function getPreferences(ctx: RequestContext) {
       mentionEmail: true,
       assignmentEmail: true,
       quietHours: null,
+      briefDelivery: false,
+      timezone: "UTC",
     }
   );
 }

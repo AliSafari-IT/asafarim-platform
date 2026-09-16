@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-16",
-    "title": "Admin: redesign favicon to match console theme and terminal motif",
-    "sha": "db70483",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/db70483"
+    "title": "Jobmatch: structured LLM evaluation pipeline (JM-043)",
+    "sha": "eb978bd",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/eb978bd"
   }
 ]
