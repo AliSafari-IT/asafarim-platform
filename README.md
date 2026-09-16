@@ -91,7 +91,7 @@ isolated database — a static, typed experiment registry only.
 | [`apps/showcase`](apps/showcase/README.md)  | Public demos and case studies  | 3002     | showcase.asafarim.com   | Public                      |
 | [`apps/admin`](apps/admin/README.md)     | Internal admin panel           | 3003     | admin.asafarim.com     | admin / superadmin role     |
 | [`apps/vionto`](apps/vionto/README.md)    | AI photo-to-story video app    | 3004     | vionto.asafarim.com    | Login for projects/rendering (see [docs/vionto-architecture.md](docs/vionto-architecture.md)) |
-| [`apps/testora`](apps/testora/README.md)   | E2E test orchestration and runner | 3005  | testora.asafarim.com   | Login (shared SSO) |
+| [`apps/testora`](apps/testora/README.md)   | E2E test automation (requirements, suites, TestCafe runs) | 3005  | testora.asafarim.com   | Login (shared SSO) |
 | [`apps/appbuilder`](apps/appbuilder/README.md) | Metadata-driven AI application factory | 3006 | appbuilder.asafarim.com | Login (shared SSO); per-app owner/editor/viewer capabilities |
 | [`apps/edumatch`](apps/edumatch/README.md) | AI learning support and tutor marketplace | 3009 | edumatch.asafarim.com | Public landing; login for student, tutor, and admin workspaces |
 | [`apps/timelineai`](apps/timelineai/README.md) | Visual timeline creator (8 layouts, export, moderation, optional AI copilot) | 3010 | tlai.asafarim.com | Public gallery; login for dashboard/self-publish; guests can create/submit |
@@ -119,6 +119,8 @@ asset, and deferral records are kept in `docs/migration-notes.md`.
 | `packages/seed-manager` | Typed, allowlisted seed-data providers shared by the Admin Console and CLI seed scripts |
 | `packages/storage` | Shared S3-compatible object storage utilities (DigitalOcean Spaces) |
 | `packages/theme-toggle` | Shared light/dark theme toggle — provider, no-flash script, and toggle button |
+| `packages/testora-tasksai-contract` | Versioned cross-app contract between Testora and TasksAI (artifact-bundle, provision, webhook-event, green-light schemas, HMAC signing) — no framework/DB/AI dependency |
+| `packages/activity` | Cross-app user-activity adapters for the superadmin User 360 explorer |
 
 ## Getting started
 
