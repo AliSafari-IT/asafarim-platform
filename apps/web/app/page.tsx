@@ -8,6 +8,7 @@ import {
 } from "@asafarim/shared-i18n/server";
 import webDictionaries from "../lib/i18n-dictionaries";
 import { HomeEffects } from "./_home/HomeEffects";
+import { AiBackdrop } from "./_home/AiBackdrop";
 import { NewsletterSignup } from "./_home/NewsletterSignup";
 import {
   ArrowUpRight,
@@ -122,6 +123,7 @@ export default async function HomePage() {
 
       {/* ── Hero ─────────────────────────────────────────────── */}
       <section id="top" className={styles.hero}>
+        <AiBackdrop />
         <div className={styles.blob + " " + styles.blob1} data-parallax="0.15" />
         <div className={styles.blob + " " + styles.blob2} data-parallax="-0.1" />
         <div className={styles.blob + " " + styles.blob3} data-parallax="0.05" />
