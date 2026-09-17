@@ -152,4 +152,59 @@ describe("guardDraft", () => {
       guardDraft(sourced("task:invented"), 50, { retrievedIds: new Set(["task:abc123"]) }),
     ).not.toThrow();
   });
+
+  // ── dedup candidate-ref links (issue #234) ──────────────────────────────
+
+  const dedupLink = (toRef: string) => ({
+    summary: "possible duplicate",
+    operations: [
+      {
+        op: "link_tasks",
+        fromRef: TARGET_TASK_REF,
+        toRef,
+        kind: "duplicates",
+        confidence: 0.8,
+        citations: [{ span: null, assumption: false, source: toRef }],
+      },
+    ],
+    openQuestions: [],
+  });
+
+  it("accepts a duplicates link from the target task to a retrieved candidate", () => {
+    const r = guardDraft(dedupLink("task:cand1"), 50, {
+      hasTargetTask: true,
+      retrievedIds: new Set(["task:cand1"]),
+    });
+    expect(r.operationCount).toBe(1);
+    expect(r.groundedRatio).toBe(1);
+  });
+
+  it("rejects a link to a candidate id retrieval never returned — the isolation boundary", () => {
+    // Stands in for a task from another project/workspace that should never
+    // have reached the prompt: even if the model names it (hallucinated, or
+    // a future retrieval regression), it must never resolve to a real link.
+    expect(() =>
+      guardDraft(dedupLink("task:leaked-other-workspace"), 50, {
+        hasTargetTask: true,
+        retrievedIds: new Set(["task:cand1"]),
+      }),
+    ).toThrow(/unknown ref/);
+  });
+
+  it("rejects a candidate-shaped ref with no retrievedIds at all", () => {
+    expect(() => guardDraft(dedupLink("task:cand1"), 50, { hasTargetTask: true })).toThrow(
+      /unknown ref/,
+    );
+  });
+
+  it("refuses a create_task op claiming a ref in the reserved candidate namespace", () => {
+    const bad = {
+      summary: "x",
+      operations: [
+        { op: "create_task", ref: "task:sneaky", fields: { title: "A" }, confidence: 0.5, citations: [] },
+      ],
+      openQuestions: [],
+    };
+    expect(() => guardDraft(bad, 50)).toThrow(/reserved candidate-ref namespace/);
+  });
 });

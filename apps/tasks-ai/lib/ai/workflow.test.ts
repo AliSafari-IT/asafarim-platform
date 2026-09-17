@@ -111,6 +111,7 @@ describe("intents", () => {
       "risks_open_questions",
       "project_brief",
       "changed_digest",
+      "dedup",
     ]);
   });
 

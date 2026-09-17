@@ -1,5 +1,6 @@
 import {
   TARGET_TASK_REF,
+  isCandidateRef,
   operationSchema,
   proposalDraftSchema,
   type Operation,
@@ -77,15 +78,25 @@ export function guardDraft(
   for (const op of draft.operations) {
     if (op.op === "create_task") {
       if (op.ref === TARGET_TASK_REF) reasons.push(`${TARGET_TASK_REF} is reserved and cannot be created`);
+      if (isCandidateRef(op.ref)) reasons.push(`ref ${op.ref} is in the reserved candidate-ref namespace`);
       if (refs.has(op.ref)) reasons.push(`duplicate ref ${op.ref}`);
       refs.add(op.ref);
     }
   }
+  // A retrieved candidate (issue #234, e.g. a dedup match) resolves without
+  // being in `refs` — it is a real, already-existing task, not one this
+  // proposal creates — but only when retrieval actually returned it. A
+  // candidate ref outside that set is exactly the cross-workspace/leaked-id
+  // shape guardDraft already refuses to trust for citations; the same
+  // distrust applies here, or a hallucinated id could smuggle an
+  // unauthorized link past the ref-uniqueness check below.
+  const retrievedIds = options.retrievedIds ?? new Set<string>();
+  const resolvesToTask = (ref: string) => refs.has(ref) || (isCandidateRef(ref) && retrievedIds.has(ref));
   for (const op of draft.operations) {
     if (op.op === "create_task" && op.fields.parentRef && !refs.has(op.fields.parentRef)) {
       reasons.push(`parentRef ${op.fields.parentRef} has no matching create_task`);
     }
-    if (op.op === "link_tasks" && (!refs.has(op.fromRef) || !refs.has(op.toRef))) {
+    if (op.op === "link_tasks" && (!resolvesToTask(op.fromRef) || !resolvesToTask(op.toRef))) {
       reasons.push(`link references an unknown ref`);
     }
     if (op.op === "update_task") {
@@ -102,7 +113,6 @@ export function guardDraft(
 
   if (reasons.length) throw new GuardError(reasons);
 
-  const retrievedIds = options.retrievedIds ?? new Set<string>();
   const facts = draft.operations.flatMap((o: Operation) => o.citations);
   const grounded = facts.filter(
     (c) =>

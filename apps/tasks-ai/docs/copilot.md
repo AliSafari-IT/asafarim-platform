@@ -16,8 +16,9 @@ in **`lib/ai/workflow.ts`** (framework-free, unit-tested in
 2. **Intended outcome** — the intents in plain language (`COPILOT_INTENTS`):
    turn notes into a project plan / break a task into concrete steps / draft
    acceptance criteria / summarize a discussion / surface risks and open
-   questions / write a project brief / summarize what changed (issue #233).
-   Intents map 1:1 to AI kinds via `kindForIntent()`.
+   questions / write a project brief / summarize what changed (issue #233) /
+   check an existing task for duplicates elsewhere in the workspace (issue
+   #234). Intents map 1:1 to AI kinds via `kindForIntent()`.
 3. **Destination** — `destinationState()`. A workspace with no projects never
    gets a mysteriously disabled button: a member is offered an inline
    "create a project" form (a normal user action, *not* part of any

@@ -25,6 +25,11 @@ export const AI_KINDS = [
   "risks_open_questions",
   "project_brief",
   "changed_digest",
+  // Cross-project duplicate detection (issue #234): still only a
+  // link_tasks(kind=duplicates) op — no new operation type — but its "to"
+  // endpoint is an existing task outside the proposal, found via retrieval,
+  // rather than one this proposal created. See CANDIDATE_REF_PREFIX.
+  "dedup",
 ] as const;
 export type AiKind = (typeof AI_KINDS)[number];
 
@@ -38,6 +43,21 @@ export type AiKind = (typeof AI_KINDS)[number];
  * (PR #377 review).
  */
 export const TARGET_TASK_REF = "__target_task__";
+
+/**
+ * A second class of ref, distinct from TARGET_TASK_REF: an existing task
+ * found via retrieval (issue #234, e.g. a `dedup` candidate) rather than the
+ * one task a draft was opened from. `"task:<id>"` reuses the exact id shape
+ * `retrieveContext()`/citations already use, so the same retrieved-id set
+ * that grounds a citation also authorizes a link_tasks endpoint — a ref
+ * naming a task the retrieval step never returned is not a link target, the
+ * same way a citation.source outside that set is not evidence (guard.ts).
+ * Reserved: a create_task op may not claim a ref in this namespace.
+ */
+export const CANDIDATE_REF_PREFIX = "task:";
+export function isCandidateRef(ref: string): boolean {
+  return ref.startsWith(CANDIDATE_REF_PREFIX);
+}
 
 /** Operations AI may propose. NOTHING else is representable. */
 export const OP_TYPES = ["create_task", "update_task", "link_tasks"] as const;

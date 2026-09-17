@@ -73,6 +73,44 @@ export class FixtureProvider implements AiProvider {
           : [],
         openQuestions,
       };
+    } else if (call.kind === "dedup") {
+      // Compare the target task's own text (everything before the retrieved
+      // block) against each [RELATED task:...] candidate retrieval actually
+      // found. Only task candidates are linkable — a comment or project
+      // brief snippet is grounding context, never a duplicate endpoint.
+      const relatedMarker = "[RELATED ";
+      const markerIdx = input.indexOf(relatedMarker);
+      const taskText = (markerIdx === -1 ? input : input.slice(0, markerIdx)).trim();
+      const candidates = parseRelated(input).filter((c) => c.id.startsWith("task:"));
+      const matches = candidates
+        .map((c) => ({ ...c, score: wordOverlap(taskText, `${c.title} ${c.body}`) }))
+        .filter((c) => c.score >= DUPLICATE_THRESHOLD)
+        .sort((a, b) => b.score - a.score);
+      draft = call.targetsExistingTask
+        ? {
+            summary: matches.length
+              ? `[fixture] dedup: ${matches.length} possible duplicate(s) found`
+              : "[fixture] dedup: no likely duplicates found",
+            operations: matches.map((m) => ({
+              op: "link_tasks" as const,
+              fromRef: TARGET_TASK_REF,
+              toRef: m.id,
+              kind: "duplicates" as const,
+              confidence: Math.min(0.95, m.score),
+              citations: [
+                { span: null, assumption: false, source: m.id, quote: m.title.slice(0, 200) },
+              ],
+            })),
+            openQuestions:
+              !matches.length && candidates.length
+                ? ["No candidate cleared the duplicate threshold — review the closest matches manually."]
+                : [],
+          }
+        : {
+            summary: "[fixture] dedup: no target task to compare against",
+            operations: [],
+            openQuestions: ["No existing task was given, so nothing could be checked for duplicates."],
+          };
     } else if (call.kind === "test_diagnosis") {
       // One deterministic triage task. The first candidate line is the
       // scenario title; a keyword scan of the whole bundle picks a class.
@@ -200,4 +238,32 @@ function candidateLines(input: string): string[] {
 function spanOf(input: string, line: string): [number, number] | null {
   const idx = input.indexOf(line);
   return idx >= 0 ? [idx, idx + line.length] : null;
+}
+
+/** Below this normalized word-overlap score, a candidate is not a duplicate. */
+const DUPLICATE_THRESHOLD = 0.5;
+
+/** Parses the `[RELATED <id>] <title>\n<body>` blocks renderRetrievedBlock
+ *  (prompts.ts) writes into the fenced input, back into structured entries. */
+function parseRelated(input: string): { id: string; title: string; body: string }[] {
+  const marker = "[RELATED ";
+  if (!input.includes(marker)) return [];
+  const block = input.slice(input.indexOf(marker));
+  return block
+    .split(/\n\n(?=\[RELATED )/)
+    .map((entry) => entry.match(/^\[RELATED ([^\]]+)\] ([^\n]*)\n?([\s\S]*)$/))
+    .filter((m): m is RegExpMatchArray => m !== null)
+    .map((m) => ({ id: m[1], title: m[2], body: (m[3] ?? "").trim() }));
+}
+
+/** Normalized word-overlap in [0,1] — same shape as diff.ts's intra-proposal
+ *  `similar()`, kept separate so the fixture provider stays self-contained. */
+function wordOverlap(a: string, b: string): number {
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  const sa = new Set(norm(a).split(" ").filter(Boolean));
+  const sb = new Set(norm(b).split(" ").filter(Boolean));
+  if (!sa.size || !sb.size) return 0;
+  const inter = [...sa].filter((w) => sb.has(w)).length;
+  return inter / Math.max(sa.size, sb.size);
 }

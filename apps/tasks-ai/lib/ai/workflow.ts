@@ -53,6 +53,20 @@ export interface WorkflowOperation {
  */
 export const TARGET_REF = "__target_task__";
 
+/**
+ * A link_tasks endpoint naming an already-existing task found via retrieval
+ * (issue #234, e.g. a `dedup` candidate) rather than the task a draft was
+ * opened from. Mirrors CANDIDATE_REF_PREFIX/isCandidateRef in
+ * lib/ai/types.ts, restated here for the same reason as TARGET_REF above:
+ * such a ref always resolves (the server re-verifies it against the
+ * retrieval set actually used, and refuses the op otherwise), so it never
+ * counts as a "skipped" link the way an unresolved proposal-local ref would.
+ */
+const CANDIDATE_REF_PREFIX = "task:";
+function isCandidateRef(ref: string): boolean {
+  return ref.startsWith(CANDIDATE_REF_PREFIX);
+}
+
 /* ───────────────────────────── intents ───────────────────────────────── */
 
 /** The AI kinds the guided workflow exposes. Others (nl_query, test_diagnosis)
@@ -64,7 +78,8 @@ export type CopilotIntentId =
   | "summarize"
   | "risks_open_questions"
   | "project_brief"
-  | "changed_digest";
+  | "changed_digest"
+  | "dedup";
 
 export interface CopilotIntent {
   id: CopilotIntentId;
@@ -167,6 +182,18 @@ export const COPILOT_INTENTS: CopilotIntent[] = [
       "Commits this week: fixed the flaky checkout test, added retry logic to the webhook consumer, migrated the billing table to the new schema.",
     ],
     aboutATask: false,
+  },
+  {
+    id: "dedup",
+    entryLabel: "Check for duplicates",
+    label: "Does this already exist?",
+    outcome:
+      "Any existing task elsewhere in the workspace that looks like a duplicate, each with why it matched — you decide whether to link them.",
+    sourceHint: "Best started from an existing task (\"Ask Copilot\" on its detail view) — there is nothing to compare a blank draft against.",
+    examples: [
+      "Migrate the customer database to the new schema. Zero downtime required. We have about 40 tables and two services reading from it.",
+    ],
+    aboutATask: true,
   },
 ];
 
@@ -545,11 +572,14 @@ export function impactCounts(
       counts.updates += 1;
       counts.total += 1;
     } else {
-      const both =
-        op.fromRef !== undefined &&
-        op.toRef !== undefined &&
-        resolvable.has(op.fromRef) &&
-        resolvable.has(op.toRef);
+      // A candidate ref (issue #234, e.g. a dedup match) already names a
+      // real task by id — it always resolves here the same way TARGET_REF
+      // does, because the server re-verifies it against the retrieval set
+      // computed at generation time and drops the op otherwise (guard.ts /
+      // proposals.ts). It is never "skipped" for looking unresolved.
+      const endpointResolves = (ref?: string) =>
+        ref !== undefined && (resolvable.has(ref) || isCandidateRef(ref));
+      const both = endpointResolves(op.fromRef) && endpointResolves(op.toRef);
       if (both) {
         counts.dependencies += 1;
         counts.total += 1;
