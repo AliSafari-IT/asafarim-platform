@@ -845,7 +845,19 @@ export const openapiDocument = {
           type: "object",
           required: ["kind", "input"],
           properties: {
-            kind: { type: "string", enum: ["extract_plan", "decompose", "acceptance_criteria", "summarize", "nl_query"] },
+            kind: {
+              type: "string",
+              enum: [
+                "extract_plan",
+                "decompose",
+                "acceptance_criteria",
+                "summarize",
+                "nl_query",
+                "risks_open_questions",
+                "project_brief",
+                "changed_digest",
+              ],
+            },
             input: { type: "string" },
             projectId: { type: "string" },
           },

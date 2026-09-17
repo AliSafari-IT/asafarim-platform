@@ -57,7 +57,14 @@ export const TARGET_REF = "__target_task__";
 
 /** The AI kinds the guided workflow exposes. Others (nl_query, test_diagnosis)
  *  are internal channels, not things a person picks from a menu. */
-export type CopilotIntentId = "extract_plan" | "decompose" | "acceptance_criteria" | "summarize";
+export type CopilotIntentId =
+  | "extract_plan"
+  | "decompose"
+  | "acceptance_criteria"
+  | "summarize"
+  | "risks_open_questions"
+  | "project_brief"
+  | "changed_digest";
 
 export interface CopilotIntent {
   id: CopilotIntentId;
@@ -123,6 +130,41 @@ export const COPILOT_INTENTS: CopilotIntent[] = [
     sourceHint: "A long thread, a chat log, or a transcript you do not want to re-read.",
     examples: [
       "Long email thread about whether to keep supporting the legacy API. Three people, no decision, two action items buried in the middle.",
+    ],
+    aboutATask: false,
+  },
+  {
+    id: "risks_open_questions",
+    entryLabel: "Surface risks",
+    label: "What are the risks?",
+    outcome:
+      "A list of risks and open questions, each grounded in your text or flagged as an assumption. Started from a task, it can also append a \"Risks / unknowns\" section to it.",
+    sourceHint: "The task, plan or brief you want a second, more skeptical read on.",
+    examples: [
+      "Rolling out the new payment gateway before Black Friday. We have not load-tested it, and the vendor's sandbox behaves differently from production.",
+      "Migrating the customer database with zero downtime. About 40 tables and two services reading from it.",
+    ],
+    aboutATask: true,
+  },
+  {
+    id: "project_brief",
+    entryLabel: "Write a project brief",
+    label: "Turn this into a project brief",
+    outcome: "A structured brief — goal, scope, non-goals, milestones, risks — as prose you can paste anywhere.",
+    sourceHint: "Whatever you already have: notes, a rough plan, a client email, a kickoff transcript.",
+    examples: [
+      "Relaunch the marketing site before the trade show on 4 June. Design first, then build, then content migration. Legal must review copy before launch.",
+    ],
+    aboutATask: false,
+  },
+  {
+    id: "changed_digest",
+    entryLabel: "Summarize what changed",
+    label: "What changed this week?",
+    outcome: "A plain-English narrative of what changed, built from the activity or commits you paste in.",
+    sourceHint: "Commit messages, a changelog draft, or pasted activity from the week.",
+    examples: [
+      "Commits this week: fixed the flaky checkout test, added retry logic to the webhook consumer, migrated the billing table to the new schema.",
     ],
     aboutATask: false,
   },

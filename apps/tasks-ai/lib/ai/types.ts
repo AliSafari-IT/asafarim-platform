@@ -19,6 +19,12 @@ export const AI_KINDS = [
   // reviewable proposal (issue #264). Still a create_task op — no new
   // operation type is introduced.
   "test_diagnosis",
+  // Thinking-partner kinds (issue #233): summary/openQuestions-first, at
+  // most one operation, so they stay inside the M06 boundary with no new
+  // operation type.
+  "risks_open_questions",
+  "project_brief",
+  "changed_digest",
 ] as const;
 export type AiKind = (typeof AI_KINDS)[number];
 

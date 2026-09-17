@@ -22,11 +22,56 @@ export class FixtureProvider implements AiProvider {
     const lines = candidateLines(input);
 
     let draft: ProposalDraft;
-    if (call.kind === "summarize" || call.kind === "nl_query") {
+    if (
+      call.kind === "summarize" ||
+      call.kind === "nl_query" ||
+      call.kind === "changed_digest"
+    ) {
       draft = {
         summary: `[fixture] ${call.kind}: ${input.slice(0, 160)}`.trim(),
         operations: [],
         openQuestions: [],
+      };
+    } else if (call.kind === "project_brief") {
+      const goal = lines[0] ?? input.slice(0, 160);
+      draft = {
+        summary: [
+          `Goal: ${goal}`,
+          `Scope: ${lines.slice(1, 4).join("; ") || "(not specified in the input)"}`,
+          `Non-goals: (not specified in the input)`,
+          `Milestones: ${lines.slice(0, 5).join(" -> ") || "(none identified)"}`,
+          `Risks: (see the risks & open questions pass for a dedicated read)`,
+        ].join("\n"),
+        operations: [],
+        openQuestions: [],
+      };
+    } else if (call.kind === "risks_open_questions") {
+      // Every candidate line is treated as a possible risk/unknown — an
+      // offline triage, not a judgement call the fixture is qualified to
+      // make. Real providers filter this down to what actually reads as a
+      // risk; the fixture's job here is determinism, not quality.
+      const risks = lines.slice(0, 5);
+      const openQuestions = risks.length
+        ? risks.map((l) => `Risk/unknown: ${l}`)
+        : ["No explicit risks or unknowns found in the input — review before treating this as complete."];
+      const first = risks[0] ?? null;
+      const firstSpan = first ? spanOf(input, first) : null;
+      draft = {
+        summary: `[fixture] risks_open_questions: ${openQuestions.length} item(s) surfaced`,
+        operations: call.targetsExistingTask
+          ? [
+              {
+                op: "update_task" as const,
+                taskId: TARGET_TASK_REF,
+                fields: {
+                  description: `Risks / unknowns:\n${openQuestions.map((q) => `- ${q}`).join("\n")}`,
+                },
+                confidence: 0.5,
+                citations: [{ span: firstSpan, assumption: firstSpan === null }],
+              },
+            ]
+          : [],
+        openQuestions,
       };
     } else if (call.kind === "test_diagnosis") {
       // One deterministic triage task. The first candidate line is the
