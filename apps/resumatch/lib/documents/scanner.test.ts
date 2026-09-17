@@ -170,7 +170,7 @@ describe("scanner health check", () => {
   it("reports reachable on a PONG response", async () => {
     const { factory } = fakeConnection(respondWith("PONG\0"));
     const health = await getScannerHealth(
-      { JOBMATCH_SCANNER_URL: "tcp://clamav:3310" },
+      { RESUMATCH_SCANNER_URL: "tcp://clamav:3310" },
       3_000,
       factory,
     );
@@ -182,7 +182,7 @@ describe("scanner health check", () => {
       queueMicrotask(() => emit("close"));
     });
     const health = await getScannerHealth(
-      { JOBMATCH_SCANNER_URL: "tcp://clamav:3310" },
+      { RESUMATCH_SCANNER_URL: "tcp://clamav:3310" },
       3_000,
       factory,
     );
@@ -190,7 +190,7 @@ describe("scanner health check", () => {
   });
 
   it("reports the dev bypass as configured:false so it never looks like a real scanner", async () => {
-    const health = await getScannerHealth({ JOBMATCH_SCANNER: "insecure-accept-all" });
+    const health = await getScannerHealth({ RESUMATCH_SCANNER: "insecure-accept-all" });
     expect(health.configured).toBe(false);
     expect(health.reachable).toBe(true);
   });

@@ -26,11 +26,13 @@ beforeEach(() => {
 
 describe("getPlatformActivityApps", () => {
   // Vionto/TimelineAI implement listAll directly (shared-DB adapters).
-  // TasksAI/JobMatch implement it via a remote "browse" endpoint (#349).
-  // AppBuilder/Testora have no listAll yet — "no adapter yet" for this view,
-  // same principle as an app with no adapter at all.
+  // TasksAI implements it via a remote "browse" endpoint (#349). ResuMatch
+  // no longer does — its old browse endpoint was over TrackedJob, removed
+  // with the pivot away from job aggregation. AppBuilder/Testora have no
+  // listAll yet — "no adapter yet" for this view, same principle as an app
+  // with no adapter at all.
   it("lists every app whose adapter implements listAll, direct-DB or remote", () => {
-    expect(getPlatformActivityApps().sort()).toEqual(["jobmatch", "tasksai", "timelineai", "vionto"]);
+    expect(getPlatformActivityApps().sort()).toEqual(["tasksai", "timelineai", "vionto"]);
   });
 });
 

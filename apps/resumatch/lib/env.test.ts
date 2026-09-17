@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { EnvValidationError, resolveEnv } from "./env";
 
-describe("JobMatch environment contract", () => {
-  it("defaults to the local JobMatch database in development", () => {
+describe("ResuMatch environment contract", () => {
+  it("defaults to the local ResuMatch database in development", () => {
     const env = resolveEnv({ NODE_ENV: "development" });
     expect(env.environment).toBe("development");
-    expect(env.databaseUrl).toContain(":55437/jobmatch");
+    expect(env.databaseUrl).toContain(":55437/resumatch");
     expect(env.requiresExplicitSecrets).toBe(false);
   });
 
@@ -18,13 +18,13 @@ describe("JobMatch environment contract", () => {
     const env = resolveEnv(
       {
         NODE_ENV: "production",
-        JOBMATCH_DATABASE_URL: "postgresql://jobmatch:pw@jobmatch-postgres:5432/jobmatch",
+        RESUMATCH_DATABASE_URL: "postgresql://resumatch:pw@resumatch-postgres:5432/resumatch",
       },
       {},
     );
     expect(env.environment).toBe("production");
     expect(env.warnings).toHaveLength(2);
-    expect(env.warnings.join(" ")).toContain("NEXT_PUBLIC_JOBMATCH_URL");
+    expect(env.warnings.join(" ")).toContain("NEXT_PUBLIC_RESUMATCH_URL");
     expect(env.warnings.join(" ")).toContain("NEXT_PUBLIC_HUB_URL");
   });
 
@@ -34,11 +34,11 @@ describe("JobMatch environment contract", () => {
     const env = resolveEnv(
       {
         NODE_ENV: "production",
-        JOBMATCH_DATABASE_URL: "postgresql://jobmatch:pw@jobmatch-postgres:5432/jobmatch",
+        RESUMATCH_DATABASE_URL: "postgresql://resumatch:pw@resumatch-postgres:5432/resumatch",
       },
-      { appUrl: "https://jobmatch.asafarim.com", hubUrl: "https://hub.asafarim.com" },
+      { appUrl: "https://resumatch.asafarim.com", hubUrl: "https://hub.asafarim.com" },
     );
-    expect(env.appUrl).toBe("https://jobmatch.asafarim.com");
+    expect(env.appUrl).toBe("https://resumatch.asafarim.com");
     expect(env.hubUrl).toBe("https://hub.asafarim.com");
     expect(env.warnings).toEqual([]);
   });
@@ -47,24 +47,24 @@ describe("JobMatch environment contract", () => {
     const env = resolveEnv(
       {
         NODE_ENV: "production",
-        JOBMATCH_DATABASE_URL: "postgresql://jobmatch:pw@db:5432/jobmatch",
-        NEXT_PUBLIC_JOBMATCH_URL: "https://staging.jobmatch.asafarim.com",
+        RESUMATCH_DATABASE_URL: "postgresql://resumatch:pw@db:5432/resumatch",
+        NEXT_PUBLIC_RESUMATCH_URL: "https://staging.resumatch.asafarim.com",
       },
-      { appUrl: "https://jobmatch.asafarim.com", hubUrl: "https://hub.asafarim.com" },
+      { appUrl: "https://resumatch.asafarim.com", hubUrl: "https://hub.asafarim.com" },
     );
-    expect(env.appUrl).toBe("https://staging.jobmatch.asafarim.com");
+    expect(env.appUrl).toBe("https://staging.resumatch.asafarim.com");
   });
 
   it("warns when a deployed URL still points at loopback", () => {
     const env = resolveEnv(
       {
         NODE_ENV: "production",
-        JOBMATCH_DATABASE_URL: "postgresql://jobmatch:pw@db:5432/jobmatch",
+        RESUMATCH_DATABASE_URL: "postgresql://resumatch:pw@db:5432/resumatch",
       },
       { appUrl: "http://localhost:3012", hubUrl: "https://hub.asafarim.com" },
     );
     expect(env.warnings).toHaveLength(1);
-    expect(env.warnings[0]).toContain("NEXT_PUBLIC_JOBMATCH_URL");
+    expect(env.warnings[0]).toContain("NEXT_PUBLIC_RESUMATCH_URL");
   });
 
   it("says nothing about loopback URLs in development, where they are correct", () => {
@@ -74,7 +74,7 @@ describe("JobMatch environment contract", () => {
   it("refuses to boot staging or production without an explicit database url", () => {
     for (const source of [
       { NODE_ENV: "production" as const },
-      { NODE_ENV: "production" as const, JOBMATCH_ENVIRONMENT: "staging" as const },
+      { NODE_ENV: "production" as const, RESUMATCH_ENVIRONMENT: "staging" as const },
     ]) {
       expect(() => resolveEnv(source)).toThrow(EnvValidationError);
     }
@@ -94,7 +94,7 @@ describe("JobMatch environment contract", () => {
 
   it("does not fall back to the shared platform database url", () => {
     // The platform DATABASE_URL is present in every deployed environment.
-    // If it were ever accepted here, JobMatch's ingestion and CV tables
+    // If it were ever accepted here, ResuMatch's tailoring and CV tables
     // would land in the identity database.
     expect(() =>
       resolveEnv({
@@ -107,37 +107,36 @@ describe("JobMatch environment contract", () => {
   it("accepts a fully configured production environment", () => {
     const env = resolveEnv({
       NODE_ENV: "production",
-      JOBMATCH_DATABASE_URL: "postgresql://jobmatch:pw@jobmatch-postgres:5432/jobmatch",
-      NEXT_PUBLIC_JOBMATCH_URL: "https://jobmatch.asafarim.com",
+      RESUMATCH_DATABASE_URL: "postgresql://resumatch:pw@resumatch-postgres:5432/resumatch",
+      NEXT_PUBLIC_RESUMATCH_URL: "https://resumatch.asafarim.com",
       NEXT_PUBLIC_HUB_URL: "https://hub.asafarim.com",
     });
     expect(env.environment).toBe("production");
-    expect(env.appUrl).toBe("https://jobmatch.asafarim.com");
+    expect(env.appUrl).toBe("https://resumatch.asafarim.com");
     expect(env.hubUrl).toBe("https://hub.asafarim.com");
   });
 
   describe("JM-005 AI provider gate (issue #255)", () => {
     const prodBase = {
       NODE_ENV: "production" as const,
-      JOBMATCH_DATABASE_URL: "postgresql://jobmatch:pw@jobmatch-postgres:5432/jobmatch",
+      RESUMATCH_DATABASE_URL: "postgresql://resumatch:pw@resumatch-postgres:5432/resumatch",
     };
 
     it("(a) defaults to fixture with no keys and validates fine locally", () => {
       const env = resolveEnv({ NODE_ENV: "development" });
       expect(env.aiProvider).toBe("fixture");
-      expect(env.aiEvalProvider).toBe("fixture");
       expect(env.aiClassificationSignedOff).toBe(false);
       expect(env.aiMonthlyBudgetUsd).toBe(20);
     });
 
     it("(b) production + openai + no sign-off + no key refuses, naming the gate variable and no key material", () => {
       try {
-        resolveEnv({ ...prodBase, JOBMATCH_AI_PROVIDER: "openai" });
+        resolveEnv({ ...prodBase, RESUMATCH_AI_PROVIDER: "openai" });
         throw new Error("expected a validation failure");
       } catch (error) {
         expect(error).toBeInstanceOf(EnvValidationError);
         const message = (error as Error).message;
-        expect(message).toContain("JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF");
+        expect(message).toContain("RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF");
         expect(message.toLowerCase()).not.toContain("sk-");
       }
     });
@@ -145,8 +144,8 @@ describe("JobMatch environment contract", () => {
     it("(c) production + openai + sign-off + key validates", () => {
       const env = resolveEnv({
         ...prodBase,
-        JOBMATCH_AI_PROVIDER: "openai",
-        JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
+        RESUMATCH_AI_PROVIDER: "openai",
+        RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
         OPENAI_API_KEY: "sk-test-not-a-real-key",
       });
       expect(env.aiProvider).toBe("openai");
@@ -156,19 +155,19 @@ describe("JobMatch environment contract", () => {
     it("(c) production + anthropic + sign-off + key validates", () => {
       const env = resolveEnv({
         ...prodBase,
-        JOBMATCH_AI_EVAL_PROVIDER: "anthropic",
-        JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
+        RESUMATCH_AI_PROVIDER: "anthropic",
+        RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
         ANTHROPIC_API_KEY: "test-not-a-real-key",
       });
-      expect(env.aiEvalProvider).toBe("anthropic");
+      expect(env.aiProvider).toBe("anthropic");
     });
 
     it("(d) sign-off true but key missing still refuses — both are required", () => {
       expect(() =>
         resolveEnv({
           ...prodBase,
-          JOBMATCH_AI_PROVIDER: "openai",
-          JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
+          RESUMATCH_AI_PROVIDER: "openai",
+          RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
         }),
       ).toThrow(EnvValidationError);
     });
@@ -177,8 +176,8 @@ describe("JobMatch environment contract", () => {
       expect(() =>
         resolveEnv({
           ...prodBase,
-          JOBMATCH_AI_PROVIDER: "anthropic",
-          JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
+          RESUMATCH_AI_PROVIDER: "anthropic",
+          RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
           OPENAI_API_KEY: "sk-test-not-a-real-key",
         }),
       ).toThrow(EnvValidationError);
@@ -187,17 +186,16 @@ describe("JobMatch environment contract", () => {
     it("(e) test/CI environment defaults still resolve to fixture cleanly", () => {
       const env = resolveEnv({ NODE_ENV: "test" });
       expect(env.aiProvider).toBe("fixture");
-      expect(env.aiEvalProvider).toBe("fixture");
       expect(env.requiresExplicitSecrets).toBe(false);
     });
 
     it("local/dev is not gated — a real provider may be selected without sign-off or a key", () => {
-      const env = resolveEnv({ NODE_ENV: "development", JOBMATCH_AI_PROVIDER: "openai" });
+      const env = resolveEnv({ NODE_ENV: "development", RESUMATCH_AI_PROVIDER: "openai" });
       expect(env.aiProvider).toBe("openai");
     });
 
-    it("JOBMATCH_AI_MONTHLY_BUDGET_USD=0 freezes spend and is distinguishable from unset", () => {
-      const frozen = resolveEnv({ NODE_ENV: "development", JOBMATCH_AI_MONTHLY_BUDGET_USD: "0" });
+    it("RESUMATCH_AI_MONTHLY_BUDGET_USD=0 freezes spend and is distinguishable from unset", () => {
+      const frozen = resolveEnv({ NODE_ENV: "development", RESUMATCH_AI_MONTHLY_BUDGET_USD: "0" });
       expect(frozen.aiMonthlyBudgetUsd).toBe(0);
       const defaulted = resolveEnv({ NODE_ENV: "development" });
       expect(defaulted.aiMonthlyBudgetUsd).toBe(20);

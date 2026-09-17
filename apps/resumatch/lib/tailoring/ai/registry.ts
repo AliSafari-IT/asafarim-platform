@@ -1,4 +1,4 @@
-import type { JobMatchAiProvider } from "../../env";
+import type { ResuMatchAiProvider } from "../../env";
 import type { TailorProvider } from "./provider";
 
 /**
@@ -17,13 +17,13 @@ export const TAILOR_PROMPT_VERSION = "tailor_resume@1";
  *  `EVALUATION_MODEL_VERSIONS` was: a stable string a TailoredResume can
  *  carry as provenance. `fixture` is the only one ever exercised in
  *  CI/tests. */
-export const TAILOR_MODEL_VERSIONS: Record<JobMatchAiProvider, string> = {
+export const TAILOR_MODEL_VERSIONS: Record<ResuMatchAiProvider, string> = {
   fixture: "fixture-tailor-1",
   openai: "openai-tailor-unconfigured",
   anthropic: "anthropic-tailor-unconfigured",
 };
 
-export function tailorModelVersionFor(provider: JobMatchAiProvider): string {
+export function tailorModelVersionFor(provider: ResuMatchAiProvider): string {
   return TAILOR_MODEL_VERSIONS[provider];
 }
 
@@ -34,7 +34,7 @@ const tailorProviderCache = new Map<string, TailorProvider>();
  * (no SDK, no network); `openai`/`anthropic` are loaded only when actually
  * selected, so importing this module never pulls in a provider SDK.
  */
-export async function getTailorProvider(name: JobMatchAiProvider): Promise<TailorProvider> {
+export async function getTailorProvider(name: ResuMatchAiProvider): Promise<TailorProvider> {
   const cached = tailorProviderCache.get(name);
   if (cached) return cached;
 

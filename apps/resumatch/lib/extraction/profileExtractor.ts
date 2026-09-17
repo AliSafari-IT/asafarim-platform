@@ -31,7 +31,7 @@ import {
  * `parseProfileContent` rejects them structurally if a future change tries.
  */
 
-export const PROFILE_EXTRACTOR_NAME = "jobmatch-rules";
+export const PROFILE_EXTRACTOR_NAME = "resumatch-rules";
 export const PROFILE_EXTRACTOR_VERSION = "1.0.0";
 
 export interface ExtractedProfile {
@@ -57,7 +57,7 @@ const EMAIL = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,63}\b/;
 const PHONE = /(?:\+\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?){2,4}\d{2,4}/;
 
 /**
- * Section headings in the three languages JobMatch launches with. Matching
+ * Section headings in the three languages ResuMatch launches with. Matching
  * headings rather than free text is what keeps this from inventing
  * structure that is not there.
  */
@@ -170,7 +170,7 @@ export function splitFusedHeadings(line: string): string[] {
 }
 
 /**
- * Language names in the languages JobMatch supports, mapped to ISO 639-1.
+ * Language names in the languages ResuMatch supports, mapped to ISO 639-1.
  * Written both ways round — an English CV says "Dutch", a Dutch one says
  * "Nederlands", and both should resolve to `nl`.
  */

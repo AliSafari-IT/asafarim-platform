@@ -4,7 +4,7 @@ import { getCurrentWorkspace } from "../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
 
-/** GDPR access: everything JobMatch holds for this candidate, as JSON. */
+/** GDPR access: everything ResuMatch holds for this candidate, as JSON. */
 export async function GET() {
   const workspace = await getCurrentWorkspace();
   if (!workspace) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
@@ -15,7 +15,7 @@ export async function GET() {
   return new NextResponse(JSON.stringify(data, null, 2), {
     headers: {
       "content-type": "application/json",
-      "content-disposition": 'attachment; filename="jobmatch-export.json"',
+      "content-disposition": 'attachment; filename="resumatch-export.json"',
       "cache-control": "private, no-store",
     },
   });

@@ -27,7 +27,7 @@ const viontoUrl = process.env.NEXT_PUBLIC_VIONTO_URL || "http://localhost:3004";
  * longer hand-maintained, which is what kept drifting out of date.
  *
  * Every PLATFORM_APPS key must have an entry here, or new apps silently
- * disappear from Vionto's switcher — labs/jobmatch/tasksai were added to
+ * disappear from Vionto's switcher — labs/resumatch/tasksai were added to
  * the registry but not here, which is exactly this failure mode.
  */
 const appUrls: Record<string, string> = {
@@ -42,7 +42,7 @@ const appUrls: Record<string, string> = {
   timelineai: process.env.NEXT_PUBLIC_TIMELINEAI_URL || "http://localhost:3010",
   devtools: process.env.NEXT_PUBLIC_DEVTOOLS_URL || "https://asafarim.be",
   labs: process.env.NEXT_PUBLIC_LABS_URL || "http://localhost:3011",
-  jobmatch: process.env.NEXT_PUBLIC_JOBMATCH_URL || "http://localhost:3012",
+  resumatch: process.env.NEXT_PUBLIC_RESUMATCH_URL || "http://localhost:3012",
   tasksai: process.env.NEXT_PUBLIC_TASKSAI_URL || "http://localhost:3013",
 };
 

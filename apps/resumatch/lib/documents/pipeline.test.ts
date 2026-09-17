@@ -136,7 +136,7 @@ describe("scan verdicts", () => {
   });
 
   it("does not silently disable scanning when the scanner URL is malformed", async () => {
-    const scanner = createScanner({ JOBMATCH_SCANNER_URL: "not a url" });
+    const scanner = createScanner({ RESUMATCH_SCANNER_URL: "not a url" });
     const verdict = await scanner.scan(new Uint8Array([1]));
     expect(decideFromVerdict(verdict).advance).toBe(false);
   });
@@ -146,7 +146,7 @@ describe("the insecure dev scanner", () => {
   it("is available in development, so the pipeline can be exercised locally", async () => {
     const scanner = createScanner({
       NODE_ENV: "development",
-      JOBMATCH_SCANNER: INSECURE_DEV_SCANNER_VALUE,
+      RESUMATCH_SCANNER: INSECURE_DEV_SCANNER_VALUE,
     });
     const verdict = await scanner.scan(new Uint8Array([1]));
     expect(decideFromVerdict(verdict).advance).toBe(true);
@@ -156,11 +156,11 @@ describe("the insecure dev scanner", () => {
     // The point of the control: setting this in production changes nothing.
     for (const deployed of [
       { NODE_ENV: "production" },
-      { JOBMATCH_ENVIRONMENT: "production" },
-      { JOBMATCH_ENVIRONMENT: "staging" },
-      { NODE_ENV: "development", JOBMATCH_ENVIRONMENT: "staging" },
+      { RESUMATCH_ENVIRONMENT: "production" },
+      { RESUMATCH_ENVIRONMENT: "staging" },
+      { NODE_ENV: "development", RESUMATCH_ENVIRONMENT: "staging" },
     ]) {
-      const scanner = createScanner({ ...deployed, JOBMATCH_SCANNER: INSECURE_DEV_SCANNER_VALUE });
+      const scanner = createScanner({ ...deployed, RESUMATCH_SCANNER: INSECURE_DEV_SCANNER_VALUE });
       const verdict = await scanner.scan(new Uint8Array([1]));
       expect(decideFromVerdict(verdict).advance).toBe(false);
     }
@@ -168,7 +168,7 @@ describe("the insecure dev scanner", () => {
 
   it("is selected only by its exact literal, never by a truthy value", async () => {
     for (const value of ["true", "1", "yes", "insecure", "accept-all", "INSECURE-ACCEPT-ALL"]) {
-      const scanner = createScanner({ NODE_ENV: "development", JOBMATCH_SCANNER: value });
+      const scanner = createScanner({ NODE_ENV: "development", RESUMATCH_SCANNER: value });
       const verdict = await scanner.scan(new Uint8Array([1]));
       expect(decideFromVerdict(verdict).advance).toBe(false);
     }
@@ -177,7 +177,7 @@ describe("the insecure dev scanner", () => {
   it("names itself on the verdict, so documents cleared this way stay identifiable", async () => {
     const scanner = createScanner({
       NODE_ENV: "development",
-      JOBMATCH_SCANNER: INSECURE_DEV_SCANNER_VALUE,
+      RESUMATCH_SCANNER: INSECURE_DEV_SCANNER_VALUE,
     });
     const verdict = await scanner.scan(new Uint8Array([1]));
     expect(verdict.scannerName).toContain("insecure");

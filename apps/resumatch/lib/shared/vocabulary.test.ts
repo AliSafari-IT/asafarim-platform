@@ -48,7 +48,7 @@ describe("contract type normalisation", () => {
 });
 
 describe("language token normalisation", () => {
-  it("recognises names in the languages JobMatch launches with", () => {
+  it("recognises names in the languages ResuMatch launches with", () => {
     expect(normalizeLanguageToken("Dutch")).toBe("nl");
     expect(normalizeLanguageToken("Nederlands")).toBe("nl");
     expect(normalizeLanguageToken("French")).toBe("fr");

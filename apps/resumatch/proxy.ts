@@ -3,8 +3,8 @@ import { createAuthProxy } from "@asafarim/auth/proxy";
 const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || process.env.HUB_URL || "http://localhost:3001";
 
 /**
- * JobMatch is public-landing / private-everything-else. Unlike TimelineAI
- * there is no guest flow to preserve: every JobMatch surface beyond the
+ * ResuMatch is public-landing / private-everything-else. Unlike TimelineAI
+ * there is no guest flow to preserve: every ResuMatch surface beyond the
  * landing and legal pages reads or writes candidate data, so the default
  * here is deny and the public list stays short by design.
  */

@@ -9,14 +9,14 @@ export default function RoadmapPage() {
     <main className="jm-roadmap-page">
       <Roadmap
         kicker="Project direction"
-        title="The JobMatch journey"
-        description="An outcome-led view of what has shipped, what is mid-stream, and where the assistant is heading. JobMatch is an experimental portfolio showcase — every milestone is complete only when its exit evidence is demonstrated, not when its code merges."
+        title="The ResuMatch journey"
+        description="An outcome-led view of what has shipped, what is mid-stream, and where the AI-tailoring tool is heading. ResuMatch is an experimental portfolio showcase — every milestone is complete only when its exit evidence is demonstrated, not when its code merges."
         items={roadmapItems}
         labels={{
           changelogTitle: "Delivered & in progress",
-          changelogSubtitle: "M0–M7 · docs/business-plan.md",
+          changelogSubtitle: "M1–M5 · docs/business-plan.md",
           roadmapTitle: "What's next",
-          roadmapSubtitle: "Later milestones + the M5 matching queue (#256)",
+          roadmapSubtitle: "More layouts, real model providers, production readiness",
         }}
       />
     </main>

@@ -50,7 +50,7 @@ platform, and both are the reason for the boundaries below:
 | CV text or credentials reaching a log sink | Allow-listed redaction, forbidden keys dropped entirely, applied inside the logger rather than at call sites | `lib/observability/` |
 | Driver or connector error messages leaking connection strings | Errors are logged by class name only; the UI shows a digest, never `error.message` | `lib/observability/logger.ts`, `app/error.tsx` |
 | Health endpoint disclosing infrastructure | Payload is up/down plus latency; asserted by test | `lib/health.ts` |
-| A misconfigured environment silently using the platform database | No fallback from `JOBMATCH_DATABASE_URL` to `DATABASE_URL`; startup validation fails loudly | `lib/env.ts` |
+| A misconfigured environment silently using the platform database | No fallback from `RESUMATCH_DATABASE_URL` to `DATABASE_URL`; startup validation fails loudly | `lib/env.ts` |
 | Indexing of an unlaunched product that has no candidate terms yet | `robots: { index: false }` until the M0 legal work lands | `app/layout.tsx` |
 
 ## M2 additions — the CV pipeline
@@ -554,7 +554,7 @@ AppBuilder's integration suite once wiped a developer's database because it
 had no separate test target. JobMatch inherits that lesson as a rule from
 its first commit: unit tests touch no database at all, CI migrates a
 throwaway container, and any future integration test must require an
-explicit `JOBMATCH_TEST_DATABASE_URL` and refuse to run without it.
+explicit `RESUMATCH_TEST_DATABASE_URL` and refuse to run without it.
 
 ## Deferred — with the milestone that owns each
 

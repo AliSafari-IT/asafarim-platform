@@ -133,9 +133,9 @@ export function ProfileWorkbench({
     >
       {isConfirmed && !dirty ? (
         <Alert tone="info">
-          <strong>This profile is confirmed.</strong> It is the version JobMatch will match against
-          once job sources are connected. Editing it creates a new version — the confirmed one stays
-          on record so past results remain explainable.
+          <strong>This profile is confirmed.</strong> It is the version ResuMatch tailors from when
+          you paste a job URL. Editing it creates a new version — the confirmed one stays on record
+          so a past tailored CV remains explainable.
         </Alert>
       ) : (
         <Alert tone="warning">
@@ -206,8 +206,8 @@ export function ProfileWorkbench({
               <option value="requires_sponsorship">I would need sponsorship</option>
             </select>
             <small>
-              Used only to filter out jobs you could not take. Leaving it blank means JobMatch will
-              not exclude anything on this basis.
+              Kept with your profile for your own reference. It is not currently included in a
+              tailored CV.
             </small>
           </label>
         </Card>
@@ -357,7 +357,7 @@ export function ProfileWorkbench({
       {state.kind === "saved" ? (
         <Alert tone="info">
           {state.confirmed
-            ? "Saved and confirmed. This is now the version JobMatch will match against."
+            ? "Saved and confirmed. This is now the version ResuMatch tailors from."
             : "Saved as a new draft version. Confirm it when you are ready."}
         </Alert>
       ) : null}

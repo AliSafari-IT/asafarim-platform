@@ -1,7 +1,7 @@
 import { redact } from "./redact";
 
 /**
- * Structured JSON logging for JobMatch (JM-015).
+ * Structured JSON logging for ResuMatch (JM-015).
  *
  * One line per event, machine-parseable, and redacted by construction:
  * callers cannot pass a payload through this module without it going
@@ -13,7 +13,7 @@ export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogEvent {
   level: LogLevel;
-  service: "jobmatch";
+  service: "resumatch";
   event: string;
   timestamp: string;
   context: Record<string, unknown>;
@@ -27,7 +27,7 @@ export function buildLogEvent(
 ): LogEvent {
   return {
     level,
-    service: "jobmatch",
+    service: "resumatch",
     event,
     timestamp: now.toISOString(),
     context: redact(context),

@@ -22,7 +22,7 @@ export default async function ProfilePage() {
       <>
         <PageHeader kicker="Profile" title="This account cannot open a profile." />
         <Alert tone="warning">
-          <strong>Account inactive.</strong> Your platform account is not active, so JobMatch will
+          <strong>Account inactive.</strong> Your platform account is not active, so ResuMatch will
           not open a workspace for it.
         </Alert>
       </>
@@ -90,7 +90,7 @@ export default async function ProfilePage() {
           <Card title="Version history">
             <p style={{ opacity: 0.85 }}>
               Every correction creates a new version and none are ever overwritten. That is what lets
-              JobMatch explain a result you were shown months ago: the profile that produced it still
+              ResuMatch explain a CV it tailored months ago: the profile that produced it still
               exists, exactly as it was.
             </p>
             <ul className="jm-list">
@@ -122,7 +122,7 @@ export default async function ProfilePage() {
 
       {confirmed ? null : (
         <p className="jm-note" style={{ marginTop: "2rem" }}>
-          No confirmed version yet. Matching will not run against an unreviewed profile — that is
+          No confirmed version yet. Tailoring will not run against an unreviewed profile — that is
           deliberate, not a missing feature.
         </p>
       )}

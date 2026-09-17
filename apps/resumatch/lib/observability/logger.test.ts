@@ -6,7 +6,7 @@ describe("structured logger", () => {
     const event = buildLogEvent("info", "workspace.opened", { workspaceId: "w1" }, new Date(0));
     expect(event).toEqual({
       level: "info",
-      service: "jobmatch",
+      service: "resumatch",
       event: "workspace.opened",
       timestamp: "1970-01-01T00:00:00.000Z",
       context: { workspaceId: "w1" },

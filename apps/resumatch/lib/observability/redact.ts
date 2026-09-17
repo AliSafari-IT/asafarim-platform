@@ -1,7 +1,7 @@
 /**
- * Redaction for JobMatch log and audit payloads (JM-015).
+ * Redaction for ResuMatch log and audit payloads (JM-015).
  *
- * JobMatch handles the two categories of data the platform most needs to
+ * ResuMatch handles the two categories of data the platform most needs to
  * keep out of logs: CV content (free text that can contain a name, address,
  * date of birth, health details) and source credentials (connector API keys
  * under agreements that forbid disclosure). Neither is ever useful in a log

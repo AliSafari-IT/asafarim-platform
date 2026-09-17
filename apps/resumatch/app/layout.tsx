@@ -18,12 +18,12 @@ import {
   toAppSwitcherLinks,
 } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
-import "./jobmatch.css";
+import "./resumatch.css";
 
-const appUrl = process.env.NEXT_PUBLIC_JOBMATCH_URL ?? "https://jobmatch.asafarim.com";
-const appName = "JobMatch";
+const appUrl = process.env.NEXT_PUBLIC_RESUMATCH_URL ?? "https://resumatch.asafarim.com";
+const appName = "ResuMatch";
 const appDescription =
-  "An explainable, source-transparent job-search assistant: fewer vacancies, each with the reason it fits.";
+  "AI-tailored CVs: paste a job posting URL and rewrite your resume toward it, then download it as a PDF.";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -34,8 +34,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    default: `${appName} | Explainable job search`,
-    template: "%s | JobMatch",
+    default: `${appName} | AI-tailored CVs`,
+    template: "%s | ResuMatch",
   },
   description: appDescription,
   applicationName: appName,
@@ -58,8 +58,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const links = getPlatformLinks();
 
   // Registry-driven, the same rule Hub's launcher and every other app's
-  // switcher use — no JobMatch-specific hardcoded visibility.
-  const switcherApps = getAppSwitcherApps("jobmatch", {
+  // switcher use — no ResuMatch-specific hardcoded visibility.
+  const switcherApps = getAppSwitcherApps("resumatch", {
     roles: session?.user?.roles ?? [],
     authenticated: Boolean(session?.user),
   });
@@ -69,10 +69,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // right, which would send a developer signing in locally to the live site.
   // PlatformLinks falls back to localhost, which is what a sign-in link
   // needs.
-  const signInHref = `${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.jobmatch}/`)}`;
+  const signInHref = `${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.resumatch}/`)}`;
 
   return (
-    <html lang="en" data-app="jobmatch" suppressHydrationWarning>
+    <html lang="en" data-app="resumatch" suppressHydrationWarning>
       <head>
         {/* Light by default, like the token block in @asafarim/ui: candidates
             read long job descriptions here and a light ground is the better
@@ -83,7 +83,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body className="antialiased">
         <ThemeProvider defaultTheme="light">
           <AppShell
-            product="JobMatch"
+            product="ResuMatch"
             nav={<TopNav items={NAV_ITEMS} />}
             user={
               <>
@@ -117,9 +117,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             }
             footer={
               <span>
-                An experimental portfolio showcase — not a recruiting or hiring service, and not for
-                consequential employment decisions. No live job sources are connected; any postings
-                shown come from a clearly-labelled synthetic demo source — see{" "}
+                An experimental portfolio showcase — AI rewrites only what you already wrote in
+                your confirmed profile, and never invents an employer, a date, a degree, or a skill
+                you did not list. See{" "}
                 <a href="/">what exists so far</a>.
               </span>
             }

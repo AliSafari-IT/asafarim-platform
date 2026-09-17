@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * The candidate profile contract (JM-020).
  *
- * This schema is the boundary between "what a CV says" and "what JobMatch
+ * This schema is the boundary between "what a CV says" and "what ResuMatch
  * is willing to know". Two rules shape it:
  *
  * **1. Protected attributes are not represented.** A CV routinely carries
@@ -212,7 +212,7 @@ export class ProtectedAttributeError extends Error {
   constructor(keys: string[]) {
     super(
       `Profile content contains keys that read as protected attributes: ${keys.join(", ")}. ` +
-        "JobMatch does not store or infer these. See lib/profile/contract.ts.",
+        "ResuMatch does not store or infer these. See lib/profile/contract.ts.",
     );
     this.name = "ProtectedAttributeError";
     this.keys = keys;

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "JobMatch does not store age, nationality, gender, or similar attributes, and will not accept them.",
+            "ResuMatch does not store age, nationality, gender, or similar attributes, and will not accept them.",
           keys: error.keys,
         },
         { status: 422 },

@@ -12,14 +12,14 @@ import { getEnv } from "../../env";
  *
  * **Per-workspace vs env-default budget.** tasks-ai's budget is a
  * per-workspace override stored in `AiSettings`, seeded from nothing (null =
- * unlimited). JobMatch has no equivalent settings model (searched: the only
+ * unlimited). ResuMatch has no equivalent settings model (searched: the only
  * `model Workspace { ... }` in prisma/schema.prisma carries no AI fields, and
  * there is no `AiSettings`-shaped model anywhere in this schema). Building a
  * whole per-workspace settings model, its admin UI, and its authz gate is out
  * of scope for the infrastructure this issue asks for -- the issue itself
  * says "env-default-only is acceptable if no per-workspace settings model
  * exists yet, just document that choice". So: the budget here is
- * `JOBMATCH_AI_MONTHLY_BUDGET_USD` (lib/env.ts's `aiMonthlyBudgetUsd`,
+ * `RESUMATCH_AI_MONTHLY_BUDGET_USD` (lib/env.ts's `aiMonthlyBudgetUsd`,
  * already used by the whole workspace/process), applied identically to every
  * workspace. `usageSummary` still takes a `workspaceId` and every ledger
  * query is workspace-scoped, so switching to a per-workspace override later
@@ -76,7 +76,7 @@ export async function usageSummary(workspaceId: string): Promise<UsageSummary> {
 /**
  * Called before every tailoring provider call. Throws `QuotaExceededError`
  * (mapped to `429` by the caller/route) when the workspace's monthly budget
- * is already exhausted. `JOBMATCH_AI_MONTHLY_BUDGET_USD=0` freezes spend
+ * is already exhausted. `RESUMATCH_AI_MONTHLY_BUDGET_USD=0` freezes spend
  * entirely, per lib/env.ts's own doc comment on that variable.
  *
  * Never silently skips the call and never lets a caller fabricate a result

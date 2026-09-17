@@ -10,12 +10,12 @@ export const maxDuration = 60;
  *
  * Not a user route: it deletes other people's documents, so it is
  * authenticated by a shared secret rather than a session. When
- * JOBMATCH_RETENTION_TOKEN is unset the route is disabled outright — an
+ * RESUMATCH_RETENTION_TOKEN is unset the route is disabled outright — an
  * unset secret must never mean "no authentication required", which is how
  * an internal endpoint becomes a public one.
  */
 export async function POST(request: Request) {
-  const expected = process.env.JOBMATCH_RETENTION_TOKEN;
+  const expected = process.env.RESUMATCH_RETENTION_TOKEN;
   if (!expected) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

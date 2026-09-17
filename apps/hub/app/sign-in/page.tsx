@@ -16,7 +16,7 @@ const trustedOrigins = new Set(
     links.edumatch,
     links.timelineai,
     links.labs,
-    links.jobmatch,
+    links.resumatch,
     links.tasksai,
   ].map((url) => new URL(url).origin)
 );

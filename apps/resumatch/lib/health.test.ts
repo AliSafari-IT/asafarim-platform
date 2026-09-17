@@ -8,7 +8,7 @@ describe("health payload", () => {
     const payload = await buildHealthPayload(new Date(0), async () => true, "0.1.0", [], noScanner);
     expect(payload).toEqual({
       ok: true,
-      service: "jobmatch",
+      service: "resumatch",
       version: "0.1.0",
       checks: { process: true, database: true },
       scanner: { configured: false, reachable: false },
@@ -26,7 +26,7 @@ describe("health payload", () => {
   it("exposes nothing about how the database is reached", async () => {
     const payload = await buildHealthPayload(new Date(0), async () => false, "0.1.0", [], noScanner);
     const serialized = JSON.stringify(payload);
-    for (const leak of ["postgres", "jobmatch_dev", "5432", "55437", "@"]) {
+    for (const leak of ["postgres", "resumatch_dev", "5432", "55437", "@"]) {
       expect(serialized).not.toContain(leak);
     }
   });
@@ -54,7 +54,7 @@ describe("health warnings", () => {
       new Date(0),
       async () => true,
       "0.1.0",
-      ["NEXT_PUBLIC_JOBMATCH_URL is unset or points at localhost"],
+      ["NEXT_PUBLIC_RESUMATCH_URL is unset or points at localhost"],
       noScanner,
     );
     expect(payload.ok).toBe(true);

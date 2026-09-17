@@ -1,4 +1,4 @@
-import type { JobMatchAiProvider } from "../../env";
+import type { ResuMatchAiProvider } from "../../env";
 import type { TailorSuggestions } from "./schema";
 
 /**
@@ -42,7 +42,7 @@ export interface TailorProviderOutput {
 }
 
 export interface TailorProvider {
-  readonly name: JobMatchAiProvider;
+  readonly name: ResuMatchAiProvider;
   generate(call: TailorProviderCall): Promise<TailorProviderOutput>;
 }
 

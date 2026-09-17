@@ -43,7 +43,7 @@ export function DataRightsPanel({
       setResult(
         body.objectsFailed && body.objectsFailed > 0
           ? "Your profile and CV records were deleted. One or more stored files could not be removed yet; this has been logged and will be retried."
-          : "Everything JobMatch held for you has been deleted.",
+          : "Everything ResuMatch held for you has been deleted.",
       );
       router.refresh();
     } catch {
@@ -56,13 +56,14 @@ export function DataRightsPanel({
   return (
     <Card title="Your data">
       <p style={{ opacity: 0.85 }}>
-        JobMatch holds your uploaded CV, the profile read from it, and a log of actions taken on
-        your account. Your name and email live with your ASafarIM account, not here — JobMatch only
+        ResuMatch holds your uploaded CV, the profile read from it, any job pages you tailored toward,
+        the tailored CVs it produced, and a log of actions taken on
+        your account. Your name and email live with your ASafarIM account, not here — ResuMatch only
         stores an opaque identifier for it.
       </p>
 
       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "1rem" }}>
-        <a href="/api/data-rights" download="jobmatch-export.json" className="ui-btn ui-btn--secondary">
+        <a href="/api/data-rights" download="resumatch-export.json" className="ui-btn ui-btn--secondary">
           Download everything
         </a>
         <Button variant="danger" disabled={busy || !hasData} onClick={() => setConfirming(true)}>

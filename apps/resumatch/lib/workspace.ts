@@ -7,7 +7,7 @@ import { logError } from "./observability/logger";
 /**
  * Workspace resolution — the app's single authorization boundary in M1.
  *
- * Every JobMatch row that will ever describe a candidate hangs off a
+ * Every ResuMatch row that will ever describe a candidate hangs off a
  * Workspace, and a Workspace is reachable only through the opaque platform
  * user id on the current session. No route takes a workspace id from the
  * client, which is what makes IDOR structurally unavailable here rather

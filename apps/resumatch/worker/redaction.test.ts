@@ -4,7 +4,7 @@ import { buildLogEvent } from "../lib/observability/logger";
 /**
  * Acceptance criterion from issue #246: "Worker logs never contain
  * CV-derived text". The worker's logging goes through the same
- * `buildLogEvent` -> `redact()` pipeline as the rest of JobMatch (JM-015),
+ * `buildLogEvent` -> `redact()` pipeline as the rest of ResuMatch (JM-015),
  * so this test proves the pipeline itself keeps CV content out, the way a
  * worker job handler would inadvertently try to log a job's payload.
  */

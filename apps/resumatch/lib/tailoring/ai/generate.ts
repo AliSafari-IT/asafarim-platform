@@ -32,7 +32,7 @@ import { TailorProviderError } from "./provider";
  */
 export interface GenerateTailoredResumeOptions {
   /** Override the provider selection (tests only) — defaults to
-   *  `getEnv().aiProvider` (JOBMATCH_AI_PROVIDER). */
+   *  `getEnv().aiProvider` (RESUMATCH_AI_PROVIDER). */
   provider?: "fixture" | "openai" | "anthropic";
   templateKey?: string;
 }

@@ -1,6 +1,6 @@
 /*
- * JobMatch surface styling. Colours come from @asafarim/ui's design tokens
- * via [data-app="jobmatch"]; only layout and app-specific accents live here.
+ * ResuMatch surface styling. Colours come from @asafarim/ui's design tokens
+ * via [data-app="resumatch"]; only layout and app-specific accents live here.
  */
 
 /* .jm-hero::before (below) deliberately bleeds past its own edges via a
@@ -9,30 +9,30 @@
    to both html and body: html alone left body free to become the
    scrolling element in testing (overflow-x: hidden on the root doesn't
    always constrain a wider body box), so both are covered here. */
-[data-app="jobmatch"],
-[data-app="jobmatch"] body {
+[data-app="resumatch"],
+[data-app="resumatch"] body {
   overflow-x: hidden;
 }
 
-[data-app="jobmatch"] .jm-mono {
+[data-app="resumatch"] .jm-mono {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   letter-spacing: 0.02em;
 }
 
-[data-app="jobmatch"] .jm-grid {
+[data-app="resumatch"] .jm-grid {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
-[data-app="jobmatch"] .jm-note {
+[data-app="resumatch"] .jm-note {
   border-left: 3px solid var(--color-border, #888);
   padding-left: 1rem;
   opacity: 0.85;
 }
 
 /* Evidence-linked match explanation panel (JM-048). */
-[data-app="jobmatch"] .jm-match-panel {
+[data-app="resumatch"] .jm-match-panel {
   border: 1px solid var(--color-border, #ddd);
   border-radius: 0.6rem;
   padding: 0.85rem 1rem;
@@ -45,18 +45,18 @@
 /* Degraded results get a visually distinct container — dashed border, a
    different background tint, no score bar at all — so a "not evaluated"
    result is never mistakable for a real one even at a glance. */
-[data-app="jobmatch"] .jm-match-panel--degraded {
+[data-app="resumatch"] .jm-match-panel--degraded {
   border-style: dashed;
   border-color: var(--color-warning-border, #c9a227);
   background: var(--color-warning-bg, rgba(201, 162, 39, 0.08));
 }
 
-[data-app="jobmatch"] .jm-match-panel__degraded-label {
+[data-app="resumatch"] .jm-match-panel__degraded-label {
   margin: 0;
   font-weight: 600;
 }
 
-[data-app="jobmatch"] .jm-match-panel__score-bar-track {
+[data-app="resumatch"] .jm-match-panel__score-bar-track {
   width: 100%;
   height: 0.6rem;
   border-radius: 999px;
@@ -64,7 +64,7 @@
   overflow: hidden;
 }
 
-[data-app="jobmatch"] .jm-match-panel__score-bar-fill {
+[data-app="resumatch"] .jm-match-panel__score-bar-fill {
   height: 100%;
   border-radius: 999px;
   background: var(--color-primary, #2f6feb);
@@ -72,29 +72,29 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-app="jobmatch"] .jm-match-panel__score-bar-fill {
+  [data-app="resumatch"] .jm-match-panel__score-bar-fill {
     transition: none;
   }
 }
 
-[data-app="jobmatch"] .jm-match-panel__score-text {
+[data-app="resumatch"] .jm-match-panel__score-text {
   display: inline-block;
   margin-top: 0.3rem;
   font-size: 0.85rem;
 }
 
-[data-app="jobmatch"] .jm-match-panel__action {
+[data-app="resumatch"] .jm-match-panel__action {
   margin: 0;
   font-weight: 500;
 }
 
-[data-app="jobmatch"] .jm-match-panel__skill-lists {
+[data-app="resumatch"] .jm-match-panel__skill-lists {
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
-[data-app="jobmatch"] .jm-skill-list h4 {
+[data-app="resumatch"] .jm-skill-list h4 {
   margin: 0 0 0.3rem;
   font-size: 0.85rem;
   display: flex;
@@ -102,25 +102,25 @@
   gap: 0.3rem;
 }
 
-[data-app="jobmatch"] .jm-skill-list ul {
+[data-app="resumatch"] .jm-skill-list ul {
   margin: 0;
   padding-left: 1.1rem;
   font-size: 0.85rem;
 }
 
-[data-app="jobmatch"] .jm-skill-list--matching h4 {
+[data-app="resumatch"] .jm-skill-list--matching h4 {
   color: var(--color-success-text, #1a7f37);
 }
 
-[data-app="jobmatch"] .jm-skill-list--missing h4 {
+[data-app="resumatch"] .jm-skill-list--missing h4 {
   color: var(--color-danger-text, #b00020);
 }
 
-[data-app="jobmatch"] .jm-skill-list--uncertain h4 {
+[data-app="resumatch"] .jm-skill-list--uncertain h4 {
   color: var(--color-warning-text, #9a6700);
 }
 
-[data-app="jobmatch"] .jm-evidence-list {
+[data-app="resumatch"] .jm-evidence-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -129,12 +129,12 @@
   gap: 0.6rem;
 }
 
-[data-app="jobmatch"] .jm-evidence-row {
+[data-app="resumatch"] .jm-evidence-row {
   border-top: 1px solid var(--color-border, #eee);
   padding-top: 0.5rem;
 }
 
-[data-app="jobmatch"] .jm-evidence-row__facts {
+[data-app="resumatch"] .jm-evidence-row__facts {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -142,21 +142,21 @@
   font-size: 0.85rem;
 }
 
-[data-app="jobmatch"] .jm-evidence-row__fact {
+[data-app="resumatch"] .jm-evidence-row__fact {
   font-weight: 600;
 }
 
-[data-app="jobmatch"] .jm-evidence-row__connector {
+[data-app="resumatch"] .jm-evidence-row__connector {
   opacity: 0.6;
 }
 
-[data-app="jobmatch"] .jm-evidence-row__note {
+[data-app="resumatch"] .jm-evidence-row__note {
   margin: 0.2rem 0 0;
   font-size: 0.75rem;
   opacity: 0.75;
 }
 
-[data-app="jobmatch"] .jm-evidence-row__report-toggle {
+[data-app="resumatch"] .jm-evidence-row__report-toggle {
   background: none;
   border: none;
   padding: 0;
@@ -167,13 +167,13 @@
   cursor: pointer;
 }
 
-[data-app="jobmatch"] .jm-evidence-row__report-toggle:focus-visible,
-[data-app="jobmatch"] .jm-evidence-row__report-actions button:focus-visible {
+[data-app="resumatch"] .jm-evidence-row__report-toggle:focus-visible,
+[data-app="resumatch"] .jm-evidence-row__report-actions button:focus-visible {
   outline: 2px solid var(--color-primary, #2f6feb);
   outline-offset: 2px;
 }
 
-[data-app="jobmatch"] .jm-evidence-row__report-actions {
+[data-app="resumatch"] .jm-evidence-row__report-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -181,16 +181,16 @@
   flex-wrap: wrap;
 }
 
-[data-app="jobmatch"] .jm-evidence-row__report-status {
+[data-app="resumatch"] .jm-evidence-row__report-status {
   margin: 0.35rem 0 0;
   font-size: 0.75rem;
 }
 
-[data-app="jobmatch"] .jm-evidence-row__report-status--error {
+[data-app="resumatch"] .jm-evidence-row__report-status--error {
   color: var(--color-danger-text, #b00020);
 }
 
-[data-app="jobmatch"] .jm-match-panel__provenance {
+[data-app="resumatch"] .jm-match-panel__provenance {
   margin: 0;
   font-size: 0.7rem;
   opacity: 0.55;
@@ -199,21 +199,21 @@
 /* Profile review form. The rule the layout follows: a field and its
    "check this" marker read as one unit, so uncertainty is never separated
    from the value it applies to. */
-[data-app="jobmatch"] .jm-field {
+[data-app="resumatch"] .jm-field {
   display: block;
   margin-bottom: 1rem;
 }
 
-[data-app="jobmatch"] .jm-field > span:first-child {
+[data-app="resumatch"] .jm-field > span:first-child {
   display: block;
   font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 0.35rem;
 }
 
-[data-app="jobmatch"] .jm-field input,
-[data-app="jobmatch"] .jm-field select,
-[data-app="jobmatch"] .jm-field textarea {
+[data-app="resumatch"] .jm-field input,
+[data-app="resumatch"] .jm-field select,
+[data-app="resumatch"] .jm-field textarea {
   width: 100%;
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--line-strong);
@@ -223,21 +223,21 @@
   font: inherit;
 }
 
-[data-app="jobmatch"] .jm-field input:focus-visible,
-[data-app="jobmatch"] .jm-field select:focus-visible,
-[data-app="jobmatch"] .jm-field textarea:focus-visible {
+[data-app="resumatch"] .jm-field input:focus-visible,
+[data-app="resumatch"] .jm-field select:focus-visible,
+[data-app="resumatch"] .jm-field textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-[data-app="jobmatch"] .jm-field small {
+[data-app="resumatch"] .jm-field small {
   display: block;
   margin-top: 0.3rem;
   opacity: 0.75;
   font-size: 0.8rem;
 }
 
-[data-app="jobmatch"] .jm-list {
+[data-app="resumatch"] .jm-list {
   list-style: none;
   margin: 0.75rem 0 0;
   padding: 0;
@@ -245,25 +245,25 @@
   gap: 0.6rem;
 }
 
-[data-app="jobmatch"] .jm-list > li {
+[data-app="resumatch"] .jm-list > li {
   padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--line);
 }
 
-[data-app="jobmatch"] .jm-list > li:last-child {
+[data-app="resumatch"] .jm-list > li:last-child {
   border-bottom: none;
 }
 
 /* Language rows: label and proficiency select on one line, with room to
    breathe. Without this they read as one run-on token ("DutchNative"). */
-[data-app="jobmatch"] .jm-list--fields > li {
+[data-app="resumatch"] .jm-list--fields > li {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-[data-app="jobmatch"] .jm-list--fields select {
+[data-app="resumatch"] .jm-list--fields select {
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
@@ -273,7 +273,7 @@
   max-width: 60%;
 }
 
-[data-app="jobmatch"] .jm-roadmap-page {
+[data-app="resumatch"] .jm-roadmap-page {
   padding: clamp(1.5rem, 4vw, 3.5rem) 1.25rem 5rem;
 }
 
@@ -293,13 +293,13 @@
  * of cutting off hard. None of that participates in .jm-hero's own box —
  * the section's height is exactly PageHeader's content height, full stop.
  */
-[data-app="jobmatch"] .jm-hero {
+[data-app="resumatch"] .jm-hero {
   position: relative;
   isolation: isolate;
   margin-bottom: 1.5rem;
 }
 
-[data-app="jobmatch"] .jm-hero::before {
+[data-app="resumatch"] .jm-hero::before {
   content: "";
   position: absolute;
   inset: clamp(-4rem, -5vw, -2rem) max(-12vw, -10rem) clamp(-3rem, -4vw, -1.5rem);
@@ -325,31 +325,31 @@
   );
 }
 
-[data-app="jobmatch"]:not([data-theme="dark"]) .jm-hero::before,
-[data-app="jobmatch"][data-theme="light"] .jm-hero::before {
-  background-image: url("/images/hero/jobmatch-hero-mobile-light.svg");
+[data-app="resumatch"]:not([data-theme="dark"]) .jm-hero::before,
+[data-app="resumatch"][data-theme="light"] .jm-hero::before {
+  background-image: url("/images/hero/resumatch-hero-mobile-light.svg");
 }
-[data-app="jobmatch"][data-theme="dark"] .jm-hero::before {
-  background-image: url("/images/hero/jobmatch-hero-mobile-dark.svg");
+[data-app="resumatch"][data-theme="dark"] .jm-hero::before {
+  background-image: url("/images/hero/resumatch-hero-mobile-dark.svg");
 }
 
 @media (min-width: 40rem) {
-  [data-app="jobmatch"]:not([data-theme="dark"]) .jm-hero::before,
-  [data-app="jobmatch"][data-theme="light"] .jm-hero::before {
-    background-image: url("/images/hero/jobmatch-hero-tablet-light.svg");
+  [data-app="resumatch"]:not([data-theme="dark"]) .jm-hero::before,
+  [data-app="resumatch"][data-theme="light"] .jm-hero::before {
+    background-image: url("/images/hero/resumatch-hero-tablet-light.svg");
   }
-  [data-app="jobmatch"][data-theme="dark"] .jm-hero::before {
-    background-image: url("/images/hero/jobmatch-hero-tablet-dark.svg");
+  [data-app="resumatch"][data-theme="dark"] .jm-hero::before {
+    background-image: url("/images/hero/resumatch-hero-tablet-dark.svg");
   }
 }
 
 @media (min-width: 64rem) {
-  [data-app="jobmatch"]:not([data-theme="dark"]) .jm-hero::before,
-  [data-app="jobmatch"][data-theme="light"] .jm-hero::before {
-    background-image: url("/images/hero/jobmatch-hero-desktop-light.svg");
+  [data-app="resumatch"]:not([data-theme="dark"]) .jm-hero::before,
+  [data-app="resumatch"][data-theme="light"] .jm-hero::before {
+    background-image: url("/images/hero/resumatch-hero-desktop-light.svg");
   }
-  [data-app="jobmatch"][data-theme="dark"] .jm-hero::before {
-    background-image: url("/images/hero/jobmatch-hero-desktop-dark.svg");
+  [data-app="resumatch"][data-theme="dark"] .jm-hero::before {
+    background-image: url("/images/hero/resumatch-hero-desktop-dark.svg");
   }
 }
 

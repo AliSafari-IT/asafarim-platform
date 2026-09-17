@@ -6,7 +6,7 @@ import { normalizeWhitespace } from "../extraction/text";
  *
  * ResuMatch does not aggregate job postings — a candidate pastes one URL
  * they intend to apply to, and this module fetches exactly that one page.
- * The SSRF posture below is ported from JobMatch's old `lib/ingestion/`
+ * The SSRF posture below is ported from the old matching product's `lib/ingestion/`
  * (authorization.ts + http.ts): even though there is no source registry or
  * agreement to check anymore, an outbound request built from user-supplied
  * input is still a server-side request forgery vector, so the same
@@ -20,7 +20,7 @@ export const USER_AGENT = "ResuMatch/1.0 (+https://resumatch.asafarim.com)";
 
 /**
  * Hosts that must never be fetched, whatever a candidate pastes (mirrors
- * JobMatch's JM-030 rule). A pasted URL is user-supplied input, which makes
+ * the old product's JM-030 rule). A pasted URL is user-supplied input, which makes
  * it a server-side request forgery vector: point it at the cloud metadata
  * service and the fetch returns credentials on the attacker's behalf.
  */

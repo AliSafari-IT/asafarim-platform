@@ -2,16 +2,16 @@ import { z } from "zod";
 import { log } from "./observability/logger";
 
 /**
- * JobMatch environment contract (JM-013).
+ * ResuMatch environment contract.
  *
  * Three rules this module exists to enforce:
  *
- * 1. **Fail loudly, early.** A missing `JOBMATCH_DATABASE_URL` in staging or
+ * 1. **Fail loudly, early.** A missing `RESUMATCH_DATABASE_URL` in staging or
  *    production must stop the process, not surface later as a connection
  *    error from inside a request handler.
- * 2. **No shared-database fallback.** JobMatch has its own PostgreSQL
+ * 2. **No shared-database fallback.** ResuMatch has its own PostgreSQL
  *    instance. Silently falling back to `DATABASE_URL` would point CV and
- *    ingestion tables at the platform identity database — exactly the
+ *    tailoring tables at the platform identity database — exactly the
  *    boundary this app is built to keep.
  * 3. **Never echo values.** Errors name the variable, never its contents,
  *    so a boot failure cannot leak a password into a log aggregator.
@@ -20,25 +20,25 @@ import { log } from "./observability/logger";
  * only variables the browser sees are the `NEXT_PUBLIC_*` cross-app URLs
  * that Next.js inlines at build time.
  *
- * --- AI provider gate (M5 / JM-005, issue #255) ---------------------------
+ * --- AI provider gate (JM-005, issue #255) ---------------------------
  *
- * `JOBMATCH_AI_PROVIDER` / `JOBMATCH_AI_EVAL_PROVIDER` select which model
- * backend the (not-yet-built) classification and eval layers talk to. Both
- * default to `fixture` — a deterministic, network-free provider, the same
- * shape as `APPBUILDER_AI_PROVIDER=fake` in `.env.example`.
+ * `RESUMATCH_AI_PROVIDER` selects which model backend the CV-tailoring
+ * pipeline talks to. It defaults to `fixture` — a deterministic,
+ * network-free provider, the same shape as `APPBUILDER_AI_PROVIDER=fake` in
+ * `.env.example`.
  *
  * The gate mirrors `apps/tasks-ai/lib/billing/gate.ts`'s inert-flag pattern
  * (`TASKSAI_COMMERCIAL_LICENSE_SIGNED=true` before paid plans open): a
  * feature stays off in every deployed environment until a named env var is
  * flipped, and the code never argues with that decision, it just checks the
- * flag. Here the flag is `JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF` (JM-005),
+ * flag. Here the flag is `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF` (JM-005),
  * and unlike the billing gate it is combined with "a key is present" — a
  * signed-off flag with no key would still be inert, but failing loud on
  * *either* missing piece surfaces a half-configured deploy at boot instead
  * of at first use.
  *
  * The gate only applies where `requiresExplicitSecrets` is true (staging /
- * production, using the same `JOBMATCH_ENVIRONMENT` resolution as the
+ * production, using the same `RESUMATCH_ENVIRONMENT` resolution as the
  * database check above). Locally and in tests/CI, `fixture` is always free,
  * and — deliberately, so engineers can dev against a real provider without
  * touching deploy config — flipping to `openai`/`anthropic` locally is not
@@ -47,7 +47,7 @@ import { log } from "./observability/logger";
  * stop a deployed environment from spending money before JM-005 is closed.
  */
 
-const LOCAL_DATABASE_URL = "postgresql://jobmatch:jobmatch_dev@localhost:55437/jobmatch";
+const LOCAL_DATABASE_URL = "postgresql://resumatch:resumatch_dev@localhost:55437/resumatch";
 const LOCAL_APP_URL = "http://localhost:3012";
 const LOCAL_HUB_URL = "http://localhost:3001";
 
@@ -61,19 +61,19 @@ const LOCAL_HUB_URL = "http://localhost:3001";
  * where a build-arg-only variable does not exist.
  *
  * Reading them dynamically is what took production down: the compose stack
- * passes `NEXT_PUBLIC_JOBMATCH_URL` as a build arg, the built page had the
+ * passes `NEXT_PUBLIC_RESUMATCH_URL` as a build arg, the built page had the
  * right value baked in, and the runtime check still saw `undefined` and
  * threw on every request that touched the workspace.
  */
-const BUILD_TIME_APP_URL = process.env.NEXT_PUBLIC_JOBMATCH_URL;
+const BUILD_TIME_APP_URL = process.env.NEXT_PUBLIC_RESUMATCH_URL;
 const BUILD_TIME_HUB_URL = process.env.NEXT_PUBLIC_HUB_URL;
 
-export type JobMatchEnvironment = "development" | "test" | "staging" | "production";
+export type ResuMatchEnvironment = "development" | "test" | "staging" | "production";
 
-export type JobMatchAiProvider = "fixture" | "openai" | "anthropic";
+export type ResuMatchAiProvider = "fixture" | "openai" | "anthropic";
 
-export interface JobMatchEnv {
-  environment: JobMatchEnvironment;
+export interface ResuMatchEnv {
+  environment: ResuMatchEnvironment;
   databaseUrl: string;
   appUrl: string;
   hubUrl: string;
@@ -85,10 +85,8 @@ export interface JobMatchEnv {
    * turning a cosmetic mistake into an outage.
    */
   warnings: string[];
-  /** Model backend for classification (JM-005 gated). Default `fixture`. */
-  aiProvider: JobMatchAiProvider;
-  /** Model backend for the eval runner. Default `fixture`. */
-  aiEvalProvider: JobMatchAiProvider;
+  /** Model backend for CV tailoring (JM-005 gated). Default `fixture`. */
+  aiProvider: ResuMatchAiProvider;
   /** JM-005 sign-off flag. Must be true before a real provider can be selected in a deployed environment. */
   aiClassificationSignedOff: boolean;
   /** JM-047 monthly spend ceiling in USD. `0` freezes AI spend entirely. */
@@ -107,22 +105,20 @@ const DEFAULT_AI_MONTHLY_BUDGET_USD = 20;
 const rawSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   /** Set to "staging" on the staging deployment; production leaves it unset. */
-  JOBMATCH_ENVIRONMENT: z.enum(["staging", "production"]).optional(),
-  JOBMATCH_DATABASE_URL: z.string().min(1).optional(),
-  NEXT_PUBLIC_JOBMATCH_URL: z.string().url().optional(),
+  RESUMATCH_ENVIRONMENT: z.enum(["staging", "production"]).optional(),
+  RESUMATCH_DATABASE_URL: z.string().min(1).optional(),
+  NEXT_PUBLIC_RESUMATCH_URL: z.string().url().optional(),
   NEXT_PUBLIC_HUB_URL: z.string().url().optional(),
-  /** Classification model backend (M5 / JM-005). Never `openai`/`anthropic`
-   *  in a deployed environment unless the gate below is satisfied. */
-  JOBMATCH_AI_PROVIDER: AI_PROVIDER_ENUM.default("fixture"),
-  /** Eval runner's model backend; same gate as JOBMATCH_AI_PROVIDER. */
-  JOBMATCH_AI_EVAL_PROVIDER: AI_PROVIDER_ENUM.default("fixture"),
+  /** Tailoring model backend (JM-005). Never `openai`/`anthropic` in a
+   *  deployed environment unless the gate below is satisfied. */
+  RESUMATCH_AI_PROVIDER: AI_PROVIDER_ENUM.default("fixture"),
   /** JM-005 sign-off. Only "true" counts; anything else (including unset) is false. */
-  JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF: z
+  RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF: z
     .string()
     .optional()
     .transform((value) => value === "true"),
   /** JM-047 monthly spend ceiling in USD; "0" freezes spend. */
-  JOBMATCH_AI_MONTHLY_BUDGET_USD: z
+  RESUMATCH_AI_MONTHLY_BUDGET_USD: z
     .string()
     .optional()
     .transform((value) => (value === undefined || value === "" ? undefined : Number(value)))
@@ -139,8 +135,8 @@ export class EnvValidationError extends Error {
   readonly variables: string[];
   constructor(variables: string[]) {
     super(
-      `JobMatch is missing required environment variables: ${variables.join(", ")}. ` +
-        "Values are intentionally not shown. See apps/jobmatch/README.md#environment.",
+      `ResuMatch is missing required environment variables: ${variables.join(", ")}. ` +
+        "Values are intentionally not shown. See apps/resumatch/README.md#environment.",
     );
     this.name = "EnvValidationError";
     this.variables = variables;
@@ -154,7 +150,7 @@ export class EnvValidationError extends Error {
 export function resolveEnv(
   source: Record<string, string | undefined> = process.env,
   buildTime: BuildTimeUrls = { appUrl: BUILD_TIME_APP_URL, hubUrl: BUILD_TIME_HUB_URL },
-): JobMatchEnv {
+): ResuMatchEnv {
   const parsed = rawSchema.safeParse(source);
   if (!parsed.success) {
     const variables = parsed.error.issues.map((issue) => String(issue.path[0]));
@@ -162,15 +158,15 @@ export function resolveEnv(
   }
 
   const raw = parsed.data;
-  const environment: JobMatchEnvironment =
-    raw.JOBMATCH_ENVIRONMENT ?? (raw.NODE_ENV === "production" ? "production" : raw.NODE_ENV);
+  const environment: ResuMatchEnvironment =
+    raw.RESUMATCH_ENVIRONMENT ?? (raw.NODE_ENV === "production" ? "production" : raw.NODE_ENV);
   const requiresExplicitSecrets = environment === "staging" || environment === "production";
 
   // The database URL is the one thing worth refusing to start over: pointing
-  // CV and ingestion tables at the wrong database is unrecoverable in a way
+  // CV and tailoring tables at the wrong database is unrecoverable in a way
   // that a wrong link is not.
-  if (requiresExplicitSecrets && !raw.JOBMATCH_DATABASE_URL) {
-    throw new EnvValidationError(["JOBMATCH_DATABASE_URL"]);
+  if (requiresExplicitSecrets && !raw.RESUMATCH_DATABASE_URL) {
+    throw new EnvValidationError(["RESUMATCH_DATABASE_URL"]);
   }
 
   // JM-005 gate: a non-fixture provider may not be selected on a deployed
@@ -178,19 +174,16 @@ export function resolveEnv(
   // Mirrors apps/tasks-ai/lib/billing/gate.ts's inert-flag pattern — the
   // flag decides, the code just enforces it. Local/test/dev is intentionally
   // ungated (see the module doc comment above).
-  if (requiresExplicitSecrets) {
-    for (const provider of [raw.JOBMATCH_AI_PROVIDER, raw.JOBMATCH_AI_EVAL_PROVIDER]) {
-      if (provider === "fixture") continue;
-      const key = provider === "openai" ? raw.OPENAI_API_KEY : raw.ANTHROPIC_API_KEY;
-      if (!raw.JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF || !key) {
-        throw new EnvValidationError(["JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF"]);
-      }
+  if (requiresExplicitSecrets && raw.RESUMATCH_AI_PROVIDER !== "fixture") {
+    const key = raw.RESUMATCH_AI_PROVIDER === "openai" ? raw.OPENAI_API_KEY : raw.ANTHROPIC_API_KEY;
+    if (!raw.RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF || !key) {
+      throw new EnvValidationError(["RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF"]);
     }
   }
 
   // Runtime value first (a real env var overrides), then the value Next
   // inlined at build, then the local default.
-  const appUrl = raw.NEXT_PUBLIC_JOBMATCH_URL ?? buildTime.appUrl ?? LOCAL_APP_URL;
+  const appUrl = raw.NEXT_PUBLIC_RESUMATCH_URL ?? buildTime.appUrl ?? LOCAL_APP_URL;
   const hubUrl = raw.NEXT_PUBLIC_HUB_URL ?? buildTime.hubUrl ?? LOCAL_HUB_URL;
 
   // A loopback URL in a deployed environment means a broken sign-in link or a
@@ -199,21 +192,20 @@ export function resolveEnv(
   // earlier version of this file made.
   const warnings: string[] = [];
   if (requiresExplicitSecrets) {
-    if (isLoopback(appUrl)) warnings.push("NEXT_PUBLIC_JOBMATCH_URL is unset or points at localhost");
+    if (isLoopback(appUrl)) warnings.push("NEXT_PUBLIC_RESUMATCH_URL is unset or points at localhost");
     if (isLoopback(hubUrl)) warnings.push("NEXT_PUBLIC_HUB_URL is unset or points at localhost");
   }
 
   return {
     environment,
-    databaseUrl: raw.JOBMATCH_DATABASE_URL ?? LOCAL_DATABASE_URL,
+    databaseUrl: raw.RESUMATCH_DATABASE_URL ?? LOCAL_DATABASE_URL,
     appUrl,
     hubUrl,
     requiresExplicitSecrets,
     warnings,
-    aiProvider: raw.JOBMATCH_AI_PROVIDER,
-    aiEvalProvider: raw.JOBMATCH_AI_EVAL_PROVIDER,
-    aiClassificationSignedOff: raw.JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF ?? false,
-    aiMonthlyBudgetUsd: raw.JOBMATCH_AI_MONTHLY_BUDGET_USD ?? DEFAULT_AI_MONTHLY_BUDGET_USD,
+    aiProvider: raw.RESUMATCH_AI_PROVIDER,
+    aiClassificationSignedOff: raw.RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF ?? false,
+    aiMonthlyBudgetUsd: raw.RESUMATCH_AI_MONTHLY_BUDGET_USD ?? DEFAULT_AI_MONTHLY_BUDGET_USD,
   };
 }
 
@@ -226,10 +218,10 @@ function isLoopback(url: string): boolean {
   }
 }
 
-let cached: JobMatchEnv | undefined;
+let cached: ResuMatchEnv | undefined;
 
 /** Memoized accessor for request handlers. */
-export function getEnv(): JobMatchEnv {
+export function getEnv(): ResuMatchEnv {
   if (!cached) {
     cached = resolveEnv();
     // Boot-time visibility only: provider name and a boolean, never a key.
@@ -237,7 +229,6 @@ export function getEnv(): JobMatchEnv {
     // get their own), the moment this module is first consulted.
     log.info("env.ai_provider", {
       provider: cached.aiProvider,
-      evalProvider: cached.aiEvalProvider,
       classificationSignedOff: cached.aiClassificationSignedOff,
     });
   }

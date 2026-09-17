@@ -9,7 +9,7 @@ export type ProductName =
   | "AppBuilder"
   | "TimelineAI"
   | "Labs"
-  | "JobMatch"
+  | "ResuMatch"
   | "TasksAI";
 
 export interface LogoMarkProps {

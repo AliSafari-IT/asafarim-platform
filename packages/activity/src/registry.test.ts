@@ -35,7 +35,7 @@ describe("getAllUserActivity", () => {
       "appbuilder",
       "edumatch",
       "hub",
-      "jobmatch",
+      "resumatch",
       "tasksai",
       "testora",
       "timelineai",

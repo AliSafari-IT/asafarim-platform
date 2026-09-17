@@ -6,7 +6,7 @@ describe("buildWorkerHealth", () => {
     const ok = buildWorkerHealth(true, true, new Date("2026-09-16T00:00:00Z"));
     expect(ok).toEqual({
       ok: true,
-      service: "jobmatch-worker",
+      service: "resumatch-worker",
       checks: { redis: true, database: true },
       timestamp: "2026-09-16T00:00:00.000Z",
     });

@@ -9,8 +9,8 @@ export class AnthropicTailorProvider implements TailorProvider {
 
   async generate(_call: TailorProviderCall): Promise<TailorProviderOutput> {
     throw new Error(
-      "Anthropic tailoring is not implemented yet. Set JOBMATCH_AI_PROVIDER=fixture, " +
-        "or implement this adapter before selecting JOBMATCH_AI_PROVIDER=anthropic.",
+      "Anthropic tailoring is not implemented yet. Set RESUMATCH_AI_PROVIDER=fixture, " +
+        "or implement this adapter before selecting RESUMATCH_AI_PROVIDER=anthropic.",
     );
   }
 }

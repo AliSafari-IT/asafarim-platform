@@ -42,7 +42,7 @@ export interface DocumentScanner {
 
 /**
  * The scanner used when none is configured. Always `unavailable`, so a
- * deployment without JOBMATCH_SCANNER_URL quarantines every upload and the
+ * deployment without RESUMATCH_SCANNER_URL quarantines every upload and the
  * misconfiguration is loudly visible in the UI instead of silently
  * disabling the control.
  */
@@ -162,7 +162,7 @@ function runInstream(
         return finish({ kind: "unavailable", detail: "size-limit-exceeded" });
       }
       // Anything else — "INSTREAM: Unknown command", a truncated line, a
-      // protocol version JobMatch does not recognise — is treated the same
+      // protocol version ResuMatch does not recognise — is treated the same
       // as a daemon that is not there at all: fail closed, log the detail.
       return finish({ kind: "unavailable", detail: "malformed-response" });
     });
@@ -236,7 +236,7 @@ export const insecureDevScanner: DocumentScanner = {
 function resolveClamAvTarget(
   env: Record<string, string | undefined>,
 ): { host: string; port: number } | null {
-  const url = env.JOBMATCH_SCANNER_URL;
+  const url = env.RESUMATCH_SCANNER_URL;
   if (!url) return null;
   try {
     const parsed = new URL(url);
@@ -250,13 +250,13 @@ function resolveClamAvTarget(
  * Whether the insecure dev bypass actually takes effect for this
  * environment — shared by `createScanner` and `getScannerHealth` so the two
  * can never disagree about it. A deployed environment falls through in
- * both, exactly as if `JOBMATCH_SCANNER` were unset.
+ * both, exactly as if `RESUMATCH_SCANNER` were unset.
  */
 function isInsecureDevScannerActive(env: Record<string, string | undefined>): boolean {
-  if (env.JOBMATCH_SCANNER !== INSECURE_DEV_SCANNER_VALUE) return false;
+  if (env.RESUMATCH_SCANNER !== INSECURE_DEV_SCANNER_VALUE) return false;
   const deployed =
-    env.JOBMATCH_ENVIRONMENT === "production" ||
-    env.JOBMATCH_ENVIRONMENT === "staging" ||
+    env.RESUMATCH_ENVIRONMENT === "production" ||
+    env.RESUMATCH_ENVIRONMENT === "staging" ||
     env.NODE_ENV === "production";
   return !deployed;
 }
@@ -266,7 +266,7 @@ export function createScanner(env: Record<string, string | undefined> = process.
 
   const target = resolveClamAvTarget(env);
   // A malformed scanner URL must not silently become "no scanning" — both
-  // paths return nullScanner, but a set-and-broken JOBMATCH_SCANNER_URL is
+  // paths return nullScanner, but a set-and-broken RESUMATCH_SCANNER_URL is
   // exactly the misconfiguration getScannerHealth() below is meant to catch.
   if (!target) return nullScanner;
   return createClamAvScanner(target.host, target.port);

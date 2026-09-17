@@ -123,7 +123,7 @@ function extractPlainText(bytes: Uint8Array): ExtractionOutcome {
 }
 
 /** Identifies which code produced a profile version, for reproducibility. */
-export const EXTRACTOR_NAME = "jobmatch-local-text";
+export const EXTRACTOR_NAME = "resumatch-local-text";
 export const EXTRACTOR_VERSION = "1.0.0";
 
 export async function extractText(

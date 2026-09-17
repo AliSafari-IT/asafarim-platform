@@ -1,6 +1,6 @@
 import { getEnv } from "./env";
 /**
- * Health payload for JobMatch.
+ * Health payload for ResuMatch.
  *
  * Pure over its dependencies (the database and scanner checks are injected)
  * so the shape is unit-testable without booting Next.js, a real database, or
@@ -15,7 +15,7 @@ export interface ScannerHealthSummary {
 
 export interface HealthPayload {
   ok: boolean;
-  service: "jobmatch";
+  service: "resumatch";
   version: string;
   checks: Record<string, boolean>;
   /**
@@ -23,7 +23,7 @@ export interface HealthPayload {
    * fail checks but deliberately not one of them: a ClamAV outage should be
    * visible and page someone, but it must not flip this endpoint's overall
    * `ok` (and therefore the container's own Docker healthcheck) to
-   * unhealthy — that would restart the jobmatch app itself in a loop that
+   * unhealthy — that would restart the resumatch app itself in a loop that
    * does nothing to fix the scanner sidecar.
    */
   scanner: ScannerHealthSummary;
@@ -50,7 +50,7 @@ export async function buildHealthPayload(
 
   return {
     ok: Object.values(checks).every(Boolean),
-    service: "jobmatch",
+    service: "resumatch",
     version,
     checks,
     scanner: await checkScanner(),

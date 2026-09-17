@@ -5,12 +5,12 @@ import { Alert, Button, PageHeader } from "@asafarim/ui";
 
 /**
  * Route-level error boundary. It deliberately shows the user nothing from
- * `error.message`: JobMatch errors originate in a database driver and, from
+ * `error.message`: ResuMatch errors originate in a database driver and, from
  * M3, in third-party connectors, and those messages routinely embed
  * connection details and request payloads. The digest is the handle an
  * operator uses to find the matching server log line.
  */
-export default function JobMatchError({
+export default function ResuMatchError({
   error,
   reset,
 }: {

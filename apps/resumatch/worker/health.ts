@@ -1,6 +1,6 @@
 export interface WorkerHealth {
   ok: boolean;
-  service: "jobmatch-worker";
+  service: "resumatch-worker";
   checks: {
     redis: boolean;
     database: boolean;
@@ -21,7 +21,7 @@ export function buildWorkerHealth(
   const checks = { redis: redisOk, database: databaseOk };
   return {
     ok: Object.values(checks).every(Boolean),
-    service: "jobmatch-worker",
+    service: "resumatch-worker",
     checks,
     timestamp: now.toISOString(),
   };

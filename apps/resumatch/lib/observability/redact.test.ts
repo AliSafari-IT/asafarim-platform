@@ -8,7 +8,7 @@ describe("log redaction", () => {
       extractedText: "…",
       apiKey: "sk-live-123",
       Authorization: "Bearer abc",
-      JOBMATCH_DATABASE_URL: "postgresql://jobmatch:pw@host/db",
+      RESUMATCH_DATABASE_URL: "postgresql://resumatch:pw@host/db",
     });
     expect(result).toEqual({});
   });

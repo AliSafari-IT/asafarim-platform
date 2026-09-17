@@ -115,7 +115,7 @@ profile → follow the next-step panel → search demo jobs → read eligibility
 reasons → save a job → export My Jobs.
 
 It is not seeded automatically. With the dev server running and
-`JOBMATCH_INGESTION_TOKEN` set:
+`RESUMATCH_INGESTION_TOKEN` set:
 
 ```bash
 pnpm --filter @asafarim/jobmatch showcase:load
@@ -176,7 +176,7 @@ vacancies. See
   with its own credentials, holding an opaque platform user id rather than a
   copy of the platform user table.
 - A validated environment contract that refuses to boot staging or
-  production without an explicit `JOBMATCH_DATABASE_URL`.
+  production without an explicit `RESUMATCH_DATABASE_URL`.
 - Redaction-by-construction logging and an append-only audit table.
 - CI covering typecheck, unit tests, migration apply, and schema drift.
 
@@ -206,22 +206,22 @@ pnpm --filter @asafarim/jobmatch test
 
 | Variable | Required in | Notes |
 |---|---|---|
-| `JOBMATCH_DATABASE_URL` | staging, production | No fallback to the platform `DATABASE_URL` — a missing value fails startup rather than silently using the identity database. Local development defaults to `localhost:55437`. |
-| `JOBMATCH_SHADOW_DATABASE_URL` | CI only | Throwaway database for the migration drift check. |
-| `JOBMATCH_ENVIRONMENT` | staging, production | `staging` there, `production` in prod; it decides whether secrets may be defaulted. |
-| `NEXT_PUBLIC_JOBMATCH_URL` | all deployments | Inlined at build time; also an allowed SSO callback origin. |
+| `RESUMATCH_DATABASE_URL` | staging, production | No fallback to the platform `DATABASE_URL` — a missing value fails startup rather than silently using the identity database. Local development defaults to `localhost:55437`. |
+| `RESUMATCH_SHADOW_DATABASE_URL` | CI only | Throwaway database for the migration drift check. |
+| `RESUMATCH_ENVIRONMENT` | staging, production | `staging` there, `production` in prod; it decides whether secrets may be defaulted. |
+| `NEXT_PUBLIC_RESUMATCH_URL` | all deployments | Inlined at build time; also an allowed SSO callback origin. |
 | `NEXT_PUBLIC_HUB_URL` | all deployments | Where unauthenticated visitors are sent to sign in. |
-| `JOBMATCH_SCANNER_URL` | when a scanner is deployed | Scanner endpoint selected by the developer. The current production stack has no scanner service, so leaving this unset quarantines every upload — a fail-closed default. |
-| `JOBMATCH_SCANNER` | local only | Set to the exact literal `insecure-accept-all` to run the pipeline without a scanner. Refused on any deployed environment, and it names itself on every document it clears. |
-| `JOBMATCH_INGESTION_TOKEN` | production | Bearer token for `POST /api/ingestion/sync`, which runs ingestion, re-assesses freshness and prunes expired snapshots. Unset disables the route entirely (404). Drive it from a scheduler. Holding it does not authorise fetching from a source whose agreement is missing or expired — that is checked per source. |
-| `JOBMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
+| `RESUMATCH_SCANNER_URL` | when a scanner is deployed | Scanner endpoint selected by the developer. The current production stack has no scanner service, so leaving this unset quarantines every upload — a fail-closed default. |
+| `RESUMATCH_SCANNER` | local only | Set to the exact literal `insecure-accept-all` to run the pipeline without a scanner. Refused on any deployed environment, and it names itself on every document it clears. |
+| `RESUMATCH_INGESTION_TOKEN` | production | Bearer token for `POST /api/ingestion/sync`, which runs ingestion, re-assesses freshness and prunes expired snapshots. Unset disables the route entirely (404). Drive it from a scheduler. Holding it does not authorise fetching from a source whose agreement is missing or expired — that is checked per source. |
+| `RESUMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
 | `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
-| `REDIS_URL` | worker (all environments) | The platform's shared Redis instance (same variable Vionto's and AppBuilder's workers read — not a JobMatch-specific `JOBMATCH_REDIS_URL`). Required to start `worker/index.ts`; see [worker/](#worker) below. |
-| `JOBMATCH_AI_PROVIDER` | none — default `fixture` everywhere | Classification model backend (M5 / JM-005). `openai`/`anthropic` are accepted in staging/production only once `JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF=true` **and** the matching API key is set; otherwise startup refuses, naming the gate variable, never a value. Local dev may flip this freely. |
-| `JOBMATCH_AI_EVAL_PROVIDER` | none — default `fixture` everywhere | Same enum and gate as `JOBMATCH_AI_PROVIDER`, for the eval runner's target. |
-| `JOBMATCH_AI_CLASSIFICATION_SIGNED_OFF` | staging, production (only if a real provider is selected) | JM-005 gate. Flipping this is a config-only change on the epic's checklist — no code edit. |
+| `REDIS_URL` | worker (all environments) | The platform's shared Redis instance (same variable Vionto's and AppBuilder's workers read — not a JobMatch-specific `RESUMATCH_REDIS_URL`). Required to start `worker/index.ts`; see [worker/](#worker) below. |
+| `RESUMATCH_AI_PROVIDER` | none — default `fixture` everywhere | Classification model backend (M5 / JM-005). `openai`/`anthropic` are accepted in staging/production only once `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF=true` **and** the matching API key is set; otherwise startup refuses, naming the gate variable, never a value. Local dev may flip this freely. |
+| `RESUMATCH_AI_EVAL_PROVIDER` | none — default `fixture` everywhere | Same enum and gate as `RESUMATCH_AI_PROVIDER`, for the eval runner's target. |
+| `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF` | staging, production (only if a real provider is selected) | JM-005 gate. Flipping this is a config-only change on the epic's checklist — no code edit. |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | staging, production (only if the matching provider is selected) | Shared platform keys (see root `.env.example`). Unused while both AI vars stay `fixture`. |
-| `JOBMATCH_AI_MONTHLY_BUDGET_USD` | none — default `20` | JM-047 monthly spend ceiling in USD. `0` freezes AI spend entirely. |
+| `RESUMATCH_AI_MONTHLY_BUDGET_USD` | none — default `20` | JM-047 monthly spend ceiling in USD. `0` freezes AI spend entirely. |
 
 ## Worker
 
@@ -236,8 +236,8 @@ pnpm --filter @asafarim/jobmatch worker:start  # production entrypoint
 - `jobmatch.match.evaluate` queue: registered as a name only in `worker/queues.ts`. No processor is attached yet — JM-043 fills it in.
 - Uses the same isolated Prisma client (`lib/db/generated`) and redacting logger (`lib/observability/logger.ts`) as the Next.js app.
 
-Production additionally needs `JOBMATCH_DB_PASSWORD` and its URL-encoded
-form `JOBMATCH_DB_PASSWORD_URL` in `.env.production`, following the same
+Production additionally needs `RESUMATCH_DB_PASSWORD` and its URL-encoded
+form `RESUMATCH_DB_PASSWORD_URL` in `.env.production`, following the same
 convention as AppBuilder and Testora.
 
 ## Why a separate database

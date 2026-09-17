@@ -5,7 +5,7 @@ import type { NextConfig } from "next";
 
 // Next.js only reads .env from the app directory; the platform keeps one
 // shared .env at the monorepo root (NEXT_PUBLIC_* cross-app URLs and the
-// JobMatch database URL).
+// ResuMatch database URL).
 loadEnv({ path: path.join(process.cwd(), "../../.env.local") });
 loadEnv({ path: path.join(process.cwd(), "../../.env") });
 

@@ -8,7 +8,7 @@ import { deleteObject, getObjectBytes, objectExists, putObjectBytes } from "@asa
  * Three properties this module is responsible for:
  *
  * **Keys are derived, never supplied.** A storage key is
- * `jobmatch/candidate-documents/<workspaceId>/<uuid>.<ext>` and nothing
+ * `resumatch/candidate-documents/<workspaceId>/<uuid>.<ext>` and nothing
  * else. The candidate's filename never reaches it, so there is no path to
  * traverse and no key to guess across workspaces. Filename is display-only
  * metadata on the row.
@@ -26,7 +26,7 @@ import { deleteObject, getObjectBytes, objectExists, putObjectBytes } from "@asa
  * function there rather than two call sites.
  */
 
-const KEY_PREFIX = "jobmatch/candidate-documents";
+const KEY_PREFIX = "resumatch/candidate-documents";
 
 /**
  * Retention for the original upload. Deliberately short: once text is

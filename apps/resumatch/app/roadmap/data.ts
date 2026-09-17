@@ -1,37 +1,24 @@
 import type { RoadmapItem } from "@asafarim/ui";
 
-const ISSUE = (n: number) => ({
-  label: `#${n}`,
-  href: `https://github.com/AliSafari-IT/asafarim-platform/issues/${n}`,
-});
-const DOC = (label: string, file: string) => ({
-  label,
-  href: `https://github.com/AliSafari-IT/asafarim-platform/blob/main/apps/jobmatch/docs/${file}`,
-});
-
 /**
- * The JobMatch milestone journey (docs/business-plan.md §8). Outcome-led:
- * a milestone is "shipped" only when its exit evidence is demonstrated, not
- * when code merges. M0, M5 and M7 are mid-stream — their non-engineering
- * gates (legal advice, a real candidate cohort) are still open.
+ * The ResuMatch milestone journey.
+ *
+ * ResuMatch pivoted from an earlier job-board-aggregation product
+ * (JobMatch, M0–M7 in the prior roadmap): rather than ingesting postings
+ * from external sources and matching a candidate against them — which
+ * turned out to require licensing agreements with job boards this project
+ * does not want to pursue — it fetches the single job URL a candidate
+ * pastes and uses AI to tailor their existing CV to it. Outcome-led, same
+ * as before: a milestone is "shipped" only when its exit evidence is
+ * demonstrated, not when code merges.
  */
 export const roadmapItems: RoadmapItem[] = [
-  {
-    id: "M0",
-    title: "Commercial, rights & product decisions",
-    status: "in-progress",
-    timeframe: "Gate 0",
-    summary:
-      "The blockers engineering cannot solve. JM-001 (non-commercial showcase) and JM-004 (synthetic demo source) are decided; JM-005 — privacy and EU AI Act classification advice — is still outstanding and gates M5's live matching.",
-    tags: ["legal", "decision"],
-    links: [DOC("licensing decision", "jm-001-licensing-decision.md")],
-  },
   {
     id: "M1",
     title: "Platform & delivery foundation",
     status: "shipped",
     summary:
-      "A deployable Next.js app on the platform: Hub SSO, its own pgvector-ready PostgreSQL with an opaque platform user id, a validated env contract, redaction-by-construction logging, an append-only audit table, and CI.",
+      "A deployable Next.js app on the platform: Hub SSO, its own PostgreSQL with an opaque platform user id, a validated env contract, redaction-by-construction logging, an append-only audit table, and CI. Carried over unchanged from the pre-pivot product.",
     tags: ["infra"],
   },
   {
@@ -39,144 +26,56 @@ export const roadmapItems: RoadmapItem[] = [
     title: "Candidate profile & CV pipeline",
     status: "shipped",
     summary:
-      "Private document storage with byte-level type sniffing and a 10 MB cap, malware scanning as a hard gate, local PDF/Word/text extraction, an immutable lineage-linked profile with no field for any protected attribute, and one-click GDPR access + erasure of derived data.",
-    highlights: [
-      "Production ClamAV scanning is wired via issue #203; uploads fail closed without it",
-    ],
+      "Private document storage with byte-level type sniffing and a 10 MB cap, malware scanning as a hard gate, local PDF/Word/text extraction, an immutable lineage-linked profile with no field for any protected attribute, and one-click GDPR access + erasure. Carried over unchanged — this is exactly what a CV-tailoring tool still needs.",
   },
   {
     id: "M3",
-    title: "Authorized job ingestion",
+    title: "Pivot: single-URL job fetch",
     status: "shipped",
     summary:
-      "A source model that will not sync without a recorded, unexpired agreement; raw snapshots stored before parsing; cross-source dedup chosen by rights not arrival order; four-date freshness; and SSRF-resistant fetching. No live source is connected — that is gated on signed agreements.",
-    tags: ["data"],
+      "Replaced the authorized-source ingestion pipeline (which needed a licensing agreement per job board) with a single-URL fetch: a candidate pastes one job posting URL, ResuMatch fetches exactly that page under the same SSRF-resistant posture (public HTTPS only, no-redirect, size-capped, timeout-bounded), extracts readable text, and shows the candidate what it found before anything else happens.",
+    tags: ["pivot"],
   },
   {
     id: "M4",
-    title: "Search & deterministic eligibility",
+    title: "AI CV tailoring",
     status: "shipped",
     summary:
-      "Eligibility across seven axes (sponsorship, language, certification, remote/location, salary floor, contract, employer opt-out), every hard exclusion shown with its reason, controlled-vocabulary normalisation that never overwrites source text, and a per-workspace search rate limit.",
+      "A tailoring pipeline built around one hard guarantee: AI rewords and reprioritizes a candidate's summary, headline, and experience bullets — it never invents an employer, a date, a degree, or a skill the candidate did not already list. Enforced structurally: provider output is merged with the source profile in code, not trusted verbatim. Fixture-first, with a deterministic $0 provider as the only one CI exercises; real model adapters wait on the JM-005 sign-off gate.",
+    tags: ["ai"],
   },
   {
     id: "M5",
-    title: "Explainable matching beta",
-    status: "in-progress",
-    timeframe: "Gate 2",
+    title: "Print-ready preview & one layout",
+    status: "shipped",
     summary:
-      "The MatchResult contract (JM-039) and the privacy-preserving embedding input (JM-040) are built and schema-validated. Embedding generation, ranking, structured LLM evaluation, injection tests, the offline eval set, bias evaluation, budget controls and the evidence UI are planned — fixture-first, with no live model call until JM-005 clears.",
-    tags: ["ai"],
-    links: [ISSUE(256)],
+      "One clean, print-optimized layout rendered from the tailored content, with a Download PDF button that uses the browser's own print dialog — no new server-side rendering dependency for v1. `templateKey` already exists as a field so a second layout is additive later, not a schema change.",
   },
   {
     id: "M6",
-    title: "Candidate workflow & My-Job export",
-    status: "shipped",
+    title: "More layouts & richer editing",
+    status: "planned",
+    timeframe: "Next",
     summary:
-      "Idempotent save / reject / mark-applied transitions on any result, a tracked-job record scoped to the caller's session, and a deterministic My-Job CSV with fixed column order, ISO 8601 UTC dates and formula-injection escaping on every field.",
+      "A second and third visual template to choose between, and an editable review step before the final preview — today's flow shows the AI-tailored content read-only; letting a candidate hand-adjust a bullet before printing is the natural next step.",
+    tags: ["ux"],
   },
   {
     id: "M7",
-    title: "Concierge beta & relevance validation",
-    status: "in-progress",
-    timeframe: "Gate 2",
+    title: "Real model providers",
+    status: "planned",
+    timeframe: "Next",
     summary:
-      "The engineering slice (JM-059) shipped: a candidate can report why any result is wrong with a typed reason code that routes to profile, source, or rule. The rest — recruiting a real candidate cohort, live onboarding, a human relevance study, a published beta decision report — needs real people and real usage data.",
+      "OpenAI and Anthropic tailoring adapters, gated the same way the pre-pivot product gated real-model evaluation: never selectable in a deployed environment until the JM-005 classification sign-off is recorded and a key is present. The fixture provider stays the only one CI ever exercises.",
+    tags: ["ai"],
   },
   {
     id: "M8",
-    title: "Belgian source & language expansion",
-    status: "planned",
-    timeframe: "Gate 3",
-    summary:
-      "One approved source each for Flanders, Brussels and Wallonia (or a documented alternative), with a multilingual quality report across Dutch, French and English.",
-    tags: ["data"],
-  },
-  {
-    id: "M9",
     title: "Production readiness & privacy operations",
-    status: "planned",
-    timeframe: "Gate 3",
+    status: "exploring",
+    timeframe: "Later",
     summary:
-      "A DPIA decision, operational deletion / access workflows, an incident runbook, and load + recovery evidence — the bar for operating at pilot scale.",
+      "A DPIA decision for the AI-tailoring flow specifically (a job page's text and a candidate's rewritten resume both pass through a model call), operational deletion/access workflows, an incident runbook, and load + recovery evidence — the bar for operating at pilot scale.",
     tags: ["privacy", "ops"],
-  },
-  {
-    id: "M10",
-    title: "B2C monetization",
-    status: "exploring",
-    timeframe: "Gate 4",
-    summary:
-      "A Pro subscription, one-time career products and premium My-Job capabilities — only after paid candidate value and unit economics are validated. Requires a fresh commercial-licensing review.",
-  },
-  {
-    id: "M11",
-    title: "Institutional & partner pilots",
-    status: "exploring",
-    timeframe: "Gate 4",
-    summary:
-      "Controlled agreements with organisations: a consent model, tenant isolation, and a partner outcome report.",
-  },
-  {
-    id: "M12",
-    title: "Recruiter product readiness",
-    status: "exploring",
-    timeframe: "Gate 5",
-    summary:
-      "A compliant, human-supervised B2B product — gated on a full AI Act / employment-law review, recruiter human-oversight procedures, candidate consent and visibility controls, audit trails, and a bias + performance audit before any go/no-go.",
-    tags: ["legal"],
-  },
-
-  // ── M5 workstream (epic #256) — the near-term engineering queue ────
-  {
-    id: "#246",
-    title: "Async matching worker + gated AI env",
-    status: "planned",
-    timeframe: "M5 · next",
-    summary:
-      "A BullMQ worker for JobMatch (it has none today) and an env contract where a non-fixture model provider cannot be enabled on a deployed environment until the JM-005 classification gate is signed off.",
-    tags: ["ai", "epic #256"],
-    links: [ISSUE(246), ISSUE(255)],
-  },
-  {
-    id: "#247",
-    title: "Embeddings + ranking",
-    status: "planned",
-    timeframe: "M5 · next",
-    summary:
-      "Content-hash-cached profile and posting embeddings on a pgvector column (wiped on erasure), then a pure ranking function that shortlists after — never instead of — M4's hard filters, with similarity never surfaced as hiring probability.",
-    tags: ["ai", "epic #256"],
-    links: [ISSUE(247), ISSUE(248)],
-  },
-  {
-    id: "#249",
-    title: "Structured evaluation + injection isolation",
-    status: "planned",
-    timeframe: "M5 · next",
-    summary:
-      "The evaluation pipeline that turns a shortlisted pair into a schema-valid MatchResult — quota, redaction, fenced posting text, retry, honest degraded mode — plus an adversarial corpus proving a job description cannot move the score or exfiltrate candidate data.",
-    tags: ["ai", "security", "epic #256"],
-    links: [ISSUE(249), ISSUE(250)],
-  },
-  {
-    id: "#251",
-    title: "Offline eval, bias eval & budget controls",
-    status: "exploring",
-    timeframe: "M5 · exit gate",
-    summary:
-      "A versioned offline evaluation set seeded from the showcase fixture, perturbation-pair bias testing for the AI Act file, and per-workspace model / prompt / budget controls with a spend dashboard.",
-    tags: ["ai", "epic #256"],
-    links: [ISSUE(251), ISSUE(252), ISSUE(253)],
-  },
-  {
-    id: "#254",
-    title: "Evidence-linked explanation UI",
-    status: "exploring",
-    timeframe: "M5 · exit gate",
-    summary:
-      "The candidate-facing panel: score with confidence, matching / missing / uncertain requirements as distinct lists, every explanation row traceable to a confirmed-profile fact and a posting requirement, and a “report incorrect evidence” action feeding the M7 feedback pipeline.",
-    tags: ["ai", "ux", "epic #256"],
-    links: [ISSUE(254)],
   },
 ];
