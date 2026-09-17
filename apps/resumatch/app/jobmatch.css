@@ -352,3 +352,91 @@
     background-image: url("/images/hero/jobmatch-hero-desktop-dark.svg");
   }
 }
+
+/* ─── Tailored resume preview + print (app/tailor) ────────────────────── */
+
+.rm-resume {
+  max-width: 48rem;
+  margin: 0 auto;
+  background: var(--ui-surface, #fff);
+  color: var(--ui-text, #111);
+  padding: 2.5rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.rm-resume__header {
+  border-bottom: 2px solid currentColor;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+.rm-resume__header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.6rem;
+}
+.rm-resume__headline {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.rm-resume__contact {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.rm-resume__section {
+  margin-bottom: 1.25rem;
+}
+.rm-resume__section h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.8;
+}
+
+.rm-resume__entry {
+  margin-bottom: 0.75rem;
+}
+.rm-resume__entry-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+.rm-resume__dates {
+  margin-left: auto;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+.rm-resume__entry ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.rm-preview-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  max-width: 48rem;
+  margin: 0 auto 1rem;
+}
+
+@media print {
+  .rm-preview-toolbar,
+  .ui-shell__header,
+  .ui-shell__side,
+  .ui-shell__footer {
+    display: none !important;
+  }
+  .rm-resume {
+    padding: 0;
+    max-width: none;
+  }
+  @page {
+    margin: 1.5cm;
+  }
+}

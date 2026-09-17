@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Alert, Card, PageHeader } from "@asafarim/ui";
 import { getCurrentWorkspace } from "../../lib/workspace";
 
@@ -18,7 +19,7 @@ export default async function WorkspacePage() {
         <PageHeader kicker="Workspace" title="This account cannot open a workspace." />
         <Alert tone="warning">
           <strong>Account inactive.</strong>{" "}
-          Your platform account is not active, so JobMatch will not create or open a workspace for
+          Your platform account is not active, so ResuMatch will not create or open a workspace for
           it. Contact the platform administrator if this is unexpected.
         </Alert>
       </>
@@ -29,9 +30,8 @@ export default async function WorkspacePage() {
     <>
       <PageHeader
         kicker="Workspace"
-        kickerIndex="M1"
-        title="Your JobMatch workspace exists."
-        description="An isolated, per-user container in JobMatch's own database. Everything later milestones add — your profile, saved jobs, match evaluations — hangs off this one row."
+        title="Your ResuMatch workspace exists."
+        description="An isolated, per-user container in ResuMatch's own database. Your profile and every tailored CV you generate hang off this one row."
       />
 
       <section className="jm-grid" style={{ margin: "2rem 0" }}>
@@ -44,17 +44,23 @@ export default async function WorkspacePage() {
             account by an opaque id — your name and email stay in the platform database.
           </p>
         </Card>
-        <Card title="Next: your profile">
+        <Card title="Your profile">
           <p style={{ opacity: 0.85 }}>
-            CV upload, extraction, and the correction step arrive in M2, behind malware scanning and
-            private storage. Until then there is nothing here to fill in.
+            Upload a CV, correct what was read from it, and confirm it. Tailoring always reads from
+            your confirmed version.
           </p>
+          <Link href="/profile" className="ui-btn ui-btn--secondary ui-btn--sm">
+            Go to your profile →
+          </Link>
         </Card>
-        <Card title="Next: job sources">
+        <Card title="Tailor a CV">
           <p style={{ opacity: 0.85 }}>
-            The first connector arrives in M3, and only once a source agreement is recorded in the
-            source-rights register.
+            Paste a job posting URL and let AI reword your confirmed profile toward it, then
+            download it as a PDF.
           </p>
+          <Link href="/tailor" className="ui-btn ui-btn--primary ui-btn--sm">
+            Tailor your CV →
+          </Link>
         </Card>
       </section>
     </>

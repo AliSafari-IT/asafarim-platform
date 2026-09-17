@@ -50,9 +50,7 @@ const NAV_ITEMS = [
   { label: "Roadmap", href: "/roadmap" },
   { label: "Workspace", href: "/workspace" },
   { label: "Profile", href: "/profile" },
-  { label: "Jobs", href: "/jobs" },
-  { label: "My Jobs", href: "/my-jobs" },
-  { label: "Sources", href: "/sources" },
+  { label: "Tailor", href: "/tailor" },
 ];
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
