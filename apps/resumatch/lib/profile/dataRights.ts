@@ -3,6 +3,7 @@ import { getJobmatchDb } from "../db/client";
 import { deleteDocumentBytes } from "../documents/storage";
 import { logError } from "../observability/logger";
 import { recordAuditEvent } from "../workspace";
+import { parseTailoredResumeContent } from "../tailoring/ai/schema";
 import { parseProfileContent } from "./contract";
 
 /**
@@ -59,6 +60,24 @@ export interface DataExport {
       confidence: unknown;
     }[];
   } | null;
+  targetJobs: {
+    id: string;
+    sourceUrl: string;
+    title: string | null;
+    employer: string | null;
+    status: string;
+    fetchedAt: string;
+    rawText: string | null;
+  }[];
+  tailoredResumes: {
+    id: string;
+    targetJobId: string;
+    profileVersionId: string;
+    templateKey: string;
+    degraded: boolean;
+    createdAt: string;
+    content: unknown;
+  }[];
   auditEvents: { action: string; createdAt: string }[];
   /** Stated in the export itself so the recipient is not left inferring it. */
   notes: string[];
@@ -73,7 +92,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, auditEvents] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -84,6 +103,14 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
         confirmedVersionId: true,
         versions: { orderBy: { versionNumber: "asc" } },
       },
+    }),
+    db.targetJob.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.tailoredResume.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "asc" },
     }),
     db.auditEvent.findMany({
       where: { workspaceId },
@@ -127,6 +154,27 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
           })),
         }
       : null,
+    targetJobs: targetJobs.map((job) => ({
+      id: job.id,
+      sourceUrl: job.sourceUrl,
+      title: job.title,
+      employer: job.employer,
+      status: job.status,
+      fetchedAt: job.fetchedAt.toISOString(),
+      rawText: job.rawText,
+    })),
+    tailoredResumes: tailoredResumes.map((resume) => ({
+      id: resume.id,
+      targetJobId: resume.targetJobId,
+      profileVersionId: resume.profileVersionId,
+      templateKey: resume.templateKey,
+      degraded: resume.degraded,
+      createdAt: resume.createdAt.toISOString(),
+      // Re-parsed for the same reason profile version content is: the
+      // export is a statement about what is held, not a shape a stale
+      // contract version might have written.
+      content: parseTailoredResumeContent(resume.content),
+    })),
     auditEvents: auditEvents.map((event) => ({
       action: event.action,
       createdAt: event.createdAt.toISOString(),
@@ -142,6 +190,8 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
 export interface ErasureResult {
   documentsDeleted: number;
   versionsDeleted: number;
+  targetJobsDeleted: number;
+  tailoredResumesDeleted: number;
   objectsDeleted: number;
   objectsFailed: number;
 }
@@ -193,7 +243,15 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     select: { id: true, _count: { select: { versions: true } } },
   });
 
-  await db.$transaction(async (tx) => {
+  const [targetJobsDeleted, tailoredResumesDeleted] = await db.$transaction(async (tx) => {
+    // TailoredResume.profileVersionId is a Restrict FK — it must be gone
+    // before a CandidateProfileVersion it references can be deleted, or the
+    // transaction would fail with an FK violation. TargetJob has no such
+    // dependency but is deleted here anyway, in the same all-or-nothing
+    // transaction as the rest of this workspace's derived data.
+    const tailoredResumes = await tx.tailoredResume.deleteMany({ where: { workspaceId } });
+    const targetJobs = await tx.targetJob.deleteMany({ where: { workspaceId } });
+
     if (profile) {
       // The confirmed pointer is cleared first: it references a version row,
       // and deleting versions out from under it would violate the FK.
@@ -210,6 +268,8 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // the row orphans it permanently), and one whose object delete failed
     // (the same outcome). Both stay, and the caller is told.
     await tx.candidateDocument.deleteMany({ where: { workspaceId, id: { in: removedIds } } });
+
+    return [targetJobs.count, tailoredResumes.count];
   });
 
   // Written after the deletion, and deliberately kept: it holds an action
@@ -223,6 +283,8 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
   return {
     documentsDeleted: removedIds.length,
     versionsDeleted: profile?._count.versions ?? 0,
+    targetJobsDeleted,
+    tailoredResumesDeleted,
     objectsDeleted,
     objectsFailed,
   };
