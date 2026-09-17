@@ -2,12 +2,13 @@ import { getJobmatchDb } from "../../db/client";
 import { getEnv } from "../../env";
 
 /**
- * Per-workspace AI budget (JM-047). Mirrors apps/tasks-ai/lib/ai/quota.ts
- * almost 1:1 in structure and intent (`usageSummary` / `assertCanRun*`), and
+ * Per-workspace AI budget. Mirrors apps/tasks-ai/lib/ai/quota.ts almost 1:1
+ * in structure and intent (`usageSummary` / `assertCanRun*`), and
  * apps/tasks-ai/lib/ai/settings.ts's `AiSettings.monthlyBudgetUsd` shape,
- * adapted to JobMatch's two provider-call types (`embed` and `evaluate`
- * instead of a single "AI job" concept) and to the fact that this app has no
- * per-workspace AI settings model at all yet.
+ * adapted to ResuMatch's single `"tailor"` provider-call kind (the old
+ * matching product had two — `embed` and `evaluate` — before the pivot) and
+ * to the fact that this app has no per-workspace AI settings model at all
+ * yet.
  *
  * **Per-workspace vs env-default budget.** tasks-ai's budget is a
  * per-workspace override stored in `AiSettings`, seeded from nothing (null =
@@ -42,7 +43,7 @@ export class QuotaExceededError extends Error {
   }
 }
 
-export type ProviderCallKind = "embed" | "evaluate";
+export type ProviderCallKind = "tailor";
 
 function monthStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -73,16 +74,15 @@ export async function usageSummary(workspaceId: string): Promise<UsageSummary> {
 }
 
 /**
- * Called before every provider call -- both `embed` and `evaluate` (the
- * issue's explicit requirement). Throws `QuotaExceededError` (mapped to
- * `429` by the caller/route) when the workspace's monthly budget is already
- * exhausted. `JOBMATCH_AI_MONTHLY_BUDGET_USD=0` freezes spend entirely, per
- * lib/env.ts's own doc comment on that variable.
+ * Called before every tailoring provider call. Throws `QuotaExceededError`
+ * (mapped to `429` by the caller/route) when the workspace's monthly budget
+ * is already exhausted. `JOBMATCH_AI_MONTHLY_BUDGET_USD=0` freezes spend
+ * entirely, per lib/env.ts's own doc comment on that variable.
  *
- * Never silently skips the call and never lets a caller fabricate a score --
- * see lib/matching/ai/degraded.ts, which is what every provider call site
- * should wrap itself in to turn this exception into an honest degraded
- * result instead of an unhandled 500.
+ * Never silently skips the call and never lets a caller fabricate a result
+ * -- see lib/tailoring/ai/degraded.ts, which is what every provider call
+ * site should wrap itself in to turn this exception into an honest
+ * degraded result instead of an unhandled 500.
  */
 export async function assertCanRunProviderCall(
   workspaceId: string,
