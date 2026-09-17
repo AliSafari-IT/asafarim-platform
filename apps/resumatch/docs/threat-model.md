@@ -1,20 +1,29 @@
-# JobMatch threat model — M1 baseline (JM-016)
+# ResuMatch threat model — M1 baseline (JM-016)
 
-Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the job ingestion shipped in M3, search and eligibility shipped in M4, the matching contract begun in M5, the candidate workflow shipped in M6, and the relevance-feedback machinery begun in M7 — the Next.js app, its dedicated
+Scope: the foundation shipped in M1, the CV pipeline shipped in M2, the
+pivot away from job-board ingestion toward a single user-supplied job URL
+plus AI CV tailoring (see "Pivot" below), and everything M3–M7 originally
+covered before the pivot removed it — the Next.js app, its dedicated
 PostgreSQL database, its use of platform SSO, and its logging. It is written
 to be extended, not rewritten: each later milestone adds a section rather
-than replacing this one.
+than replacing this one. Sections describing removed functionality (M3–M7
+below) are kept as historical record rather than deleted — see the Pivot
+section for what superseded them.
 
-Two things make JobMatch's risk profile different from the rest of the
+Two things make ResuMatch's risk profile different from the rest of the
 platform, and both are the reason for the boundaries below:
 
 - **CV data is the most sensitive data the platform will hold.** A CV is
   free text that routinely carries a name, address, date of birth,
   nationality, health information, and family details — much of it
   special-category data under GDPR Article 9 that nobody asked for.
-- **Job content is untrusted input from third parties.** From M3, JobMatch
-  ingests text written by strangers and, from M5, feeds it to a model. That
-  makes every job description a potential prompt-injection payload.
+- **Job content is untrusted input, from a source the candidate chose.**
+  ResuMatch fetches exactly the one page a candidate pastes a URL to, then
+  feeds its extracted text to a model alongside the candidate's own profile
+  text. That makes both texts a potential prompt-injection payload, and
+  makes model *output* a potential source of fabricated resume content —
+  see the Pivot section's "Fabrication" threat, which has no M1–M7
+  equivalent.
 
 ## Assets
 
@@ -23,9 +32,10 @@ platform, and both are the reason for the boundaries below:
 | Candidate documents (M2) | Special-category data; a breach is a reportable incident |
 | Extracted profiles (M2) | Derived from the above; same sensitivity |
 | Platform session (M1) | Grants access to every workspace surface |
-| JobMatch database credentials (M1) | Direct access to all of the above |
-| Source connector credentials (M3) | Disclosure breaches a source agreement, not just security |
-| Model provider keys (M5) | Cost and data-exfiltration exposure |
+| ResuMatch database credentials (M1) | Direct access to all of the above |
+| Fetched job page text (Pivot) | Untrusted third-party content the candidate chose to fetch; a prompt-injection vector once it reaches a tailoring call |
+| Tailored resume content (Pivot) | Derived from candidate documents; same sensitivity, plus the fabrication risk below |
+| Model provider keys (Pivot) | Cost and data-exfiltration exposure |
 
 ## Trust boundaries in M1
 
@@ -140,7 +150,81 @@ deterministic and local.
 separate "withdraw consent but keep the account" flow waits for the consent
 model itself, which is JM-008.
 
-## M3 additions — job ingestion
+## Pivot additions — single job-URL fetch + AI CV tailoring
+
+The pivot replaced M3–M7's job-board aggregation and matching (below, kept
+as historical record) with two new capabilities: fetching one job URL a
+candidate pastes, and using AI to tailor their confirmed profile toward it.
+
+### Outbound requests are still attacker-controlled input
+
+A pasted URL is user-supplied input passed straight into a `fetch()` call —
+the same server-side-request-forgery shape M3's connector endpoints had,
+just with "an operator configured this source" replaced by "a candidate
+pasted this URL". `lib/tailoring/fetchJob.ts` ports M3's posture unchanged:
+public HTTPS only (`isPublicHttpsUrl` blocks loopback/private/link-local/
+metadata-service addresses), no redirects followed, a response size cap, a
+request timeout, and a real User-Agent. There is no source registry or
+agreement to check — a pasted URL has no agreement to violate — but the
+network-safety posture is identical to what an authorized, agreement-gated
+source got.
+
+### Fetched job text and profile text are both untrusted at the prompt boundary
+
+`lib/tailoring/ai/prompts.ts` fences BOTH the extracted job text and the
+candidate's own profile text between sentinel strings and states in the
+system prompt that everything inside either fence is DATA, never an
+instruction — the same fence-sentinel pattern the pre-pivot M5 work
+(`lib/matching/ai/prompts.ts`, deleted) used for posting text. An
+"ignore previous instructions" string embedded in a job posting's HTML has
+no code path to reach the model as anything other than fenced content.
+
+### Fabrication is the tailoring-specific risk this threat model didn't have before
+
+A bad match score (the old M5 risk) is a UX problem. A resume that claims
+an employer, a date, a degree, or a skill the candidate never had is a
+document the candidate might submit to an employer under their own name —
+strictly worse than refusing to answer. This is defended structurally, not
+just by prompt wording: `lib/tailoring/ai/schema.ts`'s
+`mergeTailoringSuggestions` is the ONLY function that produces persisted
+`TailoredResumeContent`, and it builds `title`/`employer`/`startedOn`/
+`endedOn`/`isCurrent` and all of `education`/`certifications` directly from
+the source `CandidateProfileVersion` in code — never from provider output.
+A provider's `skillsOrder` suggestion is intersected against the profile's
+own skill names; anything not already present is silently dropped, never
+added. A model that "broke character" under an injection attempt and tried
+to fabricate a fact has no field in the persisted schema it can reach to do
+so.
+
+### Threats addressed by the pivot
+
+| Threat | Mitigation |
+|---|---|
+| SSRF via a pasted job URL reaching an internal service | `isPublicHttpsUrl` + no-redirect fetch, same posture as M3's connector endpoint check |
+| Prompt injection via job page content or profile text moving tailoring behavior | Fence-sentinel prompt (both texts fenced as DATA) + schema-validated, code-merged output |
+| AI fabricating an employer, date, degree, or skill | `mergeTailoringSuggestions` builds every fact field from the source profile in code; provider output can only supply reworded text and a skill re-ordering, and an invented skill name is dropped, never persisted |
+| Budget exhaustion producing a silently degraded or fabricated result | `runOrDegrade` falls back to the profile carried over unchanged (no AI applied) on any provider/budget failure — never a fabricated rewrite, and the `TailoredResume.degraded` flag is shown to the candidate |
+
+### Deliberately not done in the pivot
+
+**Real model providers.** `openai`/`anthropic` tailoring adapters are
+unimplemented stubs behind the same JM-005 sign-off gate M5's evaluation
+providers used. `fixture` (deterministic, $0, no network) is the only
+provider CI or a deployed-but-unsigned-off environment can select.
+
+**Redaction of job page text before it reaches the prompt.** Job posting
+pages are public content about a role, not about the candidate — there is
+no equivalent PII-stripping step to `buildProfileText`'s (profile-side)
+allow-list, because a job posting is not expected to carry the candidate's
+own personal data in the first place. The fence-sentinel pattern is the
+control for job text, not redaction.
+
+## M3 additions — job ingestion (superseded by the pivot above)
+
+**This entire section describes a feature the pivot removed.** Kept as
+historical record of what M3 built and why, and of the SSRF-resistant
+fetching posture the pivot's `lib/tailoring/fetchJob.ts` ported forward —
+see "Pivot additions" above for what replaced it.
 
 M3 is where JobMatch starts making outbound requests on its own behalf and
 storing other people's content. Two things change the risk picture, and the
@@ -222,7 +306,12 @@ to candidates. That is M4, and putting a job in front of someone before the
 eligibility rules exist is how a product starts wasting the time it promised
 to save.
 
-## M4 additions — search and deterministic eligibility
+## M4 additions — search and deterministic eligibility (superseded by the pivot)
+
+**This entire section describes a feature the pivot removed** — there is no
+search or eligibility filtering left; a candidate tailors toward one job
+they already chose. Kept as historical record.
+
 
 M4 is the first milestone where a candidate sees a job at all, and the
 controls here are less about attackers and more about the product not
@@ -293,7 +382,13 @@ script against a single-instance deployment with no source yet
 authorised to ingest from; it is not enough once ingestion is live and
 JobMatch runs more than one instance.
 
-## M5 additions so far — the matching contract
+## M5 additions so far — the matching contract (superseded by the pivot)
+
+**This entire section describes the pre-pivot matching contract**, which
+was never completed with a live model call before the pivot removed it.
+See "Pivot additions" above for the tailoring contract that replaced it.
+Kept as historical record.
+
 
 M5's exit criteria require a live model provider, a chosen budget, and
 JM-005's privacy/AI Act classification advice — none of which are
@@ -365,7 +460,11 @@ manual run against the chosen real provider (once JM-005's classification
 advice and a provider are decided) remains a documented step on the M5
 flip-on checklist, not something CI can exercise.
 
-## M6 additions — candidate workflow and My-Job export
+## M6 additions — candidate workflow and My-Job export (superseded by the pivot)
+
+**This entire section describes a feature the pivot removed** — there is no
+tracked-job workflow or CSV export left. Kept as historical record.
+
 
 **Every tracked-job write is scoped to the caller's own workspace.** `lib/tracking/service.ts`
 takes `workspaceId` from the session-derived `getCurrentWorkspace()` result,
@@ -412,7 +511,12 @@ pipeline — the underlying actions exist and audit-log themselves
 design; the business plan asks only that the contract be *specified*, not
 implemented, and no silent synchronization exists.
 
-## M7 additions so far — relevance feedback (JM-059)
+## M7 additions so far — relevance feedback (JM-059) (superseded by the pivot)
+
+**This entire section describes a feature the pivot removed** — there is no
+search-result feedback mechanism left, since there are no search results.
+Kept as historical record.
+
 
 M7's exit criteria are a real candidate cohort, live onboarding sessions,
 and a human relevance study — none of which is code. What ships here is

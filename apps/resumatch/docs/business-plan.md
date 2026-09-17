@@ -1,4 +1,26 @@
-# JobMatch — Investor-Ready Business Plan
+# JobMatch — Investor-Ready Business Plan (superseded by the ResuMatch pivot)
+
+> **Pivot note (see `README.md` and `docs/threat-model.md`'s "Pivot
+> additions" section for the technical account).** Everything below this
+> note describes JobMatch, a job-board-aggregation and matching product:
+> ingest postings from external sources, match a candidate's profile
+> against them, help them apply. Building that required licensing
+> agreements with job boards, or ran into outright bans on automated
+> extraction (VDAB/EURES). That business/legal dependency is why the
+> product pivoted to **ResuMatch**: paste one job URL, tailor your CV to
+> it with AI, download it as a PDF — no job-board licensing, no
+> aggregation, no source registry.
+>
+> This document is kept as the historical record of the original business
+> case (market sizing, Belgian go-to-market, the matching-engine
+> architecture, revenue streams built around recruiting) rather than
+> deleted or rewritten in place, since much of the *reasoning* — why a
+> separate database, why fixture-first AI, why GDPR erasure had to cover
+> derived data — carried forward into ResuMatch even though the product
+> surface changed. Treat every mention of ingestion, matching, sourcing
+> agreements, or job-board partnerships below as **describing a milestone
+> the pivot removed**, not the current state of the app. `README.md` is
+> the current, accurate description of what ResuMatch does today.
 
 **Plan date:** 2 September 2026  
 **Stage:** Pre-MVP concept and business plan  
