@@ -3,18 +3,16 @@ import { NextResponse } from "next/server";
 import { getJobmatchDb } from "@/lib/db/client";
 
 /**
- * AI spend view (JM-047 / JM-009 KPI): AiUsageLedger vs MatchRun, aggregated
- * for cost-per-evaluation. Read-only, superadmin console-facing, bearer-token
- * gated in constant time the same way as
+ * AI spend view: AiUsageLedger, aggregated by kind (embed/evaluate under the
+ * old matching product, `tailor` under ResuMatch). Read-only, superadmin
+ * console-facing, bearer-token gated in constant time the same way as
  * app/api/internal/user-activity/route.ts (this app's only existing
  * admin/debug route pattern) — no session, 404s when the secret is unset,
  * listed in proxy.ts publicRoutes for the same reason that route is.
  *
  * `workspaceId` is optional: omit it for a platform-wide total (every
- * workspace's ledger + every MatchRun), or pass it to scope the view to one
- * workspace — the same shape `usageSummary` (lib/matching/ai/quota.ts) reads
- * per-workspace, but this endpoint additionally reports run counts and the
- * degraded ratio, which `usageSummary` does not need for its budget check.
+ * workspace's ledger), or pass it to scope the view to one workspace — the
+ * same shape `usageSummary` (lib/tailoring/ai/quota.ts) reads per-workspace.
  */
 export const dynamic = "force-dynamic";
 
@@ -36,9 +34,8 @@ export async function GET(request: Request) {
   const workspaceId = new URL(request.url).searchParams.get("workspaceId");
   const db = getJobmatchDb();
   const ledgerWhere = workspaceId ? { workspaceId } : {};
-  const runWhere = workspaceId ? { workspaceId } : {};
 
-  const [ledgerAgg, ledgerByKind, runAgg, degradedRuns] = await Promise.all([
+  const [ledgerAgg, ledgerByKind] = await Promise.all([
     db.aiUsageLedger.aggregate({
       where: ledgerWhere,
       _sum: { costUsd: true, inputTokens: true, outputTokens: true },
@@ -50,22 +47,12 @@ export async function GET(request: Request) {
       _sum: { costUsd: true },
       _count: true,
     }),
-    db.matchRun.aggregate({
-      where: runWhere,
-      _sum: { costUsd: true },
-      _count: true,
-    }),
-    db.matchRun.count({ where: { ...runWhere, degraded: true } }),
   ]);
-
-  const totalLedgerCostUsd = ledgerAgg._sum.costUsd ?? 0;
-  const totalRunCostUsd = runAgg._sum.costUsd ?? 0;
-  const runCount = runAgg._count;
 
   return NextResponse.json({
     workspaceId,
     ledger: {
-      totalCostUsd: totalLedgerCostUsd,
+      totalCostUsd: ledgerAgg._sum.costUsd ?? 0,
       totalInputTokens: ledgerAgg._sum.inputTokens ?? 0,
       totalOutputTokens: ledgerAgg._sum.outputTokens ?? 0,
       callCount: ledgerAgg._count,
@@ -74,15 +61,6 @@ export async function GET(request: Request) {
         costUsd: row._sum.costUsd ?? 0,
         callCount: row._count,
       })),
-    },
-    matchRuns: {
-      count: runCount,
-      totalCostUsd: totalRunCostUsd,
-      // Null rather than 0 when there are no runs — an average of zero runs
-      // is undefined, not free.
-      costPerEvaluation: runCount > 0 ? totalRunCostUsd / runCount : null,
-      degradedCount: degradedRuns,
-      degradedRatio: runCount > 0 ? degradedRuns / runCount : null,
     },
   });
 }

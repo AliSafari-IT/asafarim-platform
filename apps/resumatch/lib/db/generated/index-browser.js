@@ -177,132 +177,30 @@ exports.Prisma.CandidateProfileVersionScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
-exports.Prisma.JobSourceScalarFieldEnum = {
+exports.Prisma.TargetJobScalarFieldEnum = {
   id: 'id',
-  key: 'key',
-  name: 'name',
-  kind: 'kind',
-  endpoint: 'endpoint',
-  status: 'status',
-  syncEnabled: 'syncEnabled',
-  agreementReference: 'agreementReference',
-  agreementExpiresAt: 'agreementExpiresAt',
-  attributionText: 'attributionText',
-  commercialUse: 'commercialUse',
-  fieldMapping: 'fieldMapping',
-  requestsPerMinute: 'requestsPerMinute',
-  snapshotRetentionDays: 'snapshotRetentionDays',
-  lastSyncStartedAt: 'lastSyncStartedAt',
-  lastSyncFinishedAt: 'lastSyncFinishedAt',
-  lastEtag: 'lastEtag',
-  lastModified: 'lastModified',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.JobSnapshotScalarFieldEnum = {
-  id: 'id',
-  sourceId: 'sourceId',
-  contentHash: 'contentHash',
-  payload: 'payload',
-  byteSize: 'byteSize',
-  capturedAt: 'capturedAt',
-  retainUntil: 'retainUntil',
-  normalizerVersion: 'normalizerVersion'
-};
-
-exports.Prisma.JobPostingScalarFieldEnum = {
-  id: 'id',
-  sourceId: 'sourceId',
-  snapshotId: 'snapshotId',
-  externalId: 'externalId',
-  canonicalUrl: 'canonicalUrl',
+  workspaceId: 'workspaceId',
+  sourceUrl: 'sourceUrl',
+  rawText: 'rawText',
   title: 'title',
   employer: 'employer',
-  employerKey: 'employerKey',
-  description: 'description',
-  language: 'language',
-  locationRaw: 'locationRaw',
-  isRemote: 'isRemote',
-  contractType: 'contractType',
-  salaryMin: 'salaryMin',
-  salaryMax: 'salaryMax',
-  salaryCurrency: 'salaryCurrency',
-  salaryPeriod: 'salaryPeriod',
-  skillsRaw: 'skillsRaw',
-  requiresSponsorship: 'requiresSponsorship',
-  languageRequired: 'languageRequired',
-  requiredCertifications: 'requiredCertifications',
-  seniorityLevel: 'seniorityLevel',
-  contentHash: 'contentHash',
-  canonicalKey: 'canonicalKey',
-  duplicateOfId: 'duplicateOfId',
   status: 'status',
-  publishedAt: 'publishedAt',
-  expiresAt: 'expiresAt',
-  firstSeenAt: 'firstSeenAt',
-  lastSeenAt: 'lastSeenAt',
-  sourceUpdatedAt: 'sourceUpdatedAt',
-  normalizerVersion: 'normalizerVersion',
-  flaggedForInjectionReview: 'flaggedForInjectionReview',
-  injectionPatternCodes: 'injectionPatternCodes',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.IngestionRunScalarFieldEnum = {
-  id: 'id',
-  sourceId: 'sourceId',
-  startedAt: 'startedAt',
-  finishedAt: 'finishedAt',
-  outcome: 'outcome',
-  reasonCode: 'reasonCode',
-  recordsFetched: 'recordsFetched',
-  recordsAdded: 'recordsAdded',
-  recordsUpdated: 'recordsUpdated',
-  recordsExpired: 'recordsExpired',
-  duplicatesFound: 'duplicatesFound',
-  parseFailures: 'parseFailures',
-  rateLimitedCount: 'rateLimitedCount',
-  notModified: 'notModified',
-  durationMs: 'durationMs'
-};
-
-exports.Prisma.TrackedJobScalarFieldEnum = {
-  id: 'id',
-  workspaceId: 'workspaceId',
-  jobPostingId: 'jobPostingId',
-  status: 'status',
-  notes: 'notes',
-  appliedAt: 'appliedAt',
-  interviewAt: 'interviewAt',
-  followUpAt: 'followUpAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.JobFeedbackScalarFieldEnum = {
-  id: 'id',
-  workspaceId: 'workspaceId',
-  jobPostingId: 'jobPostingId',
-  reasonCode: 'reasonCode',
-  note: 'note',
-  relatedEligibilityReasonCode: 'relatedEligibilityReasonCode',
-  relatedProfileVersionId: 'relatedProfileVersionId',
-  relatedProfileField: 'relatedProfileField',
-  relatedPostingRequirement: 'relatedPostingRequirement',
+  fetchedAt: 'fetchedAt',
   createdAt: 'createdAt'
 };
 
-exports.Prisma.MatchEmbeddingScalarFieldEnum = {
+exports.Prisma.TailoredResumeScalarFieldEnum = {
   id: 'id',
   workspaceId: 'workspaceId',
-  kind: 'kind',
-  sourceId: 'sourceId',
-  embeddingModelVersion: 'embeddingModelVersion',
-  contentHash: 'contentHash',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  profileVersionId: 'profileVersionId',
+  targetJobId: 'targetJobId',
+  content: 'content',
+  templateKey: 'templateKey',
+  aiJobId: 'aiJobId',
+  promptVersion: 'promptVersion',
+  modelVersion: 'modelVersion',
+  degraded: 'degraded',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.AiUsageLedgerScalarFieldEnum = {
@@ -315,19 +213,6 @@ exports.Prisma.AiUsageLedgerScalarFieldEnum = {
   inputTokens: 'inputTokens',
   outputTokens: 'outputTokens',
   costUsd: 'costUsd',
-  createdAt: 'createdAt'
-};
-
-exports.Prisma.MatchRunScalarFieldEnum = {
-  id: 'id',
-  workspaceId: 'workspaceId',
-  profileVersionId: 'profileVersionId',
-  postingId: 'postingId',
-  promptVersion: 'promptVersion',
-  evaluationModelVersion: 'evaluationModelVersion',
-  costUsd: 'costUsd',
-  degraded: 'degraded',
-  result: 'result',
   createdAt: 'createdAt'
 };
 
@@ -390,53 +275,9 @@ exports.ProfileVersionOrigin = exports.$Enums.ProfileVersionOrigin = {
   MANUAL: 'MANUAL'
 };
 
-exports.SourceKind = exports.$Enums.SourceKind = {
-  JSON_FEED: 'JSON_FEED',
-  PARTNER_API: 'PARTNER_API'
-};
-
-exports.SourceStatus = exports.$Enums.SourceStatus = {
-  DRAFT: 'DRAFT',
-  ACTIVE: 'ACTIVE',
-  PAUSED: 'PAUSED',
-  TERMINATED: 'TERMINATED'
-};
-
-exports.PostingStatus = exports.$Enums.PostingStatus = {
-  ACTIVE: 'ACTIVE',
-  EXPIRED: 'EXPIRED',
-  DUPLICATE: 'DUPLICATE',
-  WITHDRAWN: 'WITHDRAWN'
-};
-
-exports.RunOutcome = exports.$Enums.RunOutcome = {
-  SUCCEEDED: 'SUCCEEDED',
-  PARTIAL: 'PARTIAL',
-  FAILED: 'FAILED',
-  REFUSED: 'REFUSED'
-};
-
-exports.TrackedJobStatus = exports.$Enums.TrackedJobStatus = {
-  SAVED: 'SAVED',
-  REJECTED: 'REJECTED',
-  APPLIED: 'APPLIED'
-};
-
-exports.FeedbackReasonCode = exports.$Enums.FeedbackReasonCode = {
-  PROFILE_SKILL_MISSING: 'PROFILE_SKILL_MISSING',
-  PROFILE_DATA_INCORRECT: 'PROFILE_DATA_INCORRECT',
-  SOURCE_POSTING_STALE: 'SOURCE_POSTING_STALE',
-  SOURCE_DETAILS_INCORRECT: 'SOURCE_DETAILS_INCORRECT',
-  RULE_WRONGLY_EXCLUDED: 'RULE_WRONGLY_EXCLUDED',
-  RULE_WRONGLY_INCLUDED: 'RULE_WRONGLY_INCLUDED',
-  NOT_RELEVANT: 'NOT_RELEVANT',
-  INCORRECT_MATCH_EVIDENCE: 'INCORRECT_MATCH_EVIDENCE',
-  OTHER: 'OTHER'
-};
-
-exports.EmbeddingKind = exports.$Enums.EmbeddingKind = {
-  PROFILE: 'PROFILE',
-  POSTING: 'POSTING'
+exports.TargetJobStatus = exports.$Enums.TargetJobStatus = {
+  FETCHED: 'FETCHED',
+  FETCH_FAILED: 'FETCH_FAILED'
 };
 
 exports.Prisma.ModelName = {
@@ -445,15 +286,9 @@ exports.Prisma.ModelName = {
   CandidateDocument: 'CandidateDocument',
   CandidateProfile: 'CandidateProfile',
   CandidateProfileVersion: 'CandidateProfileVersion',
-  JobSource: 'JobSource',
-  JobSnapshot: 'JobSnapshot',
-  JobPosting: 'JobPosting',
-  IngestionRun: 'IngestionRun',
-  TrackedJob: 'TrackedJob',
-  JobFeedback: 'JobFeedback',
-  MatchEmbedding: 'MatchEmbedding',
-  AiUsageLedger: 'AiUsageLedger',
-  MatchRun: 'MatchRun'
+  TargetJob: 'TargetJob',
+  TailoredResume: 'TailoredResume',
+  AiUsageLedger: 'AiUsageLedger'
 };
 
 /**

@@ -4,13 +4,13 @@ import { getJobmatchDb } from "@/lib/db/client";
 
 /**
  * Read-only, superadmin console-facing activity feed for one platform
- * user's JobMatch footprint. Carries no session — authenticates its own
+ * user's ResuMatch footprint. Carries no session — authenticates its own
  * bearer token in constant time and 404s when the secret is unset, matching
  * the platform's machine-endpoint pattern. Listed in proxy.ts publicRoutes
- * for that reason. The admin console never holds JobMatch's own DB
+ * for that reason. The admin console never holds ResuMatch's own DB
  * credentials — this route is the only door into that data (issue #301).
  *
- * JobMatch stores an opaque platform user id on Workspace.platformUserId,
+ * ResuMatch stores an opaque platform user id on Workspace.platformUserId,
  * never a copy of the platform user table, so this route is the join point.
  */
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 });
   }
 
-  const base = process.env.NEXT_PUBLIC_JOBMATCH_URL ?? "http://localhost:3012";
+  const base = process.env.NEXT_PUBLIC_RESUMATCH_URL ?? "http://localhost:3012";
   const db = getJobmatchDb();
 
   const workspace = await db.workspace.findUnique({
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ entries: [] });
   }
 
-  const [profile, documents, trackedJobs] = await Promise.all([
+  const [profile, documents, tailoredResumes] = await Promise.all([
     db.candidateProfile.findUnique({
       where: { workspaceId: workspace.id },
       select: { id: true, confirmedVersionId: true, createdAt: true, updatedAt: true },
@@ -66,15 +66,13 @@ export async function GET(request: Request) {
         deletedAt: true,
       },
     }),
-    db.trackedJob.findMany({
+    db.tailoredResume.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
-        status: true,
         createdAt: true,
-        updatedAt: true,
-        jobPosting: { select: { title: true, employer: true } },
+        targetJob: { select: { title: true, employer: true } },
       },
     }),
   ]);
@@ -108,14 +106,14 @@ export async function GET(request: Request) {
         deletedAt: doc.deletedAt?.toISOString() ?? null,
       },
     })),
-    ...trackedJobs.map((job) => ({
-      id: job.id,
-      type: "tracked_job",
-      title: `${job.jobPosting.title} · ${job.jobPosting.employer}`,
-      status: job.status,
-      createdAt: job.createdAt.toISOString(),
-      updatedAt: job.updatedAt.toISOString(),
-      href: `${base}/jobs`,
+    ...tailoredResumes.map((resume) => ({
+      id: resume.id,
+      type: "tailored_resume",
+      title: `${resume.targetJob.title ?? "Tailored CV"}${resume.targetJob.employer ? ` · ${resume.targetJob.employer}` : ""}`,
+      status: "generated",
+      createdAt: resume.createdAt.toISOString(),
+      updatedAt: resume.createdAt.toISOString(),
+      href: `${base}/tailor`,
       metadata: {},
     })),
   ];

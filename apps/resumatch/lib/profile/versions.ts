@@ -1,6 +1,5 @@
 import "server-only";
 import { getJobmatchDb } from "../db/client";
-import { enqueueEmbeddingCompute } from "../matching/ai/embeddingQueue";
 import { recordAuditEvent } from "../workspace";
 import {
   type CandidateProfileContent,
@@ -172,12 +171,6 @@ export async function confirmVersion(workspaceId: string, versionId: string): Pr
   await recordAuditEvent(workspaceId, "profile.version.confirmed", {
     count: version.versionNumber,
   });
-
-  // JM-041: (re)compute the profile's embedding off the request path — an
-  // async worker job, not a synchronous call here. A confirm must never
-  // wait on, or fail because of, an embed() call. The cache itself decides
-  // whether this is a no-op (content-hash unchanged) or a real recompute.
-  void enqueueEmbeddingCompute({ kind: "profile", workspaceId, sourceId: profile.id });
 
   return true;
 }

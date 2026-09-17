@@ -4,7 +4,6 @@ import { canRetryScan, explainReasonCode } from "../../lib/documents/pipeline";
 import { listDocuments } from "../../lib/documents/service";
 import { emptyProfile } from "../../lib/profile/contract";
 import { ERASURE_SLA_DAYS } from "../../lib/profile/dataRights";
-import { getShowcaseStatus } from "../../lib/ingestion/showcaseSource";
 import { getLatestVersion, listVersions } from "../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../lib/workspace";
 import { ShowcaseNotice } from "../components/ShowcaseNotice";
@@ -30,11 +29,10 @@ export default async function ProfilePage() {
     );
   }
 
-  const [documents, latest, versions, showcaseStatus] = await Promise.all([
+  const [documents, latest, versions] = await Promise.all([
     listDocuments(workspace.id),
     getLatestVersion(workspace.id),
     listVersions(workspace.id),
-    getShowcaseStatus(),
   ]);
 
   const confirmed = versions.find((version) => version.isConfirmed) ?? null;
@@ -52,7 +50,7 @@ export default async function ProfilePage() {
 
       {confirmed ? (
         <section style={{ marginTop: "1.5rem" }}>
-          <NextStepPanel status={showcaseStatus} />
+          <NextStepPanel />
         </section>
       ) : null}
 
