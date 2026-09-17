@@ -104,12 +104,12 @@ export const projectGroups: ProjectGroup[] = [
         href: links.tasksai,
       },
       {
-        name: "JobMatch",
+        name: "ResuMatch",
         status: "beta",
         description:
-          "An explainable, source-transparent job-search assistant: fewer vacancies, each with the reason it fits — built on its own isolated Postgres + pgvector database.",
-        tech: ["Next.js", "TypeScript", "Prisma", "pgvector"],
-        href: links.jobmatch,
+          "AI-tailored CVs: paste a job posting URL and AI rewords your confirmed profile toward it, structurally barred from inventing a fact — built on its own isolated Postgres database.",
+        tech: ["Next.js", "TypeScript", "Prisma", "Zod"],
+        href: links.resumatch,
       },
       {
         name: "AppBuilder",
