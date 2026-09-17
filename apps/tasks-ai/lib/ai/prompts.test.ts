@@ -199,4 +199,106 @@ describe("fixture provider", () => {
     // to apply as a no-op while review reported one change applied.
     expect(out.draft.operations.every((o) => o.op === "create_task")).toBe(true);
   });
+
+  // ── cross-project duplicate detection (issue #234) ──────────────────────
+
+  it("links the target task to a close retrieved candidate as a duplicate", async () => {
+    const p = new FixtureProvider();
+    const text = "Migrate the customer database to the new schema. Zero downtime required.";
+    const prompt = renderPrompt(
+      {
+        kind: "dedup",
+        input: text,
+        context: {
+          targetTask: { id: "t", title: "Migrate DB" },
+          retrieved: [
+            {
+              id: "task:cand1",
+              title: "DB migration",
+              body: "Migrate the customer database to the new schema with zero downtime.",
+            },
+          ],
+        },
+      },
+      text,
+    );
+    const out = await p.generate({
+      kind: "dedup",
+      prompt,
+      model: "fixture-1",
+      targetsExistingTask: true,
+    });
+    expect(out.draft.operations).toHaveLength(1);
+    const op = out.draft.operations[0];
+    expect(op.op).toBe("link_tasks");
+    if (op.op === "link_tasks") {
+      expect(op.fromRef).toBe(TARGET_TASK_REF);
+      expect(op.toRef).toBe("task:cand1");
+      expect(op.kind).toBe("duplicates");
+      expect(op.citations[0]?.source).toBe("task:cand1");
+    }
+  });
+
+  it("proposes no link when no retrieved candidate is actually similar", async () => {
+    const p = new FixtureProvider();
+    const text = "Write the Q3 marketing newsletter.";
+    const prompt = renderPrompt(
+      {
+        kind: "dedup",
+        input: text,
+        context: {
+          targetTask: { id: "t", title: "Newsletter" },
+          retrieved: [
+            { id: "task:cand1", title: "Rotate the database credentials", body: "unrelated security task" },
+          ],
+        },
+      },
+      text,
+    );
+    const out = await p.generate({
+      kind: "dedup",
+      prompt,
+      model: "fixture-1",
+      targetsExistingTask: true,
+    });
+    expect(out.draft.operations).toHaveLength(0);
+    expect(out.draft.openQuestions.length).toBeGreaterThan(0);
+  });
+
+  it("never links a comment or project-brief candidate as a duplicate", async () => {
+    const p = new FixtureProvider();
+    const text = "Migrate the customer database to the new schema.";
+    const prompt = renderPrompt(
+      {
+        kind: "dedup",
+        input: text,
+        context: {
+          targetTask: { id: "t", title: "Migrate DB" },
+          retrieved: [
+            {
+              id: "comment:c1",
+              title: "Comment on t9",
+              body: "Migrate the customer database to the new schema.",
+            },
+          ],
+        },
+      },
+      text,
+    );
+    const out = await p.generate({
+      kind: "dedup",
+      prompt,
+      model: "fixture-1",
+      targetsExistingTask: true,
+    });
+    expect(out.draft.operations).toHaveLength(0);
+  });
+
+  it("proposes nothing when dedup has no target task to compare against", async () => {
+    const p = new FixtureProvider();
+    const prompt = renderPrompt({ kind: "dedup", input: "some notes" }, "some notes");
+    const out = await p.generate({ kind: "dedup", prompt, model: "fixture-1" });
+    expect(out.draft.operations).toHaveLength(0);
+    expect(out.draft.openQuestions.length).toBeGreaterThan(0);
+  });
 });

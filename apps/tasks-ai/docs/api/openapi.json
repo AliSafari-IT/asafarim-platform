@@ -3280,7 +3280,8 @@
                       "nl_query",
                       "risks_open_questions",
                       "project_brief",
-                      "changed_digest"
+                      "changed_digest",
+                      "dedup"
                     ]
                   },
                   "input": {

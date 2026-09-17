@@ -126,6 +126,15 @@ export const EVAL_CASES: EvalCase[] = [
     expect: { maxOps: 0 },
   },
   {
+    id: "dedup-no-target",
+    kind: "dedup",
+    input: "A note about something, with no existing task given to compare it against.",
+    // No target task in this case (the harness never sets targetsExistingTask
+    // outside a syntheticDraft case), so the fixture must leave operations
+    // empty rather than guess at a link.
+    expect: { maxOps: 0 },
+  },
+  {
     // Grounding safety-net (issue #232 acceptance criteria: "Eval suite
     // gains a grounding case that fails if retrieval leaks cross-workspace
     // content"). retrieval.integration.test.ts proves the real query never

@@ -6,7 +6,7 @@ import { authorize } from "../authz";
 import { ApiError } from "../errors";
 import { emitActivity, recordAudit } from "../events/emit";
 import { EVENT } from "../events/names";
-import { TARGET_TASK_REF, operationSchema, type Operation } from "./types";
+import { CANDIDATE_REF_PREFIX, TARGET_TASK_REF, isCandidateRef, operationSchema, type Operation } from "./types";
 import { initialTriagedAt } from "../capture/inbox";
 import { runAiJob } from "./job";
 
@@ -78,6 +78,28 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
       });
     }
     refToTaskId.set(TARGET_TASK_REF, target.id);
+  }
+  // A retrieved candidate ref (issue #234, e.g. a dedup match) names a real
+  // task by id rather than one this proposal creates. Resolve it only when
+  // it was actually part of the retrieval set the *generation* step
+  // computed and stored on the job — never anything an edited operation
+  // merely claims — the same trust boundary guardDraft enforces, re-checked
+  // here because editedOperations only goes through schema validation, not
+  // guardDraft, before reaching this function.
+  const allowedCandidateIds = new Set(p.aiJob.retrievedIds);
+  const candidateRefs = new Set<string>();
+  for (const op of selected) {
+    if (op.op !== "link_tasks") continue;
+    if (isCandidateRef(op.fromRef) && allowedCandidateIds.has(op.fromRef)) candidateRefs.add(op.fromRef);
+    if (isCandidateRef(op.toRef) && allowedCandidateIds.has(op.toRef)) candidateRefs.add(op.toRef);
+  }
+  if (candidateRefs.size) {
+    const rawIds = [...candidateRefs].map((ref) => ref.slice(CANDIDATE_REF_PREFIX.length));
+    const rows = await ctx.db.task.findMany({
+      where: { id: { in: rawIds }, workspaceId: ctx.workspaceId, archivedAt: null },
+      select: { id: true },
+    });
+    for (const row of rows) refToTaskId.set(`${CANDIDATE_REF_PREFIX}${row.id}`, row.id);
   }
   const undo: Record<string, unknown>[] = [];
   let editDistance = 0;
