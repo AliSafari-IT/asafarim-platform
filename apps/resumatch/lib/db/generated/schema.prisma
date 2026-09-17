@@ -1,0 +1,807 @@
+// JobMatch — dedicated database schema (M1 baseline).
+//
+// JobMatch deliberately does NOT use the shared platform Prisma schema
+// (packages/db). Job listings are high-volume and frequently rewritten by
+// ingestion, and CV-derived data needs a stricter access boundary than
+// identity traffic — see apps/jobmatch/docs/business-plan.md §"Database
+// recommendation". This schema therefore lives on its own PostgreSQL
+// instance (local port 55437) with its own credentials.
+//
+// Identity stays in the platform: JobMatch stores an OPAQUE authenticated
+// user id (the platform user id string) and never duplicates the platform
+// User table, so there is no second place a candidate's identity can drift
+// or leak from.
+//
+// M1 is a foundation milestone: only the tables needed to prove the
+// boundary exist here. The ingestion, profile, and matching entities named
+// in the business plan (JobSource, JobPosting, CandidateProfile, ...) land
+// with M2/M3, each with its own migration and access review.
+
+generator client {
+  provider      = "prisma-client-js"
+  // Generated into the app rather than node_modules/@prisma/client: pnpm
+  // symlinks that path to the shared store, where the PLATFORM client
+  // already lives. Two schemas, two clients, no clobbering.
+  output        = "../lib/db/generated"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// A candidate's JobMatch workspace, keyed by the opaque platform user id.
+/// Holds no name, email, or other platform profile data — those are read
+/// from the session at request time and never persisted here.
+model Workspace {
+  id String @id @default(cuid())
+
+  /// Opaque platform user id (Auth.js `session.user.id`). Unique: one
+  /// workspace per authenticated user.
+  platformUserId String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditEvents AuditEvent[]
+  documents   CandidateDocument[]
+  profile     CandidateProfile?
+  trackedJobs TrackedJob[]
+  feedback    JobFeedback[]
+
+  @@map("workspaces")
+}
+
+/// Append-only record of consequential actions inside a workspace.
+///
+/// M1 seeds the table and the write path so that every later milestone has
+/// somewhere to record data-rights actions (JM-023) and connector runs
+/// (JM-031) from day one. `metadata` is a redacted, allow-listed JSON blob:
+/// CV text, extracted personal data, and secrets must never reach it.
+model AuditEvent {
+  id String @id @default(cuid())
+
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// Stable dotted action name, e.g. "workspace.created".
+  action String
+
+  /// Redacted, allow-listed structured context. Never raw documents.
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_events")
+}
+
+// ─── M2: candidate profile and CV pipeline ──────────────────────────────
+//
+// The organising rule for everything below: a document is untrusted until
+// proven otherwise, and derived data is always traceable back to the exact
+// document and parser version that produced it.
+//
+// Deliberately absent: any field that could hold or infer a protected
+// attribute (age, gender, nationality, ethnicity, religion, health,
+// disability, family status). A CV routinely contains these; JobMatch's
+// extraction contract drops them rather than storing them, so there is no
+// column here for one to land in. See lib/profile/contract.ts.
+
+/// Where an uploaded document is in the scan/extract pipeline. A document
+/// moves forward only on evidence; there is no state that means "probably
+/// fine".
+enum DocumentStatus {
+  /// Bytes stored, nothing verified yet. Never read by a parser.
+  UPLOADED
+  /// Handed to the scanner, awaiting a verdict.
+  SCANNING
+  /// Scanner said unsafe, or could not say. Terminal without operator action.
+  QUARANTINED
+  /// Scanned clean; extraction may run.
+  CLEAN
+  /// Text extraction in progress.
+  EXTRACTING
+  /// Text extracted and a draft profile produced.
+  EXTRACTED
+  /// Extraction failed after its retry budget.
+  FAILED
+}
+
+/// Why a document was quarantined or failed. Stored as a code so the UI can
+/// explain it without a parser or scanner message — those can embed file
+/// content — reaching the user or the logs.
+enum DocumentReasonCode {
+  MALWARE_DETECTED
+  SCANNER_UNAVAILABLE
+  UNSUPPORTED_TYPE
+  DECLARED_TYPE_MISMATCH
+  FILE_TOO_LARGE
+  EMPTY_FILE
+  ENCRYPTED_DOCUMENT
+  NO_TEXT_LAYER
+  EXTRACTION_ERROR
+  /// Text was read, but not in reading order — a multi-column or heavily
+  /// designed document. Section-derived fields are deliberately left empty
+  /// rather than filled from the wrong part of the page.
+  LAYOUT_UNRELIABLE
+  /// The row's stored-object key could not be read back during a rescan —
+  /// the object is gone or the storage backend errored. Never left as
+  /// SCANNING: that status is not eligible for another rescan attempt, so
+  /// the document would otherwise be permanently stuck. Re-uploading is the
+  /// only recovery, since rescanning cannot recreate missing bytes.
+  BYTES_MISSING
+}
+
+/// An uploaded CV. The bytes live in private object storage; this row holds
+/// only metadata and the audit trail.
+model CandidateDocument {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// Object-storage key. Always prefixed with the workspace id so a key
+  /// cannot be guessed across tenants, and never exposed to the client.
+  storageKey String @unique
+
+  /// The user's own filename, kept for display only. Never used to build a
+  /// storage key or a filesystem path.
+  originalFilename String
+
+  /// Content type as *sniffed from the bytes*, not as declared by the
+  /// browser. See lib/documents/fileType.ts.
+  contentType String
+  byteSize    Int
+
+  /// SHA-256 of the stored bytes — the anchor that makes a profile version
+  /// reproducible, and the way a re-upload of the same CV is recognised.
+  contentHash String
+
+  status     DocumentStatus      @default(UPLOADED)
+  reasonCode DocumentReasonCode?
+
+  /// Scanner name and verdict time, so a stale "clean" is visible as stale.
+  scannerName String?
+  scannedAt   DateTime?
+
+  /// Retry accounting for extraction. Bounded so a malformed document
+  /// cannot be retried forever.
+  extractionAttempts  Int       @default(0)
+  extractionStartedAt DateTime?
+
+  /// When the stored bytes become eligible for deletion (JM-017 retention).
+  retainUntil DateTime?
+
+  uploadedAt DateTime  @default(now())
+  deletedAt  DateTime?
+
+  profileVersions CandidateProfileVersion[]
+
+  @@index([workspaceId, uploadedAt])
+  @@index([workspaceId, status])
+  @@index([workspaceId, contentHash])
+  @@map("candidate_documents")
+}
+
+/// The candidate's current profile pointer. One per workspace. Holds no
+/// profile data itself — the data lives in immutable versions, and this row
+/// only records which version is in force.
+model CandidateProfile {
+  id String @id @default(cuid())
+
+  workspaceId String    @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// The version the candidate has confirmed. Null until they confirm one:
+  /// matching must never run on unreviewed extraction output.
+  confirmedVersionId String?                  @unique
+  confirmedVersion   CandidateProfileVersion? @relation("ConfirmedVersion", fields: [confirmedVersionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions CandidateProfileVersion[] @relation("ProfileVersions")
+
+  @@map("candidate_profiles")
+}
+
+/// How a version's content came to exist.
+enum ProfileVersionOrigin {
+  /// Produced by the extraction pipeline from a document.
+  EXTRACTED
+  /// The candidate's corrections applied on top of an extracted version.
+  CORRECTED
+  /// Typed in by the candidate with no document at all.
+  MANUAL
+}
+
+/// An immutable snapshot of a candidate profile.
+///
+/// Rows here are never updated after creation — a correction creates a new
+/// version pointing at its parent. That is what makes a past match
+/// explainable: the exact profile that produced it still exists, alongside
+/// the document hash and parser version that produced *it*.
+model CandidateProfileVersion {
+  id String @id @default(cuid())
+
+  profileId String
+  profile   CandidateProfile @relation("ProfileVersions", fields: [profileId], references: [id], onDelete: Cascade)
+
+  /// Monotonic per profile, so a version has a human-quotable reference
+  /// ("v3") as well as an id.
+  versionNumber Int
+
+  origin ProfileVersionOrigin
+
+  /// The version this one corrects, if any. Null for the first version.
+  parentVersionId String?
+  parentVersion   CandidateProfileVersion?  @relation("VersionLineage", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  children        CandidateProfileVersion[] @relation("VersionLineage")
+
+  /// The document this was extracted from. Null for MANUAL versions.
+  documentId String?
+  document   CandidateDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  /// Copied from the document rather than joined, so the provenance survives
+  /// the document's deletion under a retention or erasure request.
+  sourceContentHash String?
+
+  /// Which code produced this content. A profile extracted by parser v1 and
+  /// one extracted by v2 are not comparable, and pretending otherwise is how
+  /// a matching regression becomes invisible.
+  extractorName    String
+  extractorVersion String
+
+  /// Schema-validated profile content (lib/profile/contract.ts). Stored as
+  /// JSON so the contract can gain fields without a migration per field,
+  /// and validated on read as well as on write.
+  content Json
+
+  /// Per-field extraction confidence, same key shape as `content`. Drives
+  /// the "check this" markers in the review UI.
+  confidence Json?
+
+  createdAt DateTime @default(now())
+
+  confirmedFor CandidateProfile? @relation("ConfirmedVersion")
+
+  @@unique([profileId, versionNumber])
+  @@index([profileId, createdAt])
+  @@map("candidate_profile_versions")
+}
+
+// ─── M3: authorized job ingestion ───────────────────────────────────────
+//
+// The organising rule: nothing is fetched that is not covered by a recorded
+// agreement, and nothing is shown that cannot be traced back to the exact
+// bytes a source returned.
+//
+// JobMatch does not scrape. A source has to exist as a row, carry an
+// agreement reference, and be explicitly enabled before a single request is
+// made — see lib/ingestion/authorization.ts. That is a product rule from the
+// business plan ("no unapproved scraping"), and giving it a schema of its
+// own is what stops it eroding into a TODO.
+
+/// How a source is reached. Deliberately small: each value is a different
+/// legal and technical posture, so adding one is a decision rather than a
+/// configuration change.
+enum SourceKind {
+  /// A JSON feed an employer or aggregator publishes for syndication.
+  JSON_FEED
+  /// An official API used under a partnership agreement.
+  PARTNER_API
+}
+
+enum SourceStatus {
+  /// Configured but never enabled. Cannot be synced.
+  DRAFT
+  /// Enabled and syncing.
+  ACTIVE
+  /// Temporarily stopped by an operator.
+  PAUSED
+  /// Agreement ended or withdrawn. Terminal, and its postings are hidden.
+  TERMINATED
+}
+
+/// A job source, and the terms JobMatch may use it under.
+///
+/// The agreement fields are not documentation. A sync is refused unless they
+/// are present and unexpired, so an unauthorised source cannot be fetched
+/// even by mistake.
+model JobSource {
+  id  String @id @default(cuid())
+  /// Stable operator-facing key, e.g. "example-employer-feed".
+  key String @unique
+
+  name String
+  kind SourceKind
+
+  /// Where the feed lives. Validated against the outbound allowlist on every
+  /// request, never only at configuration time — see lib/ingestion/http.ts.
+  endpoint String
+
+  status      SourceStatus @default(DRAFT)
+  /// The master switch, kept separate from `status` so that pausing a source
+  /// is not the same act as revoking its authorisation.
+  syncEnabled Boolean      @default(false)
+
+  /// Reference to the signed agreement in the source-rights register
+  /// (JM-003). Free text on purpose: that register lives outside this system.
+  agreementReference String?
+  /// After this, the source stops syncing on its own.
+  agreementExpiresAt DateTime?
+  /// Attribution the UI must show alongside every posting from here.
+  attributionText    String?
+  /// Whether the agreement permits commercial reuse. Absent means unknown,
+  /// which is treated as "no" everywhere it matters.
+  commercialUse      Boolean?
+
+  /// How this feed's fields map onto the connector contract. Per-source
+  /// configuration, because feeds are shaped differently and one mapping
+  /// applied to several sources reads fields from the wrong paths.
+  fieldMapping Json?
+
+  /// Politeness controls, taken from the agreement rather than guessed.
+  requestsPerMinute     Int @default(20)
+  /// How long raw payloads may be kept. Snapshots past this are deleted even
+  /// though the normalized posting survives.
+  snapshotRetentionDays Int @default(30)
+
+  lastSyncStartedAt  DateTime?
+  lastSyncFinishedAt DateTime?
+  /// HTTP validators for conditional requests, so a sync that changes
+  /// nothing costs the source nothing.
+  lastEtag           String?
+  lastModified       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  snapshots JobSnapshot[]
+  postings  JobPosting[]
+  runs      IngestionRun[]
+
+  @@map("job_sources")
+}
+
+/// Raw bytes exactly as a source returned them.
+///
+/// Kept separate from the normalized posting so normalization is
+/// reproducible: a parser fix can be replayed against the original payload
+/// rather than needing a re-fetch, which an agreement may not even permit.
+/// Retention is bounded by the source's own policy.
+model JobSnapshot {
+  id String @id @default(cuid())
+
+  sourceId String
+  source   JobSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 of the payload, so a repeat sync returning identical bytes is
+  /// recognised without storing them twice.
+  contentHash String
+  /// The payload itself. Cleared when its retention window closes.
+  payload     String?
+  byteSize    Int
+
+  capturedAt  DateTime @default(now())
+  retainUntil DateTime
+
+  /// Which normalization produced postings from this snapshot, so a replay
+  /// can tell old output from new.
+  normalizerVersion String?
+
+  postings JobPosting[]
+
+  @@unique([sourceId, contentHash])
+  @@index([sourceId, capturedAt])
+  @@index([retainUntil])
+  @@map("job_snapshots")
+}
+
+enum PostingStatus {
+  ACTIVE
+  /// Past its expiry, or gone from the feed. Not shown as current.
+  EXPIRED
+  /// A duplicate of another posting. Kept for provenance, never displayed.
+  DUPLICATE
+  /// Source authorisation ended. Hidden regardless of its own dates.
+  WITHDRAWN
+}
+
+/// A normalized job posting.
+///
+/// Every field a candidate sees comes from here, and every one is traceable:
+/// `sourceId` says where it came from, `snapshotId` from which exact
+/// payload, and `canonicalUrl` sends the candidate to apply at the source
+/// rather than through JobMatch.
+model JobPosting {
+  id String @id @default(cuid())
+
+  sourceId String
+  source   JobSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  snapshotId String?
+  snapshot   JobSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+
+  /// The source's own identifier, unique per source, and the first key
+  /// deduplication tries.
+  externalId   String
+  /// Where to apply. Always the source's page, never a JobMatch mirror.
+  canonicalUrl String
+
+  title       String
+  employer    String
+  /// Folded, legal-suffix-stripped form of `employer`, computed once at
+  /// normalisation time. Exists so an employer opt-out ("never show me
+  /// Example") can be enforced as an exact database-level filter -- applied
+  /// before pagination and counting -- rather than as an in-app filter
+  /// applied to an already-paginated page, which silently shrank pages and
+  /// made totalCount overstate what a candidate would actually see.
+  employerKey String
+  description String  @db.Text
+  /// The posting's language as stated or detected, for M4's filtering.
+  language    String?
+
+  locationRaw  String?
+  isRemote     Boolean?
+  contractType String?
+
+  salaryMin      Int?
+  salaryMax      Int?
+  salaryCurrency String?
+  salaryPeriod   String?
+
+  /// Skills as the posting words them. Normalisation to a controlled
+  /// vocabulary is M4's job and must not erase the original.
+  skillsRaw String[]
+
+  // -- M4: deterministic eligibility (JM-033) ---------------------------
+  //
+  // Every field below is nullable/empty by default, and that default means
+  // "the source did not say" -- never "no". A connector that cannot state
+  // whether a role sponsors a visa must leave requiresSponsorship unset,
+  // not guess false, because guessing false would wrongly exclude a
+  // candidate who needed sponsorship from a job that might have offered it.
+
+  /// Whether the employer sponsors a work permit for this role. Null means
+  /// unstated, and unstated never excludes anyone -- only an explicit
+  /// false does, and only for a candidate who explicitly needs sponsorship.
+  requiresSponsorship    Boolean?
+  /// Languages the role requires, as ISO 639-1 codes. Empty means the
+  /// posting did not state a requirement; silence never excludes.
+  languageRequired       String[] @default([])
+  /// Certifications the role requires, by name as the source wrote them.
+  requiredCertifications String[] @default([])
+  /// Free-text seniority as the source labelled it. Stored for display and
+  /// future filtering; M4 does not exclude on it, because the candidate
+  /// profile carries no seniority preference to compare against yet.
+  seniorityLevel         String?
+
+  /// Hash over the fields that define the posting, to tell a genuine update
+  /// from an unchanged re-fetch.
+  contentHash  String
+  /// Stable key across sources, for cross-source deduplication.
+  canonicalKey String
+
+  /// The posting this duplicates, if any. The representative is the one with
+  /// no parent, and it is the only one ever displayed.
+  duplicateOfId String?
+  duplicateOf   JobPosting?  @relation("Duplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates    JobPosting[] @relation("Duplicates")
+
+  status PostingStatus @default(ACTIVE)
+
+  /// Freshness, all four kept separately: when the source says it was
+  /// published, when it expires, when JobMatch first saw it, and when it was
+  /// last confirmed still present. A stale listing is the most common way a
+  /// job board wastes a candidate's time.
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+  firstSeenAt     DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+  sourceUpdatedAt DateTime?
+
+  normalizerVersion String
+
+  /// JM-044: cheap, model-free heuristic scan for instruction-like /
+  /// prompt-injection-shaped text, run once at normalize time (never per
+  /// match). True means at least one pattern in
+  /// lib/ingestion/injectionHeuristics.ts matched -- an operator-review
+  /// signal, not a hard block: the posting is still ingested and matched
+  /// normally, since M5's actual defence against a live injection is the
+  /// evaluate.ts fence + parseMatchResult() guard, not this flag.
+  flaggedForInjectionReview Boolean  @default(false)
+  /// Which heuristic pattern codes matched (see injectionHeuristics.ts's
+  /// InjectionPatternCode), for an operator to see *why* without re-running
+  /// the scanner. Empty when flaggedForInjectionReview is false.
+  injectionPatternCodes     String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trackedBy TrackedJob[]
+  feedback  JobFeedback[]
+
+  @@unique([sourceId, externalId])
+  @@index([canonicalKey])
+  @@index([employerKey])
+  @@index([status, lastSeenAt])
+  @@index([sourceId, status])
+  @@index([flaggedForInjectionReview])
+  @@map("job_postings")
+}
+
+enum RunOutcome {
+  SUCCEEDED
+  /// Finished, but some records failed to normalize.
+  PARTIAL
+  FAILED
+  /// Refused before any request was made — no agreement, expired, disabled.
+  REFUSED
+}
+
+/// One sync attempt, and what it cost.
+///
+/// Exists so ingestion health is a query rather than a guess (JM-031):
+/// success rate, records added and expired, duplicates, parse failures,
+/// latency, and rate-limit responses are all recorded here.
+model IngestionRun {
+  id String @id @default(cuid())
+
+  sourceId String
+  source   JobSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  startedAt  DateTime    @default(now())
+  finishedAt DateTime?
+  outcome    RunOutcome?
+  /// Why a run was refused or failed, as a code. Never a raw error message:
+  /// those carry URLs and credentials.
+  reasonCode String?
+
+  recordsFetched   Int     @default(0)
+  recordsAdded     Int     @default(0)
+  recordsUpdated   Int     @default(0)
+  recordsExpired   Int     @default(0)
+  duplicatesFound  Int     @default(0)
+  parseFailures    Int     @default(0)
+  rateLimitedCount Int     @default(0)
+  /// True when the source answered 304 and there was nothing to do.
+  notModified      Boolean @default(false)
+
+  durationMs Int?
+
+  @@index([sourceId, startedAt])
+  @@map("ingestion_runs")
+}
+
+enum TrackedJobStatus {
+  /// The candidate wants to keep this posting visible in their tracker.
+  /// The starting state — every tracked job begins here.
+  SAVED
+  /// The candidate decided against it. Kept, not deleted: JM-049 requires
+  /// the transition itself (and its timestamp) to be recoverable, not just
+  /// the end state, and a candidate can undo a reject back to SAVED.
+  REJECTED
+  /// The candidate applied at the source. One-way from SAVED or REJECTED;
+  /// see TRACKED_JOB_TRANSITIONS in lib/tracking/state.ts for the full
+  /// transition table.
+  APPLIED
+}
+
+/// A candidate's record of one job posting in their own workflow (JM-049,
+/// JM-050) — save it, reject it, mark it applied, leave themselves a note.
+///
+/// Deliberately keyed to (workspaceId, jobPostingId) rather than having its
+/// own free-standing identity: a candidate can only ever have one tracking
+/// record per posting, and re-saving a posting they already track is an
+/// idempotent update to that one row, not a second row to reconcile later.
+model TrackedJob {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  jobPostingId String
+  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  status TrackedJobStatus @default(SAVED)
+
+  /// Free text the candidate writes for themselves. Never sent to a model
+  /// or another user — this is the one field in the whole workflow that is
+  /// entirely the candidate's own.
+  notes String? @db.Text
+
+  appliedAt   DateTime?
+  interviewAt DateTime?
+  followUpAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, jobPostingId])
+  @@index([workspaceId, status])
+  @@map("tracked_jobs")
+}
+
+enum FeedbackReasonCode {
+  PROFILE_SKILL_MISSING
+  PROFILE_DATA_INCORRECT
+  SOURCE_POSTING_STALE
+  SOURCE_DETAILS_INCORRECT
+  RULE_WRONGLY_EXCLUDED
+  RULE_WRONGLY_INCLUDED
+  NOT_RELEVANT
+  /// A specific MatchEvidence row in JM-048's evidence-linked explanation
+  /// panel is wrong — pairs with relatedProfileField /
+  /// relatedPostingRequirement below.
+  INCORRECT_MATCH_EVIDENCE
+  OTHER
+}
+
+/// Relevance feedback and correction reporting (JM-059).
+///
+/// Append-only, like AuditEvent: a candidate can leave feedback on the same
+/// posting more than once (a first complaint, then a follow-up once they've
+/// corrected their profile), and nothing here overwrites an earlier
+/// submission. `reasonCode` routes each row to whoever owns the fix --
+/// profile, source, or rule -- via lib/feedback/contract.ts's
+/// `feedbackTargetOf`, so a triage view can group open feedback by what
+/// actually needs fixing without re-deriving that mapping ad hoc.
+model JobFeedback {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  jobPostingId String
+  /// Restrict, not Cascade: feedback is append-only history, and JobPosting
+  /// has no deletion path today. If one is ever built (retention pruning,
+  /// say), it must decide what happens to this history explicitly rather
+  /// than silently losing it to a cascade nobody meant to reach this table.
+  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Restrict)
+
+  reasonCode FeedbackReasonCode
+
+  /// Free text the candidate adds for context. Never sent to a model —
+  /// there is no model in the loop yet, and even once M5 ships one, this
+  /// module's whole point is that a human reads triage feedback.
+  note String? @db.Text
+
+  /// The specific M4 ExclusionReasonCode this feedback disputes, set only
+  /// alongside RULE_WRONGLY_EXCLUDED -- see the schema-level pairing rule
+  /// in lib/feedback/contract.ts, which is what actually enforces this
+  /// rather than a comment here.
+  relatedEligibilityReasonCode String?
+
+  /// The confirmed profile version a disputed MatchEvidence row was
+  /// resolved against (JM-048) — set only alongside
+  /// INCORRECT_MATCH_EVIDENCE, so the report stays traceable to the fact
+  /// the candidate actually saw even if the profile is edited afterwards.
+  relatedProfileVersionId   String?
+  /// The MatchEvidence.profileField reference the report is about.
+  relatedProfileField       String?
+  /// The MatchEvidence.postingRequirement the report is about.
+  relatedPostingRequirement String?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([jobPostingId, reasonCode])
+  @@map("job_feedback")
+}
+
+// ─── M5: embedding cache (JM-041) ───────────────────────────────────────
+//
+// The vector layer JM-042 ranking sits on. A row is cached content — see
+// lib/matching/ai/embeddingCache.ts for the cache-key and invalidation
+// rules — never a place profile or posting text lands untransformed: the
+// text that gets embedded is `buildEmbeddingInput(profile).text` for a
+// profile (lib/matching/embeddingInput.ts's privacy-preserving allow-list)
+// or the normalised description for a posting, and nothing else.
+
+enum EmbeddingKind {
+  PROFILE
+  POSTING
+}
+
+/// Cached vector embedding for a candidate profile or a job posting.
+/// `contentHash` is sha256(embeddingModelVersion + text); recomputation
+/// happens only when it changes, so a re-confirm with no professional-fact
+/// change reuses the row with no embed() call.
+///
+/// `workspaceId` is a real workspace id for a PROFILE row (derived data
+/// belonging to that candidate, wired into the JM-023 erasure path — see
+/// lib/profile/dataRights.ts) and the constant
+/// `GLOBAL_EMBEDDING_WORKSPACE_ID` for a POSTING row: a posting embedding is
+/// not candidate-specific and is deliberately shared across every workspace
+/// that might match against it, never duplicated per candidate.
+model MatchEmbedding {
+  id String @id @default(cuid())
+
+  workspaceId String
+  kind        EmbeddingKind
+  /// CandidateProfile.id for PROFILE, JobPosting.id for POSTING.
+  sourceId    String
+
+  embeddingModelVersion String
+  contentHash           String
+
+  /// pgvector column. Prisma cannot model pgvector natively, so this field
+  /// is intentionally `Unsupported` — every read/write goes through raw SQL
+  /// (see lib/matching/ai/embeddingCache.ts). The dimension (384) is
+  /// documented and owned by lib/matching/ai/embeddings.ts
+  /// (FIXTURE_EMBEDDING_DIMENSIONS); the migration hand-writes the real
+  /// column type and the `vector` extension.
+  vector Unsupported("vector(384)")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, kind, sourceId, embeddingModelVersion])
+  @@index([workspaceId, kind])
+  @@map("match_embeddings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// M5 — model/prompt/budget controls & honest degraded mode (JM-047)
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Append-only spend ledger for JobMatch's two provider-call types. Mirrors
+/// apps/tasks-ai/lib/ai/quota.ts's AiUsageLedger (see that schema's own
+/// AiUsageLedger model), adapted to JobMatch's isolated schema. Loose
+/// workspaceId, no FK -- same convention as MatchEmbedding above: a
+/// posting-embed call's workspaceId is GLOBAL_EMBEDDING_WORKSPACE_ID
+/// (lib/matching/ai/embeddingCache.ts), which is not a real Workspace row,
+/// so a foreign key here would reject exactly the row that cache produces.
+model AiUsageLedger {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  /// "embed" | "evaluate" -- JobMatch has two provider-call types, unlike
+  /// tasks-ai's single "AI job" concept. See lib/matching/ai/quota.ts.
+  kind          String
+  provider      String
+  model         String
+  /// Only meaningful for kind = "evaluate" (an embed call has no prompt).
+  promptVersion String?
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  costUsd       Float    @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("ai_usage_ledger")
+}
+
+/// One evaluation of one (profile version, posting) pair -- JM-047's cache
+/// and cost-reconciliation unit. `result` is the full serialized
+/// `MatchResult` (lib/matching/contract.ts's matchResultSchema), so a cache
+/// hit needs no re-evaluation and the spend view (JM-009 KPI) can report
+/// cost-per-evaluation and degraded-run ratio without re-deriving anything.
+/// The unique key below is the literal cache lookup: `getCachedMatchRun`
+/// (lib/matching/ai/matchRunCache.ts) is a single indexed read against it.
+model MatchRun {
+  id                     String   @id @default(cuid())
+  workspaceId            String
+  profileVersionId       String
+  postingId              String
+  promptVersion          String
+  evaluationModelVersion String
+  costUsd                Float    @default(0)
+  /// Mirrors MatchResult.degraded -- true when this row was produced by
+  /// buildDegradedMatchResult (no provider / retries exhausted / budget
+  /// out), never a fabricated score.
+  degraded               Boolean  @default(false)
+  /// Serialized MatchResult -- Json, following AutomationRule.trigger /
+  /// SavedView.config's precedent elsewhere in this codebase for storing a
+  /// schema-validated structured value rather than flattening it into
+  /// columns.
+  result                 Json
+  createdAt              DateTime @default(now())
+
+  @@unique([workspaceId, profileVersionId, postingId, promptVersion, evaluationModelVersion])
+  @@index([workspaceId, createdAt])
+  @@index([profileVersionId])
+  @@map("match_run")
+}

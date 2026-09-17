@@ -1,8 +1,8 @@
 {
-  "name": "@asafarim/jobmatch",
-  "version": "0.2.0",
+  "name": "@asafarim/resumatch",
+  "version": "0.1.0",
   "private": true,
-  "description": "JobMatch - explainable, source-transparent job search assistant (jobmatch.asafarim.com)",
+  "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
   "type": "module",
   "scripts": {
     "dev": "pnpm db:generate && next dev --port 3012",
