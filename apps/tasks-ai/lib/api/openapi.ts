@@ -866,6 +866,40 @@ export const openapiDocument = {
         responses: { "201": { description: "job + draft proposal" }, "403": errorRef(), "429": errorRef() },
       },
     },
+    "/workspaces/{slug}/ai/jobs/stream": {
+      parameters: [pathParam("slug")],
+      post: {
+        summary:
+          "Streaming counterpart to POST .../ai/jobs (issue #236): identical request body, same underlying " +
+          "pipeline and the same single persistence path. Returns text/event-stream: zero or more `token`/" +
+          "`operation` deltas, then one terminal `proposal` (same body as the non-streaming call) or `error` " +
+          "event. Aborting the client's request (a Stop button, or a dropped connection) cancels the provider " +
+          "call server-side and persists no Proposal.",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["kind", "input"],
+          properties: {
+            kind: {
+              type: "string",
+              enum: [
+                "extract_plan",
+                "decompose",
+                "acceptance_criteria",
+                "summarize",
+                "nl_query",
+                "risks_open_questions",
+                "project_brief",
+                "changed_digest",
+                "dedup",
+              ],
+            },
+            input: { type: "string" },
+            projectId: { type: "string" },
+          },
+        }),
+        responses: { "200": { description: "text/event-stream" } },
+      },
+    },
     "/workspaces/{slug}/ai/proposals/{id}": {
       parameters: [pathParam("slug"), pathParam("id")],
       get: { summary: "Get a proposal (draft→previewed) with its operations + citations", responses: { "200": { description: "ok" } } },

@@ -25,7 +25,14 @@ in **`lib/ai/workflow.ts`** (framework-free, unit-tested in
    proposal), and a guest is told who can create one.
 4. **Generate → review → approve.** `generateBlock()` gives the plain reason
    the button is unavailable whenever it is; `GENERATE_EXPECTATION` sets the
-   expectation before the call.
+   expectation before the call. Generating streams over SSE (issue #236,
+   `api.runAiJobStream` in `lib/client/api.ts`): text and drafted operations
+   appear as the provider round trip progresses, with a Stop button that
+   cancels the call server-side and leaves no Proposal. A stream that dies
+   before its terminal event falls back to the plain `POST .../ai/jobs`
+   call automatically — safe to retry, since an identical input the stream
+   *did* manage to persist is served back from the job cache rather than
+   duplicated (`lib/ai/job.ts`).
 
 ### Contextual entry points
 

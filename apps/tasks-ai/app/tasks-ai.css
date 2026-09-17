@@ -913,6 +913,12 @@
 [data-app="tasks-ai"] .ta-copilot__examples button:hover { border-color:var(--accent); }
 [data-app="tasks-ai"] .ta-copilot__block { color:#8a6d00; }
 [data-app="tasks-ai"] .ta-copilot__degraded { border-left:3px solid #8a6d00; }
+[data-app="tasks-ai"] .ta-copilot__generate-row { display:flex; gap:.5rem; align-items:center; }
+[data-app="tasks-ai"] .ta-copilot__live {
+  margin-top:.5rem; padding:.6rem .8rem; border-radius:6px;
+  background:var(--surface-2); border-left:3px solid var(--accent);
+}
+[data-app="tasks-ai"] .ta-copilot__live-text { margin:0 0 .3rem; font-size:.85rem; white-space:pre-wrap; }
 [data-app="tasks-ai"] .ta-copilot__result { border:1px solid var(--line); border-radius:8px; padding:1rem; display:grid; gap:.6rem; }
 [data-app="tasks-ai"] .ta-copilot__next { list-style:none; margin:0; padding:0; display:grid; gap:.5rem; }
 [data-app="tasks-ai"] .ta-copilot__next li { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }

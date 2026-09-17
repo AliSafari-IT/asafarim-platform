@@ -27,32 +27,72 @@ export class AnthropicProvider implements AiProvider {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const client = new Anthropic();
 
-    let res;
-    try {
-      res = await client.messages.create(
-        {
-          model: call.model,
-          max_tokens: 4096,
-          system: call.prompt.system,
-          messages: [{ role: "user", content: call.prompt.user }],
-          output_config: {
-            format: {
-              type: "json_schema",
-              schema: {
-                type: "object",
-                additionalProperties: false,
-                required: ["summary", "operations", "openQuestions"],
-                properties: {
-                  summary: { type: "string" },
-                  operations: { type: "array" },
-                  openQuestions: { type: "array", items: { type: "string" } },
-                },
-              },
+    const requestParams = {
+      model: call.model,
+      max_tokens: 4096,
+      system: call.prompt.system,
+      messages: [{ role: "user", content: call.prompt.user }],
+      output_config: {
+        format: {
+          type: "json_schema",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["summary", "operations", "openQuestions"],
+            properties: {
+              summary: { type: "string" },
+              operations: { type: "array" },
+              openQuestions: { type: "array", items: { type: "string" } },
             },
           },
-        } as Parameters<typeof client.messages.create>[0],
-        { signal: call.signal },
-      );
+        },
+      },
+    } as Parameters<typeof client.messages.create>[0];
+
+    if (call.onDelta) {
+      // Best-effort incremental UX (issue #236). This adapter is not
+      // exercised in CI — the fixture provider is what evals/CI stream
+      // against — so this path is verified by manual/live testing only.
+      // Operations are still parsed from one complete JSON document once the
+      // stream ends: incrementally parsing operations out of a still-partial
+      // JSON array is not attempted, so "operation" deltas arrive as a burst
+      // right after the last "token" delta rather than spread through it.
+      let text = "";
+      let inputTokens = 0;
+      let outputTokens = 0;
+      try {
+        const stream = await client.messages.create(
+          { ...requestParams, stream: true },
+          { signal: call.signal },
+        );
+        for await (const event of stream) {
+          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+            text += event.delta.text;
+            call.onDelta({ type: "token", text: event.delta.text });
+          } else if (event.type === "message_start") {
+            inputTokens = event.message.usage?.input_tokens ?? inputTokens;
+          } else if (event.type === "message_delta") {
+            outputTokens = event.usage?.output_tokens ?? outputTokens;
+          }
+        }
+      } catch (err) {
+        throw new ProviderError(err instanceof Error ? err.message : "anthropic stream failed");
+      }
+      const draft = proposalDraftSchema.parse(JSON.parse(text));
+      draft.operations.forEach((operation, index) => call.onDelta!({ type: "operation", operation, index }));
+      const price = PRICE[call.model] ?? { in: 0, out: 0 };
+      return {
+        draft,
+        inputTokens,
+        outputTokens,
+        costUsd: (inputTokens * price.in + outputTokens * price.out) / 1_000_000,
+        fixture: false,
+      };
+    }
+
+    let res;
+    try {
+      res = await client.messages.create(requestParams, { signal: call.signal });
     } catch (err) {
       throw new ProviderError(err instanceof Error ? err.message : "anthropic call failed");
     }
