@@ -13,9 +13,10 @@ in **`lib/ai/workflow.ts`** (framework-free, unit-tested in
    requirements. Examples are offered instead of a blank textarea, and the
    source stays on screen during review so proposal claims can be checked
    against it.
-2. **Intended outcome** — the four intents in plain language
-   (`COPILOT_INTENTS`): turn notes into a project plan / break a task into
-   concrete steps / draft acceptance criteria / summarize a discussion.
+2. **Intended outcome** — the intents in plain language (`COPILOT_INTENTS`):
+   turn notes into a project plan / break a task into concrete steps / draft
+   acceptance criteria / summarize a discussion / surface risks and open
+   questions / write a project brief / summarize what changed (issue #233).
    Intents map 1:1 to AI kinds via `kindForIntent()`.
 3. **Destination** — `destinationState()`. A workspace with no projects never
    gets a mysteriously disabled button: a member is offered an inline

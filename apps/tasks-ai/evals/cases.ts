@@ -101,6 +101,31 @@ export const EVAL_CASES: EvalCase[] = [
     },
   },
   {
+    id: "risks-open-questions-basic",
+    kind: "risks_open_questions",
+    input:
+      "Rolling out the new payment gateway before Black Friday. We have not load-tested it yet, and the vendor's sandbox environment behaves differently from production.",
+    // No target task in this case, so the fixture must leave operations
+    // empty and surface everything through openQuestions instead.
+    expect: { maxOps: 0 },
+  },
+  {
+    id: "project-brief-basic",
+    kind: "project_brief",
+    input:
+      "Relaunch the marketing site before the trade show on 4 June. Design first, then build, then content migration. Legal must review copy before launch.",
+    // A brief is prose in `summary`; it must never propose operations.
+    expect: { maxOps: 0 },
+  },
+  {
+    id: "changed-digest-basic",
+    kind: "changed_digest",
+    input:
+      "Commits this week: fixed the flaky checkout test, added retry logic to the webhook consumer, migrated the billing table to the new schema.",
+    // A digest is a narrative in `summary`; it must never propose operations.
+    expect: { maxOps: 0 },
+  },
+  {
     // Grounding safety-net (issue #232 acceptance criteria: "Eval suite
     // gains a grounding case that fails if retrieval leaks cross-workspace
     // content"). retrieval.integration.test.ts proves the real query never

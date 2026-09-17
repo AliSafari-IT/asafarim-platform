@@ -102,12 +102,15 @@ function flow(patch: Partial<CopilotFlowState> = {}): CopilotFlowState {
 /* ── intents ────────────────────────────────────────────────────────── */
 
 describe("intents", () => {
-  it("offers the four plain-language outcomes from the issue", () => {
+  it("offers the plain-language outcomes from the issue", () => {
     expect(COPILOT_INTENTS.map((i) => i.id)).toEqual([
       "extract_plan",
       "decompose",
       "acceptance_criteria",
       "summarize",
+      "risks_open_questions",
+      "project_brief",
+      "changed_digest",
     ]);
   });
 

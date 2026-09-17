@@ -75,6 +75,26 @@ const PROMPTS: Record<AiKind, { version: string; task: string }> = {
       "openQuestions: anything you could not determine from the bundle.",
     ].join("\n"),
   },
+  risks_open_questions: {
+    version: "risks_open_questions@1",
+    task: [
+      "Identify risks and open questions raised or implied by the input.",
+      "Put each one as an entry in `openQuestions` — cite the span it is drawn",
+      "from, or mark it {\"assumption\": true} when it is your own inference.",
+      "If, and only if, a target task exists, you may additionally emit AT",
+      "MOST ONE update_task op that appends a \"Risks / unknowns\" section",
+      "listing the same items to its description. Otherwise leave operations",
+      "empty — there is nothing to attach the section to.",
+    ].join("\n"),
+  },
+  project_brief: {
+    version: "project_brief@1",
+    task: "Write a structured project brief from the input as prose in `summary`: goal, scope, non-goals, milestones, risks. Propose no operations; leave operations empty.",
+  },
+  changed_digest: {
+    version: "changed_digest@1",
+    task: "Write a plain-English \"what changed\" digest from the pasted activity, commits, or notes, as prose in `summary`. Propose no operations; leave operations empty.",
+  },
 };
 
 export interface RenderedPrompt {
