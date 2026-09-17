@@ -27,8 +27,12 @@ kill-switch + quota  →  redact  →  render versioned prompt  →  cache looku
 | `create_task` | title, description, estimate, parentRef | assignee, dates, status, labels, anything else |
 | `update_task` | title, description, estimate | (same) |
 | `link_tasks` | kind (blocks/relates/duplicates) | — |
+| `set_labels` (issue #235) | label ids to add/remove on the target task | committed status/dates, assignee |
+| `suggest_status` (issue #235) | `Task.suggestedStatusId` only | `Task.statusId` — never written by apply; promoting is a separate human action |
+| `set_dependency` (issue #235) | kind (blocks/blocked_by) — a link_tasks superset with the inverse direction | — |
+| `suggest_due_date` (issue #235) | `Task.suggestedDueDate` only | `Task.dueDate` — never written by apply, same non-commit rule as suggest_status |
 
-Assignees, dates, roles, permissions, billing, and messaging are **not representable** — the schema has no field for them. Prompt injection cannot widen this (unit- + integration-tested).
+Assignees, dates, roles, permissions, billing, and messaging are **not representable** — the schema has no field for them. Prompt injection cannot widen this (unit- + integration-tested). See `docs/adr/0004-ai-proposal-model.md`'s addendum for why `suggest_status`/`suggest_due_date` are safe to add without weakening "AI never writes a committed date/status".
 
 - `GET .../ai/proposals/{id}` — draft → previewed.
 - `POST .../apply` — one transaction, captures an inverse `undoPlan`; high blast radius (>15 ops or edited ops) requires `?confirm=high`. Writes `proposal.applied` audit with `editDistance`.

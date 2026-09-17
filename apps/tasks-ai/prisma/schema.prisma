@@ -256,7 +256,11 @@ model Status {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   project   Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks     Task[]
+  tasks     Task[]    @relation("TaskStatus")
+  /// Tasks whose AI-suggested (not committed) status points here (issue
+  /// #235, the `suggest_status` proposal op). Distinct relation from `tasks`
+  /// above, which is the committed `Task.statusId`.
+  suggestedForTasks Task[] @relation("TaskSuggestedStatus")
 
   @@index([workspaceId])
   @@map("status")
@@ -332,6 +336,15 @@ model Task {
   estimate    Float?
   startDate   DateTime?
   dueDate     DateTime?
+  /// AI-suggested status (issue #235, `suggest_status` proposal op) — a
+  /// separate field from the committed `statusId`. Applying the proposal
+  /// never writes `statusId`; promoting a suggestion to the committed
+  /// status is a distinct human action (ADR-0004: AI never writes a
+  /// committed field directly).
+  suggestedStatusId String?
+  /// AI-suggested due date (issue #235, `suggest_due_date` proposal op) —
+  /// same non-committing rule as `suggestedStatusId` above, for `dueDate`.
+  suggestedDueDate  DateTime?
   completedAt DateTime?
   position    Float     @default(0)
   recurrence  Json?
@@ -354,7 +367,8 @@ model Task {
   parent     Task?     @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children   Task[]    @relation("TaskHierarchy")
   cycle      Cycle?    @relation(fields: [cycleId], references: [id], onDelete: SetNull)
-  status     Status?   @relation(fields: [statusId], references: [id], onDelete: SetNull)
+  status     Status?   @relation("TaskStatus", fields: [statusId], references: [id], onDelete: SetNull)
+  suggestedStatus Status? @relation("TaskSuggestedStatus", fields: [suggestedStatusId], references: [id], onDelete: SetNull)
   assignee   Membership? @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   creator    Membership? @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: SetNull)
 

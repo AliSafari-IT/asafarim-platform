@@ -22,6 +22,21 @@ describe("groupOperations", () => {
     expect(groups[0].items[0].grounded).toBe(true);
     expect(groups[1].items[0].grounded).toBe(false);
   });
+
+  // ── widened allowlist (issue #235) ──────────────────────────────────────
+
+  it("buckets set_labels/suggest_status/suggest_due_date with update, and set_dependency with link", () => {
+    const ops: Operation[] = [
+      { op: "set_labels", taskId: "x", fields: { add: ["lbl_1"], remove: [] }, confidence: 0.5, citations: [] },
+      { op: "suggest_status", taskId: "x", statusId: "sts_1", confidence: 0.5, citations: [] },
+      { op: "suggest_due_date", taskId: "x", dueDate: "2026-12-01T00:00:00.000Z", confidence: 0.5, citations: [] },
+      { op: "set_dependency", fromRef: "t1", toRef: "t2", kind: "blocked_by", confidence: 0.5, citations: [] },
+    ];
+    const groups = groupOperations(ops);
+    expect(groups.map((g) => g.kind)).toEqual(["update", "link"]);
+    expect(groups.find((g) => g.kind === "update")?.items).toHaveLength(3);
+    expect(groups.find((g) => g.kind === "link")?.items).toHaveLength(1);
+  });
 });
 
 describe("editDistance", () => {
@@ -37,6 +52,17 @@ describe("editDistance", () => {
   });
   it("is 1 when nothing generated was kept", () => {
     expect(editDistance([create("t1", "A")], [create("z", "totally different")])).toBe(1);
+  });
+
+  it("handles the widened op types (issue #235) without throwing", () => {
+    const ops: Operation[] = [
+      { op: "set_labels", taskId: "x", fields: { add: ["lbl_1"], remove: [] }, confidence: 0.5, citations: [] },
+      { op: "suggest_status", taskId: "x", statusId: "sts_1", confidence: 0.5, citations: [] },
+      { op: "suggest_due_date", taskId: "x", dueDate: "2026-12-01T00:00:00.000Z", confidence: 0.5, citations: [] },
+      { op: "set_dependency", fromRef: "t1", toRef: "t2", kind: "blocked_by", confidence: 0.5, citations: [] },
+    ];
+    expect(editDistance(ops, ops)).toBe(0);
+    expect(editDistance(ops, [])).toBe(1);
   });
 });
 

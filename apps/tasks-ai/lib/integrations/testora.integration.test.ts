@@ -6,6 +6,7 @@ import { signPayload } from "@asafarim/testora-tasksai-contract";
 import { hasTestDatabase, requireTestDatabaseUrl } from "../db/test-database";
 import { PrismaClient } from "../db/generated";
 import type { RequestContext } from "../context";
+import { OP_TYPES } from "../ai/types";
 
 vi.mock("../session", () => ({ getViewer: async () => ({ id: "noop" }) }));
 
@@ -141,7 +142,7 @@ describe.skipIf(!hasTestDatabase())("Testora inbound + test_diagnosis (integrati
 
     const ops = proposal!.operations as Array<{ op: string; fields?: { title?: string } }>;
     expect(ops.length).toBe(1);
-    for (const op of ops) expect(["create_task", "update_task", "link_tasks"]).toContain(op.op);
+    for (const op of ops) expect(OP_TYPES as readonly string[]).toContain(op.op);
 
     const blob = JSON.stringify(ops).toLowerCase();
     expect(blob).not.toContain("admin@corp.com");

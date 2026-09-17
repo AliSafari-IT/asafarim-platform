@@ -413,6 +413,43 @@ describe("impact", () => {
     expect(impactSentence(impactCounts(ops, []), "WEB")).toMatch(/would change nothing/i);
   });
 
+  // ── widened allowlist (issue #235) ──────────────────────────────────────
+
+  it("counts set_labels/suggest_status/suggest_due_date as updates", () => {
+    const widened: WorkflowOperation[] = [
+      { op: "set_labels", confidence: 0.6, citations: [], fields: { add: ["lbl_1"], remove: [] } },
+      { op: "suggest_status", confidence: 0.6, citations: [] },
+      { op: "suggest_due_date", confidence: 0.6, citations: [] },
+    ];
+    expect(impactCounts(widened, [0, 1, 2])).toMatchObject({ updates: 3, total: 3 });
+  });
+
+  it("counts a resolvable set_dependency as a dependency, exactly like link_tasks", () => {
+    const dep: WorkflowOperation[] = [
+      { op: "set_dependency", fromRef: "r1", toRef: "r2", confidence: 0.6, citations: [] },
+    ];
+    const withCreates = [created("r1", "A"), created("r2", "B"), ...dep];
+    expect(impactCounts(withCreates, [0, 1, 2])).toMatchObject({ dependencies: 1, skippedLinks: 0 });
+  });
+
+  it("skips a set_dependency whose endpoint will not exist, same as link_tasks", () => {
+    const dep: WorkflowOperation[] = [
+      { op: "set_dependency", fromRef: "r1", toRef: "r2", confidence: 0.6, citations: [] },
+    ];
+    const onlyOneCreate = [created("r1", "A"), ...dep];
+    expect(impactCounts(onlyOneCreate, [0, 1])).toMatchObject({ dependencies: 0, skippedLinks: 1 });
+  });
+
+  it("never treats a retrieved-candidate ref (issue #234) as a skipped set_dependency endpoint", () => {
+    const dep: WorkflowOperation[] = [
+      { op: "set_dependency", fromRef: TARGET_REF, toRef: "task:cand1", confidence: 0.6, citations: [] },
+    ];
+    expect(impactCounts(dep, [0], { externalRefs: [TARGET_REF] })).toMatchObject({
+      dependencies: 1,
+      skippedLinks: 0,
+    });
+  });
+
   it("routes every created task into the Inbox, matching the capture rule", () => {
     // AI may not set an assignee or a due date, so an applied proposal never
     // arrives planned — lib/capture/inbox.ts sends it to triage.

@@ -24,7 +24,7 @@ export class GuardError extends Error {
 
 export interface GuardResult {
   draft: ProposalDraft;
-  /** count of create+update+link ops — compared to maxBlastRadius */
+  /** count of all proposed ops, any type — compared to maxBlastRadius */
   operationCount: number;
   groundedRatio: number;
 }
@@ -96,17 +96,27 @@ export function guardDraft(
     if (op.op === "create_task" && op.fields.parentRef && !refs.has(op.fields.parentRef)) {
       reasons.push(`parentRef ${op.fields.parentRef} has no matching create_task`);
     }
-    if (op.op === "link_tasks" && (!resolvesToTask(op.fromRef) || !resolvesToTask(op.toRef))) {
+    if (
+      (op.op === "link_tasks" || op.op === "set_dependency") &&
+      (!resolvesToTask(op.fromRef) || !resolvesToTask(op.toRef))
+    ) {
       reasons.push(`link references an unknown ref`);
     }
-    if (op.op === "update_task") {
-      // The only existing task a draft may address is the one the job was
-      // scoped to. Any other id is a guess, and a guess that misses is
-      // applied as nothing while the review claimed an edit.
+    // update_task and the three issue #235 ops that carry a taskId
+    // (set_labels, suggest_status, suggest_due_date) share one rule: the
+    // only existing task a draft may address is the one the job was scoped
+    // to. Any other id is a guess, and a guess that misses is applied as
+    // nothing while the review claimed a change.
+    if (
+      op.op === "update_task" ||
+      op.op === "set_labels" ||
+      op.op === "suggest_status" ||
+      op.op === "suggest_due_date"
+    ) {
       if (!options.hasTargetTask) {
-        reasons.push("update_task without a target task: nothing it could address exists");
+        reasons.push(`${op.op} without a target task: nothing it could address exists`);
       } else if (op.taskId !== TARGET_TASK_REF) {
-        reasons.push(`update_task must address ${TARGET_TASK_REF}, not an invented task id`);
+        reasons.push(`${op.op} must address ${TARGET_TASK_REF}, not an invented task id`);
       }
     }
   }
