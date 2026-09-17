@@ -12,7 +12,7 @@ ARG NEXT_PUBLIC_APPBUILDER_URL=https://appbuilder.asafarim.com
 ARG NEXT_PUBLIC_TIMELINEAI_URL=https://tlai.asafarim.com
 ARG NEXT_PUBLIC_DEVTOOLS_URL=https://asafarim.be
 ARG NEXT_PUBLIC_LABS_URL=https://labs.asafarim.com
-ARG NEXT_PUBLIC_JOBMATCH_URL=https://jobmatch.asafarim.com
+ARG NEXT_PUBLIC_RESUMATCH_URL=https://resumatch.asafarim.com
 ARG NEXT_PUBLIC_TASKSAI_URL=https://tasks-ai.asafarim.com
 ARG NEXT_PUBLIC_API_URL=https://api.asafarim.com
 ENV NEXT_PUBLIC_WEB_URL=$NEXT_PUBLIC_WEB_URL \
@@ -26,7 +26,7 @@ ENV NEXT_PUBLIC_WEB_URL=$NEXT_PUBLIC_WEB_URL \
     NEXT_PUBLIC_TIMELINEAI_URL=$NEXT_PUBLIC_TIMELINEAI_URL \
     NEXT_PUBLIC_DEVTOOLS_URL=$NEXT_PUBLIC_DEVTOOLS_URL \
     NEXT_PUBLIC_LABS_URL=$NEXT_PUBLIC_LABS_URL \
-    NEXT_PUBLIC_JOBMATCH_URL=$NEXT_PUBLIC_JOBMATCH_URL \
+    NEXT_PUBLIC_RESUMATCH_URL=$NEXT_PUBLIC_RESUMATCH_URL \
     NEXT_PUBLIC_TASKSAI_URL=$NEXT_PUBLIC_TASKSAI_URL \
     NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV BUILD_STANDALONE=true
@@ -35,13 +35,13 @@ ENV BUILD_STANDALONE=true
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY . .
 RUN pnpm install --frozen-lockfile
-# JobMatch's Prisma client is generated into the app (lib/db/generated), not
+# ResuMatch's Prisma client is generated into the app (lib/db/generated), not
 # node_modules, so it must be generated before the Next.js build type-checks.
-RUN pnpm --filter @asafarim/jobmatch db:generate
-RUN pnpm --filter @asafarim/jobmatch build
+RUN pnpm --filter @asafarim/resumatch db:generate
+RUN pnpm --filter @asafarim/resumatch build
 
 # One-shot migration job. Runs to completion before the app starts, so a
-# deploy cannot ship a JobMatch whose tables were never created.
+# deploy cannot ship a ResuMatch whose tables were never created.
 FROM node:24-alpine AS migrator
 WORKDIR /app
 RUN corepack enable
@@ -49,7 +49,7 @@ ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY . .
 RUN pnpm install --frozen-lockfile
-WORKDIR /app/apps/jobmatch
+WORKDIR /app/apps/resumatch
 CMD ["pnpm", "exec", "prisma", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
 
 FROM node:24-alpine AS runner
@@ -57,8 +57,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-COPY --from=builder /app/apps/jobmatch/.next/standalone ./
-COPY --from=builder /app/apps/jobmatch/.next/static ./apps/jobmatch/.next/static
-COPY --from=builder /app/apps/jobmatch/public ./apps/jobmatch/public
+COPY --from=builder /app/apps/resumatch/.next/standalone ./
+COPY --from=builder /app/apps/resumatch/.next/static ./apps/resumatch/.next/static
+COPY --from=builder /app/apps/resumatch/public ./apps/resumatch/public
 EXPOSE 3000
-CMD ["node", "apps/jobmatch/server.js"]
+CMD ["node", "apps/resumatch/server.js"]

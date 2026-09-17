@@ -406,7 +406,7 @@ async function main(): Promise<void> {
   const turboCli = require.resolve("turbo/bin/turbo");
   const turbo = spawn(
     process.execPath,
-    [turboCli, "dev", "@asafarim/appbuilder#worker:dev", "@asafarim/jobmatch#worker:dev"],
+    [turboCli, "dev", "@asafarim/appbuilder#worker:dev", "@asafarim/resumatch#worker:dev"],
     {
       stdio: "inherit",
       shell: false,

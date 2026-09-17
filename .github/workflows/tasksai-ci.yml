@@ -1,7 +1,7 @@
 # TasksAI quality gate (M01).
 #
 # Runs the checks specific to TasksAI, including the one no other app but
-# JobMatch needs: that its Prisma migrations actually apply to an empty
+# ResuMatch needs: that its Prisma migrations actually apply to an empty
 # database, and that schema.prisma has not drifted from its migrations.
 name: TasksAI CI
 

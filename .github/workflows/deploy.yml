@@ -87,11 +87,11 @@ jobs:
           - image: labs
             dockerfile: apps/labs/Dockerfile
             target: runner
-          - image: jobmatch-migrate
-            dockerfile: apps/jobmatch/Dockerfile
+          - image: resumatch-migrate
+            dockerfile: apps/resumatch/Dockerfile
             target: migrator
-          - image: jobmatch
-            dockerfile: apps/jobmatch/Dockerfile
+          - image: resumatch
+            dockerfile: apps/resumatch/Dockerfile
             target: runner
           - image: tasksai-migrate
             dockerfile: apps/tasks-ai/Dockerfile
@@ -160,7 +160,7 @@ jobs:
             NEXT_PUBLIC_TIMELINEAI_URL=${{ env.NEXT_PUBLIC_TIMELINEAI_URL }}
             NEXT_PUBLIC_DEVTOOLS_URL=${{ env.NEXT_PUBLIC_DEVTOOLS_URL }}
             NEXT_PUBLIC_LABS_URL=${{ env.NEXT_PUBLIC_LABS_URL }}
-            NEXT_PUBLIC_JOBMATCH_URL=${{ env.NEXT_PUBLIC_JOBMATCH_URL }}
+            NEXT_PUBLIC_RESUMATCH_URL=${{ env.NEXT_PUBLIC_RESUMATCH_URL }}
             NEXT_PUBLIC_TASKSAI_URL=${{ env.NEXT_PUBLIC_TASKSAI_URL }}
             NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
           cache-from: type=gha,scope=${{ matrix.image }}
