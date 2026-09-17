@@ -1,29 +1,32 @@
-# JobMatch
+# ResuMatch
 
-An explainable, source-transparent job-search assistant: fewer vacancies,
-each with the reason it fits. Runs at `jobmatch.asafarim.com`, port 3012 in
-local development.
+An AI CV-tailoring tool: paste the URL of a job you want to apply to, and AI
+rewords and reprioritizes your confirmed profile toward it — never inventing
+an employer, a date, a degree, or a skill you did not list. Download the
+result as a PDF via the browser's own print dialog. Runs at
+`resumatch.asafarim.com`, port 3012 in local development.
 
-**Status: M7 engineering slice shipped (JM-059); the concierge beta is not
-launched.** A candidate can save, reject, mark a posting applied, leave
-themselves notes, download a deterministic CSV, and report why a specific job
-or exclusion was wrong — routed to whichever of profile, source, or rule owns
-the fix. The remaining M7 work (a real candidate cohort, live onboarding
-sessions, a relevance study, and a beta decision report) needs actual people
-and real usage data, not more code. M5's matching scores are also not live —
-see "What M5 delivers so far" below. See
-[`docs/business-plan.md`](docs/business-plan.md) for the milestone sequence
-and [`docs/threat-model.md`](docs/threat-model.md) for what each milestone
+**Status: pivoted from an earlier job-board-aggregation product (JobMatch).**
+That product ingested postings from external sources and matched a
+candidate's profile against them; getting real data into that pipeline
+turned out to require licensing agreements with job boards (or, for VDAB/
+EURES, ran into outright bans on automated extraction) — a business/legal
+dependency this project does not want to carry. ResuMatch instead fetches
+the single job URL a candidate explicitly pastes, which needs no
+job-board licensing at all. See [`docs/business-plan.md`](docs/business-plan.md)
+for how the milestone sequence changed and
+[`docs/threat-model.md`](docs/threat-model.md) for what the tailoring flow
 does and does not defend against.
 
 ## Showcase-only MVP
 
-JobMatch is an experimental portfolio/showcase MVP, not a professional
-recruiting, hiring, employment-screening, HR, legal, or career-advice service.
-It must not be used as the sole or automated basis for an employment or other
-consequential decision. Results may be incomplete, inaccurate, stale, or
-unavailable, and the deployed instance provides no professional support,
-accuracy guarantee, uptime guarantee, or service continuity promise.
+ResuMatch is an experimental portfolio/showcase MVP, not a professional
+career, recruiting, HR, legal, or compliance service. The rewritten CV it
+produces is yours to review before you use it for anything — it must not be
+treated as a final document without reading it. Results may be incomplete,
+inaccurate, stale, or unavailable, and the deployed instance provides no
+professional support, accuracy guarantee, uptime guarantee, or service
+continuity promise.
 
 Do not upload sensitive information that is unnecessary for evaluating the
 showcase. The public deployment is subject to the repository's
@@ -31,167 +34,63 @@ showcase. The public deployment is subject to the repository's
 runs strictly as a non-commercial portfolio showcase operated by the
 Licensor, with a showcase disclosure shown before CV upload. See
 [`docs/jm-001-licensing-decision.md`](docs/jm-001-licensing-decision.md) for
-the decision record, dependency/license inventory, and permissions register.
+the decision record, dependency/license inventory, and permissions register
+— including a short note on why the job-board licensing constraint that
+originally motivated it no longer applies.
 
-## What M7 delivers so far (JM-059)
+## What ships today
 
-- A candidate can report, on any search result, why it's wrong: a missing
-  profile fact, a stale or misdescribed posting, or an M4 eligibility rule
-  that wrongly excluded or included the job. Each report carries a typed
-  reason code, not just free text, so it routes to whoever owns the fix.
-- Feedback disputing a specific eligibility rule (`RULE_WRONGLY_EXCLUDED`)
-  must name exactly which reason code fired — validated against the same
-  closed set `evaluate.ts` produces, never accepted as an arbitrary string.
-- Rate-limited under its own budget, separate from search, and append-only:
-  a correction is a new report, never an edit to an earlier one.
-- **The rest of M7 is out of engineering scope for now**: recruiting and
-  consenting a real candidate cohort (JM-056), live onboarding sessions
-  (JM-057), a human relevance/calibration study (JM-058), and a published
-  beta decision report (JM-061) all need real people and real usage data —
-  and JM-058 in particular depends on M5's offline evaluation set, which is
-  itself still blocked on a model-provider/budget decision and JM-005's
-  outstanding privacy/AI Act advice.
+- **Candidate profile & CV pipeline** — private document storage with
+  byte-level type sniffing, a 10 MB cap, and 90-day retention; malware
+  scanning as a hard gate (production ClamAV scanning is not wired yet, so
+  uploads quarantine by design until it is — see `RESUMATCH_SCANNER_URL`
+  below); local PDF/Word/text extraction; a profile contract with no field
+  for any protected attribute; immutable, lineage-linked profile versions;
+  and one-click GDPR access + erasure covering every model that holds
+  personal data, including tailored resumes and fetched job pages.
+- **Single job-URL fetch** — a candidate pastes one URL, ResuMatch fetches
+  exactly that page under an SSRF-resistant posture (public HTTPS only,
+  no-redirect, size-capped, timeout-bounded), extracts readable text, and
+  shows the extracted title/employer/snippet before anything else happens.
+- **AI CV tailoring** — a fence-sentinel prompt (both the job text and the
+  profile text are DATA, never instructions) asks a model to reword the
+  summary/headline and rewrite each experience entry's bullets, and to
+  reprioritize (not invent) the skills list. The persisted content is built
+  in code, not trusted from model output: `mergeTailoringSuggestions`
+  copies employer/dates/`isCurrent` and all of education/certifications
+  straight from the confirmed profile, so a model response has no path to
+  fabricate a fact. `RESUMATCH_AI_PROVIDER=fixture` (the default everywhere)
+  is deterministic and free; `openai`/`anthropic` are unimplemented stubs
+  behind the same JM-005 sign-off gate the prior product used.
+- **One print-ready layout** — `app/tailor/[id]/preview/` renders the
+  tailored content inside a `@media print` stylesheet with a Download PDF
+  button that calls `window.print()`. No new server-side rendering
+  dependency for v1; `TailoredResume.templateKey` already exists as a field
+  so a second layout is additive later.
 
-## What M6 delivers
+## What was removed in the pivot
 
-- Save, reject, and mark-applied state transitions on any search result
-  (JM-049), each idempotent — retrying a request never errors or resets a
-  timestamp — and enforced by an explicit transition table rather than an
-  open-ended status string.
-- A tracked-job record per (workspace, posting), owned the same way every
-  other JobMatch row is: scoped to the caller's session, never to an id a
-  client supplies (JM-050).
-- A deterministic `My-Job` CSV export (JM-051): fixed column order and
-  versioned header, ISO 8601 UTC dates, and formula-injection escaping on
-  every field so a posting title or a candidate's own note can never
-  execute as a spreadsheet formula the moment the file is opened (JM-053).
-- A tracker page (`/my-jobs`) to review, re-tag, and export what's been
-  saved, alongside inline save/reject/applied controls on every search
-  result.
-
-## What M5 delivers so far
-
-- **The matching feature contract (JM-039).** `MatchResult` — suitability
-  score, confidence, matching/missing/uncertain requirements,
-  evidence-linked explanation, recommended action, model/prompt provenance —
-  is defined and schema-validated before anything produces one.
-- **Privacy-preserving embedding input (JM-040).** `buildEmbeddingInput` is
-  the one approved path from a confirmed profile to model-facing text: an
-  allow-list of professional facts only, with a runtime check that refuses
-  to return text containing the candidate's name, email, phone, or base
-  location, even if a future change to the builder tried to include one.
-- **Not yet built:** embedding generation and caching (JM-041), shortlist
-  ranking (JM-042), structured LLM evaluation (JM-043), prompt-injection
-  isolation tests (JM-044), the offline evaluation set (JM-045), bias
-  evaluation (JM-046), budget controls (JM-047), and the evidence UI
-  (JM-048). These require a chosen model provider and budget, and JM-005's
-  privacy/AI Act classification advice is still outstanding — the same kind
-  of non-engineering gate that kept M3's connector unauthorized until
-  JM-003/JM-004 landed. What ships here is real machinery with no live model
-  call behind it yet, not a placeholder.
-
-## What M4 delivers
-
-- Deterministic eligibility across seven axes (sponsorship, language,
-  certification, remote/location, salary floor, contract type, employer
-  opt-out), where absence on either side never excludes anyone.
-- Every hard exclusion shown with its reason, except an opted-out employer,
-  which is removed from the query itself rather than merely annotated.
-- Controlled-vocabulary normalisation for Belgian city synonyms, contract
-  types, and language names, without ever overwriting the source's own text.
-- Search with text, location, remote, contract, salary and skill filters,
-  pagination, sorting, freshness labels, and source attribution.
-- A per-workspace rate limit on search, protecting ingested job data from
-  bulk extraction through a signed-in account.
-
-## Showcase demo source (issue #208, JM-004)
-
-No live job source is connected, and connecting one is gated on signed
-agreements rather than engineering. So the showcase ships a **synthetic,
-deterministic demo source** — clearly labelled, fabricated in
-`lib/ingestion/showcaseFixture.ts`, and loaded through the real M3 ingestion
-pipeline. It makes the full candidate journey work end to end: confirm
-profile → follow the next-step panel → search demo jobs → read eligibility
-reasons → save a job → export My Jobs.
-
-It is not seeded automatically. With the dev server running and
-`RESUMATCH_INGESTION_TOKEN` set:
-
-```bash
-pnpm --filter @asafarim/jobmatch showcase:load
-```
-
-```bash
-pnpm --filter @asafarim/jobmatch showcase:load -- --reset
-```
-
-`showcase:load` is a thin client for `POST /api/ingestion/showcase` (same
-token as the sync route; 404 when the token is unset). The load is
-idempotent; `--reset` wipes the source's postings, snapshots and runs first.
-The postings are demonstration data and are never presented as live
-vacancies. See
-[`docs/jm-004-showcase-source-decision.md`](docs/jm-004-showcase-source-decision.md).
-
-## What M3 delivers
-
-- A source model that will not sync without a recorded, unexpired agreement
-  reference. No source ships enabled.
-- Raw snapshots stored before parsing, so a normalization fix is replayed
-  against the original bytes rather than needing a re-fetch.
-- Deduplication across sources, with the copy a candidate sees chosen by
-  authority and reuse rights rather than by arrival order.
-- Freshness from four separate dates, including postings that vanish from a
-  feed without ever being marked expired.
-- SSRF-resistant fetching: public HTTPS only, no redirects followed, size and
-  time bounded, conditional requests, and agreed rate limits obeyed.
-- Every sync attempt recorded, refusals included, and surfaced at `/sources`.
-
-## What M2 delivers
-
-- Private document storage with byte-level type sniffing, a 10 MB cap, and
-  90-day retention. Filenames never build storage keys.
-- Malware scanning is a hard gate: nothing reaches a parser without a clean
-  verdict, and an unavailable scanner quarantines rather than waving through.
-  **Production scanning is not wired yet**: there is no deployed ClamAV
-  sidecar and the current adapter does not perform an `INSTREAM` scan, so
-  production uploads remain quarantined by design. Issue #203 tracks the
-  developer's choice of scanner architecture, scanner integration, health
-  reporting, and safe rescan behavior.
-- Local text extraction for PDF, Word, and plain text, with a bounded retry
-  budget and reason codes a candidate can act on.
-- A profile contract with no field for any protected attribute, so age,
-  nationality, and gender have nowhere to land.
-- Immutable, lineage-linked profile versions. Matching reads only a version
-  the candidate has confirmed.
-- GDPR access and erasure as one-click actions, with erasure removing
-  derived data, not just the original file.
-
-## What M1 delivered
-
-- A deployable Next.js app registered in the platform registry, app
-  switcher, Caddy routing, and the production compose stack.
-- Shared sign-in through Hub. JobMatch reads the platform session and never
-  stores a credential of its own.
-- Its own PostgreSQL instance (pgvector image, ready for M5's embeddings)
-  with its own credentials, holding an opaque platform user id rather than a
-  copy of the platform user table.
-- A validated environment contract that refuses to boot staging or
-  production without an explicit `RESUMATCH_DATABASE_URL`.
-- Redaction-by-construction logging and an append-only audit table.
-- CI covering typecheck, unit tests, migration apply, and schema drift.
+Everything tied to aggregating and matching against external job postings:
+the authorized-source ingestion pipeline (`JobSource`/`JobSnapshot`/
+`JobPosting`/`IngestionRun`), deterministic eligibility filtering and search,
+the tracked-job workflow and its CSV export, embedding-based ranking, and
+the structured match-evaluation pipeline (`MatchResult`/`MatchRun`). None of
+it shipped a live model call or a connected job source before the pivot —
+see `docs/business-plan.md` for the full milestone-by-milestone account of
+what existed and why it was cut.
 
 ## Local development
 
 ```bash
-docker compose up -d jobmatch-postgres
+docker compose up -d resumatch-postgres
 ```
 
 ```bash
-pnpm --filter @asafarim/jobmatch db:migrate
+pnpm --filter @asafarim/resumatch db:migrate
 ```
 
 ```bash
-pnpm --filter @asafarim/jobmatch dev
+pnpm --filter @asafarim/resumatch dev
 ```
 
 Then open <http://localhost:3012>. `/workspace` redirects to Hub's sign-in
@@ -199,7 +98,7 @@ Then open <http://localhost:3012>. `/workspace` redirects to Hub's sign-in
 created on first visit.
 
 ```bash
-pnpm --filter @asafarim/jobmatch test
+pnpm --filter @asafarim/resumatch test
 ```
 
 ## Environment
@@ -213,28 +112,31 @@ pnpm --filter @asafarim/jobmatch test
 | `NEXT_PUBLIC_HUB_URL` | all deployments | Where unauthenticated visitors are sent to sign in. |
 | `RESUMATCH_SCANNER_URL` | when a scanner is deployed | Scanner endpoint selected by the developer. The current production stack has no scanner service, so leaving this unset quarantines every upload — a fail-closed default. |
 | `RESUMATCH_SCANNER` | local only | Set to the exact literal `insecure-accept-all` to run the pipeline without a scanner. Refused on any deployed environment, and it names itself on every document it clears. |
-| `RESUMATCH_INGESTION_TOKEN` | production | Bearer token for `POST /api/ingestion/sync`, which runs ingestion, re-assesses freshness and prunes expired snapshots. Unset disables the route entirely (404). Drive it from a scheduler. Holding it does not authorise fetching from a source whose agreement is missing or expired — that is checked per source. |
 | `RESUMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
 | `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
-| `REDIS_URL` | worker (all environments) | The platform's shared Redis instance (same variable Vionto's and AppBuilder's workers read — not a JobMatch-specific `RESUMATCH_REDIS_URL`). Required to start `worker/index.ts`; see [worker/](#worker) below. |
-| `RESUMATCH_AI_PROVIDER` | none — default `fixture` everywhere | Classification model backend (M5 / JM-005). `openai`/`anthropic` are accepted in staging/production only once `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF=true` **and** the matching API key is set; otherwise startup refuses, naming the gate variable, never a value. Local dev may flip this freely. |
-| `RESUMATCH_AI_EVAL_PROVIDER` | none — default `fixture` everywhere | Same enum and gate as `RESUMATCH_AI_PROVIDER`, for the eval runner's target. |
-| `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF` | staging, production (only if a real provider is selected) | JM-005 gate. Flipping this is a config-only change on the epic's checklist — no code edit. |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | staging, production (only if the matching provider is selected) | Shared platform keys (see root `.env.example`). Unused while both AI vars stay `fixture`. |
-| `RESUMATCH_AI_MONTHLY_BUDGET_USD` | none — default `20` | JM-047 monthly spend ceiling in USD. `0` freezes AI spend entirely. |
+| `REDIS_URL` | worker (all environments) | The platform's shared Redis instance (same variable Vionto's and AppBuilder's workers read — not a ResuMatch-specific `RESUMATCH_REDIS_URL`). Required to start `worker/index.ts`; see [worker/](#worker) below. |
+| `RESUMATCH_AI_PROVIDER` | none — default `fixture` everywhere | Tailoring model backend (JM-005). `openai`/`anthropic` are accepted in staging/production only once `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF=true` **and** the matching API key is set; otherwise startup refuses, naming the gate variable, never a value. Local dev may flip this freely — though both real adapters are currently unimplemented stubs. |
+| `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF` | staging, production (only if a real provider is selected) | JM-005 gate. Flipping this is a config-only change — no code edit. |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | staging, production (only if the matching provider is selected) | Shared platform keys (see root `.env.example`). Unused while `RESUMATCH_AI_PROVIDER` stays `fixture`. |
+| `RESUMATCH_AI_MONTHLY_BUDGET_USD` | none — default `20` | Monthly spend ceiling in USD for tailoring calls. `0` freezes AI spend entirely. |
 
 ## Worker
 
-`apps/jobmatch/worker/` is a standalone BullMQ process (issue #246), mirroring `apps/tasks-ai/worker/`. It is the durable substrate JM-041/JM-043 build the real async matching pipeline on — this milestone ships no matching logic, only the queue/health/shutdown scaffolding.
+`apps/resumatch/worker/` is a standalone BullMQ process, mirroring
+`apps/tasks-ai/worker/`. It carries only generic maintenance today (a
+health-ping heartbeat and a noop job proving the enqueue → process →
+complete loop) — the pivot removed the embedding/match-evaluation queues
+the prior product's worker was building toward.
 
 ```bash
-pnpm --filter @asafarim/jobmatch worker:dev    # tsx watch, picked up by `pnpm dev` via turbo
-pnpm --filter @asafarim/jobmatch worker:start  # production entrypoint
+pnpm --filter @asafarim/resumatch worker:dev    # tsx watch, picked up by `pnpm dev` via turbo
+pnpm --filter @asafarim/resumatch worker:start  # production entrypoint
 ```
 
-- `jobmatch.maintenance` queue: a `health-ping` job (60s heartbeat, logs Redis + database liveness) and a `noop` job that proves the enqueue → process → complete loop.
-- `jobmatch.match.evaluate` queue: registered as a name only in `worker/queues.ts`. No processor is attached yet — JM-043 fills it in.
-- Uses the same isolated Prisma client (`lib/db/generated`) and redacting logger (`lib/observability/logger.ts`) as the Next.js app.
+- `resumatch.maintenance` queue: a `health-ping` job (60s heartbeat, logs
+  Redis + database liveness) and a `noop` job.
+- Uses the same isolated Prisma client (`lib/db/generated`) and redacting
+  logger (`lib/observability/logger.ts`) as the Next.js app.
 
 Production additionally needs `RESUMATCH_DB_PASSWORD` and its URL-encoded
 form `RESUMATCH_DB_PASSWORD_URL` in `.env.production`, following the same
@@ -242,13 +144,12 @@ convention as AppBuilder and Testora.
 
 ## Why a separate database
 
-Job listings are high-volume and rewritten constantly by ingestion; CV-derived
-data needs a stricter access boundary than identity traffic; and embedding
-indexes grow fast. Mixing that into the shared platform Postgres would put
-search and ingestion load onto identity transactions. The full rationale is
-in the business plan under "Database recommendation".
+CV-derived and AI-tailored resume data needs a stricter access boundary
+than identity traffic. Mixing that into the shared platform Postgres would
+put this app's load onto identity transactions. The full rationale is in
+the business plan under "Database recommendation".
 
-JobMatch's Prisma client is generated into `lib/db/generated` rather than
+ResuMatch's Prisma client is generated into `lib/db/generated` rather than
 `node_modules/@prisma/client`, because pnpm symlinks that path to the shared
 store where the *platform* client lives. Both clients coexist in one process
 only because of that split.

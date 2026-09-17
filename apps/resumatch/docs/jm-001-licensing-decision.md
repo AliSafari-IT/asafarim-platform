@@ -8,15 +8,34 @@
 decision, the permissions register, and the dependency/license inventory.
 
 > This document is an engineering record of the copyright holder's decision.
-> It is not legal advice. If JobMatch moves toward commercial operation,
+> It is not legal advice. If ResuMatch moves toward commercial operation,
 > paid pilots, or B2B use (business-plan milestones M10–M12), the wording
 > here must be reviewed by qualified legal counsel before that step.
 
 ---
 
+## 0. Pivot note (job-board aggregation removed)
+
+This decision was originally written for JobMatch, a job-board-aggregation
+product: it ingested postings from external sources and matched a
+candidate's profile against them. That product pivoted to ResuMatch, an
+AI CV-tailoring tool that fetches only the single job URL a candidate
+explicitly pastes — no source registry, no aggregation, no job-board
+licensing agreement of any kind.
+
+The licensing rationale below (non-commercial portfolio showcase,
+showcase disclosure, no paid tenants) is unaffected by the pivot and
+still holds. What no longer applies is the JM-004 showcase-source
+decision this document originally cross-referenced: there is no
+synthetic demo *source* to license or disclose separately, because there
+is no source registry left. The showcase disclosure now covers the
+AI-tailoring flow instead (see `app/components/ShowcaseNotice.tsx`).
+
+---
+
 ## 1. Decision
 
-The `jobmatch.asafarim.com` deployment continues **as a non-commercial
+The `resumatch.asafarim.com` deployment continues **as a non-commercial
 portfolio showcase operated solely by the Licensor (Ali Safari)**, with an
 explicit showcase disclosure shown to visitors before the CV-upload point.
 
@@ -37,7 +56,7 @@ Rationale:
 
 | Actor | Permitted |
 |---|---|
-| The Licensor | Operate the single public showcase instance at `jobmatch.asafarim.com`, for demonstration and lead generation, at no charge. |
+| The Licensor | Operate the single public showcase instance at `resumatch.asafarim.com`, for demonstration and lead generation, at no charge. |
 | A visitor / evaluator | View the source per `LICENSE` §1; use the live showcase instance to evaluate the Licensor's work. |
 
 ### What this decision does **not** permit (unchanged from `LICENSE` §2)
@@ -71,7 +90,7 @@ was identified.
 
 ---
 
-## 3. Dependency / license inventory — JobMatch deployment
+## 3. Dependency / license inventory — ResuMatch deployment
 
 **Method:** taken from `apps/jobmatch/package.json` plus the shared
 `workspace:*` packages it pulls in. Transitive licenses were not machine-
@@ -123,10 +142,10 @@ build. Tracked as a follow-up, not required for this decision.
 
 | Component | Holder |
 |---|---|
-| JobMatch app + all `@asafarim/*` packages + repository | Ali Safari |
+| ResuMatch app + all `@asafarim/*` packages + repository | Ali Safari |
 | Third-party dependencies in §3 | Respective upstream authors, under the permissive licenses listed |
 
-No external contributor holds copyright in the JobMatch code as of this
+No external contributor holds copyright in the ResuMatch code as of this
 date; contributor permissions are therefore not required. If outside
 contributions are accepted later, add a CLA or DCO before merging and record
 it here.
@@ -137,7 +156,7 @@ it here.
 
 | Date | Item | Granted by | Terms |
 |---|---|---|---|
-| 2026-09-05 | Operate `jobmatch.asafarim.com` as a free, non-commercial portfolio showcase | Ali Safari (copyright holder) | Showcase disclosure shown before CV upload; no paid features; no third-party tenants; revocable at any time by the Licensor. |
+| 2026-09-05 | Operate `resumatch.asafarim.com` as a free, non-commercial portfolio showcase | Ali Safari (copyright holder) | Showcase disclosure shown before CV upload; no paid features; no third-party tenants; revocable at any time by the Licensor. |
 
 No written permission from any third party is required for this decision
 (all dependencies permissively licensed; no external data source is
