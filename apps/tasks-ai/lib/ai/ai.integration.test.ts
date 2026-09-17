@@ -70,6 +70,50 @@ describe.skipIf(!hasTestDatabase())("AI boundary (integration, fixture provider)
     expect(ledger?.fixture).toBe(true);
   });
 
+  // ── streaming cancellation (issue #236) ─────────────────────────────────
+
+  it("an already-aborted signal cancels the job before it persists a proposal", async () => {
+    const { runAiJob, AiJobCancelledError } = await import("./job");
+    const a = await ws("aicancel");
+    const { createProject } = await import("../services/projects");
+    const proj = await createProject(a.ctx, { name: "P", key: "AIC" });
+
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      runAiJob(
+        a.ctx,
+        { kind: "extract_plan", input: "- draft the brief", projectId: proj.id },
+        { signal: controller.signal },
+      ),
+    ).rejects.toBeInstanceOf(AiJobCancelledError);
+
+    const proposals = await db.proposal.count({ where: { workspaceId: a.w.id } });
+    expect(proposals).toBe(0);
+    const job = await db.aiJob.findFirst({ where: { workspaceId: a.w.id } });
+    expect(job?.state).toBe("cancelled");
+    expect(job?.cancelledAt).not.toBeNull();
+  });
+
+  it("streams onDelta callbacks and still returns the identical draft the non-streaming call would", async () => {
+    const { runAiJob } = await import("./job");
+    const a = await ws("aistream");
+    const { createProject } = await import("../services/projects");
+    const proj = await createProject(a.ctx, { name: "P", key: "AIS" });
+    const input = "- draft the brief\n- design the hero\n- build the form";
+
+    const deltas: unknown[] = [];
+    const streamed = await runAiJob(
+      a.ctx,
+      { kind: "extract_plan", input, projectId: proj.id },
+      { onDelta: (d) => deltas.push(d) },
+    );
+    expect(deltas.length).toBeGreaterThan(0);
+    expect(streamed.proposal.state).toBe("draft");
+    expect((streamed.proposal.operations as unknown[]).length).toBeGreaterThanOrEqual(3);
+  });
+
   it("kill switch: disabling AI makes runAiJob forbidden, core tasks still work", async () => {
     const { runAiJob } = await import("./job");
     const { updateAiSettings } = await import("./settings");

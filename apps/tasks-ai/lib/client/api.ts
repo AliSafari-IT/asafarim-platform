@@ -52,6 +52,37 @@ async function request(
   return json;
 }
 
+/** issue #236: minimal SSE frame reader over a fetch() response body — the
+ *  browser's native `EventSource` cannot POST a body, which every AI job
+ *  request needs (the pasted source text). Buffers across chunk
+ *  boundaries; ignores `: comment` keep-alive frames from the M04 pattern. */
+export async function readEventStream(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: string, data: string) => void,
+): Promise<void> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const raw = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      if (!raw || raw.startsWith(":")) continue;
+      let event = "message";
+      const dataLines: string[] = [];
+      for (const line of raw.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+      }
+      onEvent(event, dataLines.join("\n"));
+    }
+  }
+}
+
 async function call<T>(
   path: string,
   init: RequestInit & { version?: number } = {},
@@ -223,14 +254,56 @@ export const api = {
   runAiJob: (
     slug: string,
     body: { kind: string; input: string; projectId?: string; taskId?: string },
-  ) =>
-    call<{
-      job: AiJob;
-      proposal: ProposalRow;
-      degraded?: boolean;
-      /** Retrieved-context entities the draft could cite via citation.source (issue #232). */
-      retrieved?: { id: string; title: string }[];
-    }>(`/workspaces/${slug}/ai/jobs`, { method: "POST", body: JSON.stringify(body) }),
+  ) => call<RunAiJobResult>(`/workspaces/${slug}/ai/jobs`, { method: "POST", body: JSON.stringify(body) }),
+  /**
+   * Streaming counterpart (issue #236): same request body, same eventual
+   * result — `onProposal` receives exactly what `runAiJob` above resolves
+   * with — but `onToken`/`onOperation` fire as the provider round trip
+   * progresses instead of leaving the caller with nothing to show for
+   * 5–20s. `signal` (an AbortController the caller owns) is how a Stop
+   * button cancels: aborting it tells the server to stop the provider call
+   * and persist no Proposal, and `onError` never fires for that case — it
+   * is a deliberate stop, not a failure.
+   *
+   * Resolves once the stream ends. Throws only for a failure *before* any
+   * SSE bytes arrived (e.g. the network request itself failed) — the
+   * caller's job is to fall back to the plain `runAiJob` call in that case,
+   * which the shared cacheKey lookup makes safe to retry: an identical
+   * input that the stream *did* manage to persist server-side before
+   * dying is served back from cache, never duplicated (lib/ai/job.ts).
+   */
+  runAiJobStream: async (
+    slug: string,
+    body: { kind: string; input: string; projectId?: string; taskId?: string },
+    handlers: {
+      onToken?: (text: string) => void;
+      onOperation?: (operation: AiOperation, index: number) => void;
+      onProposal?: (result: RunAiJobResult) => void;
+      onError?: (err: ApiErrorShape) => void;
+    },
+    signal?: AbortSignal,
+  ): Promise<void> => {
+    const res = await fetch(`/api/v1/workspaces/${slug}/ai/jobs/stream`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => "");
+      const json = text ? JSON.parse(text) : {};
+      handlers.onError?.(json.error ?? { code: "internal", message: res.statusText });
+      return;
+    }
+    await readEventStream(res.body, (event, data) => {
+      if (!data) return;
+      const parsed = JSON.parse(data);
+      if (event === "token") handlers.onToken?.(parsed.text);
+      else if (event === "operation") handlers.onOperation?.(parsed.operation, parsed.index);
+      else if (event === "proposal") handlers.onProposal?.(parsed);
+      else if (event === "error") handlers.onError?.(parsed.error ?? parsed);
+    });
+  },
   getProposal: (slug: string, id: string) =>
     call<ProposalRow>(`/workspaces/${slug}/ai/proposals/${id}`),
   applyProposal: (
@@ -493,6 +566,15 @@ export interface ProposalRow {
   operations: AiOperation[];
   /** What the model could not resolve from the source (#368). */
   openQuestions?: string[] | null;
+}
+/** What both `runAiJob` and `runAiJobStream`'s terminal event resolve with
+ *  (issue #236) — one shape regardless of which path produced it. */
+export interface RunAiJobResult {
+  job: AiJob;
+  proposal: ProposalRow;
+  degraded?: boolean;
+  /** Retrieved-context entities the draft could cite via citation.source (issue #232). */
+  retrieved?: { id: string; title: string }[];
 }
 type AiCitation = { span: [number, number] | null; assumption: boolean; quote?: string; source?: string };
 export type AiOperation =

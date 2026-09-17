@@ -301,4 +301,55 @@ describe("fixture provider", () => {
     expect(out.draft.operations).toHaveLength(0);
     expect(out.draft.openQuestions.length).toBeGreaterThan(0);
   });
+
+  // ── streaming (issue #236) ───────────────────────────────────────────
+
+  it("emits token deltas that reassemble to the final summary, then one operation delta per op, in order", async () => {
+    const p = new FixtureProvider();
+    const text = "Kickoff call notes:\n- Draft the brief\n- Design the hero\n- QA on mobile";
+    const prompt = renderPrompt({ kind: "extract_plan", input: text }, text);
+    const deltas: Array<{ type: string; text?: string; index?: number }> = [];
+    const out = await p.generate({
+      kind: "extract_plan",
+      prompt,
+      model: "fixture-1",
+      onDelta: (d) => deltas.push(d),
+    });
+    expect(deltas.length).toBeGreaterThan(0);
+    const tokenText = deltas
+      .filter((d) => d.type === "token")
+      .map((d) => d.text)
+      .join("");
+    expect(tokenText).toBe(out.draft.summary);
+    const opDeltas = deltas.filter((d) => d.type === "operation");
+    expect(opDeltas.map((d) => d.index)).toEqual(out.draft.operations.map((_, i) => i));
+    // Every token delta precedes every operation delta — a client rendering
+    // deltas in arrival order sees the summary settle before ops appear.
+    const tokenIdxs = deltas.reduce<number[]>((acc, d, i) => (d.type === "token" ? [...acc, i] : acc), []);
+    const lastTokenIdx = tokenIdxs[tokenIdxs.length - 1] ?? -1;
+    const firstOpIdx = deltas.findIndex((d) => d.type === "operation");
+    if (opDeltas.length > 0) expect(lastTokenIdx).toBeLessThan(firstOpIdx);
+  });
+
+  it("streaming never changes the returned draft — same output with or without onDelta", async () => {
+    const p = new FixtureProvider();
+    const text = "Two things: fix the flaky test; update the changelog.";
+    const prompt = renderPrompt({ kind: "extract_plan", input: text }, text);
+    const withoutStreaming = await p.generate({ kind: "extract_plan", prompt, model: "fixture-1" });
+    const withStreaming = await p.generate({
+      kind: "extract_plan",
+      prompt,
+      model: "fixture-1",
+      onDelta: () => {},
+    });
+    expect(withStreaming.draft).toEqual(withoutStreaming.draft);
+  });
+
+  it("emits only token deltas when the draft ends up with no operations", async () => {
+    const p = new FixtureProvider();
+    const prompt = renderPrompt({ kind: "summarize", input: "hi" }, "hi");
+    const deltas: unknown[] = [];
+    await p.generate({ kind: "summarize", prompt, model: "fixture-1", onDelta: (d) => deltas.push(d) });
+    expect(deltas.every((d) => (d as { type: string }).type === "token")).toBe(true);
+  });
 });

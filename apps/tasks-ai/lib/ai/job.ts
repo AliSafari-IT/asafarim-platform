@@ -12,7 +12,7 @@ import { retrieveContext } from "./retrieval";
 import { getProvider } from "./registry";
 import { getAiSettings } from "./settings";
 import { assertCanRunAiJob } from "./quota";
-import { ProviderError } from "./provider";
+import { ProviderError, type ProviderDelta } from "./provider";
 
 export const runJobSchema = z.object({
   kind: z.enum(AI_KINDS),
@@ -31,14 +31,40 @@ const REVIEWABLE_STATES = ["draft", "previewed"] as const;
 
 const MAX_ATTEMPTS = 3;
 
+/** Thrown when a streaming caller's signal aborts mid-provider-call (issue
+ *  #236) — a Stop button or a dropped connection. The AiJob row is marked
+ *  `cancelled` for the record, but nothing else is persisted: no guard run,
+ *  no Proposal, no usage-ledger row. Distinct from ApiError so the stream
+ *  route can tell "the user stopped this" apart from a real failure and
+ *  skip the `error` SSE event for it. */
+export class AiJobCancelledError extends Error {
+  constructor(public readonly jobId: string) {
+    super("AI job cancelled");
+    this.name = "AiJobCancelledError";
+  }
+}
+
 /**
  * The AI job pipeline (docs/adr/0004, M06 scope):
  *   kill-switch + quota → redact → render versioned prompt → cache lookup
  *   → provider call (retry, degraded fallback to fixture) → guard against
  *   the operation allowlist + blast radius → persist AiJob + usage ledger
  *   + a Proposal in `draft` state. NOTHING is applied here.
+ *
+ * `streamOpts` (issue #236) is only ever set by the streaming route
+ * (app/api/.../ai/jobs/stream): `onDelta` is forwarded to the provider for
+ * incremental token/operation events, and `signal` lets a Stop button or a
+ * dropped connection cancel the in-flight provider call — see
+ * AiJobCancelledError above. Every other caller (the non-streaming route,
+ * regenerateProposal, the Testora/brief-delivery integrations, every
+ * existing test) omits it and is completely unaffected: this parameter
+ * changes nothing about the canonical, single persistence path below.
  */
-export async function runAiJob(ctx: RequestContext, input: unknown) {
+export async function runAiJob(
+  ctx: RequestContext,
+  input: unknown,
+  streamOpts?: { onDelta?: (delta: ProviderDelta) => void; signal?: AbortSignal },
+) {
   const { kind, input: rawInput, projectId, taskId } = runJobSchema.parse(input);
   await assertCanRunAiJob(ctx);
   // Billing gates — no-op until the commercial license is signed (M14).
@@ -124,6 +150,13 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
   let degraded = false;
 
   for (let attempt = 1; ; attempt++) {
+    if (streamOpts?.signal?.aborted) {
+      await ctx.db.aiJob.update({
+        where: { id: job.id },
+        data: { state: "cancelled", cancelledAt: new Date() },
+      });
+      throw new AiJobCancelledError(job.id);
+    }
     try {
       const provider = await getProvider(usedProvider);
       output = await provider.generate({
@@ -131,9 +164,23 @@ export async function runAiJob(ctx: RequestContext, input: unknown) {
         prompt,
         model: usedProvider === settings.provider ? settings.model : provider.models[0],
         targetsExistingTask: targetTask !== null,
+        signal: streamOpts?.signal,
+        onDelta: streamOpts?.onDelta,
       });
       break;
     } catch (err) {
+      // A cancellation surfaces as whatever error shape the provider's
+      // fetch call throws on an aborted signal — never retried or degraded
+      // to fixture like a real provider failure would be, since that would
+      // both ignore the Stop button and still end up persisting a Proposal
+      // the user asked to not generate.
+      if (streamOpts?.signal?.aborted) {
+        await ctx.db.aiJob.update({
+          where: { id: job.id },
+          data: { state: "cancelled", cancelledAt: new Date() },
+        });
+        throw new AiJobCancelledError(job.id);
+      }
       const retryable = err instanceof ProviderError ? err.retryable : true;
       if (attempt >= MAX_ATTEMPTS || !retryable) {
         if (usedProvider !== "fixture") {

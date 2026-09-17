@@ -22,18 +22,59 @@ export class OpenAiProvider implements AiProvider {
     }
     const { default: OpenAI } = await import("openai");
     const client = new OpenAI();
+    const messages = [
+      { role: "system" as const, content: call.prompt.system },
+      { role: "user" as const, content: call.prompt.user },
+    ];
+
+    if (call.onDelta) {
+      // Best-effort incremental UX (issue #236) — see anthropic.ts's adapter
+      // for the same caveat: not exercised in CI, and operations arrive as a
+      // burst once the full JSON parses, not incrementally within it.
+      let text = "";
+      let inputTokens = 0;
+      let outputTokens = 0;
+      try {
+        const stream = await client.chat.completions.create(
+          {
+            model: call.model,
+            response_format: { type: "json_object" },
+            messages,
+            stream: true,
+            stream_options: { include_usage: true },
+          },
+          { signal: call.signal },
+        );
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta?.content;
+          if (delta) {
+            text += delta;
+            call.onDelta({ type: "token", text: delta });
+          }
+          if (chunk.usage) {
+            inputTokens = chunk.usage.prompt_tokens ?? inputTokens;
+            outputTokens = chunk.usage.completion_tokens ?? outputTokens;
+          }
+        }
+      } catch (err) {
+        throw new ProviderError(err instanceof Error ? err.message : "openai stream failed");
+      }
+      const draft = proposalDraftSchema.parse(JSON.parse(text || "{}"));
+      draft.operations.forEach((operation, index) => call.onDelta!({ type: "operation", operation, index }));
+      const price = PRICE[call.model] ?? { in: 0, out: 0 };
+      return {
+        draft,
+        inputTokens,
+        outputTokens,
+        costUsd: (inputTokens * price.in + outputTokens * price.out) / 1_000_000,
+        fixture: false,
+      };
+    }
 
     let res;
     try {
       res = await client.chat.completions.create(
-        {
-          model: call.model,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: call.prompt.system },
-            { role: "user", content: call.prompt.user },
-          ],
-        },
+        { model: call.model, response_format: { type: "json_object" }, messages },
         { signal: call.signal },
       );
     } catch (err) {

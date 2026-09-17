@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, FieldError, Input, Select, Textarea } from "@asafarim/ui";
-import { api, ClientApiError, type AiOperation, type ProposalRow } from "../../lib/client/api";
+import {
+  api,
+  ClientApiError,
+  type AiOperation,
+  type ApiErrorShape,
+  type ProposalRow,
+  type RunAiJobResult,
+} from "../../lib/client/api";
 import { track } from "../../lib/client/telemetry";
 import {
   COPILOT_INTENTS,
@@ -109,6 +116,14 @@ export function CopilotPanel({
   } | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [trustSeen, setTrustSeen] = useState(true);
+  // Streaming progress (issue #236): text/operation deltas while the
+  // provider round trip is in flight, so a long call reads as "working"
+  // instead of dead air. Cleared the moment a terminal event lands —
+  // `proposal`/`status` take over from there exactly as before.
+  const [streaming, setStreaming] = useState(false);
+  const [liveText, setLiveText] = useState("");
+  const [liveOpCount, setLiveOpCount] = useState(0);
+  const streamAbort = useRef<AbortController | null>(null);
 
   const intent = intentFor(intentId);
   const project = projectList.find((p) => p.id === projectId) ?? null;
@@ -175,17 +190,22 @@ export function CopilotPanel({
     // (PR #377 review).
     const target = intentFor(intentId).aboutATask ? taskContext : null;
     setBusy(true);
+    setStreaming(true);
     setStatus(null);
     setNotice(null);
     setProposal(null);
     setOutcome(null);
-    try {
-      const res = await api.runAiJob(slug, {
-        kind: kindForIntent(intentId),
-        input: text,
-        projectId,
-        ...(target ? { taskId: target.id } : {}),
-      });
+    setLiveText("");
+    setLiveOpCount(0);
+
+    const body = {
+      kind: kindForIntent(intentId),
+      input: text,
+      projectId,
+      ...(target ? { taskId: target.id } : {}),
+    };
+
+    function onResult(res: RunAiJobResult) {
       setProposal(res.proposal);
       setRetrieved(res.retrieved ?? []);
       setGeneration((n) => n + 1);
@@ -202,7 +222,9 @@ export function CopilotPanel({
         activation.current.generated = false;
         track({ name: "workspace.activation.first_proposal_generated", kind: intentId });
       }
-    } catch (err) {
+    }
+
+    function onFailure(err: unknown) {
       setStatus(
         err instanceof ClientApiError && err.code === "forbidden"
           ? "AI is switched off for this workspace, so nothing was generated. Everything else keeps working."
@@ -212,10 +234,50 @@ export function CopilotPanel({
               ? err.message
               : "Could not draft a proposal. Nothing was changed.",
       );
+    }
+
+    const controller = new AbortController();
+    streamAbort.current = controller;
+    try {
+      await api.runAiJobStream(
+        slug,
+        body,
+        {
+          onToken: (t) => setLiveText((cur) => cur + t),
+          onOperation: () => setLiveOpCount((n) => n + 1),
+          onProposal: onResult,
+          onError: (err) => onFailure(new ClientApiError(0, err as ApiErrorShape)),
+        },
+        controller.signal,
+      );
+    } catch (err) {
+      if (controller.signal.aborted) {
+        // Stopped by the user — nothing was generated, nothing to report.
+      } else {
+        // The stream died before a terminal event arrived (dropped
+        // connection, network hiccup). Fall back to the plain request
+        // rather than leaving a half-drawn proposal on screen — safe to
+        // retry: an identical input the stream *did* manage to persist
+        // server-side is served back from the job cache, never duplicated
+        // (lib/ai/job.ts).
+        try {
+          onResult(await api.runAiJob(slug, body));
+        } catch (fallbackErr) {
+          onFailure(fallbackErr);
+        }
+      }
     } finally {
+      streamAbort.current = null;
+      setStreaming(false);
       setBusy(false);
     }
   }, [intentId, projectId, slug, source, taskContext]);
+
+  /** Stop button (issue #236): aborts the in-flight stream, which tells the
+   *  server to stop the provider call and persist no Proposal. */
+  const stopGenerating = useCallback(() => {
+    streamAbort.current?.abort();
+  }, []);
 
   async function apply(accept: number[], edited: AiOperation[]) {
     if (!proposal) return;
@@ -451,9 +513,26 @@ export function CopilotPanel({
                 4. Draft a proposal
               </h2>
               <p className="ta-hint">{GENERATE_EXPECTATION}</p>
-              <Button onClick={generate} disabled={busy || block !== null}>
-                {busy ? "Drafting…" : proposal ? "Draft again" : "Draft a proposal"}
-              </Button>
+              <div className="ta-copilot__generate-row">
+                <Button onClick={generate} disabled={busy || block !== null}>
+                  {busy ? "Drafting…" : proposal ? "Draft again" : "Draft a proposal"}
+                </Button>
+                {streaming && (
+                  <Button variant="secondary" onClick={stopGenerating}>
+                    Stop
+                  </Button>
+                )}
+              </div>
+              {streaming && (liveText || liveOpCount > 0) && (
+                <div className="ta-copilot__live" role="status" aria-live="polite">
+                  {liveText && <p className="ta-copilot__live-text">{liveText}</p>}
+                  {liveOpCount > 0 && (
+                    <p className="ta-hint">
+                      {liveOpCount} proposed change{liveOpCount === 1 ? "" : "s"} drafted so far…
+                    </p>
+                  )}
+                </div>
+              )}
               {block && (
                 <p className="ta-hint ta-copilot__block" role="note">
                   {block.message}

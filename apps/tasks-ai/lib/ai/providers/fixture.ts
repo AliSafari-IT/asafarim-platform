@@ -211,6 +211,23 @@ export class FixtureProvider implements AiProvider {
     }
 
     const parsed = proposalDraftSchema.parse(draft);
+
+    // Deterministic chunked streaming (issue #236): CI/evals stream against
+    // this provider, so "as each parses" has to mean something reproducible
+    // rather than a real model's arbitrary token boundaries. Token deltas
+    // chunk the summary; each operation is then emitted once, in order,
+    // exactly as it appears in the final array — never a partial op.
+    if (call.onDelta) {
+      for (const chunk of chunksOf(parsed.summary, TOKEN_CHUNK_SIZE)) {
+        call.onDelta({ type: "token", text: chunk });
+        await Promise.resolve();
+      }
+      for (const [index, operation] of parsed.operations.entries()) {
+        call.onDelta({ type: "operation", operation, index });
+        await Promise.resolve();
+      }
+    }
+
     return {
       draft: parsed,
       inputTokens: Math.ceil(call.prompt.user.length / 4),
@@ -266,4 +283,13 @@ function wordOverlap(a: string, b: string): number {
   if (!sa.size || !sb.size) return 0;
   const inter = [...sa].filter((w) => sb.has(w)).length;
   return inter / Math.max(sa.size, sb.size);
+}
+
+/** issue #236: chunk size for the fixture's deterministic token stream. */
+const TOKEN_CHUNK_SIZE = 24;
+
+function chunksOf(text: string, size: number): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < text.length; i += size) out.push(text.slice(i, i + size));
+  return out;
 }

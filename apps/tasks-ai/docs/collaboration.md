@@ -47,6 +47,11 @@
 - Stale writes are **not** silently overwritten: the API's `If-Match` /
   `409 conflict_version` path is the conflict resolution; the stream only
   says "re-fetch".
+- `POST /workspaces/{slug}/ai/jobs/stream` (issue #236) reuses this same
+  SSE convention for the copilot's provider round trip, but is one-shot
+  rather than a resumable polling subscription: `token`/`operation` deltas
+  as the draft is generated, then a terminal `proposal` or `error` event.
+  See `docs/ai-boundary.md`.
 
 ## Attachments
 

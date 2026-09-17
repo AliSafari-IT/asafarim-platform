@@ -1,6 +1,18 @@
 import type { ProposalDraft, AiKind } from "./types";
 import type { RenderedPrompt } from "./prompts";
 
+/**
+ * An incremental update during a streaming generate() call (issue #236).
+ * `"token"` is raw text as it arrives — enough to show visible progress
+ * during a long round trip. `"operation"` is one fully-parsed operation
+ * from the eventual draft, with its index in the final `operations[]`
+ * array, so a streaming UI can render proposal items as they become known
+ * rather than waiting for the whole response.
+ */
+export type ProviderDelta =
+  | { type: "token"; text: string }
+  | { type: "operation"; operation: unknown; index: number };
+
 export interface ProviderCall {
   kind: AiKind;
   prompt: RenderedPrompt;
@@ -14,6 +26,15 @@ export interface ProviderCall {
   targetsExistingTask?: boolean;
   /** Abort signal for cancellation. */
   signal?: AbortSignal;
+  /**
+   * Present only for a streaming call (issue #236). When set, a provider
+   * should emit incremental deltas as they become available instead of (or
+   * in addition to) only returning the final ProviderOutput. Optional: a
+   * provider that ignores it still works correctly, just without the
+   * incremental UX — generate() must always still resolve with the
+   * complete, schema-valid draft regardless of whether deltas were sent.
+   */
+  onDelta?: (delta: ProviderDelta) => void;
 }
 
 export interface ProviderOutput {
