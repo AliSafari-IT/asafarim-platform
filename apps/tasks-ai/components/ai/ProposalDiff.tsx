@@ -190,7 +190,8 @@ export function ProposalDiff({
       {groups.map((g) => (
         <section key={g.kind} className="ta-diff__group">
           <h4>
-            {g.kind === "create" ? "Create tasks" : g.kind === "update" ? "Update tasks" : "Link tasks"}{" "}
+            {g.kind === "create" ? "Create tasks" : g.kind === "update" ? "Update tasks" : "Link tasks"}
+            {" "}
             <span>{g.items.length}</span>
           </h4>
           <ul>
@@ -216,15 +217,33 @@ export function ProposalDiff({
                       />
                     ) : op.op === "update_task" ? (
                       <span>
-                        Update{" "}
-                        {op.taskId === TARGET_REF && targetTaskTitle ? (
-                          <strong>{targetTaskTitle}</strong>
-                        ) : (
-                          <code>{op.taskId}</code>
-                        )}
-                        : {Object.keys(op.fields).join(", ")}
+                        Update <TaskRefLabel taskId={op.taskId} targetTaskTitle={targetTaskTitle} />:{" "}
+                        {Object.keys(op.fields).join(", ")}
+                      </span>
+                    ) : op.op === "set_labels" ? (
+                      <span>
+                        Labels on <TaskRefLabel taskId={op.taskId} targetTaskTitle={targetTaskTitle} />:{" "}
+                        {[
+                          op.fields.add.length > 0 ? `add ${op.fields.add.join(", ")}` : "",
+                          op.fields.remove.length > 0 ? `remove ${op.fields.remove.join(", ")}` : "",
+                        ]
+                          .filter(Boolean)
+                          .join("; ")}
+                      </span>
+                    ) : op.op === "suggest_status" ? (
+                      <span>
+                        Suggest status <code>{op.statusId}</code> for{" "}
+                        <TaskRefLabel taskId={op.taskId} targetTaskTitle={targetTaskTitle} /> — not applied
+                        until a human promotes it
+                      </span>
+                    ) : op.op === "suggest_due_date" ? (
+                      <span>
+                        Suggest due date <strong>{formatSuggestedDate(op.dueDate)}</strong> for{" "}
+                        <TaskRefLabel taskId={op.taskId} targetTaskTitle={targetTaskTitle} /> — not applied
+                        until a human promotes it
                       </span>
                     ) : (
+                      // link_tasks | set_dependency
                       <span>
                         {op.fromRef} <strong>{op.kind}</strong> {op.toRef}
                       </span>
@@ -302,9 +321,28 @@ export function ProposalDiff({
   );
 }
 
+/** The task an update-like op addresses, named by the target task's real
+ *  title when it is the one this draft was scoped to, or its bare id
+ *  otherwise (mirrors how TARGET_REF is only resolvable for that one task). */
+function TaskRefLabel({ taskId, targetTaskTitle }: { taskId: string; targetTaskTitle: string | null }) {
+  return taskId === TARGET_REF && targetTaskTitle ? (
+    <strong>{targetTaskTitle}</strong>
+  ) : (
+    <code>{taskId}</code>
+  );
+}
+
+function formatSuggestedDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString();
+}
+
 function describe(op: AiOperation): string {
   if (op.op === "create_task") return `create "${op.fields.title}"`;
   if (op.op === "update_task") return `update task ${op.taskId}`;
+  if (op.op === "set_labels") return `change labels on task ${op.taskId}`;
+  if (op.op === "suggest_status") return `suggest status for task ${op.taskId}`;
+  if (op.op === "suggest_due_date") return `suggest a due date for task ${op.taskId}`;
   return `link ${op.fromRef} ${op.kind} ${op.toRef}`;
 }
 
@@ -316,7 +354,8 @@ function groupOps(ops: AiOperation[]) {
     link: [],
   };
   ops.forEach((op, index) => {
-    const k = op.op === "create_task" ? "create" : op.op === "update_task" ? "update" : "link";
+    const k =
+      op.op === "create_task" ? "create" : op.op === "link_tasks" || op.op === "set_dependency" ? "link" : "update";
     g[k].push({ index, op });
   });
   return (["create", "update", "link"] as const).filter((k) => g[k].length).map((k) => ({ kind: k, items: g[k] }));

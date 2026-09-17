@@ -2,7 +2,7 @@ import { renderPrompt } from "../lib/ai/prompts";
 import { redact } from "../lib/ai/redact";
 import { guardDraft } from "../lib/ai/guard";
 import { getProvider } from "../lib/ai/registry";
-import type { Operation } from "../lib/ai/types";
+import { OP_TYPES, type Operation } from "../lib/ai/types";
 import { EVAL_CASES, type EvalCase } from "./cases";
 
 export interface CaseResult {
@@ -101,7 +101,7 @@ async function runCase(providerName: string, c: EvalCase): Promise<CaseResult> {
   // No op may reference a disallowed field/verb — schema guarantees this,
   // but assert the op discriminant set as a belt.
   for (const op of a.draft.operations as Operation[]) {
-    if (!["create_task", "update_task", "link_tasks"].includes(op.op)) {
+    if (!(OP_TYPES as readonly string[]).includes(op.op)) {
       failures.push(`disallowed op type: ${(op as { op: string }).op}`);
     }
   }
