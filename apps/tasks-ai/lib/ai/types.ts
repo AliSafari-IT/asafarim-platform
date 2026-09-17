@@ -59,8 +59,25 @@ export function isCandidateRef(ref: string): boolean {
   return ref.startsWith(CANDIDATE_REF_PREFIX);
 }
 
-/** Operations AI may propose. NOTHING else is representable. */
-export const OP_TYPES = ["create_task", "update_task", "link_tasks"] as const;
+/**
+ * Operations AI may propose. NOTHING else is representable.
+ *
+ * The last four (issue #235) widen the allowlist beyond create/update/link
+ * while keeping every ADR-0004 hard prohibition true by construction: none
+ * of their schemas below has a field for an assignee, a message, a delete,
+ * or (for status/due-date) the *committed* field — `suggest_status` and
+ * `suggest_due_date` write only the separate `suggestedStatusId` /
+ * `suggestedDueDate` columns, never `statusId` / `dueDate` themselves.
+ */
+export const OP_TYPES = [
+  "create_task",
+  "update_task",
+  "link_tasks",
+  "set_labels",
+  "suggest_status",
+  "set_dependency",
+  "suggest_due_date",
+] as const;
 export type OpType = (typeof OP_TYPES)[number];
 
 /** Fields AI may set on create/update. `assignee`, `dates`, roles, billing
@@ -126,7 +143,81 @@ const linkOp = z.object({
   citations: z.array(citation).max(20),
 });
 
-export const operationSchema = z.discriminatedUnion("op", [createOp, updateOp, linkOp]);
+/**
+ * Adds/removes label ids on a task (issue #235). Unlike `suggest_status`/
+ * `suggest_due_date` below, this is not a "suggestion" field — applying it
+ * IS the confirmed action, no differently than `update_task`'s title/
+ * description: the human already confirmed it by approving this op in
+ * review. `taskId` is restricted the same way `update_task.taskId` is
+ * (guard.ts): only the proposal's own target task, never an invented id.
+ */
+const setLabelsOp = z.object({
+  op: z.literal("set_labels"),
+  taskId: z.string().min(1),
+  fields: z
+    .object({
+      add: z.array(z.string().min(1).max(60)).max(20).default([]),
+      remove: z.array(z.string().min(1).max(60)).max(20).default([]),
+    })
+    .strict()
+    .refine((f) => f.add.length + f.remove.length > 0, "add or remove must be non-empty"),
+  confidence: z.number().min(0).max(1),
+  citations: z.array(citation).max(20),
+});
+
+/**
+ * Records a *suggested* status transition (issue #235) — never the
+ * committed `Task.statusId`. Promoting a suggestion to the committed status
+ * is a distinct human action outside proposal apply, the same non-commit
+ * boundary as `suggest_due_date` below.
+ */
+const suggestStatusOp = z.object({
+  op: z.literal("suggest_status"),
+  taskId: z.string().min(1),
+  statusId: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  citations: z.array(citation).max(20),
+});
+
+/**
+ * A directional dependency edge (issue #235) — a superset of `link_tasks`'s
+ * "blocks" kind that also accepts the inverse direction, so a draft can say
+ * "fromRef is blocked by toRef" without inventing a reversed blocks op.
+ * Endpoints resolve exactly like `link_tasks`'s (a create_task ref, the
+ * target-task ref, or a retrieved candidate ref — see guard.ts).
+ */
+const setDependencyOp = z.object({
+  op: z.literal("set_dependency"),
+  fromRef: z.string().min(1).max(40),
+  toRef: z.string().min(1).max(40),
+  kind: z.enum(["blocks", "blocked_by"]),
+  confidence: z.number().min(0).max(1),
+  citations: z.array(citation).max(20),
+});
+
+/**
+ * Records a *suggested* due date (issue #235) into `suggestedDueDate` —
+ * never the committed `Task.dueDate`. ADR-0004's "AI never writes a
+ * committed date" hard prohibition holds because this field is not that
+ * field; promoting it is a separate human action.
+ */
+const suggestDueDateOp = z.object({
+  op: z.literal("suggest_due_date"),
+  taskId: z.string().min(1),
+  dueDate: z.string().datetime({ offset: true }),
+  confidence: z.number().min(0).max(1),
+  citations: z.array(citation).max(20),
+});
+
+export const operationSchema = z.discriminatedUnion("op", [
+  createOp,
+  updateOp,
+  linkOp,
+  setLabelsOp,
+  suggestStatusOp,
+  setDependencyOp,
+  suggestDueDateOp,
+]);
 export type Operation = z.infer<typeof operationSchema>;
 
 export const proposalDraftSchema = z.object({

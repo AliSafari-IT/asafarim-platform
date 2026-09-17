@@ -576,20 +576,21 @@ export interface RunAiJobResult {
   /** Retrieved-context entities the draft could cite via citation.source (issue #232). */
   retrieved?: { id: string; title: string }[];
 }
+type AiCitation = { span: [number, number] | null; assumption: boolean; quote?: string; source?: string };
 export type AiOperation =
   | {
       op: "create_task";
       ref: string;
       fields: { title: string; description?: string; estimate?: number; parentRef?: string };
       confidence: number;
-      citations: { span: [number, number] | null; assumption: boolean; quote?: string; source?: string }[];
+      citations: AiCitation[];
     }
   | {
       op: "update_task";
       taskId: string;
       fields: { title?: string; description?: string; estimate?: number };
       confidence: number;
-      citations: { span: [number, number] | null; assumption: boolean; source?: string }[];
+      citations: AiCitation[];
     }
   | {
       op: "link_tasks";
@@ -597,7 +598,39 @@ export type AiOperation =
       toRef: string;
       kind: "blocks" | "relates" | "duplicates";
       confidence: number;
-      citations: { span: [number, number] | null; assumption: boolean; source?: string }[];
+      citations: AiCitation[];
+    }
+  // issue #235 — widened allowlist, still preview + confirm + undo + audit.
+  | {
+      op: "set_labels";
+      taskId: string;
+      fields: { add: string[]; remove: string[] };
+      confidence: number;
+      citations: AiCitation[];
+    }
+  | {
+      /** Never the committed status — see suggestedStatusId on Task. */
+      op: "suggest_status";
+      taskId: string;
+      statusId: string;
+      confidence: number;
+      citations: AiCitation[];
+    }
+  | {
+      op: "set_dependency";
+      fromRef: string;
+      toRef: string;
+      kind: "blocks" | "blocked_by";
+      confidence: number;
+      citations: AiCitation[];
+    }
+  | {
+      /** Never the committed due date — see suggestedDueDate on Task. */
+      op: "suggest_due_date";
+      taskId: string;
+      dueDate: string;
+      confidence: number;
+      citations: AiCitation[];
     };
 export interface AiMetrics {
   windowDays: number;

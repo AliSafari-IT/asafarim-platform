@@ -15,7 +15,15 @@ export function groupOperations(ops: Operation[]): DiffGroup[] {
   const groups: Record<DiffGroup["kind"], DiffGroup["items"]> = { create: [], update: [], link: [] };
   ops.forEach((op, index) => {
     const grounded = op.citations.some((c) => c.span !== null && !c.assumption);
-    const bucket = op.op === "create_task" ? "create" : op.op === "update_task" ? "update" : "link";
+    // issue #235: set_labels/suggest_status/suggest_due_date all modify one
+    // existing task, same as update_task; set_dependency is a link_tasks
+    // superset, same bucket as link_tasks.
+    const bucket: DiffGroup["kind"] =
+      op.op === "create_task"
+        ? "create"
+        : op.op === "link_tasks" || op.op === "set_dependency"
+          ? "link"
+          : "update";
     groups[bucket].push({ index, op, grounded, confidence: op.confidence });
   });
   return (["create", "update", "link"] as const)
@@ -46,7 +54,19 @@ function canonical(op: Operation): string {
   if (op.op === "update_task") {
     return `u:${op.taskId}:${JSON.stringify(op.fields)}`;
   }
-  return `l:${op.fromRef}:${op.toRef}:${op.kind}`;
+  if (op.op === "link_tasks") {
+    return `l:${op.fromRef}:${op.toRef}:${op.kind}`;
+  }
+  if (op.op === "set_dependency") {
+    return `dep:${op.fromRef}:${op.toRef}:${op.kind}`;
+  }
+  if (op.op === "set_labels") {
+    return `sl:${op.taskId}:+${[...op.fields.add].sort().join(",")}:-${[...op.fields.remove].sort().join(",")}`;
+  }
+  if (op.op === "suggest_status") {
+    return `ss:${op.taskId}:${op.statusId}`;
+  }
+  return `sd:${op.taskId}:${op.dueDate}`;
 }
 
 /** Cheap intra-proposal duplicate hint: near-identical create titles. */

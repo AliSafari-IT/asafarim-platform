@@ -29,7 +29,18 @@
  * depending on either side.
  */
 export interface WorkflowOperation {
-  op: "create_task" | "update_task" | "link_tasks";
+  op:
+    | "create_task"
+    | "update_task"
+    | "link_tasks"
+    // issue #235 — widened allowlist. set_labels/suggest_status/
+    // suggest_due_date all modify one existing task (counted like
+    // update_task); set_dependency is a link_tasks superset (counted like
+    // link_tasks, via the same fromRef/toRef fields below).
+    | "set_labels"
+    | "suggest_status"
+    | "set_dependency"
+    | "suggest_due_date";
   confidence: number;
   citations: {
     span: [number, number] | null;
@@ -43,7 +54,7 @@ export interface WorkflowOperation {
   /** Endpoints of a link_tasks op. */
   fromRef?: string;
   toRef?: string;
-  fields?: { title?: string; parentRef?: string };
+  fields?: { title?: string; parentRef?: string; add?: string[]; remove?: string[] };
 }
 
 /**
@@ -568,10 +579,7 @@ export function impactCounts(
       }
       counts.total += 1;
       if (op.ref) resolvable.add(op.ref);
-    } else if (op.op === "update_task") {
-      counts.updates += 1;
-      counts.total += 1;
-    } else {
+    } else if (op.op === "link_tasks" || op.op === "set_dependency") {
       // A candidate ref (issue #234, e.g. a dedup match) already names a
       // real task by id — it always resolves here the same way TARGET_REF
       // does, because the server re-verifies it against the retrieval set
@@ -586,6 +594,11 @@ export function impactCounts(
       } else {
         counts.skippedLinks += 1;
       }
+    } else {
+      // update_task, and the issue #235 ops that modify one existing task:
+      // set_labels, suggest_status, suggest_due_date.
+      counts.updates += 1;
+      counts.total += 1;
     }
   });
   return counts;

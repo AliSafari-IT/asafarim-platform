@@ -177,6 +177,106 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
           data: { workspaceId: ctx.workspaceId, fromTaskId: from, toTaskId: to, kind: op.kind },
         });
         undo.push({ op: "unlink", relationId: rel.id });
+      } else if (op.op === "set_dependency") {
+        // issue #235: a superset of link_tasks that also accepts the
+        // inverse direction. "blocked_by" means fromRef is blocked by
+        // toRef, i.e. toRef blocks fromRef — stored as that direction's
+        // "blocks" edge so TaskRelation only ever has one kind to reason
+        // about for a dependency, not two spellings of it.
+        const from = refToTaskId.get(op.fromRef);
+        const to = refToTaskId.get(op.toRef);
+        if (!from || !to) continue;
+        const [fromTaskId, toTaskId] = op.kind === "blocked_by" ? [to, from] : [from, to];
+        const rel = await tx.taskRelation.create({
+          data: { workspaceId: ctx.workspaceId, fromTaskId, toTaskId, kind: "blocks" },
+        });
+        undo.push({ op: "unlink", relationId: rel.id });
+      } else if (op.op === "set_labels") {
+        // Confirmed by review the same way update_task's fields are — this
+        // is not a "suggested" field, applying it IS the action.
+        const taskId = op.taskId === TARGET_TASK_REF ? p.targetTaskId : op.taskId;
+        if (!taskId || taskId !== p.targetTaskId) continue;
+        const task = await tx.task.findFirst({
+          where: { id: taskId, workspaceId: ctx.workspaceId },
+          select: { id: true },
+        });
+        if (!task) continue;
+        const candidateIds = [...new Set([...op.fields.add, ...op.fields.remove])];
+        const existing = candidateIds.length
+          ? await tx.taskLabel.findMany({
+              where: { taskId, labelId: { in: candidateIds } },
+              select: { labelId: true },
+            })
+          : [];
+        const existingSet = new Set(existing.map((e) => e.labelId));
+        // Skip a re-add/re-remove that would be a no-op: the undo plan must
+        // record exactly what this op changed, or undoing it would remove a
+        // label the task already had before this proposal touched it.
+        const toAdd = op.fields.add.filter((l) => !existingSet.has(l));
+        const toRemove = op.fields.remove.filter((l) => existingSet.has(l));
+        // An invented label id must not silently create a dangling row —
+        // skip it rather than let the FK fail the whole transaction.
+        const validAdd = toAdd.length
+          ? await tx.label.findMany({
+              where: { id: { in: toAdd }, workspaceId: ctx.workspaceId, archivedAt: null },
+              select: { id: true },
+            })
+          : [];
+        const finalAdd = toAdd.filter((l) => validAdd.some((v) => v.id === l));
+        if (finalAdd.length) {
+          await tx.taskLabel.createMany({
+            data: finalAdd.map((labelId) => ({ taskId, labelId })),
+            skipDuplicates: true,
+          });
+        }
+        if (toRemove.length) {
+          await tx.taskLabel.deleteMany({ where: { taskId, labelId: { in: toRemove } } });
+        }
+        if (finalAdd.length || toRemove.length) {
+          undo.push({ op: "restore_labels", taskId, added: finalAdd, removed: toRemove });
+        }
+      } else if (op.op === "suggest_status") {
+        // Never Task.statusId — the separate, non-committed column (issue
+        // #235). Promoting a suggestion to the committed status is a
+        // distinct human action outside proposal apply.
+        const taskId = op.taskId === TARGET_TASK_REF ? p.targetTaskId : op.taskId;
+        if (!taskId || taskId !== p.targetTaskId) continue;
+        const before = await tx.task.findFirst({
+          where: { id: taskId, workspaceId: ctx.workspaceId },
+          select: { id: true, suggestedStatusId: true },
+        });
+        if (!before) continue;
+        const status = await tx.status.findFirst({
+          where: { id: op.statusId, workspaceId: ctx.workspaceId, archivedAt: null },
+          select: { id: true },
+        });
+        // An invented/foreign status id resolves to nothing — applied as a
+        // no-op rather than failing the whole apply.
+        if (!status) continue;
+        await tx.task.update({ where: { id: before.id }, data: { suggestedStatusId: status.id } });
+        undo.push({
+          op: "restore_suggested_status",
+          taskId: before.id,
+          suggestedStatusId: before.suggestedStatusId,
+        });
+      } else if (op.op === "suggest_due_date") {
+        // Never Task.dueDate — same non-commit boundary as suggest_status.
+        const taskId = op.taskId === TARGET_TASK_REF ? p.targetTaskId : op.taskId;
+        if (!taskId || taskId !== p.targetTaskId) continue;
+        const before = await tx.task.findFirst({
+          where: { id: taskId, workspaceId: ctx.workspaceId },
+          select: { id: true, suggestedDueDate: true },
+        });
+        if (!before) continue;
+        await tx.task.update({
+          where: { id: before.id },
+          data: { suggestedDueDate: new Date(op.dueDate) },
+        });
+        undo.push({
+          op: "restore_suggested_due_date",
+          taskId: before.id,
+          suggestedDueDate: before.suggestedDueDate,
+        });
       }
     }
 
@@ -238,6 +338,32 @@ export async function undoProposal(ctx: RequestContext, id: string) {
       } else if (step.op === "unlink") {
         await tx.taskRelation.deleteMany({
           where: { id: String(step.relationId), workspaceId: ctx.workspaceId },
+        });
+      } else if (step.op === "restore_labels") {
+        const added = (step.added as string[] | undefined) ?? [];
+        const removed = (step.removed as string[] | undefined) ?? [];
+        if (added.length) {
+          await tx.taskLabel.deleteMany({
+            where: { taskId: String(step.taskId), labelId: { in: added } },
+          });
+        }
+        if (removed.length) {
+          await tx.taskLabel.createMany({
+            data: removed.map((labelId) => ({ taskId: String(step.taskId), labelId })),
+            skipDuplicates: true,
+          });
+        }
+      } else if (step.op === "restore_suggested_status") {
+        await tx.task.updateMany({
+          where: { id: String(step.taskId), workspaceId: ctx.workspaceId },
+          data: { suggestedStatusId: (step.suggestedStatusId as string | null) ?? null },
+        });
+      } else if (step.op === "restore_suggested_due_date") {
+        await tx.task.updateMany({
+          where: { id: String(step.taskId), workspaceId: ctx.workspaceId },
+          data: {
+            suggestedDueDate: step.suggestedDueDate ? new Date(step.suggestedDueDate as string) : null,
+          },
         });
       }
     }

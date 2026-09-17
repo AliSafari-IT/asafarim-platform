@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-17",
-    "title": "Tasks-ai: cross-project duplicate & near-duplicate detection",
-    "sha": "e5181ac",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/e5181ac"
+    "title": "Tasks-ai: widen the AI proposal op allowlist (labels, status/due-date suggestions, dependency edges)",
+    "sha": "b567526",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/b567526"
   }
 ]
