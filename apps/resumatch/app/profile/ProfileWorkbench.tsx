@@ -414,7 +414,7 @@ export function ProfileWorkbench({
                       value={language.label}
                       placeholder="Language"
                       maxLength={64}
-                      style={{ flex: "1 1 8rem", minWidth: "8rem" }}
+                      style={{ flex: "1 1 8rem", minWidth: 0, maxWidth: "100%" }}
                       onChange={(event) => {
                         const label = event.target.value;
                         update(
