@@ -12,6 +12,7 @@ import { renderExtractPrompt } from "./prompts";
 import { ExtractionProviderError } from "./provider";
 import { EXTRACT_MODEL_VERSIONS, getExtractionProvider } from "./registry";
 import { mergeAiExtraction, parseAiExtractionOutput } from "./schema";
+import { groundExperienceSummaries } from "./grounding";
 
 /**
  * Degraded-mode wiring for CV extraction. Mirrors
@@ -117,7 +118,12 @@ export async function extractProfileWithFallback(
         // provider-level failure. Never retried: the same malformed shape
         // would recur against the same input.
         const parsed = parseAiExtractionOutput(output.data);
-        const content = mergeAiExtraction(parsed);
+        // groundExperienceSummaries runs on the already-validated content,
+        // dropping any per-role highlight that mentions a technology,
+        // employer, or number not traceable back to the source CV text —
+        // see grounding.ts's doc comment for why this check exists
+        // alongside the prompt's own no-fabrication rules (issue #420).
+        const content = groundExperienceSummaries(mergeAiExtraction(parsed), text);
 
         await recordUsage({
           workspaceId,
