@@ -449,13 +449,13 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
   {
     // Authenticated-only in the launcher: the landing page at / is public
     // (proxy.ts allows it), while the candidate workspace requires a session.
-    // JobMatch is a deployed, non-commercial portfolio showcase with a
-    // synthetic demo source; it is not a professional recruiting service.
-    key: "jobmatch",
-    name: "JobMatch",
-    description: "Explainable job search: fewer vacancies, each with the reason it fits.",
-    glyph: "JM",
-    meta: "jobmatch.asafarim.com",
+    // ResuMatch is a deployed, non-commercial portfolio showcase — an
+    // AI-powered CV-tailoring tool, not a job-search or recruiting service.
+    key: "resumatch",
+    name: "ResuMatch",
+    description: "AI-tailored CVs: paste a job URL, rewrite your resume toward it.",
+    glyph: "RM",
+    meta: "resumatch.asafarim.com",
     status: "active",
     access: "authenticated",
   },
@@ -591,7 +591,7 @@ export function getPlatformApp(key: string): PlatformApp | undefined {
  * except the one the user is already standing in — shown regardless of
  * sign-in state or role, so anonymous visitors see the full platform map
  * instead of a partial one. Apps that require a session (Hub, Admin,
- * AppBuilder, JobMatch, TasksAI, …) still gate access inside the app itself;
+ * AppBuilder, ResuMatch, TasksAI, …) still gate access inside the app itself;
  * the switcher is a directory, not an access check.
  *
  * Every app's switcher must go through this. Hand-maintained per-app arrays

@@ -62,9 +62,9 @@
       "port": 3011
     },
     {
-      "name": "jobmatch",
+      "name": "resumatch",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@asafarim/jobmatch", "dev"],
+      "runtimeArgs": ["--filter", "@asafarim/resumatch", "dev"],
       "port": 3012
     },
     {

@@ -38,7 +38,7 @@ export type SettingScope =
   | "hub"
   | "showcase"
   | "admin"
-  | "jobmatch";
+  | "resumatch";
 
 export interface SettingDefinition {
   key: string;

@@ -5,7 +5,7 @@ website (web), the Hub dashboard, the Showcase, the Admin panel, Vionto
 (AI photo-to-story video), EduMatch (AI learning support and tutor
 marketplace), AppBuilder (metadata-driven AI application factory), Testora
 (E2E test automation), TimelineAI (visual timeline creator), TasksAI
-(AI-native work execution), JobMatch (explainable job-search assistant),
+(AI-native work execution), ResuMatch (AI CV-tailoring tool),
 Labs (experimental workbench), and shared packages — built with Next.js,
 TypeScript, PostgreSQL, pnpm workspaces, and Turborepo. Images are built in
 GitHub Actions, published to GHCR, and pulled by the VPS, which runs them
@@ -34,13 +34,13 @@ flowchart TD
         Testora[apps/testora]
         TimelineAI[apps/timelineai]
         TasksAI[apps/tasks-ai]
-        JobMatch[apps/jobmatch]
+        ResuMatch[apps/resumatch]
         Labs[apps/labs]
         Postgres[(PostgreSQL)]
     end
     Auth["@asafarim/auth"]
     DB["packages/db (shared Prisma)"]
-    IsolatedDB[(Isolated per-app DBs<br/>Testora · AppBuilder · JobMatch · TasksAI)]
+    IsolatedDB[(Isolated per-app DBs<br/>Testora · AppBuilder · ResuMatch · TasksAI)]
 
     User -->|HTTPS| Caddy
     Caddy --> Web
@@ -53,7 +53,7 @@ flowchart TD
     Caddy --> Testora
     Caddy --> TimelineAI
     Caddy --> TasksAI
-    Caddy --> JobMatch
+    Caddy --> ResuMatch
     Caddy --> Labs
     Web --> DB
     Hub --> DB
@@ -64,7 +64,7 @@ flowchart TD
     TimelineAI --> DB
     AppBuilder --> IsolatedDB
     Testora --> IsolatedDB
-    JobMatch --> IsolatedDB
+    ResuMatch --> IsolatedDB
     TasksAI --> IsolatedDB
     Hub --> Auth
     Admin --> Auth
@@ -74,7 +74,7 @@ flowchart TD
     Testora --> Auth
     TimelineAI --> Auth
     TasksAI --> Auth
-    JobMatch --> Auth
+    ResuMatch --> Auth
     Auth --> DB
     DB --> Postgres
 ```
@@ -96,7 +96,7 @@ isolated database — a static, typed experiment registry only.
 | [`apps/edumatch`](apps/edumatch/README.md) | AI learning support and tutor marketplace | 3009 | edumatch.asafarim.com | Public landing; login for student, tutor, and admin workspaces |
 | [`apps/timelineai`](apps/timelineai/README.md) | Visual timeline creator (8 layouts, export, moderation, optional AI copilot) | 3010 | tlai.asafarim.com | Public gallery; login for dashboard/self-publish; guests can create/submit |
 | [`apps/labs`](apps/labs/README.md) | Experimental workbench — what's being explored next | 3011 | labs.asafarim.com | Public; no login, no database |
-| [`apps/jobmatch`](apps/jobmatch/README.md) | Explainable, source-transparent job-search assistant | 3012 | jobmatch.asafarim.com | Login (shared SSO); isolated Postgres + pgvector |
+| [`apps/resumatch`](apps/resumatch/README.md) | AI CV-tailoring tool: paste a job URL, rewrite your resume toward it | 3012 | resumatch.asafarim.com | Login (shared SSO); isolated Postgres |
 | [`apps/tasks-ai`](apps/tasks-ai/README.md) | AI-native work execution — capture, plan, execute | 3013 | tasks-ai.asafarim.com | Login (shared SSO); isolated Postgres |
 
 Public website copy is maintained in `apps/web/content/`; PR-specific source,
@@ -167,7 +167,7 @@ pnpm db:studio                  # browse the database
 
 Authentication (Auth.js v5) lives in `packages/auth`; sign in is centralized
 at `hub:3001/sign-in`. Every protected app (Hub, Admin, Vionto, EduMatch,
-AppBuilder, Testora, TimelineAI, TasksAI, JobMatch) shares the same session
+AppBuilder, Testora, TimelineAI, TasksAI, ResuMatch) shares the same session
 via a `.asafarim.com` cookie — there is no per-app login. Labs is public and
 has no session at all.
 

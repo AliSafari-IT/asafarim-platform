@@ -1,0 +1,51 @@
+{
+  "name": "@asafarim/resumatch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm db:generate && next dev --port 3012",
+    "worker:dev": "tsx watch worker/index.ts",
+    "worker:start": "tsx worker/index.ts",
+    "prebuild": "pnpm db:generate",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "prisma generate --schema prisma/schema.prisma",
+    "typecheck": "pnpm db:generate && tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate dev --schema prisma/schema.prisma",
+    "db:migrate:deploy": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate deploy --schema prisma/schema.prisma",
+    "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --schema prisma/schema.prisma --port 5557 --browser none"
+  },
+  "dependencies": {
+    "@asafarim/auth": "workspace:*",
+    "@asafarim/storage": "workspace:*",
+    "@asafarim/theme-toggle": "workspace:*",
+    "@asafarim/ui": "workspace:*",
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "@prisma/client-runtime-utils": "7.8.0",
+    "bullmq": "^5.34.0",
+    "dotenv": "^17.4.2",
+    "ioredis": "^5.4.2",
+    "mammoth": "^1.12.2",
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "unpdf": "^1.8.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@asafarim/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "dotenv-cli": "^7.4.2",
+    "prisma": "7.8.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  }
+}

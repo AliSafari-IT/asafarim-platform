@@ -68,7 +68,7 @@ services:
         NEXT_PUBLIC_TIMELINEAI_URL: ${NEXT_PUBLIC_TIMELINEAI_URL:-https://tlai.asafarim.com}
         NEXT_PUBLIC_DEVTOOLS_URL: ${NEXT_PUBLIC_DEVTOOLS_URL:-https://asafarim.be}
         NEXT_PUBLIC_LABS_URL: ${NEXT_PUBLIC_LABS_URL:-https://labs.asafarim.com}
-        NEXT_PUBLIC_JOBMATCH_URL: ${NEXT_PUBLIC_JOBMATCH_URL:-https://jobmatch.asafarim.com}
+        NEXT_PUBLIC_RESUMATCH_URL: ${NEXT_PUBLIC_RESUMATCH_URL:-https://resumatch.asafarim.com}
         NEXT_PUBLIC_TASKSAI_URL: ${NEXT_PUBLIC_TASKSAI_URL:-https://tasks-ai.asafarim.com}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
@@ -523,58 +523,59 @@ services:
     networks:
       - asafarim_net
 
-  # jobmatch keeps its OWN database, isolated from the shared Prisma
-  # Postgres. pgvector is on the image from the start because M5's embedding
-  # index lands in this same instance; adding the extension later would mean
-  # a base-image swap on a database that already holds candidate data.
-  jobmatch-postgres:
+  # resumatch keeps its OWN database, isolated from the shared Prisma
+  # Postgres. pgvector is on the image from a prior milestone's plans;
+  # nothing here actually uses the extension since the pivot away from
+  # embedding-based matching, but swapping the base image later would mean
+  # doing so on a database that already holds candidate data.
+  resumatch-postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: jobmatch
-      POSTGRES_PASSWORD: ${JOBMATCH_DB_PASSWORD}
-      POSTGRES_DB: jobmatch
+      POSTGRES_USER: resumatch
+      POSTGRES_PASSWORD: ${RESUMATCH_DB_PASSWORD}
+      POSTGRES_DB: resumatch
     ports:
       # Loopback only: host-side scripts can reach it; the internet cannot.
       - "127.0.0.1:5437:5432"
     volumes:
-      - jobmatch_postgres_data:/var/lib/postgresql/data
+      - resumatch_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jobmatch -d jobmatch"]
+      test: ["CMD-SHELL", "pg_isready -U resumatch -d resumatch"]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
       - asafarim_net
 
-  jobmatch-migrate:
-    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:jobmatch-migrate-${IMAGE_TAG:-local}
+  resumatch-migrate:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:resumatch-migrate-${IMAGE_TAG:-local}
     build:
       context: .
-      dockerfile: apps/jobmatch/Dockerfile
+      dockerfile: apps/resumatch/Dockerfile
       target: migrator
     restart: "no"
     environment:
       NODE_ENV: production
-      # JOBMATCH_DB_PASSWORD_URL is the URL-encoded form of
-      # JOBMATCH_DB_PASSWORD; connection strings must use the encoded one.
-      JOBMATCH_DATABASE_URL: postgres://jobmatch:${JOBMATCH_DB_PASSWORD_URL}@jobmatch-postgres:5432/jobmatch
+      # RESUMATCH_DB_PASSWORD_URL is the URL-encoded form of
+      # RESUMATCH_DB_PASSWORD; connection strings must use the encoded one.
+      RESUMATCH_DATABASE_URL: postgres://resumatch:${RESUMATCH_DB_PASSWORD_URL}@resumatch-postgres:5432/resumatch
     depends_on:
-      jobmatch-postgres:
+      resumatch-postgres:
         condition: service_healthy
     networks:
       - asafarim_net
 
   # ClamAV sidecar for CV malware scanning (JM-018, issue #203). Kept on the
   # internal network only — nothing outside the Docker network can reach
-  # port 3310, and jobmatch is the only service configured to.
+  # port 3310, and resumatch is the only service configured to.
   #
   # No volume for the virus database is a deliberate simplification for a
   # single-instance deployment: `/init` (the image's own entrypoint) runs
   # freshclam once before starting clamd, so the container is unusable for
   # a few minutes after every restart while it downloads the database fresh
   # — acceptable because uploads fail closed (quarantine) during that
-  # window rather than unsafely, and jobmatch does not wait on clamav's own
+  # window rather than unsafely, and resumatch does not wait on clamav's own
   # health to start serving. Add a named volume mounted at /var/lib/clamav
   # if restart frequency ever makes the redownload costly.
   clamav:
@@ -593,36 +594,41 @@ services:
     # start period — freshclam's first run has to finish before clamd can
     # answer PING, and that is intentionally not shortened here.
 
-  jobmatch:
-    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:jobmatch-${IMAGE_TAG:-local}
+  # NOTE: NEXT_PUBLIC_APP_URL / NEXT_PUBLIC_RESUMATCH_URL / AUTH_URL below
+  # assume resumatch.asafarim.com has a DNS record pointed at this host and
+  # a matching vhost in infra/caddy/Caddyfile (both already updated in this
+  # rename) — provision the DNS record and reload Caddy before deploying,
+  # or the domain will not resolve / TLS will not issue.
+  resumatch:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:resumatch-${IMAGE_TAG:-local}
     build:
       context: .
-      dockerfile: apps/jobmatch/Dockerfile
+      dockerfile: apps/resumatch/Dockerfile
       args: *public-build-args
     restart: unless-stopped
     env_file:
       - .env.production
     environment:
       NODE_ENV: production
-      JOBMATCH_ENVIRONMENT: production
-      JOBMATCH_DATABASE_URL: postgres://jobmatch:${JOBMATCH_DB_PASSWORD_URL}@jobmatch-postgres:5432/jobmatch
-      NEXT_PUBLIC_APP_URL: https://jobmatch.asafarim.com
+      RESUMATCH_ENVIRONMENT: production
+      RESUMATCH_DATABASE_URL: postgres://resumatch:${RESUMATCH_DB_PASSWORD_URL}@resumatch-postgres:5432/resumatch
+      NEXT_PUBLIC_APP_URL: https://resumatch.asafarim.com
       # Also passed as a build arg above, where Next inlines it into the
       # pages. Repeated here so the value exists in the server's own
       # environment too, rather than the runtime depending on what a build
       # happened to bake in.
-      NEXT_PUBLIC_JOBMATCH_URL: ${NEXT_PUBLIC_JOBMATCH_URL:-https://jobmatch.asafarim.com}
-      AUTH_URL: https://jobmatch.asafarim.com
-      JOBMATCH_SCANNER_URL: tcp://clamav:3310
+      NEXT_PUBLIC_RESUMATCH_URL: ${NEXT_PUBLIC_RESUMATCH_URL:-https://resumatch.asafarim.com}
+      AUTH_URL: https://resumatch.asafarim.com
+      RESUMATCH_SCANNER_URL: tcp://clamav:3310
     depends_on:
-      jobmatch-postgres:
+      resumatch-postgres:
         condition: service_healthy
-      jobmatch-migrate:
+      resumatch-migrate:
         condition: service_completed_successfully
       # Not service_healthy: clamav's first-boot signature download can take
-      # several minutes, and jobmatch is designed to run without it —
+      # several minutes, and resumatch is designed to run without it —
       # uploads quarantine (fail closed) until clamav reports healthy,
-      # rather than jobmatch itself refusing to start.
+      # rather than resumatch itself refusing to start.
       clamav:
         condition: service_started
     networks:
@@ -746,7 +752,7 @@ services:
       - edumatch
       - testora
       - appbuilder
-      - jobmatch
+      - resumatch
       - tasksai
     networks:
       - asafarim_net
@@ -762,4 +768,4 @@ volumes:
   testora_postgres_data:
   appbuilder_postgres_data:
   tasksai_postgres_data:
-  jobmatch_postgres_data:
+  resumatch_postgres_data:

@@ -123,7 +123,7 @@ export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-asafarim-com}"
 export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-4}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 
-RELEASE_SERVICES=(platform-migrate web hub showcase admin vionto vionto-worker edumatch testora-migrate testora-seed testora appbuilder-migrate appbuilder-worker appbuilder timelineai labs jobmatch-migrate jobmatch tasksai-migrate tasksai-worker tasksai)
+RELEASE_SERVICES=(platform-migrate web hub showcase admin vionto vionto-worker edumatch testora-migrate testora-seed testora appbuilder-migrate appbuilder-worker appbuilder timelineai labs resumatch-migrate resumatch tasksai-migrate tasksai-worker tasksai)
 
 available_gb() {
   local docker_root

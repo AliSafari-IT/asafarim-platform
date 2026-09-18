@@ -60,28 +60,28 @@ services:
       timeout: 5s
       retries: 10
 
-  # jobmatch keeps its own database, isolated from the shared Prisma
-  # Postgres, from testora's, and from appbuilder's. Job listings are
-  # high-volume and CV-derived data needs a stricter access boundary than
-  # identity traffic — see apps/jobmatch/docs/business-plan.md.
-  # Matches JOBMATCH_DATABASE_URL (host port 55437).
-  jobmatch-postgres:
+  # resumatch keeps its own database, isolated from the shared Prisma
+  # Postgres, from testora's, and from appbuilder's. CV-derived data needs a
+  # stricter access boundary than identity traffic — see
+  # apps/resumatch/docs/business-plan.md.
+  # Matches RESUMATCH_DATABASE_URL (host port 55437).
+  resumatch-postgres:
     image: pgvector/pgvector:pg16
-    container_name: jobmatch-db
+    container_name: resumatch-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: jobmatch
-      POSTGRES_PASSWORD: jobmatch_dev
-      POSTGRES_DB: jobmatch
+      POSTGRES_USER: resumatch
+      POSTGRES_PASSWORD: resumatch_dev
+      POSTGRES_DB: resumatch
     ports:
       # Loopback only: host-side scripts (migrate/studio) reach it, the
       # local network does not. Deliberately stricter than the sibling dev
       # databases above — this one will hold CV-derived data.
       - "127.0.0.1:55437:5432"
     volumes:
-      - jobmatch_pgdata:/var/lib/postgresql/data
+      - resumatch_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jobmatch -d jobmatch"]
+      test: ["CMD-SHELL", "pg_isready -U resumatch -d resumatch"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -116,5 +116,5 @@ volumes:
   redis_data:
   testora_pgdata:
   appbuilder_pgdata:
-  jobmatch_pgdata:
+  resumatch_pgdata:
   tasksai_pgdata:

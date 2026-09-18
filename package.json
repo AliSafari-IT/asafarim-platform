@@ -38,7 +38,7 @@
     "app:appbuilder": "pnpm --filter @asafarim/appbuilder dev",
     "app:edumatch": "pnpm --filter edumatch dev",
     "app:hub": "pnpm --filter @asafarim/hub dev",
-    "app:jobmatch": "pnpm --filter @asafarim/jobmatch dev",
+    "app:resumatch": "pnpm --filter @asafarim/resumatch dev",
     "app:labs": "pnpm --filter @asafarim/labs dev",
     "app:showcase": "pnpm --filter @asafarim/showcase dev",
     "app:tasksai": "pnpm --filter @asafarim/tasks-ai dev",

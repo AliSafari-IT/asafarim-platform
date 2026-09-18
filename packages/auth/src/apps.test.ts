@@ -36,8 +36,8 @@ describe("registry shape", () => {
       "devtools",
       "edumatch",
       "hub",
-      "jobmatch",
       "labs",
+      "resumatch",
       "showcase",
       "tasksai",
       "testora",
@@ -183,8 +183,8 @@ describe("getAccessibleApps", () => {
       "devtools",
       "edumatch",
       "hub",
-      "jobmatch",
       "labs",
+      "resumatch",
       "showcase",
       "tasksai",
       "testora",
@@ -201,8 +201,8 @@ describe("getAccessibleApps", () => {
       "devtools",
       "edumatch",
       "hub",
-      "jobmatch",
       "labs",
+      "resumatch",
       "showcase",
       "tasksai",
       "testora",
@@ -322,17 +322,17 @@ describe("showcase positioning", () => {
   });
 });
 
-describe("jobmatch (M1 foundation)", () => {
-  const jobmatch = PLATFORM_APPS.find((app) => app.key === "jobmatch")!;
+describe("resumatch (CV-tailoring pivot)", () => {
+  const resumatch = PLATFORM_APPS.find((app) => app.key === "resumatch")!;
 
   it("is authenticated-only: nothing on it is usable without a session", () => {
-    expect(jobmatch.access).toBe("authenticated");
-    expect(canAccessApp(jobmatch, anonymous)).toBe(false);
-    expect(canAccessApp(jobmatch, standard)).toBe(true);
+    expect(resumatch.access).toBe("authenticated");
+    expect(canAccessApp(resumatch, anonymous)).toBe(false);
+    expect(canAccessApp(resumatch, standard)).toBe(true);
   });
 
   it("makes no showcase claim while it has no working product", () => {
-    expect(getShowcaseProject("jobmatch")).toBeUndefined();
+    expect(getShowcaseProject("resumatch")).toBeUndefined();
   });
 });
 

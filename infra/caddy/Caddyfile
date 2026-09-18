@@ -88,9 +88,9 @@ appbuilder.asafarim.com {
   reverse_proxy appbuilder:3000
 }
 
-jobmatch.asafarim.com {
+resumatch.asafarim.com {
   import deploying
-  reverse_proxy jobmatch:3000
+  reverse_proxy resumatch:3000
 }
 
 tasks-ai.asafarim.com {

@@ -525,15 +525,15 @@
   --shadow-2: 0 2px 4px rgba(14, 21, 18, 0.08), 0 12px 30px rgba(14, 21, 18, 0.1);
 }
 
-/* ── Mood: apps/jobmatch — “Signal” (deep slate + indigo, amber signal) ─────
+/* ── Mood: apps/resumatch — “Signal” (deep slate + indigo, amber signal) ─────
    The product's whole claim is *fewer, explained* opportunities, so the
    palette is quiet on purpose: a near-neutral slate ground where the only
    saturated colour is the accent used to mark a match and its evidence.
    Light by default — candidates read long job descriptions here, and a
-   light ground is the better default for sustained reading. JobMatch puts
+   light ground is the better default for sustained reading. ResuMatch puts
    data-app on <html> (same element as data-theme), so the dark override is
    written as both a descendant and a same-element compound selector. */
-[data-app="jobmatch"] {
+[data-app="resumatch"] {
   color-scheme: light;
 
   --bg: #f7f8fa;
@@ -557,8 +557,8 @@
   --shadow-2: 0 2px 4px rgba(19, 23, 34, 0.08), 0 12px 30px rgba(19, 23, 34, 0.1);
 }
 
-:root[data-theme="dark"] [data-app="jobmatch"],
-[data-app="jobmatch"][data-theme="dark"] {
+:root[data-theme="dark"] [data-app="resumatch"],
+[data-app="resumatch"][data-theme="dark"] {
   color-scheme: dark;
 
   --bg: #0d1017;

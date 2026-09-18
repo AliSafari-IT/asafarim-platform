@@ -20,7 +20,7 @@ export interface PlatformLinks {
   timelineai: string;
   devtools: string;
   labs: string;
-  jobmatch: string;
+  resumatch: string;
   tasksai: string;
 }
 
@@ -71,7 +71,7 @@ export function getPlatformLinks(): PlatformLinks {
     // so the default points at the production URL.
     devtools: process.env.NEXT_PUBLIC_DEVTOOLS_URL ?? "https://asafarim.be",
     labs: process.env.NEXT_PUBLIC_LABS_URL ?? "http://localhost:3011",
-    jobmatch: process.env.NEXT_PUBLIC_JOBMATCH_URL ?? "http://localhost:3012",
+    resumatch: process.env.NEXT_PUBLIC_RESUMATCH_URL ?? "http://localhost:3012",
     tasksai: process.env.NEXT_PUBLIC_TASKSAI_URL ?? "http://localhost:3013",
   };
 }

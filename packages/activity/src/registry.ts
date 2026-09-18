@@ -16,7 +16,7 @@ function envUrl(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
 }
 
-// Apps with their own isolated database (AppBuilder, Testora, JobMatch,
+// Apps with their own isolated database (AppBuilder, Testora, ResuMatch,
 // TasksAI — see docs/architecture.md "Database Strategy") are read via each
 // app's own read-only, bearer-gated /api/internal/user-activity route
 // rather than a direct DB connection, so the console never holds a second
@@ -29,13 +29,13 @@ const testoraActivityAdapter = createRemoteAdapter({
   app: "testora",
   baseUrl: () => envUrl("NEXT_PUBLIC_TESTORA_URL", "http://localhost:3005"),
 });
-const jobmatchActivityAdapter = createRemoteAdapter({
-  app: "jobmatch",
-  baseUrl: () => envUrl("NEXT_PUBLIC_JOBMATCH_URL", "http://localhost:3012"),
-  // Flagship content for the platform-wide browse view: tracked jobs, not
-  // candidate documents — resumes are more sensitive to surface cross-user
-  // than "this user is tracking job X" (issue #349's privacy-conscious default).
-  listAllPath: "/api/internal/user-activity/browse",
+const resumatchActivityAdapter = createRemoteAdapter({
+  app: "resumatch",
+  baseUrl: () => envUrl("NEXT_PUBLIC_RESUMATCH_URL", "http://localhost:3012"),
+  // No listAllPath: ResuMatch has no cross-user "flagship content" browse
+  // endpoint (its old one, over TrackedJob, was removed with the pivot away
+  // from job aggregation) — same "no adapter yet" fallback as any app that
+  // never had one.
 });
 const tasksaiActivityAdapter = createRemoteAdapter({
   app: "tasksai",
@@ -57,7 +57,7 @@ export const activityAdapters: Record<string, UserActivityAdapter> = {
   hub: hubActivityAdapter,
   appbuilder: appbuilderActivityAdapter,
   testora: testoraActivityAdapter,
-  jobmatch: jobmatchActivityAdapter,
+  resumatch: resumatchActivityAdapter,
   tasksai: tasksaiActivityAdapter,
 };
 
