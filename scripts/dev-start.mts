@@ -410,7 +410,7 @@ async function main(): Promise<void> {
       turboCli,
       "dev",
       "@asafarim/appbuilder#worker:dev",
-      "@asafarim/jobmatch#worker:dev",
+      "@asafarim/resumatch#worker:dev",
       // Persistent tasks occupy their slots forever, so turbo requires
       // concurrency > task count (currently 14 dev/worker tasks). 20 gives
       // headroom as apps are added; the global turbo.json cap is 14.
