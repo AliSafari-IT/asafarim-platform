@@ -13,6 +13,7 @@ import type {
   ProfileConfidence,
 } from "../../lib/profile/contract";
 import { AwardIcon, BriefcaseIcon, GlobeIcon, GraduationCapIcon, TrashIcon } from "./icons";
+import type { SummaryTone } from "../../lib/profile/ai/provider";
 
 /**
  * Profile review and correction (JM-021).
@@ -114,10 +115,43 @@ export function ProfileWorkbench({
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
+  const [tone, setTone] = useState<SummaryTone>("friendly");
+  const [rewriteState, setRewriteState] = useState<
+    | { kind: "idle" }
+    | { kind: "loading" }
+    | { kind: "preview"; text: string; degraded: boolean }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
   const update = useCallback(<K extends keyof CandidateProfileContent>(key: K, value: CandidateProfileContent[K]) => {
     setContent((previous) => ({ ...previous, [key]: value }));
     setDirty(true);
   }, []);
+
+  const requestRewrite = useCallback(async () => {
+    const currentSummary = content.summary?.trim();
+    if (!currentSummary) return;
+
+    setRewriteState({ kind: "loading" });
+    try {
+      const response = await fetch("/api/profile/summary/rewrite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ currentSummary, tone }),
+      });
+      const body = (await response.json()) as { rewritten?: string; degraded?: boolean; error?: string };
+      if (!response.ok || !body.rewritten) {
+        setRewriteState({ kind: "error", message: body.error ?? "That summary could not be rewritten." });
+        return;
+      }
+      // A candidate reviews and explicitly accepts or rejects this — it
+      // never touches `content.summary` on its own, the same "nothing is
+      // used until you confirm it" posture the rest of this form follows.
+      setRewriteState({ kind: "preview", text: body.rewritten, degraded: body.degraded ?? false });
+    } catch {
+      setRewriteState({ kind: "error", message: "That summary could not be rewritten. Check your connection and try again." });
+    }
+  }, [content.summary, tone]);
 
   const save = useCallback(
     async (confirm: boolean) => {
@@ -235,6 +269,62 @@ export function ProfileWorkbench({
               placeholder="A couple of sentences about what you do and what you're looking for next."
             />
           </label>
+
+          <div className="jm-rewrite">
+            <div className="jm-rewrite__controls">
+              <select
+                aria-label="Rewrite tone"
+                value={tone}
+                onChange={(event) => setTone(event.target.value as SummaryTone)}
+                disabled={rewriteState.kind === "loading"}
+              >
+                <option value="friendly">Friendly</option>
+                <option value="official">Official</option>
+                <option value="confident">Confident</option>
+                <option value="concise">Concise</option>
+              </select>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={rewriteState.kind === "loading" || !content.summary?.trim()}
+                onClick={() => void requestRewrite()}
+              >
+                {rewriteState.kind === "loading" ? "Rewriting…" : "Suggest a rewrite"}
+              </Button>
+            </div>
+
+            {rewriteState.kind === "error" ? (
+              <Alert tone="error">{rewriteState.message}</Alert>
+            ) : null}
+
+            {rewriteState.kind === "preview" ? (
+              <div className="jm-rewrite__preview">
+                {rewriteState.degraded ? (
+                  <p className="jm-rewrite__note">
+                    No AI rewrite is configured for this deployment, so this is your text unchanged. You can still
+                    accept or reject it.
+                  </p>
+                ) : null}
+                <p className="jm-rewrite__text">{rewriteState.text}</p>
+                <div className="jm-rewrite__actions">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      update("summary", rewriteState.text);
+                      setRewriteState({ kind: "idle" });
+                    }}
+                  >
+                    Accept
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setRewriteState({ kind: "idle" })}>
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
 
           <label className="jm-field">
             <span>Where you are based</span>
