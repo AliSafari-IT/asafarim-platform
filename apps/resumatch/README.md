@@ -38,12 +38,13 @@ originally motivated it no longer applies.
 
 - **Candidate profile & CV pipeline** — private document storage with
   byte-level type sniffing, a 10 MB cap, and 90-day retention; malware
-  scanning as a hard gate (production ClamAV scanning is not wired yet, so
-  uploads quarantine by design until it is — see `RESUMATCH_SCANNER_URL`
-  below); local PDF/Word/text extraction; a profile contract with no field
-  for any protected attribute; immutable, lineage-linked profile versions;
-  and one-click GDPR access + erasure covering every model that holds
-  personal data, including tailored resumes and fetched job pages.
+  scanning as a hard gate (the production compose stack runs a ClamAV
+  sidecar at `RESUMATCH_SCANNER_URL`, and uploads quarantine by design
+  whenever no scanner answers — a fail-closed posture); local PDF/Word/text
+  extraction; a profile contract with no field for any protected attribute;
+  immutable, lineage-linked profile versions; and one-click GDPR access +
+  erasure covering every model that holds personal data, including
+  tailored resumes and fetched job pages.
 - **Single job-URL fetch** — a candidate pastes one URL, ResuMatch fetches
   exactly that page under an SSRF-resistant posture (public HTTPS only,
   no-redirect, size-capped, timeout-bounded), extracts readable text, and
@@ -140,7 +141,7 @@ pnpm --filter @asafarim/resumatch test
 | `RESUMATCH_ENVIRONMENT` | staging, production | `staging` there, `production` in prod; it decides whether secrets may be defaulted. |
 | `NEXT_PUBLIC_RESUMATCH_URL` | all deployments | Inlined at build time; also an allowed SSO callback origin. |
 | `NEXT_PUBLIC_HUB_URL` | all deployments | Where unauthenticated visitors are sent to sign in. |
-| `RESUMATCH_SCANNER_URL` | when a scanner is deployed | Scanner endpoint selected by the developer. The current production stack has no scanner service, so leaving this unset quarantines every upload — a fail-closed default. |
+| `RESUMATCH_SCANNER_URL` | when a scanner is deployed | Scanner endpoint selected by the developer. The production compose stack wires this to a ClamAV sidecar (`tcp://clamav:3310`); anywhere it's unset, every upload quarantines — a fail-closed default. |
 | `RESUMATCH_SCANNER` | local only | Set to the exact literal `insecure-accept-all` to run the pipeline without a scanner. Refused on any deployed environment, and it names itself on every document it clears. |
 | `RESUMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
 | `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
