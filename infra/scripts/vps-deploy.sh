@@ -63,7 +63,7 @@ echo "[deploy $(date -Is)] Validating required environment variables..."
 # page that resolves a guest identity, as a 500. It shipped absent and that is
 # how tlai.asafarim.com/t/<publicId> served errors while the container looked
 # perfectly healthy. Better to refuse the deploy than to serve 500s.
-REQUIRED_VARS=(POSTGRES_PASSWORD TESTORA_DB_PASSWORD APPBUILDER_DB_PASSWORD TASKSAI_DB_PASSWORD TIMELINEAI_GUEST_IP_HASH_KEY)
+REQUIRED_VARS=(POSTGRES_PASSWORD TESTORA_DB_PASSWORD APPBUILDER_DB_PASSWORD TASKSAI_DB_PASSWORD RESUMATCH_DB_PASSWORD TIMELINEAI_GUEST_IP_HASH_KEY)
 MISSING_VARS=()
 for var in "${REQUIRED_VARS[@]}"; do
   # Matches KEY=value with a non-empty value; tolerates quoted values.
