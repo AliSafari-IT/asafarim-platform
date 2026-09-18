@@ -51,7 +51,7 @@ tmp/pdfs/
 apps/vionto/worker-dist/
 apps/vionto/.local-storage/
 apps/appbuilder/.local-storage/
-apps/jobmatch/.local-storage/
+apps/resumatch/.local-storage/
 
 # CI status script output (scripts/ci-status-summary.mts), regenerated per run
 /ci-status-artifact/
@@ -71,9 +71,9 @@ apps/*/evals/reports/
 
 next-env.d.ts
 
-# JobMatch's own Prisma client is generated into the app (see
-# apps/jobmatch/prisma/schema.prisma for why it cannot live in node_modules).
-apps/jobmatch/lib/db/generated/
+# ResuMatch's own Prisma client is generated into the app (see
+# apps/resumatch/prisma/schema.prisma for why it cannot live in node_modules).
+apps/resumatch/lib/db/generated/
 
 # TasksAI's own Prisma client, same reason (docs/adr/0001-dedicated-database.md).
 apps/tasks-ai/lib/db/generated/

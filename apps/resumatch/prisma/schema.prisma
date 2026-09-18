@@ -30,7 +30,7 @@ datasource db {
   provider = "postgresql"
 }
 
-/// A candidate's JobMatch workspace, keyed by the opaque platform user id.
+/// A candidate's ResuMatch workspace, keyed by the opaque platform user id.
 /// Holds no name, email, or other platform profile data — those are read
 /// from the session at request time and never persisted here.
 model Workspace {
