@@ -73,6 +73,20 @@ export async function getCurrentWorkspace(): Promise<WorkspaceRef | null> {
   }
 }
 
+/**
+ * Name and email from the platform session, for prefilling a brand-new
+ * profile only. Never used to overwrite a profile the candidate has already
+ * saved — Hub's account name is a starting point, not a source of truth for
+ * a document ResuMatch never touches after the first draft.
+ */
+export async function getSessionAccountInfo(): Promise<{ fullName: string | null; email: string | null }> {
+  const session = await getSession();
+  return {
+    fullName: session?.user?.name ?? null,
+    email: session?.user?.email ?? null,
+  };
+}
+
 /** Append-only audit write. Metadata is redacted by the audit helper. */
 export async function recordAuditEvent(
   workspaceId: string | null,

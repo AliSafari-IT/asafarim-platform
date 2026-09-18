@@ -474,6 +474,12 @@
 .jm-entity-card--preferences {
   --category-tint: 139, 92, 246; /* violet */
 }
+.jm-entity-card--education {
+  --category-tint: 14, 165, 233; /* sky */
+}
+.jm-entity-card--certifications {
+  --category-tint: 236, 72, 153; /* rose */
+}
 
 .jm-entity-card__icon {
   flex: none;
@@ -554,6 +560,93 @@
   background: rgba(var(--category-tint), 0.12);
   color: rgb(var(--category-tint));
   border: 1px solid rgba(var(--category-tint), 0.25);
+}
+
+.jm-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink, #444);
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.jm-icon-button svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.jm-icon-button:hover {
+  opacity: 1;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+/* Entity card variant that stacks its editable fields vertically instead of
+   the icon-row layout — used for multi-field entries like a job or a
+   degree, where a single line can't hold everything. */
+.jm-entity-card--stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.jm-entity-card--stacked .jm-entity-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.jm-entity-card--stacked .jm-entity-card__head .jm-entity-card__icon {
+  margin: 0;
+}
+
+.jm-entity-card__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.6rem;
+}
+
+.jm-entity-card__fields--full {
+  grid-template-columns: 1fr;
+}
+
+.jm-entity-card__fields label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-bottom: 0.2rem;
+}
+
+.jm-entity-card__fields input,
+.jm-entity-card__fields textarea {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.35));
+  border-radius: 0.5rem;
+  background: var(--surface, #fff);
+  color: var(--ink, inherit);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.jm-entity-card__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  margin-top: 0.35rem;
+}
+
+.jm-add-row {
+  margin-top: 0.75rem;
 }
 
 /* ─── Premium alert cards (warnings / quarantine) ─────────────────────── */

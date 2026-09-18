@@ -169,6 +169,10 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
         PDF, Word (.docx), or plain text, up to 10 MB. Your file is scanned before anything reads it,
         stored privately, and never shared with an employer. You can delete it at any time.
       </p>
+      <p style={{ opacity: 0.7, fontSize: "0.85rem" }}>
+        Don&rsquo;t have a CV handy? You don&rsquo;t need one to get started — skip this and fill in
+        your profile by hand below.
+      </p>
 
       <div style={{ margin: "1rem 0" }}>
         <ShowcaseNotice variant="compact" />

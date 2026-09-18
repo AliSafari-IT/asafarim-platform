@@ -5,7 +5,7 @@ import { listDocuments } from "../../lib/documents/service";
 import { emptyProfile } from "../../lib/profile/contract";
 import { ERASURE_SLA_DAYS } from "../../lib/profile/dataRights";
 import { getLatestVersion, listVersions } from "../../lib/profile/versions";
-import { getCurrentWorkspace } from "../../lib/workspace";
+import { getCurrentWorkspace, getSessionAccountInfo } from "../../lib/workspace";
 import { ShowcaseNotice } from "../components/ShowcaseNotice";
 import { DataRightsPanel } from "./DataRightsPanel";
 import { NextStepPanel } from "./NextStepPanel";
@@ -36,6 +36,21 @@ export default async function ProfilePage() {
   ]);
 
   const confirmed = versions.find((version) => version.isConfirmed) ?? null;
+
+  // A brand-new profile is prefilled from the platform account so a
+  // candidate with no CV yet isn't asked to retype their own name and
+  // email. Only applied before the first save: once a version exists, its
+  // content — including a field the candidate deliberately cleared — is
+  // what's shown, never silently overwritten by the account record.
+  let initialContent = latest?.content ?? emptyProfile();
+  if (!latest) {
+    const account = await getSessionAccountInfo();
+    initialContent = {
+      ...initialContent,
+      fullName: initialContent.fullName ?? account.fullName,
+      email: initialContent.email ?? account.email,
+    };
+  }
 
   return (
     <>
@@ -76,7 +91,7 @@ export default async function ProfilePage() {
             outcome this whole screen exists to prevent. */}
         <ProfileWorkbench
           key={latest?.id ?? "empty"}
-          initialContent={latest?.content ?? emptyProfile()}
+          initialContent={initialContent}
           initialConfidence={latest?.confidence ?? {}}
           versionId={latest?.id ?? null}
           versionNumber={latest?.versionNumber ?? null}

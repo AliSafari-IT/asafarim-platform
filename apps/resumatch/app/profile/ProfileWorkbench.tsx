@@ -4,8 +4,15 @@ import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Badge, Button, Card } from "@asafarim/ui";
 import { LOW_CONFIDENCE_THRESHOLD } from "../../lib/profile/contract";
-import type { CandidateProfileContent, ProfileConfidence } from "../../lib/profile/contract";
-import { BriefcaseIcon, CompassIcon, GlobeIcon } from "./icons";
+import type {
+  CandidateProfileContent,
+  CertificationEntry,
+  EducationEntry,
+  ExperienceEntry,
+  LanguageEntry,
+  ProfileConfidence,
+} from "../../lib/profile/contract";
+import { AwardIcon, BriefcaseIcon, GlobeIcon, GraduationCapIcon, TrashIcon } from "./icons";
 
 /**
  * Profile review and correction (JM-021).
@@ -41,6 +48,23 @@ function parseEntries(raw: string): string[] {
     .split(/[,\n]/)
     .map((part) => part.trim())
     .filter(Boolean);
+}
+
+/** A safe-enough ISO-639-ish code for a manually-added language: the
+ *  schema only requires 2-16 characters, and this field is never read for
+ *  anything beyond display and de-duplication during extraction, so a
+ *  slug of the label the candidate typed is sufficient. */
+function codeFromLabel(label: string): string {
+  const slug = label.trim().toLowerCase().replace(/\s+/g, "-").slice(0, 16);
+  return slug.length >= 2 ? slug : slug.padEnd(2, "x");
+}
+
+function removeAt<T>(list: T[], index: number): T[] {
+  return list.filter((_, i) => i !== index);
+}
+
+function replaceAt<T>(list: T[], index: number, item: T): T[] {
+  return list.map((existing, i) => (i === index ? item : existing));
 }
 
 function needsReview(confidence: ProfileConfidence, field: string): boolean {
@@ -99,10 +123,21 @@ export function ProfileWorkbench({
     async (confirm: boolean) => {
       setState({ kind: "saving" });
       try {
+        // Rows added with "+ Add ..." and never filled in are dropped here
+        // rather than sent — the schema requires a title/label, and a
+        // candidate who added a row then changed their mind should not see
+        // a validation error for leaving it empty.
+        const submitted: CandidateProfileContent = {
+          ...content,
+          languages: content.languages.filter((language) => language.label.trim().length > 0),
+          experience: content.experience.filter((role) => role.title.trim().length > 0),
+          education: content.education.filter((entry) => entry.qualification.trim().length > 0),
+          certifications: content.certifications.filter((entry) => entry.name.trim().length > 0),
+        };
         const response = await fetch("/api/profile", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ content, parentVersionId: versionId, confirm }),
+          body: JSON.stringify({ content: submitted, parentVersionId: versionId, confirm }),
         });
         const body = (await response.json()) as { error?: string };
         if (!response.ok) {
@@ -176,6 +211,28 @@ export function ProfileWorkbench({
               value={content.phone ?? ""}
               onChange={(event) => update("phone", event.target.value || null)}
               maxLength={40}
+            />
+          </label>
+
+          <label className="jm-field">
+            <FieldLabel label="Headline" confidence={confidence} field="headline" />
+            <input
+              type="text"
+              value={content.headline ?? ""}
+              onChange={(event) => update("headline", event.target.value || null)}
+              maxLength={200}
+              placeholder="Senior .NET / React Developer"
+            />
+          </label>
+
+          <label className="jm-field">
+            <FieldLabel label="Summary" confidence={confidence} field="summary" />
+            <textarea
+              rows={4}
+              value={content.summary ?? ""}
+              onChange={(event) => update("summary", event.target.value || null)}
+              maxLength={4000}
+              placeholder="A couple of sentences about what you do and what you're looking for next."
             />
           </label>
 
@@ -256,23 +313,38 @@ export function ProfileWorkbench({
           ) : (
             <ul className="jm-entity-list">
               {content.languages.map((language, index) => (
-                <li key={language.code} className="jm-entity-card jm-entity-card--languages">
+                <li key={`${language.code}-${index}`} className="jm-entity-card jm-entity-card--languages">
                   <span className="jm-entity-card__icon">
                     <GlobeIcon />
                   </span>
                   <span className="jm-entity-card__body">
-                    <span className="jm-entity-card__title">{language.label}</span>
+                    <input
+                      aria-label="Language name"
+                      type="text"
+                      value={language.label}
+                      placeholder="Language"
+                      maxLength={64}
+                      style={{ flex: "1 1 8rem", minWidth: "8rem" }}
+                      onChange={(event) => {
+                        const label = event.target.value;
+                        update(
+                          "languages",
+                          replaceAt(content.languages, index, { ...language, label, code: codeFromLabel(label) }),
+                        );
+                      }}
+                    />
                     <span className="jm-entity-card__actions">
                       <select
-                        aria-label={`${language.label} proficiency`}
+                        aria-label={`${language.label || "Language"} proficiency`}
                         value={language.proficiency ?? ""}
                         onChange={(event) => {
-                          const next = [...content.languages];
-                          next[index] = {
-                            ...language,
-                            proficiency: (event.target.value || null) as (typeof language)["proficiency"],
-                          };
-                          update("languages", next);
+                          update(
+                            "languages",
+                            replaceAt(content.languages, index, {
+                              ...language,
+                              proficiency: (event.target.value || null) as (typeof language)["proficiency"],
+                            }),
+                          );
                         }}
                       >
                         <option value="">Not stated</option>
@@ -281,49 +353,315 @@ export function ProfileWorkbench({
                         <option value="professional">Professional</option>
                         <option value="native">Native</option>
                       </select>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${language.label || "language"}`}
+                        className="jm-icon-button"
+                        onClick={() => update("languages", removeAt(content.languages, index))}
+                      >
+                        <TrashIcon />
+                      </button>
                     </span>
                   </span>
                 </li>
               ))}
             </ul>
           )}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={content.languages.length >= 20}
+            onClick={() => {
+              const blank: LanguageEntry = { code: "xx", label: "", proficiency: null };
+              update("languages", [...content.languages, blank]);
+            }}
+          >
+            + Add language
+          </Button>
         </Card>
 
         <Card title="Experience">
           <FieldLabel label="Roles" confidence={confidence} field="experience" />
           {content.experience.length === 0 ? (
-            <p style={{ opacity: 0.75 }}>No roles were read from your CV.</p>
+            <p style={{ opacity: 0.75 }}>No roles were read from your CV. Add as many as you like.</p>
           ) : (
             <ul className="jm-entity-list">
-              {content.experience.map((role, index) => (
-                <li key={`${role.title}-${index}`} className="jm-entity-card jm-entity-card--experience">
-                  <span className="jm-entity-card__icon">
-                    <BriefcaseIcon />
-                  </span>
-                  <span className="jm-entity-card__body">
-                    <span className="jm-entity-card__title">
-                      {role.title}
-                      {role.employer ? <span style={{ fontWeight: 400, opacity: 0.75 }}> — {role.employer}</span> : null}
-                    </span>
-                    <span className="jm-entity-card__meta">
-                      <span className="jm-mono">
-                        {role.startedOn ?? "?"} to {role.isCurrent ? "now" : (role.endedOn ?? "?")}
+              {content.experience.map((role, index) => {
+                const setRole = (patch: Partial<ExperienceEntry>) =>
+                  update("experience", replaceAt(content.experience, index, { ...role, ...patch }));
+                return (
+                  <li key={index} className="jm-entity-card jm-entity-card--experience jm-entity-card--stacked">
+                    <div className="jm-entity-card__head">
+                      <span className="jm-entity-card__icon">
+                        <BriefcaseIcon />
                       </span>
-                    </span>
-                  </span>
-                </li>
-              ))}
+                      <strong style={{ flex: 1 }}>Role {index + 1}</strong>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${role.title || "this role"}`}
+                        className="jm-icon-button"
+                        onClick={() => update("experience", removeAt(content.experience, index))}
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                    <div className="jm-entity-card__fields">
+                      <label>
+                        Job title
+                        <input
+                          type="text"
+                          value={role.title}
+                          maxLength={120}
+                          placeholder="Software Engineer"
+                          onChange={(event) => setRole({ title: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Employer
+                        <input
+                          type="text"
+                          value={role.employer ?? ""}
+                          maxLength={120}
+                          placeholder="Company name"
+                          onChange={(event) => setRole({ employer: event.target.value || null })}
+                        />
+                      </label>
+                      <label>
+                        Started
+                        <input
+                          type="text"
+                          value={role.startedOn ?? ""}
+                          placeholder="2021-03"
+                          onChange={(event) => setRole({ startedOn: event.target.value || null })}
+                        />
+                      </label>
+                      <label>
+                        Ended
+                        <input
+                          type="text"
+                          value={role.endedOn ?? ""}
+                          placeholder="2023-12"
+                          disabled={role.isCurrent}
+                          onChange={(event) => setRole({ endedOn: event.target.value || null })}
+                        />
+                      </label>
+                    </div>
+                    <label className="jm-entity-card__checkbox">
+                      <input
+                        type="checkbox"
+                        checked={role.isCurrent}
+                        onChange={(event) =>
+                          setRole({ isCurrent: event.target.checked, endedOn: event.target.checked ? null : role.endedOn })
+                        }
+                      />
+                      I currently work here
+                    </label>
+                    <small style={{ opacity: 0.6, fontSize: "0.72rem" }}>
+                      Dates as YYYY or YYYY-MM, e.g. 2021 or 2021-03.
+                    </small>
+                    <div className="jm-entity-card__fields jm-entity-card__fields--full" style={{ marginTop: "0.6rem" }}>
+                      <label>
+                        Highlights
+                        <textarea
+                          rows={2}
+                          value={role.summary ?? ""}
+                          maxLength={2000}
+                          placeholder="A couple of achievements or responsibilities"
+                          onChange={(event) => setRole({ summary: event.target.value || null })}
+                        />
+                      </label>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
+          <div className="jm-add-row">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={content.experience.length >= 60}
+              onClick={() => {
+                const blank: ExperienceEntry = {
+                  title: "",
+                  employer: null,
+                  startedOn: null,
+                  endedOn: null,
+                  isCurrent: false,
+                  summary: null,
+                };
+                update("experience", [...content.experience, blank]);
+              }}
+            >
+              + Add role
+            </Button>
+          </div>
+        </Card>
+
+        <Card title="Education">
+          {content.education.length === 0 ? (
+            <p style={{ opacity: 0.75 }}>None read from your CV. Add a degree or qualification if it's relevant.</p>
+          ) : (
+            <ul className="jm-entity-list">
+              {content.education.map((entry, index) => {
+                const setEntry = (patch: Partial<EducationEntry>) =>
+                  update("education", replaceAt(content.education, index, { ...entry, ...patch }));
+                return (
+                  <li key={index} className="jm-entity-card jm-entity-card--education jm-entity-card--stacked">
+                    <div className="jm-entity-card__head">
+                      <span className="jm-entity-card__icon">
+                        <GraduationCapIcon />
+                      </span>
+                      <strong style={{ flex: 1 }}>Qualification {index + 1}</strong>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${entry.qualification || "this qualification"}`}
+                        className="jm-icon-button"
+                        onClick={() => update("education", removeAt(content.education, index))}
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                    <div className="jm-entity-card__fields">
+                      <label>
+                        Qualification
+                        <input
+                          type="text"
+                          value={entry.qualification}
+                          maxLength={160}
+                          placeholder="BSc Computer Science"
+                          onChange={(event) => setEntry({ qualification: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Institution
+                        <input
+                          type="text"
+                          value={entry.institution ?? ""}
+                          maxLength={160}
+                          placeholder="University name"
+                          onChange={(event) => setEntry({ institution: event.target.value || null })}
+                        />
+                      </label>
+                      <label>
+                        Completed
+                        <input
+                          type="text"
+                          value={entry.completedOn ?? ""}
+                          placeholder="2018"
+                          onChange={(event) => setEntry({ completedOn: event.target.value || null })}
+                        />
+                      </label>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="jm-add-row">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={content.education.length >= 30}
+              onClick={() => {
+                const blank: EducationEntry = { qualification: "", institution: null, completedOn: null };
+                update("education", [...content.education, blank]);
+              }}
+            >
+              + Add qualification
+            </Button>
+          </div>
+        </Card>
+
+        <Card title="Certifications">
+          {content.certifications.length === 0 ? (
+            <p style={{ opacity: 0.75 }}>None read from your CV. Add one if it's relevant to the roles you want.</p>
+          ) : (
+            <ul className="jm-entity-list">
+              {content.certifications.map((entry, index) => {
+                const setEntry = (patch: Partial<CertificationEntry>) =>
+                  update("certifications", replaceAt(content.certifications, index, { ...entry, ...patch }));
+                return (
+                  <li key={index} className="jm-entity-card jm-entity-card--certifications jm-entity-card--stacked">
+                    <div className="jm-entity-card__head">
+                      <span className="jm-entity-card__icon">
+                        <AwardIcon />
+                      </span>
+                      <strong style={{ flex: 1 }}>Certification {index + 1}</strong>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${entry.name || "this certification"}`}
+                        className="jm-icon-button"
+                        onClick={() => update("certifications", removeAt(content.certifications, index))}
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                    <div className="jm-entity-card__fields">
+                      <label>
+                        Name
+                        <input
+                          type="text"
+                          value={entry.name}
+                          maxLength={160}
+                          placeholder="AWS Certified Developer"
+                          onChange={(event) => setEntry({ name: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Issuer
+                        <input
+                          type="text"
+                          value={entry.issuer ?? ""}
+                          maxLength={160}
+                          placeholder="Amazon Web Services"
+                          onChange={(event) => setEntry({ issuer: event.target.value || null })}
+                        />
+                      </label>
+                      <label>
+                        Issued
+                        <input
+                          type="text"
+                          value={entry.issuedOn ?? ""}
+                          placeholder="2023-06"
+                          onChange={(event) => setEntry({ issuedOn: event.target.value || null })}
+                        />
+                      </label>
+                      <label>
+                        Expires
+                        <input
+                          type="text"
+                          value={entry.expiresOn ?? ""}
+                          placeholder="2026-06"
+                          onChange={(event) => setEntry({ expiresOn: event.target.value || null })}
+                        />
+                      </label>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="jm-add-row">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={content.certifications.length >= 40}
+              onClick={() => {
+                const blank: CertificationEntry = { name: "", issuer: null, issuedOn: null, expiresOn: null };
+                update("certifications", [...content.certifications, blank]);
+              }}
+            >
+              + Add certification
+            </Button>
+          </div>
         </Card>
 
         <Card title="What you are looking for">
-          <span
-            className="jm-entity-card__icon"
-            style={{ ["--category-tint" as string]: "139, 92, 246", marginBottom: "0.75rem" }}
-          >
-            <CompassIcon />
-          </span>
           <label className="jm-field">
             <span>Working arrangement</span>
             <select

@@ -161,6 +161,11 @@ export const candidateProfileSchema = z
   .strict();
 
 export type CandidateProfileContent = z.infer<typeof candidateProfileSchema>;
+export type LanguageEntry = z.infer<typeof languageSchema>;
+export type SkillEntry = z.infer<typeof skillSchema>;
+export type ExperienceEntry = z.infer<typeof experienceSchema>;
+export type EducationEntry = z.infer<typeof educationSchema>;
+export type CertificationEntry = z.infer<typeof certificationSchema>;
 
 /** An empty, valid profile — the starting point for manual creation. */
 export function emptyProfile(): CandidateProfileContent {
