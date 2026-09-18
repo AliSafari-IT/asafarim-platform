@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       totalInputTokens: ledgerAgg._sum.inputTokens ?? 0,
       totalOutputTokens: ledgerAgg._sum.outputTokens ?? 0,
       callCount: ledgerAgg._count,
-      byKind: ledgerByKind.map((row) => ({
+      byKind: ledgerByKind.map((row: (typeof ledgerByKind)[number]) => ({
         kind: row.kind,
         costUsd: row._sum.costUsd ?? 0,
         callCount: row._count,
