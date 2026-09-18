@@ -1,22 +1,18 @@
 # ResuMatch
 
 An AI CV-tailoring tool: paste the URL of a job you want to apply to, and AI
-rewords and reprioritizes your confirmed profile toward it — never inventing
-an employer, a date, a degree, or a skill you did not list. Download the
-result as a PDF via the browser's own print dialog. Runs at
-`resumatch.asafarim.com`, port 3012 in local development.
+rewords and reprioritizes your confirmed profile toward it — optimizing for
+both the recruiter skimming it and the ATS (applicant tracking system)
+matching its keywords — while never inventing an employer, a date, a degree,
+or a skill you did not list. Download the result as a PDF via the browser's
+own print dialog. Runs at `resumatch.asafarim.com`, port 3012 in local
+development.
 
-**Status: pivoted from an earlier job-board-aggregation product (JobMatch).**
-That product ingested postings from external sources and matched a
-candidate's profile against them; getting real data into that pipeline
-turned out to require licensing agreements with job boards (or, for VDAB/
-EURES, ran into outright bans on automated extraction) — a business/legal
-dependency this project does not want to carry. ResuMatch instead fetches
-the single job URL a candidate explicitly pastes, which needs no
-job-board licensing at all. See [`docs/business-plan.md`](docs/business-plan.md)
-for how the milestone sequence changed and
-[`docs/threat-model.md`](docs/threat-model.md) for what the tailoring flow
-does and does not defend against.
+ResuMatch fetches the single job URL a candidate explicitly pastes, which
+needs no job-board licensing at all. See
+[`docs/business-plan.md`](docs/business-plan.md) for the milestone sequence
+and [`docs/threat-model.md`](docs/threat-model.md) for what the tailoring
+flow does and does not defend against.
 
 ## Showcase-only MVP
 
@@ -53,15 +49,19 @@ originally motivated it no longer applies.
   no-redirect, size-capped, timeout-bounded), extracts readable text, and
   shows the extracted title/employer/snippet before anything else happens.
 - **AI CV tailoring** — a fence-sentinel prompt (both the job text and the
-  profile text are DATA, never instructions) asks a model to reword the
-  summary/headline and rewrite each experience entry's bullets, and to
-  reprioritize (not invent) the skills list. The persisted content is built
-  in code, not trusted from model output: `mergeTailoringSuggestions`
-  copies employer/dates/`isCurrent` and all of education/certifications
-  straight from the confirmed profile, so a model response has no path to
-  fabricate a fact. `RESUMATCH_AI_PROVIDER=fixture` (the default everywhere)
-  is deterministic and free; `openai`/`anthropic` are unimplemented stubs
-  behind the same JM-005 sign-off gate the prior product used.
+  profile text are DATA, never instructions) asks a model for an
+  ATS-aware rewrite: a role-targeted headline, a 2–4 sentence summary
+  mapped onto the posting's stated priorities, the candidate's own skills
+  reordered job-relevant-first, and per-experience bullets that weave the
+  posting's terminology in only where the underlying fact is real. The
+  persisted content is built in code, not trusted from model output:
+  `mergeTailoringSuggestions` copies employer/dates/`isCurrent` and all of
+  education/certifications straight from the confirmed profile, and drops
+  any suggested skill name that isn't already in it — so a model response
+  has no path to fabricate a fact. `RESUMATCH_AI_PROVIDER=fixture` (the
+  default everywhere) is deterministic and free; `openai`/`anthropic` are
+  unimplemented stubs behind the same JM-005 sign-off gate the prior
+  product used.
 - **One print-ready layout** — `app/tailor/[id]/preview/` renders the
   tailored content inside a `@media print` stylesheet with a Download PDF
   button that calls `window.print()`. No new server-side rendering
@@ -78,6 +78,36 @@ the structured match-evaluation pipeline (`MatchResult`/`MatchRun`). None of
 it shipped a live model call or a connected job source before the pivot —
 see `docs/business-plan.md` for the full milestone-by-milestone account of
 what existed and why it was cut.
+
+## Where a fuller version could go
+
+The shape of professional CV-tailoring tools (keyword-match scoring,
+cover letters, template galleries, per-run instructions) maps onto this
+product without breaking its two hard constraints — no fabricated facts,
+no job-board licensing. Nothing in this list exists today; it's a
+direction sketch, not a commitment.
+
+- **Match/coverage report per tailored resume** — after a run, show which
+  of the posting's key skills/requirements the profile already covers and
+  which it doesn't. Honest by construction: "missing" means absent from
+  the profile, never silently patched over.
+- **Cover-letter output** — a second provider call producing a letter from
+  the same fenced inputs, under the same no-fabrication contract. The
+  schema would gain a field; the merge discipline stays identical.
+- **More print templates** — `TailoredResume.templateKey` already exists,
+  so additional `@media print` layouts are additive, no pipeline change.
+- **Per-run custom instructions** ("emphasize my backend work") — a third
+  fenced input with the same DATA-only treatment; bounded by the existing
+  char caps and the merge, which can't be instructed into fabricating.
+- **Skill-gap keyword highlighting** — surface which profile skills
+  matched the posting's vocabulary (the fixture provider already computes
+  this overlap internally to rank `skillsOrder`).
+
+Deliberately out of scope: job-board aggregation and resume-based job
+search (the licensing dependency that killed the prior product), mock
+interviews/video tooling (a different product surface), and any feature
+whose output could put words in the candidate's history that they didn't
+confirm.
 
 ## Local development
 

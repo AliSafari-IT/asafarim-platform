@@ -425,6 +425,227 @@
   margin: 0 auto 1rem;
 }
 
+/* ─── Premium entity cards (profile list views) ───────────────────────── */
+
+.jm-entity-list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.jm-entity-card {
+  --category-tint: 99, 102, 241;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.3));
+  background:
+    linear-gradient(rgba(var(--category-tint), 0.06), rgba(var(--category-tint), 0.06)),
+    var(--surface, #fff);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.jm-entity-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--category-tint), 0.55);
+  box-shadow: 0 10px 25px -14px rgba(var(--category-tint), 0.55);
+}
+
+.jm-entity-card:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.jm-entity-card--skills {
+  --category-tint: 99, 102, 241; /* indigo */
+}
+.jm-entity-card--languages {
+  --category-tint: 16, 185, 129; /* emerald */
+}
+.jm-entity-card--experience {
+  --category-tint: 245, 158, 11; /* amber */
+}
+.jm-entity-card--preferences {
+  --category-tint: 139, 92, 246; /* violet */
+}
+
+.jm-entity-card__icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.65rem;
+  background: rgba(var(--category-tint), 0.15);
+  color: rgb(var(--category-tint));
+}
+
+.jm-entity-card__icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.jm-entity-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.jm-entity-card__title {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.jm-entity-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.jm-entity-card__tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(var(--category-tint), 0.14);
+  color: rgb(var(--category-tint));
+}
+
+.jm-entity-card__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Skill chips — a lighter-weight variant of the same category-tint system,
+   used for the live preview under the free-typed skills textarea. */
+.jm-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+.jm-chip {
+  --category-tint: 99, 102, 241;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: rgba(var(--category-tint), 0.12);
+  color: rgb(var(--category-tint));
+  border: 1px solid rgba(var(--category-tint), 0.25);
+}
+
+/* ─── Premium alert cards (warnings / quarantine) ─────────────────────── */
+
+.jm-alert-card {
+  --alert-tint: 245, 158, 11;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.9rem 1.05rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(var(--alert-tint), 0.35);
+  background: rgba(var(--alert-tint), 0.08);
+  margin: 0.75rem 0;
+}
+
+.jm-alert-card--warning {
+  --alert-tint: 245, 158, 11; /* amber, soft */
+}
+
+.jm-alert-card--critical {
+  --alert-tint: 220, 38, 38; /* red, bordered */
+  border-width: 1.5px;
+  background: rgba(var(--alert-tint), 0.06);
+}
+
+.jm-alert-card__icon {
+  flex: none;
+  color: rgb(var(--alert-tint));
+  margin-top: 0.1rem;
+}
+
+.jm-alert-card__icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.jm-alert-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.jm-alert-card__title {
+  font-weight: 650;
+  font-size: 0.88rem;
+  margin: 0 0 0.15rem;
+}
+
+.jm-alert-card__text {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.jm-alert-card__details {
+  margin-top: 0.5rem;
+}
+
+.jm-alert-card__details summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--alert-tint));
+  list-style: none;
+}
+
+.jm-alert-card__details summary::-webkit-details-marker {
+  display: none;
+}
+
+.jm-alert-card__details summary::before {
+  content: "▸ ";
+}
+
+.jm-alert-card__details[open] summary::before {
+  content: "▾ ";
+}
+
+.jm-alert-card__details-body {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  opacity: 0.75;
+  word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jm-entity-card {
+    transition: none;
+  }
+}
+
 /* ─── Cinematic resume dropzone (profile page) ────────────────────────── */
 
 .jm-dropzone {

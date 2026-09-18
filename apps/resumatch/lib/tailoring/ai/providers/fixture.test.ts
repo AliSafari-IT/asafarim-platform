@@ -9,7 +9,7 @@ function call(overrides: Partial<Parameters<typeof provider.generate>[0]> = {}) 
     jobText: "Looking for a Node.js and PostgreSQL engineer.",
     system: "system",
     user: "user",
-    promptVersion: "tailor_resume@1",
+    promptVersion: "tailor_resume@2",
     model: "fixture-tailor-1",
     profileSkillNames: ["Kubernetes", "Node.js", "PostgreSQL"],
     experienceSummaries: ["Owned the payments API. Reduced latency by 40%."],

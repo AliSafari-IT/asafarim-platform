@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Alert, Badge, Button, Card } from "@asafarim/ui";
 import { MAX_DOCUMENT_BYTES } from "../../lib/documents/fileType";
 import { ShowcaseNotice } from "../components/ShowcaseNotice";
+import { AlertCard } from "./AlertCard";
 
 export interface DocumentRow {
   id: string;
@@ -283,7 +284,19 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
                 </Button>
               </div>
               {document.explanation ? (
-                <p style={{ opacity: 0.8, margin: "0.35rem 0 0" }}>{document.explanation}</p>
+                <AlertCard
+                  tone={document.reasonCode === "MALWARE_DETECTED" ? "critical" : "warning"}
+                  title={
+                    document.reasonCode === "MALWARE_DETECTED"
+                      ? "This file was flagged"
+                      : document.status === "QUARANTINED"
+                        ? "Quarantined"
+                        : "Needs a look"
+                  }
+                  technicalDetail={document.reasonCode}
+                >
+                  {document.explanation}
+                </AlertCard>
               ) : null}
               {document.retainUntil ? (
                 <p className="jm-mono" style={{ opacity: 0.6, fontSize: "0.75rem", margin: "0.25rem 0 0" }}>

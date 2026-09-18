@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Alert, Badge, Button, Card } from "@asafarim/ui";
 import { LOW_CONFIDENCE_THRESHOLD } from "../../lib/profile/contract";
 import type { CandidateProfileContent, ProfileConfidence } from "../../lib/profile/contract";
+import { BriefcaseIcon, CompassIcon, GlobeIcon } from "./icons";
 
 /**
  * Profile review and correction (JM-021).
@@ -236,6 +237,16 @@ export function ProfileWorkbench({
                 : null}
             </small>
           </label>
+          {content.skills.length > 0 ? (
+            <div className="jm-chip-row" style={{ ["--category-tint" as string]: "99, 102, 241" }}>
+              {content.skills.map((skill, index) => (
+                <span className="jm-chip" key={`${skill.name}-${index}`}>
+                  {skill.name}
+                  {skill.yearsExperience ? ` · ${skill.yearsExperience}y` : ""}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </Card>
 
         <Card title="Languages">
@@ -243,28 +254,35 @@ export function ProfileWorkbench({
           {content.languages.length === 0 ? (
             <p style={{ opacity: 0.75 }}>None read from your CV. Add them if they matter for the roles you want.</p>
           ) : (
-            <ul className="jm-list jm-list--fields">
+            <ul className="jm-entity-list">
               {content.languages.map((language, index) => (
-                <li key={language.code}>
-                  <span>{language.label}</span>
-                  <select
-                    aria-label={`${language.label} proficiency`}
-                    value={language.proficiency ?? ""}
-                    onChange={(event) => {
-                      const next = [...content.languages];
-                      next[index] = {
-                        ...language,
-                        proficiency: (event.target.value || null) as (typeof language)["proficiency"],
-                      };
-                      update("languages", next);
-                    }}
-                  >
-                    <option value="">Not stated</option>
-                    <option value="basic">Basic</option>
-                    <option value="conversational">Conversational</option>
-                    <option value="professional">Professional</option>
-                    <option value="native">Native</option>
-                  </select>
+                <li key={language.code} className="jm-entity-card jm-entity-card--languages">
+                  <span className="jm-entity-card__icon">
+                    <GlobeIcon />
+                  </span>
+                  <span className="jm-entity-card__body">
+                    <span className="jm-entity-card__title">{language.label}</span>
+                    <span className="jm-entity-card__actions">
+                      <select
+                        aria-label={`${language.label} proficiency`}
+                        value={language.proficiency ?? ""}
+                        onChange={(event) => {
+                          const next = [...content.languages];
+                          next[index] = {
+                            ...language,
+                            proficiency: (event.target.value || null) as (typeof language)["proficiency"],
+                          };
+                          update("languages", next);
+                        }}
+                      >
+                        <option value="">Not stated</option>
+                        <option value="basic">Basic</option>
+                        <option value="conversational">Conversational</option>
+                        <option value="professional">Professional</option>
+                        <option value="native">Native</option>
+                      </select>
+                    </span>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -276,14 +294,22 @@ export function ProfileWorkbench({
           {content.experience.length === 0 ? (
             <p style={{ opacity: 0.75 }}>No roles were read from your CV.</p>
           ) : (
-            <ul className="jm-list">
+            <ul className="jm-entity-list">
               {content.experience.map((role, index) => (
-                <li key={`${role.title}-${index}`}>
-                  <strong>{role.title}</strong>
-                  {role.employer ? <span> — {role.employer}</span> : null}
-                  <span className="jm-mono" style={{ opacity: 0.7, fontSize: "0.8rem" }}>
-                    {" "}
-                    {role.startedOn ?? "?"} to {role.isCurrent ? "now" : (role.endedOn ?? "?")}
+                <li key={`${role.title}-${index}`} className="jm-entity-card jm-entity-card--experience">
+                  <span className="jm-entity-card__icon">
+                    <BriefcaseIcon />
+                  </span>
+                  <span className="jm-entity-card__body">
+                    <span className="jm-entity-card__title">
+                      {role.title}
+                      {role.employer ? <span style={{ fontWeight: 400, opacity: 0.75 }}> — {role.employer}</span> : null}
+                    </span>
+                    <span className="jm-entity-card__meta">
+                      <span className="jm-mono">
+                        {role.startedOn ?? "?"} to {role.isCurrent ? "now" : (role.endedOn ?? "?")}
+                      </span>
+                    </span>
                   </span>
                 </li>
               ))}
@@ -292,6 +318,12 @@ export function ProfileWorkbench({
         </Card>
 
         <Card title="What you are looking for">
+          <span
+            className="jm-entity-card__icon"
+            style={{ ["--category-tint" as string]: "139, 92, 246", marginBottom: "0.75rem" }}
+          >
+            <CompassIcon />
+          </span>
           <label className="jm-field">
             <span>Working arrangement</span>
             <select

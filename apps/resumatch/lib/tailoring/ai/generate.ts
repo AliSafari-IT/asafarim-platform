@@ -17,7 +17,7 @@ import { TailorProviderError } from "./provider";
  *
  *   load confirmed profile version + fetched target job
  *     -> assemble input (buildProfileText(profile).text + fenced job text)
- *     -> render versioned prompt (tailor_resume@1)
+ *     -> render versioned prompt (registry.ts's TAILOR_PROMPT_VERSION)
  *     -> budget/quota check
  *     -> provider call (retry x3, on exhaustion or budget-exhaustion ->
  *        degrade to the profile carried over unchanged, via runOrDegrade)

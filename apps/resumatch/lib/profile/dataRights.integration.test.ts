@@ -72,7 +72,7 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
         targetJobId: targetJob.id,
         content: { skills: ["TypeScript"], experience: [], education: [], certifications: [] },
         templateKey: "classic",
-        promptVersion: "tailor_resume@1",
+        promptVersion: "tailor_resume@2",
         modelVersion: "fixture-tailor-1",
         degraded: false,
       },
