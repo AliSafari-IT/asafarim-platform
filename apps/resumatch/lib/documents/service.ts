@@ -1,11 +1,7 @@
 import "server-only";
 import { getJobmatchDb } from "../db/client";
 import { EXTRACTOR_NAME, EXTRACTOR_VERSION, extractText } from "../extraction/text";
-import {
-  PROFILE_EXTRACTOR_NAME,
-  PROFILE_EXTRACTOR_VERSION,
-  extractProfileFromText,
-} from "../extraction/profileExtractor";
+import { extractProfileWithFallback } from "../extraction/ai/degraded";
 import { logError, log } from "../observability/logger";
 import { createVersion } from "../profile/versions";
 import { recordAuditEvent } from "../workspace";
@@ -295,7 +291,7 @@ export async function extractDocument(
   }
 
   try {
-    const profile = extractProfileFromText(extracted.text);
+    const profile = await extractProfileWithFallback(workspaceId, extracted.text);
 
     const version = await createVersion({
       workspaceId,
@@ -304,9 +300,11 @@ export async function extractDocument(
       origin: "EXTRACTED",
       // Both extractors are recorded: the text layer and the profile rules
       // are versioned independently, and a change to either makes a past
-      // version non-comparable.
-      extractorName: `${EXTRACTOR_NAME}+${PROFILE_EXTRACTOR_NAME}`,
-      extractorVersion: `${EXTRACTOR_VERSION}+${PROFILE_EXTRACTOR_VERSION}`,
+      // version non-comparable. The profile-rules half now names whichever
+      // extractor actually produced this result (deterministic or AI) —
+      // see lib/extraction/ai/degraded.ts.
+      extractorName: `${EXTRACTOR_NAME}+${profile.extractorName}`,
+      extractorVersion: `${EXTRACTOR_VERSION}+${profile.extractorVersion}`,
       documentId,
       sourceContentHash: document.contentHash,
     });
