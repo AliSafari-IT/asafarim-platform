@@ -1,8 +1,8 @@
 [
   {
     "date": "2026-09-18",
-    "title": "Resumatch: define AI CV-extraction schema, prompt, and provider interface",
-    "sha": "c4d07da",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/c4d07da"
+    "title": "Resumatch: implement fixture and real OpenAI CV-extraction providers",
+    "sha": "482db1f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/482db1f"
   }
 ]
