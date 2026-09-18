@@ -646,6 +646,202 @@
   }
 }
 
+/* ─── Home page: hero, steps, feature grid ────────────────────────────── */
+
+.jm-hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.jm-hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1.15rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.jm-hero-cta svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.jm-hero-cta:hover {
+  transform: translateY(-1px);
+}
+
+.jm-hero-cta--primary {
+  color: #fff;
+  background: linear-gradient(135deg, #4c1d95, #7c3aed 55%, #2563eb);
+  box-shadow: 0 12px 30px -14px rgba(124, 58, 237, 0.65);
+}
+
+.jm-hero-cta--secondary {
+  color: var(--ink, inherit);
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
+  background: var(--surface, transparent);
+}
+
+.jm-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.jm-hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.jm-hero-stat strong {
+  font-size: 1.15rem;
+}
+
+.jm-hero-stat span {
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+
+.jm-steps {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 1.5rem 0 2rem;
+}
+
+@media (max-width: 52rem) {
+  .jm-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jm-step {
+  position: relative;
+  padding: 1.1rem 1.15rem 1.15rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.3));
+  background: var(--surface, #fff);
+}
+
+.jm-step__number {
+  --category-tint: 99, 102, 241;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: rgba(var(--category-tint), 0.15);
+  color: rgb(var(--category-tint));
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 0.65rem;
+}
+
+.jm-step__title {
+  margin: 0 0 0.35rem;
+  font-weight: 650;
+  font-size: 0.98rem;
+}
+
+.jm-step__body {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.jm-feature-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  margin: 2rem 0;
+}
+
+.jm-feature-card {
+  --category-tint: 99, 102, 241;
+  padding: 1.15rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.28));
+  background: var(--surface, #fff);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.jm-feature-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(var(--category-tint), 0.5);
+  box-shadow: 0 16px 32px -18px rgba(var(--category-tint), 0.5);
+}
+
+.jm-feature-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.75rem;
+  background: rgba(var(--category-tint), 0.15);
+  color: rgb(var(--category-tint));
+  margin-bottom: 0.75rem;
+}
+
+.jm-feature-card__icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.jm-feature-card__title {
+  margin: 0 0 0.35rem;
+  font-weight: 650;
+  font-size: 0.98rem;
+}
+
+.jm-feature-card__body {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.82;
+}
+
+.jm-final-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 1.75rem;
+  border-radius: 1.15rem;
+  margin: 2rem 0;
+  background: linear-gradient(135deg, rgba(76, 29, 149, 0.09), rgba(37, 99, 235, 0.07));
+  border: 1px solid rgba(124, 58, 237, 0.25);
+}
+
+.jm-final-cta__text strong {
+  display: block;
+  font-size: 1.05rem;
+  margin-bottom: 0.2rem;
+}
+
+.jm-final-cta__text span {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jm-hero-cta,
+  .jm-feature-card {
+    transition: none;
+  }
+}
+
 /* ─── Cinematic resume dropzone (profile page) ────────────────────────── */
 
 .jm-dropzone {
