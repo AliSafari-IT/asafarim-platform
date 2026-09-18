@@ -1,27 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="JobMatch">
-  <title>JobMatch</title>
-  <!-- The product in one mark: many undifferentiated vacancies on the left,
-       narrowed through a filter to the one worth acting on. Drawn on the
-       app's own slate ground so the tab icon reads on light and dark
-       browser chrome alike; colours are the [data-app="jobmatch"] accents
-       from packages/ui/src/styles/tokens.css. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ResuMatch">
+  <title>ResuMatch</title>
+  <!-- The product in one mark: a CV (the document) reworded toward one job
+       (the pen), on the app's own slate ground so the tab icon reads on
+       light and dark browser chrome alike; colours are the
+       [data-app="resumatch"] accents from packages/ui/src/styles/tokens.css. -->
   <rect width="64" height="64" rx="14" fill="#131722"/>
 
-  <!-- The many: uniform, low-contrast, deliberately indistinguishable. -->
+  <!-- The CV: a document with text lines. -->
+  <rect x="13" y="12" width="26" height="40" rx="3" fill="none" stroke="#8b93ff" stroke-width="3"/>
   <g fill="#8b93ff">
-    <rect x="11" y="15" width="15" height="4" rx="2" opacity="0.3"/>
-    <rect x="11" y="23" width="15" height="4" rx="2" opacity="0.45"/>
-    <rect x="11" y="31" width="15" height="4" rx="2" opacity="0.3"/>
-    <rect x="11" y="39" width="15" height="4" rx="2" opacity="0.45"/>
-    <rect x="11" y="47" width="15" height="4" rx="2" opacity="0.3"/>
+    <rect x="18" y="20" width="16" height="3" rx="1.5" opacity="0.85"/>
+    <rect x="18" y="27" width="16" height="3" rx="1.5" opacity="0.55"/>
+    <rect x="18" y="34" width="10" height="3" rx="1.5" opacity="0.55"/>
+    <rect x="18" y="41" width="13" height="3" rx="1.5" opacity="0.35"/>
   </g>
 
-  <!-- The narrowing. -->
-  <path d="M31 22 L39 32 L31 42" fill="none" stroke="#8b93ff" stroke-width="3.5"
-        stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
-
-  <!-- The few: full accent, and one amber mark for the judgement call the
-       product always leaves to the candidate. -->
-  <rect x="43" y="24" width="11" height="6" rx="3" fill="#8b93ff"/>
-  <rect x="43" y="34" width="11" height="6" rx="3" fill="#eda54a"/>
+  <!-- The tailoring: a pen rewriting toward the job, in the judgement-call
+       amber the old mark reserved for the candidate's own review. -->
+  <path d="M35 46 L49 32 L54 37 L40 51 L34 52 Z" fill="#eda54a"/>
+  <path d="M49 32 L54 37" stroke="#131722" stroke-width="1.5"/>
 </svg>
