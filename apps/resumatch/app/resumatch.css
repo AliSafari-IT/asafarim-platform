@@ -25,6 +25,15 @@
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
+/* A grid/flex item's default min-width is its content's min-content size,
+   not 0 — an input, textarea, or a row of controls that can't otherwise
+   shrink pushes the whole card wider than its track and spills into the
+   next column. Every container below that holds form controls gets an
+   explicit min-width: 0 so wrapping/shrinking wins instead. */
+[data-app="resumatch"] .jm-grid > * {
+  min-width: 0;
+}
+
 [data-app="resumatch"] .jm-note {
   border-left: 3px solid var(--color-border, #888);
   padding-left: 1rem;
@@ -214,7 +223,9 @@
 [data-app="resumatch"] .jm-field input,
 [data-app="resumatch"] .jm-field select,
 [data-app="resumatch"] .jm-field textarea {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
@@ -435,9 +446,20 @@
   gap: 0.65rem;
 }
 
+.jm-entity-list {
+  min-width: 0;
+}
+
+.jm-entity-list > li {
+  min-width: 0;
+}
+
 .jm-entity-card {
   --category-tint: 99, 102, 241;
   position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: flex-start;
   gap: 0.85rem;
@@ -501,11 +523,18 @@
 .jm-entity-card__body {
   flex: 1;
   min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
+}
+
+.jm-entity-card__body input,
+.jm-entity-card__body select {
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .jm-entity-card__title {
@@ -534,8 +563,10 @@
 }
 
 .jm-entity-card__actions {
-  flex: none;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
 }
@@ -611,6 +642,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: 0.6rem;
+  min-width: 0;
+}
+
+.jm-entity-card__fields > label {
+  min-width: 0;
 }
 
 .jm-entity-card__fields--full {
@@ -627,7 +663,9 @@
 
 .jm-entity-card__fields input,
 .jm-entity-card__fields textarea {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   padding: 0.4rem 0.55rem;
   border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.35));
   border-radius: 0.5rem;
