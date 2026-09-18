@@ -50,9 +50,11 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const [message, setMessage] = useState<{ tone: "info" | "warning" | "error"; text: string } | null>(
     null,
   );
+  const maxSizeLabel = `${Math.round(MAX_DOCUMENT_BYTES / (1024 * 1024))} MB`;
 
   const upload = useCallback(
     async (file: File) => {
@@ -171,17 +173,73 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
         <ShowcaseNotice variant="compact" />
       </div>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-        disabled={busy}
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) void upload(file);
+      <div
+        className={`jm-dropzone${dragActive ? " jm-dropzone--active" : ""}${busy ? " jm-dropzone--busy" : ""}`}
+        role="button"
+        tabIndex={busy ? -1 : 0}
+        aria-disabled={busy}
+        onClick={() => {
+          if (!busy) inputRef.current?.click();
         }}
-        style={{ display: "block", margin: "1rem 0" }}
-      />
+        onKeyDown={(event) => {
+          if (!busy && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          if (!busy) setDragActive(true);
+        }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragActive(false);
+          const file = event.dataTransfer.files?.[0];
+          if (file && !busy) void upload(file);
+        }}
+      >
+        <div className="jm-dropzone__glow" aria-hidden="true" />
+        <svg
+          className="jm-dropzone__icon"
+          width="44"
+          height="44"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M7 18a4.5 4.5 0 0 1-.6-8.96A5.5 5.5 0 0 1 17.2 8.06 4 4 0 0 1 17 16H7Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M12 11v6.5M12 11l-2.5 2.5M12 11l2.5 2.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <p className="jm-dropzone__title">
+          {dragActive ? "Drop to upload" : "Upload Your Resume"}
+        </p>
+        <p className="jm-dropzone__subtitle">
+          PDF, DOCX, or plain text &middot; up to {maxSizeLabel}
+        </p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+          disabled={busy}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void upload(file);
+          }}
+          className="jm-dropzone__input"
+        />
+      </div>
 
       {busy ? <p className="jm-mono">Working…</p> : null}
       {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}

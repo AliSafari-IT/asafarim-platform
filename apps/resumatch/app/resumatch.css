@@ -425,6 +425,121 @@
   margin: 0 auto 1rem;
 }
 
+/* ─── Cinematic resume dropzone (profile page) ────────────────────────── */
+
+.jm-dropzone {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin: 1rem 0;
+  padding: 2.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  text-align: center;
+  border-radius: 1.1rem;
+  cursor: pointer;
+  border: 1px solid rgba(148, 116, 255, 0.35);
+  background:
+    radial-gradient(circle at 20% 15%, rgba(124, 92, 255, 0.35), transparent 55%),
+    radial-gradient(circle at 85% 80%, rgba(56, 189, 248, 0.22), transparent 50%),
+    linear-gradient(135deg, #0b0f2b 0%, #17123f 45%, #2a1463 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 20px 45px -20px rgba(76, 29, 149, 0.55);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.jm-dropzone::before {
+  /* Neon edge highlight — a hairline gradient ring sitting just inside the
+     border, giving the glass panel a lit edge without a second real border. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.9), rgba(56, 189, 248, 0.15) 40%, transparent 70%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.jm-dropzone__glow {
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.35), transparent 60%);
+  filter: blur(30px);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.jm-dropzone:hover,
+.jm-dropzone:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(167, 139, 250, 0.65);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 24px 55px -18px rgba(124, 58, 237, 0.65);
+  outline: none;
+}
+
+.jm-dropzone--active {
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 0 0 3px rgba(56, 189, 248, 0.25),
+    0 24px 55px -18px rgba(56, 189, 248, 0.55);
+}
+
+.jm-dropzone--busy {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.jm-dropzone__icon {
+  color: #ffffff;
+  filter: drop-shadow(0 0 10px rgba(167, 139, 250, 0.85));
+}
+
+.jm-dropzone__title {
+  margin: 0.35rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  text-shadow: 0 1px 12px rgba(124, 58, 237, 0.6);
+}
+
+.jm-dropzone__subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(226, 232, 255, 0.75);
+}
+
+.jm-dropzone__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jm-dropzone {
+    transition: none;
+  }
+}
+
 @media print {
   .rm-preview-toolbar,
   .ui-shell__header,
