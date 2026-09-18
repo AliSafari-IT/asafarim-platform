@@ -5,10 +5,17 @@ import { getEnv } from "../../env";
  * Per-workspace AI budget. Mirrors apps/tasks-ai/lib/ai/quota.ts almost 1:1
  * in structure and intent (`usageSummary` / `assertCanRun*`), and
  * apps/tasks-ai/lib/ai/settings.ts's `AiSettings.monthlyBudgetUsd` shape,
- * adapted to ResuMatch's single `"tailor"` provider-call kind (the old
- * matching product had two — `embed` and `evaluate` — before the pivot) and
- * to the fact that this app has no per-workspace AI settings model at all
- * yet.
+ * adapted to the fact that this app has no per-workspace AI settings model
+ * at all yet.
+ *
+ * **One shared budget across provider-call kinds.** `ProviderCallKind`
+ * originally covered only `"tailor"`; CV extraction (JM-005 milestone,
+ * issue #415) spends against the exact same monthly ceiling under its own
+ * `"extract"` kind rather than getting a separate budget. There is no
+ * product reason yet for tailoring and extraction to have independent
+ * ceilings — `usageSummary` sums every kind together — and splitting them
+ * only becomes worth doing once there's evidence one feature needs to be
+ * capped independently of the other.
  *
  * **Per-workspace vs env-default budget.** tasks-ai's budget is a
  * per-workspace override stored in `AiSettings`, seeded from nothing (null =
@@ -43,7 +50,7 @@ export class QuotaExceededError extends Error {
   }
 }
 
-export type ProviderCallKind = "tailor";
+export type ProviderCallKind = "tailor" | "extract";
 
 function monthStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -103,7 +110,9 @@ export interface RecordUsageInput {
   kind: ProviderCallKind;
   provider: string;
   model: string;
-  /** Only meaningful for kind = "evaluate"; omit/null for "embed". */
+  /** The versioned prompt that produced this call, e.g. `TAILOR_PROMPT_VERSION`
+   *  or `EXTRACT_PROMPT_VERSION`. Recorded per kind so a ledger row's
+   *  provenance never depends on which feature happened to call it. */
   promptVersion?: string | null;
   inputTokens?: number;
   outputTokens?: number;
