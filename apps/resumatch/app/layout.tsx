@@ -52,6 +52,7 @@ const NAV_ITEMS = [
   { label: "Profile", href: "/profile" },
   { label: "Tailor", href: "/tailor" },
   { label: "History", href: "/tailor/history" },
+  { label: "Applications", href: "/applications" },
 ];
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
