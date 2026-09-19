@@ -1,15 +1,19 @@
 # ResuMatch
 
-An AI CV-tailoring tool: paste the URL of a job you want to apply to, and AI
-rewords and reprioritizes your confirmed profile toward it — optimizing for
-both the recruiter skimming it and the ATS (applicant tracking system)
-matching its keywords — while never inventing an employer, a date, a degree,
-or a skill you did not list. Download the result as a PDF via the browser's
-own print dialog. Runs at `resumatch.asafarim.com`, port 3012 in local
-development.
+An AI CV-tailoring tool: point it at the job you want to apply to — by URL,
+pasted posting text or job-invitation email, a PDF/DOCX of the posting, or a
+manual entry form — and AI rewords and reprioritizes your confirmed profile
+toward it, optimizing for both the recruiter skimming it and the ATS
+(applicant tracking system) matching its keywords, while never inventing an
+employer, a date, a degree, or a skill you did not list. It can also draft a
+cover letter under the same no-fabrication contract, and the applications
+list tracks each job from saved to offer/rejected. Download results as PDF
+via the browser's own print dialog or as DOCX. Runs at
+`resumatch.asafarim.com`, port 3012 in local development.
 
-ResuMatch fetches the single job URL a candidate explicitly pastes, which
-needs no job-board licensing at all. See
+ResuMatch only ever looks at the one posting a candidate explicitly
+provides — no job-board aggregation — which needs no job-board licensing at
+all. See
 [`docs/business-plan.md`](docs/business-plan.md) for the milestone sequence
 and [`docs/threat-model.md`](docs/threat-model.md) for what the tailoring
 flow does and does not defend against.
@@ -40,34 +44,60 @@ originally motivated it no longer applies.
   byte-level type sniffing, a 10 MB cap, and 90-day retention; malware
   scanning as a hard gate (the production compose stack runs a ClamAV
   sidecar at `RESUMATCH_SCANNER_URL`, and uploads quarantine by design
-  whenever no scanner answers — a fail-closed posture); local PDF/Word/text
-  extraction; a profile contract with no field for any protected attribute;
-  immutable, lineage-linked profile versions; and one-click GDPR access +
-  erasure covering every model that holds personal data, including
-  tailored resumes and fetched job pages.
-- **Single job-URL fetch** — a candidate pastes one URL, ResuMatch fetches
-  exactly that page under an SSRF-resistant posture (public HTTPS only,
-  no-redirect, size-capped, timeout-bounded), extracts readable text, and
-  shows the extracted title/employer/snippet before anything else happens.
-- **AI CV tailoring** — a fence-sentinel prompt (both the job text and the
-  profile text are DATA, never instructions) asks a model for an
-  ATS-aware rewrite: a role-targeted headline, a 2–4 sentence summary
-  mapped onto the posting's stated priorities, the candidate's own skills
-  reordered job-relevant-first, and per-experience bullets that weave the
-  posting's terminology in only where the underlying fact is real. The
-  persisted content is built in code, not trusted from model output:
-  `mergeTailoringSuggestions` copies employer/dates/`isCurrent` and all of
-  education/certifications straight from the confirmed profile, and drops
-  any suggested skill name that isn't already in it — so a model response
-  has no path to fabricate a fact. `RESUMATCH_AI_PROVIDER=fixture` (the
+  whenever no scanner answers — a fail-closed posture); deterministic
+  PDF/Word/text extraction with an optional AI pass wired into
+  upload/rescan that degrades back to deterministic on any failure; a
+  profile contract with no field for any protected attribute; full CRUD
+  for every section with inline editing and manual entry; an AI
+  tone-rewrite for the Summary field; immutable, lineage-linked profile
+  versions; and one-click GDPR access + erasure covering every model that
+  holds personal data, including tailored resumes, cover letters, and
+  fetched job pages.
+- **Job details, five ways in** — paste a URL (fetched under an
+  SSRF-resistant posture: public HTTPS only, no-redirect, size-capped,
+  timeout-bounded; with a real provider configured the fetch goes through
+  the model's browsing instead, degrading to the raw fetch on failure),
+  paste the posting text, paste a job-invitation email, upload the posting
+  as PDF/DOCX, or fill in a manual entry form. Every path lands on the
+  same extracted title/employer/snippet confirmation before anything else
+  happens.
+- **AI CV tailoring** — a fence-sentinel prompt (the job text, the profile
+  text, and any per-run instructions are DATA, never instructions) asks a
+  model for an ATS-aware rewrite: a role-targeted headline, a 2–4 sentence
+  summary mapped onto the posting's stated priorities, the candidate's own
+  skills reordered job-relevant-first, and per-experience bullets that
+  weave the posting's terminology in only where the underlying fact is
+  real. The persisted content is built in code, not trusted from model
+  output: `mergeTailoringSuggestions` copies employer/dates/`isCurrent`
+  and all of education/certifications straight from the confirmed profile,
+  and drops any suggested skill name that isn't already in it — so a model
+  response has no path to fabricate a fact. Generation is proposal-review,
+  not one-shot: `generate-preview` returns a draft to read and edit,
+  `generate-confirm` persists it. The preview carries a deterministic
+  keyword-coverage report and quality checklist, and the flow accepts
+  freeform per-run instructions ("emphasize my backend work") as a third
+  fenced input — bounded by the same char caps and merge, which can't be
+  instructed into fabricating. `RESUMATCH_AI_PROVIDER=fixture` (the
   default everywhere) is deterministic and free; `openai`/`anthropic` are
-  unimplemented stubs behind the same JM-005 sign-off gate the prior
-  product used.
-- **One print-ready layout** — `app/tailor/[id]/preview/` renders the
-  tailored content inside a `@media print` stylesheet with a Download PDF
-  button that calls `window.print()`. No new server-side rendering
-  dependency for v1; `TailoredResume.templateKey` already exists as a field
-  so a second layout is additive later.
+  real adapters behind the same JM-005 sign-off gate the prior product
+  used.
+- **AI cover letters** — a second fenced call drafts a letter from the
+  same confirmed inputs under the same no-fabrication contract and merge
+  discipline, with tone and length controls, the same preview/confirm
+  review before anything is saved, and its own deterministic quality
+  checks.
+- **Export, history, diff** — `app/tailor/[id]/preview/` renders the
+  tailored content inside a `@media print` stylesheet (Download PDF calls
+  `window.print()`), and both resume and letter have DOCX download routes
+  generated from the same content source — the "print and DOCX can never
+  diverge" guarantee. `app/tailor/history` lists every tailored run with a
+  side-by-side compare. `TailoredResume.templateKey` already exists as a
+  field, so more layouts stay additive.
+- **Application tracking** — `app/applications` tracks each job through
+  saved → applied → interviewing → offer/rejected with a multi-step status
+  indicator, optional notes, and a link back to the tailored resume used.
+
+AI-call audit events surface in the platform admin console.
 
 ## What was removed in the pivot
 
@@ -82,27 +112,18 @@ what existed and why it was cut.
 
 ## Where a fuller version could go
 
-The shape of professional CV-tailoring tools (keyword-match scoring,
-cover letters, template galleries, per-run instructions) maps onto this
-product without breaking its two hard constraints — no fabricated facts,
-no job-board licensing. Nothing in this list exists today; it's a
-direction sketch, not a commitment.
+The two hard constraints — no fabricated facts, no job-board licensing —
+leave room to grow; the in-app `/roadmap` page tracks the live sequence.
+What follows is a direction sketch, not a commitment.
 
-- **Match/coverage report per tailored resume** — after a run, show which
-  of the posting's key skills/requirements the profile already covers and
-  which it doesn't. Honest by construction: "missing" means absent from
-  the profile, never silently patched over.
-- **Cover-letter output** — a second provider call producing a letter from
-  the same fenced inputs, under the same no-fabrication contract. The
-  schema would gain a field; the merge discipline stays identical.
 - **More print templates** — `TailoredResume.templateKey` already exists,
   so additional `@media print` layouts are additive, no pipeline change.
-- **Per-run custom instructions** ("emphasize my backend work") — a third
-  fenced input with the same DATA-only treatment; bounded by the existing
-  char caps and the merge, which can't be instructed into fabricating.
-- **Skill-gap keyword highlighting** — surface which profile skills
-  matched the posting's vocabulary (the fixture provider already computes
-  this overlap internally to rank `skillsOrder`).
+- **Richer application tracking** — reminders, follow-up dates, and
+  interview notes layered onto the status list.
+- **Production readiness & privacy operations** — a DPIA for the
+  AI-tailoring flow specifically (job text and rewritten resume both pass
+  through a model call), an incident runbook, and load/recovery evidence —
+  the bar for operating at pilot scale.
 
 Deliberately out of scope: job-board aggregation and resume-based job
 search (the licensing dependency that killed the prior product), mock
@@ -146,10 +167,10 @@ pnpm --filter @asafarim/resumatch test
 | `RESUMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
 | `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
 | `REDIS_URL` | worker (all environments) | The platform's shared Redis instance (same variable Vionto's and AppBuilder's workers read — not a ResuMatch-specific `RESUMATCH_REDIS_URL`). Required to start `worker/index.ts`; see [worker/](#worker) below. |
-| `RESUMATCH_AI_PROVIDER` | none — default `fixture` everywhere | Tailoring model backend (JM-005). `openai`/`anthropic` are accepted in staging/production only once `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF=true` **and** the matching API key is set; otherwise startup refuses, naming the gate variable, never a value. Local dev may flip this freely — though both real adapters are currently unimplemented stubs. |
+| `RESUMATCH_AI_PROVIDER` | none — default `fixture` everywhere | Model backend for every AI call kind — CV extraction, tailoring, cover letter, job-URL browsing, and Summary rewrite (JM-005). `openai`/`anthropic` are accepted in staging/production only once `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF=true` **and** the matching API key is set; otherwise startup refuses, naming the gate variable, never a value. Local dev may flip this freely. |
 | `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF` | staging, production (only if a real provider is selected) | JM-005 gate. Flipping this is a config-only change — no code edit. |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | staging, production (only if the matching provider is selected) | Shared platform keys (see root `.env.example`). Unused while `RESUMATCH_AI_PROVIDER` stays `fixture`. |
-| `RESUMATCH_AI_MONTHLY_BUDGET_USD` | none — default `20` | Monthly spend ceiling in USD for tailoring calls. `0` freezes AI spend entirely. |
+| `RESUMATCH_AI_MONTHLY_BUDGET_USD` | none — default `20` | Monthly spend ceiling in USD shared across all provider-call kinds (`tailor`, `extract`, `rewrite`, `fetch_job`, `cover_letter`). `0` freezes AI spend entirely. |
 
 ## Worker
 
