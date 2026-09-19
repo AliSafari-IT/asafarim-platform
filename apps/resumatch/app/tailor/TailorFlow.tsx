@@ -373,7 +373,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         only saves what you approve — reject or edit anything before it's kept.
       </p>
 
-      <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem", flexWrap: "wrap" }}>
+      <div className="rm-mode-tabs">
         <Button variant={mode === "url" ? undefined : "ghost"} size="sm" onClick={() => setMode("url")} disabled={busy}>
           Paste a URL
         </Button>
@@ -392,7 +392,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       </div>
 
       {mode === "url" ? (
-        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+        <div className="rm-intake-panel" style={{ display: "flex", gap: "0.5rem" }}>
           <Input
             type="url"
             placeholder="https://company.example/careers/senior-engineer"
@@ -406,8 +406,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           </Button>
         </div>
       ) : mode === "paste" ? (
-        <div style={{ marginTop: "0.75rem" }}>
-          <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+        <div className="rm-intake-panel">
+          <p className="rm-intake-panel__hint">
             For postings ResuMatch can't fetch — behind a login wall, expired, or a page that
             redirects — paste the job description text directly instead.
           </p>
@@ -426,8 +426,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           </div>
         </div>
       ) : mode === "email" ? (
-        <div style={{ marginTop: "0.75rem" }}>
-          <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+        <div className="rm-intake-panel">
+          <p className="rm-intake-panel__hint">
             Got a recruiter's invitation by email? Paste the whole thing — greeting, signature,
             quoted thread and all. ResuMatch strips the noise and keeps the role description.
           </p>
@@ -454,8 +454,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           </div>
         </div>
       ) : mode === "upload" ? (
-        <div style={{ marginTop: "0.75rem" }}>
-          <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+        <div className="rm-intake-panel">
+          <p className="rm-intake-panel__hint">
             Have the posting as a PDF or Word file — downloaded from a portal, or attached to an
             email? Upload it directly; ResuMatch reads the text out of it.
           </p>
@@ -472,7 +472,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           </div>
         </div>
       ) : (
-        <ManualJobForm busy={busy} onSubmit={submitManualJob} />
+        <div className="rm-intake-panel">
+          <ManualJobForm busy={busy} onSubmit={submitManualJob} />
+        </div>
       )}
 
       {state.kind === "fetch_failed" ? (
@@ -504,7 +506,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       ) : null}
 
       {state.kind === "reviewing" || state.kind === "confirming" ? (
-        <div style={{ marginTop: "1rem" }}>
+        <div className="rm-review">
           <Card title="Review before saving">
             {state.review.degraded ? (
               <Alert tone="warning">
@@ -513,74 +515,80 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               </Alert>
             ) : (
               <>
-                <p style={{ opacity: 0.7, fontSize: "0.85rem" }}>
+                <p className="rm-review__intro">
                   Nothing here is saved yet. Edit any text, uncheck a bullet you don't want, and
                   confirm when you're happy with it.
                 </p>
 
-                <label className="jm-field">
-                  <span>Headline</span>
+                <div className="rm-review__section">
+                  <span className="rm-review__section-label">Headline</span>
                   <input
                     type="text"
                     value={state.review.headline}
                     onChange={(e) => updateReview("headline", e.target.value)}
                     disabled={state.kind === "confirming"}
                   />
-                </label>
+                </div>
 
-                <label className="jm-field">
-                  <span>Summary</span>
+                <div className="rm-review__section">
+                  <span className="rm-review__section-label">Summary</span>
                   <textarea
                     rows={4}
                     value={state.review.summary}
                     onChange={(e) => updateReview("summary", e.target.value)}
                     disabled={state.kind === "confirming"}
                   />
-                </label>
+                </div>
 
                 {state.review.suggestedSkillsOrder.join() !== state.review.originalSkillsOrder.join() ? (
-                  <label className="jm-field" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <input
-                      type="checkbox"
-                      checked={!state.review.keepOriginalSkillOrder}
-                      onChange={(e) => updateReview("keepOriginalSkillOrder", !e.target.checked)}
-                      disabled={state.kind === "confirming"}
-                    />
-                    <span>
-                      Reorder my skills toward this job:{" "}
-                      <span className="jm-mono" style={{ fontSize: "0.8rem", opacity: 0.75 }}>
-                        {state.review.suggestedSkillsOrder.join(" · ")}
+                  <div className="rm-review__section">
+                    <label className="rm-skill-toggle">
+                      <input
+                        type="checkbox"
+                        checked={!state.review.keepOriginalSkillOrder}
+                        onChange={(e) => updateReview("keepOriginalSkillOrder", !e.target.checked)}
+                        disabled={state.kind === "confirming"}
+                      />
+                      <span>
+                        Reorder my skills toward this job
+                        <span className="rm-skill-pills jm-mono">
+                          {state.review.suggestedSkillsOrder.map((skill) => (
+                            <span key={skill}>{skill}</span>
+                          ))}
+                        </span>
                       </span>
-                    </span>
-                  </label>
+                    </label>
+                  </div>
                 ) : null}
 
                 {state.review.experience.length > 0 ? (
-                  <div className="jm-field">
-                    <span>Experience bullets</span>
+                  <div className="rm-review__section">
+                    <span className="rm-review__section-label">Experience bullets</span>
                     {state.review.experience.map((entry, entryIndex) => (
-                      <div key={entryIndex} style={{ marginTop: "0.75rem" }}>
-                        <strong>
-                          {entry.title}
-                          {entry.employer ? ` · ${entry.employer}` : ""}
-                        </strong>
+                      <div className="rm-entry" key={entryIndex}>
+                        <div className="rm-entry__heading">
+                          <strong>{entry.title}</strong>
+                          {entry.employer ? <span className="rm-entry__sub"> · {entry.employer}</span> : null}
+                        </div>
                         {entry.suggestedBullets.length > 0 ? (
-                          <ul style={{ listStyle: "none", padding: 0, margin: "0.4rem 0 0" }}>
+                          <ul className="rm-bullet-list">
                             {entry.suggestedBullets.map((bullet, bulletIndex) => (
-                              <li key={bulletIndex} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.3rem" }}>
+                              <li
+                                key={bulletIndex}
+                                className={`rm-bullet-item${entry.accepted[bulletIndex] ? "" : " rm-bullet-item--unaccepted"}`}
+                              >
                                 <input
                                   type="checkbox"
                                   checked={entry.accepted[bulletIndex]}
                                   onChange={() => toggleBullet(entryIndex, bulletIndex)}
                                   disabled={state.kind === "confirming"}
-                                  style={{ marginTop: "0.2rem" }}
                                 />
-                                <span style={{ fontSize: "0.9rem" }}>{bullet}</span>
+                                <span>{bullet}</span>
                               </li>
                             ))}
                           </ul>
                         ) : (
-                          <p style={{ opacity: 0.6, fontSize: "0.85rem", fontStyle: "italic", margin: "0.3rem 0 0" }}>
+                          <p style={{ opacity: 0.6, fontSize: "0.85rem", fontStyle: "italic", margin: "0.4rem 0 0" }}>
                             No AI suggestion for this role — kept as written.
                           </p>
                         )}
@@ -591,7 +599,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               </>
             )}
 
-            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+            <div className="rm-review__actions">
               <Button onClick={() => confirm(state.review)} disabled={state.kind === "confirming"}>
                 {state.kind === "confirming" ? "Saving…" : "Confirm & save"}
               </Button>
