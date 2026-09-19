@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "date": "2026-09-19",
+    "title": "Resumatch,admin: expose ResuMatch audit events to the admin console",
+    "sha": "aef84cb",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/aef84cb"
+  }
+]
