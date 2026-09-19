@@ -11,6 +11,7 @@ import { CoverageReport } from "./CoverageReport";
 import { DocxButton } from "./DocxButton";
 import { PrintButton } from "./PrintButton";
 import { QualityChecklist } from "./QualityChecklist";
+import { SaveApplicationButton } from "./SaveApplicationButton";
 
 export const metadata: Metadata = { title: "Preview" };
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export default async function TailoredResumePreviewPage({ params }: { params: Pr
   // candidate's tailored resume.
   const row = await db.tailoredResume.findFirst({
     where: { id, workspaceId: workspace.id },
-    select: { content: true, degraded: true, targetJob: { select: { rawText: true } } },
+    select: { content: true, degraded: true, targetJobId: true, targetJob: { select: { rawText: true } } },
   });
   if (!row) notFound();
 
@@ -59,6 +60,7 @@ export default async function TailoredResumePreviewPage({ params }: { params: Pr
       <div className="rm-preview-toolbar">
         <PrintButton />
         <DocxButton id={id} />
+        <SaveApplicationButton targetJobId={row.targetJobId} tailoredResumeId={id} />
       </div>
 
       {coverage ? <CoverageReport coverage={coverage} /> : null}
