@@ -505,6 +505,80 @@
   color: var(--rm-accent);
 }
 
+.rm-coverage {
+  max-width: 48rem;
+  margin: 0 auto 1.25rem;
+  padding: 1.1rem 1.3rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.rm-coverage__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.rm-coverage__percent {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #4338ca;
+}
+
+.rm-coverage__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.rm-coverage__label {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+  min-width: 5.5rem;
+}
+
+.rm-coverage__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rm-coverage__pills li {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+}
+
+.rm-coverage__pills--matched li {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+
+.rm-coverage__pills--missing li {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+.rm-coverage__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.76rem;
+  opacity: 0.65;
+}
+
 .rm-preview-toolbar {
   display: flex;
   justify-content: flex-end;
@@ -1215,6 +1289,7 @@
 
 @media print {
   .rm-preview-toolbar,
+  .rm-coverage,
   .ui-shell__header,
   .ui-shell__side,
   .ui-shell__footer {
