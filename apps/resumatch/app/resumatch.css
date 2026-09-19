@@ -381,6 +381,15 @@
   line-height: 1.55;
 }
 
+/* Cover letter (issue #457) — reuses .rm-resume's box/typography, just a
+   plain business-letter flow of paragraphs instead of resume sections. */
+.rm-letter p {
+  margin: 0 0 1.1rem;
+}
+.rm-letter__signoff {
+  margin-top: 1.6rem;
+}
+
 .rm-resume__header {
   text-align: center;
   padding-bottom: 1.1rem;
