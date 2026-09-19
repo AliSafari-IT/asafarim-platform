@@ -920,6 +920,149 @@
   color: #b45309;
 }
 
+.rm-badge--rejected {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+/* Application status stepper (ApplicationStatusStepper.tsx) — self-built,
+   see that file's doc comment for why it isn't @asafarim/progress-bars. */
+.rm-status-stepper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.rm-status-stepper__steps {
+  display: flex;
+  align-items: center;
+  flex: 1 1 20rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rm-status-step {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.rm-status-step:last-child {
+  flex: none;
+}
+
+.rm-status-step:not(:last-child) {
+  flex: 1;
+}
+
+.rm-status-step__connector {
+  flex: 1;
+  height: 2px;
+  min-width: 0.75rem;
+  margin: 0 0.35rem;
+  background: var(--line, rgba(148, 163, 184, 0.35));
+  transition: background 0.15s ease;
+}
+
+.rm-status-step__connector--filled {
+  background: var(--rm-accent, #4338ca);
+}
+
+.rm-status-step__button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.rm-status-step__button:disabled {
+  cursor: not-allowed;
+}
+
+.rm-status-step__dot {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  border: 2px solid var(--line-strong, rgba(148, 163, 184, 0.5));
+  background: var(--surface, #fff);
+  color: var(--muted, #6b7280);
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.rm-status-step--current .rm-status-step__dot {
+  border-color: var(--rm-accent, #4338ca);
+  color: var(--rm-accent, #4338ca);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rm-accent, #4338ca) 18%, transparent);
+}
+
+.rm-status-step--done .rm-status-step__dot {
+  border-color: var(--rm-accent, #4338ca);
+  background: var(--rm-accent, #4338ca);
+  color: #fff;
+}
+
+.rm-status-step__button:hover:not(:disabled) .rm-status-step__dot {
+  border-color: var(--rm-accent, #4338ca);
+}
+
+.rm-status-step__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--muted, #6b7280);
+}
+
+.rm-status-step--current .rm-status-step__label,
+.rm-status-step--done .rm-status-step__label {
+  color: var(--ink, #111);
+}
+
+.rm-status-stepper__reject,
+.rm-status-rejected__undo {
+  flex: none;
+  background: none;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.76rem;
+  color: var(--ink, #444);
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.12s ease, border-color 0.12s ease;
+}
+
+.rm-status-stepper__reject:hover,
+.rm-status-rejected__undo:hover {
+  opacity: 1;
+  border-color: var(--rm-accent, #4338ca);
+}
+
+.rm-status-stepper__reject:disabled,
+.rm-status-rejected__undo:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rm-status-rejected {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .rm-history-footer {
   margin-top: 0.85rem;
   padding-top: 0.75rem;
