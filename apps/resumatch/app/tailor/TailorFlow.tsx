@@ -74,7 +74,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
-  const [mode, setMode] = useState<"url" | "paste">("url");
+  const [emailText, setEmailText] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [mode, setMode] = useState<"url" | "paste" | "email">("url");
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   const fetchJob = useCallback(async () => {
@@ -132,6 +134,32 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       setState({ kind: "error", message: "Could not reach the server." });
     }
   }, [pastedText]);
+
+  const pasteEmail = useCallback(async () => {
+    if (emailText.trim().length < MIN_PASTE_CHARS) return;
+    setState({ kind: "fetching" });
+    try {
+      const res = await fetch("/api/tailor/paste-email", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: emailText, subject: emailSubject.trim() || undefined }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setState({ kind: "error", message: body.error ?? "Could not use that email." });
+        return;
+      }
+      setState({
+        kind: "fetched",
+        targetJobId: body.id,
+        title: body.title,
+        employer: body.employer,
+        snippet: body.snippet,
+      });
+    } catch {
+      setState({ kind: "error", message: "Could not reach the server." });
+    }
+  }, [emailText, emailSubject]);
 
   const startReview = useCallback(
     async (targetJobId: string) => {
@@ -272,6 +300,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         <Button variant={mode === "paste" ? undefined : "ghost"} size="sm" onClick={() => setMode("paste")} disabled={busy}>
           Paste the description instead
         </Button>
+        <Button variant={mode === "email" ? undefined : "ghost"} size="sm" onClick={() => setMode("email")} disabled={busy}>
+          Paste a recruiter's email
+        </Button>
       </div>
 
       {mode === "url" ? (
@@ -288,7 +319,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             {state.kind === "fetching" ? "Fetching…" : "Fetch job"}
           </Button>
         </div>
-      ) : (
+      ) : mode === "paste" ? (
         <div style={{ marginTop: "0.75rem" }}>
           <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
             For postings ResuMatch can't fetch — behind a login wall, expired, or a page that
@@ -305,6 +336,34 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           <div style={{ marginTop: "0.5rem" }}>
             <Button onClick={pasteJob} disabled={pastedText.trim().length < MIN_PASTE_CHARS || busy}>
               {state.kind === "fetching" ? "Reading…" : "Use this text"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginTop: "0.75rem" }}>
+          <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+            Got a recruiter's invitation by email? Paste the whole thing — greeting, signature,
+            quoted thread and all. ResuMatch strips the noise and keeps the role description.
+          </p>
+          <Input
+            type="text"
+            placeholder="Subject line (optional, helps guess the job title)"
+            value={emailSubject}
+            onChange={(e) => setEmailSubject(e.target.value)}
+            disabled={busy}
+            style={{ marginBottom: "0.5rem" }}
+          />
+          <textarea
+            rows={8}
+            placeholder="Paste the full email here…"
+            value={emailText}
+            onChange={(e) => setEmailText(e.target.value)}
+            disabled={busy}
+            style={{ width: "100%" }}
+          />
+          <div style={{ marginTop: "0.5rem" }}>
+            <Button onClick={pasteEmail} disabled={emailText.trim().length < MIN_PASTE_CHARS || busy}>
+              {state.kind === "fetching" ? "Reading…" : "Use this email"}
             </Button>
           </div>
         </div>
