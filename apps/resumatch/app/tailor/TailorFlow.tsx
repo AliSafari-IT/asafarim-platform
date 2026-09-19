@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Card, Input } from "@asafarim/ui";
+import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
 
 const MIN_PASTE_CHARS = 120;
 
@@ -74,7 +75,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
-  const [mode, setMode] = useState<"url" | "paste">("url");
+  const [mode, setMode] = useState<"url" | "paste" | "manual">("url");
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   const fetchJob = useCallback(async () => {
@@ -132,6 +133,47 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       setState({ kind: "error", message: "Could not reach the server." });
     }
   }, [pastedText]);
+
+  const submitManualJob = useCallback(async (values: ManualJobFormValues) => {
+    setState({ kind: "fetching" });
+    try {
+      const res = await fetch("/api/tailor/manual-job", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: values.title,
+          employer: values.employer,
+          location: values.location || undefined,
+          workMode: values.workMode || undefined,
+          employmentType: values.employmentType || undefined,
+          salaryMin: values.salaryMin ? Number(values.salaryMin) : undefined,
+          salaryMax: values.salaryMax ? Number(values.salaryMax) : undefined,
+          salaryCurrency: values.salaryCurrency || undefined,
+          applicationDeadline: values.applicationDeadline || undefined,
+          responsibilities: values.responsibilities || undefined,
+          requirements: values.requirements || undefined,
+          preferredQualifications: values.preferredQualifications || undefined,
+          benefits: values.benefits || undefined,
+          contactName: values.contactName || undefined,
+          source: values.source || undefined,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setState({ kind: "error", message: body.error ?? "Could not save those details." });
+        return;
+      }
+      setState({
+        kind: "fetched",
+        targetJobId: body.id,
+        title: body.title,
+        employer: body.employer,
+        snippet: body.snippet,
+      });
+    } catch {
+      setState({ kind: "error", message: "Could not reach the server." });
+    }
+  }, []);
 
   const startReview = useCallback(
     async (targetJobId: string) => {
@@ -272,6 +314,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         <Button variant={mode === "paste" ? undefined : "ghost"} size="sm" onClick={() => setMode("paste")} disabled={busy}>
           Paste the description instead
         </Button>
+        <Button variant={mode === "manual" ? undefined : "ghost"} size="sm" onClick={() => setMode("manual")} disabled={busy}>
+          Type in the details myself
+        </Button>
       </div>
 
       {mode === "url" ? (
@@ -288,7 +333,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             {state.kind === "fetching" ? "Fetching…" : "Fetch job"}
           </Button>
         </div>
-      ) : (
+      ) : mode === "paste" ? (
         <div style={{ marginTop: "0.75rem" }}>
           <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
             For postings ResuMatch can't fetch — behind a login wall, expired, or a page that
@@ -308,6 +353,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             </Button>
           </div>
         </div>
+      ) : (
+        <ManualJobForm busy={busy} onSubmit={submitManualJob} />
       )}
 
       {state.kind === "fetch_failed" ? (
