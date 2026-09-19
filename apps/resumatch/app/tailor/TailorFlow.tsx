@@ -4,6 +4,8 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Card, Input } from "@asafarim/ui";
 
+const MIN_PASTE_CHARS = 120;
+
 /**
  * The tailoring flow: paste a URL, confirm what was found, generate.
  *
@@ -40,6 +42,8 @@ const FETCH_FAILURE_MESSAGES: Record<string, string> = {
 export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
+  const [pastedText, setPastedText] = useState("");
+  const [mode, setMode] = useState<"url" | "paste">("url");
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   const fetchJob = useCallback(async () => {
@@ -71,6 +75,32 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       setState({ kind: "error", message: "Could not reach the server." });
     }
   }, [url]);
+
+  const pasteJob = useCallback(async () => {
+    if (pastedText.trim().length < MIN_PASTE_CHARS) return;
+    setState({ kind: "fetching" });
+    try {
+      const res = await fetch("/api/tailor/paste-job", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: pastedText }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setState({ kind: "error", message: body.error ?? "Could not use that text." });
+        return;
+      }
+      setState({
+        kind: "fetched",
+        targetJobId: body.id,
+        title: body.title,
+        employer: body.employer,
+        snippet: body.snippet,
+      });
+    } catch {
+      setState({ kind: "error", message: "Could not reach the server." });
+    }
+  }, [pastedText]);
 
   const generate = useCallback(
     async (targetJobId: string) => {
@@ -107,18 +137,49 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       </p>
 
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-        <Input
-          type="url"
-          placeholder="https://company.example/careers/senior-engineer"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          disabled={busy}
-          style={{ flex: 1 }}
-        />
-        <Button onClick={fetchJob} disabled={!url.trim() || busy}>
-          {state.kind === "fetching" ? "Fetching…" : "Fetch job"}
+        <Button variant={mode === "url" ? undefined : "ghost"} size="sm" onClick={() => setMode("url")} disabled={busy}>
+          Paste a URL
+        </Button>
+        <Button variant={mode === "paste" ? undefined : "ghost"} size="sm" onClick={() => setMode("paste")} disabled={busy}>
+          Paste the description instead
         </Button>
       </div>
+
+      {mode === "url" ? (
+        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+          <Input
+            type="url"
+            placeholder="https://company.example/careers/senior-engineer"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            disabled={busy}
+            style={{ flex: 1 }}
+          />
+          <Button onClick={fetchJob} disabled={!url.trim() || busy}>
+            {state.kind === "fetching" ? "Fetching…" : "Fetch job"}
+          </Button>
+        </div>
+      ) : (
+        <div style={{ marginTop: "0.75rem" }}>
+          <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+            For postings ResuMatch can't fetch — behind a login wall, expired, or a page that
+            redirects — paste the job description text directly instead.
+          </p>
+          <textarea
+            rows={8}
+            placeholder="Paste the full job description here…"
+            value={pastedText}
+            onChange={(e) => setPastedText(e.target.value)}
+            disabled={busy}
+            style={{ width: "100%" }}
+          />
+          <div style={{ marginTop: "0.5rem" }}>
+            <Button onClick={pasteJob} disabled={pastedText.trim().length < MIN_PASTE_CHARS || busy}>
+              {state.kind === "fetching" ? "Reading…" : "Use this text"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {state.kind === "fetch_failed" ? (
         <div style={{ marginTop: "1rem" }}>
