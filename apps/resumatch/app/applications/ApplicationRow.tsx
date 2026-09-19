@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@asafarim/ui";
 import type { listApplications } from "../../lib/applications/service";
-import { APPLICATION_STATUSES } from "../../lib/applications/service";
+import { APPLICATION_STATUSES } from "../../lib/applications/constants";
 
 type ApplicationWithRelations = Awaited<ReturnType<typeof listApplications>>[number];
 

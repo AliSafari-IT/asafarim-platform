@@ -1,6 +1,7 @@
 import "server-only";
 import { getJobmatchDb } from "../db/client";
 import { recordAuditEvent } from "../workspace";
+import type { ApplicationStatusName } from "./constants";
 
 /**
  * Per-application tracking (issue #432). Every row is either user-supplied
@@ -15,9 +16,6 @@ import { recordAuditEvent } from "../workspace";
  * can only ever reference a row that is *also* checked to belong to the
  * caller's own workspace before use.
  */
-
-export const APPLICATION_STATUSES = ["SAVED", "APPLIED", "INTERVIEWING", "OFFER", "REJECTED"] as const;
-export type ApplicationStatusName = (typeof APPLICATION_STATUSES)[number];
 
 export interface CreateApplicationInput {
   targetJobId: string;

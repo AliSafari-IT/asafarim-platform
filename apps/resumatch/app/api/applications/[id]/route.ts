@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { APPLICATION_STATUSES, ApplicationNotFoundError, updateApplication } from "../../../../lib/applications/service";
+import { ApplicationNotFoundError, updateApplication } from "../../../../lib/applications/service";
+import { APPLICATION_STATUSES } from "../../../../lib/applications/constants";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
