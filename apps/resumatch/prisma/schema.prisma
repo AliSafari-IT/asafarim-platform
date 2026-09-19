@@ -311,6 +311,16 @@ model TargetJob {
   title    String?
   employer String?
 
+  /// Structured fields from the manual job-details entry form (issue #461,
+  /// part of #458) — location, work mode, employment type, salary range,
+  /// deadline, responsibilities/requirements/preferred/benefits, contact,
+  /// source. Null for every other intake path (fetched URL, pasted text,
+  /// pasted email, uploaded file), which only ever produce `rawText`. Kept
+  /// as JSON rather than individual columns since it is candidate-typed,
+  /// optional-almost-everywhere data with no source to validate it against
+  /// — see lib/tailoring/manualJob.ts for the shape.
+  structuredFields Json?
+
   status TargetJobStatus
 
   fetchedAt DateTime  @default(now())

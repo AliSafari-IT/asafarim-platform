@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Card, Input } from "@asafarim/ui";
+import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
 
 const MIN_PASTE_CHARS = 120;
 
