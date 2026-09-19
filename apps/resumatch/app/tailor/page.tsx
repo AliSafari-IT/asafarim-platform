@@ -64,20 +64,23 @@ export default async function TailorPage() {
       {history.length > 0 ? (
         <section style={{ marginTop: "2rem" }}>
           <Card title="Previously tailored">
-            <ul className="jm-list">
+            <ul className="rm-history-list">
               {history.map((resume) => (
-                <li key={resume.id}>
-                  <Link href={`/tailor/${resume.id}/preview`}>
+                <li key={resume.id} className="rm-history-item">
+                  <Link href={`/tailor/${resume.id}/preview`} className="rm-history-item__link">
                     {resume.targetJob.title ?? "Tailored CV"}
                     {resume.targetJob.employer ? ` · ${resume.targetJob.employer}` : ""}
-                  </Link>{" "}
-                  <span className="jm-mono" style={{ opacity: 0.6, fontSize: "0.75rem" }}>
-                    {resume.createdAt.toISOString().slice(0, 10)}
-                    {resume.degraded ? " · degraded" : ""}
+                  </Link>
+                  <span className="rm-history-item__meta">
+                    <span className="jm-mono">{resume.createdAt.toISOString().slice(0, 10)}</span>
+                    {resume.degraded ? <span className="rm-badge rm-badge--warning">Degraded</span> : null}
                   </span>
                 </li>
               ))}
             </ul>
+            <div className="rm-history-footer">
+              <Link href="/tailor/history">View full history & compare versions →</Link>
+            </div>
           </Card>
         </section>
       ) : null}
