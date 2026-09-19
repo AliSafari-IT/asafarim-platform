@@ -869,6 +869,26 @@ function extractExperience(sections: Record<string, string[]>): CandidateProfile
       if (split) {
         title = split[1].trim();
         employer = split[2].trim();
+      } else {
+        // No "Title at Employer" separator on this line at all — this is
+        // the OTHER common CV layout: "Employer (details)   <dates>" on one
+        // line, with the actual job title on the line right after (e.g.
+        // "Unlimit-IT (XiTechniX in GEEL)   Dec 2020-Dec 2023" followed by
+        // "ICT Developer"). Treating `remainder` as the title in that case
+        // silently swaps title and employer. A plausible next-line title is
+        // short, not itself a date range, and not a bullet — real bullets
+        // always start with a marker character, a job title line never
+        // does.
+        const next = lines[index + 1]?.trim() ?? "";
+        const looksLikeTitle =
+          next.length >= 2 &&
+          next.length <= 100 &&
+          !DATE_RANGE.test(next) &&
+          !/^[•\-*–—▪●○◦]/.test(next);
+        if (looksLikeTitle) {
+          employer = remainder.split(/\s*[|–—]\s*/)[0]?.trim() ?? null;
+          title = next;
+        }
       }
     }
 

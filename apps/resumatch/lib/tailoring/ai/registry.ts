@@ -16,11 +16,13 @@ export const TAILOR_PROMPT_VERSION = "tailor_resume@2";
 /** Per-provider model version, named the same way the old registry's
  *  `EVALUATION_MODEL_VERSIONS` was: a stable string a TailoredResume can
  *  carry as provenance. `fixture` is the only one ever exercised in
- *  CI/tests. */
+ *  CI/tests. `openai`/`anthropic` prefer OPENAI_MODEL/ANTHROPIC_MODEL when
+ *  set, so an operator can point this at a different model without a code
+ *  change, falling back to a known-good default otherwise. */
 export const TAILOR_MODEL_VERSIONS: Record<ResuMatchAiProvider, string> = {
   fixture: "fixture-tailor-1",
-  openai: "openai-tailor-unconfigured",
-  anthropic: "anthropic-tailor-unconfigured",
+  openai: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  anthropic: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest",
 };
 
 export function tailorModelVersionFor(provider: ResuMatchAiProvider): string {

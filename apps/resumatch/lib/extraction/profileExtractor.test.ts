@@ -523,6 +523,27 @@ describe("review regressions — reading-order reconstruction fallout", () => {
     expect(roles[1].endedOn).toBe("2020-11");
   });
 
+  it("reads employer+dates on one line followed by the job title on the next", () => {
+    // Real CV layout that used to swap title and employer: the employer
+    // (with a location aside) and the date range share a line, and the
+    // actual job title is the line immediately after it — the opposite
+    // order from "Engineer at Example  2019 - 2024".
+    const cv = [
+      "Someone Example",
+      "someone@example.test",
+      "EXPERIENCE",
+      "Unlimit-IT (XiTechniX in GEEL)              Dec 2020-Dec 2023",
+      "ICT Developer",
+      "Full-Stack Development: Built web applications with ASP.NET Core and React.",
+    ].join("\n");
+    const roles = extractProfileFromText(cv).content.experience;
+    expect(roles).toHaveLength(1);
+    expect(roles[0].title).toBe("ICT Developer");
+    expect(roles[0].employer).toBe("Unlimit-IT (XiTechniX in GEEL)");
+    expect(roles[0].startedOn).toBe("2020-12");
+    expect(roles[0].endedOn).toBe("2023-12");
+  });
+
   it("still reads a numeric date range and an open-ended one", () => {
     const cv = [
       "Someone Example",
