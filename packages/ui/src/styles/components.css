@@ -42,6 +42,22 @@
   justify-content: flex-start;
 }
 
+/* TopNav's own <nav> wrapper — no className previously, so it had no
+   width/min-width constraint of its own. A flex item's default min-width
+   is its content's min-content size, not 0: with enough nav items, this
+   element grew past `.ui-shell__nav`'s allocated width instead of
+   shrinking to it, and — since a plain <nav> has no overflow clipping —
+   the overflow rendered as visibly overlapping the header's actions
+   (theme toggle, app switcher, user menu) rather than being clipped by
+   `.ui-topnav`'s own `overflow: hidden` one level down. min-width: 0 here
+   restores the normal flex-shrink chain so that clipping actually applies
+   at the width `.ui-shell__nav` allocated. */
+.ui-shell__topnav {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
 .ui-shell__actions {
   display: flex;
   align-items: center;
@@ -214,7 +230,14 @@
   display: none;
 }
 
-@media (max-width: 900px) {
+/* 900px used to be this breakpoint, but an app with a full brand + 5+ nav
+   items + the full actions cluster (theme toggle, app switcher, user
+   menu with name) needs more like ~960px of header width before the
+   inline nav actually fits — between 900 and 960 it was silently
+   clipping nav items (`.ui-topnav`'s `overflow: hidden`) with no visual
+   indication anything was missing, which is worse than falling back to
+   the already-built "Menu ▾" dropdown a little earlier. */
+@media (max-width: 960px) {
   .ui-topnav {
     display: none;
   }
@@ -422,7 +445,7 @@
   margin-top: var(--space-2);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .ui-usermenu__label {
     display: none;
   }
@@ -1672,7 +1695,7 @@ a .ui-card {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .ui-shell__header {
     padding: var(--space-3) var(--space-4);
     gap: var(--space-3);

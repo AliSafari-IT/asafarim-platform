@@ -19,7 +19,7 @@ export function TopNav({ items }: TopNavProps) {
   if (items.length === 0) return null;
 
   return (
-    <nav aria-label="Primary">
+    <nav aria-label="Primary" className="ui-shell__topnav">
       <ul className="ui-topnav">
         {items.map((item) => (
           <li key={item.href + item.label}>
