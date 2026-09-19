@@ -523,6 +523,35 @@ describe("review regressions — reading-order reconstruction fallout", () => {
     expect(roles[1].endedOn).toBe("2020-11");
   });
 
+  it("pairs an institution line with the qualification line above it instead of making a second entry", () => {
+    // Real CV layout: "Qualification  <year>" then the institution's name
+    // on its own line with no year — institution names routinely contain
+    // words like "University"/"Campus" that also match
+    // QUALIFICATION_MARKERS, so without pairing them the institution line
+    // became its own bogus qualification entry with institution left null.
+    const cv = [
+      "Someone Example",
+      "someone@example.test",
+      "EDUCATION",
+      "Informatics - Programming 2018",
+      "Thomas More Campus De Nayer, Sint-Katelijne-Waver",
+      "PhD in Engineering - Hydrology 2005",
+      "Vrije Universiteit Brussel (VUB)",
+    ].join("\n");
+    const education = extractProfileFromText(cv).content.education;
+    expect(education).toHaveLength(2);
+    expect(education[0]).toMatchObject({
+      qualification: "Informatics - Programming",
+      institution: "Thomas More Campus De Nayer, Sint-Katelijne-Waver",
+      completedOn: "2018",
+    });
+    expect(education[1]).toMatchObject({
+      qualification: "PhD in Engineering - Hydrology",
+      institution: "Vrije Universiteit Brussel (VUB)",
+      completedOn: "2005",
+    });
+  });
+
   it("reads employer+dates on one line followed by the job title on the next", () => {
     // Real CV layout that used to swap title and employer: the employer
     // (with a location aside) and the date range share a line, and the
