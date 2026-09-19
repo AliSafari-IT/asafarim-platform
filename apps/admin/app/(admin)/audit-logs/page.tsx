@@ -186,6 +186,11 @@ export default async function AuditLogsPage({
         description="Immutable administrative and security events, newest first. Sensitive values are redacted at write time; entries cannot be edited or deleted here."
       />
 
+      <p style={{ margin: "0 0 var(--space-4)" }}>
+        Looking for candidate activity instead?{" "}
+        <a href="/audit-logs/resumatch">ResuMatch audit events →</a>
+      </p>
+
       {data === null ? (
         <EmptyState
           glyph="[db]"
