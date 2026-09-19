@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { ClassicTemplate } from "../../../../components/tailoring/templates/Classic";
@@ -16,8 +17,15 @@ import { SaveApplicationButton } from "./SaveApplicationButton";
 export const metadata: Metadata = { title: "Preview" };
 export const dynamic = "force-dynamic";
 
-export default async function TailoredResumePreviewPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TailoredResumePreviewPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ coverLetterId?: string }>;
+}) {
   const { id } = await params;
+  const { coverLetterId } = await searchParams;
   const workspace = await getCurrentWorkspace();
   if (!workspace) notFound();
 
@@ -61,6 +69,11 @@ export default async function TailoredResumePreviewPage({ params }: { params: Pr
         <PrintButton />
         <DocxButton id={id} />
         <SaveApplicationButton targetJobId={row.targetJobId} tailoredResumeId={id} />
+        {coverLetterId ? (
+          <Link href={`/cover-letter/${coverLetterId}/preview`} className="ui-btn ui-btn--ghost ui-btn--sm">
+            View cover letter
+          </Link>
+        ) : null}
       </div>
 
       {coverage ? <CoverageReport coverage={coverage} /> : null}

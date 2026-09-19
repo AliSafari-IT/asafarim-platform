@@ -49,6 +49,7 @@ model Workspace {
   targetJobs      TargetJob[]
   tailoredResumes TailoredResume[]
   applications    Application[]
+  coverLetters    CoverLetter[]
 
   @@map("workspaces")
 }
@@ -269,6 +270,7 @@ model CandidateProfileVersion {
   confirmedFor CandidateProfile? @relation("ConfirmedVersion")
 
   tailoredResumes TailoredResume[]
+  coverLetters    CoverLetter[]
 
   @@unique([profileId, versionNumber])
   @@index([profileId, createdAt])
@@ -329,6 +331,7 @@ model TargetJob {
 
   tailoredResumes TailoredResume[]
   applications    Application[]
+  coverLetters    CoverLetter[]
 
   @@index([workspaceId, createdAt])
   @@map("target_jobs")
@@ -380,6 +383,41 @@ model TailoredResume {
   @@index([workspaceId, createdAt])
   @@index([targetJobId])
   @@map("tailored_resumes")
+}
+
+/// One AI-drafted cover letter, reviewed and confirmed the same way a
+/// TailoredResume is (issue #454, part of #453's cover-letter tracking
+/// issue) — a sibling row, not a field on TailoredResume, since declining
+/// the letter is a valid independent outcome: the CV still saves even when
+/// the candidate rejects the whole letter draft.
+model CoverLetter {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  profileVersionId String
+  profileVersion   CandidateProfileVersion @relation(fields: [profileVersionId], references: [id], onDelete: Restrict)
+
+  targetJobId String
+  targetJob   TargetJob @relation(fields: [targetJobId], references: [id], onDelete: Cascade)
+
+  /// Schema-validated content (lib/tailoring/ai/coverLetter/schema.ts).
+  /// fullName is carried over from the source profile in code, never taken
+  /// from provider output — see that schema's own doc comment.
+  content Json
+
+  promptVersion String
+  modelVersion  String
+  /// True when this was produced by the degraded fallback (no provider /
+  /// retries exhausted / budget out) rather than a real model call.
+  degraded      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([targetJobId])
+  @@map("cover_letters")
 }
 
 // ─── Per-application tracking (issue #432) ────────────────────────────────
