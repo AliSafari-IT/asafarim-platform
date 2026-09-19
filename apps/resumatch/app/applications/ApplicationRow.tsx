@@ -4,17 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@asafarim/ui";
 import type { listApplications } from "../../lib/applications/service";
-import { APPLICATION_STATUSES } from "../../lib/applications/constants";
+import type { ApplicationStatusName } from "../../lib/applications/constants";
+import { ApplicationStatusStepper } from "./ApplicationStatusStepper";
 
 type ApplicationWithRelations = Awaited<ReturnType<typeof listApplications>>[number];
-
-const STATUS_LABELS: Record<string, string> = {
-  SAVED: "Saved",
-  APPLIED: "Applied",
-  INTERVIEWING: "Interviewing",
-  OFFER: "Offer",
-  REJECTED: "Rejected",
-};
 
 /** One row: status dropdown and notes, both PATCHing
  *  /api/applications/[id] on change/blur. Server data stays the source of
@@ -43,28 +36,19 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
     <Card title={application.targetJob.title ?? application.targetJob.employer ?? "Untitled job"}>
       {application.targetJob.employer ? <p style={{ opacity: 0.75 }}>{application.targetJob.employer}</p> : null}
 
-      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap", marginTop: "0.5rem" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem" }}>
-          <span>Status</span>
-          <select
-            value={application.status}
-            disabled={saving}
-            onChange={(e) => patch({ status: e.target.value })}
-          >
-            {APPLICATION_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS[status]}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {application.tailoredResume ? (
-          <a href={`/tailor/${application.tailoredResume.id}/preview`} style={{ fontSize: "0.85rem" }}>
-            View tailored resume
-          </a>
-        ) : null}
+      <div style={{ marginTop: "0.6rem" }}>
+        <ApplicationStatusStepper
+          status={application.status as ApplicationStatusName}
+          disabled={saving}
+          onChange={(status) => patch({ status })}
+        />
       </div>
+
+      {application.tailoredResume ? (
+        <a href={`/tailor/${application.tailoredResume.id}/preview`} style={{ fontSize: "0.85rem" }}>
+          View tailored resume
+        </a>
+      ) : null}
 
       <label className="jm-field" style={{ marginTop: "0.5rem" }}>
         <span>Notes</span>
