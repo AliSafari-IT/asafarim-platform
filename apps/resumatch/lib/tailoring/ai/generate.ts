@@ -1,14 +1,94 @@
 import { getJobmatchDb } from "../../db/client";
 import { getEnv } from "../../env";
 import { logError } from "../../observability/logger";
+import type { CandidateProfileContent } from "../../profile/contract";
 import { getVersion } from "../../profile/versions";
 import { buildProfileText } from "../buildProfileText";
-import { runOrDegrade } from "./degraded";
 import { renderTailorPrompt } from "./prompts";
 import { assertCanRunProviderCall, recordUsage } from "./quota";
 import { getTailorProvider, TAILOR_MODEL_VERSIONS } from "./registry";
-import { mergeTailoringSuggestions, type TailoredResumeContent } from "./schema";
+import { mergeTailoringSuggestions, type TailoredResumeContent, type TailorSuggestions } from "./schema";
 import { TailorProviderError } from "./provider";
+
+const MAX_ATTEMPTS = 3;
+
+export interface TailorProviderCallResult {
+  /** null when the call degraded — nothing to review, the profile carries
+   *  over unchanged. */
+  suggestions: TailorSuggestions | null;
+  degraded: boolean;
+  promptVersion: string;
+  modelVersion: string;
+  providerName: "fixture" | "openai" | "anthropic";
+}
+
+/**
+ * The provider-call step, factored out of generateTailoredResume so
+ * lib/tailoring/ai/proposal.ts's preview/confirm split (issue #429) can
+ * reuse the exact same budget/retry/degrade behavior instead of a second,
+ * drifting copy of it. Returns the raw (already schema-validated)
+ * suggestions rather than merged content — merging into persisted content
+ * is `mergeTailoringSuggestions`'s job alone, called separately by each
+ * caller once it knows what the candidate actually approved.
+ */
+export async function runTailorProviderCall(
+  workspaceId: string,
+  targetJobId: string,
+  profile: CandidateProfileContent,
+  jobText: string,
+  providerOverride?: "fixture" | "openai" | "anthropic",
+): Promise<TailorProviderCallResult> {
+  const providerName = providerOverride ?? getEnv().aiProvider;
+  const modelVersion = TAILOR_MODEL_VERSIONS[providerName];
+  const { text: profileText } = buildProfileText(profile);
+  const prompt = renderTailorPrompt(profileText, jobText);
+
+  let suggestions: TailorSuggestions | null = null;
+  let degraded = false;
+
+  try {
+    await assertCanRunProviderCall(workspaceId, "tailor");
+    const provider = await getTailorProvider(providerName);
+
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const output = await provider.generate({
+          profileText,
+          jobText: prompt.jobTextUsed,
+          system: prompt.system,
+          user: prompt.user,
+          promptVersion: prompt.version,
+          model: modelVersion,
+          profileSkillNames: profile.skills.map((s) => s.name),
+          experienceSummaries: profile.experience.map((e) => e.summary),
+        });
+        await recordUsage({
+          workspaceId,
+          kind: "tailor",
+          provider: providerName,
+          model: modelVersion,
+          promptVersion: prompt.version,
+          inputTokens: output.inputTokens,
+          outputTokens: output.outputTokens,
+          costUsd: output.costUsd,
+        });
+        suggestions = output.suggestions;
+        break;
+      } catch (err) {
+        const retryable = err instanceof TailorProviderError ? err.retryable : true;
+        logError("tailoring.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
+        if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+      }
+    }
+  } catch (error) {
+    logError("tailoring.generate.degraded", error, { workspaceId, targetJobId, provider: providerName });
+    degraded = true;
+    suggestions = null;
+  }
+
+  return { suggestions, degraded, promptVersion: prompt.version, modelVersion, providerName };
+}
 
 /**
  * The tailoring generation pipeline. Mirrors the old matching product's
@@ -44,7 +124,6 @@ export interface GeneratedTailoredResume {
   degraded: boolean;
 }
 
-const MAX_ATTEMPTS = 3;
 const DEFAULT_TEMPLATE_KEY = "classic";
 
 export async function generateTailoredResume(
@@ -54,9 +133,6 @@ export async function generateTailoredResume(
   opts: GenerateTailoredResumeOptions = {},
 ): Promise<GeneratedTailoredResume> {
   const db = getJobmatchDb();
-  const { aiProvider } = getEnv();
-  const providerName = opts.provider ?? aiProvider;
-  const modelVersion = TAILOR_MODEL_VERSIONS[providerName];
   const templateKey = opts.templateKey ?? DEFAULT_TEMPLATE_KEY;
 
   const version = await getVersion(workspaceId, profileVersionId);
@@ -73,46 +149,14 @@ export async function generateTailoredResume(
   }
 
   const profile = version.content;
-  const { text: profileText } = buildProfileText(profile);
-  const jobText = targetJob.rawText;
-  const prompt = renderTailorPrompt(profileText, jobText);
-
-  const { content, degraded } = await runOrDegrade(profile, async () => {
-    await assertCanRunProviderCall(workspaceId, "tailor");
-
-    const provider = await getTailorProvider(providerName);
-
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const output = await provider.generate({
-          profileText,
-          jobText: prompt.jobTextUsed,
-          system: prompt.system,
-          user: prompt.user,
-          promptVersion: prompt.version,
-          model: modelVersion,
-          profileSkillNames: profile.skills.map((s) => s.name),
-          experienceSummaries: profile.experience.map((e) => e.summary),
-        });
-        await recordUsage({
-          workspaceId,
-          kind: "tailor",
-          provider: providerName,
-          model: modelVersion,
-          promptVersion: prompt.version,
-          inputTokens: output.inputTokens,
-          outputTokens: output.outputTokens,
-          costUsd: output.costUsd,
-        });
-        return mergeTailoringSuggestions(profile, output.suggestions);
-      } catch (err) {
-        const retryable = err instanceof TailorProviderError ? err.retryable : true;
-        logError("tailoring.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
-        if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
-        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-      }
-    }
-  });
+  const { suggestions, degraded, promptVersion, modelVersion } = await runTailorProviderCall(
+    workspaceId,
+    targetJobId,
+    profile,
+    targetJob.rawText,
+    opts.provider,
+  );
+  const content = mergeTailoringSuggestions(profile, suggestions);
 
   const row = await db.tailoredResume.create({
     data: {
@@ -121,7 +165,7 @@ export async function generateTailoredResume(
       targetJobId,
       content,
       templateKey,
-      promptVersion: prompt.version,
+      promptVersion,
       modelVersion,
       degraded,
     },

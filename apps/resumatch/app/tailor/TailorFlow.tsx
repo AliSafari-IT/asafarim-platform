@@ -7,12 +7,17 @@ import { Alert, Button, Card, Input } from "@asafarim/ui";
 const MIN_PASTE_CHARS = 120;
 
 /**
- * The tailoring flow: paste a URL, confirm what was found, generate.
+ * The tailoring flow: paste a URL (or text), review the AI's suggestions,
+ * confirm what gets saved.
  *
- * Mirrors `UploadPanel.tsx`'s "nothing happens without confirmation"
- * posture — fetching a job costs nothing, but generating a tailored CV
- * spends an AI call, so the candidate sees the extracted title/employer/
- * snippet and presses a second, distinct button before that happens.
+ * Proposal-review, not one-shot (issue #429): `generate-preview` runs the
+ * provider call and returns suggestions for review only — nothing is
+ * persisted until the candidate explicitly accepts, edits, or declines
+ * each piece and presses Confirm, which calls `generate-confirm`. Fetching
+ * a job still costs nothing; the AI tailoring call itself now has its own
+ * explicit review step before anything is written, the same "nothing is
+ * used until you confirm it" posture as the rest of this app, extended one
+ * step further than a single up-front button press.
  */
 export interface TailorFlowProps {
   /** The workspace's currently confirmed profile version — tailoring
@@ -21,12 +26,38 @@ export interface TailorFlowProps {
   confirmedVersionId: string;
 }
 
+interface ReviewExperienceItem {
+  title: string;
+  employer: string | null;
+  startedOn: string | null;
+  endedOn: string | null;
+  isCurrent: boolean;
+  originalSummary: string | null;
+  suggestedBullets: string[];
+  accepted: boolean[];
+}
+
+interface ReviewState {
+  targetJobId: string;
+  promptVersion: string;
+  modelVersion: string;
+  degraded: boolean;
+  headline: string;
+  summary: string;
+  originalSkillsOrder: string[];
+  suggestedSkillsOrder: string[];
+  keepOriginalSkillOrder: boolean;
+  experience: ReviewExperienceItem[];
+}
+
 type FetchState =
   | { kind: "idle" }
   | { kind: "fetching" }
   | { kind: "fetched"; targetJobId: string; title: string | null; employer: string | null; snippet: string }
   | { kind: "fetch_failed"; reasonCode: string }
-  | { kind: "generating"; targetJobId: string }
+  | { kind: "loading_review"; targetJobId: string }
+  | { kind: "reviewing"; review: ReviewState }
+  | { kind: "confirming"; review: ReviewState }
   | { kind: "error"; message: string };
 
 const FETCH_FAILURE_MESSAGES: Record<string, string> = {
@@ -102,18 +133,118 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     }
   }, [pastedText]);
 
-  const generate = useCallback(
+  const startReview = useCallback(
     async (targetJobId: string) => {
-      setState({ kind: "generating", targetJobId });
+      setState({ kind: "loading_review", targetJobId });
       try {
-        const res = await fetch("/api/tailor/generate", {
+        const res = await fetch("/api/tailor/generate-preview", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ profileVersionId: confirmedVersionId, targetJobId }),
         });
         const body = await res.json();
         if (!res.ok) {
-          setState({ kind: "error", message: body.error ?? "Could not generate a tailored CV." });
+          setState({ kind: "error", message: body.error ?? "Could not tailor toward that job." });
+          return;
+        }
+
+        const suggestions = body.suggestions as
+          | { headline: string | null; summary: string | null; skillsOrder: string[]; experienceBullets: string[][] }
+          | null;
+        const profile = body.profile as {
+          headline: string | null;
+          summary: string | null;
+          skills: string[];
+          experience: {
+            title: string;
+            employer: string | null;
+            startedOn: string | null;
+            endedOn: string | null;
+            isCurrent: boolean;
+            summary: string | null;
+          }[];
+        };
+
+        const review: ReviewState = {
+          targetJobId,
+          promptVersion: body.promptVersion,
+          modelVersion: body.modelVersion,
+          degraded: body.degraded,
+          headline: suggestions?.headline ?? profile.headline ?? "",
+          summary: suggestions?.summary ?? profile.summary ?? "",
+          originalSkillsOrder: profile.skills,
+          suggestedSkillsOrder: suggestions?.skillsOrder?.length ? suggestions.skillsOrder : profile.skills,
+          keepOriginalSkillOrder: !suggestions?.skillsOrder?.length,
+          experience: profile.experience.map((entry, index) => {
+            const suggestedBullets = suggestions?.experienceBullets?.[index] ?? [];
+            return {
+              title: entry.title,
+              employer: entry.employer,
+              startedOn: entry.startedOn,
+              endedOn: entry.endedOn,
+              isCurrent: entry.isCurrent,
+              originalSummary: entry.summary,
+              suggestedBullets,
+              accepted: suggestedBullets.map(() => true),
+            };
+          }),
+        };
+
+        setState({ kind: "reviewing", review });
+      } catch {
+        setState({ kind: "error", message: "Could not reach the server." });
+      }
+    },
+    [confirmedVersionId],
+  );
+
+  const toggleBullet = useCallback((experienceIndex: number, bulletIndex: number) => {
+    setState((previous) => {
+      if (previous.kind !== "reviewing") return previous;
+      const experience = previous.review.experience.map((entry, i) => {
+        if (i !== experienceIndex) return entry;
+        const accepted = entry.accepted.map((value, j) => (j === bulletIndex ? !value : value));
+        return { ...entry, accepted };
+      });
+      return { kind: "reviewing", review: { ...previous.review, experience } };
+    });
+  }, []);
+
+  const updateReview = useCallback(<K extends keyof ReviewState>(key: K, value: ReviewState[K]) => {
+    setState((previous) => {
+      if (previous.kind !== "reviewing") return previous;
+      return { kind: "reviewing", review: { ...previous.review, [key]: value } };
+    });
+  }, []);
+
+  const confirm = useCallback(
+    async (review: ReviewState) => {
+      setState({ kind: "confirming", review });
+      try {
+        const res = await fetch("/api/tailor/generate-confirm", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            profileVersionId: confirmedVersionId,
+            targetJobId: review.targetJobId,
+            promptVersion: review.promptVersion,
+            modelVersion: review.modelVersion,
+            degraded: review.degraded,
+            approved: review.degraded
+              ? null
+              : {
+                  headline: review.headline.trim() || null,
+                  summary: review.summary.trim() || null,
+                  skillsOrder: review.keepOriginalSkillOrder ? [] : review.suggestedSkillsOrder,
+                  experienceBullets: review.experience.map((entry) =>
+                    entry.suggestedBullets.filter((_, i) => entry.accepted[i]),
+                  ),
+                },
+          }),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          setState({ kind: "error", message: body.error ?? "Could not save this tailored CV." });
           return;
         }
         router.push(`/tailor/${body.id}/preview`);
@@ -124,16 +255,14 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     [confirmedVersionId, router],
   );
 
-  const busy = state.kind === "fetching" || state.kind === "generating";
+  const busy = state.kind === "fetching" || state.kind === "loading_review" || state.kind === "confirming";
 
   return (
     <Card title="Tailor your CV to a job">
       <p style={{ opacity: 0.85 }}>
-        Paste the URL of a job posting you want to apply to. ResuMatch reads the page and shows
-        you what it found before you confirm anything. On pages that need a browser to render
-        (some job boards do), reading the page may itself use a small AI call so the real posting
-        is found instead of a blank shell — the AI rewrite of your CV is a second, separate step
-        you still confirm explicitly.
+        Paste the URL of a job posting you want to apply to. ResuMatch reads the page, shows you
+        what AI suggests changing, and only saves what you approve — reject or edit anything
+        before it's kept.
       </p>
 
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
@@ -193,16 +322,118 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         </div>
       ) : null}
 
-      {state.kind === "fetched" || state.kind === "generating" ? (
+      {state.kind === "fetched" ? (
         <div style={{ marginTop: "1rem" }}>
-          <Card title={state.kind === "fetched" ? state.title ?? "Job found" : "Job found"}>
-            {state.kind === "fetched" && state.employer ? <p style={{ opacity: 0.8 }}>{state.employer}</p> : null}
-            {state.kind === "fetched" ? (
-              <p style={{ opacity: 0.7, fontSize: "0.9rem" }}>{state.snippet}…</p>
-            ) : null}
-            <Button onClick={() => generate(state.targetJobId)} disabled={state.kind === "generating"}>
-              {state.kind === "generating" ? "Tailoring your CV…" : "Tailor my CV to this job"}
-            </Button>
+          <Card title={state.title ?? "Job found"}>
+            {state.employer ? <p style={{ opacity: 0.8 }}>{state.employer}</p> : null}
+            <p style={{ opacity: 0.7, fontSize: "0.9rem" }}>{state.snippet}…</p>
+            <Button onClick={() => startReview(state.targetJobId)}>Tailor my CV to this job</Button>
+          </Card>
+        </div>
+      ) : null}
+
+      {state.kind === "loading_review" ? (
+        <div style={{ marginTop: "1rem" }}>
+          <Alert tone="info">Asking AI to suggest changes for this job — this can take up to a minute…</Alert>
+        </div>
+      ) : null}
+
+      {state.kind === "reviewing" || state.kind === "confirming" ? (
+        <div style={{ marginTop: "1rem" }}>
+          <Card title="Review before saving">
+            {state.review.degraded ? (
+              <Alert tone="warning">
+                AI tailoring isn't available right now (budget or provider issue). You can still save
+                your confirmed profile as this tailored CV, unchanged.
+              </Alert>
+            ) : (
+              <>
+                <p style={{ opacity: 0.7, fontSize: "0.85rem" }}>
+                  Nothing here is saved yet. Edit any text, uncheck a bullet you don't want, and
+                  confirm when you're happy with it.
+                </p>
+
+                <label className="jm-field">
+                  <span>Headline</span>
+                  <input
+                    type="text"
+                    value={state.review.headline}
+                    onChange={(e) => updateReview("headline", e.target.value)}
+                    disabled={state.kind === "confirming"}
+                  />
+                </label>
+
+                <label className="jm-field">
+                  <span>Summary</span>
+                  <textarea
+                    rows={4}
+                    value={state.review.summary}
+                    onChange={(e) => updateReview("summary", e.target.value)}
+                    disabled={state.kind === "confirming"}
+                  />
+                </label>
+
+                {state.review.suggestedSkillsOrder.join() !== state.review.originalSkillsOrder.join() ? (
+                  <label className="jm-field" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <input
+                      type="checkbox"
+                      checked={!state.review.keepOriginalSkillOrder}
+                      onChange={(e) => updateReview("keepOriginalSkillOrder", !e.target.checked)}
+                      disabled={state.kind === "confirming"}
+                    />
+                    <span>
+                      Reorder my skills toward this job:{" "}
+                      <span className="jm-mono" style={{ fontSize: "0.8rem", opacity: 0.75 }}>
+                        {state.review.suggestedSkillsOrder.join(" · ")}
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
+
+                {state.review.experience.length > 0 ? (
+                  <div className="jm-field">
+                    <span>Experience bullets</span>
+                    {state.review.experience.map((entry, entryIndex) => (
+                      <div key={entryIndex} style={{ marginTop: "0.75rem" }}>
+                        <strong>
+                          {entry.title}
+                          {entry.employer ? ` · ${entry.employer}` : ""}
+                        </strong>
+                        {entry.suggestedBullets.length > 0 ? (
+                          <ul style={{ listStyle: "none", padding: 0, margin: "0.4rem 0 0" }}>
+                            {entry.suggestedBullets.map((bullet, bulletIndex) => (
+                              <li key={bulletIndex} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.3rem" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={entry.accepted[bulletIndex]}
+                                  onChange={() => toggleBullet(entryIndex, bulletIndex)}
+                                  disabled={state.kind === "confirming"}
+                                  style={{ marginTop: "0.2rem" }}
+                                />
+                                <span style={{ fontSize: "0.9rem" }}>{bullet}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p style={{ opacity: 0.6, fontSize: "0.85rem", fontStyle: "italic", margin: "0.3rem 0 0" }}>
+                            No AI suggestion for this role — kept as written.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+              <Button onClick={() => confirm(state.review)} disabled={state.kind === "confirming"}>
+                {state.kind === "confirming" ? "Saving…" : "Confirm & save"}
+              </Button>
+              <Button variant="ghost" onClick={() => setState({ kind: "idle" })} disabled={state.kind === "confirming"}>
+                Discard
+              </Button>
+            </div>
           </Card>
         </div>
       ) : null}
