@@ -48,6 +48,7 @@ model Workspace {
   profile         CandidateProfile?
   targetJobs      TargetJob[]
   tailoredResumes TailoredResume[]
+  applications    Application[]
 
   @@map("workspaces")
 }
@@ -327,6 +328,7 @@ model TargetJob {
   createdAt DateTime  @default(now())
 
   tailoredResumes TailoredResume[]
+  applications    Application[]
 
   @@index([workspaceId, createdAt])
   @@map("target_jobs")
@@ -373,9 +375,64 @@ model TailoredResume {
 
   createdAt DateTime @default(now())
 
+  applications Application[]
+
   @@index([workspaceId, createdAt])
   @@index([targetJobId])
   @@map("tailored_resumes")
+}
+
+// ─── Per-application tracking (issue #432) ────────────────────────────────
+//
+// The pivot removed the old tracked-jobs workflow (see M6 below) because it
+// was bound to aggregated job-board data. This is its lightweight
+// replacement: every row is user-supplied (a TargetJob the candidate
+// already created) or derived from a AI call the candidate already
+// approved (a TailoredResume) — no ingestion, no scraping, zero licensing
+// exposure.
+
+enum ApplicationStatus {
+  SAVED
+  APPLIED
+  INTERVIEWING
+  OFFER
+  REJECTED
+}
+
+/// One job application a candidate is tracking — a status, optional notes,
+/// and a link to whichever tailored resume (if any) was used for it.
+model Application {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  targetJobId String
+  targetJob   TargetJob @relation(fields: [targetJobId], references: [id], onDelete: Cascade)
+
+  /// Optional: not every application is tied to an AI-tailored resume —
+  /// the candidate may have applied with their base profile, or before
+  /// this feature existed. Set null (not cascaded) if the tailored resume
+  /// is ever removed, since the application record itself should outlive it.
+  tailoredResumeId String?
+  tailoredResume   TailoredResume? @relation(fields: [tailoredResumeId], references: [id], onDelete: SetNull)
+
+  status ApplicationStatus @default(SAVED)
+
+  /// Candidate's own freeform notes. Never AI-generated, never analyzed.
+  notes String? @db.Text
+
+  /// Optional reminder date the candidate set for themselves (e.g. "follow
+  /// up if no response by"). Purely informational — nothing sends a
+  /// notification from this field yet.
+  followUpDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, status])
+  @@map("applications")
 }
 
 // ─────────────────────────────────────────────────────────────────────────
