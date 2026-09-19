@@ -108,6 +108,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [mode, setMode] = useState<Mode>("url");
   const [includeCoverLetter, setIncludeCoverLetter] = useState(false);
+  const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">("formal");
+  const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">("standard");
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   const fetchJob = useCallback(async () => {
@@ -264,7 +266,13 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         const res = await fetch("/api/tailor/generate-preview", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ profileVersionId: confirmedVersionId, targetJobId, includeCoverLetter }),
+          body: JSON.stringify({
+            profileVersionId: confirmedVersionId,
+            targetJobId,
+            includeCoverLetter,
+            coverLetterTone: includeCoverLetter ? coverLetterTone : undefined,
+            coverLetterLength: includeCoverLetter ? coverLetterLength : undefined,
+          }),
         });
         const body = await res.json();
         if (!res.ok) {
@@ -339,7 +347,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         setState({ kind: "error", message: "Could not reach the server." });
       }
     },
-    [confirmedVersionId],
+    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength],
   );
 
   const toggleBullet = useCallback((experienceIndex: number, bulletIndex: number) => {
@@ -576,6 +584,26 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               />
               <span>Also draft a cover letter for this job</span>
             </label>
+            {includeCoverLetter ? (
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "0 0 0.75rem" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
+                  <span>Tone</span>
+                  <select value={coverLetterTone} onChange={(e) => setCoverLetterTone(e.target.value as typeof coverLetterTone)}>
+                    <option value="formal">Formal</option>
+                    <option value="warm">Warm</option>
+                    <option value="confident">Confident</option>
+                  </select>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
+                  <span>Length</span>
+                  <select value={coverLetterLength} onChange={(e) => setCoverLetterLength(e.target.value as typeof coverLetterLength)}>
+                    <option value="short">Short</option>
+                    <option value="standard">Standard</option>
+                    <option value="detailed">Detailed</option>
+                  </select>
+                </label>
+              </div>
+            ) : null}
             <Button onClick={() => startReview(state.targetJobId)}>Tailor my CV to this job</Button>
           </Card>
         </div>
