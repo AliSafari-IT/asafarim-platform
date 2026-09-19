@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { parseCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/schema";
+import { computeCoverLetterQuality } from "../../../../lib/tailoring/coverLetterQuality";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { PrintButton } from "../../../../components/tailoring/PrintButton";
 import { CoverLetterDocxButton } from "./CoverLetterDocxButton";
+import { CoverLetterQualityChecklist } from "../../../../components/tailoring/CoverLetterQualityChecklist";
 
 export const metadata: Metadata = { title: "Cover letter" };
 export const dynamic = "force-dynamic";
@@ -34,6 +36,11 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
   if (!row) notFound();
 
   const content = parseCoverLetterContent(row.content);
+  // No stored record of which length was requested at generation time
+  // (#455 doesn't persist tone/length on the row, only the resulting
+  // text) — "standard" is a reasonable general-purpose default for this
+  // read-only view, same as the review screen's own default.
+  const quality = computeCoverLetterQuality(content);
 
   return (
     <>
@@ -47,6 +54,7 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
         <div className="rm-preview-toolbar">
           <PrintButton />
           <CoverLetterDocxButton id={id} />
+        <CoverLetterQualityChecklist quality={quality} />
         </div>
       )}
 
