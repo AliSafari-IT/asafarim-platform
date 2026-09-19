@@ -919,7 +919,10 @@ const QUALIFICATION_MARKERS =
 
 function extractEducation(sections: Record<string, string[]>): CandidateProfileContent["education"] {
   const entries: CandidateProfileContent["education"] = [];
-  for (const line of sections.education ?? []) {
+  const lines = sections.education ?? [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const year = /\b(19|20)\d{2}\b/.exec(line);
     const qualification = line.replace(/\b(19|20)\d{2}\b/g, "").replace(/[\s,;:|-]+$/g, "").trim();
     if (qualification.length < 3) continue;
@@ -931,9 +934,31 @@ function extractEducation(sections: Record<string, string[]>): CandidateProfileC
     // Prose that happens to mention a year is still prose.
     if (qualification.split(/\s+/).length > 14) continue;
 
+    let institution: string | null = null;
+    if (year) {
+      // A qualification line that carries its own year is commonly
+      // followed, on the very next line, by the institution's name with
+      // no year of its own (e.g. "Informatics - Programming  2018" /
+      // "Thomas More Campus De Nayer, Sint-Katelijne-Waver"). Institution
+      // names routinely contain words like "University" or "Campus" that
+      // also match QUALIFICATION_MARKERS, so without this look-ahead the
+      // institution line was indistinguishable from a second, bogus
+      // qualification and became its own entry with institution left null.
+      const next = lines[i + 1]?.trim() ?? "";
+      const looksLikeInstitution =
+        next.length >= 3 &&
+        next.length <= 160 &&
+        next.split(/\s+/).length <= 14 &&
+        !/\b(19|20)\d{2}\b/.test(next);
+      if (looksLikeInstitution) {
+        institution = next;
+        i++; // consumed as this entry's institution, not scanned as its own line
+      }
+    }
+
     entries.push({
       qualification: qualification.slice(0, 160),
-      institution: null,
+      institution,
       completedOn: year ? year[0] : null,
     });
     if (entries.length >= 30) break;
