@@ -75,7 +75,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
-  const [mode, setMode] = useState<"url" | "paste" | "manual">("url");
+  const [emailText, setEmailText] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [mode, setMode] = useState<"url" | "paste" | "email">("url");
+  const [mode, setMode] = useState<"url" | "paste" | "upload">("url");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   const fetchJob = useCallback(async () => {
@@ -134,33 +138,28 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     }
   }, [pastedText]);
 
-  const submitManualJob = useCallback(async (values: ManualJobFormValues) => {
+  const pasteEmail = useCallback(async () => {
+    if (emailText.trim().length < MIN_PASTE_CHARS) return;
     setState({ kind: "fetching" });
     try {
-      const res = await fetch("/api/tailor/manual-job", {
+      const res = await fetch("/api/tailor/paste-email", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title: values.title,
-          employer: values.employer,
-          location: values.location || undefined,
-          workMode: values.workMode || undefined,
-          employmentType: values.employmentType || undefined,
-          salaryMin: values.salaryMin ? Number(values.salaryMin) : undefined,
-          salaryMax: values.salaryMax ? Number(values.salaryMax) : undefined,
-          salaryCurrency: values.salaryCurrency || undefined,
-          applicationDeadline: values.applicationDeadline || undefined,
-          responsibilities: values.responsibilities || undefined,
-          requirements: values.requirements || undefined,
-          preferredQualifications: values.preferredQualifications || undefined,
-          benefits: values.benefits || undefined,
-          contactName: values.contactName || undefined,
-          source: values.source || undefined,
-        }),
+        body: JSON.stringify({ text: emailText, subject: emailSubject.trim() || undefined }),
       });
       const body = await res.json();
       if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? "Could not save those details." });
+        setState({ kind: "error", message: body.error ?? "Could not use that email." });
+  const uploadJob = useCallback(async () => {
+    if (!uploadFile) return;
+    setState({ kind: "fetching" });
+    try {
+      const form = new FormData();
+      form.append("file", uploadFile);
+      const res = await fetch("/api/tailor/upload-job", { method: "POST", body: form });
+      const body = await res.json();
+      if (!res.ok) {
+        setState({ kind: "error", message: body.error ?? "Could not read that file." });
         return;
       }
       setState({
@@ -173,7 +172,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     } catch {
       setState({ kind: "error", message: "Could not reach the server." });
     }
-  }, []);
+  }, [emailText, emailSubject,uploadFile]);
 
   const startReview = useCallback(
     async (targetJobId: string) => {
@@ -314,8 +313,10 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         <Button variant={mode === "paste" ? undefined : "ghost"} size="sm" onClick={() => setMode("paste")} disabled={busy}>
           Paste the description instead
         </Button>
-        <Button variant={mode === "manual" ? undefined : "ghost"} size="sm" onClick={() => setMode("manual")} disabled={busy}>
-          Type in the details myself
+        <Button variant={mode === "email" ? undefined : "ghost"} size="sm" onClick={() => setMode("email")} disabled={busy}>
+          Paste a recruiter's email
+        <Button variant={mode === "upload" ? undefined : "ghost"} size="sm" onClick={() => setMode("upload")} disabled={busy}>
+          Upload a file
         </Button>
       </div>
 
@@ -354,7 +355,45 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           </div>
         </div>
       ) : (
-        <ManualJobForm busy={busy} onSubmit={submitManualJob} />
+        <div style={{ marginTop: "0.75rem" }}>
+          <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+            Got a recruiter's invitation by email? Paste the whole thing — greeting, signature,
+            quoted thread and all. ResuMatch strips the noise and keeps the role description.
+          </p>
+          <Input
+            type="text"
+            placeholder="Subject line (optional, helps guess the job title)"
+            value={emailSubject}
+            onChange={(e) => setEmailSubject(e.target.value)}
+            disabled={busy}
+            style={{ marginBottom: "0.5rem" }}
+          />
+          <textarea
+            rows={8}
+            placeholder="Paste the full email here…"
+            value={emailText}
+            onChange={(e) => setEmailText(e.target.value)}
+            disabled={busy}
+            style={{ width: "100%" }}
+          />
+          <div style={{ marginTop: "0.5rem" }}>
+            <Button onClick={pasteEmail} disabled={emailText.trim().length < MIN_PASTE_CHARS || busy}>
+              {state.kind === "fetching" ? "Reading…" : "Use this email"}
+            Have the posting as a PDF or Word file — downloaded from a portal, or attached to an
+            email? Upload it directly; ResuMatch reads the text out of it.
+          </p>
+          <input
+            type="file"
+            accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+            onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+            disabled={busy}
+          />
+          <div style={{ marginTop: "0.5rem" }}>
+            <Button onClick={uploadJob} disabled={!uploadFile || busy}>
+              {state.kind === "fetching" ? "Reading…" : "Use this file"}
+            </Button>
+          </div>
+        </div>
       )}
 
       {state.kind === "fetch_failed" ? (
