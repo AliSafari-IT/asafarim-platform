@@ -28,6 +28,7 @@
     "@prisma/client": "7.8.0",
     "@prisma/client-runtime-utils": "7.8.0",
     "bullmq": "^5.34.0",
+    "docx": "^9.7.1",
     "dotenv": "^17.4.2",
     "ioredis": "^5.4.2",
     "mammoth": "^1.12.2",

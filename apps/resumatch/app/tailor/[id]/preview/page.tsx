@@ -7,6 +7,7 @@ import { parseTailoredResumeContent } from "../../../../lib/tailoring/ai/schema"
 import { computeCoverage } from "../../../../lib/tailoring/coverage";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { CoverageReport } from "./CoverageReport";
+import { DocxButton } from "./DocxButton";
 import { PrintButton } from "./PrintButton";
 
 export const metadata: Metadata = { title: "Preview" };
@@ -54,6 +55,7 @@ export default async function TailoredResumePreviewPage({ params }: { params: Pr
 
       <div className="rm-preview-toolbar">
         <PrintButton />
+        <DocxButton id={id} />
       </div>
 
       {coverage ? <CoverageReport coverage={coverage} /> : null}
