@@ -77,6 +77,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const [emailText, setEmailText] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [mode, setMode] = useState<"url" | "paste" | "email">("url");
+  const [mode, setMode] = useState<"url" | "paste" | "upload">("url");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   const fetchJob = useCallback(async () => {
@@ -147,6 +149,16 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       const body = await res.json();
       if (!res.ok) {
         setState({ kind: "error", message: body.error ?? "Could not use that email." });
+  const uploadJob = useCallback(async () => {
+    if (!uploadFile) return;
+    setState({ kind: "fetching" });
+    try {
+      const form = new FormData();
+      form.append("file", uploadFile);
+      const res = await fetch("/api/tailor/upload-job", { method: "POST", body: form });
+      const body = await res.json();
+      if (!res.ok) {
+        setState({ kind: "error", message: body.error ?? "Could not read that file." });
         return;
       }
       setState({
@@ -159,7 +171,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     } catch {
       setState({ kind: "error", message: "Could not reach the server." });
     }
-  }, [emailText, emailSubject]);
+  }, [emailText, emailSubject,uploadFile]);
 
   const startReview = useCallback(
     async (targetJobId: string) => {
@@ -302,6 +314,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         </Button>
         <Button variant={mode === "email" ? undefined : "ghost"} size="sm" onClick={() => setMode("email")} disabled={busy}>
           Paste a recruiter's email
+        <Button variant={mode === "upload" ? undefined : "ghost"} size="sm" onClick={() => setMode("upload")} disabled={busy}>
+          Upload a file
         </Button>
       </div>
 
@@ -364,6 +378,18 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           <div style={{ marginTop: "0.5rem" }}>
             <Button onClick={pasteEmail} disabled={emailText.trim().length < MIN_PASTE_CHARS || busy}>
               {state.kind === "fetching" ? "Reading…" : "Use this email"}
+            Have the posting as a PDF or Word file — downloaded from a portal, or attached to an
+            email? Upload it directly; ResuMatch reads the text out of it.
+          </p>
+          <input
+            type="file"
+            accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+            onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+            disabled={busy}
+          />
+          <div style={{ marginTop: "0.5rem" }}>
+            <Button onClick={uploadJob} disabled={!uploadFile || busy}>
+              {state.kind === "fetching" ? "Reading…" : "Use this file"}
             </Button>
           </div>
         </div>
