@@ -97,6 +97,7 @@ export async function POST(request: Request) {
     // to these for anything declined, and needs them to render a
     // before/after comparison at all.
     profile: {
+      fullName: profile.fullName,
       headline: profile.headline,
       summary: profile.summary,
       skills: profile.skills.map((s) => s.name),
