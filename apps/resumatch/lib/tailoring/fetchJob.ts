@@ -133,11 +133,15 @@ export async function fetchJobPosting(
   };
 }
 
-/** Below this, "extraction succeeded" is almost certainly an empty shell page. */
-const MIN_USEFUL_CHARACTERS = 120;
+/** Below this, "extraction succeeded" is almost certainly an empty shell page.
+ *  Also the floor for a candidate's pasted job description (see
+ *  app/api/tailor/paste-job/route.ts) — the same "is this actually useful
+ *  text" bar applies regardless of how the text arrived. */
+export const MIN_USEFUL_CHARACTERS = 120;
 
-/** Guards against a decompression-bomb-shaped page producing megabytes of text. */
-const MAX_EXTRACTED_CHARACTERS = 200_000;
+/** Guards against a decompression-bomb-shaped page producing megabytes of
+ *  text. Applied to pasted text too, for the same reason. */
+export const MAX_EXTRACTED_CHARACTERS = 200_000;
 
 /**
  * Strips markup down to readable text. Deliberately regex-based rather than
