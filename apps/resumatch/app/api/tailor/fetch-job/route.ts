@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchJobPosting } from "../../../../lib/tailoring/fetchJob";
+import { fetchJobWithFallback } from "../../../../lib/tailoring/jobFetchAi/degraded";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   }
 
   const db = getJobmatchDb();
-  const result = await fetchJobPosting(url.trim());
+  const result = await fetchJobWithFallback(workspace.id, url.trim());
 
   if (!result.ok) {
     const targetJob = await db.targetJob.create({

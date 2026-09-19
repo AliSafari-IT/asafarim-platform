@@ -99,8 +99,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   return (
     <Card title="Tailor your CV to a job">
       <p style={{ opacity: 0.85 }}>
-        Paste the URL of a job posting you want to apply to. ResuMatch reads the page, shows you
-        what it found, and only spends an AI call once you confirm.
+        Paste the URL of a job posting you want to apply to. ResuMatch reads the page and shows
+        you what it found before you confirm anything. On pages that need a browser to render
+        (some job boards do), reading the page may itself use a small AI call so the real posting
+        is found instead of a blank shell — the AI rewrite of your CV is a second, separate step
+        you still confirm explicitly.
       </p>
 
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
