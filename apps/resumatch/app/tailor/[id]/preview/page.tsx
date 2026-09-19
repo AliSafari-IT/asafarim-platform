@@ -10,7 +10,7 @@ import { computeQuality } from "../../../../lib/tailoring/quality";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { CoverageReport } from "./CoverageReport";
 import { DocxButton } from "./DocxButton";
-import { PrintButton } from "./PrintButton";
+import { PrintButton } from "../../../../components/tailoring/PrintButton";
 import { QualityChecklist } from "./QualityChecklist";
 import { SaveApplicationButton } from "./SaveApplicationButton";
 

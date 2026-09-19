@@ -4,15 +4,20 @@ import { Alert, PageHeader } from "@asafarim/ui";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { parseCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
+import { PrintButton } from "../../../../components/tailoring/PrintButton";
+import { CoverLetterDocxButton } from "./CoverLetterDocxButton";
 
 export const metadata: Metadata = { title: "Cover letter" };
 export const dynamic = "force-dynamic";
 
 /**
- * Read-only cover-letter preview (issue #454, part of #453). Print/DOCX
- * export is #457's scope — this just renders what generate-confirm
- * persisted, the same "nothing beyond what was reviewed and approved"
- * content the tailored-resume preview page already shows.
+ * Read-only cover-letter preview (issue #454, part of #453). Print
+ * (window.print() against the `.rm-letter` rules in app/resumatch.css)
+ * and DOCX (issue #457, lib/tailoring/coverLetterDocx.ts) both render from
+ * this same persisted `CoverLetterContent` — the same "nothing beyond
+ * what was reviewed and approved" content this page already shows, and
+ * the same "print and DOCX can never diverge" guarantee #435 established
+ * for the CV side.
  */
 export default async function CoverLetterPreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,14 +43,19 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
         <Alert tone="warning">
           This letter could not be AI-drafted right now (budget or provider issue).
         </Alert>
-      ) : null}
+      ) : (
+        <div className="rm-preview-toolbar">
+          <PrintButton />
+          <CoverLetterDocxButton id={id} />
+        </div>
+      )}
 
-      <article className="rm-resume rm-resume--classic">
+      <article className="rm-resume rm-resume--classic rm-letter">
         <p>{content.greeting}</p>
         {content.paragraphs.map((paragraph, index) => (
           <p key={index}>{paragraph}</p>
         ))}
-        <p>
+        <p className="rm-letter__signoff">
           {content.signOff}
           <br />
           {content.fullName}
