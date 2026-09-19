@@ -39,7 +39,12 @@ export class OpenAiTailorProvider implements TailorProvider {
       },
       body: JSON.stringify({
         model: call.model,
-        temperature: 0.3,
+        // No `temperature` override: newer reasoning-style models (e.g.
+        // gpt-5-mini, selectable via OPENAI_MODEL) reject any value other
+        // than their default (1) with a 400 "Unsupported value" error —
+        // confirmed directly against the API. Omitting it lets every model
+        // use its own default rather than hard-coding a value tuned for
+        // one model family.
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: call.system },
