@@ -74,6 +74,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
+  const [emailText, setEmailText] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [mode, setMode] = useState<"url" | "paste" | "email">("url");
   const [mode, setMode] = useState<"url" | "paste" | "upload">("url");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [state, setState] = useState<FetchState>({ kind: "idle" });
@@ -134,6 +137,18 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     }
   }, [pastedText]);
 
+  const pasteEmail = useCallback(async () => {
+    if (emailText.trim().length < MIN_PASTE_CHARS) return;
+    setState({ kind: "fetching" });
+    try {
+      const res = await fetch("/api/tailor/paste-email", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: emailText, subject: emailSubject.trim() || undefined }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setState({ kind: "error", message: body.error ?? "Could not use that email." });
   const uploadJob = useCallback(async () => {
     if (!uploadFile) return;
     setState({ kind: "fetching" });
@@ -156,7 +171,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     } catch {
       setState({ kind: "error", message: "Could not reach the server." });
     }
-  }, [uploadFile]);
+  }, [emailText, emailSubject,uploadFile]);
 
   const startReview = useCallback(
     async (targetJobId: string) => {
@@ -297,6 +312,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         <Button variant={mode === "paste" ? undefined : "ghost"} size="sm" onClick={() => setMode("paste")} disabled={busy}>
           Paste the description instead
         </Button>
+        <Button variant={mode === "email" ? undefined : "ghost"} size="sm" onClick={() => setMode("email")} disabled={busy}>
+          Paste a recruiter's email
         <Button variant={mode === "upload" ? undefined : "ghost"} size="sm" onClick={() => setMode("upload")} disabled={busy}>
           Upload a file
         </Button>
@@ -339,6 +356,28 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       ) : (
         <div style={{ marginTop: "0.75rem" }}>
           <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+            Got a recruiter's invitation by email? Paste the whole thing — greeting, signature,
+            quoted thread and all. ResuMatch strips the noise and keeps the role description.
+          </p>
+          <Input
+            type="text"
+            placeholder="Subject line (optional, helps guess the job title)"
+            value={emailSubject}
+            onChange={(e) => setEmailSubject(e.target.value)}
+            disabled={busy}
+            style={{ marginBottom: "0.5rem" }}
+          />
+          <textarea
+            rows={8}
+            placeholder="Paste the full email here…"
+            value={emailText}
+            onChange={(e) => setEmailText(e.target.value)}
+            disabled={busy}
+            style={{ width: "100%" }}
+          />
+          <div style={{ marginTop: "0.5rem" }}>
+            <Button onClick={pasteEmail} disabled={emailText.trim().length < MIN_PASTE_CHARS || busy}>
+              {state.kind === "fetching" ? "Reading…" : "Use this email"}
             Have the posting as a PDF or Word file — downloaded from a portal, or attached to an
             email? Upload it directly; ResuMatch reads the text out of it.
           </p>
