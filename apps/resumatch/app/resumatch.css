@@ -367,65 +367,142 @@
 /* ─── Tailored resume preview + print (app/tailor) ────────────────────── */
 
 .rm-resume {
+  --rm-accent: #4338ca;
+  --rm-ink: var(--ui-text, #16181d);
+  --rm-muted: #5b6270;
+  --rm-line: #e2e4ea;
   max-width: 48rem;
   margin: 0 auto;
   background: var(--ui-surface, #fff);
-  color: var(--ui-text, #111);
-  padding: 2.5rem;
-  font-size: 0.95rem;
-  line-height: 1.5;
+  color: var(--rm-ink);
+  padding: 3rem 3.25rem;
+  font-family: "Georgia", "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 0.96rem;
+  line-height: 1.55;
 }
 
 .rm-resume__header {
-  border-bottom: 2px solid currentColor;
-  padding-bottom: 0.75rem;
-  margin-bottom: 1rem;
+  text-align: center;
+  padding-bottom: 1.1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2.5px solid var(--rm-accent);
 }
 .rm-resume__header h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.6rem;
+  margin: 0 0 0.3rem;
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--rm-ink);
 }
 .rm-resume__headline {
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
   font-weight: 600;
-  opacity: 0.85;
+  color: var(--rm-accent);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.02em;
 }
 .rm-resume__contact {
   margin: 0;
-  font-size: 0.85rem;
-  opacity: 0.75;
+  font-size: 0.82rem;
+  color: var(--rm-muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+.rm-resume__contact-sep {
+  display: inline-block;
+  width: 0.3rem;
+  height: 0.3rem;
+  margin: 0 0.55rem;
+  border-radius: 999px;
+  background: var(--rm-muted);
+  opacity: 0.6;
+  vertical-align: middle;
 }
 
 .rm-resume__section {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.4rem;
 }
 .rm-resume__section h2 {
-  font-size: 0.85rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid currentColor;
-  padding-bottom: 0.25rem;
-  margin-bottom: 0.5rem;
-  opacity: 0.8;
+  letter-spacing: 0.12em;
+  color: var(--rm-accent);
+  border-bottom: 1px solid var(--rm-line);
+  padding-bottom: 0.3rem;
+  margin: 0 0 0.65rem;
+}
+
+.rm-resume__summary {
+  margin: 0;
+  color: var(--rm-ink);
+}
+
+.rm-resume__skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rm-resume__skill {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rm-accent) 10%, transparent);
+  color: var(--rm-accent);
+  border: 1px solid color-mix(in srgb, var(--rm-accent) 25%, transparent);
 }
 
 .rm-resume__entry {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+.rm-resume__entry:last-child {
+  margin-bottom: 0;
 }
 .rm-resume__entry-header {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  justify-content: space-between;
   align-items: baseline;
+  gap: 0.5rem 1rem;
+}
+.rm-resume__entry-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.rm-resume__entry-heading strong {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.rm-resume__entry-sub {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--rm-muted);
 }
 .rm-resume__dates {
-  margin-left: auto;
-  font-size: 0.8rem;
-  opacity: 0.7;
+  flex: none;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--rm-muted);
+  white-space: nowrap;
 }
 .rm-resume__entry ul {
-  margin: 0.35rem 0 0;
-  padding-left: 1.2rem;
+  margin: 0.45rem 0 0;
+  padding-left: 1.15rem;
+}
+.rm-resume__entry ul li {
+  margin-bottom: 0.25rem;
+}
+.rm-resume__entry ul li::marker {
+  color: var(--rm-accent);
 }
 
 .rm-preview-toolbar {

@@ -22,22 +22,35 @@ export function ClassicTemplate({ content }: { content: TailoredResumeContent })
       <header className="rm-resume__header">
         {content.fullName ? <h1>{content.fullName}</h1> : null}
         {content.headline ? <p className="rm-resume__headline">{content.headline}</p> : null}
-        <p className="rm-resume__contact">
-          {[content.email, content.phone].filter(Boolean).join(" · ")}
-        </p>
+        {content.email || content.phone ? (
+          <p className="rm-resume__contact">
+            {[content.email, content.phone].filter(Boolean).map((item, index, all) => (
+              <span key={item}>
+                {item}
+                {index < all.length - 1 ? <span className="rm-resume__contact-sep" aria-hidden="true" /> : null}
+              </span>
+            ))}
+          </p>
+        ) : null}
       </header>
 
       {content.summary ? (
         <section className="rm-resume__section">
           <h2>Summary</h2>
-          <p>{content.summary}</p>
+          <p className="rm-resume__summary">{content.summary}</p>
         </section>
       ) : null}
 
       {content.skills.length > 0 ? (
         <section className="rm-resume__section">
           <h2>Skills</h2>
-          <p>{content.skills.join(" · ")}</p>
+          <ul className="rm-resume__skills">
+            {content.skills.map((skill) => (
+              <li key={skill} className="rm-resume__skill">
+                {skill}
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
@@ -49,8 +62,10 @@ export function ClassicTemplate({ content }: { content: TailoredResumeContent })
             return (
               <div className="rm-resume__entry" key={index}>
                 <div className="rm-resume__entry-header">
-                  <strong>{entry.title}</strong>
-                  {entry.employer ? <span> · {entry.employer}</span> : null}
+                  <div className="rm-resume__entry-heading">
+                    <strong>{entry.title}</strong>
+                    {entry.employer ? <span className="rm-resume__entry-sub">{entry.employer}</span> : null}
+                  </div>
                   {span ? <span className="rm-resume__dates">{span}</span> : null}
                 </div>
                 {entry.bullets.length > 0 ? (
@@ -71,9 +86,13 @@ export function ClassicTemplate({ content }: { content: TailoredResumeContent })
           <h2>Education</h2>
           {content.education.map((entry, index) => (
             <div className="rm-resume__entry" key={index}>
-              <strong>{entry.qualification}</strong>
-              {entry.institution ? <span> · {entry.institution}</span> : null}
-              {entry.completedOn ? <span className="rm-resume__dates">{entry.completedOn}</span> : null}
+              <div className="rm-resume__entry-header">
+                <div className="rm-resume__entry-heading">
+                  <strong>{entry.qualification}</strong>
+                  {entry.institution ? <span className="rm-resume__entry-sub">{entry.institution}</span> : null}
+                </div>
+                {entry.completedOn ? <span className="rm-resume__dates">{entry.completedOn}</span> : null}
+              </div>
             </div>
           ))}
         </section>
@@ -84,8 +103,12 @@ export function ClassicTemplate({ content }: { content: TailoredResumeContent })
           <h2>Certifications</h2>
           {content.certifications.map((entry, index) => (
             <div className="rm-resume__entry" key={index}>
-              <strong>{entry.name}</strong>
-              {entry.issuer ? <span> · {entry.issuer}</span> : null}
+              <div className="rm-resume__entry-header">
+                <div className="rm-resume__entry-heading">
+                  <strong>{entry.name}</strong>
+                  {entry.issuer ? <span className="rm-resume__entry-sub">{entry.issuer}</span> : null}
+                </div>
+              </div>
             </div>
           ))}
         </section>
