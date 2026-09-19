@@ -4,6 +4,8 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Card, Input } from "@asafarim/ui";
 import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
+import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQuality";
+import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
 
 const MIN_PASTE_CHARS = 120;
 
@@ -75,6 +77,10 @@ interface ReviewState {
   /** null when the candidate didn't opt into a cover letter on the fetched
    *  card, or the call degraded with nothing to review. */
   coverLetter: ReviewCoverLetter | null;
+  /** The confirmed profile's own name — used only to render the letter
+   *  quality checklist's "signed with your name" check (issue #456), same
+   *  as generate-confirm carries it into the persisted content in code. */
+  profileFullName: string | null;
 }
 
 type FetchState =
@@ -292,6 +298,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             }
           | null;
         const profile = body.profile as {
+          fullName: string | null;
           headline: string | null;
           summary: string | null;
           skills: string[];
@@ -340,6 +347,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                   include: true,
                 }
               : null,
+          profileFullName: profile.fullName,
         };
 
         setState({ kind: "reviewing", review });
@@ -758,6 +766,20 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                         disabled={state.kind === "confirming"}
                       />
                     </label>
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <CoverLetterQualityChecklist
+                        quality={computeCoverLetterQuality(
+                          {
+                            contractVersion: "1.0.0",
+                            greeting: state.review.coverLetter.greeting,
+                            paragraphs: state.review.coverLetter.paragraphs,
+                            signOff: state.review.coverLetter.signOff,
+                            fullName: state.review.profileFullName,
+                          },
+                          coverLetterLength,
+                        )}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <p style={{ opacity: 0.6, fontSize: "0.85rem", fontStyle: "italic", margin: "0.3rem 0 0" }}>
