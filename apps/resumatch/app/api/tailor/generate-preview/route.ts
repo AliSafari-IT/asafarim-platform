@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { runTailorProviderCall } from "../../../../lib/tailoring/ai/generate";
+import { runCoverLetterProviderCall } from "../../../../lib/tailoring/ai/coverLetter/generate";
+import { buildProfileText } from "../../../../lib/tailoring/buildProfileText";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getVersion } from "../../../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
@@ -13,6 +15,13 @@ export const maxDuration = 60;
  * nothing is persisted here. `generate-confirm` is the only route that
  * writes a `TailoredResume` row, and only once the candidate has actually
  * seen and approved what it will contain.
+ *
+ * `includeCoverLetter` (issue #454, part of #453) opts into a second,
+ * parallel provider call that drafts a cover letter for the same review
+ * screen. Opt-in rather than automatic: it's a second spend against the
+ * same monthly budget (lib/tailoring/ai/quota.ts's "cover_letter" kind),
+ * and a candidate tailoring a CV toward a job they're still deciding on
+ * shouldn't pay for a letter they didn't ask for yet.
  */
 export async function POST(request: Request) {
   const workspace = await getCurrentWorkspace();
@@ -25,9 +34,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { profileVersionId, targetJobId } = (body ?? {}) as {
+  const { profileVersionId, targetJobId, includeCoverLetter } = (body ?? {}) as {
     profileVersionId?: unknown;
     targetJobId?: unknown;
+    includeCoverLetter?: unknown;
   };
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
     return NextResponse.json({ error: "profileVersionId and targetJobId are required." }, { status: 400 });
@@ -46,18 +56,27 @@ export async function POST(request: Request) {
   }
 
   const profile = version.content;
-  const { suggestions, degraded, promptVersion, modelVersion } = await runTailorProviderCall(
-    workspace.id,
-    targetJobId,
-    profile,
-    targetJob.rawText,
-  );
+  const [tailorResult, coverLetterResult] = await Promise.all([
+    runTailorProviderCall(workspace.id, targetJobId, profile, targetJob.rawText),
+    includeCoverLetter === true
+      ? runCoverLetterProviderCall(workspace.id, targetJobId, buildProfileText(profile).text, targetJob.rawText)
+      : Promise.resolve(null),
+  ]);
+  const { suggestions, degraded, promptVersion, modelVersion } = tailorResult;
 
   return NextResponse.json({
     degraded,
     promptVersion,
     modelVersion,
     suggestions,
+    coverLetter: coverLetterResult
+      ? {
+          suggestion: coverLetterResult.suggestion,
+          degraded: coverLetterResult.degraded,
+          promptVersion: coverLetterResult.promptVersion,
+          modelVersion: coverLetterResult.modelVersion,
+        }
+      : null,
     // The candidate's real, unedited values — the review screen falls back
     // to these for anything declined, and needs them to render a
     // before/after comparison at all.

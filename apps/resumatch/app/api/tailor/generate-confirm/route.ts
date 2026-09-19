@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getVersion } from "../../../../lib/profile/versions";
 import { mergeTailoringSuggestions, parseTailorSuggestions } from "../../../../lib/tailoring/ai/schema";
+import { buildCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/generate";
+import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +43,7 @@ export async function POST(request: Request) {
     promptVersion,
     modelVersion,
     templateKey,
+    coverLetter,
   } = (body ?? {}) as {
     profileVersionId?: unknown;
     targetJobId?: unknown;
@@ -49,6 +52,14 @@ export async function POST(request: Request) {
     promptVersion?: unknown;
     modelVersion?: unknown;
     templateKey?: unknown;
+    /** Optional — issue #454. Absent or null: no cover letter was drafted
+     *  or the candidate declined it; the CV still saves either way. */
+    coverLetter?: {
+      approved: unknown;
+      degraded?: unknown;
+      promptVersion?: unknown;
+      modelVersion?: unknown;
+    } | null;
   };
 
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
@@ -94,5 +105,36 @@ export async function POST(request: Request) {
     select: { id: true },
   });
 
-  return NextResponse.json({ id: row.id });
+  // The letter is declined by omitting `coverLetter` or sending
+  // `coverLetter.approved: null` — a legitimate outcome the same way
+  // `approved: null` is for the CV above. Nothing about the tailored
+  // resume above depends on this; a rejected letter never blocks the CV.
+  let coverLetterId: string | null = null;
+  if (coverLetter && coverLetter.approved !== null && coverLetter.approved !== undefined) {
+    if (typeof coverLetter.promptVersion !== "string" || typeof coverLetter.modelVersion !== "string") {
+      return NextResponse.json({ error: "Cover-letter promptVersion and modelVersion are required." }, { status: 400 });
+    }
+    let letterSuggestion;
+    try {
+      letterSuggestion = parseCoverLetterSuggestion(coverLetter.approved);
+    } catch {
+      return NextResponse.json({ error: "That cover-letter review could not be saved as written." }, { status: 422 });
+    }
+    const letterContent = buildCoverLetterContent(letterSuggestion, version.content.fullName);
+    const letterRow = await db.coverLetter.create({
+      data: {
+        workspaceId: workspace.id,
+        profileVersionId,
+        targetJobId,
+        content: letterContent,
+        promptVersion: coverLetter.promptVersion,
+        modelVersion: coverLetter.modelVersion,
+        degraded: coverLetter.degraded === true,
+      },
+      select: { id: true },
+    });
+    coverLetterId = letterRow.id;
+  }
+
+  return NextResponse.json({ id: row.id, coverLetterId });
 }

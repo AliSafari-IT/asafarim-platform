@@ -49,6 +49,18 @@ interface ReviewExperienceItem {
   accepted: boolean[];
 }
 
+interface ReviewCoverLetter {
+  greeting: string;
+  paragraphs: string[];
+  signOff: string;
+  degraded: boolean;
+  promptVersion: string;
+  modelVersion: string;
+  /** Whether to persist this letter on confirm — declining it is a valid
+   *  outcome independent of the CV (issue #454). */
+  include: boolean;
+}
+
 interface ReviewState {
   targetJobId: string;
   promptVersion: string;
@@ -60,6 +72,9 @@ interface ReviewState {
   suggestedSkillsOrder: string[];
   keepOriginalSkillOrder: boolean;
   experience: ReviewExperienceItem[];
+  /** null when the candidate didn't opt into a cover letter on the fetched
+   *  card, or the call degraded with nothing to review. */
+  coverLetter: ReviewCoverLetter | null;
 }
 
 type FetchState =
@@ -92,6 +107,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const [emailSubject, setEmailSubject] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [mode, setMode] = useState<Mode>("url");
+  const [includeCoverLetter, setIncludeCoverLetter] = useState(false);
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   const fetchJob = useCallback(async () => {
@@ -248,7 +264,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         const res = await fetch("/api/tailor/generate-preview", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ profileVersionId: confirmedVersionId, targetJobId }),
+          body: JSON.stringify({ profileVersionId: confirmedVersionId, targetJobId, includeCoverLetter }),
         });
         const body = await res.json();
         if (!res.ok) {
@@ -258,6 +274,14 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
         const suggestions = body.suggestions as
           | { headline: string | null; summary: string | null; skillsOrder: string[]; experienceBullets: string[][] }
+          | null;
+        const coverLetterResult = body.coverLetter as
+          | {
+              suggestion: { greeting: string; paragraphs: string[]; signOff: string } | null;
+              degraded: boolean;
+              promptVersion: string;
+              modelVersion: string;
+            }
           | null;
         const profile = body.profile as {
           headline: string | null;
@@ -296,6 +320,18 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               accepted: suggestedBullets.map(() => true),
             };
           }),
+          coverLetter:
+            coverLetterResult && coverLetterResult.suggestion
+              ? {
+                  greeting: coverLetterResult.suggestion.greeting,
+                  paragraphs: coverLetterResult.suggestion.paragraphs,
+                  signOff: coverLetterResult.suggestion.signOff,
+                  degraded: coverLetterResult.degraded,
+                  promptVersion: coverLetterResult.promptVersion,
+                  modelVersion: coverLetterResult.modelVersion,
+                  include: true,
+                }
+              : null,
         };
 
         setState({ kind: "reviewing", review });
@@ -325,6 +361,27 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     });
   }, []);
 
+  const updateCoverLetter = useCallback(<K extends keyof ReviewCoverLetter>(key: K, value: ReviewCoverLetter[K]) => {
+    setState((previous) => {
+      if (previous.kind !== "reviewing" || !previous.review.coverLetter) return previous;
+      return {
+        kind: "reviewing",
+        review: { ...previous.review, coverLetter: { ...previous.review.coverLetter, [key]: value } },
+      };
+    });
+  }, []);
+
+  const updateCoverLetterParagraph = useCallback((index: number, value: string) => {
+    setState((previous) => {
+      if (previous.kind !== "reviewing" || !previous.review.coverLetter) return previous;
+      const paragraphs = previous.review.coverLetter.paragraphs.map((p, i) => (i === index ? value : p));
+      return {
+        kind: "reviewing",
+        review: { ...previous.review, coverLetter: { ...previous.review.coverLetter, paragraphs } },
+      };
+    });
+  }, []);
+
   const confirm = useCallback(
     async (review: ReviewState) => {
       setState({ kind: "confirming", review });
@@ -348,6 +405,19 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                     entry.suggestedBullets.filter((_, i) => entry.accepted[i]),
                   ),
                 },
+            coverLetter:
+              review.coverLetter && review.coverLetter.include && !review.coverLetter.degraded
+                ? {
+                    approved: {
+                      greeting: review.coverLetter.greeting.trim(),
+                      paragraphs: review.coverLetter.paragraphs.map((p) => p.trim()).filter(Boolean),
+                      signOff: review.coverLetter.signOff.trim(),
+                    },
+                    degraded: review.coverLetter.degraded,
+                    promptVersion: review.coverLetter.promptVersion,
+                    modelVersion: review.coverLetter.modelVersion,
+                  }
+                : null,
           }),
         });
         const body = await res.json();
@@ -355,7 +425,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           setState({ kind: "error", message: body.error ?? "Could not save this tailored CV." });
           return;
         }
-        router.push(`/tailor/${body.id}/preview`);
+        router.push(
+          body.coverLetterId
+            ? `/tailor/${body.id}/preview?coverLetterId=${body.coverLetterId}`
+            : `/tailor/${body.id}/preview`,
+        );
       } catch {
         setState({ kind: "error", message: "Could not reach the server." });
       }
@@ -494,6 +568,14 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           <Card title={state.title ?? "Job found"}>
             {state.employer ? <p style={{ opacity: 0.8 }}>{state.employer}</p> : null}
             <p style={{ opacity: 0.7, fontSize: "0.9rem" }}>{state.snippet}…</p>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", margin: "0.5rem 0" }}>
+              <input
+                type="checkbox"
+                checked={includeCoverLetter}
+                onChange={(e) => setIncludeCoverLetter(e.target.checked)}
+              />
+              <span>Also draft a cover letter for this job</span>
+            </label>
             <Button onClick={() => startReview(state.targetJobId)}>Tailor my CV to this job</Button>
           </Card>
         </div>
@@ -598,6 +680,64 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 ) : null}
               </>
             )}
+
+            {state.review.coverLetter ? (
+              <div className="rm-review__section">
+                <label className="rm-skill-toggle">
+                  <input
+                    type="checkbox"
+                    checked={state.review.coverLetter.include}
+                    onChange={(e) => updateCoverLetter("include", e.target.checked)}
+                    disabled={state.kind === "confirming"}
+                  />
+                  <span>Cover letter</span>
+                </label>
+
+                {state.review.coverLetter.degraded ? (
+                  <Alert tone="warning">
+                    A cover letter couldn't be drafted right now (budget or provider issue). The CV
+                    above will still save.
+                  </Alert>
+                ) : state.review.coverLetter.include ? (
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <label className="jm-field">
+                      <span className="rm-review__section-label">Greeting</span>
+                      <input
+                        type="text"
+                        value={state.review.coverLetter.greeting}
+                        onChange={(e) => updateCoverLetter("greeting", e.target.value)}
+                        disabled={state.kind === "confirming"}
+                      />
+                    </label>
+                    {state.review.coverLetter.paragraphs.map((paragraph, index) => (
+                      <label className="jm-field" key={index} style={{ display: "block", marginTop: "0.5rem" }}>
+                        <span className="rm-review__section-label">Paragraph {index + 1}</span>
+                        <textarea
+                          rows={3}
+                          value={paragraph}
+                          onChange={(e) => updateCoverLetterParagraph(index, e.target.value)}
+                          disabled={state.kind === "confirming"}
+                          style={{ width: "100%" }}
+                        />
+                      </label>
+                    ))}
+                    <label className="jm-field" style={{ display: "block", marginTop: "0.5rem" }}>
+                      <span className="rm-review__section-label">Sign-off</span>
+                      <input
+                        type="text"
+                        value={state.review.coverLetter.signOff}
+                        onChange={(e) => updateCoverLetter("signOff", e.target.value)}
+                        disabled={state.kind === "confirming"}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <p style={{ opacity: 0.6, fontSize: "0.85rem", fontStyle: "italic", margin: "0.3rem 0 0" }}>
+                    Declined — nothing will be saved for the letter.
+                  </p>
+                )}
+              </div>
+            ) : null}
 
             <div className="rm-review__actions">
               <Button onClick={() => confirm(state.review)} disabled={state.kind === "confirming"}>

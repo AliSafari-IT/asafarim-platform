@@ -44,6 +44,12 @@ export const coverLetterContentSchema = z
 
 export type CoverLetterContent = z.infer<typeof coverLetterContentSchema>;
 
+/** Parse untrusted cover-letter content — a row read back from the
+ *  database. */
+export function parseCoverLetterContent(input: unknown): CoverLetterContent {
+  return coverLetterContentSchema.parse(input);
+}
+
 /** Builds the persisted shape from a provider's (already-validated)
  *  suggestion plus the candidate's own confirmed name — mirrors
  *  `mergeTailoringSuggestions`'s "facts come from code, never from
