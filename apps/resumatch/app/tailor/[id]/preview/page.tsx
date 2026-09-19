@@ -8,6 +8,7 @@ import { computeCoverage } from "../../../../lib/tailoring/coverage";
 import { computeQuality } from "../../../../lib/tailoring/quality";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { CoverageReport } from "./CoverageReport";
+import { DocxButton } from "./DocxButton";
 import { PrintButton } from "./PrintButton";
 import { QualityChecklist } from "./QualityChecklist";
 
@@ -57,6 +58,7 @@ export default async function TailoredResumePreviewPage({ params }: { params: Pr
 
       <div className="rm-preview-toolbar">
         <PrintButton />
+        <DocxButton id={id} />
       </div>
 
       {coverage ? <CoverageReport coverage={coverage} /> : null}
