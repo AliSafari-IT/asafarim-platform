@@ -8,17 +8,28 @@ import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
 const MIN_PASTE_CHARS = 120;
 
 /**
- * The tailoring flow: paste a URL (or text), review the AI's suggestions,
- * confirm what gets saved.
+ * The tailoring flow: point at a job (URL, pasted text, a pasted email, an
+ * uploaded file, or typed-in-by-hand details), review the AI's
+ * suggestions, confirm what gets saved.
  *
  * Proposal-review, not one-shot (issue #429): `generate-preview` runs the
  * provider call and returns suggestions for review only — nothing is
  * persisted until the candidate explicitly accepts, edits, or declines
- * each piece and presses Confirm, which calls `generate-confirm`. Fetching
- * a job still costs nothing; the AI tailoring call itself now has its own
- * explicit review step before anything is written, the same "nothing is
- * used until you confirm it" posture as the rest of this app, extended one
- * step further than a single up-front button press.
+ * each piece and presses Confirm, which calls `generate-confirm`. Getting
+ * the job's text into a `TargetJob` row still costs nothing regardless of
+ * intake path; the AI tailoring call itself is what has the explicit
+ * review step, the same "nothing is used until you confirm it" posture as
+ * the rest of this app, extended one step further than a single up-front
+ * button press.
+ *
+ * Five intake modes, each posting to its own route but landing in the same
+ * `{ kind: "fetched", targetJobId, ... }` state afterward (see #458 and its
+ * sub-issues #459–#461 for why each one exists):
+ * - "url" → /api/tailor/fetch-job (#426)
+ * - "paste" → /api/tailor/paste-job (#426)
+ * - "email" → /api/tailor/paste-email (#459)
+ * - "upload" → /api/tailor/upload-job (#460)
+ * - "manual" → /api/tailor/manual-job (#461)
  */
 export interface TailorFlowProps {
   /** The workspace's currently confirmed profile version — tailoring
@@ -71,15 +82,16 @@ const FETCH_FAILURE_MESSAGES: Record<string, string> = {
   NO_READABLE_TEXT: "No readable job description was found on that page.",
 };
 
+type Mode = "url" | "paste" | "email" | "upload" | "manual";
+
 export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
   const [emailText, setEmailText] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
-  const [mode, setMode] = useState<"url" | "paste" | "email">("url");
-  const [mode, setMode] = useState<"url" | "paste" | "upload">("url");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [mode, setMode] = useState<Mode>("url");
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   const fetchJob = useCallback(async () => {
@@ -150,6 +162,20 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       const body = await res.json();
       if (!res.ok) {
         setState({ kind: "error", message: body.error ?? "Could not use that email." });
+        return;
+      }
+      setState({
+        kind: "fetched",
+        targetJobId: body.id,
+        title: body.title,
+        employer: body.employer,
+        snippet: body.snippet,
+      });
+    } catch {
+      setState({ kind: "error", message: "Could not reach the server." });
+    }
+  }, [emailText, emailSubject]);
+
   const uploadJob = useCallback(async () => {
     if (!uploadFile) return;
     setState({ kind: "fetching" });
@@ -172,7 +198,48 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     } catch {
       setState({ kind: "error", message: "Could not reach the server." });
     }
-  }, [emailText, emailSubject,uploadFile]);
+  }, [uploadFile]);
+
+  const submitManualJob = useCallback(async (values: ManualJobFormValues) => {
+    setState({ kind: "fetching" });
+    try {
+      const res = await fetch("/api/tailor/manual-job", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: values.title,
+          employer: values.employer,
+          location: values.location || undefined,
+          workMode: values.workMode || undefined,
+          employmentType: values.employmentType || undefined,
+          salaryMin: values.salaryMin ? Number(values.salaryMin) : undefined,
+          salaryMax: values.salaryMax ? Number(values.salaryMax) : undefined,
+          salaryCurrency: values.salaryCurrency || undefined,
+          applicationDeadline: values.applicationDeadline || undefined,
+          responsibilities: values.responsibilities || undefined,
+          requirements: values.requirements || undefined,
+          preferredQualifications: values.preferredQualifications || undefined,
+          benefits: values.benefits || undefined,
+          contactName: values.contactName || undefined,
+          source: values.source || undefined,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setState({ kind: "error", message: body.error ?? "Could not save those details." });
+        return;
+      }
+      setState({
+        kind: "fetched",
+        targetJobId: body.id,
+        title: body.title,
+        employer: body.employer,
+        snippet: body.snippet,
+      });
+    } catch {
+      setState({ kind: "error", message: "Could not reach the server." });
+    }
+  }, []);
 
   const startReview = useCallback(
     async (targetJobId: string) => {
@@ -301,12 +368,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   return (
     <Card title="Tailor your CV to a job">
       <p style={{ opacity: 0.85 }}>
-        Paste the URL of a job posting you want to apply to. ResuMatch reads the page, shows you
-        what AI suggests changing, and only saves what you approve — reject or edit anything
-        before it's kept.
+        Point ResuMatch at a job you want to apply to — a URL, pasted text, a recruiter's email, an
+        uploaded file, or details you type in yourself. It shows you what AI suggests changing, and
+        only saves what you approve — reject or edit anything before it's kept.
       </p>
 
-      <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem", flexWrap: "wrap" }}>
         <Button variant={mode === "url" ? undefined : "ghost"} size="sm" onClick={() => setMode("url")} disabled={busy}>
           Paste a URL
         </Button>
@@ -315,8 +382,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         </Button>
         <Button variant={mode === "email" ? undefined : "ghost"} size="sm" onClick={() => setMode("email")} disabled={busy}>
           Paste a recruiter's email
+        </Button>
         <Button variant={mode === "upload" ? undefined : "ghost"} size="sm" onClick={() => setMode("upload")} disabled={busy}>
           Upload a file
+        </Button>
+        <Button variant={mode === "manual" ? undefined : "ghost"} size="sm" onClick={() => setMode("manual")} disabled={busy}>
+          Type in the details myself
         </Button>
       </div>
 
@@ -354,7 +425,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             </Button>
           </div>
         </div>
-      ) : (
+      ) : mode === "email" ? (
         <div style={{ marginTop: "0.75rem" }}>
           <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
             Got a recruiter's invitation by email? Paste the whole thing — greeting, signature,
@@ -379,6 +450,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           <div style={{ marginTop: "0.5rem" }}>
             <Button onClick={pasteEmail} disabled={emailText.trim().length < MIN_PASTE_CHARS || busy}>
               {state.kind === "fetching" ? "Reading…" : "Use this email"}
+            </Button>
+          </div>
+        </div>
+      ) : mode === "upload" ? (
+        <div style={{ marginTop: "0.75rem" }}>
+          <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
             Have the posting as a PDF or Word file — downloaded from a portal, or attached to an
             email? Upload it directly; ResuMatch reads the text out of it.
           </p>
@@ -394,6 +471,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             </Button>
           </div>
         </div>
+      ) : (
+        <ManualJobForm busy={busy} onSubmit={submitManualJob} />
       )}
 
       {state.kind === "fetch_failed" ? (
