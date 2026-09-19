@@ -43,6 +43,7 @@ export async function POST(request: Request) {
     promptVersion,
     modelVersion,
     templateKey,
+    instructions,
     coverLetter,
   } = (body ?? {}) as {
     profileVersionId?: unknown;
@@ -52,6 +53,9 @@ export async function POST(request: Request) {
     promptVersion?: unknown;
     modelVersion?: unknown;
     templateKey?: unknown;
+    /** Optional — issue #431. Echoed back from generate-preview's request
+     *  for provenance; never re-sent to a provider at this step. */
+    instructions?: unknown;
     /** Optional — issue #454. Absent or null: no cover letter was drafted
      *  or the candidate declined it; the CV still saves either way. */
     coverLetter?: {
@@ -101,6 +105,7 @@ export async function POST(request: Request) {
       promptVersion,
       modelVersion,
       degraded: degraded === true,
+      instructions: typeof instructions === "string" ? instructions.trim() || null : null,
     },
     select: { id: true },
   });

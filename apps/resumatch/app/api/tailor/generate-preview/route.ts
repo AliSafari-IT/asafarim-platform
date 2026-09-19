@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runTailorProviderCall } from "../../../../lib/tailoring/ai/generate";
+import { MAX_INSTRUCTIONS_CHARS } from "../../../../lib/tailoring/ai/prompts";
 import { runCoverLetterProviderCall } from "../../../../lib/tailoring/ai/coverLetter/generate";
 import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES } from "../../../../lib/tailoring/ai/coverLetter/prompts";
 import { buildProfileText } from "../../../../lib/tailoring/buildProfileText";
@@ -35,13 +36,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { profileVersionId, targetJobId, includeCoverLetter, coverLetterTone, coverLetterLength } = (body ?? {}) as {
-    profileVersionId?: unknown;
-    targetJobId?: unknown;
-    includeCoverLetter?: unknown;
-    coverLetterTone?: unknown;
-    coverLetterLength?: unknown;
-  };
+  const { profileVersionId, targetJobId, includeCoverLetter, coverLetterTone, coverLetterLength, instructions } =
+    (body ?? {}) as {
+      profileVersionId?: unknown;
+      targetJobId?: unknown;
+      includeCoverLetter?: unknown;
+      coverLetterTone?: unknown;
+      coverLetterLength?: unknown;
+      /** Optional — issue #431. The candidate's own freeform steering text
+       *  for this run, e.g. "emphasize my backend work". A preference
+       *  signal only, fenced as DATA into the prompt — see
+       *  lib/tailoring/ai/prompts.ts's HARD RULES. */
+      instructions?: unknown;
+    };
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
     return NextResponse.json({ error: "profileVersionId and targetJobId are required." }, { status: 400 });
   }
@@ -50,6 +57,12 @@ export async function POST(request: Request) {
   }
   if (coverLetterLength !== undefined && !COVER_LETTER_LENGTHS.includes(coverLetterLength as never)) {
     return NextResponse.json({ error: "Invalid coverLetterLength." }, { status: 400 });
+  }
+  if (instructions !== undefined && typeof instructions !== "string") {
+    return NextResponse.json({ error: "Invalid instructions." }, { status: 400 });
+  }
+  if (typeof instructions === "string" && instructions.length > MAX_INSTRUCTIONS_CHARS) {
+    return NextResponse.json({ error: `instructions must be ${MAX_INSTRUCTIONS_CHARS} characters or fewer.` }, { status: 400 });
   }
 
   const version = await getVersion(workspace.id, profileVersionId);
@@ -66,7 +79,13 @@ export async function POST(request: Request) {
 
   const profile = version.content;
   const [tailorResult, coverLetterResult] = await Promise.all([
-    runTailorProviderCall(workspace.id, targetJobId, profile, targetJob.rawText),
+    runTailorProviderCall(
+      workspace.id,
+      targetJobId,
+      profile,
+      targetJob.rawText,
+      typeof instructions === "string" ? instructions : null,
+    ),
     includeCoverLetter === true
       ? runCoverLetterProviderCall(
           workspace.id,
@@ -85,6 +104,7 @@ export async function POST(request: Request) {
     promptVersion,
     modelVersion,
     suggestions,
+    instructions: typeof instructions === "string" ? instructions : null,
     coverLetter: coverLetterResult
       ? {
           suggestion: coverLetterResult.suggestion,

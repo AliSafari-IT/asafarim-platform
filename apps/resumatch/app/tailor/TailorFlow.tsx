@@ -68,6 +68,10 @@ interface ReviewState {
   promptVersion: string;
   modelVersion: string;
   degraded: boolean;
+  /** The candidate's own freeform steering text for this run (issue #431),
+   *  echoed back from generate-preview so confirm() can re-send it for
+   *  provenance without re-deriving it. */
+  instructions: string | null;
   headline: string;
   summary: string;
   originalSkillsOrder: string[];
@@ -105,6 +109,11 @@ const FETCH_FAILURE_MESSAGES: Record<string, string> = {
 
 type Mode = "url" | "paste" | "email" | "upload" | "manual";
 
+/** Mirrors lib/tailoring/ai/prompts.ts's MAX_INSTRUCTIONS_CHARS — kept as a
+ *  local constant rather than imported, so this Client Component never
+ *  risks pulling in a server-side module (see #471's server-only leak). */
+const INSTRUCTIONS_MAX_CHARS = 1000;
+
 export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const router = useRouter();
   const [url, setUrl] = useState("");
@@ -113,6 +122,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const [emailSubject, setEmailSubject] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [mode, setMode] = useState<Mode>("url");
+  const [instructions, setInstructions] = useState("");
   const [includeCoverLetter, setIncludeCoverLetter] = useState(false);
   const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">("formal");
   const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">("standard");
@@ -278,6 +288,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             includeCoverLetter,
             coverLetterTone: includeCoverLetter ? coverLetterTone : undefined,
             coverLetterLength: includeCoverLetter ? coverLetterLength : undefined,
+            instructions: instructions.trim() || undefined,
           }),
         });
         const body = await res.json();
@@ -317,6 +328,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           promptVersion: body.promptVersion,
           modelVersion: body.modelVersion,
           degraded: body.degraded,
+          instructions: typeof body.instructions === "string" ? body.instructions : null,
           headline: suggestions?.headline ?? profile.headline ?? "",
           summary: suggestions?.summary ?? profile.summary ?? "",
           originalSkillsOrder: profile.skills,
@@ -355,7 +367,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         setState({ kind: "error", message: "Could not reach the server." });
       }
     },
-    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength],
+    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength, instructions],
   );
 
   const toggleBullet = useCallback((experienceIndex: number, bulletIndex: number) => {
@@ -411,6 +423,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             promptVersion: review.promptVersion,
             modelVersion: review.modelVersion,
             degraded: review.degraded,
+            instructions: review.instructions,
             approved: review.degraded
               ? null
               : {
@@ -584,6 +597,23 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           <Card title={state.title ?? "Job found"}>
             {state.employer ? <p style={{ opacity: 0.8 }}>{state.employer}</p> : null}
             <p style={{ opacity: 0.7, fontSize: "0.9rem" }}>{state.snippet}…</p>
+            <label className="jm-field" style={{ display: "block", margin: "0.5rem 0" }}>
+              <span className="rm-review__section-label">
+                Anything you want AI to keep in mind? (optional)
+              </span>
+              <textarea
+                rows={2}
+                placeholder='e.g. "emphasize my backend work" or "keep the tone confident, not casual"'
+                value={instructions}
+                maxLength={INSTRUCTIONS_MAX_CHARS}
+                onChange={(e) => setInstructions(e.target.value)}
+                style={{ width: "100%" }}
+              />
+              <span style={{ opacity: 0.6, fontSize: "0.78rem" }}>
+                {instructions.length}/{INSTRUCTIONS_MAX_CHARS} — steers wording and emphasis only; it can
+                never add a skill or fact you don't already have.
+              </span>
+            </label>
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", margin: "0.5rem 0" }}>
               <input
                 type="checkbox"
@@ -637,6 +667,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                   Nothing here is saved yet. Edit any text, uncheck a bullet you don't want, and
                   confirm when you're happy with it.
                 </p>
+
+                {state.review.instructions ? (
+                  <p style={{ opacity: 0.7, fontSize: "0.82rem", fontStyle: "italic" }}>
+                    Your steering note: “{state.review.instructions}”
+                  </p>
+                ) : null}
 
                 <div className="rm-review__section">
                   <span className="rm-review__section-label">Headline</span>

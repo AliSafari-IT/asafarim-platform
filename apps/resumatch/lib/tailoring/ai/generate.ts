@@ -36,12 +36,13 @@ export async function runTailorProviderCall(
   targetJobId: string,
   profile: CandidateProfileContent,
   jobText: string,
+  instructions?: string | null,
   providerOverride?: "fixture" | "openai" | "anthropic",
 ): Promise<TailorProviderCallResult> {
   const providerName = providerOverride ?? getEnv().aiProvider;
   const modelVersion = TAILOR_MODEL_VERSIONS[providerName];
   const { text: profileText } = buildProfileText(profile);
-  const prompt = renderTailorPrompt(profileText, jobText);
+  const prompt = renderTailorPrompt(profileText, jobText, instructions);
 
   let suggestions: TailorSuggestions | null = null;
   let degraded = false;
@@ -61,6 +62,7 @@ export async function runTailorProviderCall(
           model: modelVersion,
           profileSkillNames: profile.skills.map((s) => s.name),
           experienceSummaries: profile.experience.map((e) => e.summary),
+          instructions: prompt.instructionsUsed,
         });
         await recordUsage({
           workspaceId,
@@ -115,6 +117,11 @@ export interface GenerateTailoredResumeOptions {
    *  `getEnv().aiProvider` (RESUMATCH_AI_PROVIDER). */
   provider?: "fixture" | "openai" | "anthropic";
   templateKey?: string;
+  /** The candidate's own freeform steering text for this run (issue #431).
+   *  Already capped by the API route; renderTailorPrompt caps again
+   *  defensively. Persisted on the TailoredResume row for provenance only —
+   *  it plays no role in re-deriving content once saved. */
+  instructions?: string | null;
 }
 
 export interface GeneratedTailoredResume {
@@ -154,6 +161,7 @@ export async function generateTailoredResume(
     targetJobId,
     profile,
     targetJob.rawText,
+    opts.instructions,
     opts.provider,
   );
   const content = mergeTailoringSuggestions(profile, suggestions);
@@ -168,6 +176,7 @@ export async function generateTailoredResume(
       promptVersion,
       modelVersion,
       degraded,
+      instructions: opts.instructions?.trim() || null,
     },
     select: { id: true },
   });

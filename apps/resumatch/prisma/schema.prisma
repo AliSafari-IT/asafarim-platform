@@ -376,6 +376,14 @@ model TailoredResume {
   /// retries exhausted / budget out) rather than a real model call.
   degraded      Boolean @default(false)
 
+  /// The candidate's own freeform steering text for this run (issue #431),
+  /// e.g. "emphasize my backend work", capped at 1000 chars by the API
+  /// route before it ever reaches the prompt. A preference signal only —
+  /// see lib/tailoring/ai/prompts.ts's third fenced block — never a source
+  /// of fact, so it's safe to keep here purely for provenance/audit even
+  /// though it plays no role in re-deriving content.
+  instructions String?
+
   createdAt DateTime @default(now())
 
   applications Application[]
