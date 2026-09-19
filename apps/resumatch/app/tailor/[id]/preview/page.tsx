@@ -5,9 +5,11 @@ import { ClassicTemplate } from "../../../../components/tailoring/templates/Clas
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { parseTailoredResumeContent } from "../../../../lib/tailoring/ai/schema";
 import { computeCoverage } from "../../../../lib/tailoring/coverage";
+import { computeQuality } from "../../../../lib/tailoring/quality";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { CoverageReport } from "./CoverageReport";
 import { PrintButton } from "./PrintButton";
+import { QualityChecklist } from "./QualityChecklist";
 
 export const metadata: Metadata = { title: "Preview" };
 export const dynamic = "force-dynamic";
@@ -40,6 +42,7 @@ export default async function TailoredResumePreviewPage({ params }: { params: Pr
     .filter(Boolean)
     .join(" ");
   const coverage = row.targetJob.rawText ? computeCoverage(content.skills, row.targetJob.rawText, resumeText) : null;
+  const quality = computeQuality(content);
 
   return (
     <>
@@ -57,6 +60,7 @@ export default async function TailoredResumePreviewPage({ params }: { params: Pr
       </div>
 
       {coverage ? <CoverageReport coverage={coverage} /> : null}
+      <QualityChecklist quality={quality} />
 
       <ClassicTemplate content={content} />
     </>
