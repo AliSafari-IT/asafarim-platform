@@ -1,7 +1,7 @@
 import { getEnv } from "../../../env";
 import { logError } from "../../../observability/logger";
 import { buildCoverLetterContent, type CoverLetterContent, type CoverLetterSuggestion } from "./schema";
-import { renderCoverLetterPrompt } from "./prompts";
+import { renderCoverLetterPrompt, type CoverLetterLength, type CoverLetterTone } from "./prompts";
 import { assertCanRunProviderCall, recordUsage } from "../quota";
 import { getCoverLetterProvider, COVER_LETTER_MODEL_VERSIONS } from "./registry";
 import { CoverLetterProviderError } from "./provider";
@@ -34,11 +34,14 @@ export async function runCoverLetterProviderCall(
   targetJobId: string,
   profileText: string,
   jobText: string,
+  /** Issue #455. Both default inside renderCoverLetterPrompt when omitted. */
+  tone?: CoverLetterTone,
+  length?: CoverLetterLength,
   providerOverride?: "fixture" | "openai" | "anthropic",
 ): Promise<CoverLetterProviderCallResult> {
   const providerName = providerOverride ?? getEnv().aiProvider;
   const modelVersion = COVER_LETTER_MODEL_VERSIONS[providerName];
-  const prompt = renderCoverLetterPrompt(profileText, jobText);
+  const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length);
 
   let suggestion: CoverLetterSuggestion | null = null;
   let degraded = false;

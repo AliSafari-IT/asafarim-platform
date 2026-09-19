@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runTailorProviderCall } from "../../../../lib/tailoring/ai/generate";
 import { runCoverLetterProviderCall } from "../../../../lib/tailoring/ai/coverLetter/generate";
+import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES } from "../../../../lib/tailoring/ai/coverLetter/prompts";
 import { buildProfileText } from "../../../../lib/tailoring/buildProfileText";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getVersion } from "../../../../lib/profile/versions";
@@ -34,13 +35,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { profileVersionId, targetJobId, includeCoverLetter } = (body ?? {}) as {
+  const { profileVersionId, targetJobId, includeCoverLetter, coverLetterTone, coverLetterLength } = (body ?? {}) as {
     profileVersionId?: unknown;
     targetJobId?: unknown;
     includeCoverLetter?: unknown;
+    coverLetterTone?: unknown;
+    coverLetterLength?: unknown;
   };
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
     return NextResponse.json({ error: "profileVersionId and targetJobId are required." }, { status: 400 });
+  }
+  if (coverLetterTone !== undefined && !COVER_LETTER_TONES.includes(coverLetterTone as never)) {
+    return NextResponse.json({ error: "Invalid coverLetterTone." }, { status: 400 });
+  }
+  if (coverLetterLength !== undefined && !COVER_LETTER_LENGTHS.includes(coverLetterLength as never)) {
+    return NextResponse.json({ error: "Invalid coverLetterLength." }, { status: 400 });
   }
 
   const version = await getVersion(workspace.id, profileVersionId);
@@ -59,7 +68,14 @@ export async function POST(request: Request) {
   const [tailorResult, coverLetterResult] = await Promise.all([
     runTailorProviderCall(workspace.id, targetJobId, profile, targetJob.rawText),
     includeCoverLetter === true
-      ? runCoverLetterProviderCall(workspace.id, targetJobId, buildProfileText(profile).text, targetJob.rawText)
+      ? runCoverLetterProviderCall(
+          workspace.id,
+          targetJobId,
+          buildProfileText(profile).text,
+          targetJob.rawText,
+          coverLetterTone as never,
+          coverLetterLength as never,
+        )
       : Promise.resolve(null),
   ]);
   const { suggestions, degraded, promptVersion, modelVersion } = tailorResult;
