@@ -30,6 +30,11 @@ export interface TailorProviderCall {
    *  summary text or null — structured convenience data so a provider can
    *  align `experienceBullets` by index without re-parsing `profileText`. */
   experienceSummaries: (string | null)[];
+  /** The candidate's own freeform steering text for this run (issue #431),
+   *  already capped/fenced into `user` — carried here separately only so a
+   *  provider can log/inspect it without re-parsing `user`. A preference
+   *  signal only; see prompts.ts's HARD RULES. */
+  instructions?: string | null;
   signal?: AbortSignal;
 }
 
