@@ -67,11 +67,13 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
           This letter could not be AI-drafted right now (budget or provider issue).
         </Alert>
       ) : (
-        <div className="rm-preview-toolbar">
-          <PrintButton />
-          <CoverLetterDocxButton id={id} />
-        <CoverLetterQualityChecklist quality={quality} />
-        </div>
+        <>
+          <div className="rm-preview-toolbar">
+            <PrintButton />
+            <CoverLetterDocxButton id={id} />
+          </div>
+          <CoverLetterQualityChecklist quality={quality} />
+        </>
       )}
 
       <article className="rm-resume rm-resume--classic rm-letter">
