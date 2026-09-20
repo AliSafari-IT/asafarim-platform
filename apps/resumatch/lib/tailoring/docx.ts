@@ -1,5 +1,6 @@
 import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 import type { TailoredResumeContent } from "./ai/schema";
+import { groupSkillsByCategory } from "../profile/skillCategories";
 
 /**
  * DOCX export (issue #435). Renders the same single-column, ATS-safe
@@ -54,7 +55,17 @@ export function buildTailoredResumeDocx(content: TailoredResumeContent): Documen
 
   if (content.skills.length > 0) {
     children.push(heading("Skills"));
-    children.push(new Paragraph({ children: [new TextRun({ text: content.skills.join("  ·  ") })] }));
+    for (const { category, skills } of groupSkillsByCategory(content.skills)) {
+      children.push(
+        new Paragraph({
+          spacing: { after: 60 },
+          children: [
+            new TextRun({ text: `${category}: `, bold: true }),
+            new TextRun({ text: skills.join(", ") }),
+          ],
+        }),
+      );
+    }
   }
 
   if (content.experience.length > 0) {

@@ -759,7 +759,7 @@ function extractSkills(sections: Record<string, string[]>): CandidateProfileCont
       seen.add(key);
       // rawLabel preserves what the CV actually said; normalisation to a
       // controlled vocabulary is M4's job and must not erase the original.
-      skills.push({ name: item, rawLabel: item, yearsExperience: null });
+      skills.push({ name: item, rawLabel: item, yearsExperience: null, category: null });
       if (skills.length >= 200) return skills;
     }
   }

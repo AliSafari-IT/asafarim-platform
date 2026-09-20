@@ -14,6 +14,7 @@ import type {
 } from "../../lib/profile/contract";
 import { AwardIcon, BriefcaseIcon, GlobeIcon, GraduationCapIcon, TrashIcon } from "./icons";
 import type { SummaryTone } from "../../lib/profile/ai/provider";
+import { categorizeSkill, groupSkillsByCategory, SKILL_CATEGORIES } from "../../lib/profile/skillCategories";
 
 /**
  * Profile review and correction (JM-021).
@@ -381,11 +382,27 @@ export function ProfileWorkbench({
               onChange={(event) => {
                 const raw = event.target.value;
                 setSkillsText(raw);
+                // A skill already in `content.skills` keeps whatever
+                // category it has (including a candidate's manual
+                // override); a newly-typed one gets the keyword default.
+                // Matched by name, case-insensitively, since that's the
+                // only identity a free-typed list has.
+                const existingByName = new Map(
+                  content.skills.map((skill) => [skill.name.toLowerCase(), skill]),
+                );
                 update(
                   "skills",
                   parseEntries(raw)
                     .slice(0, 200)
-                    .map((name) => ({ name, rawLabel: name, yearsExperience: null })),
+                    .map((name) => {
+                      const existing = existingByName.get(name.toLowerCase());
+                      return {
+                        name,
+                        rawLabel: name,
+                        yearsExperience: existing?.yearsExperience ?? null,
+                        category: existing?.category ?? null,
+                      };
+                    }),
                 );
               }}
             />
@@ -397,12 +414,51 @@ export function ProfileWorkbench({
             </small>
           </label>
           {content.skills.length > 0 ? (
-            <div className="jm-chip-row" style={{ ["--category-tint" as string]: "99, 102, 241" }}>
-              {content.skills.map((skill, index) => (
-                <span className="jm-chip" key={`${skill.name}-${index}`}>
-                  {skill.name}
-                  {skill.yearsExperience ? ` · ${skill.yearsExperience}y` : ""}
-                </span>
+            <div className="rm-skill-groups">
+              <p className="rm-skill-groups__hint">
+                Grouped automatically by what each skill is for — this is how they'll appear on your
+                tailored CV. Pick a different group from any skill's dropdown if one looks wrong.
+              </p>
+              {groupSkillsByCategory(
+                content.skills.map((skill) => skill.name),
+                (name) => content.skills.find((skill) => skill.name === name)?.category,
+              ).map(({ category, skills }) => (
+                <div className="rm-skill-group" key={category}>
+                  <span className="rm-skill-group__label">{category}</span>
+                  <div className="jm-chip-row">
+                    {skills.map((name) => {
+                      const index = content.skills.findIndex((skill) => skill.name === name);
+                      const skill = content.skills[index];
+                      return (
+                        <span className="jm-chip rm-skill-chip" key={`${name}-${index}`}>
+                          {name}
+                          {skill.yearsExperience ? ` · ${skill.yearsExperience}y` : ""}
+                          <select
+                            aria-label={`Category for ${name}`}
+                            className="rm-skill-chip__category"
+                            value={category}
+                            onChange={(event) =>
+                              update(
+                                "skills",
+                                replaceAt(content.skills, index, {
+                                  ...skill,
+                                  category:
+                                    event.target.value === categorizeSkill(name) ? null : event.target.value,
+                                }),
+                              )
+                            }
+                          >
+                            {SKILL_CATEGORIES.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
             </div>
           ) : null}
