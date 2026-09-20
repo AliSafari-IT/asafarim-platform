@@ -16,7 +16,8 @@ provides — no job-board aggregation — which needs no job-board licensing at
 all. See
 [`docs/business-plan.md`](docs/business-plan.md) for the milestone sequence
 and [`docs/threat-model.md`](docs/threat-model.md) for what the tailoring
-flow does and does not defend against.
+flow does and does not defend against. [`docs/megaplan.md`](docs/megaplan.md)
+is the audit of what's broken, what's deferred, and what could come next.
 
 ## Showcase-only MVP
 
@@ -78,9 +79,11 @@ originally motivated it no longer applies.
   freeform per-run instructions ("emphasize my backend work") as a third
   fenced input — bounded by the same char caps and merge, which can't be
   instructed into fabricating. `RESUMATCH_AI_PROVIDER=fixture` (the
-  default everywhere) is deterministic and free; `openai`/`anthropic` are
-  real adapters behind the same JM-005 sign-off gate the prior product
-  used.
+  default everywhere) is deterministic and free; `openai` and `anthropic`
+  are real adapters for tailoring and cover letters behind the same JM-005
+  sign-off gate the prior product used (the extraction, rewrite, and
+  job-fetch Anthropic adapters are still stubs — `openai` is the only
+  fully-wired real backend today).
 - **AI cover letters** — a second fenced call drafts a letter from the
   same confirmed inputs under the same no-fabrication contract and merge
   discipline, with tone and length controls, the same preview/confirm
@@ -167,7 +170,7 @@ pnpm --filter @asafarim/resumatch test
 | `RESUMATCH_RETENTION_TOKEN` | production | Bearer token for `POST /api/retention`, which sweeps documents past their 90-day window. Unset disables the route entirely (404) rather than leaving it open. Drive it from a scheduler. |
 | `STORAGE_*` | production | S3-compatible object storage for uploaded CVs. Without it, `@asafarim/storage` falls back to `.local-storage/` on disk, which is fine locally and not fine anywhere else. |
 | `REDIS_URL` | worker (all environments) | The platform's shared Redis instance (same variable Vionto's and AppBuilder's workers read — not a ResuMatch-specific `RESUMATCH_REDIS_URL`). Required to start `worker/index.ts`; see [worker/](#worker) below. |
-| `RESUMATCH_AI_PROVIDER` | none — default `fixture` everywhere | Model backend for every AI call kind — CV extraction, tailoring, cover letter, job-URL browsing, and Summary rewrite (JM-005). `openai`/`anthropic` are accepted in staging/production only once `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF=true` **and** the matching API key is set; otherwise startup refuses, naming the gate variable, never a value. Local dev may flip this freely. |
+| `RESUMATCH_AI_PROVIDER` | none — default `fixture` everywhere | Model backend for every AI call kind — CV extraction, tailoring, cover letter, job-URL browsing, and Summary rewrite (JM-005). `openai` is fully wired for all five; `anthropic` is real for tailoring and cover letter only (its extraction/rewrite/job-fetch adapters are stubs that degrade). Either is accepted in staging/production only once `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF=true` **and** the matching API key is set; otherwise startup refuses, naming the gate variable, never a value. Local dev may flip this freely. |
 | `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF` | staging, production (only if a real provider is selected) | JM-005 gate. Flipping this is a config-only change — no code edit. |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | staging, production (only if the matching provider is selected) | Shared platform keys (see root `.env.example`). Unused while `RESUMATCH_AI_PROVIDER` stays `fixture`. |
 | `RESUMATCH_AI_MONTHLY_BUDGET_USD` | none — default `20` | Monthly spend ceiling in USD shared across all provider-call kinds (`tailor`, `extract`, `rewrite`, `fetch_job`, `cover_letter`). `0` freezes AI spend entirely. |

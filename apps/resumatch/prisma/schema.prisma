@@ -491,8 +491,8 @@ model Application {
 model AiUsageLedger {
   id          String   @id @default(cuid())
   workspaceId String
-  /// "tailor" today (the CV-tailoring provider call). See
-  /// lib/tailoring/ai/quota.ts.
+  /// One row per provider call — `tailor | extract | rewrite | fetch_job |
+  /// cover_letter`. See lib/tailoring/ai/quota.ts.
   kind        String
   provider    String
   model       String
