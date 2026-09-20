@@ -30,7 +30,6 @@ describe("AI extraction output contract", () => {
 
     expect(profile.workAuthorization).toBeNull();
     expect(profile.preferences.remote).toBeNull();
-    expect(profile.preferences.excludedEmployers).toEqual([]);
   });
 
   it("rejects an unknown top-level field outright — a model cannot smuggle in a protected attribute by name", () => {

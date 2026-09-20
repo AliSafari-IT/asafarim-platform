@@ -135,9 +135,6 @@ export const preferencesSchema = z.object({
   /** Annual gross, in `salaryCurrency`. A floor, never a target. */
   salaryFloor: z.number().int().min(0).max(10_000_000).nullable().default(null),
   salaryCurrency: z.string().trim().length(3).nullable().default(null),
-  /** Employers the candidate does not want to see. Honoured as a hard
-   *  exclusion in M4, with no explanation shown to anyone else. */
-  excludedEmployers: z.array(trimmed(120)).max(50).default([]),
 });
 
 export const candidateProfileSchema = z
