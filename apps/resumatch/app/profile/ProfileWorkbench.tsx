@@ -29,6 +29,18 @@ import type { SummaryTone } from "../../lib/profile/ai/provider";
  * confident" would claim a precision that does not exist.
  */
 
+/** A candidate typing how long a qualification took ("2016-2020") is a much
+ *  more natural instinct than typing when it finished ("2020"), but
+ *  `educationSchema.completedOn` only accepts a single year or year-month
+ *  (see lib/profile/contract.ts's YEAR_MONTH) — a span fails validation and,
+ *  until this normalizer, surfaced only as a generic "could not be saved"
+ *  error with no indication of which field was wrong. Silently keeping the
+ *  end year on blur turns the common case into something that just works. */
+function normalizeCompletedOn(value: string): string {
+  const span = /^\s*\d{4}\s*[-–—]\s*(\d{4})\s*$/.exec(value);
+  return span ? span[1] : value;
+}
+
 export interface ProfileWorkbenchProps {
   initialContent: CandidateProfileContent;
   initialConfidence: ProfileConfidence;
@@ -642,7 +654,14 @@ export function ProfileWorkbench({
                           value={entry.completedOn ?? ""}
                           placeholder="2018"
                           onChange={(event) => setEntry({ completedOn: event.target.value || null })}
+                          onBlur={(event) => {
+                            const normalized = normalizeCompletedOn(event.target.value);
+                            if (normalized !== event.target.value) setEntry({ completedOn: normalized || null });
+                          }}
                         />
+                        <span style={{ opacity: 0.6, fontSize: "0.78rem" }}>
+                          The year you finished, e.g. 2018 — not a start–end range.
+                        </span>
                       </label>
                     </div>
                   </li>
