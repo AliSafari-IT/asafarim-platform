@@ -273,6 +273,65 @@ describe("skill plausibility", () => {
   });
 });
 
+describe("skills section — category headings and 'term: description' bullets", () => {
+  // Mirrors a real, designed CV's skills section: a subheading per group,
+  // each skill given as a bold lead-in term followed by a sentence
+  // describing it — a shape `looksLikeSkill` correctly rejects whole (see
+  // "rejects prose" above) but which extractSkills should now recover the
+  // lead-in from, tagging it with the heading it sat under.
+  const text = [
+    "Alexandra Moreau",
+    "Hasselt, Belgium",
+    "alexandra.moreau@example.test",
+    "+32 471 22 33 44",
+    "",
+    "SUMMARY",
+    "Backend engineer focused on data pipelines and reliability.",
+    "",
+    "SKILLS",
+    "Software Development:",
+    ".NET and C#: Proficient in .NET and C# environments, including extensive experience with ASP.NET Core (WebAPI, MVC), Entity Framework Core for data access.",
+    "PHP and Laravel: PHP and the Laravel framework for web application development.",
+    "",
+    "Version Control:",
+    "Proficient in using Git, GitHub, and Azure DevOps for source code management and team collaboration.",
+    "",
+    "EXPERIENCE",
+    "Senior Software Engineer at Probex  03/2022 - present",
+    "Software Engineer at Kestrel Data  2019 - 02/2022",
+    "Junior Developer at Loomis IT  2017 - 2019",
+    "",
+    "EDUCATION",
+    "MSc Computer Science, KU Leuven  2017",
+    "BSc Informatics  2015",
+  ].join("\n");
+  const { content } = extractProfileFromText(text);
+
+  it("recovers the lead-in term from a 'Term: description' bullet instead of discarding the whole line", () => {
+    const names = content.skills.map((s) => s.name);
+    expect(names).toContain(".NET and C#");
+    expect(names).toContain("PHP and Laravel");
+  });
+
+  it("tags a recovered skill with the subheading it sat under", () => {
+    const dotnet = content.skills.find((s) => s.name === ".NET and C#");
+    expect(dotnet?.category).toBe("Software Development");
+    const php = content.skills.find((s) => s.name === "PHP and Laravel");
+    expect(php?.category).toBe("Software Development");
+  });
+
+  it("never stores the subheading line itself as a skill", () => {
+    const names = content.skills.map((s) => s.name);
+    expect(names).not.toContain("Software Development");
+    expect(names).not.toContain("Version Control");
+  });
+
+  it("keeps rawLabel as the recovered lead-in, not the full sentence", () => {
+    const dotnet = content.skills.find((s) => s.name === ".NET and C#");
+    expect(dotnet?.rawLabel).toBe(".NET and C#");
+  });
+});
+
 describe("choosing the candidate's own email", () => {
   it("prefers an address matching the name over one that appears earlier", () => {
     const text = "REFERENCES\ninfo@agency.test\n\nJane Vermeulen\njane.vermeulen@example.test";
