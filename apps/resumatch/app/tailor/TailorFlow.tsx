@@ -6,6 +6,7 @@ import { Alert, Button, Card, Input } from "@asafarim/ui";
 import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
 import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQuality";
 import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
+import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
 
 const MIN_PASTE_CHARS = 120;
 
@@ -649,7 +650,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
       {state.kind === "loading_review" ? (
         <div style={{ marginTop: "1rem" }}>
-          <Alert tone="info">Asking AI to suggest changes for this job — this can take up to a minute…</Alert>
+          <Card>
+            <TailoringLoader />
+          </Card>
         </div>
       ) : null}
 
