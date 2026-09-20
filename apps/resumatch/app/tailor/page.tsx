@@ -46,7 +46,13 @@ export default async function TailorPage() {
     where: { workspaceId: workspace.id },
     orderBy: { createdAt: "desc" },
     take: 10,
-    select: { id: true, createdAt: true, degraded: true, targetJob: { select: { title: true, employer: true } } },
+    select: {
+      id: true,
+      createdAt: true,
+      degraded: true,
+      targetJob: { select: { title: true, employer: true } },
+      coverLetter: { select: { id: true } },
+    },
   });
 
   return (
@@ -73,6 +79,7 @@ export default async function TailorPage() {
                   </Link>
                   <span className="rm-history-item__meta">
                     <span className="jm-mono">{resume.createdAt.toISOString().slice(0, 10)}</span>
+                    {resume.coverLetter ? <span className="rm-badge rm-badge--neutral">+ Cover letter</span> : null}
                     {resume.degraded ? <span className="rm-badge rm-badge--warning">Degraded</span> : null}
                   </span>
                 </li>

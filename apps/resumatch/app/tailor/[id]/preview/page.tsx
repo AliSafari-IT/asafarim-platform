@@ -25,7 +25,7 @@ export default async function TailoredResumePreviewPage({
   searchParams: Promise<{ coverLetterId?: string }>;
 }) {
   const { id } = await params;
-  const { coverLetterId } = await searchParams;
+  const { coverLetterId: coverLetterIdFromQuery } = await searchParams;
   const workspace = await getCurrentWorkspace();
   if (!workspace) notFound();
 
@@ -34,9 +34,21 @@ export default async function TailoredResumePreviewPage({
   // candidate's tailored resume.
   const row = await db.tailoredResume.findFirst({
     where: { id, workspaceId: workspace.id },
-    select: { content: true, degraded: true, targetJobId: true, targetJob: { select: { rawText: true } } },
+    select: {
+      content: true,
+      degraded: true,
+      targetJobId: true,
+      targetJob: { select: { rawText: true, title: true, employer: true } },
+      // The persisted pairing (see schema's CoverLetter.tailoredResumeId
+      // comment) — read this instead of relying only on the query param,
+      // so "View cover letter" still shows up on a later visit, not just
+      // right after generation.
+      coverLetter: { select: { id: true } },
+    },
   });
   if (!row) notFound();
+
+  const coverLetterId = row.coverLetter?.id ?? coverLetterIdFromQuery ?? null;
 
   const content = parseTailoredResumeContent(row.content);
 
@@ -54,9 +66,15 @@ export default async function TailoredResumePreviewPage({
   const coverage = row.targetJob.rawText ? computeCoverage(content.skills, row.targetJob.rawText, resumeText) : null;
   const quality = computeQuality(content);
 
+  const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
+
   return (
     <>
-      <PageHeader kicker="Tailor" title="Your tailored CV" />
+      <PageHeader
+        kicker="Tailor"
+        title="Your tailored CV"
+        description={jobLabel ? `Tailored toward ${jobLabel}.` : undefined}
+      />
 
       {row.degraded ? (
         <Alert tone="warning">
@@ -73,7 +91,9 @@ export default async function TailoredResumePreviewPage({
           <Link href={`/cover-letter/${coverLetterId}/preview`} className="ui-btn ui-btn--ghost ui-btn--sm">
             View cover letter
           </Link>
-        ) : null}
+        ) : (
+          <span className="rm-preview-toolbar__hint">No cover letter for this CV.</span>
+        )}
       </div>
 
       {coverage ? <CoverageReport coverage={coverage} /> : null}

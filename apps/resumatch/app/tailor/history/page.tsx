@@ -41,6 +41,7 @@ export default async function TailoringHistoryPage() {
       modelVersion: true,
       profileVersionId: true,
       targetJob: { select: { title: true, employer: true } },
+      coverLetter: { select: { id: true } },
     },
   });
 

@@ -636,10 +636,15 @@
 
 .rm-preview-toolbar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
   max-width: 48rem;
   margin: 0 auto 1rem;
+}
+.rm-preview-toolbar__hint {
+  font-size: 0.82rem;
+  opacity: 0.6;
 }
 
 /* ─── Tailor flow: modern intake tabs, review, bullet checklist ────────── */
@@ -930,6 +935,13 @@
 .rm-badge--rejected {
   background: rgba(220, 38, 38, 0.12);
   color: #b91c1c;
+}
+
+.rm-badge--neutral {
+  background: var(--accent-soft, rgba(74, 84, 216, 0.12));
+  color: var(--accent, #4a54d8);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 /* Application status stepper (ApplicationStatusStepper.tsx) — self-built,
