@@ -55,16 +55,13 @@ export function buildTailoredResumeDocx(content: TailoredResumeContent): Documen
 
   if (content.skills.length > 0) {
     children.push(heading("Skills"));
-    for (const { category, skills } of groupSkillsByCategory(content.skills)) {
-      children.push(
-        new Paragraph({
-          spacing: { after: 60 },
-          children: [
-            new TextRun({ text: `${category}: `, bold: true }),
-            new TextRun({ text: skills.join(", ") }),
-          ],
-        }),
-      );
+    for (const { category, skills } of groupSkillsByCategory(content.skills, undefined, {
+      collapseUnrecognized: true,
+    })) {
+      const runs = category
+        ? [new TextRun({ text: `${category}: `, bold: true }), new TextRun({ text: skills.join(", ") })]
+        : [new TextRun({ text: skills.join(", ") })];
+      children.push(new Paragraph({ spacing: { after: 60 }, children: runs }));
     }
   }
 
