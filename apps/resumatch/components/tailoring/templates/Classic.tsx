@@ -46,12 +46,14 @@ export function ClassicTemplate({ content }: { content: TailoredResumeContent })
         <section className="rm-resume__section">
           <h2>Skills</h2>
           <div className="rm-resume__skill-groups">
-            {groupSkillsByCategory(content.skills).map(({ category, skills }) => (
-              <p className="rm-resume__skill-group" key={category}>
-                <span className="rm-resume__skill-category">{category}:</span>{" "}
-                <span className="rm-resume__skill-list">{skills.join(", ")}</span>
-              </p>
-            ))}
+            {groupSkillsByCategory(content.skills, undefined, { collapseUnrecognized: true }).map(
+              ({ category, skills }) => (
+                <p className="rm-resume__skill-group" key={category || "flat"}>
+                  {category ? <span className="rm-resume__skill-category">{category}: </span> : null}
+                  <span className="rm-resume__skill-list">{skills.join(", ")}</span>
+                </p>
+              ),
+            )}
           </div>
         </section>
       ) : null}

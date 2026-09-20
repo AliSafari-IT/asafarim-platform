@@ -14,6 +14,15 @@
  * A candidate can always override a specific skill's category from the
  * profile editor (stored as `SkillEntry.category`); this function is only
  * ever the *default* a new or uncategorized skill starts from.
+ *
+ * The taxonomy below is software/IT-shaped — it has to start somewhere, and
+ * ResuMatch's own early users skew that way — but it is not the only kind of
+ * CV this app tailors. A professor, a nurse, an electrician: their skills
+ * mostly won't match a single keyword here, and grouping them anyway would
+ * dump nearly everything under one "Other" heading on their actual CV,
+ * which reads as broken, not organized. `groupSkillsByCategory`'s
+ * `collapseUnrecognized` option is the escape hatch for exactly that case —
+ * see its doc comment.
  */
 
 export const SKILL_CATEGORIES = [
@@ -238,8 +247,12 @@ export function categorizeSkill(name: string): SkillCategory {
   return "Other";
 }
 
+/** `category: ""` is the flat-list fallback (see `collapseUnrecognized`
+ *  below) — never a real heading, so a renderer must treat it as "print
+ *  these skills with no category label" rather than literally printing
+ *  the string "". */
 export interface SkillGroup {
-  category: SkillCategory;
+  category: SkillCategory | "";
   skills: string[];
 }
 
@@ -248,21 +261,42 @@ export interface SkillGroup {
  * category with nothing in it. `resolveCategory` lets a caller supply a
  * candidate's own manual override (`SkillEntry.category`) ahead of the
  * keyword default — see lib/profile/contract.ts's `skillSchema.category`.
+ *
+ * `collapseUnrecognized` (default false): when more than half the skills
+ * fall back to "Other" *by the keyword default* (an explicit override to
+ * "Other" never counts against this), skip grouping entirely and return
+ * one flat, unlabeled group instead. This taxonomy is software/IT-shaped;
+ * a CV for an unrelated field (a professor, a nurse, a electrician) would
+ * otherwise see nearly every skill dumped under one "Other:" heading on
+ * their actual CV, which reads as broken, not organized. Pass true from a
+ * renderer a candidate can't edit (the tailored CV, the DOCX export) where
+ * that would be actively misleading; leave it false in the profile editor,
+ * where an honest "Other" bucket is exactly what tells the candidate which
+ * skills to categorize themselves via the override.
  */
 export function groupSkillsByCategory(
   names: string[],
   resolveCategory?: (name: string) => string | null | undefined,
+  options?: { collapseUnrecognized?: boolean },
 ): SkillGroup[] {
+  if (names.length === 0) return [];
+
   const byCategory = new Map<SkillCategory, string[]>();
+  let unrecognizedByDefault = 0;
   for (const name of names) {
     const override = resolveCategory?.(name);
-    const category = (SKILL_CATEGORIES as readonly string[]).includes(override ?? "")
-      ? (override as SkillCategory)
-      : categorizeSkill(name);
+    const isValidOverride = (SKILL_CATEGORIES as readonly string[]).includes(override ?? "");
+    const category = isValidOverride ? (override as SkillCategory) : categorizeSkill(name);
+    if (!isValidOverride && category === "Other") unrecognizedByDefault++;
     const bucket = byCategory.get(category) ?? [];
     bucket.push(name);
     byCategory.set(category, bucket);
   }
+
+  if (options?.collapseUnrecognized && unrecognizedByDefault / names.length > 0.5) {
+    return [{ category: "", skills: names }];
+  }
+
   return SKILL_CATEGORIES.filter((category) => byCategory.has(category)).map((category) => ({
     category,
     skills: byCategory.get(category)!,

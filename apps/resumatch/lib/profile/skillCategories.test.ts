@@ -70,6 +70,48 @@ describe("groupSkillsByCategory", () => {
     expect(groupSkillsByCategory([])).toEqual([]);
   });
 
+  it("without collapseUnrecognized, groups a non-tech skill set honestly under Other", () => {
+    // A geopolitics professor's skills — none of them match this
+    // software/IT-shaped taxonomy. The profile editor needs this honest
+    // result so the candidate can see which skills to categorize themselves.
+    const groups = groupSkillsByCategory([
+      "Comparative Politics",
+      "Diplomatic History",
+      "Qualitative Research",
+      "Grant Writing",
+    ]);
+    expect(groups).toEqual([
+      {
+        category: "Other",
+        skills: ["Comparative Politics", "Diplomatic History", "Qualitative Research", "Grant Writing"],
+      },
+    ]);
+  });
+
+  it("with collapseUnrecognized, falls back to one flat, unlabeled group for a non-tech skill set", () => {
+    const names = ["Comparative Politics", "Diplomatic History", "Qualitative Research", "Grant Writing"];
+    const groups = groupSkillsByCategory(names, undefined, { collapseUnrecognized: true });
+    expect(groups).toEqual([{ category: "", skills: names }]);
+  });
+
+  it("with collapseUnrecognized, still groups normally when most skills ARE recognized", () => {
+    const groups = groupSkillsByCategory(["React", "Node.js", "SQL Server", "Diplomatic History"], undefined, {
+      collapseUnrecognized: true,
+    });
+    expect(groups.map((g) => g.category)).not.toContain("");
+  });
+
+  it("collapseUnrecognized never overrides an explicit manual override to Other", () => {
+    // A candidate deliberately filing one skill under "Other" is a real
+    // choice, not a taxonomy miss — it must not trip the collapse heuristic
+    // by itself.
+    const groups = groupSkillsByCategory(["React", "Node.js", "Something Niche"], (name) =>
+      name === "Something Niche" ? "Other" : undefined,
+      { collapseUnrecognized: true },
+    );
+    expect(groups.some((g) => g.category === "Other" && g.skills.includes("Something Niche"))).toBe(true);
+  });
+
   it("covers every declared category with at least one keyword", () => {
     // Every category but the fallback should be reachable — otherwise it is
     // dead weight in the taxonomy (or a keyword bug hiding it).
