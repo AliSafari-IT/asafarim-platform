@@ -131,6 +131,11 @@ export async function POST(request: Request) {
         workspaceId: workspace.id,
         profileVersionId,
         targetJobId,
+        // Pairs this letter with the specific CV it was reviewed alongside
+        // — targetJobId alone can't do that once a candidate re-tailors
+        // toward the same job more than once. See the schema's own comment
+        // on CoverLetter.tailoredResumeId.
+        tailoredResumeId: row.id,
         content: letterContent,
         promptVersion: coverLetter.promptVersion,
         modelVersion: coverLetter.modelVersion,

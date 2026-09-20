@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { getJobmatchDb } from "../../../../lib/db/client";
@@ -31,7 +32,12 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
   // candidate's cover letter.
   const row = await db.coverLetter.findFirst({
     where: { id, workspaceId: workspace.id },
-    select: { content: true, degraded: true },
+    select: {
+      content: true,
+      degraded: true,
+      tailoredResumeId: true,
+      targetJob: { select: { title: true, employer: true } },
+    },
   });
   if (!row) notFound();
 
@@ -41,10 +47,20 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
   // text) — "standard" is a reasonable general-purpose default for this
   // read-only view, same as the review screen's own default.
   const quality = computeCoverLetterQuality(content);
+  const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
 
   return (
     <>
-      <PageHeader kicker="Tailor" title="Your cover letter" />
+      <PageHeader
+        kicker="Tailor"
+        title="Your cover letter"
+        description={jobLabel ? `Written for ${jobLabel}.` : undefined}
+      />
+      {row.tailoredResumeId ? (
+        <p style={{ margin: "-0.5rem 0 1rem" }}>
+          <Link href={`/tailor/${row.tailoredResumeId}/preview`}>← View the tailored CV it goes with</Link>
+        </p>
+      ) : null}
 
       {row.degraded ? (
         <Alert tone="warning">

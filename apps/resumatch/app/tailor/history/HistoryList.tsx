@@ -23,6 +23,7 @@ interface HistoryRow {
   promptVersion: string;
   modelVersion: string;
   targetJob: { title: string | null; employer: string | null };
+  coverLetter: { id: string } | null;
 }
 
 /** Client picker: check exactly two rows, then "Compare" navigates to
@@ -77,6 +78,7 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
                     <span className="jm-mono">
                       {formatTimestamp(resume.createdAt)} UTC · {resume.templateKey} · {resume.modelVersion}
                     </span>
+                    {resume.coverLetter ? <span className="rm-badge rm-badge--neutral">+ Cover letter</span> : null}
                     {resume.degraded ? <span className="rm-badge rm-badge--warning">Degraded</span> : null}
                   </p>
                 </div>

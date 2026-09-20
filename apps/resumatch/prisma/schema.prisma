@@ -387,6 +387,13 @@ model TailoredResume {
   createdAt DateTime @default(now())
 
   applications Application[]
+  /// The cover letter generated alongside this CV in the same
+  /// generate-confirm request, if the candidate opted in and approved one
+  /// (issue #454). Null is a normal, common state — most tailored CVs
+  /// never get a cover letter. See CoverLetter.tailoredResumeId's own
+  /// comment for why this pairing needed its own column instead of being
+  /// inferred from targetJobId.
+  coverLetter CoverLetter?
 
   @@index([workspaceId, createdAt])
   @@index([targetJobId])
@@ -409,6 +416,19 @@ model CoverLetter {
 
   targetJobId String
   targetJob   TargetJob @relation(fields: [targetJobId], references: [id], onDelete: Cascade)
+
+  /// The specific TailoredResume this letter was generated alongside, in
+  /// the same generate-confirm request. Nullable, not because a letter can
+  /// exist without one — generate-confirm always sets it on create — but
+  /// because a candidate can re-tailor toward the same job multiple times,
+  /// so targetJobId alone can't tell two CVs and a letter apart; without
+  /// this column the CV preview page and history lists had no reliable way
+  /// to show "this CV has a cover letter" once the URL that carried
+  /// coverLetterId as a query param was gone. SetNull rather than Cascade:
+  /// deleting the CV a letter was paired with should not silently delete
+  /// the candidate's own drafted letter text too.
+  tailoredResumeId String?       @unique
+  tailoredResume   TailoredResume? @relation(fields: [tailoredResumeId], references: [id], onDelete: SetNull)
 
   /// Schema-validated content (lib/tailoring/ai/coverLetter/schema.ts).
   /// fullName is carried over from the source profile in code, never taken
