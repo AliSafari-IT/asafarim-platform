@@ -1846,6 +1846,124 @@
   }
 }
 
+/* ─── Tailoring wait animation (app/tailor) ─────────────────────────────
+   The "up to a minute" gap between pasting a job and seeing the review
+   screen used to be a single static sentence. See
+   components/tailoring/TailoringLoader.tsx's doc comment for why. */
+
+.rm-tailor-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.rm-tailor-loader__svg {
+  width: 200px;
+  height: 150px;
+}
+
+.rm-tailor-loader__page {
+  fill: var(--surface-2, #eef1f6);
+  stroke: var(--line-strong, rgba(19, 23, 34, 0.22));
+  stroke-width: 1.5;
+}
+
+.rm-tailor-loader__sweep {
+  fill: var(--accent-soft, rgba(74, 84, 216, 0.12));
+  animation: rm-loader-sweep 2.6s ease-in-out infinite;
+}
+
+.rm-tailor-loader__line {
+  fill: var(--line-strong, rgba(19, 23, 34, 0.22));
+  transform-origin: left center;
+  animation: rm-loader-type 2.6s ease-in-out infinite;
+}
+.rm-tailor-loader__line--head {
+  fill: var(--accent, #4a54d8);
+}
+
+.rm-tailor-loader__spark-orbit {
+  transform-origin: 116px 79px;
+  animation: rm-loader-orbit 3.6s linear infinite;
+}
+.rm-tailor-loader__spark {
+  fill: var(--accent, #4a54d8);
+  animation: rm-loader-twinkle 1.4s ease-in-out infinite;
+}
+.rm-tailor-loader__spark-dot {
+  fill: var(--accent, #4a54d8);
+  opacity: 0.5;
+  animation: rm-loader-twinkle 1.8s ease-in-out infinite;
+}
+
+.rm-tailor-loader__step {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink);
+  min-height: 1.3em;
+}
+
+.rm-tailor-loader__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+@keyframes rm-loader-sweep {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(210px);
+  }
+}
+
+@keyframes rm-loader-type {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  45% {
+    transform: scaleX(0.35);
+    opacity: 0.55;
+  }
+}
+
+@keyframes rm-loader-orbit {
+  0% {
+    transform: rotate(0deg) translateX(42px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg) translateX(42px) rotate(-360deg);
+  }
+}
+
+@keyframes rm-loader-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-tailor-loader__sweep,
+  .rm-tailor-loader__line,
+  .rm-tailor-loader__spark-orbit,
+  .rm-tailor-loader__spark,
+  .rm-tailor-loader__spark-dot {
+    animation: none;
+  }
+}
+
 @media print {
   .rm-preview-toolbar,
   .rm-coverage,
