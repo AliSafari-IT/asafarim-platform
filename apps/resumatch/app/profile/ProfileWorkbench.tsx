@@ -15,6 +15,7 @@ import type {
 import { AwardIcon, BriefcaseIcon, GlobeIcon, GraduationCapIcon, TrashIcon } from "./icons";
 import type { SummaryTone } from "../../lib/profile/ai/provider";
 import { categorizeSkill, groupSkillsByCategory, SKILL_CATEGORIES } from "../../lib/profile/skillCategories";
+import { parseSkillsFreeText } from "../../lib/profile/parseSkillsText";
 
 /**
  * Profile review and correction (JM-021).
@@ -382,33 +383,41 @@ export function ProfileWorkbench({
               onChange={(event) => {
                 const raw = event.target.value;
                 setSkillsText(raw);
+                // Shares its parser with CV-upload extraction
+                // (lib/profile/parseSkillsText.ts) so pasting a formatted
+                // skills block here — category headings, "Term:
+                // description" bullets, bullet glyphs and all — behaves the
+                // same as uploading the CV it came from, instead of storing
+                // every raw line verbatim.
+                //
                 // A skill already in `content.skills` keeps whatever
                 // category it has (including a candidate's manual
-                // override); a newly-typed one gets the keyword default.
-                // Matched by name, case-insensitively, since that's the
-                // only identity a free-typed list has.
+                // override, which always wins); a newly-typed or
+                // newly-pasted one gets whatever category the parser just
+                // detected for it, if any. Matched by name,
+                // case-insensitively, since that's the only identity a
+                // free-typed list has.
                 const existingByName = new Map(
                   content.skills.map((skill) => [skill.name.toLowerCase(), skill]),
                 );
                 update(
                   "skills",
-                  parseEntries(raw)
-                    .slice(0, 200)
-                    .map((name) => {
-                      const existing = existingByName.get(name.toLowerCase());
-                      return {
-                        name,
-                        rawLabel: name,
-                        yearsExperience: existing?.yearsExperience ?? null,
-                        category: existing?.category ?? null,
-                      };
-                    }),
+                  parseSkillsFreeText(raw).map(({ name, category }) => {
+                    const existing = existingByName.get(name.toLowerCase());
+                    return {
+                      name,
+                      rawLabel: name,
+                      yearsExperience: existing?.yearsExperience ?? null,
+                      category: existing?.category ?? category,
+                    };
+                  }),
                 );
               }}
             />
             <small>
-              One per line or separated by commas.
-              {parseEntries(skillsText).length > 200
+              One per line or separated by commas — paste a formatted skills block (with category
+              headings) and it's read the same way an uploaded CV would be.
+              {parseSkillsFreeText(skillsText).length > 200
                 ? " Only the first 200 will be saved — trim the rest before saving."
                 : null}
             </small>

@@ -4,6 +4,7 @@ import {
   emptyProfile,
   parseProfileContent,
 } from "../profile/contract";
+import { parseSkillLines } from "../profile/parseSkillsText";
 
 /**
  * Turning CV text into a draft profile (JM-020).
@@ -240,89 +241,13 @@ function foldAccents(input: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-/** Strip a leading bullet glyph (and the whitespace after it) from a line,
- *  the same set `splitList` strips per-segment — shared so heading and
- *  lead-in detection see the same text a split-list item would. */
-function stripBulletPrefix(line: string): string {
-  return line.replace(/^[-*•·➢▶►]\s*/, "").trim();
-}
-
-/** Splits a line into list items on the separators CVs actually use. */
-function splitList(line: string): string[] {
-  return line
-    .split(/[,;|/]|\s{2,}|•|·|\s-\s/)
-    .map((part) => part.trim().replace(/^[-*•·]\s*/, "").trim())
-    .filter((part) => part.length > 1 && part.length <= 80);
-}
-
-/**
- * Whether a line is a skills-section subheading rather than a skill or a
- * bulleted item — "Software Development:", "Version Control:" — a short
- * label with nothing else on the line. Distinguished from a "Term:
- * description" bullet (see `extractLeadInSkill`) by having no non-trivial
- * text after its own colon.
- */
-function looksLikeSkillCategoryHeading(line: string): string | null {
-  const stripped = stripBulletPrefix(line);
-  const match = /^([A-Za-z][\w &/-]{1,38}):\s*$/.exec(stripped);
-  if (!match) return null;
-  const label = match[1].trim();
-  if (label.split(/\s+/).length > 5) return null;
-  return label;
-}
-
-/**
- * Recover the skill name from a "Term: longer description" bullet —
- * `".NET and C#: Proficient in .NET and C# environments, including..."` —
- * a format `looksLikeSkill` correctly rejects whole (it is a sentence, not
- * a skill name), but which names a real skill in its lead-in. Returns null
- * for anything that is not this specific shape, including a bare category
- * heading (see `looksLikeSkillCategoryHeading`, checked first by the
- * caller) and an ordinary "Skill: Skill, Skill" list some CVs also use,
- * where the text after the colon is itself short enough to look like more
- * skill names rather than prose.
- */
-function extractLeadInSkill(line: string): string | null {
-  const stripped = stripBulletPrefix(line);
-  const match = /^([^:]{2,60}):\s+(.{15,})$/.exec(stripped);
-  if (!match) return null;
-  const [, leadIn, description] = match;
-  // Prose reads like a sentence — connective words, or simply too long to
-  // be "more skill names" the way "Skill: SkillA, SkillB" would be.
-  const looksLikeProse =
-    description.length > 40 || /\b(and|with|the|for|to|of|in|using|used)\b/i.test(description);
-  if (!looksLikeProse) return null;
-  const name = leadIn.trim();
-  return looksLikeSkill(name) ? name : null;
-}
-
-/**
- * Whether a fragment is plausibly the name of a skill.
- *
- * Without this, a prose bullet like "Database Management: Used MongoDB and
- * SQL Server to design, query, and manage databases effectively" is split on
- * its commas and stored as three "skills". A skill is a short noun phrase; a
- * sentence, a URL, an email, or a date is not, whatever section it sat under.
- */
-export function looksLikeSkill(candidate: string): boolean {
-  const value = candidate.trim();
-  if (value.length < 2 || value.length > 50) return false;
-  // Ends like a sentence.
-  if (/[.:;!?]$/.test(value)) return false;
-  if (value.split(/\s+/).length > 5) return false;
-  // Contact details and links appear in every CV and are not skills.
-  if (/@|https?:|www\./i.test(value)) return false;
-  if (/\b(19|20)\d{2}\b/.test(value)) return false;
-  // Connectives mark prose. Short fragments are spared so "Ruby on Rails"
-  // and "Test of Record" survive.
-  if (
-    value.split(/\s+/).length > 3 &&
-    /\b(and|with|the|for|to|of|in|using|used|van|voor|met|et|des|pour)\b/i.test(value)
-  ) {
-    return false;
-  }
-  return /[a-z]/i.test(value);
-}
+// Line-by-line skill parsing (heading detection, "Term: description"
+// recovery, `looksLikeSkill` prose filtering) now lives in
+// lib/profile/parseSkillsText.ts, shared with the profile editor's manual
+// Skills textarea (app/profile/ProfileWorkbench.tsx) — see that module's
+// doc comment for why the two paths need to agree. `looksLikeSkill` is
+// re-exported here so existing imports of it from this module keep working.
+export { looksLikeSkill } from "../profile/parseSkillsText";
 
 /**
  * Collapse the letter-spacing that designed CVs use for headings.
@@ -793,51 +718,18 @@ function extractLanguagesFromSection(
 }
 
 function extractSkills(sections: Record<string, string[]>): CandidateProfileContent["skills"] {
-  const seen = new Set<string>();
-  const skills: CandidateProfileContent["skills"] = [];
-  // A designed CV's skills section is routinely organised under its own
-  // subheadings ("Software Development:", "Version Control:") with each
-  // skill given as a "Term: description" bullet underneath. Recovering
-  // that structure (rather than discarding it, which is what happened
-  // before this) means a candidate's own grouping survives instead of
-  // being silently replaced by lib/profile/skillCategories.ts's keyword
-  // guess for every skill.
-  let currentCategory: string | null = null;
-
-  const push = (name: string, category: string | null) => {
-    const key = name.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
+  // Heading detection, "Term: description" recovery, and prose filtering
+  // all live in lib/profile/parseSkillsText.ts now — shared with the
+  // profile editor's manual Skills textarea, so a candidate gets the same
+  // result whichever way their skills reach ResuMatch.
+  return parseSkillLines(sections.skills ?? []).map(({ name, category }) => ({
+    name,
     // rawLabel preserves what the CV actually said; normalisation to a
     // controlled vocabulary is M4's job and must not erase the original.
-    skills.push({ name, rawLabel: name, yearsExperience: null, category });
-  };
-
-  for (const line of sections.skills ?? []) {
-    if (skills.length >= 200) return skills;
-
-    const heading = looksLikeSkillCategoryHeading(line);
-    if (heading) {
-      currentCategory = heading;
-      continue;
-    }
-
-    const leadIn = extractLeadInSkill(line);
-    if (leadIn) {
-      push(leadIn, currentCategory);
-      continue;
-    }
-
-    for (const item of splitList(line)) {
-      // The filter matters more than the split: CV skill sections are full of
-      // prose bullets, and without it every clause of every sentence lands in
-      // the candidate's skill list.
-      if (!looksLikeSkill(item)) continue;
-      push(item, currentCategory);
-      if (skills.length >= 200) break;
-    }
-  }
-  return skills;
+    rawLabel: name,
+    yearsExperience: null,
+    category,
+  }));
 }
 
 /** `2021 - 2024`, `03/2021 – present`, `2021-03 tot heden`. */
