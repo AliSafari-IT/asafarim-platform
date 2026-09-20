@@ -50,7 +50,7 @@ export class QuotaExceededError extends Error {
   }
 }
 
-export type ProviderCallKind = "tailor" | "extract" | "rewrite" | "fetch_job" | "cover_letter";
+export type ProviderCallKind = "tailor" | "extract" | "rewrite" | "fetch_job" | "cover_letter" | "categorize_skills";
 
 function monthStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));

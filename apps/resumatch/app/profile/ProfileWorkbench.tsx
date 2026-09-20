@@ -54,17 +54,6 @@ export interface ProfileWorkbenchProps {
 
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "error"; message: string } | { kind: "saved"; confirmed: boolean };
 
-/** Split a free-typed list on commas or newlines, trimming and dropping
- *  blanks — shared by every parsed-list field so the "how many entries did
- *  the user actually type" count used for the over-limit warning is always
- *  the exact same count that gets sliced and saved. */
-function parseEntries(raw: string): string[] {
-  return raw
-    .split(/[,\n]/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
 /** A safe-enough ISO-639-ish code for a manually-added language: the
  *  schema only requires 2-16 characters, and this field is never read for
  *  anything beyond display and de-duplication during extraction, so a
@@ -122,9 +111,6 @@ export function ProfileWorkbench({
   const [skillsText, setSkillsText] = useState(() =>
     initialContent.skills.map((skill) => skill.name).join(", "),
   );
-  const [excludedEmployersText, setExcludedEmployersText] = useState(() =>
-    initialContent.preferences.excludedEmployers.join(", "),
-  );
   const confidence = initialConfidence;
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
@@ -134,6 +120,13 @@ export function ProfileWorkbench({
     | { kind: "idle" }
     | { kind: "loading" }
     | { kind: "preview"; text: string; degraded: boolean }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  const [categorizeState, setCategorizeState] = useState<
+    | { kind: "idle" }
+    | { kind: "loading" }
+    | { kind: "preview"; suggestions: { name: string; category: string }[]; degraded: boolean }
     | { kind: "error"; message: string }
   >({ kind: "idle" });
 
@@ -166,6 +159,50 @@ export function ProfileWorkbench({
       setRewriteState({ kind: "error", message: "That summary could not be rewritten. Check your connection and try again." });
     }
   }, [content.summary, tone]);
+
+  const requestCategorize = useCallback(async () => {
+    const skillNames = content.skills.map((skill) => skill.name);
+    if (skillNames.length === 0) return;
+
+    setCategorizeState({ kind: "loading" });
+    try {
+      const response = await fetch("/api/profile/skills/categorize", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ skillNames }),
+      });
+      const body = (await response.json()) as {
+        categories?: { name: string; category: string }[];
+        degraded?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !body.categories) {
+        setCategorizeState({ kind: "error", message: body.error ?? "Skills could not be categorized." });
+        return;
+      }
+      // A candidate reviews and explicitly applies this — it never touches
+      // `content.skills` on its own, the same "nothing is used until you
+      // confirm it" posture the rest of this form follows.
+      setCategorizeState({ kind: "preview", suggestions: body.categories, degraded: body.degraded ?? false });
+    } catch {
+      setCategorizeState({
+        kind: "error",
+        message: "Skills could not be categorized. Check your connection and try again.",
+      });
+    }
+  }, [content.skills]);
+
+  const applyCategorySuggestions = useCallback((suggestions: { name: string; category: string }[]) => {
+    const byName = new Map(suggestions.map((s) => [s.name, s.category]));
+    setContent((previous) => ({
+      ...previous,
+      skills: previous.skills.map((skill) =>
+        byName.has(skill.name) ? { ...skill, category: byName.get(skill.name)! } : skill,
+      ),
+    }));
+    setDirty(true);
+    setCategorizeState({ kind: "idle" });
+  }, []);
 
   const save = useCallback(
     async (confirm: boolean) => {
@@ -426,8 +463,63 @@ export function ProfileWorkbench({
             <div className="rm-skill-groups">
               <p className="rm-skill-groups__hint">
                 Grouped automatically by what each skill is for — this is how they'll appear on your
-                tailored CV. Pick a different group from any skill's dropdown if one looks wrong.
+                tailored CV. Pick a different group from any skill's dropdown if one looks wrong, or let
+                AI take a pass.
               </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={categorizeState.kind === "loading"}
+                onClick={requestCategorize}
+              >
+                {categorizeState.kind === "loading" ? "Asking AI…" : "Suggest categories"}
+              </Button>
+
+              {categorizeState.kind === "error" ? (
+                <Alert tone="error">{categorizeState.message}</Alert>
+              ) : null}
+
+              {categorizeState.kind === "preview" ? (
+                <div className="rm-skill-groups__suggestions">
+                  {categorizeState.degraded ? (
+                    <Alert tone="warning">
+                      AI categorization isn't available right now, so these are the same built-in
+                      keyword-based guesses already shown below — not a genuine AI read of your field.
+                      Still fine to apply, or dismiss and adjust categories yourself.
+                    </Alert>
+                  ) : (
+                    <p style={{ opacity: 0.75, fontSize: "0.85rem" }}>
+                      AI-suggested categories — review below, then apply all or dismiss.
+                    </p>
+                  )}
+                  <ul className="rm-skill-groups__suggestion-list">
+                    {categorizeState.suggestions.map(({ name, category }) => (
+                      <li key={name}>
+                        <strong>{name}</strong> → {category}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="rm-review__actions">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => applyCategorySuggestions(categorizeState.suggestions)}
+                    >
+                      Apply all
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setCategorizeState({ kind: "idle" })}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
               {groupSkillsByCategory(
                 content.skills.map((skill) => skill.name),
                 (name) => content.skills.find((skill) => skill.name === name)?.category,
@@ -480,7 +572,7 @@ export function ProfileWorkbench({
           ) : (
             <ul className="jm-entity-list">
               {content.languages.map((language, index) => (
-                <li key={`${language.code}-${index}`} className="jm-entity-card jm-entity-card--languages">
+                <li key={index} className="jm-entity-card jm-entity-card--languages">
                   <span className="jm-entity-card__icon">
                     <GlobeIcon />
                   </span>
@@ -881,29 +973,6 @@ export function ProfileWorkbench({
               }
             />
             <small>Kept for your own reference. Not currently checked against any job you tailor toward.</small>
-          </label>
-
-          <label className="jm-field">
-            <span>Employers you'd rather not work for</span>
-            <textarea
-              rows={3}
-              value={excludedEmployersText}
-              onChange={(event) => {
-                const raw = event.target.value;
-                setExcludedEmployersText(raw);
-                update("preferences", {
-                  ...content.preferences,
-                  excludedEmployers: parseEntries(raw).slice(0, 50),
-                });
-              }}
-            />
-            <small>
-              Kept privately for your own reference. Not currently checked against any job you tailor
-              toward.
-              {parseEntries(excludedEmployersText).length > 50
-                ? " Only the first 50 will be saved — trim the rest before saving."
-                : null}
-            </small>
           </label>
         </Card>
       </div>

@@ -492,7 +492,7 @@ model AiUsageLedger {
   id          String   @id @default(cuid())
   workspaceId String
   /// One row per provider call — `tailor | extract | rewrite | fetch_job |
-  /// cover_letter`. See lib/tailoring/ai/quota.ts.
+  /// cover_letter | categorize_skills`. See lib/tailoring/ai/quota.ts.
   kind        String
   provider    String
   model       String
