@@ -835,7 +835,16 @@ export function ProfileWorkbench({
           </div>
         </Card>
 
-        <Card title="What you are looking for">
+        <Card title="Your preferences">
+          {/* ResuMatch used to be JobMatch, a job-board aggregation product
+              that actively searched postings and filtered them against
+              these preferences. That pipeline is gone — a candidate now
+              pastes one job URL and ResuMatch tailors toward it, nothing
+              is searched or filtered on their behalf. These fields are
+              kept (filling them in costs nothing, and they may feed a
+              future feature) but honestly labeled as reference-only, the
+              same way "Right to work" already is above, rather than
+              promising filtering that no longer happens. */}
           <label className="jm-field">
             <span>Working arrangement</span>
             <select
@@ -853,6 +862,7 @@ export function ProfileWorkbench({
               <option value="remote">Remote</option>
               <option value="any">Any</option>
             </select>
+            <small>Kept for your own reference. Not currently used to filter or flag anything.</small>
           </label>
 
           <label className="jm-field">
@@ -870,11 +880,11 @@ export function ProfileWorkbench({
                 })
               }
             />
-            <small>A floor, not a target. Jobs below it are excluded, and the reason is shown.</small>
+            <small>Kept for your own reference. Not currently checked against any job you tailor toward.</small>
           </label>
 
           <label className="jm-field">
-            <span>Employers to never show me</span>
+            <span>Employers you'd rather not work for</span>
             <textarea
               rows={3}
               value={excludedEmployersText}
@@ -888,7 +898,8 @@ export function ProfileWorkbench({
               }}
             />
             <small>
-              Kept private. Nobody is told you excluded them.
+              Kept privately for your own reference. Not currently checked against any job you tailor
+              toward.
               {parseEntries(excludedEmployersText).length > 50
                 ? " Only the first 50 will be saved — trim the rest before saving."
                 : null}
