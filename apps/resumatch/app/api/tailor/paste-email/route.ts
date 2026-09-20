@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { MAX_EXTRACTED_CHARACTERS, MIN_USEFUL_CHARACTERS } from "../../../../lib/tailoring/fetchJob";
+import { inferJobMetaWithFallback } from "../../../../lib/tailoring/jobMetaAi/degraded";
 import { parseJobInvitationEmail } from "../../../../lib/tailoring/parseEmail";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
@@ -44,6 +45,17 @@ export async function POST(request: Request) {
     );
   }
 
+  // The header guess (subject/From line) is cheap and often right when the
+  // email actually names the role there; only spend an AI call filling in
+  // whichever half it missed, rather than redoing both from scratch.
+  let title = parsed.guessedTitle;
+  let employer = parsed.guessedEmployer;
+  if (!title || !employer) {
+    const meta = await inferJobMetaWithFallback(workspace.id, rawText);
+    title = title ?? meta.title;
+    employer = employer ?? meta.employer;
+  }
+
   const db = getJobmatchDb();
   const targetJob = await db.targetJob.create({
     data: {
@@ -52,8 +64,8 @@ export async function POST(request: Request) {
       // sourceUrl, a required column with no real URL here (see #458).
       sourceUrl: "email://job-invitation",
       rawText,
-      title: parsed.guessedTitle,
-      employer: parsed.guessedEmployer,
+      title,
+      employer,
       status: "FETCHED",
     },
     select: { id: true, status: true },
@@ -62,8 +74,8 @@ export async function POST(request: Request) {
   return NextResponse.json({
     id: targetJob.id,
     status: targetJob.status,
-    title: parsed.guessedTitle,
-    employer: parsed.guessedEmployer,
+    title,
+    employer,
     snippet: rawText.slice(0, 400),
   });
 }

@@ -4,6 +4,7 @@ import { explainReasonCode } from "../../../../lib/documents/pipeline";
 import { createScanner, decideFromVerdict } from "../../../../lib/documents/scanner";
 import { safeDisplayFilename, validateUpload } from "../../../../lib/documents/fileType";
 import { extractText } from "../../../../lib/extraction/text";
+import { inferJobMetaWithFallback } from "../../../../lib/tailoring/jobMetaAi/degraded";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: explainReasonCode(extraction.reasonCode) }, { status: 422 });
   }
 
+  const meta = await inferJobMetaWithFallback(workspace.id, extraction.text);
+
   const db = getJobmatchDb();
   const filename = safeDisplayFilename(file.name || "job-description");
   const targetJob = await db.targetJob.create({
@@ -66,8 +69,8 @@ export async function POST(request: Request) {
       // consistent with paste-job's "pasted://job-description" (see #458).
       sourceUrl: `upload://${filename}`,
       rawText: extraction.text,
-      title: null,
-      employer: null,
+      title: meta.title,
+      employer: meta.employer,
       status: "FETCHED",
     },
     select: { id: true, status: true },
@@ -76,8 +79,8 @@ export async function POST(request: Request) {
   return NextResponse.json({
     id: targetJob.id,
     status: targetJob.status,
-    title: null,
-    employer: null,
+    title: meta.title,
+    employer: meta.employer,
     snippet: extraction.text.slice(0, 400),
   });
 }

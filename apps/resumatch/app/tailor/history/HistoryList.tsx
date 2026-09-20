@@ -22,7 +22,8 @@ interface HistoryRow {
   degraded: boolean;
   promptVersion: string;
   modelVersion: string;
-  targetJob: { title: string | null; employer: string | null };
+  targetJobId: string;
+  targetJob: { title: string | null; employer: string | null; sourceUrl: string };
   coverLetter: { id: string } | null;
 }
 
@@ -32,6 +33,10 @@ interface HistoryRow {
 export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
+  // Which job is currently being re-fetched — see "Refresh title" below.
+  // Keyed by targetJobId, not the resume id, since a refresh updates the
+  // shared TargetJob row every resume/list entry for it reads from.
+  const [refreshingJobId, setRefreshingJobId] = useState<string | null>(null);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -39,6 +44,20 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
       if (prev.length >= 2) return [prev[1], id];
       return [...prev, id];
     });
+  }
+
+  async function refreshJob(targetJobId: string) {
+    setRefreshingJobId(targetJobId);
+    try {
+      const response = await fetch("/api/tailor/refresh-job", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ targetJobId }),
+      });
+      if (response.ok) router.refresh();
+    } finally {
+      setRefreshingJobId(null);
+    }
   }
 
   return (
@@ -73,6 +92,20 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
                   <strong>{resume.targetJob.title ?? resume.targetJob.employer ?? "Untitled job"}</strong>
                   {resume.targetJob.employer && resume.targetJob.title ? (
                     <span style={{ opacity: 0.7 }}> · {resume.targetJob.employer}</span>
+                  ) : null}
+                  {!resume.targetJob.title && resume.targetJob.sourceUrl.startsWith("http") ? (
+                    <button
+                      type="button"
+                      className="rm-history-item__refresh"
+                      disabled={refreshingJobId === resume.targetJobId}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        refreshJob(resume.targetJobId);
+                      }}
+                    >
+                      {refreshingJobId === resume.targetJobId ? "Refreshing…" : "Refresh title"}
+                    </button>
                   ) : null}
                   <p className="rm-history-item__meta" style={{ margin: "0.3rem 0 0" }}>
                     <span className="jm-mono">
