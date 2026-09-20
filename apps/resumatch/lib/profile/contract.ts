@@ -56,6 +56,13 @@ export const skillSchema = z.object({
    *  vocabulary is M4's job (JM-036) and must not erase the original. */
   rawLabel: trimmed(120).nullable().default(null),
   yearsExperience: z.number().min(0).max(60).nullable().default(null),
+  /** A candidate's manual override of which group this skill renders under
+   *  (see lib/profile/skillCategories.ts). Null means "use the deterministic
+   *  keyword default" — most skills never need this set explicitly. Not
+   *  restricted to SKILL_CATEGORIES's own list: a value outside it is
+   *  simply treated as unset by groupSkillsByCategory, so a future taxonomy
+   *  change can never turn an old profile into a validation failure. */
+  category: trimmed(60).nullable().default(null),
 });
 
 export const experienceSchema = z.object({

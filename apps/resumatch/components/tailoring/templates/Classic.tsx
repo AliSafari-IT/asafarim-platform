@@ -1,4 +1,5 @@
 import type { TailoredResumeContent } from "../../../lib/tailoring/ai/schema";
+import { groupSkillsByCategory } from "../../../lib/profile/skillCategories";
 
 /**
  * The one layout this pass ships. Plain, print-first HTML/CSS: no canvas,
@@ -44,13 +45,14 @@ export function ClassicTemplate({ content }: { content: TailoredResumeContent })
       {content.skills.length > 0 ? (
         <section className="rm-resume__section">
           <h2>Skills</h2>
-          <ul className="rm-resume__skills">
-            {content.skills.map((skill) => (
-              <li key={skill} className="rm-resume__skill">
-                {skill}
-              </li>
+          <div className="rm-resume__skill-groups">
+            {groupSkillsByCategory(content.skills).map(({ category, skills }) => (
+              <p className="rm-resume__skill-group" key={category}>
+                <span className="rm-resume__skill-category">{category}:</span>{" "}
+                <span className="rm-resume__skill-list">{skills.join(", ")}</span>
+              </p>
             ))}
-          </ul>
+          </div>
         </section>
       ) : null}
 

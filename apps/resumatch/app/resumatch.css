@@ -449,23 +449,21 @@
   color: var(--rm-ink);
 }
 
-.rm-resume__skills {
+.rm-resume__skill-groups {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  flex-direction: column;
+  gap: 0.3rem;
 }
-.rm-resume__skill {
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--rm-accent) 10%, transparent);
+.rm-resume__skill-group {
+  margin: 0;
+  line-height: 1.45;
+}
+.rm-resume__skill-category {
+  font-weight: 700;
   color: var(--rm-accent);
-  border: 1px solid color-mix(in srgb, var(--rm-accent) 25%, transparent);
+}
+.rm-resume__skill-list {
+  color: var(--rm-ink);
 }
 
 .rm-resume__entry {
@@ -1245,6 +1243,48 @@
   background: rgba(var(--category-tint), 0.12);
   color: rgb(var(--category-tint));
   border: 1px solid rgba(var(--category-tint), 0.25);
+}
+
+/* Grouped skills preview (profile editor) — same chip system, organized
+   under a heading per functional category instead of one flat run. */
+.rm-skill-groups {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.rm-skill-groups__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+.rm-skill-group__label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.65;
+  margin-bottom: 0.35rem;
+}
+.rm-skill-chip {
+  gap: 0.35rem;
+  padding-right: 0.4rem;
+}
+.rm-skill-chip__category {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.55;
+  cursor: pointer;
+  max-width: 6.5rem;
+}
+.rm-skill-chip__category:hover,
+.rm-skill-chip__category:focus {
+  opacity: 1;
 }
 
 .jm-icon-button {

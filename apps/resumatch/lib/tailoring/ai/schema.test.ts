@@ -11,9 +11,9 @@ function profileWith(overrides: Partial<ReturnType<typeof emptyProfile>> = {}) {
     headline: "Backend engineer",
     summary: "Builds reliable services.",
     skills: [
-      { name: "Node.js", rawLabel: null, yearsExperience: 5 },
-      { name: "PostgreSQL", rawLabel: null, yearsExperience: 4 },
-      { name: "Kubernetes", rawLabel: null, yearsExperience: 2 },
+      { name: "Node.js", rawLabel: null, yearsExperience: 5, category: null },
+      { name: "PostgreSQL", rawLabel: null, yearsExperience: 4, category: null },
+      { name: "Kubernetes", rawLabel: null, yearsExperience: 2, category: null },
     ],
     experience: [
       {
