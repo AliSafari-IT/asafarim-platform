@@ -40,7 +40,8 @@ export default async function TailoringHistoryPage() {
       promptVersion: true,
       modelVersion: true,
       profileVersionId: true,
-      targetJob: { select: { title: true, employer: true } },
+      targetJobId: true,
+      targetJob: { select: { title: true, employer: true, sourceUrl: true } },
       coverLetter: { select: { id: true } },
     },
   });
