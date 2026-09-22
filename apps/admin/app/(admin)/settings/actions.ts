@@ -112,6 +112,17 @@ function validateValue(
       return { ok: true, value: value.trim().toLowerCase() };
     }
 
+    case "json": {
+      // The client sends the already-parsed value (Server Actions
+      // deserialize arguments as JSON), so this is a structural check, not
+      // a parse — a malformed textarea draft never gets this far because
+      // the editor blocks Save until JSON.parse succeeds client-side.
+      if (typeof value !== "object" || value === null) {
+        return { ok: false, error: `${label} must be a JSON object or array.` };
+      }
+      return { ok: true, value: value as SettingValue };
+    }
+
     case "secret": {
       if (typeof value !== "string") {
         return { ok: false, error: `${label} must be text.` };
@@ -152,10 +163,15 @@ function validateValue(
   }
 }
 
-/** Structural equality for setting values, including the array type. */
+/**
+ * Structural equality for setting values, including arrays and `json`
+ * objects. A fresh object/array is never `===` its stored counterpart, so
+ * this falls back to a JSON.stringify comparison for both — settings-sized
+ * payloads, not a place that needs a real deep-equal library.
+ */
 function sameValue(a: unknown, b: unknown): boolean {
-  if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && a.every((item, index) => item === b[index]);
+  if (typeof a === "object" && a !== null && typeof b === "object" && b !== null) {
+    return JSON.stringify(a) === JSON.stringify(b);
   }
   return a === b;
 }

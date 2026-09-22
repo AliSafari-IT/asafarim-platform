@@ -23,27 +23,41 @@ import { getSession } from "@asafarim/auth";
 import { updatePlatformSetting } from "./actions";
 
 const SECRET_KEY = "ai.openaiApiKey";
+const JSON_KEY = "test.jsonSetting";
 
-// A secret setting definition to exercise, added purely for this test's
-// scope guard — settings.ts's own catalog is asserted separately.
+// Synthetic setting definitions to exercise, added purely for these tests —
+// settings.ts's own catalog is asserted separately.
 vi.mock("../../../lib/settings", async () => {
   const actual = await vi.importActual<typeof import("../../../lib/settings")>(
     "../../../lib/settings"
   );
   return {
     ...actual,
-    getSettingDefinition: (key: string) =>
-      key === SECRET_KEY
-        ? {
-            key: SECRET_KEY,
-            label: "OpenAI API key",
-            description: "test",
-            group: "operations",
-            scope: "platform",
-            type: "secret",
-            defaultValue: "",
-          }
-        : actual.getSettingDefinition(key),
+    getSettingDefinition: (key: string) => {
+      if (key === SECRET_KEY) {
+        return {
+          key: SECRET_KEY,
+          label: "OpenAI API key",
+          description: "test",
+          group: "operations",
+          scope: "platform",
+          type: "secret",
+          defaultValue: "",
+        };
+      }
+      if (key === JSON_KEY) {
+        return {
+          key: JSON_KEY,
+          label: "Test JSON setting",
+          description: "test",
+          group: "operations",
+          scope: "platform",
+          type: "json",
+          defaultValue: {},
+        };
+      }
+      return actual.getSettingDefinition(key);
+    },
   };
 });
 
@@ -96,5 +110,74 @@ describe("updatePlatformSetting — secret type", () => {
     const serialized = JSON.stringify(auditCall.data.changes);
     expect(serialized).not.toContain("sk_live_abc123");
     expect(serialized).not.toContain("encrypted(sk_live_abc123)");
+  });
+});
+
+describe("updatePlatformSetting — json type", () => {
+  it("writes a valid object as-is", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue(null);
+
+    const result = await updatePlatformSetting({
+      key: JSON_KEY,
+      value: { locale: "en", subject: "Welcome" },
+    });
+
+    expect(result.ok).toBe(true);
+    const upsertCall = vi.mocked(prisma.platformSetting.upsert).mock.calls[0]?.[0] as {
+      create: { value: unknown };
+    };
+    expect(upsertCall.create.value).toEqual({ locale: "en", subject: "Welcome" });
+  });
+
+  it("writes a valid array as-is", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue(null);
+
+    const result = await updatePlatformSetting({ key: JSON_KEY, value: [1, 2, 3] });
+
+    expect(result.ok).toBe(true);
+    const upsertCall = vi.mocked(prisma.platformSetting.upsert).mock.calls[0]?.[0] as {
+      create: { value: unknown };
+    };
+    expect(upsertCall.create.value).toEqual([1, 2, 3]);
+  });
+
+  it("rejects a bare primitive", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue(null);
+
+    const result = await updatePlatformSetting({
+      key: JSON_KEY,
+      value: "not an object" as never,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(prisma.platformSetting.upsert).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the submitted object is structurally identical to what's stored", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue({
+      value: { locale: "en", subject: "Welcome" },
+    } as never);
+
+    const result = await updatePlatformSetting({
+      key: JSON_KEY,
+      value: { locale: "en", subject: "Welcome" },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(prisma.platformSetting.upsert).not.toHaveBeenCalled();
+  });
+
+  it("writes when the submitted object differs from what's stored", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue({
+      value: { locale: "en", subject: "Welcome" },
+    } as never);
+
+    const result = await updatePlatformSetting({
+      key: JSON_KEY,
+      value: { locale: "en", subject: "Changed" },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(prisma.platformSetting.upsert).toHaveBeenCalledTimes(1);
   });
 });
