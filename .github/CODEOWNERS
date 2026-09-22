@@ -1,0 +1,6 @@
+# Default rule: applies to every path unless a more specific rule is added
+# below. Read by .github/workflows/codeowners-gate.yml as the source of
+# truth for who can approve a PR. See that workflow for the solo-maintainer
+# escape hatch: when this pool collapses to just the PR's own author, the
+# approval check passes automatically instead of permanently blocking.
+* @AliSafari-IT
