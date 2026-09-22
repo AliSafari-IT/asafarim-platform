@@ -31,6 +31,15 @@ export type SettingGroup = "presentation" | "operations" | "features";
  * Which app a setting configures. Platform-wide keys use "platform"; the
  * rest use a key from the PLATFORM_APPS registry so the console can be
  * filtered per app as more apps grow configuration.
+ *
+ * Kept as a literal union (rather than derived from PLATFORM_APPS, whose
+ * `key` is typed as `string`) so a definition's `scope` is checked at
+ * compile time. `settings.test.ts` asserts this stays a superset of every
+ * active PLATFORM_APPS key, so an app added there without a matching entry
+ * here fails the test instead of silently falling out of scope.
+ *
+ * "coming-soon" apps are deliberately excluded — they have no running
+ * surface to configure yet.
  */
 export type SettingScope =
   | "platform"
@@ -38,7 +47,15 @@ export type SettingScope =
   | "hub"
   | "showcase"
   | "admin"
-  | "resumatch";
+  | "vionto"
+  | "testora"
+  | "appbuilder"
+  | "devtools"
+  | "edumatch"
+  | "timelineai"
+  | "labs"
+  | "resumatch"
+  | "tasksai";
 
 export interface SettingDefinition {
   key: string;
@@ -187,6 +204,15 @@ export const SETTING_SCOPES: readonly SettingScope[] = [
   "showcase",
   "admin",
   "web",
+  "vionto",
+  "testora",
+  "appbuilder",
+  "devtools",
+  "edumatch",
+  "timelineai",
+  "labs",
+  "resumatch",
+  "tasksai",
 ].filter((scope) =>
   SETTING_DEFINITIONS.some((definition) => definition.scope === scope)
 ) as SettingScope[];
