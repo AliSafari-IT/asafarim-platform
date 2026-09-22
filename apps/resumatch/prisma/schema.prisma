@@ -50,6 +50,7 @@ model Workspace {
   tailoredResumes TailoredResume[]
   applications    Application[]
   coverLetters    CoverLetter[]
+  tailorPreviews  TailorPreview[]
 
   @@map("workspaces")
 }
@@ -446,6 +447,54 @@ model CoverLetter {
   @@index([workspaceId, createdAt])
   @@index([targetJobId])
   @@map("cover_letters")
+}
+
+/// The server's own record of a `generate-preview` provider call, and the
+/// only thing `generate-confirm` trusts for provenance (issue #525).
+///
+/// `generate-confirm` used to persist `promptVersion`/`modelVersion`/
+/// `degraded` straight from the client's request body — nothing stopped a
+/// client from calling confirm directly, skipping the provider call (and
+/// its budget spend) entirely, and claiming a real model produced the
+/// result. This row is written once, by `generate-preview`, right after the
+/// actual provider call(s) it made; `generate-confirm` requires the row's id
+/// back, re-derives provenance from it instead of the request body, and
+/// consumes it so the same preview cannot back two different confirms.
+///
+/// A DB row, not a signed token: this app already persists every other
+/// piece of short-lived request state this way, and a row avoids adding a
+/// signing-key dependency for what is fundamentally a one-time-use claim
+/// check, the same shape `CandidateDocument`'s atomic status claim already
+/// uses.
+model TailorPreview {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  profileVersionId String
+  targetJobId      String
+
+  promptVersion String
+  modelVersion  String
+  degraded      Boolean
+
+  /// Null when this preview did not include a cover letter (the candidate
+  /// never opted in, or the request didn't ask for one) — confirm() then
+  /// rejects a `coverLetter` block in the same way it rejects a
+  /// `TailorPreview` that never existed.
+  coverLetterPromptVersion String?
+  coverLetterModelVersion  String?
+  coverLetterDegraded      Boolean?
+
+  createdAt  DateTime  @default(now())
+  /// Set by generate-confirm on first (and only) use. A second confirm
+  /// attempt against the same preview is rejected the same way an expired
+  /// or unknown one is.
+  consumedAt DateTime?
+
+  @@index([workspaceId, createdAt])
+  @@map("tailor_previews")
 }
 
 // ─── Per-application tracking (issue #432) ────────────────────────────────
