@@ -2,8 +2,8 @@
 
 Tracks #161 (part of #89, "Launch readiness"). Covers the critical journeys
 named in #161's scope: landing page, student inquiry-to-booking, tutor
-quote-to-session, checkout. Admin verification/dispute flows are **not**
-covered yet — see "Not covered" below.
+quote-to-session, checkout, and — as of the #89 follow-up below — admin
+verification and dispute flows.
 
 ## Method
 
@@ -39,6 +39,8 @@ covered yet — see "Not covered" below.
 | Tutor quote requests | `/tutor/requests` | tutor |
 | Tutor earnings | `/tutor/earnings` | tutor |
 | Tutor bookings | `/tutor/bookings` | tutor |
+| Admin disputes | `/admin/disputes` | admin |
+| Admin tutor verifications | `/admin/tutor-verifications` | admin |
 
 Checkout's *happy path* (a real, payable quote) isn't scanned: there's no
 deterministic payable quote in the seeded demo data (Stripe isn't configured
@@ -89,14 +91,22 @@ Verified end-to-end (tab order reaches the target control, no trap) on:
 
 No keyboard traps or unreachable controls found on any of the four.
 
+## Admin verification and dispute flows (#89 follow-up)
+
+Closed the gap #161 originally left open: `global-setup.ts` now also signs
+in the seeded "presentation admin" account (`asafarim+eduadmin01@gmail.com`,
+`edumatch_admin` role — see `EDUMATCH_ADMINS` in
+`packages/seed-manager/src/definitions/edumatch.ts`) and saves its session
+as `ADMIN_STORAGE_STATE`. `accessibility.spec.ts` scans `/admin/disputes`
+and `/admin/tutor-verifications` (axe + keyboard tab-reachability) using
+that fixture — no real admin credentials involved, same demo-password
+convention as the student/tutor fixtures. Runs as part of the same
+`accessibility.spec.ts` file already wired into the EduMatch E2E CI
+workflow (#160); any violation fails the build going forward the same way
+the student/tutor scans do.
+
 ## Not covered (tracked separately)
 
-- **Admin verification and dispute flows** (`/admin/*`) — #161's scope lists
-  these, but there's no admin-session Playwright fixture yet (the demo
-  student/tutor accounts from #159 aren't admins, and minting a throwaway
-  superadmin session needs its own decision about credentials/seeding). Left
-  as a follow-up rather than reusing real admin credentials in a committed
-  test fixture.
 - **Screen-reader manual pass** — the method note above covers what this
   round actually did (axe's automated checks, which cover most
   screen-reader-relevant issues like accessible names and semantic

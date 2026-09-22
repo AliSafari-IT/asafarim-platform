@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { STUDENT_STORAGE_STATE, TUTOR_STORAGE_STATE } from './global-setup';
+import { STUDENT_STORAGE_STATE, TUTOR_STORAGE_STATE, ADMIN_STORAGE_STATE } from './global-setup';
 
 /**
  * WCAG 2.2 AA coverage (#161, part of #89 "Launch readiness").
@@ -13,11 +13,9 @@ import { STUDENT_STORAGE_STATE, TUTOR_STORAGE_STATE } from './global-setup';
  *    visible, no keyboard traps — on the four journeys #161 calls out by
  *    name: landing page, student inquiry flow, tutor quote flow, checkout.
  *
- * Admin surfaces are intentionally out of scope here: they need a
- * superadmin session this suite has no fixture for, and #161's own scope
- * separates "admin verification and dispute flows" from the four flows it
- * requires keyboard coverage on. Follow-up if an admin auth fixture is
- * ever added for other reasons.
+ * Admin verification/dispute flows (#89's scope) are covered by the
+ * "presentation admin" scan describe block below, using the
+ * `edumatch_admin`-seeded ADMIN_STORAGE_STATE fixture from global-setup.ts.
  */
 
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'];
@@ -71,6 +69,50 @@ test.describe('Automated accessibility scan — tutor', () => {
       expect(results.violations, summarize(results)).toEqual([]);
     });
   }
+});
+
+test.describe('Automated accessibility scan — admin', () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  for (const path of ['/admin/disputes', '/admin/tutor-verifications']) {
+    test(`${path} has no WCAG 2.2 AA violations`, async ({ page }) => {
+      await page.goto(path);
+      const results = await scan(page);
+      expect(results.violations, summarize(results)).toEqual([]);
+    });
+  }
+});
+
+test.describe('Keyboard navigation — admin', () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
+  test('disputes page: primary content is tab-reachable', async ({ page }) => {
+    await page.goto('/admin/disputes');
+    let sawInteractive = false;
+    for (let i = 0; i < 30; i++) {
+      await page.keyboard.press('Tab');
+      const tag = await page.evaluate(() => document.activeElement?.tagName);
+      if (tag && ['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA'].includes(tag)) {
+        sawInteractive = true;
+        break;
+      }
+    }
+    expect(sawInteractive).toBe(true);
+  });
+
+  test('tutor-verifications page: primary content is tab-reachable', async ({ page }) => {
+    await page.goto('/admin/tutor-verifications');
+    let sawInteractive = false;
+    for (let i = 0; i < 30; i++) {
+      await page.keyboard.press('Tab');
+      const tag = await page.evaluate(() => document.activeElement?.tagName);
+      if (tag && ['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA'].includes(tag)) {
+        sawInteractive = true;
+        break;
+      }
+    }
+    expect(sawInteractive).toBe(true);
+  });
 });
 
 test.describe('Keyboard navigation', () => {
