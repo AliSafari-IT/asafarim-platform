@@ -32,7 +32,7 @@ async function loginAndSave(
   const page = await browser.newPage();
 
   await page.goto(`${hubUrl}/sign-in`);
-  await page.locator("#email").fill(email);
+  await page.locator("#identifier").fill(email);
   await page.locator("#password").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"), {
