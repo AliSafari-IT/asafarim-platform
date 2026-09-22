@@ -594,7 +594,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0))
+        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
 
   apps/showcase:
     dependencies:
@@ -743,7 +743,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0))
+        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
 
   apps/testora:
     dependencies:
@@ -1147,7 +1147,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0))
+        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
 
   packages/appbuilder-ai:
     dependencies:
@@ -1283,7 +1283,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0))
+        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
 
   packages/config: {}
 
@@ -1348,6 +1348,9 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
 
   packages/seed-manager:
     dependencies:
@@ -1381,7 +1384,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0))
+        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
 
   packages/shared-i18n:
     devDependencies:
@@ -1415,7 +1418,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0))
+        version: 4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
 
   packages/testora-tasksai-contract:
     dependencies:
@@ -11630,7 +11633,7 @@ snapshots:
     optionalDependencies:
       vite: 5.4.21(@types/node@24.13.2)(lightningcss@1.32.0)
 
-  '@vitest/mocker@4.1.10(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0))':
+  '@vitest/mocker@4.1.10(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
@@ -15999,10 +16002,10 @@ snapshots:
       - supports-color
       - terser
 
-  vitest@4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0)):
+  vitest@4.1.10(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0))
+      '@vitest/mocker': 4.1.10(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10

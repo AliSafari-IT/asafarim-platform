@@ -126,7 +126,9 @@ export default async function AdminSettingsPage({
                       options={setting.definition.options}
                       maxItems={setting.definition.maxItems}
                       highImpact={setting.definition.highImpact}
-                      value={setting.value}
+                      value={
+                        setting.definition.type === "secret" ? "" : setting.value
+                      }
                       defaultValue={setting.definition.defaultValue}
                       overridden={setting.overridden}
                       updatedAt={setting.updatedAt?.toISOString() ?? null}

@@ -26,6 +26,11 @@ export interface SettingFieldProps {
   options?: readonly string[];
   maxItems?: number;
   highImpact?: boolean;
+  /**
+   * For `type: "secret"` this is always `""` — the server never sends a
+   * decrypted secret to a Client Component. Use `overridden` for whether a
+   * value already exists.
+   */
   value: SettingValue;
   defaultValue: SettingValue;
   overridden: boolean;
@@ -77,6 +82,7 @@ export function SettingField({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState<PendingConfirm>(null);
+  const [revealSecret, setRevealSecret] = useState(false);
 
   /** Turn the editor's text back into the typed value the action expects. */
   function parseDraft(text: string): SettingValue {
@@ -167,9 +173,15 @@ export function SettingField({
         </label>
         <span className="ui-chips">
           {highImpact ? <Badge tone="warning">high impact</Badge> : null}
-          <Badge tone={overridden ? "info" : "neutral"}>
-            {overridden ? "database" : "default"}
-          </Badge>
+          {type === "secret" ? (
+            <Badge tone={overridden ? "info" : "neutral"}>
+              {overridden ? "secret set" : "not set"}
+            </Badge>
+          ) : (
+            <Badge tone={overridden ? "info" : "neutral"}>
+              {overridden ? "database" : "default"}
+            </Badge>
+          )}
           {saved ? <Badge tone="success">saved</Badge> : null}
         </span>
       </div>
@@ -240,6 +252,28 @@ export function SettingField({
                 />
                 <span className="u-mono">{draft}</span>
               </span>
+            ) : type === "secret" ? (
+              <span className="ui-setting__secret">
+                <Input
+                  id={fieldId}
+                  type={revealSecret ? "text" : "password"}
+                  value={draft}
+                  maxLength={maxLength}
+                  placeholder={overridden ? "•••••••• (set — enter a new value to replace)" : "not set"}
+                  autoComplete="off"
+                  disabled={disabled || pending}
+                  onChange={(event) => setDraft(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={disabled || pending || draft.length === 0}
+                  onClick={() => setRevealSecret((prev) => !prev)}
+                >
+                  {revealSecret ? "hide" : "show"}
+                </Button>
+              </span>
             ) : (
               <Input
                 id={fieldId}
@@ -291,7 +325,7 @@ export function SettingField({
             disabled={pending}
             onClick={() => setConfirming({ kind: "reset" })}
           >
-            reset to default
+            {type === "secret" ? "clear secret" : "reset to default"}
           </Button>
         ) : null}
       </div>

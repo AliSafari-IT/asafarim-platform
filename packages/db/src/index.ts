@@ -5,6 +5,8 @@ export { prisma as db } from "./client";
 
 export { pingDb } from "./status";
 
+export { encryptSecret, decryptSecret, isSecretEnvelope } from "./secret-cipher";
+
 // Re-export types for convenience
 export { PrismaClient, Prisma } from "@prisma/client";
 export type {
