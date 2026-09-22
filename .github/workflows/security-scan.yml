@@ -33,7 +33,7 @@ jobs:
 
       - name: Semgrep (SAST)
         run: |
-          set -u
+          set +e -u
           mkdir -p /tmp/scan-results
 
           docker run --rm \
@@ -49,10 +49,11 @@ jobs:
               --error --severity=ERROR \
               --exclude='**/node_modules/**' --exclude='**/dist/**' --exclude='**/.next/**'
           echo "$?" > /tmp/scan-results/semgrep.exitcode
+          exit 0
 
       - name: Gitleaks (secret detection)
         run: |
-          set -u
+          set +e -u
           mkdir -p /tmp/scan-results
 
           docker run --rm \
@@ -63,14 +64,16 @@ jobs:
               --report-format=json --report-path=/results/gitleaks.json \
               --exit-code=1 --no-banner
           echo "$?" > /tmp/scan-results/gitleaks.exitcode
+          exit 0
 
       - name: pnpm audit (dependency CVEs)
         run: |
-          set -u
+          set +e -u
           mkdir -p /tmp/scan-results
           corepack enable
           pnpm audit --json > /tmp/scan-results/pnpm-audit.json
           echo "$?" > /tmp/scan-results/pnpm-audit.exitcode
+          exit 0
 
       - name: Summarize findings and enforce gate
         run: node .github/scripts/summarize-security-scan.mjs /tmp/scan-results
