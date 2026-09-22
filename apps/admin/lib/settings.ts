@@ -1,4 +1,4 @@
-import { prisma } from "@asafarim/db";
+import { prisma, decryptSecret, encryptSecret, isSecretEnvelope } from "@asafarim/db";
 
 /**
  * Typed, bounded platform-setting catalog.
@@ -23,7 +23,8 @@ export type SettingType =
   | "number"
   | "select"
   | "string[]"
-  | "color";
+  | "color"
+  | "secret";
 
 export type SettingGroup = "presentation" | "operations" | "features";
 
@@ -249,6 +250,12 @@ export function isValidValue(
       return typeof raw === "string" && (definition.options ?? []).includes(raw);
     case "string[]":
       return Array.isArray(raw) && raw.every((item) => typeof item === "string");
+    case "secret":
+      // The stored raw value is the encrypted envelope, never plaintext — a
+      // row that isn't a recognizable envelope (e.g. written before this
+      // type existed) falls back to the catalog default rather than being
+      // passed to decryptSecret, which would throw.
+      return isSecretEnvelope(raw);
     default:
       return typeof raw === "string";
   }
@@ -265,7 +272,14 @@ export interface EffectiveSetting {
   updatedByEmail: string | null;
 }
 
-/** Catalog defaults merged with database overrides. Throws on DB failure. */
+/**
+ * Catalog defaults merged with database overrides. Throws on DB failure.
+ *
+ * Server-only: for `secret`-type settings, `value` is decrypted plaintext.
+ * Callers must never forward it into a Client Component prop — pass
+ * `overridden` (renamed `isSet` where relevant) instead, which is the only
+ * signal the browser is allowed to see for a secret.
+ */
 export async function getEffectiveSettings(): Promise<EffectiveSetting[]> {
   const rows = await prisma.platformSetting.findMany({
     where: { key: { in: SETTING_DEFINITIONS.map((d) => d.key) } },
@@ -287,9 +301,27 @@ export async function getEffectiveSettings(): Promise<EffectiveSetting[]> {
     const row = byKey.get(definition.key);
     const raw = row?.value;
     const valid = row !== undefined && isValidValue(definition, raw);
+
+    let value = definition.defaultValue;
+    if (valid) {
+      if (definition.type === "secret") {
+        try {
+          value = decryptSecret(raw as string);
+        } catch (error) {
+          // A row that looks like an envelope but fails to decrypt (wrong
+          // SETTINGS_ENCRYPTION_KEY, corrupted data) must not crash the
+          // whole settings page — fall back to the default and let the key
+          // mismatch surface as "not set" rather than a 500.
+          console.error(`[admin] failed to decrypt secret setting "${definition.key}":`, error);
+        }
+      } else {
+        value = raw as SettingValue;
+      }
+    }
+
     return {
       definition,
-      value: valid ? (raw as SettingValue) : definition.defaultValue,
+      value,
       overridden: valid,
       updatedAt: valid ? (row?.updatedAt ?? null) : null,
       updatedBy: valid ? (row?.updatedBy ?? null) : null,
@@ -297,6 +329,10 @@ export async function getEffectiveSettings(): Promise<EffectiveSetting[]> {
     };
   });
 }
+
+/** Encrypt a plaintext secret for storage. Thin re-export so callers of this
+ * module don't need a separate `@asafarim/db` import for one function. */
+export { encryptSecret };
 
 /** Human-readable rendering of a value, used in confirmations and audit copy. */
 export function formatSettingValue(value: SettingValue): string {

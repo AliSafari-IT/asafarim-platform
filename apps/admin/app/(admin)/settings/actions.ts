@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma, Prisma } from "@asafarim/db";
+import { prisma, Prisma, encryptSecret } from "@asafarim/db";
 import { ROLES, getSession, hasRole, hasPermission } from "@asafarim/auth";
 import type { Session } from "next-auth";
 import { writeAuditEvent } from "../../../lib/audit";
@@ -112,6 +112,30 @@ function validateValue(
       return { ok: true, value: value.trim().toLowerCase() };
     }
 
+    case "secret": {
+      if (typeof value !== "string") {
+        return { ok: false, error: `${label} must be text.` };
+      }
+      // An empty submit is never a valid "set this secret" request — the
+      // client never receives the real value to diff against, so an empty
+      // draft is treated as "the field was left untouched," and clearing a
+      // live secret requires the explicit reset action instead.
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        return {
+          ok: false,
+          error: `Enter a value to update ${label}, or use "reset to default" to clear it.`,
+        };
+      }
+      if (definition.maxLength && trimmed.length > definition.maxLength) {
+        return {
+          ok: false,
+          error: `${label} must be ${definition.maxLength} characters or fewer.`,
+        };
+      }
+      return { ok: true, value: trimmed };
+    }
+
     default: {
       if (typeof value !== "string") {
         return { ok: false, error: `${label} must be text.` };
@@ -146,23 +170,34 @@ export async function updatePlatformSetting(input: {
   const validated = validateValue(input.key, input.value);
   if (!validated.ok) return validated;
   const definition = getSettingDefinition(input.key)!;
+  const isSecret = definition.type === "secret";
 
   try {
     const existing = await prisma.platformSetting.findUnique({
       where: { key: input.key },
     });
-    const before = existing?.value ?? definition.defaultValue;
-    if (sameValue(before, validated.value)) return { ok: true };
+    // A secret's stored "before" is already ciphertext (or absent), so it
+    // never equals the freshly-validated plaintext — every submit with a
+    // non-empty value is treated as a real change, which matches the UI:
+    // the client never has the current value to diff against locally.
+    if (!isSecret) {
+      const before = existing?.value ?? definition.defaultValue;
+      if (sameValue(before, validated.value)) return { ok: true };
+    }
+
+    const storedValue = isSecret
+      ? encryptSecret(validated.value as string)
+      : (validated.value as Prisma.InputJsonValue);
 
     await prisma.platformSetting.upsert({
       where: { key: input.key },
       update: {
-        value: validated.value as Prisma.InputJsonValue,
+        value: storedValue as Prisma.InputJsonValue,
         updatedBy: actor.session.user.id,
       },
       create: {
         key: input.key,
-        value: validated.value as Prisma.InputJsonValue,
+        value: storedValue as Prisma.InputJsonValue,
         updatedBy: actor.session.user.id,
       },
     });
@@ -172,7 +207,12 @@ export async function updatePlatformSetting(input: {
       action: "settings.updated",
       entity: "PlatformSetting",
       entityId: input.key,
-      changes: { from: before, to: validated.value },
+      // Secret plaintext must never land in the audit trail — the "changes"
+      // payload is otherwise a straight admin-facing diff, but this is the
+      // one setting type where "diff" itself has to be lossy.
+      changes: isSecret
+        ? { from: existing ? "(secret set)" : "(unset)", to: "(secret set)" }
+        : { from: existing?.value ?? definition.defaultValue, to: validated.value },
     });
 
     revalidatePath("/settings");
