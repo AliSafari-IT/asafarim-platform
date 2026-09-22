@@ -1,0 +1,35 @@
+# A workflow-based PR approval gate that reads .github/CODEOWNERS as the
+# source of truth, instead of relying on GitHub's invisible "require a
+# CODEOWNERS review" branch-protection toggle. This gives a visible, logged
+# PR check with an audit trail of *why* a merge was allowed, and includes a
+# deliberate escape hatch for a solo-maintained project: when the
+# CODEOWNERS pool for the default rule collapses to just the PR's own
+# author, the check passes automatically rather than permanently blocking
+# every PR on "someone else must approve" when there is no one else. As
+# soon as a second maintainer is added to CODEOWNERS, the normal
+# "needs an approval from the pool" behavior takes over with no workflow
+# change. See issue #551.
+
+name: CODEOWNERS approval gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, review_requested]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check CODEOWNERS approval
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: node .github/scripts/check-codeowners-approval.mjs
