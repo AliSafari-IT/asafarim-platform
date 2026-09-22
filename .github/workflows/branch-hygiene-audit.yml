@@ -1,0 +1,94 @@
+# Weekly read-only audit for stale remote branches left behind by the
+# squash-merge PR workflow (see CLAUDE.md: "always branch -> commit -> push
+# -> PR; never commit directly to main"). A squash merge doesn't leave the
+# source branch in a state GitHub always offers to auto-delete, and a manual
+# "delete branch" click is easy to forget, so these quietly pile up.
+#
+# This never deletes anything. It flags remote branches that are absent from
+# main's ancestry (--no-merged) whose last commit message already appears in
+# main's history -- the signature of a squash merge: the commit itself is
+# gone from ancestry, but its message survives in the squashed commit on
+# main. Every finding is a human-reviewable suggestion with the exact
+# `git push origin --delete <branch>` command; nothing is executed.
+#
+# The job summary always reports, including the "nothing to flag" case, so
+# silence is never the only signal that the check ran (issue #552).
+
+name: Branch hygiene audit
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Audit stale squash-merged branches
+        run: |
+          set -euo pipefail
+
+          git fetch --all --prune --quiet
+
+          # Branches never eligible for flagging regardless of merge status.
+          EXCLUDE_REGEX='^(main|HEAD)$|^dependabot/'
+
+          # main's full commit-message history, once, for cheap repeated lookups.
+          main_log="$(git log origin/main --format='%s')"
+
+          candidates=()
+          unmerged_only=()
+
+          while IFS= read -r ref; do
+            [ -z "$ref" ] && continue
+            branch="${ref#origin/}"
+
+            if [[ "$branch" =~ $EXCLUDE_REGEX ]]; then
+              continue
+            fi
+
+            subject="$(git log -1 --format='%s' "$ref")"
+
+            if grep -F -q -x -- "$subject" <<<"$main_log"; then
+              candidates+=("$branch")
+            else
+              unmerged_only+=("$branch")
+            fi
+          done < <(git branch -r --no-merged origin/main --format='%(refname:short)')
+
+          {
+            echo "## Branch hygiene audit"
+            echo
+            echo "_Run: $(date -u +'%Y-%m-%d %H:%M UTC')_"
+            echo
+
+            if [ "${#candidates[@]}" -eq 0 ]; then
+              echo "✅ Clean — no stale squash-merged branches found."
+            else
+              echo "Found **${#candidates[@]}** remote branch(es) whose last commit message already appears in \`main\`'s history (likely squash-merged and safe to delete after human confirmation):"
+              echo
+              echo '```bash'
+              for b in "${candidates[@]}"; do
+                echo "git push origin --delete $b"
+              done
+              echo '```'
+            fi
+
+            if [ "${#unmerged_only[@]}" -gt 0 ]; then
+              echo
+              echo "<details><summary>${#unmerged_only[@]} other unmerged remote branch(es) (not flagged, no message match found in main)</summary>"
+              echo
+              for b in "${unmerged_only[@]}"; do
+                echo "- \`$b\`"
+              done
+              echo
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
