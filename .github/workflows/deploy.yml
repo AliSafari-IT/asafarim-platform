@@ -13,6 +13,11 @@ name: Deploy to VPS
 #   VPS_SSH_KEY         private key whose public key is in the VPS authorized_keys
 #   TELEGRAM_BOT_TOKEN  bot token from @BotFather
 #   TELEGRAM_CHAT_ID    numeric chat ID for the destination chat
+#   IS_DEPLOY_ON        "true" to allow build-images/deploy to run, anything
+#                        else (including unset) skips them. A manual kill
+#                        switch: building 20 images on every push to main
+#                        got expensive, so this defaults closed rather than
+#                        gating on a workflow file edit for every pause.
 
 on:
   push:
@@ -35,8 +40,30 @@ env:
   IMAGE_REPOSITORY: ghcr.io/alisafari-it/asafarim-platform
 
 jobs:
+  gate:
+    name: Check deploy kill switch
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_on: ${{ steps.check.outputs.deploy_on }}
+    steps:
+      - name: Check IS_DEPLOY_ON
+        id: check
+        env:
+          DEPLOY_ON: ${{ secrets.IS_DEPLOY_ON }}
+        run: |
+          if [ "$DEPLOY_ON" = "true" ]; then
+            echo "deploy_on=true" >> "$GITHUB_OUTPUT"
+            echo "✅ \`IS_DEPLOY_ON\` is \`true\` — build-images and deploy will run." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "deploy_on=false" >> "$GITHUB_OUTPUT"
+            echo "⏸️ \`IS_DEPLOY_ON\` is not \`true\` — skipping build-images and deploy to save Actions minutes." >> "$GITHUB_STEP_SUMMARY"
+            echo "Set the \`IS_DEPLOY_ON\` repository secret to \`true\` (Settings > Secrets and variables > Actions) to re-enable, then re-run this workflow." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   build-images:
     name: Build ${{ matrix.image }}
+    needs: gate
+    if: needs.gate.outputs.deploy_on == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -167,7 +194,8 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
   deploy:
-    needs: build-images
+    needs: [gate, build-images]
+    if: needs.gate.outputs.deploy_on == 'true'
     runs-on: ubuntu-latest
     env:
       # A literal, not a reference to the workflow-level env block above, on
@@ -259,8 +287,11 @@ jobs:
 
   notify:
     runs-on: ubuntu-latest
-    needs: [build-images, deploy]
-    if: always()
+    needs: [gate, build-images, deploy]
+    # Skip entirely when the kill switch skipped build-images/deploy too --
+    # a Telegram message every push to main saying "deploy skipped" would be
+    # pure noise. The gate job's own step summary already records why.
+    if: always() && needs.gate.outputs.deploy_on == 'true'
     steps:
       - name: Notify Telegram on success
         if: needs.build-images.result == 'success' && needs.deploy.result == 'success'
