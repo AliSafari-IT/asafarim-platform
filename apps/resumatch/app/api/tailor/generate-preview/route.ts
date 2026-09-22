@@ -78,16 +78,24 @@ export async function POST(request: Request) {
   }
 
   const profile = version.content;
-  const [tailorResult, coverLetterResult] = await Promise.all([
-    runTailorProviderCall(
-      workspace.id,
-      targetJobId,
-      profile,
-      targetJob.rawText,
-      typeof instructions === "string" ? instructions : null,
-    ),
+  // Run sequentially, not via Promise.all (issue #526). Both calls go
+  // through quota.ts's assertCanRunProviderCall, which is a plain
+  // check-then-later-write against AiUsageLedger — running them
+  // concurrently lets both read the same pre-spend total and both pass the
+  // budget check before either records usage, spending up to roughly double
+  // one call's cost past the configured ceiling. Serializing means the
+  // cover-letter call's check runs after the tailor call's usage is already
+  // recorded, so it sees the real, up-to-date spend.
+  const tailorResult = await runTailorProviderCall(
+    workspace.id,
+    targetJobId,
+    profile,
+    targetJob.rawText,
+    typeof instructions === "string" ? instructions : null,
+  );
+  const coverLetterResult =
     includeCoverLetter === true
-      ? runCoverLetterProviderCall(
+      ? await runCoverLetterProviderCall(
           workspace.id,
           targetJobId,
           buildProfileText(profile).text,
@@ -95,11 +103,29 @@ export async function POST(request: Request) {
           coverLetterTone as never,
           coverLetterLength as never,
         )
-      : Promise.resolve(null),
-  ]);
+      : null;
   const { suggestions, degraded, promptVersion, modelVersion } = tailorResult;
 
+  // The server's own record of what this preview actually did (issue #525)
+  // — generate-confirm re-derives provenance from this row instead of
+  // trusting promptVersion/modelVersion/degraded echoed back by the client.
+  const preview = await db.tailorPreview.create({
+    data: {
+      workspaceId: workspace.id,
+      profileVersionId,
+      targetJobId,
+      promptVersion,
+      modelVersion,
+      degraded,
+      coverLetterPromptVersion: coverLetterResult?.promptVersion ?? null,
+      coverLetterModelVersion: coverLetterResult?.modelVersion ?? null,
+      coverLetterDegraded: coverLetterResult ? coverLetterResult.degraded : null,
+    },
+    select: { id: true },
+  });
+
   return NextResponse.json({
+    previewId: preview.id,
     degraded,
     promptVersion,
     modelVersion,

@@ -23,6 +23,15 @@ const DEFAULT_TEMPLATE_KEY = "classic";
  * plus the server's own copy of the profile, into persisted content — a
  * client cannot inject an employer, a date, or a skill this way any more
  * than a provider response itself can.
+ *
+ * Provenance (`promptVersion`/`modelVersion`/`degraded`) is *not* taken
+ * from the request body (issue #525): a client calling this route directly,
+ * skipping `generate-preview` and its provider call/budget spend entirely,
+ * used to be able to claim any model name and `degraded: false` it liked.
+ * `previewId` must name a `TailorPreview` row `generate-preview` itself
+ * wrote right after the provider call(s) it actually made; this route reads
+ * provenance from that row and consumes it, so it cannot back a second
+ * confirm.
  */
 export async function POST(request: Request) {
   const workspace = await getCurrentWorkspace();
@@ -38,20 +47,16 @@ export async function POST(request: Request) {
   const {
     profileVersionId,
     targetJobId,
+    previewId,
     approved,
-    degraded,
-    promptVersion,
-    modelVersion,
     templateKey,
     instructions,
     coverLetter,
   } = (body ?? {}) as {
     profileVersionId?: unknown;
     targetJobId?: unknown;
+    previewId?: unknown;
     approved?: unknown;
-    degraded?: unknown;
-    promptVersion?: unknown;
-    modelVersion?: unknown;
     templateKey?: unknown;
     /** Optional — issue #431. Echoed back from generate-preview's request
      *  for provenance; never re-sent to a provider at this step. */
@@ -60,17 +65,14 @@ export async function POST(request: Request) {
      *  or the candidate declined it; the CV still saves either way. */
     coverLetter?: {
       approved: unknown;
-      degraded?: unknown;
-      promptVersion?: unknown;
-      modelVersion?: unknown;
     } | null;
   };
 
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
     return NextResponse.json({ error: "profileVersionId and targetJobId are required." }, { status: 400 });
   }
-  if (typeof promptVersion !== "string" || typeof modelVersion !== "string") {
-    return NextResponse.json({ error: "promptVersion and modelVersion are required." }, { status: 400 });
+  if (typeof previewId !== "string") {
+    return NextResponse.json({ error: "previewId is required." }, { status: 400 });
   }
 
   const version = await getVersion(workspace.id, profileVersionId);
@@ -82,6 +84,34 @@ export async function POST(request: Request) {
     select: { id: true },
   });
   if (!targetJob) return NextResponse.json({ error: "Job not found." }, { status: 404 });
+
+  // The atomic claim: only a request whose update actually matches a row
+  // (count === 1) gets to treat this preview's provenance as real, exactly
+  // the same single-winner shape lib/documents/service.ts's rescanDocument
+  // and extractDocument use for their own claims. Scoped to the exact
+  // workspace/profileVersion/targetJob this confirm is for, not just the id
+  // — a previewId that's real but was generated for a different job or
+  // profile version must not be reusable here.
+  const claim = await db.tailorPreview.updateMany({
+    where: {
+      id: previewId,
+      workspaceId: workspace.id,
+      profileVersionId,
+      targetJobId,
+      consumedAt: null,
+    },
+    data: { consumedAt: new Date() },
+  });
+  if (claim.count === 0) {
+    return NextResponse.json(
+      { error: "That preview is missing, expired, or already used. Generate a new one." },
+      { status: 409 },
+    );
+  }
+  const preview = await db.tailorPreview.findFirstOrThrow({ where: { id: previewId } });
+  const degraded = preview.degraded;
+  const promptVersion = preview.promptVersion;
+  const modelVersion = preview.modelVersion;
 
   let suggestions;
   try {
@@ -104,7 +134,7 @@ export async function POST(request: Request) {
       templateKey: typeof templateKey === "string" ? templateKey : DEFAULT_TEMPLATE_KEY,
       promptVersion,
       modelVersion,
-      degraded: degraded === true,
+      degraded,
       instructions: typeof instructions === "string" ? instructions.trim() || null : null,
     },
     select: { id: true },
@@ -116,8 +146,11 @@ export async function POST(request: Request) {
   // resume above depends on this; a rejected letter never blocks the CV.
   let coverLetterId: string | null = null;
   if (coverLetter && coverLetter.approved !== null && coverLetter.approved !== undefined) {
-    if (typeof coverLetter.promptVersion !== "string" || typeof coverLetter.modelVersion !== "string") {
-      return NextResponse.json({ error: "Cover-letter promptVersion and modelVersion are required." }, { status: 400 });
+    if (preview.coverLetterPromptVersion === null || preview.coverLetterModelVersion === null) {
+      return NextResponse.json(
+        { error: "That preview did not include a cover letter." },
+        { status: 400 },
+      );
     }
     let letterSuggestion;
     try {
@@ -137,9 +170,9 @@ export async function POST(request: Request) {
         // on CoverLetter.tailoredResumeId.
         tailoredResumeId: row.id,
         content: letterContent,
-        promptVersion: coverLetter.promptVersion,
-        modelVersion: coverLetter.modelVersion,
-        degraded: coverLetter.degraded === true,
+        promptVersion: preview.coverLetterPromptVersion,
+        modelVersion: preview.coverLetterModelVersion,
+        degraded: preview.coverLetterDegraded === true,
       },
       select: { id: true },
     });

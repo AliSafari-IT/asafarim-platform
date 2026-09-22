@@ -66,6 +66,10 @@ interface ReviewCoverLetter {
 
 interface ReviewState {
   targetJobId: string;
+  /** generate-preview's own record of the call it made — sent back
+   *  verbatim to generate-confirm, which reads provenance from that row
+   *  rather than from anything else in this request (issue #525). */
+  previewId: string;
   promptVersion: string;
   modelVersion: string;
   degraded: boolean;
@@ -326,6 +330,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
         const review: ReviewState = {
           targetJobId,
+          previewId: body.previewId,
           promptVersion: body.promptVersion,
           modelVersion: body.modelVersion,
           degraded: body.degraded,
@@ -421,9 +426,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           body: JSON.stringify({
             profileVersionId: confirmedVersionId,
             targetJobId: review.targetJobId,
-            promptVersion: review.promptVersion,
-            modelVersion: review.modelVersion,
-            degraded: review.degraded,
+            previewId: review.previewId,
             instructions: review.instructions,
             approved: review.degraded
               ? null
@@ -443,9 +446,6 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                       paragraphs: review.coverLetter.paragraphs.map((p) => p.trim()).filter(Boolean),
                       signOff: review.coverLetter.signOff.trim(),
                     },
-                    degraded: review.coverLetter.degraded,
-                    promptVersion: review.coverLetter.promptVersion,
-                    modelVersion: review.coverLetter.modelVersion,
                   }
                 : null,
           }),
