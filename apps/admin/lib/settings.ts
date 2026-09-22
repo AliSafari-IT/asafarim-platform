@@ -14,7 +14,10 @@ import { prisma, decryptSecret, encryptSecret, isSecretEnvelope } from "@asafari
  * so no UI or validation code changes with a new key.
  */
 
-export type SettingValue = boolean | string | number | string[];
+/** Arbitrary structured data for `json`-typed settings. */
+export type SettingJsonValue = { [key: string]: unknown } | unknown[];
+
+export type SettingValue = boolean | string | number | string[] | SettingJsonValue;
 
 export type SettingType =
   | "boolean"
@@ -24,7 +27,8 @@ export type SettingType =
   | "select"
   | "string[]"
   | "color"
-  | "secret";
+  | "secret"
+  | "json";
 
 export type SettingGroup = "presentation" | "operations" | "features";
 
@@ -79,6 +83,12 @@ export interface SettingDefinition {
   maxItems?: number;
   /** High-impact settings get an explicit confirmation step in the UI. */
   highImpact?: boolean;
+  /**
+   * Short guidance shown under a `json` editor (e.g. the expected shape).
+   * Not full JSON Schema validation — a human hint only, structural
+   * validation is per-consumer.
+   */
+  jsonHint?: string;
 }
 
 export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
@@ -256,6 +266,11 @@ export function isValidValue(
       // type existed) falls back to the catalog default rather than being
       // passed to decryptSecret, which would throw.
       return isSecretEnvelope(raw);
+    case "json":
+      // Structural validation (shape, required fields) is per-consumer, not
+      // generic here — this only guards against a row that isn't an
+      // object/array at all (e.g. a stray primitive from manual DB edits).
+      return typeof raw === "object" && raw !== null;
     default:
       return typeof raw === "string";
   }
@@ -336,8 +351,14 @@ export { encryptSecret };
 
 /** Human-readable rendering of a value, used in confirmations and audit copy. */
 export function formatSettingValue(value: SettingValue): string {
-  if (Array.isArray(value)) return value.length ? value.join(", ") : "(empty)";
   if (typeof value === "boolean") return value ? "enabled" : "disabled";
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "(empty)";
+    return value.every((item) => typeof item === "string")
+      ? value.join(", ")
+      : JSON.stringify(value);
+  }
+  if (typeof value === "object" && value !== null) return JSON.stringify(value);
   if (value === "") return "(empty)";
   return String(value);
 }
