@@ -248,23 +248,56 @@ export async function extractDocument(
 ): Promise<ExtractionResult> {
   const db = getJobmatchDb();
 
-  const document = await db.candidateDocument.findFirst({
+  const before = await db.candidateDocument.findFirst({
     where: { id: documentId, workspaceId, deletedAt: null },
   });
-  if (!document) return { ok: false, reasonCode: "EXTRACTION_ERROR", status: "FAILED" };
+  if (!before) return { ok: false, reasonCode: "EXTRACTION_ERROR", status: "FAILED" };
 
   // Re-asserted rather than assumed from the caller's ordering. This is the
   // line that makes "no parser sees unscanned bytes" true regardless of who
   // calls this function or in what order.
-  if (!mayExtract(document.status)) {
-    return { ok: false, reasonCode: document.reasonCode ?? "EXTRACTION_ERROR", status: document.status };
+  if (!mayExtract(before.status)) {
+    return { ok: false, reasonCode: before.reasonCode ?? "EXTRACTION_ERROR", status: before.status };
   }
 
-  const attempts = document.extractionAttempts + 1;
-  await db.candidateDocument.update({
-    where: { id: documentId },
-    data: { status: "EXTRACTING", extractionAttempts: attempts, extractionStartedAt: new Date() },
+  // Atomic claim, same idea as rescanDocument's, adapted for the fact that
+  // EXTRACTING is itself one of mayExtract's eligible statuses (a failed
+  // attempt with retries left is left in EXTRACTING on purpose, so the next
+  // call can re-enter). A plain `status: { in: [...] }` where-clause can't
+  // exclude a second racer the way rescanDocument's QUARANTINED -> SCANNING
+  // claim does, because the claim's own target status (EXTRACTING) is a
+  // member of the eligible set it just matched against. Instead the where
+  // clause pins `extractionAttempts` to the exact value just read: only the
+  // request whose update still finds that value unchanged wins, and the
+  // loser's updateMany matches zero rows because the winner already bumped
+  // the counter. Two concurrent calls racing the same document therefore
+  // cannot both win, whether the starting status is CLEAN or EXTRACTING.
+  const claim = await db.candidateDocument.updateMany({
+    where: {
+      id: documentId,
+      workspaceId,
+      deletedAt: null,
+      status: before.status,
+      extractionAttempts: before.extractionAttempts,
+    },
+    data: { status: "EXTRACTING", extractionAttempts: { increment: 1 }, extractionStartedAt: new Date() },
   });
+
+  if (claim.count === 0) {
+    const existing = await db.candidateDocument.findFirst({
+      where: { id: documentId, workspaceId, deletedAt: null },
+      select: { status: true, reasonCode: true },
+    });
+    if (!existing) return { ok: false, reasonCode: "EXTRACTION_ERROR", status: "FAILED" };
+    return { ok: false, reasonCode: existing.reasonCode ?? "EXTRACTION_ERROR", status: existing.status };
+  }
+
+  const attempts = before.extractionAttempts + 1;
+
+  const document = await db.candidateDocument.findFirst({
+    where: { id: documentId, workspaceId, deletedAt: null },
+  });
+  if (!document) return { ok: false, reasonCode: "EXTRACTION_ERROR", status: "FAILED" };
 
   const stored = await readDocumentBytes(document.storageKey);
   if (!stored) {
