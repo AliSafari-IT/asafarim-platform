@@ -75,5 +75,13 @@ jobs:
           echo "$?" > /tmp/scan-results/pnpm-audit.exitcode
           exit 0
 
+      - name: Upload scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-results
+          path: /tmp/scan-results
+          retention-days: 14
+
       - name: Summarize findings and enforce gate
         run: node .github/scripts/summarize-security-scan.mjs /tmp/scan-results
