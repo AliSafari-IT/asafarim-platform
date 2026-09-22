@@ -158,26 +158,34 @@ export async function generateWithOpenAI(
   const model = hasImages ? OPENAI_VISION_MODEL : OPENAI_CHAT_MODEL;
 
   const start = Date.now();
-  const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: OPENAI_MAX_TOKENS,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content },
-      ],
-    }),
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: OPENAI_MAX_TOKENS,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content },
+        ],
+      }),
+    });
+  } catch (error) {
+    console.error("[AI] OpenAI request failed:", error);
+    return { error: "OpenAI request failed." };
+  }
   const latencyMs = Date.now() - start;
 
   const payload = (await upstream.json()) as unknown;
   if (!upstream.ok) {
-    return { error: getProviderError(payload) ?? `OpenAI ${upstream.status}` };
+    const error = getProviderError(payload) ?? `OpenAI ${upstream.status}`;
+    console.error(`[AI] OpenAI ${upstream.status}:`, error);
+    return { error };
   }
 
   const data = payload as {
@@ -219,27 +227,33 @@ export async function generateWithAnthropic(
   if (!apiKey) return { error: "ANTHROPIC_API_KEY not configured." };
 
   const start = Date.now();
-  const upstream = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: ANTHROPIC_MAX_TOKENS,
-      system: systemPrompt,
-      messages: [{ role: "user", content: textPrompt }],
-    }),
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        max_tokens: ANTHROPIC_MAX_TOKENS,
+        system: systemPrompt,
+        messages: [{ role: "user", content: textPrompt }],
+      }),
+    });
+  } catch (error) {
+    console.error("[AI] Anthropic request failed:", error);
+    return { error: "Anthropic request failed." };
+  }
   const latencyMs = Date.now() - start;
 
   const payload = (await upstream.json()) as unknown;
   if (!upstream.ok) {
-    return {
-      error: getProviderError(payload) ?? `Anthropic ${upstream.status}`,
-    };
+    const error = getProviderError(payload) ?? `Anthropic ${upstream.status}`;
+    console.error(`[AI] Anthropic ${upstream.status}:`, error);
+    return { error };
   }
 
   const data = payload as {

@@ -87,6 +87,19 @@ pnpm --filter edumatch lint
 pnpm --filter edumatch clean
 ```
 
+`pnpm --filter edumatch test` is the full and only Vitest suite — there is no
+separate `test:integration` tier. It never incurs billable/external calls:
+every provider module (`lib/server/ai-orchestrator.ts`, `lib/server/stripe.ts`,
+`lib/server/storage.ts`, `lib/server/email.ts`) degrades to a stub/mock/no-op
+when its required env var (`OPENAI_API_KEY`/`ANTHROPIC_API_KEY`,
+`STRIPE_SECRET_KEY`/`STRIPE_MOCK_MODE`, `DO_SPACES_*`, `RESEND_API_KEY`) is
+absent, and every test in `lib/server/__tests__/` that touches these mocks
+`fetch`/the provider SDK via `vi.mock`/`vi.stubEnv` rather than hitting the
+real service. Playwright specs under `e2e/` (`pnpm --filter edumatch e2e`)
+run against a real local Hub + EduMatch dev stack but still use Stripe's mock
+mode / local storage stub via the same env-var short-circuiting — see
+`.github/workflows/edumatch-e2e.yml` for the CI env.
+
 ## Web Routes
 
 | Route | Purpose |
