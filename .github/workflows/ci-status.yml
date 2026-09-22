@@ -9,6 +9,14 @@
 # The published artifact (ci-status.json + its .sha256) is what makes the
 # result traceable to the exact commit/run that produced it, per issue #13's
 # "CI publishes signed or traceable benchmark artifacts" acceptance criterion.
+#
+# A full `pnpm install --frozen-lockfile` across this monorepo is expensive
+# on its own. IS_CI_ON (repository secret) is a separate switch from
+# deploy.yml's IS_DEPLOY_ON: unlike deploy (rare, opt-in, defaults closed),
+# this runs lint/typecheck/tests on every push and PR, so it defaults OPEN
+# (runs unless the secret is explicitly set to "false") rather than closed —
+# turning it off silences routine CI feedback entirely, not just an
+# expensive deploy step.
 
 name: CI status
 
@@ -19,7 +27,28 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      ci_on: ${{ steps.check.outputs.ci_on }}
+    steps:
+      - name: Check IS_CI_ON
+        id: check
+        env:
+          CI_ON: ${{ secrets.IS_CI_ON }}
+        run: |
+          if [ "$CI_ON" = "false" ]; then
+            echo "ci_on=false" >> "$GITHUB_OUTPUT"
+            echo "⏸️ \`IS_CI_ON\` is \`false\` — skipping lint/typecheck/tests to save Actions minutes." >> "$GITHUB_STEP_SUMMARY"
+            echo "Set the \`IS_CI_ON\` repository secret to anything other than \`false\` (or delete it) to re-enable." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ci_on=true" >> "$GITHUB_OUTPUT"
+            echo "✅ \`IS_CI_ON\` is not \`false\` — running lint/typecheck/tests." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   status:
+    needs: gate
+    if: needs.gate.outputs.ci_on == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
