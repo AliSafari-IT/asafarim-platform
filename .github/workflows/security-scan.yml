@@ -1,0 +1,76 @@
+# Private-repo-friendly security scan: SAST (Semgrep), secret detection
+# (Gitleaks) and dependency-CVE audit (pnpm audit), none of which need
+# GitHub Advanced Security. This repo is private, and CodeQL's managed
+# default setup / the Security tab both require GHAS on a private repo,
+# so findings are published to the job summary instead of a SARIF upload.
+#
+# Every scanner reports something for every run, including "found nothing"
+# — a scanner that fails to execute fails the whole gate. It never silently
+# skips and lets the gate pass as though it had run clean. The gate itself
+# only fails on high-signal findings (Semgrep ERROR-level, any Gitleaks
+# match, critical-severity pnpm audit findings), so a routine low-severity
+# note doesn't block every PR (issue #550).
+
+name: Security scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 5 * * 1" # every Monday 05:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks needs full history to catch secrets added in older commits
+
+      - name: Semgrep (SAST)
+        run: |
+          set -u
+          mkdir -p /tmp/scan-results
+
+          docker run --rm \
+            -v "${PWD}:/src" \
+            -v /tmp/scan-results:/results \
+            returntocorp/semgrep:1.96.0 \
+            semgrep scan /src \
+              --config=p/typescript \
+              --config=p/javascript \
+              --config=p/owasp-top-ten \
+              --config=p/secrets \
+              --json --output=/results/semgrep.json \
+              --error --severity=ERROR \
+              --exclude='**/node_modules/**' --exclude='**/dist/**' --exclude='**/.next/**'
+          echo "$?" > /tmp/scan-results/semgrep.exitcode
+
+      - name: Gitleaks (secret detection)
+        run: |
+          set -u
+          mkdir -p /tmp/scan-results
+
+          docker run --rm \
+            -v "${PWD}:/src" \
+            -v /tmp/scan-results:/results \
+            zricethezav/gitleaks:v8.21.2 \
+            detect --source=/src --log-opts="--all" \
+              --report-format=json --report-path=/results/gitleaks.json \
+              --exit-code=1 --no-banner
+          echo "$?" > /tmp/scan-results/gitleaks.exitcode
+
+      - name: pnpm audit (dependency CVEs)
+        run: |
+          set -u
+          mkdir -p /tmp/scan-results
+          corepack enable
+          pnpm audit --json > /tmp/scan-results/pnpm-audit.json
+          echo "$?" > /tmp/scan-results/pnpm-audit.exitcode
+
+      - name: Summarize findings and enforce gate
+        run: node .github/scripts/summarize-security-scan.mjs /tmp/scan-results
