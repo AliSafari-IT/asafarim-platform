@@ -1,0 +1,39 @@
+# Validates docker-compose.yml and docker-compose.prod.yml parse and
+# interpolate cleanly (catches YAML errors, bad anchors/refs, invalid
+# Compose schema) before they ever reach the VPS deploy in deploy.yml. Part
+# of #89 ("Launch readiness")'s "Production Compose config validates"
+# acceptance criterion — previously this was only ever checked manually or
+# implicitly by a real deploy attempt.
+#
+# `docker compose config` needs referenced env vars to interpolate, but not
+# to be *correct* — unset vars just warn and default to blank, which is fine
+# here since this only checks the file is well-formed, not that production
+# secrets are present (that's a deploy-time concern, not a PR-time one).
+name: Compose validate
+
+on:
+  pull_request:
+    paths:
+      - "docker-compose.yml"
+      - "docker-compose.prod.yml"
+      - ".github/workflows/compose-validate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docker-compose.yml"
+      - "docker-compose.prod.yml"
+      - ".github/workflows/compose-validate.yml"
+  workflow_dispatch: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose -f docker-compose.yml config -q
+
+      - name: Validate docker-compose.prod.yml
+        run: docker compose -f docker-compose.prod.yml config -q
