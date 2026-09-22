@@ -197,9 +197,15 @@ export async function createPresignedUploadUrl(
     ContentType: input.contentType,
   });
 
-  const uploadUrl = await getSignedUrl(handle.client, command, {
-    expiresIn: PRESIGN_EXPIRES_SEC,
-  });
+  let uploadUrl: string;
+  try {
+    uploadUrl = await getSignedUrl(handle.client, command, {
+      expiresIn: PRESIGN_EXPIRES_SEC,
+    });
+  } catch (error) {
+    console.error(`[storage] createPresignedUploadUrl signing failed for key ${key}:`, error);
+    throw error;
+  }
 
   return {
     key,
@@ -251,9 +257,15 @@ export async function createPresignedAvatarUploadUrl(
     ContentType: input.contentType,
   });
 
-  const uploadUrl = await getSignedUrl(handle.client, command, {
-    expiresIn: PRESIGN_EXPIRES_SEC,
-  });
+  let uploadUrl: string;
+  try {
+    uploadUrl = await getSignedUrl(handle.client, command, {
+      expiresIn: PRESIGN_EXPIRES_SEC,
+    });
+  } catch (error) {
+    console.error(`[storage] createPresignedAvatarUploadUrl signing failed for key ${key}:`, error);
+    throw error;
+  }
 
   return {
     key,
@@ -287,15 +299,20 @@ export async function directUpload(
     return { key, publicUrl: `local-stub://${key}`, isLocalStub: true };
   }
 
-  await handle.client.send(
-    new PutObjectCommand({
-      Bucket: handle.config.bucket,
-      Key: key,
-      ContentType: contentType,
-      ContentLength: data.byteLength,
-      Body: Buffer.from(data),
-    }),
-  );
+  try {
+    await handle.client.send(
+      new PutObjectCommand({
+        Bucket: handle.config.bucket,
+        Key: key,
+        ContentType: contentType,
+        ContentLength: data.byteLength,
+        Body: Buffer.from(data),
+      }),
+    );
+  } catch (error) {
+    console.error(`[storage] directUpload failed for key ${key}:`, error);
+    throw error;
+  }
 
   return {
     key,
@@ -328,9 +345,14 @@ export async function getSignedDownloadUrl(key: string): Promise<string> {
     Bucket: handle.config.bucket,
     Key: key,
   });
-  return getSignedUrl(handle.client, command, {
-    expiresIn: DOWNLOAD_EXPIRES_SEC,
-  });
+  try {
+    return await getSignedUrl(handle.client, command, {
+      expiresIn: DOWNLOAD_EXPIRES_SEC,
+    });
+  } catch (error) {
+    console.error(`[storage] getSignedDownloadUrl signing failed for key ${key}:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -381,7 +403,8 @@ export async function objectExists(key: string): Promise<boolean> {
       new HeadObjectCommand({ Bucket: handle.config.bucket, Key: key }),
     );
     return true;
-  } catch {
+  } catch (error) {
+    console.error(`[storage] objectExists check failed for key ${key}:`, error);
     return false;
   }
 }

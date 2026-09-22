@@ -90,6 +90,7 @@ export async function createConnectAccount(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    console.error(`[stripe] createConnectAccount failed for tutor ${tutorId}:`, error);
     // Detect specific Stripe Connect not enabled error
     if (message.includes("signed up for Connect") || message.includes("create new accounts")) {
       return {
@@ -117,7 +118,8 @@ export async function getConnectDashboardLink(
   try {
     const link = await stripe.accounts.createLoginLink(stripeAccountId);
     return link.url;
-  } catch {
+  } catch (error) {
+    console.error(`[stripe] getConnectDashboardLink failed for ${stripeAccountId}:`, error);
     return null;
   }
 }
@@ -180,6 +182,7 @@ export async function createBookingPaymentIntent(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    console.error(`[stripe] createBookingPaymentIntent failed for quote ${quoteId}:`, error);
     return { success: false, error: `PaymentIntent creation failed: ${message}` };
   }
 }
@@ -194,7 +197,8 @@ export async function retrievePaymentIntent(
 
   try {
     return await stripe.paymentIntents.retrieve(paymentIntentId);
-  } catch {
+  } catch (error) {
+    console.error(`[stripe] retrievePaymentIntent failed for ${paymentIntentId}:`, error);
     return null;
   }
 }
@@ -221,7 +225,9 @@ export function constructWebhookEvent(
 
   try {
     return stripe.webhooks.constructEvent(payload, signature, STRIPE_WEBHOOK_SECRET);
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[stripe] webhook signature verification failed: ${message}`);
     return null;
   }
 }
@@ -240,7 +246,8 @@ export async function isAccountOnboarded(stripeAccountId: string): Promise<boole
   try {
     const account = await stripe.accounts.retrieve(stripeAccountId);
     return account.details_submitted && account.charges_enabled && account.payouts_enabled;
-  } catch {
+  } catch (error) {
+    console.error(`[stripe] isAccountOnboarded failed for ${stripeAccountId}:`, error);
     return false;
   }
 }
@@ -276,6 +283,7 @@ export async function createPayout(
     return { success: true, payoutId: payout.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    console.error(`[stripe] createPayout failed for account ${stripeAccountId}:`, error);
     return { success: false, error: message };
   }
 }
