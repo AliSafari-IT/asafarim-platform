@@ -19,11 +19,13 @@ vi.mock("@asafarim/auth", () => ({
 }));
 
 import { prisma, encryptSecret } from "@asafarim/db";
-import { getSession } from "@asafarim/auth";
-import { updatePlatformSetting } from "./actions";
+import { getSession, hasPermission } from "@asafarim/auth";
+import { resetPlatformSetting, updatePlatformSetting } from "./actions";
 
 const SECRET_KEY = "ai.openaiApiKey";
 const JSON_KEY = "test.jsonSetting";
+const SENSITIVE_KEY = "stripe.mode";
+const PLAIN_KEY = "platform.tagline";
 
 // Synthetic setting definitions to exercise, added purely for these tests —
 // settings.ts's own catalog is asserted separately.
@@ -56,6 +58,19 @@ vi.mock("../../../lib/settings", async () => {
           defaultValue: {},
         };
       }
+      if (key === SENSITIVE_KEY) {
+        return {
+          key: SENSITIVE_KEY,
+          label: "Stripe mode",
+          description: "test",
+          group: "operations",
+          scope: "edumatch",
+          type: "select",
+          options: ["live", "test"],
+          defaultValue: "test",
+          sensitive: true,
+        };
+      }
       return actual.getSettingDefinition(key);
     },
   };
@@ -67,8 +82,10 @@ beforeEach(() => {
   } as never);
   vi.mocked(prisma.platformSetting.findUnique).mockReset();
   vi.mocked(prisma.platformSetting.upsert).mockReset().mockResolvedValue({} as never);
+  vi.mocked(prisma.platformSetting.delete).mockReset().mockResolvedValue({} as never);
   vi.mocked(prisma.auditLog.create).mockReset().mockResolvedValue({} as never);
   vi.mocked(encryptSecret).mockClear();
+  vi.mocked(hasPermission).mockReset().mockResolvedValue(true);
 });
 
 describe("updatePlatformSetting — secret type", () => {
@@ -179,5 +196,70 @@ describe("updatePlatformSetting — json type", () => {
 
     expect(result.ok).toBe(true);
     expect(prisma.platformSetting.upsert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("permission tier — settings.secrets.{view,edit}", () => {
+  it("checks settings.secrets.edit (not settings.edit) for a secret-typed setting", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue(null);
+    vi.mocked(hasPermission).mockImplementation(async (_session, permission) => {
+      // Only the base tier is granted — the secrets tier is withheld.
+      return permission === "settings.edit";
+    });
+
+    const result = await updatePlatformSetting({ key: SECRET_KEY, value: "sk_live_x" });
+
+    expect(result.ok).toBe(false);
+    expect(prisma.platformSetting.upsert).not.toHaveBeenCalled();
+  });
+
+  it("checks settings.secrets.edit (not settings.edit) for a sensitive-flagged non-secret setting", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue(null);
+    vi.mocked(hasPermission).mockImplementation(async (_session, permission) => {
+      return permission === "settings.edit";
+    });
+
+    const result = await updatePlatformSetting({ key: SENSITIVE_KEY, value: "live" });
+
+    expect(result.ok).toBe(false);
+    expect(prisma.platformSetting.upsert).not.toHaveBeenCalled();
+  });
+
+  it("allows a sensitive-flagged setting when settings.secrets.edit is granted", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue(null);
+    vi.mocked(hasPermission).mockImplementation(async (_session, permission) => {
+      return permission === "settings.secrets.edit";
+    });
+
+    const result = await updatePlatformSetting({ key: SENSITIVE_KEY, value: "live" });
+
+    expect(result.ok).toBe(true);
+    expect(prisma.platformSetting.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("only checks settings.edit (not settings.secrets.edit) for a non-sensitive setting", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue(null);
+    vi.mocked(hasPermission).mockImplementation(async (_session, permission) => {
+      return permission === "settings.edit";
+    });
+
+    const result = await updatePlatformSetting({ key: PLAIN_KEY, value: "New tagline" });
+
+    expect(result.ok).toBe(true);
+    expect(prisma.platformSetting.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("gates resetPlatformSetting on settings.secrets.edit for a sensitive setting too", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue({
+      value: "live",
+    } as never);
+    vi.mocked(hasPermission).mockImplementation(async (_session, permission) => {
+      return permission === "settings.edit";
+    });
+
+    const result = await resetPlatformSetting({ key: SENSITIVE_KEY });
+
+    expect(result.ok).toBe(false);
+    expect(prisma.platformSetting.delete).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ import {
   SETTING_GROUPS,
   SETTING_SCOPES,
   getEffectiveSettings,
+  isSensitiveSetting,
   type EffectiveSetting,
   type SettingScope,
 } from "../../../lib/settings";
@@ -40,6 +41,8 @@ export default async function AdminSettingsPage({
     redirect("/denied");
   }
   const canEdit = await hasPermission(session, "settings.edit");
+  const canViewSecrets = await hasPermission(session, "settings.secrets.view");
+  const canEditSecrets = await hasPermission(session, "settings.secrets.edit");
 
   const params = await searchParams;
   const requested = (params.scope ?? "").trim();
@@ -112,31 +115,59 @@ export default async function AdminSettingsPage({
               if (rows.length === 0) return null;
               return (
                 <Panel key={group} title={`${GROUP_TITLES[group]} · ${rows.length}`}>
-                  {rows.map((setting) => (
-                    <SettingField
-                      key={setting.definition.key}
-                      settingKey={setting.definition.key}
-                      label={setting.definition.label}
-                      description={setting.definition.description}
-                      type={setting.definition.type}
-                      maxLength={setting.definition.maxLength}
-                      min={setting.definition.min}
-                      max={setting.definition.max}
-                      unit={setting.definition.unit}
-                      options={setting.definition.options}
-                      maxItems={setting.definition.maxItems}
-                      highImpact={setting.definition.highImpact}
-                      jsonHint={setting.definition.jsonHint}
-                      value={
-                        setting.definition.type === "secret" ? "" : setting.value
-                      }
-                      defaultValue={setting.definition.defaultValue}
-                      overridden={setting.overridden}
-                      updatedAt={setting.updatedAt?.toISOString() ?? null}
-                      updatedByEmail={setting.updatedByEmail}
-                      disabled={!canEdit}
-                    />
-                  ))}
+                  {rows.map((setting) => {
+                    const sensitive = isSensitiveSetting(setting.definition);
+
+                    // A settings.view-only user without settings.secrets.view
+                    // never gets the editor for a sensitive row — only an
+                    // is-it-set indicator. No reveal/edit control renders at
+                    // all, unlike the non-sensitive case where SettingField
+                    // itself handles the disabled state.
+                    if (sensitive && !canViewSecrets) {
+                      return (
+                        <div key={setting.definition.key} className="ui-setting">
+                          <div className="ui-setting__head">
+                            <span className="ui-setting__label">
+                              {setting.definition.label}{" "}
+                              <span className="u-mono">{setting.definition.key}</span>
+                            </span>
+                            <Badge tone={setting.overridden ? "info" : "neutral"}>
+                              {setting.overridden ? "set" : "not set"}
+                            </Badge>
+                          </div>
+                          <p className="u-muted ui-setting__description">
+                            Requires settings.secrets.view to see or edit.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <SettingField
+                        key={setting.definition.key}
+                        settingKey={setting.definition.key}
+                        label={setting.definition.label}
+                        description={setting.definition.description}
+                        type={setting.definition.type}
+                        maxLength={setting.definition.maxLength}
+                        min={setting.definition.min}
+                        max={setting.definition.max}
+                        unit={setting.definition.unit}
+                        options={setting.definition.options}
+                        maxItems={setting.definition.maxItems}
+                        highImpact={setting.definition.highImpact}
+                        jsonHint={setting.definition.jsonHint}
+                        value={
+                          setting.definition.type === "secret" ? "" : setting.value
+                        }
+                        defaultValue={setting.definition.defaultValue}
+                        overridden={setting.overridden}
+                        updatedAt={setting.updatedAt?.toISOString() ?? null}
+                        updatedByEmail={setting.updatedByEmail}
+                        disabled={sensitive ? !canEditSecrets : !canEdit}
+                      />
+                    );
+                  })}
                 </Panel>
               );
             })}

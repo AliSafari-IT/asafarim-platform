@@ -5,12 +5,28 @@ import { prisma, Prisma, encryptSecret } from "@asafarim/db";
 import { ROLES, getSession, hasRole, hasPermission } from "@asafarim/auth";
 import type { Session } from "next-auth";
 import { writeAuditEvent } from "../../../lib/audit";
-import { getSettingDefinition, type SettingValue } from "../../../lib/settings";
+import {
+  getSettingDefinition,
+  isSensitiveSetting,
+  type SettingDefinition,
+  type SettingValue,
+} from "../../../lib/settings";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * The permission a setting requires, based on its own sensitivity rather
+ * than a caller-supplied string — the point of this split is that "can
+ * toggle the maintenance banner" and "can rotate a live payment key" are
+ * never allowed to collapse into the same check by a call-site mistake.
+ */
+function requiredPermission(definition: SettingDefinition, action: "view" | "edit"): string {
+  return isSensitiveSetting(definition) ? `settings.secrets.${action}` : `settings.${action}`;
+}
+
 async function requireActor(
-  permission: string
+  definition: SettingDefinition,
+  action: "view" | "edit"
 ): Promise<{ session: Session } | { error: string }> {
   const session = await getSession();
   if (!session?.user?.id || session.user.isActive === false) {
@@ -19,6 +35,7 @@ async function requireActor(
   if (!hasRole(session, [ROLES.ADMIN])) {
     return { error: "Admin access required." };
   }
+  const permission = requiredPermission(definition, action);
   if (!(await hasPermission(session, permission))) {
     return { error: `Missing permission: ${permission}.` };
   }
@@ -180,12 +197,14 @@ export async function updatePlatformSetting(input: {
   key: string;
   value: SettingValue;
 }): Promise<ActionResult> {
-  const actor = await requireActor("settings.edit");
+  const definition = getSettingDefinition(input.key);
+  if (!definition) return { ok: false, error: "Unknown setting key." };
+
+  const actor = await requireActor(definition, "edit");
   if ("error" in actor) return { ok: false, error: actor.error };
 
   const validated = validateValue(input.key, input.value);
   if (!validated.ok) return validated;
-  const definition = getSettingDefinition(input.key)!;
   const isSecret = definition.type === "secret";
 
   try {
@@ -242,11 +261,11 @@ export async function updatePlatformSetting(input: {
 export async function resetPlatformSetting(input: {
   key: string;
 }): Promise<ActionResult> {
-  const actor = await requireActor("settings.edit");
-  if ("error" in actor) return { ok: false, error: actor.error };
-
   const definition = getSettingDefinition(input.key);
   if (!definition) return { ok: false, error: "Unknown setting key." };
+
+  const actor = await requireActor(definition, "edit");
+  if ("error" in actor) return { ok: false, error: actor.error };
 
   try {
     const existing = await prisma.platformSetting.findUnique({
