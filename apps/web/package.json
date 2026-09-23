@@ -18,7 +18,7 @@
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
     "dotenv": "^17.4.2",
-    "next": "^16.3.6",
+    "next": "^16.3.5",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
