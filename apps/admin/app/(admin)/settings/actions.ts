@@ -280,7 +280,15 @@ export async function resetPlatformSetting(input: {
       action: "settings.reset",
       entity: "PlatformSetting",
       entityId: input.key,
-      changes: { from: existing.value, to: definition.defaultValue },
+      // A secret's stored value is already ciphertext, never plaintext, but
+      // it's still masked here for the same reason updatePlatformSetting
+      // masks its diff: the audit log is read by more people, kept longer,
+      // and sometimes exported, so it shouldn't carry even the encrypted
+      // envelope as an existence/update-frequency signal.
+      changes:
+        definition.type === "secret"
+          ? { from: "(secret set)", to: "(unset)" }
+          : { from: existing.value, to: definition.defaultValue },
     });
 
     revalidatePath("/settings");

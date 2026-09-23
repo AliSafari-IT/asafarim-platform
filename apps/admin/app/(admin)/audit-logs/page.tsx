@@ -39,6 +39,25 @@ function formatDateTime(date: Date): string {
   return date.toISOString().replace("T", " ").slice(0, 19);
 }
 
+/**
+ * Detects the masked `{ from, to }` shape `updatePlatformSetting` /
+ * `resetPlatformSetting` write for a `secret`-typed setting (see
+ * apps/admin/app/(admin)/settings/actions.ts) so the viewer can show a
+ * plain "secret changed" line instead of expanding a two-key JSON blob
+ * that would otherwise read as a broken/truncated diff.
+ */
+const SECRET_CHANGE_VALUES = new Set(["(secret set)", "(unset)"]);
+function secretChangeSummary(changes: unknown): string | null {
+  if (typeof changes !== "object" || changes === null) return null;
+  const { from, to } = changes as { from?: unknown; to?: unknown };
+  if (!SECRET_CHANGE_VALUES.has(from as string) || !SECRET_CHANGE_VALUES.has(to as string)) {
+    return null;
+  }
+  if (from === "(unset)" && to === "(secret set)") return "secret set";
+  if (from === "(secret set)" && to === "(unset)") return "secret cleared";
+  return "secret changed";
+}
+
 function actionTone(action: string): BadgeTone {
   if (action.includes("denied") || action.includes("deleted")) return "danger";
   if (action.includes("deactivated") || action.includes("removed")) return "warning";
@@ -149,8 +168,20 @@ export default async function AuditLogsPage({
     {
       id: "detail",
       header: "Detail",
-      render: (event) =>
-        event.changes ? (
+      render: (event) => {
+        if (!event.changes) return <span className="u-muted">—</span>;
+
+        const secretSummary = secretChangeSummary(event.changes);
+        if (secretSummary) {
+          // The actual before/after is masked at the source (never even the
+          // encrypted envelope — see actions.ts) — there is nothing more
+          // specific to reveal, so this renders as a plain line rather than
+          // an expandable two-key JSON blob that would look like a
+          // truncated/broken diff.
+          return <span className="u-mono">{secretSummary}</span>;
+        }
+
+        return (
           <details>
             <summary className="u-mono" style={{ cursor: "pointer" }}>
               changes
@@ -169,9 +200,8 @@ export default async function AuditLogsPage({
               {JSON.stringify(event.changes, null, 2)}
             </pre>
           </details>
-        ) : (
-          <span className="u-muted">—</span>
-        ),
+        );
+      },
     },
   ];
 
