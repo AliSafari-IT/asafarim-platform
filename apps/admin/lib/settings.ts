@@ -84,6 +84,14 @@ export interface SettingDefinition {
   /** High-impact settings get an explicit confirmation step in the UI. */
   highImpact?: boolean;
   /**
+   * Marks a non-`secret`-typed setting as still sensitive enough to require
+   * `settings.secrets.{view,edit}` instead of the base `settings.{view,edit}`
+   * — e.g. `stripe.mode`, where flipping live/test doesn't hold a
+   * credential itself but gates one. Every `type: "secret"` definition is
+   * implicitly sensitive; this flag is only for the non-secret case.
+   */
+  sensitive?: boolean;
+  /**
    * Short guidance shown under a `json` editor (e.g. the expected shape).
    * Not full JSON Schema validation — a human hint only, structural
    * validation is per-consumer.
@@ -206,6 +214,15 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
 
 export function getSettingDefinition(key: string): SettingDefinition | undefined {
   return SETTING_DEFINITIONS.find((definition) => definition.key === key);
+}
+
+/**
+ * Whether a setting requires `settings.secrets.{view,edit}` instead of the
+ * base `settings.{view,edit}` — every `secret`-typed definition, plus any
+ * non-secret definition explicitly flagged `sensitive: true`.
+ */
+export function isSensitiveSetting(definition: SettingDefinition): boolean {
+  return definition.type === "secret" || definition.sensitive === true;
 }
 
 /** Scopes that actually have settings, in a stable display order. */
