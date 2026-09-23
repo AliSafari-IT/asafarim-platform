@@ -1,5 +1,6 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
 RUN corepack enable
 ARG NEXT_PUBLIC_COMPANY_NAME="ASafarIM Digital"
 ARG NEXT_PUBLIC_PLATFORM_NAME="ASafarIM Platform"
@@ -49,8 +50,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-COPY --from=builder /app/apps/hub/.next/standalone ./
-COPY --from=builder /app/apps/hub/.next/static ./apps/hub/.next/static
-COPY --from=builder /app/apps/hub/public ./apps/hub/public
+COPY --from=builder --chown=node:node /app/apps/hub/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/hub/.next/static ./apps/hub/.next/static
+COPY --from=builder --chown=node:node /app/apps/hub/public ./apps/hub/public
 EXPOSE 3000
+USER node
 CMD ["node", "apps/hub/server.js"]

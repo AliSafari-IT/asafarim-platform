@@ -1,5 +1,6 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
 RUN corepack enable
 
 ARG NEXT_PUBLIC_COMPANY_NAME="ASafariM Digital"
@@ -55,8 +56,9 @@ ENV PORT=3000
 RUN apk add --no-cache chromium
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-COPY --from=builder /app/apps/timelineai/.next/standalone ./
-COPY --from=builder /app/apps/timelineai/.next/static ./apps/timelineai/.next/static
-COPY --from=builder /app/apps/timelineai/public ./apps/timelineai/public
+COPY --from=builder --chown=node:node /app/apps/timelineai/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/timelineai/.next/static ./apps/timelineai/.next/static
+COPY --from=builder --chown=node:node /app/apps/timelineai/public ./apps/timelineai/public
 EXPOSE 3000
+USER node
 CMD ["node", "apps/timelineai/server.js"]
