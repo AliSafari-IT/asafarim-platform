@@ -47,7 +47,12 @@ export function decryptSecret(envelope: string): string {
   if (parts.length !== 4 || parts[0] !== CURRENT_VERSION) {
     throw new Error("Unrecognized secret envelope format or version.");
   }
-  const [, ivB64, authTagB64, ciphertextB64] = parts;
+  // Array destructuring can't carry the length===4 check above into the
+  // element types under noUncheckedIndexedAccess, so these are asserted
+  // rather than re-checked — the invariant was just proven above.
+  const ivB64 = parts[1]!;
+  const authTagB64 = parts[2]!;
+  const ciphertextB64 = parts[3]!;
   const key = getKey();
   const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivB64, "base64"));
   decipher.setAuthTag(Buffer.from(authTagB64, "base64"));
