@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { Syne, Space_Grotesk, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { site } from "../content/site";
 import {
   resolveLocaleFromCookie,
@@ -31,13 +31,26 @@ import {
 } from "./_home/icons";
 import styles from "./page.module.css";
 
-const syne = Syne({ subsets: ["latin"], weight: ["700", "800"], variable: "--font-syne" });
-const grotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+// Self-hosted from @fontsource-variable/* rather than next/font/google, which
+// downloads from Google at build time — a failed fetch on a CI runner broke a
+// production deploy. One variable-weight Latin file per family covers every
+// weight used here; next/font/local keeps the same CSS-variable API,
+// preloading and fallback-metric tuning.
+const syne = localFont({
+  src: "../node_modules/@fontsource-variable/syne/files/syne-latin-wght-normal.woff2",
+  weight: "400 800",
+  variable: "--font-syne",
+});
+const grotesk = localFont({
+  src: "../node_modules/@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2",
+  weight: "300 700",
   variable: "--font-grotesk",
 });
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
+const inter = localFont({
+  src: "../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+  weight: "100 900",
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
   title: site.title,
