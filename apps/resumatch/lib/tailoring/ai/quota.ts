@@ -1,5 +1,6 @@
 import { getJobmatchDb } from "../../db/client";
 import { getEnv } from "../../env";
+import { getPlatformSetting } from "../../platform-settings";
 
 /**
  * Per-workspace AI budget. Mirrors apps/tasks-ai/lib/ai/quota.ts almost 1:1
@@ -28,7 +29,9 @@ import { getEnv } from "../../env";
  * exists yet, just document that choice". So: the budget here is
  * `RESUMATCH_AI_MONTHLY_BUDGET_USD` (lib/env.ts's `aiMonthlyBudgetUsd`,
  * already used by the whole workspace/process), applied identically to every
- * workspace. `usageSummary` still takes a `workspaceId` and every ledger
+ * workspace — unless an admin sets the platform-wide
+ * `resumatch.aiMonthlyBudgetUsd` override in the admin console, which wins
+ * (read via lib/platform-settings.ts, cached ~60s, env value on any failure). `usageSummary` still takes a `workspaceId` and every ledger
  * query is workspace-scoped, so switching to a per-workspace override later
  * (once such a settings model exists) only changes where `budgetUsd` comes
  * from, not this module's shape or call sites.
@@ -72,7 +75,11 @@ export interface UsageSummary {
 /** This month's spend for a workspace against the current budget ceiling. */
 export async function usageSummary(workspaceId: string): Promise<UsageSummary> {
   const db = getJobmatchDb();
-  const { aiMonthlyBudgetUsd } = getEnv();
+  // An admin-console override wins; otherwise RESUMATCH_AI_MONTHLY_BUDGET_USD.
+  const aiMonthlyBudgetUsd = await getPlatformSetting(
+    "resumatch.aiMonthlyBudgetUsd",
+    getEnv().aiMonthlyBudgetUsd,
+  );
   const since = monthStart();
 
   const agg = await db.aiUsageLedger.aggregate({

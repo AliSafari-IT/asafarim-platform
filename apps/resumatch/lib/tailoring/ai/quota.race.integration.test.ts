@@ -1,4 +1,11 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+// The budget under test comes from RESUMATCH_AI_MONTHLY_BUDGET_USD. Pin the
+// admin-console override layer to "no override" so a live local Admin (or an
+// exported INTERNAL_API_SECRET) can never change what these tests assert.
+vi.mock("../../platform-settings", () => ({
+  getPlatformSetting: async <T,>(_key: string, fallback: T) => fallback,
+}));
 
 /**
  * Regression coverage for issue #526: generate-preview's tailor and
