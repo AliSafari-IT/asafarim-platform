@@ -43,6 +43,13 @@ describe("secret-cipher", () => {
     expect(() => decryptSecret(tampered)).toThrow();
   });
 
+  it("rejects a truncated auth tag instead of accepting a weaker check", () => {
+    const envelope = encryptSecret("value");
+    const [version, iv, tag, ciphertext] = envelope.split(":");
+    const truncatedTag = Buffer.from(tag!, "base64").subarray(0, 4).toString("base64");
+    expect(() => decryptSecret([version, iv, truncatedTag, ciphertext].join(":"))).toThrow();
+  });
+
   it("throws a clear error when SETTINGS_ENCRYPTION_KEY is unset", () => {
     delete process.env.SETTINGS_ENCRYPTION_KEY;
     expect(() => encryptSecret("value")).toThrow(/SETTINGS_ENCRYPTION_KEY/);
