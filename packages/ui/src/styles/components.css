@@ -218,7 +218,33 @@
   padding: 0;
   flex-wrap: nowrap;
   align-items: center;
-  overflow: hidden;
+  /* Was overflow: hidden — clipped items were simply gone, with no way to
+     reach them short of widening the window. Now scrollable (native
+     scrollbar hidden for a clean header; useEdgeAutoScroll on the element
+     makes hovering near an edge scroll toward it, and the fade below
+     signals there's more before you've even tried). */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black var(--space-2),
+    black calc(100% - var(--space-2)),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black var(--space-2),
+    black calc(100% - var(--space-2)),
+    transparent 100%
+  );
+}
+
+.ui-topnav::-webkit-scrollbar {
+  display: none;
 }
 
 .ui-topnav a {

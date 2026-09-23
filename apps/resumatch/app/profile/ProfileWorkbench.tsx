@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Badge, Button, Card } from "@asafarim/ui";
+import { Alert, Badge, Button, Card, useEdgeAutoScroll } from "@asafarim/ui";
 import { LOW_CONFIDENCE_THRESHOLD } from "../../lib/profile/contract";
 import type {
   CandidateProfileContent,
@@ -99,6 +99,7 @@ export function ProfileWorkbench({
 }: ProfileWorkbenchProps) {
   const [content, setContent] = useState<CandidateProfileContent>(initialContent);
   const [state, setState] = useState<SaveState>({ kind: "idle" });
+  const navScroller = useEdgeAutoScroll<HTMLElement>();
   const [dirty, setDirty] = useState(false);
   // Skills and excluded-employers are free-typed lists, parsed into
   // structured data on every keystroke. The textarea's own text must be its
@@ -281,7 +282,13 @@ export function ProfileWorkbench({
       {/* Sticky workbench bar: section jump links (with counts) and the save
           actions, so neither requires scrolling a long profile to reach. */}
       <div className="rm-wb__bar">
-        <nav className="rm-wb__nav" aria-label="Profile sections">
+        <nav
+          className="rm-wb__nav"
+          aria-label="Profile sections"
+          ref={navScroller.ref}
+          onMouseMove={navScroller.onMouseMove}
+          onMouseLeave={navScroller.onMouseLeave}
+        >
           {sectionLinks.map(({ id, label, count }) => (
             <a key={id} className="rm-wb__navlink" href={`#rm-sec-${id}`}>
               {label}
