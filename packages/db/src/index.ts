@@ -7,6 +7,30 @@ export { pingDb } from "./status";
 
 export { encryptSecret, decryptSecret, isSecretEnvelope } from "./secret-cipher";
 
+export {
+  SETTING_DEFINITIONS,
+  SETTING_SCOPES,
+  SETTING_GROUPS,
+  getSettingDefinition,
+  isSensitiveSetting,
+  isValidValue,
+  getEffectiveSettings,
+  getEffectiveSetting,
+  getSetting,
+  getBooleanSetting,
+  getNumberSetting,
+  formatSettingValue,
+} from "./settings";
+export type {
+  SettingValue,
+  SettingJsonValue,
+  SettingType,
+  SettingGroup,
+  SettingScope,
+  SettingDefinition,
+  EffectiveSetting,
+} from "./settings";
+
 // Re-export types for convenience
 export { PrismaClient, Prisma } from "@prisma/client";
 export type {
