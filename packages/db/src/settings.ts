@@ -1,17 +1,22 @@
-import { prisma, decryptSecret, encryptSecret, isSecretEnvelope } from "@asafarim/db";
+import { prisma } from "./client";
+import { decryptSecret, isSecretEnvelope } from "./secret-cipher";
 
 /**
- * Typed, bounded platform-setting catalog.
+ * Typed, bounded platform-setting catalog and read-side helpers, shared by
+ * every app on the platform database.
  *
  * Only keys declared here can ever be read from or written to the
  * PlatformSetting table — the settings surface is NOT a free-form
- * key/value editor, must never hold secrets, and cannot affect the
- * authorization model (roles/permissions live in their own tables).
+ * key/value editor, must never hold plaintext secrets, and cannot affect
+ * the authorization model (roles/permissions live in their own tables).
  * Environment configuration (URLs, credentials) is read-only in the UI.
  *
- * Adding a setting is one entry here: the page renders every type
- * generically and the server action validates from the same definition,
- * so no UI or validation code changes with a new key.
+ * The write path (validation, RBAC, audit) stays in the Admin app's
+ * `app/(admin)/settings/actions.ts` — only Admin's UI can change a
+ * setting. Everything here is read-only: any app that already shares
+ * `@asafarim/db` (web, hub, showcase, vionto, edumatch, timelineai) can
+ * import this module directly instead of reimplementing "check the row,
+ * fall back to default" from scratch.
  */
 
 /** Arbitrary structured data for `json`-typed settings. */
@@ -34,14 +39,15 @@ export type SettingGroup = "presentation" | "operations" | "features";
 
 /**
  * Which app a setting configures. Platform-wide keys use "platform"; the
- * rest use a key from the PLATFORM_APPS registry so the console can be
- * filtered per app as more apps grow configuration.
+ * rest use a key from the PLATFORM_APPS registry (`@asafarim/auth/apps`)
+ * so the console can be filtered per app as more apps grow configuration.
  *
- * Kept as a literal union (rather than derived from PLATFORM_APPS, whose
+ * Kept as a literal union (rather than imported from PLATFORM_APPS, whose
  * `key` is typed as `string`) so a definition's `scope` is checked at
- * compile time. `settings.test.ts` asserts this stays a superset of every
+ * compile time, and so this module has no dependency on `@asafarim/auth`.
+ * `apps/admin/lib/settings.test.ts` asserts this stays a superset of every
  * active PLATFORM_APPS key, so an app added there without a matching entry
- * here fails the test instead of silently falling out of scope.
+ * here fails that test instead of silently falling out of scope.
  *
  * "coming-soon" apps are deliberately excluded — they have no running
  * surface to configure yet.
@@ -304,13 +310,42 @@ export interface EffectiveSetting {
   updatedByEmail: string | null;
 }
 
+/** Shared row→EffectiveSetting resolution, used by both bulk and single lookups. */
+function resolveEffectiveValue(
+  definition: SettingDefinition,
+  row: { value: unknown } | undefined
+): { value: SettingValue; valid: boolean } {
+  const raw = row?.value;
+  const valid = row !== undefined && isValidValue(definition, raw);
+  if (!valid) return { value: definition.defaultValue, valid: false };
+
+  if (definition.type === "secret") {
+    try {
+      return { value: decryptSecret(raw as string), valid: true };
+    } catch (error) {
+      // A row that looks like an envelope but fails to decrypt (wrong
+      // SETTINGS_ENCRYPTION_KEY, corrupted data) must not crash the caller
+      // — fall back to the default and let the key mismatch surface as
+      // "not set" rather than a 500.
+      console.error(`[settings] failed to decrypt secret setting "${definition.key}":`, error);
+      return { value: definition.defaultValue, valid: false };
+    }
+  }
+  return { value: raw as SettingValue, valid: true };
+}
+
 /**
- * Catalog defaults merged with database overrides. Throws on DB failure.
+ * Catalog defaults merged with database overrides for every setting.
+ * Throws on DB failure.
  *
  * Server-only: for `secret`-type settings, `value` is decrypted plaintext.
  * Callers must never forward it into a Client Component prop — pass
- * `overridden` (renamed `isSet` where relevant) instead, which is the only
- * signal the browser is allowed to see for a secret.
+ * `overridden` instead, which is the only signal the browser is allowed to
+ * see for a secret.
+ *
+ * Bulk lookup, used by Admin's settings page. Most other consumers want a
+ * single key — see `getEffectiveSetting` / `getSetting` / `getBooleanSetting`
+ * / `getNumberSetting` below.
  */
 export async function getEffectiveSettings(): Promise<EffectiveSetting[]> {
   const rows = await prisma.platformSetting.findMany({
@@ -331,26 +366,7 @@ export async function getEffectiveSettings(): Promise<EffectiveSetting[]> {
 
   return SETTING_DEFINITIONS.map((definition) => {
     const row = byKey.get(definition.key);
-    const raw = row?.value;
-    const valid = row !== undefined && isValidValue(definition, raw);
-
-    let value = definition.defaultValue;
-    if (valid) {
-      if (definition.type === "secret") {
-        try {
-          value = decryptSecret(raw as string);
-        } catch (error) {
-          // A row that looks like an envelope but fails to decrypt (wrong
-          // SETTINGS_ENCRYPTION_KEY, corrupted data) must not crash the
-          // whole settings page — fall back to the default and let the key
-          // mismatch surface as "not set" rather than a 500.
-          console.error(`[admin] failed to decrypt secret setting "${definition.key}":`, error);
-        }
-      } else {
-        value = raw as SettingValue;
-      }
-    }
-
+    const { value, valid } = resolveEffectiveValue(definition, row);
     return {
       definition,
       value,
@@ -362,9 +378,80 @@ export async function getEffectiveSettings(): Promise<EffectiveSetting[]> {
   });
 }
 
-/** Encrypt a plaintext secret for storage. Thin re-export so callers of this
- * module don't need a separate `@asafarim/db` import for one function. */
-export { encryptSecret };
+/**
+ * Catalog default merged with the database override for a single setting.
+ * Throws on DB failure. `undefined` means the key isn't in the catalog at
+ * all — not "unset" (an unset-but-cataloged key still resolves, to its
+ * default). A single-row query, cheaper than `getEffectiveSettings()` for
+ * any caller that only needs one key.
+ */
+export async function getEffectiveSetting(key: string): Promise<EffectiveSetting | undefined> {
+  const definition = getSettingDefinition(key);
+  if (!definition) return undefined;
+
+  const row = await prisma.platformSetting.findUnique({ where: { key } });
+  const { value, valid } = resolveEffectiveValue(definition, row ?? undefined);
+
+  let updatedByEmail: string | null = null;
+  if (valid && row?.updatedBy) {
+    const editor = await prisma.user.findUnique({
+      where: { id: row.updatedBy },
+      select: { email: true },
+    });
+    updatedByEmail = editor?.email ?? null;
+  }
+
+  return {
+    definition,
+    value,
+    overridden: valid,
+    updatedAt: valid ? (row?.updatedAt ?? null) : null,
+    updatedBy: valid ? (row?.updatedBy ?? null) : null,
+    updatedByEmail,
+  };
+}
+
+/**
+ * Typed reads for operational parameters — the read-only counterpart to
+ * Admin's settings UI. Every non-Admin app on the platform database should
+ * reach for these instead of querying `PlatformSetting` directly.
+ *
+ * `getSetting` throws for a key that isn't in the catalog at all (a typo is
+ * a programming error, not a runtime condition to degrade gracefully from).
+ * The typed helpers below it are more forgiving: a DB error, decryption
+ * failure, or a type mismatch between the catalog and the caller's
+ * expectation all resolve to `fallback` rather than throwing, since these
+ * exist specifically so a settings-DB hiccup doesn't take down unrelated
+ * operational code paths in another app.
+ */
+export async function getSetting(key: string): Promise<SettingValue> {
+  const definition = getSettingDefinition(key);
+  if (!definition) {
+    throw new Error(`Unknown setting key: "${key}".`);
+  }
+  const effective = await getEffectiveSetting(key);
+  return effective?.value ?? definition.defaultValue;
+}
+
+export async function getBooleanSetting(key: string, fallback: boolean): Promise<boolean> {
+  try {
+    const value = await getSetting(key);
+    return typeof value === "boolean" ? value : fallback;
+  } catch (error) {
+    console.error(`[settings] getBooleanSetting("${key}") failed, using fallback:`, error);
+    return fallback;
+  }
+}
+
+export async function getNumberSetting(key: string, fallback: number): Promise<number> {
+  try {
+    const value = await getSetting(key);
+    return typeof value === "number" ? value : fallback;
+  } catch (error) {
+    console.error(`[settings] getNumberSetting("${key}") failed, using fallback:`, error);
+    return fallback;
+  }
+}
 
 /** Human-readable rendering of a value, used in confirmations and audit copy. */
 export function formatSettingValue(value: SettingValue): string {

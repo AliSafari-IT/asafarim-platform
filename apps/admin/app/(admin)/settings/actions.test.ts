@@ -2,39 +2,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-vi.mock("@asafarim/db", () => ({
-  prisma: {
-    platformSetting: { findUnique: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
-    auditLog: { create: vi.fn() },
-  },
-  Prisma: {},
-  encryptSecret: vi.fn((plaintext: string) => `encrypted(${plaintext})`),
-}));
-
-vi.mock("@asafarim/auth", () => ({
-  ROLES: { SUPERADMIN: "superadmin", ADMIN: "admin" },
-  getSession: vi.fn(),
-  hasRole: vi.fn(() => true),
-  hasPermission: vi.fn(async () => true),
-}));
-
-import { prisma, encryptSecret } from "@asafarim/db";
-import { getSession, hasPermission } from "@asafarim/auth";
-import { resetPlatformSetting, updatePlatformSetting } from "./actions";
-
 const SECRET_KEY = "ai.openaiApiKey";
 const JSON_KEY = "test.jsonSetting";
 const SENSITIVE_KEY = "stripe.mode";
 const PLAIN_KEY = "platform.tagline";
 
-// Synthetic setting definitions to exercise, added purely for these tests —
-// settings.ts's own catalog is asserted separately.
-vi.mock("../../../lib/settings", async () => {
-  const actual = await vi.importActual<typeof import("../../../lib/settings")>(
-    "../../../lib/settings"
-  );
+// @asafarim/db now owns both the Prisma client and the settings catalog
+// (getSettingDefinition, etc. — see packages/db/src/settings.ts), so this
+// single mock covers both: real catalog definitions pass through via
+// importActual, with a few synthetic ones added purely for these tests.
+vi.mock("@asafarim/db", async () => {
+  const actual = await vi.importActual<typeof import("@asafarim/db")>("@asafarim/db");
   return {
     ...actual,
+    prisma: {
+      platformSetting: { findUnique: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
+      auditLog: { create: vi.fn() },
+    },
+    encryptSecret: vi.fn((plaintext: string) => `encrypted(${plaintext})`),
     getSettingDefinition: (key: string) => {
       if (key === SECRET_KEY) {
         return {
@@ -75,6 +60,17 @@ vi.mock("../../../lib/settings", async () => {
     },
   };
 });
+
+vi.mock("@asafarim/auth", () => ({
+  ROLES: { SUPERADMIN: "superadmin", ADMIN: "admin" },
+  getSession: vi.fn(),
+  hasRole: vi.fn(() => true),
+  hasPermission: vi.fn(async () => true),
+}));
+
+import { prisma, encryptSecret } from "@asafarim/db";
+import { getSession, hasPermission } from "@asafarim/auth";
+import { resetPlatformSetting, updatePlatformSetting } from "./actions";
 
 beforeEach(() => {
   vi.mocked(getSession).mockResolvedValue({

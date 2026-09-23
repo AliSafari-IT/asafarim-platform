@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 // index, which re-exports next-auth-backed modules that vitest's node
 // environment can't resolve (this module itself has no such dependency).
 import { PLATFORM_APPS } from "@asafarim/auth/apps";
-import type { SettingScope } from "./settings";
+import type { SettingScope } from "@asafarim/db";
 
 /**
  * `SettingScope` is a hand-maintained literal union rather than one derived

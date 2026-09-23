@@ -1,16 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma, Prisma, encryptSecret } from "@asafarim/db";
-import { ROLES, getSession, hasRole, hasPermission } from "@asafarim/auth";
-import type { Session } from "next-auth";
-import { writeAuditEvent } from "../../../lib/audit";
 import {
+  prisma,
+  Prisma,
+  encryptSecret,
   getSettingDefinition,
   isSensitiveSetting,
   type SettingDefinition,
   type SettingValue,
-} from "../../../lib/settings";
+} from "@asafarim/db";
+import { ROLES, getSession, hasRole, hasPermission } from "@asafarim/auth";
+import type { Session } from "next-auth";
+import { writeAuditEvent } from "../../../lib/audit";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 

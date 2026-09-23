@@ -15,7 +15,7 @@ import {
   isSensitiveSetting,
   type EffectiveSetting,
   type SettingScope,
-} from "../../../lib/settings";
+} from "@asafarim/db";
 import { SettingField } from "./_components/SettingField";
 
 export const metadata: Metadata = { title: "Settings" };

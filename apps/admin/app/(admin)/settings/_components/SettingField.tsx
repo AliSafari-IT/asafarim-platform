@@ -12,7 +12,7 @@ import {
   Textarea,
 } from "@asafarim/ui";
 import { resetPlatformSetting, updatePlatformSetting } from "../actions";
-import type { SettingType, SettingValue } from "../../../../lib/settings";
+import type { SettingType, SettingValue } from "@asafarim/db";
 import { JSON_EDITOR_OVERRIDES } from "./json-editor-overrides";
 
 export interface SettingFieldProps {
