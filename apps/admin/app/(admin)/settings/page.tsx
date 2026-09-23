@@ -26,6 +26,7 @@ const GROUP_TITLES: Record<string, string> = {
   operations: "operations",
   features: "feature flags",
   email: "email · smtp",
+  ai: "ai providers",
 };
 
 function scopeLabel(scope: SettingScope): string {
