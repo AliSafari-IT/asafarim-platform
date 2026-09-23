@@ -68,7 +68,7 @@ export function __resetEncryptionKeyCache(): void {
 export function encryptToken(plaintext: string): string {
   const key = getEncryptionKey();
   const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
+  const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_BYTES });
   const ciphertext = Buffer.concat([
     cipher.update(plaintext, "utf8"),
     cipher.final(),
@@ -97,7 +97,7 @@ export function decryptToken(payload: string): string {
     throw new Error("Malformed encrypted token payload");
   }
 
-  const decipher = createDecipheriv(ALGORITHM, key, iv);
+  const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_BYTES });
   decipher.setAuthTag(authTag);
   return Buffer.concat([
     decipher.update(ciphertext),

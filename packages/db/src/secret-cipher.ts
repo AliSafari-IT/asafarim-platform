@@ -15,6 +15,9 @@ import { createCipheriv, createDecipheriv, randomBytes, createHash } from "node:
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // recommended for GCM
+// Pinned on both sides: without it, Node's decipher accepts a truncated tag
+// (down to 4 bytes), which weakens tamper detection.
+const AUTH_TAG_LENGTH = 16;
 const CURRENT_VERSION = "v1";
 
 /** SHA-256 of the raw env secret, so any non-empty string is a valid key. */
@@ -31,7 +34,7 @@ function getKey(): Buffer {
 export function encryptSecret(plaintext: string): string {
   const key = getKey();
   const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
+  const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   const authTag = cipher.getAuthTag();
   return [
@@ -54,7 +57,9 @@ export function decryptSecret(envelope: string): string {
   const authTagB64 = parts[2]!;
   const ciphertextB64 = parts[3]!;
   const key = getKey();
-  const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivB64, "base64"));
+  const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivB64, "base64"), {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
   decipher.setAuthTag(Buffer.from(authTagB64, "base64"));
   const plaintext = Buffer.concat([
     decipher.update(Buffer.from(ciphertextB64, "base64")),
