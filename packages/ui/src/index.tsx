@@ -47,6 +47,7 @@ export {
   type SelectProps,
 } from "./components/Form";
 export { Hero } from "./components/Hero";
+export { useEdgeAutoScroll } from "./hooks/useEdgeAutoScroll";
 export { Kicker } from "./components/Kicker";
 export { MenuOutsideClick } from "./components/MenuOutsideClick";
 export { Metric } from "./components/Metric";

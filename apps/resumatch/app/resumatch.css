@@ -2070,6 +2070,16 @@
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
+  /* Hovering the right/left edge auto-scrolls (useEdgeAutoScroll); this
+     fade is the pure-CSS cue that there's more before you've even tried. */
+  mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 12px,
+    black calc(100% - 12px),
+    transparent 100%
+  );
 }
 [data-app="resumatch"] .rm-wb__nav::-webkit-scrollbar {
   display: none;
