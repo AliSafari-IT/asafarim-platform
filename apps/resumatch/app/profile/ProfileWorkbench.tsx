@@ -2,6 +2,16 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Alert, Badge, Button, Card, useEdgeAutoScroll } from "@asafarim/ui";
 import { LOW_CONFIDENCE_THRESHOLD } from "../../lib/profile/contract";
 import type {
@@ -13,6 +23,7 @@ import type {
   ProfileConfidence,
 } from "../../lib/profile/contract";
 import { AwardIcon, BriefcaseIcon, GlobeIcon, GraduationCapIcon, TrashIcon } from "./icons";
+import { SortableEntityCard } from "./SortableEntityCard";
 import type { SummaryTone } from "../../lib/profile/ai/provider";
 import { categorizeSkill, groupSkillsByCategory, SKILL_CATEGORIES } from "../../lib/profile/skillCategories";
 import { parseSkillsFreeText } from "../../lib/profile/parseSkillsText";
@@ -65,6 +76,16 @@ function codeFromLabel(label: string): string {
 
 function removeAt<T>(list: T[], index: number): T[] {
   return list.filter((_, i) => i !== index);
+}
+
+/** Client-only identity for a reorderable card (experience/education), kept
+ *  in a parallel array alongside the actual entries — see the `*Ids` state
+ *  below. Never persisted; `crypto.randomUUID` isn't guaranteed in every
+ *  browsing context (e.g. non-secure origins), hence the fallback. */
+function randomId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
 }
 
 function replaceAt<T>(list: T[], index: number, item: T): T[] {
@@ -135,6 +156,66 @@ export function ProfileWorkbench({
     setContent((previous) => ({ ...previous, [key]: value }));
     setDirty(true);
   }, []);
+
+  // Reorderable cards (experience, education): each entry has no natural
+  // unique id of its own (no `id` field on ExperienceEntry/EducationEntry),
+  // and re-editing a field replaces that entry with a brand-new object every
+  // keystroke — array index is the only thing that's stable while typing,
+  // and unstable across a reorder. This client-only id, generated once per
+  // entry and moved/added/removed in lockstep with the entry itself, is
+  // what dnd-kit and React's own `key` both need to track a card's identity
+  // through a drag rather than its current position.
+  const [experienceIds, setExperienceIds] = useState<string[]>(() =>
+    initialContent.experience.map(() => randomId()),
+  );
+  const [educationIds, setEducationIds] = useState<string[]>(() =>
+    initialContent.education.map(() => randomId()),
+  );
+
+  // Shared by both reorderable lists: pointer drag (mouse/touch) plus a
+  // keyboard sensor, so Space+Arrow keys reorder too — the Up/Down buttons
+  // on each card cover the same case without needing focus inside the list,
+  // but both being available (not one as a fallback for the other) matters.
+  const reorderSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function moveExperience(from: number, to: number) {
+    if (to < 0 || to >= content.experience.length) return;
+    update("experience", arrayMove(content.experience, from, to));
+    setExperienceIds((ids) => arrayMove(ids, from, to));
+  }
+  function removeExperience(index: number) {
+    update("experience", removeAt(content.experience, index));
+    setExperienceIds((ids) => removeAt(ids, index));
+  }
+  function handleExperienceDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = experienceIds.indexOf(active.id as string);
+    const newIndex = experienceIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    moveExperience(oldIndex, newIndex);
+  }
+
+  function moveEducation(from: number, to: number) {
+    if (to < 0 || to >= content.education.length) return;
+    update("education", arrayMove(content.education, from, to));
+    setEducationIds((ids) => arrayMove(ids, from, to));
+  }
+  function removeEducation(index: number) {
+    update("education", removeAt(content.education, index));
+    setEducationIds((ids) => removeAt(ids, index));
+  }
+  function handleEducationDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = educationIds.indexOf(active.id as string);
+    const newIndex = educationIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    moveEducation(oldIndex, newIndex);
+  }
 
   const requestRewrite = useCallback(async () => {
     const currentSummary = content.summary?.trim();
@@ -624,96 +705,110 @@ export function ProfileWorkbench({
               {content.experience.length === 0 ? (
                 <p style={{ opacity: 0.75 }}>No roles were read from your CV. Add as many as you like.</p>
               ) : (
-                <ul className="jm-entity-list">
-                  {content.experience.map((role, index) => {
-                    const setRole = (patch: Partial<ExperienceEntry>) =>
-                      update("experience", replaceAt(content.experience, index, { ...role, ...patch }));
-                    return (
-                      <li key={index} className="jm-entity-card jm-entity-card--experience jm-entity-card--stacked">
-                        <div className="jm-entity-card__head">
-                          <span className="jm-entity-card__icon">
-                            <BriefcaseIcon />
-                          </span>
-                          <strong style={{ flex: 1 }}>Role {index + 1}</strong>
-                          <button
-                            type="button"
-                            aria-label={`Remove ${role.title || "this role"}`}
-                            className="jm-icon-button"
-                            onClick={() => update("experience", removeAt(content.experience, index))}
+                <DndContext
+                  id="resumatch-experience-dnd"
+                  sensors={reorderSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleExperienceDragEnd}
+                >
+                  <SortableContext items={experienceIds} strategy={verticalListSortingStrategy}>
+                    <ul className="jm-entity-list">
+                      {content.experience.map((role, index) => {
+                        const setRole = (patch: Partial<ExperienceEntry>) =>
+                          update("experience", replaceAt(content.experience, index, { ...role, ...patch }));
+                        return (
+                          <SortableEntityCard
+                            key={experienceIds[index]}
+                            id={experienceIds[index]!}
+                            index={index}
+                            count={content.experience.length}
+                            icon={<BriefcaseIcon />}
+                            title={`Role ${index + 1}`}
+                            variantClassName="jm-entity-card--experience"
+                            onMoveUp={() => moveExperience(index, index - 1)}
+                            onMoveDown={() => moveExperience(index, index + 1)}
+                            onRemove={() => removeExperience(index)}
+                            removeLabel={`Remove ${role.title || "this role"}`}
                           >
-                            <TrashIcon />
-                          </button>
-                        </div>
-                        <div className="jm-entity-card__fields">
-                          <label>
-                            Job title
-                            <input
-                              type="text"
-                              value={role.title}
-                              maxLength={120}
-                              placeholder="Software Engineer"
-                              onChange={(event) => setRole({ title: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            Employer
-                            <input
-                              type="text"
-                              value={role.employer ?? ""}
-                              maxLength={120}
-                              placeholder="Company name"
-                              onChange={(event) => setRole({ employer: event.target.value || null })}
-                            />
-                          </label>
-                          <label>
-                            Started
-                            <input
-                              type="text"
-                              value={role.startedOn ?? ""}
-                              placeholder="2021-03"
-                              onChange={(event) => setRole({ startedOn: event.target.value || null })}
-                            />
-                          </label>
-                          <label>
-                            Ended
-                            <input
-                              type="text"
-                              value={role.endedOn ?? ""}
-                              placeholder="2023-12"
-                              disabled={role.isCurrent}
-                              onChange={(event) => setRole({ endedOn: event.target.value || null })}
-                            />
-                          </label>
-                        </div>
-                        <label className="jm-entity-card__checkbox">
-                          <input
-                            type="checkbox"
-                            checked={role.isCurrent}
-                            onChange={(event) =>
-                              setRole({ isCurrent: event.target.checked, endedOn: event.target.checked ? null : role.endedOn })
-                            }
-                          />
-                          I currently work here
-                        </label>
-                        <small style={{ opacity: 0.6, fontSize: "0.72rem" }}>
-                          Dates as YYYY or YYYY-MM, e.g. 2021 or 2021-03.
-                        </small>
-                        <div className="jm-entity-card__fields jm-entity-card__fields--full" style={{ marginTop: "0.6rem" }}>
-                          <label>
-                            Highlights
-                            <textarea
-                              rows={2}
-                              value={role.summary ?? ""}
-                              maxLength={2000}
-                              placeholder="A couple of achievements or responsibilities"
-                              onChange={(event) => setRole({ summary: event.target.value || null })}
-                            />
-                          </label>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                            <div className="jm-entity-card__fields">
+                              <label>
+                                Job title
+                                <input
+                                  type="text"
+                                  value={role.title}
+                                  maxLength={120}
+                                  placeholder="Software Engineer"
+                                  onChange={(event) => setRole({ title: event.target.value })}
+                                />
+                              </label>
+                              <label>
+                                Employer
+                                <input
+                                  type="text"
+                                  value={role.employer ?? ""}
+                                  maxLength={120}
+                                  placeholder="Company name"
+                                  onChange={(event) => setRole({ employer: event.target.value || null })}
+                                />
+                              </label>
+                              <label>
+                                Started
+                                <input
+                                  type="text"
+                                  value={role.startedOn ?? ""}
+                                  placeholder="2021-03"
+                                  onChange={(event) => setRole({ startedOn: event.target.value || null })}
+                                />
+                              </label>
+                              <label>
+                                Ended
+                                <input
+                                  type="text"
+                                  value={role.endedOn ?? ""}
+                                  placeholder="2023-12"
+                                  disabled={role.isCurrent}
+                                  onChange={(event) => setRole({ endedOn: event.target.value || null })}
+                                />
+                              </label>
+                            </div>
+                            {!role.endedOn && (
+                              <>
+                                <label className="jm-entity-card__checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={role.isCurrent}
+                                    onChange={(event) =>
+                                      setRole({
+                                        isCurrent: event.target.checked,
+                                        endedOn: event.target.checked ? null : role.endedOn,
+                                      })
+                                    }
+                                  />
+                                  I currently work here
+                                </label>
+                                <small style={{ opacity: 0.6, fontSize: "0.72rem" }}>
+                                  Dates as YYYY or YYYY-MM, e.g. 2021 or 2021-03.
+                                </small>
+                              </>
+                            )}
+                            <div className="jm-entity-card__fields jm-entity-card__fields--full" style={{ marginTop: "0.6rem" }}>
+                              <label>
+                                Highlights
+                                <textarea
+                                  rows={2}
+                                  value={role.summary ?? ""}
+                                  maxLength={2000}
+                                  placeholder="A couple of achievements or responsibilities"
+                                  onChange={(event) => setRole({ summary: event.target.value || null })}
+                                />
+                              </label>
+                            </div>
+                          </SortableEntityCard>
+                        );
+                      })}
+                    </ul>
+                  </SortableContext>
+                </DndContext>
               )}
               <div className="jm-add-row">
                 <Button
@@ -731,6 +826,7 @@ export function ProfileWorkbench({
                       summary: null,
                     };
                     update("experience", [...content.experience, blank]);
+                    setExperienceIds((ids) => [...ids, randomId()]);
                   }}
                 >
                   + Add role
@@ -906,68 +1002,75 @@ export function ProfileWorkbench({
               {content.education.length === 0 ? (
                 <p style={{ opacity: 0.75 }}>None read from your CV. Add a degree or qualification if it's relevant.</p>
               ) : (
-                <ul className="jm-entity-list">
-                  {content.education.map((entry, index) => {
-                    const setEntry = (patch: Partial<EducationEntry>) =>
-                      update("education", replaceAt(content.education, index, { ...entry, ...patch }));
-                    return (
-                      <li key={index} className="jm-entity-card jm-entity-card--education jm-entity-card--stacked">
-                        <div className="jm-entity-card__head">
-                          <span className="jm-entity-card__icon">
-                            <GraduationCapIcon />
-                          </span>
-                          <strong style={{ flex: 1 }}>Qualification {index + 1}</strong>
-                          <button
-                            type="button"
-                            aria-label={`Remove ${entry.qualification || "this qualification"}`}
-                            className="jm-icon-button"
-                            onClick={() => update("education", removeAt(content.education, index))}
+                <DndContext
+                  id="resumatch-education-dnd"
+                  sensors={reorderSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleEducationDragEnd}
+                >
+                  <SortableContext items={educationIds} strategy={verticalListSortingStrategy}>
+                    <ul className="jm-entity-list">
+                      {content.education.map((entry, index) => {
+                        const setEntry = (patch: Partial<EducationEntry>) =>
+                          update("education", replaceAt(content.education, index, { ...entry, ...patch }));
+                        return (
+                          <SortableEntityCard
+                            key={educationIds[index]}
+                            id={educationIds[index]!}
+                            index={index}
+                            count={content.education.length}
+                            icon={<GraduationCapIcon />}
+                            title={`Qualification ${index + 1}`}
+                            variantClassName="jm-entity-card--education"
+                            onMoveUp={() => moveEducation(index, index - 1)}
+                            onMoveDown={() => moveEducation(index, index + 1)}
+                            onRemove={() => removeEducation(index)}
+                            removeLabel={`Remove ${entry.qualification || "this qualification"}`}
                           >
-                            <TrashIcon />
-                          </button>
-                        </div>
-                        <div className="jm-entity-card__fields">
-                          <label>
-                            Qualification
-                            <input
-                              type="text"
-                              value={entry.qualification}
-                              maxLength={160}
-                              placeholder="BSc Computer Science"
-                              onChange={(event) => setEntry({ qualification: event.target.value })}
-                            />
-                          </label>
-                          <label>
-                            Institution
-                            <input
-                              type="text"
-                              value={entry.institution ?? ""}
-                              maxLength={160}
-                              placeholder="University name"
-                              onChange={(event) => setEntry({ institution: event.target.value || null })}
-                            />
-                          </label>
-                          <label>
-                            Completed
-                            <input
-                              type="text"
-                              value={entry.completedOn ?? ""}
-                              placeholder="2018"
-                              onChange={(event) => setEntry({ completedOn: event.target.value || null })}
-                              onBlur={(event) => {
-                                const normalized = normalizeCompletedOn(event.target.value);
-                                if (normalized !== event.target.value) setEntry({ completedOn: normalized || null });
-                              }}
-                            />
-                            <span style={{ opacity: 0.6, fontSize: "0.78rem" }}>
-                              The year you finished, e.g. 2018 — not a start–end range.
-                            </span>
-                          </label>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                            <div className="jm-entity-card__fields">
+                              <label>
+                                Qualification
+                                <input
+                                  type="text"
+                                  value={entry.qualification}
+                                  maxLength={160}
+                                  placeholder="BSc Computer Science"
+                                  onChange={(event) => setEntry({ qualification: event.target.value })}
+                                />
+                              </label>
+                              <label>
+                                Institution
+                                <input
+                                  type="text"
+                                  value={entry.institution ?? ""}
+                                  maxLength={160}
+                                  placeholder="University name"
+                                  onChange={(event) => setEntry({ institution: event.target.value || null })}
+                                />
+                              </label>
+                              <label>
+                                Completed
+                                <input
+                                  type="text"
+                                  value={entry.completedOn ?? ""}
+                                  placeholder="2018"
+                                  onChange={(event) => setEntry({ completedOn: event.target.value || null })}
+                                  onBlur={(event) => {
+                                    const normalized = normalizeCompletedOn(event.target.value);
+                                    if (normalized !== event.target.value) setEntry({ completedOn: normalized || null });
+                                  }}
+                                />
+                                <span style={{ opacity: 0.6, fontSize: "0.78rem" }}>
+                                  The year you finished, e.g. 2018 — not a start–end range.
+                                </span>
+                              </label>
+                            </div>
+                          </SortableEntityCard>
+                        );
+                      })}
+                    </ul>
+                  </SortableContext>
+                </DndContext>
               )}
               <div className="jm-add-row">
                 <Button
@@ -978,6 +1081,7 @@ export function ProfileWorkbench({
                   onClick={() => {
                     const blank: EducationEntry = { qualification: "", institution: null, completedOn: null };
                     update("education", [...content.education, blank]);
+                    setEducationIds((ids) => [...ids, randomId()]);
                   }}
                 >
                   + Add qualification
