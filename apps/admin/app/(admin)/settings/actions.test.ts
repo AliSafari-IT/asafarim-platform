@@ -128,6 +128,33 @@ describe("updatePlatformSetting — secret type", () => {
     expect(serialized).not.toContain("sk_live_abc123");
     expect(serialized).not.toContain("encrypted(sk_live_abc123)");
   });
+
+  it("writes a masked, human-readable changes shape rather than the raw value", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue(null);
+
+    await updatePlatformSetting({ key: SECRET_KEY, value: "sk_live_abc123" });
+
+    const auditCall = vi.mocked(prisma.auditLog.create).mock.calls[0]?.[0] as {
+      data: { changes: unknown };
+    };
+    expect(auditCall.data.changes).toEqual({ from: "(unset)", to: "(secret set)" });
+  });
+
+  it("resetPlatformSetting never writes the stored ciphertext into the audit log either", async () => {
+    vi.mocked(prisma.platformSetting.findUnique).mockResolvedValue({
+      value: "encrypted(sk_live_abc123)",
+    } as never);
+
+    await resetPlatformSetting({ key: SECRET_KEY });
+
+    const auditCall = vi.mocked(prisma.auditLog.create).mock.calls[0]?.[0] as {
+      data: { changes: unknown };
+    };
+    const serialized = JSON.stringify(auditCall.data.changes);
+    expect(serialized).not.toContain("sk_live_abc123");
+    expect(serialized).not.toContain("encrypted(");
+    expect(auditCall.data.changes).toEqual({ from: "(secret set)", to: "(unset)" });
+  });
 });
 
 describe("updatePlatformSetting — json type", () => {
