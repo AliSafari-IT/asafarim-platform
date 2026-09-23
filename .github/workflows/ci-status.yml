@@ -37,18 +37,22 @@ jobs:
         env:
           CI_ON: ${{ secrets.IS_CI_ON }}
         run: |
+          # Outputs are "enabled"/"disabled", never "true"/"false": GitHub refuses to
+          # pass a job output that contains any secret value to other jobs ("Skip
+          # output ... since it may contain secret"), so echoing the secret-equal
+          # "true" left the output empty and every downstream job skipped.
           if [ "$CI_ON" = "false" ]; then
-            echo "ci_on=false" >> "$GITHUB_OUTPUT"
+            echo "ci_on=disabled" >> "$GITHUB_OUTPUT"
             echo "⏸️ \`IS_CI_ON\` is \`false\` — skipping lint/typecheck/tests to save Actions minutes." >> "$GITHUB_STEP_SUMMARY"
             echo "Set the \`IS_CI_ON\` repository secret to anything other than \`false\` (or delete it) to re-enable." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "ci_on=true" >> "$GITHUB_OUTPUT"
+            echo "ci_on=enabled" >> "$GITHUB_OUTPUT"
             echo "✅ \`IS_CI_ON\` is not \`false\` — running lint/typecheck/tests." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   status:
     needs: gate
-    if: needs.gate.outputs.ci_on == 'true'
+    if: needs.gate.outputs.ci_on == 'enabled'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

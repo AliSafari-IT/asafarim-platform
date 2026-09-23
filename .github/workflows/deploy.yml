@@ -51,11 +51,15 @@ jobs:
         env:
           DEPLOY_ON: ${{ secrets.IS_DEPLOY_ON }}
         run: |
+          # Outputs are "enabled"/"disabled", never "true"/"false": GitHub refuses to
+          # pass a job output that contains any secret value to other jobs ("Skip
+          # output ... since it may contain secret"), so echoing the secret-equal
+          # "true" left the output empty and every downstream job skipped.
           if [ "$DEPLOY_ON" = "true" ]; then
-            echo "deploy_on=true" >> "$GITHUB_OUTPUT"
+            echo "deploy_on=enabled" >> "$GITHUB_OUTPUT"
             echo "✅ \`IS_DEPLOY_ON\` is \`true\` — build-images and deploy will run." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "deploy_on=false" >> "$GITHUB_OUTPUT"
+            echo "deploy_on=disabled" >> "$GITHUB_OUTPUT"
             echo "⏸️ \`IS_DEPLOY_ON\` is not \`true\` — skipping build-images and deploy to save Actions minutes." >> "$GITHUB_STEP_SUMMARY"
             echo "Set the \`IS_DEPLOY_ON\` repository secret to \`true\` (Settings > Secrets and variables > Actions) to re-enable, then re-run this workflow." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -63,7 +67,7 @@ jobs:
   build-images:
     name: Build ${{ matrix.image }}
     needs: gate
-    if: needs.gate.outputs.deploy_on == 'true'
+    if: needs.gate.outputs.deploy_on == 'enabled'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -195,7 +199,7 @@ jobs:
 
   deploy:
     needs: [gate, build-images]
-    if: needs.gate.outputs.deploy_on == 'true'
+    if: needs.gate.outputs.deploy_on == 'enabled'
     runs-on: ubuntu-latest
     env:
       # A literal, not a reference to the workflow-level env block above, on
@@ -291,7 +295,7 @@ jobs:
     # Skip entirely when the kill switch skipped build-images/deploy too --
     # a Telegram message every push to main saying "deploy skipped" would be
     # pure noise. The gate job's own step summary already records why.
-    if: always() && needs.gate.outputs.deploy_on == 'true'
+    if: always() && needs.gate.outputs.deploy_on == 'enabled'
     steps:
       - name: Notify Telegram on success
         if: needs.build-images.result == 'success' && needs.deploy.result == 'success'
