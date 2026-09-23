@@ -63,7 +63,9 @@ function LiveDetails({ account }: { account: ProviderAccount }) {
     live.state === "error"
       ? live.message
       : live.state === "not_configured"
-        ? `Set ${meta.envKey} in apps/admin/.env to read this account.`
+        ? meta.settingsKey
+          ? `Set ${meta.envKey} in apps/admin/.env, or set it in Settings → ai providers.`
+          : `Set ${meta.envKey} in apps/admin/.env to read this account.`
         : "This provider does not expose balance over its API — open its dashboard.";
 
   return (

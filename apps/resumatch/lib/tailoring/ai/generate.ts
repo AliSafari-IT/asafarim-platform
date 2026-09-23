@@ -6,7 +6,7 @@ import { getVersion } from "../../profile/versions";
 import { buildProfileText } from "../buildProfileText";
 import { renderTailorPrompt } from "./prompts";
 import { assertCanRunProviderCall, recordUsage } from "./quota";
-import { getTailorProvider, TAILOR_MODEL_VERSIONS } from "./registry";
+import { getTailorProvider, resolveTailorModelVersion } from "./registry";
 import { mergeTailoringSuggestions, type TailoredResumeContent, type TailorSuggestions } from "./schema";
 import { TailorProviderError } from "./provider";
 
@@ -40,7 +40,7 @@ export async function runTailorProviderCall(
   providerOverride?: "fixture" | "openai" | "anthropic",
 ): Promise<TailorProviderCallResult> {
   const providerName = providerOverride ?? getEnv().aiProvider;
-  const modelVersion = TAILOR_MODEL_VERSIONS[providerName];
+  const modelVersion = await resolveTailorModelVersion(providerName);
   const { text: profileText } = buildProfileText(profile);
   const prompt = renderTailorPrompt(profileText, jobText, instructions);
 

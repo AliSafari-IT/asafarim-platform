@@ -29,6 +29,14 @@ export interface ProviderMeta {
    * Only ElevenLabs does today; the rest are dashboard-only.
    */
   liveAccountApi: boolean;
+  /**
+   * The `packages/db/src/settings.ts` secret key an admin can set this
+   * provider's key through (Settings → ai providers), for providers where
+   * that exists. When set, "configured" is `envKey` OR this key's `isSet` —
+   * the settings store lets an admin rotate a key without redeploying.
+   * Render providers (fal/kling/elevenlabs) stay env-only for now (#501).
+   */
+  settingsKey?: string;
 }
 
 export const PROVIDERS: readonly ProviderMeta[] = [
@@ -63,6 +71,7 @@ export const PROVIDERS: readonly ProviderMeta[] = [
     dashboardUrl: "https://platform.openai.com/settings/organization/billing/overview",
     envKey: "OPENAI_API_KEY",
     liveAccountApi: false,
+    settingsKey: "ai.openai.apiKey",
   },
   {
     id: "anthropic",
@@ -71,6 +80,7 @@ export const PROVIDERS: readonly ProviderMeta[] = [
     dashboardUrl: "https://console.anthropic.com/settings/billing",
     envKey: "ANTHROPIC_API_KEY",
     liveAccountApi: false,
+    settingsKey: "ai.anthropic.apiKey",
   },
 ] as const;
 

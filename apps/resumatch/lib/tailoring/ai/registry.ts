@@ -1,4 +1,5 @@
 import type { ResuMatchAiProvider } from "../../env";
+import { getPlatformSetting } from "../../platform-settings";
 import type { TailorProvider } from "./provider";
 
 /**
@@ -27,6 +28,26 @@ export const TAILOR_MODEL_VERSIONS: Record<ResuMatchAiProvider, string> = {
 
 export function tailorModelVersionFor(provider: ResuMatchAiProvider): string {
   return TAILOR_MODEL_VERSIONS[provider];
+}
+
+/** Admin-console setting key per provider, for the model override below. */
+const MODEL_SETTING_KEYS: Partial<Record<ResuMatchAiProvider, string>> = {
+  openai: "resumatch.ai.openaiModel",
+  anthropic: "resumatch.ai.anthropicModel",
+};
+
+/**
+ * Same as `TAILOR_MODEL_VERSIONS[provider]`, but an admin-console override
+ * (Settings → ai providers) wins when one is set — read through
+ * @asafarim/settings-client, so this degrades to the exact env-derived
+ * value above on any settings-API failure. `fixture` has no override (it's
+ * a fixed test double, never a real model choice).
+ */
+export async function resolveTailorModelVersion(provider: ResuMatchAiProvider): Promise<string> {
+  const envDefault = TAILOR_MODEL_VERSIONS[provider];
+  const settingKey = MODEL_SETTING_KEYS[provider];
+  if (!settingKey) return envDefault;
+  return getPlatformSetting(settingKey, envDefault);
 }
 
 const tailorProviderCache = new Map<string, TailorProvider>();

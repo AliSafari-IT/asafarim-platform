@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@asafarim/db";
+import { prisma, getEffectiveSetting } from "@asafarim/db";
 import {
   PROVIDERS,
   estimateClipCostUsd,
@@ -118,11 +118,18 @@ async function fetchElevenLabsSubscription(
   }
 }
 
-async function getLiveAccount(meta: ProviderMeta): Promise<LiveAccount> {
-  const key = process.env[meta.envKey]?.trim();
-  if (!key) return { state: "not_configured" };
+/**
+ * `configured` is passed in (already resolved env-or-settings) so this
+ * never contradicts the same page's "configured" badge by falling back to
+ * an env-only check of its own. The env var's actual value is only needed
+ * for a real API call (elevenlabs today) — which has no settingsKey, so a
+ * console-only key can't reach this branch anyway.
+ */
+async function getLiveAccount(meta: ProviderMeta, configured: boolean): Promise<LiveAccount> {
+  if (!configured) return { state: "not_configured" };
   if (!meta.liveAccountApi) return { state: "unsupported" };
-  if (meta.id === "elevenlabs") return fetchElevenLabsSubscription(key);
+  const key = process.env[meta.envKey]?.trim();
+  if (meta.id === "elevenlabs" && key) return fetchElevenLabsSubscription(key);
   return { state: "unsupported" };
 }
 
@@ -163,13 +170,35 @@ async function getUsageByProvider(): Promise<Map<ProviderId, ProviderUsage>> {
   return usage;
 }
 
+/**
+ * "Configured" is env var OR a console-set key (`meta.settingsKey`), so the
+ * Subscriptions page reflects a key an admin rotated through the UI, not
+ * only one baked into the deployment's environment. A secret's decrypted
+ * value is never read here — `getEffectiveSetting`'s `overridden` flag is
+ * enough to know one is set.
+ */
+async function isProviderConfigured(meta: ProviderMeta): Promise<boolean> {
+  if (process.env[meta.envKey]?.trim()) return true;
+  if (!meta.settingsKey) return false;
+  try {
+    const effective = await getEffectiveSetting(meta.settingsKey);
+    return effective?.overridden ?? false;
+  } catch (error) {
+    // Settings store unreachable: we already know the env var is unset (the
+    // check above), so this provider is honestly not configured right now —
+    // never throw and break the whole Subscriptions page over it.
+    console.error(`[admin] failed to read "${meta.settingsKey}" for configured check:`, error);
+    return false;
+  }
+}
+
 /** Build the full Subscriptions view: config + live account + usage. */
 export async function getProviderAccounts(): Promise<ProviderAccount[]> {
   const usageByProvider = await getUsageByProvider();
   return Promise.all(
     PROVIDERS.map(async (meta) => {
-      const configured = Boolean(process.env[meta.envKey]?.trim());
-      const live = await getLiveAccount(meta);
+      const configured = await isProviderConfigured(meta);
+      const live = await getLiveAccount(meta, configured);
       const usage = usageByProvider.get(meta.id) ?? { ...EMPTY_USAGE };
       return { meta, configured, live, usage } satisfies ProviderAccount;
     })

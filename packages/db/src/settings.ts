@@ -35,7 +35,7 @@ export type SettingType =
   | "secret"
   | "json";
 
-export type SettingGroup = "presentation" | "operations" | "features" | "email";
+export type SettingGroup = "presentation" | "operations" | "features" | "email" | "ai";
 
 /**
  * Which app a setting configures. Platform-wide keys use "platform"; the
@@ -104,6 +104,22 @@ export interface SettingDefinition {
    */
   jsonHint?: string;
 }
+
+/**
+ * Allow-listed chat/completion models per provider, for the `<app>.ai.*`
+ * select settings below — mirrors apps/admin/lib/ai-providers.ts's catalog
+ * pattern (display metadata for a fixed provider list), but for text
+ * models rather than fal/kling/elevenlabs render providers, which stay
+ * env-only (see issue #501). Drawn from the model ids already in use
+ * elsewhere in the repo, not invented.
+ */
+const OPENAI_CHAT_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"] as const;
+const ANTHROPIC_CHAT_MODELS = [
+  "claude-3-5-sonnet-latest",
+  "claude-haiku-4-5",
+  "claude-sonnet-4-5",
+  "claude-opus-5",
+] as const;
 
 export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
   {
@@ -316,6 +332,58 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
     defaultValue: "",
     maxLength: 320,
   },
+  // ── AI providers (LLM keys + per-app model selection) ──────────────────
+  // Shared keys: the whole platform authenticates OpenAI/Anthropic usage
+  // with one key per provider today (matches OPENAI_API_KEY/ANTHROPIC_API_KEY
+  // in .env.example), not per-app keys. Per-app *model* choice is a
+  // separate concern from *authentication* and lives on its own scoped
+  // keys below, so fixing a model doesn't touch the shared key and vice
+  // versa. Render-provider keys (fal/kling/elevenlabs, see
+  // apps/admin/lib/ai-providers.ts) stay env-only — out of scope per #501.
+  {
+    key: "ai.openai.apiKey",
+    label: "OpenAI API key",
+    description:
+      "Shared platform OpenAI key. Falls back to OPENAI_API_KEY while unset. Used by every app whose AI provider is OpenAI.",
+    group: "ai",
+    scope: "platform",
+    type: "secret",
+    defaultValue: "",
+    maxLength: 200,
+  },
+  {
+    key: "ai.anthropic.apiKey",
+    label: "Anthropic API key",
+    description:
+      "Shared platform Anthropic key. Falls back to ANTHROPIC_API_KEY while unset. Used by every app whose AI provider is Anthropic.",
+    group: "ai",
+    scope: "platform",
+    type: "secret",
+    defaultValue: "",
+    maxLength: 200,
+  },
+  {
+    key: "resumatch.ai.openaiModel",
+    label: "ResuMatch — OpenAI model",
+    description:
+      'Chat model ResuMatch\'s tailoring pipeline uses when RESUMATCH_AI_PROVIDER is "openai". Falls back to OPENAI_MODEL, then a known-good default, while unset.',
+    group: "ai",
+    scope: "resumatch",
+    type: "select",
+    defaultValue: "gpt-4o-mini",
+    options: OPENAI_CHAT_MODELS,
+  },
+  {
+    key: "resumatch.ai.anthropicModel",
+    label: "ResuMatch — Anthropic model",
+    description:
+      'Chat model ResuMatch\'s tailoring pipeline uses when RESUMATCH_AI_PROVIDER is "anthropic". Falls back to ANTHROPIC_MODEL, then a known-good default, while unset.',
+    group: "ai",
+    scope: "resumatch",
+    type: "select",
+    defaultValue: "claude-3-5-sonnet-latest",
+    options: ANTHROPIC_CHAT_MODELS,
+  },
 ] as const;
 
 /**
@@ -375,6 +443,7 @@ export const SETTING_GROUPS: readonly SettingGroup[] = [
   "operations",
   "features",
   "email",
+  "ai",
 ];
 
 /**
