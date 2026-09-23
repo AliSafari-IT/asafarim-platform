@@ -1364,6 +1364,48 @@
   background: rgba(220, 38, 38, 0.1);
 }
 
+/* Non-destructive variant for the drag handle and move-up/down buttons —
+   overrides the default red destructive hover meant for the trash button. */
+.jm-icon-button--neutral:hover {
+  color: var(--brand, #2563eb);
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.jm-icon-button--neutral:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.jm-icon-button--neutral:disabled:hover {
+  color: var(--ink, #444);
+  background: transparent;
+}
+
+.jm-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.jm-drag-handle:active {
+  cursor: grabbing;
+}
+
+.jm-entity-card__reorder {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.jm-entity-card__reorder .jm-icon-button {
+  width: 1.5rem;
+  height: 1.1rem;
+}
+
+.jm-entity-card__reorder .jm-icon-button svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
 /* Entity card variant that stacks its editable fields vertically instead of
    the icon-row layout — used for multi-field entries like a job or a
    degree, where a single line can't hold everything. */
