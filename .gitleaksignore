@@ -1,0 +1,31 @@
+# Gitleaks allowlist — fingerprints of findings verified to be false
+# positives: test fixtures and .env.*.example placeholder values, never real
+# secrets. See .github/workflows/security-scan.yml.
+#
+# Each line is a fingerprint gitleaks reported as `<commit>:<file>:<rule>:<line>`.
+# This is commit-scoped, not path-scoped: a *future* edit to one of these
+# files creates a new commit hash and therefore a new fingerprint, so an
+# ignore entry here does not pre-clear later changes to the same file. If
+# the gate flags one of these files again after an edit, verify it's still a
+# placeholder/fixture (never a real secret) and add the new fingerprint.
+
+# apps/tasks-ai/lib/ai/redact.test.ts — fake JWT fixture for redaction tests
+144eceba6190cc8e8dde79a5e67263fecb59fe52:apps/tasks-ai/lib/ai/redact.test.ts:jwt:9
+
+# apps/timelineai/playwright.config.ts — placeholder test-env API key default
+2250859366b87a1ab6a17bdfb79b918cb88e398f:apps/timelineai/playwright.config.ts:generic-api-key:42
+
+# apps/appbuilder/lib/repositories/attachments.integration.test.ts — fake test credential
+5a31ced58af671ab1d5ef09ec9d03c744561a1d8:apps/appbuilder/lib/repositories/attachments.integration.test.ts:generic-api-key:369
+
+# .env.local.example / .env.example / .env.production.example — placeholder
+# values in committed example env files, by design never real secrets
+cb3d7cae262b5ca202b2d5b62622f183a59c3ca3:.env.local.example:generic-api-key:103
+cb3d7cae262b5ca202b2d5b62622f183a59c3ca3:.env.example:generic-api-key:116
+cb3d7cae262b5ca202b2d5b62622f183a59c3ca3:.env.production.example:generic-api-key:101
+c52a9545a3ddacb074247e7675114fcfabb2a6fc:.env.local.example:generic-api-key:103
+c52a9545a3ddacb074247e7675114fcfabb2a6fc:.env.production.example:generic-api-key:102
+
+# apps/vionto/lib/server/__tests__/ai-credentials.test.ts — fake test API keys
+1132dbf52d9340c8d5d3acb5aae33c79f1563c5b:apps/vionto/lib/server/__tests__/ai-credentials.test.ts:generic-api-key:81
+1132dbf52d9340c8d5d3acb5aae33c79f1563c5b:apps/vionto/lib/server/__tests__/ai-credentials.test.ts:generic-api-key:92
