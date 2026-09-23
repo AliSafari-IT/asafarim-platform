@@ -216,6 +216,24 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
     maxItems: 6,
     maxLength: 40,
   },
+  {
+    key: "resumatch.aiMonthlyBudgetUsd",
+    label: "ResuMatch AI monthly budget",
+    description:
+      "Monthly AI spend ceiling in USD, applied to every ResuMatch workspace. Overrides RESUMATCH_AI_MONTHLY_BUDGET_USD while set; reset to fall back to the env var. 0 freezes AI spend. ResuMatch reads this over the internal settings API and may take up to a minute to pick up a change.",
+    group: "operations",
+    scope: "resumatch",
+    type: "number",
+    // Shown in the console only. ResuMatch ignores the catalog default and
+    // uses its own env var until an admin sets an override (see
+    // @asafarim/settings-client), so this mirrors the env default in
+    // apps/resumatch/lib/env.ts rather than changing behavior.
+    defaultValue: 20,
+    min: 0,
+    max: 10000,
+    unit: "USD",
+    highImpact: true,
+  },
 ] as const;
 
 export function getSettingDefinition(key: string): SettingDefinition | undefined {

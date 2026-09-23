@@ -1,0 +1,22 @@
+{
+  "name": "@asafarim/settings-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only client for Admin's internal platform-settings API, for apps on their own isolated database (Testora, AppBuilder, ResuMatch). No Next.js, database or auth dependency.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@asafarim/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11"
+  }
+}

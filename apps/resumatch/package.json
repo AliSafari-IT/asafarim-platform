@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@asafarim/auth": "workspace:*",
+    "@asafarim/settings-client": "workspace:*",
     "@asafarim/storage": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",

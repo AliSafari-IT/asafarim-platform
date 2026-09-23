@@ -154,6 +154,9 @@ importers:
       '@asafarim/seed-manager':
         specifier: workspace:*
         version: link:../../packages/seed-manager
+      '@asafarim/settings-client':
+        specifier: workspace:*
+        version: link:../../packages/settings-client
       '@asafarim/shared-i18n':
         specifier: workspace:*
         version: link:../../packages/shared-i18n
@@ -522,6 +525,9 @@ importers:
       '@asafarim/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@asafarim/settings-client':
+        specifier: workspace:*
+        version: link:../../packages/settings-client
       '@asafarim/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -1382,6 +1388,21 @@ importers:
       '@types/pg':
         specifier: ^8.11.10
         version: 8.20.0
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+
+  packages/settings-client:
+    devDependencies:
+      '@asafarim/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
