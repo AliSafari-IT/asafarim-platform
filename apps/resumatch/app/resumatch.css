@@ -11,7 +11,11 @@
    always constrain a wider body box), so both are covered here. */
 [data-app="resumatch"],
 [data-app="resumatch"] body {
-  overflow-x: hidden;
+  /* clip, not hidden: overflow-x: hidden turns body into its own scroll
+     container (overflow-y computes to auto), which silently disables every
+     position: sticky on the page — including the shell's sticky header.
+     clip suppresses the bleed without creating a scroll container. */
+  overflow-x: clip;
 }
 
 [data-app="resumatch"] .jm-mono {
@@ -2011,4 +2015,254 @@
   @page {
     margin: 1.5cm;
   }
+}
+
+/* ─── Profile workbench layout (/profile) ─────────────────────────────────
+   The profile used to be one flat auto-fill grid of seven cards. Grid rows
+   are shared, so every short card (About you, Languages) was stretched to
+   the height of its tallest neighbour (Skills), leaving large blank areas,
+   while the content-heavy lists (Experience, Education) got the same narrow
+   260px track as a two-field card.
+
+   Instead: a narrow rail for the short "fact" sections and a wide canvas for
+   the list-heavy ones. Each column stacks independently (no shared rows), and
+   inside the canvas the entry cards tile to the canvas's own width via
+   container queries — 2 across on a laptop, 3 on a desktop, 4 on ultrawide. */
+
+/* Let this page use wide screens: the shell caps content at 74rem, which is
+   what left ultrawide monitors mostly empty. Scoped to pages rendering the
+   workbench only. */
+[data-app="resumatch"] .ui-shell__main:has(.rm-wb) {
+  max-width: min(120rem, 100%);
+}
+
+[data-app="resumatch"] .rm-wb {
+  /* Height of the shell's own sticky header; the workbench bar sticks below it. */
+  --rm-wb-top: 4.1rem;
+  /* Approximate height of the workbench bar itself (one row on desktop). */
+  --rm-wb-bar: 3.25rem;
+}
+
+/* Sticky bar: section jump links + save actions. */
+[data-app="resumatch"] .rm-wb__bar {
+  position: sticky;
+  top: var(--rm-wb-top);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.75rem;
+  border: 1px solid var(--line, rgba(148, 163, 184, 0.3));
+  border-radius: 0.9rem;
+  /* Near-opaque: content scrolling underneath must not read through the links. */
+  background: color-mix(in srgb, var(--surface, #fff) 97%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.25);
+}
+
+[data-app="resumatch"] .rm-wb__nav {
+  display: flex;
+  gap: 0.2rem;
+  flex: 1 1 22rem;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+[data-app="resumatch"] .rm-wb__nav::-webkit-scrollbar {
+  display: none;
+}
+
+[data-app="resumatch"] .rm-wb__navlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.8;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+[data-app="resumatch"] .rm-wb__navlink:hover,
+[data-app="resumatch"] .rm-wb__navlink:focus-visible {
+  opacity: 1;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+[data-app="resumatch"] .rm-wb__count {
+  min-width: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+[data-app="resumatch"] .rm-wb__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+[data-app="resumatch"] .rm-wb__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+[data-app="resumatch"] .rm-wb__status::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.8;
+}
+[data-app="resumatch"] .rm-wb__status--dirty { color: var(--warning, #b7791f); }
+[data-app="resumatch"] .rm-wb__status--ok { color: var(--success, #2f855a); }
+[data-app="resumatch"] .rm-wb__status--error { color: var(--danger, #c53030); }
+[data-app="resumatch"] .rm-wb__status--busy,
+[data-app="resumatch"] .rm-wb__status--muted { opacity: 0.7; }
+
+[data-app="resumatch"] .rm-wb__version {
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+/* Layout: one column on small screens, rail + canvas from 900px. */
+[data-app="resumatch"] .rm-wb__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin: 1rem 0 1.5rem;
+}
+
+[data-app="resumatch"] .rm-wb__rail,
+[data-app="resumatch"] .rm-wb__canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+[data-app="resumatch"] .rm-wb__canvas {
+  container: rm-canvas / inline-size;
+}
+
+[data-app="resumatch"] .rm-wb__section {
+  min-width: 0;
+  /* Land jump-link targets below both sticky bars, not under them. */
+  scroll-margin-top: calc(var(--rm-wb-top) + 5rem);
+}
+
+/* Single column: flatten rail/canvas so sections interleave in reading
+   order (About → Experience → Skills → …) instead of rail-then-canvas. */
+@media (max-width: 899px) {
+  /* On a phone the bar wraps to several rows; pinned, it would permanently
+     take ~15% of the screen. It stays at the top of the form, unpinned. */
+  [data-app="resumatch"] .rm-wb__bar {
+    position: static;
+  }
+  [data-app="resumatch"] .rm-wb__rail,
+  [data-app="resumatch"] .rm-wb__canvas {
+    display: contents;
+  }
+  [data-app="resumatch"] .rm-wb__section--about { order: 1; }
+  [data-app="resumatch"] .rm-wb__section--experience { order: 2; }
+  [data-app="resumatch"] .rm-wb__section--skills { order: 3; }
+  [data-app="resumatch"] .rm-wb__section--education { order: 4; }
+  [data-app="resumatch"] .rm-wb__section--certifications { order: 5; }
+  [data-app="resumatch"] .rm-wb__section--languages { order: 6; }
+  [data-app="resumatch"] .rm-wb__section--preferences { order: 7; }
+}
+
+@media (min-width: 900px) {
+  [data-app="resumatch"] .rm-wb__layout {
+    grid-template-columns: minmax(17rem, 21rem) minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+  /* The rail is almost always much shorter than the canvas; left in normal
+     flow it would end halfway down and leave the column below it empty. As a
+     sticky panel that scrolls on its own, it stays beside the canvas the whole
+     way down (About you is always one glance away while editing Experience),
+     and a long rail still fits the viewport. */
+  [data-app="resumatch"] .rm-wb__rail {
+    position: sticky;
+    top: calc(var(--rm-wb-top) + var(--rm-wb-bar) + 1rem);
+    max-height: calc(100vh - var(--rm-wb-top) - var(--rm-wb-bar) - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    /* Room so card shadows/focus rings aren't clipped by the scroll box. */
+    padding: 0.15rem 0.35rem 0.5rem 0.15rem;
+    margin: -0.15rem -0.35rem 0 -0.15rem;
+  }
+}
+
+/* Entry cards (experience / education / certifications) tile across the
+   canvas. align-items: start keeps a short card from being stretched to its
+   row's tallest. */
+[data-app="resumatch"] .rm-wb__canvas .jm-entity-list {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.85rem;
+}
+@container rm-canvas (min-width: 34rem) {
+  [data-app="resumatch"] .rm-wb__canvas .jm-entity-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container rm-canvas (min-width: 58rem) {
+  [data-app="resumatch"] .rm-wb__canvas .jm-entity-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@container rm-canvas (min-width: 84rem) {
+  [data-app="resumatch"] .rm-wb__canvas .jm-entity-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Skills: the free-text list beside the grouped chips once there is room,
+   with the text list pinned while the (much taller) groups scroll past. */
+[data-app="resumatch"] .rm-skills__input,
+[data-app="resumatch"] .rm-skills__groups {
+  min-width: 0;
+}
+@container rm-canvas (min-width: 50rem) {
+  [data-app="resumatch"] .rm-skills {
+    display: grid;
+    grid-template-columns: minmax(15rem, 1fr) minmax(0, 2.2fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  [data-app="resumatch"] .rm-skills__input {
+    position: sticky;
+    top: calc(var(--rm-wb-top) + 4.5rem);
+  }
+  [data-app="resumatch"] .rm-skills__input textarea {
+    min-height: 18rem;
+  }
+}
+
+/* Category groups pack as masonry columns instead of one long stack. */
+[data-app="resumatch"] .rm-skill-groups__masonry {
+  columns: 16rem;
+  column-gap: 1.25rem;
+}
+[data-app="resumatch"] .rm-skill-groups__masonry > .rm-skill-group {
+  break-inside: avoid;
+  margin-bottom: 1rem;
 }
