@@ -15,6 +15,7 @@
 # ---------------------------------------------------------------------------
 FROM node:24-alpine AS migrator
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
 RUN corepack enable
 
 # The full workspace is copied so pnpm can validate the lockfile against every
@@ -28,4 +29,5 @@ RUN pnpm install --frozen-lockfile --filter @asafarim/db...
 # DATABASE_URL is supplied by compose and points at the in-network `postgres`
 # service. Migrations run first and always; the TimelineAI demo seed runs only
 # when the table is empty (see db:deploy:migrate-and-seed).
+USER node
 CMD ["pnpm", "--filter", "@asafarim/db", "db:deploy:migrate-and-seed"]
