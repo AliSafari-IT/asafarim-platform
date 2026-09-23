@@ -17,6 +17,7 @@ import {
   type SettingScope,
 } from "@asafarim/db";
 import { SettingField } from "./_components/SettingField";
+import { TestEmailPanel } from "./_components/TestEmailPanel";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -24,6 +25,7 @@ const GROUP_TITLES: Record<string, string> = {
   presentation: "presentation",
   operations: "operations",
   features: "feature flags",
+  email: "email · smtp",
 };
 
 function scopeLabel(scope: SettingScope): string {
@@ -168,6 +170,7 @@ export default async function AdminSettingsPage({
                       />
                     );
                   })}
+                  {group === "email" ? <TestEmailPanel disabled={!canEditSecrets} /> : null}
                 </Panel>
               );
             })}

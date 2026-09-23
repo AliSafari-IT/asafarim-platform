@@ -46,7 +46,7 @@ export async function sendContactMessage(
   const { name, email, message } = validation.data;
 
   try {
-    const { transporter, from, bcc } = createTransport();
+    const { transporter, from, bcc } = await createTransport();
     await transporter.sendMail({
       from,
       to: site.contact.email,

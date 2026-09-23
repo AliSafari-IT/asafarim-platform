@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./client", () => ({
   prisma: {
-    platformSetting: { findUnique: vi.fn() },
+    platformSetting: { findUnique: vi.fn(), findMany: vi.fn() },
     user: { findUnique: vi.fn(), findMany: vi.fn() },
   },
 }));
@@ -13,6 +13,7 @@ import {
   getEffectiveSetting,
   getNumberSetting,
   getSetting,
+  getSettingOverrides,
 } from "./settings";
 
 beforeEach(() => {
@@ -101,5 +102,33 @@ describe("getNumberSetting", () => {
   it("returns the fallback when the database call rejects", async () => {
     vi.mocked(prisma.platformSetting.findUnique).mockRejectedValue(new Error("db down"));
     expect(await getNumberSetting("console.pageSize", 20)).toBe(20);
+  });
+});
+
+describe("getSettingOverrides", () => {
+  it("returns only rows an admin set, one query for all keys", async () => {
+    vi.mocked(prisma.platformSetting.findMany).mockResolvedValue([
+      { key: "email.smtp.from", value: "Console <a@b.com>" },
+      { key: "email.smtp.port", value: 587 },
+    ] as never);
+    const map = await getSettingOverrides(["email.smtp.from", "email.smtp.port", "email.smtp.host"]);
+    expect(prisma.platformSetting.findMany).toHaveBeenCalledTimes(1);
+    expect(Object.fromEntries(map)).toEqual({ "email.smtp.from": "Console <a@b.com>", "email.smtp.port": 587 });
+    expect(map.has("email.smtp.host")).toBe(false); // unset: absent, not the catalog default
+  });
+
+  it("drops rows that no longer match their definition, and unknown keys", async () => {
+    vi.mocked(prisma.platformSetting.findMany).mockResolvedValue([
+      { key: "email.smtp.port", value: "not-a-number" },
+      { key: "not.in.catalog", value: 1 },
+    ] as never);
+    expect((await getSettingOverrides(["email.smtp.port", "not.in.catalog"])).size).toBe(0);
+  });
+
+  it("drops a secret whose stored value isn't an encrypted envelope", async () => {
+    vi.mocked(prisma.platformSetting.findMany).mockResolvedValue([
+      { key: "email.smtp.password", value: "plaintext-should-never-be-stored" },
+    ] as never);
+    expect((await getSettingOverrides(["email.smtp.password"])).size).toBe(0);
   });
 });

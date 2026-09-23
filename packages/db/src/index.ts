@@ -16,6 +16,7 @@ export {
   isValidValue,
   getEffectiveSettings,
   getEffectiveSetting,
+  getSettingOverrides,
   getSetting,
   getBooleanSetting,
   getNumberSetting,
