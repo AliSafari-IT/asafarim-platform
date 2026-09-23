@@ -297,12 +297,23 @@ function syncPostgresPasswordFromEnv(): boolean {
  * sync the container's password from .env.local and retry once before giving
  * up. Any other failure is rethrown with the captured output.
  */
+// isDbReachable() only proves the TCP port is open, and Docker's port
+// forwarder accepts connections before Postgres inside the container has
+// finished starting or recovering — so the first migrate can hit this.
+const DB_STARTING_UP = /the database system is (starting up|in recovery mode|shutting down)/i;
+const DB_STARTUP_RETRY_SECONDS = 60;
+
 function applyPrismaMigrations(): void {
-  const result = spawnSync("pnpm", ["db:migrate:deploy"], {
-    stdio: "pipe",
-    shell: true,
-  });
-  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  const deadline = Date.now() + DB_STARTUP_RETRY_SECONDS * 1000;
+  let result: ReturnType<typeof spawnSync>;
+  let output: string;
+  for (;;) {
+    result = spawnSync("pnpm", ["db:migrate:deploy"], { stdio: "pipe", shell: true });
+    output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    if (result.status === 0 || !DB_STARTING_UP.test(output) || Date.now() > deadline) break;
+    console.log("  Database is still starting up — retrying migrations in 2s...");
+    execSync('powershell -Command "Start-Sleep 2"');
+  }
   if (output.trim()) process.stdout.write(output);
   if (result.status === 0) return;
 
