@@ -18,7 +18,7 @@
     "@asafarim/ui": "workspace:*",
     "@asafarim/vionto-benchmark": "workspace:*",
     "dotenv": "^17.4.2",
-    "next": "^16.2.10",
+    "next": "^16.3.6",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
