@@ -12,6 +12,7 @@ import {
 } from "@asafarim/db";
 import { ROLES, getSession, hasRole, hasPermission } from "@asafarim/auth";
 import type { Session } from "next-auth";
+import { createTransport } from "@asafarim/auth/mailer";
 import { writeAuditEvent } from "../../../lib/audit";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -299,4 +300,72 @@ export async function resetPlatformSetting(input: {
     console.error("[admin] resetPlatformSetting failed:", error);
     return { ok: false, error: "The setting could not be reset. Try again." };
   }
+}
+
+const EMAIL_ADDRESS = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+const TEST_EMAIL_TIMEOUT_MS = 15_000;
+
+export type TestEmailResult = { ok: true; message: string } | { ok: false; error: string };
+
+/**
+ * Sends a minimal message through the platform mailer, resolving the SMTP
+ * config exactly as real mail does (console overrides, else SMTP_* env), so
+ * a changed relay can be verified without triggering a real OTP or reset.
+ *
+ * Gated like the SMTP password itself (settings.secrets.edit): it exercises
+ * the stored credential, even though it never reveals it. The transport's
+ * own error is returned so a bad host/port/login is visible, with the
+ * password scrubbed in case a relay ever echoes it back. Every attempt is
+ * audited.
+ */
+export async function sendTestEmail(input: { to: string }): Promise<TestEmailResult> {
+  const actor = await requireActor(getSettingDefinition("email.smtp.password")!, "edit");
+  if ("error" in actor) return { ok: false, error: actor.error };
+
+  const to = typeof input.to === "string" ? input.to.trim() : "";
+  if (to.length > 320 || !EMAIL_ADDRESS.test(to)) {
+    return { ok: false, error: "Enter a single valid email address." };
+  }
+
+  let password: string | undefined;
+  let result: TestEmailResult;
+  let relay: string | undefined;
+  try {
+    const { transporter, from, config } = await createTransport({ timeoutMs: TEST_EMAIL_TIMEOUT_MS });
+    password = config.password;
+    relay = `${config.host}:${config.port}`;
+    const fromConsole = Object.entries(config.sources)
+      .filter(([, source]) => source === "settings")
+      .map(([field]) => field);
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject: "ASafariM platform — SMTP test",
+      text:
+        "This is a test message from the ASafariM admin console.\n\n" +
+        "If you received it, the platform's outgoing mail configuration works.",
+    });
+    result = {
+      ok: true,
+      message:
+        `Sent to ${to} via ${relay}. Relay responded: ${info.response ?? "OK"}. ` +
+        (fromConsole.length
+          ? `From console settings: ${fromConsole.join(", ")}; the rest from SMTP_* env.`
+          : "All values came from SMTP_* env (no console overrides)."),
+    };
+  } catch (error) {
+    const raw = error instanceof Error ? error.message : String(error);
+    const scrubbed = password ? raw.split(password).join("••••••") : raw;
+    result = { ok: false, error: `Send failed${relay ? ` via ${relay}` : ""}: ${scrubbed}` };
+  }
+
+  await writeAuditEvent({
+    userId: actor.session.user.id,
+    action: result.ok ? "settings.email.test.sent" : "settings.email.test.failed",
+    entity: "PlatformSetting",
+    entityId: "email.smtp",
+    changes: { to, relay: relay ?? null },
+  });
+
+  return result;
 }

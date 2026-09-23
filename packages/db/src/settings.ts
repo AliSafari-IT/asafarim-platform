@@ -35,7 +35,7 @@ export type SettingType =
   | "secret"
   | "json";
 
-export type SettingGroup = "presentation" | "operations" | "features";
+export type SettingGroup = "presentation" | "operations" | "features" | "email";
 
 /**
  * Which app a setting configures. Platform-wide keys use "platform"; the
@@ -234,7 +234,108 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
     unit: "USD",
     highImpact: true,
   },
+  // ── Outbound email (SMTP) ──────────────────────────────────────────────
+  // One relay for the whole platform: every mail on the platform goes
+  // through @asafarim/auth's mailer. Each key is "admin override, else its
+  // env var" — independently, so fixing just the From address doesn't mean
+  // re-entering the whole relay config. The catalog defaults below are shown
+  // in the console only and mirror the env defaults; they never replace an
+  // env var that's set.
+  {
+    key: "email.smtp.host",
+    label: "SMTP host",
+    description: "Outgoing mail relay hostname. Falls back to SMTP_HOST while unset.",
+    group: "email",
+    scope: "platform",
+    type: "string",
+    defaultValue: "",
+    maxLength: 253,
+    highImpact: true,
+  },
+  {
+    key: "email.smtp.port",
+    label: "SMTP port",
+    description: "Relay port — usually 465 (TLS) or 587 (STARTTLS). Falls back to SMTP_PORT while unset.",
+    group: "email",
+    scope: "platform",
+    type: "number",
+    defaultValue: 465,
+    min: 1,
+    max: 65535,
+    highImpact: true,
+  },
+  {
+    key: "email.smtp.secure",
+    label: "SMTP implicit TLS",
+    description: "On for port 465 (TLS from the first byte); off for 587, which upgrades via STARTTLS. Falls back to SMTP_SECURE while unset.",
+    group: "email",
+    scope: "platform",
+    type: "boolean",
+    defaultValue: true,
+    highImpact: true,
+  },
+  {
+    key: "email.smtp.user",
+    label: "SMTP username",
+    description: "Relay login. Falls back to SMTP_USER while unset.",
+    group: "email",
+    scope: "platform",
+    type: "string",
+    defaultValue: "",
+    maxLength: 320,
+    highImpact: true,
+  },
+  {
+    key: "email.smtp.password",
+    label: "SMTP password",
+    description: "Relay password or provider API token. Encrypted at rest; never shown again once saved. Falls back to SMTP_PASSWORD while unset.",
+    group: "email",
+    scope: "platform",
+    type: "secret",
+    defaultValue: "",
+    maxLength: 1024,
+  },
+  {
+    key: "email.smtp.from",
+    label: "From address",
+    description: 'Sender on every platform email, e.g. "ASafariM <noreply@asafarim.com>". Falls back to SMTP_FROM while unset.',
+    group: "email",
+    scope: "platform",
+    type: "string",
+    defaultValue: "",
+    maxLength: 320,
+    highImpact: true,
+  },
+  {
+    key: "email.smtp.replyTo",
+    label: "Reply-To address",
+    description: "Optional default Reply-To for platform email. Flows that set their own (e.g. the contact form replies to the visitor) keep theirs. Empty means none.",
+    group: "email",
+    scope: "platform",
+    type: "string",
+    defaultValue: "",
+    maxLength: 320,
+  },
 ] as const;
+
+/**
+ * Only the settings an admin has actually set, for the given keys, in one
+ * query — decrypted for secrets. Unset keys are absent from the map, so a
+ * caller can layer "override, else env var" per key without the catalog
+ * default ever shadowing its env var. Throws on DB failure; callers that
+ * must keep working without the settings store catch and fall back.
+ */
+export async function getSettingOverrides(keys: readonly string[]): Promise<Map<string, SettingValue>> {
+  const rows = await prisma.platformSetting.findMany({ where: { key: { in: [...keys] } } });
+  const overrides = new Map<string, SettingValue>();
+  for (const row of rows) {
+    const definition = getSettingDefinition(row.key);
+    if (!definition) continue;
+    const { value, valid } = resolveEffectiveValue(definition, row);
+    if (valid) overrides.set(row.key, value);
+  }
+  return overrides;
+}
 
 export function getSettingDefinition(key: string): SettingDefinition | undefined {
   return SETTING_DEFINITIONS.find((definition) => definition.key === key);
@@ -273,6 +374,7 @@ export const SETTING_GROUPS: readonly SettingGroup[] = [
   "presentation",
   "operations",
   "features",
+  "email",
 ];
 
 /**

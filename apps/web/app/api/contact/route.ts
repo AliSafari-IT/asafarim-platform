@@ -139,7 +139,7 @@ export async function POST(request: Request) {
   // otherwise note that they are available in the sender's inbox.
   let emailSent = false;
   try {
-    const { transporter, from, bcc } = createTransport();
+    const { transporter, from, bcc } = await createTransport();
     const withinCap = totalBytes <= EMAIL_ATTACH_CAP_BYTES;
     await transporter.sendMail({
       from,

@@ -61,6 +61,9 @@ vi.mock("@asafarim/db", async () => {
   };
 });
 
+const sendMail = vi.fn();
+vi.mock("@asafarim/auth/mailer", () => ({ createTransport: vi.fn() }));
+
 vi.mock("@asafarim/auth", () => ({
   ROLES: { SUPERADMIN: "superadmin", ADMIN: "admin" },
   getSession: vi.fn(),
@@ -70,7 +73,8 @@ vi.mock("@asafarim/auth", () => ({
 
 import { prisma, encryptSecret } from "@asafarim/db";
 import { getSession, hasPermission } from "@asafarim/auth";
-import { resetPlatformSetting, updatePlatformSetting } from "./actions";
+import { createTransport } from "@asafarim/auth/mailer";
+import { resetPlatformSetting, sendTestEmail, updatePlatformSetting } from "./actions";
 
 beforeEach(() => {
   vi.mocked(getSession).mockResolvedValue({
@@ -284,5 +288,73 @@ describe("permission tier — settings.secrets.{view,edit}", () => {
 
     expect(result.ok).toBe(false);
     expect(prisma.platformSetting.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("sendTestEmail", () => {
+  const RELAY_PASSWORD = "relay-p4ss-TOKEN";
+  function transport(sources: Record<string, "settings" | "env"> = {}) {
+    vi.mocked(createTransport).mockResolvedValue({
+      transporter: { sendMail },
+      from: "ASafariM <noreply@asafarim.com>",
+      config: {
+        host: "smtp.example.com", port: 465, password: RELAY_PASSWORD,
+        sources: { host: "env", port: "env", secure: "env", user: "env", password: "env", from: "env", replyTo: "env", ...sources },
+      },
+    } as never);
+  }
+  beforeEach(() => {
+    sendMail.mockReset().mockResolvedValue({ response: "250 2.0.0 OK queued" });
+    vi.mocked(createTransport).mockReset();
+    transport();
+  });
+
+  it("requires settings.secrets.edit — settings.edit alone is not enough", async () => {
+    vi.mocked(hasPermission).mockImplementation(async (_s, p) => p === "settings.edit");
+    const result = await sendTestEmail({ to: "admin@asafarim.com" });
+    expect(result.ok).toBe(false);
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
+  it.each(["", "not-an-email", "a@b", "two@a.com, three@b.com", "x".repeat(321) + "@a.com"])(
+    "rejects %j without touching the relay",
+    async (to) => {
+      const result = await sendTestEmail({ to });
+      expect(result.ok).toBe(false);
+      expect(createTransport).not.toHaveBeenCalled();
+    },
+  );
+
+  it("sends through the resolved transport with a short timeout and reports the relay + sources", async () => {
+    transport({ from: "settings", password: "settings" });
+    const result = await sendTestEmail({ to: "  admin@asafarim.com " });
+    expect(createTransport).toHaveBeenCalledWith({ timeoutMs: 15000 });
+    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: "admin@asafarim.com", from: "ASafariM <noreply@asafarim.com>" }));
+    expect(result.ok).toBe(true);
+    const message = (result as { message: string }).message;
+    expect(message).toContain("smtp.example.com:465");
+    expect(message).toContain("250 2.0.0 OK queued");
+    expect(message).toMatch(/From console settings: (password, from|from, password);/);
+    const audit = vi.mocked(prisma.auditLog.create).mock.calls[0]?.[0] as { data: { action: string } };
+    expect(audit.data.action).toBe("settings.email.test.sent");
+  });
+
+  it("surfaces the real transport error, with the password scrubbed, and audits the failure", async () => {
+    sendMail.mockRejectedValue(new Error(`Invalid login: 535 Authentication failed for pass=${RELAY_PASSWORD}`));
+    const result = await sendTestEmail({ to: "admin@asafarim.com" });
+    expect(result.ok).toBe(false);
+    const error = (result as { error: string }).error;
+    expect(error).toContain("535 Authentication failed");
+    expect(error).toContain("smtp.example.com:465");
+    expect(error).not.toContain(RELAY_PASSWORD);
+    const audit = vi.mocked(prisma.auditLog.create).mock.calls[0]?.[0] as { data: { action: string; changes: unknown } };
+    expect(audit.data.action).toBe("settings.email.test.failed");
+    expect(JSON.stringify(audit.data.changes)).not.toContain(RELAY_PASSWORD);
+  });
+
+  it("surfaces an incomplete-config error instead of throwing", async () => {
+    vi.mocked(createTransport).mockRejectedValue(new Error("SMTP configuration is incomplete."));
+    const result = await sendTestEmail({ to: "admin@asafarim.com" });
+    expect(result).toEqual({ ok: false, error: "Send failed: SMTP configuration is incomplete." });
   });
 });
