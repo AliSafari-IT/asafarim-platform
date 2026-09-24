@@ -107,6 +107,8 @@ const FETCH_FAILURE_MESSAGES: Record<string, string> = {
   REDIRECT_REFUSED: "That page redirects elsewhere, so it was not fetched.",
   RESPONSE_TOO_LARGE: "That page is too large to read.",
   TIMEOUT: "That page took too long to respond.",
+  BOT_BLOCKED:
+    "This site blocks automated fetching, but the posting is probably still live. Use the paste option and paste the job description instead.",
   HTTP_ERROR: "That page could not be loaded.",
   NETWORK_ERROR: "That page could not be reached.",
   NO_READABLE_TEXT: "No readable job description was found on that page.",

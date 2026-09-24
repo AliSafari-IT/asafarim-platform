@@ -71,6 +71,7 @@ export type JobFetchRefusal =
   | "REDIRECT_REFUSED"
   | "RESPONSE_TOO_LARGE"
   | "TIMEOUT"
+  | "BOT_BLOCKED"
   | "HTTP_ERROR"
   | "NETWORK_ERROR"
   | "NO_READABLE_TEXT";
@@ -97,6 +98,9 @@ export async function fetchJobPosting(
 
     if (response.status >= 300 && response.status < 400) {
       return { ok: false, reasonCode: "REDIRECT_REFUSED" };
+    }
+    if (response.status === 403 || response.status === 429) {
+      return { ok: false, reasonCode: "BOT_BLOCKED" };
     }
     if (!response.ok) return { ok: false, reasonCode: "HTTP_ERROR" };
 
