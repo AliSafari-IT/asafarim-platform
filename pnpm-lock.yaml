@@ -977,6 +977,9 @@ importers:
 
   apps/vionto:
     dependencies:
+      '@asafarim/ai-cost-ledger':
+        specifier: workspace:*
+        version: link:../../packages/ai-cost-ledger
       '@asafarim/auth':
         specifier: workspace:*
         version: link:../../packages/auth

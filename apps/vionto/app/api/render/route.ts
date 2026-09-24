@@ -234,7 +234,7 @@ export async function POST(req: Request) {
             ...(resolvedVersionId ? { versionId: resolvedVersionId } : {}),
           },
           orderBy: { updatedAt: "desc" },
-          select: { narrationText: true, srtText: true },
+          select: { id: true, narrationText: true, srtText: true },
           take: 20,
         }),
         prisma.viontoAudioTrack.findMany({
@@ -404,12 +404,14 @@ export async function POST(req: Request) {
             : {}),
         },
         orderBy: { createdAt: "desc" },
-        select: { assetId: true, outputStorageKey: true },
+        select: { id: true, assetId: true, outputStorageKey: true },
       });
       const aiClipByAssetId = new Map<string, string>();
+      const usedAiClipIds: string[] = [];
       for (const clip of aiClips) {
         if (!aiClipByAssetId.has(clip.assetId)) {
           aiClipByAssetId.set(clip.assetId, clip.outputStorageKey!);
+          usedAiClipIds.push(clip.id);
         }
       }
       if (aiClipByAssetId.size > 0) {
@@ -441,6 +443,11 @@ export async function POST(req: Request) {
         })),
         narrationText: latestScript?.narrationText ?? undefined,
         srtText: latestScript?.srtText ?? undefined,
+        costInputs: {
+          ...(latestScript?.id ? { scriptId: latestScript.id } : {}),
+          aiClipIds: usedAiClipIds,
+          assetIds: rawAssets.map((a) => a.id),
+        },
         burnSubtitles: subtitleConfig.enabled && subtitleConfig.exportOpts.burnIn,
         subtitleStyle: subtitleConfig.style,
         subtitleTiming: subtitleConfig.timing,

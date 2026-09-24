@@ -16,6 +16,7 @@
     "clean": "rm -rf .next .turbo node_modules worker-dist"
   },
   "dependencies": {
+    "@asafarim/ai-cost-ledger": "workspace:*",
     "@asafarim/auth": "workspace:*",
     "@asafarim/country-language-selector": "workspace:*",
     "@asafarim/db": "workspace:*",

@@ -1,4 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { simpleTokenUsage } from "@asafarim/ai-cost-ledger";
+import { recordViontoCost, storyStableId } from "@/lib/server/ai/cost-ledger";
 import { prisma } from "@asafarim/db";
 import { getAuthedUser, unauthorized, badRequest, serverError } from "@/lib/server/auth";
 import {
@@ -181,6 +184,22 @@ export async function POST(req: Request) {
         try {
           console.log(`[story/generate] Generating caption for asset ${asset.id}`);
           const captionResult = await generateImageCaption(asset.storageKey, effectiveLocale);
+          // Issue #588: the caption call is billed whether or not the save below works.
+          await recordViontoCost({
+            userId: user.id,
+            operation: "vision_caption",
+            subjectType: "asset",
+            subjectId: asset.id,
+            projectId,
+            versionId: versionRecord?.id ?? null,
+            provider: captionResult.provider,
+            requestModel: captionResult.model,
+            responseModel: captionResult.responseModel ?? captionResult.model,
+            providerRequestId: captionResult.providerRequestId ?? null,
+            usage: captionResult.usage ?? simpleTokenUsage(captionResult.tokens ?? 0, 0),
+            credentialSource: "platform",
+            latencyMs: captionResult.latencyMs ?? null,
+          });
           await prisma.viontoAsset.update({
             where: { id: asset.id },
             data: {
@@ -328,10 +347,32 @@ export async function POST(req: Request) {
 
     // Persist script with provider metadata
     console.log(`[story/generate] Saving script to database`);
+    // Minted up front so the cost event names the script this call produced
+    // (issue #588) — and the event is written before the save, since the
+    // provider has already billed the call whether or not the save succeeds.
+    const scriptId = randomUUID();
+    await recordViontoCost({
+      userId: user.id,
+      operation: "story",
+      subjectType: "script",
+      subjectId: scriptId,
+      projectId,
+      versionId: versionRecord?.id ?? null,
+      provider: success.provider,
+      requestModel: success.model,
+      responseModel: success.responseModel,
+      providerRequestId: success.providerRequestId ?? null,
+      promptVersion: PROMPT_VERSION,
+      usage: success.usage,
+      credentialSource: "platform",
+      latencyMs,
+      stableId: storyStableId(scriptId),
+    });
     let script;
     try {
       script = await prisma.viontoScript.create({
         data: {
+          id: scriptId,
           projectId,
           versionId: versionRecord?.id ?? null,
           userId: user.id,

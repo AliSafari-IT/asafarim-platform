@@ -1,3 +1,5 @@
+import { normalizeAnthropicUsage, normalizeOpenAiUsage, simpleTokenUsage, type UsageLine } from "@asafarim/ai-cost-ledger";
+
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_API_KEY ? "claude-sonnet-4-5" : "claude-haiku-4-5";
 
@@ -19,7 +21,21 @@ export type ProviderSuccess = {
   totalTokens?: number;
   truncated?: boolean;
   stopReason?: string;
+  /** Exclusive usage buckets for the AI cost ledger (issue #588). */
+  usage: UsageLine[];
+  /** The model the provider reports having answered with. */
+  responseModel: string;
+  providerRequestId?: string;
 };
+
+/** Normalize provider usage, falling back to plain counts if a payload is inconsistent. */
+function safeUsage(fn: () => UsageLine[], input?: number, output?: number): UsageLine[] {
+  try {
+    return fn();
+  } catch {
+    return simpleTokenUsage(input ?? 0, output ?? 0);
+  }
+}
 
 export type ProviderFailure = {
   error: string;
@@ -102,7 +118,15 @@ export async function generateWithOpenAI(
   if (!output) return { error: "OpenAI returned an empty response." };
 
   const data = payload as {
-    usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+    id?: string;
+    model?: string;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+      input_tokens_details?: { cached_tokens?: number };
+      output_tokens_details?: { reasoning_tokens?: number };
+    };
     status?: string;
     incomplete_details?: { reason?: string };
   };
@@ -117,6 +141,9 @@ export async function generateWithOpenAI(
     totalTokens: data.usage?.total_tokens,
     truncated,
     stopReason,
+    usage: safeUsage(() => normalizeOpenAiUsage(data.usage ?? {}), data.usage?.input_tokens, data.usage?.output_tokens),
+    responseModel: data.model ?? OPENAI_MODEL,
+    providerRequestId: data.id,
   };
 }
 
@@ -159,7 +186,14 @@ export async function generateWithAnthropic(
   if (!output) return { error: "Anthropic returned an empty response." };
 
   const data = payload as {
-    usage?: { input_tokens?: number; output_tokens?: number };
+    id?: string;
+    model?: string;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_read_input_tokens?: number | null;
+      cache_creation_input_tokens?: number | null;
+    };
     stop_reason?: string;
   };
   const promptTokens = data.usage?.input_tokens;
@@ -176,6 +210,9 @@ export async function generateWithAnthropic(
         : undefined,
     truncated: data.stop_reason === "max_tokens",
     stopReason: data.stop_reason,
+    usage: safeUsage(() => normalizeAnthropicUsage(data.usage ?? {}), promptTokens, completionTokens),
+    responseModel: data.model ?? ANTHROPIC_MODEL,
+    providerRequestId: data.id,
   };
 }
 
