@@ -1,3 +1,4 @@
+import { openAiChatMeta, withBilledUsage } from "../../../costs/providerMeta";
 import type { ExtractionProvider, ExtractionProviderCall, ExtractionProviderOutput } from "../provider";
 import { ExtractionProviderError } from "../provider";
 
@@ -79,26 +80,31 @@ export class OpenAiExtractionProvider implements ExtractionProvider {
     }
 
     const json = (await response.json()) as ChatCompletionsResponse;
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new ExtractionProviderError("OpenAI extraction call returned no content", true);
-    }
-
-    let data: unknown;
     try {
-      data = JSON.parse(content);
-    } catch {
-      throw new ExtractionProviderError("OpenAI extraction call returned malformed JSON", false);
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new ExtractionProviderError("OpenAI extraction call returned no content", true);
+      }
+
+      let data: unknown;
+      try {
+        data = JSON.parse(content);
+      } catch {
+        throw new ExtractionProviderError("OpenAI extraction call returned malformed JSON", false);
+      }
+
+      const inputTokens = json.usage?.prompt_tokens ?? 0;
+      const outputTokens = json.usage?.completion_tokens ?? 0;
+
+      return {
+        data,
+        inputTokens,
+        outputTokens,
+        costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
+        ...openAiChatMeta(json),
+      };
+    } catch (err) {
+      throw withBilledUsage(err, openAiChatMeta(json));
     }
-
-    const inputTokens = json.usage?.prompt_tokens ?? 0;
-    const outputTokens = json.usage?.completion_tokens ?? 0;
-
-    return {
-      data,
-      inputTokens,
-      outputTokens,
-      costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
-    };
   }
 }

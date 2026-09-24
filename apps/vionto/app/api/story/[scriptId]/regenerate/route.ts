@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { recordViontoCost, storyStableId } from "@/lib/server/ai/cost-ledger";
 import { prisma } from "@asafarim/db";
 import { getAuthedUser, unauthorized, badRequest, serverError } from "@/lib/server/auth";
 import {
@@ -146,8 +148,29 @@ export async function POST(
       srtText = lines.join("\n");
     }
 
+    // Issue #588: one story event per regenerated script, recorded before the
+    // save because the provider has already billed the call.
+    const newScriptId = randomUUID();
+    await recordViontoCost({
+      userId: user.id,
+      operation: "story",
+      subjectType: "script",
+      subjectId: newScriptId,
+      projectId: existing.projectId,
+      provider: success.provider,
+      requestModel: success.model,
+      responseModel: success.responseModel,
+      providerRequestId: success.providerRequestId ?? null,
+      promptVersion: PROMPT_VERSION,
+      usage: success.usage,
+      credentialSource: "platform",
+      latencyMs: Date.now() - startedAt,
+      stableId: storyStableId(newScriptId),
+    });
+
     const newScript = await prisma.viontoScript.create({
       data: {
+        id: newScriptId,
         projectId: existing.projectId,
         userId: user.id,
         promptVersion: PROMPT_VERSION,

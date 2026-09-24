@@ -8,7 +8,9 @@ import { ExtractionProviderError } from "./provider";
  * registry) so these run under `pnpm test` — no RESUMATCH_TEST_DATABASE_URL
  * needed. degraded.integration.test.ts covers the same behavior end-to-end
  * against a real database; this file exists so the safety property itself
- * (never blocks on a provider outage, never ledgers a failed call) is
+ * (never blocks on a provider outage; a call that never got a response is
+ * never ledgered, while a billed response that fails validation is — as a
+ * `failed` cost event, issue #586) is
  * exhausted somewhere `pnpm test` actually runs.
  */
 
@@ -22,6 +24,20 @@ vi.mock("../../tailoring/ai/quota", async () => {
     ...actual,
     assertCanRunProviderCall: (...args: unknown[]) => assertCanRunProviderCall(...args),
     recordUsage: (...args: unknown[]) => recordUsage(...args),
+    // Same contract as the real settleProviderCall (issue #586), routed
+    // through the recordUsage mock so assertions see every ledger write.
+    settleProviderCall: async <T,>(usage: Record<string, unknown>, validate: () => T): Promise<T> => {
+      let result: T;
+      try {
+        result = validate();
+      } catch (err) {
+        await recordUsage({ ...usage, outcome: "failed" });
+        throw err;
+      }
+      await recordUsage({ ...usage, outcome: "succeeded" });
+      return result;
+    },
+    recordBilledFailure: async () => {},
   };
 });
 
@@ -93,7 +109,10 @@ describe("extractProfileWithFallback — degrade paths", () => {
 
     expect(result.degraded).toBe(true);
     expect(extract).toHaveBeenCalledTimes(1); // schema failures are never retried
-    expect(recordUsage).not.toHaveBeenCalled();
+    // The provider billed this response even though it was unusable, so it
+    // is recorded once, as a failed call (issue #586) — not dropped.
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ kind: "extract", outcome: "failed" }));
   });
 
   it("records ledger usage and returns a non-degraded result on a successful, valid call", async () => {

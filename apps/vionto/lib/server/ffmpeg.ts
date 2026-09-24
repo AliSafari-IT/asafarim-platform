@@ -235,7 +235,9 @@ function buildSubtitleFilter(style: SubtitleStyle, srtPath: string, dimensions: 
 
   const shadowVal = style.shadow ? (style.shadowOffset ?? 2) : 0;
 
-  const alignMap = { bottom: { left: 1, center: 2, right: 3 }, center: { left: 4, center: 5, right: 6 }, top: { left: 7, center: 8, right: 9 } };
+  // libass reads force_style Alignment as legacy SSA v4 values (1-3 bottom,
+  // 5-7 top, 9-11 middle), not the ASS numpad layout — numpad 8 renders mid-frame.
+  const alignMap = { bottom: { left: 1, center: 2, right: 3 }, top: { left: 5, center: 6, right: 7 }, center: { left: 9, center: 10, right: 11 } };
   const vPos = style.position ?? "bottom";
   const hAlign = style.alignment ?? "center";
   const alignment = alignMap[vPos]?.[hAlign] ?? 2;

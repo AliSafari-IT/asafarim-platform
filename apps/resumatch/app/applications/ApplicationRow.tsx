@@ -44,11 +44,16 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
         />
       </div>
 
-      {application.tailoredResume ? (
-        <a href={`/tailor/${application.tailoredResume.id}/preview`} style={{ fontSize: "0.85rem" }}>
-          View tailored resume
+      <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+        {application.tailoredResume ? (
+          <a href={`/tailor/${application.tailoredResume.id}/preview`} style={{ fontSize: "0.85rem" }}>
+            View tailored resume
+          </a>
+        ) : null}
+        <a href={`/ai-usage?job=${encodeURIComponent(application.targetJobId)}&preset=year`} style={{ fontSize: "0.85rem" }}>
+          AI cost for this job
         </a>
-      ) : null}
+      </div>
 
       <label className="jm-field" style={{ marginTop: "0.5rem" }}>
         <span>Notes</span>

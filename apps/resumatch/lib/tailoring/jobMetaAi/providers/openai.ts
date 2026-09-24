@@ -1,3 +1,4 @@
+import { openAiChatMeta, withBilledUsage } from "../../../costs/providerMeta";
 import { parseJobMetaOutput } from "../schema";
 import { JobMetaProviderError } from "../provider";
 import type { JobMetaProvider, JobMetaProviderCall, JobMetaProviderOutput } from "../provider";
@@ -54,34 +55,39 @@ export class OpenAiJobMetaProvider implements JobMetaProvider {
     }
 
     const json = (await response.json()) as ChatCompletionsResponse;
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new JobMetaProviderError("OpenAI job-meta call returned no content", true);
-    }
-
-    let data: unknown;
     try {
-      data = JSON.parse(content);
-    } catch {
-      throw new JobMetaProviderError("OpenAI job-meta call returned malformed JSON", false);
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new JobMetaProviderError("OpenAI job-meta call returned no content", true);
+      }
+
+      let data: unknown;
+      try {
+        data = JSON.parse(content);
+      } catch {
+        throw new JobMetaProviderError("OpenAI job-meta call returned malformed JSON", false);
+      }
+
+      let parsed;
+      try {
+        parsed = parseJobMetaOutput(data);
+      } catch {
+        throw new JobMetaProviderError("OpenAI job-meta call returned an unexpected shape", false);
+      }
+
+      const inputTokens = json.usage?.prompt_tokens ?? 0;
+      const outputTokens = json.usage?.completion_tokens ?? 0;
+
+      return {
+        title: parsed.title,
+        employer: parsed.employer,
+        inputTokens,
+        outputTokens,
+        costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
+        ...openAiChatMeta(json),
+      };
+    } catch (err) {
+      throw withBilledUsage(err, openAiChatMeta(json));
     }
-
-    let parsed;
-    try {
-      parsed = parseJobMetaOutput(data);
-    } catch {
-      throw new JobMetaProviderError("OpenAI job-meta call returned an unexpected shape", false);
-    }
-
-    const inputTokens = json.usage?.prompt_tokens ?? 0;
-    const outputTokens = json.usage?.completion_tokens ?? 0;
-
-    return {
-      title: parsed.title,
-      employer: parsed.employer,
-      inputTokens,
-      outputTokens,
-      costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
-    };
   }
 }

@@ -31,11 +31,19 @@ describe.skipIf(!TEST_DB)("GET /api/internal/audit-events", () => {
     });
     workspaceId = ws.id;
 
+    // Explicit, distinct timestamps: createMany stamps every row with the
+    // same now(), which leaves "newest first" undefined.
+    const base = Date.now();
     await db.auditEvent.createMany({
       data: [
-        { workspaceId, action: "document.uploaded", metadata: { count: 1024 } },
-        { workspaceId, action: "document.quarantined", metadata: { reasonCode: "SCANNER_UNAVAILABLE" } },
-        { workspaceId, action: "profile.confirmed", metadata: {} },
+        { workspaceId, action: "document.uploaded", metadata: { count: 1024 }, createdAt: new Date(base - 2000) },
+        {
+          workspaceId,
+          action: "document.quarantined",
+          metadata: { reasonCode: "SCANNER_UNAVAILABLE" },
+          createdAt: new Date(base - 1000),
+        },
+        { workspaceId, action: "profile.confirmed", metadata: {}, createdAt: new Date(base) },
       ],
     });
   });
@@ -96,5 +104,38 @@ describe.skipIf(!TEST_DB)("GET /api/internal/audit-events", () => {
     const nextBody = await nextRes.json();
     expect(nextBody.events).toHaveLength(1);
     expect(nextBody.nextCursor).toBeNull();
+  });
+
+  it("pages through rows sharing a createdAt without repeating or dropping any", async () => {
+    const ws = await db.workspace.create({
+      data: { platformUserId: `audit-events-ties-${Date.now()}` },
+      select: { id: true },
+    });
+    const createdAt = new Date();
+    await db.auditEvent.createMany({
+      data: Array.from({ length: 7 }, (_, i) => ({ workspaceId: ws.id, action: `tie.${i}`, createdAt })),
+    });
+
+    try {
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      do {
+        const res = await GET(
+          new Request(
+            `http://localhost/api/internal/audit-events?workspaceId=${ws.id}&limit=2${cursor ? `&cursor=${cursor}` : ""}`,
+            { headers: { authorization: `Bearer ${process.env.INTERNAL_API_SECRET}` } },
+          ),
+        );
+        const body = await res.json();
+        seen.push(...body.events.map((event: { id: string }) => event.id));
+        cursor = body.nextCursor;
+      } while (cursor);
+
+      expect(seen).toHaveLength(7);
+      expect(new Set(seen).size).toBe(7);
+    } finally {
+      await db.auditEvent.deleteMany({ where: { workspaceId: ws.id } });
+      await db.workspace.deleteMany({ where: { id: ws.id } });
+    }
   });
 });

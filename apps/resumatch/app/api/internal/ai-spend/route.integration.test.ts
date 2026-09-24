@@ -51,6 +51,24 @@ describe.skipIf(!TEST_DB)("GET /api/internal/ai-spend — ledger reconciliation"
         },
       ],
     });
+
+    const { recordProviderCost } = await import("../../../../lib/costs/ledger");
+    await recordProviderCost({
+      workspaceId,
+      operation: "cover_letter",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      outputTokens: 1_000_000,
+      attribution: { subjectType: "target_job", subjectId: "j1", targetJobId: "j1" },
+    });
+    await recordProviderCost({
+      workspaceId,
+      operation: "cover_letter",
+      provider: "mistral",
+      model: "unpriced-model",
+      outputTokens: 10,
+      attribution: { subjectType: "target_job", subjectId: "j1", targetJobId: "j1" },
+    });
   });
 
   afterAll(async () => {
@@ -77,6 +95,13 @@ describe.skipIf(!TEST_DB)("GET /api/internal/ai-spend — ledger reconciliation"
     expect(body.ledger.callCount).toBe(2);
     expect(body.ledger.byKind).toEqual([
       { kind: "tailor", costUsd: expect.closeTo(0.003, 6), callCount: 2 },
+    ]);
+
+    expect(body.costEvents.eventCount).toBe(2);
+    expect(body.costEvents.effectiveKnownMicros).toBe("600000");
+    expect(body.costEvents.unknownCount).toBe(1);
+    expect(body.costEvents.byOperation).toEqual([
+      expect.objectContaining({ operation: "cover_letter", eventCount: 2, unknownCount: 1 }),
     ]);
   });
 });

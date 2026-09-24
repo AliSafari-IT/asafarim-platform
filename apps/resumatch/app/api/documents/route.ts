@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { MAX_DOCUMENT_BYTES } from "../../../lib/documents/fileType";
 import { explainReasonCode } from "../../../lib/documents/pipeline";
-import { extractDocument, listDocuments, uploadDocument } from "../../../lib/documents/service";
+import { extractDocument, listDocuments, uploadDocument, shouldCallExtractionAgain } from "../../../lib/documents/service";
 import { logError } from "../../../lib/observability/logger";
 import { getCurrentWorkspace } from "../../../lib/workspace";
 
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   // does not hand the document a fresh set of attempts. When M3 brings
   // BullMQ in for ingestion, this loop is what a queued job replaces.
   let extraction = await extractDocument(workspace.id, result.documentId);
-  while (!extraction.ok && extraction.status === "EXTRACTING") {
+  while (shouldCallExtractionAgain(extraction)) {
     extraction = await extractDocument(workspace.id, result.documentId);
   }
 

@@ -1,3 +1,4 @@
+import { anthropicMeta, withBilledUsage } from "../../../../costs/providerMeta";
 import type { CoverLetterProvider, CoverLetterProviderCall, CoverLetterProviderOutput } from "../provider";
 import { CoverLetterProviderError } from "../provider";
 import { parseCoverLetterSuggestion } from "../schema";
@@ -65,21 +66,26 @@ export class AnthropicCoverLetterProvider implements CoverLetterProvider {
     }
 
     const json = (await response.json()) as AnthropicMessagesResponse;
-    const text = json.content?.find((block) => block.type === "text")?.text;
-    if (!text) {
-      throw new CoverLetterProviderError("Anthropic cover-letter call returned no text content", true);
+    try {
+      const text = json.content?.find((block) => block.type === "text")?.text;
+      if (!text) {
+        throw new CoverLetterProviderError("Anthropic cover-letter call returned no text content", true);
+      }
+
+      const suggestion = parseCoverLetterSuggestion(extractJsonBlock(text));
+
+      const inputTokens = json.usage?.input_tokens ?? 0;
+      const outputTokens = json.usage?.output_tokens ?? 0;
+
+      return {
+        suggestion,
+        inputTokens,
+        outputTokens,
+        costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
+        ...anthropicMeta(json),
+      };
+    } catch (err) {
+      throw withBilledUsage(err, anthropicMeta(json));
     }
-
-    const suggestion = parseCoverLetterSuggestion(extractJsonBlock(text));
-
-    const inputTokens = json.usage?.input_tokens ?? 0;
-    const outputTokens = json.usage?.output_tokens ?? 0;
-
-    return {
-      suggestion,
-      inputTokens,
-      outputTokens,
-      costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
-    };
   }
 }

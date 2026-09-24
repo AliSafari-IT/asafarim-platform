@@ -1,6 +1,7 @@
 import { logError } from "../../observability/logger";
 import { getEnv, type ResuMatchAiProvider } from "../../env";
-import { assertCanRunProviderCall, recordUsage, QuotaExceededError } from "../ai/quota";
+import { assertCanRunProviderCall, recordBilledFailure, settleProviderCall, QuotaExceededError } from "../ai/quota";
+import type { CostAttribution } from "../../costs/ledger";
 import { fetchJobPosting, isPublicHttpsUrl, type JobFetchResult } from "../fetchJob";
 import { renderJobFetchPrompt } from "./prompts";
 import { JobFetchProviderError } from "./provider";
@@ -32,8 +33,17 @@ function degradeToRawFetch(url: string): Promise<JobFetchOutcome> {
 export async function fetchJobWithFallback(
   workspaceId: string,
   url: string,
-  opts: { provider?: ResuMatchAiProvider } = {},
+  opts: {
+    provider?: ResuMatchAiProvider;
+    /** Existing (refresh) or pre-minted (first fetch) TargetJob id (issue #586). */
+    targetJobId?: string;
+  } = {},
 ): Promise<JobFetchOutcome> {
+  const attribution: CostAttribution = {
+    subjectType: "target_job",
+    subjectId: opts.targetJobId ?? workspaceId,
+    targetJobId: opts.targetJobId ?? null,
+  };
   if (!isPublicHttpsUrl(url)) return { ok: false, reasonCode: "URL_NOT_ALLOWED" };
 
   const aiProvider = opts.provider ?? getEnv().aiProvider;
@@ -48,6 +58,7 @@ export async function fetchJobWithFallback(
 
     for (let attempt = 1; ; attempt++) {
       try {
+        const started = Date.now();
         const output = await provider.fetch({
           url,
           system: prompt.system,
@@ -59,22 +70,21 @@ export async function fetchJobWithFallback(
         // A response that doesn't match the schema is a failed call, not a
         // partial apply — thrown here so it degrades below. Never retried:
         // the same malformed shape would recur against the same input.
-        const parsed = parseJobFetchOutput({
-          title: output.title,
-          employer: output.employer,
-          rawText: output.rawText,
-        });
-
-        await recordUsage({
-          workspaceId,
-          kind: "fetch_job",
-          provider: aiProvider,
-          model: modelVersion,
-          promptVersion: prompt.version,
-          inputTokens: output.inputTokens,
-          outputTokens: output.outputTokens,
-          costUsd: output.costUsd,
-        });
+        const parsed = await settleProviderCall(
+          {
+            workspaceId,
+            kind: "fetch_job",
+            provider: aiProvider,
+            model: modelVersion,
+            promptVersion: prompt.version,
+            inputTokens: output.inputTokens,
+            outputTokens: output.outputTokens,
+            meta: output,
+            latencyMs: Date.now() - started,
+            attribution,
+          },
+          () => parseJobFetchOutput({ title: output.title, employer: output.employer, rawText: output.rawText }),
+        );
 
         return {
           ok: true,
@@ -84,6 +94,7 @@ export async function fetchJobWithFallback(
           degraded: false,
         };
       } catch (err) {
+        await recordBilledFailure(err, { workspaceId, kind: "fetch_job", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
         const retryable = err instanceof JobFetchProviderError ? err.retryable : false;
         logError("tailoring.job_fetch_ai.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
         if (attempt >= MAX_ATTEMPTS || !retryable) throw err;

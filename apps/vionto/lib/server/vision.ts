@@ -3,6 +3,7 @@
  * Generates image captions using AI providers (OpenAI Vision, Anthropic, etc.)
  */
 
+import { normalizeAnthropicUsage, normalizeOpenAiUsage, type UsageLine } from "@asafarim/ai-cost-ledger";
 import { getObjectBytes } from "./storage";
 
 export type CaptionProvider = "openai" | "anthropic" | "google" | "manual";
@@ -12,7 +13,19 @@ export type CaptionResult = {
   model: string;
   tokens?: number;
   latencyMs?: number;
+  /** Exclusive usage buckets for the AI cost ledger (issue #588). */
+  usage?: UsageLine[];
+  responseModel?: string;
+  providerRequestId?: string;
 };
+
+function safeUsage(fn: () => UsageLine[]): UsageLine[] | undefined {
+  try {
+    return fn();
+  } catch {
+    return undefined;
+  }
+}
 
 const MAX_VISION_IMAGE_BYTES = 20 * 1024 * 1024;
 
@@ -89,6 +102,9 @@ async function captionWithOpenAI(imageBuffer: Buffer, mediaType: string, locale:
     model,
     tokens,
     latencyMs,
+    usage: data.usage ? safeUsage(() => normalizeOpenAiUsage(data.usage)) : undefined,
+    responseModel: data.model ?? model,
+    providerRequestId: data.id,
   };
 }
 
@@ -155,6 +171,9 @@ async function captionWithAnthropic(imageBuffer: Buffer, mediaType: string, loca
     model,
     tokens,
     latencyMs,
+    usage: data.usage ? safeUsage(() => normalizeAnthropicUsage(data.usage)) : undefined,
+    responseModel: data.model ?? model,
+    providerRequestId: data.id,
   };
 }
 

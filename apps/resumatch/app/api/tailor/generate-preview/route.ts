@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { runTailorProviderCall } from "../../../../lib/tailoring/ai/generate";
 import { MAX_INSTRUCTIONS_CHARS } from "../../../../lib/tailoring/ai/prompts";
@@ -78,6 +79,11 @@ export async function POST(request: Request) {
   }
 
   const profile = version.content;
+  // Minted up front so both provider calls' cost events can name this
+  // preview as their subject and share it as their workflow id (issue
+  // #586) — two separate line items, one user action.
+  const previewId = randomUUID();
+  const cost = { subjectType: "tailor_preview" as const, subjectId: previewId, workflowId: previewId };
   // Run sequentially, not via Promise.all (issue #526). Both calls go
   // through quota.ts's assertCanRunProviderCall, which is a plain
   // check-then-later-write against AiUsageLedger — running them
@@ -92,6 +98,8 @@ export async function POST(request: Request) {
     profile,
     targetJob.rawText,
     typeof instructions === "string" ? instructions : null,
+    undefined,
+    cost,
   );
   const coverLetterResult =
     includeCoverLetter === true
@@ -102,6 +110,8 @@ export async function POST(request: Request) {
           targetJob.rawText,
           coverLetterTone as never,
           coverLetterLength as never,
+          undefined,
+          cost,
         )
       : null;
   const { suggestions, degraded, promptVersion, modelVersion } = tailorResult;
@@ -111,6 +121,7 @@ export async function POST(request: Request) {
   // trusting promptVersion/modelVersion/degraded echoed back by the client.
   const preview = await db.tailorPreview.create({
     data: {
+      id: previewId,
       workspaceId: workspace.id,
       profileVersionId,
       targetJobId,

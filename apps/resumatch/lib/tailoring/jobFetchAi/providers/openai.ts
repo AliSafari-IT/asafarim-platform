@@ -1,3 +1,4 @@
+import { openAiResponsesMeta, withBilledUsage } from "../../../costs/providerMeta";
 import type { JobFetchProvider, JobFetchProviderCall, JobFetchProviderOutput } from "../provider";
 import { JobFetchProviderError } from "../provider";
 
@@ -100,23 +101,28 @@ export class OpenAiJobFetchProvider implements JobFetchProvider {
     }
 
     const json = (await response.json()) as ResponsesApiResponse;
-    const message = (json.output ?? []).find((item) => item.type === "message");
-    const text = message?.content?.find((c) => c.type === "output_text")?.text;
-    if (!text) {
-      throw new JobFetchProviderError("OpenAI job-fetch call returned no text output", true);
+    try {
+      const message = (json.output ?? []).find((item) => item.type === "message");
+      const text = message?.content?.find((c) => c.type === "output_text")?.text;
+      if (!text) {
+        throw new JobFetchProviderError("OpenAI job-fetch call returned no text output", true);
+      }
+
+      const data = extractJsonBlock(text) as { title?: unknown; employer?: unknown; rawText?: unknown };
+      const inputTokens = json.usage?.input_tokens ?? 0;
+      const outputTokens = json.usage?.output_tokens ?? 0;
+
+      return {
+        title: typeof data.title === "string" ? data.title : null,
+        employer: typeof data.employer === "string" ? data.employer : null,
+        rawText: typeof data.rawText === "string" ? data.rawText : "",
+        inputTokens,
+        outputTokens,
+        costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
+        ...openAiResponsesMeta(json),
+      };
+    } catch (err) {
+      throw withBilledUsage(err, openAiResponsesMeta(json));
     }
-
-    const data = extractJsonBlock(text) as { title?: unknown; employer?: unknown; rawText?: unknown };
-    const inputTokens = json.usage?.input_tokens ?? 0;
-    const outputTokens = json.usage?.output_tokens ?? 0;
-
-    return {
-      title: typeof data.title === "string" ? data.title : null,
-      employer: typeof data.employer === "string" ? data.employer : null,
-      rawText: typeof data.rawText === "string" ? data.rawText : "",
-      inputTokens,
-      outputTokens,
-      costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
-    };
   }
 }

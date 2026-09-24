@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { explainReasonCode } from "../../../../../lib/documents/pipeline";
-import { extractDocument, rescanDocument } from "../../../../../lib/documents/service";
+import { extractDocument, rescanDocument, shouldCallExtractionAgain } from "../../../../../lib/documents/service";
 import { getCurrentWorkspace } from "../../../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +52,7 @@ export async function POST(
   // upload does — a rescan that clears a document but leaves it sitting
   // unread would just move the confusion one step later.
   let extraction = await extractDocument(workspace.id, documentId);
-  while (!extraction.ok && extraction.status === "EXTRACTING") {
+  while (shouldCallExtractionAgain(extraction)) {
     extraction = await extractDocument(workspace.id, documentId);
   }
 
