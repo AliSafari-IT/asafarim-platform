@@ -1,3 +1,4 @@
+import { openAiChatMeta, withBilledUsage } from "../../../../costs/providerMeta";
 import type { CoverLetterProvider, CoverLetterProviderCall, CoverLetterProviderOutput } from "../provider";
 import { CoverLetterProviderError } from "../provider";
 import { parseCoverLetterSuggestion } from "../schema";
@@ -49,28 +50,33 @@ export class OpenAiCoverLetterProvider implements CoverLetterProvider {
     }
 
     const json = (await response.json()) as ChatCompletionsResponse;
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new CoverLetterProviderError("OpenAI cover-letter call returned no content", true);
-    }
-
-    let data: unknown;
     try {
-      data = JSON.parse(content);
-    } catch {
-      throw new CoverLetterProviderError("OpenAI cover-letter call returned malformed JSON", false);
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new CoverLetterProviderError("OpenAI cover-letter call returned no content", true);
+      }
+
+      let data: unknown;
+      try {
+        data = JSON.parse(content);
+      } catch {
+        throw new CoverLetterProviderError("OpenAI cover-letter call returned malformed JSON", false);
+      }
+
+      const suggestion = parseCoverLetterSuggestion(data);
+
+      const inputTokens = json.usage?.prompt_tokens ?? 0;
+      const outputTokens = json.usage?.completion_tokens ?? 0;
+
+      return {
+        suggestion,
+        inputTokens,
+        outputTokens,
+        costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
+        ...openAiChatMeta(json),
+      };
+    } catch (err) {
+      throw withBilledUsage(err, openAiChatMeta(json));
     }
-
-    const suggestion = parseCoverLetterSuggestion(data);
-
-    const inputTokens = json.usage?.prompt_tokens ?? 0;
-    const outputTokens = json.usage?.completion_tokens ?? 0;
-
-    return {
-      suggestion,
-      inputTokens,
-      outputTokens,
-      costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
-    };
   }
 }

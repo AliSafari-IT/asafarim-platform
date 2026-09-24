@@ -324,7 +324,7 @@ export async function extractDocument(
   }
 
   try {
-    const profile = await extractProfileWithFallback(workspaceId, extracted.text);
+    const profile = await extractProfileWithFallback(workspaceId, extracted.text, { documentId });
 
     const version = await createVersion({
       workspaceId,

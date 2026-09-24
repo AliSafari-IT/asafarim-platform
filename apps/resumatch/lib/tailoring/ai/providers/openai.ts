@@ -1,3 +1,4 @@
+import { openAiChatMeta, withBilledUsage } from "../../../costs/providerMeta";
 import type { TailorProvider, TailorProviderCall, TailorProviderOutput } from "../provider";
 import { TailorProviderError } from "../provider";
 import { parseTailorSuggestions } from "../schema";
@@ -61,31 +62,36 @@ export class OpenAiTailorProvider implements TailorProvider {
     }
 
     const json = (await response.json()) as ChatCompletionsResponse;
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new TailorProviderError("OpenAI tailoring call returned no content", true);
-    }
-
-    let data: unknown;
     try {
-      data = JSON.parse(content);
-    } catch {
-      throw new TailorProviderError("OpenAI tailoring call returned malformed JSON", false);
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new TailorProviderError("OpenAI tailoring call returned no content", true);
+      }
+
+      let data: unknown;
+      try {
+        data = JSON.parse(content);
+      } catch {
+        throw new TailorProviderError("OpenAI tailoring call returned malformed JSON", false);
+      }
+
+      // parseTailorSuggestions is the same structural lock generate.ts's
+      // mergeTailoringSuggestions relies on regardless of provider — a
+      // response that doesn't match is a failed call, not a partial apply.
+      const suggestions = parseTailorSuggestions(data);
+
+      const inputTokens = json.usage?.prompt_tokens ?? 0;
+      const outputTokens = json.usage?.completion_tokens ?? 0;
+
+      return {
+        suggestions,
+        inputTokens,
+        outputTokens,
+        costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
+        ...openAiChatMeta(json),
+      };
+    } catch (err) {
+      throw withBilledUsage(err, openAiChatMeta(json));
     }
-
-    // parseTailorSuggestions is the same structural lock generate.ts's
-    // mergeTailoringSuggestions relies on regardless of provider — a
-    // response that doesn't match is a failed call, not a partial apply.
-    const suggestions = parseTailorSuggestions(data);
-
-    const inputTokens = json.usage?.prompt_tokens ?? 0;
-    const outputTokens = json.usage?.completion_tokens ?? 0;
-
-    return {
-      suggestions,
-      inputTokens,
-      outputTokens,
-      costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
-    };
   }
 }

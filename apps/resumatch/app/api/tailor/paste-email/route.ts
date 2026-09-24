@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { MAX_EXTRACTED_CHARACTERS, MIN_USEFUL_CHARACTERS } from "../../../../lib/tailoring/fetchJob";
 import { inferJobMetaWithFallback } from "../../../../lib/tailoring/jobMetaAi/degraded";
@@ -48,10 +49,12 @@ export async function POST(request: Request) {
   // The header guess (subject/From line) is cheap and often right when the
   // email actually names the role there; only spend an AI call filling in
   // whichever half it missed, rather than redoing both from scratch.
+  // Pre-minted so a metadata call's cost event names this job (issue #586).
+  const targetJobId = randomUUID();
   let title = parsed.guessedTitle;
   let employer = parsed.guessedEmployer;
   if (!title || !employer) {
-    const meta = await inferJobMetaWithFallback(workspace.id, rawText);
+    const meta = await inferJobMetaWithFallback(workspace.id, rawText, { targetJobId });
     title = title ?? meta.title;
     employer = employer ?? meta.employer;
   }
@@ -59,6 +62,7 @@ export async function POST(request: Request) {
   const db = getJobmatchDb();
   const targetJob = await db.targetJob.create({
     data: {
+      id: targetJobId,
       workspaceId: workspace.id,
       // No fetch happened — same sentinel pattern paste-job uses for
       // sourceUrl, a required column with no real URL here (see #458).

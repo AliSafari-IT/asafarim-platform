@@ -51,6 +51,7 @@ model Workspace {
   applications    Application[]
   coverLetters    CoverLetter[]
   tailorPreviews  TailorPreview[]
+  aiCostEvents    AiCostEvent[]
 
   @@map("workspaces")
 }
@@ -573,4 +574,92 @@ model AiUsageLedger {
 
   @@index([workspaceId, createdAt])
   @@map("ai_usage_ledger")
+}
+
+// ─── AI cost ledger (milestone #31, issue #586) ───────────────────────────
+//
+// Implements the platform AI cost-event contract (@asafarim/ai-cost-ledger,
+// docs/adr/0003-ai-cost-event-contract.md) inside this isolated database.
+// Supersedes AiUsageLedger for new writes; legacy rows stay where they are
+// and are read as "legacy / unattributed" history (lib/costs/read.ts) and
+// still count toward the monthly budget (lib/tailoring/ai/quota.ts).
+
+/// One immutable row per metered provider call, attributed at call time to
+/// the most specific durable entity it served. UPDATE is rejected by a
+/// database trigger (see the migration); corrections are new `adjustment`
+/// rows pointing at `supersedesEventId`. Operational metadata only — no
+/// CV text, job text, prompt, response or secret ever lands here.
+model AiCostEvent {
+  id             String   @id @default(cuid())
+  /// `resumatch:<operation>:<provider request id | call id>`. Unique, so a
+  /// retried write is a no-op (insert with skipDuplicates).
+  idempotencyKey String   @unique
+  schemaVersion  Int      @default(1)
+  /// usage | adjustment
+  entryType      String   @default("usage")
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Opaque platform user id of the candidate who triggered the call.
+  actorId     String?
+
+  /// tailor | extract | rewrite | fetch_job | cover_letter | categorize_skills | job_meta
+  operation String
+  /// succeeded | degraded | failed | cancelled
+  outcome   String @default("succeeded")
+  /// provisional | final
+  finality  String @default("provisional")
+
+  /// target_job | tailor_preview | tailored_resume | candidate_document | candidate_profile
+  subjectType       String
+  subjectId         String
+  parentSubjectType String?
+  parentSubjectId   String?
+  /// Denormalized job link for job/application subtotals. Plain column, not
+  /// a FK: deleting a job must not delete the record that money was spent.
+  /// An Application resolves through its own targetJobId at read time, so
+  /// an application saved after generation never rewrites an old event.
+  targetJobId       String?
+  /// Groups separate line items of one user action (tailor + cover letter
+  /// in one preview share the preview id).
+  workflowId        String?
+  traceId           String?
+
+  provider          String
+  requestModel      String?
+  responseModel     String
+  providerRequestId String?
+  promptVersion     String?
+  pricingTier       String?
+
+  /// Exclusive usage buckets: [{ bucket, unit, quantity }].
+  usage        Json    @default("[]")
+  /// Σ input-side / output-side token buckets, denormalized for cheap sums.
+  inputTokens  Int     @default(0)
+  outputTokens Int     @default(0)
+
+  currency              String  @default("USD")
+  /// Integer USD micros. null = unknown — never a placeholder 0.
+  estimatedCostMicros   BigInt?
+  actualCostMicros      BigInt?
+  adjustmentDeltaMicros BigInt?
+  /// provider_reported | registry_estimate | reconciled_adjustment | unknown
+  costSource            String
+  /// platform | user_byok | none
+  credentialSource      String
+  pricingSnapshot       Json?
+  fixture               Boolean @default(false)
+
+  supersedesEventId String?
+  latencyMs         Int?
+  metadata          Json    @default("{}")
+
+  occurredAt  DateTime
+  finalizedAt DateTime?
+  recordedAt  DateTime @default(now())
+
+  @@index([workspaceId, occurredAt(sort: Desc), id(sort: Desc)])
+  @@index([workspaceId, targetJobId])
+  @@index([workspaceId, workflowId])
+  @@map("ai_cost_events")
 }

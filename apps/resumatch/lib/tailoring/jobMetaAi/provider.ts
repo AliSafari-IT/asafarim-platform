@@ -1,3 +1,4 @@
+import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
 
 /**
@@ -26,7 +27,7 @@ export interface JobMetaProviderCall {
   signal?: AbortSignal;
 }
 
-export interface JobMetaProviderOutput {
+export interface JobMetaProviderOutput extends ProviderCallMeta {
   title: string | null;
   employer: string | null;
   inputTokens: number;

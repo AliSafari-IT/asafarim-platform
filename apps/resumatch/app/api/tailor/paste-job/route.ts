@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { normalizeWhitespace } from "../../../../lib/extraction/text";
 import { MAX_EXTRACTED_CHARACTERS, MIN_USEFUL_CHARACTERS } from "../../../../lib/tailoring/fetchJob";
@@ -50,11 +51,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const meta = await inferJobMetaWithFallback(workspace.id, rawText);
+  // Pre-minted so the metadata call's cost event names this job (issue #586).
+  const targetJobId = randomUUID();
+  const meta = await inferJobMetaWithFallback(workspace.id, rawText, { targetJobId });
 
   const db = getJobmatchDb();
   const targetJob = await db.targetJob.create({
     data: {
+      id: targetJobId,
       workspaceId: workspace.id,
       // No fetch happened, so there is no real URL — a sentinel keeps
       // sourceUrl (a required column) honest about that rather than

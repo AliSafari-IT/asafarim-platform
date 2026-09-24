@@ -1,3 +1,4 @@
+import { openAiChatMeta, withBilledUsage } from "../../../../costs/providerMeta";
 import { parseCategorizeOutput } from "../schema";
 import { CategorizeSkillsProviderError } from "../provider";
 import type {
@@ -62,37 +63,42 @@ export class OpenAiCategorizeSkillsProvider implements CategorizeSkillsProvider 
     }
 
     const json = (await response.json()) as ChatCompletionsResponse;
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new CategorizeSkillsProviderError("OpenAI categorize call returned no content", true);
-    }
-
-    let data: unknown;
     try {
-      data = JSON.parse(content);
-    } catch {
-      throw new CategorizeSkillsProviderError("OpenAI categorize call returned malformed JSON", false);
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new CategorizeSkillsProviderError("OpenAI categorize call returned no content", true);
+      }
+
+      let data: unknown;
+      try {
+        data = JSON.parse(content);
+      } catch {
+        throw new CategorizeSkillsProviderError("OpenAI categorize call returned malformed JSON", false);
+      }
+
+      // parseCategorizeOutput is only the shape check — schema.ts's
+      // mergeSuggestedCategories (called by the API route, not here) is the
+      // actual no-fabrication lock, the same two-step structure tailoring
+      // and rewrite already use.
+      let suggestions;
+      try {
+        suggestions = parseCategorizeOutput(data);
+      } catch {
+        throw new CategorizeSkillsProviderError("OpenAI categorize call returned an unexpected shape", false);
+      }
+
+      const inputTokens = json.usage?.prompt_tokens ?? 0;
+      const outputTokens = json.usage?.completion_tokens ?? 0;
+
+      return {
+        suggestions,
+        inputTokens,
+        outputTokens,
+        costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
+        ...openAiChatMeta(json),
+      };
+    } catch (err) {
+      throw withBilledUsage(err, openAiChatMeta(json));
     }
-
-    // parseCategorizeOutput is only the shape check — schema.ts's
-    // mergeSuggestedCategories (called by the API route, not here) is the
-    // actual no-fabrication lock, the same two-step structure tailoring
-    // and rewrite already use.
-    let suggestions;
-    try {
-      suggestions = parseCategorizeOutput(data);
-    } catch {
-      throw new CategorizeSkillsProviderError("OpenAI categorize call returned an unexpected shape", false);
-    }
-
-    const inputTokens = json.usage?.prompt_tokens ?? 0;
-    const outputTokens = json.usage?.completion_tokens ?? 0;
-
-    return {
-      suggestions,
-      inputTokens,
-      outputTokens,
-      costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
-    };
   }
 }
