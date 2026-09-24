@@ -5,10 +5,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * behind `RESUMATCH_TEST_DATABASE_URL` and named `*.integration.test.ts`,
  * mirroring the other integration suites in this app (e.g.
  * app/api/internal/ai-spend/route.integration.test.ts) — `pnpm test` never
- * touches a database. Run explicitly:
+ * touches a database. The default vitest.config.ts excludes
+ * `*.integration.test.ts`, so this suite runs via the dedicated
+ * test:integration script (vitest.integration.config.ts), not `vitest run
+ * <path>` directly. Run explicitly:
  *
  *   RESUMATCH_TEST_DATABASE_URL=postgresql://... \
- *     pnpm --filter @asafarim/resumatch exec vitest run lib/tailoring/ai/generate.integration.test.ts
+ *     pnpm --filter @asafarim/resumatch test:integration
  */
 
 const TEST_DB = process.env.RESUMATCH_TEST_DATABASE_URL;

@@ -17,7 +17,11 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["lib/**/*.integration.test.ts", "app/**/*.integration.test.ts"],
+    include: [
+      "lib/**/*.integration.test.ts",
+      "app/**/*.integration.test.ts",
+      "worker/**/*.integration.test.ts",
+    ],
     exclude: ["**/node_modules/**"],
     environment: "node",
     testTimeout: 30_000,
