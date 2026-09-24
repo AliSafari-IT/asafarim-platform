@@ -671,6 +671,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.68.0
         version: 0.68.0(zod@4.4.3)
+      '@asafarim/ai-cost-ledger':
+        specifier: workspace:*
+        version: link:../../packages/ai-cost-ledger
       '@asafarim/auth':
         specifier: workspace:*
         version: link:../../packages/auth
