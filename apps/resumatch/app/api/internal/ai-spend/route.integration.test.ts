@@ -4,10 +4,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * AI spend ledger reconciliation. Calls the route handler directly (a plain
  * async function taking a Request, like every other Next.js Route Handler)
  * against a real database, guarded behind RESUMATCH_TEST_DATABASE_URL like
- * the rest of this app's *.integration.test.ts files.
+ * the rest of this app's *.integration.test.ts files. The default
+ * vitest.config.ts excludes *.integration.test.ts, so this runs via the
+ * dedicated test:integration script (vitest.integration.config.ts), not
+ * `vitest run <path>` directly.
  *
  *   INTERNAL_API_SECRET=test-secret RESUMATCH_TEST_DATABASE_URL=postgresql://... \
- *     pnpm --filter @asafarim/resumatch exec vitest run app/api/internal/ai-spend/route.integration.test.ts
+ *     pnpm --filter @asafarim/resumatch test:integration
  */
 
 const TEST_DB = process.env.RESUMATCH_TEST_DATABASE_URL;
