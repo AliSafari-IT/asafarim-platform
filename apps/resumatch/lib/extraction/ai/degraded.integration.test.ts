@@ -20,22 +20,26 @@ vi.mock("../../platform-settings", () => ({
 const TEST_DB = process.env.RESUMATCH_TEST_DATABASE_URL;
 if (TEST_DB) process.env.RESUMATCH_DATABASE_URL = TEST_DB;
 
+// The dates use a layout the deterministic extractor recognises ("MM/YYYY -
+// MM/YYYY" on the role line). It has never matched an ISO "2020-01 to
+// 2023-12" range; with that range it found no experience at all.
 const SAMPLE_CV = `Jane Doe
 jane@example.test
 
 EXPERIENCE
-ICT Developer at Acme Corp
-2020-01 to 2023-12
+ICT Developer at Acme Corp 01/2020 - 12/2023
 Built full-stack web applications.`;
 
 describe.skipIf(!TEST_DB)("extractProfileWithFallback — end-to-end pipeline", () => {
   let db: import("../../db/generated").PrismaClient;
   let extractProfileWithFallback: typeof import("./degraded").extractProfileWithFallback;
+  let extractProfileFromText: typeof import("../profileExtractor").extractProfileFromText;
   let resetEnvCache: typeof import("../../env").resetEnvCache;
   let workspaceId: string;
 
   beforeAll(async () => {
     ({ extractProfileWithFallback } = await import("./degraded"));
+    ({ extractProfileFromText } = await import("../profileExtractor"));
     ({ resetEnvCache } = await import("../../env"));
     db = (await import("../../db/client")).getJobmatchDb();
 
@@ -64,6 +68,9 @@ describe.skipIf(!TEST_DB)("extractProfileWithFallback — end-to-end pipeline", 
     expect(result.degraded).toBe(true);
     expect(result.extractorName).toBe("resumatch-rules");
     expect(result.content.experience[0]?.employer).toBe("Acme Corp");
+    const { content, confidence } = extractProfileFromText(SAMPLE_CV);
+    expect(result.content).toEqual(content);
+    expect(result.confidence).toEqual(confidence);
 
     const ledger = await db.aiUsageLedger.findMany({ where: { workspaceId, kind: "extract" } });
     expect(ledger).toHaveLength(0);

@@ -49,7 +49,10 @@ export async function GET(request: Request) {
       ...(workspaceId ? { workspaceId } : {}),
       ...(action ? { action } : {}),
     },
-    orderBy: { createdAt: "desc" },
+    // `id` breaks createdAt ties. Rows written in one statement (or the
+    // same millisecond) share a timestamp, and cursor pagination over a
+    // non-unique sort key can repeat or drop rows at a page boundary.
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     select: { id: true, workspaceId: true, action: true, metadata: true, createdAt: true },
