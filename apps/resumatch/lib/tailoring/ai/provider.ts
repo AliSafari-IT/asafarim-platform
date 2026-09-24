@@ -1,3 +1,4 @@
+import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
 import type { TailorSuggestions } from "./schema";
 
@@ -38,7 +39,7 @@ export interface TailorProviderCall {
   signal?: AbortSignal;
 }
 
-export interface TailorProviderOutput {
+export interface TailorProviderOutput extends ProviderCallMeta {
   suggestions: TailorSuggestions;
   inputTokens: number;
   outputTokens: number;

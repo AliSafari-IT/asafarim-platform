@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedUser, unauthorized, badRequest, serverError } from "@/lib/server/auth";
 import { synthesizeSpeech } from "@/lib/server/tts";
+import { recordViontoCost } from "@/lib/server/ai/cost-ledger";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,21 @@ export async function POST(req: Request) {
       body.voiceId,
       body.provider ? [body.provider] : undefined
     );
+
+    if (result.ok) {
+      // Issue #588: voice previews are real, if small, TTS spend.
+      await recordViontoCost({
+        userId: user.id,
+        operation: "tts_preview",
+        subjectType: "user",
+        subjectId: user.id,
+        provider: result.provider,
+        responseModel: result.model ?? result.provider,
+        usage: [{ bucket: "tts_output", unit: "characters", quantity: text.length }],
+        credentialSource: "platform",
+        latencyMs: result.latencyMs,
+      });
+    }
 
     if (!result.ok) {
       return NextResponse.json({ error: result.error, provider: result.provider }, { status: 502 });

@@ -2,6 +2,9 @@ import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // tsconfig sets "jsx": "preserve" for Next; tests that render a
+  // component (lib/costs/format.test.ts) need an actual JSX transform.
+  oxc: { jsx: { runtime: "automatic" } },
   resolve: {
     alias: {
       // vitest runs in a plain Node context, not the Next.js server/client

@@ -47,6 +47,8 @@ describe.skipIf(!TEST_DB)("generate-preview budget serialization (quota.ts)", ()
   afterEach(async () => {
     if (!db || !workspaceId) return;
     await db.aiUsageLedger.deleteMany({ where: { workspaceId } });
+    // Cost events cascade with the workspace (issue #586).
+    await db.workspace.deleteMany({ where: { id: workspaceId } });
   });
 
   afterAll(async () => {
@@ -69,7 +71,17 @@ describe.skipIf(!TEST_DB)("generate-preview budget serialization (quota.ts)", ()
     // The tailor call's own check-then-record, exactly as generate-preview
     // now does it before the cover-letter call starts.
     await assertCanRunProviderCall(workspaceId, "tailor");
-    await recordUsage({ workspaceId, kind: "tailor", provider: "fixture", model: "fixture-1", costUsd: 2 });
+    // A $2 call, priced by lib/costs/pricing.ts: 3,333,334 gpt-4o-mini
+    // output tokens at $0.60/1M. Lands in AiCostEvent (issue #586), which
+    // usageSummary sums alongside the legacy AiUsageLedger row above.
+    await recordUsage({
+      workspaceId,
+      kind: "tailor",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      outputTokens: 3_333_334,
+      attribution: { subjectType: "target_job", subjectId: "job_race", targetJobId: "job_race" },
+    });
 
     // The cover-letter call's check now runs against the up-to-date total
     // ($21), not the stale pre-spend total both calls would have read under

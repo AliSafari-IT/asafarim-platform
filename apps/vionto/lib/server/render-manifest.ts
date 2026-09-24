@@ -118,6 +118,16 @@ export const renderManifestSchema = z.object({
 
   narrationText: z.string().optional(),
   srtText: z.string().optional(),
+  /** Ids of the costed AI inputs this render consumes (issue #588), captured
+   *  when the render is requested so the export can snapshot exactly these
+   *  cost events — never re-derived from the project's state later. */
+  costInputs: z
+    .object({
+      scriptId: z.string().min(1).optional(),
+      aiClipIds: z.array(z.string().min(1)).max(200).default([]),
+      assetIds: z.array(z.string().min(1)).max(200).default([]),
+    })
+    .optional(),
   srtStorageKey: z.string().optional(),
   burnSubtitles: z.boolean().default(true),
   subtitleStyle: subtitleStyleSchema.default({}),

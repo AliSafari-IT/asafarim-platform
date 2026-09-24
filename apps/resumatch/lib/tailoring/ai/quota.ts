@@ -1,4 +1,7 @@
 import { getJobmatchDb } from "../../db/client";
+import { recordProviderCost, type CostAttribution } from "../../costs/ledger";
+import { billedUsageOf, type ProviderCallMeta } from "../../costs/providerMeta";
+import type { Outcome } from "@asafarim/ai-cost-ledger";
 import { getEnv } from "../../env";
 import { getPlatformSetting } from "../../platform-settings";
 
@@ -72,7 +75,17 @@ export interface UsageSummary {
   budgetUsd: number;
 }
 
-/** This month's spend for a workspace against the current budget ceiling. */
+/**
+ * This month's spend for a workspace against the current budget ceiling.
+ *
+ * Reads **both** ledgers during the #586 migration: legacy
+ * `AiUsageLedger.costUsd` floats (every call before the cutover) plus the
+ * effective known amount of this month's `AiCostEvent` rows (actual ??
+ * estimated, plus any adjustment deltas). New writes only go to
+ * `AiCostEvent`, so no call is ever counted twice. Unknown-cost events add
+ * nothing here — they surface as "not tracked" in the cost timeline, never
+ * as a fabricated amount.
+ */
 export async function usageSummary(workspaceId: string): Promise<UsageSummary> {
   const db = getJobmatchDb();
   // An admin-console override wins; otherwise RESUMATCH_AI_MONTHLY_BUDGET_USD.
@@ -82,14 +95,22 @@ export async function usageSummary(workspaceId: string): Promise<UsageSummary> {
   );
   const since = monthStart();
 
-  const agg = await db.aiUsageLedger.aggregate({
-    where: { workspaceId, createdAt: { gte: since } },
-    _sum: { costUsd: true },
-  });
+  const [legacy, events] = await Promise.all([
+    db.aiUsageLedger.aggregate({
+      where: { workspaceId, createdAt: { gte: since } },
+      _sum: { costUsd: true },
+    }),
+    db.$queryRaw<{ micros: bigint | null }[]>`
+      SELECT SUM(COALESCE("actualCostMicros", "estimatedCostMicros", "adjustmentDeltaMicros", 0))::bigint AS micros
+      FROM "ai_cost_events"
+      WHERE "workspaceId" = ${workspaceId} AND "occurredAt" >= ${since}
+    `,
+  ]);
+  const eventMicros = events[0]?.micros ?? 0n;
 
   return {
     workspaceId,
-    monthUsd: agg._sum.costUsd ?? 0,
+    monthUsd: (legacy._sum.costUsd ?? 0) + Number(eventMicros) / 1_000_000,
     budgetUsd: aiMonthlyBudgetUsd,
   };
 }
@@ -130,25 +151,66 @@ export interface RecordUsageInput {
   promptVersion?: string | null;
   inputTokens?: number;
   outputTokens?: number;
-  costUsd?: number;
+  /** Where this call's cost belongs (job / preview / document / profile). */
+  attribution: CostAttribution;
+  /** Normalized usage, response model and request id from the adapter. */
+  meta?: ProviderCallMeta;
+  outcome?: Outcome;
+  latencyMs?: number | null;
 }
 
-/** Append one ledger row for a completed provider call. Called by the
- *  provider call site itself (after a successful call), never speculatively
- *  before one -- a failed call spends nothing and should not be ledgered as
- *  if it had. */
+/** Append one cost event for a provider call that returned. Called by the
+ *  provider call site itself (after the provider answered), never
+ *  speculatively before one -- a call that never reached the provider
+ *  spends nothing and is not recorded. Price, cost source and the
+ *  idempotency key are all resolved in lib/costs/ledger.ts; the adapter's
+ *  own float `costUsd` is no longer the spend of record. */
 export async function recordUsage(input: RecordUsageInput): Promise<void> {
-  const db = getJobmatchDb();
-  await db.aiUsageLedger.create({
-    data: {
-      workspaceId: input.workspaceId,
-      kind: input.kind,
-      provider: input.provider,
-      model: input.model,
-      promptVersion: input.promptVersion ?? null,
-      inputTokens: input.inputTokens ?? 0,
-      outputTokens: input.outputTokens ?? 0,
-      costUsd: input.costUsd ?? 0,
-    },
+  await recordProviderCost({
+    workspaceId: input.workspaceId,
+    operation: input.kind,
+    provider: input.provider,
+    model: input.model,
+    promptVersion: input.promptVersion,
+    inputTokens: input.inputTokens,
+    outputTokens: input.outputTokens,
+    attribution: input.attribution,
+    meta: input.meta,
+    outcome: input.outcome,
+    latencyMs: input.latencyMs,
   });
+}
+
+/**
+ * Record a provider response, then validate it. The provider bills for a
+ * response whether or not it passes our schema, so a validation failure is
+ * recorded with `outcome: "failed"` before the error propagates to the
+ * caller's retry/degrade logic — never silently dropped.
+ */
+export async function settleProviderCall<T>(usage: Omit<RecordUsageInput, "outcome">, validate: () => T): Promise<T> {
+  let result: T;
+  try {
+    result = validate();
+  } catch (err) {
+    await recordUsage({ ...usage, outcome: "failed" });
+    throw err;
+  }
+  await recordUsage({ ...usage, outcome: "succeeded" });
+  return result;
+}
+
+/**
+ * Called from a provider call site's retry/degrade `catch`: if the error
+ * was thrown after the provider had already answered (an adapter tagged it
+ * with `withBilledUsage`), record that billed response as a `failed`
+ * event. A request that never got a response carries no tag and records
+ * nothing.
+ */
+export async function recordBilledFailure(
+  err: unknown,
+  base: Omit<RecordUsageInput, "meta" | "outcome" | "inputTokens" | "outputTokens">,
+): Promise<void> {
+  const billed = billedUsageOf(err);
+  if (!billed) return;
+  await recordUsage({ ...base, meta: billed, outcome: "failed" });
 }

@@ -14,12 +14,14 @@
     "postinstall": "prisma generate --schema prisma/schema.prisma",
     "typecheck": "pnpm db:generate && tsc --noEmit",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "db:migrate": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate dev --schema prisma/schema.prisma",
     "db:migrate:deploy": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate deploy --schema prisma/schema.prisma",
     "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --schema prisma/schema.prisma --port 5557 --browser none"
   },
   "dependencies": {
+    "@asafarim/ai-cost-ledger": "workspace:*",
     "@asafarim/auth": "workspace:*",
     "@asafarim/settings-client": "workspace:*",
     "@asafarim/storage": "workspace:*",

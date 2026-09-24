@@ -19,5 +19,6 @@ export default defineConfig({
     "@asafarim/db",
     "@asafarim/auth",
     "@asafarim/vionto-schemas",
+    "@asafarim/ai-cost-ledger",
   ],
 });

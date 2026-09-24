@@ -1,3 +1,4 @@
+import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
 
 export const SUMMARY_TONES = ["friendly", "official", "confident", "concise"] as const;
@@ -24,7 +25,7 @@ export interface RewriteProviderCall {
   signal?: AbortSignal;
 }
 
-export interface RewriteProviderOutput {
+export interface RewriteProviderOutput extends ProviderCallMeta {
   /** Plain rewritten text — not JSON. There is only one field to produce,
    *  so there is no structured-output shape to validate beyond length and
    *  non-emptiness (see schema.ts). */
