@@ -55,7 +55,9 @@ export interface AuditEventInput {
     | "UserActivityView"
     // Superadmin platform-activity browse view: every view of the
     // cross-USER content feed is itself audited, same principle.
-    | "PlatformActivityView";
+    | "PlatformActivityView"
+    // AI cost reconciliation (#592): manual runs are audited.
+    | "AiCostReconciliation";
   /** Null for events about a collection rather than one row (e.g. exports). */
   entityId: string | null;
   changes?: Record<string, unknown>;

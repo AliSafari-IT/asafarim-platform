@@ -2341,3 +2341,80 @@ model ViontoExportCostEvent {
   @@id([exportId, costEventId])
   @@index([costEventId])
 }
+
+// ─── AI cost reconciliation (issue #592) ───────────────────────
+
+/// One reconciliation pass over a UTC-day window: provider daily cost
+/// reports vs. the apps' internal AI cost events. Admin-only. Holds
+/// operational numbers and source freshness — never prompts, responses,
+/// user ids or provider credentials.
+model AiCostReconciliationRun {
+  id          String    @id @default(cuid())
+  /// manual | scheduled
+  trigger     String
+  /// Platform user id of the admin who started a manual run.
+  triggeredBy String?
+  /// running | succeeded | partial | failed
+  status      String    @default("running")
+  /// Inclusive UTC days, YYYY-MM-DD.
+  startDay    String
+  endDay      String
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  /// Per-provider and per-app fetch state + freshness:
+  /// [{ kind: "provider"|"internal", key, status, fetchedAt?, pagesFetched?, error? }]
+  sources     Json      @default("[]")
+  /// Day-level counts by status, drift days and micros totals (strings).
+  summary     Json?
+  error       String?   @db.Text
+
+  lines AiCostReconciliationLine[]
+
+  @@index([startedAt(sort: Desc)])
+  @@index([status])
+}
+
+/// One observation of a reconciliation report line — a provider account's
+/// day (`modelKey = "*"`) or one model within it. Append-only: a run
+/// inserts a line only when its fingerprint differs from the latest
+/// observation of the same (provider, account, day, model), so reruns over
+/// unchanged data write nothing and late-arriving provider data adds a new
+/// observation while the earlier one stays as history. Never touches the
+/// apps' cost events.
+model AiCostReconciliationLine {
+  id                   String   @id @default(cuid())
+  runId                String
+  run                  AiCostReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  provider             String
+  accountKey           String
+  /// UTC day, YYYY-MM-DD.
+  day                  String
+  /// "*" = the day roll-up; otherwise a normalized model key.
+  modelKey             String
+  fingerprint          String
+
+  /// matched | under_recorded | over_recorded | provider_only | internal_only
+  /// | empty | pending | no_provider_api | provider_unavailable | internal_unavailable
+  status               String
+  /// provisional | final
+  finality             String
+  providerMicros       BigInt?
+  internalKnownMicros  BigInt
+  internalEventCount   Int
+  internalUnknownCount Int
+  deltaMicros          BigInt?
+  /// Provider-billed spend no internal event accounts for. Reported at this
+  /// level only — never spread across users, projects or tasks.
+  unattributedMicros   BigInt?
+  coverageBps          Int?
+  driftBps             Int?
+  /// App slugs contributing internal events.
+  apps                 String[]
+
+  observedAt           DateTime @default(now())
+
+  @@unique([runId, provider, accountKey, day, modelKey])
+  @@index([provider, accountKey, day, modelKey, observedAt(sort: Desc)])
+  @@index([day])
+}

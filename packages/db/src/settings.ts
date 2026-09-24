@@ -362,6 +362,44 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
     defaultValue: "",
     maxLength: 200,
   },
+  // AI cost reconciliation (#592). Admin keys read org-wide usage/cost
+  // reports only; they are a different credential from the inference keys
+  // above and are used solely by the admin console's reconciliation job.
+  {
+    key: "ai.openai.adminKey",
+    label: "OpenAI admin key (cost reports)",
+    description:
+      "Read-only organization admin key for OpenAI's usage/cost API, used by AI cost reconciliation. Falls back to OPENAI_ADMIN_KEY while unset. Leave unset to report OpenAI as \"no provider API\".",
+    group: "ai",
+    scope: "admin",
+    type: "secret",
+    defaultValue: "",
+    maxLength: 200,
+  },
+  {
+    key: "ai.anthropic.adminKey",
+    label: "Anthropic admin key (cost reports)",
+    description:
+      "Anthropic Admin API key (sk-ant-admin…) for the Usage & Cost API, used by AI cost reconciliation. Falls back to ANTHROPIC_ADMIN_KEY while unset.",
+    group: "ai",
+    scope: "admin",
+    type: "secret",
+    defaultValue: "",
+    maxLength: 200,
+  },
+  {
+    key: "ai.costReconciliation.driftBps",
+    label: "AI cost drift threshold",
+    description:
+      "How far internal AI cost may differ from the provider's daily figure before a day is flagged, in basis points of the provider amount (500 = 5%). A $0.05 absolute floor always applies.",
+    group: "ai",
+    scope: "admin",
+    type: "number",
+    defaultValue: 500,
+    min: 50,
+    max: 5000,
+    unit: "bps",
+  },
   {
     key: "resumatch.ai.openaiModel",
     label: "ResuMatch — OpenAI model",

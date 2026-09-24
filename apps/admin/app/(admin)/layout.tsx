@@ -33,6 +33,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   // Hiding the entry is a courtesy, not a control — /seed-data re-checks
   // this permission server-side and redirects to /denied without it.
   const canViewSeeds = await hasPermission(session, "seeds.view");
+  const canViewAiCosts = await hasPermission(session, "ai_costs.view");
 
   const roles = session.user.roles ?? [];
   const overrides = await getModuleOverrides();
@@ -46,7 +47,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       module.group === "console" &&
       module.href !== undefined &&
       isModuleVisible(module.id, { roles, overrides }) &&
-      (module.id !== "console.seeds" || canViewSeeds)
+      (module.id !== "console.seeds" || canViewSeeds) &&
+      (module.id !== "console.ai-costs" || canViewAiCosts)
   ).map((module) => ({ label: module.label, href: module.href! }));
 
   return (

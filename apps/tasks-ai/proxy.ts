@@ -29,6 +29,7 @@ const authProxy = createAuthProxy({
     "/api/integrations/github",
     "/api/billing/stripe",
     "/api/internal/user-activity",
+    "/api/internal/ai-cost-daily",
   ],
   signInUrl: `${hubUrl}/sign-in`,
 });

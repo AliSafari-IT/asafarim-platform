@@ -90,6 +90,15 @@ const CONSOLE_MODULES: readonly NavModule[] = [
     href: "/subscriptions",
   },
   {
+    id: "console.ai-costs",
+    label: "AI Costs",
+    description: "Provider cost reconciliation and drift.",
+    group: "console",
+    // Real gate: the ai_costs.view permission the page and layout check.
+    defaultRoles: [ROLES.ADMIN, ROLES.SUPERADMIN],
+    href: "/ai-costs",
+  },
+  {
     id: "console.devices",
     label: "Devices",
     description: "Machines on the tailnet.",
