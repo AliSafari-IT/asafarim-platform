@@ -212,3 +212,6 @@ explain them in the viewer's timezone. Micros cross the wire as strings.
   data, never silently converted to canonical figures.
 - Adding a provider or model is a price-table entry and a version bump —
   no migration.
+- Reconciliation against provider cost reports (#592) is report-only: it
+  never appends adjustment rows, because a provider's daily aggregate
+  cannot be tied to one event. See [`docs/ai-cost-reconciliation.md`](../ai-cost-reconciliation.md).

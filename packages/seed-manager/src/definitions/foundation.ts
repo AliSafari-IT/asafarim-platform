@@ -70,6 +70,19 @@ export const FOUNDATION_PERMISSIONS: PermissionDefinition[] = [
   { name: "audit.view", displayName: "View Audit Log", group: "audit", description: "View the audit log" },
   // Profile
   { name: "profile.edit", displayName: "Edit Own Profile", group: "profile", description: "Edit own profile details" },
+  // AI cost reconciliation (Admin Console → AI Costs, issue #592)
+  {
+    name: "ai_costs.view",
+    displayName: "View AI Cost Reconciliation",
+    group: "ai_costs",
+    description: "See provider-vs-internal AI cost reports, drift status and run history (amounts and counts only)",
+  },
+  {
+    name: "ai_costs.reconcile",
+    displayName: "Run AI Cost Reconciliation",
+    group: "ai_costs",
+    description: "Start a reconciliation run, which calls provider cost APIs with the platform's admin keys",
+  },
   // Seed data management (Admin Console → Seed Data)
   {
     name: "seeds.view",
@@ -127,6 +140,9 @@ const ADMIN_PERMISSIONS = [
   // Admins can look at seed data and run non-destructive work. Removing
   // seeded data and scheduling are granted deliberately, not by default.
   "seeds.view", "seeds.execute",
+  // Reading the reconciliation report is routine; starting a run uses the
+  // provider admin keys, so ai_costs.reconcile is granted deliberately.
+  "ai_costs.view",
 ];
 
 export const FOUNDATION_ROLES: RoleDefinition[] = [

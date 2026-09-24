@@ -16,6 +16,8 @@ schema. No Next.js, database, auth, AI SDK or browser dependency — just `zod`.
 | `pricing` | `createPricingRegistry`, `perMillionTokens`, `estimateCost`, `PricingSnapshotSchema` |
 | `aggregate` | `effectiveCost`, `summarize`, `groupTotals`, `coverageBasisPoints`, `coverageStatus` |
 | `timeline` | `CostTimelineQuerySchema`, `resolveRange`, cursor encode/decode, wire DTOs |
+| `reconcile` | provider-vs-internal daily reconciliation (#592): `internalDailyLines`, `reconcile`, `collectPages`, `dedupeProviderLines`, fingerprints, statuses — see [`docs/ai-cost-reconciliation.md`](../../docs/ai-cost-reconciliation.md) |
+| `provider-reports` | pure parsers for OpenAI `organization/costs` and Anthropic `cost_report` pages |
 
 Semantics, privacy boundary, lifecycle and per-app examples:
 [`docs/adr/0003-ai-cost-event-contract.md`](../../docs/adr/0003-ai-cost-event-contract.md).
