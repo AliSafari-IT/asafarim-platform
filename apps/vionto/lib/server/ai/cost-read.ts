@@ -183,7 +183,8 @@ export interface ProjectCostGroup {
 export interface ViontoCostTimeline {
   range: { from: string; to: string; preset: string };
   summary: CostTotalsDTO;
-  /** Σ usage events by payer, for the "BYOK is not platform spend" split. */
+  /** Billable-unit totals across the whole filter (not just this page). */
+  units: { inputTokens: number; outputTokens: number; ttsCharacters: number; videoSeconds: number };
   projects: ProjectCostGroup[];
   items: (TimelineItemDTO & { projectId: string | null; exportIds: string[] })[];
   nextCursor: string | null;
@@ -226,9 +227,14 @@ export async function buildViontoCostTimeline(
   const rows = await loadViontoCostRows(userId, filter);
 
   const summary = emptyTotals();
+  const units = { inputTokens: 0, outputTokens: 0, ttsCharacters: 0, videoSeconds: 0 };
   const byProject = new Map<string, { total: CostTotals; unattached: CostTotals; byExport: Map<string, CostTotals>; latest: number }>();
   for (const row of rows) {
     addRow(summary, row);
+    for (const u of row.usage) {
+      if (u.bucket === "tts_output") units.ttsCharacters += u.quantity;
+      if (u.bucket === "video_output") units.videoSeconds += u.quantity;
+    }
     const key = row.projectId ?? "";
     const p = byProject.get(key) ?? { total: emptyTotals(), unattached: emptyTotals(), byExport: new Map(), latest: 0 };
     addRow(p.total, row);
@@ -303,6 +309,7 @@ export async function buildViontoCostTimeline(
   return {
     range: { from: filter.range.from.toISOString(), to: filter.range.to.toISOString(), preset: filter.range.preset },
     summary: totalsToDTO(summary),
+    units: { ...units, inputTokens: summary.inputTokens, outputTokens: summary.outputTokens },
     projects: groups,
     items: pageRows.map(toItem),
     nextCursor: start >= 0 && start + page.limit < rows.length && last ? encodeCursor({ occurredAt: last.occurredAt, id: last.id }) : null,

@@ -246,6 +246,27 @@ describe.skipIf(!TEST_DB)("Vionto AI cost ledger (issue #588)", () => {
     expect(asOwner.summary.eventCount).toBeGreaterThan(0);
   });
 
+  it("paginates with a cursor while totals stay fixed, and filters by category/payer/status", async () => {
+    const all = await read.buildViontoCostTimeline(owner, { range: range() }, { limit: 2 });
+    const seen = [...all.items.map((i) => i.id)];
+    let cursor = all.nextCursor;
+    while (cursor) {
+      const page = await read.buildViontoCostTimeline(owner, { range: range() }, { limit: 2, cursor });
+      expect(page.summary).toEqual(all.summary);
+      seen.push(...page.items.map((i) => i.id));
+      cursor = page.nextCursor;
+    }
+    expect(new Set(seen).size).toBe(all.summary.eventCount);
+
+    const clips = await read.buildViontoCostTimeline(owner, { range: range(), operations: ["ai_motion_clip"] }, { limit: 50 });
+    expect(clips.items.every((i) => i.operation === "ai_motion_clip")).toBe(true);
+    const byok = await read.buildViontoCostTimeline(owner, { range: range(), credential: "user_byok" }, { limit: 50 });
+    expect(byok.items.every((i) => i.credentialSource === "user_byok")).toBe(true);
+    const unknown = await read.buildViontoCostTimeline(owner, { range: range(), status: ["unknown"] }, { limit: 50 });
+    expect(unknown.items.every((i) => i.amountMicros === null)).toBe(true);
+    expect(unknown.summary.effectiveKnownMicros).toBe("0");
+  });
+
   it("deleting the user erases their cost ledger", async () => {
     const temp = await prisma.user.create({ data: { email: `vionto-cost-temp-${tag}@example.test` } });
     await ledger.recordViontoCost({

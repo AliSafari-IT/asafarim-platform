@@ -1,6 +1,7 @@
 import type { BaseLanguage, Dictionaries } from "@asafarim/shared-i18n";
 import landingDictionaries from "./locales/landing";
 import lbVionto from "./locales/lb";
+import { aiUsageDictionaries } from "./locales/ai-usage";
 
 /**
  * Vionto-specific translation overrides. Keys shadow the base dictionary
@@ -2211,3 +2212,7 @@ for (const lang of Object.keys(landingDictionaries) as BaseLanguage[]) {
   viontoDictionaries[lang] = { ...(viontoDictionaries[lang] ?? {}), ...landingDictionaries[lang] };
 }
 
+// AI cost timeline strings (issue #589) — identical key set in every language.
+for (const lang of Object.keys(aiUsageDictionaries) as BaseLanguage[]) {
+  viontoDictionaries[lang] = { ...(viontoDictionaries[lang] ?? {}), ...aiUsageDictionaries[lang as keyof typeof aiUsageDictionaries] };
+}
