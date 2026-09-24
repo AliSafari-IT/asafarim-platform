@@ -65,7 +65,7 @@ export function perUnits(bucket: UsageBucket, unit: UsageUnit, usd: string | num
   const text = typeof usd === "number" ? usd.toFixed(7) : usd;
   const [whole, frac = ""] = text.split(".");
   const padded = (frac + "000000").slice(0, 6);
-  const rateMicros = BigInt(whole) * 1_000_000n + BigInt(padded);
+  const rateMicros = BigInt(whole) * BigInt("1000000") + BigInt(padded);
   return { bucket, unit, rateMicros: rateMicros.toString(), per: String(per) };
 }
 

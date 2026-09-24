@@ -44,8 +44,8 @@ export interface EffectiveCost {
 }
 
 export function effectiveCost(row: AggregatableRow): EffectiveCost {
-  if (row.entryType === "adjustment") return { amountMicros: row.adjustmentDeltaMicros ?? 0n, basis: "adjustment" };
-  if (row.fixture) return { amountMicros: 0n, basis: "fixture" };
+  if (row.entryType === "adjustment") return { amountMicros: row.adjustmentDeltaMicros ?? BigInt("0"), basis: "adjustment" };
+  if (row.fixture) return { amountMicros: BigInt("0"), basis: "fixture" };
   if (row.actualCostMicros !== null) return { amountMicros: row.actualCostMicros, basis: "actual" };
   if (row.estimatedCostMicros !== null) return { amountMicros: row.estimatedCostMicros, basis: "estimated" };
   return { amountMicros: null, basis: "unknown" };
@@ -83,12 +83,12 @@ export function emptyTotals(): CostTotals {
     fixtureCount: 0,
     legacyCount: 0,
     adjustmentCount: 0,
-    effectiveKnownMicros: 0n,
-    actualMicros: 0n,
-    estimatedMicros: 0n,
-    adjustmentMicros: 0n,
-    byokMicros: 0n,
-    platformMicros: 0n,
+    effectiveKnownMicros: BigInt("0"),
+    actualMicros: BigInt("0"),
+    estimatedMicros: BigInt("0"),
+    adjustmentMicros: BigInt("0"),
+    byokMicros: BigInt("0"),
+    platformMicros: BigInt("0"),
     inputTokens: 0,
     outputTokens: 0,
   };
@@ -99,8 +99,8 @@ export function addRow(totals: CostTotals, row: AggregatableRow): CostTotals {
   const { amountMicros, basis } = effectiveCost(row);
   if (basis === "adjustment") {
     totals.adjustmentCount += 1;
-    totals.adjustmentMicros = assertMicrosInRange(totals.adjustmentMicros + (amountMicros ?? 0n));
-    totals.effectiveKnownMicros = assertMicrosInRange(totals.effectiveKnownMicros + (amountMicros ?? 0n));
+    totals.adjustmentMicros = assertMicrosInRange(totals.adjustmentMicros + (amountMicros ?? BigInt("0")));
+    totals.effectiveKnownMicros = assertMicrosInRange(totals.effectiveKnownMicros + (amountMicros ?? BigInt("0")));
     return totals;
   }
 

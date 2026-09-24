@@ -9,11 +9,11 @@
  * precision on the way back to the database.
  */
 
-export const MICROS_PER_UNIT = 1_000_000n;
+export const MICROS_PER_UNIT = BigInt("1000000");
 
 /** Postgres BIGINT range. */
-export const MAX_MICROS = 9_223_372_036_854_775_807n;
-export const MIN_MICROS = -9_223_372_036_854_775_808n;
+export const MAX_MICROS = BigInt("9223372036854775807");
+export const MIN_MICROS = BigInt("-9223372036854775808");
 
 export class MicrosOverflowError extends RangeError {
   constructor(value: bigint) {
@@ -57,7 +57,7 @@ export function usdDecimalToMicros(amount: string): bigint {
   const [, sign, whole, frac = ""] = match;
   const padded = (frac + "0000000").slice(0, 7);
   let micros = BigInt(whole) * MICROS_PER_UNIT + BigInt(padded.slice(0, 6));
-  if (Number(padded[6]) >= 5) micros += 1n;
+  if (Number(padded[6]) >= 5) micros += BigInt("1");
   return assertMicrosInRange(sign ? -micros : micros);
 }
 
@@ -73,7 +73,7 @@ export function legacyUsdFloatToMicros(amount: number): bigint {
 
 /** Overflow-checked sum. */
 export function sumMicros(values: Iterable<bigint>): bigint {
-  let total = 0n;
+  let total = BigInt("0");
   for (const v of values) total = assertMicrosInRange(total + v);
   return total;
 }
@@ -81,18 +81,18 @@ export function sumMicros(values: Iterable<bigint>): bigint {
 /**
  * `quantity × rate / per`, rounded half-up, all in integer arithmetic.
  * `rateMicros` is the price in micros for `per` units — e.g. $0.15 per
- * 1M tokens is `rateMicros = 150_000n, per = 1_000_000n`.
+ * 1M tokens is `rateMicros = 150000, per = 1000000` (as bigints).
  */
 export function multiplyRate(quantity: bigint, rateMicros: bigint, per: bigint): bigint {
-  if (per <= 0n) throw new RangeError("rate denominator must be positive");
-  if (quantity < 0n) throw new RangeError("usage quantity cannot be negative");
+  if (per <= BigInt("0")) throw new RangeError("rate denominator must be positive");
+  if (quantity < BigInt("0")) throw new RangeError("usage quantity cannot be negative");
   const numerator = quantity * rateMicros;
-  return assertMicrosInRange((numerator + per / 2n) / per);
+  return assertMicrosInRange((numerator + per / BigInt("2")) / per);
 }
 
 /** Micros → decimal string with 6 fractional digits (exact, no float). */
 export function microsToDecimalString(micros: bigint): string {
-  const negative = micros < 0n;
+  const negative = micros < BigInt("0");
   const abs = negative ? -micros : micros;
   const whole = abs / MICROS_PER_UNIT;
   const frac = (abs % MICROS_PER_UNIT).toString().padStart(6, "0");

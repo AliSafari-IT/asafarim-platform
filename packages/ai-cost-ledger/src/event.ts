@@ -166,7 +166,7 @@ export const CostEventWriteSchema = z
     }
     for (const field of ["estimatedCostMicros", "actualCostMicros"] as const) {
       const v = e[field];
-      if (v !== null && v < 0n) issue("usage amounts are non-negative; use an adjustment for credits", [field]);
+      if (v !== null && v < BigInt("0")) issue("usage amounts are non-negative; use an adjustment for credits", [field]);
     }
 
     if (e.entryType === "adjustment") {
@@ -183,7 +183,7 @@ export const CostEventWriteSchema = z
     if (e.fixture) {
       if (e.credentialSource !== "none") issue("fixture calls use no credential", ["credentialSource"]);
       if (e.costSource === "unknown") issue("a fixture call's cost is known: zero", ["costSource"]);
-      if (e.estimatedCostMicros !== 0n && e.actualCostMicros !== 0n) {
+      if (e.estimatedCostMicros !== BigInt("0") && e.actualCostMicros !== BigInt("0")) {
         issue("fixture calls record a genuine zero amount", ["estimatedCostMicros"]);
       }
       return;

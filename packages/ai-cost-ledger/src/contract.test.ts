@@ -361,3 +361,15 @@ describe("timeline read model", () => {
     expect((wide.to.getTime() - wide.from.getTime()) / 86_400_000).toBe(30);
   });
 });
+
+describe("portability", () => {
+  it("uses no bigint literals in shipped source (consumers compile below ES2020)", async () => {
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(__dirname);
+    for (const file of readdirSync(dir).filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))) {
+      const code = readFileSync(join(dir, file), "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+      expect(code, file).not.toMatch(/(?<![\w."'])\d[\d_]*n\b/);
+    }
+  });
+});
