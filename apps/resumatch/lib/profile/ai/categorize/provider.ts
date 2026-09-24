@@ -1,3 +1,4 @@
+import type { ProviderCallMeta } from "../../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../../env";
 
 /**
@@ -25,7 +26,7 @@ export interface SuggestedSkillCategory {
   category: string;
 }
 
-export interface CategorizeSkillsProviderOutput {
+export interface CategorizeSkillsProviderOutput extends ProviderCallMeta {
   /** Schema-validated, but NOT yet the no-fabrication-checked result —
    *  see schema.ts's `mergeSuggestedCategories`, which is the only place
    *  a suggestion here is allowed to reach a skill's actual `category`

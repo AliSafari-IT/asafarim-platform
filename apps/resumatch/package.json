@@ -21,6 +21,7 @@
     "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --schema prisma/schema.prisma --port 5557 --browser none"
   },
   "dependencies": {
+    "@asafarim/ai-cost-ledger": "workspace:*",
     "@asafarim/auth": "workspace:*",
     "@asafarim/settings-client": "workspace:*",
     "@asafarim/storage": "workspace:*",

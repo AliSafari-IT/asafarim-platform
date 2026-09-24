@@ -20,6 +20,20 @@ vi.mock("../ai/quota", async () => {
     ...actual,
     assertCanRunProviderCall: (...args: unknown[]) => assertCanRunProviderCall(...args),
     recordUsage: (...args: unknown[]) => recordUsage(...args),
+    // Same contract as the real settleProviderCall (issue #586), routed
+    // through the recordUsage mock so assertions see every ledger write.
+    settleProviderCall: async <T,>(usage: Record<string, unknown>, validate: () => T): Promise<T> => {
+      let result: T;
+      try {
+        result = validate();
+      } catch (err) {
+        await recordUsage({ ...usage, outcome: "failed" });
+        throw err;
+      }
+      await recordUsage({ ...usage, outcome: "succeeded" });
+      return result;
+    },
+    recordBilledFailure: async () => {},
   };
 });
 

@@ -1,6 +1,12 @@
 import { logError } from "../../observability/logger";
 import { getEnv, type ResuMatchAiProvider } from "../../env";
-import { assertCanRunProviderCall, recordUsage, QuotaExceededError } from "../../tailoring/ai/quota";
+import {
+  assertCanRunProviderCall,
+  recordBilledFailure,
+  settleProviderCall,
+  QuotaExceededError,
+} from "../../tailoring/ai/quota";
+import type { CostAttribution } from "../../costs/ledger";
 import { renderRewritePrompt } from "./prompts";
 import { RewriteProviderError, type SummaryTone } from "./provider";
 import { REWRITE_MODEL_VERSIONS, getRewriteProvider } from "./registry";
@@ -34,6 +40,9 @@ export async function rewriteSummaryWithFallback(
   opts: { provider?: ResuMatchAiProvider } = {},
 ): Promise<RewriteOutcome> {
   const aiProvider = opts.provider ?? getEnv().aiProvider;
+  // The profile is 1:1 with the workspace and may not have a row yet when
+  // a summary is rewritten, so the workspace id keys it (issue #586).
+  const attribution: CostAttribution = { subjectType: "candidate_profile", subjectId: workspaceId };
 
   if (aiProvider === "fixture") return { text: currentSummary, degraded: true };
 
@@ -46,6 +55,7 @@ export async function rewriteSummaryWithFallback(
 
     for (let attempt = 1; ; attempt++) {
       try {
+        const started = Date.now();
         const output = await provider.rewrite({
           currentSummary,
           tone,
@@ -58,21 +68,25 @@ export async function rewriteSummaryWithFallback(
         // A malformed or empty response is a failed call, not something to
         // salvage — thrown here so it degrades below. Never retried: the
         // same malformed shape would recur against the same input.
-        const text = parseRewriteOutput(output.text);
-
-        await recordUsage({
-          workspaceId,
-          kind: "rewrite",
-          provider: aiProvider,
-          model: modelVersion,
-          promptVersion: prompt.version,
-          inputTokens: output.inputTokens,
-          outputTokens: output.outputTokens,
-          costUsd: output.costUsd,
-        });
+        const text = await settleProviderCall(
+          {
+            workspaceId,
+            kind: "rewrite",
+            provider: aiProvider,
+            model: modelVersion,
+            promptVersion: prompt.version,
+            inputTokens: output.inputTokens,
+            outputTokens: output.outputTokens,
+            meta: output,
+            latencyMs: Date.now() - started,
+            attribution,
+          },
+          () => parseRewriteOutput(output.text),
+        );
 
         return { text, degraded: false };
       } catch (err) {
+        await recordBilledFailure(err, { workspaceId, kind: "rewrite", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
         const retryable = err instanceof RewriteProviderError ? err.retryable : false;
         logError("profile.rewrite.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
         if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
