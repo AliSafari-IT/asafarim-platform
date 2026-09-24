@@ -52,6 +52,8 @@ export class CostRangeTooLargeError extends Error {
 export interface CostFilter {
   range: ResolvedRange;
   targetJobId?: string | null;
+  /** One group key (`job:<id>` | `profile` | `legacy`) — the per-group drill-down. */
+  group?: string | null;
   operations?: string[];
   provider?: string;
   model?: string;
@@ -207,7 +209,11 @@ export async function loadCostRows(workspaceId: string, filter: CostFilter): Pro
     }),
   ];
 
-  const filtered = filter.status?.length ? rows.filter((r) => filter.status!.includes(statusOf(r))) : rows;
+  const filtered = rows.filter(
+    (r) =>
+      (!filter.status?.length || filter.status.includes(statusOf(r))) &&
+      (!filter.group || groupKeyOf(r) === filter.group),
+  );
   return filtered.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime() || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
 }
 
