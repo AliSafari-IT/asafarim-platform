@@ -9,6 +9,9 @@ import { resetEnvCache } from "../../env";
 
 vi.mock("../../session", () => ({ getViewer: async () => ({ id: "noop" }) }));
 
+/** RFC 4180 line separator the CSV export uses. */
+const CRLF = String.fromCharCode(13, 10);
+
 /**
  * AI cost attribution (issue #590) end to end with the fixture provider,
  * against TASKSAI_TEST_DATABASE_URL.
@@ -279,6 +282,36 @@ describe.skipIf(!hasTestDatabase())("AI cost attribution (integration)", () => {
 
     const mine = await buildCostTimeline(member, { range: range(), mine: true }, { limit: 50 });
     expect(mine.summary.eventCount).toBe(1);
+
+    // CSV export is exactly the authorized scope — and has no per-person column.
+    const { exportCostCsv } = await import("./csv");
+    const memberCsv = await exportCostCsv(member, { range: range() });
+    const lines = memberCsv.trim().split(CRLF);
+    expect(lines[0]).not.toMatch(/actor|member|user/);
+    expect(lines).toHaveLength(1 + asMember.summary.eventCount);
+    expect(memberCsv).not.toContain(secret.id);
+    const adminCsv = await exportCostCsv(admin, { range: range() });
+    expect(adminCsv).toContain(secret.id);
+    expect(adminCsv.trim().split(CRLF)).toHaveLength(6);
+  });
+
+  it("CSV writes unknown as an empty amount (never 0) and defuses formula-looking cells", async () => {
+    const { recordStandaloneAiCost } = await import("./ledger");
+    const { exportCostCsv } = await import("./csv");
+    const a = await ws("costcsv");
+    const job = await db.aiJob.create({
+      data: { workspaceId: a.w.id, membershipId: a.owner.id, kind: "summarize", state: "cancelled", provider: "anthropic", model: "=HYPERLINK(1)", promptVersion: "v1", cacheKey: "k" },
+    });
+    await recordStandaloneAiCost(db, {
+      workspaceId: a.w.id, actorId: a.owner.id, aiJobId: job.id, operation: "summarize", scope: { attribution: "workspace" },
+      provider: "anthropic", requestModel: "=HYPERLINK(1)", promptVersion: "v1", inputTokens: 0, outputTokens: 0,
+      fixture: false, outcome: "cancelled", usageUnknown: true, suffix: "cancelled",
+    });
+    const csv = await exportCostCsv(a.ctx, { range: range() });
+    const row = csv.trim().split(CRLF)[1]!.split(",");
+    expect(row[12]).toBe(""); // amount_usd
+    expect(row[13]).toBe("unknown");
+    expect(csv).toContain("'=HYPERLINK(1)");
   });
 
   it("workspaces never see each other's cost; legacy float rows show as partial history", async () => {

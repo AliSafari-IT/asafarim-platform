@@ -1321,3 +1321,36 @@
     max-width:9.5rem; grid-column:auto;
   }
 }
+
+
+/* ─── AI cost (issue #591) ────────────────────────────────────────────── */
+[data-app="tasks-ai"] .ta-cost__notice { border: 1px solid var(--line, rgba(127,127,127,.3)); border-radius: 10px; padding: .6rem .85rem; margin: .75rem 0; font-size: .9rem; }
+[data-app="tasks-ai"] .ta-cost__range { font-size: .8rem; margin: .25rem 0 .75rem; }
+[data-app="tasks-ai"] .ta-cost__filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .6rem .9rem; align-items: end; margin: .75rem 0 1rem; }
+[data-app="tasks-ai"] .ta-cost__filters label { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; font-weight: 600; }
+[data-app="tasks-ai"] .ta-cost__filters select, [data-app="tasks-ai"] .ta-cost__filters input[type="date"] { font: inherit; font-weight: 400; padding: .4rem .5rem; border-radius: 6px; border: 1px solid var(--line-strong, rgba(127,127,127,.45)); background: transparent; color: inherit; }
+[data-app="tasks-ai"] .ta-cost__filters .ta-cost__check { flex-direction: row; align-items: center; font-weight: 400; }
+[data-app="tasks-ai"] .ta-cost__actions { display: flex; gap: .75rem; align-items: center; }
+[data-app="tasks-ai"] .ta-cost__scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+[data-app="tasks-ai"] .ta-cost__table td { vertical-align: top; }
+[data-app="tasks-ai"] .ta-cost__when { white-space: nowrap; font-size: .8rem; opacity: .8; }
+[data-app="tasks-ai"] .ta-cost__sub { font-size: .78rem; }
+[data-app="tasks-ai"] .ta-cost__model { overflow-wrap: anywhere; }
+[data-app="tasks-ai"] .ta-cost__badge { margin: 0 .25rem .2rem 0; display: inline-block; }
+[data-app="tasks-ai"] .ta-cost__amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+[data-app="tasks-ai"] .ta-cost__amount--unknown { font-style: italic; font-weight: 400; opacity: .75; }
+[data-app="tasks-ai"] .ta-cost__drill > summary { cursor: pointer; font-size: .8rem; margin-top: .2rem; }
+[data-app="tasks-ai"] .ta-cost__drill > summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+[data-app="tasks-ai"] .ta-cost__drill[open] { margin-top: .4rem; }
+[data-app="tasks-ai"] .ta-drawer__cost dl { display: grid; grid-template-columns: auto 1fr; gap: .2rem .75rem; margin: .4rem 0; }
+[data-app="tasks-ai"] .ta-drawer__cost dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+[data-app="tasks-ai"] .ta-drawer__cost ul { list-style: none; padding: 0; margin: .3rem 0; font-size: .85rem; }
+@media (max-width: 640px) {
+  [data-app="tasks-ai"] .ta-cost__table thead { display: none; }
+  [data-app="tasks-ai"] .ta-cost__table tr { display: grid; grid-template-columns: 1fr auto; gap: .15rem .75rem; padding: .5rem 0; border-bottom: 1px solid var(--line, rgba(127,127,127,.25)); }
+  [data-app="tasks-ai"] .ta-cost__table td { display: block; border: 0; padding: 0; }
+  [data-app="tasks-ai"] .ta-cost__table td.ta-cost__amount { grid-column: 2; grid-row: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-app="tasks-ai"] .ta-cost * { transition: none !important; animation: none !important; }
+}

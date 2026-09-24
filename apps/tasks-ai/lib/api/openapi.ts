@@ -837,6 +837,25 @@ export const openapiDocument = {
       parameters: [pathParam("slug")],
       get: { summary: "This month's AI spend + job count vs budget/quota", responses: { "200": { description: "ok" } } },
     },
+    "/workspaces/{slug}/ai/costs": {
+      parameters: [pathParam("slug")],
+      get: {
+        summary:
+          "AI provider cost timeline (not plan allowance): summary, project subtotals (direct task vs shared project runs), paged runs — scoped to the caller's authorized projects",
+        responses: { "200": { description: "ok" } },
+      },
+    },
+    "/workspaces/{slug}/ai/costs/export": {
+      parameters: [pathParam("slug")],
+      get: { summary: "CSV of AI provider cost runs for the current authorized filter", responses: { "200": { description: "text/csv" } } },
+    },
+    "/workspaces/{slug}/ai/costs/tasks/{taskId}": {
+      parameters: [pathParam("slug"), pathParam("taskId")],
+      get: {
+        summary: "A task's AI cost: runs attributed to it, plus shared project runs that touched it (listed, not summed)",
+        responses: { "200": { description: "ok" }, "404": { description: "not found or not visible" } },
+      },
+    },
     "/workspaces/{slug}/ai/jobs": {
       parameters: [pathParam("slug")],
       post: {

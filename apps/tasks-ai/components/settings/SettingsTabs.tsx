@@ -18,8 +18,9 @@ import {
 type Tab = "members" | "statuses" | "labels" | "ai" | "billing" | "audit" | "feedback";
 const TABS: Tab[] = ["members", "statuses", "labels", "ai", "billing", "audit", "feedback"];
 
-export function SettingsTabs({ slug, isAdmin }: { slug: string; isAdmin: boolean }) {
-  const [tab, setTab] = useState<Tab>("members");
+export function SettingsTabs({ slug, isAdmin, initialTab }: { slug: string; isAdmin: boolean; initialTab?: string }) {
+  // `?tab=billing` deep links (e.g. from the AI cost page) open that tab.
+  const [tab, setTab] = useState<Tab>(TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "members");
   return (
     <section className="ta-tw">
       <header className="ta-tw__head">
@@ -594,6 +595,14 @@ function BillingTab({ slug }: { slug: string }) {
           once the commercial licence is in place.
         </div>
       )}
+      <p className="ta-muted">
+        These meters are plan allowances (how much your plan includes). What AI providers charged
+        for Copilot runs is a separate figure —{" "}
+        <a className="ta-link" href={`/w/${slug}/analytics/ai-costs`}>
+          see AI cost
+        </a>
+        .
+      </p>
       <h3>Usage this period</h3>
       <ul className="ta-list">
         {u.meters.map((m) => (

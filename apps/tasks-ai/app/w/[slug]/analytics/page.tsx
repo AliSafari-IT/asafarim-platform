@@ -26,6 +26,9 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ slug
           <h1>Analytics</h1>
           <p className="ta-tw__subtitle">See how work is moving across the workspace — cycle time, throughput, and per-project health.</p>
         </div>
+        <a className="ta-btn ta-btn--ghost" href={`/w/${slug}/analytics/ai-costs`}>
+          AI cost
+        </a>
       </header>
 
       {port.projects.length === 0 ? (
