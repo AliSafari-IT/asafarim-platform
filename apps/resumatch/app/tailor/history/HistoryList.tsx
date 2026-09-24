@@ -126,6 +126,18 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
                 >
                   View
                 </a>
+                <a
+                  href={`/ai-usage?job=${encodeURIComponent(resume.targetJobId)}&preset=year`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(`/ai-usage?job=${encodeURIComponent(resume.targetJobId)}&preset=year`);
+                  }}
+                  style={{ fontSize: "0.85rem", flex: "none" }}
+                  aria-label={`AI cost for ${resume.targetJob.title ?? "this job"}`}
+                >
+                  AI cost
+                </a>
               </label>
             </Card>
           );

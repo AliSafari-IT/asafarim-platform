@@ -6,6 +6,9 @@ import { defineConfig } from "vitest/config";
 // is skipped — not failed — when it is unset, so `pnpm test:integration` is
 // safe to run anywhere.
 export default defineConfig({
+  // tsconfig sets "jsx": "preserve" for Next; tests that render a
+  // component (lib/costs/format.test.ts) need an actual JSX transform.
+  oxc: { jsx: { runtime: "automatic" } },
   resolve: {
     alias: {
       "server-only": path.resolve(__dirname, "./vitest.server-only-stub.ts"),
