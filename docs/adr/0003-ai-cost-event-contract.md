@@ -142,8 +142,8 @@ of scalars with a deny-list on key names (`prompt`, `content`, `text`,
 | Boundary | Owner key | On account/workspace erasure | Retention |
 |---|---|---|---|
 | ResuMatch DB | `workspaceId` | rows deleted with the workspace (same cascade as `AiUsageLedger`) | life of workspace |
-| Platform DB (Vionto) | `userId` | rows deleted with the user (FK `ON DELETE CASCADE`); `projectId`/`versionId`/`renderJobId` are plain columns, so deleting a project keeps its history (shown as "Deleted project"); export snapshot rows cascade with the export | life of account |
-| TasksAI DB | `workspaceId` | rows deleted with the workspace; `actorMembershipId` is nulled when a member is removed so the cost stays attributable to the project without the person | life of workspace |
+| Platform DB (Vionto) | `userId` | rows deleted with the user (FK `ON DELETE CASCADE`); `projectId`/export links `SET NULL` then remaining project rows cascade with the project | life of account |
+| TasksAI DB | `workspaceId` | rows deleted with the workspace; `actorId` is an opaque membership id (memberships are archived, never deleted) used only for audit and "my AI activity"; `projectId`/`taskId` are plain columns so archiving or deleting work keeps its history | life of workspace |
 
 Deleting a *domain entity* (a job, a project, a task) does **not** delete
 its cost events — spend happened. The subject id is kept as an opaque id
