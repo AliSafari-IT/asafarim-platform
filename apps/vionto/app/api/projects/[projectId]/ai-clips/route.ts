@@ -9,6 +9,7 @@ import {
   resolveProviderCredential,
   type AiProviderId,
 } from "@/lib/server/ai";
+import { recordClipCost } from "@/lib/server/ai/cost-ledger";
 import {
   buildKey,
   createPresignedDownloadUrl,
@@ -272,7 +273,19 @@ export async function GET(
     const inFlight = await prisma.viontoAiClip.findMany({
       where: { ...where, status: { in: ["submitted", "processing"] }, taskId: { not: null } },
       orderBy: { createdAt: "asc" },
-      select: { id: true, taskId: true, userId: true, provider: true },
+      select: {
+        id: true,
+        taskId: true,
+        userId: true,
+        provider: true,
+        model: true,
+        projectId: true,
+        versionId: true,
+        durationSeconds: true,
+        estimatedCostUsdMicros: true,
+        credentialSource: true,
+        pricingSnapshot: true,
+      },
       take: 6,
     });
 
@@ -308,6 +321,10 @@ export async function GET(
               providerMetadata: task.raw as Prisma.InputJsonValue,
             },
           });
+          // Issue #588: a finished clip joins the normalized ledger, carrying
+          // its own generation-time snapshot. Keyed by clip id, so a repeated
+          // poll can never record it twice.
+          await recordClipCost(clip);
         } else if (task.status === "failed") {
           await prisma.viontoAiClip.update({
             where: { id: clip.id },
