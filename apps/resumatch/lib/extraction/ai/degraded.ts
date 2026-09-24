@@ -18,7 +18,7 @@ import { renderExtractPrompt } from "./prompts";
 import { ExtractionProviderError } from "./provider";
 import { EXTRACT_MODEL_VERSIONS, getExtractionProvider } from "./registry";
 import { mergeAiExtraction, parseAiExtractionOutput } from "./schema";
-import { groundExperienceSummaries } from "./grounding";
+import { groundExperienceSummaries, groundHeadlineAndSummary } from "./grounding";
 
 /**
  * Degraded-mode wiring for CV extraction. Mirrors
@@ -138,6 +138,8 @@ export async function extractProfileWithFallback(
         // employer, or number not traceable back to the source CV text —
         // see grounding.ts's doc comment for why this check exists
         // alongside the prompt's own no-fabrication rules (issue #420).
+        // groundHeadlineAndSummary applies the same guard to the top-level
+        // headline/summary prose (issue #522).
         const content = await settleProviderCall(
           {
             workspaceId,
@@ -151,7 +153,11 @@ export async function extractProfileWithFallback(
             latencyMs: Date.now() - started,
             attribution,
           },
-          () => groundExperienceSummaries(mergeAiExtraction(parseAiExtractionOutput(output.data)), text),
+          () =>
+            groundHeadlineAndSummary(
+              groundExperienceSummaries(mergeAiExtraction(parseAiExtractionOutput(output.data)), text),
+              text,
+            ),
         );
 
         return {

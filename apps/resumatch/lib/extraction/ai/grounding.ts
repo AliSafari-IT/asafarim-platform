@@ -34,6 +34,95 @@ function notableTokens(text: string): string[] {
   return text.match(NOTABLE_TOKEN) ?? [];
 }
 
+/** Start of the string, or right after a sentence terminator / newline / spaced dash. */
+const SENTENCE_START = /(?:^|[.!?\n]\s*|\s[-–—]\s)$/;
+
+/**
+ * A token whose SHAPE says "technology or product name" independent of
+ * capitalization: contains a digit, a `+`/`#`, an interior dot ("Node.js",
+ * "ASP.NET"), an interior capital ("PostgreSQL", "TypeScript", "iOS"), or
+ * is an ALL-CAPS acronym ("AWS", "SQL"). An ordinary Title Case word
+ * ("Engineer") has none of these.
+ */
+const DISTINCTIVE_SHAPE = /\d|[+#]|.\.[A-Za-z]|[a-z][A-Z]|^[A-Z]{2,}$/;
+
+/**
+ * Count the notable tokens in top-level prose that are not traceable to
+ * the source text. `mode` picks which tokens count as a fabrication signal
+ * — the judgement call in issue #522, which asked for the identical bar
+ * `groundExperienceSummaries` uses and could not have it as-is:
+ *
+ * - **`"prose"` (`summary`)**: every number/percentage, and every
+ *   capitalized word that is NOT at the start of a sentence. Sentence
+ *   openers ("Experienced…", "Results-driven…") are generic words that
+ *   rarely appear in a CV verbatim; counting them would drop nearly every
+ *   honest AI-written summary. A capital mid-sentence is a real
+ *   proper-noun signal (technology, product, employer).
+ * - **`"headline"` (`headline`)**: every number, and every token with a
+ *   distinctive technology *shape* (see `DISTINCTIVE_SHAPE`). A headline is
+ *   Title Case — "Senior Backend Engineer · React" capitalizes every
+ *   word — so capitalization tells us nothing there, and treating a `·` or
+ *   `|` as a fragment start (which an earlier draft did) exempted the
+ *   entries after it, i.e. exactly where a fabricated skill would sit.
+ *   Known gap, accepted: a fabricated tech name with no distinctive shape
+ *   ("Terraform") is indistinguishable from an ordinary Title Case word
+ *   and is not caught in a headline; the same claim in `summary` is.
+ *
+ * Trailing dots are stripped so "React." at a sentence end is checked as
+ * "React" — otherwise a grounded word would only match if the source
+ * happened to punctuate it identically.
+ */
+function ungroundedProseTokenCount(text: string, sourceLower: string, mode: "prose" | "headline"): number {
+  let count = 0;
+  for (const match of text.matchAll(NOTABLE_TOKEN)) {
+    const token = match[0].replace(/\.+$/, "");
+    if (token.length === 0) continue;
+    const isNumber = /^\d/.test(token);
+    if (!isNumber) {
+      if (mode === "headline") {
+        if (!DISTINCTIVE_SHAPE.test(token)) continue;
+      } else if (SENTENCE_START.test(text.slice(0, match.index))) {
+        continue;
+      }
+    }
+    if (!sourceLower.includes(token.toLowerCase())) count += 1;
+  }
+  return count;
+}
+
+/**
+ * Drop the top-level `headline` and/or `summary` when they mention a
+ * number or a mid-sentence proper noun not traceable back to the source CV
+ * text (issue #522). Same conservatism as `groundExperienceSummaries`: the
+ * whole field goes to `null`, never a partial edit, and nothing is ever
+ * added or rewritten. Every other field is returned unchanged.
+ */
+export function groundHeadlineAndSummary(
+  content: CandidateProfileContent,
+  sourceText: string,
+): CandidateProfileContent {
+  if (!content.headline && !content.summary) return content;
+
+  const sourceLower = sourceText.toLowerCase();
+  const next = { ...content };
+
+  for (const field of ["headline", "summary"] as const) {
+    const value = content[field];
+    if (!value) continue;
+    const ungrounded = ungroundedProseTokenCount(value, sourceLower, field === "headline" ? "headline" : "prose");
+    if (ungrounded > 0) {
+      log.warn("extraction.ai.prose_ungrounded", {
+        // Field name and count only — the text itself is CV-derived content.
+        field,
+        count: ungrounded,
+      });
+      next[field] = null;
+    }
+  }
+
+  return next;
+}
+
 /**
  * Drop any experience `summary` that mentions a capitalized word or a
  * number not traceable back to the source CV text. Every other field is

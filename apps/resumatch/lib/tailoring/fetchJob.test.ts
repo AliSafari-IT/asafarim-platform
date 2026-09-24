@@ -124,6 +124,12 @@ describe("fetchJobPosting", () => {
     expect(result).toEqual({ ok: false, reasonCode: "HTTP_ERROR" });
   });
 
+  it.each([403, 429])("classifies a %i response as bot-blocked", async (status) => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response("blocked", { status }));
+    const result = await fetchJobPosting("https://jobs.example.test/posting/1", fetchImpl);
+    expect(result).toEqual({ ok: false, reasonCode: "BOT_BLOCKED" });
+  });
+
   it("refuses a response declared too large before reading the body", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       htmlResponse("<html></html>", { headers: { "content-length": String(10 * 1024 * 1024) } }),
