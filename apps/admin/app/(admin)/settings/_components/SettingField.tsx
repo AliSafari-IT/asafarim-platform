@@ -12,7 +12,8 @@ import {
   Textarea,
 } from "@asafarim/ui";
 import { resetPlatformSetting, updatePlatformSetting } from "../actions";
-import type { SettingType, SettingValue } from "../../../../lib/settings";
+import type { SettingType, SettingValue } from "@asafarim/db";
+import { JSON_EDITOR_OVERRIDES } from "./json-editor-overrides";
 
 export interface SettingFieldProps {
   settingKey: string;
@@ -26,6 +27,12 @@ export interface SettingFieldProps {
   options?: readonly string[];
   maxItems?: number;
   highImpact?: boolean;
+  jsonHint?: string;
+  /**
+   * For `type: "secret"` this is always `""` — the server never sends a
+   * decrypted secret to a Client Component. Use `overridden` for whether a
+   * value already exists.
+   */
   value: SettingValue;
   defaultValue: SettingValue;
   overridden: boolean;
@@ -35,14 +42,21 @@ export interface SettingFieldProps {
 }
 
 /** The editor's working copy: every type edits as text except boolean. */
-function toDraft(value: SettingValue): string {
+function toDraft(type: SettingType, value: SettingValue): string {
+  if (type === "json") return JSON.stringify(value, null, 2);
   if (Array.isArray(value)) return value.join("\n");
   return String(value);
 }
 
 function describe(value: SettingValue): string {
-  if (Array.isArray(value)) return value.length ? value.join(", ") : "(empty)";
   if (typeof value === "boolean") return value ? "enabled" : "disabled";
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "(empty)";
+    return value.every((item) => typeof item === "string")
+      ? value.join(", ")
+      : JSON.stringify(value);
+  }
+  if (typeof value === "object" && value !== null) return JSON.stringify(value);
   if (value === "") return "(empty)";
   return String(value);
 }
@@ -64,6 +78,7 @@ export function SettingField({
   options,
   maxItems,
   highImpact,
+  jsonHint,
   value,
   defaultValue,
   overridden,
@@ -72,11 +87,13 @@ export function SettingField({
   disabled,
 }: SettingFieldProps) {
   const router = useRouter();
-  const [draft, setDraft] = useState<string>(type === "boolean" ? "" : toDraft(value));
+  const [draft, setDraft] = useState<string>(type === "boolean" ? "" : toDraft(type, value));
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState<PendingConfirm>(null);
+  const [revealSecret, setRevealSecret] = useState(false);
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   /** Turn the editor's text back into the typed value the action expects. */
   function parseDraft(text: string): SettingValue {
@@ -87,7 +104,28 @@ export function SettingField({
         .map((line) => line.trim())
         .filter((line) => line.length > 0);
     }
+    if (type === "json") return JSON.parse(text) as SettingValue;
     return text;
+  }
+
+  /** Parse-checks the JSON draft, surfacing an inline error. Returns whether it's valid. */
+  function validateJsonDraft(text: string): boolean {
+    if (text.trim().length === 0) {
+      setJsonError("A JSON value is required.");
+      return false;
+    }
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (typeof parsed !== "object" || parsed === null) {
+        setJsonError("Must be a JSON object or array, not a bare value.");
+        return false;
+      }
+      setJsonError(null);
+      return true;
+    } catch (err) {
+      setJsonError(err instanceof Error ? err.message : "Invalid JSON.");
+      return false;
+    }
   }
 
   async function commitSave(next: SettingValue) {
@@ -118,7 +156,8 @@ export function SettingField({
         setError(result.error);
         return;
       }
-      if (type !== "boolean") setDraft(toDraft(defaultValue));
+      if (type !== "boolean") setDraft(toDraft(type, defaultValue));
+      if (type === "json") setJsonError(null);
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -139,7 +178,7 @@ export function SettingField({
     void commitSave(next);
   }
 
-  const dirty = type !== "boolean" && draft !== toDraft(value);
+  const dirty = type !== "boolean" && draft !== toDraft(type, value);
   const fieldId = `setting-${settingKey}`;
 
   const confirmCopy =
@@ -167,9 +206,15 @@ export function SettingField({
         </label>
         <span className="ui-chips">
           {highImpact ? <Badge tone="warning">high impact</Badge> : null}
-          <Badge tone={overridden ? "info" : "neutral"}>
-            {overridden ? "database" : "default"}
-          </Badge>
+          {type === "secret" ? (
+            <Badge tone={overridden ? "info" : "neutral"}>
+              {overridden ? "secret set" : "not set"}
+            </Badge>
+          ) : (
+            <Badge tone={overridden ? "info" : "neutral"}>
+              {overridden ? "database" : "default"}
+            </Badge>
+          )}
           {saved ? <Badge tone="success">saved</Badge> : null}
         </span>
       </div>
@@ -240,6 +285,56 @@ export function SettingField({
                 />
                 <span className="u-mono">{draft}</span>
               </span>
+            ) : type === "secret" ? (
+              <span className="ui-setting__secret">
+                <Input
+                  id={fieldId}
+                  type={revealSecret ? "text" : "password"}
+                  value={draft}
+                  maxLength={maxLength}
+                  placeholder={overridden ? "•••••••• (set — enter a new value to replace)" : "not set"}
+                  autoComplete="off"
+                  disabled={disabled || pending}
+                  onChange={(event) => setDraft(event.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={disabled || pending || draft.length === 0}
+                  onClick={() => setRevealSecret((prev) => !prev)}
+                >
+                  {revealSecret ? "hide" : "show"}
+                </Button>
+              </span>
+            ) : type === "json" ? (
+              (() => {
+                const Override = JSON_EDITOR_OVERRIDES[settingKey];
+                return Override ? (
+                  <Override
+                    value={draft}
+                    disabled={disabled || pending}
+                    onChange={(text) => {
+                      setDraft(text);
+                      if (jsonError) setJsonError(null);
+                    }}
+                  />
+                ) : (
+                  <Textarea
+                    id={fieldId}
+                    value={draft}
+                    rows={8}
+                    disabled={disabled || pending}
+                    onChange={(event) => {
+                      setDraft(event.target.value);
+                      if (jsonError) setJsonError(null);
+                    }}
+                    onBlur={(event) => validateJsonDraft(event.target.value)}
+                    aria-invalid={jsonError ? true : undefined}
+                    aria-describedby={`${fieldId}-hint`}
+                  />
+                );
+              })()
             ) : (
               <Input
                 id={fieldId}
@@ -250,6 +345,16 @@ export function SettingField({
               />
             )}
 
+            {type === "json" ? (
+              <>
+                {jsonError ? <Alert tone="error">{jsonError}</Alert> : null}
+                {jsonHint ? (
+                  <p id={`${fieldId}-hint`} className="u-muted ui-setting__hint">
+                    {jsonHint}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
             {type === "string[]" ? (
               <p id={`${fieldId}-hint`} className="u-muted ui-setting__hint">
                 One entry per line{maxItems ? ` · up to ${maxItems}` : ""}.
@@ -266,8 +371,14 @@ export function SettingField({
             type="button"
             variant="console"
             size="sm"
-            disabled={disabled || pending || !dirty}
-            onClick={() => requestSave(parseDraft(draft))}
+            disabled={disabled || pending || !dirty || (type === "json" && jsonError !== null)}
+            onClick={() => {
+              // Re-validate on click rather than trusting stale blur state —
+              // a paste followed immediately by Save must still be blocked
+              // if it isn't valid JSON.
+              if (type === "json" && !validateJsonDraft(draft)) return;
+              requestSave(parseDraft(draft));
+            }}
           >
             {pending ? "saving…" : "save"}
           </Button>
@@ -291,7 +402,7 @@ export function SettingField({
             disabled={pending}
             onClick={() => setConfirming({ kind: "reset" })}
           >
-            reset to default
+            {type === "secret" ? "clear secret" : "reset to default"}
           </Button>
         ) : null}
       </div>

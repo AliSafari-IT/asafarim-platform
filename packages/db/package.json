@@ -19,7 +19,8 @@
     "db:seed:edumatch": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed-edumatch.ts",
     "db:seed:timelineai": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed-timelineai.ts",
     "db:deploy:migrate-and-seed": "prisma migrate deploy && tsx prisma/seed-timelineai.ts --only-if-empty",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@asafarim/seed-manager": "workspace:*",
@@ -28,12 +29,13 @@
   },
   "devDependencies": {
     "@asafarim/config": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^24.0.0",
     "bcryptjs": "^2.4.3",
-    "@types/bcryptjs": "^2.4.6",
     "dotenv-cli": "^7.4.2",
     "prisma": "7.8.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11"
   }
 }

@@ -11,7 +11,11 @@
    always constrain a wider body box), so both are covered here. */
 [data-app="resumatch"],
 [data-app="resumatch"] body {
-  overflow-x: hidden;
+  /* clip, not hidden: overflow-x: hidden turns body into its own scroll
+     container (overflow-y computes to auto), which silently disables every
+     position: sticky on the page — including the shell's sticky header.
+     clip suppresses the bleed without creating a scroll container. */
+  overflow-x: clip;
 }
 
 [data-app="resumatch"] .jm-mono {
@@ -23,6 +27,15 @@
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+/* A grid/flex item's default min-width is its content's min-content size,
+   not 0 — an input, textarea, or a row of controls that can't otherwise
+   shrink pushes the whole card wider than its track and spills into the
+   next column. Every container below that holds form controls gets an
+   explicit min-width: 0 so wrapping/shrinking wins instead. */
+[data-app="resumatch"] .jm-grid > * {
+  min-width: 0;
 }
 
 [data-app="resumatch"] .jm-note {
@@ -214,7 +227,9 @@
 [data-app="resumatch"] .jm-field input,
 [data-app="resumatch"] .jm-field select,
 [data-app="resumatch"] .jm-field textarea {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
@@ -356,73 +371,756 @@
 /* ─── Tailored resume preview + print (app/tailor) ────────────────────── */
 
 .rm-resume {
+  --rm-accent: #4338ca;
+  --rm-ink: var(--ui-text, #16181d);
+  --rm-muted: #5b6270;
+  --rm-line: #e2e4ea;
   max-width: 48rem;
   margin: 0 auto;
   background: var(--ui-surface, #fff);
-  color: var(--ui-text, #111);
-  padding: 2.5rem;
-  font-size: 0.95rem;
-  line-height: 1.5;
+  color: var(--rm-ink);
+  padding: 3rem 3.25rem;
+  font-family: "Georgia", "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+/* Cover letter (issue #457) — reuses .rm-resume's box/typography, just a
+   plain business-letter flow of paragraphs instead of resume sections. */
+.rm-letter p {
+  margin: 0 0 1.1rem;
+}
+.rm-letter__signoff {
+  margin-top: 1.6rem;
 }
 
 .rm-resume__header {
-  border-bottom: 2px solid currentColor;
-  padding-bottom: 0.75rem;
-  margin-bottom: 1rem;
+  text-align: center;
+  padding-bottom: 1.1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2.5px solid var(--rm-accent);
 }
 .rm-resume__header h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.6rem;
+  margin: 0 0 0.3rem;
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--rm-ink);
 }
 .rm-resume__headline {
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
   font-weight: 600;
-  opacity: 0.85;
+  color: var(--rm-accent);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.02em;
 }
 .rm-resume__contact {
   margin: 0;
-  font-size: 0.85rem;
-  opacity: 0.75;
+  font-size: 0.82rem;
+  color: var(--rm-muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+.rm-resume__contact-sep {
+  display: inline-block;
+  width: 0.3rem;
+  height: 0.3rem;
+  margin: 0 0.55rem;
+  border-radius: 999px;
+  background: var(--rm-muted);
+  opacity: 0.6;
+  vertical-align: middle;
 }
 
 .rm-resume__section {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.4rem;
 }
 .rm-resume__section h2 {
-  font-size: 0.85rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid currentColor;
-  padding-bottom: 0.25rem;
-  margin-bottom: 0.5rem;
-  opacity: 0.8;
+  letter-spacing: 0.12em;
+  color: var(--rm-accent);
+  border-bottom: 1px solid var(--rm-line);
+  padding-bottom: 0.3rem;
+  margin: 0 0 0.65rem;
+}
+
+.rm-resume__summary {
+  margin: 0;
+  color: var(--rm-ink);
+}
+
+.rm-resume__skill-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.rm-resume__skill-group {
+  margin: 0;
+  line-height: 1.45;
+}
+.rm-resume__skill-category {
+  font-weight: 700;
+  color: var(--rm-accent);
+}
+.rm-resume__skill-list {
+  color: var(--rm-ink);
 }
 
 .rm-resume__entry {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+.rm-resume__entry:last-child {
+  margin-bottom: 0;
 }
 .rm-resume__entry-header {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  justify-content: space-between;
   align-items: baseline;
+  gap: 0.5rem 1rem;
+}
+.rm-resume__entry-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.rm-resume__entry-heading strong {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.rm-resume__entry-sub {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--rm-muted);
 }
 .rm-resume__dates {
-  margin-left: auto;
-  font-size: 0.8rem;
-  opacity: 0.7;
+  flex: none;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--rm-muted);
+  white-space: nowrap;
 }
 .rm-resume__entry ul {
-  margin: 0.35rem 0 0;
-  padding-left: 1.2rem;
+  margin: 0.45rem 0 0;
+  padding-left: 1.15rem;
+}
+.rm-resume__entry ul li {
+  margin-bottom: 0.25rem;
+}
+.rm-resume__entry ul li::marker {
+  color: var(--rm-accent);
+}
+
+.rm-coverage {
+  max-width: 48rem;
+  margin: 0 auto 1.25rem;
+  padding: 1.1rem 1.3rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.rm-coverage__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.rm-coverage__percent {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #4338ca;
+}
+
+.rm-coverage__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.rm-coverage__label {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+  min-width: 5.5rem;
+}
+
+.rm-coverage__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rm-coverage__pills li {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+}
+
+.rm-coverage__pills--matched li {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+
+.rm-coverage__pills--missing li {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+.rm-coverage__note {
+  margin: 0.6rem 0 0;
+  font-size: 0.76rem;
+  opacity: 0.65;
+}
+
+.rm-quality {
+  max-width: 48rem;
+  margin: 0 auto 1.25rem;
+  padding: 1.1rem 1.3rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.rm-quality__header {
+  margin-bottom: 0.6rem;
+}
+
+.rm-quality__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.rm-quality__list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.rm-quality__mark {
+  flex: none;
+  width: 1.1rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.rm-quality__item--ok .rm-quality__mark {
+  color: #047857;
+}
+
+.rm-quality__item--warn .rm-quality__mark {
+  color: #b45309;
+}
+
+.rm-quality__detail {
+  opacity: 0.65;
 }
 
 .rm-preview-toolbar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
   max-width: 48rem;
   margin: 0 auto 1rem;
+}
+.rm-preview-toolbar__hint {
+  font-size: 0.82rem;
+  opacity: 0.6;
+}
+
+/* ─── Tailor flow: modern intake tabs, review, bullet checklist ────────── */
+
+/* A single, reset, app-wide checkbox look — the unstyled native box
+   renders enormous on Windows/Chromium, which is what made the bullet
+   review list and every other checkbox in this app look broken. Sized and
+   accented once here rather than per usage site. */
+[data-app="resumatch"] input[type="checkbox"] {
+  appearance: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+  margin: 0;
+  border-radius: 5px;
+  border: 1.5px solid var(--line-strong, rgba(148, 163, 184, 0.5));
+  background: var(--surface);
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+[data-app="resumatch"] input[type="checkbox"]::before {
+  content: "";
+  width: 0.62rem;
+  height: 0.62rem;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 0.1s ease-in-out;
+  background: #fff;
+}
+
+[data-app="resumatch"] input[type="checkbox"]:checked {
+  background: var(--rm-accent, #4338ca);
+  border-color: var(--rm-accent, #4338ca);
+}
+
+[data-app="resumatch"] input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+[data-app="resumatch"] input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--rm-accent, #4338ca);
+  outline-offset: 2px;
+}
+
+[data-app="resumatch"] input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Intake mode picker: a segmented control rather than a loose row of
+   ghost buttons. */
+.rm-mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--rm-accent, #4338ca) 6%, var(--surface, #fff));
+  border: 1px solid color-mix(in srgb, var(--rm-accent, #4338ca) 12%, transparent);
+}
+
+.rm-mode-tabs button {
+  border-radius: 0.6rem !important;
+  font-size: 0.82rem !important;
+}
+
+.rm-intake-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--line, rgba(148, 163, 184, 0.3));
+}
+
+.rm-intake-panel__hint {
+  opacity: 0.7;
+  font-size: 0.85rem;
+  margin: 0 0 0.65rem;
+  line-height: 1.5;
+}
+
+/* Review card */
+.rm-review {
+  margin-top: 1.25rem;
+}
+
+.rm-review__intro {
+  opacity: 0.7;
+  font-size: 0.85rem;
+  margin: 0 0 1.1rem;
+  line-height: 1.5;
+}
+
+.rm-review__section {
+  padding: 1rem 0;
+  border-top: 1px solid var(--line, rgba(148, 163, 184, 0.25));
+}
+
+.rm-review__section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.rm-review__section-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.55;
+  margin-bottom: 0.5rem;
+}
+
+.rm-review__section input[type="text"],
+.rm-review__section textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
+  border-radius: 0.6rem;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rm-review__section input[type="text"]:focus-visible,
+.rm-review__section textarea:focus-visible {
+  outline: none;
+  border-color: var(--rm-accent, #4338ca);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rm-accent, #4338ca) 18%, transparent);
+}
+
+.rm-skill-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+
+.rm-skill-toggle input {
+  margin-top: 0.15rem;
+}
+
+.rm-skill-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+
+.rm-skill-pills span {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rm-accent, #4338ca) 12%, transparent);
+  color: var(--rm-accent, #4338ca);
+}
+
+.rm-entry {
+  margin-top: 1.1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--ink, #111) 3%, transparent);
+}
+
+.rm-entry:first-child {
+  margin-top: 0;
+}
+
+.rm-entry__heading {
+  font-size: 0.9rem;
+}
+
+.rm-entry__heading .rm-entry__sub {
+  font-weight: 400;
+  opacity: 0.65;
+}
+
+.rm-bullet-list {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.rm-bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.5rem;
+  transition: background 0.12s ease;
+}
+
+.rm-bullet-item:hover {
+  background: color-mix(in srgb, var(--rm-accent, #4338ca) 6%, transparent);
+}
+
+.rm-bullet-item input {
+  margin-top: 0.2rem;
+}
+
+.rm-bullet-item span {
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.rm-bullet-item--unaccepted span {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.rm-review__actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line, rgba(148, 163, 184, 0.25));
+}
+
+/* Previously-tailored / history lists */
+.rm-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.rm-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.6rem;
+  transition: background 0.12s ease;
+}
+
+.rm-history-item:hover {
+  background: color-mix(in srgb, var(--rm-accent, #4338ca) 6%, transparent);
+}
+
+.rm-history-item__link {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rm-history-item__link:hover {
+  text-decoration: underline;
+}
+
+.rm-history-item__meta {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.rm-history-item__refresh {
+  margin-left: 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--accent, #4a54d8);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+.rm-history-item__refresh:hover {
+  text-decoration: underline;
+}
+.rm-history-item__refresh:disabled {
+  opacity: 0.6;
+  cursor: default;
+  text-decoration: none;
+}
+
+.rm-badge {
+  flex: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+}
+
+.rm-badge--warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.rm-badge--rejected {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.rm-badge--neutral {
+  background: var(--accent-soft, rgba(74, 84, 216, 0.12));
+  color: var(--accent, #4a54d8);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Application status stepper (ApplicationStatusStepper.tsx) — self-built,
+   see that file's doc comment for why it isn't @asafarim/progress-bars. */
+.rm-status-stepper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.rm-status-stepper__steps {
+  display: flex;
+  align-items: center;
+  flex: 1 1 20rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rm-status-step {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.rm-status-step:last-child {
+  flex: none;
+}
+
+.rm-status-step:not(:last-child) {
+  flex: 1;
+}
+
+.rm-status-step__connector {
+  flex: 1;
+  height: 2px;
+  min-width: 0.75rem;
+  margin: 0 0.35rem;
+  background: var(--line, rgba(148, 163, 184, 0.35));
+  transition: background 0.15s ease;
+}
+
+.rm-status-step__connector--filled {
+  background: var(--rm-accent, #4338ca);
+}
+
+.rm-status-step__button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.rm-status-step__button:disabled {
+  cursor: not-allowed;
+}
+
+.rm-status-step__dot {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  border: 2px solid var(--line-strong, rgba(148, 163, 184, 0.5));
+  background: var(--surface, #fff);
+  color: var(--muted, #6b7280);
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.rm-status-step--current .rm-status-step__dot {
+  border-color: var(--rm-accent, #4338ca);
+  color: var(--rm-accent, #4338ca);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rm-accent, #4338ca) 18%, transparent);
+}
+
+.rm-status-step--done .rm-status-step__dot {
+  border-color: var(--rm-accent, #4338ca);
+  background: var(--rm-accent, #4338ca);
+  color: #fff;
+}
+
+.rm-status-step__button:hover:not(:disabled) .rm-status-step__dot {
+  border-color: var(--rm-accent, #4338ca);
+}
+
+.rm-status-step__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--muted, #6b7280);
+}
+
+.rm-status-step--current .rm-status-step__label,
+.rm-status-step--done .rm-status-step__label {
+  color: var(--ink, #111);
+}
+
+.rm-status-stepper__reject,
+.rm-status-rejected__undo {
+  flex: none;
+  background: none;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.76rem;
+  color: var(--ink, #444);
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.12s ease, border-color 0.12s ease;
+}
+
+.rm-status-stepper__reject:hover,
+.rm-status-rejected__undo:hover {
+  opacity: 1;
+  border-color: var(--rm-accent, #4338ca);
+}
+
+.rm-status-stepper__reject:disabled,
+.rm-status-rejected__undo:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rm-status-rejected {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.rm-history-footer {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line, rgba(148, 163, 184, 0.25));
+}
+
+.rm-history-footer a {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .rm-history-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 /* ─── Premium entity cards (profile list views) ───────────────────────── */
@@ -435,9 +1133,20 @@
   gap: 0.65rem;
 }
 
+.jm-entity-list {
+  min-width: 0;
+}
+
+.jm-entity-list > li {
+  min-width: 0;
+}
+
 .jm-entity-card {
   --category-tint: 99, 102, 241;
   position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: flex-start;
   gap: 0.85rem;
@@ -501,11 +1210,18 @@
 .jm-entity-card__body {
   flex: 1;
   min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
+}
+
+.jm-entity-card__body input,
+.jm-entity-card__body select {
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .jm-entity-card__title {
@@ -534,8 +1250,10 @@
 }
 
 .jm-entity-card__actions {
-  flex: none;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
 }
@@ -560,6 +1278,64 @@
   background: rgba(var(--category-tint), 0.12);
   color: rgb(var(--category-tint));
   border: 1px solid rgba(var(--category-tint), 0.25);
+}
+
+/* Grouped skills preview (profile editor) — same chip system, organized
+   under a heading per functional category instead of one flat run. */
+.rm-skill-groups {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.rm-skill-groups__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+.rm-skill-groups__suggestions {
+  border: 1px solid var(--rm-line, rgba(99, 102, 241, 0.25));
+  border-radius: 0.6rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.rm-skill-groups__suggestion-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.rm-skill-group__label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.65;
+  margin-bottom: 0.35rem;
+}
+.rm-skill-chip {
+  gap: 0.35rem;
+  padding-right: 0.4rem;
+}
+.rm-skill-chip__category {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.55;
+  cursor: pointer;
+  max-width: 6.5rem;
+}
+.rm-skill-chip__category:hover,
+.rm-skill-chip__category:focus {
+  opacity: 1;
 }
 
 .jm-icon-button {
@@ -588,6 +1364,48 @@
   background: rgba(220, 38, 38, 0.1);
 }
 
+/* Non-destructive variant for the drag handle and move-up/down buttons —
+   overrides the default red destructive hover meant for the trash button. */
+.jm-icon-button--neutral:hover {
+  color: var(--brand, #2563eb);
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.jm-icon-button--neutral:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.jm-icon-button--neutral:disabled:hover {
+  color: var(--ink, #444);
+  background: transparent;
+}
+
+.jm-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.jm-drag-handle:active {
+  cursor: grabbing;
+}
+
+.jm-entity-card__reorder {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.jm-entity-card__reorder .jm-icon-button {
+  width: 1.5rem;
+  height: 1.1rem;
+}
+
+.jm-entity-card__reorder .jm-icon-button svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
 /* Entity card variant that stacks its editable fields vertically instead of
    the icon-row layout — used for multi-field entries like a job or a
    degree, where a single line can't hold everything. */
@@ -611,6 +1429,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: 0.6rem;
+  min-width: 0;
+}
+
+.jm-entity-card__fields > label {
+  min-width: 0;
 }
 
 .jm-entity-card__fields--full {
@@ -627,7 +1450,9 @@
 
 .jm-entity-card__fields input,
 .jm-entity-card__fields textarea {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   padding: 0.4rem 0.55rem;
   border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.35));
   border-radius: 0.5rem;
@@ -647,6 +1472,54 @@
 
 .jm-add-row {
   margin-top: 0.75rem;
+}
+
+/* ─── Summary tone-rewrite control ─────────────────────────────────────── */
+
+.jm-rewrite {
+  margin: -0.5rem 0 1rem;
+}
+
+.jm-rewrite__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.jm-rewrite__controls select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
+  border-radius: 0.5rem;
+  background: var(--surface, #fff);
+  color: var(--ink, inherit);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.jm-rewrite__preview {
+  margin-top: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px dashed rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.jm-rewrite__note {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+
+.jm-rewrite__text {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+.jm-rewrite__actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 /* ─── Premium alert cards (warnings / quarantine) ─────────────────────── */
@@ -1050,8 +1923,128 @@
   }
 }
 
+/* ─── Tailoring wait animation (app/tailor) ─────────────────────────────
+   The "up to a minute" gap between pasting a job and seeing the review
+   screen used to be a single static sentence. See
+   components/tailoring/TailoringLoader.tsx's doc comment for why. */
+
+.rm-tailor-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.rm-tailor-loader__svg {
+  width: 200px;
+  height: 150px;
+}
+
+.rm-tailor-loader__page {
+  fill: var(--surface-2, #eef1f6);
+  stroke: var(--line-strong, rgba(19, 23, 34, 0.22));
+  stroke-width: 1.5;
+}
+
+.rm-tailor-loader__sweep {
+  fill: var(--accent-soft, rgba(74, 84, 216, 0.12));
+  animation: rm-loader-sweep 2.6s ease-in-out infinite;
+}
+
+.rm-tailor-loader__line {
+  fill: var(--line-strong, rgba(19, 23, 34, 0.22));
+  transform-origin: left center;
+  animation: rm-loader-type 2.6s ease-in-out infinite;
+}
+.rm-tailor-loader__line--head {
+  fill: var(--accent, #4a54d8);
+}
+
+.rm-tailor-loader__spark-orbit {
+  transform-origin: 116px 79px;
+  animation: rm-loader-orbit 3.6s linear infinite;
+}
+.rm-tailor-loader__spark {
+  fill: var(--accent, #4a54d8);
+  animation: rm-loader-twinkle 1.4s ease-in-out infinite;
+}
+.rm-tailor-loader__spark-dot {
+  fill: var(--accent, #4a54d8);
+  opacity: 0.5;
+  animation: rm-loader-twinkle 1.8s ease-in-out infinite;
+}
+
+.rm-tailor-loader__step {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink);
+  min-height: 1.3em;
+}
+
+.rm-tailor-loader__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+@keyframes rm-loader-sweep {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(210px);
+  }
+}
+
+@keyframes rm-loader-type {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  45% {
+    transform: scaleX(0.35);
+    opacity: 0.55;
+  }
+}
+
+@keyframes rm-loader-orbit {
+  0% {
+    transform: rotate(0deg) translateX(42px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg) translateX(42px) rotate(-360deg);
+  }
+}
+
+@keyframes rm-loader-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-tailor-loader__sweep,
+  .rm-tailor-loader__line,
+  .rm-tailor-loader__spark-orbit,
+  .rm-tailor-loader__spark,
+  .rm-tailor-loader__spark-dot {
+    animation: none;
+  }
+}
+
 @media print {
   .rm-preview-toolbar,
+  .rm-coverage,
+  .rm-quality,
   .ui-shell__header,
   .ui-shell__side,
   .ui-shell__footer {
@@ -1063,5 +2056,508 @@
   }
   @page {
     margin: 1.5cm;
+  }
+}
+
+/* ─── Profile workbench layout (/profile) ─────────────────────────────────
+   The profile used to be one flat auto-fill grid of seven cards. Grid rows
+   are shared, so every short card (About you, Languages) was stretched to
+   the height of its tallest neighbour (Skills), leaving large blank areas,
+   while the content-heavy lists (Experience, Education) got the same narrow
+   260px track as a two-field card.
+
+   Instead: a narrow rail for the short "fact" sections and a wide canvas for
+   the list-heavy ones. Each column stacks independently (no shared rows), and
+   inside the canvas the entry cards tile to the canvas's own width via
+   container queries — 2 across on a laptop, 3 on a desktop, 4 on ultrawide. */
+
+/* Let this page use wide screens: the shell caps content at 74rem, which is
+   what left ultrawide monitors mostly empty. Scoped to pages rendering the
+   workbench only. */
+[data-app="resumatch"] .ui-shell__main:has(.rm-wb) {
+  max-width: min(120rem, 100%);
+}
+
+[data-app="resumatch"] .rm-wb {
+  /* Height of the shell's own sticky header; the workbench bar sticks below it. */
+  --rm-wb-top: 4.1rem;
+  /* Approximate height of the workbench bar itself (one row on desktop). */
+  --rm-wb-bar: 3.25rem;
+}
+
+/* Sticky bar: section jump links + save actions. */
+[data-app="resumatch"] .rm-wb__bar {
+  position: sticky;
+  top: var(--rm-wb-top);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.75rem;
+  border: 1px solid var(--line, rgba(148, 163, 184, 0.3));
+  border-radius: 0.9rem;
+  /* Near-opaque: content scrolling underneath must not read through the links. */
+  background: color-mix(in srgb, var(--surface, #fff) 97%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.25);
+}
+
+[data-app="resumatch"] .rm-wb__nav {
+  display: flex;
+  gap: 0.2rem;
+  flex: 1 1 22rem;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Hovering the right/left edge auto-scrolls (useEdgeAutoScroll); this
+     fade is the pure-CSS cue that there's more before you've even tried. */
+  mask-image: linear-gradient(to right, transparent 0, black 12px, black calc(100% - 12px), transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 12px,
+    black calc(100% - 12px),
+    transparent 100%
+  );
+}
+[data-app="resumatch"] .rm-wb__nav::-webkit-scrollbar {
+  display: none;
+}
+
+[data-app="resumatch"] .rm-wb__navlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.8;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+[data-app="resumatch"] .rm-wb__navlink:hover,
+[data-app="resumatch"] .rm-wb__navlink:focus-visible {
+  opacity: 1;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+[data-app="resumatch"] .rm-wb__count {
+  min-width: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  background: rgba(99, 102, 241, 0.12);
+}
+
+[data-app="resumatch"] .rm-wb__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+[data-app="resumatch"] .rm-wb__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+[data-app="resumatch"] .rm-wb__status::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.8;
+}
+[data-app="resumatch"] .rm-wb__status--dirty { color: var(--warning, #b7791f); }
+[data-app="resumatch"] .rm-wb__status--ok { color: var(--success, #2f855a); }
+[data-app="resumatch"] .rm-wb__status--error { color: var(--danger, #c53030); }
+[data-app="resumatch"] .rm-wb__status--busy,
+[data-app="resumatch"] .rm-wb__status--muted { opacity: 0.7; }
+
+[data-app="resumatch"] .rm-wb__version {
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+/* Layout: one column on small screens, rail + canvas from 900px. */
+[data-app="resumatch"] .rm-wb__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin: 1rem 0 1.5rem;
+}
+
+[data-app="resumatch"] .rm-wb__rail,
+[data-app="resumatch"] .rm-wb__canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+[data-app="resumatch"] .rm-wb__canvas {
+  container: rm-canvas / inline-size;
+}
+
+[data-app="resumatch"] .rm-wb__section {
+  min-width: 0;
+  /* Land jump-link targets below both sticky bars, not under them. */
+  scroll-margin-top: calc(var(--rm-wb-top) + 5rem);
+}
+
+/* Single column: flatten rail/canvas so sections interleave in reading
+   order (About → Experience → Skills → …) instead of rail-then-canvas. */
+@media (max-width: 899px) {
+  /* On a phone the bar wraps to several rows; pinned, it would permanently
+     take ~15% of the screen. It stays at the top of the form, unpinned. */
+  [data-app="resumatch"] .rm-wb__bar {
+    position: static;
+  }
+  [data-app="resumatch"] .rm-wb__rail,
+  [data-app="resumatch"] .rm-wb__canvas {
+    display: contents;
+  }
+  [data-app="resumatch"] .rm-wb__section--about { order: 1; }
+  [data-app="resumatch"] .rm-wb__section--experience { order: 2; }
+  [data-app="resumatch"] .rm-wb__section--skills { order: 3; }
+  [data-app="resumatch"] .rm-wb__section--education { order: 4; }
+  [data-app="resumatch"] .rm-wb__section--certifications { order: 5; }
+  [data-app="resumatch"] .rm-wb__section--languages { order: 6; }
+  [data-app="resumatch"] .rm-wb__section--preferences { order: 7; }
+}
+
+@media (min-width: 900px) {
+  [data-app="resumatch"] .rm-wb__layout {
+    grid-template-columns: minmax(17rem, 21rem) minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+  /* The rail is almost always much shorter than the canvas; left in normal
+     flow it would end halfway down and leave the column below it empty. As a
+     sticky panel that scrolls on its own, it stays beside the canvas the whole
+     way down (About you is always one glance away while editing Experience),
+     and a long rail still fits the viewport. */
+  [data-app="resumatch"] .rm-wb__rail {
+    position: sticky;
+    top: calc(var(--rm-wb-top) + var(--rm-wb-bar) + 1rem);
+    max-height: calc(100vh - var(--rm-wb-top) - var(--rm-wb-bar) - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    /* Room so card shadows/focus rings aren't clipped by the scroll box. */
+    padding: 0.15rem 0.35rem 0.5rem 0.15rem;
+    margin: -0.15rem -0.35rem 0 -0.15rem;
+  }
+}
+
+/* Entry cards (experience / education / certifications) tile across the
+   canvas. align-items: start keeps a short card from being stretched to its
+   row's tallest. */
+[data-app="resumatch"] .rm-wb__canvas .jm-entity-list {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.85rem;
+}
+@container rm-canvas (min-width: 34rem) {
+  [data-app="resumatch"] .rm-wb__canvas .jm-entity-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container rm-canvas (min-width: 58rem) {
+  [data-app="resumatch"] .rm-wb__canvas .jm-entity-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@container rm-canvas (min-width: 84rem) {
+  [data-app="resumatch"] .rm-wb__canvas .jm-entity-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Skills: the free-text list beside the grouped chips once there is room,
+   with the text list pinned while the (much taller) groups scroll past. */
+[data-app="resumatch"] .rm-skills__input,
+[data-app="resumatch"] .rm-skills__groups {
+  min-width: 0;
+}
+@container rm-canvas (min-width: 50rem) {
+  [data-app="resumatch"] .rm-skills {
+    display: grid;
+    grid-template-columns: minmax(15rem, 1fr) minmax(0, 2.2fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  [data-app="resumatch"] .rm-skills__input {
+    position: sticky;
+    top: calc(var(--rm-wb-top) + 4.5rem);
+  }
+  [data-app="resumatch"] .rm-skills__input textarea {
+    min-height: 18rem;
+  }
+}
+
+/* Category groups pack as masonry columns instead of one long stack. */
+[data-app="resumatch"] .rm-skill-groups__masonry {
+  columns: 16rem;
+  column-gap: 1.25rem;
+}
+[data-app="resumatch"] .rm-skill-groups__masonry > .rm-skill-group {
+  break-inside: avoid;
+  margin-bottom: 1rem;
+}
+
+
+/* ─── AI usage / provider cost timeline (issue #587) ─────────────────────
+   Status is always carried by text (badges, "Not tracked"), never by colour
+   alone; amounts use tabular numerals so columns line up. */
+[data-app="resumatch"] .rm-cost-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0 0.9rem;
+  align-items: end;
+  margin: 1.25rem 0 0.5rem;
+}
+
+[data-app="resumatch"] .rm-cost-filters__actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+[data-app="resumatch"] .rm-cost-filters__reset {
+  font-size: 0.85rem;
+}
+
+[data-app="resumatch"] .rm-cost-range {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 0 0 1rem;
+}
+
+[data-app="resumatch"] .rm-cost-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+[data-app="resumatch"] .rm-cost-section {
+  margin-top: 2rem;
+}
+
+[data-app="resumatch"] .rm-cost-section h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.35rem;
+}
+
+[data-app="resumatch"] .rm-cost-section__hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+}
+
+[data-app="resumatch"] .rm-cost-groups,
+[data-app="resumatch"] .rm-cost-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+[data-app="resumatch"] .rm-cost-group {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  margin-bottom: 0.6rem;
+}
+
+[data-app="resumatch"] .rm-cost-group > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "title count amount"
+    "badges badges badges";
+  gap: 0.35rem 1rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+[data-app="resumatch"] .rm-cost-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+[data-app="resumatch"] .rm-cost-group__chevron::before {
+  content: "▸";
+  display: inline-block;
+  width: 1rem;
+  color: var(--muted);
+}
+
+[data-app="resumatch"] .rm-cost-group[open] .rm-cost-group__chevron::before {
+  content: "▾";
+}
+
+[data-app="resumatch"] .rm-cost-group > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+[data-app="resumatch"] .rm-cost-group[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+[data-app="resumatch"] .rm-cost-group > :not(summary) {
+  padding: 0 1rem 0.75rem;
+}
+
+[data-app="resumatch"] .rm-cost-group__title {
+  grid-area: title;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-app="resumatch"] .rm-cost-group__detail {
+  color: var(--muted);
+}
+
+[data-app="resumatch"] .rm-cost-group__badges {
+  grid-area: badges;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+[data-app="resumatch"] .rm-cost-group__badges:empty {
+  display: none;
+}
+
+[data-app="resumatch"] .rm-cost-group__count {
+  grid-area: count;
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+[data-app="resumatch"] .rm-cost-group__amount {
+  grid-area: amount;
+}
+
+[data-app="resumatch"] .rm-cost-group__amount,
+[data-app="resumatch"] .rm-cost-item__amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+[data-app="resumatch"] .rm-cost-item {
+  display: grid;
+  grid-template-columns: 10.5rem minmax(0, 1fr) auto 6.5rem;
+  gap: 0.5rem 1rem;
+  align-items: start;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+
+[data-app="resumatch"] .rm-cost-item:last-child {
+  border-bottom: 0;
+}
+
+[data-app="resumatch"] .rm-cost-item__when {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+[data-app="resumatch"] .rm-cost-item__outcome {
+  color: var(--muted);
+}
+
+[data-app="resumatch"] .rm-cost-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.9rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+  overflow-wrap: anywhere;
+}
+
+[data-app="resumatch"] .rm-cost-amount--unknown {
+  font-weight: 500;
+  font-style: italic;
+  color: var(--muted);
+}
+
+[data-app="resumatch"] .rm-cost-more {
+  margin-top: 0.75rem;
+}
+
+[data-app="resumatch"] .rm-cost-error {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+[data-app="resumatch"] .rm-cost-loading {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0.75rem 0 0;
+}
+
+@media (max-width: 640px) {
+  [data-app="resumatch"] .rm-cost-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "when amount"
+      "what what"
+      "status status";
+  }
+
+  [data-app="resumatch"] .rm-cost-item__when {
+    grid-area: when;
+  }
+
+  [data-app="resumatch"] .rm-cost-item__amount {
+    grid-area: amount;
+  }
+
+  [data-app="resumatch"] .rm-cost-item__what {
+    grid-area: what;
+  }
+
+  [data-app="resumatch"] .rm-cost-item__status {
+    grid-area: status;
+  }
+
+  [data-app="resumatch"] .rm-cost-group > summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title amount"
+      "count count"
+      "badges badges";
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-app="resumatch"] .rm-cost-group,
+  [data-app="resumatch"] .rm-cost-group * {
+    transition: none !important;
+    animation: none !important;
   }
 }

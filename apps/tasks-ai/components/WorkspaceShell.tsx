@@ -107,6 +107,11 @@ const NAV_GROUPS: NavGroup[] = [
         href: (s) => `/w/${s}/analytics`,
         desc: "See how work is moving across the workspace.",
       },
+      {
+        label: "AI cost",
+        href: (s) => `/w/${s}/analytics/ai-costs`,
+        desc: "What AI providers charged for Copilot runs, per project and task.",
+      },
     ],
   },
   {

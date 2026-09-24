@@ -1,4 +1,5 @@
 import type { ProposalDraft, AiKind } from "./types";
+import type { ProviderCallMeta } from "./cost/meta";
 import type { RenderedPrompt } from "./prompts";
 
 /**
@@ -37,7 +38,9 @@ export interface ProviderCall {
   onDelta?: (delta: ProviderDelta) => void;
 }
 
-export interface ProviderOutput {
+/** `usage`/`responseModel`/`providerRequestId` (issue #590) feed the AI cost
+ *  ledger; the adapter's own float `costUsd` is no longer the spend of record. */
+export interface ProviderOutput extends ProviderCallMeta {
   draft: ProposalDraft;
   inputTokens: number;
   outputTokens: number;

@@ -107,6 +107,14 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
     editDistance = diffOps(p.operations as Operation[], editedOperations);
   }
 
+  // Involvement links (issue #590): which tasks this run created, changed
+  // or linked. No amounts — the run's cost stays on its project (or task)
+  // exactly once, however many tasks it touched.
+  const involvement = new Map<string, "created" | "updated" | "linked">();
+  const involve = (taskId: string, role: "created" | "updated" | "linked") => {
+    if (!involvement.has(`${taskId}:${role}`)) involvement.set(`${taskId}:${role}`, role);
+  };
+
   await ctx.db.$transaction(async (tx) => {
     for (const op of selected) {
       if (op.op === "create_task") {
@@ -137,6 +145,7 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
           },
         });
         refToTaskId.set(op.ref, task.id);
+        involve(task.id, "created");
         undo.push({ op: "delete_task", taskId: task.id });
         await emitActivity(tx, ctx.workspaceId, ctx.correlationId, {
           name: EVENT.taskCreated,
@@ -160,6 +169,7 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
           where: { id: before.id },
           data: { ...op.fields, version: { increment: 1 } },
         });
+        involve(before.id, "updated");
         undo.push({
           op: "restore_task",
           taskId: before.id,
@@ -176,6 +186,8 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
         const rel = await tx.taskRelation.create({
           data: { workspaceId: ctx.workspaceId, fromTaskId: from, toTaskId: to, kind: op.kind },
         });
+        involve(from, "linked");
+        involve(to, "linked");
         undo.push({ op: "unlink", relationId: rel.id });
       } else if (op.op === "set_dependency") {
         // issue #235: a superset of link_tasks that also accepts the
@@ -190,6 +202,8 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
         const rel = await tx.taskRelation.create({
           data: { workspaceId: ctx.workspaceId, fromTaskId, toTaskId, kind: "blocks" },
         });
+        involve(fromTaskId, "linked");
+        involve(toTaskId, "linked");
         undo.push({ op: "unlink", relationId: rel.id });
       } else if (op.op === "set_labels") {
         // Confirmed by review the same way update_task's fields are — this
@@ -233,6 +247,7 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
           await tx.taskLabel.deleteMany({ where: { taskId, labelId: { in: toRemove } } });
         }
         if (finalAdd.length || toRemove.length) {
+          involve(taskId, "updated");
           undo.push({ op: "restore_labels", taskId, added: finalAdd, removed: toRemove });
         }
       } else if (op.op === "suggest_status") {
@@ -254,6 +269,7 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
         // no-op rather than failing the whole apply.
         if (!status) continue;
         await tx.task.update({ where: { id: before.id }, data: { suggestedStatusId: status.id } });
+        involve(before.id, "updated");
         undo.push({
           op: "restore_suggested_status",
           taskId: before.id,
@@ -272,12 +288,20 @@ export async function applyProposal(ctx: RequestContext, id: string, input: unkn
           where: { id: before.id },
           data: { suggestedDueDate: new Date(op.dueDate) },
         });
+        involve(before.id, "updated");
         undo.push({
           op: "restore_suggested_due_date",
           taskId: before.id,
           suggestedDueDate: before.suggestedDueDate,
         });
       }
+    }
+
+    if (involvement.size) {
+      await tx.aiJobTaskLink.createMany({
+        data: [...involvement.entries()].map(([key, role]) => ({ aiJobId: p.aiJobId, taskId: key.slice(0, key.lastIndexOf(":")), role })),
+        skipDuplicates: true,
+      });
     }
 
     await tx.proposal.update({
@@ -383,7 +407,14 @@ export async function regenerateProposal(ctx: RequestContext, id: string) {
   await ctx.db.proposal.updateMany({ where: { id }, data: { state: "regenerating" } });
   // The original input is not stored verbatim (redaction) — the client
   // re-submits it. Regenerate here just marks state; the route calls runAiJob.
-  return runAiJob(ctx, { kind: p.kind, input: `regenerate:${p.aiJobId}` });
+  // Keep the original job's scope so the regenerated run's cost lands on
+  // the same project/task (issue #590).
+  return runAiJob(ctx, {
+    kind: p.kind,
+    input: `regenerate:${p.aiJobId}`,
+    ...(p.aiJob.projectId ? { projectId: p.aiJob.projectId } : {}),
+    ...(p.targetTaskId ? { taskId: p.targetTaskId } : {}),
+  });
 }
 
 function diffOps(a: Operation[], b: Operation[]): number {

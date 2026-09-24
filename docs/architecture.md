@@ -83,6 +83,36 @@ import {
 } from "@asafarim/auth";
 ```
 
+### Permission tiers within a resource
+
+Most resources use a single flat `resource.action` permission (`users.edit`,
+`roles.assign`). The admin console's Settings surface is the first place
+that splits one resource into two tiers by risk rather than by action:
+
+- `settings.{list,view,edit}` — the base tier, for ordinary configuration
+  (maintenance banner, page size, feature flags).
+- `settings.secrets.{view,edit}` — a stricter tier required for any setting
+  that holds or gates a live credential: every `type: "secret"` definition
+  (Stripe keys, SMTP password, AI provider keys — see
+  `apps/admin/lib/settings.ts`), plus any definition explicitly flagged
+  `sensitive: true` (e.g. a payment provider's live/test mode, which isn't
+  itself a credential but gates one).
+
+`apps/admin/app/(admin)/settings/actions.ts` derives the required
+permission from the target `SettingDefinition` on every read and write —
+never from a caller-supplied string — so a sensitive setting cannot be
+edited by holding only the base `settings.edit` permission, server-side,
+regardless of what the UI shows. `page.tsx` mirrors this on the read side:
+a `settings.view`-only session sees an is-it-set indicator for a sensitive
+row, never its value or an editor.
+
+**The Admin role does not get `settings.secrets.*` by default** — it keeps
+`settings.{view,edit}` for everything it already managed, and does not
+silently gain live-credential access the moment this tier ships. Granting
+`settings.secrets.*` to a role (Admin or otherwise) is a deliberate act via
+Roles admin, the same pattern as `seeds.remove`/`seeds.schedule`. See
+`packages/seed-manager/src/definitions/foundation.ts`.
+
 ## Shared packages
 
 - `@asafarim/ui` — the platform design system: CSS design tokens with

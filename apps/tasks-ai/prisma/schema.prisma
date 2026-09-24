@@ -57,6 +57,7 @@ model Workspace {
   archivedAt DateTime?
 
   memberships   Membership[]
+  aiCostEvents  AiCostEvent[]
   teams         Team[]
   projects      Project[]
   goals         Goal[]
@@ -380,6 +381,7 @@ model Task {
   attachments       Attachment[]
   watchers          Watcher[]
   checks            TaskCheck[]
+  aiJobLinks        AiJobTaskLink[]
 
   @@index([workspaceId])
   @@index([workspaceId, projectId])
@@ -863,6 +865,12 @@ model AiJob {
   /// reproducibility — a re-run against the same evidence set should be
   /// explainable even if live data has since changed underneath it.
   retrievedIds  String[]   @default([])
+  /// Cost attribution, fixed when the job is created (issue #590): the
+  /// project a project-scoped job worked in, and the one existing task a
+  /// task-scoped job ("break this down") targeted. Both null = a
+  /// workspace-wide job. Never re-derived from where tasks later end up.
+  projectId     String?
+  targetTaskId  String?
   inputTokens   Int?
   outputTokens  Int?
   costUsd       Float?
@@ -872,10 +880,12 @@ model AiJob {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  proposal Proposal?
+  proposal  Proposal?
+  taskLinks AiJobTaskLink[]
 
   @@index([workspaceId, state])
   @@index([workspaceId, cacheKey])
+  @@index([workspaceId, projectId])
   @@map("ai_job")
 }
 
@@ -1555,4 +1565,109 @@ model ScimEvent {
   @@unique([workspaceId, externalId, op, receivedAt])
   @@index([workspaceId])
   @@map("scim_event")
+}
+
+
+// ─── AI cost ledger (milestone #31, issue #590) ───────────────────────────
+//
+// Implements the platform AI cost-event contract (@asafarim/ai-cost-ledger,
+// docs/adr/0003-ai-cost-event-contract.md) in TasksAI's isolated database.
+// AiUsageLedger / AiJob.costUsd keep serving the budget and billing reads
+// unchanged; this is the attributed, integer-micro, append-only record.
+
+/// One immutable row per provider call that returned (or may have billed)
+/// usage. Money is attributed ONCE, at the level the job was scoped to:
+/// `attribution` = task (direct task action) | project (shared planning run)
+/// | workspace (no project). Tasks a shared run created or touched are
+/// linked through AiJobTaskLink with no amount, so a plan that creates five
+/// tasks is never counted five times.
+model AiCostEvent {
+  id             String @id @default(cuid())
+  /// `tasks-ai:<kind>:job_<aiJobId>[...]` — unique; a retried write is a no-op.
+  idempotencyKey String @unique
+  schemaVersion  Int    @default(1)
+  /// usage | adjustment
+  entryType      String @default("usage")
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Membership that ran the job — for audit and "my AI activity" only,
+  /// never a ranking dimension.
+  actorId     String?
+
+  /// extract_plan | decompose | acceptance_criteria | summarize | nl_query | …
+  operation String
+  /// succeeded | degraded | failed | cancelled
+  outcome   String @default("succeeded")
+  /// provisional | final
+  finality  String @default("provisional")
+
+  /// task | project | workspace
+  attribution       String
+  subjectType       String
+  subjectId         String
+  parentSubjectType String?
+  parentSubjectId   String?
+  /// Plain columns, not FKs: archiving/deleting a project or task must not
+  /// erase the record that money was spent on it.
+  projectId         String?
+  taskId            String?
+  aiJobId           String?
+  proposalId        String?
+  workflowId        String?
+  traceId           String?
+
+  provider          String
+  requestModel      String?
+  responseModel     String
+  providerRequestId String?
+  promptVersion     String?
+  pricingTier       String?
+
+  usage        Json @default("[]")
+  inputTokens  Int  @default(0)
+  outputTokens Int  @default(0)
+
+  currency              String  @default("USD")
+  estimatedCostMicros   BigInt?
+  actualCostMicros      BigInt?
+  adjustmentDeltaMicros BigInt?
+  /// provider_reported | registry_estimate | reconciled_adjustment | unknown
+  costSource            String
+  /// platform | user_byok | none
+  credentialSource      String
+  pricingSnapshot       Json?
+  fixture               Boolean @default(false)
+
+  supersedesEventId String?
+  latencyMs         Int?
+  metadata          Json    @default("{}")
+
+  occurredAt  DateTime
+  finalizedAt DateTime?
+  recordedAt  DateTime  @default(now())
+
+  @@index([workspaceId, occurredAt(sort: Desc), id(sort: Desc)])
+  @@index([workspaceId, projectId])
+  @@index([workspaceId, taskId])
+  @@index([aiJobId])
+  @@map("ai_cost_events")
+}
+
+/// Involvement, not money: which tasks an AI job created, updated, linked
+/// or targeted. A task view shows these as "shared project run" and never
+/// adds the run's cost to the task's own subtotal.
+model AiJobTaskLink {
+  aiJobId   String
+  taskId    String
+  /// target | created | updated | linked
+  role      String
+  createdAt DateTime @default(now())
+
+  aiJob AiJob @relation(fields: [aiJobId], references: [id], onDelete: Cascade)
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([aiJobId, taskId, role])
+  @@index([taskId])
+  @@map("ai_job_task_links")
 }

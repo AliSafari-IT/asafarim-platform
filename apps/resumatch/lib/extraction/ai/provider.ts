@@ -1,3 +1,4 @@
+import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
 
 /**
@@ -20,7 +21,7 @@ export interface ExtractionProviderCall {
   signal?: AbortSignal;
 }
 
-export interface ExtractionProviderOutput {
+export interface ExtractionProviderOutput extends ProviderCallMeta {
   /** Raw parsed JSON from the model — NOT yet schema-validated. The caller
    *  (lib/extraction/ai/degraded.ts) is the only place this is turned into
    *  trusted profile content, via schema.ts's parseAiExtractionOutput +

@@ -71,7 +71,7 @@ export async function subscribeToNewsletter(
 
     const attachmentPath = await resolveNewsletterIncentivePath();
     const { subject, text, html } = buildNewsletterIncentiveEmail();
-    const { transporter, from, bcc } = createTransport();
+    const { transporter, from, bcc } = await createTransport();
     const delivery = await transporter.sendMail({
       from,
       to: email,

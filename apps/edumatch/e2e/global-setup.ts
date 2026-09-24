@@ -15,6 +15,11 @@ const E2E_PASSWORD: string = configuredPassword;
 
 const STUDENT_EMAIL = "asafarim+edustudent01@gmail.com";
 const TUTOR_EMAIL = "asafarim+edututor01@gmail.com";
+// Presentation admin seeded with the "edumatch_admin" app-scoped role (see
+// packages/seed-manager/src/definitions/edumatch.ts's EDUMATCH_ADMINS) —
+// gates apps/edumatch/app/admin/*, distinct from the platform-wide "admin"
+// role used elsewhere in the monorepo.
+const ADMIN_EMAIL = "asafarim+eduadmin01@gmail.com";
 
 export const STUDENT_STORAGE_STATE = path.join(
   __dirname,
@@ -22,6 +27,7 @@ export const STUDENT_STORAGE_STATE = path.join(
   "student.json"
 );
 export const TUTOR_STORAGE_STATE = path.join(__dirname, ".auth", "tutor.json");
+export const ADMIN_STORAGE_STATE = path.join(__dirname, ".auth", "admin.json");
 
 async function loginAndSave(
   hubUrl: string,
@@ -32,7 +38,7 @@ async function loginAndSave(
   const page = await browser.newPage();
 
   await page.goto(`${hubUrl}/sign-in`);
-  await page.locator("#email").fill(email);
+  await page.locator("#identifier").fill(email);
   await page.locator("#password").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"), {
@@ -48,4 +54,5 @@ export default async function globalSetup(_config: FullConfig) {
 
   await loginAndSave(hubUrl, STUDENT_EMAIL, STUDENT_STORAGE_STATE);
   await loginAndSave(hubUrl, TUTOR_EMAIL, TUTOR_STORAGE_STATE);
+  await loginAndSave(hubUrl, ADMIN_EMAIL, ADMIN_STORAGE_STATE);
 }

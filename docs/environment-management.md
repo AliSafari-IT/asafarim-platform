@@ -110,6 +110,41 @@ excluded from Docker build contexts.
 6. Provision the new private key to developers and deployment hosts.
 7. Retire the old key only after every environment has been verified.
 
+## PlatformSetting secret encryption (`SETTINGS_ENCRYPTION_KEY`)
+
+The admin console's `secret`-type settings (Stripe keys, SMTP password, AI
+provider keys — see `apps/admin/lib/settings.ts`) are encrypted at rest with
+AES-256-GCM, keyed by `SETTINGS_ENCRYPTION_KEY` (`packages/db/src/secret-cipher.ts`).
+This is a **separate** secret from `AUTH_SECRET` — session signing and
+setting encryption must be independently rotatable, and a leak of one must
+never expose the other's ciphertexts. Add it alongside the other key
+sections in `.env` / `.env.production` and manage it through the same
+`envage`/`age` workflow as everything else in this file.
+
+Each encrypted value is stored as a versioned envelope
+(`v1:<iv>:<authTag>:<ciphertext>`, all base64), so the cipher can be
+rotated without a schema change.
+
+**Rotating `SETTINGS_ENCRYPTION_KEY`** is a data migration, not just a key
+swap, because every existing `secret`-type row was encrypted under the old
+key:
+
+1. Decrypt every `secret`-type `PlatformSetting` row with the current key
+   (a one-off script using `decryptSecret` from `@asafarim/db`).
+2. Generate the new `SETTINGS_ENCRYPTION_KEY` value.
+3. Re-encrypt each decrypted value with `encryptSecret` under the new key
+   and write it back.
+4. Deploy the new `SETTINGS_ENCRYPTION_KEY` and the re-encrypted rows
+   together — a mismatched key on an old row fails closed (the settings
+   page falls back to "not set" for that row and logs the decryption
+   failure; it does not crash the page).
+5. Retire the old key only after confirming every `secret`-type setting
+   still resolves.
+
+There is no automatic support for multiple simultaneous keys — the envelope
+version prefix (`v1`) is reserved for a future cipher/format change, not for
+key rotation, which is always a full re-encrypt.
+
 ## CI policy
 
 CI may build using environment values supplied by the CI secret store. It

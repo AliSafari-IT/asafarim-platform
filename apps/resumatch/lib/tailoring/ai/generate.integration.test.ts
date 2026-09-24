@@ -108,7 +108,16 @@ describe.skipIf(!TEST_DB)("generateTailoredResume — end-to-end pipeline (fixtu
     expect(row.targetJobId).toBe(targetJobId);
     expect(row.degraded).toBe(false);
 
-    const ledger = await db.aiUsageLedger.findMany({ where: { workspaceId, kind: "tailor" } });
+    // Issue #586: usage now lands in AiCostEvent, attributed to the exact
+    // TailoredResume the call produced (a fixture call — a genuine $0).
+    const ledger = await db.aiCostEvent.findMany({ where: { workspaceId, operation: "tailor" } });
     expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({
+      subjectType: "tailored_resume",
+      subjectId: result.id,
+      targetJobId,
+      fixture: true,
+      estimatedCostMicros: 0n,
+    });
   });
 });

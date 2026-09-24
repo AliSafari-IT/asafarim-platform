@@ -84,6 +84,7 @@ model User {
   viontoProjects         ViontoProject[]
   viontoAuditEvents      ViontoAuditEvent[]      @relation("ViontoAuditActor")
   viontoUsageMetrics     ViontoUsageMetric[]
+  viontoAiCostEvents     ViontoAiCostEvent[]
   viontoSharesSent       ViontoProjectShare[]    @relation("ViontoSharesSent")
   viontoSharesReceived   ViontoProjectShare[]    @relation("ViontoSharesReceived")
   googlePhotosConnection GooglePhotosConnection?
@@ -655,6 +656,13 @@ model ViontoExport {
   project   ViontoProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   version   ViontoVideoVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
   renderJob ViontoRenderJob?    @relation(fields: [renderJobId], references: [id], onDelete: SetNull)
+
+  /// When the exact set of AI cost events this export consumed was
+  /// snapshotted into ViontoExportCostEvent (issue #588). null = an export
+  /// created before cost tracking, whose AI inputs are unknown — shown as
+  /// "not tracked", never as $0.
+  costSnapshotAt DateTime?
+  costEvents     ViontoExportCostEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2231,4 +2239,105 @@ model SeedValidationSchedule {
 
   @@unique([providerId, environment])
   @@index([enabled, nextRunAt])
+}
+
+
+// ─── Vionto AI cost ledger (milestone #31, issue #588) ────────────────────
+//
+// Implements the platform AI cost-event contract (@asafarim/ai-cost-ledger,
+// docs/adr/0003-ai-cost-event-contract.md) for Vionto's paid AI/media stages:
+// story, vision captions, narration (TTS) and AI-motion clips. One immutable
+// row per provider call; UPDATE is rejected by a trigger (see migration).
+// ViontoAiClip keeps its own cost snapshot (#352) — its ledger event copies
+// that snapshot rather than recomputing it.
+
+model ViontoAiCostEvent {
+  id             String @id @default(cuid())
+  /// `vionto:<operation>:<stable id>` — unique, so retried writes and repeated
+  /// clip polls are no-ops.
+  idempotencyKey String @unique
+  schemaVersion  Int    @default(1)
+  /// usage | adjustment
+  entryType      String @default("usage")
+
+  /// The owner whose history this belongs to. Cascades with the user.
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actorId String?
+
+  /// story | vision_caption | tts | tts_preview | ai_motion_clip
+  operation String
+  /// succeeded | degraded | failed | cancelled
+  outcome   String @default("succeeded")
+  /// provisional | final
+  finality  String @default("provisional")
+
+  /// script | asset | render_job | ai_clip | user
+  subjectType       String
+  subjectId         String
+  parentSubjectType String?
+  parentSubjectId   String?
+  /// Plain columns, not FKs: deleting a project/version/render must not
+  /// delete the record that money was spent on it.
+  projectId         String?
+  versionId         String?
+  renderJobId       String?
+  workflowId        String?
+  traceId           String?
+
+  provider          String
+  requestModel      String?
+  responseModel     String
+  providerRequestId String?
+  promptVersion     String?
+  pricingTier       String?
+
+  usage        Json @default("[]")
+  inputTokens  Int  @default(0)
+  outputTokens Int  @default(0)
+
+  currency              String  @default("USD")
+  estimatedCostMicros   BigInt?
+  actualCostMicros      BigInt?
+  adjustmentDeltaMicros BigInt?
+  /// provider_reported | registry_estimate | reconciled_adjustment | unknown
+  costSource            String
+  /// platform | user_byok | none
+  credentialSource      String
+  pricingSnapshot       Json?
+  fixture               Boolean @default(false)
+
+  supersedesEventId String?
+  latencyMs         Int?
+  metadata          Json    @default("{}")
+
+  occurredAt  DateTime
+  finalizedAt DateTime?
+  recordedAt  DateTime  @default(now())
+
+  exports ViontoExportCostEvent[]
+
+  @@index([userId, occurredAt(sort: Desc), id(sort: Desc)])
+  @@index([projectId])
+  @@index([subjectType, subjectId])
+  @@index([workflowId])
+}
+
+/// The exact cost events a final export consumed, captured once when the
+/// export is created — never recomputed from current project state, so an
+/// export's subtotal stays historically stable when clip acceptance or
+/// prices change later. A reused event (the same story in two exports)
+/// has one row per export; project totals count each event once.
+model ViontoExportCostEvent {
+  exportId    String
+  costEventId String
+  /// story | narration | ai_clip | caption
+  role        String
+  createdAt   DateTime @default(now())
+
+  export    ViontoExport      @relation(fields: [exportId], references: [id], onDelete: Cascade)
+  costEvent ViontoAiCostEvent @relation(fields: [costEventId], references: [id], onDelete: Cascade)
+
+  @@id([exportId, costEventId])
+  @@index([costEventId])
 }

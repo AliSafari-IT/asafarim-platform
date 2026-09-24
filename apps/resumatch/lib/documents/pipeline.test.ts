@@ -4,7 +4,10 @@ import {
   type DocumentStatusName,
   canRetryScan,
   canTransition,
+  EXTRACTION_LEASE_MS,
   explainReasonCode,
+  extractionLeaseCutoff,
+  mayClaimExtraction,
   mayExtract,
   nextStatusAfterExtractionFailure,
   shouldRetryExtraction,
@@ -66,6 +69,30 @@ describe("document pipeline state machine", () => {
     expect(nextStatusAfterExtractionFailure(MAX_EXTRACTION_ATTEMPTS)).toBe("FAILED");
   });
 
+  it("tells an attempt in progress apart from one awaiting retry by its lease", () => {
+    const now = new Date("2026-09-24T12:00:00Z");
+    const ago = (ms: number) => new Date(now.getTime() - ms);
+
+    expect(mayClaimExtraction("CLEAN", null, now)).toBe(true);
+    // A CLEAN row's lease field is irrelevant — nothing has claimed it yet.
+    expect(mayClaimExtraction("CLEAN", ago(1000), now)).toBe(true);
+
+    // Cleared by failExtraction's retry path: awaiting retry.
+    expect(mayClaimExtraction("EXTRACTING", null, now)).toBe(true);
+    // Set by a claim and still fresh: someone else's attempt is running.
+    expect(mayClaimExtraction("EXTRACTING", ago(1000), now)).toBe(false);
+    expect(mayClaimExtraction("EXTRACTING", ago(EXTRACTION_LEASE_MS - 1), now)).toBe(false);
+    // Outlived its lease: the attempt's process is presumed dead.
+    expect(mayClaimExtraction("EXTRACTING", ago(EXTRACTION_LEASE_MS), now)).toBe(true);
+    expect(extractionLeaseCutoff(now)).toEqual(ago(EXTRACTION_LEASE_MS));
+  });
+
+  it("never lets the lease widen what may be extracted", () => {
+    for (const status of ALL_STATUSES.filter((s) => !mayExtract(s))) {
+      expect(mayClaimExtraction(status, null, new Date())).toBe(false);
+    }
+  });
+
   it("explains every reason code without leaking a parser or scanner message", () => {
     for (const code of [
       "MALWARE_DETECTED",
@@ -77,6 +104,7 @@ describe("document pipeline state machine", () => {
       "ENCRYPTED_DOCUMENT",
       "NO_TEXT_LAYER",
       "EXTRACTION_ERROR",
+      "EXTRACTION_IN_PROGRESS",
       "BYTES_MISSING",
     ]) {
       expect(explainReasonCode(code)).not.toBe("This document could not be processed.");

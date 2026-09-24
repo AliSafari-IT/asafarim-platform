@@ -16,6 +16,7 @@
     "clean": "rm -rf .next .turbo node_modules worker-dist"
   },
   "dependencies": {
+    "@asafarim/ai-cost-ledger": "workspace:*",
     "@asafarim/auth": "workspace:*",
     "@asafarim/country-language-selector": "workspace:*",
     "@asafarim/db": "workspace:*",
@@ -29,8 +30,8 @@
     "dotenv": "^17.4.2",
     "ioredis": "^5.4.1",
     "lucide-react": "^0.462.0",
-    "next": "^16.2.10",
-    "next-auth": "^5.0.0-beta.28",
+    "next": "^16.3.5",
+    "next-auth": "^5.0.0-beta.32",
     "openai": "^4.73.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -45,11 +46,11 @@
     "@types/react-dom": "^19.0.0",
     "dotenv-cli": "^7.4.2",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.3.5",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
-    "vitest": "^2.1.9"
+    "vitest": "^4.1.11"
   }
 }

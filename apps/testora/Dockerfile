@@ -8,6 +8,13 @@
 # ---------------------------------------------------------------------------
 FROM node:24-alpine AS builder
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
+# Dependencies are installed once, at build time, with --frozen-lockfile.
+# pnpm must never re-verify and reinstall them at container start: running
+# as `node`, it resolves a different ($HOME-based) store than the build-time
+# install and tries to wipe the root-owned node_modules, so every pnpm-run
+# stage (migrators, workers) fails with ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR.
+ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 # NEXT_PUBLIC_* are inlined into client bundles at build time (e.g. the SSO
 # sign-in link reads NEXT_PUBLIC_HUB_URL). Provided by compose's public-build-args.
@@ -58,6 +65,7 @@ RUN pnpm --filter testora build
 FROM builder AS migrator
 # Default command applies pending drizzle migrations. TESTORA_DATABASE_URL is
 # supplied by compose (points at the in-network testora-postgres).
+USER node
 CMD ["pnpm", "--filter", "testora", "db:migrate"]
 
 # --- app server ---
@@ -79,7 +87,8 @@ RUN apk add --no-cache \
 ENV CHROME_BIN=/usr/bin/chromium-browser
 ENV E2E_BROWSER="path:/usr/bin/chromium-browser:--headless --no-sandbox --disable-gpu --disable-dev-shm-usage"
 
-COPY --from=builder /app/apps/testora/.next/standalone ./
-COPY --from=builder /app/apps/testora/.next/static ./apps/testora/.next/static
+COPY --from=builder --chown=node:node /app/apps/testora/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/testora/.next/static ./apps/testora/.next/static
 EXPOSE 3000
+USER node
 CMD ["node", "apps/testora/server.js"]

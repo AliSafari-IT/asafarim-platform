@@ -30,6 +30,7 @@ import {
   Loader2,
   CheckCircle2,
   ExternalLink,
+  DollarSign,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -542,6 +543,14 @@ function ActionMenu({ project, onSelect, onEdit, onDelete, onShare, isSelected }
           <ExternalLink className="ml-auto h-3 w-3 opacity-50" />
         </a>
       )}
+      <a
+        href={`/usage/ai?projectId=${encodeURIComponent(project.id)}&preset=year`}
+        className={btn + " text-[var(--color-text)]"}
+        onClick={() => setOpen(false)}
+      >
+        <DollarSign className="h-4 w-4" />
+        {t("vionto.aiUsage.linkShort")}
+      </a>
       {project.isOwner && (
         <>
           <button type="button" className={btn} onClick={() => { setOpen(false); onEdit(project); }}>

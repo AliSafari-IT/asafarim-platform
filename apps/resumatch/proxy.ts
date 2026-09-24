@@ -24,10 +24,9 @@ export const proxy = createAuthProxy({
     // any scheduler, which is how the retention sweep shipped in M2 unable
     // to run at all: the proxy answered before the route's own check.
     "/api/retention",
-    "/api/ingestion/sync",
-    "/api/ingestion/showcase",
     "/api/internal/user-activity",
     "/api/internal/ai-spend",
+    "/api/internal/audit-events",
   ],
   signInUrl: `${hubUrl}/sign-in`,
 });

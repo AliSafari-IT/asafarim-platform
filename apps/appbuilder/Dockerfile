@@ -11,6 +11,13 @@
 # ---------------------------------------------------------------------------
 FROM node:24-alpine AS builder
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
+# Dependencies are installed once, at build time, with --frozen-lockfile.
+# pnpm must never re-verify and reinstall them at container start: running
+# as `node`, it resolves a different ($HOME-based) store than the build-time
+# install and tries to wipe the root-owned node_modules, so every pnpm-run
+# stage (migrators, workers) fails with ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR.
+ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 # NEXT_PUBLIC_* are inlined into client bundles at build time. Provided by
 # compose's public-build-args once appbuilder joins docker-compose.prod.yml
@@ -60,6 +67,7 @@ RUN pnpm --filter @asafarim/appbuilder build
 FROM builder AS migrator
 # Default command applies pending drizzle migrations. APPBUILDER_DATABASE_URL
 # is supplied by compose (points at the in-network appbuilder-postgres).
+USER node
 CMD ["pnpm", "--filter", "@asafarim/appbuilder", "db:migrate"]
 
 # --- app server ---
@@ -68,10 +76,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-COPY --from=builder /app/apps/appbuilder/.next/standalone ./
-COPY --from=builder /app/apps/appbuilder/.next/static ./apps/appbuilder/.next/static
-COPY --from=builder /app/apps/appbuilder/public ./apps/appbuilder/public
+COPY --from=builder --chown=node:node /app/apps/appbuilder/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/appbuilder/.next/static ./apps/appbuilder/.next/static
+COPY --from=builder --chown=node:node /app/apps/appbuilder/public ./apps/appbuilder/public
 EXPOSE 3000
+USER node
 CMD ["node", "apps/appbuilder/server.js"]
 
 # --- worker builder (bundles worker.ts + workspace packages via tsup) ---
@@ -86,13 +95,18 @@ RUN pnpm --filter @asafarim/appbuilder worker:build
 FROM node:24-slim AS worker
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=worker-builder /app/apps/appbuilder/worker-dist ./worker-dist
+COPY --from=worker-builder --chown=node:node /app/apps/appbuilder/worker-dist ./worker-dist
 # Only the deps tsup.worker.config.ts keeps external (native/heavy — bundled
 # workspace packages like @asafarim/appbuilder-ai are already inlined).
 # playwright-core/@axe-core/playwright back M10's browser-driven gates.
 # drizzle-orm/next-auth/react/zod are externalized by tsup (see
 # tsup.worker.config.ts) and so must be installed here too.
-RUN npm install --no-save --omit=dev bullmq@^5.34.0 ioredis@^5.11.1 openai@^4.73.0 pg@^8.13.1 playwright-core@^1.60.0 @axe-core/playwright@^4.10.1 drizzle-orm@^0.38.2 next-auth@^5.0.0-beta.28 react@^19.2.7 zod@^3.24.1
+RUN npm install --no-save --omit=dev bullmq@^5.34.0 ioredis@^5.11.1 openai@^4.73.0 pg@^8.13.1 playwright-core@^1.60.0 @axe-core/playwright@^4.10.1 drizzle-orm@^0.38.2 next-auth@^5.0.0-beta.32 react@^19.2.7 zod@^3.24.1
+# Installed as root at build time but launched as `node` at runtime: without a
+# shared path Playwright puts Chromium in /root/.cache and the worker can't
+# find it, silently breaking M10's browser-driven validation gates.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN npx playwright install --with-deps chromium
 EXPOSE 3008
+USER node
 CMD ["node", "worker-dist/worker.js"]

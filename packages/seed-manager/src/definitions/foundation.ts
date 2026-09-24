@@ -25,7 +25,7 @@ export interface RoleDefinition {
  * Bump when the definitions below change in a way operators should notice.
  * The checksum catches every change; this string is what humans read.
  */
-export const FOUNDATION_DEFINITION_VERSION = "2.1.0";
+export const FOUNDATION_DEFINITION_VERSION = "2.2.0";
 
 export const FOUNDATION_PERMISSIONS: PermissionDefinition[] = [
   // Users
@@ -49,6 +49,23 @@ export const FOUNDATION_PERMISSIONS: PermissionDefinition[] = [
   { name: "settings.list", displayName: "List Settings", group: "settings", description: "View site settings" },
   { name: "settings.view", displayName: "View Settings", group: "settings", description: "View setting details" },
   { name: "settings.edit", displayName: "Edit Settings", group: "settings", description: "Modify site settings" },
+  // Stricter tier for settings that hold or gate access to live credentials
+  // (secret-type settings, and non-secret-typed but still sensitive ones
+  // like a payment provider's live/test mode). Deliberately separate from
+  // settings.{view,edit} — see ADMIN_PERMISSIONS below for why Admin
+  // doesn't get these by default.
+  {
+    name: "settings.secrets.view",
+    displayName: "View Sensitive Settings",
+    group: "settings",
+    description: "See whether a secret or sensitive setting is set, and reveal/edit it",
+  },
+  {
+    name: "settings.secrets.edit",
+    displayName: "Edit Sensitive Settings",
+    group: "settings",
+    description: "Set, replace, or clear a secret or sensitive setting (e.g. a live payment key)",
+  },
   // Audit
   { name: "audit.view", displayName: "View Audit Log", group: "audit", description: "View the audit log" },
   // Profile
@@ -90,6 +107,7 @@ export const SECURITY_CRITICAL_PERMISSIONS = new Set([
   "users.edit",
   "users.deactivate",
   "settings.edit",
+  "settings.secrets.edit",
   "seeds.remove",
 ]);
 
@@ -98,6 +116,12 @@ const ADMIN_PERMISSIONS = [
   "roles.list", "roles.view", "roles.edit", "roles.assign",
   "content.list", "content.view", "content.create", "content.edit", "content.delete", "content.publish",
   "settings.list", "settings.view", "settings.edit",
+  // Deliberately NOT granted by default: settings.secrets.{view,edit} gate
+  // live credentials (Stripe keys, SMTP passwords, AI provider keys). The
+  // existing Admin role keeps settings.{view,edit} for every non-sensitive
+  // setting it already managed — it does not silently gain secret access
+  // the moment this permission tier ships. Granting settings.secrets.* to
+  // a role is a deliberate act via Roles admin, same as seeds.remove below.
   "audit.view",
   "profile.edit",
   // Admins can look at seed data and run non-destructive work. Removing

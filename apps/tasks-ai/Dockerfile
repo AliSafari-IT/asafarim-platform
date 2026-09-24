@@ -1,5 +1,12 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
+# Dependencies are installed once, at build time, with --frozen-lockfile.
+# pnpm must never re-verify and reinstall them at container start: running
+# as `node`, it resolves a different ($HOME-based) store than the build-time
+# install and tries to wipe the root-owned node_modules, so every pnpm-run
+# stage (migrators, workers) fails with ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR.
+ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 ARG NEXT_PUBLIC_WEB_URL=https://asafarim.com
 ARG NEXT_PUBLIC_HUB_URL=https://hub.asafarim.com
@@ -42,18 +49,33 @@ RUN pnpm --filter @asafarim/tasks-ai build
 # deploy cannot ship a TasksAI whose tables were never created.
 FROM node:24-alpine AS migrator
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
+# Dependencies are installed once, at build time, with --frozen-lockfile.
+# pnpm must never re-verify and reinstall them at container start: running
+# as `node`, it resolves a different ($HOME-based) store than the build-time
+# install and tries to wipe the root-owned node_modules, so every pnpm-run
+# stage (migrators, workers) fails with ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR.
+ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY . .
 RUN pnpm install --frozen-lockfile
 WORKDIR /app/apps/tasks-ai
+USER node
 CMD ["pnpm", "exec", "prisma", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
 
 # Background worker (BullMQ). Same image contents as the runner, different
 # entrypoint.
 FROM node:24-alpine AS worker
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
+# Dependencies are installed once, at build time, with --frozen-lockfile.
+# pnpm must never re-verify and reinstall them at container start: running
+# as `node`, it resolves a different ($HOME-based) store than the build-time
+# install and tries to wipe the root-owned node_modules, so every pnpm-run
+# stage (migrators, workers) fails with ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR.
+ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
@@ -61,6 +83,7 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @asafarim/tasks-ai db:generate
 WORKDIR /app/apps/tasks-ai
+USER node
 CMD ["pnpm", "exec", "tsx", "worker/index.ts"]
 
 FROM node:24-alpine AS runner
@@ -68,8 +91,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-COPY --from=builder /app/apps/tasks-ai/.next/standalone ./
-COPY --from=builder /app/apps/tasks-ai/.next/static ./apps/tasks-ai/.next/static
-COPY --from=builder /app/apps/tasks-ai/public ./apps/tasks-ai/public
+COPY --from=builder --chown=node:node /app/apps/tasks-ai/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/tasks-ai/.next/static ./apps/tasks-ai/.next/static
+COPY --from=builder --chown=node:node /app/apps/tasks-ai/public ./apps/tasks-ai/public
 EXPOSE 3000
+USER node
 CMD ["node", "apps/tasks-ai/server.js"]

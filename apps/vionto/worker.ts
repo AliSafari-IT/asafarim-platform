@@ -18,6 +18,7 @@ import { safeParseManifest } from "./lib/server/render-manifest";
 import { buildRenderCommand, buildConcatListContent, pickMotionPreset } from "./lib/server/ffmpeg";
 import { buildExportMetadata } from "./lib/server/export-metadata";
 import { synthesizeSpeech } from "./lib/server/tts";
+import { recordViontoCost, snapshotExportCostEvents } from "./lib/server/ai/cost-ledger";
 import { buildKey, downloadObjectToLocalFile, uploadLocalFileToStorage, createPresignedDownloadUrl, getStorageStatus } from "./lib/server/storage";
 import { QUEUE_NAME, getRenderQueue } from "./lib/server/queue";
 import { parseSrt, buildSrt, buildVtt, applyTransformToCues, wrapAllCues, generateSrtFromText } from "./lib/server/srt";
@@ -342,6 +343,24 @@ async function processRenderJob(jobId: string, manifestRaw: unknown) {
       if (!ttsResult.ok) {
         throw new Error(`TTS failed: ${ttsResult.error}`);
       }
+      // Issue #588: narration synthesized for THIS render job. A retried job
+      // re-synthesizes and is billed again, so each synthesis is its own
+      // event (fresh stable id), grouped under the job's workflow.
+      await recordViontoCost({
+        userId: manifest.userId,
+        operation: "tts",
+        subjectType: "render_job",
+        subjectId: jobId,
+        projectId: manifest.projectId,
+        versionId: manifest.versionId ?? null,
+        renderJobId: jobId,
+        workflowId: jobId,
+        provider: ttsResult.provider,
+        responseModel: ttsResult.model ?? ttsResult.provider,
+        usage: [{ bucket: "tts_output", unit: "characters", quantity: manifest.narrationText.length }],
+        credentialSource: "platform",
+        latencyMs: ttsResult.latencyMs,
+      });
       narrationWavPath = join(workDir, "narration.mp3");
       await writeFile(narrationWavPath, ttsResult.audioBuffer);
       logLines.push(`TTS done (${ttsResult.provider}, ${ttsResult.latencyMs}ms)`);
@@ -566,6 +585,19 @@ async function processRenderJob(jobId: string, manifestRaw: unknown) {
     });
 
     logLines.push(`Export record ${exportRecord.id} created`);
+    try {
+      const linked = await snapshotExportCostEvents({
+        exportId: exportRecord.id,
+        userId: manifest.userId,
+        renderJobId: jobId,
+        inputs: manifest.costInputs,
+      });
+      logLines.push(`Linked ${linked} AI cost event(s) to export`);
+    } catch (error) {
+      // Never fail a finished render over bookkeeping; the export simply
+      // stays "not tracked" (costSnapshotAt null).
+      console.error(`[worker] cost snapshot failed for export ${exportRecord.id}:`, error);
+    }
     await setLog(jobId, logLines);
     await updateState(jobId, "completed", { progressPercent: 100, completedAt: new Date() });
     const version = manifest.versionId

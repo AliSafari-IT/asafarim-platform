@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { fetchJobPosting } from "../../../../lib/tailoring/fetchJob";
+import { fetchJobWithFallback } from "../../../../lib/tailoring/jobFetchAi/degraded";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 
@@ -28,11 +29,15 @@ export async function POST(request: Request) {
   }
 
   const db = getJobmatchDb();
-  const result = await fetchJobPosting(url.trim());
+  // Minted before the (possibly AI) fetch so its cost event names this job
+  // even though the row is only created once the fetch returns (issue #586).
+  const targetJobId = randomUUID();
+  const result = await fetchJobWithFallback(workspace.id, url.trim(), { targetJobId });
 
   if (!result.ok) {
     const targetJob = await db.targetJob.create({
       data: {
+        id: targetJobId,
         workspaceId: workspace.id,
         sourceUrl: url.trim(),
         status: "FETCH_FAILED",
@@ -47,6 +52,7 @@ export async function POST(request: Request) {
 
   const targetJob = await db.targetJob.create({
     data: {
+      id: targetJobId,
       workspaceId: workspace.id,
       sourceUrl: url.trim(),
       rawText: result.rawText,

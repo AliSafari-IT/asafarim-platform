@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Prisma } from "../db/generated";
 import type { RequestContext } from "../context";
@@ -13,6 +14,9 @@ import { getProvider } from "./registry";
 import { getAiSettings } from "./settings";
 import { assertCanRunAiJob } from "./quota";
 import { ProviderError, type ProviderDelta } from "./provider";
+import { buildAiCostEvent, legacyUsd, recordStandaloneAiCost, type CostAttribution } from "./cost/ledger";
+import { billedUsageOf } from "./cost/meta";
+import { getProject } from "../repositories/projects";
 
 export const runJobSchema = z.object({
   kind: z.enum(AI_KINDS),
@@ -80,10 +84,23 @@ export async function runAiJob(
   const targetTask = taskId
     ? await ctx.db.task.findFirst({
         where: { id: taskId, workspaceId: ctx.workspaceId, archivedAt: null },
-        select: { id: true, title: true },
+        select: { id: true, title: true, projectId: true },
       })
     : null;
   if (taskId && !targetTask) throw new ApiError("not_found", { field: "taskId" });
+
+  // Cost attribution is decided here, once (issue #590). A project id is
+  // only honoured when the actor can see that project (guests: projects
+  // they belong to) — a foreign or guessed id is refused rather than
+  // silently attributing spend to someone else's project.
+  if (projectId && !targetTask && !(await getProject(ctx, projectId))) {
+    throw new ApiError("not_found", { field: "projectId" });
+  }
+  const scope: CostAttribution = targetTask
+    ? { attribution: "task", projectId: targetTask.projectId, taskId: targetTask.id }
+    : projectId
+      ? { attribution: "project", projectId }
+      : { attribution: "workspace" };
 
   // Grounded context retrieval (issue #232): an authorization-scoped set of
   // the most relevant existing tasks/comments/project brief, derived from
@@ -141,13 +158,28 @@ export async function runAiJob(
       // Recorded for reproducibility (issue #232): exactly which entities
       // grounded this draft, independent of what the model chose to cite.
       retrievedIds: [...retrievedIds],
+      projectId: scope.attribution === "workspace" ? null : scope.projectId,
+      targetTaskId: scope.attribution === "task" ? scope.taskId : null,
     },
   });
+  if (targetTask) {
+    await ctx.db.aiJobTaskLink.create({ data: { aiJobId: job.id, taskId: targetTask.id, role: "target" } });
+  }
+  const costBase = {
+    workspaceId: ctx.workspaceId,
+    actorId: ctx.actor.membershipId,
+    aiJobId: job.id,
+    operation: kind,
+    scope,
+    promptVersion: prompt.version,
+  };
 
   const started = Date.now();
   let output;
   let usedProvider = settings.provider;
   let degraded = false;
+
+  let usedModel = settings.model;
 
   for (let attempt = 1; ; attempt++) {
     if (streamOpts?.signal?.aborted) {
@@ -159,10 +191,11 @@ export async function runAiJob(
     }
     try {
       const provider = await getProvider(usedProvider);
+      usedModel = usedProvider === settings.provider ? settings.model : provider.models[0];
       output = await provider.generate({
         kind: kind as AiKind,
         prompt,
-        model: usedProvider === settings.provider ? settings.model : provider.models[0],
+        model: usedModel,
         targetsExistingTask: targetTask !== null,
         signal: streamOpts?.signal,
         onDelta: streamOpts?.onDelta,
@@ -179,7 +212,42 @@ export async function runAiJob(
           where: { id: job.id },
           data: { state: "cancelled", cancelledAt: new Date() },
         });
+        // Cancelled mid-call: a real provider may still bill the tokens it
+        // generated but reports no usage for an aborted request → one
+        // cancelled event with UNKNOWN cost (issue #590 rule). Nothing for
+        // the free fixture.
+        if (usedProvider !== "fixture") {
+          await recordStandaloneAiCost(ctx.db, {
+            ...costBase,
+            provider: usedProvider,
+            requestModel: usedModel,
+            inputTokens: 0,
+            outputTokens: 0,
+            fixture: false,
+            outcome: "cancelled",
+            usageUnknown: true,
+            latencyMs: Date.now() - started,
+            suffix: "cancelled",
+          });
+        }
         throw new AiJobCancelledError(job.id);
+      }
+      // A response that came back but could not be used (bad JSON, schema
+      // failure) was still billed — record it before retrying/degrading.
+      const billed = billedUsageOf(err);
+      if (billed && usedProvider !== "fixture") {
+        await recordStandaloneAiCost(ctx.db, {
+          ...costBase,
+          provider: usedProvider,
+          requestModel: usedModel,
+          inputTokens: 0,
+          outputTokens: 0,
+          meta: billed,
+          fixture: false,
+          outcome: "failed",
+          latencyMs: Date.now() - started,
+          suffix: `attempt_${usedProvider}_${attempt}`,
+        });
       }
       const retryable = err instanceof ProviderError ? err.retryable : true;
       if (attempt >= MAX_ATTEMPTS || !retryable) {
@@ -220,10 +288,40 @@ export async function runAiJob(
       where: { id: job.id },
       data: { state: "failed", error: err instanceof Error ? err.message.slice(0, 500) : "guard" },
     });
+    // The provider answered and billed; the guard rejected the draft.
+    await recordStandaloneAiCost(ctx.db, {
+      ...costBase,
+      provider: usedProvider,
+      requestModel: output.fixture ? "fixture-1" : usedModel,
+      inputTokens: output.inputTokens,
+      outputTokens: output.outputTokens,
+      meta: output,
+      fixture: output.fixture,
+      outcome: "failed",
+      latencyMs: Date.now() - started,
+      suffix: "final",
+    });
     throw new ApiError("validation_failed", { reason: "AI output failed the safety guard" });
   }
 
   const latencyMs = Date.now() - started;
+  const cost = buildAiCostEvent({
+    ...costBase,
+    provider: usedProvider,
+    requestModel: output.fixture ? "fixture-1" : usedModel,
+    inputTokens: output.inputTokens,
+    outputTokens: output.outputTokens,
+    meta: output,
+    fixture: output.fixture,
+    outcome: degraded ? "degraded" : "succeeded",
+    latencyMs,
+    suffix: "final",
+  });
+  // The legacy float columns now carry the same registry estimate as the
+  // canonical event (0 when unknown — the budget can only sum what is known).
+  const legacyCostUsd = legacyUsd(cost.estimatedCostMicros);
+  // Minted up front so the cost event can name the proposal it produced.
+  const proposalId = randomUUID();
 
   const [updatedJob, proposal] = await ctx.db.$transaction([
     ctx.db.aiJob.update({
@@ -233,12 +331,13 @@ export async function runAiJob(
         provider: usedProvider,
         inputTokens: output.inputTokens,
         outputTokens: output.outputTokens,
-        costUsd: output.costUsd,
+        costUsd: legacyCostUsd,
         latencyMs,
       },
     }),
     ctx.db.proposal.create({
       data: {
+        id: proposalId,
         workspaceId: ctx.workspaceId,
         aiJobId: job.id,
         membershipId: ctx.actor.membershipId,
@@ -263,10 +362,13 @@ export async function runAiJob(
         model: output.fixture ? "fixture-1" : settings.model,
         inputTokens: output.inputTokens,
         outputTokens: output.outputTokens,
-        costUsd: output.costUsd,
+        costUsd: legacyCostUsd,
         fixture: output.fixture,
       },
     }),
+    // Canonical, attributed, append-only (issue #590). Same transaction as
+    // the job/proposal, so a job is never "succeeded" without its event.
+    ctx.db.aiCostEvent.createMany({ data: [{ ...cost.row, proposalId }], skipDuplicates: true }),
   ]);
 
   await recordAudit(ctx.db, ctx.workspaceId, "proposal.generated", ctx.actor.membershipId, {

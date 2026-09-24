@@ -17,6 +17,7 @@ import {
 import { TASK_INTENTS, copilotHref } from "../../lib/ai/workflow";
 import { track } from "../../lib/client/telemetry";
 import { useWorkspace } from "../WorkspaceShell";
+import { TaskAiCost } from "./TaskAiCost";
 import { CommentsPanel } from "./CommentsPanel";
 
 const RELATION_LABEL: Record<TaskRelationKind, string> = {
@@ -761,6 +762,8 @@ export function TaskDetailPanel({
                 </ul>
               </section>
             )}
+
+            {aiEnabled && <TaskAiCost slug={slug} taskId={task.id} />}
 
             <CommentsPanel slug={slug} taskId={task.id} />
           </>

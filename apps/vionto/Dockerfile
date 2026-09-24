@@ -1,5 +1,12 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
+# Dependencies are installed once, at build time, with --frozen-lockfile.
+# pnpm must never re-verify and reinstall them at container start: running
+# as `node`, it resolves a different ($HOME-based) store than the build-time
+# install and tries to wipe the root-owned node_modules, so every pnpm-run
+# stage (migrators, workers) fails with ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR.
+ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 ARG NEXT_PUBLIC_COMPANY_NAME="ASafarIM Digital"
 ARG NEXT_PUBLIC_PLATFORM_NAME="ASafarIM Platform"
@@ -49,8 +56,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-COPY --from=builder /app/apps/vionto/.next/standalone ./
-COPY --from=builder /app/apps/vionto/.next/static ./apps/vionto/.next/static
-COPY --from=builder /app/apps/vionto/public ./apps/vionto/public
+COPY --from=builder --chown=node:node /app/apps/vionto/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/vionto/.next/static ./apps/vionto/.next/static
+COPY --from=builder --chown=node:node /app/apps/vionto/public ./apps/vionto/public
 EXPOSE 3000
+USER node
 CMD ["node", "apps/vionto/server.js"]

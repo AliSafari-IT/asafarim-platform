@@ -5,16 +5,19 @@ website (web), the Hub dashboard, the Showcase, the Admin panel, Vionto
 (AI photo-to-story video), EduMatch (AI learning support and tutor
 marketplace), AppBuilder (metadata-driven AI application factory), Testora
 (E2E test automation), TimelineAI (visual timeline creator), TasksAI
-(AI-native work execution), ResuMatch (AI CV-tailoring tool),
+(AI-native work execution), ResuMatch (AI CV tailoring, cover letters,
+and application tracking),
 Labs (experimental workbench), and shared packages — built with Next.js,
 TypeScript, PostgreSQL, pnpm workspaces, and Turborepo. Images are built in
 GitHub Actions, published to GHCR, and pulled by the VPS, which runs them
 with Docker Compose behind Caddy.
 
 See [docs/migration-plan.md](docs/migration-plan.md) for the full plan,
-[docs/architecture.md](docs/architecture.md) for the current structure, and
+[docs/architecture.md](docs/architecture.md) for the current structure,
 [docs/admin-console.md](docs/admin-console.md) for the app registry,
-role/permission model, audit taxonomy, and platform settings.
+role/permission model, audit taxonomy, and platform settings, and
+[docs/admin-settings-api.md](docs/admin-settings-api.md) for how apps read
+those settings (including the internal-API trust boundary).
 
 ## Architecture overview
 
@@ -82,6 +85,11 @@ flowchart TD
 Labs is deliberately outside this graph's data layer: no auth, no shared or
 isolated database — a static, typed experiment registry only.
 
+Isolated-DB apps still read platform settings: they call Admin's
+`GET /api/internal/settings` over HTTP with a shared `INTERNAL_API_SECRET`
+bearer instead of touching the platform database (see
+[docs/admin-settings-api.md](docs/admin-settings-api.md)).
+
 ## Apps
 
 | App              | Purpose                        | Dev port | Target domain          | Access                      |
@@ -96,7 +104,7 @@ isolated database — a static, typed experiment registry only.
 | [`apps/edumatch`](apps/edumatch/README.md) | AI learning support and tutor marketplace | 3009 | edumatch.asafarim.com | Public landing; login for student, tutor, and admin workspaces |
 | [`apps/timelineai`](apps/timelineai/README.md) | Visual timeline creator (8 layouts, export, moderation, optional AI copilot) | 3010 | tlai.asafarim.com | Public gallery; login for dashboard/self-publish; guests can create/submit |
 | [`apps/labs`](apps/labs/README.md) | Experimental workbench — what's being explored next | 3011 | labs.asafarim.com | Public; no login, no database |
-| [`apps/resumatch`](apps/resumatch/README.md) | AI CV-tailoring tool: paste a job URL, rewrite your resume toward it | 3012 | resumatch.asafarim.com | Login (shared SSO); isolated Postgres |
+| [`apps/resumatch`](apps/resumatch/README.md) | AI CV tailoring and cover letters under a no-fabrication contract, plus application tracking | 3012 | resumatch.asafarim.com | Login (shared SSO); isolated Postgres |
 | [`apps/tasks-ai`](apps/tasks-ai/README.md) | AI-native work execution — capture, plan, execute | 3013 | tasks-ai.asafarim.com | Login (shared SSO); isolated Postgres |
 
 Public website copy is maintained in `apps/web/content/`; PR-specific source,
@@ -107,7 +115,7 @@ asset, and deferral records are kept in `docs/migration-notes.md`.
 | Package             | Purpose                                          |
 | ------------------- | ------------------------------------------------ |
 | `packages/ui`       | Design system: tokens, brand, creative components (see [docs/design-system.md](docs/design-system.md)) |
-| `packages/auth`     | Shared authentication helpers (Auth.js v5, platform app registry, route proxy) |
+| `packages/auth`     | Shared authentication helpers (Auth.js v5, platform app registry, route proxy, SMTP mailer) |
 | `packages/db`       | Prisma client, schema, and migrations for the shared platform database |
 | `packages/config`   | Shared TypeScript/ESLint/Tailwind configuration  |
 | `packages/shared-i18n` | Locale resolution, dictionaries, React i18n provider (used by Vionto) |
@@ -120,7 +128,9 @@ asset, and deferral records are kept in `docs/migration-notes.md`.
 | `packages/storage` | Shared S3-compatible object storage utilities (DigitalOcean Spaces) |
 | `packages/theme-toggle` | Shared light/dark theme toggle — provider, no-flash script, and toggle button |
 | `packages/testora-tasksai-contract` | Versioned cross-app contract between Testora and TasksAI (artifact-bundle, provision, webhook-event, green-light schemas, HMAC signing) — no framework/DB/AI dependency |
+| `packages/ai-cost-ledger` | Vendor-neutral, append-only AI provider cost-event contract (integer-micro money, exclusive usage buckets, pricing snapshots, coverage aggregation, timeline read model) — each app persists it in its own DB; see `docs/adr/0003-ai-cost-event-contract.md` |
 | `packages/activity` | Cross-app user-activity adapters for the superadmin User 360 explorer |
+| `packages/settings-client` | Read-only HTTP client for Admin's internal platform-settings API — used by isolated-DB apps (Testora, AppBuilder, ResuMatch, TasksAI); no Next.js/DB/auth dependency |
 
 ## Getting started
 
@@ -171,6 +181,11 @@ AppBuilder, Testora, TimelineAI, TasksAI, ResuMatch) shares the same session
 via a `.asafarim.com` cookie — there is no per-app login. Labs is public and
 has no session at all.
 
+Machine-to-machine calls are separate: each app's `/api/internal/*` endpoints
+authenticate themselves with a shared `INTERNAL_API_SECRET` bearer, not
+sessions. Admin-console "secret" settings (SMTP/Stripe/AI keys) are encrypted
+at rest with `SETTINGS_ENCRYPTION_KEY`.
+
 ### Auth flow
 
 ```mermaid
@@ -193,7 +208,8 @@ flowchart LR
 
 ## Deployment
 
-Production runs on a VPS via Docker Compose and Caddy:
+Production runs on a VPS via Docker Compose and Caddy — every app, worker,
+and migrator image runs as a non-root user:
 
 ```bash
 pnpm deploy:prod

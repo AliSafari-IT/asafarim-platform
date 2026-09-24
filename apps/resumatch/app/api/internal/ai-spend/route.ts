@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { groupTotals, totalsToDTO, type CostSource, type CredentialSource } from "@asafarim/ai-cost-ledger";
 import { getJobmatchDb } from "@/lib/db/client";
 
 /**
@@ -35,7 +36,8 @@ export async function GET(request: Request) {
   const db = getJobmatchDb();
   const ledgerWhere = workspaceId ? { workspaceId } : {};
 
-  const [ledgerAgg, ledgerByKind] = await Promise.all([
+  const eventWhere = workspaceId ? { workspaceId } : {};
+  const [ledgerAgg, ledgerByKind, events] = await Promise.all([
     db.aiUsageLedger.aggregate({
       where: ledgerWhere,
       _sum: { costUsd: true, inputTokens: true, outputTokens: true },
@@ -47,7 +49,32 @@ export async function GET(request: Request) {
       _sum: { costUsd: true },
       _count: true,
     }),
+    // Issue #586: canonical cost events. Narrow select, aggregated with the
+    // shared contract so "unknown" is counted, never summed as $0.
+    db.aiCostEvent.findMany({
+      where: eventWhere,
+      select: {
+        operation: true,
+        entryType: true,
+        estimatedCostMicros: true,
+        actualCostMicros: true,
+        adjustmentDeltaMicros: true,
+        costSource: true,
+        credentialSource: true,
+        fixture: true,
+        inputTokens: true,
+        outputTokens: true,
+      },
+    }),
   ]);
+
+  const rows = events.map((e) => ({
+    ...e,
+    entryType: e.entryType as "usage" | "adjustment",
+    costSource: e.costSource as CostSource,
+    credentialSource: e.credentialSource as CredentialSource,
+  }));
+  const { groups, total } = groupTotals(rows, (r) => r.operation);
 
   return NextResponse.json({
     workspaceId,
@@ -61,6 +88,12 @@ export async function GET(request: Request) {
         costUsd: row._sum.costUsd ?? 0,
         callCount: row._count,
       })),
+    },
+    // Integer USD micros as strings; unknownCount is spend that happened
+    // but could not be priced — never folded into the amount.
+    costEvents: {
+      ...totalsToDTO(total),
+      byOperation: groups.map((g) => ({ operation: g.key, ...totalsToDTO(g.totals) })),
     },
   });
 }

@@ -94,7 +94,6 @@ describe("candidate profile contract", () => {
     expect(parsed.skills[0].yearsExperience).toBe(6);
     expect(parsed.experience[0].isCurrent).toBe(true);
     expect(parsed.certifications[0].expiresOn).toBe("2027-06");
-    expect(parsed.preferences.excludedEmployers).toEqual([]);
   });
 
   it("rejects a date that is not year or year-month precision", () => {

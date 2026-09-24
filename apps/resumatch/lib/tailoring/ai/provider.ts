@@ -1,3 +1,4 @@
+import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
 import type { TailorSuggestions } from "./schema";
 
@@ -30,10 +31,15 @@ export interface TailorProviderCall {
    *  summary text or null — structured convenience data so a provider can
    *  align `experienceBullets` by index without re-parsing `profileText`. */
   experienceSummaries: (string | null)[];
+  /** The candidate's own freeform steering text for this run (issue #431),
+   *  already capped/fenced into `user` — carried here separately only so a
+   *  provider can log/inspect it without re-parsing `user`. A preference
+   *  signal only; see prompts.ts's HARD RULES. */
+  instructions?: string | null;
   signal?: AbortSignal;
 }
 
-export interface TailorProviderOutput {
+export interface TailorProviderOutput extends ProviderCallMeta {
   suggestions: TailorSuggestions;
   inputTokens: number;
   outputTokens: number;

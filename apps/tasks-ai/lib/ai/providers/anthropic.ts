@@ -1,5 +1,6 @@
 import { proposalDraftSchema } from "../types";
 import { ProviderError, type AiProvider, type ProviderCall, type ProviderOutput } from "../provider";
+import { anthropicMeta, withBilledUsage } from "../cost/meta";
 
 /**
  * Anthropic adapter (server-only). Thin wrapper over @anthropic-ai/sdk with
@@ -60,6 +61,10 @@ export class AnthropicProvider implements AiProvider {
       let text = "";
       let inputTokens = 0;
       let outputTokens = 0;
+      let cacheRead = 0;
+      let cacheWrite = 0;
+      let messageId: string | undefined;
+      let responseModel: string | undefined;
       try {
         const stream = await client.messages.create(
           { ...requestParams, stream: true },
@@ -71,6 +76,10 @@ export class AnthropicProvider implements AiProvider {
             call.onDelta({ type: "token", text: event.delta.text });
           } else if (event.type === "message_start") {
             inputTokens = event.message.usage?.input_tokens ?? inputTokens;
+            cacheRead = event.message.usage?.cache_read_input_tokens ?? 0;
+            cacheWrite = event.message.usage?.cache_creation_input_tokens ?? 0;
+            messageId = event.message.id;
+            responseModel = event.message.model;
           } else if (event.type === "message_delta") {
             outputTokens = event.usage?.output_tokens ?? outputTokens;
           }
@@ -78,7 +87,17 @@ export class AnthropicProvider implements AiProvider {
       } catch (err) {
         throw new ProviderError(err instanceof Error ? err.message : "anthropic stream failed");
       }
-      const draft = proposalDraftSchema.parse(JSON.parse(text));
+      const meta = anthropicMeta({
+        id: messageId,
+        model: responseModel,
+        usage: { input_tokens: inputTokens, output_tokens: outputTokens, cache_read_input_tokens: cacheRead, cache_creation_input_tokens: cacheWrite },
+      });
+      let draft;
+      try {
+        draft = proposalDraftSchema.parse(JSON.parse(text));
+      } catch (err) {
+        throw withBilledUsage(err, meta);
+      }
       draft.operations.forEach((operation, index) => call.onDelta!({ type: "operation", operation, index }));
       const price = PRICE[call.model] ?? { in: 0, out: 0 };
       return {
@@ -87,6 +106,7 @@ export class AnthropicProvider implements AiProvider {
         outputTokens,
         costUsd: (inputTokens * price.in + outputTokens * price.out) / 1_000_000,
         fixture: false,
+        ...meta,
       };
     }
 
@@ -100,7 +120,13 @@ export class AnthropicProvider implements AiProvider {
     const text = ("content" in res ? res.content : [])
       .map((b: { type: string; text?: string }) => (b.type === "text" ? b.text ?? "" : ""))
       .join("");
-    const draft = proposalDraftSchema.parse(JSON.parse(text));
+    const meta = anthropicMeta("usage" in res ? (res as Parameters<typeof anthropicMeta>[0]) : null);
+    let draft;
+    try {
+      draft = proposalDraftSchema.parse(JSON.parse(text));
+    } catch (err) {
+      throw withBilledUsage(err, meta);
+    }
 
     const u = "usage" in res ? res.usage : { input_tokens: 0, output_tokens: 0 };
     const price = PRICE[call.model] ?? { in: 0, out: 0 };
@@ -110,6 +136,7 @@ export class AnthropicProvider implements AiProvider {
       outputTokens: u.output_tokens ?? 0,
       costUsd: ((u.input_tokens ?? 0) * price.in + (u.output_tokens ?? 0) * price.out) / 1_000_000,
       fixture: false,
+      ...meta,
     };
   }
 }

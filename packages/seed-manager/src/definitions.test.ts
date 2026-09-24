@@ -166,6 +166,24 @@ describe("foundation permission catalog", () => {
   it("treats seeds.remove as security-critical", () => {
     expect(SECURITY_CRITICAL_PERMISSIONS.has("seeds.remove")).toBe(true);
   });
+
+  it("defines the settings.secrets.{view,edit} permission tier", () => {
+    const names = FOUNDATION_PERMISSIONS.map((p) => p.name);
+    expect(names).toContain("settings.secrets.view");
+    expect(names).toContain("settings.secrets.edit");
+  });
+
+  it("does not grant settings.secrets.{view,edit} to admin by default", () => {
+    const admin = FOUNDATION_ROLES.find((role) => role.name === "admin")!;
+    expect(admin.permissions).toContain("settings.view");
+    expect(admin.permissions).toContain("settings.edit");
+    expect(admin.permissions).not.toContain("settings.secrets.view");
+    expect(admin.permissions).not.toContain("settings.secrets.edit");
+  });
+
+  it("treats settings.secrets.edit as security-critical", () => {
+    expect(SECURITY_CRITICAL_PERMISSIONS.has("settings.secrets.edit")).toBe(true);
+  });
 });
 
 describe("checksums", () => {

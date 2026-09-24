@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { logError } from "../../../lib/observability/logger";
 import { ProtectedAttributeError, parseProfileContent } from "../../../lib/profile/contract";
 import {
@@ -63,6 +64,18 @@ export async function POST(request: Request) {
             "ResuMatch does not store age, nationality, gender, or similar attributes, and will not accept them.",
           keys: error.keys,
         },
+        { status: 422 },
+      );
+    }
+    // Surface which field actually failed rather than a mystery generic
+    // message — a ZodError's issues are already safe to show (field paths
+    // and constraint descriptions, never file content), and the client only
+    // finds out where to look once it can read `field`.
+    if (error instanceof ZodError) {
+      const first = error.issues[0];
+      const field = first?.path.join(".") || "profile";
+      return NextResponse.json(
+        { error: `That profile could not be saved: "${field}" ${first?.message ?? "is invalid"}.`, field },
         { status: 422 },
       );
     }

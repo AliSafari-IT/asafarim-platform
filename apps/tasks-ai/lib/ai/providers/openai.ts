@@ -1,5 +1,6 @@
 import { proposalDraftSchema } from "../types";
 import { ProviderError, type AiProvider, type ProviderCall, type ProviderOutput } from "../provider";
+import { openAiMeta, withBilledUsage } from "../cost/meta";
 
 /**
  * OpenAI adapter (server-only). Thin wrapper over the `openai` SDK with JSON
@@ -34,6 +35,7 @@ export class OpenAiProvider implements AiProvider {
       let text = "";
       let inputTokens = 0;
       let outputTokens = 0;
+      let lastChunk: NonNullable<Parameters<typeof openAiMeta>[0]> = {};
       try {
         const stream = await client.chat.completions.create(
           {
@@ -54,12 +56,19 @@ export class OpenAiProvider implements AiProvider {
           if (chunk.usage) {
             inputTokens = chunk.usage.prompt_tokens ?? inputTokens;
             outputTokens = chunk.usage.completion_tokens ?? outputTokens;
+            lastChunk = { id: chunk.id, model: chunk.model, usage: chunk.usage };
           }
         }
       } catch (err) {
         throw new ProviderError(err instanceof Error ? err.message : "openai stream failed");
       }
-      const draft = proposalDraftSchema.parse(JSON.parse(text || "{}"));
+      const meta = openAiMeta(lastChunk.usage ? lastChunk : { usage: { prompt_tokens: inputTokens, completion_tokens: outputTokens } });
+      let draft;
+      try {
+        draft = proposalDraftSchema.parse(JSON.parse(text || "{}"));
+      } catch (err) {
+        throw withBilledUsage(err, meta);
+      }
       draft.operations.forEach((operation, index) => call.onDelta!({ type: "operation", operation, index }));
       const price = PRICE[call.model] ?? { in: 0, out: 0 };
       return {
@@ -68,6 +77,7 @@ export class OpenAiProvider implements AiProvider {
         outputTokens,
         costUsd: (inputTokens * price.in + outputTokens * price.out) / 1_000_000,
         fixture: false,
+        ...meta,
       };
     }
 
@@ -82,7 +92,13 @@ export class OpenAiProvider implements AiProvider {
     }
 
     const text = res.choices[0]?.message?.content ?? "{}";
-    const draft = proposalDraftSchema.parse(JSON.parse(text));
+    const meta = openAiMeta(res);
+    let draft;
+    try {
+      draft = proposalDraftSchema.parse(JSON.parse(text));
+    } catch (err) {
+      throw withBilledUsage(err, meta);
+    }
     const u = res.usage ?? { prompt_tokens: 0, completion_tokens: 0 };
     const price = PRICE[call.model] ?? { in: 0, out: 0 };
     return {
@@ -91,6 +107,7 @@ export class OpenAiProvider implements AiProvider {
       outputTokens: u.completion_tokens ?? 0,
       costUsd: ((u.prompt_tokens ?? 0) * price.in + (u.completion_tokens ?? 0) * price.out) / 1_000_000,
       fixture: false,
+      ...meta,
     };
   }
 }

@@ -9,7 +9,7 @@ loadEnv({ path: path.join(process.cwd(), "../../.env") });
 
 const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
-  transpilePackages: ["@asafarim/auth", "@asafarim/db", "@asafarim/shared-i18n", "@asafarim/country-language-selector", "@asafarim/vionto-schemas"],
+  transpilePackages: ["@asafarim/ai-cost-ledger", "@asafarim/auth", "@asafarim/db", "@asafarim/shared-i18n", "@asafarim/country-language-selector", "@asafarim/vionto-schemas"],
 };
 
 export default nextConfig;

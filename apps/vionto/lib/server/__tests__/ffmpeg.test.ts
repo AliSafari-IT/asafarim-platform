@@ -148,10 +148,13 @@ describe("buildRenderCommand", () => {
     const finalVf = final[final.indexOf("-vf") + 1];
 
     expect(segmentVf).toContain("scale=1080:1920");
-    expect(segmentVf).toContain("pad=1080:1920");
+    expect(segmentVf).toContain("crop=1080:1920");
     expect(segmentVf).toContain("s=1080x1920");
     expect(finalVf).toContain("scale=1080:1920");
-    expect(finalVf).toContain("pad=1080:1920");
+    expect(finalVf).toContain("crop=1080:1920");
+    // Mismatched-ratio images fill the frame instead of being letterboxed.
+    expect(segmentVf).not.toContain("pad=");
+    expect(finalVf).not.toContain("pad=");
   });
 
   it("uses portrait dimensions when burning subtitles into a portrait render", () => {
@@ -200,7 +203,7 @@ describe("buildRenderCommand", () => {
     const segmentVf = firstSegment[firstSegment.indexOf("-vf") + 1];
 
     expect(segmentVf).toContain("scale=1080:1080");
-    expect(segmentVf).toContain("pad=1080:1080");
+    expect(segmentVf).toContain("crop=1080:1080");
     expect(segmentVf).toContain("s=1080x1080");
   });
 

@@ -1,3 +1,7 @@
+"use client";
+
+import { useEdgeAutoScroll } from "../hooks/useEdgeAutoScroll";
+
 export interface NavItem {
   label: string;
   href: string;
@@ -16,11 +20,17 @@ export interface TopNavProps {
  * CSS-only menu button below 900px — never wraps.
  */
 export function TopNav({ items }: TopNavProps) {
+  const scroller = useEdgeAutoScroll<HTMLUListElement>();
   if (items.length === 0) return null;
 
   return (
-    <nav aria-label="Primary">
-      <ul className="ui-topnav">
+    <nav aria-label="Primary" className="ui-shell__topnav">
+      <ul
+        className="ui-topnav"
+        ref={scroller.ref}
+        onMouseMove={scroller.onMouseMove}
+        onMouseLeave={scroller.onMouseLeave}
+      >
         {items.map((item) => (
           <li key={item.href + item.label}>
             <a

@@ -1,11 +1,7 @@
 import "server-only";
 import { getJobmatchDb } from "../db/client";
 import { EXTRACTOR_NAME, EXTRACTOR_VERSION, extractText } from "../extraction/text";
-import {
-  PROFILE_EXTRACTOR_NAME,
-  PROFILE_EXTRACTOR_VERSION,
-  extractProfileFromText,
-} from "../extraction/profileExtractor";
+import { extractProfileWithFallback } from "../extraction/ai/degraded";
 import { logError, log } from "../observability/logger";
 import { createVersion } from "../profile/versions";
 import { recordAuditEvent } from "../workspace";
@@ -15,9 +11,12 @@ import {
   validateUpload,
 } from "./fileType";
 import {
+  type DocumentStatusName,
   MAX_EXTRACTION_ATTEMPTS,
-  nextStatusAfterExtractionFailure,
+  extractionLeaseCutoff,
+  mayClaimExtraction,
   mayExtract,
+  nextStatusAfterExtractionFailure,
 } from "./pipeline";
 import { createScanner, decideFromVerdict } from "./scanner";
 import {
@@ -239,6 +238,16 @@ export type ExtractionResult =
   | { ok: false; reasonCode: string; status: string };
 
 /**
+ * Whether a caller driving retries should call extractDocument again: the
+ * last attempt failed with budget left. Not true for a document whose
+ * attempt is running in another request — that one is in EXTRACTING too,
+ * but calling again would only spin against a lease this caller cannot take.
+ */
+export function shouldCallExtractionAgain(result: ExtractionResult): boolean {
+  return !result.ok && result.status === "EXTRACTING" && result.reasonCode !== "EXTRACTION_IN_PROGRESS";
+}
+
+/**
  * Extract text and produce a draft profile version.
  *
  * Separate from upload and re-entrant on purpose: it is the unit a
@@ -252,23 +261,87 @@ export async function extractDocument(
 ): Promise<ExtractionResult> {
   const db = getJobmatchDb();
 
-  const document = await db.candidateDocument.findFirst({
+  const before = await db.candidateDocument.findFirst({
     where: { id: documentId, workspaceId, deletedAt: null },
   });
-  if (!document) return { ok: false, reasonCode: "EXTRACTION_ERROR", status: "FAILED" };
+  if (!before) return { ok: false, reasonCode: "EXTRACTION_ERROR", status: "FAILED" };
 
   // Re-asserted rather than assumed from the caller's ordering. This is the
   // line that makes "no parser sees unscanned bytes" true regardless of who
   // calls this function or in what order.
-  if (!mayExtract(document.status)) {
-    return { ok: false, reasonCode: document.reasonCode ?? "EXTRACTION_ERROR", status: document.status };
+  if (!mayExtract(before.status)) {
+    return { ok: false, reasonCode: before.reasonCode ?? "EXTRACTION_ERROR", status: before.status };
   }
 
-  const attempts = document.extractionAttempts + 1;
-  await db.candidateDocument.update({
-    where: { id: documentId },
-    data: { status: "EXTRACTING", extractionAttempts: attempts, extractionStartedAt: new Date() },
+  // Someone else's attempt is running right now. Reported as its own
+  // reason rather than a plain EXTRACTING: the routes loop on EXTRACTING to
+  // drive retries, and must not spin against a lease they cannot take.
+  const now = new Date();
+  if (!mayClaimExtraction(before.status, before.extractionStartedAt, now)) {
+    return { ok: false, reasonCode: "EXTRACTION_IN_PROGRESS", status: before.status };
+  }
+
+  // Atomic claim, same idea as rescanDocument's, adapted for the fact that
+  // EXTRACTING is itself one of mayExtract's eligible statuses (a failed
+  // attempt with retries left is left in EXTRACTING on purpose, so the next
+  // call can re-enter). Two conditions in the where clause, each closing a
+  // different race:
+  //
+  // - `extractionAttempts` pinned to the value just read is a
+  //   compare-and-swap: of two calls that read the same row, only the one
+  //   whose update still finds that value unchanged wins; the loser matches
+  //   zero rows because the winner already bumped the counter.
+  // - The lease (`extractionStartedAt` null or expired) covers a call that
+  //   reads the row only *after* another call's claim has committed. That
+  //   read sees EXTRACTING with the already-bumped counter, so the
+  //   compare-and-swap alone would let it claim a second time: by status
+  //   and counter, an attempt in progress and an attempt awaiting retry
+  //   look identical. The claim sets the lease and only failExtraction's
+  //   retry path clears it, so "awaiting retry" is exactly "EXTRACTING with
+  //   no live lease".
+  //
+  // The lease is re-checked here rather than trusted from the read above,
+  // so it holds even if the row changed in between.
+  const claim = await db.candidateDocument.updateMany({
+    where: {
+      id: documentId,
+      workspaceId,
+      deletedAt: null,
+      status: before.status,
+      extractionAttempts: before.extractionAttempts,
+      ...(before.status === "EXTRACTING"
+        ? {
+            OR: [
+              { extractionStartedAt: null },
+              { extractionStartedAt: { lte: extractionLeaseCutoff(now) } },
+            ],
+          }
+        : {}),
+    },
+    data: { status: "EXTRACTING", extractionAttempts: { increment: 1 }, extractionStartedAt: now },
   });
+
+  if (claim.count === 0) {
+    const existing = await db.candidateDocument.findFirst({
+      where: { id: documentId, workspaceId, deletedAt: null },
+      select: { status: true, reasonCode: true, extractionStartedAt: true },
+    });
+    if (!existing) return { ok: false, reasonCode: "EXTRACTION_ERROR", status: "FAILED" };
+    if (
+      existing.status === "EXTRACTING" &&
+      !mayClaimExtraction(existing.status, existing.extractionStartedAt, new Date())
+    ) {
+      return { ok: false, reasonCode: "EXTRACTION_IN_PROGRESS", status: existing.status };
+    }
+    return { ok: false, reasonCode: existing.reasonCode ?? "EXTRACTION_ERROR", status: existing.status };
+  }
+
+  const attempts = before.extractionAttempts + 1;
+
+  const document = await db.candidateDocument.findFirst({
+    where: { id: documentId, workspaceId, deletedAt: null },
+  });
+  if (!document) return { ok: false, reasonCode: "EXTRACTION_ERROR", status: "FAILED" };
 
   const stored = await readDocumentBytes(document.storageKey);
   if (!stored) {
@@ -281,10 +354,7 @@ export async function extractDocument(
     // re-running the same parser on the same bytes cannot invent a text
     // layer, and OCR is a separate path (see ocr.ts) that is not wired yet.
     if (extracted.reasonCode === "NO_TEXT_LAYER") {
-      await db.candidateDocument.update({
-        where: { id: documentId },
-        data: { status: "FAILED", reasonCode: "NO_TEXT_LAYER" },
-      });
+      await settleExtraction(documentId, attempts, { status: "FAILED", reasonCode: "NO_TEXT_LAYER" });
       await recordAuditEvent(workspaceId, "document.extraction.failed", {
         jobId: documentId,
         reasonCode: "NO_TEXT_LAYER",
@@ -295,7 +365,7 @@ export async function extractDocument(
   }
 
   try {
-    const profile = extractProfileFromText(extracted.text);
+    const profile = await extractProfileWithFallback(workspaceId, extracted.text, { documentId });
 
     const version = await createVersion({
       workspaceId,
@@ -304,22 +374,21 @@ export async function extractDocument(
       origin: "EXTRACTED",
       // Both extractors are recorded: the text layer and the profile rules
       // are versioned independently, and a change to either makes a past
-      // version non-comparable.
-      extractorName: `${EXTRACTOR_NAME}+${PROFILE_EXTRACTOR_NAME}`,
-      extractorVersion: `${EXTRACTOR_VERSION}+${PROFILE_EXTRACTOR_VERSION}`,
+      // version non-comparable. The profile-rules half now names whichever
+      // extractor actually produced this result (deterministic or AI) —
+      // see lib/extraction/ai/degraded.ts.
+      extractorName: `${EXTRACTOR_NAME}+${profile.extractorName}`,
+      extractorVersion: `${EXTRACTOR_VERSION}+${profile.extractorVersion}`,
       documentId,
       sourceContentHash: document.contentHash,
     });
 
-    await db.candidateDocument.update({
-      where: { id: documentId },
-      data: {
-        status: "EXTRACTED",
-        // A successful extraction can still carry a caveat. Recording it
-        // here is what lets the UI explain empty fields as a deliberate
-        // refusal to guess rather than as a silent failure.
-        reasonCode: profile.layoutReliable ? null : "LAYOUT_UNRELIABLE",
-      },
+    await settleExtraction(documentId, attempts, {
+      status: "EXTRACTED",
+      // A successful extraction can still carry a caveat. Recording it
+      // here is what lets the UI explain empty fields as a deliberate
+      // refusal to guess rather than as a silent failure.
+      reasonCode: profile.layoutReliable ? null : "LAYOUT_UNRELIABLE",
     });
 
     log.info("document.extracted", {
@@ -342,12 +411,14 @@ async function failExtraction(
   attempts: number,
   reasonCode: string,
 ): Promise<ExtractionResult> {
-  const db = getJobmatchDb();
   const status = nextStatusAfterExtractionFailure(attempts);
 
-  await db.candidateDocument.update({
-    where: { id: documentId },
-    data: { status, reasonCode: reasonCode as never },
+  // Clearing the lease is what marks a retryable failure as "awaiting
+  // retry" rather than "in progress" — see the claim in extractDocument.
+  await settleExtraction(documentId, attempts, {
+    status,
+    reasonCode: reasonCode as never,
+    extractionStartedAt: null,
   });
   await recordAuditEvent(workspaceId, "document.extraction.failed", {
     jobId: documentId,
@@ -356,6 +427,31 @@ async function failExtraction(
   });
 
   return { ok: false, reasonCode, status };
+}
+
+/**
+ * Write the outcome of an extraction attempt, fenced to the attempt that
+ * holds the claim. If this attempt outlived its lease and another call took
+ * the document over, the attempt counter has moved on, the update matches
+ * nothing, and the newer attempt's state is left alone rather than
+ * overwritten by a stale result.
+ */
+async function settleExtraction(
+  documentId: string,
+  attempts: number,
+  data: {
+    status: DocumentStatusName;
+    reasonCode: "NO_TEXT_LAYER" | "LAYOUT_UNRELIABLE" | null;
+    extractionStartedAt?: null;
+  },
+): Promise<void> {
+  const settled = await getJobmatchDb().candidateDocument.updateMany({
+    where: { id: documentId, status: "EXTRACTING", extractionAttempts: attempts },
+    data,
+  });
+  if (settled.count === 0) {
+    log.warn("document.extraction.lease_lost", { jobId: documentId, attempt: attempts });
+  }
 }
 
 export { MAX_EXTRACTION_ATTEMPTS };

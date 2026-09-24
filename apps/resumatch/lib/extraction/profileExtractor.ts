@@ -4,6 +4,7 @@ import {
   emptyProfile,
   parseProfileContent,
 } from "../profile/contract";
+import { parseSkillLines } from "../profile/parseSkillsText";
 
 /**
  * Turning CV text into a draft profile (JM-020).
@@ -240,41 +241,13 @@ function foldAccents(input: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-/** Splits a line into list items on the separators CVs actually use. */
-function splitList(line: string): string[] {
-  return line
-    .split(/[,;|/]|\s{2,}|•|·|\s-\s/)
-    .map((part) => part.trim().replace(/^[-*•·]\s*/, "").trim())
-    .filter((part) => part.length > 1 && part.length <= 80);
-}
-
-/**
- * Whether a fragment is plausibly the name of a skill.
- *
- * Without this, a prose bullet like "Database Management: Used MongoDB and
- * SQL Server to design, query, and manage databases effectively" is split on
- * its commas and stored as three "skills". A skill is a short noun phrase; a
- * sentence, a URL, an email, or a date is not, whatever section it sat under.
- */
-export function looksLikeSkill(candidate: string): boolean {
-  const value = candidate.trim();
-  if (value.length < 2 || value.length > 50) return false;
-  // Ends like a sentence.
-  if (/[.:;!?]$/.test(value)) return false;
-  if (value.split(/\s+/).length > 5) return false;
-  // Contact details and links appear in every CV and are not skills.
-  if (/@|https?:|www\./i.test(value)) return false;
-  if (/\b(19|20)\d{2}\b/.test(value)) return false;
-  // Connectives mark prose. Short fragments are spared so "Ruby on Rails"
-  // and "Test of Record" survive.
-  if (
-    value.split(/\s+/).length > 3 &&
-    /\b(and|with|the|for|to|of|in|using|used|van|voor|met|et|des|pour)\b/i.test(value)
-  ) {
-    return false;
-  }
-  return /[a-z]/i.test(value);
-}
+// Line-by-line skill parsing (heading detection, "Term: description"
+// recovery, `looksLikeSkill` prose filtering) now lives in
+// lib/profile/parseSkillsText.ts, shared with the profile editor's manual
+// Skills textarea (app/profile/ProfileWorkbench.tsx) — see that module's
+// doc comment for why the two paths need to agree. `looksLikeSkill` is
+// re-exported here so existing imports of it from this module keep working.
+export { looksLikeSkill } from "../profile/parseSkillsText";
 
 /**
  * Collapse the letter-spacing that designed CVs use for headings.
@@ -745,25 +718,18 @@ function extractLanguagesFromSection(
 }
 
 function extractSkills(sections: Record<string, string[]>): CandidateProfileContent["skills"] {
-  const seen = new Set<string>();
-  const skills: CandidateProfileContent["skills"] = [];
-
-  for (const line of sections.skills ?? []) {
-    for (const item of splitList(line)) {
-      // The filter matters more than the split: CV skill sections are full of
-      // prose bullets, and without it every clause of every sentence lands in
-      // the candidate's skill list.
-      if (!looksLikeSkill(item)) continue;
-      const key = item.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      // rawLabel preserves what the CV actually said; normalisation to a
-      // controlled vocabulary is M4's job and must not erase the original.
-      skills.push({ name: item, rawLabel: item, yearsExperience: null });
-      if (skills.length >= 200) return skills;
-    }
-  }
-  return skills;
+  // Heading detection, "Term: description" recovery, and prose filtering
+  // all live in lib/profile/parseSkillsText.ts now — shared with the
+  // profile editor's manual Skills textarea, so a candidate gets the same
+  // result whichever way their skills reach ResuMatch.
+  return parseSkillLines(sections.skills ?? []).map(({ name, category }) => ({
+    name,
+    // rawLabel preserves what the CV actually said; normalisation to a
+    // controlled vocabulary is M4's job and must not erase the original.
+    rawLabel: name,
+    yearsExperience: null,
+    category,
+  }));
 }
 
 /** `2021 - 2024`, `03/2021 – present`, `2021-03 tot heden`. */
@@ -869,6 +835,26 @@ function extractExperience(sections: Record<string, string[]>): CandidateProfile
       if (split) {
         title = split[1].trim();
         employer = split[2].trim();
+      } else {
+        // No "Title at Employer" separator on this line at all — this is
+        // the OTHER common CV layout: "Employer (details)   <dates>" on one
+        // line, with the actual job title on the line right after (e.g.
+        // "Unlimit-IT (XiTechniX in GEEL)   Dec 2020-Dec 2023" followed by
+        // "ICT Developer"). Treating `remainder` as the title in that case
+        // silently swaps title and employer. A plausible next-line title is
+        // short, not itself a date range, and not a bullet — real bullets
+        // always start with a marker character, a job title line never
+        // does.
+        const next = lines[index + 1]?.trim() ?? "";
+        const looksLikeTitle =
+          next.length >= 2 &&
+          next.length <= 100 &&
+          !DATE_RANGE.test(next) &&
+          !/^[•\-*–—▪●○◦]/.test(next);
+        if (looksLikeTitle) {
+          employer = remainder.split(/\s*[|–—]\s*/)[0]?.trim() ?? null;
+          title = next;
+        }
       }
     }
 
@@ -899,7 +885,10 @@ const QUALIFICATION_MARKERS =
 
 function extractEducation(sections: Record<string, string[]>): CandidateProfileContent["education"] {
   const entries: CandidateProfileContent["education"] = [];
-  for (const line of sections.education ?? []) {
+  const lines = sections.education ?? [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const year = /\b(19|20)\d{2}\b/.exec(line);
     const qualification = line.replace(/\b(19|20)\d{2}\b/g, "").replace(/[\s,;:|-]+$/g, "").trim();
     if (qualification.length < 3) continue;
@@ -911,9 +900,31 @@ function extractEducation(sections: Record<string, string[]>): CandidateProfileC
     // Prose that happens to mention a year is still prose.
     if (qualification.split(/\s+/).length > 14) continue;
 
+    let institution: string | null = null;
+    if (year) {
+      // A qualification line that carries its own year is commonly
+      // followed, on the very next line, by the institution's name with
+      // no year of its own (e.g. "Informatics - Programming  2018" /
+      // "Thomas More Campus De Nayer, Sint-Katelijne-Waver"). Institution
+      // names routinely contain words like "University" or "Campus" that
+      // also match QUALIFICATION_MARKERS, so without this look-ahead the
+      // institution line was indistinguishable from a second, bogus
+      // qualification and became its own entry with institution left null.
+      const next = lines[i + 1]?.trim() ?? "";
+      const looksLikeInstitution =
+        next.length >= 3 &&
+        next.length <= 160 &&
+        next.split(/\s+/).length <= 14 &&
+        !/\b(19|20)\d{2}\b/.test(next);
+      if (looksLikeInstitution) {
+        institution = next;
+        i++; // consumed as this entry's institution, not scanned as its own line
+      }
+    }
+
     entries.push({
       qualification: qualification.slice(0, 160),
-      institution: null,
+      institution,
       completedOn: year ? year[0] : null,
     });
     if (entries.length >= 30) break;

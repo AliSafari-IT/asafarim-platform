@@ -152,7 +152,7 @@ async function sendEmailLoginCode(input: {
   code: string;
   expiresInMinutes: number;
 }): Promise<void> {
-  const { transporter, from, bcc } = createTransport();
+  const { transporter, from, bcc } = await createTransport();
   const { subject, text, html } = loginCodeEmail(input);
   await transporter.sendMail({ from, to: input.to, bcc, subject, text, html });
 }

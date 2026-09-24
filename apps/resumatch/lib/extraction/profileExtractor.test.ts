@@ -273,6 +273,65 @@ describe("skill plausibility", () => {
   });
 });
 
+describe("skills section — category headings and 'term: description' bullets", () => {
+  // Mirrors a real, designed CV's skills section: a subheading per group,
+  // each skill given as a bold lead-in term followed by a sentence
+  // describing it — a shape `looksLikeSkill` correctly rejects whole (see
+  // "rejects prose" above) but which extractSkills should now recover the
+  // lead-in from, tagging it with the heading it sat under.
+  const text = [
+    "Alexandra Moreau",
+    "Hasselt, Belgium",
+    "alexandra.moreau@example.test",
+    "+32 471 22 33 44",
+    "",
+    "SUMMARY",
+    "Backend engineer focused on data pipelines and reliability.",
+    "",
+    "SKILLS",
+    "Software Development:",
+    ".NET and C#: Proficient in .NET and C# environments, including extensive experience with ASP.NET Core (WebAPI, MVC), Entity Framework Core for data access.",
+    "PHP and Laravel: PHP and the Laravel framework for web application development.",
+    "",
+    "Version Control:",
+    "Proficient in using Git, GitHub, and Azure DevOps for source code management and team collaboration.",
+    "",
+    "EXPERIENCE",
+    "Senior Software Engineer at Probex  03/2022 - present",
+    "Software Engineer at Kestrel Data  2019 - 02/2022",
+    "Junior Developer at Loomis IT  2017 - 2019",
+    "",
+    "EDUCATION",
+    "MSc Computer Science, KU Leuven  2017",
+    "BSc Informatics  2015",
+  ].join("\n");
+  const { content } = extractProfileFromText(text);
+
+  it("recovers the lead-in term from a 'Term: description' bullet instead of discarding the whole line", () => {
+    const names = content.skills.map((s) => s.name);
+    expect(names).toContain(".NET and C#");
+    expect(names).toContain("PHP and Laravel");
+  });
+
+  it("tags a recovered skill with the subheading it sat under", () => {
+    const dotnet = content.skills.find((s) => s.name === ".NET and C#");
+    expect(dotnet?.category).toBe("Software Development");
+    const php = content.skills.find((s) => s.name === "PHP and Laravel");
+    expect(php?.category).toBe("Software Development");
+  });
+
+  it("never stores the subheading line itself as a skill", () => {
+    const names = content.skills.map((s) => s.name);
+    expect(names).not.toContain("Software Development");
+    expect(names).not.toContain("Version Control");
+  });
+
+  it("keeps rawLabel as the recovered lead-in, not the full sentence", () => {
+    const dotnet = content.skills.find((s) => s.name === ".NET and C#");
+    expect(dotnet?.rawLabel).toBe(".NET and C#");
+  });
+});
+
 describe("choosing the candidate's own email", () => {
   it("prefers an address matching the name over one that appears earlier", () => {
     const text = "REFERENCES\ninfo@agency.test\n\nJane Vermeulen\njane.vermeulen@example.test";
@@ -521,6 +580,56 @@ describe("review regressions — reading-order reconstruction fallout", () => {
     expect(roles[0].endedOn).toBe("2023-12");
     expect(roles[1].startedOn).toBe("2018-03");
     expect(roles[1].endedOn).toBe("2020-11");
+  });
+
+  it("pairs an institution line with the qualification line above it instead of making a second entry", () => {
+    // Real CV layout: "Qualification  <year>" then the institution's name
+    // on its own line with no year — institution names routinely contain
+    // words like "University"/"Campus" that also match
+    // QUALIFICATION_MARKERS, so without pairing them the institution line
+    // became its own bogus qualification entry with institution left null.
+    const cv = [
+      "Someone Example",
+      "someone@example.test",
+      "EDUCATION",
+      "Informatics - Programming 2018",
+      "Thomas More Campus De Nayer, Sint-Katelijne-Waver",
+      "PhD in Engineering - Hydrology 2005",
+      "Vrije Universiteit Brussel (VUB)",
+    ].join("\n");
+    const education = extractProfileFromText(cv).content.education;
+    expect(education).toHaveLength(2);
+    expect(education[0]).toMatchObject({
+      qualification: "Informatics - Programming",
+      institution: "Thomas More Campus De Nayer, Sint-Katelijne-Waver",
+      completedOn: "2018",
+    });
+    expect(education[1]).toMatchObject({
+      qualification: "PhD in Engineering - Hydrology",
+      institution: "Vrije Universiteit Brussel (VUB)",
+      completedOn: "2005",
+    });
+  });
+
+  it("reads employer+dates on one line followed by the job title on the next", () => {
+    // Real CV layout that used to swap title and employer: the employer
+    // (with a location aside) and the date range share a line, and the
+    // actual job title is the line immediately after it — the opposite
+    // order from "Engineer at Example  2019 - 2024".
+    const cv = [
+      "Someone Example",
+      "someone@example.test",
+      "EXPERIENCE",
+      "Unlimit-IT (XiTechniX in GEEL)              Dec 2020-Dec 2023",
+      "ICT Developer",
+      "Full-Stack Development: Built web applications with ASP.NET Core and React.",
+    ].join("\n");
+    const roles = extractProfileFromText(cv).content.experience;
+    expect(roles).toHaveLength(1);
+    expect(roles[0].title).toBe("ICT Developer");
+    expect(roles[0].employer).toBe("Unlimit-IT (XiTechniX in GEEL)");
+    expect(roles[0].startedOn).toBe("2020-12");
+    expect(roles[0].endedOn).toBe("2023-12");
   });
 
   it("still reads a numeric date range and an open-ended one", () => {

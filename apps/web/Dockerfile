@@ -1,5 +1,12 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
+# Dependencies are installed once, at build time, with --frozen-lockfile.
+# pnpm must never re-verify and reinstall them at container start: running
+# as `node`, it resolves a different ($HOME-based) store than the build-time
+# install and tries to wipe the root-owned node_modules, so every pnpm-run
+# stage (migrators, workers) fails with ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR.
+ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 ARG NEXT_PUBLIC_COMPANY_NAME="ASafarIM Digital"
 ARG NEXT_PUBLIC_PLATFORM_NAME="ASafarIM Platform"
@@ -49,11 +56,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-COPY --from=builder /app/apps/web/.next/standalone ./
-COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
-COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder --chown=node:node /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=node:node /app/apps/web/public ./apps/web/public
 # Keep the subscriber incentive private: the server can attach it to email,
 # but it is not exposed as a public static download.
-COPY --from=builder /app/output/pdf/vionto-ai-pipeline-architecture.pdf ./resources/vionto-ai-pipeline-architecture.pdf
+COPY --from=builder --chown=node:node /app/output/pdf/vionto-ai-pipeline-architecture.pdf ./resources/vionto-ai-pipeline-architecture.pdf
 EXPOSE 3000
+USER node
 CMD ["node", "apps/web/server.js"]

@@ -14,25 +14,31 @@
     "postinstall": "prisma generate --schema prisma/schema.prisma",
     "typecheck": "pnpm db:generate && tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "db:migrate": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate dev --schema prisma/schema.prisma",
     "db:migrate:deploy": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate deploy --schema prisma/schema.prisma",
     "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --schema prisma/schema.prisma --port 5557 --browser none"
   },
   "dependencies": {
+    "@asafarim/ai-cost-ledger": "workspace:*",
     "@asafarim/auth": "workspace:*",
+    "@asafarim/settings-client": "workspace:*",
     "@asafarim/storage": "workspace:*",
     "@asafarim/theme-toggle": "workspace:*",
     "@asafarim/ui": "workspace:*",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@prisma/adapter-pg": "7.8.0",
     "@prisma/client": "7.8.0",
     "@prisma/client-runtime-utils": "7.8.0",
     "bullmq": "^5.34.0",
+    "docx": "^9.7.1",
     "dotenv": "^17.4.2",
     "ioredis": "^5.4.2",
     "mammoth": "^1.12.2",
-    "next": "^16.2.10",
+    "next": "^16.3.5",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "unpdf": "^1.8.1",
@@ -47,6 +53,6 @@
     "prisma": "7.8.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

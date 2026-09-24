@@ -15,6 +15,13 @@
 # ---------------------------------------------------------------------------
 FROM node:24-alpine AS migrator
 WORKDIR /app
+ENV COREPACK_HOME=/usr/local/share/corepack
+# Dependencies are installed once, at build time, with --frozen-lockfile.
+# pnpm must never re-verify and reinstall them at container start: running
+# as `node`, it resolves a different ($HOME-based) store than the build-time
+# install and tries to wipe the root-owned node_modules, so every pnpm-run
+# stage (migrators, workers) fails with ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR.
+ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 
 # The full workspace is copied so pnpm can validate the lockfile against every
@@ -28,4 +35,5 @@ RUN pnpm install --frozen-lockfile --filter @asafarim/db...
 # DATABASE_URL is supplied by compose and points at the in-network `postgres`
 # service. Migrations run first and always; the TimelineAI demo seed runs only
 # when the table is empty (see db:deploy:migrate-and-seed).
+USER node
 CMD ["pnpm", "--filter", "@asafarim/db", "db:deploy:migrate-and-seed"]

@@ -2,7 +2,17 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Badge, Button, Card } from "@asafarim/ui";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { Alert, Badge, Button, Card, useEdgeAutoScroll } from "@asafarim/ui";
 import { LOW_CONFIDENCE_THRESHOLD } from "../../lib/profile/contract";
 import type {
   CandidateProfileContent,
@@ -13,6 +23,10 @@ import type {
   ProfileConfidence,
 } from "../../lib/profile/contract";
 import { AwardIcon, BriefcaseIcon, GlobeIcon, GraduationCapIcon, TrashIcon } from "./icons";
+import { SortableEntityCard } from "./SortableEntityCard";
+import type { SummaryTone } from "../../lib/profile/ai/provider";
+import { categorizeSkill, groupSkillsByCategory, SKILL_CATEGORIES } from "../../lib/profile/skillCategories";
+import { parseSkillsFreeText } from "../../lib/profile/parseSkillsText";
 
 /**
  * Profile review and correction (JM-021).
@@ -28,6 +42,18 @@ import { AwardIcon, BriefcaseIcon, GlobeIcon, GraduationCapIcon, TrashIcon } fro
  * confident" would claim a precision that does not exist.
  */
 
+/** A candidate typing how long a qualification took ("2016-2020") is a much
+ *  more natural instinct than typing when it finished ("2020"), but
+ *  `educationSchema.completedOn` only accepts a single year or year-month
+ *  (see lib/profile/contract.ts's YEAR_MONTH) — a span fails validation and,
+ *  until this normalizer, surfaced only as a generic "could not be saved"
+ *  error with no indication of which field was wrong. Silently keeping the
+ *  end year on blur turns the common case into something that just works. */
+function normalizeCompletedOn(value: string): string {
+  const span = /^\s*\d{4}\s*[-–—]\s*(\d{4})\s*$/.exec(value);
+  return span ? span[1] : value;
+}
+
 export interface ProfileWorkbenchProps {
   initialContent: CandidateProfileContent;
   initialConfidence: ProfileConfidence;
@@ -38,17 +64,6 @@ export interface ProfileWorkbenchProps {
 }
 
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "error"; message: string } | { kind: "saved"; confirmed: boolean };
-
-/** Split a free-typed list on commas or newlines, trimming and dropping
- *  blanks — shared by every parsed-list field so the "how many entries did
- *  the user actually type" count used for the over-limit warning is always
- *  the exact same count that gets sliced and saved. */
-function parseEntries(raw: string): string[] {
-  return raw
-    .split(/[,\n]/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
 
 /** A safe-enough ISO-639-ish code for a manually-added language: the
  *  schema only requires 2-16 characters, and this field is never read for
@@ -61,6 +76,16 @@ function codeFromLabel(label: string): string {
 
 function removeAt<T>(list: T[], index: number): T[] {
   return list.filter((_, i) => i !== index);
+}
+
+/** Client-only identity for a reorderable card (experience/education), kept
+ *  in a parallel array alongside the actual entries — see the `*Ids` state
+ *  below. Never persisted; `crypto.randomUUID` isn't guaranteed in every
+ *  browsing context (e.g. non-secure origins), hence the fallback. */
+function randomId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
 }
 
 function replaceAt<T>(list: T[], index: number, item: T): T[] {
@@ -95,6 +120,7 @@ export function ProfileWorkbench({
 }: ProfileWorkbenchProps) {
   const [content, setContent] = useState<CandidateProfileContent>(initialContent);
   const [state, setState] = useState<SaveState>({ kind: "idle" });
+  const navScroller = useEdgeAutoScroll<HTMLElement>();
   const [dirty, setDirty] = useState(false);
   // Skills and excluded-employers are free-typed lists, parsed into
   // structured data on every keystroke. The textarea's own text must be its
@@ -107,16 +133,157 @@ export function ProfileWorkbench({
   const [skillsText, setSkillsText] = useState(() =>
     initialContent.skills.map((skill) => skill.name).join(", "),
   );
-  const [excludedEmployersText, setExcludedEmployersText] = useState(() =>
-    initialContent.preferences.excludedEmployers.join(", "),
-  );
   const confidence = initialConfidence;
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
+  const [tone, setTone] = useState<SummaryTone>("friendly");
+  const [rewriteState, setRewriteState] = useState<
+    | { kind: "idle" }
+    | { kind: "loading" }
+    | { kind: "preview"; text: string; degraded: boolean }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  const [categorizeState, setCategorizeState] = useState<
+    | { kind: "idle" }
+    | { kind: "loading" }
+    | { kind: "preview"; suggestions: { name: string; category: string }[]; degraded: boolean }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
   const update = useCallback(<K extends keyof CandidateProfileContent>(key: K, value: CandidateProfileContent[K]) => {
     setContent((previous) => ({ ...previous, [key]: value }));
     setDirty(true);
+  }, []);
+
+  // Reorderable cards (experience, education): each entry has no natural
+  // unique id of its own (no `id` field on ExperienceEntry/EducationEntry),
+  // and re-editing a field replaces that entry with a brand-new object every
+  // keystroke — array index is the only thing that's stable while typing,
+  // and unstable across a reorder. This client-only id, generated once per
+  // entry and moved/added/removed in lockstep with the entry itself, is
+  // what dnd-kit and React's own `key` both need to track a card's identity
+  // through a drag rather than its current position.
+  const [experienceIds, setExperienceIds] = useState<string[]>(() =>
+    initialContent.experience.map(() => randomId()),
+  );
+  const [educationIds, setEducationIds] = useState<string[]>(() =>
+    initialContent.education.map(() => randomId()),
+  );
+
+  // Shared by both reorderable lists: pointer drag (mouse/touch) plus a
+  // keyboard sensor, so Space+Arrow keys reorder too — the Up/Down buttons
+  // on each card cover the same case without needing focus inside the list,
+  // but both being available (not one as a fallback for the other) matters.
+  const reorderSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function moveExperience(from: number, to: number) {
+    if (to < 0 || to >= content.experience.length) return;
+    update("experience", arrayMove(content.experience, from, to));
+    setExperienceIds((ids) => arrayMove(ids, from, to));
+  }
+  function removeExperience(index: number) {
+    update("experience", removeAt(content.experience, index));
+    setExperienceIds((ids) => removeAt(ids, index));
+  }
+  function handleExperienceDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = experienceIds.indexOf(active.id as string);
+    const newIndex = experienceIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    moveExperience(oldIndex, newIndex);
+  }
+
+  function moveEducation(from: number, to: number) {
+    if (to < 0 || to >= content.education.length) return;
+    update("education", arrayMove(content.education, from, to));
+    setEducationIds((ids) => arrayMove(ids, from, to));
+  }
+  function removeEducation(index: number) {
+    update("education", removeAt(content.education, index));
+    setEducationIds((ids) => removeAt(ids, index));
+  }
+  function handleEducationDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = educationIds.indexOf(active.id as string);
+    const newIndex = educationIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    moveEducation(oldIndex, newIndex);
+  }
+
+  const requestRewrite = useCallback(async () => {
+    const currentSummary = content.summary?.trim();
+    if (!currentSummary) return;
+
+    setRewriteState({ kind: "loading" });
+    try {
+      const response = await fetch("/api/profile/summary/rewrite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ currentSummary, tone }),
+      });
+      const body = (await response.json()) as { rewritten?: string; degraded?: boolean; error?: string };
+      if (!response.ok || !body.rewritten) {
+        setRewriteState({ kind: "error", message: body.error ?? "That summary could not be rewritten." });
+        return;
+      }
+      // A candidate reviews and explicitly accepts or rejects this — it
+      // never touches `content.summary` on its own, the same "nothing is
+      // used until you confirm it" posture the rest of this form follows.
+      setRewriteState({ kind: "preview", text: body.rewritten, degraded: body.degraded ?? false });
+    } catch {
+      setRewriteState({ kind: "error", message: "That summary could not be rewritten. Check your connection and try again." });
+    }
+  }, [content.summary, tone]);
+
+  const requestCategorize = useCallback(async () => {
+    const skillNames = content.skills.map((skill) => skill.name);
+    if (skillNames.length === 0) return;
+
+    setCategorizeState({ kind: "loading" });
+    try {
+      const response = await fetch("/api/profile/skills/categorize", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ skillNames }),
+      });
+      const body = (await response.json()) as {
+        categories?: { name: string; category: string }[];
+        degraded?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !body.categories) {
+        setCategorizeState({ kind: "error", message: body.error ?? "Skills could not be categorized." });
+        return;
+      }
+      // A candidate reviews and explicitly applies this — it never touches
+      // `content.skills` on its own, the same "nothing is used until you
+      // confirm it" posture the rest of this form follows.
+      setCategorizeState({ kind: "preview", suggestions: body.categories, degraded: body.degraded ?? false });
+    } catch {
+      setCategorizeState({
+        kind: "error",
+        message: "Skills could not be categorized. Check your connection and try again.",
+      });
+    }
+  }, [content.skills]);
+
+  const applyCategorySuggestions = useCallback((suggestions: { name: string; category: string }[]) => {
+    const byName = new Map(suggestions.map((s) => [s.name, s.category]));
+    setContent((previous) => ({
+      ...previous,
+      skills: previous.skills.map((skill) =>
+        byName.has(skill.name) ? { ...skill, category: byName.get(skill.name)! } : skill,
+      ),
+    }));
+    setDirty(true);
+    setCategorizeState({ kind: "idle" });
   }, []);
 
   const save = useCallback(
@@ -159,14 +326,77 @@ export function ProfileWorkbench({
     [content, versionId, router],
   );
 
+  const sectionLinks: { id: string; label: string; count?: number }[] = [
+    { id: "about", label: "About you" },
+    { id: "experience", label: "Experience", count: content.experience.length },
+    { id: "skills", label: "Skills", count: content.skills.length },
+    { id: "education", label: "Education", count: content.education.length },
+    { id: "certifications", label: "Certifications", count: content.certifications.length },
+    { id: "languages", label: "Languages", count: content.languages.length },
+    { id: "preferences", label: "Preferences" },
+  ];
+
+  // One short, always-visible status in the sticky bar, so a save made from
+  // the bar is acknowledged even when the page is scrolled far from the top.
+  const status: { tone: "busy" | "dirty" | "ok" | "error" | "muted"; text: string } =
+    state.kind === "saving"
+      ? { tone: "busy", text: "Saving…" }
+      : state.kind === "error"
+        ? { tone: "error", text: "Not saved" }
+        : dirty
+          ? { tone: "dirty", text: "Unsaved changes" }
+          : state.kind === "saved"
+            ? { tone: "ok", text: state.confirmed ? "Saved and confirmed" : "Draft saved" }
+            : isConfirmed
+              ? { tone: "ok", text: "Confirmed" }
+              : { tone: "muted", text: "Not confirmed yet" };
+
   return (
     <form
       ref={formRef}
+      className="rm-wb"
       onSubmit={(event) => {
         event.preventDefault();
         void save(true);
       }}
     >
+      {/* Sticky workbench bar: section jump links (with counts) and the save
+          actions, so neither requires scrolling a long profile to reach. */}
+      <div className="rm-wb__bar">
+        <nav
+          className="rm-wb__nav"
+          aria-label="Profile sections"
+          ref={navScroller.ref}
+          onMouseMove={navScroller.onMouseMove}
+          onMouseLeave={navScroller.onMouseLeave}
+        >
+          {sectionLinks.map(({ id, label, count }) => (
+            <a key={id} className="rm-wb__navlink" href={`#rm-sec-${id}`}>
+              {label}
+              {count !== undefined ? <span className="rm-wb__count">{count}</span> : null}
+            </a>
+          ))}
+        </nav>
+        <div className="rm-wb__actions">
+          <span className={`rm-wb__status rm-wb__status--${status.tone}`} role="status" aria-live="polite">
+            {status.text}
+          </span>
+          {versionNumber !== null ? <span className="jm-mono rm-wb__version">v{versionNumber}</span> : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={state.kind === "saving"}
+            onClick={() => void save(false)}
+          >
+            Save without confirming
+          </Button>
+          <Button type="submit" size="sm" disabled={state.kind === "saving"}>
+            {state.kind === "saving" ? "Saving…" : "Save and confirm"}
+          </Button>
+        </div>
+      </div>
+
       {isConfirmed && !dirty ? (
         <Alert tone="info">
           <strong>This profile is confirmed.</strong> It is the version ResuMatch tailors from when
@@ -182,547 +412,6 @@ export function ProfileWorkbench({
         </Alert>
       )}
 
-      <div className="jm-grid" style={{ margin: "1.5rem 0" }}>
-        <Card title="About you">
-          <label className="jm-field">
-            <FieldLabel label="Full name" confidence={confidence} field="fullName" />
-            <input
-              type="text"
-              value={content.fullName ?? ""}
-              onChange={(event) => update("fullName", event.target.value || null)}
-              maxLength={160}
-            />
-          </label>
-
-          <label className="jm-field">
-            <FieldLabel label="Email" confidence={confidence} field="email" />
-            <input
-              type="email"
-              value={content.email ?? ""}
-              onChange={(event) => update("email", event.target.value || null)}
-              maxLength={320}
-            />
-          </label>
-
-          <label className="jm-field">
-            <FieldLabel label="Phone" confidence={confidence} field="phone" />
-            <input
-              type="tel"
-              value={content.phone ?? ""}
-              onChange={(event) => update("phone", event.target.value || null)}
-              maxLength={40}
-            />
-          </label>
-
-          <label className="jm-field">
-            <FieldLabel label="Headline" confidence={confidence} field="headline" />
-            <input
-              type="text"
-              value={content.headline ?? ""}
-              onChange={(event) => update("headline", event.target.value || null)}
-              maxLength={200}
-              placeholder="Senior .NET / React Developer"
-            />
-          </label>
-
-          <label className="jm-field">
-            <FieldLabel label="Summary" confidence={confidence} field="summary" />
-            <textarea
-              rows={4}
-              value={content.summary ?? ""}
-              onChange={(event) => update("summary", event.target.value || null)}
-              maxLength={4000}
-              placeholder="A couple of sentences about what you do and what you're looking for next."
-            />
-          </label>
-
-          <label className="jm-field">
-            <span>Where you are based</span>
-            <input
-              type="text"
-              value={content.baseLocation ?? ""}
-              onChange={(event) => update("baseLocation", event.target.value || null)}
-              maxLength={120}
-              placeholder="Hasselt, Belgium"
-            />
-          </label>
-
-          <label className="jm-field">
-            <span>Right to work</span>
-            <select
-              value={content.workAuthorization ?? ""}
-              onChange={(event) =>
-                update(
-                  "workAuthorization",
-                  (event.target.value || null) as CandidateProfileContent["workAuthorization"],
-                )
-              }
-            >
-              <option value="">Prefer not to say</option>
-              <option value="eea_unrestricted">I can work in the EEA without sponsorship</option>
-              <option value="national_permit">I hold a national work permit</option>
-              <option value="requires_sponsorship">I would need sponsorship</option>
-            </select>
-            <small>
-              Kept with your profile for your own reference. It is not currently included in a
-              tailored CV.
-            </small>
-          </label>
-        </Card>
-
-        <Card title="Skills">
-          <label className="jm-field">
-            <FieldLabel label="Skills" confidence={confidence} field="skills" />
-            <textarea
-              rows={6}
-              value={skillsText}
-              onChange={(event) => {
-                const raw = event.target.value;
-                setSkillsText(raw);
-                update(
-                  "skills",
-                  parseEntries(raw)
-                    .slice(0, 200)
-                    .map((name) => ({ name, rawLabel: name, yearsExperience: null })),
-                );
-              }}
-            />
-            <small>
-              One per line or separated by commas.
-              {parseEntries(skillsText).length > 200
-                ? " Only the first 200 will be saved — trim the rest before saving."
-                : null}
-            </small>
-          </label>
-          {content.skills.length > 0 ? (
-            <div className="jm-chip-row" style={{ ["--category-tint" as string]: "99, 102, 241" }}>
-              {content.skills.map((skill, index) => (
-                <span className="jm-chip" key={`${skill.name}-${index}`}>
-                  {skill.name}
-                  {skill.yearsExperience ? ` · ${skill.yearsExperience}y` : ""}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </Card>
-
-        <Card title="Languages">
-          <FieldLabel label="Languages" confidence={confidence} field="languages" />
-          {content.languages.length === 0 ? (
-            <p style={{ opacity: 0.75 }}>None read from your CV. Add them if they matter for the roles you want.</p>
-          ) : (
-            <ul className="jm-entity-list">
-              {content.languages.map((language, index) => (
-                <li key={`${language.code}-${index}`} className="jm-entity-card jm-entity-card--languages">
-                  <span className="jm-entity-card__icon">
-                    <GlobeIcon />
-                  </span>
-                  <span className="jm-entity-card__body">
-                    <input
-                      aria-label="Language name"
-                      type="text"
-                      value={language.label}
-                      placeholder="Language"
-                      maxLength={64}
-                      style={{ flex: "1 1 8rem", minWidth: "8rem" }}
-                      onChange={(event) => {
-                        const label = event.target.value;
-                        update(
-                          "languages",
-                          replaceAt(content.languages, index, { ...language, label, code: codeFromLabel(label) }),
-                        );
-                      }}
-                    />
-                    <span className="jm-entity-card__actions">
-                      <select
-                        aria-label={`${language.label || "Language"} proficiency`}
-                        value={language.proficiency ?? ""}
-                        onChange={(event) => {
-                          update(
-                            "languages",
-                            replaceAt(content.languages, index, {
-                              ...language,
-                              proficiency: (event.target.value || null) as (typeof language)["proficiency"],
-                            }),
-                          );
-                        }}
-                      >
-                        <option value="">Not stated</option>
-                        <option value="basic">Basic</option>
-                        <option value="conversational">Conversational</option>
-                        <option value="professional">Professional</option>
-                        <option value="native">Native</option>
-                      </select>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${language.label || "language"}`}
-                        className="jm-icon-button"
-                        onClick={() => update("languages", removeAt(content.languages, index))}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={content.languages.length >= 20}
-            onClick={() => {
-              const blank: LanguageEntry = { code: "xx", label: "", proficiency: null };
-              update("languages", [...content.languages, blank]);
-            }}
-          >
-            + Add language
-          </Button>
-        </Card>
-
-        <Card title="Experience">
-          <FieldLabel label="Roles" confidence={confidence} field="experience" />
-          {content.experience.length === 0 ? (
-            <p style={{ opacity: 0.75 }}>No roles were read from your CV. Add as many as you like.</p>
-          ) : (
-            <ul className="jm-entity-list">
-              {content.experience.map((role, index) => {
-                const setRole = (patch: Partial<ExperienceEntry>) =>
-                  update("experience", replaceAt(content.experience, index, { ...role, ...patch }));
-                return (
-                  <li key={index} className="jm-entity-card jm-entity-card--experience jm-entity-card--stacked">
-                    <div className="jm-entity-card__head">
-                      <span className="jm-entity-card__icon">
-                        <BriefcaseIcon />
-                      </span>
-                      <strong style={{ flex: 1 }}>Role {index + 1}</strong>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${role.title || "this role"}`}
-                        className="jm-icon-button"
-                        onClick={() => update("experience", removeAt(content.experience, index))}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
-                    <div className="jm-entity-card__fields">
-                      <label>
-                        Job title
-                        <input
-                          type="text"
-                          value={role.title}
-                          maxLength={120}
-                          placeholder="Software Engineer"
-                          onChange={(event) => setRole({ title: event.target.value })}
-                        />
-                      </label>
-                      <label>
-                        Employer
-                        <input
-                          type="text"
-                          value={role.employer ?? ""}
-                          maxLength={120}
-                          placeholder="Company name"
-                          onChange={(event) => setRole({ employer: event.target.value || null })}
-                        />
-                      </label>
-                      <label>
-                        Started
-                        <input
-                          type="text"
-                          value={role.startedOn ?? ""}
-                          placeholder="2021-03"
-                          onChange={(event) => setRole({ startedOn: event.target.value || null })}
-                        />
-                      </label>
-                      <label>
-                        Ended
-                        <input
-                          type="text"
-                          value={role.endedOn ?? ""}
-                          placeholder="2023-12"
-                          disabled={role.isCurrent}
-                          onChange={(event) => setRole({ endedOn: event.target.value || null })}
-                        />
-                      </label>
-                    </div>
-                    <label className="jm-entity-card__checkbox">
-                      <input
-                        type="checkbox"
-                        checked={role.isCurrent}
-                        onChange={(event) =>
-                          setRole({ isCurrent: event.target.checked, endedOn: event.target.checked ? null : role.endedOn })
-                        }
-                      />
-                      I currently work here
-                    </label>
-                    <small style={{ opacity: 0.6, fontSize: "0.72rem" }}>
-                      Dates as YYYY or YYYY-MM, e.g. 2021 or 2021-03.
-                    </small>
-                    <div className="jm-entity-card__fields jm-entity-card__fields--full" style={{ marginTop: "0.6rem" }}>
-                      <label>
-                        Highlights
-                        <textarea
-                          rows={2}
-                          value={role.summary ?? ""}
-                          maxLength={2000}
-                          placeholder="A couple of achievements or responsibilities"
-                          onChange={(event) => setRole({ summary: event.target.value || null })}
-                        />
-                      </label>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="jm-add-row">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={content.experience.length >= 60}
-              onClick={() => {
-                const blank: ExperienceEntry = {
-                  title: "",
-                  employer: null,
-                  startedOn: null,
-                  endedOn: null,
-                  isCurrent: false,
-                  summary: null,
-                };
-                update("experience", [...content.experience, blank]);
-              }}
-            >
-              + Add role
-            </Button>
-          </div>
-        </Card>
-
-        <Card title="Education">
-          {content.education.length === 0 ? (
-            <p style={{ opacity: 0.75 }}>None read from your CV. Add a degree or qualification if it's relevant.</p>
-          ) : (
-            <ul className="jm-entity-list">
-              {content.education.map((entry, index) => {
-                const setEntry = (patch: Partial<EducationEntry>) =>
-                  update("education", replaceAt(content.education, index, { ...entry, ...patch }));
-                return (
-                  <li key={index} className="jm-entity-card jm-entity-card--education jm-entity-card--stacked">
-                    <div className="jm-entity-card__head">
-                      <span className="jm-entity-card__icon">
-                        <GraduationCapIcon />
-                      </span>
-                      <strong style={{ flex: 1 }}>Qualification {index + 1}</strong>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${entry.qualification || "this qualification"}`}
-                        className="jm-icon-button"
-                        onClick={() => update("education", removeAt(content.education, index))}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
-                    <div className="jm-entity-card__fields">
-                      <label>
-                        Qualification
-                        <input
-                          type="text"
-                          value={entry.qualification}
-                          maxLength={160}
-                          placeholder="BSc Computer Science"
-                          onChange={(event) => setEntry({ qualification: event.target.value })}
-                        />
-                      </label>
-                      <label>
-                        Institution
-                        <input
-                          type="text"
-                          value={entry.institution ?? ""}
-                          maxLength={160}
-                          placeholder="University name"
-                          onChange={(event) => setEntry({ institution: event.target.value || null })}
-                        />
-                      </label>
-                      <label>
-                        Completed
-                        <input
-                          type="text"
-                          value={entry.completedOn ?? ""}
-                          placeholder="2018"
-                          onChange={(event) => setEntry({ completedOn: event.target.value || null })}
-                        />
-                      </label>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="jm-add-row">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={content.education.length >= 30}
-              onClick={() => {
-                const blank: EducationEntry = { qualification: "", institution: null, completedOn: null };
-                update("education", [...content.education, blank]);
-              }}
-            >
-              + Add qualification
-            </Button>
-          </div>
-        </Card>
-
-        <Card title="Certifications">
-          {content.certifications.length === 0 ? (
-            <p style={{ opacity: 0.75 }}>None read from your CV. Add one if it's relevant to the roles you want.</p>
-          ) : (
-            <ul className="jm-entity-list">
-              {content.certifications.map((entry, index) => {
-                const setEntry = (patch: Partial<CertificationEntry>) =>
-                  update("certifications", replaceAt(content.certifications, index, { ...entry, ...patch }));
-                return (
-                  <li key={index} className="jm-entity-card jm-entity-card--certifications jm-entity-card--stacked">
-                    <div className="jm-entity-card__head">
-                      <span className="jm-entity-card__icon">
-                        <AwardIcon />
-                      </span>
-                      <strong style={{ flex: 1 }}>Certification {index + 1}</strong>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${entry.name || "this certification"}`}
-                        className="jm-icon-button"
-                        onClick={() => update("certifications", removeAt(content.certifications, index))}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
-                    <div className="jm-entity-card__fields">
-                      <label>
-                        Name
-                        <input
-                          type="text"
-                          value={entry.name}
-                          maxLength={160}
-                          placeholder="AWS Certified Developer"
-                          onChange={(event) => setEntry({ name: event.target.value })}
-                        />
-                      </label>
-                      <label>
-                        Issuer
-                        <input
-                          type="text"
-                          value={entry.issuer ?? ""}
-                          maxLength={160}
-                          placeholder="Amazon Web Services"
-                          onChange={(event) => setEntry({ issuer: event.target.value || null })}
-                        />
-                      </label>
-                      <label>
-                        Issued
-                        <input
-                          type="text"
-                          value={entry.issuedOn ?? ""}
-                          placeholder="2023-06"
-                          onChange={(event) => setEntry({ issuedOn: event.target.value || null })}
-                        />
-                      </label>
-                      <label>
-                        Expires
-                        <input
-                          type="text"
-                          value={entry.expiresOn ?? ""}
-                          placeholder="2026-06"
-                          onChange={(event) => setEntry({ expiresOn: event.target.value || null })}
-                        />
-                      </label>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="jm-add-row">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={content.certifications.length >= 40}
-              onClick={() => {
-                const blank: CertificationEntry = { name: "", issuer: null, issuedOn: null, expiresOn: null };
-                update("certifications", [...content.certifications, blank]);
-              }}
-            >
-              + Add certification
-            </Button>
-          </div>
-        </Card>
-
-        <Card title="What you are looking for">
-          <label className="jm-field">
-            <span>Working arrangement</span>
-            <select
-              value={content.preferences.remote ?? ""}
-              onChange={(event) =>
-                update("preferences", {
-                  ...content.preferences,
-                  remote: (event.target.value || null) as CandidateProfileContent["preferences"]["remote"],
-                })
-              }
-            >
-              <option value="">No preference</option>
-              <option value="onsite">On site</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="remote">Remote</option>
-              <option value="any">Any</option>
-            </select>
-          </label>
-
-          <label className="jm-field">
-            <span>Salary floor (annual gross)</span>
-            <input
-              type="number"
-              min={0}
-              step={1000}
-              value={content.preferences.salaryFloor ?? ""}
-              onChange={(event) =>
-                update("preferences", {
-                  ...content.preferences,
-                  salaryFloor: event.target.value ? Number(event.target.value) : null,
-                  salaryCurrency: content.preferences.salaryCurrency ?? "EUR",
-                })
-              }
-            />
-            <small>A floor, not a target. Jobs below it are excluded, and the reason is shown.</small>
-          </label>
-
-          <label className="jm-field">
-            <span>Employers to never show me</span>
-            <textarea
-              rows={3}
-              value={excludedEmployersText}
-              onChange={(event) => {
-                const raw = event.target.value;
-                setExcludedEmployersText(raw);
-                update("preferences", {
-                  ...content.preferences,
-                  excludedEmployers: parseEntries(raw).slice(0, 50),
-                });
-              }}
-            />
-            <small>
-              Kept private. Nobody is told you excluded them.
-              {parseEntries(excludedEmployersText).length > 50
-                ? " Only the first 50 will be saved — trim the rest before saving."
-                : null}
-            </small>
-          </label>
-        </Card>
-      </div>
-
       {state.kind === "error" ? <Alert tone="error">{state.message}</Alert> : null}
       {state.kind === "saved" ? (
         <Alert tone="info">
@@ -732,23 +421,761 @@ export function ProfileWorkbench({
         </Alert>
       ) : null}
 
-      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "1.5rem" }}>
-        <Button type="submit" disabled={state.kind === "saving"}>
-          {state.kind === "saving" ? "Saving…" : "Save and confirm"}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={state.kind === "saving"}
-          onClick={() => void save(false)}
-        >
-          Save without confirming
-        </Button>
-        {versionNumber !== null ? (
-          <span className="jm-mono" style={{ opacity: 0.7, fontSize: "0.8rem" }}>
-            editing v{versionNumber}
-          </span>
-        ) : null}
+      <div className="rm-wb__layout">
+        {/* Short "fact" sections: a narrow rail. Each column stacks on its
+            own, so a tall card never stretches a short one beside it. */}
+        <div className="rm-wb__rail">
+          <div className="rm-wb__section rm-wb__section--about" id="rm-sec-about">
+            <Card title="About you">
+              <label className="jm-field">
+                <FieldLabel label="Full name" confidence={confidence} field="fullName" />
+                <input
+                  type="text"
+                  value={content.fullName ?? ""}
+                  onChange={(event) => update("fullName", event.target.value || null)}
+                  maxLength={160}
+                />
+              </label>
+
+              <label className="jm-field">
+                <FieldLabel label="Email" confidence={confidence} field="email" />
+                <input
+                  type="email"
+                  value={content.email ?? ""}
+                  onChange={(event) => update("email", event.target.value || null)}
+                  maxLength={320}
+                />
+              </label>
+
+              <label className="jm-field">
+                <FieldLabel label="Phone" confidence={confidence} field="phone" />
+                <input
+                  type="tel"
+                  value={content.phone ?? ""}
+                  onChange={(event) => update("phone", event.target.value || null)}
+                  maxLength={40}
+                />
+              </label>
+
+              <label className="jm-field">
+                <FieldLabel label="Headline" confidence={confidence} field="headline" />
+                <input
+                  type="text"
+                  value={content.headline ?? ""}
+                  onChange={(event) => update("headline", event.target.value || null)}
+                  maxLength={200}
+                  placeholder="Senior .NET / React Developer"
+                />
+              </label>
+
+              <label className="jm-field">
+                <FieldLabel label="Summary" confidence={confidence} field="summary" />
+                <textarea
+                  rows={4}
+                  value={content.summary ?? ""}
+                  onChange={(event) => update("summary", event.target.value || null)}
+                  maxLength={4000}
+                  placeholder="A couple of sentences about what you do and what you're looking for next."
+                />
+              </label>
+
+              <div className="jm-rewrite">
+                <div className="jm-rewrite__controls">
+                  <select
+                    aria-label="Rewrite tone"
+                    value={tone}
+                    onChange={(event) => setTone(event.target.value as SummaryTone)}
+                    disabled={rewriteState.kind === "loading"}
+                  >
+                    <option value="friendly">Friendly</option>
+                    <option value="official">Official</option>
+                    <option value="confident">Confident</option>
+                    <option value="concise">Concise</option>
+                  </select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={rewriteState.kind === "loading" || !content.summary?.trim()}
+                    onClick={() => void requestRewrite()}
+                  >
+                    {rewriteState.kind === "loading" ? "Rewriting…" : "Suggest a rewrite"}
+                  </Button>
+                </div>
+
+                {rewriteState.kind === "error" ? (
+                  <Alert tone="error">{rewriteState.message}</Alert>
+                ) : null}
+
+                {rewriteState.kind === "preview" ? (
+                  <div className="jm-rewrite__preview">
+                    {rewriteState.degraded ? (
+                      <p className="jm-rewrite__note">
+                        No AI rewrite is configured for this deployment, so this is your text unchanged. You can still
+                        accept or reject it.
+                      </p>
+                    ) : null}
+                    <p className="jm-rewrite__text">{rewriteState.text}</p>
+                    <div className="jm-rewrite__actions">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          update("summary", rewriteState.text);
+                          setRewriteState({ kind: "idle" });
+                        }}
+                      >
+                        Accept
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setRewriteState({ kind: "idle" })}>
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <label className="jm-field">
+                <span>Where you are based</span>
+                <input
+                  type="text"
+                  value={content.baseLocation ?? ""}
+                  onChange={(event) => update("baseLocation", event.target.value || null)}
+                  maxLength={120}
+                  placeholder="Hasselt, Belgium"
+                />
+              </label>
+
+              <label className="jm-field">
+                <span>Right to work</span>
+                <select
+                  value={content.workAuthorization ?? ""}
+                  onChange={(event) =>
+                    update(
+                      "workAuthorization",
+                      (event.target.value || null) as CandidateProfileContent["workAuthorization"],
+                    )
+                  }
+                >
+                  <option value="">Prefer not to say</option>
+                  <option value="eea_unrestricted">I can work in the EEA without sponsorship</option>
+                  <option value="national_permit">I hold a national work permit</option>
+                  <option value="requires_sponsorship">I would need sponsorship</option>
+                </select>
+                <small>
+                  Kept with your profile for your own reference. It is not currently included in a
+                  tailored CV.
+                </small>
+              </label>
+            </Card>
+          </div>
+          <div className="rm-wb__section rm-wb__section--languages" id="rm-sec-languages">
+            <Card title="Languages">
+              <FieldLabel label="Languages" confidence={confidence} field="languages" />
+              {content.languages.length === 0 ? (
+                <p style={{ opacity: 0.75 }}>None read from your CV. Add them if they matter for the roles you want.</p>
+              ) : (
+                <ul className="jm-entity-list">
+                  {content.languages.map((language, index) => (
+                    <li key={index} className="jm-entity-card jm-entity-card--languages">
+                      <span className="jm-entity-card__icon">
+                        <GlobeIcon />
+                      </span>
+                      <span className="jm-entity-card__body">
+                        <input
+                          aria-label="Language name"
+                          type="text"
+                          value={language.label}
+                          placeholder="Language"
+                          maxLength={64}
+                          style={{ flex: "1 1 8rem", minWidth: 0, maxWidth: "100%" }}
+                          onChange={(event) => {
+                            const label = event.target.value;
+                            update(
+                              "languages",
+                              replaceAt(content.languages, index, { ...language, label, code: codeFromLabel(label) }),
+                            );
+                          }}
+                        />
+                        <span className="jm-entity-card__actions">
+                          <select
+                            aria-label={`${language.label || "Language"} proficiency`}
+                            value={language.proficiency ?? ""}
+                            onChange={(event) => {
+                              update(
+                                "languages",
+                                replaceAt(content.languages, index, {
+                                  ...language,
+                                  proficiency: (event.target.value || null) as (typeof language)["proficiency"],
+                                }),
+                              );
+                            }}
+                          >
+                            <option value="">Not stated</option>
+                            <option value="basic">Basic</option>
+                            <option value="conversational">Conversational</option>
+                            <option value="professional">Professional</option>
+                            <option value="native">Native</option>
+                          </select>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${language.label || "language"}`}
+                            className="jm-icon-button"
+                            onClick={() => update("languages", removeAt(content.languages, index))}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={content.languages.length >= 20}
+                onClick={() => {
+                  const blank: LanguageEntry = { code: "xx", label: "", proficiency: null };
+                  update("languages", [...content.languages, blank]);
+                }}
+              >
+                + Add language
+              </Button>
+            </Card>
+          </div>
+          <div className="rm-wb__section rm-wb__section--preferences" id="rm-sec-preferences">
+            <Card title="Your preferences">
+              {/* ResuMatch used to be JobMatch, a job-board aggregation product
+                  that actively searched postings and filtered them against
+                  these preferences. That pipeline is gone — a candidate now
+                  pastes one job URL and ResuMatch tailors toward it, nothing
+                  is searched or filtered on their behalf. These fields are
+                  kept (filling them in costs nothing, and they may feed a
+                  future feature) but honestly labeled as reference-only, the
+                  same way "Right to work" already is above, rather than
+                  promising filtering that no longer happens. */}
+              <label className="jm-field">
+                <span>Working arrangement</span>
+                <select
+                  value={content.preferences.remote ?? ""}
+                  onChange={(event) =>
+                    update("preferences", {
+                      ...content.preferences,
+                      remote: (event.target.value || null) as CandidateProfileContent["preferences"]["remote"],
+                    })
+                  }
+                >
+                  <option value="">No preference</option>
+                  <option value="onsite">On site</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="remote">Remote</option>
+                  <option value="any">Any</option>
+                </select>
+                <small>Kept for your own reference. Not currently used to filter or flag anything.</small>
+              </label>
+
+              <label className="jm-field">
+                <span>Salary floor (annual gross)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={content.preferences.salaryFloor ?? ""}
+                  onChange={(event) =>
+                    update("preferences", {
+                      ...content.preferences,
+                      salaryFloor: event.target.value ? Number(event.target.value) : null,
+                      salaryCurrency: content.preferences.salaryCurrency ?? "EUR",
+                    })
+                  }
+                />
+                <small>Kept for your own reference. Not currently checked against any job you tailor toward.</small>
+              </label>
+            </Card>
+          </div>
+        </div>
+        {/* Content-heavy sections: a wide canvas whose entry cards tile.
+            Column count follows the canvas width (container queries). */}
+        <div className="rm-wb__canvas">
+          <div className="rm-wb__section rm-wb__section--experience" id="rm-sec-experience">
+            <Card title="Experience">
+              <FieldLabel label="Roles" confidence={confidence} field="experience" />
+              {content.experience.length === 0 ? (
+                <p style={{ opacity: 0.75 }}>No roles were read from your CV. Add as many as you like.</p>
+              ) : (
+                <DndContext
+                  id="resumatch-experience-dnd"
+                  sensors={reorderSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleExperienceDragEnd}
+                >
+                  <SortableContext items={experienceIds} strategy={verticalListSortingStrategy}>
+                    <ul className="jm-entity-list">
+                      {content.experience.map((role, index) => {
+                        const setRole = (patch: Partial<ExperienceEntry>) =>
+                          update("experience", replaceAt(content.experience, index, { ...role, ...patch }));
+                        return (
+                          <SortableEntityCard
+                            key={experienceIds[index]}
+                            id={experienceIds[index]!}
+                            index={index}
+                            count={content.experience.length}
+                            icon={<BriefcaseIcon />}
+                            title={`Role ${index + 1}`}
+                            variantClassName="jm-entity-card--experience"
+                            onMoveUp={() => moveExperience(index, index - 1)}
+                            onMoveDown={() => moveExperience(index, index + 1)}
+                            onRemove={() => removeExperience(index)}
+                            removeLabel={`Remove ${role.title || "this role"}`}
+                          >
+                            <div className="jm-entity-card__fields">
+                              <label>
+                                Job title
+                                <input
+                                  type="text"
+                                  value={role.title}
+                                  maxLength={120}
+                                  placeholder="Software Engineer"
+                                  onChange={(event) => setRole({ title: event.target.value })}
+                                />
+                              </label>
+                              <label>
+                                Employer
+                                <input
+                                  type="text"
+                                  value={role.employer ?? ""}
+                                  maxLength={120}
+                                  placeholder="Company name"
+                                  onChange={(event) => setRole({ employer: event.target.value || null })}
+                                />
+                              </label>
+                              <label>
+                                Started
+                                <input
+                                  type="text"
+                                  value={role.startedOn ?? ""}
+                                  placeholder="2021-03"
+                                  onChange={(event) => setRole({ startedOn: event.target.value || null })}
+                                />
+                              </label>
+                              <label>
+                                Ended
+                                <input
+                                  type="text"
+                                  value={role.endedOn ?? ""}
+                                  placeholder="2023-12"
+                                  disabled={role.isCurrent}
+                                  onChange={(event) => setRole({ endedOn: event.target.value || null })}
+                                />
+                              </label>
+                            </div>
+                            {!role.endedOn && (
+                              <>
+                                <label className="jm-entity-card__checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={role.isCurrent}
+                                    onChange={(event) =>
+                                      setRole({
+                                        isCurrent: event.target.checked,
+                                        endedOn: event.target.checked ? null : role.endedOn,
+                                      })
+                                    }
+                                  />
+                                  I currently work here
+                                </label>
+                                <small style={{ opacity: 0.6, fontSize: "0.72rem" }}>
+                                  Dates as YYYY or YYYY-MM, e.g. 2021 or 2021-03.
+                                </small>
+                              </>
+                            )}
+                            <div className="jm-entity-card__fields jm-entity-card__fields--full" style={{ marginTop: "0.6rem" }}>
+                              <label>
+                                Highlights
+                                <textarea
+                                  rows={2}
+                                  value={role.summary ?? ""}
+                                  maxLength={2000}
+                                  placeholder="A couple of achievements or responsibilities"
+                                  onChange={(event) => setRole({ summary: event.target.value || null })}
+                                />
+                              </label>
+                            </div>
+                          </SortableEntityCard>
+                        );
+                      })}
+                    </ul>
+                  </SortableContext>
+                </DndContext>
+              )}
+              <div className="jm-add-row">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={content.experience.length >= 60}
+                  onClick={() => {
+                    const blank: ExperienceEntry = {
+                      title: "",
+                      employer: null,
+                      startedOn: null,
+                      endedOn: null,
+                      isCurrent: false,
+                      summary: null,
+                    };
+                    update("experience", [...content.experience, blank]);
+                    setExperienceIds((ids) => [...ids, randomId()]);
+                  }}
+                >
+                  + Add role
+                </Button>
+              </div>
+            </Card>
+          </div>
+          <div className="rm-wb__section rm-wb__section--skills" id="rm-sec-skills">
+            <Card title="Skills">
+              <div className="rm-skills">
+                <div className="rm-skills__input">
+                  <label className="jm-field">
+                    <FieldLabel label="Skills" confidence={confidence} field="skills" />
+                    <textarea
+                      rows={6}
+                      value={skillsText}
+                      onChange={(event) => {
+                        const raw = event.target.value;
+                        setSkillsText(raw);
+                        // Shares its parser with CV-upload extraction
+                        // (lib/profile/parseSkillsText.ts) so pasting a formatted
+                        // skills block here — category headings, "Term:
+                        // description" bullets, bullet glyphs and all — behaves the
+                        // same as uploading the CV it came from, instead of storing
+                        // every raw line verbatim.
+                        //
+                        // A skill already in `content.skills` keeps whatever
+                        // category it has (including a candidate's manual
+                        // override, which always wins); a newly-typed or
+                        // newly-pasted one gets whatever category the parser just
+                        // detected for it, if any. Matched by name,
+                        // case-insensitively, since that's the only identity a
+                        // free-typed list has.
+                        const existingByName = new Map(
+                          content.skills.map((skill) => [skill.name.toLowerCase(), skill]),
+                        );
+                        update(
+                          "skills",
+                          parseSkillsFreeText(raw).map(({ name, category }) => {
+                            const existing = existingByName.get(name.toLowerCase());
+                            return {
+                              name,
+                              rawLabel: name,
+                              yearsExperience: existing?.yearsExperience ?? null,
+                              category: existing?.category ?? category,
+                            };
+                          }),
+                        );
+                      }}
+                    />
+                    <small>
+                      One per line or separated by commas — paste a formatted skills block (with category
+                      headings) and it's read the same way an uploaded CV would be.
+                      {parseSkillsFreeText(skillsText).length > 200
+                        ? " Only the first 200 will be saved — trim the rest before saving."
+                        : null}
+                    </small>
+                  </label>
+                </div>
+                <div className="rm-skills__groups">
+                  {content.skills.length > 0 ? (
+                    <div className="rm-skill-groups">
+                      <p className="rm-skill-groups__hint">
+                        Grouped automatically by what each skill is for — this is how they'll appear on your
+                        tailored CV. Pick a different group from any skill's dropdown if one looks wrong, or let
+                        AI take a pass.
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={categorizeState.kind === "loading"}
+                        onClick={requestCategorize}
+                      >
+                        {categorizeState.kind === "loading" ? "Asking AI…" : "Suggest categories"}
+                      </Button>
+
+                      {categorizeState.kind === "error" ? (
+                        <Alert tone="error">{categorizeState.message}</Alert>
+                      ) : null}
+
+                      {categorizeState.kind === "preview" ? (
+                        <div className="rm-skill-groups__suggestions">
+                          {categorizeState.degraded ? (
+                            <Alert tone="warning">
+                              AI categorization isn't available right now, so these are the same built-in
+                              keyword-based guesses already shown below — not a genuine AI read of your field.
+                              Still fine to apply, or dismiss and adjust categories yourself.
+                            </Alert>
+                          ) : (
+                            <p style={{ opacity: 0.75, fontSize: "0.85rem" }}>
+                              AI-suggested categories — review below, then apply all or dismiss.
+                            </p>
+                          )}
+                          <ul className="rm-skill-groups__suggestion-list">
+                            {categorizeState.suggestions.map(({ name, category }) => (
+                              <li key={name}>
+                                <strong>{name}</strong> → {category}
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="rm-review__actions">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => applyCategorySuggestions(categorizeState.suggestions)}
+                            >
+                              Apply all
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setCategorizeState({ kind: "idle" })}
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="rm-skill-groups__masonry">
+                        {groupSkillsByCategory(
+                          content.skills.map((skill) => skill.name),
+                          (name) => content.skills.find((skill) => skill.name === name)?.category,
+                        ).map(({ category, skills }) => (
+                          <div className="rm-skill-group" key={category}>
+                            <span className="rm-skill-group__label">{category}</span>
+                            <div className="jm-chip-row">
+                              {skills.map((name) => {
+                                const index = content.skills.findIndex((skill) => skill.name === name);
+                                const skill = content.skills[index];
+                                return (
+                                  <span className="jm-chip rm-skill-chip" key={`${name}-${index}`}>
+                                    {name}
+                                    {skill.yearsExperience ? ` · ${skill.yearsExperience}y` : ""}
+                                    <select
+                                      aria-label={`Category for ${name}`}
+                                      className="rm-skill-chip__category"
+                                      value={category}
+                                      onChange={(event) =>
+                                        update(
+                                          "skills",
+                                          replaceAt(content.skills, index, {
+                                            ...skill,
+                                            category:
+                                              event.target.value === categorizeSkill(name) ? null : event.target.value,
+                                          }),
+                                        )
+                                      }
+                                    >
+                                      {SKILL_CATEGORIES.map((option) => (
+                                        <option key={option} value={option}>
+                                          {option}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </Card>
+          </div>
+          <div className="rm-wb__section rm-wb__section--education" id="rm-sec-education">
+            <Card title="Education">
+              {content.education.length === 0 ? (
+                <p style={{ opacity: 0.75 }}>None read from your CV. Add a degree or qualification if it's relevant.</p>
+              ) : (
+                <DndContext
+                  id="resumatch-education-dnd"
+                  sensors={reorderSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleEducationDragEnd}
+                >
+                  <SortableContext items={educationIds} strategy={verticalListSortingStrategy}>
+                    <ul className="jm-entity-list">
+                      {content.education.map((entry, index) => {
+                        const setEntry = (patch: Partial<EducationEntry>) =>
+                          update("education", replaceAt(content.education, index, { ...entry, ...patch }));
+                        return (
+                          <SortableEntityCard
+                            key={educationIds[index]}
+                            id={educationIds[index]!}
+                            index={index}
+                            count={content.education.length}
+                            icon={<GraduationCapIcon />}
+                            title={`Qualification ${index + 1}`}
+                            variantClassName="jm-entity-card--education"
+                            onMoveUp={() => moveEducation(index, index - 1)}
+                            onMoveDown={() => moveEducation(index, index + 1)}
+                            onRemove={() => removeEducation(index)}
+                            removeLabel={`Remove ${entry.qualification || "this qualification"}`}
+                          >
+                            <div className="jm-entity-card__fields">
+                              <label>
+                                Qualification
+                                <input
+                                  type="text"
+                                  value={entry.qualification}
+                                  maxLength={160}
+                                  placeholder="BSc Computer Science"
+                                  onChange={(event) => setEntry({ qualification: event.target.value })}
+                                />
+                              </label>
+                              <label>
+                                Institution
+                                <input
+                                  type="text"
+                                  value={entry.institution ?? ""}
+                                  maxLength={160}
+                                  placeholder="University name"
+                                  onChange={(event) => setEntry({ institution: event.target.value || null })}
+                                />
+                              </label>
+                              <label>
+                                Completed
+                                <input
+                                  type="text"
+                                  value={entry.completedOn ?? ""}
+                                  placeholder="2018"
+                                  onChange={(event) => setEntry({ completedOn: event.target.value || null })}
+                                  onBlur={(event) => {
+                                    const normalized = normalizeCompletedOn(event.target.value);
+                                    if (normalized !== event.target.value) setEntry({ completedOn: normalized || null });
+                                  }}
+                                />
+                                <span style={{ opacity: 0.6, fontSize: "0.78rem" }}>
+                                  The year you finished, e.g. 2018 — not a start–end range.
+                                </span>
+                              </label>
+                            </div>
+                          </SortableEntityCard>
+                        );
+                      })}
+                    </ul>
+                  </SortableContext>
+                </DndContext>
+              )}
+              <div className="jm-add-row">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={content.education.length >= 30}
+                  onClick={() => {
+                    const blank: EducationEntry = { qualification: "", institution: null, completedOn: null };
+                    update("education", [...content.education, blank]);
+                    setEducationIds((ids) => [...ids, randomId()]);
+                  }}
+                >
+                  + Add qualification
+                </Button>
+              </div>
+            </Card>
+          </div>
+          <div className="rm-wb__section rm-wb__section--certifications" id="rm-sec-certifications">
+            <Card title="Certifications">
+              {content.certifications.length === 0 ? (
+                <p style={{ opacity: 0.75 }}>None read from your CV. Add one if it's relevant to the roles you want.</p>
+              ) : (
+                <ul className="jm-entity-list">
+                  {content.certifications.map((entry, index) => {
+                    const setEntry = (patch: Partial<CertificationEntry>) =>
+                      update("certifications", replaceAt(content.certifications, index, { ...entry, ...patch }));
+                    return (
+                      <li key={index} className="jm-entity-card jm-entity-card--certifications jm-entity-card--stacked">
+                        <div className="jm-entity-card__head">
+                          <span className="jm-entity-card__icon">
+                            <AwardIcon />
+                          </span>
+                          <strong style={{ flex: 1 }}>Certification {index + 1}</strong>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${entry.name || "this certification"}`}
+                            className="jm-icon-button"
+                            onClick={() => update("certifications", removeAt(content.certifications, index))}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                        <div className="jm-entity-card__fields">
+                          <label>
+                            Name
+                            <input
+                              type="text"
+                              value={entry.name}
+                              maxLength={160}
+                              placeholder="AWS Certified Developer"
+                              onChange={(event) => setEntry({ name: event.target.value })}
+                            />
+                          </label>
+                          <label>
+                            Issuer
+                            <input
+                              type="text"
+                              value={entry.issuer ?? ""}
+                              maxLength={160}
+                              placeholder="Amazon Web Services"
+                              onChange={(event) => setEntry({ issuer: event.target.value || null })}
+                            />
+                          </label>
+                          <label>
+                            Issued
+                            <input
+                              type="text"
+                              value={entry.issuedOn ?? ""}
+                              placeholder="2023-06"
+                              onChange={(event) => setEntry({ issuedOn: event.target.value || null })}
+                            />
+                          </label>
+                          <label>
+                            Expires
+                            <input
+                              type="text"
+                              value={entry.expiresOn ?? ""}
+                              placeholder="2026-06"
+                              onChange={(event) => setEntry({ expiresOn: event.target.value || null })}
+                            />
+                          </label>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <div className="jm-add-row">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={content.certifications.length >= 40}
+                  onClick={() => {
+                    const blank: CertificationEntry = { name: "", issuer: null, issuedOn: null, expiresOn: null };
+                    update("certifications", [...content.certifications, blank]);
+                  }}
+                >
+                  + Add certification
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </div>
       </div>
     </form>
   );

@@ -395,6 +395,13 @@ export function LibraryPageClient() {
           <Clapperboard className="h-4 w-4" />
           {t("vionto.libraryPage.createVideo")}
         </a>
+        <a
+          href="/usage/ai"
+          className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border-strong)] px-3 py-2 text-sm font-semibold text-[var(--color-text)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+        >
+          <DollarSign className="h-4 w-4" />
+          {t("vionto.aiUsage.link")}
+        </a>
       </div>
 
       {/* ─── Stats strip ─────────────────────────────────────────── */}
@@ -696,6 +703,7 @@ export function LibraryPageClient() {
                   openProjectLabel={t("vionto.libraryPage.openProject")}
                   downloadLabel={t("vionto.libraryPage.download")}
                   deleteLabel={t("vionto.libraryPage.delete")}
+                  aiCostLabel={t("vionto.aiUsage.linkShort")}
                   onDelete={() => setDeleteTarget(video)}
                 />
               ))}
@@ -810,12 +818,14 @@ function VideoCard({
   openProjectLabel,
   downloadLabel,
   deleteLabel,
+  aiCostLabel,
   onDelete,
 }: {
   video: LibraryExport;
   openProjectLabel: string;
   downloadLabel: string;
   deleteLabel: string;
+  aiCostLabel: string;
   onDelete: () => void;
 }) {
   return (
@@ -885,6 +895,12 @@ function VideoCard({
             <Clock size={10} /> {timeAgo(video.createdAt)}
           </span>
         </div>
+        <a
+          href={`/usage/ai?projectId=${encodeURIComponent(video.projectId)}&exportId=${encodeURIComponent(video.id)}&preset=year`}
+          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
+        >
+          <DollarSign size={10} /> {aiCostLabel}
+        </a>
       </div>
     </div>
   );
