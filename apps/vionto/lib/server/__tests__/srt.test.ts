@@ -82,8 +82,15 @@ describe("generateSrtFromText", () => {
     expect(cues[0].index).toBe(1);
     expect(cues[0].startMs).toBe(0);
     expect(cues[0].endMs).toBeGreaterThan(cues[0].startMs);
-    expect(cues[1].startMs).toBe(cues[0].endMs);
+    // Cues are separated by the default 100ms inter-cue gap.
+    expect(cues[1].startMs).toBe(cues[0].endMs + 100);
     expect(cues[1].endMs).toBeGreaterThan(cues[1].startMs);
+    expect(cues[1].endMs - cues[1].startMs).toBeGreaterThan(cues[0].endMs - cues[0].startMs);
+  });
+
+  it("places cues back to back when gapMs is 0", () => {
+    const cues = generateSrtFromText("One. Two.", 0, 10_000, { gapMs: 0 });
+    expect(cues[1].startMs).toBe(cues[0].endMs);
   });
 
   it("respects start offset", () => {

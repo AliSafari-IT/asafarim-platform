@@ -56,8 +56,18 @@ describe("image-clustering", () => {
         { id: "2", timestamp: "2023-01-02", createdAt: new Date("2023-01-02") },
         { id: "3", timestamp: "2023-01-25", createdAt: new Date("2023-01-25") }, // 23 days later
       ];
+      const clusters = clusterByTime(assets, { timeGapHours: 24, minClusterSize: 1 });
+      expect(clusters.map((c) => c.assetIds)).toEqual([["1", "2"], ["3"]]); // first two together, third separate
+    });
+
+    it("should drop singleton clusters under the default min cluster size", () => {
+      const assets = [
+        { id: "1", timestamp: "2023-01-01", createdAt: new Date("2023-01-01") },
+        { id: "2", timestamp: "2023-01-02", createdAt: new Date("2023-01-02") },
+        { id: "3", timestamp: "2023-01-25", createdAt: new Date("2023-01-25") },
+      ];
       const clusters = clusterByTime(assets, { timeGapHours: 24 });
-      expect(clusters.length).toBe(2); // Two clusters: first two together, third separate
+      expect(clusters.map((c) => c.assetIds)).toEqual([["1", "2"]]);
     });
 
     it("should return empty array for no assets", () => {
@@ -140,7 +150,7 @@ describe("image-clustering", () => {
     });
 
     it("should return 50 for half-matching hashes", () => {
-      const similarity = compareHashes("11110000", "11000000");
+      const similarity = compareHashes("11110000", "11001100");
       expect(similarity).toBe(50);
     });
   });
