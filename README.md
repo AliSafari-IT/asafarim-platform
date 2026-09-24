@@ -128,6 +128,7 @@ asset, and deferral records are kept in `docs/migration-notes.md`.
 | `packages/storage` | Shared S3-compatible object storage utilities (DigitalOcean Spaces) |
 | `packages/theme-toggle` | Shared light/dark theme toggle — provider, no-flash script, and toggle button |
 | `packages/testora-tasksai-contract` | Versioned cross-app contract between Testora and TasksAI (artifact-bundle, provision, webhook-event, green-light schemas, HMAC signing) — no framework/DB/AI dependency |
+| `packages/ai-cost-ledger` | Vendor-neutral, append-only AI provider cost-event contract (integer-micro money, exclusive usage buckets, pricing snapshots, coverage aggregation, timeline read model) — each app persists it in its own DB; see `docs/adr/0003-ai-cost-event-contract.md` |
 | `packages/activity` | Cross-app user-activity adapters for the superadmin User 360 explorer |
 | `packages/settings-client` | Read-only HTTP client for Admin's internal platform-settings API — used by isolated-DB apps (Testora, AppBuilder, ResuMatch, TasksAI); no Next.js/DB/auth dependency |
 
