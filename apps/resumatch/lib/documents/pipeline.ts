@@ -66,6 +66,41 @@ export function mayExtract(status: DocumentStatusName): boolean {
   return status === "CLEAN" || status === "EXTRACTING";
 }
 
+/**
+ * How long a claimed extraction attempt holds its lease.
+ *
+ * EXTRACTING covers two different situations: an attempt that is running
+ * right now, and a failed attempt waiting for its retry. The row tells them
+ * apart by `extractionStartedAt` — set when an attempt claims the document,
+ * cleared when that attempt fails with retries left. A set value younger
+ * than this is someone else's attempt in progress and must not be claimed
+ * again; an older one is an attempt whose process died mid-extraction
+ * (crash, deploy, timeout) and is safe to take over. Generous on purpose:
+ * the AI profile step has no hard timeout, and reclaiming a live attempt is
+ * worse than waiting a little longer on a dead one.
+ */
+export const EXTRACTION_LEASE_MS = 10 * 60 * 1000;
+
+/**
+ * Whether a caller may claim an extraction attempt right now — `mayExtract`
+ * plus the lease. `mayExtract` answers "has this document been cleanly
+ * scanned"; this answers "and is nobody else already reading it".
+ */
+export function mayClaimExtraction(
+  status: DocumentStatusName,
+  extractionStartedAt: Date | null,
+  now: Date,
+): boolean {
+  if (!mayExtract(status)) return false;
+  if (status === "CLEAN") return true;
+  return extractionStartedAt === null || extractionStartedAt <= extractionLeaseCutoff(now);
+}
+
+/** Leases started at or before this instant have expired. */
+export function extractionLeaseCutoff(now: Date): Date {
+  return new Date(now.getTime() - EXTRACTION_LEASE_MS);
+}
+
 /** Whether a failed extraction has retries left. */
 export function shouldRetryExtraction(attempts: number): boolean {
   return attempts < MAX_EXTRACTION_ATTEMPTS;
@@ -111,6 +146,8 @@ export function explainReasonCode(code: string | null): string {
       return "Not enough text could be read from this document. If it is a scan or an image, a text-based PDF or Word file works better. You can also fill in your profile by hand below.";
     case "LAYOUT_UNRELIABLE":
       return "Your contact details and languages were read, but this document's layout (columns, or a heavily designed template) could not be followed reliably. Rather than fill your profile with text from the wrong part of the page, the remaining fields were left for you. A single-column CV usually reads correctly.";
+    case "EXTRACTION_IN_PROGRESS":
+      return "This document is already being read. Refresh in a moment to see the result.";
     case "EXTRACTION_ERROR":
       return "This document could not be read. You can still build your profile by hand.";
     case "BYTES_MISSING":
