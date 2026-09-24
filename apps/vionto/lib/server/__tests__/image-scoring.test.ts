@@ -3,7 +3,21 @@
  */
 
 import { describe, it, expect } from "vitest";
+import sharp from "sharp";
 import { detectBlur, calculatePerceptualHash, compareHashes, analyzeCaptionForFeatures, scoreMetadata } from "../image-scoring";
+
+/** 16x16 PNG that is white on one half and black on the other. */
+function halfImage(whiteSide: "left" | "right"): Promise<Buffer> {
+  const size = 16;
+  const pixels = Buffer.alloc(size * size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const isLeft = x < size / 2;
+      pixels[y * size + x] = isLeft === (whiteSide === "left") ? 255 : 0;
+    }
+  }
+  return sharp(pixels, { raw: { width: size, height: size, channels: 1 } }).png().toBuffer();
+}
 
 describe("image-scoring", () => {
   describe("detectBlur", () => {
@@ -29,17 +43,18 @@ describe("image-scoring", () => {
     });
 
     it("should return consistent hash for same buffer", async () => {
-      const buffer = Buffer.from([1, 2, 3, 4, 5]);
+      const buffer = await halfImage("left");
       const hash1 = await calculatePerceptualHash(buffer);
       const hash2 = await calculatePerceptualHash(buffer);
+      expect(hash1).toHaveLength(64);
       expect(hash1).toBe(hash2);
     });
 
     it("should return different hashes for different buffers", async () => {
-      const buffer1 = Buffer.from([1, 2, 3, 4, 5]);
-      const buffer2 = Buffer.from([5, 4, 3, 2, 1]);
-      const hash1 = await calculatePerceptualHash(buffer1);
-      const hash2 = await calculatePerceptualHash(buffer2);
+      const hash1 = await calculatePerceptualHash(await halfImage("left"));
+      const hash2 = await calculatePerceptualHash(await halfImage("right"));
+      expect(hash1).toHaveLength(64);
+      expect(hash2).toHaveLength(64);
       expect(hash1).not.toBe(hash2);
     });
   });
@@ -61,7 +76,7 @@ describe("image-scoring", () => {
 
     it("should return 50 for half-matching hashes", () => {
       const hash1 = "11110000";
-      const hash2 = "11000000";
+      const hash2 = "11001100";
       const similarity = compareHashes(hash1, hash2);
       expect(similarity).toBe(50);
     });
