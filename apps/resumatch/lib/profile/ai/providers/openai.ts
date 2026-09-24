@@ -1,3 +1,4 @@
+import { openAiChatMeta, withBilledUsage } from "../../../costs/providerMeta";
 import type { RewriteProvider, RewriteProviderCall, RewriteProviderOutput } from "../provider";
 import { RewriteProviderError } from "../provider";
 
@@ -58,19 +59,24 @@ export class OpenAiRewriteProvider implements RewriteProvider {
     }
 
     const json = (await response.json()) as ChatCompletionsResponse;
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new RewriteProviderError("OpenAI rewrite call returned no content", true);
+    try {
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new RewriteProviderError("OpenAI rewrite call returned no content", true);
+      }
+
+      const inputTokens = json.usage?.prompt_tokens ?? 0;
+      const outputTokens = json.usage?.completion_tokens ?? 0;
+
+      return {
+        text: content,
+        inputTokens,
+        outputTokens,
+        costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
+        ...openAiChatMeta(json),
+      };
+    } catch (err) {
+      throw withBilledUsage(err, openAiChatMeta(json));
     }
-
-    const inputTokens = json.usage?.prompt_tokens ?? 0;
-    const outputTokens = json.usage?.completion_tokens ?? 0;
-
-    return {
-      text: content,
-      inputTokens,
-      outputTokens,
-      costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
-    };
   }
 }

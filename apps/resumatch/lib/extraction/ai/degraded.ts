@@ -7,7 +7,13 @@ import {
   extractProfileFromText,
   type ExtractedProfile,
 } from "../profileExtractor";
-import { assertCanRunProviderCall, recordUsage, QuotaExceededError } from "../../tailoring/ai/quota";
+import {
+  assertCanRunProviderCall,
+  recordBilledFailure,
+  settleProviderCall,
+  QuotaExceededError,
+} from "../../tailoring/ai/quota";
+import type { CostAttribution } from "../../costs/ledger";
 import { renderExtractPrompt } from "./prompts";
 import { ExtractionProviderError } from "./provider";
 import { EXTRACT_MODEL_VERSIONS, getExtractionProvider } from "./registry";
@@ -81,9 +87,17 @@ function deterministic(text: string): ExtractionOutcome {
 export async function extractProfileWithFallback(
   workspaceId: string,
   text: string,
-  opts: { provider?: ResuMatchAiProvider } = {},
+  opts: {
+    provider?: ResuMatchAiProvider;
+    /** The CandidateDocument being extracted (issue #586). */
+    documentId?: string;
+  } = {},
 ): Promise<ExtractionOutcome> {
   const aiProvider = opts.provider ?? getEnv().aiProvider;
+  const attribution: CostAttribution = {
+    subjectType: "candidate_document",
+    subjectId: opts.documentId ?? workspaceId,
+  };
 
   // `fixture` is the default everywhere and must behave EXACTLY as it did
   // before AI extraction existed — same confidence scores, same
@@ -105,6 +119,7 @@ export async function extractProfileWithFallback(
 
     for (let attempt = 1; ; attempt++) {
       try {
+        const started = Date.now();
         const output = await provider.extract({
           text,
           system: prompt.system,
@@ -117,24 +132,27 @@ export async function extractProfileWithFallback(
         // partial apply — thrown here so it degrades below, same as a
         // provider-level failure. Never retried: the same malformed shape
         // would recur against the same input.
-        const parsed = parseAiExtractionOutput(output.data);
+        //
         // groundExperienceSummaries runs on the already-validated content,
         // dropping any per-role highlight that mentions a technology,
         // employer, or number not traceable back to the source CV text —
         // see grounding.ts's doc comment for why this check exists
         // alongside the prompt's own no-fabrication rules (issue #420).
-        const content = groundExperienceSummaries(mergeAiExtraction(parsed), text);
-
-        await recordUsage({
-          workspaceId,
-          kind: "extract",
-          provider: aiProvider,
-          model: modelVersion,
-          promptVersion: prompt.version,
-          inputTokens: output.inputTokens,
-          outputTokens: output.outputTokens,
-          costUsd: output.costUsd,
-        });
+        const content = await settleProviderCall(
+          {
+            workspaceId,
+            kind: "extract",
+            provider: aiProvider,
+            model: modelVersion,
+            promptVersion: prompt.version,
+            inputTokens: output.inputTokens,
+            outputTokens: output.outputTokens,
+            meta: output,
+            latencyMs: Date.now() - started,
+            attribution,
+          },
+          () => groundExperienceSummaries(mergeAiExtraction(parseAiExtractionOutput(output.data)), text),
+        );
 
         return {
           content,
@@ -148,6 +166,7 @@ export async function extractProfileWithFallback(
           degraded: false,
         };
       } catch (err) {
+        await recordBilledFailure(err, { workspaceId, kind: "extract", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
         const retryable = err instanceof ExtractionProviderError ? err.retryable : false;
         logError("extraction.ai.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
         if (attempt >= MAX_ATTEMPTS || !retryable) throw err;

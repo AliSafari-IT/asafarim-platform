@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { getJobmatchDb } from "../../db/client";
 import { getEnv } from "../../env";
 import { logError } from "../../observability/logger";
@@ -5,7 +6,8 @@ import type { CandidateProfileContent } from "../../profile/contract";
 import { getVersion } from "../../profile/versions";
 import { buildProfileText } from "../buildProfileText";
 import { renderTailorPrompt } from "./prompts";
-import { assertCanRunProviderCall, recordUsage } from "./quota";
+import { assertCanRunProviderCall, recordBilledFailure, recordUsage } from "./quota";
+import type { CostAttribution } from "../../costs/ledger";
 import { getTailorProvider, resolveTailorModelVersion } from "./registry";
 import { mergeTailoringSuggestions, type TailoredResumeContent, type TailorSuggestions } from "./schema";
 import { TailorProviderError } from "./provider";
@@ -38,6 +40,10 @@ export async function runTailorProviderCall(
   jobText: string,
   instructions?: string | null,
   providerOverride?: "fixture" | "openai" | "anthropic",
+  /** Where the cost event is attributed (issue #586). Defaults to the job
+   *  itself; the preview route passes its pre-minted preview id so the
+   *  tailor + cover-letter line items share one workflow. */
+  cost: Partial<Pick<CostAttribution, "subjectType" | "subjectId" | "workflowId">> = {},
 ): Promise<TailorProviderCallResult> {
   const providerName = providerOverride ?? getEnv().aiProvider;
   const modelVersion = await resolveTailorModelVersion(providerName);
@@ -47,12 +53,22 @@ export async function runTailorProviderCall(
   let suggestions: TailorSuggestions | null = null;
   let degraded = false;
 
+  const attribution: CostAttribution = {
+    subjectType: cost.subjectType ?? "target_job",
+    subjectId: cost.subjectId ?? targetJobId,
+    parentSubjectType: cost.subjectType && cost.subjectType !== "target_job" ? "target_job" : null,
+    parentSubjectId: cost.subjectType && cost.subjectType !== "target_job" ? targetJobId : null,
+    targetJobId,
+    workflowId: cost.workflowId ?? null,
+  };
+
   try {
     await assertCanRunProviderCall(workspaceId, "tailor");
     const provider = await getTailorProvider(providerName);
 
     for (let attempt = 1; ; attempt++) {
       try {
+        const started = Date.now();
         const output = await provider.generate({
           profileText,
           jobText: prompt.jobTextUsed,
@@ -72,11 +88,14 @@ export async function runTailorProviderCall(
           promptVersion: prompt.version,
           inputTokens: output.inputTokens,
           outputTokens: output.outputTokens,
-          costUsd: output.costUsd,
+          meta: output,
+          latencyMs: Date.now() - started,
+          attribution,
         });
         suggestions = output.suggestions;
         break;
       } catch (err) {
+        await recordBilledFailure(err, { workspaceId, kind: "tailor", provider: providerName, model: modelVersion, promptVersion: prompt.version, attribution });
         const retryable = err instanceof TailorProviderError ? err.retryable : true;
         logError("tailoring.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
         if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
@@ -141,6 +160,9 @@ export async function generateTailoredResume(
 ): Promise<GeneratedTailoredResume> {
   const db = getJobmatchDb();
   const templateKey = opts.templateKey ?? DEFAULT_TEMPLATE_KEY;
+  // Minted before the provider call so the cost event can name the exact
+  // TailoredResume it paid for (issue #586) without an UPDATE afterwards.
+  const tailoredResumeId = randomUUID();
 
   const version = await getVersion(workspaceId, profileVersionId);
   if (!version) {
@@ -163,11 +185,13 @@ export async function generateTailoredResume(
     targetJob.rawText,
     opts.instructions,
     opts.provider,
+    { subjectType: "tailored_resume", subjectId: tailoredResumeId, workflowId: tailoredResumeId },
   );
   const content = mergeTailoringSuggestions(profile, suggestions);
 
   const row = await db.tailoredResume.create({
     data: {
+      id: tailoredResumeId,
       workspaceId,
       profileVersionId,
       targetJobId,

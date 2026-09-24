@@ -1,3 +1,4 @@
+import type { ProviderCallMeta } from "../../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../../env";
 import type { CoverLetterSuggestion } from "./schema";
 
@@ -13,7 +14,7 @@ export interface CoverLetterProviderCall {
   signal?: AbortSignal;
 }
 
-export interface CoverLetterProviderOutput {
+export interface CoverLetterProviderOutput extends ProviderCallMeta {
   suggestion: CoverLetterSuggestion;
   inputTokens: number;
   outputTokens: number;

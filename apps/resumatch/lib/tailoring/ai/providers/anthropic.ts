@@ -1,3 +1,4 @@
+import { anthropicMeta, withBilledUsage } from "../../../costs/providerMeta";
 import type { TailorProvider, TailorProviderCall, TailorProviderOutput } from "../provider";
 import { TailorProviderError } from "../provider";
 import { parseTailorSuggestions } from "../schema";
@@ -81,21 +82,26 @@ export class AnthropicTailorProvider implements TailorProvider {
     }
 
     const json = (await response.json()) as AnthropicMessagesResponse;
-    const text = json.content?.find((block) => block.type === "text")?.text;
-    if (!text) {
-      throw new TailorProviderError("Anthropic tailoring call returned no text content", true);
+    try {
+      const text = json.content?.find((block) => block.type === "text")?.text;
+      if (!text) {
+        throw new TailorProviderError("Anthropic tailoring call returned no text content", true);
+      }
+
+      const suggestions = parseTailorSuggestions(extractJsonBlock(text));
+
+      const inputTokens = json.usage?.input_tokens ?? 0;
+      const outputTokens = json.usage?.output_tokens ?? 0;
+
+      return {
+        suggestions,
+        inputTokens,
+        outputTokens,
+        costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
+        ...anthropicMeta(json),
+      };
+    } catch (err) {
+      throw withBilledUsage(err, anthropicMeta(json));
     }
-
-    const suggestions = parseTailorSuggestions(extractJsonBlock(text));
-
-    const inputTokens = json.usage?.input_tokens ?? 0;
-    const outputTokens = json.usage?.output_tokens ?? 0;
-
-    return {
-      suggestions,
-      inputTokens,
-      outputTokens,
-      costUsd: inputTokens * INPUT_USD_PER_TOKEN + outputTokens * OUTPUT_USD_PER_TOKEN,
-    };
   }
 }

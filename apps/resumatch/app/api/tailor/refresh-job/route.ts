@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This job wasn't fetched from a URL, so there's nothing to refresh." }, { status: 400 });
   }
 
-  const result = await fetchJobWithFallback(workspace.id, targetJob.sourceUrl);
+  const result = await fetchJobWithFallback(workspace.id, targetJob.sourceUrl, { targetJobId });
   if (!result.ok) {
     return NextResponse.json({ error: "That page couldn't be read again." }, { status: 502 });
   }

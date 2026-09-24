@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { explainReasonCode } from "../../../../lib/documents/pipeline";
@@ -58,12 +59,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: explainReasonCode(extraction.reasonCode) }, { status: 422 });
   }
 
-  const meta = await inferJobMetaWithFallback(workspace.id, extraction.text);
+  // Pre-minted so the metadata call's cost event names this job (issue #586).
+  const targetJobId = randomUUID();
+  const meta = await inferJobMetaWithFallback(workspace.id, extraction.text, { targetJobId });
 
   const db = getJobmatchDb();
   const filename = safeDisplayFilename(file.name || "job-description");
   const targetJob = await db.targetJob.create({
     data: {
+      id: targetJobId,
       workspaceId: workspace.id,
       // No fetch and no stored file — the sentinel just names the source,
       // consistent with paste-job's "pasted://job-description" (see #458).

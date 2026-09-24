@@ -2,7 +2,8 @@ import { getEnv } from "../../../env";
 import { logError } from "../../../observability/logger";
 import { buildCoverLetterContent, type CoverLetterContent, type CoverLetterSuggestion } from "./schema";
 import { renderCoverLetterPrompt, type CoverLetterLength, type CoverLetterTone } from "./prompts";
-import { assertCanRunProviderCall, recordUsage } from "../quota";
+import { assertCanRunProviderCall, recordBilledFailure, recordUsage } from "../quota";
+import type { CostAttribution } from "../../../costs/ledger";
 import { getCoverLetterProvider, COVER_LETTER_MODEL_VERSIONS } from "./registry";
 import { CoverLetterProviderError } from "./provider";
 
@@ -38,6 +39,8 @@ export async function runCoverLetterProviderCall(
   tone?: CoverLetterTone,
   length?: CoverLetterLength,
   providerOverride?: "fixture" | "openai" | "anthropic",
+  /** Issue #586 — same contract as runTailorProviderCall's `cost`. */
+  cost: Partial<Pick<CostAttribution, "subjectType" | "subjectId" | "workflowId">> = {},
 ): Promise<CoverLetterProviderCallResult> {
   const providerName = providerOverride ?? getEnv().aiProvider;
   const modelVersion = COVER_LETTER_MODEL_VERSIONS[providerName];
@@ -46,12 +49,22 @@ export async function runCoverLetterProviderCall(
   let suggestion: CoverLetterSuggestion | null = null;
   let degraded = false;
 
+  const attribution: CostAttribution = {
+    subjectType: cost.subjectType ?? "target_job",
+    subjectId: cost.subjectId ?? targetJobId,
+    parentSubjectType: cost.subjectType && cost.subjectType !== "target_job" ? "target_job" : null,
+    parentSubjectId: cost.subjectType && cost.subjectType !== "target_job" ? targetJobId : null,
+    targetJobId,
+    workflowId: cost.workflowId ?? null,
+  };
+
   try {
     await assertCanRunProviderCall(workspaceId, "cover_letter");
     const provider = await getCoverLetterProvider(providerName);
 
     for (let attempt = 1; ; attempt++) {
       try {
+        const started = Date.now();
         const output = await provider.generate({
           profileText,
           jobText: prompt.jobTextUsed,
@@ -68,11 +81,14 @@ export async function runCoverLetterProviderCall(
           promptVersion: prompt.version,
           inputTokens: output.inputTokens,
           outputTokens: output.outputTokens,
-          costUsd: output.costUsd,
+          meta: output,
+          latencyMs: Date.now() - started,
+          attribution,
         });
         suggestion = output.suggestion;
         break;
       } catch (err) {
+        await recordBilledFailure(err, { workspaceId, kind: "cover_letter", provider: providerName, model: modelVersion, promptVersion: prompt.version, attribution });
         const retryable = err instanceof CoverLetterProviderError ? err.retryable : true;
         logError("coverLetter.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
         if (attempt >= MAX_ATTEMPTS || !retryable) throw err;

@@ -1,6 +1,7 @@
 import { logError } from "../../../observability/logger";
 import { getEnv, type ResuMatchAiProvider } from "../../../env";
-import { assertCanRunProviderCall, recordUsage, QuotaExceededError } from "../../../tailoring/ai/quota";
+import { assertCanRunProviderCall, recordBilledFailure, recordUsage, QuotaExceededError } from "../../../tailoring/ai/quota";
+import type { CostAttribution } from "../../../costs/ledger";
 import { renderCategorizePrompt } from "./prompts";
 import { CategorizeSkillsProviderError } from "./provider";
 import { CATEGORIZE_MODEL_VERSIONS, getCategorizeSkillsProvider } from "./registry";
@@ -54,6 +55,7 @@ export async function categorizeSkillsWithFallback(
 ): Promise<CategorizeOutcome> {
   const aiProvider = opts.provider ?? getEnv().aiProvider;
   const prompt = renderCategorizePrompt(skillNames);
+  const attribution: CostAttribution = { subjectType: "candidate_profile", subjectId: workspaceId };
 
   if (aiProvider === "fixture") return fixtureFallback(skillNames, prompt);
 
@@ -65,6 +67,7 @@ export async function categorizeSkillsWithFallback(
 
     for (let attempt = 1; ; attempt++) {
       try {
+        const started = Date.now();
         const output = await provider.categorize({
           skillNames: prompt.skillNamesUsed,
           system: prompt.system,
@@ -80,10 +83,13 @@ export async function categorizeSkillsWithFallback(
           promptVersion: prompt.version,
           inputTokens: output.inputTokens,
           outputTokens: output.outputTokens,
-          costUsd: output.costUsd,
+          meta: output,
+          latencyMs: Date.now() - started,
+          attribution,
         });
         return { suggestions: mergeSuggestedCategories(skillNames, output.suggestions), degraded: false };
       } catch (err) {
+        await recordBilledFailure(err, { workspaceId, kind: "categorize_skills", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
         const retryable = err instanceof CategorizeSkillsProviderError ? err.retryable : false;
         logError("profile.categorize.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
         if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
