@@ -142,8 +142,8 @@ export function ResultsExplorer({
 }: {
   rows: ReportResultRow[];
 }) {
-  // Deleting results and drafting issues are admin-only
-  // (src/lib/access-policy.ts); members can view, export and re-run.
+  // Deleting results is admin-only (src/lib/access-policy.ts); members can
+  // view, export, re-run and report a failure as a GitHub issue.
   const canManage = useCanManage();
   const [rows, setRows] = useState(initialRows);
   const [search, setSearch] = useState("");
@@ -902,7 +902,7 @@ export function ResultsExplorer({
               View error
             </button>
           )}
-          {canManage && !menuIsSelection && isRerunnable(menu.row) && (
+          {!menuIsSelection && isRerunnable(menu.row) && (
             <button
               type="button"
               className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"

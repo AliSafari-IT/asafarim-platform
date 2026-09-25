@@ -21,6 +21,15 @@ test("members may run tests, cancel a run and update tests", () => {
   assert.equal(isAllowed({ pathname: "/api/seed", method: "POST", roles: member }), true);
 });
 
+test("members may report a bug: draft, save and file an issue", () => {
+  assert.equal(isAllowed({ pathname: "/api/issues/generate", method: "POST", roles: member }), true);
+  assert.equal(isAllowed({ pathname: "/api/issues", method: "POST", roles: member }), true);
+  assert.equal(isAllowed({ pathname: "/api/issues/i_1/publish", method: "POST", roles: member }), true);
+  // Look-alikes stay admin-only.
+  assert.equal(isAllowed({ pathname: "/api/issues/i_1/publish/x", method: "POST", roles: member }), false);
+  assert.equal(isAllowed({ pathname: "/api/issues/i_1", method: "POST", roles: member }), false);
+});
+
 test("members may not create, edit or delete catalog data", () => {
   const writes: [string, string][] = [
     ["POST", "/api/projects"],
@@ -38,9 +47,8 @@ test("members may not create, edit or delete catalog data", () => {
     ["POST", "/api/targets"],
     ["DELETE", "/api/targets"],
     ["DELETE", "/api/results"],
-    ["POST", "/api/issues"],
-    ["POST", "/api/issues/generate"],
-    ["POST", "/api/issues/i_1/publish"],
+    ["PATCH", "/api/issues/i_1"],
+    ["DELETE", "/api/issues/i_1"],
     ["POST", "/api/upload"],
     ["POST", "/api/webhooks/dispatch"],
   ];

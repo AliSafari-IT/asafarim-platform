@@ -5,9 +5,11 @@
  *
  *   signed out   public marketing pages only; app pages → Hub sign-in,
  *                API → 401
- *   member       read everything; run tests, cancel a run, "Update tests"
+ *   member       read everything; run tests, cancel a run, "Update tests",
+ *                report a bug (draft + file an issue on GitHub)
  *   admin        every other write: apps, requirements, suites, fixtures,
- *   superadmin   cases, target environments, results, issues, webhooks
+ *   superadmin   cases, target environments, results, editing/deleting
+ *                issues, webhooks
  *
  * Machine-to-machine endpoints carry their own bearer-token checks inside
  * the route and are let through the session gate (SERVICE_ROUTES).
@@ -39,6 +41,11 @@ const MEMBER_WRITES: { method: string; pattern: RegExp }[] = [
   { method: "POST", pattern: /^\/api\/run$/ }, // Run tests
   { method: "DELETE", pattern: /^\/api\/run\/[^/]+$/ }, // cancel a run
   { method: "POST", pattern: /^\/api\/seed$/ }, // "Update tests" (re-seed the catalog)
+  // Reporting a bug from a failed result: draft it, save it, file it on
+  // GitHub. Editing or deleting existing issues stays admin-only.
+  { method: "POST", pattern: /^\/api\/issues\/generate$/ },
+  { method: "POST", pattern: /^\/api\/issues$/ },
+  { method: "POST", pattern: /^\/api\/issues\/[^/]+\/publish$/ },
 ];
 
 /** Reads that expose configuration only admins manage. */

@@ -50,8 +50,8 @@ export function IssueEditor({
   const [status, setStatus] = useState(issue.status);
   const [githubUrl, setGithubUrl] = useState(issue.githubUrl);
   const [githubState, setGithubState] = useState(issue.githubState);
-  // Editing, publishing and deleting issues is admin-only
-  // (src/lib/access-policy.ts); members get a read-only view.
+  // Editing and deleting issues is admin-only (src/lib/access-policy.ts);
+  // members get a read-only view but may still file it on GitHub.
   const canManage = useCanManage();
   const [tab, setTab] = useState<"edit" | "preview">(canManage ? "edit" : "preview");
   const [busy, setBusy] = useState<null | "save" | "publish" | "delete" | "refresh">(null);
@@ -242,7 +242,6 @@ export function IssueEditor({
         </Button>
         <Button
           variant="outline"
-          hidden={!canManage}
           onClick={() => void publish()}
           disabled={busy !== null || !title.trim() || !githubConfigured}
           title={githubConfigured ? undefined : "Connect a GitHub repo for this app in Apps"}
