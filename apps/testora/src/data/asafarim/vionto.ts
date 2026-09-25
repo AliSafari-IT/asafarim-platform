@@ -170,7 +170,10 @@ export const viontoHealthApiFixture: TestFixtureDefinition = {
   fixtureId: "vionto-health-api",
   suiteId: "vionto-health",
   title: "Vionto health endpoint",
-  baseUrl: "/api/health",
+  // See timelineaiHealthApiFixture for why this isn't "/api/health": TestCafe
+  // navigates here before the test runs, and a raw application/json response
+  // never completes its client-injection handshake, hanging the run forever.
+  baseUrl: "/",
   commonInput: {},
 };
 
