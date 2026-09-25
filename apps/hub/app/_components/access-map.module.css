@@ -250,3 +250,10 @@ a.hotLocked { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .tokenPreview, .ringPreview { display: none; }
 }
+
+/* Room for a full description and an un-truncated meta line (it can carry
+   status such as "coming soon", which must never be ellipsised away). */
+.tip { width: 17rem; }
+.tipDesc { -webkit-line-clamp: 3; }
+.tipFoot { align-items: flex-end; }
+.tipMeta { white-space: normal; overflow: visible; }
