@@ -8,6 +8,8 @@ import { issues } from "@/db/schema";
 import { getProjectAccess } from "@/lib/app-access";
 import { LockedApp } from "@/components/locked-app";
 import { IssueEditor, type IssueData } from "@/components/issues/issue-editor";
+import { RelatedIssues } from "@/components/issues/related-issues";
+import { getRelatedIssues } from "@/lib/related-issues";
 
 export default async function IssueDetailPage({
   params,
@@ -23,6 +25,8 @@ export default async function IssueDetailPage({
 
   const issue = await db.query.issues.findFirst({ where: eq(issues.id, issueId) });
   if (!issue || issue.projectId !== appId) notFound();
+
+  const related = await getRelatedIssues(appId, issue.caseId, issue.id);
 
   const data: IssueData = {
     id: issue.id,
@@ -43,6 +47,7 @@ export default async function IssueDetailPage({
         &larr; Issues · {access.project?.name ?? appId}
       </Link>
       <IssueEditor issue={data} githubConfigured={Boolean(access.project?.githubConfigured)} />
+      <RelatedIssues appId={appId} issues={related} />
     </div>
   );
 }
