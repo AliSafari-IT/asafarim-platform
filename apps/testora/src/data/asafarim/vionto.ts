@@ -82,7 +82,9 @@ function viontoSmoke(path: string, literal?: string): string {
     VIONTO_SSO_LOGIN +
     [
       `await t.navigateTo('${path}');`,
-      "let landed = false; let pathname = '';",
+      // `pathname` is already declared by VIONTO_SSO_LOGIN above — reuse it,
+      // redeclaring it here is a SyntaxError since both land in the same scope.
+      "let landed = false;",
       "for (let i = 0; i < 25; i++) {",
       "  pathname = await t.eval(() => window.location.pathname);",
       `  if (pathname.indexOf('/sign-in') === -1 && pathname.indexOf('${path}') !== -1) { landed = true; break; }`,
