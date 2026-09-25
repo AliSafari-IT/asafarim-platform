@@ -65,7 +65,7 @@
 @media (min-width: 1000px) {
   .columns { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
 }
-.side { display: grid; gap: var(--space-5); min-width: 0; }
+.side, .primary { display: grid; gap: var(--space-5); min-width: 0; }
 
 .panel {
   min-width: 0;

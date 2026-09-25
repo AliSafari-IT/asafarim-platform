@@ -1,0 +1,78 @@
+.figure { margin: 0; container-type: inline-size; }
+.svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.link { fill: none; stroke: color-mix(in srgb, var(--accent) 38%, transparent); stroke-width: 1.4; }
+.linkLocked { fill: none; stroke: var(--line-strong); stroke-width: 1.2; stroke-dasharray: 3 5; }
+
+.pulse { fill: none; stroke: #8b5cf6; stroke-width: 1.5; }
+.orbit { fill: none; stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 1; stroke-dasharray: 4 7; }
+.orbitFaint { fill: none; stroke: color-mix(in srgb, #22d3ee 35%, transparent); stroke-width: 1; stroke-dasharray: 2 10; }
+.spin { animation: am-spin 24s linear infinite; }
+.spinReverse { animation: am-spin 36s linear infinite reverse; }
+@keyframes am-spin { to { transform: rotate(360deg); } }
+
+.token { fill: #c4b5fd; }
+.tokenDenied { fill: #fb7185; }
+.deny { fill: none; stroke: #f43f5e; stroke-width: 2; }
+.ring { fill: none; stroke: #22d3ee; stroke-width: 2; }
+
+.node { fill: var(--surface); stroke: url(#am-grad); stroke-width: 2; }
+.nodeLocked { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.glyph, .glyphLocked {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+.glyph { fill: var(--ink); }
+.glyphLocked { fill: var(--muted); opacity: 0.7; }
+.lock rect { fill: #f43f5e; }
+.lock path { fill: none; stroke: #f43f5e; stroke-width: 1.6; }
+
+.label, .labelLocked { font-size: 10.5px; font-weight: 600; text-anchor: middle; }
+.label { fill: var(--ink); }
+.labelLocked { fill: var(--muted); opacity: 0.75; }
+
+.shield { fill: var(--surface); }
+.center {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  text-anchor: middle;
+  fill: var(--ink);
+}
+.tokenLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+  fill: var(--accent);
+}
+
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-5);
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dotOn, .dotOff { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dotOn { background: linear-gradient(135deg, #8b5cf6, #22d3ee); }
+.dotOff { border: 1.5px dashed var(--line-strong); }
+
+/* Reduced motion: keep the map, drop everything that moves. */
+@media (prefers-reduced-motion: reduce) {
+  .spin, .spinReverse { animation: none; }
+  .token, .tokenDenied, .deny, .ring, .pulse { display: none; }
+}
+
+/* Narrow (phone) render: the 640-unit drawing shrinks ~50%, so drop the app
+   names and enlarge the glyphs, which then carry the identification alone. */
+@container (max-width: 480px) {
+  .label, .labelLocked, .tokenLabel { display: none; }
+  .glyph, .glyphLocked { font-size: 14px; }
+  .center { font-size: 20px; }
+}

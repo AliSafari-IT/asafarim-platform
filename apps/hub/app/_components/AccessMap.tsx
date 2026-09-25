@@ -1,0 +1,277 @@
+import styles from "./access-map.module.css";
+
+export interface AccessMapNode {
+  key: string;
+  glyph: string;
+  name: string;
+  granted: boolean;
+}
+
+/**
+ * Animated picture of single sign-on: one identity (the shield) issues a
+ * signed token that streams out to every app. Apps the viewer's roles allow
+ * light up as the token lands; apps they don't allow reject it — the token
+ * is stopped part-way, flashes red and falls back, and the app shows a lock.
+ *
+ * Pure SVG + SMIL, so it renders on the server with no client JS. The
+ * granted/locked split is real (the caller derives it from canAccessApp),
+ * which makes this a live access map, not decoration. Motion is dropped
+ * under prefers-reduced-motion (see the module CSS).
+ */
+export function AccessMap({
+  nodes,
+  centerLabel,
+  tokenLabel,
+  compact = false,
+}: {
+  nodes: AccessMapNode[];
+  /** Short text inside the shield — e.g. the user's initials. */
+  centerLabel: string;
+  /** Mono caption under the shield — e.g. "roles: admin". */
+  tokenLabel: string;
+  compact?: boolean;
+}) {
+  const W = 640;
+  const H = compact ? 400 : 380;
+  const cx = W / 2;
+  const cy = H / 2;
+  const rx = compact ? 220 : 248;
+  const ry = compact ? 150 : 138;
+  const cycle = 3.4;
+  const n = Math.max(nodes.length, 1);
+
+  const placed = nodes.map((node, i) => {
+    const angle = -Math.PI / 2 + (i / n) * Math.PI * 2;
+    const x = cx + rx * Math.cos(angle);
+    const y = cy + ry * Math.sin(angle);
+    // Bend each link sideways a little so the spokes read as flowing
+    // curves rather than a rigid star.
+    const dx = x - cx;
+    const dy = y - cy;
+    const len = Math.hypot(dx, dy) || 1;
+    const bend = 26;
+    const qx = (cx + x) / 2 + (-dy / len) * bend;
+    const qy = (cy + y) / 2 + (dx / len) * bend;
+    // Where a rejected token is stopped: 68% along the curve.
+    const t = 0.68;
+    const stopX = (1 - t) ** 2 * cx + 2 * (1 - t) * t * qx + t ** 2 * x;
+    const stopY = (1 - t) ** 2 * cy + 2 * (1 - t) * t * qy + t ** 2 * y;
+    const labelBelow = y > cy + 4;
+    return {
+      ...node,
+      x,
+      y,
+      stopX,
+      stopY,
+      d: `M${cx} ${cy} Q${qx.toFixed(1)} ${qy.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`,
+      begin: `${((i * cycle) / n).toFixed(2)}s`,
+      labelY: labelBelow ? y + 34 : y - 27,
+    };
+  });
+
+  const grantedCount = nodes.filter((node) => node.granted).length;
+  const label = `Access map: ${grantedCount} of ${nodes.length} apps unlocked for this identity.`;
+  const dur = `${cycle}s`;
+
+  return (
+    <figure className={styles.figure}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className={styles.svg}
+        role="img"
+        aria-label={label}
+      >
+        <defs>
+          <linearGradient id="am-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#8b5cf6" />
+            <stop offset="50%" stopColor="#6366f1" />
+            <stop offset="100%" stopColor="#22d3ee" />
+          </linearGradient>
+          <radialGradient id="am-core" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
+          </radialGradient>
+          <filter id="am-glow" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="3" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          {placed.map((p) => (
+            <path key={p.key} id={`am-p-${p.key}`} d={p.d} />
+          ))}
+        </defs>
+
+        {/* Links */}
+        {placed.map((p) => (
+          <path
+            key={p.key}
+            d={p.d}
+            className={p.granted ? styles.link : styles.linkLocked}
+          />
+        ))}
+
+        {/* Core glow + sign-in broadcast pulse */}
+        <circle cx={cx} cy={cy} r="90" fill="url(#am-core)" />
+        <circle cx={cx} cy={cy} r="40" className={styles.pulse}>
+          <animate attributeName="r" values="40;96" dur={dur} repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.55;0" dur={dur} repeatCount="indefinite" />
+        </circle>
+
+        {/* Orbit rings around the identity */}
+        <g className={styles.spin} style={{ transformOrigin: `${cx}px ${cy}px` }}>
+          <circle cx={cx} cy={cy} r="58" className={styles.orbit} />
+        </g>
+        <g className={styles.spinReverse} style={{ transformOrigin: `${cx}px ${cy}px` }}>
+          <circle cx={cx} cy={cy} r="70" className={styles.orbitFaint} />
+        </g>
+
+        {/* Tokens */}
+        {placed.map((p) =>
+          p.granted ? (
+            <circle key={p.key} r="4.5" className={styles.token} filter="url(#am-glow)" opacity="0">
+              <animateMotion
+                dur={dur}
+                begin={p.begin}
+                repeatCount="indefinite"
+                keyPoints="0;1;1"
+                keyTimes="0;0.55;1"
+                calcMode="linear"
+              >
+                <mpath href={`#am-p-${p.key}`} />
+              </animateMotion>
+              <animate
+                attributeName="opacity"
+                values="0;1;1;0;0"
+                keyTimes="0;0.06;0.5;0.56;1"
+                dur={dur}
+                begin={p.begin}
+                repeatCount="indefinite"
+              />
+            </circle>
+          ) : (
+            <circle key={p.key} r="4.5" className={styles.tokenDenied} opacity="0">
+              <animateMotion
+                dur={dur}
+                begin={p.begin}
+                repeatCount="indefinite"
+                keyPoints="0;0.68;0.68;0.5;0.5"
+                keyTimes="0;0.42;0.5;0.62;1"
+                calcMode="linear"
+              >
+                <mpath href={`#am-p-${p.key}`} />
+              </animateMotion>
+              <animate
+                attributeName="opacity"
+                values="0;1;1;0;0"
+                keyTimes="0;0.06;0.5;0.62;1"
+                dur={dur}
+                begin={p.begin}
+                repeatCount="indefinite"
+              />
+            </circle>
+          )
+        )}
+
+        {/* Rejection flashes where locked tokens are stopped */}
+        {placed
+          .filter((p) => !p.granted)
+          .map((p) => (
+            <circle key={p.key} cx={p.stopX} cy={p.stopY} r="6" className={styles.deny} opacity="0">
+              <animate
+                attributeName="r"
+                values="4;4;14;14"
+                keyTimes="0;0.42;0.58;1"
+                dur={dur}
+                begin={p.begin}
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="opacity"
+                values="0;0;0.9;0;0"
+                keyTimes="0;0.41;0.43;0.6;1"
+                dur={dur}
+                begin={p.begin}
+                repeatCount="indefinite"
+              />
+            </circle>
+          ))}
+
+        {/* App nodes */}
+        {placed.map((p) => (
+          <g key={p.key}>
+            {p.granted && (
+              <circle cx={p.x} cy={p.y} r="19" className={styles.ring} opacity="0">
+                <animate
+                  attributeName="r"
+                  values="19;19;32;32"
+                  keyTimes="0;0.55;0.85;1"
+                  dur={dur}
+                  begin={p.begin}
+                  repeatCount="indefinite"
+                />
+                <animate
+                  attributeName="opacity"
+                  values="0;0;0.9;0;0"
+                  keyTimes="0;0.54;0.56;0.85;1"
+                  dur={dur}
+                  begin={p.begin}
+                  repeatCount="indefinite"
+                />
+              </circle>
+            )}
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r="19"
+              className={p.granted ? styles.node : styles.nodeLocked}
+            />
+            <text x={p.x} y={p.y + 3.5} className={p.granted ? styles.glyph : styles.glyphLocked}>
+              {p.glyph}
+            </text>
+            {!p.granted && (
+              <g transform={`translate(${p.x + 12} ${p.y - 20})`} className={styles.lock}>
+                <rect x="-1" y="4" width="11" height="9" rx="2" />
+                <path d="M1.5 4.5 V2.5 a3 3 0 0 1 6 0 V4.5" />
+              </g>
+            )}
+            <text x={p.x} y={p.labelY} className={p.granted ? styles.label : styles.labelLocked}>
+              {p.name}
+            </text>
+          </g>
+        ))}
+
+        {/* Identity shield */}
+        <g transform={`translate(${cx} ${cy})`}>
+          <path
+            d="M0 -36 L30 -24 V2 C30 22 16 33 0 40 C-16 33 -30 22 -30 2 V-24 Z"
+            className={styles.shield}
+          />
+          <path
+            d="M0 -36 L30 -24 V2 C30 22 16 33 0 40 C-16 33 -30 22 -30 2 V-24 Z"
+            fill="none"
+            stroke="url(#am-grad)"
+            strokeWidth="2.5"
+            filter="url(#am-glow)"
+          />
+          <text y="7" className={styles.center}>
+            {centerLabel}
+          </text>
+        </g>
+        <text x={cx} y={cy + 62} className={styles.tokenLabel}>
+          {tokenLabel}
+        </text>
+      </svg>
+
+      <figcaption className={styles.legend}>
+        <span>
+          <i className={styles.dotOn} /> {grantedCount} unlocked
+        </span>
+        <span>
+          <i className={styles.dotOff} /> {nodes.length - grantedCount} locked
+        </span>
+      </figcaption>
+    </figure>
+  );
+}

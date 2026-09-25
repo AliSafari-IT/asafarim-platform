@@ -9,6 +9,8 @@ import {
   timeAgo,
 } from "../_lib/account-insights";
 import { profileStrength } from "../_lib/profile-strength";
+import { AccessMap } from "../_components/AccessMap";
+import { getAccessMapNodes, initialsOf } from "../_lib/access-map-data";
 import styles from "./dashboard.module.css";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -55,6 +57,11 @@ export default async function DashboardPage() {
   const apps = getAccessibleApps({ roles: session.user.roles, authenticated: true })
     .filter((app) => app.key !== "hub" && app.key in links)
     .map((app) => ({ ...app, href: links[app.key as keyof typeof links] }));
+
+  const mapNodes = getAccessMapNodes(
+    { roles: session.user.roles, authenticated: true },
+    links
+  );
 
   const firstName = session.user.name?.split(" ")[0] ?? session.user.email;
   const methods = [
@@ -119,6 +126,20 @@ export default async function DashboardPage() {
       </section>
 
       <div className={styles.columns}>
+        <div className={styles.primary}>
+        <section className={styles.panel} aria-labelledby="access-title">
+          <div className={styles.panelHead}>
+            <h2 id="access-title">Access map</h2>
+            <span className={styles.count}>live · from your roles</span>
+          </div>
+          <AccessMap
+            nodes={mapNodes}
+            centerLabel={initialsOf(session.user.name, session.user.email ?? "ID")}
+            tokenLabel={`roles: ${session.user.roles.join(", ") || "none"}`}
+            compact
+          />
+        </section>
+
         <section className={styles.panel} aria-labelledby="launchpad-title">
           <div className={styles.panelHead}>
             <h2 id="launchpad-title">Launchpad</h2>
@@ -143,6 +164,7 @@ export default async function DashboardPage() {
             ))}
           </ul>
         </section>
+        </div>
 
         <div className={styles.side}>
           <section className={styles.panel} aria-labelledby="activity-title">
