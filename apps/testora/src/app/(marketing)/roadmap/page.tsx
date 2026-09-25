@@ -5,7 +5,7 @@ import { roadmapItems } from "./data";
 export const metadata: Metadata = {
   title: "Roadmap",
   description:
-    "What runs in Testora today, and the autonomous quality loop with TasksAI that comes next.",
+    "What runs in Testora today — including the completed autonomous quality loop with TasksAI — and the AI-native quality assistant that comes next.",
 };
 
 export default function RoadmapPage() {
@@ -14,13 +14,13 @@ export default function RoadmapPage() {
       <Roadmap
         kicker="Project direction"
         title="The Testora journey"
-        description="What already runs in the app, and where it is heading — an autonomous quality loop with TasksAI where a regression diagnoses itself into a task and a planned feature cannot ship until its tests pass reliably."
+        description="What already runs in the app — authoring, execution, triage, and the now-complete autonomous quality loop with TasksAI — and where it's heading next: AI that helps find and explain a failure, not just write it up after the fact."
         items={roadmapItems}
         labels={{
           changelogTitle: "In the app today",
-          changelogSubtitle: "Authoring, execution, triage",
+          changelogSubtitle: "Authoring, execution, triage, and the completed TasksAI quality loop (#269)",
           roadmapTitle: "What's next",
-          roadmapSubtitle: "The autonomous quality loop (#269)",
+          roadmapSubtitle: "The AI-native quality assistant epic (#629)",
         }}
       />
     </main>
