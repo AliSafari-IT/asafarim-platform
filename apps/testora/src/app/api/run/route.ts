@@ -18,9 +18,11 @@ import {
   completeRun,
   failRun,
   getRun,
-  hasActiveRun,
-  getActiveRun,
+  scheduleRun,
+  getActiveRunFor,
+  getCapacity,
 } from "@/test-engine/executors/runLog";
+import { auth } from "@asafarim/auth";
 import type { FormattedReport } from "@/test-engine/types";
 import { getActiveProjectId } from "@/lib/active-project";
 import { isProjectViewable } from "@/lib/app-access";
@@ -28,10 +30,14 @@ import { isProjectViewable } from "@/lib/app-access";
 // Reads live in-memory run state, so it must never be statically cached.
 export const dynamic = "force-dynamic";
 
-// Lets a client that just (re)loaded discover an in-progress run and re-attach
-// to its stream, instead of getting stuck (no run shown, yet new runs rejected).
+// Lets a client that just (re)loaded discover ITS in-progress (or queued) run
+// and re-attach to its stream, and shows who is using the test runners.
 export async function GET() {
-  return NextResponse.json({ active: getActiveRun() });
+  const session = await auth();
+  return NextResponse.json({
+    active: getActiveRunFor(session?.user?.id ?? null),
+    capacity: getCapacity(),
+  });
 }
 
 // A run can be scoped to a single fixture, a whole suite, a whole functional
@@ -127,18 +133,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: parsed.error.flatten() },
       { status: 400 },
-    );
-  }
-
-  // Only one TestCafe run at a time — concurrent browser launches in this
-  // single process cause "Cannot establish browser connection" failures.
-  if (hasActiveRun()) {
-    return NextResponse.json(
-      {
-        error:
-          "A test run is already in progress. Wait for it to finish or cancel it first.",
-      },
-      { status: 409 },
     );
   }
 
@@ -242,8 +236,12 @@ export async function POST(request: Request) {
     }
   }
 
+  const session = await auth();
   const runId = randomUUID();
-  createRun(runId);
+  createRun(runId, {
+    id: session?.user?.id ?? null,
+    name: session?.user?.name ?? session?.user?.email ?? null,
+  });
 
   const totalRuns = runnableUnits.reduce(
     (total, unit) =>
@@ -275,13 +273,39 @@ export async function POST(request: Request) {
     );
   }
 
-  void runInBackground(
-    runId,
-    { ...plan, units: runnableUnits },
-    { baseUrl, apiUrl },
+  // At most TESTORA_MAX_CONCURRENT_RUNS runs drive a browser at once (see
+  // runLog/runScheduler); anything beyond waits in a FIFO queue and starts
+  // automatically — the client is told it is queued and where.
+  const admission = scheduleRun(runId, () =>
+    runInBackground(runId, { ...plan, units: runnableUnits }, { baseUrl, apiUrl }),
   );
 
-  return NextResponse.json({ runId }, { status: 202 });
+  if (admission.status === "rejected") {
+    return NextResponse.json(
+      {
+        error:
+          "The test queue is full right now. Please try again once some of the queued runs have finished.",
+      },
+      { status: 429 },
+    );
+  }
+
+  const capacity = getCapacity();
+  return NextResponse.json(
+    admission.status === "queued"
+      ? {
+          runId,
+          status: "queued",
+          queue: {
+            position: admission.position,
+            running: capacity.running.length,
+            limit: capacity.limit,
+          },
+          message: `All ${capacity.limit} test runners are busy. Your run is #${admission.position} in the queue and will start automatically.`,
+        }
+      : { runId, status: "running" },
+    { status: 202 },
+  );
 }
 
 async function runInBackground(
@@ -289,11 +313,6 @@ async function runInBackground(
   plan: RunPlan,
   env: { baseUrl?: string; apiUrl?: string },
 ): Promise<void> {
-  // Scope the API base for this run only — the scripts read it from the
-  // environment. Single-run is enforced upstream, so this can't race.
-  const previousApiUrl = process.env.WEBAPP_API_URL;
-  if (env.apiUrl) process.env.WEBAPP_API_URL = env.apiUrl;
-
   try {
     const totalCases = plan.units.reduce(
       (total, unit) => total + unit.cases.length,
@@ -323,7 +342,7 @@ async function runInBackground(
         );
       }
       try {
-        reports.push(...(await runUnitWithRetry(runId, unit, signal)));
+        reports.push(...(await runUnitWithRetry(runId, unit, signal, env.apiUrl)));
       } catch (error) {
         if (signal?.aborted) break;
         // A fixture that can't even start its browser shouldn't sink the whole
@@ -345,11 +364,6 @@ async function runInBackground(
     if (!run?.done) {
       failRun(runId, error instanceof Error ? error.message : "Run failed");
     }
-  } finally {
-    if (env.apiUrl) {
-      if (previousApiUrl === undefined) delete process.env.WEBAPP_API_URL;
-      else process.env.WEBAPP_API_URL = previousApiUrl;
-    }
   }
 }
 
@@ -359,6 +373,7 @@ async function runUnitWithRetry(
   runId: string,
   unit: RunPlan["units"][number],
   signal: AbortSignal | undefined,
+  apiUrl: string | undefined,
 ): Promise<FormattedReport[]> {
   const maxAttempts = 2;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -366,6 +381,8 @@ async function runUnitWithRetry(
       const results = await executeFixture(unit.fixture, unit.cases, {
         onLog: (line) => appendLog(runId, line),
         signal,
+        // Scoped to this run's spec — concurrent runs share this process.
+        apiUrl,
       });
       return toJsonReport(unit.suiteTitle, unit.fixture, unit.cases, results);
     } catch (error) {

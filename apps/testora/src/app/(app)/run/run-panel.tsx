@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { useCanManage } from "@/components/viewer-role";
 import type { SeedImpact } from "@/db/seedDatabase";
 import { UpdateTestsConfirm } from "./update-tests-confirm";
+import { QueuedRunCard, RunnerCapacityLine, useRunnerCapacity } from "./runner-capacity";
 
 interface FixtureSummary {
   fixtureId: string;
@@ -223,11 +224,14 @@ export function RunPanel() {
     error,
     runMeta,
     runStartTime,
+    queue,
     startRun,
     rerunFailed,
     failedCaseCount,
     cancelRun,
   } = useRun();
+  // Shared-runner status (limited concurrent runs, the rest queue).
+  const capacity = useRunnerCapacity();
   const [scope, setScope] = useState<RunScope>("fixture");
   const [shotZoom, setShotZoom] = useState<string | null>(null);
   const [includeHeavy, setIncludeHeavy] = useState(false);
@@ -998,19 +1002,22 @@ export function RunPanel() {
               ) : (
                 <PlayCircle className="h-4 w-4" />
               )}
-              {running ? "Running..." : `Run ${scopeLabel}`}
+              {queue ? `Queued (#${queue.position})...` : running ? "Running..." : `Run ${scopeLabel}`}
             </Button>
             {running && (
               <Button variant="destructive" onClick={() => void cancelRun()}>
                 <StopCircle className="h-4 w-4" />
-                Cancel
+                {queue ? "Leave queue" : "Cancel"}
               </Button>
             )}
             {running && (
               <span className="text-xs text-muted-foreground">
-                The run keeps streaming if you switch pages.
+                {queue
+                  ? "It starts on its own — you can switch pages meanwhile."
+                  : "The run keeps streaming if you switch pages."}
               </span>
             )}
+            {!running && <RunnerCapacityLine capacity={capacity} />}
           </div>
           {error && running && (
             <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -1020,7 +1027,11 @@ export function RunPanel() {
         </CardContent>
       </Card>
 
-      {running && progressTotal > 0 && (
+      {running && queue && (
+        <QueuedRunCard queue={queue} label={runMeta?.label ?? scopeLabel} capacity={capacity} />
+      )}
+
+      {running && !queue && progressTotal > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

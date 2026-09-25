@@ -94,6 +94,12 @@ interface RunContextValue {
   // Unix timestamp when the active run started, exposed so the timer survives
   // navigation (the provider lives in the root layout). Null when no run is active.
   runStartTime: number | null;
+  /**
+   * Set while this run is waiting for a free test runner (the server allows
+   * a limited number of concurrent runs and queues the rest). Null once it
+   * starts, or when it never had to wait.
+   */
+  queue: RunQueueInfo | null;
   startRun: (target: RunTarget) => Promise<void>;
   rerunFailed: () => Promise<void>;
   // Re-execute an explicit set of (fixture, case) pairs — the basis for
@@ -135,6 +141,15 @@ function collectFailedCases(
     out.push({ fixtureId: report.fixtureId, caseId: report.caseId });
   }
   return out;
+}
+
+export interface RunQueueInfo {
+  /** 1-based place in line. */
+  position: number;
+  /** Runners busy right now. */
+  running: number;
+  /** Maximum concurrent runs on the server. */
+  limit: number;
 }
 
 const RunContext = createContext<RunContextValue | null>(null);
@@ -186,6 +201,7 @@ export function RunProvider({
     label: string;
   } | null>(null);
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
+  const [queue, setQueue] = useState<RunQueueInfo | null>(null);
   const esRef = useRef<EventSource | null>(null);
   // Guards the generic "connection closed" error that browsers fire right after
   // a normal stream completion, so it isn't mistaken for a stale/unknown run.
@@ -200,6 +216,7 @@ export function RunProvider({
     setReports(null);
     setError(null);
     setRunMeta(null);
+    setQueue(null);
 
     // Restore the run start timestamp from storage, or initialize it now so the
     // timer keeps running across navigation and even page reloads.
@@ -234,11 +251,29 @@ export function RunProvider({
     es.addEventListener("meta", (event) => {
       setRunMeta(JSON.parse((event as MessageEvent<string>).data));
     });
+    // Waiting for a free runner: the server reports our place in line on
+    // connect and whenever it changes.
+    es.addEventListener("queue", (event) => {
+      setQueue(JSON.parse((event as MessageEvent<string>).data) as RunQueueInfo);
+    });
+    // A runner freed up and this run is executing now. Restart the timer so it
+    // measures the run itself, not the time spent waiting in the queue.
+    es.addEventListener("started", () => {
+      setQueue(null);
+      const start = Date.now();
+      setRunStartTime(start);
+      try {
+        localStorage.setItem(RUN_START_TIME_KEY, String(start));
+      } catch {
+        /* ignore */
+      }
+    });
     es.addEventListener("done", (event) => {
       finishedRef.current = true;
       setReports(JSON.parse((event as MessageEvent<string>).data));
       setRunning(false);
       setRunStartTime(null);
+      setQueue(null);
       es.close();
       // The run is over — drop the resume marker so a later reload doesn't try to
       // re-attach to (and replay) a finished run.
@@ -260,6 +295,7 @@ export function RunProvider({
         }
         setRunning(false);
         setRunStartTime(null);
+        setQueue(null);
         es.close();
         try {
           localStorage.removeItem(STORAGE_KEY);
@@ -428,32 +464,10 @@ export function RunProvider({
     setError("Run cancelled");
     setRunId(null);
     setRunStartTime(null);
+    setQueue(null);
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(RUN_START_TIME_KEY);
-    } catch {
-      /* ignore */
-    }
-  }, [runId]);
-
-  // Cancel whatever run the server currently has active, regardless of whether
-  // this client knows its id (it may not, right after a reload). Used to make
-  // room for a new run the user just requested. Unlike cancelRun, it stays
-  // quiet — no "Run cancelled" message — because a fresh run is about to start.
-  const cancelActiveRun = useCallback(async () => {
-    esRef.current?.close();
-    let id = runId;
-    if (!id) {
-      try {
-        const res = await fetch("/api/run");
-        if (res.ok) id = (await res.json())?.active?.runId ?? null;
-      } catch {
-        /* ignore */
-      }
-    }
-    if (!id) return;
-    try {
-      await fetch(`/api/run/${id}`, { method: "DELETE" });
     } catch {
       /* ignore */
     }
@@ -500,17 +514,10 @@ export function RunProvider({
           body: JSON.stringify(payload),
         });
       try {
-        let res = await post();
-        // A run is already in progress. Since the user explicitly asked to run
-        // something new, cancel the in-flight run and start theirs. (Only one
-        // TestCafe run can launch a browser at a time.)
-        if (res.status === 409) {
-          await cancelActiveRun();
-          // Give the previous run's browser a moment to tear down before the
-          // next one launches, then retry once.
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          res = await post();
-        }
+        // Never cancels anyone else's run: when every runner is busy the
+        // server queues this one (202 + status "queued") and it starts on its
+        // own. A full queue answers 429, shown as an error below.
+        const res = await post();
         const data = await res.json();
         if (!res.ok) {
           setError(
@@ -533,6 +540,9 @@ export function RunProvider({
           /* ignore */
         }
         attach(data.runId);
+        if (data.status === "queued" && data.queue) {
+          setQueue(data.queue as RunQueueInfo);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Run failed");
         setRunning(false);
@@ -544,7 +554,7 @@ export function RunProvider({
         }
       }
     },
-    [attach, environment, projectId, cancelActiveRun],
+    [attach, environment, projectId],
   );
 
   const startRun = useCallback(
@@ -623,6 +633,7 @@ export function RunProvider({
         runId,
         runMeta,
         runStartTime,
+        queue,
         startRun,
         rerunFailed,
         rerunCases,

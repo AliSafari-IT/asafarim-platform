@@ -32,6 +32,12 @@ export interface ExecuteFixtureOptions {
   headless?: boolean;
   onLog?: (line: string) => void;
   signal?: AbortSignal;
+  /**
+   * API base for this run, exposed to the spec as process.env.WEBAPP_API_URL.
+   * Scoped to this spec only (see specEnvPrelude) — never written to the
+   * global env, because concurrent runs share this process.
+   */
+  apiUrl?: string;
 }
 
 // eslint-disable-next-line no-control-regex
@@ -64,12 +70,15 @@ function resolveBrowser(options: ExecuteFixtureOptions): string {
 const BROWSER_INIT_TIMEOUT =
   Number(process.env.E2E_BROWSER_INIT_TIMEOUT) || 300_000;
 
+// After a cancel/timeout, how long runner.stop() gets before TestCafe is
+// force-closed (killing its browsers).
+const ABORT_CLOSE_GRACE_MS = 10_000;
+
 export async function executeFixture(
   fixture: TestFixtureDefinition,
   cases: TestCaseDefinition[],
   options: ExecuteFixtureOptions = {},
 ): Promise<TestRunResult[]> {
-  const spec = generateTestSpec(fixture, cases);
   const dir = await mkdtemp(path.join(tmpdir(), "e2e-testora-"));
   const specPath = path.join(dir, `${fixture.fixtureId}.spec.js`);
   // TestCafe writes failure screenshots here; we read + inline them, then the
@@ -80,6 +89,12 @@ export async function executeFixture(
   // fixture opts in with metadata.recordVideo.
   const domDir = path.join(dir, "dom");
   const videoDir = path.join(dir, "video");
+  // Per-run values are baked into this spec rather than process.env, so runs
+  // executing concurrently in this process never see each other's values.
+  const spec = generateTestSpec(fixture, cases, {
+    TESTORA_DOM_DIR: domDir,
+    WEBAPP_API_URL: options.apiUrl,
+  });
   await writeFile(specPath, spec, "utf8");
 
   const testcafe = await createTestCafe();
@@ -112,12 +127,20 @@ export async function executeFixture(
   });
 
   let abortHandler: (() => void) | undefined;
+  // testcafe.close() is what actually kills the browsers it launched. It runs
+  // in `finally` — but a hung run never gets there, which left orphaned
+  // headless Chrome processes eating the host after every stuck/cancelled run.
+  let closed: Promise<void> | null = null;
+  const closeTestCafe = () => (closed ??= Promise.resolve(testcafe.close()).catch(() => {}));
   try {
     const runner = testcafe.createRunner();
     abortHandler = () => {
       Promise.resolve(runner.stop()).catch(() => {
         /* suppress WebSocket close noise on cancel */
       });
+      // If stopping doesn't bring the run back promptly, close TestCafe
+      // anyway so its browsers are killed and the host is freed.
+      setTimeout(() => void closeTestCafe(), ABORT_CLOSE_GRACE_MS).unref?.();
     };
     options.signal?.addEventListener("abort", abortHandler);
     const browser = resolveBrowser(options);
@@ -133,10 +156,9 @@ export async function executeFixture(
       { name: "spec", output: logStream },
       { name: createCaptureReporter(captured) },
     ] as unknown as string;
-    // The injected __captureDom helper writes page HTML here on the way out of
-    // each test; cleared in `finally` so it never leaks to an unrelated run.
+    // The injected __captureDom helper writes page HTML to domDir (handed to
+    // the spec through its per-run env) on the way out of each test.
     const recordVideo = fixture.metadata?.recordVideo === true;
-    process.env.TESTORA_DOM_DIR = domDir;
 
     let failedCount: number;
     try {
@@ -261,8 +283,7 @@ export async function executeFixture(
   } finally {
     if (abortHandler)
       options.signal?.removeEventListener("abort", abortHandler);
-    delete process.env.TESTORA_DOM_DIR;
-    await testcafe.close();
+    await closeTestCafe();
     await rm(dir, { recursive: true, force: true });
   }
 
