@@ -23,6 +23,16 @@ const nextConfig: NextConfig = {
     "@asafarim/testora-tasksai-contract",
   ],
   serverExternalPackages: ["testcafe", "testcafe-hammerhead", "@electron/asar"],
+  // testcafe-hammerhead reads task.js.mustache off disk at runtime (not a
+  // require()/import Next's file tracer can see), so the standalone Docker
+  // build prunes it and every TestCafe run 500s in production with
+  // "Failed to load external module ...: ENOENT ... task.js.mustache".
+  // Force-include it so it survives the standalone output trace.
+  outputFileTracingIncludes: {
+    "/**": [
+      "../../node_modules/.pnpm/testcafe-hammerhead@*/node_modules/testcafe-hammerhead/lib/client/*.mustache",
+    ],
+  },
   devIndicators: false,
 };
 
