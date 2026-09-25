@@ -74,6 +74,17 @@ const BROWSER_INIT_TIMEOUT =
 // force-closed (killing its browsers).
 const ABORT_CLOSE_GRACE_MS = 10_000;
 
+// testcafe.close() awaits runner.stop() and the browser-connection gateway's
+// own close — both of which assume every launched browser finished its CDP
+// handshake and is a tracked connection. A browser that never connects (a
+// stuck host, a cross-origin redirect the proxy can't inject into, resource
+// starvation) isn't tracked, so close() can hang indefinitely waiting on a
+// handshake that will never complete, holding this promise (and the `finally`
+// block awaiting it) open forever with the underlying Chrome process still
+// running (issue #619). Bound the wait so a stuck close() can never block
+// cleanup — the process itself may still leak, but the run always finishes.
+const TESTCAFE_CLOSE_TIMEOUT_MS = 20_000;
+
 export async function executeFixture(
   fixture: TestFixtureDefinition,
   cases: TestCaseDefinition[],
@@ -130,8 +141,27 @@ export async function executeFixture(
   // testcafe.close() is what actually kills the browsers it launched. It runs
   // in `finally` — but a hung run never gets there, which left orphaned
   // headless Chrome processes eating the host after every stuck/cancelled run.
+  // Bounded below (TESTCAFE_CLOSE_TIMEOUT_MS) so a browser that never
+  // connected can't hold this — and the run's cleanup — open indefinitely.
   let closed: Promise<void> | null = null;
-  const closeTestCafe = () => (closed ??= Promise.resolve(testcafe.close()).catch(() => {}));
+  const closeTestCafe = () =>
+    (closed ??= Promise.race([
+      Promise.resolve(testcafe.close()).then(() => true as const),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), TESTCAFE_CLOSE_TIMEOUT_MS).unref?.()),
+    ])
+      .then((finished) => {
+        if (finished) return;
+        const message =
+          `⚠ testcafe.close() did not finish within ${TESTCAFE_CLOSE_TIMEOUT_MS / 1000}s — ` +
+          "a browser that never connected may be left running (see issue #619).";
+        options.onLog?.(message);
+        console.error(`[testora] ${message}`);
+      })
+      .catch((error) => {
+        const message = `⚠ testcafe.close() failed: ${error instanceof Error ? error.message : String(error)}`;
+        options.onLog?.(message);
+        console.error(`[testora] ${message}`);
+      }));
   try {
     const runner = testcafe.createRunner();
     abortHandler = () => {
