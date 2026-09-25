@@ -27,7 +27,7 @@ describe("google-photos token crypto", () => {
   });
 
   it("round-trips a token through encrypt → decrypt", () => {
-    const secret = "ya29.a0AfH6SMexample-access-token";
+    const secret = "fake-google-access-token-for-tests";
     const encrypted = encryptToken(secret);
     expect(encrypted).not.toContain(secret);
     expect(decryptToken(encrypted)).toBe(secret);
