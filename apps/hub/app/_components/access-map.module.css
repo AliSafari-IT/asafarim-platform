@@ -187,3 +187,32 @@ a.hotLocked { cursor: pointer; }
 @container (max-width: 480px) {
   .hot { width: 10.5%; }
 }
+
+/* Keep the card open while the pointer travels from the node to it:
+   an invisible bridge fills the 12px gap (the card is inside the link, so
+   hovering the bridge or card still counts as hovering the link), and
+   hiding waits a beat so a slightly diagonal path doesn't close it. */
+.tip::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  right: -12px;
+  top: 100%;
+  height: 16px;
+}
+.tip[data-below="true"]::before { top: auto; bottom: 100%; }
+.tip {
+  transition:
+    opacity var(--dur-2) var(--ease) 0.18s,
+    transform var(--dur-2) var(--ease) 0.18s,
+    visibility 0s linear 0.42s;
+}
+.hot:is(:hover, :focus-visible, :focus-within) .tip {
+  transition:
+    opacity var(--dur-2) var(--ease),
+    transform var(--dur-2) var(--ease),
+    visibility 0s;
+}
+/* visibility (delayed above) is what stops a hidden card from catching the
+   pointer, so it stays hoverable through the grace period. */
+.tip { pointer-events: auto; }
