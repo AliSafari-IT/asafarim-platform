@@ -5,6 +5,11 @@ export interface AccessMapNode {
   glyph: string;
   name: string;
   granted: boolean;
+  /**
+   * Granted, but only as a preview: public pages open, working in the app
+   * needs an account. Drawn amber instead of cyan.
+   */
+  preview?: boolean;
   /** Where a granted node links to (interactive maps only). */
   href?: string;
   description?: string;
@@ -86,8 +91,15 @@ export function AccessMap({
     };
   });
 
-  const grantedCount = nodes.filter((node) => node.granted).length;
-  const label = `Access map: ${grantedCount} of ${nodes.length} apps unlocked for this identity.`;
+  const grantedCount = nodes.filter((node) => node.granted && !node.preview).length;
+  const previewCount = nodes.filter((node) => node.granted && node.preview).length;
+  const lockedCount = nodes.length - grantedCount - previewCount;
+  const label =
+    `Access map: ${grantedCount} of ${nodes.length} apps unlocked` +
+    (previewCount ? `, ${previewCount} in preview` : "") +
+    ` for this identity.`;
+  const hoverColor = (p: AccessMapNode) =>
+    !p.granted ? "#f43f5e" : p.preview ? "#f59e0b" : "#22d3ee";
   const dur = `${cycle}s`;
 
   return (
@@ -99,7 +111,7 @@ export function AccessMap({
           {placed
             .map(
               (p) =>
-                `[data-am]:has([data-hot="${p.key}"]:is(:hover,:focus-visible)) [data-link="${p.key}"]{opacity:1;stroke:${p.granted ? "#22d3ee" : "#f43f5e"};stroke-width:2.6;stroke-dasharray:none}` +
+                `[data-am]:has([data-hot="${p.key}"]:is(:hover,:focus-visible)) [data-link="${p.key}"]{opacity:1;stroke:${hoverColor(p)};stroke-width:2.6;stroke-dasharray:none}` +
                 `[data-am]:has([data-hot="${p.key}"]:is(:hover,:focus-visible)) [data-node="${p.key}"]{stroke-width:3.5}`
             )
             .join("")}
@@ -140,7 +152,7 @@ export function AccessMap({
             key={p.key}
             d={p.d}
             data-link={p.key}
-            className={p.granted ? styles.link : styles.linkLocked}
+            className={!p.granted ? styles.linkLocked : p.preview ? styles.linkPreview : styles.link}
           />
         ))}
 
@@ -162,7 +174,13 @@ export function AccessMap({
         {/* Tokens */}
         {placed.map((p) =>
           p.granted ? (
-            <circle key={p.key} r="4.5" className={styles.token} filter="url(#am-glow)" opacity="0">
+            <circle
+              key={p.key}
+              r="4.5"
+              className={p.preview ? styles.tokenPreview : styles.token}
+              filter="url(#am-glow)"
+              opacity="0"
+            >
               <animateMotion
                 dur={dur}
                 begin={p.begin}
@@ -234,7 +252,13 @@ export function AccessMap({
         {placed.map((p) => (
           <g key={p.key}>
             {p.granted && (
-              <circle cx={p.x} cy={p.y} r="19" className={styles.ring} opacity="0">
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r="19"
+                className={p.preview ? styles.ringPreview : styles.ring}
+                opacity="0"
+              >
                 <animate
                   attributeName="r"
                   values="19;19;32;32"
@@ -258,11 +282,19 @@ export function AccessMap({
               cy={p.y}
               r="19"
               data-node={p.key}
-              className={p.granted ? styles.node : styles.nodeLocked}
+              className={!p.granted ? styles.nodeLocked : p.preview ? styles.nodePreview : styles.node}
             />
             <text x={p.x} y={p.y + 3.5} className={p.granted ? styles.glyph : styles.glyphLocked}>
               {p.glyph}
             </text>
+            {p.preview && (
+              // Eye badge: you can look around, but not work here yet.
+              <g transform={`translate(${p.x + 17} ${p.y - 14})`} className={styles.eye}>
+                <circle r="7.5" />
+                <path d="M-4.2 0 Q0 -3.6 4.2 0 Q0 3.6 -4.2 0 Z" />
+                <circle r="1.3" className={styles.eyePupil} />
+              </g>
+            )}
             {!p.granted && (
               <g transform={`translate(${p.x + 12} ${p.y - 20})`} className={styles.lock}>
                 <rect x="-1" y="4" width="11" height="9" rx="2" />
@@ -307,13 +339,23 @@ export function AccessMap({
               <span className={styles.tipHead}>
                 <span className={p.granted ? styles.tipGlyph : styles.tipGlyphLocked}>{p.glyph}</span>
                 <span className={styles.tipName}>{p.name}</span>
-                <span className={p.granted ? styles.tipOk : styles.tipNo}>
-                  {p.granted ? "Unlocked" : "Locked"}
+                <span className={!p.granted ? styles.tipNo : p.preview ? styles.tipPreview : styles.tipOk}>
+                  {!p.granted ? "Locked" : p.preview ? "Preview" : "Unlocked"}
                 </span>
               </span>
               {p.description && <span className={styles.tipDesc}>{p.description}</span>}
+              {p.preview && (
+                <span className={styles.tipNote}>
+                  Public pages are open — sign up or sign in to start working in it.
+                </span>
+              )}
               <span className={styles.tipFoot}>
-                {p.granted ? (
+                {p.preview ? (
+                  <>
+                    {p.meta && <span className={styles.tipMeta}>{p.meta}</span>}
+                    <span className={styles.tipCta}>Explore →</span>
+                  </>
+                ) : p.granted ? (
                   <>
                     {p.meta && <span className={styles.tipMeta}>{p.meta}</span>}
                     <span className={styles.tipCta}>Open →</span>
@@ -335,9 +377,21 @@ export function AccessMap({
               key={p.key}
               href={href}
               data-hot={p.key}
-              className={p.granted ? styles.hot : `${styles.hot} ${styles.hotLocked}`}
+              className={
+                !p.granted
+                  ? `${styles.hot} ${styles.hotLocked}`
+                  : p.preview
+                    ? `${styles.hot} ${styles.hotPreview}`
+                    : styles.hot
+              }
               style={style}
-              aria-label={p.granted ? `Open ${p.name}` : `${p.name} is locked — ${lockedCta}`}
+              aria-label={
+                !p.granted
+                  ? `${p.name} is locked — ${lockedCta}`
+                  : p.preview
+                    ? `Explore ${p.name} (preview — an account is needed to work in it)`
+                    : `Open ${p.name}`
+              }
             >
               {card}
             </a>
@@ -361,8 +415,13 @@ export function AccessMap({
         <span>
           <i className={styles.dotOn} /> {grantedCount} unlocked
         </span>
+        {previewCount > 0 && (
+          <span>
+            <i className={styles.dotPreview} /> {previewCount} preview
+          </span>
+        )}
         <span>
-          <i className={styles.dotOff} /> {nodes.length - grantedCount} locked
+          <i className={styles.dotOff} /> {lockedCount} locked
         </span>
       </figcaption>
     </figure>

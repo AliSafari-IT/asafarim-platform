@@ -31,7 +31,8 @@ export default async function HubHomePage() {
   const roles = user?.roles ?? [];
   // The same canAccessApp rule the apps enforce decides which nodes unlock.
   const mapNodes = getAccessMapNodes({ roles, authenticated: Boolean(user) }, links);
-  const unlocked = mapNodes.filter((node) => node.granted).length;
+  const unlocked = mapNodes.filter((node) => node.granted && !node.preview).length;
+  const previews = mapNodes.filter((node) => node.preview).length;
   const total = mapNodes.length;
 
   const steps = [
@@ -40,7 +41,9 @@ export default async function HubHomePage() {
     {
       title: "Each app decides",
       body: !user
-        ? `As a guest, ${unlocked} of ${total} apps are open.`
+        ? previews
+          ? `As a guest, ${unlocked} apps are open and ${previews} in preview.`
+          : `As a guest, ${unlocked} of ${total} apps are open.`
         : unlocked === total
           ? `Your roles unlock all ${total} apps.`
           : `Your roles unlock ${unlocked} of ${total} apps.`,

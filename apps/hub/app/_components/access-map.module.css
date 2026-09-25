@@ -216,3 +216,37 @@ a.hotLocked { cursor: pointer; }
 /* visibility (delayed above) is what stops a hidden card from catching the
    pointer, so it stays hoverable through the grace period. */
 .tip { pointer-events: auto; }
+
+/* ─── Preview state: guest may look around, an account is needed to work ─── */
+.linkPreview { fill: none; stroke: rgba(245, 158, 11, 0.55); stroke-width: 1.4; stroke-dasharray: 7 4; }
+.tokenPreview { fill: #fcd34d; }
+.ringPreview { fill: none; stroke: #f59e0b; stroke-width: 2; }
+.nodePreview { fill: var(--surface); stroke: #f59e0b; stroke-width: 2; stroke-dasharray: 22 4; }
+.eye circle:first-child { fill: #f59e0b; }
+.eye path { fill: #fff; }
+.eyePupil { fill: #b45309; }
+.hotPreview:hover,
+.hotPreview:focus-visible { box-shadow: 0 0 0 2px #f59e0b, 0 0 22px 3px rgba(245, 158, 11, 0.4); }
+.tipPreview {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.14);
+}
+.tipNote {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--ink);
+}
+.dotPreview { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: #f59e0b; }
+@media (prefers-reduced-motion: reduce) {
+  .tokenPreview, .ringPreview { display: none; }
+}
