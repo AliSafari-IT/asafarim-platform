@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Alert, Badge, Button, ConfirmDialog, Input, Label, Textarea } from "@asafarim/ui";
 import { AddressFields, EMPTY_ADDRESS, type AddressFieldsValue } from "../../_components/AddressFields";
 import { LocationCard, type LocationLike } from "./LocationCard";
+import { profileStrength } from "../../_lib/profile-strength";
 import styles from "./profile.module.css";
 
 interface ProfileUser {
@@ -86,21 +87,11 @@ export function ProfileEditor({
     [details, baseline]
   );
 
-  const completeness = useMemo(() => {
-    const checks = [
-      Boolean(baseline.name),
-      Boolean(baseline.username),
-      Boolean(image),
-      Boolean(baseline.bio),
-      Boolean(baseline.jobTitle),
-      Boolean(baseline.company),
-      Boolean(baseline.website),
-      Boolean(baseline.phone),
-      Boolean(baseline.timezone),
-      locations.length > 0,
-    ];
-    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
-  }, [baseline, image, locations.length]);
+  const completeness = profileStrength({
+    ...baseline,
+    image,
+    locationCount: locations.length,
+  });
 
   function set<K extends keyof Details>(key: K) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
