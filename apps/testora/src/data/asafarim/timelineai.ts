@@ -165,7 +165,12 @@ export const timelineaiHealthApiFixture: TestFixtureDefinition = {
   fixtureId: "timelineai-health-api",
   suiteId: "timelineai-health",
   title: "TimelineAI health endpoint",
-  baseUrl: "/api/health",
+  // Not "/api/health": TestCafe navigates the browser to the fixture page
+  // before each test, and its proxy needs an HTML response to inject its
+  // client into — a raw application/json body never completes that
+  // handshake, so the run hangs forever. Load an HTML page instead; the
+  // case itself still checks the real endpoint via fetch('/api/health').
+  baseUrl: "/",
   commonInput: {},
 };
 
