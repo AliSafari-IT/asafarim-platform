@@ -209,9 +209,10 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     // session inside the tool (see apps/testora app-access).
     key: "testora",
     name: "Testora",
-    description: "E2E test automation: requirements, suites, fixtures, and TestCafe runs.",
+    description:
+      "Live end-to-end results for every ASafarIM app — spot a failure, file it to our repo in one click.",
     glyph: "TS",
-    meta: "testora.asafarim.com",
+    meta: "testora.asafarim.com · coming soon",
     status: "active",
     access: "public",
     // Seeing per-app E2E results and filing bugs to the platform repo
