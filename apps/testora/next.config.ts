@@ -22,15 +22,22 @@ const nextConfig: NextConfig = {
     "@asafarim/ui",
     "@asafarim/testora-tasksai-contract",
   ],
-  serverExternalPackages: ["testcafe", "testcafe-hammerhead", "@electron/asar"],
-  // testcafe-hammerhead reads task.js.mustache off disk at runtime (not a
-  // require()/import Next's file tracer can see), so the standalone Docker
-  // build prunes it and every TestCafe run 500s in production with
-  // "Failed to load external module ...: ENOENT ... task.js.mustache".
-  // Force-include it so it survives the standalone output trace.
+  serverExternalPackages: ["testcafe", "testcafe-hammerhead", "testcafe-browser-tools", "@electron/asar"],
+  // TestCafe's runtime reads several non-JS files off disk (templates, device
+  // definitions, native helper binaries) rather than require()/import-ing
+  // them, so Next's file tracer can't see the reference and the standalone
+  // Docker build prunes them — every run then 500s in production with
+  // "Failed to load external module ...: ENOENT ...". This has already bitten
+  // us twice for two different files in two different packages (issue #623:
+  // testcafe-hammerhead's task.js.mustache, then testcafe-browser-tools'
+  // data/devices.json) — rather than keep chasing individual files one
+  // production incident at a time, force-include the whole package trees for
+  // every package that reads its own non-code assets this way. Both are a few
+  // MB; that's a fair trade for not shipping this bug a third time.
   outputFileTracingIncludes: {
     "/**": [
-      "../../node_modules/.pnpm/testcafe-hammerhead@*/node_modules/testcafe-hammerhead/lib/client/*.mustache",
+      "../../node_modules/.pnpm/testcafe-hammerhead@*/node_modules/testcafe-hammerhead/**",
+      "../../node_modules/.pnpm/testcafe-browser-tools@*/node_modules/testcafe-browser-tools/**",
     ],
   },
   devIndicators: false,
