@@ -76,3 +76,114 @@
   .glyph, .glyphLocked { font-size: 14px; }
   .center { font-size: 20px; }
 }
+
+/* ─── Interactive layer: link hotspots + hover cards over the drawing ─── */
+.stage { position: relative; }
+.stage:has(.hot:is(:hover, :focus-visible)) [data-link] { opacity: 0.25; }
+
+.hot {
+  position: absolute;
+  z-index: 1;
+  width: 7.5%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  cursor: pointer;
+  outline: none;
+  transition: box-shadow var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);
+}
+.hot:hover,
+.hot:focus-visible {
+  z-index: 5;
+  transform: translate(-50%, -50%) scale(1.12);
+  box-shadow: 0 0 0 2px #22d3ee, 0 0 24px 4px rgba(34, 211, 238, 0.45);
+}
+.hotLocked { cursor: not-allowed; }
+.hotLocked:hover,
+.hotLocked:focus-visible { box-shadow: 0 0 0 2px #f43f5e, 0 0 20px 2px rgba(244, 63, 94, 0.35); }
+a.hotLocked { cursor: pointer; }
+
+.tip {
+  position: absolute;
+  width: 15.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-2);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease), visibility var(--dur-2);
+  /* Default: above the node, centred. */
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translate(-50%, 6px) scale(0.98);
+}
+.tip[data-below="true"] { bottom: auto; top: calc(100% + 12px); transform: translate(-50%, -6px) scale(0.98); }
+.tip[data-side="left"] { left: 0; transform: translate(0, 6px) scale(0.98); }
+.tip[data-side="right"] { left: auto; right: 0; transform: translate(0, 6px) scale(0.98); }
+.tip[data-side="left"][data-below="true"],
+.tip[data-side="right"][data-below="true"] { transform: translate(0, -6px) scale(0.98); }
+.hot:is(:hover, :focus-visible) .tip {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate(-50%, 0) scale(1);
+}
+.hot:is(:hover, :focus-visible) .tip[data-side="left"],
+.hot:is(:hover, :focus-visible) .tip[data-side="right"] { transform: none; }
+
+.tipHead { display: flex; align-items: center; gap: 8px; }
+.tipGlyph, .tipGlyphLocked {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.tipGlyph { background: var(--hub-gradient, var(--accent)); color: #fff; }
+.tipGlyphLocked { background: var(--surface-3); color: var(--muted); }
+.tipName { flex: 1; min-width: 0; font-size: var(--text-sm); font-weight: 700; color: var(--ink); }
+.tipOk, .tipNo {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.tipOk { color: #10b981; background: rgba(16, 185, 129, 0.12); }
+.tipNo { color: #f43f5e; background: rgba(244, 63, 94, 0.12); }
+.tipDesc {
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tipFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tipMeta { font-family: var(--font-mono); font-size: 0.66rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tipCta { margin-left: auto; font-size: var(--text-xs); font-weight: 700; color: var(--accent); white-space: nowrap; }
+
+/* Touch devices have no hover: cards would be unreachable, so the node
+   itself is the tap target and the card is skipped. */
+@media (hover: none) {
+  .tip { display: none; }
+}
+
+/* Bigger tap targets when the map is rendered narrow (phones). */
+@container (max-width: 480px) {
+  .hot { width: 10.5%; }
+}

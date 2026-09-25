@@ -5,6 +5,12 @@ export interface AccessMapNode {
   glyph: string;
   name: string;
   granted: boolean;
+  /** Where a granted node links to (interactive maps only). */
+  href?: string;
+  description?: string;
+  meta?: string;
+  /** Optional escape hatch for a locked node — e.g. sign in, then return. */
+  lockedHref?: string;
 }
 
 /**
@@ -23,6 +29,9 @@ export function AccessMap({
   centerLabel,
   tokenLabel,
   compact = false,
+  interactive = false,
+  lockedHint = "Your roles don’t include this app.",
+  lockedCta = "Sign in to unlock",
 }: {
   nodes: AccessMapNode[];
   /** Short text inside the shield — e.g. the user's initials. */
@@ -30,6 +39,14 @@ export function AccessMap({
   /** Mono caption under the shield — e.g. "roles: admin". */
   tokenLabel: string;
   compact?: boolean;
+  /**
+   * Overlay each node with a real link + hover card, turning the map into a
+   * launcher. The links are HTML anchors positioned over the drawing, so
+   * they stay keyboard-focusable and screen-reader friendly.
+   */
+  interactive?: boolean;
+  lockedHint?: string;
+  lockedCta?: string;
 }) {
   const W = 640;
   const H = compact ? 400 : 380;
@@ -74,7 +91,21 @@ export function AccessMap({
   const dur = `${cycle}s`;
 
   return (
-    <figure className={styles.figure}>
+    <figure className={styles.figure} data-am="">
+      {interactive && (
+        // Per-app hover wiring: hovering/focusing a node's link lights up that
+        // node's path and ring in the drawing. Keys are registry ids.
+        <style>
+          {placed
+            .map(
+              (p) =>
+                `[data-am]:has([data-hot="${p.key}"]:is(:hover,:focus-visible)) [data-link="${p.key}"]{opacity:1;stroke:${p.granted ? "#22d3ee" : "#f43f5e"};stroke-width:2.6;stroke-dasharray:none}` +
+                `[data-am]:has([data-hot="${p.key}"]:is(:hover,:focus-visible)) [data-node="${p.key}"]{stroke-width:3.5}`
+            )
+            .join("")}
+        </style>
+      )}
+      <div className={styles.stage}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className={styles.svg}
@@ -108,6 +139,7 @@ export function AccessMap({
           <path
             key={p.key}
             d={p.d}
+            data-link={p.key}
             className={p.granted ? styles.link : styles.linkLocked}
           />
         ))}
@@ -225,6 +257,7 @@ export function AccessMap({
               cx={p.x}
               cy={p.y}
               r="19"
+              data-node={p.key}
               className={p.granted ? styles.node : styles.nodeLocked}
             />
             <text x={p.x} y={p.y + 3.5} className={p.granted ? styles.glyph : styles.glyphLocked}>
@@ -263,6 +296,66 @@ export function AccessMap({
           {tokenLabel}
         </text>
       </svg>
+
+      {interactive &&
+        placed.map((p) => {
+          const href = p.granted ? p.href : p.lockedHref;
+          const side = p.x < cx - 40 ? "left" : p.x > cx + 40 ? "right" : "center";
+          const below = p.y < cy;
+          const card = (
+            <span className={styles.tip} data-side={side} data-below={below}>
+              <span className={styles.tipHead}>
+                <span className={p.granted ? styles.tipGlyph : styles.tipGlyphLocked}>{p.glyph}</span>
+                <span className={styles.tipName}>{p.name}</span>
+                <span className={p.granted ? styles.tipOk : styles.tipNo}>
+                  {p.granted ? "Unlocked" : "Locked"}
+                </span>
+              </span>
+              {p.description && <span className={styles.tipDesc}>{p.description}</span>}
+              <span className={styles.tipFoot}>
+                {p.granted ? (
+                  <>
+                    {p.meta && <span className={styles.tipMeta}>{p.meta}</span>}
+                    <span className={styles.tipCta}>Open →</span>
+                  </>
+                ) : p.lockedHref ? (
+                  <span className={styles.tipCta}>{lockedCta} →</span>
+                ) : (
+                  <span className={styles.tipMeta}>{lockedHint}</span>
+                )}
+              </span>
+            </span>
+          );
+          const style = {
+            left: `${((p.x / W) * 100).toFixed(2)}%`,
+            top: `${((p.y / H) * 100).toFixed(2)}%`,
+          };
+          return href ? (
+            <a
+              key={p.key}
+              href={href}
+              data-hot={p.key}
+              className={p.granted ? styles.hot : `${styles.hot} ${styles.hotLocked}`}
+              style={style}
+              aria-label={p.granted ? `Open ${p.name}` : `${p.name} is locked — ${lockedCta}`}
+            >
+              {card}
+            </a>
+          ) : (
+            <span
+              key={p.key}
+              data-hot={p.key}
+              className={`${styles.hot} ${styles.hotLocked}`}
+              style={style}
+              tabIndex={0}
+              role="img"
+              aria-label={`${p.name} is locked. ${lockedHint}`}
+            >
+              {card}
+            </span>
+          );
+        })}
+      </div>
 
       <figcaption className={styles.legend}>
         <span>

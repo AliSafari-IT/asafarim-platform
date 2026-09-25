@@ -1,21 +1,22 @@
-/* Hub home: a split hero (copy + live launch console) that fills the first
-   viewport under the sticky header. Colours come from the hub mood in
-   @asafarim/ui tokens.css (--hub-gradient, --hub-glass, …). */
+/* Hub home: split hero — copy + compact "how access works" steps on the left,
+   the interactive access map (which doubles as the app launcher) on the
+   right. Fills the first viewport under the sticky header. Colours come from
+   the hub mood in @asafarim/ui tokens.css (--hub-gradient, --hub-glass, …). */
 
 .home {
   display: grid;
   gap: var(--space-7);
-  padding-block: clamp(1rem, 4vh, 3rem) var(--space-7);
+  padding-block: clamp(0.5rem, 3vh, 2rem) var(--space-7);
 }
 
 .hero {
   display: grid;
-  gap: clamp(2rem, 5vw, 4rem);
+  gap: clamp(2rem, 4vw, 3.5rem);
   align-items: center;
-  min-height: calc(100svh - 10rem);
+  min-height: calc(100svh - 9rem);
 }
-@media (min-width: 960px) {
-  .hero { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); }
+@media (min-width: 1000px) {
+  .hero { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
 }
 .copy { min-width: 0; }
 
@@ -45,7 +46,7 @@
 
 .title {
   margin: var(--space-5) 0 var(--space-4);
-  font-size: clamp(2.4rem, 5vw, 4.1rem);
+  font-size: clamp(2.3rem, 4.6vw, 3.9rem);
   font-weight: 800;
   line-height: 1.04;
   letter-spacing: -0.04em;
@@ -63,35 +64,92 @@
 }
 
 .lede {
-  max-width: 34rem;
-  margin: 0 0 var(--space-6);
+  max-width: 32rem;
+  margin: 0 0 var(--space-5);
   font-size: var(--text-lg);
   color: var(--muted);
 }
 
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 
-.stats {
-  display: flex;
-  gap: var(--space-6);
+/* How access works — three compact numbered steps. */
+.steps {
+  list-style: none;
+  counter-reset: step;
   margin: var(--space-6) 0 0;
-  padding-top: var(--space-5);
+  padding: var(--space-5) 0 0;
   border-top: 1px solid var(--line);
+  display: grid;
+  gap: var(--space-4);
 }
-.stats div { display: flex; flex-direction: column-reverse; }
-.stats dt {
+@media (min-width: 560px) {
+  .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.steps li {
+  counter-increment: step;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.steps li::before {
+  content: counter(step, decimal-leading-zero);
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  background: var(--hub-gradient);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.steps strong { font-size: var(--text-sm); }
+.steps span { font-size: var(--text-xs); line-height: 1.45; color: var(--muted); }
+
+/* Access map card */
+.mapCard {
+  min-width: 0;
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-radius: 24px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--hub-glass), var(--hub-glass)) padding-box,
+    linear-gradient(140deg, rgba(139, 92, 246, 0.6), var(--line) 40%, var(--line) 62%, rgba(34, 211, 238, 0.5)) border-box;
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-2), 0 0 90px -40px var(--hub-glow);
+}
+.mapHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-2);
+}
+.mapTitle { font-size: var(--text-sm); font-weight: 700; }
+.mapHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--muted);
 }
-.stats dd {
-  margin: 0;
-  font-size: var(--text-2xl);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
+.live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: live 1.8s ease-out infinite;
+}
+@keyframes live {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  100% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+@media (hover: none) {
+  .mapHint { display: none; }
 }
 
 .features {
@@ -123,66 +181,13 @@
 .feature p { margin: 0; font-size: var(--text-sm); color: var(--muted); }
 
 @media (prefers-reduced-motion: reduce) {
-  .accent { animation: none; }
+  .accent, .live { animation: none; }
 }
 
-/* ─── How access works: steps + live access map ─── */
-.access {
-  display: grid;
-  gap: var(--space-6);
-  align-items: center;
-  padding: var(--space-6);
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  background: var(--hub-glass);
-  backdrop-filter: blur(18px);
-  box-shadow: var(--shadow-1);
+/* Phones: number beside the text so the three steps stay short and the map
+   sits closer to the fold. */
+@media (max-width: 559px) {
+  .steps { gap: var(--space-3); margin-top: var(--space-5); padding-top: var(--space-4); }
+  .steps li { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; }
+  .steps li::before { grid-row: span 2; margin-bottom: 0; }
 }
-@media (min-width: 960px) {
-  .access { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); }
-}
-.accessCopy { min-width: 0; }
-.accessCopy h2 { font-size: clamp(1.6rem, 2.6vw, 2.2rem); letter-spacing: -0.03em; line-height: 1.1; }
-.sectionKicker {
-  margin: 0 0 var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-.steps {
-  list-style: none;
-  counter-reset: step;
-  margin: var(--space-5) 0 0;
-  padding: 0;
-  display: grid;
-  gap: var(--space-4);
-}
-.steps li {
-  counter-increment: step;
-  position: relative;
-  padding-left: 2.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.steps li::before {
-  content: counter(step, decimal-leading-zero);
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: grid;
-  place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: 9px;
-  background: var(--hub-gradient);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-.steps strong { font-size: var(--text-md); }
-.steps span { font-size: var(--text-sm); color: var(--muted); }
-.accessMap { min-width: 0; }

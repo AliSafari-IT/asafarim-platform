@@ -130,13 +130,14 @@ export default async function DashboardPage() {
         <section className={styles.panel} aria-labelledby="access-title">
           <div className={styles.panelHead}>
             <h2 id="access-title">Access map</h2>
-            <span className={styles.count}>live · from your roles</span>
+            <span className={styles.count}>live · hover an app to open it</span>
           </div>
           <AccessMap
             nodes={mapNodes}
             centerLabel={initialsOf(session.user.name, session.user.email ?? "ID")}
             tokenLabel={`roles: ${session.user.roles.join(", ") || "none"}`}
             compact
+            interactive
           />
         </section>
 
