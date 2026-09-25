@@ -42,15 +42,15 @@ const hubUrl = process.env.ASAFARIM_HUB_URL || process.env.NEXT_PUBLIC_ASAFARIM_
 const timelineaiUrl = process.env.ASAFARIM_TIMELINEAI_URL || process.env.NEXT_PUBLIC_ASAFARIM_TIMELINEAI_URL || 'https://tlai.asafarim.com';
 const email = process.env.ASAFARIM_ADMIN_EMAIL || '';
 const password = process.env.ASAFARIM_ADMIN_PASSWORD || '';
-await t.expect(email.length).gt(0, 'ASAFARIM_ADMIN_EMAIL must be set in F:\\\\repos\\\\e2e-testora\\\\.env file in project root directory.');
-await t.expect(password.length).gt(0, 'ASAFARIM_ADMIN_PASSWORD must be set in F:\\\\repos\\\\e2e-testora\\\\.env file in project root directory.');
+await t.expect(email.length).gt(0, 'ASAFARIM_ADMIN_EMAIL must be set in the repo-root .env.local (Testora loads it at startup).');
+await t.expect(password.length).gt(0, 'ASAFARIM_ADMIN_PASSWORD must be set in the repo-root .env.local (Testora loads it at startup).');
 
 await t.deleteCookies();
 const callback = timelineaiUrl + '/dashboard';
 await t.navigateTo(hubUrl + '/sign-in?callbackUrl=' + encodeURIComponent(callback));
 
-await t.expect(Selector('#email').with({ timeout: 30000 }).exists).ok('Hub /sign-in form should render');
-await t.typeText('#email', email, { replace: true });
+await t.expect(Selector('#identifier').with({ timeout: 30000 }).exists).ok('Hub /sign-in form should render');
+await t.typeText('#identifier', email, { replace: true });
 await t.typeText('#password', password, { replace: true });
 await t.click(Selector('button[type="submit"]').filterVisible());
 

@@ -8,14 +8,17 @@ import type {
 /**
  * ASafariM Vionto — AI photo-to-story video creator.
  *
- * Vionto lives on its own subdomain (https://vionto.asafarim.com) and uses SSO
- * from the portal app. The browser flow therefore signs in on the portal's
- * /sign-in page with a callbackUrl pointing back to Vionto, establishing the
- * shared cross-domain session cookie before any Vionto-protected pages are hit.
+ * Vionto lives on its own subdomain (https://vionto.asafarim.com) and signs in
+ * through Hub (https://hub.asafarim.com), the platform's central sign-in
+ * gateway. The browser flow signs in on Hub's /sign-in page with a callbackUrl
+ * pointing back to Vionto, establishing the shared cross-domain session cookie
+ * before any Vionto-protected pages are hit. (Until #615 it used the retired
+ * portal.asafarim.com, which no longer answers.)
  *
- * Tests use ASA_ADMIN_EMAIL / ASA_ADMIN_PASSWORD from the environment. The
- * portal URL is read from ASA_ADMIN_PORTAL_URL (or its NEXT_PUBLIC variant) and
- * the Vionto origin from ASA_ADMIN_VIONTO_URL (or its NEXT_PUBLIC variant).
+ * Tests use ASAFARIM_ADMIN_EMAIL / ASAFARIM_ADMIN_PASSWORD from the
+ * environment. The Hub URL is read from ASAFARIM_HUB_URL (or its NEXT_PUBLIC
+ * variant) and the Vionto origin from ASAFARIM_VIONTO_URL (or its NEXT_PUBLIC
+ * variant).
  */
 
 export const viontoFR: FunctionalRequirementDefinition = {
@@ -23,28 +26,28 @@ export const viontoFR: FunctionalRequirementDefinition = {
   projectId: "asafarim-vionto",
   title: "Vionto · Smoke & Auth",
   description:
-    "Vionto landing page, portal SSO sign-in, protected page smoke tests, and API health/projects endpoints.",
+    "Vionto landing page, Hub SSO sign-in, protected page smoke tests, and API health/projects endpoints.",
   baseUrl: process.env.NEXT_PUBLIC_ASAFARIM_VIONTO_URL || process.env.ASAFARIM_VIONTO_URL || "https://vionto.asafarim.com",
 };
 
 /* ------------------------------------------------------------------ */
-/* Shared SSO login — sign in on portal, return to Vionto             */
+/* Shared SSO login — sign in on Hub, return to Vionto                */
 /* ------------------------------------------------------------------ */
 
 const VIONTO_SSO_LOGIN = `
-const portalUrl = process.env.ASAFARIM_PORTAL_URL || process.env.NEXT_PUBLIC_ASAFARIM_PORTAL_URL || 'https://portal.asafarim.com';
+const hubUrl = process.env.ASAFARIM_HUB_URL || process.env.NEXT_PUBLIC_ASAFARIM_HUB_URL || 'https://hub.asafarim.com';
 const viontoUrl = process.env.ASAFARIM_VIONTO_URL || process.env.NEXT_PUBLIC_ASAFARIM_VIONTO_URL || 'https://vionto.asafarim.com';
 const email = process.env.ASAFARIM_ADMIN_EMAIL || '';
 const password = process.env.ASAFARIM_ADMIN_PASSWORD || '';
-await t.expect(email.length).gt(0, 'ASAFARIM_ADMIN_EMAIL must be set in F:\\\\repos\\\\e2e-testora\\\\.env file in project root directory.');
-await t.expect(password.length).gt(0, 'ASAFARIM_ADMIN_PASSWORD must be set in F:\\\\repos\\\\e2e-testora\\\\.env file in project root directory.');
+await t.expect(email.length).gt(0, 'ASAFARIM_ADMIN_EMAIL must be set in the repo-root .env.local (Testora loads it at startup).');
+await t.expect(password.length).gt(0, 'ASAFARIM_ADMIN_PASSWORD must be set in the repo-root .env.local (Testora loads it at startup).');
 
 await t.deleteCookies();
 const callback = viontoUrl + '/create';
-await t.navigateTo(portalUrl + '/sign-in?callbackUrl=' + encodeURIComponent(callback));
+await t.navigateTo(hubUrl + '/sign-in?callbackUrl=' + encodeURIComponent(callback));
 
-await t.expect(Selector('#email').with({ timeout: 30000 }).exists).ok('portal /sign-in form should render');
-await t.typeText('#email', email, { replace: true });
+await t.expect(Selector('#identifier').with({ timeout: 30000 }).exists).ok('Hub /sign-in form should render');
+await t.typeText('#identifier', email, { replace: true });
 await t.typeText('#password', password, { replace: true });
 await t.click(Selector('button[type="submit"]').filterVisible());
 
@@ -55,7 +58,7 @@ for (let i = 0; i < 30; i++) {
   if (host.indexOf('vionto') !== -1 && pathname.indexOf('/sign-in') === -1) { loggedIn = true; break; }
   await t.wait(1000);
 }
-await t.expect(loggedIn).ok('SSO login did not return to Vionto after portal sign-in — ended at ' + pathname);
+await t.expect(loggedIn).ok('SSO login did not return to Vionto after Hub sign-in — ended at ' + pathname);
 await t.wait(1500);
 `;
 
@@ -200,7 +203,7 @@ export const viontoAuthUiCases: TestCaseDefinition[] = [
   {
     caseId: "vionto-sso-sign-in",
     fixtureId: "vionto-auth-ui",
-    title: "Admin can sign in via portal SSO and reach Vionto",
+    title: "Admin can sign in via Hub SSO and reach Vionto",
     scriptType: "scripted",
     expected: {},
     script: VIONTO_SSO_LOGIN + "\n" +
