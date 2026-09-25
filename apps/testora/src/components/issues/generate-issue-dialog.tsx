@@ -34,7 +34,7 @@ export function GenerateIssueDialog({
   const githubConfigured = Boolean(project?.githubConfigured);
   const canManage = useCanManage();
 
-  const initial = useMemo(() => buildIssueDraft(row), [row]);
+  const initial = useMemo(() => buildIssueDraft({ ...row, projectName: project?.name }), [row, project?.name]);
   const [title, setTitle] = useState(initial.title);
   const [body, setBody] = useState(initial.body);
   const [tab, setTab] = useState<"edit" | "preview">("edit");
@@ -67,6 +67,7 @@ export function GenerateIssueDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId: row.projectId,
+          projectName: project?.name ?? null,
           caseTitle: row.caseTitle,
           fixtureTitle: row.fixtureTitle,
           suiteTitle: row.suiteTitle,
