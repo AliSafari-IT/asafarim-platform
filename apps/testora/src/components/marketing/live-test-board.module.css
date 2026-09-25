@@ -1,0 +1,154 @@
+/* One 10s loop: rows fill in (0–40%), the Vionto failure surfaces, then the
+   report flow plays: Report bug (40–58%) → checking (58–72%) → tracked. */
+
+.board {
+  position: relative;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(hsl(var(--card) / 0.82), hsl(var(--card) / 0.82)) padding-box,
+    linear-gradient(140deg, hsl(var(--primary) / 0.7), hsl(var(--border)) 45%, hsl(var(--border)) 62%, hsl(var(--ts-accent) / 0.6)) border-box;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 30px 80px -30px hsl(var(--primary) / 0.45), 0 10px 30px -12px rgb(0 0 0 / 0.4);
+  overflow: hidden;
+  font-size: 0.82rem;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+}
+.dots { display: flex; gap: 6px; }
+.dots span { width: 10px; height: 10px; border-radius: 50%; background: hsl(var(--ts-muted)); }
+.title { font-weight: 600; color: hsl(var(--foreground)); }
+.sample {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px dashed hsl(var(--border));
+  font-size: 0.68rem;
+  font-family: ui-monospace, monospace;
+}
+
+.rows { list-style: none; margin: 0; padding: 10px 12px; display: grid; gap: 4px; }
+.row, .rowFail {
+  display: grid;
+  grid-template-columns: 26px 88px 1fr 42px 20px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 10px;
+}
+.rowFail { animation: failRow 10s ease-in-out infinite; }
+@keyframes failRow {
+  0%, 36% { background: transparent; }
+  40%, 100% { background: hsl(var(--destructive) / 0.1); }
+}
+.glyph {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--ts-accent)));
+  color: #fff;
+  font-family: ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+.app { font-weight: 600; color: hsl(var(--foreground)); }
+.track { height: 6px; border-radius: 999px; background: hsl(var(--ts-muted)); overflow: hidden; }
+.fill, .fillFail {
+  display: block;
+  height: 100%;
+  width: var(--w);
+  border-radius: inherit;
+  transform-origin: left;
+  animation: fill 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: calc(var(--i, 0) * 0.25s);
+}
+.fill { background: linear-gradient(90deg, hsl(var(--success)), hsl(var(--ts-accent))); }
+.fillFail { background: linear-gradient(90deg, hsl(var(--success)), hsl(var(--destructive)) 96%); }
+@keyframes fill {
+  0% { transform: scaleX(0); }
+  30%, 100% { transform: scaleX(1); }
+}
+.count { font-family: ui-monospace, monospace; font-size: 0.72rem; color: hsl(var(--muted-foreground)); text-align: right; }
+.badgeOk, .badgeFail {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #fff;
+}
+.badgeOk { background: hsl(var(--success)); }
+.badgeFail { background: hsl(var(--destructive)); }
+.row .badgeOk, .rowFail .badgeFail { animation: pop 10s ease-out infinite; animation-delay: calc(var(--i, 0) * 0.25s); }
+@keyframes pop {
+  0%, 26% { transform: scale(0); }
+  31% { transform: scale(1.2); }
+  34%, 100% { transform: scale(1); }
+}
+
+.failure {
+  margin: 4px 12px 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--destructive) / 0.35);
+  background: hsl(var(--destructive) / 0.06);
+  animation: rise 10s ease-out infinite;
+}
+@keyframes rise {
+  0%, 36% { opacity: 0; transform: translateY(8px); }
+  42%, 100% { opacity: 1; transform: none; }
+}
+.failHead { display: flex; align-items: center; gap: 6px; }
+.failIcon { color: hsl(var(--destructive)); }
+.failPath { font-family: ui-monospace, monospace; font-size: 0.74rem; font-weight: 600; color: hsl(var(--foreground)); }
+.failMsg { margin: 4px 0 10px; font-size: 0.76rem; color: hsl(var(--muted-foreground)); }
+
+.flow { position: relative; height: 32px; }
+.state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  opacity: 0;
+  color: hsl(var(--foreground));
+}
+.s1 { animation: s1 10s infinite; }
+.s2 { animation: s2 10s infinite; color: hsl(var(--muted-foreground)); }
+.s3 { animation: s3 10s infinite; color: hsl(var(--success)); font-weight: 500; }
+.s3 strong { font-family: ui-monospace, monospace; }
+@keyframes s1 { 0%, 42% { opacity: 0; } 45%, 56% { opacity: 1; } 58%, 100% { opacity: 0; } }
+@keyframes s2 { 0%, 57% { opacity: 0; } 59%, 71% { opacity: 1; } 73%, 100% { opacity: 0; } }
+@keyframes s3 { 0%, 72% { opacity: 0; } 75%, 98% { opacity: 1; } 100% { opacity: 0; } }
+.reportBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--ts-accent)));
+  color: #fff;
+  font-weight: 600;
+  animation: press 10s infinite;
+}
+@keyframes press { 0%, 53% { transform: none; } 55% { transform: scale(0.94); } 57%, 100% { transform: none; } }
+.spin { animation: wobble 0.9s ease-in-out infinite; }
+@keyframes wobble { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+.flowNote { margin: 6px 0 0; font-size: 0.7rem; color: hsl(var(--muted-foreground)); }
+
+/* Reduced motion: show the finished board — all rows filled, the failure and
+   the "already tracked" outcome — with nothing moving. */
+@media (prefers-reduced-motion: reduce) {
+  .board *, .board *::before { animation: none !important; }
+  .rowFail { background: hsl(var(--destructive) / 0.1); }
+  .s3 { opacity: 1; }
+}
