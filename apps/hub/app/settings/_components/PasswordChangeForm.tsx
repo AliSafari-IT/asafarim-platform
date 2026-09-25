@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, Button, FormRow } from "@asafarim/ui";
+import { Alert, Button } from "@asafarim/ui";
 import { PasswordField } from "../../_components/PasswordField";
+import styles from "../settings.module.css";
 
 export function PasswordChangeForm({ hasPassword }: { hasPassword: boolean }) {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -49,27 +50,30 @@ export function PasswordChangeForm({ hasPassword }: { hasPassword: boolean }) {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      {error ? <Alert tone="error">{error}</Alert> : null}
-      {saved ? <Alert tone="info">Password updated.</Alert> : null}
+    <form onSubmit={handleSubmit} className={styles.pwForm}>
+      {error ? (
+        <div className={styles.pwFull}>
+          <Alert tone="error">{error}</Alert>
+        </div>
+      ) : null}
+      {saved ? (
+        <div className={styles.pwFull}>
+          <Alert tone="info">Password updated.</Alert>
+        </div>
+      ) : null}
 
       {hasPassword ? (
-        <PasswordField
-          id="current-password"
-          label="Current password"
-          value={currentPassword}
-          onChange={setCurrentPassword}
-          autoComplete="current-password"
-          required
-        />
-      ) : (
-        <FormRow>
-          <p className="u-muted">
-            Your account currently signs in via Google only. Set a password to also enable
-            email/password sign-in.
-          </p>
-        </FormRow>
-      )}
+        <div className={styles.pwFull}>
+          <PasswordField
+            id="current-password"
+            label="Current password"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            autoComplete="current-password"
+            required
+          />
+        </div>
+      ) : null}
 
       <PasswordField
         id="new-password"
@@ -88,9 +92,16 @@ export function PasswordChangeForm({ hasPassword }: { hasPassword: boolean }) {
         required
       />
 
-      <Button type="submit" disabled={saving}>
-        {saving ? "Saving…" : hasPassword ? "Update password" : "Set password"}
-      </Button>
+      <div className={`${styles.pwFull} ${styles.pwFooter}`}>
+        {!hasPassword ? (
+          <p className={styles.pwNote}>
+            You currently sign in with an email code or Google. A password adds email &amp; password sign-in.
+          </p>
+        ) : null}
+        <Button type="submit" disabled={saving}>
+          {saving ? "Saving…" : hasPassword ? "Update password" : "Set password"}
+        </Button>
+      </div>
     </form>
   );
 }

@@ -1,13 +1,14 @@
-import { auth, getAccessibleApps } from "@asafarim/auth";
+import { auth } from "@asafarim/auth";
 import { ButtonLink, getPlatformLinks } from "@asafarim/ui";
-import { LaunchConsole, type LaunchConsoleApp } from "./_components/LaunchConsole";
+import { AccessMap } from "./_components/AccessMap";
+import { getAccessMapNodes, initialsOf } from "./_lib/access-map-data";
 import styles from "./home.module.css";
 
 const FEATURES = [
   {
     glyph: "01",
     title: "Launchpad",
-    body: "Every platform app — website, showcase, AI tools, admin — one console, one click.",
+    body: "Every platform app — website, showcase, AI tools, admin — one map, one click.",
   },
   {
     glyph: "02",
@@ -26,23 +27,28 @@ export default async function HubHomePage() {
   const user = session?.user;
   const links = getPlatformLinks();
 
-  // Same registry + access rule as /apps: only apps this visitor can open,
-  // minus the Hub itself (you are already standing in it).
-  const apps: LaunchConsoleApp[] = getAccessibleApps({
-    roles: user?.roles ?? [],
-    authenticated: Boolean(user),
-  })
-    .filter((app) => app.key !== "hub" && app.key in links)
-    .map((app) => ({
-      key: app.key,
-      name: app.name,
-      glyph: app.glyph,
-      description: app.description,
-      meta: app.meta,
-      href: links[app.key as keyof typeof links],
-    }));
-
   const firstName = user?.name?.split(" ")[0] ?? user?.email ?? "";
+  const roles = user?.roles ?? [];
+  // The same canAccessApp rule the apps enforce decides which nodes unlock.
+  const mapNodes = getAccessMapNodes({ roles, authenticated: Boolean(user) }, links);
+  const unlocked = mapNodes.filter((node) => node.granted && !node.preview).length;
+  const previews = mapNodes.filter((node) => node.preview).length;
+  const total = mapNodes.length;
+
+  const steps = [
+    { title: "Sign in once", body: "Password, email code or Google." },
+    { title: "Carry a signed token", body: "Your roles travel with you to every app." },
+    {
+      title: "Each app decides",
+      body: !user
+        ? previews
+          ? `As a guest, ${unlocked} apps are open and ${previews} in preview.`
+          : `As a guest, ${unlocked} of ${total} apps are open.`
+        : unlocked === total
+          ? `Your roles unlock all ${total} apps.`
+          : `Your roles unlock ${unlocked} of ${total} apps.`,
+    },
+  ];
 
   return (
     <div className={styles.home}>
@@ -65,8 +71,8 @@ export default async function HubHomePage() {
 
           <p className={styles.lede}>
             {user
-              ? "Your workspace for AI apps, showcases and experiments — everything in the ASafarIM ecosystem launches from here."
-              : "The Hub is the logged-in heart of the platform: launch AI apps, manage your identity and keep your settings in one place."}
+              ? "One identity, checked at every door. Pick an app on the map to jump straight in."
+              : "The Hub is the heart of the platform: one identity that every ASafarIM app checks before it opens."}
           </p>
 
           <div className={styles.actions}>
@@ -82,23 +88,32 @@ export default async function HubHomePage() {
             )}
           </div>
 
-          <dl className={styles.stats}>
-            <div>
-              <dt>Apps</dt>
-              <dd>{apps.length}</dd>
-            </div>
-            <div>
-              <dt>Sign-in</dt>
-              <dd>1</dd>
-            </div>
-            <div>
-              <dt>{user ? "Roles" : "Languages"}</dt>
-              <dd>{user ? user.roles.length : 5}</dd>
-            </div>
-          </dl>
+          <ol className={styles.steps} aria-label="How access works">
+            {steps.map((step) => (
+              <li key={step.title}>
+                <strong>{step.title}</strong>
+                <span>{step.body}</span>
+              </li>
+            ))}
+          </ol>
         </div>
 
-        <LaunchConsole apps={apps} allAppsHref={user ? "/apps" : undefined} />
+        <div className={styles.mapCard}>
+          <div className={styles.mapHead}>
+            <span className={styles.mapTitle}>Access map</span>
+            <span className={styles.mapHint}>
+              <span className={styles.live} aria-hidden="true" />
+              Hover an app to open it
+            </span>
+          </div>
+          <AccessMap
+            nodes={mapNodes}
+            centerLabel={user ? initialsOf(user.name, user.email ?? "ID") : "ID"}
+            tokenLabel={user ? `roles: ${roles.join(", ") || "none"}` : "guest · public access"}
+            compact
+            interactive
+          />
+        </div>
       </section>
 
       {!user && (

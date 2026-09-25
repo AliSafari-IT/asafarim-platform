@@ -2,6 +2,12 @@
 @config "../../tailwind.config.ts";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
+/* --ts-muted / --ts-accent are prefixed on purpose: the shared platform mood
+   in @asafarim/ui tokens.css sets --muted and --accent as hex colours on
+   <body data-app="testora">, which shadowed these bare-HSL values inside the
+   body and made every hsl(var(--accent|--muted)) — i.e. Tailwind's accent/
+   muted colours — an invalid declaration. The platform header keeps using
+   the hex --accent/--muted; testora's own utilities use the ts- pair. */
 :root {
   --background: 222 28% 7%;
   --foreground: 210 20% 92%;
@@ -9,9 +15,9 @@
   --card-foreground: 210 20% 92%;
   --primary: 258 90% 66%;
   --primary-foreground: 210 20% 98%;
-  --muted: 222 18% 16%;
+  --ts-muted: 222 18% 16%;
   --muted-foreground: 215 15% 65%;
-  --accent: 199 89% 58%;
+  --ts-accent: 199 89% 58%;
   --accent-foreground: 210 20% 98%;
   --destructive: 0 72% 60%;
   --destructive-foreground: 210 20% 98%;
@@ -38,9 +44,9 @@
   --card-foreground: 222 26% 10%;
   --primary: 263 70% 50%;
   --primary-foreground: 0 0% 100%;
-  --muted: 220 20% 94%;
+  --ts-muted: 220 20% 94%;
   --muted-foreground: 215 16% 40%;
-  --accent: 201 96% 32%;
+  --ts-accent: 201 96% 32%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 72% 45%;
   --destructive-foreground: 0 0% 100%;
@@ -72,4 +78,11 @@ body {
 }
 .tour-spotlight {
   animation: tourPulse 2s ease-in-out infinite;
+}
+
+/* Marketing hero: slow gradient sweep across the headline accent. */
+@keyframes sheen {
+  to {
+    background-position: 200% center;
+  }
 }

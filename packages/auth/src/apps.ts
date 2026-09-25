@@ -84,6 +84,13 @@ export interface PlatformApp {
   status: PlatformAppStatus;
   access: PlatformAppAccess;
   /**
+   * The app's public pages (landing, info, browsing) are open to everyone,
+   * but actually working in it needs an account. `access` stays "public" —
+   * guests may enter — this only says a guest gets a preview, so launchers
+   * can present it honestly instead of as fully unlocked.
+   */
+  requiresAccountToUse?: boolean;
+  /**
    * Present only on public product apps presented as working showcases.
    * Always the English copy — the guaranteed fallback `getShowcaseProject`
    * returns when no translation exists for the requested locale.
@@ -151,6 +158,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     meta: "vionto.asafarim.com · beta",
     status: "active",
     access: "public",
+    requiresAccountToUse: true,
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
@@ -201,11 +209,15 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     // session inside the tool (see apps/testora app-access).
     key: "testora",
     name: "Testora",
-    description: "E2E test automation: requirements, suites, fixtures, and TestCafe runs.",
+    description:
+      "Live end-to-end results for every ASafarIM app — spot a failure, file it to our repo in one click.",
     glyph: "TS",
-    meta: "testora.asafarim.com",
+    meta: "testora.asafarim.com · coming soon",
     status: "active",
     access: "public",
+    // Seeing per-app E2E results and filing bugs to the platform repo
+    // needs an account; guests only get the public pages.
+    requiresAccountToUse: true,
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
@@ -287,6 +299,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     meta: "edumatch.asafarim.com",
     status: "active",
     access: "public",
+    requiresAccountToUse: true,
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
