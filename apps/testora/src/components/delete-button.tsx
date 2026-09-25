@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import { useCanManage } from "@/components/viewer-role";
 
 interface DeleteButtonProps {
   url: string;
@@ -25,6 +26,8 @@ export function DeleteButton({ url, label = "Delete", confirmText, redirectTo, o
   const [deleting, setDeleting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Deleting is admin-only (src/lib/access-policy.ts); members never see it.
+  const canManage = useCanManage();
 
   async function performDelete() {
     setDeleting(true);
@@ -47,6 +50,8 @@ export function DeleteButton({ url, label = "Delete", confirmText, redirectTo, o
       setDeleting(false);
     }
   }
+
+  if (!canManage) return null;
 
   return (
     <>

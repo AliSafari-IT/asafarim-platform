@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { issues, projects } from "@/db/schema";
 import { isProjectViewable } from "@/lib/app-access";
-import { decryptToken, getGithubIssueState, parseRepo } from "@/lib/github";
+import { getGithubIssueState, resolveGithubTarget } from "@/lib/github";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ issueId: string }> }) {
   const { issueId } = await params;
@@ -19,11 +19,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ iss
   }
 
   const project = await db.query.projects.findFirst({ where: eq(projects.id, issue.projectId) });
-  const repo = parseRepo(project?.githubRepo);
-  const token = decryptToken(project?.githubTokenEnc);
-  if (!repo || !token) {
+  const target = resolveGithubTarget(project);
+  if (!target) {
     return NextResponse.json({ state: issue.githubState ?? null });
   }
+  const { repo, token } = target;
 
   const state = await getGithubIssueState({
     owner: repo.owner,

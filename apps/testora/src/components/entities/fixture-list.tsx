@@ -9,6 +9,7 @@ import { DeleteButton } from "@/components/delete-button";
 import { Pencil, PlayCircle, X } from "lucide-react";
 import { EntityRow, ListToolbar, matchesStatus, type StatusFilter } from "./list-ui";
 import type { AggregateResult } from "@/lib/run-status";
+import { useCanManage } from "@/components/viewer-role";
 
 export interface FixtureItem {
   fixtureId: string;
@@ -75,6 +76,7 @@ function FixtureRow({
   suiteOptions: SuiteOption[];
 }) {
   const [editing, setEditing] = useState(false);
+  const canManage = useCanManage();
 
   if (editing) {
     return (
@@ -112,7 +114,7 @@ function FixtureRow({
               <PlayCircle className="h-4 w-4" />
             </Link>
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)} title="Edit">
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)} hidden={!canManage} title="Edit">
             <Pencil className="h-4 w-4" />
           </Button>
           <DeleteButton

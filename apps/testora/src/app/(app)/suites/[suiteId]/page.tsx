@@ -9,6 +9,7 @@ import { SuiteCard } from "@/components/entities/suite-card";
 import { getTestSuiteById, getFunctionalRequirements, getTestSuites } from "@/lib/queries";
 import { getProjectAccess } from "@/lib/app-access";
 import { LockedApp } from "@/components/locked-app";
+import { AdminOnly } from "@/components/viewer-role";
 
 export default async function SuiteDetailPage({ params }: { params: Promise<{ suiteId: string }> }) {
   const { suiteId } = await params;
@@ -48,15 +49,17 @@ export default async function SuiteDetailPage({ params }: { params: Promise<{ su
         frOptions={frOptions}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Add a test fixture</CardTitle>
-          <CardDescription>Define a reusable environment setup for this suite.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FixtureForm defaultSuiteId={suite.suiteId} suiteOptions={suiteOptions} />
-        </CardContent>
-      </Card>
+      <AdminOnly>
+        <Card>
+          <CardHeader>
+            <CardTitle>Add a test fixture</CardTitle>
+            <CardDescription>Define a reusable environment setup for this suite.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FixtureForm defaultSuiteId={suite.suiteId} suiteOptions={suiteOptions} />
+          </CardContent>
+        </Card>
+      </AdminOnly>
 
       <div>
         <h2 className="mb-3 text-lg font-semibold">Test fixtures</h2>

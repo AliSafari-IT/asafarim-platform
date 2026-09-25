@@ -9,6 +9,7 @@ import { RequirementCard } from "@/components/entities/requirement-card";
 import { getFunctionalRequirementById, getFunctionalRequirements } from "@/lib/queries";
 import { getProjectAccess } from "@/lib/app-access";
 import { LockedApp } from "@/components/locked-app";
+import { AdminOnly } from "@/components/viewer-role";
 
 export default async function RequirementDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -35,15 +36,17 @@ export default async function RequirementDetailPage({ params }: { params: Promis
         fr={{ id: fr.id, title: fr.title, description: fr.description, suiteCount: fr.suites.length, baseUrl: fr.baseUrl }}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Add a test suite</CardTitle>
-          <CardDescription>Group related flows under this requirement.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SuiteForm defaultFrId={fr.id} frOptions={frOptions} />
-        </CardContent>
-      </Card>
+      <AdminOnly>
+        <Card>
+          <CardHeader>
+            <CardTitle>Add a test suite</CardTitle>
+            <CardDescription>Group related flows under this requirement.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SuiteForm defaultFrId={fr.id} frOptions={frOptions} />
+          </CardContent>
+        </Card>
+      </AdminOnly>
 
       <div>
         <h2 className="mb-3 text-lg font-semibold">Test suites</h2>

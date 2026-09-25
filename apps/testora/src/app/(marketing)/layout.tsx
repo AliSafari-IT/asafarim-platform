@@ -24,7 +24,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <span>Testora — E2E test automation</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/about" className="transition-colors hover:text-foreground">
+            <Link href="/about-this-project" className="transition-colors hover:text-foreground">
               About &amp; Guide
             </Link>
             <Link href="/roadmap" className="transition-colors hover:text-foreground">

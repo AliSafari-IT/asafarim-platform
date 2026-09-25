@@ -31,13 +31,27 @@ interface AuthProxyOptions {
   signInUrl?: string;
   /** Routes that require specific roles (user must have at least one) */
   roleRoutes?: Record<string, string[]>;
+  /**
+   * Optional final check for rules `roleRoutes` can't express — e.g. "any
+   * signed-in user may GET this API, but only admins may POST to it". Runs
+   * only after a valid, active session is confirmed; return false to answer
+   * 403. Apps that don't pass it behave exactly as before.
+   */
+  authorize?: (request: {
+    pathname: string;
+    method: string;
+    roles: string[];
+  }) => boolean;
 }
+
+export type AuthProxyAuthorize = NonNullable<AuthProxyOptions["authorize"]>;
 
 export function createAuthProxy(options: AuthProxyOptions = {}) {
   const {
     publicRoutes = ["/", "/api/health"],
     signInUrl,
     roleRoutes = {},
+    authorize,
   } = options;
 
   return async (req: NextRequest) => {
@@ -134,6 +148,10 @@ export function createAuthProxy(options: AuthProxyOptions = {}) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
       }
+    }
+
+    if (authorize && !authorize({ pathname, method: req.method, roles: userRoles })) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.next();

@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
+import { useCanManage } from "@/components/viewer-role";
 
 interface CollapsibleFormProps {
   buttonLabel: string;
@@ -16,6 +17,9 @@ export function CollapsibleForm({ buttonLabel, title, description, children }: C
   const [open, setOpen] = useState(false);
 
   const handleSuccess = () => setOpen(false);
+  // Creating catalog entries is admin-only (src/lib/access-policy.ts).
+  const canManage = useCanManage();
+  if (!canManage) return null;
 
   return (
     <div className="flex flex-col gap-4">

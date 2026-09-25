@@ -16,6 +16,7 @@ import { DeleteButton } from "@/components/delete-button";
 import { Code2, Pencil, X } from "lucide-react";
 import { EntityRow, ListToolbar, matchesStatus, type StatusFilter } from "./list-ui";
 import type { AggregateResult } from "@/lib/run-status";
+import { useCanManage } from "@/components/viewer-role";
 
 type ScriptType = "single" | "multi" | "scripted";
 
@@ -86,6 +87,7 @@ function CaseRow({
   fixtureOptions: FixtureOption[];
 }) {
   const [editing, setEditing] = useState(false);
+  const canManage = useCanManage();
 
   if (editing) {
     return (
@@ -144,7 +146,7 @@ function CaseRow({
               </pre>
             </DialogContent>
           </Dialog>
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)} title="Edit">
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)} hidden={!canManage} title="Edit">
             <Pencil className="h-4 w-4" />
           </Button>
           <DeleteButton

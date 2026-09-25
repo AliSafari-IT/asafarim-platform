@@ -10,6 +10,7 @@ import { CaseCard } from "@/components/entities/case-card";
 import { getTestFixtureById, getTestSuites, getTestFixtures } from "@/lib/queries";
 import { getProjectAccess } from "@/lib/app-access";
 import { LockedApp } from "@/components/locked-app";
+import { AdminOnly } from "@/components/viewer-role";
 
 export default async function FixtureDetailPage({ params }: { params: Promise<{ fixtureId: string }> }) {
   const { fixtureId } = await params;
@@ -50,18 +51,20 @@ export default async function FixtureDetailPage({ params }: { params: Promise<{ 
         suiteOptions={suiteOptions}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Add a test case</CardTitle>
-          <CardDescription>
-            Single-run or multi-run JSON test data, or a scripted case carrying raw TestCafe code
-            for multi-step flows.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <CaseForm defaultFixtureId={fixture.fixtureId} fixtureOptions={fixtureOptions} />
-        </CardContent>
-      </Card>
+      <AdminOnly>
+        <Card>
+          <CardHeader>
+            <CardTitle>Add a test case</CardTitle>
+            <CardDescription>
+              Single-run or multi-run JSON test data, or a scripted case carrying raw TestCafe code
+              for multi-step flows.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CaseForm defaultFixtureId={fixture.fixtureId} fixtureOptions={fixtureOptions} />
+          </CardContent>
+        </Card>
+      </AdminOnly>
 
       <div>
         <div className="mb-3 flex items-center justify-between">

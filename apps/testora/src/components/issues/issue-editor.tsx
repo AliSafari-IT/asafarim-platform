@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { markdownToHtml } from "@/lib/markdown";
 import { saveTextFile } from "@/lib/save-file";
 import { GithubStateBadge } from "@/components/issues/github-state-badge";
+import { useCanManage } from "@/components/viewer-role";
+import { LocalDateTime } from "@/components/local-date-time";
 
 export interface IssueData {
   id: string;
@@ -49,7 +51,10 @@ export function IssueEditor({
   const [status, setStatus] = useState(issue.status);
   const [githubUrl, setGithubUrl] = useState(issue.githubUrl);
   const [githubState, setGithubState] = useState(issue.githubState);
-  const [tab, setTab] = useState<"edit" | "preview">("edit");
+  // Editing and deleting issues is admin-only (src/lib/access-policy.ts);
+  // members get a read-only view but may still file it on GitHub.
+  const canManage = useCanManage();
+  const [tab, setTab] = useState<"edit" | "preview">(canManage ? "edit" : "preview");
   const [busy, setBusy] = useState<null | "save" | "publish" | "delete" | "refresh">(null);
   const [error, setError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
@@ -100,6 +105,11 @@ export function IssueEditor({
       setStatus("published");
       setGithubUrl(data.issue.githubUrl ?? null);
       setGithubState(data.issue.githubState ?? null);
+      setSavedNote(
+        data.duplicateOf
+          ? `Already tracked as #${data.duplicateOf.number} — linked to the open issue instead of filing a duplicate.`
+          : `Filed on GitHub${data.issue.githubNumber ? ` as #${data.issue.githubNumber}` : ""}.`,
+      );
       router.refresh();
     } finally {
       setBusy(null);
@@ -183,7 +193,7 @@ export function IssueEditor({
           </>
         )}
         <span className="ml-auto text-xs text-muted-foreground">
-          Updated {new Date(issue.updatedAt).toLocaleString()}
+          Updated <LocalDateTime value={issue.updatedAt} />
         </span>
       </div>
 
@@ -192,11 +202,13 @@ export function IssueEditor({
         onChange={(e) => setTitle(e.target.value)}
         className="h-11 rounded-md border border-border bg-muted px-3 text-base font-medium text-foreground"
         disabled={busy !== null}
+        readOnly={!canManage}
       />
 
       <div className="flex gap-1 rounded-md border border-border bg-muted/40 p-1 text-sm">
         <button
           type="button"
+          hidden={!canManage}
           onClick={() => setTab("edit")}
           className={`flex items-center gap-1 rounded px-3 py-1 ${tab === "edit" ? "bg-background font-medium" : "text-muted-foreground"}`}
         >
@@ -230,7 +242,7 @@ export function IssueEditor({
       {savedNote && <p className="text-sm text-emerald-400">{savedNote}</p>}
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <Button onClick={() => void save()} disabled={busy !== null || !dirty || !title.trim()}>
+        <Button hidden={!canManage} onClick={() => void save()} disabled={busy !== null || !dirty || !title.trim()}>
           {busy === "save" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save
         </Button>
@@ -248,6 +260,7 @@ export function IssueEditor({
         </Button>
         <button
           type="button"
+          hidden={!canManage}
           onClick={() => void remove()}
           disabled={busy !== null}
           className="ml-auto inline-flex items-center gap-1 rounded p-2 text-sm text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive disabled:opacity-50"

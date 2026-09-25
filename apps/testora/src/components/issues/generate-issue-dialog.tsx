@@ -16,6 +16,7 @@ import { useRun } from "@/components/run-provider";
 import type { ReportResultRow } from "@/lib/queries";
 import { buildIssueDraft } from "@/lib/issue-template";
 import { markdownToHtml } from "@/lib/markdown";
+import { useCanManage } from "@/components/viewer-role";
 
 /**
  * Preview + edit a GitHub-style issue generated from a failed result, then either
@@ -31,6 +32,7 @@ export function GenerateIssueDialog({
   const { projects } = useRun();
   const project = projects.find((p) => p.id === row.projectId);
   const githubConfigured = Boolean(project?.githubConfigured);
+  const canManage = useCanManage();
 
   const initial = useMemo(() => buildIssueDraft(row), [row]);
   const [title, setTitle] = useState(initial.title);
@@ -40,7 +42,14 @@ export function GenerateIssueDialog({
   const [aiBusy, setAiBusy] = useState(false);
   const [aiUsed, setAiUsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<{ id: string; githubUrl: string | null; githubState: "open" | "closed" | null } | null>(null);
+  const [saved, setSaved] = useState<{
+    id: string;
+    githubUrl: string | null;
+    githubNumber?: number | null;
+    githubState: "open" | "closed" | null;
+    /** Set when publishing found this bug already open on GitHub. */
+    duplicateOf?: { url: string; number: number } | null;
+  } | null>(null);
 
   const previewHtml = useMemo(() => markdownToHtml(body), [body]);
   const issuesHref = `/apps/${row.projectId}/issues`;
@@ -139,7 +148,13 @@ export function GenerateIssueDialog({
         setSaved({ id, githubUrl: null, githubState: null });
         return;
       }
-      setSaved({ id, githubUrl: data.issue.githubUrl ?? null, githubState: data.issue.githubState ?? null });
+      setSaved({
+        id,
+        githubUrl: data.issue.githubUrl ?? null,
+        githubNumber: data.issue.githubNumber ?? null,
+        githubState: data.issue.githubState ?? null,
+        duplicateOf: data.duplicateOf ?? null,
+      });
     } finally {
       setBusy(null);
     }
@@ -151,18 +166,35 @@ export function GenerateIssueDialog({
         <DialogHeader>
           <DialogTitle>Generate issue</DialogTitle>
           <DialogDescription>
-            Review and edit before saving. {githubConfigured
-              ? `This app is connected to ${project?.githubRepo}.`
-              : "This app has no GitHub repo connected — it will be saved as a local markdown issue."}
+            Review and edit before sending.{" "}
+            {githubConfigured
+              ? project?.githubRepo
+                ? `Reports go to ${project.githubRepo}; if this bug is already open there, you’ll be linked to it instead.`
+                : "Reports go to the ASafarIM platform repo; if this bug is already open there, you’ll be linked to it instead."
+              : "GitHub reporting isn’t set up for this app yet, so it can only be saved as a draft."}
           </DialogDescription>
         </DialogHeader>
 
         {saved ? (
           <div className="flex flex-col gap-4 py-4">
-            <p className="flex flex-wrap items-center gap-2 text-sm text-emerald-400">
-              Issue saved{saved.githubUrl ? " and published to GitHub." : " as a draft."}
-              {saved.githubUrl && <GithubStateBadge state={saved.githubState} />}
-            </p>
+            {saved.duplicateOf ? (
+              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm">
+                <p className="font-medium text-amber-300">
+                  We already know about this bug — it’s tracked as #{saved.duplicateOf.number}.
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Thanks for reporting it. Your report was linked to the open issue instead of filing a
+                  duplicate, and we’re working on a fix.
+                </p>
+              </div>
+            ) : (
+              <p className="flex flex-wrap items-center gap-2 text-sm text-emerald-400">
+                {saved.githubUrl
+                  ? `Thanks — filed on GitHub${saved.githubNumber ? ` as #${saved.githubNumber}` : ""}.`
+                  : "Issue saved as a draft."}
+                {saved.githubUrl && <GithubStateBadge state={saved.githubState} />}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button asChild>
                 <Link href={`${issuesHref}/${saved.id}`}>
@@ -263,6 +295,21 @@ export function GenerateIssueDialog({
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
+              {!githubConfigured && (
+                <p className="mr-auto text-xs text-muted-foreground">
+                  {canManage ? (
+                    <>
+                      Connect a repo in{" "}
+                      <Link href="/apps" className="text-primary underline-offset-2 hover:underline">
+                        Apps
+                      </Link>{" "}
+                      or set the platform default to enable sending.
+                    </>
+                  ) : (
+                    "Sending to GitHub isn’t available for this app yet — an admin needs to connect it."
+                  )}
+                </p>
+              )}
               <Button variant="outline" onClick={onClose} disabled={busy !== null}>
                 Cancel
               </Button>
@@ -273,7 +320,6 @@ export function GenerateIssueDialog({
               <Button
                 onClick={() => void saveAndPublish()}
                 disabled={busy !== null || !title.trim() || !githubConfigured}
-                title={githubConfigured ? undefined : "Connect a GitHub repo for this app in Apps"}
               >
                 {busy === "github" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Github className="h-4 w-4" />}
                 Save &amp; send to GitHub

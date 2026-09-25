@@ -45,6 +45,8 @@ import {
 import { saveTextFile } from "@/lib/save-file";
 import { getDomainBrands, hostFromUrl } from "@/lib/domain-logos";
 import { useRun } from "@/components/run-provider";
+import { useCanManage } from "@/components/viewer-role";
+import { LocalDateTime } from "@/components/local-date-time";
 
 /** A result counts as re-runnable when it didn't pass and carries the ids a run needs. */
 function isRerunnable(row: ReportResultRow): boolean {
@@ -141,6 +143,9 @@ export function ResultsExplorer({
 }: {
   rows: ReportResultRow[];
 }) {
+  // Deleting results is admin-only (src/lib/access-policy.ts); members can
+  // view, export, re-run and report a failure as a GitHub issue.
+  const canManage = useCanManage();
   const [rows, setRows] = useState(initialRows);
   const [search, setSearch] = useState("");
   const [frId, setFrId] = useState("");
@@ -739,6 +744,7 @@ export function ResultsExplorer({
               <Button
                 variant="destructive"
                 size="sm"
+                hidden={!canManage}
                 onClick={() => deleteIds([...selected], "selected result(s)")}
               >
                 <Trash2 className="h-4 w-4" />
@@ -839,7 +845,7 @@ export function ResultsExplorer({
                           {r.durationMs != null ? `${r.durationMs} ms` : "—"}
                         </td>
                         <td className="whitespace-nowrap py-2 pr-3 text-muted-foreground">
-                          {new Date(r.createdAt).toLocaleString()}
+                          <LocalDateTime value={r.createdAt} />
                         </td>
                         <td className="py-2">
                           {r.errorMessage ? (
@@ -961,9 +967,10 @@ export function ResultsExplorer({
               </button>
             </>
           )}
-          <div className="my-1 border-t border-border" />
+          <div className="my-1 border-t border-border" hidden={!canManage} />
           <button
             type="button"
+            hidden={!canManage}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-500 hover:bg-muted"
             onClick={() => {
               deleteIds(

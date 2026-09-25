@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { RequirementForm } from "@/components/forms/requirement-form";
 import { DeleteButton } from "@/components/delete-button";
 import { Pencil, X } from "lucide-react";
+import { useCanManage } from "@/components/viewer-role";
 
 interface RequirementCardProps {
   fr: { id: string; title: string; description: string; suiteCount: number; baseUrl?: string | null };
@@ -15,6 +16,7 @@ interface RequirementCardProps {
 
 export function RequirementCard({ fr }: RequirementCardProps) {
   const [editing, setEditing] = useState(false);
+  const canManage = useCanManage();
 
   if (editing) {
     return (
@@ -47,7 +49,7 @@ export function RequirementCard({ fr }: RequirementCardProps) {
         <div className="flex items-center justify-between">
           <code className="text-xs text-muted-foreground">{fr.id}</code>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)} hidden={!canManage}>
               <Pencil className="h-4 w-4" />
               Edit
             </Button>

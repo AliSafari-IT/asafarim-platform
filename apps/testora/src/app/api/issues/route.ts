@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { issues } from "@/db/schema";
+import { issues, testResults } from "@/db/schema";
 import { isProjectViewable } from "@/lib/app-access";
+import { issueFingerprint } from "@/lib/issue-fingerprint";
 
 // List an app's issues. Withheld for a private app the viewer hasn't unlocked.
 export async function GET(request: Request) {
@@ -49,6 +50,17 @@ export async function POST(request: Request) {
   if (!(await isProjectViewable(data.projectId))) {
     return NextResponse.json({ error: "App is locked" }, { status: 403 });
   }
+  // Fingerprint now, while the failing result is guaranteed to exist — the
+  // publish step uses it to spot an already-open report of the same bug.
+  const result =
+    data.resultId && data.caseId
+      ? await db.query.testResults.findFirst({ where: eq(testResults.id, data.resultId) })
+      : null;
+  const fingerprint =
+    result?.errorMessage && data.caseId
+      ? issueFingerprint({ projectId: data.projectId, caseId: data.caseId, errorMessage: result.errorMessage })
+      : null;
+
   const [created] = await db
     .insert(issues)
     .values({
@@ -59,6 +71,7 @@ export async function POST(request: Request) {
       status: "draft",
       resultId: data.resultId ?? null,
       caseId: data.caseId ?? null,
+      fingerprint,
     })
     .returning();
   return NextResponse.json({ issue: created }, { status: 201 });

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { FixtureForm } from "@/components/forms/fixture-form";
 import { DeleteButton } from "@/components/delete-button";
 import { Pencil, X } from "lucide-react";
+import { useCanManage } from "@/components/viewer-role";
 
 interface FixtureCardProps {
   fixture: {
@@ -24,6 +25,7 @@ interface FixtureCardProps {
 
 export function FixtureCard({ fixture, suiteTitle, suiteOptions }: FixtureCardProps) {
   const [editing, setEditing] = useState(false);
+  const canManage = useCanManage();
 
   if (editing) {
     return (
@@ -61,7 +63,7 @@ export function FixtureCard({ fixture, suiteTitle, suiteOptions }: FixtureCardPr
           <Button asChild size="sm" variant="outline">
             <Link href={`/run?fixtureId=${fixture.fixtureId}`}>Run this fixture</Link>
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)} hidden={!canManage}>
             <Pencil className="h-4 w-4" />
             Edit
           </Button>
