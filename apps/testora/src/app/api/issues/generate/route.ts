@@ -8,6 +8,7 @@ import type { IssueFacts } from "@/lib/issue-template";
 // otherwise the deterministic template. Server-side so the key stays private.
 const schema = z.object({
   projectId: z.string().min(1),
+  projectName: z.string().nullable().default(null),
   caseTitle: z.string().default(""),
   fixtureTitle: z.string().default(""),
   suiteTitle: z.string().default(""),
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
   }
 
   const facts: IssueFacts = {
+    projectName: data.projectName,
     caseTitle: data.caseTitle,
     fixtureTitle: data.fixtureTitle,
     suiteTitle: data.suiteTitle,

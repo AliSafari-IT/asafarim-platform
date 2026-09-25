@@ -15,13 +15,23 @@ export function aiConfigured(): boolean {
 }
 
 const SYSTEM_PROMPT = [
-  "You are a senior QA engineer triaging a failed automated end-to-end test.",
-  "Write a clear, actionable GitHub issue an engineer can act on.",
-  "Infer the most likely cause from the error and name concrete next steps.",
-  "Keep it concise — no padding, no invented details beyond the data given.",
+  "You are a senior QA engineer writing up a failed automated end-to-end test as a GitHub",
+  "issue for a JUNIOR developer who is new to this codebase to pick up and fix.",
+  "Write in plain language: don't assume familiarity with the app, spell out acronyms/jargon",
+  "the first time you use them, and explain WHY the test matters, not just what broke.",
+  "Infer the most likely cause from the error when you reasonably can, and say what to check",
+  "first — but never invent file names, function names or a root cause you can't support from",
+  "the data given; if you're not sure, say so and suggest where to start looking instead.",
+  "Keep it tight and scannable — short paragraphs and bullet points, no filler.",
   'Respond ONLY as JSON: {"title": string, "body": string}.',
-  "The title is one line, prefixed with [e2e]. The body is GitHub-flavoured markdown",
-  "with short sections: Summary, Likely cause, Steps to reproduce, Suggested fix.",
+  "The title is one line, prefixed with [e2e]. The body is GitHub-flavoured markdown, and MUST",
+  "use exactly these section headings, in this order, matching the project's own bug-report",
+  "template: '## Bug description', '## App/Package affected', '## Steps to reproduce',",
+  "'## Expected behavior', '## Actual behavior', '## Environment', '## Logs/Error messages',",
+  "'## Additional context'. Steps to reproduce should explain how to re-run this exact test in",
+  "Testora (Run Tests page), not manual browser steps, since this failure came from an",
+  "automated run. Logs/Error messages must include the raw error in a fenced code block,",
+  "verbatim, not summarized.",
 ].join(" ");
 
 /** A markdown footer appended to AI output so provenance/screenshot info isn't lost. */
@@ -51,6 +61,7 @@ export async function generateIssueDraft(facts: IssueFacts): Promise<GeneratedIs
 
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const userPayload = {
+    app: facts.projectName ?? null,
     testCase: facts.caseTitle,
     fixture: facts.fixtureTitle,
     suite: facts.suiteTitle,
