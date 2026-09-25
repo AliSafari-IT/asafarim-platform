@@ -1,7 +1,8 @@
 /* ─── Landing: AI studio hero ─────────────────────────────────────────────
    Scoped to .vi-landing so the create workbench skin in globals.css is
    untouched. Light is the base; html[data-theme="dark"] swaps the tokens. */
-.vi-landing {
+.vi-landing,
+.vc-flow {
   --vl-bg: #f7f6fb;
   --vl-ink: #14121c;
   --vl-muted: #5d5a6b;
@@ -25,7 +26,8 @@
   color: var(--vl-ink);
 }
 
-html[data-theme="dark"] .vi-landing {
+html[data-theme="dark"] .vi-landing,
+html[data-theme="dark"] .vc-flow {
   --vl-bg: #08080d;
   --vl-ink: #f4f2fb;
   --vl-muted: #a9a6b8;

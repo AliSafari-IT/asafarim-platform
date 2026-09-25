@@ -40,7 +40,6 @@ import {
   Search,
   Sparkles,
   Trash2,
-  Wand2,
   X,
 } from "lucide-react";
 import { ScriptEditor, type ScriptVersion } from "./ScriptEditor";
@@ -49,8 +48,9 @@ import { GooglePhotosImportPanel } from "./GooglePhotosImportPanel";
 import { AiMotionPanel } from "./AiMotionPanel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { AlertDialog } from "./AlertDialog";
-import { ViontoTopbarControls } from "./ViontoNav";
-import { CountryLanguageSelector } from "@asafarim/country-language-selector";
+import { ViontoNav } from "./ViontoNav";
+import "./landing.css";
+import "./create-flow.css";
 import {
   DEFAULT_VISUAL_STYLE,
   VISUAL_STYLE_OPTIONS,
@@ -67,86 +67,6 @@ import {
   getVideoTemplate,
   type VideoTemplateId,
 } from "@/lib/video-templates";
-
-function ViontoMark({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 36 36"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="vm-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#f36f56" />
-          <stop offset="100%" stopColor="#e8b45d" />
-        </linearGradient>
-      </defs>
-      <rect
-        x="4"
-        y="9"
-        width="28"
-        height="19"
-        rx="3"
-        stroke="url(#vm-g)"
-        strokeWidth="1.8"
-      />
-      <rect
-        x="4"
-        y="11"
-        width="3"
-        height="2.5"
-        rx="0.5"
-        fill="url(#vm-g)"
-        opacity="0.65"
-      />
-      <rect
-        x="4"
-        y="15.5"
-        width="3"
-        height="2.5"
-        rx="0.5"
-        fill="url(#vm-g)"
-        opacity="0.65"
-      />
-      <rect
-        x="29"
-        y="11"
-        width="3"
-        height="2.5"
-        rx="0.5"
-        fill="url(#vm-g)"
-        opacity="0.65"
-      />
-      <rect
-        x="29"
-        y="15.5"
-        width="3"
-        height="2.5"
-        rx="0.5"
-        fill="url(#vm-g)"
-        opacity="0.65"
-      />
-      <path
-        d="M14 14.5 L14 22 M18 12 L18 24 M22 14.5 L22 22"
-        stroke="url(#vm-g)"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-const NAV_ITEMS = [
-  { href: "#create", labelKey: "vionto.nav.create", Icon: Wand2 },
-  { href: "#uploads", labelKey: "vionto.nav.uploads", Icon: CloudUpload },
-  { href: "#script", labelKey: "vionto.nav.script", Icon: Captions },
-  { href: "#audio", labelKey: "vionto.nav.audio", Icon: FileAudio },
-  { href: "#export", labelKey: "vionto.nav.export", Icon: Download },
-  // Cross-project — navigates away from /create, unlike the #anchor items
-  // above which scroll within this same page.
-  { href: "/library", labelKey: "vionto.nav.library", Icon: LibraryBig },
-] as const;
 
 const UI_MODE_TO_API_MODE: Record<
   string,
@@ -337,7 +257,9 @@ function previewFrameStyle(aspectRatio: string | null | undefined) {
   if (aspectRatio === "9:16") {
     return {
       aspectRatio: cssAspectRatio(aspectRatio),
-      width: "min(100%, 320px)",
+      // Also capped by viewport height so the sticky preview keeps its
+      // "Create video" button above the fold.
+      width: "min(100%, 320px, calc((100vh - 360px) * 0.5625))",
       marginInline: "auto",
     };
   }
@@ -353,40 +275,98 @@ function previewFrameStyle(aspectRatio: string | null | undefined) {
   return { aspectRatio: cssAspectRatio(aspectRatio), width: "100%" };
 }
 
+/* ─── Creation flow chrome ──────────────────────────────────────────────────
+   The create page is laid out as five numbered steps. The rail and the step
+   headers share one FlowStep list so their numbering and "done" state always
+   agree. */
+
+type FlowStep = {
+  id: "uploads" | "style" | "script" | "voice" | "export";
+  n: number;
+  title: string;
+  status: string;
+  done: boolean;
+};
+
+function StepHeader({
+  n,
+  title,
+  description,
+  done = false,
+  titleId,
+}: {
+  n: number;
+  title: string;
+  description?: string;
+  done?: boolean;
+  titleId?: string;
+}) {
+  return (
+    <div className="vc-step-head">
+      <span className={`vc-step-num${done ? " is-done" : ""}`} aria-hidden="true">
+        {done ? <Check size={16} strokeWidth={2.6} /> : String(n).padStart(2, "0")}
+      </span>
+      <div className="min-w-0">
+        <h2 id={titleId}>{title}</h2>
+        {description && <p>{description}</p>}
+      </div>
+    </div>
+  );
+}
+
+function FlowRail({
+  steps,
+  activeId,
+  label,
+  libraryLabel,
+}: {
+  steps: FlowStep[];
+  activeId: FlowStep["id"];
+  label: string;
+  libraryLabel: string;
+}) {
+  return (
+    <aside className="vc-rail" aria-label={label}>
+      <p className="vc-rail__label">{label}</p>
+      <ol className="vc-rail__list">
+        {steps.map((step) => {
+          const active = step.id === activeId;
+          return (
+            <li key={step.id} className={step.done ? "is-done" : undefined}>
+              <a
+                href={`#${step.id}`}
+                aria-current={active ? "step" : undefined}
+                className={`vc-rail__step${active ? " is-active" : ""}${step.done ? " is-done" : ""}`}
+              >
+                <span className="vc-rail__num" aria-hidden="true">
+                  {step.done ? <Check size={13} strokeWidth={2.8} /> : step.n}
+                </span>
+                <span className="vc-rail__text">
+                  <span className="vc-rail__title">{step.title}</span>
+                  <span className="vc-rail__status">{step.status}</span>
+                </span>
+              </a>
+            </li>
+          );
+        })}
+      </ol>
+      <a href="/library" className="vc-rail__link">
+        <LibraryBig size={15} />
+        {libraryLabel}
+      </a>
+    </aside>
+  );
+}
+
 export function ViontoPage() {
   const { t, locale } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryProjectId = searchParams?.get("projectId") ?? null;
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [subtitlesCollapsed, setSubtitlesCollapsed] = useState(false);
   const [subtitleConfig, setSubtitleConfig] =
     useState<SubtitleConfigType | null>(null);
 
-  useEffect(() => {
-    const applyCollapsed = () => {
-      const w = window.innerWidth;
-      if (w < 1024) {
-        // Always collapse on tablet/mobile — user toggle only applies on desktop
-        setCollapsed(true);
-      } else {
-        const saved = window.localStorage.getItem("vionto:sidebar");
-        setCollapsed(saved === "collapsed");
-      }
-    };
-
-    applyCollapsed();
-    window.addEventListener("resize", applyCollapsed);
-    const closeMobileMenu = () => {
-      if (window.innerWidth >= 768) setMobileMenuOpen(false);
-    };
-    window.addEventListener("resize", closeMobileMenu);
-    return () => {
-      window.removeEventListener("resize", applyCollapsed);
-      window.removeEventListener("resize", closeMobileMenu);
-    };
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -2356,29 +2336,6 @@ export function ViontoPage() {
     addFiles(e.dataTransfer.files);
   }
 
-  const pipelineSteps = [
-    {
-      icon: ImagePlus,
-      titleKey: "vionto.pipeline.ingest",
-      detailKey: "vionto.pipeline.ingestDetail",
-    },
-    {
-      icon: Sparkles,
-      titleKey: "vionto.pipeline.write",
-      detailKey: "vionto.pipeline.writeDetail",
-    },
-    {
-      icon: Mic,
-      titleKey: "vionto.pipeline.narrate",
-      detailKey: "vionto.pipeline.narrateDetail",
-    },
-    {
-      icon: Clapperboard,
-      titleKey: "vionto.pipeline.render",
-      detailKey: "vionto.pipeline.renderDetail",
-    },
-  ];
-
   const modes = ["cinematic", "slideshow", "social"] as const;
   const [activeMode, setActiveMode] = useState<UiMode>("cinematic");
   const [activeAspectRatio, setActiveAspectRatio] =
@@ -2897,271 +2854,149 @@ export function ViontoPage() {
     musicSelectorTab === "royaltyFree" ? item.common : !item.common
   );
 
+  const [activeFlowId, setActiveFlowId] = useState<FlowStep["id"]>("uploads");
+
+  // Scroll-spy for the step rail: the step crossing the upper part of the
+  // viewport is the active one.
+  useEffect(() => {
+    const ids: FlowStep["id"][] = ["uploads", "style", "script", "voice", "export"];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveFlowId(visible[0].target.id as FlowStep["id"]);
+      },
+      { rootMargin: "-18% 0px -62% 0px" }
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [selectedProjectId]);
+
+  const isRendering = renderState === "queued" || renderState === "running";
+  const hasPhotos = Boolean(selectedProjectId) && projectAssets.length > 0;
+  const hasVideo =
+    Boolean(selectedProjectId) &&
+    (renderState === "completed" || Boolean(latestExport?.previewUrl));
+  const selectedVoiceName = voices.find((voice) => voice.id === selectedVoice)?.name;
+  const flowSteps: FlowStep[] = [
+    {
+      id: "uploads",
+      n: 1,
+      title: t("vionto.flow.step1"),
+      status: selectedProjectId
+        ? t("vionto.flow.status.photos", { count: projectAssets.length })
+        : t("vionto.flow.status.noProject"),
+      done: hasPhotos,
+    },
+    {
+      id: "style",
+      n: 2,
+      title: t("vionto.flow.step2"),
+      status: `${t(`vionto.mode.${activeMode}`)} · ${activeAspectRatio}`,
+      done: hasPhotos,
+    },
+    {
+      id: "script",
+      n: 3,
+      title: t("vionto.flow.step3"),
+      status: hasRenderableScript
+        ? t("vionto.flow.status.scriptReady")
+        : t("vionto.flow.status.todo"),
+      done: hasRenderableScript,
+    },
+    {
+      id: "voice",
+      n: 4,
+      title: t("vionto.flow.step4"),
+      status: selectedVoiceName ?? t("vionto.flow.status.defaultVoice"),
+      done: hasRenderableScript && Boolean(selectedProjectId),
+    },
+    {
+      id: "export",
+      n: 5,
+      title: t("vionto.flow.step5"),
+      status: isRendering
+        ? t("vionto.flow.status.rendering", { progress: renderProgress })
+        : hasVideo
+          ? t("vionto.flow.status.videoReady")
+          : t("vionto.flow.status.todo"),
+      done: hasVideo,
+    },
+  ];
+  const flowDoneCount = flowSteps.filter((step) => step.done).length;
+  const flowCurrentStep = flowSteps.find((step) => !step.done)?.n ?? flowSteps.length;
+  const flowPercent = Math.round((flowDoneCount / flowSteps.length) * 100);
+  const previewState = isRendering
+    ? t("vionto.flow.status.rendering", { progress: renderProgress })
+    : hasVideo
+      ? t("vionto.flow.status.videoReady")
+      : t("vionto.flow.status.draft");
+
   return (
-    <main
-      className="min-h-screen text-[var(--text)]"
-      style={{ background: "var(--color-bg)" }}
-    >
-      <section className="workspace-shell m-0">
-        {/* ─── Sidebar ─────────────────────────────────────────────── */}
-        <aside
-          aria-label={t("vionto.aria.workspaceNav")}
-          className={`sticky top-0 h-screen flex-shrink-0 flex flex-col border-r border-[var(--line)] backdrop-blur-[18px] transition-all duration-200 ${
-            collapsed ? "w-[72px]" : "w-64"
-          }`}
-          style={{ background: "var(--color-panel-strong)", zIndex: 20 }}
-        >
-          {/* Logo + collapse toggle */}
-          <div
-            className={`flex h-14 items-center border-b border-[var(--line)] ${
-              collapsed ? "justify-center px-2" : "justify-between px-4"
-            }`}
-          >
-            <a
-              href="/"
-              className="flex items-center gap-2.5 overflow-hidden"
-              aria-label={t("vionto.aria.home")}
-            >
-              <ViontoMark className="h-8 w-8 shrink-0" />
-              {!collapsed && (
-                <div className="brand-text flex flex-col leading-tight max-sm:hidden">
-                  <span
-                    className="text-sm font-bold tracking-tight"
-                    style={{ color: "var(--text)" }}
-                  >
-                    Vionto
-                  </span>
-                  <span
-                    className="text-[10px]"
-                    style={{ color: "var(--muted)" }}
-                  >
-                    Vision + Canto
-                  </span>
-                </div>
-              )}
-            </a>
-            {!collapsed && (
-              <button
-                type="button"
-                onClick={() => {
-                  window.localStorage.setItem("vionto:sidebar", "collapsed");
-                  setCollapsed(true);
-                }}
-                title={t("vionto.aria.collapseSidebar")}
-                aria-label={t("vionto.aria.collapseSidebar")}
-                className="collapse-toggle h-7 w-7 flex items-center justify-center rounded-md transition-colors max-sm:hidden"
-                style={{ color: "var(--muted)" }}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M10 3L5 8l5 5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            )}
-            {collapsed && (
-              <button
-                type="button"
-                onClick={() => {
-                  window.localStorage.setItem("vionto:sidebar", "expanded");
-                  setCollapsed(false);
-                }}
-                title={t("vionto.aria.expandSidebar")}
-                aria-label={t("vionto.aria.expandSidebar")}
-                className="collapse-toggle mt-1 h-7 w-7 flex items-center justify-center rounded-md transition-colors max-sm:hidden"
-                style={{ color: "var(--muted)" }}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M6 3l5 5-5 5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
+    <main className="vc-flow min-h-screen">
+      <div className="vl-backdrop" aria-hidden="true">
+        <div className="vl-backdrop__aurora vl-backdrop__aurora--violet" />
+        <div className="vl-backdrop__aurora vl-backdrop__aurora--coral" />
+        <div className="vl-backdrop__aurora vl-backdrop__aurora--teal" />
+        <div className="vl-backdrop__grid" />
+      </div>
 
-          {/* Nav */}
-          <nav
-            className="flex-1 overflow-y-auto px-2 py-3"
-            aria-label={t("vionto.aria.primaryNav")}
-          >
-            <ul className="space-y-0.5">
-              {NAV_ITEMS.map(({ href, labelKey, Icon }, idx) => (
-                <li key={href}>
-                  <a
-                    href={href}
-                    title={t(labelKey)}
-                    className={`group flex items-center gap-3 rounded-lg py-2 text-sm transition-colors ${
-                      collapsed ? "justify-center px-2" : "px-3"
-                    } ${
-                      idx === 0
-                        ? "bg-[var(--color-primary-soft)] text-[var(--text)]"
-                        : "text-[var(--muted)] hover:bg-[var(--color-primary-soft)] hover:text-[var(--text)]"
-                    }`}
-                  >
-                    <Icon size={16} className="shrink-0" />
-                    {!collapsed && <span>{t(labelKey)}</span>}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
+      <ViontoNav />
 
-          {/* Footer MVP panel */}
-          {!collapsed && (
-            <div
-              className="mx-3 mb-3 rounded-2xl border border-[var(--line)] p-3"
-              style={{ background: "var(--color-panel)" }}
-            >
-              <p className="panel-label">MVP target</p>
-              <strong className="text-xs" style={{ color: "var(--text)" }}>
-                First MP4 in 10 minutes
-              </strong>
-              <span
-                className="text-xs"
-                style={{
-                  color: "var(--muted)",
-                  lineHeight: 1.5,
-                  display: "block",
-                  marginTop: 2,
-                }}
-              >
-                30–60 images → narrated story + subtitles.
-              </span>
-            </div>
-          )}
-        </aside>
+      <div className="vc-shell">
+        <FlowRail
+          steps={flowSteps}
+          activeId={activeFlowId}
+          label={t("vionto.flow.rail")}
+          libraryLabel={t("vionto.nav.library")}
+        />
 
-        <section className="main-panel">
-          <header className="topbar">
-            <div className="flex min-w-0 items-center gap-2 text-sm">
-              <span className="hidden text-[var(--muted)] sm:inline">
-                ASafariM
+        <div className="vc-content">
+          <header className="vc-head">
+            <div className="min-w-0">
+              <span className="vl-eyebrow">
+                <span className="vl-eyebrow__tag">
+                  <Sparkles size={10} /> AI
+                </span>
+                {t("vionto.create.eyebrow")}
               </span>
-              <span className="hidden text-[var(--muted)] sm:inline">/</span>
-              <span className="hidden text-[var(--muted)] md:inline">
-                Vionto
-              </span>
-              <span className="hidden text-[var(--muted)] md:inline">/</span>
-              <span className="truncate font-medium text-[var(--text)]">
-                {t("vionto.nav.create")}
-              </span>
+              <h1 className="vc-title">{t("vionto.create.headline")}</h1>
             </div>
-            {/* Desktop controls — hidden below portrait tablet */}
-            <div className="hidden md:flex items-center gap-2">
-              <CountryLanguageSelector key={"language-selector"} />
-              <ViontoTopbarControls />
-              <a
-                className="portal-link"
-                href={
-                  process.env.NEXT_PUBLIC_HUB_URL ?? "http://localhost:3001"
-                }
-              >
-                ASafarIM Hub <ArrowRight size={16} />
-              </a>
+            <div className="vc-progress" aria-live="polite">
+              <div className="vc-progress__row">
+                <span>
+                  {t("vionto.flow.progress", {
+                    current: flowCurrentStep,
+                    total: flowSteps.length,
+                  })}
+                </span>
+                <strong>{t("vionto.flow.ready", { percent: flowPercent })}</strong>
+              </div>
+              <div className="vc-progress__bar">
+                <div
+                  className="vc-progress__fill"
+                  style={{ width: `${Math.max(flowPercent, 4)}%` }}
+                />
+              </div>
             </div>
-            {/* Hamburger — visible below portrait tablet */}
-            <button
-              type="button"
-              aria-label={
-                mobileMenuOpen
-                  ? t("vionto.aria.closeMenu")
-                  : t("vionto.aria.openMenu")
-              }
-              aria-expanded={mobileMenuOpen}
-              onClick={() => setMobileMenuOpen((o) => !o)}
-              className="md:hidden flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] transition hover:bg-white/[0.06]"
-              style={{ color: "var(--text)" }}
-            >
-              {mobileMenuOpen ? (
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="h-4 w-4"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M3 3l10 10M13 3L3 13"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="h-4 w-4"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M2 4h12M2 8h12M2 12h12"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              )}
-            </button>
           </header>
-          {/* Mobile dropdown menu */}
-          {mobileMenuOpen && (
-            <div
-              className="md:hidden flex flex-col gap-3 border-b border-[var(--line)] px-4 py-3"
-              style={{ background: "var(--color-panel-strong)" }}
-            >
-              <ViontoTopbarControls />
-              <a
-                className="portal-link inline-flex w-full justify-center"
-                href={
-                  process.env.NEXT_PUBLIC_HUB_URL ?? "http://localhost:3001"
-                }
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {t("vionto.create.hubLink")} <ArrowRight size={16} />
-              </a>
-            </div>
-          )}
 
-          <div className="px-5 pt-5 pb-1">
-            <p className="eyebrow">{t("vionto.create.eyebrow")}</p>
-            <h1
-              className="mt-1 text-2xl font-semibold"
-              style={{ fontSize: "1.5rem", lineHeight: 1.25 }}
-            >
-              {t("vionto.create.headline")}
-            </h1>
-          </div>
-
-          <div className="creator-grid" id="create">
             <section
               className="upload-panel w-full max-w-full"
               id="uploads"
               aria-labelledby="upload-title"
             >
-              <div>
-                <p className="eyebrow">{t("vionto.upload.eyebrow")}</p>
-                <h2 id="upload-title">{t("vionto.upload.title")}</h2>
-                <p>{t("vionto.upload.subtitle")}</p>
-              </div>
+              <StepHeader
+                n={1}
+                titleId="upload-title"
+                title={t("vionto.flow.step1")}
+                description={t("vionto.upload.subtitle")}
+                done={hasPhotos}
+              />
 
               {/* Project picker */}
               <div className="mt-3">
@@ -5045,11 +4880,19 @@ export function ViontoPage() {
               )}
               {/* ─── End Album Management ───────────────────────────────────── */}
 
-              {/* ─── Video Settings separator ────────────────────────────────── */}
-              <hr
-                className="settings-separator"
-                role="separator"
-                aria-hidden="true"
+            </section>
+
+            <section
+              className="upload-panel w-full max-w-full"
+              id="style"
+              aria-labelledby="style-title"
+            >
+              <StepHeader
+                n={2}
+                titleId="style-title"
+                title={t("vionto.flow.step2")}
+                description={t("vionto.flow.step2Desc")}
+                done={hasPhotos}
               />
 
               <div
@@ -5899,92 +5742,14 @@ export function ViontoPage() {
                 />
               </div>
             </section>
-
-            <section className="preview-panel" aria-labelledby="preview-title">
-              <div className="preview-frame">
-                <div className="film-strip">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <div
-                  className="video-stage"
-                  style={previewFrameStyle(currentPreviewAspectRatio)}
-                >
-                  {latestExport?.previewUrl ? (
-                    <video
-                      key={latestExport.id}
-                      src={latestExport.previewUrl}
-                      controls
-                      playsInline
-                      preload="metadata"
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  ) : (
-                    <>
-                      <div className="sun" />
-                      <div className="horizon" />
-                    </>
-                  )}
-                  <p>
-                    {latestExport?.previewSubtitle ?? t("vionto.preview.empty")}
-                  </p>
-                </div>
-              </div>
-              <div className="preview-copy">
-                <p className="eyebrow">{t("vionto.preview.eyebrow")}</p>
-                <h2 id="preview-title">
-                  {latestExport?.previewTitle ??
-                    t("vionto.preview.draft", {
-                      mode: t(`vionto.mode.${activeMode}`),
-                    })}
-                </h2>
-                <p>
-                  {latestExport?.filename ??
-                    t("vionto.preview.formatSummary", {
-                      aspect: activeAspectRatio,
-                    })}
-                </p>
-                <button
-                  type="button"
-                  onClick={startRender}
-                  disabled={
-                    !selectedProjectId ||
-                    projectAssets.length === 0 ||
-                    !hasRenderableScript ||
-                    renderState === "queued" ||
-                    renderState === "running"
-                  }
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
-                >
-                  <Clapperboard size={16} />
-                  {renderState === "queued" || renderState === "running"
-                    ? t("vionto.render.creating")
-                    : t("vionto.render.createVideo")}
-                </button>
-              </div>
-            </section>
-          </div>
-
-          <section
-            className="pipeline"
-            aria-label={t("vionto.aria.productionPipeline")}
-          >
-            {pipelineSteps.map((step) => {
-              const Icon = step.icon;
-              return (
-                <article className="pipeline-step" key={step.titleKey}>
-                  <Icon size={20} />
-                  <h3>{t(step.titleKey)}</h3>
-                  <p>{t(step.detailKey)}</p>
-                </article>
-              );
-            })}
-          </section>
-
-          <section className="status-grid">
-            <div className="script-editor" id="script">
+            <div className="script-editor" id="script" aria-labelledby="script-title">
+              <StepHeader
+                n={3}
+                titleId="script-title"
+                title={t("vionto.flow.step3")}
+                description={t("vionto.flow.step3Desc")}
+                done={hasRenderableScript}
+              />
               <ScriptEditor
                 versions={versions}
                 projectId={selectedProjectId ?? ""}
@@ -5994,43 +5759,17 @@ export function ViontoPage() {
               />
             </div>
 
-            {selectedProjectId && (
-              <div className="job-card" id="subtitles">
-                <div className="section-heading flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Captions size={20} />
-                    <h2>{t("vionto.subtitles.title")}</h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSubtitlesCollapsed(!subtitlesCollapsed)}
-                    className="inline-flex items-center justify-center rounded-md p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-soft)] transition"
-                    aria-label={
-                      subtitlesCollapsed
-                        ? t("vionto.aria.expandSubtitles")
-                        : t("vionto.aria.collapseSubtitles")
-                    }
-                  >
-                    {subtitlesCollapsed ? (
-                      <ChevronDown size={18} />
-                    ) : (
-                      <ChevronUp size={18} />
-                    )}
-                  </button>
-                </div>
-                {!subtitlesCollapsed && (
-                  <SubtitleConfig
-                    projectId={selectedProjectId}
-                    versionId={selectedVersionId}
-                    aspectRatio={activeAspectRatio}
-                    onChange={setSubtitleConfig}
-                  />
-                )}
-              </div>
-            )}
-
-            {selectedProjectId && (
-              <div className="job-card" id="audio">
+            <section className="job-card" id="voice" aria-labelledby="voice-title">
+              <StepHeader
+                n={4}
+                titleId="voice-title"
+                title={t("vionto.flow.step4")}
+                description={t("vionto.flow.step4Desc")}
+                done={hasRenderableScript && Boolean(selectedProjectId)}
+              />
+              {selectedProjectId ? (
+                <div className="vc-pair">
+                  <div className="vc-sub" id="audio">
                 <div className="section-heading">
                   <Mic size={20} />
                   <h2>{t("vionto.audio.title")}</h2>
@@ -6086,14 +5825,56 @@ export function ViontoPage() {
                     </p>
                   )}
                 </div>
-              </div>
-            )}
+                  </div>
+                  <div className="vc-sub" id="subtitles">
+                <div className="section-heading flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Captions size={20} />
+                    <h2>{t("vionto.subtitles.title")}</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSubtitlesCollapsed(!subtitlesCollapsed)}
+                    className="inline-flex items-center justify-center rounded-md p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-soft)] transition"
+                    aria-label={
+                      subtitlesCollapsed
+                        ? t("vionto.aria.expandSubtitles")
+                        : t("vionto.aria.collapseSubtitles")
+                    }
+                  >
+                    {subtitlesCollapsed ? (
+                      <ChevronDown size={18} />
+                    ) : (
+                      <ChevronUp size={18} />
+                    )}
+                  </button>
+                </div>
+                {!subtitlesCollapsed && (
+                  <SubtitleConfig
+                    projectId={selectedProjectId}
+                    versionId={selectedVersionId}
+                    aspectRatio={activeAspectRatio}
+                    onChange={setSubtitleConfig}
+                  />
+                )}
+                  </div>
+                </div>
+              ) : (
+                <p className="vc-locked">
+                  <Lock size={14} />
+                  {t("vionto.flow.voiceLocked")}
+                </p>
+              )}
+            </section>
 
-            <div className="job-card" id="export">
-              <div className="section-heading">
-                <ListChecks size={20} />
-                <h2>{t("vionto.render.title")}</h2>
-              </div>
+            <div className="job-card vc-card--accent" id="export" aria-labelledby="export-title">
+              <StepHeader
+                n={5}
+                titleId="export-title"
+                title={t("vionto.flow.step5")}
+                description={t("vionto.flow.step5Desc")}
+                done={hasVideo}
+              />
               {renderState === "idle" ? (
                 <button
                   type="button"
@@ -6206,7 +5987,7 @@ export function ViontoPage() {
               )}
             </div>
 
-            <div className="job-card md:col-span-2" id="library">
+            <div className="job-card" id="library">
               <div className="section-heading">
                 <Clapperboard size={20} />
                 <h2>{t("vionto.library.title")}</h2>
@@ -6388,9 +6169,83 @@ export function ViontoPage() {
                 </div>
               )}
             </div>
-          </section>
-        </section>
-      </section>
+        </div>
+
+        <aside className="vc-preview">
+            <section className="preview-panel" aria-labelledby="preview-title">
+              <div className="vc-preview__bar">
+                <span className="vc-preview__dots" aria-hidden="true"><span /><span /><span /></span>
+                <span className="vc-preview__label">{t("vionto.preview.eyebrow")}</span>
+                <span className={`vc-preview__state${isRendering ? " is-busy" : hasVideo ? " is-done" : ""}`}>
+                  {previewState}
+                </span>
+              </div>
+              <div className="preview-frame">
+                <div className="film-strip">
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <div
+                  className="video-stage"
+                  style={previewFrameStyle(currentPreviewAspectRatio)}
+                >
+                  {latestExport?.previewUrl ? (
+                    <video
+                      key={latestExport.id}
+                      src={latestExport.previewUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <>
+                      <div className="sun" />
+                      <div className="horizon" />
+                    </>
+                  )}
+                  <p>
+                    {latestExport?.previewSubtitle ?? t("vionto.preview.empty")}
+                  </p>
+                </div>
+              </div>
+              <div className="preview-copy">
+                <p className="eyebrow">{t("vionto.preview.eyebrow")}</p>
+                <h2 id="preview-title">
+                  {latestExport?.previewTitle ??
+                    t("vionto.preview.draft", {
+                      mode: t(`vionto.mode.${activeMode}`),
+                    })}
+                </h2>
+                <p>
+                  {latestExport?.filename ??
+                    t("vionto.preview.formatSummary", {
+                      aspect: activeAspectRatio,
+                    })}
+                </p>
+                <button
+                  type="button"
+                  onClick={startRender}
+                  disabled={
+                    !selectedProjectId ||
+                    projectAssets.length === 0 ||
+                    !hasRenderableScript ||
+                    renderState === "queued" ||
+                    renderState === "running"
+                  }
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--color-accent)]/90 disabled:opacity-50"
+                >
+                  <Clapperboard size={16} />
+                  {renderState === "queued" || renderState === "running"
+                    ? t("vionto.render.creating")
+                    : t("vionto.render.createVideo")}
+                </button>
+              </div>
+            </section>
+        </aside>
+      </div>
 
       {/* Download URL Dialog */}
       {showDownloadDialog && downloadUrl && (
