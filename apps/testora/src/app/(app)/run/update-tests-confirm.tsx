@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useCanManage } from "@/components/viewer-role";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -30,6 +31,9 @@ export function UpdateTestsConfirm({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  // Confirming a deletion is admin-only (the API answers 403 for members), so
+  // members see what an update would remove but can only cancel.
+  const canManage = useCanManage();
   const groups = impact
     ? [
         { label: "Apps", items: impact.apps.map((a) => a.name) },
@@ -80,6 +84,13 @@ export function UpdateTestsConfirm({
               </div>
             ))}
 
+            {!canManage && (
+              <p className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-foreground">
+                Only an admin can confirm an update that deletes tests or results. Nothing has been
+                changed — ask an admin to run “Update tests”.
+              </p>
+            )}
+
             <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
               Tests added through the forms (not in the test code) are removed by an update too. To keep
               something, add it to the test code first.
@@ -89,9 +100,9 @@ export function UpdateTestsConfirm({
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onCancel} disabled={busy}>
-            Cancel
+            {canManage ? "Cancel" : "Close"}
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={busy}>
+          <Button variant="destructive" onClick={onConfirm} disabled={busy} hidden={!canManage}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             Delete &amp; update
           </Button>

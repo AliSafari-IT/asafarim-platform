@@ -40,7 +40,9 @@ const SERVICE_ROUTES: { method: string; pattern: RegExp }[] = [
 const MEMBER_WRITES: { method: string; pattern: RegExp }[] = [
   { method: "POST", pattern: /^\/api\/run$/ }, // Run tests
   { method: "DELETE", pattern: /^\/api\/run\/[^/]+$/ }, // cancel a run
-  { method: "POST", pattern: /^\/api\/seed$/ }, // "Update tests" (re-seed the catalog)
+  // "Update tests" (re-seed the catalog). The route itself only lets admins
+  // confirm an update that would delete tests/results (see app/api/seed).
+  { method: "POST", pattern: /^\/api\/seed$/ },
   // Reporting a bug from a failed result: draft it, save it, file it on
   // GitHub. Editing or deleting existing issues stays admin-only.
   { method: "POST", pattern: /^\/api\/issues\/generate$/ },

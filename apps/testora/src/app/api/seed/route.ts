@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isEmptyImpact, previewSeedImpact, seedDatabase } from "@/db/seedDatabase";
+import { canManageCatalog } from "@/lib/viewer-role";
 
 // Server side of the Run page's "Update tests" button.
 //
@@ -9,6 +10,9 @@ import { isEmptyImpact, previewSeedImpact, seedDatabase } from "@/db/seedDatabas
 //   GET  → dry run: what a re-seed would delete right now (reads only)
 //   POST → re-seed; if anything would be deleted it is refused with 409 and
 //          the impact, unless the body says { "confirm": true }
+//
+// Any signed-in member may run an update that deletes nothing; confirming a
+// deletion is admin-only (403 for members) — see src/lib/access-policy.ts.
 
 export async function GET() {
   try {
@@ -24,6 +28,12 @@ export async function GET() {
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { confirm?: unknown } | null;
   try {
+    if (body?.confirm === true && !(await canManageCatalog())) {
+      return NextResponse.json(
+        { error: "Only an admin can confirm an update that deletes tests or results." },
+        { status: 403 },
+      );
+    }
     if (body?.confirm !== true) {
       const impact = await previewSeedImpact();
       if (!isEmptyImpact(impact)) {
