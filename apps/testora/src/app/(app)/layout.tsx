@@ -4,10 +4,13 @@ import { ScrollNav } from "@/components/scroll-nav";
 import { AppBadge } from "@/components/app-badge";
 import { PlatformHeader } from "@/components/platform-header";
 import { getActiveProjectId } from "@/lib/active-project";
+import { CanManageProvider } from "@/components/viewer-role";
+import { canManageCatalog } from "@/lib/viewer-role";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const activeProject = await getActiveProjectId();
+  const [activeProject, canManage] = await Promise.all([getActiveProjectId(), canManageCatalog()]);
   return (
+    <CanManageProvider value={canManage}>
     <div className="flex h-screen flex-col">
       {/* Shared platform header on desktop; on mobile the sidebar's own top
           bar (with the menu toggle) takes over, so hide this to avoid two bars. */}
@@ -24,5 +27,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </RunProvider>
       </div>
     </div>
+    </CanManageProvider>
   );
 }

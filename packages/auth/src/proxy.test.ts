@@ -112,3 +112,39 @@ describe("createAuthProxy — API vs page requests", () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe("createAuthProxy — authorize hook (method-aware rules)", () => {
+  const authorize = vi.fn(
+    ({ method, roles }: { pathname: string; method: string; roles: string[] }) =>
+      method === "GET" || roles.includes("admin")
+  );
+  const proxy = createAuthProxy({
+    publicRoutes: ["/"],
+    signInUrl: "https://hub.asafarim.com/sign-in",
+    authorize,
+  });
+  const call = (path: string, method: string) =>
+    new NextRequest(new URL(path, "https://testora.asafarim.com"), { method });
+
+  beforeEach(() => {
+    authorize.mockClear();
+  });
+
+  it("lets a signed-in member read but forbids a write", async () => {
+    getToken.mockResolvedValue({ sub: "u1", roles: ["user"] });
+    expect((await proxy(call("/api/suites", "GET"))).status).toBe(200);
+    expect((await proxy(call("/api/suites", "POST"))).status).toBe(403);
+  });
+
+  it("lets an admin write", async () => {
+    getToken.mockResolvedValue({ sub: "u1", roles: ["admin"] });
+    expect((await proxy(call("/api/suites", "POST"))).status).toBe(200);
+  });
+
+  it("is never consulted for anonymous or public requests", async () => {
+    getToken.mockResolvedValue(null);
+    expect((await proxy(call("/api/suites", "POST"))).status).toBe(401);
+    expect((await proxy(call("/", "GET"))).status).toBe(200);
+    expect(authorize).not.toHaveBeenCalled();
+  });
+});

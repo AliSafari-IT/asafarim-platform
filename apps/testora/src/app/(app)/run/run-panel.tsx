@@ -39,6 +39,7 @@ import { LockedApp } from "@/components/locked-app";
 import { hostFromUrl, setDomainBrand, getDomainBrand, type DomainBrand } from "@/lib/domain-logos";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCanManage } from "@/components/viewer-role";
 
 interface FixtureSummary {
   fixtureId: string;
@@ -197,6 +198,9 @@ function formatDuration(ms: number): string {
 }
 
 export function RunPanel() {
+  // Members may pick a target and run; adding/editing/deleting target
+  // environments is admin-only (src/lib/access-policy.ts).
+  const canManage = useCanManage();
   const searchParams = useSearchParams();
   // Run state lives in RunProvider (mounted in the layout) so it survives
   // navigating to other routes while a run is in progress.
@@ -677,7 +681,7 @@ export function RunPanel() {
               disabled={running}
             >
               {targets.length === 0 && targetForm !== "add" && (
-                <option value="">No targets — add one</option>
+                <option value="">{canManage ? "No targets — add one" : "No targets"}</option>
               )}
               {targets.map((target) => (
                 <option key={target.id} value={target.id}>
@@ -685,14 +689,14 @@ export function RunPanel() {
                   {target.seeded ? "" : " (custom)"}
                 </option>
               ))}
-              <option value={ADD_TARGET}>＋ Add new…</option>
+              {canManage && <option value={ADD_TARGET}>＋ Add new…</option>}
             </select>
             {!targetForm && selectedTarget && (
               <span className="text-xs text-muted-foreground">
                 Site {selectedTarget.baseUrl} · API {selectedTarget.apiUrl}
               </span>
             )}
-            {!targetForm && selectedTarget && !selectedTarget.seeded && (
+            {canManage && !targetForm && selectedTarget && !selectedTarget.seeded && (
               <>
                 <button
                   type="button"
@@ -714,14 +718,14 @@ export function RunPanel() {
                 </button>
               </>
             )}
-            {!targetForm && selectedTarget?.seeded && (
+            {canManage && !targetForm && selectedTarget?.seeded && (
               <span className="text-[11px] text-muted-foreground/70">
                 Built-in — add a new target to customize.
               </span>
             )}
           </div>
 
-          {targetForm && (
+          {canManage && targetForm && (
             <div className="flex flex-col gap-3 rounded-md border border-border bg-muted/40 p-3">
               <span className="text-xs font-medium text-foreground">
                 {targetForm === "add" ? "New target" : "Edit target"}

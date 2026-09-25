@@ -1,0 +1,78 @@
+/**
+ * Testora's access policy — the single source of truth for who may do what.
+ * Enforced by src/proxy.ts (before any page or route runs) and mirrored in the
+ * UI via `canManage`, so admin-only controls are hidden from members.
+ *
+ *   signed out   public marketing pages only; app pages → Hub sign-in,
+ *                API → 401
+ *   member       read everything; run tests, cancel a run, "Update tests"
+ *   admin        every other write: apps, requirements, suites, fixtures,
+ *   superadmin   cases, target environments, results, issues, webhooks
+ *
+ * Machine-to-machine endpoints carry their own bearer-token checks inside
+ * the route and are let through the session gate (SERVICE_ROUTES).
+ *
+ * Pure, dependency-free functions so they can be unit-tested and run inside
+ * the proxy.
+ */
+
+/** Pages anyone may see without signing in. */
+export const PUBLIC_PAGES = ["/", "/about-this-project", "/roadmap"];
+
+const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Service endpoints authenticated by their own bearer token in the route
+ * (TasksAI bundle/artifact reads, test provisioning, the admin console's
+ * activity feed). They never carry a user session, so the session gate must
+ * not stop them — the route itself rejects a missing/wrong token.
+ */
+const SERVICE_ROUTES: { method: string; pattern: RegExp }[] = [
+  { method: "GET", pattern: /^\/api\/results\/[^/]+\/bundle$/ },
+  { method: "GET", pattern: /^\/api\/results\/[^/]+\/artifact\/[^/]+$/ },
+  { method: "POST", pattern: /^\/api\/provisions$/ },
+  { method: "GET", pattern: /^\/api\/internal\/user-activity$/ },
+];
+
+/** Writes any signed-in member may make — the Run page's own actions. */
+const MEMBER_WRITES: { method: string; pattern: RegExp }[] = [
+  { method: "POST", pattern: /^\/api\/run$/ }, // Run tests
+  { method: "DELETE", pattern: /^\/api\/run\/[^/]+$/ }, // cancel a run
+  { method: "POST", pattern: /^\/api\/seed$/ }, // "Update tests" (re-seed the catalog)
+];
+
+/** Reads that expose configuration only admins manage. */
+const ADMIN_READS: RegExp[] = [/^\/api\/webhooks(\/|$)/];
+
+const matches = (
+  rules: { method: string; pattern: RegExp }[],
+  method: string,
+  pathname: string,
+) => rules.some((rule) => rule.method === method && rule.pattern.test(pathname));
+
+export function isAdminRole(roles: readonly string[]): boolean {
+  return roles.includes("admin") || roles.includes("superadmin");
+}
+
+/** Whether a request may skip the session gate (the route authenticates it). */
+export function isServiceRequest(method: string, pathname: string): boolean {
+  return matches(SERVICE_ROUTES, method.toUpperCase(), pathname);
+}
+
+/**
+ * For a signed-in, active user: may they make this request? Pages are all
+ * viewable by members (admin-only controls are hidden in the UI and their
+ * APIs are refused here).
+ */
+export function isAllowed(request: {
+  pathname: string;
+  method: string;
+  roles: readonly string[];
+}): boolean {
+  const method = request.method.toUpperCase();
+  const { pathname } = request;
+  if (isAdminRole(request.roles)) return true;
+  if (!pathname.startsWith("/api/")) return true;
+  if (READ_METHODS.has(method)) return !ADMIN_READS.some((re) => re.test(pathname));
+  return matches(MEMBER_WRITES, method, pathname);
+}

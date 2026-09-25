@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { SuiteForm } from "@/components/forms/suite-form";
 import { DeleteButton } from "@/components/delete-button";
 import { Pencil, X } from "lucide-react";
+import { useCanManage } from "@/components/viewer-role";
 
 interface SuiteCardProps {
   suite: { suiteId: string; frId: string; title: string; description: string; fixtureCount: number };
@@ -17,6 +18,7 @@ interface SuiteCardProps {
 
 export function SuiteCard({ suite, frTitle, frOptions }: SuiteCardProps) {
   const [editing, setEditing] = useState(false);
+  const canManage = useCanManage();
 
   if (editing) {
     return (
@@ -50,7 +52,7 @@ export function SuiteCard({ suite, frTitle, frOptions }: SuiteCardProps) {
           FR: {frTitle ?? suite.frId} &middot; <code>{suite.suiteId}</code>
         </span>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)} hidden={!canManage}>
             <Pencil className="h-4 w-4" />
             Edit
           </Button>

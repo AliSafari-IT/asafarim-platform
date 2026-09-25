@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { isProjectViewable } from "@/lib/app-access";
+import { isProjectViewable, isViewerAuthenticated } from "@/lib/app-access";
 
 /**
  * Shared access gate for the cross-app run-artifact endpoints (#258 / #259).
@@ -23,5 +23,9 @@ export async function canReadResultArtifacts(
   projectId: string | null,
 ): Promise<boolean> {
   if (hasBundleServiceToken(request)) return true;
+  // These routes bypass the proxy's session gate (so TasksAI's token can
+  // reach them), which means the "signed in" rule has to be enforced here:
+  // results are for signed-in platform users only, public app or not.
+  if (!(await isViewerAuthenticated())) return false;
   return isProjectViewable(projectId);
 }

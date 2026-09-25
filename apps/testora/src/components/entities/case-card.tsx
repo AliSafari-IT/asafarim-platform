@@ -15,6 +15,7 @@ import {
 import { CaseForm } from "@/components/forms/case-form";
 import { DeleteButton } from "@/components/delete-button";
 import { Pencil, X, Copy, Check, Code2 } from "lucide-react";
+import { useCanManage } from "@/components/viewer-role";
 
 type ScriptType = "single" | "multi" | "scripted";
 
@@ -35,6 +36,7 @@ interface CaseCardProps {
 
 export function CaseCard({ testCase, fixtureTitle, fixtureOptions }: CaseCardProps) {
   const [editing, setEditing] = useState(false);
+  const canManage = useCanManage();
   const [copied, setCopied] = useState(false);
 
   const isScripted = testCase.scriptType === "scripted";
@@ -108,7 +110,7 @@ export function CaseCard({ testCase, fixtureTitle, fixtureOptions }: CaseCardPro
               </pre>
             </DialogContent>
           </Dialog>
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)} hidden={!canManage}>
             <Pencil className="h-4 w-4" />
             Edit
           </Button>

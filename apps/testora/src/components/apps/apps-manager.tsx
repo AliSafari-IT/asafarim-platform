@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useRun, type ClientProject } from "@/components/run-provider";
 import { cn } from "@/lib/utils";
 import { DEFAULT_PROJECT_ID } from "@/data/projects";
+import { useCanManage } from "@/components/viewer-role";
 
 type Visibility = "public" | "private";
 
@@ -48,10 +49,13 @@ const emptyDraft: Draft = {
  * in. This UI only mirrors that state.
  *
  * Deleting a built-in (seeded) app is restricted to admins/superadmins
- * (`canDeleteBuiltIns`, resolved server-side) — the API re-checks this too.
+ * (admin-only via useCanManage) — the API re-checks this too.
  * A deleted built-in stays gone until "Update tests" re-seeds it.
  */
-export function AppsManager({ canDeleteBuiltIns = false }: { canDeleteBuiltIns?: boolean }) {
+export function AppsManager() {
+  // Adding, editing and deleting apps is admin-only (src/lib/access-policy.ts);
+  // members can only select an app and run it.
+  const canManage = useCanManage();
   const router = useRouter();
   const { projects, refreshProjects, projectId, setProjectId } = useRun();
 
@@ -162,7 +166,7 @@ export function AppsManager({ canDeleteBuiltIns = false }: { canDeleteBuiltIns?:
             you do.
           </p>
         </div>
-        {!mode && (
+        {!mode && canManage && (
           <Button onClick={startAdd}>
             <Plus className="h-4 w-4" />
             Add app
@@ -176,7 +180,7 @@ export function AppsManager({ canDeleteBuiltIns = false }: { canDeleteBuiltIns?:
         </p>
       )}
 
-      {mode && (
+      {mode && canManage && (
         <Card>
           <CardHeader>
             <CardTitle>{mode === "add" ? "New app" : "Edit app"}</CardTitle>
@@ -265,7 +269,9 @@ export function AppsManager({ canDeleteBuiltIns = false }: { canDeleteBuiltIns?:
 
       <div className="flex flex-col gap-3">
         {projects.length === 0 && (
-          <p className="text-muted-foreground">No apps yet. Add one above.</p>
+          <p className="text-muted-foreground">
+            {canManage ? "No apps yet. Add one above." : "No apps yet."}
+          </p>
         )}
         {projects.map((p) => {
           const isActive = p.id === projectId;
@@ -321,13 +327,13 @@ export function AppsManager({ canDeleteBuiltIns = false }: { canDeleteBuiltIns?:
                         Select
                       </Button>
                     )}
-                    {!p.locked && (
+                    {!p.locked && canManage && (
                       <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
                         <Pencil className="h-3.5 w-3.5" />
                         Edit
                       </Button>
                     )}
-                    {!p.locked && (!p.seeded || canDeleteBuiltIns) && (
+                    {!p.locked && canManage && (
                       <button
                         type="button"
                         onClick={() => void remove(p)}
