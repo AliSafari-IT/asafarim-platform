@@ -8,6 +8,7 @@ import {
   real,
   pgEnum,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -102,9 +103,16 @@ export const issues = pgTable("issues", {
   githubUrl: text("github_url"),
   githubNumber: integer("github_number"),
   githubState: githubIssueStateEnum("github_state"),
+  // Duplicate detection (lib/issue-fingerprint.ts): a stable hash of app +
+  // test case + normalized error. Also embedded as a hidden marker in the
+  // GitHub issue body so reports filed from another environment still match.
+  fingerprint: text("fingerprint"),
+  // True when publishing found an already-open GitHub issue for the same
+  // fingerprint and linked this report to it instead of filing a new one.
+  linkedExisting: boolean("linked_existing").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [index("issues_project_fingerprint_idx").on(table.projectId, table.fingerprint)]);
 
 export const functionalRequirements = pgTable("functional_requirements", {
   id: text("id").primaryKey(),

@@ -19,6 +19,7 @@ import { markdownToHtml } from "@/lib/markdown";
 import { saveTextFile } from "@/lib/save-file";
 import { GithubStateBadge } from "@/components/issues/github-state-badge";
 import { useCanManage } from "@/components/viewer-role";
+import { LocalDateTime } from "@/components/local-date-time";
 
 export interface IssueData {
   id: string;
@@ -104,6 +105,11 @@ export function IssueEditor({
       setStatus("published");
       setGithubUrl(data.issue.githubUrl ?? null);
       setGithubState(data.issue.githubState ?? null);
+      setSavedNote(
+        data.duplicateOf
+          ? `Already tracked as #${data.duplicateOf.number} — linked to the open issue instead of filing a duplicate.`
+          : `Filed on GitHub${data.issue.githubNumber ? ` as #${data.issue.githubNumber}` : ""}.`,
+      );
       router.refresh();
     } finally {
       setBusy(null);
@@ -187,7 +193,7 @@ export function IssueEditor({
           </>
         )}
         <span className="ml-auto text-xs text-muted-foreground">
-          Updated {new Date(issue.updatedAt).toLocaleString()}
+          Updated <LocalDateTime value={issue.updatedAt} />
         </span>
       </div>
 

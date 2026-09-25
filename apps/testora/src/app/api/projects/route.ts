@@ -10,6 +10,7 @@ import {
   type ProjectRow,
 } from "@/lib/app-access";
 import { encryptToken } from "@/lib/github";
+import { isPlatformGithubConfigured } from "@/lib/github";
 
 const visibility = z.enum(["public", "private"]);
 const optionalUrl = z.string().trim().url("Must be an absolute URL").or(z.literal(""));
@@ -37,7 +38,7 @@ function sanitize(row: ProjectRow) {
     productName: row.productName,
     companyName: row.companyName,
     githubRepo: row.githubRepo,
-    githubConfigured: Boolean(row.githubTokenEnc),
+    githubConfigured: Boolean(row.githubTokenEnc) || isPlatformGithubConfigured(),
     seeded: row.seeded,
     autoQuarantineFlaky: row.autoQuarantineFlaky,
   };

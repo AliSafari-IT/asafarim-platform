@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@asafarim/auth";
 import { db } from "@/db/client";
 import { projects } from "@/db/schema";
+import { isPlatformGithubConfigured } from "@/lib/github";
 
 // Server-only access control for private apps. Access is managed by the
 // platform SSO: a private app's catalog and results are withheld until the
@@ -71,7 +72,8 @@ function toViewer(row: ProjectRow, authenticated: boolean): ViewerProject {
     productName: row.productName,
     companyName: row.companyName,
     githubRepo: row.githubRepo,
-    githubConfigured: Boolean(row.githubTokenEnc),
+    // An app-level token, or the platform-wide default repo (lib/github.ts).
+    githubConfigured: Boolean(row.githubTokenEnc) || isPlatformGithubConfigured(),
   };
 }
 

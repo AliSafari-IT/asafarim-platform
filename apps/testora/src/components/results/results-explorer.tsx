@@ -46,6 +46,7 @@ import { saveTextFile } from "@/lib/save-file";
 import { getDomainBrands, hostFromUrl } from "@/lib/domain-logos";
 import { useRun } from "@/components/run-provider";
 import { useCanManage } from "@/components/viewer-role";
+import { LocalDateTime } from "@/components/local-date-time";
 
 /** A result counts as re-runnable when it didn't pass and carries the ids a run needs. */
 function isRerunnable(row: ReportResultRow): boolean {
@@ -844,7 +845,7 @@ export function ResultsExplorer({
                           {r.durationMs != null ? `${r.durationMs} ms` : "—"}
                         </td>
                         <td className="whitespace-nowrap py-2 pr-3 text-muted-foreground">
-                          {new Date(r.createdAt).toLocaleString()}
+                          <LocalDateTime value={r.createdAt} />
                         </td>
                         <td className="py-2">
                           {r.errorMessage ? (

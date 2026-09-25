@@ -60,6 +60,90 @@ export function parseRepo(input: string | null | undefined): RepoRef | null {
   return { owner, name };
 }
 
+// ── Where issues go ──────────────────────────────────────────────────────────
+//
+// Every app Testora tests is an ASafarIM product, so bugs default to one
+// platform repo configured once via env (TESTORA_GITHUB_REPO +
+// TESTORA_GITHUB_TOKEN). An app can still override it with its own repo +
+// encrypted PAT (set by an admin in Apps).
+
+export interface GithubTarget {
+  repo: RepoRef;
+  token: string;
+  source: "app" | "platform";
+}
+
+function platformTarget(): GithubTarget | null {
+  const repo = parseRepo(process.env.TESTORA_GITHUB_REPO);
+  const token = process.env.TESTORA_GITHUB_TOKEN?.trim();
+  return repo && token ? { repo, token, source: "platform" } : null;
+}
+
+/** Whether the platform-wide default repo + token are configured. */
+export function isPlatformGithubConfigured(): boolean {
+  return platformTarget() !== null;
+}
+
+/** The repo + token an app's issues are filed with, or null if none is set. */
+export function resolveGithubTarget(
+  project: { githubRepo?: string | null; githubTokenEnc?: string | null } | null | undefined,
+): GithubTarget | null {
+  const repo = parseRepo(project?.githubRepo);
+  const token = decryptToken(project?.githubTokenEnc);
+  if (repo && token) return { repo, token, source: "app" };
+  return platformTarget();
+}
+
+/** Label Testora puts on every issue it files; scoped duplicate lookups use it. */
+export const TESTORA_LABEL = "testora";
+
+function githubHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "e2e-testora",
+  };
+}
+
+/**
+ * Find an OPEN issue carrying `marker` in its body among the repo's open
+ * Testora-labelled issues. Uses the list endpoint rather than search, which
+ * lags by minutes and would let near-simultaneous reports slip through.
+ * Returns null when none matches or GitHub can't be reached — publishing
+ * then simply files a new issue.
+ */
+export async function findOpenIssueWithMarker(params: {
+  owner: string;
+  name: string;
+  token: string;
+  marker: string;
+  maxPages?: number;
+}): Promise<CreatedIssue | null> {
+  const { owner, name, token, marker, maxPages = 5 } = params;
+  for (let page = 1; page <= maxPages; page++) {
+    const url =
+      `https://api.github.com/repos/${owner}/${name}/issues` +
+      `?state=open&labels=${encodeURIComponent(TESTORA_LABEL)}&per_page=100&page=${page}`;
+    const res = await fetch(url, { headers: githubHeaders(token) }).catch(() => null);
+    if (!res?.ok) return null;
+    const items = (await res.json()) as {
+      body?: string | null;
+      html_url?: string;
+      number?: number;
+      pull_request?: unknown;
+    }[];
+    const hit = items.find(
+      (item) => !item.pull_request && typeof item.body === "string" && item.body.includes(marker),
+    );
+    if (hit?.html_url && typeof hit.number === "number") {
+      return { url: hit.html_url, number: hit.number };
+    }
+    if (items.length < 100) return null;
+  }
+  return null;
+}
+
 /** A readable, repo-agnostic label for a configured repo (or null). */
 export function repoLabel(input: string | null | undefined): string | null {
   const ref = parseRepo(input);
@@ -109,19 +193,20 @@ export async function createGithubIssue(params: {
   token: string;
   title: string;
   body: string;
+  labels?: string[];
 }): Promise<CreatedIssue> {
-  const { owner, name, token, title, body } = params;
+  const { owner, name, token, title, body, labels } = params;
   const res = await fetch(`https://api.github.com/repos/${owner}/${name}/issues`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "Content-Type": "application/json",
-      "User-Agent": "e2e-testora",
-    },
-    body: JSON.stringify({ title, body }),
+    headers: { ...githubHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(labels?.length ? { title, body, labels } : { title, body }),
   });
+
+  // A label the repo rejects must never block a bug report: retry without it
+  // (the DB-side duplicate check still works; only the GitHub scan loses it).
+  if (res.status === 422 && labels?.length) {
+    return createGithubIssue({ owner, name, token, title, body });
+  }
 
   if (res.status === 401) {
     throw new Error("GitHub rejected the token (401). Check the app's PAT is valid and not expired.");
