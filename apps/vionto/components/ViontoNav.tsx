@@ -363,13 +363,13 @@ function ViontoLogo() {
   return (
     <Link
       href="/"
-      className="flex items-center gap-2 text-[var(--color-text)]"
+      className="flex shrink-0 items-center gap-2 text-[var(--color-text)]"
       aria-label={t("vionto.aria.home")}
     >
       <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[var(--color-accent)]/15 text-sm font-semibold text-[var(--color-accent)]">
         Vi
       </span>
-      <span className="text-base font-semibold tracking-tight">Vionto</span>
+      <span className="hidden text-base font-semibold tracking-tight sm:inline">Vionto</span>
     </Link>
   );
 }
@@ -385,9 +385,50 @@ export function ViontoTopbarControls() {
 }
 
 
+function isActive(pathname: string | null, href: string) {
+  return pathname === href || Boolean(pathname?.startsWith(href + "/"));
+}
+
 /**
- * Nav dropdown shown at every width: a "Menu ▾" text button that opens a
- * floating panel, matching the AppSwitcher/UserMenu pattern.
+ * Desktop nav: inline links, like the shared TopNav used by testora. Scrolls
+ * horizontally (scrollbar hidden) instead of wrapping when space runs out.
+ */
+function InlineNav({
+  navLinks,
+  pathname,
+}: {
+  navLinks: { label: string; href: string }[];
+  pathname: string | null;
+}) {
+  return (
+    <nav aria-label="Primary" className="hidden min-w-0 lg:block">
+      <ul className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {navLinks.map((link) => {
+          const active = isActive(pathname, link.href);
+          return (
+            <li key={link.href} className="shrink-0">
+              <Link
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                className={`block whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition ${
+                  active
+                    ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
+                    : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface-elevated)] hover:text-[var(--color-text)]"
+                }`}
+              >
+                {link.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * Mobile/tablet nav (below lg): a "Menu ▾" text button that opens a floating
+ * panel, matching the AppSwitcher/UserMenu pattern.
  */
 function NavMenu({
   navLinks,
@@ -434,7 +475,7 @@ function NavMenu({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative lg:hidden">
       <button
         ref={btnRef}
         type="button"
@@ -460,7 +501,7 @@ function NavMenu({
           className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] p-2 shadow-lg"
         >
           {navLinks.map((link) => {
-            const active = pathname === link.href || pathname?.startsWith(link.href + "/");
+            const active = isActive(pathname, link.href);
             return (
               <Link
                 key={link.href}
@@ -476,7 +517,8 @@ function NavMenu({
               </Link>
             );
           })}
-          <div className="mt-2 border-t border-[var(--color-border)] pt-2">
+          {/* The header shows its own language selector from md up. */}
+          <div className="mt-2 border-t border-[var(--color-border)] pt-2 md:hidden">
             <CountryLanguageSelector />
           </div>
         </div>
@@ -499,12 +541,13 @@ export function ViontoNav() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-xl">
-      <div className="flex h-16 items-center justify-between gap-4 px-4">
-        <div className="flex items-center gap-6">
+      <div className="flex h-16 items-center justify-between gap-2 px-4 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3 lg:gap-6">
           <ViontoLogo />
+          <InlineNav navLinks={navLinks} pathname={pathname} />
           <NavMenu navLinks={navLinks} pathname={pathname} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <div className="hidden md:flex">
             <CountryLanguageSelector />
           </div>

@@ -89,6 +89,9 @@ ENV E2E_BROWSER="path:/usr/bin/chromium-browser:--headless --no-sandbox --disabl
 
 COPY --from=builder --chown=node:node /app/apps/testora/.next/standalone ./
 COPY --from=builder --chown=node:node /app/apps/testora/.next/static ./apps/testora/.next/static
+# public/ holds icon.svg + apple-icon.png (linked from the root layout);
+# standalone output does not include it, so without this the favicon 404s.
+COPY --from=builder --chown=node:node /app/apps/testora/public ./apps/testora/public
 EXPOSE 3000
 USER node
 CMD ["node", "apps/testora/server.js"]
