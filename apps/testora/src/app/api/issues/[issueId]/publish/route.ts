@@ -12,6 +12,7 @@ import {
   type CreatedIssue,
 } from "@/lib/github";
 import { fingerprintMarker, issueFingerprint, withFingerprintMarker } from "@/lib/issue-fingerprint";
+import { getRelatedIssues, type RelatedIssueRow } from "@/lib/related-issues";
 
 /**
  * Publish an issue to GitHub — unless the same bug is already open there.
@@ -77,6 +78,12 @@ export async function POST(_request: Request, { params }: { params: Promise<{ is
     return NextResponse.json({ issue: updated, duplicateOf: existing });
   }
 
+  // Broader than the exact-fingerprint check above: other issues for the same
+  // test case, any error — so a developer reading the filed GitHub issue sees
+  // "this test has a history" even when it's not literally the same bug.
+  const related = await getRelatedIssues(issue.projectId, issue.caseId, issue.id);
+  const bodyWithRelated = related.length > 0 ? appendRelatedSection(issue.body, related) : issue.body;
+
   let created: CreatedIssue;
   try {
     created = await createGithubIssue({
@@ -84,7 +91,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ is
       name: repo.name,
       token,
       title: issue.title,
-      body: fingerprint ? withFingerprintMarker(issue.body, fingerprint) : issue.body,
+      body: fingerprint ? withFingerprintMarker(bodyWithRelated, fingerprint) : bodyWithRelated,
       labels: [TESTORA_LABEL],
     });
   } catch (err) {
@@ -167,4 +174,25 @@ async function findTrackedDuplicate(
     if (state === "open") return { url: row.url, number: row.number };
   }
   return null;
+}
+
+/**
+ * Append a "## Related issues" section listing other reports for the same
+ * test case — published ones link to their GitHub issue, drafts (never
+ * filed) are just named since they have no public URL to link to.
+ */
+function appendRelatedSection(body: string, related: RelatedIssueRow[]): string {
+  const lines = [
+    "",
+    "## Related issues",
+    "",
+    "_Other Testora reports for the same test case — not necessarily the same bug, but worth a look:_",
+    "",
+    ...related.map((r) =>
+      r.status === "published" && r.githubUrl
+        ? `- [${r.title}](${r.githubUrl})${r.githubState === "closed" ? " (closed)" : ""}`
+        : `- ${r.title} _(not yet filed on GitHub)_`,
+    ),
+  ];
+  return `${body.trimEnd()}\n${lines.join("\n")}\n`;
 }
