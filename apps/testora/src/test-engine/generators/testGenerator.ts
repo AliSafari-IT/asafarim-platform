@@ -81,13 +81,40 @@ function withDomCapture(nameExpr: string, bodyLines: string[]): string[] {
  * which is the pluggable boundary between generic platform code and a
  * specific app's selectors/assertions.
  */
+/**
+ * Per-run environment for one spec. Up to TESTORA_MAX_CONCURRENT_RUNS runs
+ * share this Node process, so per-run values can't live in the global
+ * `process.env` (two runs would overwrite each other). Instead each spec
+ * shadows `process` with a view whose `env` layers these values over the real
+ * environment; everything else is the real process object.
+ */
+export function specEnvPrelude(env: Record<string, string | undefined>): string {
+  const overrides = Object.fromEntries(
+    Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+  );
+  if (Object.keys(overrides).length === 0) return "";
+  return [
+    `const __testoraRunEnv = Object.assign({}, globalThis.process.env, ${JSON.stringify(overrides)});`,
+    `const process = new Proxy(globalThis.process, {`,
+    `  get(target, key) {`,
+    `    if (key === "env") return __testoraRunEnv;`,
+    `    const value = Reflect.get(target, key);`,
+    `    return typeof value === "function" ? value.bind(target) : value;`,
+    `  },`,
+    `});`,
+  ].join("\n");
+}
+
 export function generateTestSpec(
   fixture: TestFixtureDefinition,
   cases: TestCaseDefinition[],
+  runEnv: Record<string, string | undefined> = {},
 ): string {
   const header = [
     `import { Selector } from "testcafe";`,
     `import { runScenario } from ${JSON.stringify(scenarioRunnerPath)};`,
+    ``,
+    specEnvPrelude(runEnv),
     ``,
     domCaptureHelper(),
     ``,
