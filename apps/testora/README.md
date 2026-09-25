@@ -1,4 +1,4 @@
-# e2e-testora
+# Testora
 
 > End-to-end testing orchestration and runner built with Next.js, Drizzle, and a lightweight test-engine.
 
@@ -16,24 +16,29 @@
 
 ## Overview
 
-`e2e-testora` is an end-to-end testing orchestration app that provides:
+Testora is an end-to-end testing orchestration app in the ASafarIM Platform that provides:
 - a web UI (Next.js) to manage test suites, fixtures, and runs
 - API routes for creating and running tests programmatically
 - a small test-engine for generating and executing test scenarios
 
-The project is intended for local development and CI integration to run deterministic E2E tests.
+The app is intended for local development and CI integration to run deterministic E2E tests. It uses an isolated PostgreSQL database and integrates with TasksAI for autonomous quality loops.
 
 ## Latest Update
 
-- **Privacy banner dismissal for UI tests**: shared browser login and admin smoke helpers (`src/data/_admin-shared.ts`) now automatically click any visible **Accept all** cookie/privacy banner before running assertions; profile and navbar dropdown tests (`src/data/profile.ts`) do the same after navigation. This fixes false failures where the banner obscured tab content and other UI elements.
+- **Role-based access control**: Admin-only operations (like "Update tests") now require proper permissions
+- **Member bug reports**: Users can report bugs with duplicate detection
+- **Testora-TasksAI integration**: Autonomous quality loop with cross-app contract and HMAC signing
+- **Runner capacity management**: Added runner capacity tracking and scheduling
+- **Access policy framework**: Comprehensive access control for different user roles
 
 ## Tech Stack
 - **Framework**: `Next.js` (app router)
 - **Language**: `TypeScript`
 - **Styling**: `Tailwind CSS`
-- **DB / ORM**: `Drizzle` (see `src/db/`)
+- **DB / ORM**: `Drizzle` (isolated PostgreSQL database)
+- **Auth**: Auth.js v5 (shared via `@asafarim/auth`; sign-in centralized on the Hub)
 - **Package manager**: `pnpm`
-- **Runtime / Tools**: Node.js, `pnpm` scripts, and Docker (optional)
+- **Runtime / Tools**: Node.js, `pnpm` scripts, and Docker Compose (for local Postgres)
 
 ## Prerequisites
 - Node.js (v16+ recommended)
@@ -42,53 +47,39 @@ The project is intended for local development and CI integration to run determin
 
 ## Quick Start
 
-1. Clone the repo:
+Testora is part of the ASafarIM Platform monorepo. Development is done from the repo root:
 
 ```bash
-git clone <repo-url> e2e-testora
-cd e2e-testora
+# From the repo root
+pnpm install                    # install all workspace dependencies
+pnpm dev                        # run all apps (Testora on :3005)
 ```
 
-2. Install dependencies:
+For Testora-specific development:
 
 ```bash
-pnpm install
+pnpm --filter testora dev       # run only Testora (web :3005)
 ```
 
-3. Create environment variables
-- Copy an `.env.example` to `.env` and fill values (if the repo includes one). If not present, ensure `DATABASE_URL` points to your SQL database and any required secrets are set.
+Local URL: `http://localhost:3005`
 
-4. Database setup
-- Run migrations and seed the database. There are helper scripts in `src/db/`.
+## Environment Variables
 
-```bash
-# If project provides scripts:
-pnpm run db:migrate || tsx src/db/migrate.ts
-pnpm run db:seed || tsx src/db/seed.ts
-```
-
-5. Start the dev server:
-
-```bash
-pnpm dev
-# or
-pnpm run dev
-```
-
-Open http://localhost:3000 in your browser.
+Configuration is managed at the repo root in `.env.local`. Testora uses the shared platform database and authentication via `@asafarim/auth`. For its isolated database, ensure `TESTORA_DATABASE_URL` is set in the environment.
 
 ## Development Commands
-- **Install deps**: `pnpm install`
-- **Dev server**: `pnpm dev` or `pnpm run dev`
-- **Build**: `pnpm build` or `pnpm run build`
-- **Start**: `pnpm start` or `pnpm run start`
-- **Type check**: `pnpm typecheck`
-- **Lint**: `pnpm lint`
-- **Clean `.next`**: `pnpm clean`
-- **Database**: `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:studio`, `pnpm db:seed`
-- **Run E2E suite**: `pnpm test:e2e`
 
-If a script is not present in `package.json`, run the underlying script files in `src/db/` directly (e.g., `tsx src/db/seed.ts`). See [package.json](package.json) for available scripts.
+From the repo root:
+- **Install deps**: `pnpm install`
+- **Dev server**: `pnpm dev` (all apps) or `pnpm --filter testora dev` (Testora only)
+- **Build**: `pnpm build` (all apps) or `pnpm --filter testora build` (Testora only)
+- **Type check**: `pnpm typecheck` (all apps) or `pnpm --filter testora typecheck` (Testora only)
+- **Lint**: `pnpm lint` (all apps) or `pnpm --filter testora lint` (Testora only)
+
+Testora-specific database commands (from repo root):
+- **Database migrations**: `pnpm --filter @asafarim/testora db:migrate`
+- **Database seed**: `pnpm --filter @asafarim/testora db:seed`
+- **Database studio**: `pnpm --filter @asafarim/testora db:studio`
 
 ## Database
 - Migrations and helpers live in the `src/db/` folder: see [src/db/migrate.ts](src/db/migrate.ts) and [src/db/seed.ts](src/db/seed.ts).
@@ -133,53 +124,40 @@ Automated tests (unit / integration) are not included by default — add your pr
 - Run `pnpm install` and the dev server locally to validate UI/workflows.
 
 ## Troubleshooting
-- Dev server fails to start: ensure Node version and `pnpm` are correct and `DATABASE_URL` is set.
-- DB migration/seed errors: confirm DB is reachable and has correct privileges.
-- If you see TypeScript or build errors, run `pnpm build` locally to reproduce.
+- Dev server fails to start: ensure Node.js >= 22 and pnpm >= 11 are installed, and the repo root `.env.local` is configured
+- Database errors: ensure PostgreSQL is running (`docker compose up -d postgres`) and both shared and isolated database URLs are set
+- Auth errors: verify `@asafarim/auth` package is properly configured and Hub sign-in is accessible
+- TypeScript or build errors: run `pnpm --filter testora build` locally to reproduce
 
 ## Deployment
 
-Production deployment targets the VPS at `testora.asafarim.com` and is managed by the files in `deploy/` and `scripts/`.
+Testora is deployed as part of the ASafarIM Platform using Docker Compose and Caddy:
 
-### Components
-- **App** — `next start` on `127.0.0.1:3007` via systemd `e2e-testora`
-- **Database** — Postgres in Docker, bound to `127.0.0.1:55434` only
-- **Reverse proxy** — nginx with TLS via Let's Encrypt
-- **Test runs** — TestCafe drives the host's Google Chrome
+- **App container** — built from `apps/testora/Dockerfile` (Next.js standalone), proxied by Caddy at `https://testora.asafarim.com`
+- **Database** — isolated PostgreSQL in Docker
+- **Auth** — shared session via `@asafarim/auth` (sign-in on Hub)
 
-### Key files
-| File | Purpose |
-|---|---|
-| `scripts/server-setup.sh` | One-time idempotent provisioning |
-| `scripts/deploy.sh` | Repeatable redeploy |
-| `deploy/docker-compose.prod.yml` | Production Postgres container |
-| `deploy/e2e-testora.service` | systemd unit for the app |
-| `deploy/nginx/testora.asafarim.com.conf` | nginx TLS vhost |
+Production deployment is managed from the repo root:
 
-### First-time setup
-Run on the VPS as root:
 ```bash
-bash /var/repos/e2e-testora/scripts/server-setup.sh
-# Then edit env vars and restart:
-nano /var/repos/e2e-testora/.env   # DATABASE_URL, WEBAPP_ADMIN_*, etc.
-systemctl restart e2e-testora
+pnpm deploy:prod
 ```
 
-### Redeploy after changes
-```bash
-ssh vps 'bash /var/repos/e2e-testora/scripts/deploy.sh'
-```
+See [docs/deployment.md](../../docs/deployment.md) for VPS setup details and the full deployment pipeline.
 
-### Operations
-```bash
-systemctl status e2e-testora          # service health
-journalctl -u e2e-testora -f            # live logs
-docker logs -f e2e-testora-db           # database logs
-curl -I https://testora.asafarim.com    # public check
-```
+## License
 
-## License & Credits
-- This project uses common OSS tools: Next.js, Tailwind CSS, Drizzle, and `pnpm`.
-- Released under the [MIT License](LICENSE) — you're free to use, modify, and distribute it,
-  including commercially. The software is provided **"as is"**, without warranty of any kind; the
-  author accepts no liability for any damage, data loss, or other problems arising from its use.
+This repository is part of the ASafarIM Platform, a **portfolio project** shared publicly for skills assessment. It is licensed under a custom **Portfolio Evaluation & Source-Available License** — see the main [`LICENSE`](../../LICENSE) for the full legal text.
+
+**Permitted:**
+- 👀 Viewing and reading the source code
+- 📥 Cloning the repository for local inspection
+- 🖥️ Building and running the project locally for evaluation
+
+**Forbidden without prior written consent:**
+- 🚫 Commercial use of any kind
+- 🚫 Selling, renting, or paid distribution
+- 🚫 Sublicensing or redistributing the code
+- 🚫 Modifying to create commercial derivative works
+
+For commercial licensing, contact: **asafarim@gmail.com**

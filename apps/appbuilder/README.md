@@ -376,21 +376,19 @@ Because every migration file only ever adds columns/tables/indexes in this
 milestone, rerunning `db:migrate` against an already-migrated database is
 always safe (verified in CI/verification — see the M02 PR).
 
-## Docker
+## Deployment
+
+AppBuilder is deployed as part of the ASafarIM Platform using Docker Compose and Caddy:
+
+- **App container** — built from `apps/appbuilder/Dockerfile` (Next.js standalone), proxied by Caddy at `https://appbuilder.asafarim.com`
+- **Database** — isolated PostgreSQL in Docker
+- **Auth** — shared session via `@asafarim/auth` (sign-in on Hub)
+- **Worker** — background AI generation worker (if M07 features are enabled)
+
+Production deployment is managed from the repo root:
 
 ```bash
-docker build -f apps/appbuilder/Dockerfile --target runner -t appbuilder .
-docker run --rm -p 3006:3000 -e APPBUILDER_DATABASE_URL=... appbuilder
-curl http://localhost:3006/api/health
-
-# One-shot migration image (same one docker-compose.prod.yml's
-# appbuilder-migrate job uses)
-docker build -f apps/appbuilder/Dockerfile --target migrator -t appbuilder-migrate .
-docker run --rm -e APPBUILDER_DATABASE_URL=... appbuilder-migrate
+pnpm deploy:prod
 ```
 
-The app itself is not yet wired into `docker-compose.prod.yml` / Caddy —
-that's production routing, explicitly deferred to M11. Its database and
-migration job (`appbuilder-postgres`, `appbuilder-migrate`) are wired in now
-so the persistence layer is already correct and testable ahead of that
-milestone.
+See [docs/deployment.md](../../docs/deployment.md) for VPS setup details and the full deployment pipeline.

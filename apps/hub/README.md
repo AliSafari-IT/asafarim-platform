@@ -59,6 +59,16 @@ Hub reads the shared root `.env.local` (see repo-root
 
 ## Deployment
 
-Part of `docker-compose.prod.yml` — `hub` service, proxied by Caddy at
-`https://hub.asafarim.com`. Built and deployed via
-`infra/scripts/vps-deploy.sh`.
+Hub is deployed as part of the ASafarIM Platform using Docker Compose and Caddy:
+
+- **App container** — built from `apps/hub/Dockerfile` (Next.js standalone), proxied by Caddy at `https://hub.asafarim.com`
+- **Database** — shared PostgreSQL via `@asafarim/db`
+- **Auth** — Auth.js v5 via `@asafarim/auth` (centralized sign-in for all apps)
+
+Production deployment is managed from the repo root:
+
+```bash
+pnpm deploy:prod
+```
+
+See [docs/deployment.md](../../docs/deployment.md) for VPS setup details and the full deployment pipeline.

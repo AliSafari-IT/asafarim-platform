@@ -76,6 +76,17 @@ development.
 
 ## Deployment
 
-Part of `docker-compose.prod.yml` — `admin` service, proxied by Caddy
-at `https://admin.asafarim.com`. Built and deployed via
-`infra/scripts/vps-deploy.sh`.
+Admin is deployed as part of the ASafarIM Platform using Docker Compose and Caddy:
+
+- **App container** — built from `apps/admin/Dockerfile` (Next.js standalone), proxied by Caddy at `https://admin.asafarim.com`
+- **Database** — shared PostgreSQL via `@asafarim/db`
+- **Auth** — shared session via `@asafarim/auth` (sign-in on Hub)
+- **Access control** — admin/superadmin role gate
+
+Production deployment is managed from the repo root:
+
+```bash
+pnpm deploy:prod
+```
+
+See [docs/deployment.md](../../docs/deployment.md) for VPS setup details and the full deployment pipeline.
