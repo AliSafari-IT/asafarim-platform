@@ -92,6 +92,14 @@ function CompassIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+function ChevronIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="m9 6 6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** Zero-padded position, "1" → "01" — a light visual anchor per card so a
  *  reader can scan "three things, four things" without reading every word. */
 function pad(n: number): string {
@@ -136,11 +144,41 @@ export function ShowcaseAbout({
         <p className="ui-showcase-about__lede">{content.summary}</p>
       </header>
 
-      <section className="ui-showcase-about__section">
-        <h2 className="ui-showcase-about__heading">
+      {/* The whole story in one screenful: every fact as a short chip, no
+          paragraphs. The four <details> below hold the full prose for
+          anyone who wants it — closed by default so it's opt-in, not the
+          first thing a reader has to wade through. */}
+      <div className="ui-showcase-about__scorecard">
+        {content.functional.map((fact) => (
+          <span key={fact.title} className="ui-showcase-about__chip ui-showcase-about__chip--ok">
+            <CheckCircleIcon className="ui-showcase-about__chip-icon" />
+            {fact.title}
+          </span>
+        ))}
+        {content.synthetic.map((fact) => (
+          <span key={fact.title} className="ui-showcase-about__chip ui-showcase-about__chip--warn">
+            <FlaskIcon className="ui-showcase-about__chip-icon" />
+            {fact.title}
+          </span>
+        ))}
+        {content.demonstrates.map((item) => (
+          <span key={item} className="ui-showcase-about__chip ui-showcase-about__chip--info">
+            <TerminalIcon className="ui-showcase-about__chip-icon" />
+            {item}
+          </span>
+        ))}
+        <span className="ui-showcase-about__chip ui-showcase-about__chip--status">
+          <CompassIcon className="ui-showcase-about__chip-icon" />
+          {content.operationalStatus}
+        </span>
+      </div>
+
+      <details className="ui-showcase-about__details">
+        <summary className="ui-showcase-about__heading">
           <CheckCircleIcon className="ui-showcase-about__heading-icon" />
           {l.sectionWhatWorks}
-        </h2>
+          <ChevronIcon className="ui-showcase-about__chevron" />
+        </summary>
         <div className="ui-showcase-about__grid">
           {content.functional.map((fact, i) => (
             <article key={fact.title} className="ui-showcase-about__card">
@@ -150,13 +188,14 @@ export function ShowcaseAbout({
             </article>
           ))}
         </div>
-      </section>
+      </details>
 
-      <section className="ui-showcase-about__section">
-        <h2 className="ui-showcase-about__heading">
+      <details className="ui-showcase-about__details">
+        <summary className="ui-showcase-about__heading">
           <FlaskIcon className="ui-showcase-about__heading-icon" />
           {l.sectionSyntheticData}
-        </h2>
+          <ChevronIcon className="ui-showcase-about__chevron" />
+        </summary>
         <div className="ui-showcase-about__grid">
           {content.synthetic.map((fact, i) => (
             <article
@@ -169,13 +208,14 @@ export function ShowcaseAbout({
             </article>
           ))}
         </div>
-      </section>
+      </details>
 
-      <section className="ui-showcase-about__section">
-        <h2 className="ui-showcase-about__heading">
+      <details className="ui-showcase-about__details">
+        <summary className="ui-showcase-about__heading">
           <TerminalIcon className="ui-showcase-about__heading-icon" />
           {withAppName(l.sectionDemonstrates, appName)}
-        </h2>
+          <ChevronIcon className="ui-showcase-about__chevron" />
+        </summary>
         <ul className="ui-showcase-about__demonstrates">
           {content.demonstrates.map((item) => (
             <li key={item} className="ui-showcase-about__demonstrates-item">
@@ -184,15 +224,16 @@ export function ShowcaseAbout({
             </li>
           ))}
         </ul>
-      </section>
+      </details>
 
-      <section className="ui-showcase-about__section">
-        <h2 className="ui-showcase-about__heading">
+      <details className="ui-showcase-about__details">
+        <summary className="ui-showcase-about__heading">
           <CompassIcon className="ui-showcase-about__heading-icon" />
           {l.sectionWhereThisStands}
-        </h2>
+          <ChevronIcon className="ui-showcase-about__chevron" />
+        </summary>
         <p className="ui-showcase-about__status">{content.operationalStatus}</p>
-      </section>
+      </details>
 
       {children}
 
