@@ -3,6 +3,7 @@ import { requireUser } from "@asafarim/auth";
 import { prisma } from "@asafarim/db";
 import { PageHeader } from "@asafarim/ui";
 import { ProfileEditor } from "./_components/ProfileEditor";
+import styles from "./_components/profile.module.css";
 
 export const metadata: Metadata = { title: "Profile" };
 
@@ -41,12 +42,11 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <PageHeader
-        kicker="Identity card"
-        kickerIndex="01"
-        title="Profile"
-        description="Who you are across the whole platform."
-      />
+      <header className={styles.pageHead}>
+        <p className={styles.kicker}>01 / Identity</p>
+        <h1>Profile</h1>
+        <p>Who you are across the whole platform.</p>
+      </header>
       <ProfileEditor
         user={user}
         roles={session.user.roles}

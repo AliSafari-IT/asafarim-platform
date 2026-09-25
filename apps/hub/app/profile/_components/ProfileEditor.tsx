@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Alert, Badge, Button, Card, FormRow, Input, Label, Textarea } from "@asafarim/ui";
+import { Alert, Badge, Button, ConfirmDialog, Input, Label, Textarea } from "@asafarim/ui";
 import { AddressFields, EMPTY_ADDRESS, type AddressFieldsValue } from "../../_components/AddressFields";
 import { LocationCard, type LocationLike } from "./LocationCard";
 import styles from "./profile.module.css";
@@ -23,9 +23,33 @@ interface ProfileUser {
   timezone: string | null;
 }
 
+type Details = {
+  name: string;
+  username: string;
+  bio: string;
+  jobTitle: string;
+  company: string;
+  website: string;
+  phone: string;
+  timezone: string;
+};
+
 async function parseJsonError(res: Response): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   return data.error ?? "Something went wrong. Please try again.";
+}
+
+function toDetails(user: ProfileUser): Details {
+  return {
+    name: user.name ?? "",
+    username: user.username ?? "",
+    bio: user.bio ?? "",
+    jobTitle: user.jobTitle ?? "",
+    company: user.company ?? "",
+    website: user.website ?? "",
+    phone: user.phone ?? "",
+    timezone: user.timezone ?? "",
+  };
 }
 
 export function ProfileEditor({
@@ -40,15 +64,11 @@ export function ProfileEditor({
   const router = useRouter();
   const { update: updateSession } = useSession();
 
-  const [name, setName] = useState(user.name ?? "");
-  const [username, setUsername] = useState(user.username ?? "");
+  // `baseline` is what the server last confirmed, so the save bar can tell
+  // edited fields from saved ones without another round trip.
+  const [baseline, setBaseline] = useState<Details>(() => toDetails(user));
+  const [details, setDetails] = useState<Details>(() => toDetails(user));
   const [image, setImage] = useState(user.image ?? "");
-  const [bio, setBio] = useState(user.bio ?? "");
-  const [jobTitle, setJobTitle] = useState(user.jobTitle ?? "");
-  const [company, setCompany] = useState(user.company ?? "");
-  const [website, setWebsite] = useState(user.website ?? "");
-  const [phone, setPhone] = useState(user.phone ?? "");
-  const [timezone, setTimezone] = useState(user.timezone ?? "");
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -59,6 +79,35 @@ export function ProfileEditor({
   const [showAddLocation, setShowAddLocation] = useState(false);
   const [newAddress, setNewAddress] = useState<AddressFieldsValue>(EMPTY_ADDRESS);
   const [addingLocation, setAddingLocation] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<LocationLike | null>(null);
+
+  const dirty = useMemo(
+    () => (Object.keys(details) as (keyof Details)[]).some((k) => details[k] !== baseline[k]),
+    [details, baseline]
+  );
+
+  const completeness = useMemo(() => {
+    const checks = [
+      Boolean(baseline.name),
+      Boolean(baseline.username),
+      Boolean(image),
+      Boolean(baseline.bio),
+      Boolean(baseline.jobTitle),
+      Boolean(baseline.company),
+      Boolean(baseline.website),
+      Boolean(baseline.phone),
+      Boolean(baseline.timezone),
+      locations.length > 0,
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }, [baseline, image, locations.length]);
+
+  function set<K extends keyof Details>(key: K) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setSaved(false);
+      setDetails((prev) => ({ ...prev, [key]: e.target.value }));
+    };
+  }
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -69,12 +118,13 @@ export function ProfileEditor({
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, username, image: image || null, bio, jobTitle, company, website, phone, timezone }),
+        body: JSON.stringify({ ...details, image: image || null }),
       });
       if (!res.ok) {
         setError(await parseJsonError(res));
         return;
       }
+      setBaseline(details);
       setSaved(true);
       await updateSession();
       router.refresh();
@@ -104,7 +154,6 @@ export function ProfileEditor({
       }
       const data = (await res.json()) as { image: string };
       setImage(data.image);
-      setSaved(true);
       // Re-sync the auth token so the header avatar (server-rendered from the
       // session) reflects the new image, then re-render server components.
       await updateSession();
@@ -127,7 +176,6 @@ export function ProfileEditor({
         return;
       }
       setImage("");
-      setSaved(true);
       await updateSession();
       router.refresh();
     } catch {
@@ -185,160 +233,230 @@ export function ProfileEditor({
     setLocations((prev) => prev.filter((loc) => loc.id !== id));
   }
 
+  const displayName = baseline.name || baseline.username || user.email;
+  const initial = displayName.charAt(0).toUpperCase();
+  const facts = [
+    { label: "Role", value: [baseline.jobTitle, baseline.company].filter(Boolean).join(" · ") },
+    { label: "Website", value: baseline.website },
+    { label: "Timezone", value: baseline.timezone },
+  ];
+
   return (
-    <div className={styles.grid}>
-      <Card variant="elevated" title={user.name ?? "Unnamed"}>
-        <p className="u-mono">@{user.username ?? "—"}</p>
-        <p>{user.email}</p>
-        <p>
-          {roles.map((role) => (
-            <span key={role} style={{ marginRight: "0.35rem" }}>
-              <Badge tone={role === "superadmin" || role === "admin" ? "info" : "neutral"}>{role}</Badge>
-            </span>
-          ))}
-        </p>
-        <div style={{ marginTop: "1rem" }}>
+    <div className={styles.layout}>
+      {/* ─── Identity panel ─────────────────────────────────────────── */}
+      <aside className={styles.identity} aria-label="Your identity">
+        <div className={styles.cover} aria-hidden="true" />
+        <div className={styles.avatarWrap}>
           {image ? (
-            <img
-              src={image}
-              alt=""
-              width={64}
-              height={64}
-              style={{ borderRadius: "50%", objectFit: "cover" }}
-            />
+            <img src={image} alt="" className={styles.avatar} width={88} height={88} />
           ) : (
-            <div
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                background: "var(--surface-2, #333)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1.5rem",
-                color: "var(--text-muted)",
-              }}
-            >
-              {(user.name ?? user.username ?? user.email).charAt(0).toUpperCase()}
-            </div>
+            <span className={`${styles.avatar} ${styles.avatarFallback}`}>{initial}</span>
           )}
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={uploadingAvatar}
-              onClick={() => document.getElementById("avatar-upload")?.click()}
-            >
-              {uploadingAvatar ? "Uploading…" : image ? "Change avatar" : "Add avatar"}
-            </Button>
-            {image && (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={uploadingAvatar}
-                onClick={handleRemoveAvatar}
-              >
-                Remove
-              </Button>
-            )}
-            <input
-              id="avatar-upload"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={handleAvatarUpload}
-              style={{ display: "none" }}
-            />
-          </div>
-        </div>
-      </Card>
-
-      <Card title="Edit your details">
-        {error ? <Alert tone="error">{error}</Alert> : null}
-        {saved ? <Alert tone="info">Profile updated.</Alert> : null}
-
-        <form onSubmit={handleSaveProfile}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-            <FormRow>
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
-            </FormRow>
-            <FormRow>
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} minLength={3} maxLength={24} />
-            </FormRow>
-          </div>
-
-          <FormRow>
-            <Label htmlFor="bio">Bio</Label>
-            <Textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} />
-          </FormRow>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-            <FormRow>
-              <Label htmlFor="jobTitle">Job title</Label>
-              <Input id="jobTitle" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
-            </FormRow>
-            <FormRow>
-              <Label htmlFor="company">Company</Label>
-              <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} />
-            </FormRow>
-          </div>
-
-          <FormRow>
-            <Label htmlFor="website">Website</Label>
-            <Input id="website" type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
-          </FormRow>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-            <FormRow>
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
-            </FormRow>
-            <FormRow>
-              <Label htmlFor="timezone">Timezone</Label>
-              <Input id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="Europe/Amsterdam" />
-            </FormRow>
-          </div>
-
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save changes"}
-          </Button>
-        </form>
-      </Card>
-
-      <div id="addresses">
-      <Card title="Addresses">
-        {locations.map((loc) => (
-          <LocationCard
-            key={loc.id}
-            location={loc}
-            onUpdate={handleUpdateLocation}
-            onDelete={handleDeleteLocation}
+          <button
+            type="button"
+            className={styles.avatarEdit}
+            disabled={uploadingAvatar}
+            onClick={() => document.getElementById("avatar-upload")?.click()}
+            aria-label={image ? "Change avatar" : "Add avatar"}
+            title={image ? "Change avatar" : "Add avatar"}
+          >
+            {uploadingAvatar ? "…" : "✎"}
+          </button>
+          <input
+            id="avatar-upload"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={handleAvatarUpload}
+            hidden
           />
-        ))}
+        </div>
 
-        {showAddLocation ? (
-          <form onSubmit={handleAddLocation}>
-            <AddressFields value={newAddress} onChange={setNewAddress} idPrefix="new-addr" />
-            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-              <Button type="submit" size="sm" disabled={addingLocation}>
-                {addingLocation ? "Adding…" : "Add address"}
-              </Button>
-              <Button type="button" size="sm" variant="secondary" onClick={() => setShowAddLocation(false)}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <button type="button" className={styles.addToggle} onClick={() => setShowAddLocation(true)}>
-            + Add an address
+        <h2 className={styles.name}>{displayName}</h2>
+        <p className={styles.handle}>@{baseline.username || "—"}</p>
+        <p className={styles.email}>{user.email}</p>
+
+        <div className={styles.roles}>
+          {roles.map((role) => (
+            <Badge key={role} tone={role === "superadmin" || role === "admin" ? "info" : "neutral"}>
+              {role}
+            </Badge>
+          ))}
+        </div>
+
+        {image && (
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={handleRemoveAvatar}
+            disabled={uploadingAvatar}
+          >
+            Remove avatar
           </button>
         )}
-      </Card>
+
+        <div className={styles.meter}>
+          <div className={styles.meterRow}>
+            <span>Profile strength</span>
+            <strong>{completeness}%</strong>
+          </div>
+          <div className={styles.meterBar}>
+            <div className={styles.meterFill} style={{ width: `${Math.max(completeness, 4)}%` }} />
+          </div>
+        </div>
+
+        <dl className={styles.facts}>
+          {facts.map((fact) => (
+            <div key={fact.label}>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value || <span className={styles.missing}>Not set</span>}</dd>
+            </div>
+          ))}
+        </dl>
+      </aside>
+
+      {/* ─── Editor ─────────────────────────────────────────────────── */}
+      <div className={styles.main}>
+        <form className={styles.panel} onSubmit={handleSaveProfile}>
+          {error ? <Alert tone="error">{error}</Alert> : null}
+
+          <fieldset className={styles.group}>
+            <legend>Basics</legend>
+            <div className={styles.fields}>
+              <div className={styles.field}>
+                <Label htmlFor="name">Name</Label>
+                <Input id="name" value={details.name} onChange={set("name")} autoComplete="name" />
+              </div>
+              <div className={styles.field}>
+                <Label htmlFor="username">Username</Label>
+                <Input id="username" value={details.username} onChange={set("username")} minLength={3} maxLength={24} />
+              </div>
+              <div className={styles.field}>
+                <Label htmlFor="jobTitle">Job title</Label>
+                <Input id="jobTitle" value={details.jobTitle} onChange={set("jobTitle")} autoComplete="organization-title" />
+              </div>
+              <div className={styles.field}>
+                <Label htmlFor="company">Company</Label>
+                <Input id="company" value={details.company} onChange={set("company")} autoComplete="organization" />
+              </div>
+              <div className={`${styles.field} ${styles.wide}`}>
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  rows={3}
+                  value={details.bio}
+                  onChange={set("bio")}
+                  placeholder="A line or two about what you build."
+                />
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset className={styles.group}>
+            <legend>Contact</legend>
+            <div className={`${styles.fields} ${styles.fields3}`}>
+              <div className={styles.field}>
+                <Label htmlFor="website">Website</Label>
+                <Input id="website" type="url" value={details.website} onChange={set("website")} placeholder="https://" />
+              </div>
+              <div className={styles.field}>
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" type="tel" value={details.phone} onChange={set("phone")} autoComplete="tel" />
+              </div>
+              <div className={styles.field}>
+                <div className={styles.labelRow}>
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <button
+                    type="button"
+                    className={styles.linkButton}
+                    onClick={() => {
+                      setSaved(false);
+                      setDetails((prev) => ({
+                        ...prev,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                      }));
+                    }}
+                  >
+                    Detect
+                  </button>
+                </div>
+                <Input id="timezone" value={details.timezone} onChange={set("timezone")} placeholder="Europe/Brussels" />
+              </div>
+            </div>
+          </fieldset>
+
+          <div className={styles.saveBar}>
+            <span className={styles.saveState} data-state={dirty ? "dirty" : saved ? "saved" : "idle"}>
+              {dirty ? "Unsaved changes" : saved ? "All changes saved" : "Up to date"}
+            </span>
+            {dirty && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setDetails(baseline)} disabled={saving}>
+                Discard
+              </Button>
+            )}
+            <Button type="submit" disabled={saving || !dirty}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </form>
+
+        <section id="addresses" className={styles.panel} aria-labelledby="addresses-title">
+          <div className={styles.panelHead}>
+            <h2 id="addresses-title">Addresses</h2>
+            {!showAddLocation && (
+              <Button type="button" size="sm" variant="secondary" onClick={() => setShowAddLocation(true)}>
+                + Add address
+              </Button>
+            )}
+          </div>
+
+          {showAddLocation && (
+            <form className={styles.addForm} onSubmit={handleAddLocation}>
+              <AddressFields value={newAddress} onChange={setNewAddress} idPrefix="new-addr" />
+              <div className={styles.actions}>
+                <Button type="submit" size="sm" disabled={addingLocation}>
+                  {addingLocation ? "Adding…" : "Add address"}
+                </Button>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setShowAddLocation(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {locations.length > 0 ? (
+            <div className={styles.locations}>
+              {locations.map((loc) => (
+                <LocationCard
+                  key={loc.id}
+                  location={loc}
+                  onUpdate={handleUpdateLocation}
+                  onDelete={async () => setPendingDelete(loc)}
+                />
+              ))}
+            </div>
+          ) : (
+            !showAddLocation && <p className={styles.empty}>No addresses yet.</p>
+          )}
+        </section>
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Remove this address?"
+        message={
+          pendingDelete
+            ? `“${pendingDelete.label || pendingDelete.type}” will be removed from your profile.`
+            : undefined
+        }
+        confirmLabel="Remove"
+        tone="danger"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={async () => {
+          const target = pendingDelete;
+          setPendingDelete(null);
+          if (target) await handleDeleteLocation(target.id);
+        }}
+      />
     </div>
   );
 }

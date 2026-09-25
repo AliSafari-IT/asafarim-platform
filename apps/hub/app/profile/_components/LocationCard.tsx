@@ -92,26 +92,24 @@ export function LocationCard({
   return (
     <div className={styles.locationCard}>
       <div className={styles.locationHead}>
-        <span>
-          <strong style={{ textTransform: "capitalize" }}>{location.label || location.type}</strong>{" "}
-          {location.isPrimary ? <Badge tone="success">Primary</Badge> : null}
+        <strong className={styles.locationLabel}>{location.label || location.type}</strong>
+        {location.isPrimary ? <Badge tone="success">Primary</Badge> : null}
+        <span className={styles.locationActions}>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(true)} disabled={busy}>
+            Edit
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleDelete} disabled={busy}>
+            {busy ? "Removing…" : "Remove"}
+          </Button>
         </span>
       </div>
-      <p className="u-muted">{summary || "No address details yet."}</p>
+      <p className={styles.locationSummary}>{summary || "No address details yet."}</p>
       {location.lat != null && location.lng != null ? (
-        <p className="u-muted" style={{ fontSize: "var(--text-xs, 12px)" }}>
+        <p className={styles.locationCoords}>
           📍 {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
           {location.source === "browser" ? " (from browser)" : ""}
         </p>
       ) : null}
-      <div className={styles.locationActions}>
-        <Button size="sm" variant="secondary" onClick={() => setEditing(true)} disabled={busy}>
-          Edit
-        </Button>
-        <Button size="sm" variant="danger" onClick={handleDelete} disabled={busy}>
-          {busy ? "Removing…" : "Remove"}
-        </Button>
-      </div>
     </div>
   );
 }
