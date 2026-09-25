@@ -1,5 +1,5 @@
 import { db } from "@/db/client";
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import {
   functionalRequirements,
   testSuites,
@@ -7,6 +7,7 @@ import {
   testCases,
   targetEnvironments,
   projects,
+  testResults,
 } from "@/db/schema";
 import type {
   FunctionalRequirementDefinition,
@@ -118,6 +119,92 @@ export async function findOrphans() {
         .where(notInArray(testCases.caseId, caseIds))
     : [];
   return { orphanFixtures, orphanCases };
+}
+
+export interface SeedImpact {
+  /** Apps (seeded) that are no longer in the code registry. */
+  apps: { id: string; name: string }[];
+  requirements: { id: string; title: string }[];
+  suites: { id: string; title: string }[];
+  fixtures: { id: string; title: string }[];
+  /** Test cases that go, directly or via a removed parent. */
+  cases: number;
+  /** Stored results of those cases (they cascade away with them). */
+  results: number;
+}
+
+export function isEmptyImpact(impact: SeedImpact): boolean {
+  return (
+    impact.apps.length === 0 &&
+    impact.requirements.length === 0 &&
+    impact.suites.length === 0 &&
+    impact.fixtures.length === 0 &&
+    impact.cases === 0 &&
+    impact.results === 0
+  );
+}
+
+/**
+ * Dry run of {@link seedDatabase}'s pruning: everything a re-seed would
+ * DELETE right now, including rows removed by FK cascade (a removed
+ * requirement takes its suites → fixtures → cases → results with it). Reads
+ * only. Backs the "Update tests" confirmation on the Run page.
+ */
+export async function previewSeedImpact(): Promise<SeedImpact> {
+  const { frIds, suiteIds, fixtureIds, caseIds } = codeCatalogIds();
+  const keepFr = new Set(frIds);
+  const keepSuite = new Set(suiteIds);
+  const keepFixture = new Set(fixtureIds);
+  const keepCase = new Set(caseIds);
+
+  const [frRows, suiteRows, fixtureRows, caseRows, projectRows] = await Promise.all([
+    db.select({ id: functionalRequirements.id, title: functionalRequirements.title }).from(functionalRequirements),
+    db.select({ id: testSuites.suiteId, parent: testSuites.frId, title: testSuites.title }).from(testSuites),
+    db
+      .select({ id: testFixtures.fixtureId, parent: testFixtures.suiteId, title: testFixtures.title })
+      .from(testFixtures),
+    db.select({ id: testCases.caseId, parent: testCases.fixtureId }).from(testCases),
+    db.select({ id: projects.id, name: projects.name, seeded: projects.seeded }).from(projects),
+  ]);
+
+  // Mirror seedDatabase's guards: a level is only pruned when code defines
+  // at least one entry for it (an empty catalog must never wipe the DB).
+  const removedFr = frIds.length ? frRows.filter((r) => !keepFr.has(r.id)) : [];
+  const removedFrIds = new Set(removedFr.map((r) => r.id));
+  const removedSuites = suiteRows.filter(
+    (r) => (suiteIds.length && !keepSuite.has(r.id)) || removedFrIds.has(r.parent),
+  );
+  const removedSuiteIds = new Set(removedSuites.map((r) => r.id));
+  const removedFixtures = fixtureRows.filter(
+    (r) => (fixtureIds.length && !keepFixture.has(r.id)) || removedSuiteIds.has(r.parent),
+  );
+  const removedFixtureIds = new Set(removedFixtures.map((r) => r.id));
+  const removedCaseIds = caseRows
+    .filter((r) => (caseIds.length && !keepCase.has(r.id)) || removedFixtureIds.has(r.parent))
+    .map((r) => r.id);
+
+  const results = removedCaseIds.length
+    ? (
+        await db
+          .select({ id: testResults.id })
+          .from(testResults)
+          .where(inArray(testResults.caseId, removedCaseIds))
+      ).length
+    : 0;
+
+  const codeProjectIds = new Set(PROJECTS.map((p) => p.id));
+  const apps = PROJECTS.length
+    ? projectRows.filter((p) => p.seeded && !codeProjectIds.has(p.id)).map(({ id, name }) => ({ id, name }))
+    : [];
+
+  return {
+    apps,
+    requirements: removedFr.map(({ id, title }) => ({ id, title })),
+    suites: removedSuites.map(({ id, title }) => ({ id, title })),
+    fixtures: removedFixtures.map(({ id, title }) => ({ id, title })),
+    cases: removedCaseIds.length,
+    results,
+  };
 }
 
 /**

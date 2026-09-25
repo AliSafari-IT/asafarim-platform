@@ -8,10 +8,10 @@ import type {
 /**
  * ASafariM EduMatch — student question flow and tutor quote flow.
  *
- * EduMatch authenticates through the portal SSO (its middleware redirects
- * protected routes to portal.asafarim.com/sign-in). These tests are
+ * EduMatch authenticates through Hub SSO (its proxy redirects protected
+ * routes to hub.asafarim.com/sign-in). These tests are
  * self-bootstrapping: they try the credentials from .env and, if the account
- * doesn't exist yet, register it on the portal (which auto-signs-in).
+ * doesn't exist yet, register it on Hub (which auto-signs-in).
  *
  * Credentials: EDUMATCH_STUDENT_EMAIL/PASSWORD and EDUMATCH_TEACHER_EMAIL/
  * PASSWORD (same for dev and prod — switch via the Run page's Target env).
@@ -27,10 +27,10 @@ export const edumatchFR: FunctionalRequirementDefinition = {
 };
 
 /**
- * Sign in to EduMatch via the portal SSO. Starts on the EduMatch home (public)
+ * Sign in to EduMatch via Hub SSO. Starts on the EduMatch home (public)
  * so we can capture its origin, then navigates to a protected page to trigger
  * the redirect. Logs in; if that fails (account missing) it registers on the
- * portal. Leaves the browser authenticated and on `triggerPath`.
+ * Hub. Leaves the browser authenticated and on `triggerPath`.
  */
 function edumatchAuth(
   emailEnv: string,
@@ -41,19 +41,19 @@ function edumatchAuth(
 await t.deleteCookies();
 // We loaded the public EduMatch home, so this origin is the (possibly
 // retargeted) EduMatch deployment — use it for absolute navigation across the
-// cross-domain portal-SSO redirect.
+// cross-domain Hub-SSO redirect.
 const eduOrigin = await t.eval(() => window.location.origin);
 const email = process.env.${emailEnv} || '';
 const password = process.env.${passEnv} || '';
-await t.expect(email.length).gt(0, '${emailEnv} must be set in F:\\\\repos\\\\e2e-testora\\\\.env');
-await t.expect(password.length).gt(0, '${passEnv} must be set in F:\\\\repos\\\\e2e-testora\\\\.env');
+await t.expect(email.length).gt(0, '${emailEnv} must be set in the repo-root .env.local (Testora loads it at startup).');
+await t.expect(password.length).gt(0, '${passEnv} must be set in the repo-root .env.local (Testora loads it at startup).');
 
 await t.navigateTo(eduOrigin + '${triggerPath}');
 await t.wait(3000);
 let path = await t.eval(() => window.location.pathname);
 if (path.indexOf('/sign-in') !== -1) {
-  await t.expect(Selector('#email').with({ timeout: 30000 }).exists).ok('portal sign-in form should render');
-  await t.typeText('#email', email, { replace: true });
+  await t.expect(Selector('#identifier').with({ timeout: 30000 }).exists).ok('Hub sign-in form should render');
+  await t.typeText('#identifier', email, { replace: true });
   await t.typeText('#password', password, { replace: true });
   await t.click(Selector('button[type="submit"]').filterVisible());
   await t.wait(5000);
@@ -61,13 +61,13 @@ if (path.indexOf('/sign-in') !== -1) {
   if (path.indexOf('/sign-in') !== -1) {
     // Login didn't take — the account likely doesn't exist yet, so register it.
     await t.navigateTo('/sign-up');
-    await t.expect(Selector('#confirmPassword').with({ timeout: 30000 }).exists).ok('portal sign-up form should render');
+    await t.expect(Selector('#confirm-password').with({ timeout: 30000 }).exists).ok('Hub sign-up form should render');
     const token = Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
     await t.typeText('#name', 'E2E ' + token, { replace: true });
     await t.typeText('#username', ('e2e' + token).slice(0, 24), { replace: true });
     await t.typeText('#email', email, { replace: true });
     await t.typeText('#password', password, { replace: true });
-    await t.typeText('#confirmPassword', password, { replace: true });
+    await t.typeText('#confirm-password', password, { replace: true });
     await t.click(Selector('button[type="submit"]').filterVisible());
     await t.wait(5000);
   }
@@ -79,7 +79,7 @@ const authedPath = await t.eval(() => window.location.pathname);
 await t.expect(authedPath.indexOf('/sign-in')).eql(-1, 'should be signed in and reach ${triggerPath} (ended on ' + authedPath + ')');
 // Fail fast (not after a long selector timeout) if the run is pointed at the
 // wrong app — the EduMatch routes only exist on the EduMatch deployment.
-await t.expect(authedPath).contains('${triggerPath}', 'expected to be on ${triggerPath} — is the Target set to the EduMatch app (ASAFARIM_EDUMATCH_URL), not the portal? Current origin: ' + eduOrigin);
+await t.expect(authedPath).contains('${triggerPath}', 'expected to be on ${triggerPath} — is the Target set to the EduMatch app (ASAFARIM_EDUMATCH_URL), not Hub? Current origin: ' + eduOrigin);
 `;
 }
 

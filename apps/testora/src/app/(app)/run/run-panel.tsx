@@ -40,6 +40,8 @@ import { hostFromUrl, setDomainBrand, getDomainBrand, type DomainBrand } from "@
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCanManage } from "@/components/viewer-role";
+import type { SeedImpact } from "@/db/seedDatabase";
+import { UpdateTestsConfirm } from "./update-tests-confirm";
 
 interface FixtureSummary {
   fixtureId: string;
@@ -237,6 +239,9 @@ export function RunPanel() {
   const [selectedRequirementId, setSelectedRequirementId] = useState("");
   const [copied, setCopied] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  // Set when the server refused an update that would delete tests/results;
+  // drives the confirmation dialog (see /api/seed).
+  const [seedImpact, setSeedImpact] = useState<SeedImpact | null>(null);
   const [seedMessage, setSeedMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -271,12 +276,22 @@ export function RunPanel() {
     return { f, s, r };
   }, [projectId, setSelectedFixtureId]);
 
-  async function reseed() {
+  async function reseed(confirm = false) {
     setSeeding(true);
     setSeedMessage(null);
     try {
-      const res = await fetch("/api/seed", { method: "POST" });
+      const res = await fetch("/api/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm }),
+      });
       const data = await res.json();
+      if (res.status === 409 && data.impact) {
+        // Would delete tests/results: ask first, nothing has changed yet.
+        setSeedImpact(data.impact as SeedImpact);
+        return;
+      }
+      setSeedImpact(null);
       if (!res.ok) {
         setSeedMessage({
           type: "error",
@@ -818,7 +833,7 @@ export function RunPanel() {
               variant="outline"
               onClick={() => void reseed()}
               disabled={running || seeding}
-              title="Re-seed the catalog from the test definitions (adds new tests, updates changed ones)"
+              title="Re-seed the catalog from the test definitions (adds new tests, updates changed ones; asks before deleting anything)"
             >
               {seeding ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -828,6 +843,12 @@ export function RunPanel() {
               {seeding ? "Updating..." : "Update tests"}
             </Button>
           </div>
+          <UpdateTestsConfirm
+            impact={seedImpact}
+            busy={seeding}
+            onCancel={() => setSeedImpact(null)}
+            onConfirm={() => void reseed(true)}
+          />
           {seedMessage && (
             <p
               className={cn(
