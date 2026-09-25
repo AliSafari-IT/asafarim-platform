@@ -20,6 +20,7 @@ import {
 import { SessionProviderWrapper } from "./_components/SessionProviderWrapper";
 import "@asafarim/ui/styles.css";
 import "@asafarim/country-language-selector/styles.css";
+import "./hub-ai.css";
 
 export const metadata: Metadata = {
   title: {
