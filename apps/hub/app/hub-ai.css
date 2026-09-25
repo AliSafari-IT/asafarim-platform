@@ -1,0 +1,72 @@
+/* Hub-only component polish for the "Neural Mission Control" mood defined in
+   @asafarim/ui tokens.css. Scoped to [data-app="hub"] so the shared ui-*
+   components keep their look in every other app. */
+
+[data-app="hub"] .ui-shell__header {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+}
+
+/* A thin gradient hairline under the header, like a live signal. */
+[data-app="hub"] .ui-shell__header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 1px;
+  background: var(--hub-gradient);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+[data-app="hub"] .ui-btn--primary {
+  border-color: transparent;
+  background: var(--hub-gradient);
+  color: #fff;
+  box-shadow: 0 10px 28px -10px var(--hub-glow), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+[data-app="hub"] .ui-btn--primary:hover {
+  background: var(--hub-gradient);
+  filter: brightness(1.08);
+}
+
+/* Glass surfaces */
+[data-app="hub"] .ui-card,
+[data-app="hub"] .ui-metric,
+[data-app="hub"] .ui-appcard {
+  border-radius: 16px;
+  background: var(--hub-glass);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-1);
+}
+
+[data-app="hub"] .ui-metric { position: relative; overflow: hidden; }
+[data-app="hub"] .ui-metric::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--hub-gradient);
+  opacity: 0.8;
+}
+
+/* App tiles: gradient glyph + gradient-border glow on hover. */
+[data-app="hub"] .ui-appcard__glyph {
+  border-radius: 10px;
+  background: var(--hub-gradient);
+  color: #fff;
+  box-shadow: 0 8px 20px -8px var(--hub-glow);
+}
+[data-app="hub"] .ui-appcard:not(.ui-appcard--disabled):hover {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--hub-glass), var(--hub-glass)) padding-box,
+    var(--hub-gradient) border-box;
+  box-shadow: 0 20px 50px -24px var(--hub-glow);
+}
+[data-app="hub"] .ui-appcard--disabled .ui-appcard__glyph {
+  background: var(--surface-2);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+[data-app="hub"] .ui-kicker { color: var(--accent); }

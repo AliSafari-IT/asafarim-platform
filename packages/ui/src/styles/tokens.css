@@ -116,68 +116,89 @@
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
 }
 
-/* ── Mood: apps/hub — “Mission Control” (warm charcoal, amber) ──── */
+/* ── Mood: apps/hub — “Neural Mission Control” (deep ink, violet/cyan) ──
+   The AI-era Hub: near-black ink with a violet→cyan aurora and a faint
+   blueprint grid. Five background layers, so --bg-deco-size lists five
+   sizes (three auroras, then the two grid line sets). */
 [data-app="hub"] {
   color-scheme: dark;
 
-  --bg: #161310;
+  --bg: #07070c;
   --bg-deco: radial-gradient(
-      50rem 26rem at 50% -8rem,
-      rgba(245, 158, 11, 0.08),
-      transparent 65%
+      56rem 40rem at 8% -4rem,
+      rgba(139, 92, 246, 0.34),
+      transparent 62%
     ),
-    repeating-linear-gradient(
-      to bottom,
-      rgba(236, 229, 216, 0.025) 0 1px,
-      transparent 1px 6rem
-    );
-  --surface: #1e1a15;
-  --surface-2: #262119;
-  --surface-3: #2f2920;
-  --ink: #ece5d8;
-  --muted: #a1988a;
-  --line: #332c21;
-  --line-strong: #4a4131;
-  --accent: #f59e0b;
-  --accent-ink: #1c1917;
-  --accent-soft: rgba(245, 158, 11, 0.12);
-  --accent-2: #38bdf8;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
-  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px rgba(0, 0, 0, 0.45);
+    radial-gradient(
+      46rem 34rem at 95% 4rem,
+      rgba(34, 211, 238, 0.2),
+      transparent 60%
+    ),
+    radial-gradient(
+      50rem 30rem at 50% 110%,
+      rgba(217, 70, 239, 0.14),
+      transparent 60%
+    ),
+    linear-gradient(rgba(241, 240, 251, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(241, 240, 251, 0.03) 1px, transparent 1px);
+  --bg-deco-size: auto, auto, auto, 56px 56px, 56px 56px;
+  --surface: #11111b;
+  --surface-2: #181826;
+  --surface-3: #212133;
+  --ink: #f1f0fb;
+  --muted: #a3a1b8;
+  --line: #232238;
+  --line-strong: #363456;
+  --accent: #a78bfa;
+  --accent-ink: #0b0a14;
+  --accent-soft: rgba(167, 139, 250, 0.14);
+  --accent-2: #22d3ee;
+  --hub-gradient: linear-gradient(120deg, #8b5cf6 0%, #6366f1 45%, #22d3ee 100%);
+  --hub-glass: rgba(17, 17, 27, 0.66);
+  --hub-glow: rgba(139, 92, 246, 0.35);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.5), 0 24px 60px -20px rgba(0, 0, 0, 0.8);
 }
 
 /* ── Mood: apps/hub light — toggled via <html data-theme="light"> ──
    Hub is dark by default (the mood above is unconditional), so the light
-   counterpart is opt-in: it only applies once the user picks light. Same
-   amber signal colour, read as ink on warm paper instead of glow on
-   charcoal. */
+   counterpart is opt-in: same violet→cyan signal on soft lavender paper. */
 :root[data-theme="light"] [data-app="hub"] {
   color-scheme: light;
 
-  --bg: #f8f5ef;
+  --bg: #f7f7fc;
   --bg-deco: radial-gradient(
-      50rem 26rem at 50% -8rem,
-      rgba(180, 83, 9, 0.07),
-      transparent 65%
+      60rem 34rem at 12% -12rem,
+      rgba(139, 92, 246, 0.16),
+      transparent 62%
     ),
-    repeating-linear-gradient(
-      to bottom,
-      rgba(28, 25, 23, 0.03) 0 1px,
-      transparent 1px 6rem
-    );
-  --surface: #fffdf8;
-  --surface-2: #f2ece1;
-  --surface-3: #e9e1d2;
-  --ink: #201b14;
-  --muted: #6b6153;
-  --line: #ded4c2;
-  --line-strong: #c3b69a;
-  --accent: #b45309;
-  --accent-ink: #fffdf8;
-  --accent-soft: rgba(180, 83, 9, 0.1);
-  --accent-2: #0369a1;
-  --shadow-1: 0 1px 2px rgba(32, 27, 20, 0.06), 0 2px 8px rgba(32, 27, 20, 0.05);
-  --shadow-2: 0 2px 4px rgba(32, 27, 20, 0.08), 0 12px 28px rgba(32, 27, 20, 0.1);
+    radial-gradient(
+      48rem 30rem at 92% -6rem,
+      rgba(34, 211, 238, 0.14),
+      transparent 60%
+    ),
+    radial-gradient(
+      50rem 30rem at 55% 115%,
+      rgba(217, 70, 239, 0.07),
+      transparent 60%
+    ),
+    linear-gradient(rgba(21, 19, 31, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(21, 19, 31, 0.035) 1px, transparent 1px);
+  --surface: #ffffff;
+  --surface-2: #f1f0f9;
+  --surface-3: #e7e5f4;
+  --ink: #15131f;
+  --muted: #5f5c73;
+  --line: #e3e1ef;
+  --line-strong: #cbc7e0;
+  --accent: #6d28d9;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(109, 40, 217, 0.1);
+  --accent-2: #0891b2;
+  --hub-glass: rgba(255, 255, 255, 0.72);
+  --hub-glow: rgba(109, 40, 217, 0.22);
+  --shadow-1: 0 1px 2px rgba(21, 19, 31, 0.05), 0 8px 24px -10px rgba(60, 40, 120, 0.18);
+  --shadow-2: 0 2px 6px rgba(21, 19, 31, 0.06), 0 24px 60px -24px rgba(60, 40, 120, 0.3);
 }
 
 /* ── Mood: apps/showcase — “The Gallery” (cool dark, emerald) ───── */
