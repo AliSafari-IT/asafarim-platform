@@ -1,0 +1,367 @@
+/* ─── Landing: AI studio hero ─────────────────────────────────────────────
+   Scoped to .vi-landing so the create workbench skin in globals.css is
+   untouched. Light is the base; html[data-theme="dark"] swaps the tokens. */
+.vi-landing {
+  --vl-bg: #f7f6fb;
+  --vl-ink: #14121c;
+  --vl-muted: #5d5a6b;
+  --vl-grid: rgba(40, 32, 80, 0.07);
+  --vl-aurora-violet: rgba(139, 92, 246, 0.24);
+  --vl-aurora-coral: rgba(243, 111, 86, 0.2);
+  --vl-aurora-teal: rgba(89, 195, 177, 0.2);
+  --vl-glass-strong: rgba(255, 255, 255, 0.88);
+  --vl-glass-border: rgba(40, 32, 80, 0.1);
+  --vl-row: rgba(40, 32, 80, 0.035);
+  --vl-chip-bg: rgba(255, 255, 255, 0.82);
+  --vl-shadow: 0 30px 80px -20px rgba(60, 40, 120, 0.3), 0 8px 24px -8px rgba(60, 40, 120, 0.12);
+  --vl-gradient: linear-gradient(110deg, #8b5cf6 0%, #f36f56 52%, #e8b45d 100%);
+  --landing-card-bg: rgba(255, 255, 255, 0.7);
+  --landing-band-bg: rgba(255, 255, 255, 0.55);
+  --landing-stack-bg: rgba(243, 240, 252, 0.7);
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  background: var(--vl-bg);
+  color: var(--vl-ink);
+}
+
+html[data-theme="dark"] .vi-landing {
+  --vl-bg: #08080d;
+  --vl-ink: #f4f2fb;
+  --vl-muted: #a9a6b8;
+  --vl-grid: rgba(255, 255, 255, 0.05);
+  --vl-aurora-violet: rgba(139, 92, 246, 0.34);
+  --vl-aurora-coral: rgba(243, 111, 86, 0.22);
+  --vl-aurora-teal: rgba(89, 195, 177, 0.2);
+  --vl-glass-strong: rgba(24, 23, 35, 0.86);
+  --vl-glass-border: rgba(255, 255, 255, 0.09);
+  --vl-row: rgba(255, 255, 255, 0.035);
+  --vl-chip-bg: rgba(28, 27, 40, 0.8);
+  --vl-shadow: 0 40px 100px -24px rgba(0, 0, 0, 0.75), 0 0 60px -20px rgba(139, 92, 246, 0.35);
+  --landing-card-bg: rgba(22, 21, 32, 0.6);
+  --landing-card-border: rgba(255, 255, 255, 0.08);
+  --landing-band-bg: rgba(14, 13, 22, 0.6);
+  --landing-band-border: rgba(255, 255, 255, 0.06);
+  --landing-stack-bg: rgba(18, 16, 30, 0.75);
+  --landing-secondary-bg: rgba(28, 27, 40, 0.7);
+  --landing-secondary-border: rgba(255, 255, 255, 0.14);
+  --landing-footer-border: rgba(255, 255, 255, 0.07);
+}
+
+/* Background: masked grid + three slow aurora blobs, anchored to the top of
+   the landing root so they scroll away with the hero. */
+.vl-backdrop {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1100px;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.vl-backdrop__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--vl-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--vl-grid) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
+}
+.vl-backdrop__aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  animation: vl-drift 22s ease-in-out infinite;
+}
+.vl-backdrop__aurora--violet { width: 620px; height: 480px; top: -160px; left: 6%; background: var(--vl-aurora-violet); }
+.vl-backdrop__aurora--coral  { width: 520px; height: 420px; top: 40px; right: 2%; background: var(--vl-aurora-coral); animation-delay: -7s; animation-duration: 26s; }
+.vl-backdrop__aurora--teal   { width: 480px; height: 380px; top: 440px; left: 32%; background: var(--vl-aurora-teal); animation-delay: -14s; animation-duration: 30s; }
+
+@keyframes vl-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(60px, 40px) scale(1.08); }
+  66%      { transform: translate(-40px, 20px) scale(0.95); }
+}
+
+/* The hero fills one viewport under the 64px sticky header, so the CTAs are
+   always above the fold on desktop. */
+.vl-hero {
+  min-height: calc(100svh - 64px);
+  display: flex;
+  align-items: center;
+  padding: clamp(28px, 5vh, 64px) 20px;
+}
+.vl-hero__inner {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  gap: 56px;
+  align-items: center;
+}
+@media (min-width: 1024px) {
+  .vl-hero__inner { grid-template-columns: 1.05fr 0.95fr; gap: 64px; }
+}
+
+.vl-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--vl-glass-border);
+  background: var(--vl-chip-bg);
+  backdrop-filter: blur(12px);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vl-muted);
+}
+.vl-eyebrow__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--vl-gradient);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vl-title {
+  margin: 22px 0 18px;
+  font-size: clamp(2.5rem, 5.2vw, 4.4rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+  color: var(--vl-ink);
+}
+.vl-title__accent {
+  background: var(--vl-gradient);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: vl-sheen 8s linear infinite;
+}
+@keyframes vl-sheen {
+  to { background-position: 200% center; }
+}
+
+.vl-lead {
+  max-width: 540px;
+  margin: 0 0 32px;
+  font-size: clamp(1rem, 1.4vw, 1.15rem);
+  line-height: 1.65;
+  color: var(--vl-muted);
+}
+
+.vl-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+.vl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 52px;
+  padding: 0 26px;
+  border-radius: 14px;
+  font-size: 0.97rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.vl-btn:hover { transform: translateY(-2px); }
+.vl-btn:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 3px; }
+.vl-btn--primary {
+  border: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #7c4dff 0%, #f36f56 100%);
+  box-shadow: 0 12px 32px -8px rgba(124, 77, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.vl-btn--primary:hover { box-shadow: 0 18px 44px -8px rgba(243, 111, 86, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+.vl-btn--ghost {
+  border: 1px solid var(--vl-glass-border);
+  background: var(--vl-chip-bg);
+  color: var(--vl-ink);
+  backdrop-filter: blur(12px);
+}
+.vl-btn--ghost:hover { border-color: rgba(139, 92, 246, 0.45); }
+
+.vl-trust { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 0.82rem; color: var(--vl-muted); }
+.vl-trust__item { display: inline-flex; align-items: center; gap: 7px; }
+.vl-trust__dot { width: 6px; height: 6px; border-radius: 50%; }
+
+/* ─── Studio mock ─── */
+.vl-studio { position: relative; }
+.vl-studio__card {
+  position: relative;
+  border-radius: 22px;
+  padding: 1px;
+  background: linear-gradient(140deg, rgba(139, 92, 246, 0.6), rgba(243, 111, 86, 0.25) 40%, var(--vl-glass-border) 60%, rgba(89, 195, 177, 0.5));
+  box-shadow: var(--vl-shadow);
+}
+.vl-studio__body {
+  border-radius: 21px;
+  background: var(--vl-glass-strong);
+  backdrop-filter: blur(24px);
+  overflow: hidden;
+}
+.vl-studio__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vl-glass-border);
+  font-size: 0.78rem;
+  color: var(--vl-muted);
+}
+.vl-studio__dots { display: flex; gap: 6px; }
+.vl-studio__dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--vl-glass-border); }
+.vl-studio__title { font-weight: 600; color: var(--vl-ink); }
+.vl-studio__live {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #10b981;
+}
+.vl-studio__live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: vl-ping 1.8s ease-out infinite;
+}
+@keyframes vl-ping {
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  100% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+
+.vl-studio__content { padding: 16px; display: grid; gap: 10px; }
+.vl-stage {
+  border-radius: 14px;
+  background: var(--vl-row);
+  border: 1px solid var(--vl-glass-border);
+  padding: 12px 14px;
+}
+.vl-stage__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vl-ink);
+}
+.vl-stage__icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.vl-stage__meta { margin-left: auto; font-size: 0.72rem; font-weight: 500; color: var(--vl-muted); white-space: nowrap; }
+
+.vl-photos { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.vl-photo {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.vl-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: vl-scan 4s ease-in-out infinite;
+  animation-delay: var(--vl-delay, 0s);
+}
+@keyframes vl-scan {
+  0%, 40%   { transform: translateX(-120%); }
+  70%, 100% { transform: translateX(120%); }
+}
+
+.vl-script { font-size: 0.84rem; line-height: 1.55; color: var(--vl-ink); margin: 0; }
+.vl-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: #8b5cf6;
+  animation: vl-blink 1s steps(1) infinite;
+}
+@keyframes vl-blink { 50% { opacity: 0; } }
+
+.vl-wave { display: flex; align-items: center; gap: 3px; height: 34px; }
+.vl-wave span {
+  flex: 1;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #59c3b1, #8b5cf6);
+  animation: vl-wave 1.3s ease-in-out infinite;
+}
+@keyframes vl-wave {
+  0%, 100% { transform: scaleY(0.3); }
+  50%      { transform: scaleY(1); }
+}
+
+.vl-progress { height: 8px; border-radius: 999px; background: var(--vl-glass-border); overflow: hidden; }
+.vl-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--vl-gradient);
+  animation: vl-render 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes vl-render {
+  0%        { width: 4%; }
+  80%, 100% { width: 100%; }
+}
+
+.vl-float {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--vl-glass-border);
+  background: var(--vl-chip-bg);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 30px -12px rgba(40, 30, 90, 0.35);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--vl-ink);
+  white-space: nowrap;
+  animation: vl-bob 6s ease-in-out infinite;
+}
+.vl-float--tl { top: -18px; left: -22px; }
+.vl-float--br { bottom: -18px; right: -14px; animation-delay: -3s; }
+@keyframes vl-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+@media (max-width: 640px) {
+  .vl-float { display: none; }
+}
+
+.vl-showcase { max-width: 1200px; margin: 0 auto; padding: 0 20px 24px; }
+.vl-showcase > * { max-width: 760px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vi-landing *,
+  .vi-landing *::before,
+  .vi-landing *::after {
+    animation: none !important;
+  }
+  .vl-progress__fill { width: 72%; }
+}

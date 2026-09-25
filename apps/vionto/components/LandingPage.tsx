@@ -20,114 +20,117 @@ import {
   Sparkles,
   Wand2,
   Zap,
+  CheckCircle2,
+  ScanFace,
 } from "lucide-react";
 import { ViontoNav } from "./ViontoNav";
+import "./landing.css";
 
 const viontoShowcase = getShowcaseProject("vionto")!;
 
-/* ─── CSS Keyframe animations ───────────────────────────────────────────── */
+/* ─── Hero studio mock ──────────────────────────────────────────────────────
+   A stylised, animated preview of the pipeline (photos → script → voice →
+   render). Purely decorative, so it is aria-hidden; the copy beside it
+   carries the meaning. Animations live in landing.css and respect
+   prefers-reduced-motion. */
 
-const KEYFRAMES = `
-@keyframes lp-float {
-  0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-14px); }
-}
-@keyframes lp-glow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 18px rgba(243,111,86,0.45)) drop-shadow(0 0 45px rgba(232,180,93,0.2)); }
-  50%       { filter: drop-shadow(0 0 32px rgba(243,111,86,0.75)) drop-shadow(0 0 70px rgba(232,180,93,0.38)); }
-}
-@keyframes lp-orb-a {
-  0%, 100% { transform: translate(0,0) scale(1); }
-  35%       { transform: translate(45px,-30px) scale(1.06); }
-  68%       { transform: translate(-22px,18px) scale(0.96); }
-}
-@keyframes lp-orb-b {
-  0%, 100% { transform: translate(0,0) scale(1); }
-  42%       { transform: translate(-55px,22px) scale(1.04); }
-  75%       { transform: translate(28px,-16px) scale(0.97); }
-}
-@keyframes lp-shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-@keyframes lp-dash-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-@keyframes lp-dash-spin-rev {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(-360deg); }
-}
-`;
+const PHOTO_TILES = [
+  "linear-gradient(135deg, #f9a26c, #f36f56 60%, #8b3a62)",
+  "linear-gradient(160deg, #7dd3fc, #3b82f6 70%, #1e3a8a)",
+  "linear-gradient(135deg, #fde68a, #e8b45d 55%, #b45309)",
+  "linear-gradient(150deg, #a7f3d0, #59c3b1 60%, #0f766e)",
+  "linear-gradient(135deg, #c4b5fd, #8b5cf6 60%, #4c1d95)",
+  "linear-gradient(160deg, #fecdd3, #fb7185 60%, #9f1239)",
+];
 
-/* ─── Hero logo mark (220 × 220) ────────────────────────────────────────── */
+const WAVE_BARS = [4, 7, 5, 9, 6, 10, 8, 5, 9, 7, 4, 8, 10, 6, 9, 5, 7, 10, 6, 8, 4, 9, 7, 5, 8, 6, 10, 5, 7, 4];
 
-function ViontoHeroMark() {
+function StageIcon({ icon: Icon, color }: { icon: React.ElementType; color: string }) {
   return (
-    <svg
-      viewBox="0 0 120 120"
-      fill="none"
-      width="220"
-      height="220"
-      role="img"
-      aria-label="Vionto"
-      style={{
-        animation: "lp-float 4.2s ease-in-out infinite, lp-glow-pulse 3s ease-in-out infinite",
-        willChange: "transform, filter",
-      }}
-    >
-      <defs>
-        <linearGradient id="lp-hg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%"   stopColor="#f36f56" />
-          <stop offset="55%"  stopColor="#e8b45d" />
-          <stop offset="100%" stopColor="#59c3b1" />
-        </linearGradient>
-        <radialGradient id="lp-hbg" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stopColor="#f36f56" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="#f36f56" stopOpacity="0" />
-        </radialGradient>
-        <filter id="lp-hf" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2.2" result="b" />
-          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-        <filter id="lp-hf2" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="4.5" result="b" />
-          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-      </defs>
+    <span className="vl-stage__icon" style={{ background: `${color}1f`, color }}>
+      <Icon size={13} />
+    </span>
+  );
+}
 
-      {/* Glow halo */}
-      <circle cx="60" cy="60" r="58" fill="url(#lp-hbg)" />
+function HeroStudio() {
+  const { t } = useTranslation();
+  return (
+    <div className="vl-studio" aria-hidden="true">
+      <div className="vl-float vl-float--tl">
+        <ScanFace size={14} color="#8b5cf6" /> {t("vionto.landing.studio.floatScenes")}
+      </div>
 
-      {/* Outer dashed orbit — counter-spin */}
-      <g style={{ transformOrigin: "60px 60px", animation: "lp-dash-spin-rev 28s linear infinite" }}>
-        <circle cx="60" cy="60" r="56" stroke="url(#lp-hg)" strokeWidth="0.6" strokeDasharray="5 7" opacity="0.3" />
-      </g>
-      {/* Inner dashed orbit — spin */}
-      <g style={{ transformOrigin: "60px 60px", animation: "lp-dash-spin 20s linear infinite" }}>
-        <circle cx="60" cy="60" r="44" stroke="url(#lp-hg)" strokeWidth="0.5" strokeDasharray="3 9" opacity="0.2" />
-      </g>
+      <div className="vl-studio__card">
+        <div className="vl-studio__body">
+          <div className="vl-studio__bar">
+            <div className="vl-studio__dots"><span /><span /><span /></div>
+            <span className="vl-studio__title">{t("vionto.landing.studio.title")}</span>
+            <span className="vl-studio__live">{t("vionto.landing.studio.live")}</span>
+          </div>
 
-      {/* Film frame */}
-      <rect x="14" y="28" width="92" height="64" rx="8" stroke="url(#lp-hg)" strokeWidth="2.5" filter="url(#lp-hf)" />
+          <div className="vl-studio__content">
+            <div className="vl-stage">
+              <div className="vl-stage__head">
+                <StageIcon icon={ImagePlus} color="#f36f56" />
+                {t("vionto.landing.how.step1.title")}
+                <span className="vl-stage__meta">{t("vionto.landing.studio.photosMeta")}</span>
+              </div>
+              <div className="vl-photos">
+                {PHOTO_TILES.map((bg, i) => (
+                  <div
+                    key={bg}
+                    className="vl-photo"
+                    style={{ background: bg, "--vl-delay": `${i * 0.18}s` } as React.CSSProperties}
+                  />
+                ))}
+              </div>
+            </div>
 
-      {/* Sprockets left */}
-      {([32, 46, 60, 74] as number[]).map((y) => (
-        <rect key={`sl-${y}`} x="14" y={y} width="8" height="8" rx="1.5" fill="url(#lp-hg)" opacity="0.88" />
-      ))}
-      {/* Sprockets right */}
-      {([32, 46, 60, 74] as number[]).map((y) => (
-        <rect key={`sr-${y}`} x="98" y={y} width="8" height="8" rx="1.5" fill="url(#lp-hg)" opacity="0.88" />
-      ))}
+            <div className="vl-stage">
+              <div className="vl-stage__head">
+                <StageIcon icon={Wand2} color="#8b5cf6" />
+                {t("vionto.landing.how.step2.title")}
+                <span className="vl-stage__meta">GPT-4 · Claude</span>
+              </div>
+              <p className="vl-script">
+                {t("vionto.landing.studio.scriptSample")}
+                <span className="vl-caret" />
+              </p>
+            </div>
 
-      {/* Audio waveform bars */}
-      <path d="M32 54 L32 66"  stroke="url(#lp-hg)" strokeWidth="5" strokeLinecap="round" filter="url(#lp-hf2)" />
-      <path d="M44 44 L44 76"  stroke="url(#lp-hg)" strokeWidth="5" strokeLinecap="round" filter="url(#lp-hf2)" />
-      <path d="M56 50 L56 70"  stroke="url(#lp-hg)" strokeWidth="5" strokeLinecap="round" filter="url(#lp-hf2)" />
-      <path d="M68 38 L68 82"  stroke="url(#lp-hg)" strokeWidth="5" strokeLinecap="round" filter="url(#lp-hf2)" />
-      <path d="M80 46 L80 74"  stroke="url(#lp-hg)" strokeWidth="5" strokeLinecap="round" filter="url(#lp-hf2)" />
-      <path d="M92 54 L92 66"  stroke="url(#lp-hg)" strokeWidth="4" strokeLinecap="round" filter="url(#lp-hf2)" />
-    </svg>
+            <div className="vl-stage">
+              <div className="vl-stage__head">
+                <StageIcon icon={Mic} color="#59c3b1" />
+                {t("vionto.landing.how.step3.title")}
+                <span className="vl-stage__meta">{t("vionto.landing.studio.voiceMeta")}</span>
+              </div>
+              <div className="vl-wave">
+                {WAVE_BARS.map((h, i) => (
+                  <span
+                    key={i}
+                    style={{ maxHeight: `${h * 10}%`, animationDelay: `${(i % 10) * -0.13}s` }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="vl-stage">
+              <div className="vl-stage__head">
+                <StageIcon icon={Clapperboard} color="#e8b45d" />
+                {t("vionto.landing.how.step4.title")}
+                <span className="vl-stage__meta">MP4 · 1080p</span>
+              </div>
+              <div className="vl-progress"><div className="vl-progress__fill" /></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="vl-float vl-float--br">
+        <CheckCircle2 size={14} color="#10b981" /> {t("vionto.landing.studio.floatReady")}
+      </div>
+    </div>
   );
 }
 
@@ -448,259 +451,80 @@ export function LandingPage() {
   };
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: KEYFRAMES }} />
+    <div className="vi-landing">
+      <div className="vl-backdrop" aria-hidden="true">
+        <div className="vl-backdrop__aurora vl-backdrop__aurora--violet" />
+        <div className="vl-backdrop__aurora vl-backdrop__aurora--coral" />
+        <div className="vl-backdrop__aurora vl-backdrop__aurora--teal" />
+        <div className="vl-backdrop__grid" />
+      </div>
+
       <ViontoNav />
 
       <main>
 
         {/* ─── HERO ──────────────────────────────────────────────────────── */}
-        <section
-          style={{
-            position: "relative",
-            minHeight: "100vh",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            padding: "120px 24px 96px",
-            overflow: "hidden",
-          }}
-        >
-          {/* Atmospheric orbs */}
-          {[
-            { top: "8%",  left: "12%",  size: 520, color: "#f36f56", anim: "lp-orb-a 13s ease-in-out infinite" },
-            { top: "50%", right: "8%",  size: 420, color: "#e8b45d", anim: "lp-orb-b 16s ease-in-out infinite" },
-            { top: "38%", left: "38%",  size: 320, color: "#59c3b1", anim: "lp-orb-a 21s ease-in-out infinite reverse" },
-          ].map(({ top, left, right, size, color, anim }, i) => (
-            <div
-              key={i}
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                top,
-                left,
-                right,
-                width: `${size}px`,
-                height: `${size}px`,
-                borderRadius: "50%",
-                background: `radial-gradient(circle, ${color}14 0%, transparent 68%)`,
-                animation: anim,
-                pointerEvents: "none",
-              }}
-            />
-          ))}
-
-          {/* Big animated logo */}
-          <div style={{ marginBottom: "28px", position: "relative", zIndex: 1 }}>
-            <ViontoHeroMark />
-          </div>
-
-          {/* Badge pill */}
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 18px",
-              borderRadius: "100px",
-              background: "rgba(243,111,86,0.12)",
-              border: "1px solid rgba(243,111,86,0.32)",
-              color: "#f36f56",
-              fontSize: "0.72rem",
-              fontWeight: 700,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              marginBottom: "30px",
-              position: "relative",
-              zIndex: 1,
-            }}
-          >
-            <Sparkles size={11} />
-            {t("vionto.landing.hero.badge")}
-          </div>
-
-          {/* Headline */}
-          <h1
-            style={{
-              fontSize: "clamp(2.8rem, 7.5vw, 5.8rem)",
-              fontWeight: 900,
-              lineHeight: 1.06,
-              letterSpacing: "-0.035em",
-              margin: "0 0 26px",
-              maxWidth: "820px",
-              position: "relative",
-              zIndex: 1,
-            }}
-          >
-            <span
-              style={{
-                background: "linear-gradient(130deg, #f36f56 0%, #e8b45d 45%, #59c3b1 100%)",
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                color: "transparent",
-                backgroundSize: "200% auto",
-                animation: "lp-shimmer 5s linear infinite",
-              }}
-            >
-              Vionto
-            </span>
-            <br />
-            <span style={{ color: "var(--text)" }}>{t("vionto.landing.hero.title.line2")}</span>{" "}
-            <span style={{ color: "var(--muted)", fontWeight: 700 }}>{t("vionto.landing.hero.title.line3")}</span>
-          </h1>
-
-          {/* Sub-headline */}
-          <p
-            style={{
-              color: "var(--muted)",
-              fontSize: "clamp(1rem, 2.5vw, 1.22rem)",
-              maxWidth: "570px",
-              lineHeight: 1.7,
-              marginBottom: "48px",
-              position: "relative",
-              zIndex: 1,
-            }}
-          >
-            {t("vionto.landing.hero.subtitle")}
-          </p>
-
-          {/* Honest positioning — copy is localized here, but the canonical
-              English wording lives in the platform registry
-              (@asafarim/auth/apps → showcase) so no app drifts on its own. */}
-          <div
-            style={{
-              maxWidth: "570px",
-              margin: "-24px auto 40px",
-              position: "relative",
-              zIndex: 1,
-              textAlign: "left",
-            }}
-          >
-            <ShowcaseNotice
-              variant="compact"
-              content={{
-                label: t("vionto.landing.showcase.label"),
-                summary: t("vionto.landing.showcase.summary"),
-                aboutLabel: t("vionto.landing.showcase.about"),
-                aboutHref: viontoShowcase.aboutHref,
-              }}
-              renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
-            />
-          </div>
-
-          {/* CTA buttons */}
-          <div
-            style={{
-              display: "flex",
-              gap: "14px",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              marginBottom: "60px",
-              position: "relative",
-              zIndex: 1,
-            }}
-          >
-            <button
-              type="button"
-              onClick={handleStartCreating}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "9px",
-                background: "linear-gradient(135deg, #f36f56 0%, #e8b45d 100%)",
-                color: "#101112",
-                fontWeight: 800,
-                fontSize: "0.96rem",
-                padding: "15px 30px",
-                borderRadius: "100px",
-                border: "none",
-                cursor: "pointer",
-                boxShadow: "0 10px 36px rgba(243,111,86,0.38)",
-                transition: "opacity 0.2s, transform 0.2s, box-shadow 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.opacity = "0.92";
-                el.style.transform = "translateY(-2px)";
-                el.style.boxShadow = "0 16px 48px rgba(243,111,86,0.5)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.opacity = "1";
-                el.style.transform = "translateY(0)";
-                el.style.boxShadow = "0 10px 36px rgba(243,111,86,0.38)";
-              }}
-            >
-              {t("vionto.landing.hero.cta.start")} <ArrowRight size={16} />
-            </button>
-            <a
-              href="#how-it-works"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "9px",
-                background: "var(--landing-secondary-bg)",
-                border: "1px solid var(--landing-secondary-border)",
-                color: "var(--text)",
-                fontWeight: 600,
-                fontSize: "0.96rem",
-                padding: "15px 30px",
-                borderRadius: "100px",
-                textDecoration: "none",
-                transition: "border-color 0.2s, transform 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLAnchorElement;
-                el.style.borderColor = "var(--line-strong)";
-                el.style.transform = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLAnchorElement;
-                el.style.borderColor = "var(--landing-secondary-border)";
-                el.style.transform = "translateY(0)";
-              }}
-            >
-              <Play size={13} /> {t("vionto.landing.hero.cta.how")}
-            </a>
-          </div>
-
-          {/* Trust pills */}
-          <div
-            style={{
-              display: "flex",
-              gap: "10px",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              position: "relative",
-              zIndex: 1,
-            }}
-          >
-            {[
-              { label: t("vionto.landing.trust.gptClaude"),    accent: "#6ea8ff" },
-              { label: t("vionto.landing.trust.elevenlabs"),    accent: "#59c3b1" },
-              { label: t("vionto.landing.trust.outputModes"),    accent: "#e8b45d" },
-              { label: t("vionto.landing.trust.multiLanguage"),    accent: "#f36f56" },
-              { label: t("vionto.landing.trust.cloudStorage"),     accent: "#b5b0aa" },
-            ].map(({ label, accent }) => (
-              <span
-                key={label}
-                style={{
-                  fontSize: "0.76rem",
-                  fontWeight: 600,
-                  color: accent,
-                  background: `${accent}12`,
-                  border: `1px solid ${accent}2e`,
-                  borderRadius: "100px",
-                  padding: "6px 14px",
-                }}
-              >
-                {label}
+        <section className="vl-hero">
+          <div className="vl-hero__inner">
+            <div>
+              <span className="vl-eyebrow">
+                <span className="vl-eyebrow__tag">
+                  <Sparkles size={10} /> AI
+                </span>
+                {t("vionto.landing.hero.badge")}
               </span>
-            ))}
+
+              <h1 className="vl-title">
+                {t("vionto.landing.hero.title.line2")}
+                <br />
+                <span className="vl-title__accent">{t("vionto.landing.hero.title.line3")}</span>
+              </h1>
+
+              <p className="vl-lead">{t("vionto.landing.hero.subtitle")}</p>
+
+              <div className="vl-ctas">
+                <button type="button" onClick={handleStartCreating} className="vl-btn vl-btn--primary">
+                  {t("vionto.landing.hero.cta.start")} <ArrowRight size={16} />
+                </button>
+                <a href="#how-it-works" className="vl-btn vl-btn--ghost">
+                  <Play size={14} /> {t("vionto.landing.hero.cta.how")}
+                </a>
+              </div>
+
+              <div className="vl-trust">
+                {[
+                  { label: t("vionto.landing.trust.gptClaude"),     color: "#8b5cf6" },
+                  { label: t("vionto.landing.trust.elevenlabs"),    color: "#59c3b1" },
+                  { label: t("vionto.landing.trust.outputModes"),   color: "#e8b45d" },
+                  { label: t("vionto.landing.trust.multiLanguage"), color: "#f36f56" },
+                ].map(({ label, color }) => (
+                  <span key={label} className="vl-trust__item">
+                    <span className="vl-trust__dot" style={{ background: color }} />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <HeroStudio />
           </div>
         </section>
+
+        {/* Honest positioning — copy is localized here, but the canonical
+            English wording lives in the platform registry
+            (@asafarim/auth/apps → showcase) so no app drifts on its own. */}
+        <div className="vl-showcase">
+          <ShowcaseNotice
+            variant="compact"
+            content={{
+              label: t("vionto.landing.showcase.label"),
+              summary: t("vionto.landing.showcase.summary"),
+              aboutLabel: t("vionto.landing.showcase.about"),
+              aboutHref: viontoShowcase.aboutHref,
+            }}
+            renderLink={({ href, children }) => <Link href={href}>{children}</Link>}
+          />
+        </div>
 
         {/* ─── FEATURES ──────────────────────────────────────────────────── */}
         <section style={{ padding: "96px 24px", maxWidth: "1120px", margin: "0 auto" }}>
@@ -1017,6 +841,6 @@ export function LandingPage() {
           </div>
         </footer>
       </main>
-    </>
+    </div>
   );
 }

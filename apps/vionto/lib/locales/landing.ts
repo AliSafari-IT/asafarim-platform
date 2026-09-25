@@ -10,6 +10,13 @@ const landingDictionaries: Dictionaries = {
       "Upload a collection of images, and Vionto's AI writes the script, adds natural voice narration, and exports a polished MP4 — in minutes.",
     "vionto.landing.hero.cta.start": "Start Creating",
     "vionto.landing.hero.cta.how": "See how it works",
+    "vionto.landing.studio.title": "Vionto Studio",
+    "vionto.landing.studio.live": "Generating",
+    "vionto.landing.studio.photosMeta": "12 photos · 8 scenes",
+    "vionto.landing.studio.scriptSample": "Golden light on the Alfama rooftops — the city wakes slowly, and so does our story…",
+    "vionto.landing.studio.voiceMeta": "Natural voice · EN",
+    "vionto.landing.studio.floatScenes": "Scenes detected",
+    "vionto.landing.studio.floatReady": "Video ready",
 
     "vionto.landing.showcase.label": "Showcase project",
     "vionto.landing.showcase.summary":
@@ -111,6 +118,13 @@ const landingDictionaries: Dictionaries = {
       "Upload een verzameling afbeeldingen, en de AI van Vionto schrijft het script, voegt natuurlijke stemvertelling toe en exporteert een gepolijste MP4 — in minuten.",
     "vionto.landing.hero.cta.start": "Begin met maken",
     "vionto.landing.hero.cta.how": "Zie hoe het werkt",
+    "vionto.landing.studio.title": "Vionto Studio",
+    "vionto.landing.studio.live": "Bezig",
+    "vionto.landing.studio.photosMeta": "12 foto's · 8 scènes",
+    "vionto.landing.studio.scriptSample": "Gouden licht op de daken van Alfama — de stad ontwaakt langzaam, net als ons verhaal…",
+    "vionto.landing.studio.voiceMeta": "Natuurlijke stem · NL",
+    "vionto.landing.studio.floatScenes": "Scènes herkend",
+    "vionto.landing.studio.floatReady": "Video klaar",
 
     "vionto.landing.showcase.label": "Showcaseproject",
     "vionto.landing.showcase.summary":
@@ -212,6 +226,13 @@ const landingDictionaries: Dictionaries = {
       "Uploadez une collection d'images, et l'IA de Vionto écrit le script, ajoute une voix off naturelle et exporte un MP4 poli — en quelques minutes.",
     "vionto.landing.hero.cta.start": "Commencer à créer",
     "vionto.landing.hero.cta.how": "Voir comment ça marche",
+    "vionto.landing.studio.title": "Vionto Studio",
+    "vionto.landing.studio.live": "Génération",
+    "vionto.landing.studio.photosMeta": "12 photos · 8 scènes",
+    "vionto.landing.studio.scriptSample": "Une lumière dorée sur les toits de l'Alfama — la ville s'éveille lentement, notre histoire aussi…",
+    "vionto.landing.studio.voiceMeta": "Voix naturelle · FR",
+    "vionto.landing.studio.floatScenes": "Scènes détectées",
+    "vionto.landing.studio.floatReady": "Vidéo prête",
 
     "vionto.landing.showcase.label": "Projet vitrine",
     "vionto.landing.showcase.summary":
@@ -313,6 +334,13 @@ const landingDictionaries: Dictionaries = {
       "Lade eine Bildersammlung hoch, und Viontos KI schreibt das Skript, fügt natürliche Sprachausgabe hinzu und exportiert einen polierten MP4 — in Minuten.",
     "vionto.landing.hero.cta.start": "Jetzt kreieren",
     "vionto.landing.hero.cta.how": "So funktioniert's",
+    "vionto.landing.studio.title": "Vionto Studio",
+    "vionto.landing.studio.live": "Wird erstellt",
+    "vionto.landing.studio.photosMeta": "12 Fotos · 8 Szenen",
+    "vionto.landing.studio.scriptSample": "Goldenes Licht über den Dächern der Alfama — die Stadt erwacht langsam, und mit ihr unsere Geschichte…",
+    "vionto.landing.studio.voiceMeta": "Natürliche Stimme · DE",
+    "vionto.landing.studio.floatScenes": "Szenen erkannt",
+    "vionto.landing.studio.floatReady": "Video fertig",
 
     "vionto.landing.showcase.label": "Showcase-Projekt",
     "vionto.landing.showcase.summary":
