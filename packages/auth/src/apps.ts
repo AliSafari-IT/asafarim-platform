@@ -214,6 +214,9 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     meta: "testora.asafarim.com",
     status: "active",
     access: "public",
+    // Seeing per-app E2E results and filing bugs to the platform repo
+    // needs an account; guests only get the public pages.
+    requiresAccountToUse: true,
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
