@@ -1769,6 +1769,44 @@ a .ui-card {
   }
 }
 
+/* Phone width. The actions cluster is flex-shrink: 0, so the nav used to
+   absorb all the squeeze: at 375px it got ~37px while the "Menu ▾" summary
+   needs ~75px, and the button rendered underneath the theme toggle.
+   The summary now keeps its min-content width, and the brand + actions
+   compact to make room: the wordmark collapses to the logomark (clipped,
+   not display: none, so the home link keeps its accessible name) and the
+   language selector drops its caret. */
+@media (max-width: 480px) {
+  .ui-shell__nav,
+  .ui-shell__topnav,
+  .ui-topnav-mobile,
+  .ui-topnav-mobile > summary {
+    flex-shrink: 0;
+    min-width: min-content;
+  }
+
+  .ui-shell__brand .ui-wordmark {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .ui-shell__actions .cls-caret {
+    display: none;
+  }
+
+  .ui-shell__actions .cls-trigger {
+    padding-inline: 0.4rem;
+  }
+
+  .ui-topnav-mobile > summary {
+    padding-inline: 0.55rem;
+  }
+}
+
 .ui-avatar {
   overflow: hidden;
 }
