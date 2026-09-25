@@ -1,0 +1,411 @@
+/* ─── Create flow ──────────────────────────────────────────────────────────
+   The /create workspace, styled to match the landing page: aurora backdrop
+   (landing.css), glass cards, violet→coral accents and a numbered step rail.
+   Everything is scoped to .vc-flow so it wins over the older workbench skin
+   in globals.css without touching other pages. The --vl-* tokens come from
+   landing.css; the --color-* remap below re-themes the Tailwind utilities used
+   throughout ViontoPage. */
+
+.vc-flow {
+  --vc-accent: #7c4dff;
+  --color-primary: var(--vc-accent);
+  --color-primary-dark: #6a3cf0;
+  --color-accent: var(--vc-accent);
+  --color-primary-soft: rgba(124, 77, 255, 0.1);
+  --accent-soft: rgba(124, 77, 255, 0.1);
+  --color-bg: var(--vl-bg);
+  --color-surface: #ffffff;
+  --color-surface-soft: #f5f4fa;
+  --color-surface-elevated: #ffffff;
+  --color-panel: var(--vl-glass-strong);
+  --color-panel-strong: var(--vl-glass-strong);
+  --color-border: var(--vl-glass-border);
+  --color-border-strong: rgba(40, 32, 80, 0.18);
+  --color-text: var(--vl-ink);
+  --color-text-muted: var(--vl-muted);
+  --text: var(--vl-ink);
+  --muted: var(--vl-muted);
+  --line: var(--vl-glass-border);
+  --line-strong: rgba(40, 32, 80, 0.18);
+  --vc-card-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 18px 50px -24px rgba(60, 40, 120, 0.25);
+}
+
+html[data-theme="dark"] .vc-flow {
+  --vc-accent: #9277ff;
+  --color-primary-dark: #7c5cff;
+  --color-primary-soft: rgba(146, 119, 255, 0.14);
+  --accent-soft: rgba(146, 119, 255, 0.14);
+  --color-surface: #15141f;
+  --color-surface-soft: #1c1b29;
+  --color-surface-elevated: #201f2e;
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --vc-card-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 60px -28px rgba(0, 0, 0, 0.8);
+}
+
+/* ─── Layout: rail | steps | preview ─── */
+.vc-shell {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 24px 24px 72px;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "rail" "content" "preview";
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .vc-shell {
+    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-areas: "rail content" "rail preview";
+  }
+}
+@media (min-width: 1280px) {
+  .vc-shell {
+    grid-template-columns: 220px minmax(0, 1fr) minmax(340px, 400px);
+    grid-template-areas: "rail content preview";
+  }
+}
+.vc-content {
+  grid-area: content;
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+}
+.vc-preview { grid-area: preview; min-width: 0; }
+
+/* Anchor jumps land below the sticky header (and the chip rail on mobile). */
+.vc-flow [id] { scroll-margin-top: 136px; }
+@media (min-width: 1024px) {
+  .vc-flow [id] { scroll-margin-top: 88px; }
+}
+
+/* ─── Page head ─── */
+.vc-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  padding: 4px 2px;
+}
+.vc-flow .vc-title {
+  margin: 14px 0 0;
+  max-width: 760px;
+  font-size: clamp(1.7rem, 2.8vw, 2.6rem) !important;
+  font-weight: 800;
+  line-height: 1.08 !important;
+  letter-spacing: -0.04em;
+  background: linear-gradient(110deg, var(--vl-ink) 0%, var(--vl-ink) 40%, #8b5cf6 72%, #f36f56 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.vc-head > :first-child { flex: 1 1 460px; }
+.vc-progress {
+  flex: 0 1 280px;
+  min-width: 220px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--vl-glass-border);
+  background: var(--vl-chip-bg);
+  backdrop-filter: blur(12px);
+}
+.vc-progress__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  color: var(--vl-muted);
+}
+.vc-progress__row strong { color: var(--vl-ink); font-weight: 700; }
+.vc-progress__bar { height: 6px; border-radius: 999px; background: var(--vl-glass-border); overflow: hidden; }
+.vc-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--vl-gradient);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Step rail ─── */
+.vc-rail { grid-area: rail; min-width: 0; }
+.vc-rail__label {
+  margin: 0 0 12px 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vl-muted);
+}
+.vc-rail__list { list-style: none; margin: 0; padding: 0; }
+.vc-rail__list li { position: relative; }
+.vc-rail__step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: var(--vl-muted);
+  transition: background 0.2s, color 0.2s;
+}
+.vc-rail__step:hover { background: var(--color-primary-soft); color: var(--vl-ink); }
+.vc-rail__num {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1.5px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--vl-muted);
+  transition: all 0.25s;
+}
+.vc-rail__text { display: flex; flex-direction: column; min-width: 0; }
+.vc-rail__title { font-size: 0.86rem; font-weight: 600; color: inherit; }
+.vc-rail__status {
+  font-size: 0.72rem;
+  color: var(--vl-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vc-rail__step.is-done .vc-rail__num {
+  border-color: transparent;
+  background: linear-gradient(135deg, #10b981, #59c3b1);
+  color: #fff;
+}
+.vc-rail__step.is-active { background: var(--vl-chip-bg); color: var(--vl-ink); box-shadow: 0 8px 24px -14px rgba(60, 40, 120, 0.45); }
+.vc-rail__step.is-active .vc-rail__num:not(:has(svg)) {
+  border-color: transparent;
+  background: var(--vl-gradient);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.18);
+}
+.vc-rail__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--vl-muted);
+  border: 1px solid var(--vl-glass-border);
+  background: var(--vl-chip-bg);
+}
+.vc-rail__link:hover { color: var(--vl-ink); border-color: rgba(139, 92, 246, 0.4); }
+
+/* Desktop: vertical, sticky, with a connector line between the numbers. */
+@media (min-width: 1024px) {
+  .vc-rail { position: sticky; top: 88px; }
+  .vc-rail__list li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 24px;
+    top: 42px;
+    bottom: -4px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--color-border-strong);
+  }
+  .vc-rail__list li.is-done:not(:last-child)::after { background: linear-gradient(180deg, #10b981, #59c3b1); }
+  .vc-rail__list li + li { margin-top: 8px; }
+}
+
+/* Mobile/tablet: a sticky, horizontally scrolling chip bar. */
+@media (max-width: 1023px) {
+  .vc-rail {
+    position: sticky;
+    top: 64px;
+    z-index: 30;
+    margin: -24px -24px 0;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-bottom: 1px solid var(--vl-glass-border);
+    background: var(--vl-chip-bg);
+    backdrop-filter: blur(16px);
+  }
+  .vc-rail::-webkit-scrollbar { display: none; }
+  .vc-rail__label, .vc-rail__status { display: none; }
+  .vc-rail__list { display: flex; gap: 6px; }
+  .vc-rail__step { padding: 5px 12px 5px 5px; border-radius: 999px; white-space: nowrap; }
+  .vc-rail__num { width: 24px; height: 24px; font-size: 0.72rem; }
+  .vc-rail__link { margin: 0 0 0 auto; padding: 6px 12px; white-space: nowrap; }
+}
+
+/* ─── Cards ─── */
+.vc-flow .upload-panel,
+.vc-flow .script-editor,
+.vc-flow .job-card,
+.vc-flow .preview-panel {
+  border: 1px solid var(--vl-glass-border);
+  border-radius: 22px;
+  background: var(--vl-glass-strong);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--vc-card-shadow);
+  padding: 22px;
+}
+.vc-flow .preview-panel { padding: 0; overflow: hidden; }
+@media (max-width: 640px) {
+  .vc-flow .upload-panel,
+  .vc-flow .script-editor,
+  .vc-flow .job-card { padding: 16px; border-radius: 18px; }
+}
+
+/* Final step gets the gradient hairline the landing studio card uses. */
+.vc-flow .job-card.vc-card--accent {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--vl-glass-strong), var(--vl-glass-strong)) padding-box,
+    linear-gradient(140deg, rgba(139, 92, 246, 0.6), rgba(243, 111, 86, 0.35) 45%, rgba(89, 195, 177, 0.5)) border-box;
+}
+
+.vc-step-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px; }
+.vc-step-num {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--vl-gradient);
+  box-shadow: 0 10px 22px -10px rgba(124, 77, 255, 0.7);
+}
+.vc-step-num.is-done { background: linear-gradient(135deg, #10b981, #59c3b1); box-shadow: 0 10px 22px -10px rgba(16, 185, 129, 0.7); }
+.vc-flow .vc-step-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: var(--vl-ink);
+}
+.vc-flow .vc-step-head p { margin: 3px 0 0; font-size: 0.86rem; line-height: 1.5; color: var(--vl-muted); }
+
+/* Step 4: voice + captions side by side. */
+.vc-pair { display: grid; gap: 14px; }
+@media (min-width: 900px) {
+  .vc-pair { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); align-items: start; }
+}
+.vc-sub {
+  min-width: 0;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--vl-glass-border);
+  background: var(--vl-row);
+}
+.vc-locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px dashed var(--color-border-strong);
+  font-size: 0.86rem;
+  color: var(--vl-muted);
+}
+
+.vc-flow .section-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.vc-flow .section-heading h2 { margin: 0; font-size: 0.98rem; font-weight: 700; color: var(--vl-ink); }
+.vc-flow .section-heading svg,
+.vc-flow .script-editor-title svg,
+.vc-flow .dropzone svg { color: var(--vc-accent); }
+.vc-flow .eyebrow { color: var(--vc-accent); letter-spacing: 0.1em; }
+.vc-flow .settings-separator { border-top-color: var(--vl-glass-border); }
+
+/* ─── Controls ─── */
+.vc-flow .bg-\[var\(--color-accent\)\] {
+  background-image: linear-gradient(135deg, #7c4dff 0%, #f36f56 100%);
+  box-shadow: 0 10px 24px -12px rgba(124, 77, 255, 0.7);
+  border-radius: 12px;
+}
+.vc-flow .bg-\[var\(--color-accent\)\]:not(:disabled):hover { filter: brightness(1.06); }
+.vc-flow .dropzone {
+  border: 1.5px dashed rgba(139, 92, 246, 0.45);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(139, 92, 246, 0.08), transparent 70%),
+    var(--vl-row);
+  transition: border-color 0.2s, background 0.2s;
+}
+.vc-flow .dropzone:hover { border-color: rgba(243, 111, 86, 0.6); }
+.vc-flow .mode { border-radius: 16px; }
+.vc-flow .mode.active {
+  border-color: var(--vc-accent);
+  box-shadow: 0 0 0 2px var(--vc-accent), 0 14px 30px -14px rgba(124, 77, 255, 0.6);
+}
+.vc-flow .visual-style-grid button { border-radius: 14px !important; }
+.vc-flow .asset-tile { border-radius: 12px; }
+.vc-flow select,
+.vc-flow textarea,
+.vc-flow input[type="text"],
+.vc-flow input[type="search"] { border-radius: 10px; }
+.vc-flow select:focus,
+.vc-flow textarea:focus,
+.vc-flow input:focus { box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.16); }
+.vc-flow input[type="range"] { accent-color: var(--vc-accent); }
+.vc-flow .script-editor-card,
+.vc-flow .script-version-select,
+.vc-flow .script-textarea { border-radius: 12px; }
+
+/* ─── Preview (sticky on wide screens) ─── */
+/* The column (a grid item) is what sticks; the panel inside is exactly as tall
+   as its column, so sticking the panel itself would have no room to move. */
+.vc-flow .preview-panel { position: static; display: block; }
+@media (min-width: 1280px) {
+  .vc-preview { position: sticky; top: 88px; }
+}
+.vc-preview__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vl-glass-border);
+  font-size: 0.78rem;
+  color: var(--vl-muted);
+}
+.vc-preview__dots { display: flex; gap: 6px; }
+.vc-preview__dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--vl-glass-border); }
+.vc-preview__label { font-weight: 600; color: var(--vl-ink); }
+.vc-preview__state {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.vc-preview__state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.vc-preview__state.is-busy { color: #8b5cf6; }
+.vc-preview__state.is-busy::before { animation: vl-ping 1.8s ease-out infinite; }
+.vc-preview__state.is-done { color: #10b981; }
+.vc-flow .preview-frame { padding: 14px; background: #0c0b14; }
+.vc-flow .film-strip span { border-radius: 6px; background: var(--vl-gradient); opacity: 0.85; }
+.vc-flow .video-stage { border-radius: 12px; background: #06060b; }
+.vc-flow .video-stage p { border-radius: 8px; background: rgba(12, 11, 20, 0.72); }
+.vc-flow .preview-copy { padding: 18px; background: transparent; }
+.vc-flow .preview-copy .eyebrow { display: none; }
+.vc-flow .preview-copy h2 { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--vl-ink); }
+.vc-flow .preview-copy button {
+  width: 100%;
+  justify-content: center;
+  height: 46px;
+  margin-top: 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
