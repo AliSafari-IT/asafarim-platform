@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, SVGProps } from "react";
 
 export interface ShowcaseAboutFact {
   title: string;
@@ -53,6 +53,51 @@ function withAppName(template: string, appName: string): string {
   return template.replace("{appName}", appName);
 }
 
+/** Small decorative glyphs for the four fixed section headings — purely
+ *  visual rhythm, not app data, so they're safe to hardcode per section
+ *  regardless of which app renders this component. */
+function CheckCircleIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="m8.5 12.3 2.3 2.3 4.7-4.9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function FlaskIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M9.5 3.5h5M10 4v5.6L5.8 17a2 2 0 0 0 1.7 3h9a2 2 0 0 0 1.7-3L14 9.6V4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7.5 14.5h9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TerminalIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <rect x="3" y="4.5" width="18" height="15" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="m7 9.5 3 2.8-3 2.8M12.5 15.5h4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CompassIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="m14.5 9.5-2 5-3-1.5 2-5 3 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Zero-padded position, "1" → "01" — a light visual anchor per card so a
+ *  reader can scan "three things, four things" without reading every word. */
+function pad(n: number): string {
+  return String(n + 1).padStart(2, "0");
+}
+
 export interface ShowcaseAboutProps {
   /** App name, used in the page's own headings. */
   appName: string;
@@ -92,10 +137,14 @@ export function ShowcaseAbout({
       </header>
 
       <section className="ui-showcase-about__section">
-        <h2 className="ui-showcase-about__heading">{l.sectionWhatWorks}</h2>
+        <h2 className="ui-showcase-about__heading">
+          <CheckCircleIcon className="ui-showcase-about__heading-icon" />
+          {l.sectionWhatWorks}
+        </h2>
         <div className="ui-showcase-about__grid">
-          {content.functional.map((fact) => (
+          {content.functional.map((fact, i) => (
             <article key={fact.title} className="ui-showcase-about__card">
+              <span className="ui-showcase-about__card-index">{pad(i)}</span>
               <h3>{fact.title}</h3>
               <p>{fact.body}</p>
             </article>
@@ -105,14 +154,16 @@ export function ShowcaseAbout({
 
       <section className="ui-showcase-about__section">
         <h2 className="ui-showcase-about__heading">
+          <FlaskIcon className="ui-showcase-about__heading-icon" />
           {l.sectionSyntheticData}
         </h2>
         <div className="ui-showcase-about__grid">
-          {content.synthetic.map((fact) => (
+          {content.synthetic.map((fact, i) => (
             <article
               key={fact.title}
               className="ui-showcase-about__card ui-showcase-about__card--synthetic"
             >
+              <span className="ui-showcase-about__card-index">{pad(i)}</span>
               <h3>{fact.title}</h3>
               <p>{fact.body}</p>
             </article>
@@ -122,17 +173,24 @@ export function ShowcaseAbout({
 
       <section className="ui-showcase-about__section">
         <h2 className="ui-showcase-about__heading">
+          <TerminalIcon className="ui-showcase-about__heading-icon" />
           {withAppName(l.sectionDemonstrates, appName)}
         </h2>
-        <ul className="ui-showcase-about__list">
+        <ul className="ui-showcase-about__demonstrates">
           {content.demonstrates.map((item) => (
-            <li key={item}>{item}</li>
+            <li key={item} className="ui-showcase-about__demonstrates-item">
+              <CheckCircleIcon className="ui-showcase-about__demonstrates-icon" />
+              <span>{item}</span>
+            </li>
           ))}
         </ul>
       </section>
 
       <section className="ui-showcase-about__section">
-        <h2 className="ui-showcase-about__heading">{l.sectionWhereThisStands}</h2>
+        <h2 className="ui-showcase-about__heading">
+          <CompassIcon className="ui-showcase-about__heading-icon" />
+          {l.sectionWhereThisStands}
+        </h2>
         <p className="ui-showcase-about__status">{content.operationalStatus}</p>
       </section>
 

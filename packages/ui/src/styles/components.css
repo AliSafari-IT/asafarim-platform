@@ -2014,9 +2014,19 @@ a .ui-card {
 }
 
 .ui-showcase-about__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   margin: 0 0 1.25rem;
   font-size: 1.25rem;
   font-weight: 700;
+}
+
+.ui-showcase-about__heading-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex-shrink: 0;
+  color: var(--ui-showcase-accent);
 }
 
 .ui-showcase-about__grid {
@@ -2026,10 +2036,31 @@ a .ui-card {
 }
 
 .ui-showcase-about__card {
+  position: relative;
   padding: 1.35rem;
   border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
   border-radius: 1rem;
   background: color-mix(in srgb, currentColor 4%, transparent);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.ui-showcase-about__card:hover {
+  border-color: color-mix(in srgb, var(--ui-showcase-accent) 45%, transparent);
+  transform: translateY(-2px);
+}
+
+/* Numbered badge, top-right — a light visual anchor so a reader can scan
+   "three things, four things" without reading every word first. */
+.ui-showcase-about__card-index {
+  position: absolute;
+  top: 1rem;
+  right: 1.1rem;
+  font-family: var(--ui-font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ui-showcase-accent);
+  opacity: 0.55;
 }
 
 /* Dashed edge marks the honest exceptions — visually distinct from the
@@ -2052,14 +2083,35 @@ a .ui-card {
   opacity: 0.8;
 }
 
-.ui-showcase-about__list {
+/* "What it demonstrates technically" — a scannable icon-row grid rather
+   than a plain bulleted list. */
+.ui-showcase-about__demonstrates {
   margin: 0;
-  padding-left: 1.15rem;
+  padding: 0;
+  list-style: none;
   display: grid;
-  gap: 0.55rem;
-  font-size: 0.925rem;
-  line-height: 1.6;
-  opacity: 0.85;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+}
+
+.ui-showcase-about__demonstrates-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  opacity: 0.9;
+}
+
+.ui-showcase-about__demonstrates-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--ui-showcase-accent);
 }
 
 .ui-showcase-about__status {
