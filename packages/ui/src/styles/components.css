@@ -1062,6 +1062,118 @@ a .ui-card {
   opacity: 0.4;
 }
 
+/* Every DataTable cell's content sits in one .ui-table__value. It takes
+   no part in table layout; the stacked layout below makes it the value
+   half of each "label | value" line. */
+.ui-table__value {
+  display: contents;
+}
+
+/* Stacked layout for narrow containers (DataTable stack="auto", the
+   default). A container query, not a media query: what matters is the
+   table's own width, which a visible sidebar shrinks as much as a small
+   screen does. Below 40rem each row becomes a card, each cell a
+   "label | value" line, the label coming from the cell's data-label (its
+   column header). Tables still scroll sideways above that width. */
+.ui-tablewrap--stack {
+  container-type: inline-size;
+}
+
+@container (max-width: 40rem) {
+  .ui-tablewrap--stack .ui-table,
+  .ui-tablewrap--stack .ui-table thead,
+  .ui-tablewrap--stack .ui-table tbody,
+  .ui-tablewrap--stack .ui-table tr,
+  .ui-tablewrap--stack .ui-table td {
+    display: block;
+    width: auto;
+  }
+
+  /* The column headers become per-cell labels. Only the select-all
+     checkbox stays in the header row, when the table has one. */
+  .ui-tablewrap--stack .ui-table thead th:not(.ui-table__check) {
+    display: none;
+  }
+
+  .ui-tablewrap--stack .ui-table thead tr:not(:has(.ui-table__check)) {
+    display: none;
+  }
+
+  .ui-tablewrap--stack .ui-table thead th.ui-table__check {
+    display: block;
+    width: auto;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .ui-tablewrap--stack .ui-table tbody tr {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .ui-tablewrap--stack .ui-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .ui-tablewrap--stack .ui-table td {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 32%) minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: baseline;
+    padding: var(--space-1) 0;
+    border-bottom: 0;
+    /* Beats the inline right-align numeric columns use. */
+    text-align: left !important;
+    /* Ids and JSON must wrap inside a card rather than widen it. */
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .ui-tablewrap--stack .ui-table td::before {
+    content: attr(data-label);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  /* No label (an actions column with an empty header): the value takes
+     the whole line. */
+  .ui-tablewrap--stack .ui-table td:not([data-label]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ui-tablewrap--stack .ui-table td:not([data-label])::before {
+    content: none;
+  }
+
+  .ui-tablewrap--stack .ui-table__value {
+    display: block;
+    min-width: 0;
+  }
+
+  .ui-tablewrap--stack .ui-table td.ui-table__check {
+    display: block;
+    width: auto;
+    padding: 0 0 var(--space-1);
+  }
+
+  .ui-tablewrap--stack .ui-table td.ui-table__check::before {
+    content: none;
+  }
+
+  .ui-tablewrap--stack .ui-table__primary,
+  .ui-tablewrap--stack .ui-table .u-nowrap {
+    white-space: normal;
+  }
+
+  .ui-tablewrap--stack .ui-table pre {
+    max-width: 100% !important;
+    white-space: pre-wrap;
+  }
+}
+
 /* ── Filter bar (GET form above every console table) ────────────── */
 
 .ui-filterbar {
