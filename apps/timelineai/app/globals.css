@@ -1438,38 +1438,44 @@
   border-bottom: 1px solid var(--line);
 }
 
-[data-app="timelineai"] .gl-card__axis {
+/* Header art drawn from the timeline's own events (CardGlyph.tsx). */
+[data-app="timelineai"] .gl-glyph {
   position: absolute;
-  left: 1.25rem;
-  right: 1.25rem;
-  top: 50%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  inset: 0.4rem 0.5rem 1.6rem;
+  width: calc(100% - 1rem);
+  height: calc(100% - 2rem);
 }
 
-[data-app="timelineai"] .gl-card__axis::before {
-  content: "";
+[data-app="timelineai"] .gl-glyph__axis { stroke: var(--gl-accent); stroke-width: 2.5; stroke-linecap: round; opacity: 0.45; }
+[data-app="timelineai"] .gl-glyph__stem { stroke: var(--gl-accent); stroke-width: 1.2; opacity: 0.45; }
+[data-app="timelineai"] .gl-glyph__stub { stroke: var(--gl-accent); stroke-width: 3; stroke-linecap: round; opacity: 0.25; }
+[data-app="timelineai"] .gl-glyph__dot { fill: var(--gl-surface); stroke: var(--gl-accent); stroke-width: 2.2; }
+[data-app="timelineai"] .gl-glyph__dot--hot { fill: var(--gl-accent); }
+[data-app="timelineai"] .gl-glyph__card { fill: var(--gl-surface); stroke: var(--gl-accent); stroke-opacity: 0.35; }
+[data-app="timelineai"] .gl-glyph__bubble { fill: var(--gl-accent); opacity: 0.2; }
+[data-app="timelineai"] .gl-glyph__ring { fill: none; stroke: var(--gl-accent); stroke-width: 7; opacity: 0.25; }
+[data-app="timelineai"] .gl-glyph__bar { fill: var(--gl-accent); opacity: 0.55; }
+[data-app="timelineai"] .gl-glyph__bar--hot { opacity: 1; }
+[data-app="timelineai"] .gl-glyph__road { fill: none; stroke: var(--gl-accent); stroke-width: 9; stroke-linecap: round; opacity: 0.18; }
+[data-app="timelineai"] .gl-glyph__flag { fill: var(--gl-accent); opacity: 0.6; }
+[data-app="timelineai"] .gl-glyph__flag--hot { opacity: 1; }
+[data-app="timelineai"] .gl-glyph__cell { fill: var(--gl-accent); fill-opacity: 0.08; }
+[data-app="timelineai"] .gl-glyph__branch { fill: none; stroke: var(--gl-accent); stroke-width: 2.5; stroke-dasharray: 5 4; opacity: 0.6; }
+
+[data-app="timelineai"] .gl-card__range {
   position: absolute;
-  left: 0;
-  right: 0;
-  height: 3px;
+  left: 0.75rem;
+  bottom: 0.55rem;
+  padding: 0.12rem 0.5rem;
   border-radius: 999px;
-  background: var(--gl-accent);
-  opacity: 0.5;
-}
-
-[data-app="timelineai"] .gl-card__axis i {
-  position: relative;
-  width: 0.8rem;
-  height: 0.8rem;
-  border-radius: 50%;
   background: var(--gl-surface);
-  border: 3px solid var(--gl-accent);
-}
-
-[data-app="timelineai"] .gl-card__axis i:nth-child(3) {
-  background: var(--gl-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gl-accent) 30%, transparent);
+  /* The band is painted in the timeline's own theme, which may not match
+     the app theme — ink comes from the theme swatch, not --ink. */
+  color: var(--gl-ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 [data-app="timelineai"] .gl-card__body {
@@ -1539,15 +1545,14 @@
 }
 
 [data-app="timelineai"] .gl-card__hint {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  padding: 0.2rem 0.55rem;
+  margin-left: auto;
+  padding: 0.15rem 0.55rem;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 0.68rem;
-  font-weight: 600;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 @media (hover: none) {

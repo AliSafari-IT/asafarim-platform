@@ -5,8 +5,16 @@ import { LAYOUT_LABELS } from "@/lib/labels";
 import type { TimelineInput } from "@/lib/schemas";
 import { THEME_PRESETS, isWideLayout, resolveThemePreset } from "@/lib/timeline-config";
 import { PreviewViewport } from "./PreviewViewport";
+import { CardGlyph, dateRangeLabel, type GlyphEvent } from "./CardGlyph";
 
 type Layout = TimelineInput["layout"];
+
+/** Text colour on each theme's ground — THEME_PRESETS only has swatches. */
+const THEME_INK: Record<string, string> = {
+  canvas: "#1b1730",
+  midnight: "#f1eefc",
+  editorial: "#241d17",
+};
 
 /**
  * A gallery card that flips on hover (or keyboard focus) to show a live,
@@ -27,6 +35,7 @@ export function GalleryCard({
   layout,
   eventCount,
   preview,
+  glyphEvents,
 }: {
   publicId: string;
   title: string;
@@ -34,11 +43,14 @@ export function GalleryCard({
   layout: Layout;
   eventCount: number;
   preview: RenderableTimeline;
+  /** Dates of every event (not just the preview's first few), in order. */
+  glyphEvents: GlyphEvent[];
 }) {
   const preset = THEME_PRESETS.find((p) => p.id === resolveThemePreset(preview.theme?.preset)) ?? THEME_PRESETS[0]!;
   const [bg, surface, accent] = preset.swatch;
   const layoutLabel = LAYOUT_LABELS[layout] ?? layout;
   const events = `${eventCount} event${eventCount === 1 ? "" : "s"}`;
+  const range = dateRangeLabel(glyphEvents);
 
   return (
     <article
@@ -47,18 +59,15 @@ export function GalleryCard({
         ["--gl-bg" as string]: bg,
         ["--gl-surface" as string]: surface,
         ["--gl-accent" as string]: accent,
+        ["--gl-ink" as string]: THEME_INK[preset.id] ?? "#1b1730",
       }}
     >
       <div className="gl-card__inner">
         {/* Front */}
         <div className="gl-card__face gl-card__front">
-          <div className="gl-card__band" aria-hidden="true">
-            <span className="gl-card__axis">
-              <i />
-              <i />
-              <i />
-              <i />
-            </span>
+          <div className="gl-card__band">
+            <CardGlyph layout={layout} events={glyphEvents} />
+            {range ? <span className="gl-card__range">{range}</span> : null}
           </div>
           <div className="gl-card__body">
             <span className="gl-card__badge">{layoutLabel}</span>
@@ -69,10 +78,10 @@ export function GalleryCard({
               <span className="gl-card__theme">
                 <i aria-hidden="true" /> {preset.name}
               </span>
+              <span className="gl-card__hint" aria-hidden="true">
+                Hover to preview ↻
+              </span>
             </p>
-            <span className="gl-card__hint" aria-hidden="true">
-              Hover to preview ↻
-            </span>
           </div>
         </div>
 

@@ -29,6 +29,7 @@ export default async function GalleryPage() {
       editingState: "published",
     },
     select: {
+      id: true,
       publicId: true,
       title: true,
       subtitle: true,
@@ -57,6 +58,20 @@ export default async function GalleryPage() {
     orderBy: { updatedAt: "desc" },
     take: 60,
   });
+
+  // The card header art and its date range describe the WHOLE timeline, not
+  // just the few events the preview loads — one light query for dates only.
+  const eventDates = await prisma.timelineEvent.findMany({
+    where: { timelineId: { in: timelines.map((t) => t.id) } },
+    select: { timelineId: true, startAt: true, endAt: true },
+    orderBy: { sortOrder: "asc" },
+  });
+  const datesByTimeline = new Map<string, { startAt: Date | null; endAt: Date | null }[]>();
+  for (const { timelineId, startAt, endAt } of eventDates) {
+    const list = datesByTimeline.get(timelineId) ?? [];
+    list.push({ startAt, endAt });
+    datesByTimeline.set(timelineId, list);
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -89,6 +104,7 @@ export default async function GalleryPage() {
                 subtitle={timeline.subtitle}
                 layout={timeline.layout as TimelineInput["layout"]}
                 eventCount={timeline._count.events}
+                glyphEvents={datesByTimeline.get(timeline.id) ?? []}
                 preview={{
                   title: timeline.title,
                   subtitle: timeline.subtitle,
