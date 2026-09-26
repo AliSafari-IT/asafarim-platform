@@ -8,8 +8,10 @@ The VPS never builds the monorepo during a rollout.
 
 ```text
 push to main
-  -> GitHub Actions builds 20 unique images in parallel
+  -> the plan job works out which of the 20 images the push affects
+  -> GitHub Actions builds only those, one job per Dockerfile
   -> images are pushed to ghcr.io/alisafari-it/asafarim-platform
+  -> unaffected images are re-tagged from the last deploy
   -> the VPS pulls that commit's images
   -> migrations run
   -> Docker Compose replaces services with --no-build
@@ -24,12 +26,28 @@ continue to use their upstream images.
 A push to `main` triggers [the deployment workflow](../.github/workflows/deploy.yml).
 The workflow:
 
-1. Builds and publishes every application image.
-2. Connects to the VPS only after every image succeeds.
-3. Passes a short-lived GitHub token for the pull; it is stored in a temporary
+1. Finds the last commit it deployed successfully and runs
+   [plan-image-builds.mjs](../scripts/plan-image-builds.mjs) on the diff. An
+   image is rebuilt when its app, or a workspace package it depends on,
+   changed. The lockfile, root `package.json`, `.dockerignore`,
+   [docker-bake.hcl](../docker-bake.hcl), this workflow, or the
+   `NEXT_PUBLIC_*` lines of `.env.production.example` rebuild every image.
+   Docs, READMEs, tests, and the Compose/Caddy/VPS-script files rebuild
+   nothing. The step summary lists what was built, what was reused, and why.
+2. Builds the affected images from [docker-bake.hcl](../docker-bake.hcl).
+   Targets that share a Dockerfile (for example `appbuilder`,
+   `appbuilder-worker` and `appbuilder-migrate`) build in one job and share
+   one install and build. Every other image is re-tagged with the new commit
+   SHA from the last deploy, a registry-side copy that takes seconds.
+3. Connects to the VPS only after every build succeeds.
+4. Passes a short-lived GitHub token for the pull; it is stored in a temporary
    Docker config and removed when the deployment exits.
-4. Runs [vps-deploy.sh](../infra/scripts/vps-deploy.sh) against the exact commit
+5. Runs [vps-deploy.sh](../infra/scripts/vps-deploy.sh) against the exact commit
    that produced the images.
+
+To rebuild every image anyway, run the workflow manually (Actions → Deploy to
+VPS → Run workflow) with **rebuild_all** checked. Pushes that only touch
+`docs/`, Markdown files, or other workflows do not start a deploy at all.
 
 The workflow uses the built-in `GITHUB_TOKEN`; no additional GHCR secret is
 required. Its repository permissions include `packages: write`.

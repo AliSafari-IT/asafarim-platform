@@ -120,7 +120,7 @@ Builds depend on `^build` (packages must build before apps). When you change a s
 | resumatch | 3012 | resumatch.asafarim.com |
 
 ### Production Deployment
-Docker Compose + Caddy reverse proxy on Hostinger VPS (`82.25.116.73`). GitHub Actions (`push to main`) SSH into VPS and runs `infra/scripts/vps-deploy.sh`, which: decrypts env, builds images sequentially (memory-safe on 8 GB), restarts stack, notifies Discord.
+Docker Compose + Caddy reverse proxy on Hostinger VPS (`82.25.116.73`). GitHub Actions (`push to main`) builds only the images the push affects (`scripts/plan-image-builds.mjs` + `docker-bake.hcl`; a new image must be added to both), re-tags the rest from the last deploy, pushes to GHCR, then SSHes into the VPS and runs `infra/scripts/vps-deploy.sh`, which: decrypts env, pulls the images, runs migrations, restarts the stack, notifies Discord. See `docs/deployment.md`.
 
 ## Key Docs
 - `docs/architecture.md` — Cross-app communication, RBAC layers, protection model
