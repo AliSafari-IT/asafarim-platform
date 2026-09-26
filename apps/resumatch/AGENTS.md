@@ -7,3 +7,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# ResuMatch-specific notes
+
+Kept outside the `nextjs-agent-rules` block above, which `next dev` regenerates.
+
+- Read [docs/agent-notes.md](docs/agent-notes.md) before changing this app: git discipline, ResuMatch’s **own** database and migration command, CRLF, build/dev-server pitfalls, and the tailoring invariants.
+- Open work with a written plan: [#642 — cover letter in a chosen language](docs/plan-642-cover-letter-language.md).
