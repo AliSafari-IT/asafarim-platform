@@ -4523,3 +4523,18 @@
   outline-offset: 3px;
   border-radius: 999px;
 }
+
+/* Ghost buttons (upload "delete"/"retry scan", the unselected tailoring
+   intake tabs, "Save to applications", DOCX download, …) were fully
+   transparent with no border, so they read as plain text rather than
+   buttons. A subtle outline keeps them quieter than primary/secondary
+   buttons while still looking clickable. */
+[data-app="resumatch"] .ui-btn--ghost {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+[data-app="resumatch"] .ui-btn--ghost:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
