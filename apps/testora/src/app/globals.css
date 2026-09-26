@@ -28,8 +28,10 @@
 
   /* @asafarim/ui's showcase surfaces expect a real colour value. Testora's
      shadcn tokens hold bare HSL components, so hand over a wrapped copy —
-     otherwise `color: var(--accent)` is an invalid declaration. */
-  --ui-showcase-accent: hsl(var(--primary));
+     otherwise `color: var(--accent)` is an invalid declaration. Dark (this
+     block) uses a lighter step of the primary violet: hsl(var(--primary))
+     itself is only ~4:1 as notice text on these near-black surfaces. */
+  --ui-showcase-accent: hsl(258 90% 78%);
 }
 
 /* Light counterpart, opt-in via the shared theme toggle (<html
@@ -44,6 +46,8 @@
   --card-foreground: 222 26% 10%;
   --primary: 263 70% 50%;
   --primary-foreground: 0 0% 100%;
+  /* Light primary already clears AA as notice text (6.2:1). */
+  --ui-showcase-accent: hsl(var(--primary));
   --ts-muted: 220 20% 94%;
   --muted-foreground: 215 16% 40%;
   --ts-accent: 201 96% 32%;
