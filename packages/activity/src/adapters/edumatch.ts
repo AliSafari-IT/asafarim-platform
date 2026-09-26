@@ -77,7 +77,12 @@ export const edumatchActivityAdapter: UserActivityAdapter = {
           status: b.status,
           createdAt: b.createdAt,
           updatedAt: b.updatedAt,
-          href: `${base}/${b.studentId === userId ? "student" : "tutor"}/bookings/${b.id}`,
+          // Both /student/bookings and /tutor/bookings are flat lists —
+          // neither has a [id] detail route (the only per-booking page,
+          // /tutor/sessions/[bookingId], is a tutor-only session-note
+          // editor, not a generic viewer either side could use) — so this
+          // links to the list, not a fabricated per-item URL that 404s.
+          href: `${base}/${b.studentId === userId ? "student" : "tutor"}/bookings`,
           metadata: { scheduledAt: b.scheduledAt, role: b.studentId === userId ? "student" : "tutor" },
         })
       ),
@@ -143,7 +148,10 @@ export const edumatchActivityAdapter: UserActivityAdapter = {
         status: b.status,
         createdAt: b.createdAt,
         updatedAt: b.updatedAt,
-        href: `${base}/student/bookings/${b.id}`,
+        // See getActivity's own booking href above — no [id] detail route
+        // exists for a booking on either side, so this links to the
+        // student's list rather than a fabricated per-item URL.
+        href: `${base}/student/bookings`,
         metadata: {
           scheduledAt: b.scheduledAt,
           tutorEmail: b.tutor.email,
