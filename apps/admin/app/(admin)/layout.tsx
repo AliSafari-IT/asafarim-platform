@@ -16,6 +16,7 @@ import {
   AppSwitcher,
   Button,
   SideNav,
+  TopNav,
   UserMenu,
   getPlatformLinks,
   toAppSwitcherLinks,
@@ -54,6 +55,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   return (
     <AppShell
       product="Admin"
+      nav={<TopNav items={navItems} mobileOnly />}
       user={
         <>
           <ThemeToggle />

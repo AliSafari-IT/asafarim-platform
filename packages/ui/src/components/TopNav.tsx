@@ -15,6 +15,10 @@ export interface NavItem {
 
 export interface TopNavProps {
   items: NavItem[];
+  /** Render only the "Menu ▾" dropdown, and only once AppShell hides the
+   *  sidebar (≤720px). For apps whose primary nav is a SideNav, so they
+   *  still have navigation on mobile. */
+  mobileOnly?: boolean;
 }
 
 /**
@@ -25,7 +29,7 @@ export interface TopNavProps {
  * components.css). No app passed `active`, so nothing was ever marked;
  * it's now derived from the URL unless an item sets `active` itself.
  */
-export function TopNav({ items }: TopNavProps) {
+export function TopNav({ items, mobileOnly = false }: TopNavProps) {
   const scroller = useEdgeAutoScroll<HTMLUListElement>();
   const pathname = useCurrentPath();
   if (items.length === 0) return null;
@@ -38,26 +42,30 @@ export function TopNav({ items }: TopNavProps) {
 
   return (
     <nav aria-label="Primary" className="ui-shell__topnav">
-      <ul
-        className="ui-topnav"
-        ref={scroller.ref}
-        onMouseMove={scroller.onMouseMove}
-        onMouseLeave={scroller.onMouseLeave}
+      {mobileOnly ? null : (
+        <ul
+          className="ui-topnav"
+          ref={scroller.ref}
+          onMouseMove={scroller.onMouseMove}
+          onMouseLeave={scroller.onMouseLeave}
+        >
+          {items.map((item) => (
+            <li key={item.href + item.label}>
+              <a
+                href={item.href}
+                target={item.newTab ? "_blank" : undefined}
+                rel={item.newTab ? "noreferrer" : undefined}
+                aria-current={isActive(item) ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <details
+        className={`ui-menu ui-topnav-mobile${mobileOnly ? " ui-topnav-mobile--side" : ""}`}
       >
-        {items.map((item) => (
-          <li key={item.href + item.label}>
-            <a
-              href={item.href}
-              target={item.newTab ? "_blank" : undefined}
-              rel={item.newTab ? "noreferrer" : undefined}
-              aria-current={isActive(item) ? "page" : undefined}
-            >
-              {item.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-      <details className="ui-menu ui-topnav-mobile">
         <summary>
           Menu <span className="ui-menu__caret">▾</span>
         </summary>
