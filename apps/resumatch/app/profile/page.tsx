@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
-import { Alert, Card, PageHeader } from "@asafarim/ui";
+import { Alert, PageHeader } from "@asafarim/ui";
 import { canRetryScan, explainReasonCode } from "../../lib/documents/pipeline";
 import { listDocuments } from "../../lib/documents/service";
+import { getJourneyCounts } from "../../lib/journey";
 import { emptyProfile } from "../../lib/profile/contract";
 import { ERASURE_SLA_DAYS } from "../../lib/profile/dataRights";
 import { getLatestVersion, listVersions } from "../../lib/profile/versions";
 import { getCurrentWorkspace, getSessionAccountInfo } from "../../lib/workspace";
+import { JourneyTracker } from "../components/app/JourneyTracker";
+import { PageHero } from "../components/app/PageHero";
 import { ShowcaseNotice } from "../components/ShowcaseNotice";
 import { DataRightsPanel } from "./DataRightsPanel";
-import { NextStepPanel } from "./NextStepPanel";
+import { NextStepTrack, ProfileCompleteness, VersionTimeline } from "./ProfileInsights";
 import { ProfileWorkbench } from "./ProfileWorkbench";
 import { UploadPanel } from "./UploadPanel";
 
@@ -29,10 +32,11 @@ export default async function ProfilePage() {
     );
   }
 
-  const [documents, latest, versions] = await Promise.all([
+  const [documents, latest, versions, journey] = await Promise.all([
     listDocuments(workspace.id),
     getLatestVersion(workspace.id),
     listVersions(workspace.id),
+    getJourneyCounts(workspace.id),
   ]);
 
   const confirmed = versions.find((version) => version.isConfirmed) ?? null;
@@ -53,21 +57,34 @@ export default async function ProfilePage() {
   }
 
   return (
-    <>
-      <PageHeader
+    <div className="rx">
+      <PageHero
         kicker="Profile"
-        kickerIndex="M2"
-        title="Your profile, in your words."
-        description="Upload a CV to save typing, then correct whatever it got wrong. Nothing is matched against until you confirm it."
+        title="Your profile,"
+        accent="in your words."
+        lead="Upload a CV to save typing, then correct whatever it got wrong. Nothing is matched against until you confirm it."
+        aside={<JourneyTracker counts={journey} current="profile" />}
       />
 
       <ShowcaseNotice />
 
-      {confirmed ? (
-        <section style={{ marginTop: "1.5rem" }}>
-          <NextStepPanel />
-        </section>
-      ) : null}
+      <div className="rx-duo">
+        <ProfileCompleteness content={initialContent} />
+        {confirmed ? (
+          <NextStepTrack />
+        ) : (
+          <section className="rx-panel rx-panel--warm" aria-labelledby="rx-unconfirmed-title">
+            <h2 id="rx-unconfirmed-title" className="rx-panel__title">
+              Confirm your profile to unlock tailoring
+            </h2>
+            <p className="rx-panel__sub">
+              Tailoring never runs against an unreviewed profile — that is deliberate, not a missing
+              feature. Check what was read below, fix anything wrong, then press{" "}
+              <strong>Save and confirm</strong>.
+            </p>
+          </section>
+        )}
+      </div>
 
       <UploadPanel
         documents={documents.map((document) => ({
@@ -83,7 +100,7 @@ export default async function ProfilePage() {
         }))}
       />
 
-      <section style={{ marginTop: "2rem" }}>
+      <section>
         {/* Keyed by version id so a newly extracted profile REPLACES the
             form after router.refresh(). Without the key, the client
             component keeps its initial useState value and a candidate can
@@ -100,47 +117,9 @@ export default async function ProfilePage() {
         />
       </section>
 
-      {versions.length > 0 ? (
-        <section style={{ marginTop: "2rem" }}>
-          <Card title="Version history">
-            <p style={{ opacity: 0.85 }}>
-              Every correction creates a new version and none are ever overwritten. That is what lets
-              ResuMatch explain a CV it tailored months ago: the profile that produced it still
-              exists, exactly as it was.
-            </p>
-            <ul className="jm-list">
-              {versions.map((version) => (
-                <li key={version.id}>
-                  <span className="jm-mono">v{version.versionNumber}</span>{" "}
-                  <span style={{ opacity: 0.8 }}>
-                    {version.origin === "EXTRACTED"
-                      ? "read from your CV"
-                      : version.origin === "CORRECTED"
-                        ? "your corrections"
-                        : "written by hand"}
-                  </span>{" "}
-                  <span className="jm-mono" style={{ opacity: 0.6, fontSize: "0.75rem" }}>
-                    {version.createdAt.toISOString().slice(0, 10)} · {version.extractorName}@
-                    {version.extractorVersion}
-                  </span>
-                  {version.isConfirmed ? <strong> · confirmed</strong> : null}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </section>
-      ) : null}
+      {versions.length > 0 ? <VersionTimeline versions={versions} /> : null}
 
-      <section style={{ marginTop: "2rem" }}>
-        <DataRightsPanel erasureSlaDays={ERASURE_SLA_DAYS} hasData={documents.length > 0 || versions.length > 0} />
-      </section>
-
-      {confirmed ? null : (
-        <p className="jm-note" style={{ marginTop: "2rem" }}>
-          No confirmed version yet. Tailoring will not run against an unreviewed profile — that is
-          deliberate, not a missing feature.
-        </p>
-      )}
-    </>
+      <DataRightsPanel erasureSlaDays={ERASURE_SLA_DAYS} hasData={documents.length > 0 || versions.length > 0} />
+    </div>
   );
 }
