@@ -103,7 +103,7 @@ export default async function TailoredResumePreviewPage({
             <Link href={`/cover-letter/${coverLetterId}/preview`} className="ui-btn ui-btn--ghost ui-btn--sm">
               View cover letter
             </Link>
-            <LanguageBadge language={row.coverLetter?.outputLanguage} subject="Cover letter" />
+            <LanguageBadge language={row.coverLetter?.outputLanguage} coverLetter />
           </>
         ) : (
           <span className="rm-preview-toolbar__hint">No cover letter for this CV.</span>

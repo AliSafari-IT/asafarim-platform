@@ -1,13 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { cookies } from "next/headers";
 import { auth, signOut } from "@asafarim/auth";
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
 // Side-effect import: registers @asafarim/auth's next-auth type
 // augmentations (Session.user.roles, isActive) used by lib/workspace.ts.
 import type {} from "@asafarim/auth/types";
 import { I18nProvider } from "@asafarim/shared-i18n";
-import { getServerTranslator, resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import { ThemeProvider, ThemeToggle } from "@asafarim/theme-toggle";
 import { ThemeScript } from "@asafarim/theme-toggle/script";
@@ -25,6 +23,7 @@ import "@asafarim/ui/styles.css";
 import "@asafarim/country-language-selector/styles.css";
 import "./resumatch.css";
 import resumatchDictionaries from "../lib/i18n-dictionaries";
+import { getTranslator } from "../lib/i18n-server";
 
 const appUrl = process.env.NEXT_PUBLIC_RESUMATCH_URL ?? "https://resumatch.asafarim.com";
 const appName = "ResuMatch";
@@ -69,8 +68,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // The shared asafarim-lang cookie (set by the language bar in any
   // ASafarIM app). No cookie → English, which with the Belgium lock below
   // is the "be-en" default, as in Hub/Web/Showcase.
-  const initialLocale = resolveLocaleFromCookie((await cookies()).toString());
-  const t = getServerTranslator(initialLocale, resumatchDictionaries);
+  const { locale: initialLocale, t } = await getTranslator();
   const navItems = NAV_ITEMS.map((item) => ({ label: t(item.key), href: item.href }));
 
   // Registry-driven, the same rule Hub's launcher and every other app's
@@ -98,53 +96,50 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body className="antialiased">
         <I18nProvider initialLocale={initialLocale} dictionaries={resumatchDictionaries}>
-        <ThemeProvider defaultTheme="light">
-          <AppShell
-            product="ResuMatch"
-            nav={<TopNav items={navItems} />}
-            user={
-              <>
-                <ThemeToggle />
-                <CountryLanguageSelector lockCountry="BE" />
-                <AppSwitcher links={toAppSwitcherLinks(switcherApps, links)} />
-                {session?.user ? (
-                  <UserMenu
-                    name={session.user.name}
-                    email={session.user.email}
-                    image={session.user.image}
-                    roles={session.user.roles}
-                    profileHref="/profile"
-                  >
-                    <form
-                      action={async () => {
-                        "use server";
-                        await signOut({ redirectTo: "/" });
-                      }}
+          <ThemeProvider defaultTheme="light">
+            <AppShell
+              product="ResuMatch"
+              nav={<TopNav items={navItems} />}
+              user={
+                <>
+                  <ThemeToggle />
+                  <CountryLanguageSelector lockCountry="BE" />
+                  <AppSwitcher links={toAppSwitcherLinks(switcherApps, links)} />
+                  {session?.user ? (
+                    <UserMenu
+                      name={session.user.name}
+                      email={session.user.email}
+                      image={session.user.image}
+                      roles={session.user.roles}
+                      profileHref="/profile"
                     >
-                      <Button type="submit" variant="secondary" size="sm">
-                        Sign out
-                      </Button>
-                    </form>
-                  </UserMenu>
-                ) : (
-                  <ButtonLink href={signInHref} size="sm">
-                    Sign in
-                  </ButtonLink>
-                )}
-              </>
-            }
-            footer={
-              <span>
-                An experimental portfolio showcase — AI rewrites only what you already wrote in
-                your confirmed profile, and never invents an employer, a date, a degree, or a skill
-                you did not list. See{" "}
-                <a href="/">what exists so far</a>.
-              </span>
-            }
-          >
-            {children}
-          </AppShell>
-        </ThemeProvider>
+                      <form
+                        action={async () => {
+                          "use server";
+                          await signOut({ redirectTo: "/" });
+                        }}
+                      >
+                        <Button type="submit" variant="secondary" size="sm">
+                          {t("common.signOut")}
+                        </Button>
+                      </form>
+                    </UserMenu>
+                  ) : (
+                    <ButtonLink href={signInHref} size="sm">
+                      {t("common.signIn")}
+                    </ButtonLink>
+                  )}
+                </>
+              }
+              footer={
+                <span>
+                  {t("resumatch.footer.body")} <a href="/">{t("resumatch.footer.link")}</a>.
+                </span>
+              }
+            >
+              {children}
+            </AppShell>
+          </ThemeProvider>
         </I18nProvider>
       </body>
     </html>

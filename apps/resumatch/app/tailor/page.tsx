@@ -163,7 +163,7 @@ export default async function TailorPage() {
                       <span className="rx-pill">{resume.templateKey}</span>
                       <LanguageBadge language={resume.outputLanguage} />
                       {resume.coverLetter ? <span className="rx-pill rx-pill--ok">+ Cover letter</span> : null}
-                      <LanguageBadge language={resume.coverLetter?.outputLanguage} subject="Cover letter" />
+                      <LanguageBadge language={resume.coverLetter?.outputLanguage} coverLetter />
                       {resume.degraded ? <span className="rx-pill rx-pill--warm">Degraded</span> : null}
                     </span>
                   </Link>
