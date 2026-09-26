@@ -149,6 +149,42 @@
   min-width: 0;
 }
 
+/* Event avatar (components/timeline/renderers/EventAvatar.tsx). The
+   fallback is always painted; the image, when there is one, covers it.
+   The double ring separates the avatar from a connector line running
+   behind it, in any timeline theme.
+   Fallback and image are stacked in one grid cell rather than with
+   position: absolute — this rule is unlayered, so a `position` here would
+   beat the Tailwind `absolute` class each layout uses to pin the avatar
+   onto its connector line. */
+.tl-root .tl-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--tl-avatar-accent);
+  color: var(--tl-avatar-ink);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 0 2.5px var(--tl-bg), 0 0 0 4.5px var(--tl-avatar-accent);
+}
+
+.tl-root .tl-avatar__fallback {
+  grid-area: 1 / 1;
+  user-select: none;
+}
+
+.tl-root .tl-avatar__img {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tl-root * {
     animation-duration: 0.001ms !important;

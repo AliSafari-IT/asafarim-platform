@@ -3,6 +3,7 @@
 import type { ThemeSettings } from "@/lib/schemas";
 import {
   getLayoutOptions,
+  resolveImageStyle,
   resolveThemePreset,
   THEME_PRESETS,
   type TimelineLayout,
@@ -114,7 +115,7 @@ export function TimelineAppearance({
         </div>
       </fieldset>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Density</span>
           <select
@@ -140,6 +141,32 @@ export function TimelineAppearance({
             <option value="outlined">Outlined</option>
           </select>
         </label>
+
+        {/* Replaces the old "Show: Images" checkbox. showImages is kept in
+            step so anything still reading the legacy flag agrees. */}
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Event images</span>
+          <select
+            className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+            value={resolveImageStyle(theme)}
+            aria-describedby="image-style-help"
+            onChange={(e) => {
+              const imageStyle = e.target.value as NonNullable<ThemeSettings["imageStyle"]>;
+              onThemeChange({ imageStyle, showImages: imageStyle !== "off" });
+            }}
+          >
+            <option value="avatar">Avatar on the timeline</option>
+            <option value="banner">Picture in the card</option>
+            <option value="off">Hidden</option>
+          </select>
+          <span id="image-style-help" className="text-xs text-[var(--color-text-muted,inherit)]">
+            {resolveImageStyle(theme) === "avatar"
+              ? "Events without an image show their initials or icon."
+              : resolveImageStyle(theme) === "banner"
+                ? "Shown in Vertical, Horizontal and Zigzag layouts."
+                : "No event images are shown."}
+          </span>
+        </label>
       </div>
 
       <fieldset className="flex flex-wrap gap-4 text-sm">
@@ -148,7 +175,6 @@ export function TimelineAppearance({
           [
             ["showDates", "Dates"],
             ["showDescriptions", "Descriptions"],
-            ["showImages", "Images"],
             ["showIcons", "Icons"],
           ] as const
         ).map(([key, label]) => (

@@ -1,4 +1,6 @@
 import { formatEventDate, type RenderableTimeline } from "./types";
+import { resolveImageStyle } from "@/lib/timeline-config";
+import { EventAvatar, SvgEventAvatar } from "./EventAvatar";
 
 /**
  * Circular/radial layout: events placed evenly around a circle. Best for a
@@ -9,6 +11,8 @@ import { formatEventDate, type RenderableTimeline } from "./types";
 export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
   const theme = timeline.theme ?? {};
   const events = timeline.events;
+  const avatars = resolveImageStyle(theme) === "avatar";
+  const showIcons = theme.showIcons ?? true;
   const size = 420;
   const radius = 160;
   // Room for labels beyond the circle itself — without this, a label
@@ -17,7 +21,9 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
   // the viewBox by default, cutting off the label's leading or trailing
   // characters (most visible on the left side, where it eats the first
   // letter or two of the word).
-  const margin = 70;
+  // Avatar mode pushes labels 10px further out (see labelOffset), so the
+  // canvas margin grows to keep the longest (17-char) label inside the viewBox.
+  const margin = avatars ? 100 : 70;
   const viewSize = size + margin * 2;
   const center = viewSize / 2;
 
@@ -41,8 +47,10 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
           const angle = (index / Math.max(events.length, 1)) * 2 * Math.PI - Math.PI / 2;
           const x = center + radius * Math.cos(angle);
           const y = center + radius * Math.sin(angle);
-          const labelX = center + (radius + 34) * Math.cos(angle);
-          const labelY = center + (radius + 34) * Math.sin(angle);
+          // Labels move further out when a larger avatar sits on the ring.
+          const labelOffset = avatars ? 44 : 34;
+          const labelX = center + (radius + labelOffset) * Math.cos(angle);
+          const labelY = center + (radius + labelOffset) * Math.sin(angle);
           // Anchor the label so it grows AWAY from the circle instead of
           // being centered on a point near the canvas edge: right-side
           // points get left-aligned text (grows rightward), left-side
@@ -52,7 +60,18 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
           const textAnchor = Math.abs(cos) < 0.3 ? "middle" : cos > 0 ? "start" : "end";
           return (
             <g key={event.id ?? index}>
-              <circle cx={x} cy={y} r={7} fill={event.accentColor || "var(--tl-accent)"} />
+              {avatars ? (
+                <SvgEventAvatar
+                  event={event}
+                  cx={x}
+                  cy={y}
+                  r={18}
+                  showIcons={showIcons}
+                  clipId={`tl-av-${event.id ?? index}-${index}`}
+                />
+              ) : (
+                <circle cx={x} cy={y} r={7} fill={event.accentColor || "var(--tl-accent)"} />
+              )}
               <text
                 x={labelX}
                 y={labelY}
@@ -81,11 +100,15 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
         {events.map((event, index) => (
           <li key={event.id ?? index} className="rounded-lg border border-[var(--tl-border)] p-3">
             <div className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                style={{ background: event.accentColor || "var(--tl-accent)" }}
-                aria-hidden
-              />
+              {avatars ? (
+                <EventAvatar event={event} size={28} showIcons={showIcons} />
+              ) : (
+                <span
+                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                  style={{ background: event.accentColor || "var(--tl-accent)" }}
+                  aria-hidden
+                />
+              )}
               <h3 className="font-semibold">{event.title}</h3>
             </div>
             <time className="text-xs text-[var(--tl-text-muted)]">

@@ -219,6 +219,23 @@ export function EventCard({
           />
           {errors?.imageUrl ? <span className="text-xs text-red-600">{errors.imageUrl}</span> : null}
         </label>
+
+        {event.imageUrl ? (
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span>Image description (optional)</span>
+            <input
+              className="rounded border border-[var(--color-border,rgba(0,0,0,0.2))] bg-transparent px-3 py-2"
+              value={event.imageAlt ?? ""}
+              onChange={(e) => onChange({ imageAlt: e.target.value || null })}
+              placeholder="e.g. Portrait of Isaac Newton, 1689"
+              maxLength={200}
+            />
+            <span className="text-xs text-[var(--color-text-muted,inherit)]">
+              Read aloud by screen readers. Leave empty if the image only repeats the title.
+            </span>
+            {errors?.imageAlt ? <span className="text-xs text-red-600">{errors.imageAlt}</span> : null}
+          </label>
+        ) : null}
       </div>
     </li>
   );

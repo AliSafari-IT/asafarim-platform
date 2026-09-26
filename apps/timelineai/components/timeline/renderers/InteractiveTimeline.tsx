@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { formatEventDate, type RenderableTimeline } from "./types";
+import { resolveImageStyle } from "@/lib/timeline-config";
+import { EventAvatar } from "./EventAvatar";
 
 /**
  * Interactive layout: click-to-expand event detail plus label filters. The
@@ -11,6 +13,7 @@ import { formatEventDate, type RenderableTimeline } from "./types";
  */
 export function InteractiveTimeline({ timeline }: { timeline: RenderableTimeline }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const avatars = resolveImageStyle(timeline.theme) === "avatar";
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
 
   const labels = useMemo(
@@ -64,11 +67,15 @@ export function InteractiveTimeline({ timeline }: { timeline: RenderableTimeline
                 aria-expanded={isOpen}
                 onClick={() => setOpenId(isOpen ? null : key)}
               >
-                <span
-                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                  style={{ background: event.accentColor || "var(--tl-accent)" }}
-                  aria-hidden
-                />
+                {avatars ? (
+                  <EventAvatar event={event} size={28} showIcons={timeline.theme?.showIcons ?? true} />
+                ) : (
+                  <span
+                    className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                    style={{ background: event.accentColor || "var(--tl-accent)" }}
+                    aria-hidden
+                  />
+                )}
                 <span className="font-medium">{event.title}</span>
                 <time className="ml-auto text-xs text-[var(--tl-text-muted)]">
                   {formatEventDate(event, timeline.theme?.dateFormat)}

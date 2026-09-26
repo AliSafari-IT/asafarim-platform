@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import type { RenderableTimeline } from "./types";
 import type { TimelineEventInput } from "@/lib/schemas";
+import { resolveImageStyle } from "@/lib/timeline-config";
+import { EventAvatar } from "./EventAvatar";
 
 /**
  * "Calendar board" layout: a month-column board. Each visible month is a card
@@ -106,6 +108,7 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
   const [view, setView] = useState<"agenda" | "calendar">("agenda");
   const [page, setPage] = useState(0);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const avatars = resolveImageStyle(timeline.theme) === "avatar";
 
   const { months, groups, undated } = useMemo(() => {
     const grouped = new Map<string, TimelineEventInput[]>();
@@ -252,6 +255,7 @@ export function CalendarBoardTimeline({ timeline }: { timeline: RenderableTimeli
                     accent={accent}
                     openKey={openKey}
                     onToggle={setOpenKey}
+                    avatars={avatars}
                   />
                 ) : (
                   <CalendarMonth monthKeyValue={key} events={events} accent={accent} />
@@ -284,12 +288,15 @@ function AgendaMonth({
   accent,
   openKey,
   onToggle,
+  avatars,
 }: {
   monthKeyValue: string;
   events: TimelineEventInput[];
   accent: string;
   openKey: string | null;
   onToggle: (key: string | null) => void;
+  /** Avatar image style: the event's image replaces the label icon when it has one. */
+  avatars: boolean;
 }) {
   if (events.length === 0) {
     return <p className="mt-5 text-sm text-[var(--tl-text-muted)]">No events this month.</p>;
@@ -336,13 +343,17 @@ function AgendaMonth({
                 >
                   {dayChip(event.startAt!)}
                 </span>
-                <span
-                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
-                  style={{ background: `${color}26`, color }}
-                  aria-hidden
-                >
-                  <Icon size={17} />
-                </span>
+                {avatars && event.imageUrl ? (
+                  <EventAvatar event={{ ...event, accentColor: event.accentColor || color }} size={36} />
+                ) : (
+                  <span
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+                    style={{ background: `${color}26`, color }}
+                    aria-hidden
+                  >
+                    <Icon size={17} />
+                  </span>
+                )}
                 <span className="min-w-0 flex-1 truncate font-medium">{event.title}</span>
                 {expandable ? (
                   <button

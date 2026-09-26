@@ -33,6 +33,10 @@ export const TIMELINE_VISIBILITY = ["private", "public", "unlisted"] as const;
 
 export const TIMELINE_THEME_PRESETS = ["canvas", "midnight", "editorial"] as const;
 
+/** How each event's image appears: a small circle on the timeline itself
+ *  (with an initials/icon fallback), a picture inside the card, or none. */
+export const TIMELINE_IMAGE_STYLES = ["avatar", "banner", "off"] as const;
+
 export const ThemeSettingsSchema = z
   .object({
     /**
@@ -52,6 +56,13 @@ export const ThemeSettingsSchema = z
     showDescriptions: z.boolean().optional(),
     showDates: z.boolean().optional(),
     showImages: z.boolean().optional(),
+    /**
+     * Supersedes showImages when set. Absent on every timeline saved before
+     * it existed — resolveImageStyle() maps those to their old look
+     * ("banner", or "off" when showImages was false), so nothing changes
+     * for existing timelines until their author picks a style.
+     */
+    imageStyle: z.enum(TIMELINE_IMAGE_STYLES).optional(),
     showIcons: z.boolean().optional(),
   })
   .strict()
@@ -124,6 +135,7 @@ export const TimelineEventInputSchema = z
     description: z.string().max(5000, "Descriptions must be under 5000 characters.").nullable().optional(),
     imageUrl: safeExternalUrl("That doesn't look like a valid image link.").nullable().optional(),
     imageStorageKey: z.string().max(512).nullable().optional(),
+    imageAlt: z.string().trim().max(200, "Image descriptions must be under 200 characters.").nullable().optional(),
     icon: z.string().max(64).nullable().optional(),
     label: z.string().max(64).nullable().optional(),
     link: safeExternalUrl("That doesn't look like a valid link.").nullable().optional(),

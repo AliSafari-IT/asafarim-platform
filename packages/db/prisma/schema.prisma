@@ -1963,6 +1963,10 @@ model TimelineEvent {
 
   imageUrl        String?
   imageStorageKey String? // @asafarim/storage object key, when uploaded
+  /// Author-written description of the image, used as its alt text. When
+  /// empty, renderers fall back to the event title (banner) or treat the
+  /// image as decorative next to the visible title (avatar).
+  imageAlt        String?
 
   icon  String?
   label String? // category/label chip
