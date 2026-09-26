@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { ShieldAlertIcon, WarningIcon } from "./icons";
 
 /**
@@ -18,6 +21,7 @@ export function AlertCard({
   children: ReactNode;
   technicalDetail?: string | null;
 }) {
+  const { t } = useTranslation();
   return (
     <div className={`jm-alert-card jm-alert-card--${tone}`}>
       <span className="jm-alert-card__icon">
@@ -28,7 +32,7 @@ export function AlertCard({
         <p className="jm-alert-card__text">{children}</p>
         {technicalDetail ? (
           <details className="jm-alert-card__details">
-            <summary>Technical details</summary>
+            <summary>{t("resumatch.upload.technicalDetails")}</summary>
             <div className="jm-alert-card__details-body">{technicalDetail}</div>
           </details>
         ) : null}

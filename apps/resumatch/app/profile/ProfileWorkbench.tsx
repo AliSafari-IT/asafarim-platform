@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@asafarim/shared-i18n";
 import {
   DndContext,
   closestCenter,
@@ -98,13 +99,14 @@ function needsReview(confidence: ProfileConfidence, field: string): boolean {
 }
 
 function FieldLabel({ label, confidence, field }: { label: string; confidence: ProfileConfidence; field: string }) {
+  const { t } = useTranslation();
   return (
     <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
       <span>{label}</span>
       {needsReview(confidence, field) ? (
-        <Badge tone="warning">check this</Badge>
+        <Badge tone="warning">{t("resumatch.wb.checkThis")}</Badge>
       ) : confidence[field] !== undefined ? (
-        <Badge tone="neutral">from your CV</Badge>
+        <Badge tone="neutral">{t("resumatch.wb.fromCv")}</Badge>
       ) : null}
     </span>
   );
@@ -118,6 +120,7 @@ export function ProfileWorkbench({
   isConfirmed,
   hasDocument,
 }: ProfileWorkbenchProps) {
+  const { t } = useTranslation();
   const [content, setContent] = useState<CandidateProfileContent>(initialContent);
   const [state, setState] = useState<SaveState>({ kind: "idle" });
   const navScroller = useEdgeAutoScroll<HTMLElement>();
@@ -230,7 +233,7 @@ export function ProfileWorkbench({
       });
       const body = (await response.json()) as { rewritten?: string; degraded?: boolean; error?: string };
       if (!response.ok || !body.rewritten) {
-        setRewriteState({ kind: "error", message: body.error ?? "That summary could not be rewritten." });
+        setRewriteState({ kind: "error", message: body.error ?? t("resumatch.wb.error.rewrite") });
         return;
       }
       // A candidate reviews and explicitly accepts or rejects this — it
@@ -238,9 +241,9 @@ export function ProfileWorkbench({
       // used until you confirm it" posture the rest of this form follows.
       setRewriteState({ kind: "preview", text: body.rewritten, degraded: body.degraded ?? false });
     } catch {
-      setRewriteState({ kind: "error", message: "That summary could not be rewritten. Check your connection and try again." });
+      setRewriteState({ kind: "error", message: t("resumatch.wb.error.rewriteNetwork") });
     }
-  }, [content.summary, tone]);
+  }, [content.summary, tone, t]);
 
   const requestCategorize = useCallback(async () => {
     const skillNames = content.skills.map((skill) => skill.name);
@@ -259,7 +262,7 @@ export function ProfileWorkbench({
         error?: string;
       };
       if (!response.ok || !body.categories) {
-        setCategorizeState({ kind: "error", message: body.error ?? "Skills could not be categorized." });
+        setCategorizeState({ kind: "error", message: body.error ?? t("resumatch.wb.error.categorize") });
         return;
       }
       // A candidate reviews and explicitly applies this — it never touches
@@ -269,10 +272,10 @@ export function ProfileWorkbench({
     } catch {
       setCategorizeState({
         kind: "error",
-        message: "Skills could not be categorized. Check your connection and try again.",
+        message: t("resumatch.wb.error.categorizeNetwork"),
       });
     }
-  }, [content.skills]);
+  }, [content.skills, t]);
 
   const applyCategorySuggestions = useCallback((suggestions: { name: string; category: string }[]) => {
     const byName = new Map(suggestions.map((s) => [s.name, s.category]));
@@ -308,7 +311,7 @@ export function ProfileWorkbench({
         });
         const body = (await response.json()) as { error?: string };
         if (!response.ok) {
-          setState({ kind: "error", message: body.error ?? "This profile could not be saved." });
+          setState({ kind: "error", message: body.error ?? t("resumatch.wb.error.save") });
           return;
         }
         setDirty(false);
@@ -320,36 +323,39 @@ export function ProfileWorkbench({
         // versions exist to get right.
         router.refresh();
       } catch {
-        setState({ kind: "error", message: "This profile could not be saved. Check your connection and try again." });
+        setState({ kind: "error", message: t("resumatch.wb.error.saveNetwork") });
       }
     },
-    [content, versionId, router],
+    [content, versionId, router, t],
   );
 
   const sectionLinks: { id: string; label: string; count?: number }[] = [
-    { id: "about", label: "About you" },
-    { id: "experience", label: "Experience", count: content.experience.length },
-    { id: "skills", label: "Skills", count: content.skills.length },
-    { id: "education", label: "Education", count: content.education.length },
-    { id: "certifications", label: "Certifications", count: content.certifications.length },
-    { id: "languages", label: "Languages", count: content.languages.length },
-    { id: "preferences", label: "Preferences" },
+    { id: "about", label: t("resumatch.wb.nav.about") },
+    { id: "experience", label: t("resumatch.wb.nav.experience"), count: content.experience.length },
+    { id: "skills", label: t("resumatch.wb.nav.skills"), count: content.skills.length },
+    { id: "education", label: t("resumatch.wb.nav.education"), count: content.education.length },
+    { id: "certifications", label: t("resumatch.wb.nav.certifications"), count: content.certifications.length },
+    { id: "languages", label: t("resumatch.wb.nav.languages"), count: content.languages.length },
+    { id: "preferences", label: t("resumatch.wb.nav.preferences") },
   ];
 
   // One short, always-visible status in the sticky bar, so a save made from
   // the bar is acknowledged even when the page is scrolled far from the top.
   const status: { tone: "busy" | "dirty" | "ok" | "error" | "muted"; text: string } =
     state.kind === "saving"
-      ? { tone: "busy", text: "Saving…" }
+      ? { tone: "busy", text: t("resumatch.saving") }
       : state.kind === "error"
-        ? { tone: "error", text: "Not saved" }
+        ? { tone: "error", text: t("resumatch.wb.status.notSaved") }
         : dirty
-          ? { tone: "dirty", text: "Unsaved changes" }
+          ? { tone: "dirty", text: t("resumatch.wb.status.unsaved") }
           : state.kind === "saved"
-            ? { tone: "ok", text: state.confirmed ? "Saved and confirmed" : "Draft saved" }
+            ? {
+                tone: "ok",
+                text: state.confirmed ? t("resumatch.wb.status.savedConfirmed") : t("resumatch.wb.status.draftSaved"),
+              }
             : isConfirmed
-              ? { tone: "ok", text: "Confirmed" }
-              : { tone: "muted", text: "Not confirmed yet" };
+              ? { tone: "ok", text: t("resumatch.journey.profile.confirmed") }
+              : { tone: "muted", text: t("resumatch.journey.profile.pending") };
 
   return (
     <form
@@ -365,7 +371,7 @@ export function ProfileWorkbench({
       <div className="rm-wb__bar">
         <nav
           className="rm-wb__nav"
-          aria-label="Profile sections"
+          aria-label={t("resumatch.wb.navAria")}
           ref={navScroller.ref}
           onMouseMove={navScroller.onMouseMove}
           onMouseLeave={navScroller.onMouseLeave}
@@ -389,35 +395,29 @@ export function ProfileWorkbench({
             disabled={state.kind === "saving"}
             onClick={() => void save(false)}
           >
-            Save without confirming
+            {t("resumatch.wb.saveDraft")}
           </Button>
           <Button type="submit" size="sm" disabled={state.kind === "saving"}>
-            {state.kind === "saving" ? "Saving…" : "Save and confirm"}
+            {state.kind === "saving" ? t("resumatch.saving") : t("resumatch.wb.saveConfirm")}
           </Button>
         </div>
       </div>
 
       {isConfirmed && !dirty ? (
         <Alert tone="info">
-          <strong>This profile is confirmed.</strong> It is the version ResuMatch tailors from when
-          you paste a job URL. Editing it creates a new version — the confirmed one stays on record
-          so a past tailored CV remains explainable.
+          <strong>{t("resumatch.wb.confirmed.strong")}</strong> {t("resumatch.wb.confirmed.body")}
         </Alert>
       ) : (
         <Alert tone="warning">
-          <strong>Nothing is used until you confirm it.</strong>{" "}
-          {hasDocument
-            ? "These fields were read from your CV automatically and some of them will be wrong. Correct anything that is off, then confirm."
-            : "Fill in what is relevant and confirm when you are ready."}
+          <strong>{t("resumatch.wb.unconfirmed.strong")}</strong>{" "}
+          {hasDocument ? t("resumatch.wb.unconfirmed.fromCv") : t("resumatch.wb.unconfirmed.byHand")}
         </Alert>
       )}
 
       {state.kind === "error" ? <Alert tone="error">{state.message}</Alert> : null}
       {state.kind === "saved" ? (
         <Alert tone="info">
-          {state.confirmed
-            ? "Saved and confirmed. This is now the version ResuMatch tailors from."
-            : "Saved as a new draft version. Confirm it when you are ready."}
+          {state.confirmed ? t("resumatch.wb.saved.confirmed") : t("resumatch.wb.saved.draft")}
         </Alert>
       ) : null}
 
@@ -426,9 +426,9 @@ export function ProfileWorkbench({
             own, so a tall card never stretches a short one beside it. */}
         <div className="rm-wb__rail">
           <div className="rm-wb__section rm-wb__section--about" id="rm-sec-about">
-            <Card title="About you">
+            <Card title={t("resumatch.wb.about.title")}>
               <label className="jm-field">
-                <FieldLabel label="Full name" confidence={confidence} field="fullName" />
+                <FieldLabel label={t("resumatch.wb.about.fullName")} confidence={confidence} field="fullName" />
                 <input
                   type="text"
                   value={content.fullName ?? ""}
@@ -438,7 +438,7 @@ export function ProfileWorkbench({
               </label>
 
               <label className="jm-field">
-                <FieldLabel label="Email" confidence={confidence} field="email" />
+                <FieldLabel label={t("resumatch.wb.about.email")} confidence={confidence} field="email" />
                 <input
                   type="email"
                   value={content.email ?? ""}
@@ -448,7 +448,7 @@ export function ProfileWorkbench({
               </label>
 
               <label className="jm-field">
-                <FieldLabel label="Phone" confidence={confidence} field="phone" />
+                <FieldLabel label={t("resumatch.wb.about.phone")} confidence={confidence} field="phone" />
                 <input
                   type="tel"
                   value={content.phone ?? ""}
@@ -458,39 +458,39 @@ export function ProfileWorkbench({
               </label>
 
               <label className="jm-field">
-                <FieldLabel label="Headline" confidence={confidence} field="headline" />
+                <FieldLabel label={t("resumatch.wb.about.headline")} confidence={confidence} field="headline" />
                 <input
                   type="text"
                   value={content.headline ?? ""}
                   onChange={(event) => update("headline", event.target.value || null)}
                   maxLength={200}
-                  placeholder="Senior .NET / React Developer"
+                  placeholder={t("resumatch.wb.about.headlinePlaceholder")}
                 />
               </label>
 
               <label className="jm-field">
-                <FieldLabel label="Summary" confidence={confidence} field="summary" />
+                <FieldLabel label={t("resumatch.wb.about.summary")} confidence={confidence} field="summary" />
                 <textarea
                   rows={4}
                   value={content.summary ?? ""}
                   onChange={(event) => update("summary", event.target.value || null)}
                   maxLength={4000}
-                  placeholder="A couple of sentences about what you do and what you're looking for next."
+                  placeholder={t("resumatch.wb.about.summaryPlaceholder")}
                 />
               </label>
 
               <div className="jm-rewrite">
                 <div className="jm-rewrite__controls">
                   <select
-                    aria-label="Rewrite tone"
+                    aria-label={t("resumatch.wb.rewrite.toneAria")}
                     value={tone}
                     onChange={(event) => setTone(event.target.value as SummaryTone)}
                     disabled={rewriteState.kind === "loading"}
                   >
-                    <option value="friendly">Friendly</option>
-                    <option value="official">Official</option>
-                    <option value="confident">Confident</option>
-                    <option value="concise">Concise</option>
+                    <option value="friendly">{t("resumatch.wb.rewrite.tone.friendly")}</option>
+                    <option value="official">{t("resumatch.wb.rewrite.tone.official")}</option>
+                    <option value="confident">{t("resumatch.wb.rewrite.tone.confident")}</option>
+                    <option value="concise">{t("resumatch.wb.rewrite.tone.concise")}</option>
                   </select>
                   <Button
                     type="button"
@@ -499,7 +499,7 @@ export function ProfileWorkbench({
                     disabled={rewriteState.kind === "loading" || !content.summary?.trim()}
                     onClick={() => void requestRewrite()}
                   >
-                    {rewriteState.kind === "loading" ? "Rewriting…" : "Suggest a rewrite"}
+                    {rewriteState.kind === "loading" ? t("resumatch.wb.rewrite.loading") : t("resumatch.wb.rewrite.suggest")}
                   </Button>
                 </div>
 
@@ -511,8 +511,7 @@ export function ProfileWorkbench({
                   <div className="jm-rewrite__preview">
                     {rewriteState.degraded ? (
                       <p className="jm-rewrite__note">
-                        No AI rewrite is configured for this deployment, so this is your text unchanged. You can still
-                        accept or reject it.
+                        {t("resumatch.wb.rewrite.degraded")}
                       </p>
                     ) : null}
                     <p className="jm-rewrite__text">{rewriteState.text}</p>
@@ -525,10 +524,10 @@ export function ProfileWorkbench({
                           setRewriteState({ kind: "idle" });
                         }}
                       >
-                        Accept
+                        {t("resumatch.wb.rewrite.accept")}
                       </Button>
                       <Button type="button" size="sm" variant="ghost" onClick={() => setRewriteState({ kind: "idle" })}>
-                        Reject
+                        {t("resumatch.wb.rewrite.reject")}
                       </Button>
                     </div>
                   </div>
@@ -536,18 +535,18 @@ export function ProfileWorkbench({
               </div>
 
               <label className="jm-field">
-                <span>Where you are based</span>
+                <span>{t("resumatch.wb.about.based")}</span>
                 <input
                   type="text"
                   value={content.baseLocation ?? ""}
                   onChange={(event) => update("baseLocation", event.target.value || null)}
                   maxLength={120}
-                  placeholder="Hasselt, Belgium"
+                  placeholder={t("resumatch.wb.about.basedPlaceholder")}
                 />
               </label>
 
               <label className="jm-field">
-                <span>Right to work</span>
+                <span>{t("resumatch.wb.about.rightToWork")}</span>
                 <select
                   value={content.workAuthorization ?? ""}
                   onChange={(event) =>
@@ -557,23 +556,20 @@ export function ProfileWorkbench({
                     )
                   }
                 >
-                  <option value="">Prefer not to say</option>
-                  <option value="eea_unrestricted">I can work in the EEA without sponsorship</option>
-                  <option value="national_permit">I hold a national work permit</option>
-                  <option value="requires_sponsorship">I would need sponsorship</option>
+                  <option value="">{t("resumatch.wb.about.rtw.none")}</option>
+                  <option value="eea_unrestricted">{t("resumatch.wb.about.rtw.eea")}</option>
+                  <option value="national_permit">{t("resumatch.wb.about.rtw.permit")}</option>
+                  <option value="requires_sponsorship">{t("resumatch.wb.about.rtw.sponsorship")}</option>
                 </select>
-                <small>
-                  Kept with your profile for your own reference. It is not currently included in a
-                  tailored CV.
-                </small>
+                <small>{t("resumatch.wb.about.rtwHint")}</small>
               </label>
             </Card>
           </div>
           <div className="rm-wb__section rm-wb__section--languages" id="rm-sec-languages">
-            <Card title="Languages">
-              <FieldLabel label="Languages" confidence={confidence} field="languages" />
+            <Card title={t("resumatch.wb.languages.title")}>
+              <FieldLabel label={t("resumatch.wb.languages.title")} confidence={confidence} field="languages" />
               {content.languages.length === 0 ? (
-                <p style={{ color: "var(--muted)" }}>None read from your CV. Add them if they matter for the roles you want.</p>
+                <p style={{ color: "var(--muted)" }}>{t("resumatch.wb.languages.none")}</p>
               ) : (
                 <ul className="jm-entity-list">
                   {content.languages.map((language, index) => (
@@ -583,10 +579,10 @@ export function ProfileWorkbench({
                       </span>
                       <span className="jm-entity-card__body">
                         <input
-                          aria-label="Language name"
+                          aria-label={t("resumatch.wb.languages.nameAria")}
                           type="text"
                           value={language.label}
-                          placeholder="Language"
+                          placeholder={t("resumatch.wb.languages.placeholder")}
                           maxLength={64}
                           style={{ flex: "1 1 8rem", minWidth: 0, maxWidth: "100%" }}
                           onChange={(event) => {
@@ -599,7 +595,9 @@ export function ProfileWorkbench({
                         />
                         <span className="jm-entity-card__actions">
                           <select
-                            aria-label={`${language.label || "Language"} proficiency`}
+                            aria-label={t("resumatch.wb.languages.proficiencyAria", {
+                              language: language.label || t("resumatch.wb.languages.placeholder"),
+                            })}
                             value={language.proficiency ?? ""}
                             onChange={(event) => {
                               update(
@@ -611,15 +609,15 @@ export function ProfileWorkbench({
                               );
                             }}
                           >
-                            <option value="">Not stated</option>
-                            <option value="basic">Basic</option>
-                            <option value="conversational">Conversational</option>
-                            <option value="professional">Professional</option>
-                            <option value="native">Native</option>
+                            <option value="">{t("resumatch.wb.languages.level.none")}</option>
+                            <option value="basic">{t("resumatch.wb.languages.level.basic")}</option>
+                            <option value="conversational">{t("resumatch.wb.languages.level.conversational")}</option>
+                            <option value="professional">{t("resumatch.wb.languages.level.professional")}</option>
+                            <option value="native">{t("resumatch.wb.languages.level.native")}</option>
                           </select>
                           <button
                             type="button"
-                            aria-label={`Remove ${language.label || "language"}`}
+                            aria-label={t("resumatch.wb.remove", { name: language.label || t("resumatch.wb.languages.fallback") })}
                             className="jm-icon-button"
                             onClick={() => update("languages", removeAt(content.languages, index))}
                           >
@@ -641,12 +639,12 @@ export function ProfileWorkbench({
                   update("languages", [...content.languages, blank]);
                 }}
               >
-                + Add language
+                {t("resumatch.wb.languages.add")}
               </Button>
             </Card>
           </div>
           <div className="rm-wb__section rm-wb__section--preferences" id="rm-sec-preferences">
-            <Card title="Your preferences">
+            <Card title={t("resumatch.wb.prefs.title")}>
               {/* ResuMatch used to be JobMatch, a job-board aggregation product
                   that actively searched postings and filtered them against
                   these preferences. That pipeline is gone — a candidate now
@@ -657,7 +655,7 @@ export function ProfileWorkbench({
                   same way "Right to work" already is above, rather than
                   promising filtering that no longer happens. */}
               <label className="jm-field">
-                <span>Working arrangement</span>
+                <span>{t("resumatch.wb.prefs.arrangement")}</span>
                 <select
                   value={content.preferences.remote ?? ""}
                   onChange={(event) =>
@@ -667,17 +665,17 @@ export function ProfileWorkbench({
                     })
                   }
                 >
-                  <option value="">No preference</option>
-                  <option value="onsite">On site</option>
-                  <option value="hybrid">Hybrid</option>
-                  <option value="remote">Remote</option>
-                  <option value="any">Any</option>
+                  <option value="">{t("resumatch.wb.prefs.none")}</option>
+                  <option value="onsite">{t("resumatch.wb.prefs.onsite")}</option>
+                  <option value="hybrid">{t("resumatch.wb.prefs.hybrid")}</option>
+                  <option value="remote">{t("resumatch.wb.prefs.remote")}</option>
+                  <option value="any">{t("resumatch.wb.prefs.any")}</option>
                 </select>
-                <small>Kept for your own reference. Not currently used to filter or flag anything.</small>
+                <small>{t("resumatch.wb.prefs.arrangementHint")}</small>
               </label>
 
               <label className="jm-field">
-                <span>Salary floor (annual gross)</span>
+                <span>{t("resumatch.wb.prefs.salary")}</span>
                 <input
                   type="number"
                   min={0}
@@ -691,7 +689,7 @@ export function ProfileWorkbench({
                     })
                   }
                 />
-                <small>Kept for your own reference. Not currently checked against any job you tailor toward.</small>
+                <small>{t("resumatch.wb.prefs.salaryHint")}</small>
               </label>
             </Card>
           </div>
@@ -700,10 +698,10 @@ export function ProfileWorkbench({
             Column count follows the canvas width (container queries). */}
         <div className="rm-wb__canvas">
           <div className="rm-wb__section rm-wb__section--experience" id="rm-sec-experience">
-            <Card title="Experience">
-              <FieldLabel label="Roles" confidence={confidence} field="experience" />
+            <Card title={t("resumatch.wb.exp.title")}>
+              <FieldLabel label={t("resumatch.wb.exp.label")} confidence={confidence} field="experience" />
               {content.experience.length === 0 ? (
-                <p style={{ color: "var(--muted)" }}>No roles were read from your CV. Add as many as you like.</p>
+                <p style={{ color: "var(--muted)" }}>{t("resumatch.wb.exp.none")}</p>
               ) : (
                 <DndContext
                   id="resumatch-experience-dnd"
@@ -723,36 +721,36 @@ export function ProfileWorkbench({
                             index={index}
                             count={content.experience.length}
                             icon={<BriefcaseIcon />}
-                            title={`Role ${index + 1}`}
+                            title={t("resumatch.wb.exp.role", { n: index + 1 })}
                             variantClassName="jm-entity-card--experience"
                             onMoveUp={() => moveExperience(index, index - 1)}
                             onMoveDown={() => moveExperience(index, index + 1)}
                             onRemove={() => removeExperience(index)}
-                            removeLabel={`Remove ${role.title || "this role"}`}
+                            removeLabel={t("resumatch.wb.remove", { name: role.title || t("resumatch.wb.exp.fallback") })}
                           >
                             <div className="jm-entity-card__fields">
                               <label>
-                                Job title
+                                {t("resumatch.wb.exp.jobTitle")}
                                 <input
                                   type="text"
                                   value={role.title}
                                   maxLength={120}
-                                  placeholder="Software Engineer"
+                                  placeholder={t("resumatch.wb.exp.jobTitlePlaceholder")}
                                   onChange={(event) => setRole({ title: event.target.value })}
                                 />
                               </label>
                               <label>
-                                Employer
+                                {t("resumatch.wb.exp.employer")}
                                 <input
                                   type="text"
                                   value={role.employer ?? ""}
                                   maxLength={120}
-                                  placeholder="Company name"
+                                  placeholder={t("resumatch.wb.exp.employerPlaceholder")}
                                   onChange={(event) => setRole({ employer: event.target.value || null })}
                                 />
                               </label>
                               <label>
-                                Started
+                                {t("resumatch.wb.exp.started")}
                                 <input
                                   type="text"
                                   value={role.startedOn ?? ""}
@@ -761,7 +759,7 @@ export function ProfileWorkbench({
                                 />
                               </label>
                               <label>
-                                Ended
+                                {t("resumatch.wb.exp.ended")}
                                 <input
                                   type="text"
                                   value={role.endedOn ?? ""}
@@ -784,21 +782,21 @@ export function ProfileWorkbench({
                                       })
                                     }
                                   />
-                                  I currently work here
+                                  {t("resumatch.wb.exp.current")}
                                 </label>
                                 <small style={{ color: "var(--muted)", fontSize: "0.72rem" }}>
-                                  Dates as YYYY or YYYY-MM, e.g. 2021 or 2021-03.
+                                  {t("resumatch.wb.exp.datesHint")}
                                 </small>
                               </>
                             )}
                             <div className="jm-entity-card__fields jm-entity-card__fields--full" style={{ marginTop: "0.6rem" }}>
                               <label>
-                                Highlights
+                                {t("resumatch.wb.exp.highlights")}
                                 <textarea
                                   rows={2}
                                   value={role.summary ?? ""}
                                   maxLength={2000}
-                                  placeholder="A couple of achievements or responsibilities"
+                                  placeholder={t("resumatch.wb.exp.highlightsPlaceholder")}
                                   onChange={(event) => setRole({ summary: event.target.value || null })}
                                 />
                               </label>
@@ -829,17 +827,17 @@ export function ProfileWorkbench({
                     setExperienceIds((ids) => [...ids, randomId()]);
                   }}
                 >
-                  + Add role
+                  {t("resumatch.wb.exp.add")}
                 </Button>
               </div>
             </Card>
           </div>
           <div className="rm-wb__section rm-wb__section--skills" id="rm-sec-skills">
-            <Card title="Skills">
+            <Card title={t("resumatch.wb.skills.title")}>
               <div className="rm-skills">
                 <div className="rm-skills__input">
                   <label className="jm-field">
-                    <FieldLabel label="Skills" confidence={confidence} field="skills" />
+                    <FieldLabel label={t("resumatch.wb.skills.title")} confidence={confidence} field="skills" />
                     <textarea
                       rows={6}
                       value={skillsText}
@@ -878,11 +876,8 @@ export function ProfileWorkbench({
                       }}
                     />
                     <small>
-                      One per line or separated by commas — paste a formatted skills block (with category
-                      headings) and it's read the same way an uploaded CV would be.
-                      {parseSkillsFreeText(skillsText).length > 200
-                        ? " Only the first 200 will be saved — trim the rest before saving."
-                        : null}
+                      {t("resumatch.wb.skills.hint")}
+                      {parseSkillsFreeText(skillsText).length > 200 ? ` ${t("resumatch.wb.skills.over200")}` : null}
                     </small>
                   </label>
                 </div>
@@ -890,9 +885,7 @@ export function ProfileWorkbench({
                   {content.skills.length > 0 ? (
                     <div className="rm-skill-groups">
                       <p className="rm-skill-groups__hint">
-                        Grouped automatically by what each skill is for — this is how they'll appear on your
-                        tailored CV. Pick a different group from any skill's dropdown if one looks wrong, or let
-                        AI take a pass.
+                        {t("resumatch.wb.skills.groupsHint")}
                       </p>
                       <Button
                         type="button"
@@ -901,7 +894,7 @@ export function ProfileWorkbench({
                         disabled={categorizeState.kind === "loading"}
                         onClick={requestCategorize}
                       >
-                        {categorizeState.kind === "loading" ? "Asking AI…" : "Suggest categories"}
+                        {categorizeState.kind === "loading" ? t("resumatch.wb.skills.asking") : t("resumatch.wb.skills.suggest")}
                       </Button>
 
                       {categorizeState.kind === "error" ? (
@@ -912,13 +905,11 @@ export function ProfileWorkbench({
                         <div className="rm-skill-groups__suggestions">
                           {categorizeState.degraded ? (
                             <Alert tone="warning">
-                              AI categorization isn't available right now, so these are the same built-in
-                              keyword-based guesses already shown below — not a genuine AI read of your field.
-                              Still fine to apply, or dismiss and adjust categories yourself.
+                              {t("resumatch.wb.skills.degraded")}
                             </Alert>
                           ) : (
                             <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-                              AI-suggested categories — review below, then apply all or dismiss.
+                              {t("resumatch.wb.skills.suggested")}
                             </p>
                           )}
                           <ul className="rm-skill-groups__suggestion-list">
@@ -934,7 +925,7 @@ export function ProfileWorkbench({
                               size="sm"
                               onClick={() => applyCategorySuggestions(categorizeState.suggestions)}
                             >
-                              Apply all
+                              {t("resumatch.wb.skills.applyAll")}
                             </Button>
                             <Button
                               type="button"
@@ -942,7 +933,7 @@ export function ProfileWorkbench({
                               variant="ghost"
                               onClick={() => setCategorizeState({ kind: "idle" })}
                             >
-                              Dismiss
+                              {t("resumatch.wb.skills.dismiss")}
                             </Button>
                           </div>
                         </div>
@@ -964,7 +955,7 @@ export function ProfileWorkbench({
                                     {name}
                                     {skill.yearsExperience ? ` · ${skill.yearsExperience}y` : ""}
                                     <select
-                                      aria-label={`Category for ${name}`}
+                                      aria-label={t("resumatch.wb.skills.categoryAria", { name })}
                                       className="rm-skill-chip__category"
                                       value={category}
                                       onChange={(event) =>
@@ -998,9 +989,9 @@ export function ProfileWorkbench({
             </Card>
           </div>
           <div className="rm-wb__section rm-wb__section--education" id="rm-sec-education">
-            <Card title="Education">
+            <Card title={t("resumatch.wb.edu.title")}>
               {content.education.length === 0 ? (
-                <p style={{ color: "var(--muted)" }}>None read from your CV. Add a degree or qualification if it's relevant.</p>
+                <p style={{ color: "var(--muted)" }}>{t("resumatch.wb.edu.none")}</p>
               ) : (
                 <DndContext
                   id="resumatch-education-dnd"
@@ -1020,36 +1011,36 @@ export function ProfileWorkbench({
                             index={index}
                             count={content.education.length}
                             icon={<GraduationCapIcon />}
-                            title={`Qualification ${index + 1}`}
+                            title={t("resumatch.wb.edu.item", { n: index + 1 })}
                             variantClassName="jm-entity-card--education"
                             onMoveUp={() => moveEducation(index, index - 1)}
                             onMoveDown={() => moveEducation(index, index + 1)}
                             onRemove={() => removeEducation(index)}
-                            removeLabel={`Remove ${entry.qualification || "this qualification"}`}
+                            removeLabel={t("resumatch.wb.remove", { name: entry.qualification || t("resumatch.wb.edu.fallback") })}
                           >
                             <div className="jm-entity-card__fields">
                               <label>
-                                Qualification
+                                {t("resumatch.wb.edu.qualification")}
                                 <input
                                   type="text"
                                   value={entry.qualification}
                                   maxLength={160}
-                                  placeholder="BSc Computer Science"
+                                  placeholder={t("resumatch.wb.edu.qualificationPlaceholder")}
                                   onChange={(event) => setEntry({ qualification: event.target.value })}
                                 />
                               </label>
                               <label>
-                                Institution
+                                {t("resumatch.wb.edu.institution")}
                                 <input
                                   type="text"
                                   value={entry.institution ?? ""}
                                   maxLength={160}
-                                  placeholder="University name"
+                                  placeholder={t("resumatch.wb.edu.institutionPlaceholder")}
                                   onChange={(event) => setEntry({ institution: event.target.value || null })}
                                 />
                               </label>
                               <label>
-                                Completed
+                                {t("resumatch.wb.edu.completed")}
                                 <input
                                   type="text"
                                   value={entry.completedOn ?? ""}
@@ -1061,7 +1052,7 @@ export function ProfileWorkbench({
                                   }}
                                 />
                                 <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
-                                  The year you finished, e.g. 2018 — not a start–end range.
+                                  {t("resumatch.wb.edu.completedHint")}
                                 </span>
                               </label>
                             </div>
@@ -1084,15 +1075,15 @@ export function ProfileWorkbench({
                     setEducationIds((ids) => [...ids, randomId()]);
                   }}
                 >
-                  + Add qualification
+                  {t("resumatch.wb.edu.add")}
                 </Button>
               </div>
             </Card>
           </div>
           <div className="rm-wb__section rm-wb__section--certifications" id="rm-sec-certifications">
-            <Card title="Certifications">
+            <Card title={t("resumatch.wb.cert.title")}>
               {content.certifications.length === 0 ? (
-                <p style={{ color: "var(--muted)" }}>None read from your CV. Add one if it's relevant to the roles you want.</p>
+                <p style={{ color: "var(--muted)" }}>{t("resumatch.wb.cert.none")}</p>
               ) : (
                 <ul className="jm-entity-list">
                   {content.certifications.map((entry, index) => {
@@ -1104,10 +1095,10 @@ export function ProfileWorkbench({
                           <span className="jm-entity-card__icon">
                             <AwardIcon />
                           </span>
-                          <strong style={{ flex: 1 }}>Certification {index + 1}</strong>
+                          <strong style={{ flex: 1 }}>{t("resumatch.wb.cert.item", { n: index + 1 })}</strong>
                           <button
                             type="button"
-                            aria-label={`Remove ${entry.name || "this certification"}`}
+                            aria-label={t("resumatch.wb.remove", { name: entry.name || t("resumatch.wb.cert.fallback") })}
                             className="jm-icon-button"
                             onClick={() => update("certifications", removeAt(content.certifications, index))}
                           >
@@ -1116,7 +1107,7 @@ export function ProfileWorkbench({
                         </div>
                         <div className="jm-entity-card__fields">
                           <label>
-                            Name
+                            {t("resumatch.wb.cert.name")}
                             <input
                               type="text"
                               value={entry.name}
@@ -1126,7 +1117,7 @@ export function ProfileWorkbench({
                             />
                           </label>
                           <label>
-                            Issuer
+                            {t("resumatch.wb.cert.issuer")}
                             <input
                               type="text"
                               value={entry.issuer ?? ""}
@@ -1136,7 +1127,7 @@ export function ProfileWorkbench({
                             />
                           </label>
                           <label>
-                            Issued
+                            {t("resumatch.wb.cert.issued")}
                             <input
                               type="text"
                               value={entry.issuedOn ?? ""}
@@ -1145,7 +1136,7 @@ export function ProfileWorkbench({
                             />
                           </label>
                           <label>
-                            Expires
+                            {t("resumatch.wb.cert.expires")}
                             <input
                               type="text"
                               value={entry.expiresOn ?? ""}
@@ -1170,7 +1161,7 @@ export function ProfileWorkbench({
                     update("certifications", [...content.certifications, blank]);
                   }}
                 >
-                  + Add certification
+                  {t("resumatch.wb.cert.add")}
                 </Button>
               </div>
             </Card>

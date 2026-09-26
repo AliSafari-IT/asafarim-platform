@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { Alert, Badge, Button, Card } from "@asafarim/ui";
 import { MAX_DOCUMENT_BYTES } from "../../lib/documents/fileType";
 import { ShowcaseNotice } from "../components/ShowcaseNotice";
@@ -31,15 +32,26 @@ const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> 
   EXTRACTING: "neutral",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  EXTRACTED: "read",
-  CLEAN: "scanned",
-  QUARANTINED: "quarantined",
-  FAILED: "could not be read",
-  UPLOADED: "uploaded",
-  SCANNING: "scanning",
-  EXTRACTING: "reading",
-};
+/** Statuses with their own label (resumatch.upload.status.<STATUS>). */
+const LABELLED_STATUSES = new Set(Object.keys(STATUS_TONE));
+
+/** Reason codes lib/documents/pipeline.ts#explainReasonCode knows. Those
+ *  are explained in the UI language (resumatch.docReason.<CODE>); anything
+ *  else falls back to the server's own English explanation. */
+const EXPLAINED_REASONS = new Set([
+  "MALWARE_DETECTED",
+  "SCANNER_UNAVAILABLE",
+  "UNSUPPORTED_TYPE",
+  "DECLARED_TYPE_MISMATCH",
+  "FILE_TOO_LARGE",
+  "EMPTY_FILE",
+  "ENCRYPTED_DOCUMENT",
+  "NO_TEXT_LAYER",
+  "LAYOUT_UNRELIABLE",
+  "EXTRACTION_IN_PROGRESS",
+  "EXTRACTION_ERROR",
+  "BYTES_MISSING",
+]);
 
 function formatSize(bytes: number): string {
   return bytes < 1024 * 1024
@@ -49,6 +61,12 @@ function formatSize(bytes: number): string {
 
 export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
   const router = useRouter();
+  const { t } = useTranslation();
+  const explain = useCallback(
+    (reasonCode: string | null | undefined, fallback: string | null | undefined) =>
+      reasonCode && EXPLAINED_REASONS.has(reasonCode) ? t(`resumatch.docReason.${reasonCode}`) : fallback,
+    [t],
+  );
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -62,7 +80,7 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
       // Checked here for a fast, clear message; the server checks again on
       // the real byte length, because nothing from the browser is trusted.
       if (file.size > MAX_DOCUMENT_BYTES) {
-        setMessage({ tone: "error", text: "That file is larger than the 10 MB limit." });
+        setMessage({ tone: "error", text: t("resumatch.upload.msg.tooLarge", { max: maxSizeLabel }) });
         return;
       }
 
@@ -75,30 +93,31 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
         const body = (await response.json()) as {
           error?: string;
           explanation?: string;
+          reasonCode?: string | null;
           status?: string;
         };
 
         if (!response.ok) {
-          setMessage({ tone: "error", text: body.error ?? "That file could not be uploaded." });
+          setMessage({ tone: "error", text: body.error ?? t("resumatch.upload.msg.uploadFailed") });
           return;
         }
         if (body.status !== "EXTRACTED") {
           setMessage({
             tone: "warning",
-            text: body.explanation ?? "That file was uploaded but could not be read.",
+            text: explain(body.reasonCode, body.explanation) ?? t("resumatch.upload.msg.uploadedUnread"),
           });
         } else {
-          setMessage({ tone: "info", text: "Your CV was read. Check the fields below before confirming." });
+          setMessage({ tone: "info", text: t("resumatch.upload.msg.read") });
         }
         router.refresh();
       } catch {
-        setMessage({ tone: "error", text: "The upload failed. Check your connection and try again." });
+        setMessage({ tone: "error", text: t("resumatch.upload.msg.uploadNetwork") });
       } finally {
         setBusy(false);
         if (inputRef.current) inputRef.current.value = "";
       }
     },
-    [router],
+    [router, t, explain, maxSizeLabel],
   );
 
   const rescan = useCallback(
@@ -107,34 +126,39 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
       setMessage(null);
       try {
         const response = await fetch(`/api/documents/${documentId}/rescan`, { method: "POST" });
-        const body = (await response.json()) as { error?: string; explanation?: string; status?: string };
+        const body = (await response.json()) as {
+          error?: string;
+          explanation?: string;
+          reasonCode?: string | null;
+          status?: string;
+        };
         if (!response.ok) {
           setMessage({
             tone: "error",
             text:
-              body.explanation ??
+              explain(body.error, body.explanation) ??
               (body.error === "NOT_ELIGIBLE_FOR_RESCAN"
-                ? "This file cannot be rescanned."
-                : "That file could not be rescanned. Please try again."),
+                ? t("resumatch.upload.msg.notEligible")
+                : t("resumatch.upload.msg.rescanFailed")),
           });
           return;
         }
         if (body.status !== "EXTRACTED") {
           setMessage({
             tone: "warning",
-            text: body.explanation ?? "That file was rescanned but could not be read.",
+            text: explain(body.reasonCode, body.explanation) ?? t("resumatch.upload.msg.rescannedUnread"),
           });
         } else {
-          setMessage({ tone: "info", text: "Your CV was read. Check the fields below before confirming." });
+          setMessage({ tone: "info", text: t("resumatch.upload.msg.read") });
         }
         router.refresh();
       } catch {
-        setMessage({ tone: "error", text: "The rescan failed. Check your connection and try again." });
+        setMessage({ tone: "error", text: t("resumatch.upload.msg.rescanNetwork") });
       } finally {
         setBusy(false);
       }
     },
-    [router],
+    [router, t, explain],
   );
 
   const remove = useCallback(
@@ -149,29 +173,27 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
           // there. Saying so beats a silent refresh that looks like success.
           setMessage({
             tone: "error",
-            text: "That file could not be deleted, so it has not been removed. Please try again.",
+            text: t("resumatch.upload.msg.deleteFailed"),
           });
           return;
         }
         router.refresh();
       } catch {
-        setMessage({ tone: "error", text: "That file could not be deleted. Check your connection and try again." });
+        setMessage({ tone: "error", text: t("resumatch.upload.msg.deleteNetwork") });
       } finally {
         setBusy(false);
       }
     },
-    [router],
+    [router, t],
   );
 
   return (
-    <Card title="Your CV">
+    <Card title={t("resumatch.upload.title")}>
       <p style={{ color: "var(--muted)" }}>
-        PDF, Word (.docx), or plain text, up to 10 MB. Your file is scanned before anything reads it,
-        stored privately, and never shared with an employer. You can delete it at any time.
+        {t("resumatch.upload.intro", { max: maxSizeLabel })}
       </p>
       <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-        Don&rsquo;t have a CV handy? You don&rsquo;t need one to get started — skip this and fill in
-        your profile by hand below.
+        {t("resumatch.upload.noCv")}
       </p>
 
       <div style={{ margin: "1rem 0" }}>
@@ -222,10 +244,10 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
           />
         </svg>
         <span className="jm-dropzone__title">
-          {dragActive ? "Drop to upload" : "Upload Your Resume"}
+          {dragActive ? t("resumatch.upload.drop") : t("resumatch.upload.cta")}
         </span>
         <span className="jm-dropzone__subtitle">
-          PDF, DOCX, or plain text &middot; up to {maxSizeLabel}
+          {t("resumatch.upload.formats", { max: maxSizeLabel })}
         </span>
         <input
           ref={inputRef}
@@ -240,7 +262,7 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
         />
       </label>
 
-      {busy ? <p className="jm-mono">Working…</p> : null}
+      {busy ? <p className="jm-mono">{t("resumatch.upload.working")}</p> : null}
       {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}
 
       {documents.length > 0 ? (
@@ -261,24 +283,26 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
                   }
                 >
                   {document.status === "EXTRACTED" && document.reasonCode
-                    ? "partly read"
-                    : (STATUS_LABEL[document.status] ?? document.status.toLowerCase())}
+                    ? t("resumatch.upload.status.partlyRead")
+                    : LABELLED_STATUSES.has(document.status)
+                      ? t(`resumatch.upload.status.${document.status}`)
+                      : document.status.toLowerCase()}
                 </Badge>
                 <span className="jm-mono" style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
                   {formatSize(document.byteSize)}
                 </span>
                 {document.status !== "QUARANTINED" ? (
                   <a href={`/api/documents/${document.id}/file`} className="jm-mono">
-                    download
+                    {t("resumatch.upload.download")}
                   </a>
                 ) : null}
                 {document.canRetryScan ? (
                   <Button size="sm" variant="ghost" disabled={busy} onClick={() => void rescan(document.id)}>
-                    retry scan
+                    {t("resumatch.upload.retryScan")}
                   </Button>
                 ) : null}
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => void remove(document.id)}>
-                  delete
+                  {t("resumatch.upload.delete")}
                 </Button>
               </div>
               {document.explanation ? (
@@ -286,19 +310,19 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
                   tone={document.reasonCode === "MALWARE_DETECTED" ? "critical" : "warning"}
                   title={
                     document.reasonCode === "MALWARE_DETECTED"
-                      ? "This file was flagged"
+                      ? t("resumatch.upload.alert.flagged")
                       : document.status === "QUARANTINED"
-                        ? "Quarantined"
-                        : "Needs a look"
+                        ? t("resumatch.upload.alert.quarantined")
+                        : t("resumatch.upload.alert.needsLook")
                   }
                   technicalDetail={document.reasonCode}
                 >
-                  {document.explanation}
+                  {explain(document.reasonCode, document.explanation)}
                 </AlertCard>
               ) : null}
               {document.retainUntil ? (
                 <p className="jm-mono" style={{ color: "var(--muted)", fontSize: "0.75rem", margin: "0.25rem 0 0" }}>
-                  kept until {document.retainUntil.slice(0, 10)}
+                  {t("resumatch.upload.keptUntil", { date: document.retainUntil.slice(0, 10) })}
                 </p>
               ) : null}
             </li>

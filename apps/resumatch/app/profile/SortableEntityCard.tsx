@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDownIcon, ChevronUpIcon, GripIcon, TrashIcon } from "./icons";
 
@@ -43,6 +44,7 @@ export function SortableEntityCard({
   removeLabel,
   children,
 }: SortableEntityCardProps) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const style = {
@@ -58,7 +60,7 @@ export function SortableEntityCard({
         <button
           type="button"
           className="jm-icon-button jm-icon-button--neutral jm-drag-handle"
-          aria-label={`Drag to reorder ${title}`}
+          aria-label={t("resumatch.card.dragAria", { title })}
           {...attributes}
           {...listeners}
         >
@@ -70,7 +72,7 @@ export function SortableEntityCard({
           <button
             type="button"
             className="jm-icon-button jm-icon-button--neutral"
-            aria-label={`Move ${title} up`}
+            aria-label={t("resumatch.card.moveUpAria", { title })}
             onClick={onMoveUp}
             disabled={index === 0}
           >
@@ -79,7 +81,7 @@ export function SortableEntityCard({
           <button
             type="button"
             className="jm-icon-button jm-icon-button--neutral"
-            aria-label={`Move ${title} down`}
+            aria-label={t("resumatch.card.moveDownAria", { title })}
             onClick={onMoveDown}
             disabled={index === count - 1}
           >

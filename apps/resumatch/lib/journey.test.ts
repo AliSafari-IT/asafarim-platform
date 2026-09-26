@@ -61,6 +61,6 @@ describe("profileChecks", () => {
     } as unknown as ReturnType<typeof emptyProfile>;
     const checks = profileChecks(p);
     expect(checks.filter((c) => c.ok)).toHaveLength(checks.length);
-    expect(checks.find((c) => c.label === "Experience")?.detail).toBe("1 role");
+    expect(checks.find((c) => c.key === "experience")?.count).toBe(1);
   });
 });
