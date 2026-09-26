@@ -48,6 +48,7 @@ export {
 } from "./components/Form";
 export { Hero } from "./components/Hero";
 export { useEdgeAutoScroll } from "./hooks/useEdgeAutoScroll";
+export { useCurrentPath, activeHref } from "./hooks/useCurrentPath";
 export { Kicker } from "./components/Kicker";
 export { MenuOutsideClick } from "./components/MenuOutsideClick";
 export { Metric } from "./components/Metric";
