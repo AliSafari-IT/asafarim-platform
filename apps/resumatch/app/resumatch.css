@@ -683,7 +683,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  opacity: 0.55;
+  color: var(--muted);
   margin-bottom: 0.5rem;
 }
 
