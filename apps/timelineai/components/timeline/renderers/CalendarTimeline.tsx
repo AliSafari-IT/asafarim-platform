@@ -1,5 +1,7 @@
 import { type RenderableTimeline } from "./types";
 import type { TimelineEventInput } from "@/lib/schemas";
+import { resolveImageStyle } from "@/lib/timeline-config";
+import { EventAvatar } from "./EventAvatar";
 
 function monthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -12,6 +14,8 @@ function monthLabel(key: string) {
 
 /** Calendar-based layout: events grouped into the month they fall in. */
 export function CalendarTimeline({ timeline }: { timeline: RenderableTimeline }) {
+  const theme = timeline.theme ?? {};
+  const avatars = resolveImageStyle(theme) === "avatar";
   const dated = timeline.events.filter((e): e is TimelineEventInput & { startAt: string } => Boolean(e.startAt));
   const undated = timeline.events.filter((e) => !e.startAt);
 
@@ -50,10 +54,15 @@ export function CalendarTimeline({ timeline }: { timeline: RenderableTimeline })
                       className="rounded-lg border-l-4 bg-[var(--tl-surface)] p-3"
                       style={{ borderColor: event.accentColor || "var(--tl-accent)" }}
                     >
-                      <time className="text-xs text-[var(--tl-text-muted)]">
-                        {new Date(event.startAt!).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
-                      </time>
-                      <div className="font-medium">{event.title}</div>
+                      <div className="flex items-center gap-3">
+                        {avatars ? <EventAvatar event={event} size={32} showIcons={theme.showIcons ?? true} /> : null}
+                        <div className="min-w-0">
+                          <time className="text-xs text-[var(--tl-text-muted)]">
+                            {new Date(event.startAt!).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+                          </time>
+                          <div className="font-medium">{event.title}</div>
+                        </div>
+                      </div>
                       {event.description ? <p className="mt-1 text-sm">{event.description}</p> : null}
                     </li>
                   ))}

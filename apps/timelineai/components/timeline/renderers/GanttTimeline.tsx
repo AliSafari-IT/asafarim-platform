@@ -1,4 +1,6 @@
 import { type RenderableTimeline } from "./types";
+import { resolveImageStyle } from "@/lib/timeline-config";
+import { EventAvatar } from "./EventAvatar";
 
 /**
  * Gantt-style layout: each event with a start (and optional end) date gets
@@ -6,6 +8,8 @@ import { type RenderableTimeline } from "./types";
  * date are listed separately below the chart rather than silently dropped.
  */
 export function GanttTimeline({ timeline }: { timeline: RenderableTimeline }) {
+  const theme = timeline.theme ?? {};
+  const avatars = resolveImageStyle(theme) === "avatar";
   const dated = timeline.events.filter((e) => e.startAt);
   const undated = timeline.events.filter((e) => !e.startAt);
 
@@ -54,6 +58,7 @@ export function GanttTimeline({ timeline }: { timeline: RenderableTimeline }) {
           const width = Math.max(percent(end) - left, 1.5);
           return (
             <li key={event.id ?? index} className="flex items-center gap-3">
+              {avatars ? <EventAvatar event={event} size={28} showIcons={theme.showIcons ?? true} /> : null}
               <span className="w-40 flex-shrink-0 truncate text-sm font-medium" title={event.title}>
                 {event.title}
               </span>

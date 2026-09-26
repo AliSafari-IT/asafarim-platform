@@ -39,6 +39,7 @@ export default async function EditTimelinePage({ params }: PageProps) {
         description: event.description,
         imageUrl: event.imageUrl,
         imageStorageKey: event.imageStorageKey,
+        imageAlt: event.imageAlt,
         icon: event.icon,
         label: event.label,
         link: event.link,

@@ -118,6 +118,7 @@ export default async function GalleryPage() {
                     endAt: e.endAt?.toISOString() ?? null,
                     imageUrl: null,
                     imageStorageKey: null,
+                    imageAlt: null,
                     link: null,
                   })),
                 }}

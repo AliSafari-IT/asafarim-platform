@@ -149,6 +149,39 @@
   min-width: 0;
 }
 
+/* Event avatar (components/timeline/renderers/EventAvatar.tsx). The
+   fallback is always painted; the image, when there is one, covers it.
+   The double ring separates the avatar from a connector line running
+   behind it, in any timeline theme. */
+.tl-root .tl-avatar {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--tl-avatar-accent);
+  color: var(--tl-avatar-ink);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 0 2.5px var(--tl-bg), 0 0 0 4.5px var(--tl-avatar-accent);
+}
+
+.tl-root .tl-avatar__fallback {
+  user-select: none;
+}
+
+.tl-root .tl-avatar__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tl-root * {
     animation-duration: 0.001ms !important;

@@ -8,6 +8,8 @@ import { verifyRenderGrant } from "@/lib/server/render-grant";
 import { TimelineRenderer } from "@/components/timeline/renderers/TimelineRenderer";
 import { ExportButtons } from "@/components/timeline/ExportButtons";
 import { isWideLayout } from "@/lib/timeline-config";
+import { canAccess } from "@/lib/access-rules";
+import { ButtonLink } from "@asafarim/ui";
 
 type PageProps = { params: Promise<{ publicId: string }> };
 
@@ -78,6 +80,10 @@ export default async function PublicTimelinePage({ params }: PageProps) {
       : await getTimelineForView(publicId, viewer);
     const isOwnerPreviewingPending =
       timeline.moderationStatus === "pending" && !viewer.isAdmin;
+    // Same rule the edit route enforces: the owner or an admin. The editor
+    // requires a signed-in user, so a guest owner isn't offered a link that
+    // would only bounce them to sign-in.
+    const canEdit = Boolean(viewer.userId) && canAccess(timeline, viewer, "edit");
 
     return (
       <div
@@ -93,7 +99,15 @@ export default async function PublicTimelinePage({ params }: PageProps) {
           </div>
         ) : null}
         {!isBareRender ? (
-          <div className="mb-4">
+          <div className="mb-4 flex flex-wrap items-start gap-2">
+            {/* ButtonLink, not a Tailwind-styled <a>: base.css's unlayered
+                `a { color: var(--accent) }` beats Tailwind's text-white
+                (see the note in app/page.tsx's history). */}
+            {canEdit ? (
+              <ButtonLink href={`/timelines/${timeline.id}/edit`} variant="primary">
+                Edit timeline
+              </ButtonLink>
+            ) : null}
             <ExportButtons publicId={timeline.publicId} />
           </div>
         ) : null}
@@ -113,6 +127,7 @@ export default async function PublicTimelinePage({ params }: PageProps) {
               description: e.description,
               imageUrl: e.imageUrl,
               imageStorageKey: e.imageStorageKey,
+              imageAlt: e.imageAlt,
               icon: e.icon,
               label: e.label,
               link: e.link,

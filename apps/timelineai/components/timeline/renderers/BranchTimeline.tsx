@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { formatEventDate, type RenderableTimeline } from "./types";
 import type { TimelineEventInput } from "@/lib/schemas";
+import { resolveImageStyle } from "@/lib/timeline-config";
+import { EventAvatar } from "./EventAvatar";
 
 /**
  * "Branching" interactive layout: a horizontal connector with cards
@@ -78,6 +80,7 @@ function colorFor(event: TimelineEventInput, label: string | null | undefined): 
 export function BranchTimeline({ timeline }: { timeline: RenderableTimeline }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  const avatars = resolveImageStyle(timeline.theme) === "avatar";
 
   const labels = useMemo(
     () => [...new Set(timeline.events.map((e) => e.label).filter((l): l is string => Boolean(l)))],
@@ -149,7 +152,7 @@ export function BranchTimeline({ timeline }: { timeline: RenderableTimeline }) {
             const Icon = iconFor(event.label);
             const color = colorFor(event, event.label);
             const card = (
-              <EventCard event={event} color={color} Icon={Icon} isOpen={isOpen} onToggle={() => setOpenKey(isOpen ? null : key)} />
+              <EventCard event={event} color={color} Icon={Icon} avatar={avatars} isOpen={isOpen} onToggle={() => setOpenKey(isOpen ? null : key)} />
             );
 
             return (
@@ -187,12 +190,15 @@ function EventCard({
   event,
   color,
   Icon,
+  avatar,
   isOpen,
   onToggle,
 }: {
   event: TimelineEventInput;
   color: string;
   Icon: LucideIcon;
+  /** Avatar image style: show the event's image in place of the label icon when it has one. */
+  avatar: boolean;
   isOpen: boolean;
   onToggle: () => void;
 }) {
@@ -206,13 +212,17 @@ function EventCard({
       }}
     >
       <div className="flex items-start gap-3">
-        <span
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
-          style={{ background: `${color}26`, color }}
-          aria-hidden
-        >
-          <Icon size={18} />
-        </span>
+        {avatar && event.imageUrl ? (
+          <EventAvatar event={{ ...event, accentColor: event.accentColor || color }} size={36} />
+        ) : (
+          <span
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+            style={{ background: `${color}26`, color }}
+            aria-hidden
+          >
+            <Icon size={18} />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-semibold text-[var(--tl-text)]">{event.title}</h3>
           <time className="flex items-center gap-1 text-xs text-[var(--tl-text-muted)]">{formatEventDate(event)}</time>

@@ -1,11 +1,17 @@
 import { formatEventDate, type RenderableTimeline } from "./types";
+import { resolveImageStyle } from "@/lib/timeline-config";
+import { EventAvatar } from "./EventAvatar";
 
 /** Alternating left/right vertical timeline — good for narrative pacing. */
 export function ZigzagTimeline({ timeline }: { timeline: RenderableTimeline }) {
   const theme = timeline.theme ?? {};
   const showDates = theme.showDates ?? true;
   const showDescriptions = theme.showDescriptions ?? true;
-  const showImages = theme.showImages ?? true;
+  const imageStyle = resolveImageStyle(theme);
+  const avatars = imageStyle === "avatar";
+  // A 40px avatar on the spine needs a wider gutter than a 12px dot.
+  const gutter = avatars ? "pl-12" : "pl-8";
+  const gutterEnd = avatars ? "pr-12" : "pr-8";
 
   return (
     <div className="tl-layout" data-layout-body="zigzag">
@@ -22,7 +28,7 @@ export function ZigzagTimeline({ timeline }: { timeline: RenderableTimeline }) {
           const isRight = index % 2 === 1;
           return (
             <li key={event.id ?? index} className="relative mb-8 flex last:mb-0">
-              <div className={`w-1/2 ${isRight ? "order-2 pl-8 text-left" : "pr-8 text-right"}`}>
+              <div className={`w-1/2 ${isRight ? `order-2 ${gutter} text-left` : `${gutterEnd} text-right`}`}>
                 {showDates ? (
                   <time className="text-xs text-[var(--tl-text-muted)]">
                     {formatEventDate(event, theme.dateFormat)}
@@ -30,21 +36,30 @@ export function ZigzagTimeline({ timeline }: { timeline: RenderableTimeline }) {
                 ) : null}
                 <h3 className="font-semibold">{event.title}</h3>
                 {showDescriptions && event.description ? <p className="mt-1 text-sm">{event.description}</p> : null}
-                {showImages && event.imageUrl ? (
+                {imageStyle === "banner" && event.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={event.imageUrl}
-                    alt=""
+                    alt={event.imageAlt || event.title}
                     className={`mt-2 inline-block max-h-32 rounded-lg object-cover ${isRight ? "" : "ml-auto"}`}
                     loading="lazy"
                   />
                 ) : null}
               </div>
-              <span
-                className="absolute left-1/2 top-1 h-3 w-3 -translate-x-1/2 rounded-full"
-                style={{ background: event.accentColor || "var(--tl-accent)" }}
-                aria-hidden
-              />
+              {avatars ? (
+                <EventAvatar
+                  event={event}
+                  size={40}
+                  showIcons={theme.showIcons ?? true}
+                  className="absolute left-1/2 -top-1 -translate-x-1/2"
+                />
+              ) : (
+                <span
+                  className="absolute left-1/2 top-1 h-3 w-3 -translate-x-1/2 rounded-full"
+                  style={{ background: event.accentColor || "var(--tl-accent)" }}
+                  aria-hidden
+                />
+              )}
               <div className={`w-1/2 ${isRight ? "order-1" : ""}`} />
             </li>
           );

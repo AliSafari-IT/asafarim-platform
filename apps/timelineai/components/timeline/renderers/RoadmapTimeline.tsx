@@ -1,11 +1,14 @@
 import { formatEventDate, type RenderableTimeline } from "./types";
 import type { TimelineEventInput } from "@/lib/schemas";
+import { resolveImageStyle } from "@/lib/timeline-config";
+import { EventAvatar } from "./EventAvatar";
 
 const UNLABELED = "Other";
 
 /** Roadmap layout: events grouped into swimlanes by their label/category. */
 export function RoadmapTimeline({ timeline }: { timeline: RenderableTimeline }) {
   const theme = timeline.theme ?? {};
+  const avatars = resolveImageStyle(theme) === "avatar";
   const lanes = new Map<string, TimelineEventInput[]>();
   for (const event of timeline.events) {
     const key = event.label || UNLABELED;
@@ -34,10 +37,15 @@ export function RoadmapTimeline({ timeline }: { timeline: RenderableTimeline }) 
                   className="min-w-48 flex-1 rounded-lg border-t-4 bg-[var(--tl-surface)] p-3"
                   style={{ borderColor: event.accentColor || "var(--tl-accent)" }}
                 >
-                  <time className="text-xs text-[var(--tl-text-muted)]">
-                    {formatEventDate(event, theme.dateFormat)}
-                  </time>
-                  <div className="font-medium">{event.title}</div>
+                  <div className="flex items-center gap-3">
+                    {avatars ? <EventAvatar event={event} size={36} showIcons={theme.showIcons ?? true} /> : null}
+                    <div className="min-w-0">
+                      <time className="text-xs text-[var(--tl-text-muted)]">
+                        {formatEventDate(event, theme.dateFormat)}
+                      </time>
+                      <div className="font-medium">{event.title}</div>
+                    </div>
+                  </div>
                   {event.description ? <p className="mt-1 text-sm">{event.description}</p> : null}
                 </li>
               ))}

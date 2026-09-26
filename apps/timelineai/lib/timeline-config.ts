@@ -11,7 +11,7 @@ import {
   Route,
   type LucideIcon,
 } from "lucide-react";
-import type { TimelineInput } from "./schemas";
+import { TIMELINE_IMAGE_STYLES, type ThemeSettings, type TimelineInput } from "./schemas";
 
 export type TimelineType = TimelineInput["timelineType"];
 export type TimelineLayout = TimelineInput["layout"];
@@ -190,4 +190,16 @@ const WIDE_LAYOUTS: readonly TimelineLayout[] = [
 
 export function isWideLayout(layout: TimelineLayout): boolean {
   return WIDE_LAYOUTS.includes(layout);
+}
+
+export type TimelineImageStyle = (typeof TIMELINE_IMAGE_STYLES)[number];
+
+/**
+ * The effective image style for a timeline. `imageStyle` wins when set;
+ * otherwise a timeline saved before it existed keeps its old look —
+ * images inside the card, or none if the author had switched them off.
+ */
+export function resolveImageStyle(theme: ThemeSettings | null | undefined): TimelineImageStyle {
+  if (theme?.imageStyle) return theme.imageStyle;
+  return theme?.showImages === false ? "off" : "banner";
 }
