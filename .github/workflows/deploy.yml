@@ -4,6 +4,15 @@ name: Deploy to VPS
 # GHCR, then deploys the exact commit SHA to the VPS. The VPS only pulls and
 # starts images; it never compiles the monorepo during a production rollout.
 #
+# Only the images a push actually affects are rebuilt. The plan job compares
+# the commit with the last successfully deployed one (see
+# scripts/plan-image-builds.mjs); every other image is re-tagged from that
+# deploy, so the VPS still pulls a complete `<image>-<sha>` set for this
+# commit. Targets that share a Dockerfile (e.g. appbuilder, its worker and its
+# migrator) are built together in one job from docker-bake.hcl, sharing one
+# install + build. Run the workflow manually with "rebuild_all" to rebuild
+# every image.
+#
 # The GITHUB_TOKEN logs in to GHCR for both publishing and the short-lived
 # remote pull. It is not persisted on the VPS.
 #
@@ -22,29 +31,53 @@ name: Deploy to VPS
 on:
   push:
     branches: [main]
-  workflow_dispatch: {}
+    # Pushes that only touch docs or other workflows do not start a deploy.
+    # Their changes still ship with the next deploy, and the plan job would
+    # build nothing for them anyway; this just avoids a run for nothing.
+    # Later patterns override earlier ones.
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!*.md"
+      - "!**/README.md"
+      - "!**/CHANGELOG.md"
+      - "!.claude/**"
+      - "!.github/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      rebuild_all:
+        description: "Rebuild every image instead of only the affected ones"
+        type: boolean
+        default: false
 
 concurrency:
   group: vps-deploy
   # main is linear: a newer revision already contains every earlier commit, so
   # do not spend another full build deploying an obsolete revision. The VPS
   # script also holds an exclusive lock, which prevents overlapping remote
-  # deploys if a canceled SSH process takes time to exit.
+  # deploys if a canceled SSH process takes time to exit. A canceled run never
+  # becomes the plan job's base, so the next run rebuilds what it changed.
   cancel-in-progress: true
 
 permissions:
   contents: read
   packages: write
+  # The plan job reads earlier runs of this workflow to find the last deploy.
+  actions: read
 
 env:
   IMAGE_REPOSITORY: ghcr.io/alisafari-it/asafarim-platform
 
 jobs:
-  gate:
-    name: Check deploy kill switch
+  plan:
+    # Also the kill-switch check: a separate job for it cost a billed minute
+    # on every push, even with deploys switched off.
+    name: Plan image builds
     runs-on: ubuntu-latest
     outputs:
       deploy_on: ${{ steps.check.outputs.deploy_on }}
+      build: ${{ steps.plan.outputs.build }}
     steps:
       - name: Check IS_DEPLOY_ON
         id: check
@@ -64,75 +97,88 @@ jobs:
             echo "Set the \`IS_DEPLOY_ON\` repository secret to \`true\` (Settings > Secrets and variables > Actions) to re-enable, then re-run this workflow." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Check out source
+        if: steps.check.outputs.deploy_on == 'enabled'
+        uses: actions/checkout@v5
+        with:
+          # The last deployed commit can be any number of commits back.
+          fetch-depth: 0
+
+      - name: Test the build planner
+        if: steps.check.outputs.deploy_on == 'enabled'
+        run: node --test scripts/plan-image-builds.test.mjs
+
+      - name: Log in to GHCR
+        if: steps.check.outputs.deploy_on == 'enabled'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # The base is the newest run of this workflow on main whose deploy job
+      # succeeded: all of its images are in GHCR and it is what production
+      # runs. The run's overall conclusion is not enough — runs with the kill
+      # switch off also conclude "success" without publishing anything.
+      - name: Find the last deployed commit
+        id: base
+        if: steps.check.outputs.deploy_on == 'enabled'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base=""
+          runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&status=success&per_page=30" \
+            --jq '.workflow_runs[] | "\(.id) \(.head_sha)"')"
+          while read -r run_id sha; do
+            [ -n "$run_id" ] || continue
+            deployed="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs" \
+              --jq '[.jobs[] | select(.name == "deploy" and .conclusion == "success")] | length')"
+            if [ "$deployed" != "0" ]; then
+              base="$sha"
+              break
+            fi
+          done <<< "$runs"
+          echo "sha=${base}" >> "$GITHUB_OUTPUT"
+          echo "Last deployed commit: ${base:-none}"
+
+      - name: Decide which images to build
+        id: plan
+        if: steps.check.outputs.deploy_on == 'enabled'
+        env:
+          HEAD_SHA: ${{ github.sha }}
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+          FORCE_ALL: ${{ inputs.rebuild_all && 'true' || 'false' }}
+          CHECK_REGISTRY: "true"
+        run: node scripts/plan-image-builds.mjs
+
+      # Unaffected images get this commit's tag on the previous deploy's
+      # image. It is a registry-side manifest copy (seconds, no download), and
+      # because the content is identical the VPS pull fetches nothing for it.
+      - name: Re-tag unaffected images
+        if: steps.check.outputs.deploy_on == 'enabled' && steps.plan.outputs.reuse != ''
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+          REUSE: ${{ steps.plan.outputs.reuse }}
+        run: |
+          set -euo pipefail
+          for image in $REUSE; do
+            echo "${image}: ${BASE_SHA} -> ${GITHUB_SHA}"
+            docker buildx imagetools create \
+              --tag "${IMAGE_REPOSITORY}:${image}-${GITHUB_SHA}" \
+              "${IMAGE_REPOSITORY}:${image}-${BASE_SHA}"
+          done
+
   build-images:
-    name: Build ${{ matrix.image }}
-    needs: gate
-    if: needs.gate.outputs.deploy_on == 'enabled'
+    name: Build ${{ matrix.group }}
+    needs: plan
+    if: needs.plan.outputs.deploy_on == 'enabled' && needs.plan.outputs.build != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # One entry per Dockerfile: {group, targets}, targets comma-separated.
       matrix:
-        include:
-          - image: platform-migrate
-            dockerfile: packages/db/Dockerfile
-            target: migrator
-          - image: web
-            dockerfile: apps/web/Dockerfile
-            target: runner
-          - image: hub
-            dockerfile: apps/hub/Dockerfile
-            target: runner
-          - image: showcase
-            dockerfile: apps/showcase/Dockerfile
-            target: runner
-          - image: admin
-            dockerfile: apps/admin/Dockerfile
-            target: runner
-          - image: vionto
-            dockerfile: apps/vionto/Dockerfile
-            target: runner
-          - image: vionto-worker
-            dockerfile: infra/docker/Dockerfile.vionto-worker
-            target: runner
-          - image: edumatch
-            dockerfile: apps/edumatch/Dockerfile
-            target: runner
-          - image: testora-migrator
-            dockerfile: apps/testora/Dockerfile
-            target: migrator
-          - image: testora
-            dockerfile: apps/testora/Dockerfile
-            target: runner
-          - image: appbuilder-migrate
-            dockerfile: apps/appbuilder/Dockerfile
-            target: migrator
-          - image: appbuilder-worker
-            dockerfile: apps/appbuilder/Dockerfile
-            target: worker
-          - image: appbuilder
-            dockerfile: apps/appbuilder/Dockerfile
-            target: runner
-          - image: timelineai
-            dockerfile: apps/timelineai/Dockerfile
-            target: runner
-          - image: labs
-            dockerfile: apps/labs/Dockerfile
-            target: runner
-          - image: resumatch-migrate
-            dockerfile: apps/resumatch/Dockerfile
-            target: migrator
-          - image: resumatch
-            dockerfile: apps/resumatch/Dockerfile
-            target: runner
-          - image: tasksai-migrate
-            dockerfile: apps/tasks-ai/Dockerfile
-            target: migrator
-          - image: tasksai-worker
-            dockerfile: apps/tasks-ai/Dockerfile
-            target: worker
-          - image: tasksai
-            dockerfile: apps/tasks-ai/Dockerfile
-            target: runner
+        include: ${{ fromJSON(needs.plan.outputs.build) }}
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -154,6 +200,8 @@ jobs:
       # duplicating them as literals in this workflow) means an operator who
       # updates a public URL or the company name only has to edit one file
       # for the build to pick it up, rather than two silently drifting apart.
+      # docker-bake.hcl picks them up from the environment as build args; a
+      # new NEXT_PUBLIC_* key must also be declared there.
       - name: Load public build configuration
         run: |
           set -euo pipefail
@@ -163,43 +211,28 @@ jobs:
             echo "${key}=${value}" >> "$GITHUB_ENV"
           done < <(grep -E '^NEXT_PUBLIC_[A-Z_]+=' .env.production.example)
 
-      - name: Build and publish immutable image
-        uses: docker/build-push-action@v7
+      - name: Build and publish immutable images
+        uses: docker/bake-action@v7
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          target: ${{ matrix.target }}
-          platforms: linux/amd64
+          source: .
+          # Explicit, or bake would also merge docker-compose.yml.
+          files: docker-bake.hcl
+          targets: ${{ matrix.targets }}
           push: true
-          tags: ${{ env.IMAGE_REPOSITORY }}:${{ matrix.image }}-${{ github.sha }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            com.asafarim.platform=true
-          build-args: |
-            NEXT_PUBLIC_COMPANY_NAME=${{ env.NEXT_PUBLIC_COMPANY_NAME }}
-            NEXT_PUBLIC_PLATFORM_NAME=${{ env.NEXT_PUBLIC_PLATFORM_NAME }}
-            NEXT_PUBLIC_HUB_NAME=${{ env.NEXT_PUBLIC_HUB_NAME }}
-            NEXT_PUBLIC_WEB_URL=${{ env.NEXT_PUBLIC_WEB_URL }}
-            NEXT_PUBLIC_HUB_URL=${{ env.NEXT_PUBLIC_HUB_URL }}
-            NEXT_PUBLIC_SHOWCASE_URL=${{ env.NEXT_PUBLIC_SHOWCASE_URL }}
-            NEXT_PUBLIC_ADMIN_URL=${{ env.NEXT_PUBLIC_ADMIN_URL }}
-            NEXT_PUBLIC_VIONTO_URL=${{ env.NEXT_PUBLIC_VIONTO_URL }}
-            NEXT_PUBLIC_EDUMATCH_URL=${{ env.NEXT_PUBLIC_EDUMATCH_URL }}
-            NEXT_PUBLIC_TESTORA_URL=${{ env.NEXT_PUBLIC_TESTORA_URL }}
-            NEXT_PUBLIC_APPBUILDER_URL=${{ env.NEXT_PUBLIC_APPBUILDER_URL }}
-            NEXT_PUBLIC_TIMELINEAI_URL=${{ env.NEXT_PUBLIC_TIMELINEAI_URL }}
-            NEXT_PUBLIC_DEVTOOLS_URL=${{ env.NEXT_PUBLIC_DEVTOOLS_URL }}
-            NEXT_PUBLIC_LABS_URL=${{ env.NEXT_PUBLIC_LABS_URL }}
-            NEXT_PUBLIC_RESUMATCH_URL=${{ env.NEXT_PUBLIC_RESUMATCH_URL }}
-            NEXT_PUBLIC_TASKSAI_URL=${{ env.NEXT_PUBLIC_TASKSAI_URL }}
-            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
   deploy:
-    needs: [gate, build-images]
-    if: needs.gate.outputs.deploy_on == 'enabled'
+    needs: [plan, build-images]
+    # build-images is skipped when no image is affected (e.g. a push that
+    # only changes Compose, Caddy or the VPS scripts); that still deploys.
+    # A skipped dependency would otherwise skip this job, hence !cancelled().
+    if: >-
+      !cancelled()
+      && needs.plan.result == 'success'
+      && needs.plan.outputs.deploy_on == 'enabled'
+      && (needs.build-images.result == 'success' || needs.build-images.result == 'skipped')
     runs-on: ubuntu-latest
     env:
       # A literal, not a reference to the workflow-level env block above, on
@@ -291,14 +324,14 @@ jobs:
 
   notify:
     runs-on: ubuntu-latest
-    needs: [gate, build-images, deploy]
+    needs: [plan, build-images, deploy]
     # Skip entirely when the kill switch skipped build-images/deploy too --
     # a Telegram message every push to main saying "deploy skipped" would be
-    # pure noise. The gate job's own step summary already records why.
-    if: always() && needs.gate.outputs.deploy_on == 'enabled'
+    # pure noise. The plan job's own step summary already records why.
+    if: always() && needs.plan.outputs.deploy_on == 'enabled'
     steps:
       - name: Notify Telegram on success
-        if: needs.build-images.result == 'success' && needs.deploy.result == 'success'
+        if: needs.deploy.result == 'success'
         uses: appleboy/telegram-action@v1.0.0
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -310,7 +343,7 @@ jobs:
             Actor: ${{ github.actor }}
 
       - name: Notify Telegram on failure
-        if: needs.build-images.result == 'failure' || needs.deploy.result == 'failure'
+        if: needs.plan.result == 'failure' || needs.build-images.result == 'failure' || needs.deploy.result == 'failure'
         uses: appleboy/telegram-action@v1.0.0
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
