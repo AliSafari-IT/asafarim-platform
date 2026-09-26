@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { getJobmatchDb } from "../../../lib/db/client";
+import { getTranslator } from "../../../lib/i18n-server";
 import { getJourneyCounts, jobKey } from "../../../lib/journey";
 import { getCurrentWorkspace } from "../../../lib/workspace";
 import { BarList } from "../../components/app/Charts";
@@ -11,7 +12,10 @@ import { StatRow, StatTile } from "../../components/app/Stats";
 import { BriefcaseIcon, MailIcon, SparkIcon, WarningIcon } from "../../profile/icons";
 import { HistoryList } from "./HistoryList";
 
-export const metadata: Metadata = { title: "Tailoring history" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: t("resumatch.history.metaTitle") };
+}
 export const dynamic = "force-dynamic";
 
 /**
@@ -22,14 +26,14 @@ export const dynamic = "force-dynamic";
  * compare page.
  */
 export default async function TailoringHistoryPage() {
+  const { t } = await getTranslator();
   const workspace = await getCurrentWorkspace();
   if (!workspace) {
     return (
       <>
-        <PageHeader kicker="Tailor" title="This account cannot open a workspace." />
+        <PageHeader kicker={t("resumatch.inactive.kicker")} title={t("resumatch.inactive.title")} />
         <Alert tone="warning">
-          <strong>Account inactive.</strong> Your platform account is not active, so ResuMatch will
-          not open a workspace for it.
+          <strong>{t("resumatch.inactive.strong")}</strong> {t("resumatch.inactive.body")}
         </Alert>
       </>
     );
@@ -50,7 +54,9 @@ export default async function TailoringHistoryPage() {
         modelVersion: true,
         profileVersionId: true,
         targetJobId: true,
-        targetJob: { select: { id: true, title: true, employer: true, sourceUrl: true } },
+        targetJob: {
+          select: { id: true, title: true, employer: true, sourceUrl: true },
+        },
         coverLetter: { select: { id: true, outputLanguage: true } },
       },
     }),
@@ -62,7 +68,7 @@ export default async function TailoringHistoryPage() {
   for (const r of resumes) {
     const key = jobKey(r.targetJob);
     const entry = perJob.get(key) ?? {
-      label: r.targetJob.title ?? r.targetJob.employer ?? "Untitled job",
+      label: r.targetJob.title ?? r.targetJob.employer ?? t("resumatch.untitledJob"),
       hint: r.targetJob.title && r.targetJob.employer ? r.targetJob.employer : undefined,
       count: 0,
     };
@@ -76,31 +82,36 @@ export default async function TailoringHistoryPage() {
   return (
     <div className="rx">
       <PageHero
-        kicker="Tailor · History"
-        title="Every version,"
-        accent="side by side."
-        lead="Everything you've generated, newest first. Pick any two to compare what changed between them."
+        kicker={t("resumatch.history.kicker")}
+        title={t("resumatch.history.title")}
+        accent={t("resumatch.history.accent")}
+        lead={t("resumatch.history.lead")}
         aside={<JourneyTracker counts={journey} current="tailor" />}
       />
 
       {resumes.length === 0 ? (
         <section className="rx-panel rx-panel--warm">
-          <h2 className="rx-panel__title">Nothing here yet</h2>
-          <p className="rx-panel__sub">Tailor a CV toward a job and every version will show up here.</p>
+          <h2 className="rx-panel__title">{t("resumatch.history.empty.title")}</h2>
+          <p className="rx-panel__sub">{t("resumatch.history.empty.body")}</p>
           <Link href="/tailor" className="rx-btn rx-btn--primary">
-            Tailor a CV →
+            {t("resumatch.history.empty.cta")}
           </Link>
         </section>
       ) : (
         <>
-          <StatRow label="History at a glance">
-            <StatTile value={resumes.length} label="versions" visual={<SparkIcon />} />
-            <StatTile value={perJob.size} label="different jobs" visual={<BriefcaseIcon />} />
-            <StatTile value={withCoverLetter} label="with a cover letter" visual={<MailIcon />} tone="ok" />
+          <StatRow label={t("resumatch.history.stats.aria")}>
+            <StatTile value={resumes.length} label={t("resumatch.history.stats.versions")} visual={<SparkIcon />} />
+            <StatTile value={perJob.size} label={t("resumatch.history.stats.jobs")} visual={<BriefcaseIcon />} />
+            <StatTile
+              value={withCoverLetter}
+              label={t("resumatch.history.stats.withCoverLetter")}
+              visual={<MailIcon />}
+              tone="ok"
+            />
             <StatTile
               value={degraded}
-              label="degraded runs"
-              hint="Made by the fallback, without a real AI call"
+              label={t("resumatch.history.stats.degraded")}
+              hint={t("resumatch.history.stats.degradedHint")}
               visual={<WarningIcon />}
               tone={degraded > 0 ? "warm" : "muted"}
             />
@@ -108,9 +119,9 @@ export default async function TailoringHistoryPage() {
 
           {topJobs.length > 1 ? (
             <section className="rx-panel">
-              <h2 className="rx-panel__title">Most-tailored jobs</h2>
-              <p className="rx-panel__sub">Versions generated per job — the ones you iterated on most.</p>
-              <BarList items={topJobs} label="Versions per job" />
+              <h2 className="rx-panel__title">{t("resumatch.history.topJobs.title")}</h2>
+              <p className="rx-panel__sub">{t("resumatch.history.topJobs.sub")}</p>
+              <BarList items={topJobs} label={t("resumatch.history.topJobs.aria")} />
             </section>
           ) : null}
 

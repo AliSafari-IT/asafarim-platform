@@ -2,12 +2,16 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Alert, Card, PageHeader } from "@asafarim/ui";
 import { getJobmatchDb } from "../../../../../../lib/db/client";
+import { getTranslator } from "../../../../../../lib/i18n-server";
 import { parseTailoredResumeContent } from "../../../../../../lib/tailoring/ai/schema";
 import { diffTailoredResumes } from "../../../../../../lib/tailoring/diff";
 import { getCurrentWorkspace } from "../../../../../../lib/workspace";
 import { LanguageBadge } from "../../../../../components/app/LanguageBadge";
 
-export const metadata: Metadata = { title: "Compare tailored resumes" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: t("resumatch.compare.metaTitle") };
+}
 export const dynamic = "force-dynamic";
 
 /**
@@ -26,6 +30,7 @@ export default async function CompareTailoredResumesPage({
   const workspace = await getCurrentWorkspace();
   if (!workspace) notFound();
 
+  const { locale, t } = await getTranslator();
   const db = getJobmatchDb();
   // Both scoped to the workspace, same as every other tailored-resume
   // read — an id from the URL cannot reach another candidate's version.
@@ -44,57 +49,88 @@ export default async function CompareTailoredResumesPage({
   const contentA = parseTailoredResumeContent(rowA.content);
   const contentB = parseTailoredResumeContent(rowB.content);
   const diff = diffTailoredResumes(contentA, contentB);
+  // In the UI language rather than the server's default locale. Rendered
+  // on the server only, so there is no hydration mismatch to worry about.
+  const formatDate = (value: Date) =>
+    new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "UTC",
+    }).format(value) + " UTC";
+  const none = <em>{t("resumatch.compare.none")}</em>;
 
   return (
     <>
-      <PageHeader kicker="Tailor" title="Compare tailored resumes" />
+      <PageHeader kicker={t("resumatch.compare.kicker")} title={t("resumatch.compare.title")} />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-        <Card title={rowA.targetJob.title ?? rowA.targetJob.employer ?? "Version A"}>
-          <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{new Date(rowA.createdAt).toLocaleString()}</p>
+        <Card title={rowA.targetJob.title ?? rowA.targetJob.employer ?? t("resumatch.compare.versionA")}>
+          <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{formatDate(rowA.createdAt)}</p>
           <LanguageBadge language={rowA.outputLanguage} />
         </Card>
-        <Card title={rowB.targetJob.title ?? rowB.targetJob.employer ?? "Version B"}>
-          <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{new Date(rowB.createdAt).toLocaleString()}</p>
+        <Card title={rowB.targetJob.title ?? rowB.targetJob.employer ?? t("resumatch.compare.versionB")}>
+          <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{formatDate(rowB.createdAt)}</p>
           <LanguageBadge language={rowB.outputLanguage} />
         </Card>
       </div>
 
-      <Card title="Headline">
+      <Card title={t("resumatch.compare.headline")}>
         {diff.headlineChanged ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <p>{contentA.headline ?? <em>(none)</em>}</p>
-            <p>{contentB.headline ?? <em>(none)</em>}</p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "1rem",
+            }}
+          >
+            <p>{contentA.headline ?? none}</p>
+            <p>{contentB.headline ?? none}</p>
           </div>
         ) : (
-          <p style={{ color: "var(--muted)" }}>Unchanged: {contentA.headline ?? <em>(none)</em>}</p>
+          <p style={{ color: "var(--muted)" }}>
+            {t("resumatch.compare.unchangedPrefix")}
+            {contentA.headline ?? none}
+          </p>
         )}
       </Card>
 
-      <Card title="Summary">
+      <Card title={t("resumatch.compare.summary")}>
         {diff.summaryChanged ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <p>{contentA.summary ?? <em>(none)</em>}</p>
-            <p>{contentB.summary ?? <em>(none)</em>}</p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "1rem",
+            }}
+          >
+            <p>{contentA.summary ?? none}</p>
+            <p>{contentB.summary ?? none}</p>
           </div>
         ) : (
-          <p style={{ color: "var(--muted)" }}>Unchanged: {contentA.summary ?? <em>(none)</em>}</p>
+          <p style={{ color: "var(--muted)" }}>
+            {t("resumatch.compare.unchangedPrefix")}
+            {contentA.summary ?? none}
+          </p>
         )}
       </Card>
 
-      <Card title="Skills">
+      <Card title={t("resumatch.compare.skills")}>
         {diff.skills.added.length === 0 && diff.skills.removed.length === 0 ? (
-          <p style={{ color: "var(--muted)" }}>No change ({diff.skills.common.length} skills, unchanged).</p>
+          <p style={{ color: "var(--muted)" }}>
+            {t("resumatch.compare.skillsUnchanged", {
+              count: diff.skills.common.length,
+            })}
+          </p>
         ) : (
           <>
             {diff.skills.added.length > 0 ? (
               <p>
-                <strong>Added:</strong> {diff.skills.added.join(", ")}
+                <strong>{t("resumatch.compare.added")}</strong> {diff.skills.added.join(", ")}
               </p>
             ) : null}
             {diff.skills.removed.length > 0 ? (
               <p>
-                <strong>Removed:</strong> {diff.skills.removed.join(", ")}
+                <strong>{t("resumatch.compare.removed")}</strong> {diff.skills.removed.join(", ")}
               </p>
             ) : null}
           </>
@@ -102,7 +138,7 @@ export default async function CompareTailoredResumesPage({
       </Card>
 
       {diff.experience.length > 0 ? (
-        <Card title="Experience bullets">
+        <Card title={t("resumatch.compare.experience")}>
           {diff.experience.map((entry, index) => (
             <div key={index} style={{ marginTop: index > 0 ? "1rem" : 0 }}>
               <strong>
@@ -110,7 +146,14 @@ export default async function CompareTailoredResumesPage({
                 {entry.employer ? ` · ${entry.employer}` : ""}
               </strong>
               {entry.changed ? (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "0.35rem" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "1rem",
+                    marginTop: "0.35rem",
+                  }}
+                >
                   <ul>
                     {entry.bulletsA.map((bullet, i) => (
                       <li key={i}>{bullet}</li>
@@ -123,13 +166,21 @@ export default async function CompareTailoredResumesPage({
                   </ul>
                 </div>
               ) : (
-                <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0.3rem 0 0" }}>Unchanged.</p>
+                <p
+                  style={{
+                    color: "var(--muted)",
+                    fontSize: "0.85rem",
+                    margin: "0.3rem 0 0",
+                  }}
+                >
+                  {t("resumatch.compare.unchanged")}
+                </p>
               )}
             </div>
           ))}
         </Card>
       ) : (
-        <Alert tone="info">Neither version has experience entries to compare.</Alert>
+        <Alert tone="info">{t("resumatch.compare.noExperience")}</Alert>
       )}
     </>
   );

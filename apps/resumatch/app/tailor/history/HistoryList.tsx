@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { Button } from "@asafarim/ui";
 import { LanguageBadge } from "../../components/app/LanguageBadge";
 
@@ -35,6 +36,7 @@ interface HistoryRow {
  *  component only tracks local selection state. */
 export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<string[]>([]);
   // Which job is currently being re-fetched — see "Refresh title" below.
   // Keyed by targetJobId, not the resume id, since a refresh updates the
@@ -77,21 +79,21 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
       <div className="rx-hl__bar">
         <div>
           <h2 id="rx-hl-title" className="rx-panel__title">
-            All versions
+            {t("resumatch.history.list.title")}
           </h2>
           <p className="rx-panel__sub" aria-live="polite">
             {selected.length === 0
-              ? "Check two versions to compare them."
+              ? t("resumatch.history.list.pickTwo")
               : selected.length === 1
-                ? "Pick one more to compare."
-                : "Ready — two versions selected."}
+                ? t("resumatch.history.list.pickOne")
+                : t("resumatch.history.list.ready")}
           </p>
         </div>
         <Button
           onClick={() => router.push(`/tailor/history/compare/${selected[0]}/${selected[1]}`)}
           disabled={selected.length !== 2}
         >
-          Compare selected ({selected.length}/2)
+          {t("resumatch.history.list.compare", { count: selected.length })}
         </Button>
       </div>
 
@@ -100,13 +102,13 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
           <h3 className="rx-hl__date">
             <span className="jm-mono">{day}</span>
             <span className="rx-hl__count">
-              {rows.length} version{rows.length === 1 ? "" : "s"}
+              {t(`resumatch.history.list.dayCount.${rows.length === 1 ? "one" : "other"}`, { count: rows.length })}
             </span>
           </h3>
           <ol className="rx-hl__items">
             {rows.map((resume) => {
               const isSelected = selected.includes(resume.id);
-              const title = resume.targetJob.title ?? resume.targetJob.employer ?? "Untitled job";
+              const title = resume.targetJob.title ?? resume.targetJob.employer ?? t("resumatch.untitledJob");
               return (
                 <li
                   key={resume.id}
@@ -127,9 +129,13 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
                         <span className="rx-pill">{resume.templateKey}</span>
                         <LanguageBadge language={resume.outputLanguage} />
                         <span className="jm-mono rx-hl__model">{resume.modelVersion}</span>
-                        {resume.coverLetter ? <span className="rx-pill rx-pill--ok">+ Cover letter</span> : null}
-                        <LanguageBadge language={resume.coverLetter?.outputLanguage} subject="Cover letter" />
-                        {resume.degraded ? <span className="rx-pill rx-pill--warm">Degraded</span> : null}
+                        {resume.coverLetter ? (
+                          <span className="rx-pill rx-pill--ok">{t("resumatch.history.list.plusCoverLetter")}</span>
+                        ) : null}
+                        <LanguageBadge language={resume.coverLetter?.outputLanguage} coverLetter />
+                        {resume.degraded ? (
+                          <span className="rx-pill rx-pill--warm">{t("resumatch.degraded")}</span>
+                        ) : null}
                       </span>
                     </span>
                   </label>
@@ -141,18 +147,22 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
                         disabled={refreshingJobId === resume.targetJobId}
                         onClick={() => refreshJob(resume.targetJobId)}
                       >
-                        {refreshingJobId === resume.targetJobId ? "Refreshing…" : "Refresh title"}
+                        {refreshingJobId === resume.targetJobId
+                          ? t("resumatch.history.list.refreshing")
+                          : t("resumatch.history.list.refreshTitle")}
                       </button>
                     ) : null}
                     <Link href={`/tailor/${resume.id}/preview`} className="rx-link">
-                      View
+                      {t("resumatch.history.list.view")}
                     </Link>
                     <Link
                       href={`/ai-usage?job=${encodeURIComponent(resume.targetJobId)}&preset=year`}
                       className="rx-link"
-                      aria-label={`AI cost for ${resume.targetJob.title ?? "this job"}`}
+                      aria-label={t("resumatch.history.list.aiCostAria", {
+                        job: resume.targetJob.title ?? t("resumatch.history.list.thisJob"),
+                      })}
                     >
-                      AI cost
+                      {t("resumatch.history.list.aiCost")}
                     </Link>
                   </span>
                 </li>
