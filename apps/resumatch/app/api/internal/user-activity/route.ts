@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ entries: [] });
   }
 
-  const [profile, documents, tailoredResumes] = await Promise.all([
+  const [profile, documents, tailoredResumes, coverLetters] = await Promise.all([
     db.candidateProfile.findUnique({
       where: { workspaceId: workspace.id },
       select: { id: true, confirmedVersionId: true, createdAt: true, updatedAt: true },
@@ -67,6 +67,15 @@ export async function GET(request: Request) {
       },
     }),
     db.tailoredResume.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        targetJob: { select: { title: true, employer: true } },
+      },
+    }),
+    db.coverLetter.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { createdAt: "desc" },
       select: {
@@ -113,6 +122,16 @@ export async function GET(request: Request) {
       status: "generated",
       createdAt: resume.createdAt.toISOString(),
       updatedAt: resume.createdAt.toISOString(),
+      href: `${base}/tailor`,
+      metadata: {},
+    })),
+    ...coverLetters.map((letter) => ({
+      id: letter.id,
+      type: "cover_letter",
+      title: `${letter.targetJob.title ?? "Cover letter"}${letter.targetJob.employer ? ` · ${letter.targetJob.employer}` : ""}`,
+      status: "generated",
+      createdAt: letter.createdAt.toISOString(),
+      updatedAt: letter.createdAt.toISOString(),
       href: `${base}/tailor`,
       metadata: {},
     })),
