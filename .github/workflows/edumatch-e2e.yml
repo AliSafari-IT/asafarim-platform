@@ -82,11 +82,11 @@ jobs:
       # on spaces would break those two into four bogus tokens.
       PROJECTS: ${{ github.event_name == 'pull_request' && 'chromium' || 'chromium,firefox,webkit,Mobile Chrome,Mobile Safari' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -127,7 +127,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: edumatch-playwright-report
           path: |
