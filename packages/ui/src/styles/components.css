@@ -79,8 +79,16 @@
   padding: var(--space-5) var(--space-4);
 }
 
+/* min-width: 0 — same flex min-content trap as .ui-shell__topnav above. As
+   a flex item beside the sidebar, main's default min-width is its content's
+   min-content width, so one wide child (a DataTable with long ids and JSON,
+   a filter bar) grew the whole column past the viewport and the *page*
+   scrolled sideways (admin /audit-logs at 768px: 985px wide). With it,
+   main shrinks to the space left, and wide tables scroll inside their own
+   .ui-tablewrap (overflow-x: auto) instead. */
 .ui-shell__main {
   flex: 1;
+  min-width: 0;
   width: 100%;
   max-width: var(--width-content);
   margin: 0 auto;
