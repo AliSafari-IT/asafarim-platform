@@ -5,8 +5,9 @@ import type { CoverLetterProvider } from "./provider";
  *  `../registry.ts` exactly, one call kind over. */
 
 /** Bumped to @2 for issue #455's tone/length controls — the system prompt
- *  is now built per tone/length pair rather than a fixed string. */
-export const COVER_LETTER_PROMPT_VERSION = "cover_letter@2";
+ *  is now built per tone/length pair rather than a fixed string. @3: the
+ *  optional OUTPUT LANGUAGE rule (#642). */
+export const COVER_LETTER_PROMPT_VERSION = "cover_letter@3";
 
 export const COVER_LETTER_MODEL_VERSIONS: Record<ResuMatchAiProvider, string> = {
   fixture: "fixture-cover-letter-1",

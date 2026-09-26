@@ -74,7 +74,7 @@ export default async function TailorPage() {
         templateKey: true,
         outputLanguage: true,
         targetJob: { select: { title: true, employer: true } },
-        coverLetter: { select: { id: true } },
+        coverLetter: { select: { id: true, outputLanguage: true } },
       },
     }),
     db.tailoredResume.count({ where: { workspaceId: workspace.id, coverLetter: { isNot: null } } }),
@@ -163,6 +163,7 @@ export default async function TailorPage() {
                       <span className="rx-pill">{resume.templateKey}</span>
                       <LanguageBadge language={resume.outputLanguage} />
                       {resume.coverLetter ? <span className="rx-pill rx-pill--ok">+ Cover letter</span> : null}
+                      <LanguageBadge language={resume.coverLetter?.outputLanguage} subject="Cover letter" />
                       {resume.degraded ? <span className="rx-pill rx-pill--warm">Degraded</span> : null}
                     </span>
                   </Link>

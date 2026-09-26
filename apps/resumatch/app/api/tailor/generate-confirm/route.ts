@@ -5,7 +5,7 @@ import { mergeTailoringSuggestions, parseTailorSuggestions } from "../../../../l
 import { buildCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/generate";
 import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
-import { appliedOutputLanguage } from "../../../../lib/tailoring/language";
+import { appliedCoverLetterLanguage, appliedOutputLanguage } from "../../../../lib/tailoring/language";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TEMPLATE_KEY = "classic";
@@ -177,6 +177,11 @@ export async function POST(request: Request) {
         promptVersion: preview.coverLetterPromptVersion,
         modelVersion: preview.coverLetterModelVersion,
         degraded: preview.coverLetterDegraded === true,
+        // #642: from the server's preview record, and null if degraded.
+        outputLanguage: appliedCoverLetterLanguage(
+          preview.coverLetterOutputLanguage,
+          preview.coverLetterDegraded === true,
+        ),
       },
       select: { id: true },
     });

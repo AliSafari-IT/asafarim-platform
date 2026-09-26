@@ -64,5 +64,7 @@ or a wasted run at least once.
   text. Any change to prompt wording bumps the version in the relevant
   `registry.ts` and must change the prompt's cache key.
 
-## Open work
+## Done, with a written plan
 - [#642 — cover letter in a chosen language](plan-642-cover-letter-language.md)
+  (the CV and letter share `lib/tailoring/language.ts`; extend it for any
+  new output-language work rather than adding a second enum)

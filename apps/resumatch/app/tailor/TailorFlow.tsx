@@ -67,6 +67,8 @@ interface ReviewCoverLetter {
   degraded: boolean;
   promptVersion: string;
   modelVersion: string;
+  /** #642: the language the letter was asked for, or null for none. */
+  outputLanguage: OutputLanguage | null;
   /** Whether to persist this letter on confirm — declining it is a valid
    *  outcome independent of the CV (issue #454). */
   include: boolean;
@@ -148,6 +150,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const [includeCoverLetter, setIncludeCoverLetter] = useState(false);
   const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">("formal");
   const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">("standard");
+  // #642: null means "same as the CV", so the letter keeps following the CV
+  // language until the candidate picks a different one on purpose.
+  const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(null);
   const [state, setState] = useState<FetchState>({ kind: "idle" });
 
   const fetchJob = useCallback(async () => {
@@ -310,6 +315,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             includeCoverLetter,
             coverLetterTone: includeCoverLetter ? coverLetterTone : undefined,
             coverLetterLength: includeCoverLetter ? coverLetterLength : undefined,
+            coverLetterOutputLanguage: includeCoverLetter ? (coverLetterLanguage ?? undefined) : undefined,
             instructions: instructions.trim() || undefined,
             outputLanguage: cvLanguage,
           }),
@@ -329,6 +335,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               degraded: boolean;
               promptVersion: string;
               modelVersion: string;
+              outputLanguage: string | null;
             }
           | null;
         const profile = body.profile as {
@@ -372,18 +379,20 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               accepted: suggestedBullets.map(() => true),
             };
           }),
-          coverLetter:
-            coverLetterResult && coverLetterResult.suggestion
-              ? {
-                  greeting: coverLetterResult.suggestion.greeting,
-                  paragraphs: coverLetterResult.suggestion.paragraphs,
-                  signOff: coverLetterResult.suggestion.signOff,
-                  degraded: coverLetterResult.degraded,
-                  promptVersion: coverLetterResult.promptVersion,
-                  modelVersion: coverLetterResult.modelVersion,
-                  include: true,
-                }
-              : null,
+          // A degraded letter has no suggestion; it still gets an entry (with
+          // include: false) so the review says so instead of staying silent.
+          coverLetter: coverLetterResult
+            ? {
+                greeting: coverLetterResult.suggestion?.greeting ?? "",
+                paragraphs: coverLetterResult.suggestion?.paragraphs ?? [],
+                signOff: coverLetterResult.suggestion?.signOff ?? "",
+                degraded: coverLetterResult.degraded || !coverLetterResult.suggestion,
+                promptVersion: coverLetterResult.promptVersion,
+                modelVersion: coverLetterResult.modelVersion,
+                outputLanguage: isOutputLanguage(coverLetterResult.outputLanguage) ? coverLetterResult.outputLanguage : null,
+                include: Boolean(coverLetterResult.suggestion) && !coverLetterResult.degraded,
+              }
+            : null,
           profileFullName: profile.fullName,
         };
 
@@ -392,7 +401,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         setState({ kind: "error", message: "Could not reach the server." });
       }
     },
-    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength, instructions, cvLanguage],
+    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength, coverLetterLanguage, instructions, cvLanguage],
   );
 
   const toggleBullet = useCallback((experienceIndex: number, bulletIndex: number) => {
@@ -682,6 +691,23 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                     <option value="detailed">Detailed</option>
                   </select>
                 </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
+                  <span>Language</span>
+                  <select
+                    className="ui-input ui-select"
+                    value={coverLetterLanguage ?? ""}
+                    onChange={(e) =>
+                      setCoverLetterLanguage(isOutputLanguage(e.target.value) ? e.target.value : null)
+                    }
+                  >
+                    <option value="">Same as CV ({LANGUAGE_LABELS[cvLanguage]})</option>
+                    {OUTPUT_LANGUAGES.map((code) => (
+                      <option key={code} value={code}>
+                        {LANGUAGE_LABELS[code]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             ) : null}
             <Button onClick={() => startReview(state.targetJobId)}>Tailor my CV to this job</Button>
@@ -812,18 +838,30 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                     type="checkbox"
                     checked={state.review.coverLetter.include}
                     onChange={(e) => updateCoverLetter("include", e.target.checked)}
-                    disabled={state.kind === "confirming"}
+                    disabled={state.kind === "confirming" || state.review.coverLetter.degraded}
                   />
                   <span>Cover letter</span>
                 </label>
 
                 {state.review.coverLetter.degraded ? (
                   <Alert tone="warning">
-                    A cover letter couldn't be drafted right now (budget or provider issue). The CV
-                    above will still save.
+                    A cover letter couldn't be drafted right now (budget or provider issue)
+                    {state.review.coverLetter.outputLanguage
+                      ? `, so it wasn't written in ${LANGUAGE_LABELS[state.review.coverLetter.outputLanguage]}`
+                      : ""}
+                    . The CV above will still save.
                   </Alert>
                 ) : state.review.coverLetter.include ? (
-                  <div style={{ marginTop: "0.5rem" }}>
+                  <div style={{ marginTop: "0.5rem" }} lang={state.review.coverLetter.outputLanguage ?? undefined}>
+                    {state.review.coverLetter.outputLanguage ? (
+                      <p className="rx-lang-note" lang="en">
+                        <span className="rx-pill rx-pill--lang">
+                          {LANGUAGE_LABELS[state.review.coverLetter.outputLanguage]}
+                        </span>
+                        Written in {LANGUAGE_LABELS[state.review.coverLetter.outputLanguage]}. Names,
+                        numbers and dates are kept exactly as in your profile and the job.
+                      </p>
+                    ) : null}
                     <label className="jm-field">
                       <span className="rm-review__section-label">Greeting</span>
                       <input
@@ -865,6 +903,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                             fullName: state.review.profileFullName,
                           },
                           coverLetterLength,
+                          state.review.coverLetter.outputLanguage,
                         )}
                       />
                     </div>

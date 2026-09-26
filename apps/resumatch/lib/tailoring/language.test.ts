@@ -2,7 +2,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  COVER_LETTER_CONVENTIONS,
+  DOCUMENT_LOCALES,
   OUTPUT_LANGUAGES,
+  appliedCoverLetterLanguage,
   appliedOutputLanguage,
   formatProfileDate,
   formatSpan,
@@ -183,5 +186,33 @@ describe("language-aware checks", () => {
     expect(report.missingKeywords).not.toContain("für");
     expect(report.missingKeywords).not.toContain("und");
     expect(report.missingKeywords.some((k) => k === "veloppement" || k === "r")).toBe(false);
+  });
+});
+
+describe("appliedCoverLetterLanguage (#642)", () => {
+  it("records the requested language for a drafted letter", () => {
+    for (const language of OUTPUT_LANGUAGES) {
+      expect(appliedCoverLetterLanguage(language, false)).toBe(language);
+    }
+  });
+
+  it("records null for a degraded letter — nothing was written in that language", () => {
+    expect(appliedCoverLetterLanguage("fr", true)).toBeNull();
+  });
+
+  it("records null when none, or an unknown language, was requested", () => {
+    expect(appliedCoverLetterLanguage(null, false)).toBeNull();
+    expect(appliedCoverLetterLanguage(undefined, false)).toBeNull();
+    expect(appliedCoverLetterLanguage("es", false)).toBeNull();
+  });
+});
+
+describe("cover-letter conventions (#642)", () => {
+  it("covers every output language with a greeting, a sign-off and a document locale", () => {
+    for (const language of OUTPUT_LANGUAGES) {
+      expect(COVER_LETTER_CONVENTIONS[language].neutralGreeting).toBeTruthy();
+      expect(COVER_LETTER_CONVENTIONS[language].signOff).toBeTruthy();
+      expect(DOCUMENT_LOCALES[language]).toMatch(new RegExp(`^${language}-`));
+    }
   });
 });

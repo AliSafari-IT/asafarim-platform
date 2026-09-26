@@ -8,6 +8,7 @@ import { parseTailoredResumeContent } from "../../../../lib/tailoring/ai/schema"
 import { computeCoverage } from "../../../../lib/tailoring/coverage";
 import { computeQuality } from "../../../../lib/tailoring/quality";
 import { LANGUAGE_LABELS, isOutputLanguage } from "../../../../lib/tailoring/language";
+import { LanguageBadge } from "../../../components/app/LanguageBadge";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { CoverageReport } from "./CoverageReport";
 import { DocxButton } from "./DocxButton";
@@ -45,7 +46,7 @@ export default async function TailoredResumePreviewPage({
       // comment) — read this instead of relying only on the query param,
       // so "View cover letter" still shows up on a later visit, not just
       // right after generation.
-      coverLetter: { select: { id: true } },
+      coverLetter: { select: { id: true, outputLanguage: true } },
     },
   });
   if (!row) notFound();
@@ -98,9 +99,12 @@ export default async function TailoredResumePreviewPage({
         <DocxButton id={id} />
         <SaveApplicationButton targetJobId={row.targetJobId} tailoredResumeId={id} />
         {coverLetterId ? (
-          <Link href={`/cover-letter/${coverLetterId}/preview`} className="ui-btn ui-btn--ghost ui-btn--sm">
-            View cover letter
-          </Link>
+          <>
+            <Link href={`/cover-letter/${coverLetterId}/preview`} className="ui-btn ui-btn--ghost ui-btn--sm">
+              View cover letter
+            </Link>
+            <LanguageBadge language={row.coverLetter?.outputLanguage} subject="Cover letter" />
+          </>
         ) : (
           <span className="rm-preview-toolbar__hint">No cover letter for this CV.</span>
         )}

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { COVER_LETTER_PROMPT_VERSION as REGISTRY_PROMPT_VERSION } from "./registry";
+import { COVER_LETTER_CONVENTIONS, PROMPT_LANGUAGE_NAMES, type OutputLanguage } from "../../language";
 
 /**
  * Cover-letter prompt. Same fence-sentinel pattern as `../prompts.ts`'s
@@ -47,7 +48,35 @@ const LENGTH_INSTRUCTIONS: Record<CoverLetterLength, string> = {
   detailed: "4 to 6 thorough paragraphs — an opening hook, several paragraphs each grounding a distinct real accomplishment in the role's stated priorities, and a close",
 };
 
-function buildSystemPrompt(tone: CoverLetterTone, length: CoverLetterLength): string {
+/**
+ * Output language (#642) — the same closed `en | nl | fr | de` enum as the
+ * CV (#641, lib/tailoring/language.ts), so it adds no prompt-injection
+ * surface either. Omitted (null): no rule at all, and the prompt is
+ * byte-for-byte what it was before, apart from the version bump.
+ */
+function languageRule(language: OutputLanguage): string {
+  const name = PROMPT_LANGUAGE_NAMES[language];
+  const { neutralGreeting, signOff } = COVER_LETTER_CONVENTIONS[language];
+  return `
+
+OUTPUT LANGUAGE — write "greeting", every string in "paragraphs", and
+"signOff" in ${name}, whatever language the profile or the job posting is
+written in. Use natural, professional ${name} and the letter-writing
+conventions a native recruiter expects:
+- With no named recipient, the greeting is the neutral ${name} salutation
+  "${neutralGreeting}" (or an equally neutral ${name} equivalent).
+- The sign-off is a conventional ${name} closing such as "${signOff}"
+- Translating never licenses a change of fact, and never an invented one:
+  every number, percentage, date, duration, and name keeps its exact value.
+- Keep employer names, product and brand names, technology and tool names,
+  degree and certification names exactly as written in the profile data.`;
+}
+
+function buildSystemPrompt(
+  tone: CoverLetterTone,
+  length: CoverLetterLength,
+  language: OutputLanguage | null,
+): string {
   return `You are an expert cover-letter writer. You write one cover letter for a
 candidate applying to one specific job posting, in ${TONE_INSTRUCTIONS[tone]}.
 
@@ -83,7 +112,7 @@ after, no markdown fences:
 
 If the profile data gives you too little to write a meaningful letter,
 still return a valid, honest JSON object — brief and conservative, never a
-fabricated addition to fill the gap.`;
+fabricated addition to fill the gap.${language ? languageRule(language) : ""}`;
 }
 
 export interface RenderedCoverLetterPrompt {
@@ -93,6 +122,8 @@ export interface RenderedCoverLetterPrompt {
   cacheKey: string;
   jobTextUsed: string;
   profileTextUsed: string;
+  /** The output language this prompt asked for, or null for none. */
+  outputLanguage: OutputLanguage | null;
 }
 
 export function renderCoverLetterPrompt(
@@ -100,8 +131,10 @@ export function renderCoverLetterPrompt(
   jobText: string,
   tone: CoverLetterTone = "formal",
   length: CoverLetterLength = "standard",
+  /** #642. Null/omitted: no language rule (the model follows the inputs). */
+  outputLanguage: OutputLanguage | null = null,
 ): RenderedCoverLetterPrompt {
-  const systemPrompt = buildSystemPrompt(tone, length);
+  const systemPrompt = buildSystemPrompt(tone, length, outputLanguage);
   const cappedJob =
     jobText.length > MAX_JOB_CHARS
       ? `${jobText.slice(0, MAX_JOB_CHARS)}\n[...truncated at ${MAX_JOB_CHARS} chars...]`
@@ -126,7 +159,7 @@ export function renderCoverLetterPrompt(
   ].join("\n");
 
   const cacheKey = createHash("sha256")
-    .update(`${COVER_LETTER_PROMPT_VERSION}::${tone}::${length}::${systemPrompt}::${user}`)
+    .update(`${COVER_LETTER_PROMPT_VERSION}::${tone}::${length}::${outputLanguage ?? "-"}::${systemPrompt}::${user}`)
     .digest("hex");
 
   return {
@@ -136,5 +169,6 @@ export function renderCoverLetterPrompt(
     cacheKey,
     jobTextUsed: cappedJob,
     profileTextUsed: cappedProfile,
+    outputLanguage,
   };
 }
