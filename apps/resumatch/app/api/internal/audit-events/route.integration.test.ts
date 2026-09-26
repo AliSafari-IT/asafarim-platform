@@ -74,6 +74,18 @@ describe.skipIf(!TEST_DB)("GET /api/internal/audit-events", () => {
     expect(body.nextCursor).toBeNull();
   });
 
+  it("returns the distinct set of actions for the filter dropdown", async () => {
+    const res = await GET(
+      new Request(`http://localhost/api/internal/audit-events?workspaceId=${workspaceId}`, {
+        headers: { authorization: `Bearer ${process.env.INTERNAL_API_SECRET}` },
+      }),
+    );
+    const body = await res.json();
+    expect(body.actions).toEqual(
+      expect.arrayContaining(["document.uploaded", "document.quarantined", "profile.confirmed"]),
+    );
+  });
+
   it("filters by action", async () => {
     const res = await GET(
       new Request(`http://localhost/api/internal/audit-events?workspaceId=${workspaceId}&action=document.quarantined`, {

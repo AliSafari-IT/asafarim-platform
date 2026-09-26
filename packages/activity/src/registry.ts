@@ -32,10 +32,10 @@ const testoraActivityAdapter = createRemoteAdapter({
 const resumatchActivityAdapter = createRemoteAdapter({
   app: "resumatch",
   baseUrl: () => envUrl("NEXT_PUBLIC_RESUMATCH_URL", "http://localhost:3012"),
-  // No listAllPath: ResuMatch has no cross-user "flagship content" browse
-  // endpoint (its old one, over TrackedJob, was removed with the pivot away
-  // from job aggregation) — same "no adapter yet" fallback as any app that
-  // never had one.
+  // Tailored resumes and cover letters are the flagship content — the
+  // actual generated output, same role as Vionto's exports / TimelineAI's
+  // timelines.
+  listAllPath: "/api/internal/user-activity/browse",
 });
 const tasksaiActivityAdapter = createRemoteAdapter({
   app: "tasksai",

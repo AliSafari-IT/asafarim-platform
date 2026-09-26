@@ -44,19 +44,27 @@ export async function GET(request: Request) {
 
   const db = getJobmatchDb();
 
-  const events = await db.auditEvent.findMany({
-    where: {
-      ...(workspaceId ? { workspaceId } : {}),
-      ...(action ? { action } : {}),
-    },
-    // `id` breaks createdAt ties. Rows written in one statement (or the
-    // same millisecond) share a timestamp, and cursor pagination over a
-    // non-unique sort key can repeat or drop rows at a page boundary.
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: limit + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    select: { id: true, workspaceId: true, action: true, metadata: true, createdAt: true },
-  });
+  // Distinct actions populate the admin console's filter dropdown — cheap
+  // (the action column has a small, closed vocabulary) and lets the viewer
+  // discover what's filterable instead of having to already know an action
+  // name to type into a query param, matching the platform audit-logs
+  // page's own `distinct: ["action"]` pattern.
+  const [events, actionRows] = await Promise.all([
+    db.auditEvent.findMany({
+      where: {
+        ...(workspaceId ? { workspaceId } : {}),
+        ...(action ? { action } : {}),
+      },
+      // `id` breaks createdAt ties. Rows written in one statement (or the
+      // same millisecond) share a timestamp, and cursor pagination over a
+      // non-unique sort key can repeat or drop rows at a page boundary.
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: { id: true, workspaceId: true, action: true, metadata: true, createdAt: true },
+    }),
+    db.auditEvent.findMany({ distinct: ["action"], select: { action: true }, orderBy: { action: "asc" } }),
+  ]);
 
   const hasMore = events.length > limit;
   const page = hasMore ? events.slice(0, limit) : events;
@@ -70,5 +78,6 @@ export async function GET(request: Request) {
       createdAt: event.createdAt.toISOString(),
     })),
     nextCursor: hasMore ? page[page.length - 1].id : null,
+    actions: actionRows.map((row: { action: string }) => row.action),
   });
 }
