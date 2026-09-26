@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Alert, Card, PageHeader } from "@asafarim/ui";
+import { Alert, PageHeader } from "@asafarim/ui";
 import { getJobmatchDb } from "../../lib/db/client";
+import { getJourneyCounts, jobKey } from "../../lib/journey";
 import { getConfirmedVersion } from "../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../lib/workspace";
+import { ActivityBars, lastNDays } from "../components/app/Charts";
+import { JourneyTracker } from "../components/app/JourneyTracker";
+import { PageHero } from "../components/app/PageHero";
+import { StatRow, StatTile } from "../components/app/Stats";
+import { BriefcaseIcon, MailIcon, SparkIcon, WarningIcon } from "../profile/icons";
 import { TailorFlow } from "./TailorFlow";
 
 export const metadata: Metadata = { title: "Tailor your CV" };
 export const dynamic = "force-dynamic";
+
+const ACTIVITY_DAYS = 14;
 
 export default async function TailorPage() {
   const workspace = await getCurrentWorkspace();
@@ -23,74 +31,144 @@ export default async function TailorPage() {
     );
   }
 
-  const confirmed = await getConfirmedVersion(workspace.id);
+  const [confirmed, journey] = await Promise.all([
+    getConfirmedVersion(workspace.id),
+    getJourneyCounts(workspace.id),
+  ]);
 
   if (!confirmed) {
     return (
-      <>
-        <PageHeader
+      <div className="rx">
+        <PageHero
           kicker="Tailor"
-          title="Confirm your profile first."
-          description="Tailoring rewrites your confirmed profile toward one job. Nothing is tailored from an unreviewed extraction."
+          title="Confirm your profile"
+          accent="first."
+          lead="Tailoring rewrites your confirmed profile toward one job. Nothing is tailored from an unreviewed extraction."
+          aside={<JourneyTracker counts={journey} current="tailor" />}
         />
-        <Alert tone="info">
-          <Link href="/profile">Go to your profile</Link> to upload a CV and confirm what was read
-          from it.
-        </Alert>
-      </>
+        <section className="rx-panel rx-panel--warm">
+          <h2 className="rx-panel__title">One step before tailoring</h2>
+          <p className="rx-panel__sub">
+            Upload a CV (or type your profile in), check what was read, and confirm it.
+          </p>
+          <Link href="/profile" className="rx-btn rx-btn--primary">
+            Go to your profile →
+          </Link>
+        </section>
+      </div>
     );
   }
 
   const db = getJobmatchDb();
-  const history = await db.tailoredResume.findMany({
-    where: { workspaceId: workspace.id },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-    select: {
-      id: true,
-      createdAt: true,
-      degraded: true,
-      targetJob: { select: { title: true, employer: true } },
-      coverLetter: { select: { id: true } },
-    },
-  });
+  const since = new Date(Date.now() - ACTIVITY_DAYS * 86_400_000);
+  const [history, coverLetters, degraded, jobs, recent] = await Promise.all([
+    db.tailoredResume.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { createdAt: "desc" },
+      take: 9,
+      select: {
+        id: true,
+        createdAt: true,
+        degraded: true,
+        templateKey: true,
+        targetJob: { select: { title: true, employer: true } },
+        coverLetter: { select: { id: true } },
+      },
+    }),
+    db.tailoredResume.count({ where: { workspaceId: workspace.id, coverLetter: { isNot: null } } }),
+    db.tailoredResume.count({ where: { workspaceId: workspace.id, degraded: true } }),
+    db.tailoredResume.findMany({
+      where: { workspaceId: workspace.id },
+      select: { targetJob: { select: { id: true, title: true, employer: true } } },
+    }),
+    db.tailoredResume.findMany({
+      where: { workspaceId: workspace.id, createdAt: { gte: since } },
+      select: { createdAt: true },
+    }),
+  ]);
+  const activity = lastNDays(
+    recent.map((r) => r.createdAt),
+    ACTIVITY_DAYS,
+  );
+  const lastTwoWeeks = activity.reduce((sum, d) => sum + d.count, 0);
+  const distinctJobs = new Set(jobs.map((r) => jobKey(r.targetJob))).size;
 
   return (
-    <>
-      <PageHeader
+    <div className="rx">
+      <PageHero
         kicker="Tailor"
-        title="Tailor your CV to a job."
-        description="Paste a job posting URL. AI rewords your summary and experience bullets toward it and reorders your skills — it never invents an employer, a date, a degree, or a skill you did not list."
+        title="Tailor your CV"
+        accent="to one job."
+        lead="Point ResuMatch at a job. AI rewords your summary and experience bullets toward it and reorders your skills — it never invents an employer, a date, a degree, or a skill you did not list."
+        aside={<JourneyTracker counts={journey} current="tailor" />}
       />
 
-      <section style={{ marginTop: "1.5rem" }}>
+      <section className="rx-flow" aria-label="Tailor a new CV">
         <TailorFlow confirmedVersionId={confirmed.id} />
       </section>
 
-      {history.length > 0 ? (
-        <section style={{ marginTop: "2rem" }}>
-          <Card title="Previously tailored">
-            <ul className="rm-history-list">
+      {journey.tailoredCount > 0 ? (
+        <>
+          <StatRow label="Your tailoring at a glance">
+            <StatTile value={journey.tailoredCount} label="tailored CVs" visual={<SparkIcon />} />
+            <StatTile value={distinctJobs} label="different jobs" visual={<BriefcaseIcon />} />
+            <StatTile
+              value={coverLetters}
+              label="with a cover letter"
+              visual={<MailIcon />}
+              tone="ok"
+            />
+            <StatTile
+              value={degraded}
+              label="degraded runs"
+              hint="Made by the fallback, without a real AI call"
+              visual={<WarningIcon />}
+              tone={degraded > 0 ? "warm" : "muted"}
+            />
+          </StatRow>
+
+          <section className="rx-panel">
+            <div className="rx-panel__head">
+              <div>
+                <h2 className="rx-panel__title">Last {ACTIVITY_DAYS} days</h2>
+                <p className="rx-panel__sub">
+                  {lastTwoWeeks} tailored CV{lastTwoWeeks === 1 ? "" : "s"} — hover a bar for the day.
+                </p>
+              </div>
+            </div>
+            <ActivityBars days={activity} label="Tailored CVs per day" />
+          </section>
+
+          <section className="rx-panel" aria-labelledby="rx-recent-title">
+            <div className="rx-panel__head">
+              <h2 id="rx-recent-title" className="rx-panel__title">
+                Previously tailored
+              </h2>
+              <Link href="/tailor/history" className="rx-link">
+                Full history & compare →
+              </Link>
+            </div>
+            <ul className="rx-cards">
               {history.map((resume) => (
-                <li key={resume.id} className="rm-history-item">
-                  <Link href={`/tailor/${resume.id}/preview`} className="rm-history-item__link">
-                    {resume.targetJob.title ?? "Tailored CV"}
-                    {resume.targetJob.employer ? ` · ${resume.targetJob.employer}` : ""}
+                <li key={resume.id}>
+                  <Link href={`/tailor/${resume.id}/preview`} className="rx-card">
+                    <span className="rx-card__title">{resume.targetJob.title ?? "Tailored CV"}</span>
+                    {resume.targetJob.employer ? (
+                      <span className="rx-card__sub">{resume.targetJob.employer}</span>
+                    ) : null}
+                    <span className="rx-card__meta">
+                      <span className="jm-mono">{resume.createdAt.toISOString().slice(0, 10)}</span>
+                      <span className="rx-pill">{resume.templateKey}</span>
+                      {resume.coverLetter ? <span className="rx-pill rx-pill--ok">+ Cover letter</span> : null}
+                      {resume.degraded ? <span className="rx-pill rx-pill--warm">Degraded</span> : null}
+                    </span>
                   </Link>
-                  <span className="rm-history-item__meta">
-                    <span className="jm-mono">{resume.createdAt.toISOString().slice(0, 10)}</span>
-                    {resume.coverLetter ? <span className="rm-badge rm-badge--neutral">+ Cover letter</span> : null}
-                    {resume.degraded ? <span className="rm-badge rm-badge--warning">Degraded</span> : null}
-                  </span>
                 </li>
               ))}
             </ul>
-            <div className="rm-history-footer">
-              <Link href="/tailor/history">View full history & compare versions →</Link>
-            </div>
-          </Card>
-        </section>
+          </section>
+        </>
       ) : null}
-    </>
+    </div>
   );
 }

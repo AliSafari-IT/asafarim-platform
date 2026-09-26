@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button, Card } from "@asafarim/ui";
+import { Button } from "@asafarim/ui";
 
 /** Deterministic, locale-independent formatting — `toLocaleString()` here
  *  produced a server/client hydration mismatch (server and browser locales
@@ -60,98 +61,102 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
     }
   }
 
+  // Group by UTC day, keeping newest-first order within and across days.
+  const days: { day: string; rows: HistoryRow[] }[] = [];
+  for (const resume of resumes) {
+    const day = formatTimestamp(resume.createdAt).slice(0, 10);
+    const last = days[days.length - 1];
+    if (last && last.day === day) last.rows.push(resume);
+    else days.push({ day, rows: [resume] });
+  }
+
   return (
-    <div>
-      <p style={{ opacity: 0.6, fontSize: "0.82rem", margin: "0 0 0.75rem" }}>
-        {selected.length === 0
-          ? "Check two versions to compare them."
-          : selected.length === 1
-            ? "Pick one more to compare."
-            : "Ready — press Compare selected below."}
-      </p>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        {resumes.map((resume) => {
-          const isSelected = selected.includes(resume.id);
-          return (
-            <Card key={resume.id}>
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "0.75rem",
-                  margin: "-0.25rem",
-                  padding: "0.25rem",
-                  borderRadius: "0.6rem",
-                  cursor: "pointer",
-                  background: isSelected ? "color-mix(in srgb, var(--rm-accent, #4338ca) 8%, transparent)" : undefined,
-                }}
-              >
-                <input type="checkbox" checked={isSelected} onChange={() => toggle(resume.id)} style={{ marginTop: "0.15rem" }} />
-                <div style={{ flex: 1 }}>
-                  <strong>{resume.targetJob.title ?? resume.targetJob.employer ?? "Untitled job"}</strong>
-                  {resume.targetJob.employer && resume.targetJob.title ? (
-                    <span style={{ opacity: 0.7 }}> · {resume.targetJob.employer}</span>
-                  ) : null}
-                  {!resume.targetJob.title && resume.targetJob.sourceUrl.startsWith("http") ? (
-                    <button
-                      type="button"
-                      className="rm-history-item__refresh"
-                      disabled={refreshingJobId === resume.targetJobId}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        refreshJob(resume.targetJobId);
-                      }}
-                    >
-                      {refreshingJobId === resume.targetJobId ? "Refreshing…" : "Refresh title"}
-                    </button>
-                  ) : null}
-                  <p className="rm-history-item__meta" style={{ margin: "0.3rem 0 0" }}>
-                    <span className="jm-mono">
-                      {formatTimestamp(resume.createdAt)} UTC · {resume.templateKey} · {resume.modelVersion}
-                    </span>
-                    {resume.coverLetter ? <span className="rm-badge rm-badge--neutral">+ Cover letter</span> : null}
-                    {resume.degraded ? <span className="rm-badge rm-badge--warning">Degraded</span> : null}
-                  </p>
-                </div>
-                <a
-                  href={`/tailor/${resume.id}/preview`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    router.push(`/tailor/${resume.id}/preview`);
-                  }}
-                  style={{ fontSize: "0.85rem", flex: "none" }}
-                >
-                  View
-                </a>
-                <a
-                  href={`/ai-usage?job=${encodeURIComponent(resume.targetJobId)}&preset=year`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    router.push(`/ai-usage?job=${encodeURIComponent(resume.targetJobId)}&preset=year`);
-                  }}
-                  style={{ fontSize: "0.85rem", flex: "none" }}
-                  aria-label={`AI cost for ${resume.targetJob.title ?? "this job"}`}
-                >
-                  AI cost
-                </a>
-              </label>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div style={{ marginTop: "1rem" }}>
+    <section className="rx-panel rx-hl" aria-labelledby="rx-hl-title">
+      <div className="rx-hl__bar">
+        <div>
+          <h2 id="rx-hl-title" className="rx-panel__title">
+            All versions
+          </h2>
+          <p className="rx-panel__sub" aria-live="polite">
+            {selected.length === 0
+              ? "Check two versions to compare them."
+              : selected.length === 1
+                ? "Pick one more to compare."
+                : "Ready — two versions selected."}
+          </p>
+        </div>
         <Button
           onClick={() => router.push(`/tailor/history/compare/${selected[0]}/${selected[1]}`)}
           disabled={selected.length !== 2}
         >
-          Compare selected
+          Compare selected ({selected.length}/2)
         </Button>
       </div>
-    </div>
+
+      {days.map(({ day, rows }) => (
+        <div key={day} className="rx-hl__day">
+          <h3 className="rx-hl__date">
+            <span className="jm-mono">{day}</span>
+            <span className="rx-hl__count">
+              {rows.length} version{rows.length === 1 ? "" : "s"}
+            </span>
+          </h3>
+          <ol className="rx-hl__items">
+            {rows.map((resume) => {
+              const isSelected = selected.includes(resume.id);
+              const title = resume.targetJob.title ?? resume.targetJob.employer ?? "Untitled job";
+              return (
+                <li
+                  key={resume.id}
+                  className={`rx-hl__item${isSelected ? " rx-hl__item--selected" : ""}${resume.degraded ? " rx-hl__item--degraded" : ""}`}
+                >
+                  <span className="rx-hl__dot" aria-hidden="true" />
+                  <label className="rx-hl__main">
+                    <input type="checkbox" checked={isSelected} onChange={() => toggle(resume.id)} />
+                    <span className="rx-hl__text">
+                      <span className="rx-hl__title">
+                        {title}
+                        {resume.targetJob.employer && resume.targetJob.title ? (
+                          <span className="rx-hl__employer"> · {resume.targetJob.employer}</span>
+                        ) : null}
+                      </span>
+                      <span className="rx-hl__meta">
+                        <span className="jm-mono">{formatTimestamp(resume.createdAt).slice(11)} UTC</span>
+                        <span className="rx-pill">{resume.templateKey}</span>
+                        <span className="jm-mono rx-hl__model">{resume.modelVersion}</span>
+                        {resume.coverLetter ? <span className="rx-pill rx-pill--ok">+ Cover letter</span> : null}
+                        {resume.degraded ? <span className="rx-pill rx-pill--warm">Degraded</span> : null}
+                      </span>
+                    </span>
+                  </label>
+                  <span className="rx-hl__actions">
+                    {!resume.targetJob.title && resume.targetJob.sourceUrl.startsWith("http") ? (
+                      <button
+                        type="button"
+                        className="rm-history-item__refresh"
+                        disabled={refreshingJobId === resume.targetJobId}
+                        onClick={() => refreshJob(resume.targetJobId)}
+                      >
+                        {refreshingJobId === resume.targetJobId ? "Refreshing…" : "Refresh title"}
+                      </button>
+                    ) : null}
+                    <Link href={`/tailor/${resume.id}/preview`} className="rx-link">
+                      View
+                    </Link>
+                    <Link
+                      href={`/ai-usage?job=${encodeURIComponent(resume.targetJobId)}&preset=year`}
+                      className="rx-link"
+                      aria-label={`AI cost for ${resume.targetJob.title ?? "this job"}`}
+                    >
+                      AI cost
+                    </Link>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      ))}
+    </section>
   );
 }
