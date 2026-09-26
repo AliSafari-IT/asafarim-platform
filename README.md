@@ -90,6 +90,26 @@ Isolated-DB apps still read platform settings: they call Admin's
 bearer instead of touching the platform database (see
 [docs/admin-settings-api.md](docs/admin-settings-api.md)).
 
+## Key Platform Features
+
+### Unified Authentication
+- **Single Sign-On**: Centralized authentication via Hub (Auth.js v5) across all protected apps
+- **Shared Session**: `.asafarim.com` cookie provides seamless app switching
+- **Role-Based Access Control**: Admin panel manages roles, permissions, and app access
+- **Platform App Registry**: Dynamic app discovery and access control per user role
+
+### Architecture Patterns
+- **Shared vs Isolated Databases**: Strategic separation of platform data from app-specific data
+- **Internal API Trust Boundary**: Secure cross-app communication via `INTERNAL_API_SECRET`
+- **AI Cost Tracking**: Vendor-neutral cost event contract for monitoring AI usage across apps
+- **Cross-App Contracts**: Versioned schemas for app integration (e.g., Testora ↔ TasksAI)
+
+### Development Experience
+- **Monorepo Structure**: pnpm workspaces with Turborepo for efficient builds
+- **Shared Packages**: Reusable UI components, auth helpers, database access, and utilities
+- **Type Safety**: Full TypeScript coverage with strict type checking
+- **Docker Compose**: Local development and production deployment consistency
+
 ## Apps
 
 | App              | Purpose                        | Dev port | Target domain          | Access                      |
@@ -142,6 +162,16 @@ pnpm dev        # run all apps in dev mode
 pnpm build      # build all apps and packages
 pnpm typecheck  # typecheck the whole workspace
 ```
+
+## Contributing
+
+For bug reports, feature requests, or general issues, please use the GitHub issue templates in `.github/ISSUE_TEMPLATE/`:
+
+- **Bug report** - Report bugs with steps to reproduce and environment details
+- **Feature request** - Suggest new features with problem statements and proposed solutions
+- **General issue** - Questions, documentation, or other non-bug/non-feature issues
+
+All templates include app/package selection for the 12 apps and 16 packages in the platform.
 
 ### Environment
 
