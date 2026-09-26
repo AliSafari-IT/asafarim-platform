@@ -15,6 +15,11 @@ import { getJobmatchDb } from "@/lib/db/client";
  * `metadata` is returned as-is: recordAuditEvent redacts it through
  * lib/observability/redact.ts before it is ever written, so nothing
  * further is stripped here.
+ *
+ * Each event also carries its workspace's `platformUserId` (null for the
+ * rare workspace-less event), so the console can show *who* acted rather
+ * than an opaque ResuMatch workspace id. It is resolved to an email there,
+ * against the platform's own user table; ResuMatch holds no copy of it.
  */
 export const dynamic = "force-dynamic";
 
@@ -38,6 +43,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const workspaceId = url.searchParams.get("workspaceId");
+  const platformUserId = url.searchParams.get("platformUserId");
   const action = url.searchParams.get("action");
   const cursor = url.searchParams.get("cursor"); // an event id to page after
   const limit = Math.min(MAX_LIMIT, Math.max(1, Number(url.searchParams.get("limit")) || DEFAULT_LIMIT));
@@ -53,6 +59,7 @@ export async function GET(request: Request) {
     db.auditEvent.findMany({
       where: {
         ...(workspaceId ? { workspaceId } : {}),
+        ...(platformUserId ? { workspace: { platformUserId } } : {}),
         ...(action ? { action } : {}),
       },
       // `id` breaks createdAt ties. Rows written in one statement (or the
@@ -61,7 +68,14 @@ export async function GET(request: Request) {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      select: { id: true, workspaceId: true, action: true, metadata: true, createdAt: true },
+      select: {
+        id: true,
+        workspaceId: true,
+        action: true,
+        metadata: true,
+        createdAt: true,
+        workspace: { select: { platformUserId: true } },
+      },
     }),
     db.auditEvent.findMany({ distinct: ["action"], select: { action: true }, orderBy: { action: "asc" } }),
   ]);
@@ -73,6 +87,7 @@ export async function GET(request: Request) {
     events: page.map((event: (typeof page)[number]) => ({
       id: event.id,
       workspaceId: event.workspaceId,
+      platformUserId: event.workspace?.platformUserId ?? null,
       action: event.action,
       metadata: event.metadata,
       createdAt: event.createdAt.toISOString(),

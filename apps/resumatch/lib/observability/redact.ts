@@ -16,23 +16,35 @@
 /** Keys whose values may appear verbatim in logs and audit metadata. */
 export const ALLOWED_KEYS = new Set([
   "action",
+  "applicationId",
   "attempt",
+  // Comma-separated field names only ("notes,followUpDate"), never values.
+  "changedFields",
   "connector",
   "correlationId",
   "count",
+  "coverLetterId",
+  "degraded",
   "durationMs",
   "environment",
   "errorName",
+  "fromStatus",
   "jobId",
   "latencyMs",
   "method",
   "ok",
   "outcome",
+  "outputLanguage",
   "path",
   "reasonCode",
   "service",
   "sourceKey",
   "status",
+  "targetJobId",
+  "toStatus",
+  // A TailoredResume id. Not "tailoredResumeId": any key containing
+  // "resume" or "cv" is FORBIDDEN_KEYS-dropped before the allow-list runs.
+  "tailoringId",
   "workspaceId",
 ]);
 

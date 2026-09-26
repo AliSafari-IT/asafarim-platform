@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { prisma } from "@asafarim/db";
 import { ROLES, hasPermission, requireRole } from "@asafarim/auth";
 import {
   Badge,
@@ -7,9 +8,9 @@ import {
   EmptyState,
   FilterBar,
   PageHeader,
-  type BadgeTone,
   type ColumnDef,
 } from "@asafarim/ui";
+import { describeResumatchEvent, resumatchActionTone } from "../../../../lib/resumatch-audit";
 
 export const metadata: Metadata = { title: "ResuMatch Audit Events" };
 
@@ -20,11 +21,17 @@ export const metadata: Metadata = { title: "ResuMatch Audit Events" };
  * instance, and the admin console never holds a second app's DB
  * credentials (issue #301's "adapters, not mega-joins" principle, applied
  * here to ResuMatch's raw audit stream rather than its user-activity feed).
+ *
+ * ResuMatch only knows an opaque platform user id per workspace; it's
+ * resolved to an email here against the platform's own user table, the
+ * same way packages/activity's remote adapter resolves owners.
  */
 
 interface AuditEventDto {
   id: string;
   workspaceId: string | null;
+  /** Absent from a ResuMatch deploy older than this page. */
+  platformUserId?: string | null;
   action: string;
   metadata: unknown;
   createdAt: string;
@@ -36,18 +43,13 @@ interface AuditEventsResponse {
   actions: string[];
 }
 
-function actionTone(action: string): BadgeTone {
-  if (action.includes("quarantined") || action.includes("failed") || action.includes("rejected")) return "danger";
-  if (action.includes("deleted") || action.includes("delete")) return "warning";
-  return "info";
-}
-
 function formatDateTime(iso: string): string {
   return iso.replace("T", " ").slice(0, 19);
 }
 
 async function getAuditEvents(params: {
   workspaceId?: string;
+  userId?: string;
   action?: string;
   cursor?: string;
 }): Promise<AuditEventsResponse | null> {
@@ -57,6 +59,7 @@ async function getAuditEvents(params: {
   const base = process.env.NEXT_PUBLIC_RESUMATCH_URL ?? "http://localhost:3012";
   const url = new URL("/api/internal/audit-events", base);
   if (params.workspaceId) url.searchParams.set("workspaceId", params.workspaceId);
+  if (params.userId) url.searchParams.set("platformUserId", params.userId);
   if (params.action) url.searchParams.set("action", params.action);
   if (params.cursor) url.searchParams.set("cursor", params.cursor);
   url.searchParams.set("limit", "50");
@@ -94,10 +97,19 @@ export default async function ResuMatchAuditLogsPage({
   const params = await searchParams;
   const data = await getAuditEvents({
     workspaceId: params.workspaceId,
+    userId: params.userId,
     action: params.action,
     cursor: params.cursor,
   });
-  const hasFilters = Boolean(params.workspaceId || params.action);
+  const hasFilters = Boolean(params.workspaceId || params.userId || params.action);
+
+  const userIds = [
+    ...new Set((data?.events ?? []).map((event) => event.platformUserId).filter((id): id is string => Boolean(id))),
+  ];
+  const users = userIds.length
+    ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, email: true, name: true } })
+    : [];
+  const userById = new Map(users.map((user) => [user.id, user]));
 
   const columns: ColumnDef<AuditEventDto>[] = [
     {
@@ -108,15 +120,35 @@ export default async function ResuMatchAuditLogsPage({
       render: (event) => formatDateTime(event.createdAt),
     },
     {
-      id: "workspace",
-      header: "Workspace",
-      mono: true,
-      render: (event) => event.workspaceId ?? <span className="u-muted">—</span>,
+      id: "user",
+      header: "User",
+      render: (event) => {
+        const user = event.platformUserId ? userById.get(event.platformUserId) : undefined;
+        if (event.platformUserId) {
+          return (
+            <a href={`/users/${event.platformUserId}`} className="ui-table__link" title={`Workspace ${event.workspaceId ?? "—"}`}>
+              {user?.email ?? user?.name ?? event.platformUserId}
+            </a>
+          );
+        }
+        return event.workspaceId ? (
+          <span className="u-mono u-muted">{event.workspaceId}</span>
+        ) : (
+          <span className="u-muted">—</span>
+        );
+      },
     },
     {
       id: "action",
       header: "Action",
-      render: (event) => <Badge tone={actionTone(event.action)}>{event.action}</Badge>,
+      render: (event) => (
+        <Badge tone={resumatchActionTone(event.action, event.metadata)}>{event.action}</Badge>
+      ),
+    },
+    {
+      id: "summary",
+      header: "What happened",
+      render: (event) => describeResumatchEvent(event.action, event.metadata) ?? <span className="u-muted">—</span>,
     },
     {
       id: "detail",
@@ -153,7 +185,7 @@ export default async function ResuMatchAuditLogsPage({
         kicker="Event stream"
         kickerIndex="RESUMATCH"
         title="ResuMatch Audit Events"
-        description="ResuMatch's own audit trail — uploads, scans, extractions, profile changes, tailoring, and deletions — read live from its isolated database through its internal API. Newest first."
+        description="ResuMatch's own audit trail — uploads, scans, profile changes, tailored CVs and cover letters, applications and their status changes (applied, interviewing, offer, rejected), and deletions — read live from its isolated database through its internal API. Newest first."
       />
 
       {data === null ? (
@@ -169,6 +201,14 @@ export default async function ResuMatchAuditLogsPage({
             hasFilters={hasFilters}
             clearHref="/audit-logs/resumatch"
             fields={[
+              {
+                kind: "text",
+                name: "userId",
+                label: "user",
+                value: params.userId ?? "",
+                placeholder: "platform user id…",
+                width: 14,
+              },
               {
                 kind: "text",
                 name: "workspaceId",
@@ -209,6 +249,7 @@ export default async function ResuMatchAuditLogsPage({
               <a
                 href={`/audit-logs/resumatch?${new URLSearchParams({
                   ...(params.workspaceId ? { workspaceId: params.workspaceId } : {}),
+                  ...(params.userId ? { userId: params.userId } : {}),
                   ...(params.action ? { action: params.action } : {}),
                   cursor: data.nextCursor,
                 }).toString()}`}

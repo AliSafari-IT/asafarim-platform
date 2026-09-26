@@ -528,6 +528,9 @@ function UserActivitySection({
         <p style={{ marginBottom: "var(--space-3)" }}>
           <a href={`${basePath}/vionto`} className="ui-btn ui-btn--ghost ui-btn--sm">
             open full, paginated Vionto job history →
+          </a>{" "}
+          <a href={`/audit-logs/resumatch?userId=${userId}`} className="ui-btn ui-btn--ghost ui-btn--sm">
+            open ResuMatch audit trail (applications, status changes) →
           </a>
         </p>
 

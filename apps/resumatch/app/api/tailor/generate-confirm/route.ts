@@ -4,7 +4,7 @@ import { getVersion } from "../../../../lib/profile/versions";
 import { mergeTailoringSuggestions, parseTailorSuggestions } from "../../../../lib/tailoring/ai/schema";
 import { buildCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/generate";
 import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLetter/schema";
-import { getCurrentWorkspace } from "../../../../lib/workspace";
+import { getCurrentWorkspace, recordAuditEvent } from "../../../../lib/workspace";
 import { appliedCoverLetterLanguage, appliedOutputLanguage } from "../../../../lib/tailoring/language";
 
 export const dynamic = "force-dynamic";
@@ -141,7 +141,13 @@ export async function POST(request: Request) {
       // if some AI-written prose was kept (see appliedOutputLanguage).
       outputLanguage: appliedOutputLanguage(preview.outputLanguage, degraded, suggestions),
     },
-    select: { id: true },
+    select: { id: true, outputLanguage: true },
+  });
+  await recordAuditEvent(workspace.id, "tailoring.created", {
+    tailoringId: row.id,
+    targetJobId,
+    degraded,
+    outputLanguage: row.outputLanguage ?? "",
   });
 
   // The letter is declined by omitting `coverLetter` or sending
@@ -183,9 +189,16 @@ export async function POST(request: Request) {
           preview.coverLetterDegraded === true,
         ),
       },
-      select: { id: true },
+      select: { id: true, degraded: true, outputLanguage: true },
     });
     coverLetterId = letterRow.id;
+    await recordAuditEvent(workspace.id, "cover_letter.created", {
+      coverLetterId: letterRow.id,
+      tailoringId: row.id,
+      targetJobId,
+      degraded: letterRow.degraded,
+      outputLanguage: letterRow.outputLanguage ?? "",
+    });
   }
 
   return NextResponse.json({ id: row.id, coverLetterId });
