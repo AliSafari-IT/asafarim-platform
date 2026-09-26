@@ -77,12 +77,18 @@ export const edumatchActivityAdapter: UserActivityAdapter = {
           status: b.status,
           createdAt: b.createdAt,
           updatedAt: b.updatedAt,
-          // Both /student/bookings and /tutor/bookings are flat lists —
-          // neither has a [id] detail route (the only per-booking page,
-          // /tutor/sessions/[bookingId], is a tutor-only session-note
-          // editor, not a generic viewer either side could use) — so this
-          // links to the list, not a fabricated per-item URL that 404s.
-          href: `${base}/${b.studentId === userId ? "student" : "tutor"}/bookings`,
+          // Neither /student/bookings nor /tutor/bookings has a [id] detail
+          // route (the only per-booking page, /tutor/sessions/[bookingId],
+          // is a tutor-only session-note editor, not a generic viewer), and
+          // a bare list page would show the *viewing admin's own* bookings
+          // (usually none) rather than this entry's actual person. The
+          // admin-only /admin/bookings view (gated to the platform
+          // admin/superadmin roles this User 360 explorer is already
+          // restricted to — plus EduMatch's own edumatch_admin, which every
+          // viewer here already outranks) accepts a studentId/tutorId
+          // filter, so this links there, scoped to whichever side `userId`
+          // is on.
+          href: `${base}/admin/bookings?${b.studentId === userId ? "studentId" : "tutorId"}=${userId}`,
           metadata: { scheduledAt: b.scheduledAt, role: b.studentId === userId ? "student" : "tutor" },
         })
       ),
@@ -148,10 +154,12 @@ export const edumatchActivityAdapter: UserActivityAdapter = {
         status: b.status,
         createdAt: b.createdAt,
         updatedAt: b.updatedAt,
-        // See getActivity's own booking href above — no [id] detail route
-        // exists for a booking on either side, so this links to the
-        // student's list rather than a fabricated per-item URL.
-        href: `${base}/student/bookings`,
+        // See getActivity's own booking href above for why this isn't a
+        // fabricated per-item URL, and why not a bare list page either:
+        // scoped to the student who generated this entry, on the
+        // superadmin-only admin view, not the viewing admin's own
+        // (nonexistent) bookings.
+        href: `${base}/admin/bookings?studentId=${b.studentId}`,
         metadata: {
           scheduledAt: b.scheduledAt,
           tutorEmail: b.tutor.email,
