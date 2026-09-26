@@ -21,7 +21,9 @@ export function RadialTimeline({ timeline }: { timeline: RenderableTimeline }) {
   // the viewBox by default, cutting off the label's leading or trailing
   // characters (most visible on the left side, where it eats the first
   // letter or two of the word).
-  const margin = 70;
+  // Avatar mode pushes labels 10px further out (see labelOffset), so the
+  // canvas margin grows to keep the longest (17-char) label inside the viewBox.
+  const margin = avatars ? 100 : 70;
   const viewSize = size + margin * 2;
   const center = viewSize / 2;
 
