@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { PageHeader } from "@asafarim/ui";
+import { getTranslator } from "../lib/i18n-server";
 
-export default function NotFound() {
+export default async function NotFound() {
+  const { t } = await getTranslator();
   return (
     <>
-      <PageHeader kicker="404" title="That page does not exist." />
+      <PageHeader kicker="404" title={t("resumatch.notFound.title")} />
       <p className="jm-note">
         <Link href="/" className="jm-mono">
-          Back to the overview →
+          {t("resumatch.notFound.back")}
         </Link>
       </p>
     </>

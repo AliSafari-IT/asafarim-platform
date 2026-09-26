@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslator } from "../lib/i18n-server";
 import { ShowcaseNotice } from "./components/ShowcaseNotice";
 import { HeroIllustration } from "./components/landing/HeroIllustration";
 import { RewriteDiff } from "./components/landing/RewriteDiff";
@@ -16,56 +17,62 @@ import {
   UploadIcon,
 } from "./profile/icons";
 
-export const metadata: Metadata = { title: "Overview" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: t("resumatch.nav.overview") };
+}
 
 /** Circumference helper for the stat-tile rings. */
 const C = (r: number) => 2 * Math.PI * r;
 
-const CAN_CHANGE = ["Summary", "Headline", "Experience bullets", "Bullet order"];
-const LOCKED = ["Employers", "Dates", "Degrees", "Skills you didn't list"];
-const NO_FIELD = ["Age", "Nationality", "Gender"];
+/** Pill keys (resumatch.landing.pill.<key>) for the three "what AI may
+ *  touch" zones. */
+const CAN_CHANGE = ["summary", "headline", "bullets", "order"];
+const LOCKED = ["employers", "dates", "degrees", "unlistedSkills"];
+const NO_FIELD = ["age", "nationality", "gender"];
 
-export default function ResuMatchOverviewPage() {
+export default async function ResuMatchOverviewPage() {
+  const { t } = await getTranslator();
   return (
     <div className="lp">
       {/* ─── Hero ─────────────────────────────────────────────────────── */}
       <section className="lp-hero">
         <div className="lp-hero__copy">
           <span className="lp-eyebrow">
-            <span className="lp-eyebrow__pulse" /> Building in the open
+            <span className="lp-eyebrow__pulse" /> {t("resumatch.landing.eyebrow")}
           </span>
           <h1 className="lp-hero__title">
-            Your CV, <span className="lp-hero__accent">tailored</span> to one job.
+            {t("resumatch.landing.hero.before")}
+            <span className="lp-hero__accent">{t("resumatch.landing.hero.accent")}</span>
+            {t("resumatch.landing.hero.after")}
           </h1>
           <p className="lp-hero__lead">
-            Paste the URL of a job you want. ResuMatch reads it, rewrites your confirmed profile
-            toward it with AI, and hands you a downloadable PDF — without ever inventing a fact
-            about you.
+            {t("resumatch.landing.hero.lead")}
           </p>
           <div className="lp-hero__ctas">
             <Link href="/profile" className="lp-btn lp-btn--primary">
-              Build your profile <ArrowRightIcon />
+              {t("resumatch.landing.cta.build")} <ArrowRightIcon />
             </Link>
             <a href="#how-it-works" className="lp-btn lp-btn--ghost">
               <span className="lp-btn__play" aria-hidden="true">
                 ▶
               </span>
-              See how it works
+              {t("resumatch.landing.cta.how")}
             </a>
           </div>
           <p className="lp-hero__note">
-            <KeyIcon /> Sign in with your platform account — no new password.
+            <KeyIcon /> {t("resumatch.landing.hero.note")}
           </p>
         </div>
         <div className="lp-hero__art">
-          <HeroIllustration />
+          <HeroIllustration t={t} />
         </div>
       </section>
 
       <ShowcaseNotice />
 
       {/* ─── Numbers, drawn ───────────────────────────────────────────── */}
-      <section className="lp-stats" aria-label="ResuMatch in three numbers">
+      <section className="lp-stats" aria-label={t("resumatch.landing.stats.aria")}>
         <div className="lp-stat">
           <svg viewBox="0 0 80 80" className="lp-stat__viz" aria-hidden="true">
             <circle cx="40" cy="40" r="32" className="lp-stat__track" />
@@ -83,8 +90,8 @@ export default function ResuMatchOverviewPage() {
           </svg>
           <div>
             <strong className="lp-stat__num">0</strong>
-            <span className="lp-stat__label">fabricated facts</span>
-            <span className="lp-stat__sub">Every line traces back to your confirmed profile.</span>
+            <span className="lp-stat__label">{t("resumatch.landing.stat1.label")}</span>
+            <span className="lp-stat__sub">{t("resumatch.landing.stat1.sub")}</span>
           </div>
         </div>
 
@@ -97,8 +104,8 @@ export default function ResuMatchOverviewPage() {
           </svg>
           <div>
             <strong className="lp-stat__num">1</strong>
-            <span className="lp-stat__label">job at a time</span>
-            <span className="lp-stat__sub">On purpose — no mass-applying, no scraping at scale.</span>
+            <span className="lp-stat__label">{t("resumatch.landing.stat2.label")}</span>
+            <span className="lp-stat__sub">{t("resumatch.landing.stat2.sub")}</span>
           </div>
         </div>
 
@@ -114,13 +121,13 @@ export default function ResuMatchOverviewPage() {
               transform="rotate(-90 40 40)"
             />
             <text x="40" y="47" textAnchor="middle" className="lp-stat__viz-text">
-              90d
+              {t("resumatch.landing.stat3.viz")}
             </text>
           </svg>
           <div>
-            <strong className="lp-stat__num">90 days</strong>
-            <span className="lp-stat__label">then auto-deleted</span>
-            <span className="lp-stat__sub">Originals go automatically — or sooner, with one click.</span>
+            <strong className="lp-stat__num">{t("resumatch.landing.stat3.num")}</strong>
+            <span className="lp-stat__label">{t("resumatch.landing.stat3.label")}</span>
+            <span className="lp-stat__sub">{t("resumatch.landing.stat3.sub")}</span>
           </div>
         </div>
       </section>
@@ -128,8 +135,8 @@ export default function ResuMatchOverviewPage() {
       {/* ─── How it works: a track, not three cards ───────────────────── */}
       <section id="how-it-works" className="lp-section">
         <header className="lp-section__head">
-          <span className="lp-kicker">How it works</span>
-          <h2 className="lp-section__title">Three steps. Nothing hidden in between.</h2>
+          <span className="lp-kicker">{t("resumatch.landing.how.kicker")}</span>
+          <h2 className="lp-section__title">{t("resumatch.landing.how.title")}</h2>
         </header>
 
         <ol className="lp-track">
@@ -141,11 +148,11 @@ export default function ResuMatchOverviewPage() {
               <span className="lp-mock__bar">
                 <span className="lp-mock__bar-fill" />
               </span>
-              <span className="lp-mock__ok">✓ Malware scan passed</span>
+              <span className="lp-mock__ok">{t("resumatch.landing.how.scanPassed")}</span>
             </div>
-            <h3 className="lp-track__title">Upload your CV</h3>
+            <h3 className="lp-track__title">{t("resumatch.landing.how.step1.title")}</h3>
             <p className="lp-track__body">
-              Scanned first, then read into a profile you correct before anything else touches it.
+              {t("resumatch.landing.how.step1.body")}
             </p>
           </li>
           <li className="lp-track__step">
@@ -155,12 +162,11 @@ export default function ResuMatchOverviewPage() {
                 <LinkIcon />
                 <span className="lp-mock__typed">careers.example.com/frontend</span>
               </span>
-              <span className="lp-mock__btn">Fetch job</span>
+              <span className="lp-mock__btn">{t("resumatch.flow.fetch")}</span>
             </div>
-            <h3 className="lp-track__title">Paste a job URL</h3>
+            <h3 className="lp-track__title">{t("resumatch.landing.how.step2.title")}</h3>
             <p className="lp-track__body">
-              The one job you actually want. Fetched directly — no job-board licensing, no bulk
-              scraping.
+              {t("resumatch.landing.how.step2.body")}
             </p>
           </li>
           <li className="lp-track__step">
@@ -173,12 +179,12 @@ export default function ResuMatchOverviewPage() {
                 <b>PDF</b>
               </span>
               <span className="lp-mock__btn lp-mock__btn--warm">
-                <DownloadIcon /> Download
+                <DownloadIcon /> {t("resumatch.landing.how.download")}
               </span>
             </div>
-            <h3 className="lp-track__title">Download the tailored PDF</h3>
+            <h3 className="lp-track__title">{t("resumatch.landing.how.step3.title")}</h3>
             <p className="lp-track__body">
-              AI rewords and reprioritizes your confirmed profile toward that job. Print-ready.
+              {t("resumatch.landing.how.step3.body")}
             </p>
           </li>
         </ol>
@@ -188,50 +194,48 @@ export default function ResuMatchOverviewPage() {
       <section className="lp-section lp-section--panel">
         <header className="lp-section__head">
           <span className="lp-kicker">
-            <SparkIcon /> What tailoring does
+            <SparkIcon /> {t("resumatch.landing.rewrite.kicker")}
           </span>
-          <h2 className="lp-section__title">Reordered and reworded. Never invented.</h2>
-          <p className="lp-section__lead">
-            Follow the lines: every bullet on the right comes from one on the left.
-          </p>
+          <h2 className="lp-section__title">{t("resumatch.landing.rewrite.title")}</h2>
+          <p className="lp-section__lead">{t("resumatch.landing.rewrite.lead")}</p>
         </header>
-        <RewriteDiff />
+        <RewriteDiff t={t} />
 
         <div className="lp-zones">
           <div className="lp-zone lp-zone--can">
             <p className="lp-zone__title">
-              <SparkIcon /> AI may reword
+              <SparkIcon /> {t("resumatch.landing.zone.can")}
             </p>
             <ul className="lp-zone__pills">
               {CAN_CHANGE.map((item) => (
                 <li key={item} className="lp-pill lp-pill--can">
-                  {item}
+                  {t(`resumatch.landing.pill.${item}`)}
                 </li>
               ))}
             </ul>
           </div>
           <div className="lp-zone lp-zone--locked">
             <p className="lp-zone__title">
-              <LockIcon /> Locked — never changed
+              <LockIcon /> {t("resumatch.landing.zone.locked")}
             </p>
             <ul className="lp-zone__pills">
               {LOCKED.map((item) => (
                 <li key={item} className="lp-pill lp-pill--locked">
-                  {item}
+                  {t(`resumatch.landing.pill.${item}`)}
                 </li>
               ))}
             </ul>
           </div>
           <div className="lp-zone lp-zone--none">
-            <p className="lp-zone__title">∅ No field exists</p>
+            <p className="lp-zone__title">∅ {t("resumatch.landing.zone.none")}</p>
             <ul className="lp-zone__pills">
               {NO_FIELD.map((item) => (
                 <li key={item} className="lp-pill lp-pill--none">
-                  {item}
+                  {t(`resumatch.landing.pill.${item}`)}
                 </li>
               ))}
             </ul>
-            <p className="lp-zone__note">Nothing to store, so nothing to infer.</p>
+            <p className="lp-zone__note">{t("resumatch.landing.zone.noneNote")}</p>
           </div>
         </div>
       </section>
@@ -239,8 +243,8 @@ export default function ResuMatchOverviewPage() {
       {/* ─── Your CV's lifecycle ──────────────────────────────────────── */}
       <section className="lp-section">
         <header className="lp-section__head">
-          <span className="lp-kicker">Your CV’s journey</span>
-          <h2 className="lp-section__title">From upload to gone, every stop is visible.</h2>
+          <span className="lp-kicker">{t("resumatch.landing.journey.kicker")}</span>
+          <h2 className="lp-section__title">{t("resumatch.landing.journey.title")}</h2>
         </header>
 
         <ol className="lp-flow">
@@ -248,58 +252,55 @@ export default function ResuMatchOverviewPage() {
             <span className="lp-flow__icon">
               <UploadIcon />
             </span>
-            <strong>Upload</strong>
-            <span>PDF, DOCX, or TXT</span>
+            <strong>{t("resumatch.landing.journey.upload")}</strong>
+            <span>{t("resumatch.landing.journey.uploadSub")}</span>
           </li>
           <li className="lp-flow__stop lp-flow__stop--gate">
             <span className="lp-flow__icon">
               <ShieldAlertIcon />
             </span>
-            <strong>Malware scan</strong>
-            <span>Nothing opens it first</span>
-            <em className="lp-flow__branch">No answer? → quarantined, never processed</em>
+            <strong>{t("resumatch.landing.journey.scan")}</strong>
+            <span>{t("resumatch.landing.journey.scanSub")}</span>
+            <em className="lp-flow__branch">{t("resumatch.landing.journey.scanBranch")}</em>
           </li>
           <li className="lp-flow__stop">
             <span className="lp-flow__icon">
               <KeyIcon />
             </span>
-            <strong>You confirm</strong>
-            <span>Your profile, not a parser’s guess</span>
+            <strong>{t("resumatch.landing.journey.confirm")}</strong>
+            <span>{t("resumatch.landing.journey.confirmSub")}</span>
           </li>
           <li className="lp-flow__stop">
             <span className="lp-flow__icon">
               <SparkIcon />
             </span>
-            <strong>Tailored</strong>
-            <span>Toward one job</span>
+            <strong>{t("resumatch.landing.journey.tailored")}</strong>
+            <span>{t("resumatch.landing.journey.tailoredSub")}</span>
           </li>
           <li className="lp-flow__stop lp-flow__stop--end">
             <span className="lp-flow__icon">
               <DownloadIcon />
             </span>
-            <strong>Your PDF</strong>
-            <span>Review, then use</span>
+            <strong>{t("resumatch.landing.journey.pdf")}</strong>
+            <span>{t("resumatch.landing.journey.pdfSub")}</span>
           </li>
         </ol>
 
-        <div className="lp-retention" role="img" aria-label="Retention: originals are deleted automatically after 90 days, and you can delete everything at any time before that.">
+        <div className="lp-retention" role="img" aria-label={t("resumatch.landing.retention.aria")}>
           <div className="lp-retention__bar">
             <span className="lp-retention__fill" />
             <span className="lp-retention__marker" style={{ left: "38%" }}>
               <TrashIcon />
-              <em>Delete everything — one click, any day</em>
+              <em>{t("resumatch.landing.retention.marker")}</em>
             </span>
           </div>
           <div className="lp-retention__scale">
-            <span>Day 0 · upload</span>
-            <span>Day 30</span>
-            <span>Day 60</span>
-            <span className="lp-retention__end">Day 90 · auto-deleted</span>
+            <span>{t("resumatch.landing.retention.day0")}</span>
+            <span>{t("resumatch.landing.retention.day", { n: 30 })}</span>
+            <span>{t("resumatch.landing.retention.day", { n: 60 })}</span>
+            <span className="lp-retention__end">{t("resumatch.landing.retention.day90")}</span>
           </div>
-          <p className="lp-retention__note">
-            One click removes your file, every profile version, every fetched job page, and every
-            tailored CV.
-          </p>
+          <p className="lp-retention__note">{t("resumatch.landing.retention.note")}</p>
         </div>
       </section>
 
@@ -307,13 +308,10 @@ export default function ResuMatchOverviewPage() {
       <section className="lp-section lp-section--split">
         <header className="lp-section__head">
           <span className="lp-kicker">
-            <LockIcon /> Built to be trusted
+            <LockIcon /> {t("resumatch.landing.security.kicker")}
           </span>
-          <h2 className="lp-section__title">Four walls around your CV.</h2>
-          <p className="lp-section__lead">
-            A request passes every ring before it reaches your data. Pick a layer to see what it
-            does.
-          </p>
+          <h2 className="lp-section__title">{t("resumatch.landing.security.title")}</h2>
+          <p className="lp-section__lead">{t("resumatch.landing.security.lead")}</p>
         </header>
         <SecurityLayers />
       </section>
@@ -321,8 +319,8 @@ export default function ResuMatchOverviewPage() {
       {/* ─── Final CTA ────────────────────────────────────────────────── */}
       <section className="lp-cta">
         <div className="lp-cta__copy">
-          <h2>Ready to tailor your first CV?</h2>
-          <p>Upload once, confirm your profile, and point it at the job you want.</p>
+          <h2>{t("resumatch.landing.final.title")}</h2>
+          <p>{t("resumatch.landing.final.body")}</p>
         </div>
         <Link href="/profile" className="lp-btn lp-btn--light">
           Build your profile <ArrowRightIcon />

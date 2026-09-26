@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 
 /**
  * The four platform-level protections drawn as rings around the CV they
@@ -9,30 +10,15 @@ import { useState } from "react";
  * the detail; the list itself stays readable without the diagram.
  */
 
-const LAYERS = [
-  {
-    title: "Deny-by-default routing",
-    body: "Only the landing and legal pages are public. Every other surface requires a session, checked again at the data boundary.",
-  },
-  {
-    title: "Shared sign-in",
-    body: "Hub issues the session, ResuMatch only reads it. There is no second password to manage or leak.",
-  },
-  {
-    title: "Redacted observability",
-    body: "Every log line and audit row passes an allow-list. CV text and job-page content cannot reach a log sink by accident.",
-  },
-  {
-    title: "Isolated database",
-    body: "Its own PostgreSQL instance and credentials. It stores an opaque platform user id and never copies the platform user table.",
-  },
-];
+/** resumatch.landing.layer<n>.title / .body, outermost ring first. */
+const LAYERS = ["layer1", "layer2", "layer3", "layer4"];
 
 /** Outer edge of each ring band; every band is BAND wide. */
 const RADII = [150, 120, 90, 60];
 const BAND = 28;
 
 export function SecurityLayers() {
+  const { t } = useTranslation();
   const [active, setActive] = useState(0);
 
   return (
@@ -66,7 +52,7 @@ export function SecurityLayers() {
 
       <ol className="lp-layers__list">
         {LAYERS.map((layer, i) => (
-          <li key={layer.title}>
+          <li key={layer}>
             <button
               type="button"
               className={i === active ? "lp-layer lp-layer--active" : "lp-layer"}
@@ -76,10 +62,10 @@ export function SecurityLayers() {
               onFocus={() => setActive(i)}
             >
               <span className="lp-layer__num">{i + 1}</span>
-              <span className="lp-layer__title">{layer.title}</span>
+              <span className="lp-layer__title">{t(`resumatch.landing.${layer}.title`)}</span>
             </button>
             <p className="lp-layer__body" hidden={i !== active}>
-              {layer.body}
+              {t(`resumatch.landing.${layer}.body`)}
             </p>
           </li>
         ))}

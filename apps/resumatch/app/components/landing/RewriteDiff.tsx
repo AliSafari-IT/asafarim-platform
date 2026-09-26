@@ -6,43 +6,43 @@
  *
  * Rows have a fixed height so the connector SVG (a plain 100-wide viewBox
  * stretched to the column) can place its curve ends at exact row centres.
+ * The example bullets are UI copy (resumatch.landing.diff.*), so they follow
+ * the UI language like the rest of the page.
  */
+import type { TranslateFn } from "@asafarim/shared-i18n";
 
 const ROW_H = 56;
 const GAP = 10;
 
-const BEFORE = [
-  "Led migration of the billing service to Go",
-  "Mentored four junior engineers",
-  "Rebuilt the checkout UI in React + TypeScript",
-  "Cut page load time by 40%",
-  "Ran a WCAG 2.1 AA accessibility audit",
-];
+/** Dictionary keys for the five "before" bullets. */
+const BEFORE = ["b1", "b2", "b3", "b4", "b5"];
 
-/** `from` indexes BEFORE; `reworded` marks a bullet whose wording changed. */
+/** `from` indexes BEFORE; `key` is the bullet's text afterwards — a
+ *  reworded one has its own key, an unchanged one reuses its original. */
 const AFTER = [
-  { from: 2, text: "Rebuilt the checkout experience in React and TypeScript", reworded: true },
-  { from: 4, text: "Audited the product against WCAG 2.1 AA and fixed the gaps", reworded: true },
-  { from: 3, text: "Cut page load time by 40%", reworded: false },
-  { from: 1, text: "Mentored four junior engineers", reworded: false },
-  { from: 0, text: "Led migration of the billing service to Go", reworded: false },
+  { from: 2, key: "r3", reworded: true },
+  { from: 4, key: "r5", reworded: true },
+  { from: 3, key: "b4", reworded: false },
+  { from: 1, key: "b2", reworded: false },
+  { from: 0, key: "b1", reworded: false },
 ];
 
 const centre = (i: number) => i * (ROW_H + GAP) + ROW_H / 2;
 const HEIGHT = BEFORE.length * ROW_H + (BEFORE.length - 1) * GAP;
 
-export function RewriteDiff() {
+export function RewriteDiff({ t }: { t: TranslateFn }) {
+  const bullet = (key: string) => t(`resumatch.landing.diff.${key}`);
   return (
     <figure className="lp-diff" style={{ ["--lp-row-h" as string]: `${ROW_H}px`, ["--lp-row-gap" as string]: `${GAP}px` }}>
       <div className="lp-diff__col">
         <p className="lp-diff__head">
-          <span className="lp-diff__dot" /> Your confirmed profile
+          <span className="lp-diff__dot" /> {t("resumatch.landing.diff.before")}
         </p>
         <ol className="lp-diff__list">
-          {BEFORE.map((text, i) => (
-            <li key={text} className="lp-diff__row">
+          {BEFORE.map((key, i) => (
+            <li key={key} className="lp-diff__row">
               <span className="lp-diff__n">{i + 1}</span>
-              {text}
+              {bullet(key)}
             </li>
           ))}
         </ol>
@@ -61,7 +61,7 @@ export function RewriteDiff() {
           const moved = row.from !== to;
           return (
             <path
-              key={row.text}
+              key={row.key}
               d={`M0 ${y1} C 50 ${y1}, 50 ${y2}, 100 ${y2}`}
               fill="none"
               vectorEffect="non-scaling-stroke"
@@ -73,27 +73,29 @@ export function RewriteDiff() {
 
       <div className="lp-diff__col">
         <p className="lp-diff__head">
-          <span className="lp-diff__dot lp-diff__dot--accent" /> Tailored for “Frontend Engineer”
+          <span className="lp-diff__dot lp-diff__dot--accent" />{" "}
+          {t("resumatch.landing.diff.after", { role: t("resumatch.landing.diff.role") })}
         </p>
         <ol className="lp-diff__list">
           {AFTER.map((row, to) => (
             <li
-              key={row.text}
+              key={row.key}
               className={row.from > to ? "lp-diff__row lp-diff__row--up" : "lp-diff__row"}
             >
               <span className="lp-diff__n">{to + 1}</span>
-              <span className="lp-diff__text">{row.text}</span>
+              <span className="lp-diff__text">{bullet(row.key)}</span>
               <span className="lp-diff__tags">
-                {row.from > to ? <span className="lp-tag lp-tag--up">▲ was #{row.from + 1}</span> : null}
-                {row.reworded ? <span className="lp-tag">reworded</span> : null}
+                {row.from > to ? (
+                  <span className="lp-tag lp-tag--up">{t("resumatch.landing.diff.wasN", { n: row.from + 1 })}</span>
+                ) : null}
+                {row.reworded ? <span className="lp-tag">{t("resumatch.landing.diff.reworded")}</span> : null}
               </span>
             </li>
           ))}
         </ol>
       </div>
       <figcaption className="lp-diff__caption">
-        Illustrative example. Same five facts on both sides — reordered toward the job, two reworded,
-        none added.
+        {t("resumatch.landing.diff.caption")}
       </figcaption>
     </figure>
   );

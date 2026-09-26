@@ -27,8 +27,6 @@ import { getTranslator } from "../lib/i18n-server";
 
 const appUrl = process.env.NEXT_PUBLIC_RESUMATCH_URL ?? "https://resumatch.asafarim.com";
 const appName = "ResuMatch";
-const appDescription =
-  "AI-tailored CVs: paste a job posting URL and rewrite your resume toward it, then download it as a PDF.";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -36,19 +34,22 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export const metadata: Metadata = {
-  metadataBase: new URL(appUrl),
-  title: {
-    default: `${appName} | AI-tailored CVs`,
-    template: "%s | ResuMatch",
-  },
-  description: appDescription,
-  applicationName: appName,
-  icons: { icon: "/favicon.svg" },
-  // Nothing is indexable until the M0 legal decisions (JM-001, JM-005,
-  // JM-008) are recorded and candidate terms exist.
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return {
+    metadataBase: new URL(appUrl),
+    title: {
+      default: `${appName} | ${t("resumatch.meta.tagline")}`,
+      template: "%s | ResuMatch",
+    },
+    description: t("resumatch.meta.description"),
+    applicationName: appName,
+    icons: { icon: "/favicon.svg" },
+    // Nothing is indexable until the M0 legal decisions (JM-001, JM-005,
+    // JM-008) are recorded and candidate terms exist.
+    robots: { index: false, follow: false },
+  };
+}
 
 const NAV_ITEMS = [
   { key: "resumatch.nav.overview", href: "/" },
