@@ -1,6 +1,6 @@
 {
   "name": "@asafarim/admin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "ASafarIM Admin - internal admin panel (admin.asafarim.com)",
   "scripts": {

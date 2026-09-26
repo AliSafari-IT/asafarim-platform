@@ -24,7 +24,9 @@ port **3003**. Access requires `admin` or `superadmin` role.
   powered by `@asafarim/seed-manager`.
 - **Settings** (`/settings`) — platform-wide settings
   (`PlatformSetting` key/value store).
-- **Devices** (`/devices`) — session/device management.
+- **Devices** (`/devices`) — read-only list of machines on the ASafarIM
+  tailnet, fetched from the Tailscale API. See
+  [Tailscale (Devices page)](#tailscale-devices-page).
 - **Subscriptions** (`/subscriptions`) — subscription overview.
 
 ## Stack
@@ -59,6 +61,37 @@ passes.
 Admin reads the shared root `.env.local`. Key variables: `DATABASE_URL`,
 `AUTH_SECRET`, `AUTH_URL`, `REDIS_URL` (for queue depth probes),
 `NEXT_PUBLIC_*_URL`.
+
+### Tailscale (Devices page)
+
+The Devices page calls `GET /api/v2/tailnet/{tailnet}/devices` and sends
+`TAILSCALE_API_KEY` as a `Bearer` token
+(`lib/server/tailscale.ts`). It needs:
+
+| Variable | Value |
+|---|---|
+| `TAILSCALE_API_KEY` | An **API access token** (`tskey-api-...`) |
+| `TAILSCALE_TAILNET` | Your tailnet ID or name, or `-` for the key's own tailnet |
+| `TAILSCALE_WEBHOOK_SECRET` | Webhook signing secret (`tskey-webhook-...`), used by `/api/webhooks/tailscale` |
+
+Tailscale has several key types, and only one of them works here:
+
+| Prefix | What it is | Works? |
+|---|---|---|
+| `tskey-api-` | API access token | ✅ |
+| `tskey-auth-` | Auth key, for joining a machine to the tailnet | ❌ 401 `API token invalid` |
+| `tskey-client-` | OAuth client secret | ❌ must first be exchanged for an access token, which the code does not do yet |
+
+Generate the token at
+<https://login.tailscale.com/admin/settings/keys> → **API access
+tokens**. API access tokens expire after at most **90 days**. When the
+page shows *Could not reach Tailscale — 401*, the token is expired,
+revoked, or the wrong key type: generate a new one and redeploy.
+
+In production the value lives in the encrypted `.env.production.age`.
+Update it by decrypting, editing, re-encrypting and committing — editing
+`.env.production` on the VPS is overwritten on the next decrypt. See
+[docs/environment-management.md](../../docs/environment-management.md).
 
 ### Database
 
