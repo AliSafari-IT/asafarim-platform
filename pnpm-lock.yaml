@@ -531,9 +531,15 @@ importers:
       '@asafarim/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@asafarim/country-language-selector':
+        specifier: workspace:*
+        version: link:../../packages/country-language-selector
       '@asafarim/settings-client':
         specifier: workspace:*
         version: link:../../packages/settings-client
+      '@asafarim/shared-i18n':
+        specifier: workspace:*
+        version: link:../../packages/shared-i18n
       '@asafarim/storage':
         specifier: workspace:*
         version: link:../../packages/storage

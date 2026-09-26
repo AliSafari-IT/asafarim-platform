@@ -4538,3 +4538,36 @@
   border-color: var(--accent);
   background: var(--surface-2);
 }
+
+/* The language bar (#640) takes ~80px of header space, which pushed the
+   last of ResuMatch's eight nav items ("AI usage") out of view on common
+   laptop widths. Between the mobile-menu breakpoint (900px) and 1440px the
+   nav links are a touch tighter so all eight stay visible at ~1260px+;
+   wider screens keep the default spacing. The language label (EN/NL/FR/DE)
+   is kept rather than switching the bar to flag-only: with the country
+   locked to Belgium the flag never changes, so the label is the only
+   visible sign of the chosen language. */
+@media (min-width: 900px) and (max-width: 1439px) {
+  [data-app="resumatch"] .ui-topnav a {
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+    font-size: 0.84rem;
+  }
+
+  [data-app="resumatch"] .ui-topnav a[aria-current="page"]::after {
+    left: 0.4rem;
+    right: 0.4rem;
+  }
+
+  /* Avatar-only user menu at these widths: the name alone is ~80px, and
+     Dutch/German nav labels need it. Visually hidden, not display:none,
+     so the menu button keeps the name as its accessible label. */
+  [data-app="resumatch"] .ui-usermenu__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
