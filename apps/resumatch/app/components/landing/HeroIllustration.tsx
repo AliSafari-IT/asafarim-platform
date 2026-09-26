@@ -1,11 +1,14 @@
+import type { TranslateFn } from "@asafarim/shared-i18n";
+
 /**
  * The landing hero's scene: a job posting feeding a tailored CV, with the
  * product's promises floating around it as badges. Pure inline SVG whose
  * fills come from `.lp-art__*` classes in resumatch.css, so it follows the
  * light/dark tokens instead of shipping one asset per theme. Decorative —
- * everything it shows is said in text elsewhere on the page.
+ * everything it shows is said in text elsewhere on the page. Its few
+ * visible words still follow the UI language (`t` from the page).
  */
-export function HeroIllustration() {
+export function HeroIllustration({ t }: { t: TranslateFn }) {
   return (
     <svg className="lp-art" viewBox="0 0 560 470" role="presentation" aria-hidden="true">
       <defs>
@@ -32,7 +35,7 @@ export function HeroIllustration() {
           <circle cx="80" cy="127" r="4" className="lp-art__warm" />
           <circle cx="93" cy="127" r="4" className="lp-art__muted-fill" />
           <circle cx="106" cy="127" r="4" className="lp-art__muted-fill" />
-          <text x="78" y="170" className="lp-art__label">JOB POSTING</text>
+          <text x="78" y="170" className="lp-art__label">{t("resumatch.landing.art.jobPosting")}</text>
           <rect x="78" y="180" width="140" height="9" rx="4.5" className="lp-art__ink-fill" />
           <rect x="78" y="198" width="110" height="7" rx="3.5" className="lp-art__line" />
           <rect x="78" y="212" width="150" height="7" rx="3.5" className="lp-art__line" />
@@ -42,7 +45,7 @@ export function HeroIllustration() {
           <rect x="140" y="248" width="80" height="20" rx="10" className="lp-art__chip" />
           <text x="180" y="262" textAnchor="middle" className="lp-art__chip-text">TypeScript</text>
           <rect x="78" y="274" width="94" height="20" rx="10" className="lp-art__chip" />
-          <text x="125" y="288" textAnchor="middle" className="lp-art__chip-text">Accessibility</text>
+          <text x="125" y="288" textAnchor="middle" className="lp-art__chip-text">{t("resumatch.landing.art.accessibility")}</text>
           <rect x="78" y="306" width="120" height="7" rx="3.5" className="lp-art__line" />
         </g>
       </g>
@@ -68,7 +71,7 @@ export function HeroIllustration() {
         <rect x="350" y="122" width="110" height="10" rx="5" className="lp-art__ink-fill" />
         <rect x="350" y="140" width="80" height="7" rx="3.5" className="lp-art__line" />
 
-        <text x="306" y="182" className="lp-art__label">EXPERIENCE</text>
+        <text x="306" y="182" className="lp-art__label">{t("resumatch.landing.art.experience")}</text>
         {/* Highlighted = reprioritized toward the job */}
         <rect x="302" y="192" width="178" height="30" rx="8" className="lp-art__highlight" />
         <rect x="312" y="200" width="130" height="6" rx="3" className="lp-art__accent-fill" />
@@ -79,7 +82,7 @@ export function HeroIllustration() {
         <rect x="312" y="270" width="150" height="6" rx="3" className="lp-art__line" />
         <rect x="312" y="282" width="120" height="6" rx="3" className="lp-art__line" />
 
-        <text x="306" y="314" className="lp-art__label">SKILLS</text>
+        <text x="306" y="314" className="lp-art__label">{t("resumatch.landing.art.skills")}</text>
         <rect x="306" y="322" width="46" height="16" rx="8" className="lp-art__chip lp-art__chip--on" />
         <rect x="358" y="322" width="62" height="16" rx="8" className="lp-art__chip lp-art__chip--on" />
         <rect x="426" y="322" width="50" height="16" rx="8" className="lp-art__chip" />
@@ -103,7 +106,7 @@ export function HeroIllustration() {
           className="lp-art__gauge"
         />
         <text x="482" y="98" textAnchor="middle" className="lp-art__gauge-text">86%</text>
-        <text x="482" y="140" textAnchor="middle" className="lp-art__label">MATCH</text>
+        <text x="482" y="140" textAnchor="middle" className="lp-art__label">{t("resumatch.landing.art.match")}</text>
       </g>
 
       {/* Malware-scan badge */}
@@ -111,8 +114,8 @@ export function HeroIllustration() {
         <rect x="24" y="330" width="150" height="46" rx="23" className="lp-art__card lp-art__card--front" />
         <circle cx="48" cy="353" r="14" className="lp-art__ok-soft" />
         <path d="M42 353.5l4 4 8-8.5" fill="none" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="lp-art__ok-stroke" />
-        <text x="70" y="350" className="lp-art__badge-title">Scanned</text>
-        <text x="70" y="364" className="lp-art__badge-sub">before it is read</text>
+        <text x="70" y="350" className="lp-art__badge-title">{t("resumatch.landing.art.scanned")}</text>
+        <text x="70" y="364" className="lp-art__badge-sub">{t("resumatch.landing.art.scannedSub")}</text>
       </g>
 
       {/* PDF badge */}
@@ -128,7 +131,7 @@ export function HeroIllustration() {
         <rect x="150" y="54" width="148" height="40" rx="20" className="lp-art__card lp-art__card--front" />
         <rect x="166" y="72" width="14" height="11" rx="2.5" className="lp-art__accent-fill" />
         <path d="M169 72v-3.5a4 4 0 0 1 8 0V72" fill="none" strokeWidth="2" className="lp-art__accent-stroke" />
-        <text x="190" y="79" className="lp-art__badge-title">0 invented facts</text>
+        <text x="190" y="79" className="lp-art__badge-title">{t("resumatch.landing.art.noInvented")}</text>
       </g>
     </svg>
   );

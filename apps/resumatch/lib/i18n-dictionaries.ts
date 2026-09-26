@@ -1,6 +1,7 @@
 import type { Dictionaries } from "@asafarim/shared-i18n";
 import { commonDictionaries } from "./i18n/common";
 import { historyDictionaries } from "./i18n/history";
+import { landingDictionaries } from "./i18n/landing";
 import { navDictionaries } from "./i18n/nav";
 import { previewDictionaries } from "./i18n/preview";
 import { profileDictionaries } from "./i18n/profile";
@@ -27,6 +28,7 @@ export const resumatchDictionaryAreas: Record<string, Dictionaries> = {
   preview: previewDictionaries,
   profile: profileDictionaries,
   tracking: trackingDictionaries,
+  landing: landingDictionaries,
 };
 
 const resumatchDictionaries: Dictionaries = {};

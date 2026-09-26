@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Alert, Card, PageHeader } from "@asafarim/ui";
+import { getTranslator } from "../../lib/i18n-server";
 import { getCurrentWorkspace } from "../../lib/workspace";
 
-export const metadata: Metadata = { title: "Workspace" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: t("resumatch.nav.workspace") };
+}
 
 // The workspace reads the session and touches the database on every visit.
 export const dynamic = "force-dynamic";
 
 export default async function WorkspacePage() {
+  const { t } = await getTranslator();
   const workspace = await getCurrentWorkspace();
 
   // The proxy already redirects anonymous visitors to Hub; reaching this
@@ -16,11 +21,9 @@ export default async function WorkspacePage() {
   if (!workspace) {
     return (
       <>
-        <PageHeader kicker="Workspace" title="This account cannot open a workspace." />
+        <PageHeader kicker={t("resumatch.workspace.kicker")} title={t("resumatch.inactive.title")} />
         <Alert tone="warning">
-          <strong>Account inactive.</strong>{" "}
-          Your platform account is not active, so ResuMatch will not create or open a workspace for
-          it. Contact the platform administrator if this is unexpected.
+          <strong>{t("resumatch.inactive.strong")}</strong> {t("resumatch.workspace.inactiveBody")}
         </Alert>
       </>
     );
@@ -29,37 +32,34 @@ export default async function WorkspacePage() {
   return (
     <>
       <PageHeader
-        kicker="Workspace"
-        title="Your ResuMatch workspace exists."
-        description="An isolated, per-user container in ResuMatch's own database. Your profile and every tailored CV you generate hang off this one row."
+        kicker={t("resumatch.workspace.kicker")}
+        title={t("resumatch.workspace.title")}
+        description={t("resumatch.workspace.description")}
       />
 
       <section className="jm-grid" style={{ margin: "2rem 0" }}>
-        <Card title="Workspace">
+        <Card title={t("resumatch.workspace.card")}>
           <p className="jm-mono" style={{ fontSize: "0.8rem", opacity: 0.7 }}>
             {workspace.id}
           </p>
           <p style={{ opacity: 0.85 }}>
-            Created {workspace.createdAt.toISOString().slice(0, 10)}. Keyed to your platform
-            account by an opaque id — your name and email stay in the platform database.
+            {t("resumatch.workspace.created", { date: workspace.createdAt.toISOString().slice(0, 10) })}
           </p>
         </Card>
-        <Card title="Your profile">
+        <Card title={t("resumatch.workspace.profileCard")}>
           <p style={{ opacity: 0.85 }}>
-            Upload a CV, correct what was read from it, and confirm it. Tailoring always reads from
-            your confirmed version.
+            {t("resumatch.workspace.profileBody")}
           </p>
           <Link href="/profile" className="ui-btn ui-btn--secondary ui-btn--sm">
-            Go to your profile →
+            {t("resumatch.tailor.confirmFirst.cta")}
           </Link>
         </Card>
-        <Card title="Tailor a CV">
+        <Card title={t("resumatch.workspace.tailorCard")}>
           <p style={{ opacity: 0.85 }}>
-            Paste a job posting URL and let AI reword your confirmed profile toward it, then
-            download it as a PDF.
+            {t("resumatch.workspace.tailorBody")}
           </p>
           <Link href="/tailor" className="ui-btn ui-btn--primary ui-btn--sm">
-            Tailor your CV →
+            {t("resumatch.insights.next.cta")}
           </Link>
         </Card>
       </section>
