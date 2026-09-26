@@ -122,7 +122,10 @@ export async function GET(request: Request) {
       status: "generated",
       createdAt: resume.createdAt.toISOString(),
       updatedAt: resume.createdAt.toISOString(),
-      href: `${base}/tailor`,
+      // The specific item, not the generic dashboard — matches
+      // browse/route.ts's own doc comment on why (and its ownership
+      // caveat: this 404s for anyone but the candidate themselves).
+      href: `${base}/tailor/${resume.id}/preview`,
       metadata: {},
     })),
     ...coverLetters.map((letter) => ({
@@ -132,7 +135,7 @@ export async function GET(request: Request) {
       status: "generated",
       createdAt: letter.createdAt.toISOString(),
       updatedAt: letter.createdAt.toISOString(),
-      href: `${base}/tailor`,
+      href: `${base}/cover-letter/${letter.id}/preview`,
       metadata: {},
     })),
   ];

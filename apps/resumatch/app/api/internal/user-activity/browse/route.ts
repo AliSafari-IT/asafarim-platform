@@ -25,6 +25,17 @@ import { getJobmatchDb } from "@/lib/db/client";
  * its caller (createRemoteAdapter just round-trips it as `?cursor=`) — only
  * this route ever parses it, so encoding it as a small per-type JSON object
  * is safe.
+ *
+ * `href` points at the specific item (/tailor/{id}/preview,
+ * /cover-letter/{id}/preview), matching Vionto's adapter's own
+ * per-project deep links rather than a generic landing page — same
+ * convention, same caveat: those pages are scoped to their owning
+ * candidate's own session (getCurrentWorkspace()), so a superadmin
+ * clicking through lands on a 404 unless they happen to be signed into
+ * ResuMatch as that candidate. There is deliberately no admin bypass for
+ * a candidate's private CV/cover-letter content — the link exists for a
+ * candidate who reports an issue and can be asked "open this exact URL",
+ * not for an admin to read someone else's resume unasked.
  */
 export const dynamic = "force-dynamic";
 
@@ -112,7 +123,7 @@ export async function GET(request: Request) {
     title: titleFor(row, "Tailored CV"),
     status: "generated",
     createdAt: row.createdAt,
-    href: `${base}/tailor`,
+    href: `${base}/tailor/${row.id}/preview`,
     metadata: {},
     ownerUserId: row.workspace.platformUserId,
   }));
@@ -122,7 +133,7 @@ export async function GET(request: Request) {
     title: titleFor(row, "Cover letter"),
     status: "generated",
     createdAt: row.createdAt,
-    href: `${base}/tailor`,
+    href: `${base}/cover-letter/${row.id}/preview`,
     metadata: {},
     ownerUserId: row.workspace.platformUserId,
   }));
