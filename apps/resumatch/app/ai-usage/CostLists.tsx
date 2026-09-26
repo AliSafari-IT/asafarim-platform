@@ -1,26 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { Badge, Button } from "@asafarim/ui";
 import type { CostTimelineResponse, TimelineItemDTO } from "@asafarim/ai-cost-ledger";
 import type { ResumatchCostGroup } from "../../lib/costs/read";
-import { amountDisplay, coveragePercent } from "../../lib/costs/format";
+import { amountDisplay, coveragePercent, groupLabel } from "../../lib/costs/format";
 import { CostItem } from "./CostItem";
+
+/** Thrown with the HTTP status so the caller can word the message. */
+class LoadError extends Error {
+  constructor(readonly status: number) {
+    super(`Could not load AI usage (${status}).`);
+  }
+}
 
 async function fetchPage(baseQuery: string, extra: Record<string, string>): Promise<CostTimelineResponse> {
   const params = new URLSearchParams(baseQuery);
   params.delete("cursor");
   for (const [key, value] of Object.entries(extra)) params.set(key, value);
   const response = await fetch(`/api/ai-usage?${params.toString()}`, { headers: { accept: "application/json" } });
-  if (!response.ok) throw new Error(`Could not load AI usage (${response.status}).`);
+  if (!response.ok) throw new LoadError(response.status);
   return (await response.json()) as CostTimelineResponse;
 }
 
 function LoadMore({ loading, onClick, label }: { loading: boolean; onClick: () => void; label: string }) {
+  const { t } = useTranslation();
   return (
     <div className="rm-cost-more">
       <Button type="button" variant="secondary" size="sm" onClick={onClick} disabled={loading} aria-busy={loading}>
-        {loading ? "Loading…" : label}
+        {loading ? t("resumatch.cost.loading") : label}
       </Button>
     </div>
   );
@@ -40,6 +49,7 @@ function ItemPager({
   initialCursor: string | null;
   label: string;
 }) {
+  const { t, locale } = useTranslation();
   const [items, setItems] = useState(initial);
   const [cursor, setCursor] = useState(initialCursor);
   const [loading, setLoading] = useState(false);
@@ -54,7 +64,7 @@ function ItemPager({
       setItems((prev) => [...prev, ...page.items]);
       setCursor(page.nextCursor);
     } catch (err) {
-      setError((err as Error).message);
+      setError(loadErrorMessage(err, t));
     } finally {
       setLoading(false);
     }
@@ -64,7 +74,7 @@ function ItemPager({
     <>
       <ol className="rm-cost-items" aria-label={label}>
         {items.map((item) => (
-          <CostItem key={item.id} item={item} />
+          <CostItem key={item.id} item={item} t={t} locale={locale} />
         ))}
       </ol>
       {error ? (
@@ -72,7 +82,7 @@ function ItemPager({
           {error}
         </p>
       ) : null}
-      {cursor ? <LoadMore loading={loading} onClick={more} label="Load more calls" /> : null}
+      {cursor ? <LoadMore loading={loading} onClick={more} label={t("resumatch.cost.loadMore")} /> : null}
     </>
   );
 }
@@ -86,12 +96,24 @@ export function CostTimelineList({
   items: TimelineItemDTO[];
   nextCursor: string | null;
 }) {
+  const { t } = useTranslation();
   return (
-    <ItemPager baseQuery={baseQuery} extra={{}} initial={items} initialCursor={nextCursor} label="All AI calls, newest first" />
+    <ItemPager
+      baseQuery={baseQuery}
+      extra={{}}
+      initial={items}
+      initialCursor={nextCursor}
+      label={t("resumatch.cost.allCallsAria")}
+    />
   );
 }
 
+function loadErrorMessage(err: unknown, t: (key: string, vars?: Record<string, string | number>) => string): string {
+  return err instanceof LoadError ? t("resumatch.cost.loadError", { status: err.status }) : (err as Error).message;
+}
+
 function GroupBody({ baseQuery, groupKey, title }: { baseQuery: string; groupKey: string; title: string }) {
+  const { t } = useTranslation();
   const [page, setPage] = useState<CostTimelineResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,11 +121,11 @@ function GroupBody({ baseQuery, groupKey, title }: { baseQuery: string; groupKey
     let alive = true;
     fetchPage(baseQuery, { group: groupKey, limit: "25" })
       .then((result) => alive && setPage(result))
-      .catch((err: Error) => alive && setError(err.message));
+      .catch((err: unknown) => alive && setError(loadErrorMessage(err, t)));
     return () => {
       alive = false;
     };
-  }, [baseQuery, groupKey]);
+  }, [baseQuery, groupKey, t]);
 
   if (error) {
     return (
@@ -115,7 +137,7 @@ function GroupBody({ baseQuery, groupKey, title }: { baseQuery: string; groupKey
   if (!page) {
     return (
       <p className="rm-cost-loading" aria-live="polite">
-        Loading calls…
+        {t("resumatch.cost.loadingCalls")}
       </p>
     );
   }
@@ -125,17 +147,17 @@ function GroupBody({ baseQuery, groupKey, title }: { baseQuery: string; groupKey
       extra={{ group: groupKey, limit: "25" }}
       initial={page.items}
       initialCursor={page.nextCursor}
-      label={`AI calls for ${title}`}
+      label={t("resumatch.cost.groupCallsAria", { title })}
     />
   );
 }
 
-function applicationBadge(group: ResumatchCostGroup) {
+function applicationBadge(group: ResumatchCostGroup, t: (key: string, vars?: Record<string, string | number>) => string) {
   if (group.kind !== "job") return null;
-  if (group.deleted) return <Badge tone="neutral">Job deleted</Badge>;
-  if (!group.application) return <Badge tone="neutral">Not saved as an application</Badge>;
-  const status = group.application.status.charAt(0) + group.application.status.slice(1).toLowerCase();
-  return <Badge tone="info">Application · {status}</Badge>;
+  if (group.deleted) return <Badge tone="neutral">{t("resumatch.cost.badge.jobDeleted")}</Badge>;
+  if (!group.application) return <Badge tone="neutral">{t("resumatch.cost.badge.notSaved")}</Badge>;
+  const status = t(`resumatch.app.status.${group.application.status}`);
+  return <Badge tone="info">{t("resumatch.cost.badge.application", { status })}</Badge>;
 }
 
 /**
@@ -144,15 +166,17 @@ function applicationBadge(group: ResumatchCostGroup) {
  * open, so a long history costs nothing until someone looks.
  */
 export function CostGroupList({ baseQuery, groups }: { baseQuery: string; groups: ResumatchCostGroup[] }) {
+  const { t, locale } = useTranslation();
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
   return (
     <ul className="rm-cost-groups">
       {groups.map((group) => {
-        const amount = amountDisplay(group.totals.effectiveKnownMicros, "estimated");
+        const amount = amountDisplay(group.totals.effectiveKnownMicros, "estimated", t, locale);
+        const label = groupLabel(group, t);
         const coverage = coveragePercent(group.totals.coverageBasisPoints);
         const calls = group.totals.eventCount;
-        const subtotal = group.totals.knownCount === 0 && calls > 0 ? "Not tracked" : amount.text;
+        const subtotal = group.totals.knownCount === 0 && calls > 0 ? t("resumatch.cost.amount.notTracked") : amount.text;
         return (
           <li key={group.key}>
             <details
@@ -165,27 +189,27 @@ export function CostGroupList({ baseQuery, groups }: { baseQuery: string; groups
               <summary>
                 <span className="rm-cost-group__title">
                   <span className="rm-cost-group__chevron" aria-hidden="true" />
-                  <strong>{group.label}</strong>
+                  <strong>{label}</strong>
                   {group.detail ? <span className="rm-cost-group__detail"> · {group.detail}</span> : null}
                 </span>
                 <span className="rm-cost-group__badges">
-                  {applicationBadge(group)}
+                  {applicationBadge(group, t)}
                   {group.totals.unknownCount > 0 ? (
-                    <Badge tone="warning">{group.totals.unknownCount} not tracked</Badge>
+                    <Badge tone="warning">{t("resumatch.cost.badge.notTrackedCount", { count: group.totals.unknownCount })}</Badge>
                   ) : null}
                   {group.totals.coverage === "partial" && group.totals.unknownCount === 0 ? (
-                    <Badge tone="neutral">Partially tracked</Badge>
+                    <Badge tone="neutral">{t("resumatch.cost.badge.partial")}</Badge>
                   ) : null}
                 </span>
                 <span className="rm-cost-group__count">
-                  {calls} {calls === 1 ? "call" : "calls"}
-                  {coverage !== null && coverage < 100 ? ` · ${coverage}% priced` : ""}
+                  {t(`resumatch.cost.calls.${calls === 1 ? "one" : "other"}`, { count: calls })}
+                  {coverage !== null && coverage < 100 ? ` · ${t("resumatch.cost.priced", { percent: coverage })}` : ""}
                 </span>
-                <span className="rm-cost-group__amount" aria-label={`Subtotal: ${subtotal}`}>
+                <span className="rm-cost-group__amount" aria-label={t("resumatch.cost.subtotalAria", { amount: subtotal })}>
                   {subtotal}
                 </span>
               </summary>
-              {open[group.key] ? <GroupBody baseQuery={baseQuery} groupKey={group.key} title={group.label} /> : null}
+              {open[group.key] ? <GroupBody baseQuery={baseQuery} groupKey={group.key} title={label} /> : null}
             </details>
           </li>
         );

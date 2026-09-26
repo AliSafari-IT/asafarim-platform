@@ -1,24 +1,28 @@
 import type { Metadata } from "next";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { listApplications } from "../../lib/applications/service";
+import { getTranslator } from "../../lib/i18n-server";
 import { getCurrentWorkspace } from "../../lib/workspace";
 import { ApplicationRow } from "./ApplicationRow";
 
-export const metadata: Metadata = { title: "Applications" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: t("resumatch.app.metaTitle") };
+}
 export const dynamic = "force-dynamic";
 
 /** List view for issue #432's per-application tracker. Read-only server
  *  render; status/notes edits happen inline via ApplicationRow's client
  *  PATCH calls to /api/applications/[id]. */
 export default async function ApplicationsPage() {
+  const { t } = await getTranslator();
   const workspace = await getCurrentWorkspace();
   if (!workspace) {
     return (
       <>
-        <PageHeader kicker="Applications" title="This account cannot open a workspace." />
+        <PageHeader kicker={t("resumatch.app.kicker")} title={t("resumatch.inactive.title")} />
         <Alert tone="warning">
-          <strong>Account inactive.</strong> Your platform account is not active, so ResuMatch will
-          not open a workspace for it.
+          <strong>{t("resumatch.inactive.strong")}</strong> {t("resumatch.inactive.body")}
         </Alert>
       </>
     );
@@ -29,15 +33,14 @@ export default async function ApplicationsPage() {
   return (
     <>
       <PageHeader
-        kicker="Applications"
-        title="Your applications"
-        description="Every job you've saved or applied to, in one list — with the tailored resume you used for it, if any."
+        kicker={t("resumatch.app.kicker")}
+        title={t("resumatch.app.title")}
+        description={t("resumatch.app.description")}
       />
 
       {applications.length === 0 ? (
         <Alert tone="info">
-          Nothing tracked yet. After tailoring a CV toward a job, you can save it here to follow up
-          on later.
+          {t("resumatch.app.empty")}
         </Alert>
       ) : (
         <div className="rm-application-list">

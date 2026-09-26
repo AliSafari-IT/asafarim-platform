@@ -1,23 +1,30 @@
-import { formatMicros, type CostBasis } from "@asafarim/ai-cost-ledger";
+import { formatMicros, type CostBasis, type CostGroupDTO } from "@asafarim/ai-cost-ledger";
 
 /**
  * Presentation rules for AI cost figures, shared by every surface that
  * shows one. Kept framework-free so the rules themselves are unit-tested:
  * the copy is part of the product's honesty guarantee (#587), not styling.
+ *
+ * Every helper takes the caller's translate function (`t` from
+ * useTranslation() or getTranslator()); the wording lives in
+ * lib/i18n/tracking.ts, and the tests run these against the real English
+ * dictionary.
  */
 
-export const OPERATION_LABELS: Record<string, string> = {
-  extract: "CV extraction",
-  fetch_job: "Job page fetch",
-  job_meta: "Job title & employer",
-  tailor: "Resume tailoring",
-  cover_letter: "Cover letter",
-  rewrite: "Summary rewrite",
-  categorize_skills: "Skill categorization",
-};
+/** A translate function — `t` from useTranslation() or getTranslator(). */
+export type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
-export function operationLabel(operation: string): string {
-  return OPERATION_LABELS[operation] ?? operation.replace(/_/g, " ");
+/** Steps with their own label (resumatch.cost.op.<operation>). */
+const KNOWN_OPERATIONS = new Set(["extract", "fetch_job", "job_meta", "tailor", "cover_letter", "rewrite", "categorize_skills"]);
+
+export function operationLabel(operation: string, t: Translate): string {
+  return KNOWN_OPERATIONS.has(operation) ? t(`resumatch.cost.op.${operation}`) : operation.replace(/_/g, " ");
+}
+
+/** A non-success outcome as shown beside the step, or the raw value for an
+ *  outcome this UI doesn't know yet. */
+export function outcomeLabel(outcome: string, t: Translate): string {
+  return ["failed", "degraded", "cancelled"].includes(outcome) ? t(`resumatch.cost.outcome.${outcome}`) : outcome;
 }
 
 export interface AmountDisplay {
@@ -32,16 +39,20 @@ export interface AmountDisplay {
  * `$0.00`, which would claim the call was free. A genuine zero from a
  * fixture (offline, no provider) is `$0.00` *with* its reason.
  */
-export function amountDisplay(amountMicros: string | null, basis: CostBasis, locale?: string): AmountDisplay {
+export function amountDisplay(amountMicros: string | null, basis: CostBasis, t: Translate, locale?: string): AmountDisplay {
   if (amountMicros === null || basis === "unknown") {
-    return { text: "Not tracked", label: "Cost not tracked for this call", tone: "unknown" };
+    return {
+      text: t("resumatch.cost.amount.notTracked"),
+      label: t("resumatch.cost.amount.notTrackedLabel"),
+      tone: "unknown",
+    };
   }
   const text = formatMicros(BigInt(amountMicros), { locale });
   if (basis === "fixture") {
-    return { text, label: `${text} — offline fixture, no AI provider was called`, tone: "free" };
+    return { text, label: t("resumatch.cost.amount.fixtureLabel", { amount: text }), tone: "free" };
   }
-  const qualifier = basis === "actual" ? "provider-reported" : basis === "adjustment" ? "adjustment" : "estimated";
-  return { text, label: `${text}, ${qualifier} AI provider cost`, tone: "known" };
+  const kind = basis === "actual" ? "actual" : basis === "adjustment" ? "adjustment" : "estimated";
+  return { text, label: t(`resumatch.cost.amount.${kind}Label`, { amount: text }), tone: "known" };
 }
 
 export interface StatusBadge {
@@ -50,43 +61,42 @@ export interface StatusBadge {
   title: string;
 }
 
-export function basisBadge(basis: CostBasis, legacy: boolean): StatusBadge {
-  if (legacy) {
-    return {
-      text: "Legacy",
-      tone: "neutral",
-      title: "Recorded before per-job tracking existed — an estimate that isn't linked to a job.",
-    };
-  }
-  switch (basis) {
-    case "actual":
-      return { text: "Actual", tone: "success", title: "Amount reported by the AI provider." };
-    case "estimated":
-      return { text: "Estimated", tone: "info", title: "Estimated from the provider's published price at the time of the call." };
-    case "fixture":
-      return { text: "Free (fixture)", tone: "neutral", title: "Offline test fixture — no AI provider was called." };
-    case "adjustment":
-      return { text: "Adjustment", tone: "info", title: "A later correction from the provider's own report." };
-    case "unknown":
-      return { text: "Not tracked", tone: "warning", title: "Usage happened but its cost couldn't be determined." };
-  }
+const BASIS_TONE: Record<CostBasis, StatusBadge["tone"]> = {
+  actual: "success",
+  estimated: "info",
+  fixture: "neutral",
+  adjustment: "info",
+  unknown: "warning",
+};
+
+export function basisBadge(basis: CostBasis, legacy: boolean, t: Translate): StatusBadge {
+  const key = legacy ? "legacy" : basis;
+  return {
+    text: t(`resumatch.cost.basis.${key}`),
+    tone: legacy ? "neutral" : BASIS_TONE[basis],
+    title: t(`resumatch.cost.basis.${key}Title`),
+  };
 }
 
-export function payerLabel(credentialSource: string): string {
+export function payerLabel(credentialSource: string, t: Translate): string {
   switch (credentialSource) {
     case "user_byok":
-      return "Your API key";
+      return t("resumatch.cost.payer.byok");
     case "platform":
-      return "ResuMatch's key";
+      return t("resumatch.cost.payer.platform");
     default:
-      return "No provider";
+      return t("resumatch.cost.payer.none");
   }
 }
 
 const numberFormat = (locale?: string) => new Intl.NumberFormat(locale ?? "en-US");
 
 /** "3,100 in · 900 out · 2 web searches" — exclusive buckets, summed per side. */
-export function usageSummary(usage: { bucket: string; unit: string; quantity: number }[], locale?: string): string {
+export function usageSummary(
+  usage: { bucket: string; unit: string; quantity: number }[],
+  t: Translate,
+  locale?: string,
+): string {
   const fmt = numberFormat(locale);
   const tokensIn = usage
     .filter((u) => u.unit === "tokens" && ["input", "cached_input", "cache_write_input", "audio_input", "image_input"].includes(u.bucket))
@@ -99,13 +109,43 @@ export function usageSummary(usage: { bucket: string; unit: string; quantity: nu
   const tools = usage.filter((u) => u.bucket === "tool_call").reduce((n, u) => n + u.quantity, 0);
 
   const parts: string[] = [];
-  if (tokensIn > 0) parts.push(`${fmt.format(tokensIn)} in${cached > 0 ? ` (${fmt.format(cached)} cached)` : ""}`);
-  if (tokensOut > 0) parts.push(`${fmt.format(tokensOut)} out${reasoning > 0 ? ` (${fmt.format(reasoning)} reasoning)` : ""}`);
-  if (tools > 0) parts.push(`${fmt.format(tools)} web search${tools === 1 ? "" : "es"}`);
-  return parts.length ? parts.join(" · ") : "No usage reported";
+  if (tokensIn > 0) {
+    parts.push(
+      cached > 0
+        ? t("resumatch.cost.usage.inCached", { count: fmt.format(tokensIn), cached: fmt.format(cached) })
+        : t("resumatch.cost.usage.in", { count: fmt.format(tokensIn) }),
+    );
+  }
+  if (tokensOut > 0) {
+    parts.push(
+      reasoning > 0
+        ? t("resumatch.cost.usage.outReasoning", { count: fmt.format(tokensOut), reasoning: fmt.format(reasoning) })
+        : t("resumatch.cost.usage.out", { count: fmt.format(tokensOut) }),
+    );
+  }
+  if (tools > 0) parts.push(t(`resumatch.cost.usage.search.${tools === 1 ? "one" : "other"}`, { count: fmt.format(tools) }));
+  return parts.length ? parts.join(" · ") : t("resumatch.cost.usage.none");
 }
 
 /** Coverage in whole percent, or null for "no data" (never shown as 100%). */
 export function coveragePercent(basisPoints: number | null): number | null {
   return basisPoints === null ? null : Math.floor(basisPoints / 100);
+}
+
+/** The label lib/costs/read.ts gives a job group whose job has no title and
+ *  no employer — part of the /api/ai-usage response, so it stays English
+ *  there; `groupLabel` swaps it for the UI language. */
+export const UNTITLED_JOB_LABEL = "Untitled job";
+
+/**
+ * A group's heading in the UI language. /api/ai-usage returns English
+ * labels (its JSON contract); the job title itself is the candidate's own
+ * data and is shown as-is.
+ */
+export function groupLabel(group: Pick<CostGroupDTO, "kind" | "label"> & { deleted?: boolean }, t: Translate): string {
+  if (group.kind === "legacy") return t("resumatch.cost.group.legacy");
+  if (group.kind === "profile") return t("resumatch.cost.group.profile");
+  if (group.deleted) return t("resumatch.cost.group.deleted");
+  if (group.label === UNTITLED_JOB_LABEL) return t("resumatch.untitledJob");
+  return group.label;
 }

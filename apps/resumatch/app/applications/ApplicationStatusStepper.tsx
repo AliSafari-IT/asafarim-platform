@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "@asafarim/shared-i18n";
 import type { ApplicationStatusName } from "../../lib/applications/constants";
 
 /**
@@ -26,12 +27,7 @@ import type { ApplicationStatusName } from "../../lib/applications/constants";
  * to show it at. REJECTED gets its own compact badge instead of the
  * stepper, rather than a fabricated position.
  */
-const FUNNEL: { status: Exclude<ApplicationStatusName, "REJECTED">; label: string }[] = [
-  { status: "SAVED", label: "Saved" },
-  { status: "APPLIED", label: "Applied" },
-  { status: "INTERVIEWING", label: "Interviewing" },
-  { status: "OFFER", label: "Offer" },
-];
+const FUNNEL: Exclude<ApplicationStatusName, "REJECTED">[] = ["SAVED", "APPLIED", "INTERVIEWING", "OFFER"];
 
 export function ApplicationStatusStepper({
   status,
@@ -42,31 +38,32 @@ export function ApplicationStatusStepper({
   disabled?: boolean;
   onChange: (status: ApplicationStatusName) => void;
 }) {
+  const { t } = useTranslation();
   if (status === "REJECTED") {
     return (
       <div className="rm-status-rejected">
-        <span className="rm-badge rm-badge--rejected">Rejected</span>
+        <span className="rm-badge rm-badge--rejected">{t("resumatch.app.status.REJECTED")}</span>
         <button
           type="button"
           className="rm-status-rejected__undo"
           disabled={disabled}
           onClick={() => onChange("SAVED")}
         >
-          Move back to Saved
+          {t("resumatch.app.moveBack")}
         </button>
       </div>
     );
   }
 
-  const currentIndex = FUNNEL.findIndex((step) => step.status === status);
+  const currentIndex = FUNNEL.indexOf(status);
 
   return (
     <div className="rm-status-stepper">
-      <ol className="rm-status-stepper__steps" aria-label="Application status">
+      <ol className="rm-status-stepper__steps" aria-label={t("resumatch.app.statusAria")}>
         {FUNNEL.map((step, index) => {
           const state = index < currentIndex ? "done" : index === currentIndex ? "current" : "upcoming";
           return (
-            <li key={step.status} className={`rm-status-step rm-status-step--${state}`}>
+            <li key={step} className={`rm-status-step rm-status-step--${state}`}>
               {index > 0 ? (
                 <span className={`rm-status-step__connector${index <= currentIndex ? " rm-status-step__connector--filled" : ""}`} aria-hidden="true" />
               ) : null}
@@ -75,12 +72,12 @@ export function ApplicationStatusStepper({
                 className="rm-status-step__button"
                 disabled={disabled}
                 aria-current={state === "current" ? "step" : undefined}
-                onClick={() => onChange(step.status)}
+                onClick={() => onChange(step)}
               >
                 <span className="rm-status-step__dot" aria-hidden="true">
                   {state === "done" ? "✓" : index + 1}
                 </span>
-                <span className="rm-status-step__label">{step.label}</span>
+                <span className="rm-status-step__label">{t(`resumatch.app.status.${step}`)}</span>
               </button>
             </li>
           );
@@ -92,7 +89,7 @@ export function ApplicationStatusStepper({
         disabled={disabled}
         onClick={() => onChange("REJECTED")}
       >
-        Mark as rejected
+        {t("resumatch.app.markRejected")}
       </button>
     </div>
   );

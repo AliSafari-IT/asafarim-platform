@@ -6,6 +6,7 @@ import { previewDictionaries } from "./i18n/preview";
 import { profileDictionaries } from "./i18n/profile";
 import { shellDictionaries } from "./i18n/shell";
 import { tailorDictionaries } from "./i18n/tailor";
+import { trackingDictionaries } from "./i18n/tracking";
 
 /**
  * ResuMatch's own strings for the shared i18n layer (#640), one module per
@@ -25,6 +26,7 @@ export const resumatchDictionaryAreas: Record<string, Dictionaries> = {
   tailor: tailorDictionaries,
   preview: previewDictionaries,
   profile: profileDictionaries,
+  tracking: trackingDictionaries,
 };
 
 const resumatchDictionaries: Dictionaries = {};
