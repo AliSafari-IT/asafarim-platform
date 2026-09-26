@@ -18,6 +18,12 @@ export interface ColumnDef<T> {
   align?: "left" | "right";
   /** Suppress wrapping for short technical values. */
   nowrap?: boolean;
+  /**
+   * The column's name in the stacked (narrow) layout, where each cell is
+   * labelled because the header row is hidden. Defaults to `header` when
+   * that's a string; set it when `header` is an element.
+   */
+  label?: string;
 }
 
 export interface DataTableSelection {
@@ -44,6 +50,20 @@ export interface DataTableProps<T> {
   /** Applies `white-space: nowrap` to every cell. */
   nowrap?: boolean;
   caption?: string;
+  /**
+   * How the table adapts to a narrow container. `"auto"` (default): once
+   * the table's own box is narrower than ~40rem (a phone, or a tablet with
+   * the sidebar open), each row becomes a stacked card with every value
+   * labelled by its column. `"never"`: always a table, scrolling sideways
+   * when it doesn't fit; for comparison grids that only read as a grid.
+   */
+  stack?: "auto" | "never";
+}
+
+/** A column's name for the stacked layout's per-cell label. */
+export function columnLabel<T>(column: ColumnDef<T>): string | undefined {
+  if (column.label !== undefined) return column.label || undefined;
+  return typeof column.header === "string" && column.header ? column.header : undefined;
 }
 
 /**
@@ -59,6 +79,7 @@ export function DataTable<T>({
   empty,
   nowrap,
   caption,
+  stack = "auto",
 }: DataTableProps<T>) {
   if (rows.length === 0 && empty) return <>{empty}</>;
 
@@ -69,7 +90,7 @@ export function DataTable<T>({
     : [];
 
   return (
-    <div className="ui-tablewrap">
+    <div className={`ui-tablewrap${stack === "auto" ? " ui-tablewrap--stack" : ""}`}>
       <table className={`ui-table${nowrap ? " ui-table--nowrap" : ""}`}>
         {caption ? <caption className="u-visually-hidden">{caption}</caption> : null}
         <thead>
@@ -114,6 +135,7 @@ export function DataTable<T>({
                 {columns.map((column) => (
                   <td
                     key={column.id}
+                    data-label={columnLabel(column)}
                     className={[
                       column.mono ? "u-mono" : "",
                       column.nowrap ? "u-nowrap" : "",
@@ -122,7 +144,10 @@ export function DataTable<T>({
                       .join(" ") || undefined}
                     style={column.align === "right" ? { textAlign: "right" } : undefined}
                   >
-                    {column.render(row)}
+                    {/* One wrapper, so the stacked layout's "label | value" grid
+                        always sees exactly two items, however many elements
+                        the cell renders. display: contents in table mode. */}
+                    <div className="ui-table__value">{column.render(row)}</div>
                   </td>
                 ))}
               </tr>
