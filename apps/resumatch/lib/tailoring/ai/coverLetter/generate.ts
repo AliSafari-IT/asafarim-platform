@@ -2,6 +2,7 @@ import { getEnv } from "../../../env";
 import { logError } from "../../../observability/logger";
 import { buildCoverLetterContent, type CoverLetterContent, type CoverLetterSuggestion } from "./schema";
 import { renderCoverLetterPrompt, type CoverLetterLength, type CoverLetterTone } from "./prompts";
+import type { OutputLanguage } from "../../language";
 import { assertCanRunProviderCall, recordBilledFailure, recordUsage } from "../quota";
 import type { CostAttribution } from "../../../costs/ledger";
 import { getCoverLetterProvider, COVER_LETTER_MODEL_VERSIONS } from "./registry";
@@ -41,10 +42,12 @@ export async function runCoverLetterProviderCall(
   providerOverride?: "fixture" | "openai" | "anthropic",
   /** Issue #586 — same contract as runTailorProviderCall's `cost`. */
   cost: Partial<Pick<CostAttribution, "subjectType" | "subjectId" | "workflowId">> = {},
+  /** #642 — the language to write the letter in; null for no rule. */
+  outputLanguage: OutputLanguage | null = null,
 ): Promise<CoverLetterProviderCallResult> {
   const providerName = providerOverride ?? getEnv().aiProvider;
   const modelVersion = COVER_LETTER_MODEL_VERSIONS[providerName];
-  const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length);
+  const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length, outputLanguage);
 
   let suggestion: CoverLetterSuggestion | null = null;
   let degraded = false;

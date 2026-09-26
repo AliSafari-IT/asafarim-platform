@@ -27,7 +27,7 @@ interface HistoryRow {
   modelVersion: string;
   targetJobId: string;
   targetJob: { title: string | null; employer: string | null; sourceUrl: string };
-  coverLetter: { id: string } | null;
+  coverLetter: { id: string; outputLanguage: string | null } | null;
 }
 
 /** Client picker: check exactly two rows, then "Compare" navigates to
@@ -128,6 +128,7 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
                         <LanguageBadge language={resume.outputLanguage} />
                         <span className="jm-mono rx-hl__model">{resume.modelVersion}</span>
                         {resume.coverLetter ? <span className="rx-pill rx-pill--ok">+ Cover letter</span> : null}
+                        <LanguageBadge language={resume.coverLetter?.outputLanguage} subject="Cover letter" />
                         {resume.degraded ? <span className="rx-pill rx-pill--warm">Degraded</span> : null}
                       </span>
                     </span>

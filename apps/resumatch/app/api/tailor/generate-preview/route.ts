@@ -38,8 +38,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { profileVersionId, targetJobId, includeCoverLetter, coverLetterTone, coverLetterLength, instructions, outputLanguage } =
-    (body ?? {}) as {
+  const {
+    profileVersionId,
+    targetJobId,
+    includeCoverLetter,
+    coverLetterTone,
+    coverLetterLength,
+    coverLetterOutputLanguage,
+    instructions,
+    outputLanguage,
+  } = (body ?? {}) as {
       profileVersionId?: unknown;
       targetJobId?: unknown;
       includeCoverLetter?: unknown;
@@ -53,6 +61,9 @@ export async function POST(request: Request) {
       /** Optional — #641. One of OUTPUT_LANGUAGES; the language to write the
        *  generated prose in. A closed choice, validated below. */
       outputLanguage?: unknown;
+      /** Optional — #642. One of OUTPUT_LANGUAGES for the cover letter;
+       *  omitted, it follows the CV's `outputLanguage`. */
+      coverLetterOutputLanguage?: unknown;
     };
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
     return NextResponse.json({ error: "profileVersionId and targetJobId are required." }, { status: 400 });
@@ -68,6 +79,9 @@ export async function POST(request: Request) {
   }
   if (outputLanguage !== undefined && !isOutputLanguage(outputLanguage)) {
     return NextResponse.json({ error: "Invalid outputLanguage." }, { status: 400 });
+  }
+  if (coverLetterOutputLanguage !== undefined && !isOutputLanguage(coverLetterOutputLanguage)) {
+    return NextResponse.json({ error: "Invalid coverLetterOutputLanguage." }, { status: 400 });
   }
   if (typeof instructions === "string" && instructions.length > MAX_INSTRUCTIONS_CHARS) {
     return NextResponse.json({ error: `instructions must be ${MAX_INSTRUCTIONS_CHARS} characters or fewer.` }, { status: 400 });
@@ -86,6 +100,14 @@ export async function POST(request: Request) {
   }
 
   const profile = version.content;
+  const cvLanguage = isOutputLanguage(outputLanguage) ? outputLanguage : null;
+  // #642: the letter defaults to the language of the CV it's paired with.
+  const letterLanguage =
+    includeCoverLetter === true
+      ? isOutputLanguage(coverLetterOutputLanguage)
+        ? coverLetterOutputLanguage
+        : cvLanguage
+      : null;
   // Minted up front so both provider calls' cost events can name this
   // preview as their subject and share it as their workflow id (issue
   // #586) — two separate line items, one user action.
@@ -107,7 +129,7 @@ export async function POST(request: Request) {
     typeof instructions === "string" ? instructions : null,
     undefined,
     cost,
-    isOutputLanguage(outputLanguage) ? outputLanguage : null,
+    cvLanguage,
   );
   const coverLetterResult =
     includeCoverLetter === true
@@ -120,6 +142,7 @@ export async function POST(request: Request) {
           coverLetterLength as never,
           undefined,
           cost,
+          letterLanguage,
         )
       : null;
   const { suggestions, degraded, promptVersion, modelVersion } = tailorResult;
@@ -139,7 +162,8 @@ export async function POST(request: Request) {
       coverLetterPromptVersion: coverLetterResult?.promptVersion ?? null,
       coverLetterModelVersion: coverLetterResult?.modelVersion ?? null,
       coverLetterDegraded: coverLetterResult ? coverLetterResult.degraded : null,
-      outputLanguage: isOutputLanguage(outputLanguage) ? outputLanguage : null,
+      outputLanguage: cvLanguage,
+      coverLetterOutputLanguage: letterLanguage,
     },
     select: { id: true },
   });
@@ -151,11 +175,12 @@ export async function POST(request: Request) {
     modelVersion,
     suggestions,
     instructions: typeof instructions === "string" ? instructions : null,
-    outputLanguage: isOutputLanguage(outputLanguage) ? outputLanguage : null,
+    outputLanguage: cvLanguage,
     coverLetter: coverLetterResult
       ? {
           suggestion: coverLetterResult.suggestion,
           degraded: coverLetterResult.degraded,
+          outputLanguage: letterLanguage,
           promptVersion: coverLetterResult.promptVersion,
           modelVersion: coverLetterResult.modelVersion,
         }

@@ -449,6 +449,11 @@ model CoverLetter {
   /// True when this was produced by the degraded fallback (no provider /
   /// retries exhausted / budget out) rather than a real model call.
   degraded      Boolean @default(false)
+  /// The language the letter was written in (#642), one of
+  /// lib/tailoring/language.ts's OUTPUT_LANGUAGES. Null for letters made
+  /// before this existed and for degraded ones — nothing was written in a
+  /// chosen language, so nothing is claimed.
+  outputLanguage String?
 
   createdAt DateTime @default(now())
 
@@ -498,6 +503,10 @@ model TailorPreview {
   /// generate-confirm copies it onto the TailoredResume from here — the
   /// server's record — never from anything the client echoes back.
   outputLanguage           String?
+  /// The language this preview's cover-letter call was asked for (#642).
+  /// Null when no letter was requested. Copied onto the CoverLetter by
+  /// generate-confirm, only when the letter was actually drafted.
+  coverLetterOutputLanguage String?
 
   createdAt  DateTime  @default(now())
   /// Set by generate-confirm on first (and only) use. A second confirm

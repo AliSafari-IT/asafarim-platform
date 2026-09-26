@@ -146,6 +146,16 @@ export function templateLabels(language: string | null | undefined): TemplateLab
   return LABELS[isOutputLanguage(language) ? language : "en"];
 }
 
+/** BCP 47 tag for a document written in each language — Belgian
+ *  variants, matching the Belgium-locked language bar (#640). Used for
+ *  date formatting and for the DOCX proofing language. */
+export const DOCUMENT_LOCALES: Record<OutputLanguage, string> = {
+  en: "en-GB",
+  nl: "nl-BE",
+  fr: "fr-BE",
+  de: "de-BE",
+};
+
 const MONTH_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 /**
@@ -160,7 +170,7 @@ export function formatProfileDate(value: string | null, language: string | null 
   const match = MONTH_PATTERN.exec(value);
   if (!match) return value;
   const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
-  const locale = { en: "en-GB", nl: "nl-BE", fr: "fr-BE", de: "de-BE" }[language];
+  const locale = DOCUMENT_LOCALES[language];
   return new Intl.DateTimeFormat(locale, { month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
@@ -195,4 +205,34 @@ export function appliedOutputLanguage(
     Boolean(approved.summary?.trim()) ||
     approved.experienceBullets.some((bullets) => bullets.some((b) => b.trim()));
   return anyProse ? requested : null;
+}
+
+/**
+ * Cover-letter conventions per language (#642), used by the cover-letter
+ * prompt's OUTPUT LANGUAGE rule. Fixed strings, never candidate text.
+ * `neutralGreeting` is the honest salutation when the posting names no
+ * recipient; `signOff` is the usual closing formula.
+ */
+export const COVER_LETTER_CONVENTIONS: Record<OutputLanguage, { neutralGreeting: string; signOff: string }> = {
+  en: { neutralGreeting: "Dear Hiring Manager,", signOff: "Sincerely," },
+  nl: { neutralGreeting: "Geachte heer/mevrouw,", signOff: "Met vriendelijke groet," },
+  fr: {
+    neutralGreeting: "Madame, Monsieur,",
+    signOff: "Veuillez agréer, Madame, Monsieur, l’expression de mes salutations distinguées.",
+  },
+  de: { neutralGreeting: "Sehr geehrte Damen und Herren,", signOff: "Mit freundlichen Grüßen" },
+};
+
+/**
+ * The language to record on a saved cover letter (#642). Unlike the CV
+ * there is no partial acceptance: the letter is either the model's draft
+ * (possibly edited) in the requested language, or it isn't there at all.
+ * A degraded call wrote nothing, so the honest answer is null.
+ */
+export function appliedCoverLetterLanguage(
+  requested: string | null | undefined,
+  degraded: boolean,
+): OutputLanguage | null {
+  if (degraded || !isOutputLanguage(requested)) return null;
+  return requested;
 }

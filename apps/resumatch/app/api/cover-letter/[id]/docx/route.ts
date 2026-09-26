@@ -21,12 +21,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // candidate's cover letter.
   const row = await db.coverLetter.findFirst({
     where: { id, workspaceId: workspace.id },
-    select: { content: true },
+    select: { content: true, outputLanguage: true },
   });
   if (!row) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   const content = parseCoverLetterContent(row.content);
-  const buffer = await renderCoverLetterDocx(content);
+  const buffer = await renderCoverLetterDocx(content, row.outputLanguage);
   const filename =
     (content.fullName ? `${content.fullName}-cover-letter` : "cover-letter")
       .trim()

@@ -5,6 +5,7 @@ import { Alert, PageHeader } from "@asafarim/ui";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { parseCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { computeCoverLetterQuality } from "../../../../lib/tailoring/coverLetterQuality";
+import { LANGUAGE_LABELS, isOutputLanguage } from "../../../../lib/tailoring/language";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { PrintButton } from "../../../../components/tailoring/PrintButton";
 import { CoverLetterDocxButton } from "./CoverLetterDocxButton";
@@ -35,6 +36,7 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
     select: {
       content: true,
       degraded: true,
+      outputLanguage: true,
       tailoredResumeId: true,
       targetJob: { select: { title: true, employer: true } },
     },
@@ -46,7 +48,8 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
   // (#455 doesn't persist tone/length on the row, only the resulting
   // text) — "standard" is a reasonable general-purpose default for this
   // read-only view, same as the review screen's own default.
-  const quality = computeCoverLetterQuality(content);
+  const language = isOutputLanguage(row.outputLanguage) ? row.outputLanguage : null;
+  const quality = computeCoverLetterQuality(content, "standard", language);
   const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
 
   return (
@@ -59,6 +62,14 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
       {row.tailoredResumeId ? (
         <p style={{ margin: "-0.5rem 0 1rem" }}>
           <Link href={`/tailor/${row.tailoredResumeId}/preview`}>← View the tailored CV it goes with</Link>
+        </p>
+      ) : null}
+
+      {language ? (
+        <p className="rx-lang-note">
+          <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[language]}</span>
+          Written in {LANGUAGE_LABELS[language]}. Names, numbers and dates are kept exactly as in your
+          profile and the job.
         </p>
       ) : null}
 
@@ -76,7 +87,9 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
         </>
       )}
 
-      <article className="rm-resume rm-resume--classic rm-letter">
+      {/* lang= tells screen readers and spell-checkers which language the
+          letter is in (#642); none for older letters, as before. */}
+      <article className="rm-resume rm-resume--classic rm-letter" lang={language ?? undefined}>
         <p>{content.greeting}</p>
         {content.paragraphs.map((paragraph, index) => (
           <p key={index}>{paragraph}</p>

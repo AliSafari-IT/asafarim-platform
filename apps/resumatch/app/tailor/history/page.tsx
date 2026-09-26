@@ -51,7 +51,7 @@ export default async function TailoringHistoryPage() {
         profileVersionId: true,
         targetJobId: true,
         targetJob: { select: { id: true, title: true, employer: true, sourceUrl: true } },
-        coverLetter: { select: { id: true } },
+        coverLetter: { select: { id: true, outputLanguage: true } },
       },
     }),
     getJourneyCounts(workspace.id),

@@ -35,6 +35,18 @@ export function CoverLetterQualityChecklist({ quality }: { quality: CoverLetterQ
         ? null
         : "The greeting looks like it still has a placeholder in it rather than a real or neutral salutation.",
     },
+    // #642: only for a letter written in a language other than English.
+    ...(quality.greetingMatchesLanguage === null
+      ? []
+      : [
+          {
+            label: "Greeting and sign-off match the letter's language",
+            ok: quality.greetingMatchesLanguage,
+            detail: quality.greetingMatchesLanguage
+              ? null
+              : "The greeting or sign-off looks like it's in another language (for example an English “Dear …” or “Sincerely,”) — use this language's own formula.",
+          },
+        ]),
     {
       label: "Signed with your name",
       ok: quality.hasSignerName,

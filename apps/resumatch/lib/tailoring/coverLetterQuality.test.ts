@@ -87,3 +87,84 @@ describe("computeCoverLetterQuality", () => {
     expect(report.hasSignerName).toBe(true);
   });
 });
+
+describe("computeCoverLetterQuality — per language (#642)", () => {
+  const french = content({
+    greeting: "Madame, Monsieur,",
+    paragraphs: [
+      "Développeur backend depuis six ans, je souhaite rejoindre Acme pour renforcer la fiabilité de votre plateforme de paiement.",
+      "Chez mon employeur actuel, j’ai migré notre API principale vers Node.js et PostgreSQL, réduisant la latence de 40 %.",
+      "Je serais heureux d’échanger avec vous sur la manière dont mon expérience peut servir votre équipe.",
+    ],
+    signOff: "Veuillez agréer, Madame, Monsieur, l’expression de mes salutations distinguées.",
+  });
+
+  it.each([
+    ["nl", "Geachte heer/mevrouw,", "Met vriendelijke groet,"],
+    ["fr", "Madame, Monsieur,", "Veuillez agréer, Madame, Monsieur, mes salutations distinguées."],
+    ["de", "Sehr geehrte Damen und Herren,", "Mit freundlichen Grüßen"],
+  ] as const)("accepts the honest no-name greeting and sign-off in %s", (language, greeting, signOff) => {
+    const report = computeCoverLetterQuality(content({ greeting, signOff }), "standard", language);
+    expect(report.greetingLooksIntentional).toBe(true);
+    expect(report.greetingMatchesLanguage).toBe(true);
+  });
+
+  it("accepts a named greeting in the letter's language", () => {
+    const report = computeCoverLetterQuality(
+      content({ greeting: "Geachte mevrouw De Vries,", signOff: "Hoogachtend," }),
+      "standard",
+      "nl",
+    );
+    expect(report.greetingLooksIntentional).toBe(true);
+    expect(report.greetingMatchesLanguage).toBe(true);
+  });
+
+  it("doesn't flag a correct French letter", () => {
+    const report = computeCoverLetterQuality(french, "standard", "fr");
+    expect(report.greetingLooksIntentional).toBe(true);
+    expect(report.greetingMatchesLanguage).toBe(true);
+    expect(report.genericPhrasesFound).toEqual([]);
+    expect(report.hasUnfilledPlaceholder).toBe(false);
+  });
+
+  it("flags an English greeting or sign-off left in a French letter", () => {
+    expect(computeCoverLetterQuality({ ...french, greeting: "Dear Hiring Manager," }, "standard", "fr").greetingMatchesLanguage).toBe(false);
+    expect(computeCoverLetterQuality({ ...french, signOff: "Sincerely," }, "standard", "fr").greetingMatchesLanguage).toBe(false);
+  });
+
+  it("flags a German greeting in a Dutch letter", () => {
+    const report = computeCoverLetterQuality(
+      content({ greeting: "Sehr geehrte Damen und Herren,", signOff: "Met vriendelijke groet," }),
+      "standard",
+      "nl",
+    );
+    expect(report.greetingMatchesLanguage).toBe(false);
+  });
+
+  it("skips the language check for English and for letters with no recorded language", () => {
+    expect(computeCoverLetterQuality(content(), "standard", "en").greetingMatchesLanguage).toBeNull();
+    expect(computeCoverLetterQuality(content()).greetingMatchesLanguage).toBeNull();
+  });
+
+  it("still flags a placeholder in a non-English greeting", () => {
+    const report = computeCoverLetterQuality(content({ greeting: "Geachte [naam]," }), "standard", "nl");
+    expect(report.greetingLooksIntentional).toBe(false);
+    expect(report.hasUnfilledPlaceholder).toBe(true);
+  });
+
+  it("finds the language's own clichés, and English ones too", () => {
+    const report = computeCoverLetterQuality(
+      content({ paragraphs: ["Hierbij solliciteer ik als teamspeler, a real team player."] }),
+      "standard",
+      "nl",
+    );
+    expect(report.genericPhrasesFound).toEqual(expect.arrayContaining(["hierbij solliciteer ik", "teamspeler", "team player"]));
+  });
+
+  it("keeps the length check language-neutral", () => {
+    const en = computeCoverLetterQuality(content(), "short");
+    const nl = computeCoverLetterQuality(content(), "short", "nl");
+    expect(nl.wordCount).toBe(en.wordCount);
+    expect(nl.wordCountInRange).toBe(en.wordCountInRange);
+  });
+});
