@@ -1,6 +1,7 @@
 import "server-only";
 import { getJobmatchDb } from "../db/client";
 import { recordAuditEvent } from "../workspace";
+import { applicationAuditEvents } from "./audit";
 import type { ApplicationStatusName } from "./constants";
 
 /**
@@ -53,7 +54,11 @@ export async function createApplication(workspaceId: string, input: CreateApplic
     },
   });
 
-  await recordAuditEvent(workspaceId, "application.created", { jobId: application.id });
+  await recordAuditEvent(workspaceId, "application.created", {
+    applicationId: application.id,
+    targetJobId: application.targetJobId,
+    status: application.status,
+  });
   return application;
 }
 
@@ -77,7 +82,12 @@ export class ApplicationNotFoundError extends Error {
 export async function updateApplication(workspaceId: string, id: string, input: UpdateApplicationInput) {
   const db = getJobmatchDb();
 
-  const existing = await db.application.findFirst({ where: { id, workspaceId }, select: { id: true } });
+  // The before-state is read here so the audit trail can record what
+  // actually changed (applicationAuditEvents), not just that a PATCH ran.
+  const existing = await db.application.findFirst({
+    where: { id, workspaceId },
+    select: { id: true, targetJobId: true, status: true, notes: true, followUpDate: true, tailoredResumeId: true },
+  });
   if (!existing) throw new ApplicationNotFoundError();
 
   if (input.tailoredResumeId) {
@@ -98,7 +108,13 @@ export async function updateApplication(workspaceId: string, id: string, input: 
     },
   });
 
-  await recordAuditEvent(workspaceId, "application.updated", { jobId: application.id });
+  for (const event of applicationAuditEvents(
+    { applicationId: application.id, targetJobId: existing.targetJobId },
+    existing,
+    input,
+  )) {
+    await recordAuditEvent(workspaceId, event.action, event.metadata);
+  }
   return application;
 }
 

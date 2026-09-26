@@ -20,13 +20,15 @@ describe.skipIf(!TEST_DB)("GET /api/internal/audit-events", () => {
   let db: import("../../../../lib/db/generated").PrismaClient;
   let GET: typeof import("./route").GET;
   let workspaceId: string;
+  let platformUserId: string;
 
   beforeAll(async () => {
     ({ GET } = await import("./route"));
     db = (await import("../../../../lib/db/client")).getJobmatchDb();
 
+    platformUserId = `audit-events-test-${Date.now()}`;
     const ws = await db.workspace.create({
-      data: { platformUserId: `audit-events-test-${Date.now()}` },
+      data: { platformUserId },
       select: { id: true },
     });
     workspaceId = ws.id;
@@ -72,6 +74,20 @@ describe.skipIf(!TEST_DB)("GET /api/internal/audit-events", () => {
     expect(body.events[0].action).toBe("profile.confirmed");
     expect(body.events[2].action).toBe("document.uploaded");
     expect(body.nextCursor).toBeNull();
+  });
+
+  it("tags each event with its workspace owner, and filters by that owner", async () => {
+    const res = await GET(
+      new Request(`http://localhost/api/internal/audit-events?platformUserId=${encodeURIComponent(platformUserId)}`, {
+        headers: { authorization: `Bearer ${process.env.INTERNAL_API_SECRET}` },
+      }),
+    );
+    const body = await res.json();
+    expect(body.events).toHaveLength(3);
+    for (const event of body.events) {
+      expect(event.platformUserId).toBe(platformUserId);
+      expect(event.workspaceId).toBe(workspaceId);
+    }
   });
 
   it("returns the distinct set of actions for the filter dropdown", async () => {

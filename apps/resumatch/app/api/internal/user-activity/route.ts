@@ -1,6 +1,11 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getJobmatchDb } from "@/lib/db/client";
+import {
+  applicationEntry,
+  statusChangeEntry,
+  type JobLabel,
+} from "@/lib/activity/applicationEntries";
 
 /**
  * Read-only, superadmin console-facing activity feed for one platform
@@ -46,7 +51,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ entries: [] });
   }
 
-  const [profile, documents, tailoredResumes, coverLetters] = await Promise.all([
+  const [profile, documents, tailoredResumes, coverLetters, applications, statusChanges] = await Promise.all([
     db.candidateProfile.findUnique({
       where: { workspaceId: workspace.id },
       select: { id: true, confirmedVersionId: true, createdAt: true, updatedAt: true },
@@ -84,7 +89,29 @@ export async function GET(request: Request) {
         targetJob: { select: { title: true, employer: true } },
       },
     }),
+    db.application.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        followUpDate: true,
+        tailoredResumeId: true,
+        targetJob: { select: { title: true, employer: true } },
+      },
+    }),
+    db.auditEvent.findMany({
+      where: { workspaceId: workspace.id, action: "application.status_changed" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, createdAt: true, metadata: true },
+    }),
   ]);
+
+  // Status-change events name their application by id; its job label comes
+  // from the applications already loaded above, so no second query.
+  const jobByApplication = new Map<string, JobLabel>(applications.map((a) => [a.id, a.targetJob]));
 
   const entries = [
     ...(profile
@@ -138,6 +165,8 @@ export async function GET(request: Request) {
       href: `${base}/cover-letter/${letter.id}/preview`,
       metadata: {},
     })),
+    ...applications.map((application) => applicationEntry(application, base)),
+    ...statusChanges.flatMap((event) => statusChangeEntry(event, jobByApplication, base) ?? []),
   ];
 
   return NextResponse.json({ entries });
