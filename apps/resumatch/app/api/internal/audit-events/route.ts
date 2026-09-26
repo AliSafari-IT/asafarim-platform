@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getJobmatchDb } from "@/lib/db/client";
+import { buildAuditEventWhere, parseAuditEventFilters } from "@/lib/audit/eventFilters";
 
 /**
  * Read-only, superadmin console-facing view of ResuMatch's own audit trail
@@ -20,6 +21,10 @@ import { getJobmatchDb } from "@/lib/db/client";
  * rare workspace-less event), so the console can show *who* acted rather
  * than an opaque ResuMatch workspace id. It is resolved to an email there,
  * against the platform's own user table; ResuMatch holds no copy of it.
+ *
+ * Filters (lib/audit/eventFilters.ts) mirror the platform audit log's, and
+ * `total` counts every match, so the console can merge this stream into its
+ * main Audit Logs page and paginate the two together.
  */
 export const dynamic = "force-dynamic";
 
@@ -42,9 +47,7 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const workspaceId = url.searchParams.get("workspaceId");
-  const platformUserId = url.searchParams.get("platformUserId");
-  const action = url.searchParams.get("action");
+  const where = buildAuditEventWhere(parseAuditEventFilters(url.searchParams));
   const cursor = url.searchParams.get("cursor"); // an event id to page after
   const limit = Math.min(MAX_LIMIT, Math.max(1, Number(url.searchParams.get("limit")) || DEFAULT_LIMIT));
 
@@ -55,13 +58,9 @@ export async function GET(request: Request) {
   // discover what's filterable instead of having to already know an action
   // name to type into a query param, matching the platform audit-logs
   // page's own `distinct: ["action"]` pattern.
-  const [events, actionRows] = await Promise.all([
+  const [events, actionRows, total] = await Promise.all([
     db.auditEvent.findMany({
-      where: {
-        ...(workspaceId ? { workspaceId } : {}),
-        ...(platformUserId ? { workspace: { platformUserId } } : {}),
-        ...(action ? { action } : {}),
-      },
+      where,
       // `id` breaks createdAt ties. Rows written in one statement (or the
       // same millisecond) share a timestamp, and cursor pagination over a
       // non-unique sort key can repeat or drop rows at a page boundary.
@@ -78,6 +77,7 @@ export async function GET(request: Request) {
       },
     }),
     db.auditEvent.findMany({ distinct: ["action"], select: { action: true }, orderBy: { action: "asc" } }),
+    db.auditEvent.count({ where }),
   ]);
 
   const hasMore = events.length > limit;
@@ -94,5 +94,6 @@ export async function GET(request: Request) {
     })),
     nextCursor: hasMore ? page[page.length - 1].id : null,
     actions: actionRows.map((row: { action: string }) => row.action),
+    total,
   });
 }

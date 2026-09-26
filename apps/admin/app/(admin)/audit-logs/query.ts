@@ -6,6 +6,8 @@
 export const PAGE_SIZE = 25;
 
 export interface AuditFilters {
+  /** "" (every source), "platform", or "resumatch" — see lib/audit-stream.ts. */
+  source: string;
   q: string;
   action: string;
   entity: string;
@@ -18,7 +20,9 @@ export interface AuditFilters {
 export function parseAuditFilters(
   params: Record<string, string | undefined>
 ): AuditFilters {
+  const source = (params.source ?? "").trim();
   return {
+    source: source === "platform" || source === "resumatch" ? source : "",
     q: (params.q ?? "").trim(),
     action: (params.action ?? "").trim(),
     entity: (params.entity ?? "").trim(),
@@ -60,6 +64,7 @@ export function auditQueryString(
 ): string {
   const merged = { ...filters, ...overrides };
   const params = new URLSearchParams();
+  if (merged.source) params.set("source", merged.source);
   if (merged.q) params.set("q", merged.q);
   if (merged.action) params.set("action", merged.action);
   if (merged.entity) params.set("entity", merged.entity);
@@ -80,6 +85,6 @@ export function auditHref(
 
 export function hasAuditFilters(filters: AuditFilters): boolean {
   return Boolean(
-    filters.q || filters.action || filters.entity || filters.actor || filters.from || filters.to
+    filters.source || filters.q || filters.action || filters.entity || filters.actor || filters.from || filters.to
   );
 }
