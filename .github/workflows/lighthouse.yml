@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
 
@@ -35,9 +35,12 @@ jobs:
           uploadArtifacts: true
           temporaryPublicStorage: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
+          # v5 auto-caches from package.json's packageManager (pnpm), but this
+          # job never installs pnpm or dependencies — the cache step would fail.
+          package-manager-cache: false
 
       - name: Summarize into the committed public snapshot
         run: node scripts/lighthouse-summary.mjs
