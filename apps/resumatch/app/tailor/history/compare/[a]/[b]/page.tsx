@@ -5,6 +5,7 @@ import { getJobmatchDb } from "../../../../../../lib/db/client";
 import { parseTailoredResumeContent } from "../../../../../../lib/tailoring/ai/schema";
 import { diffTailoredResumes } from "../../../../../../lib/tailoring/diff";
 import { getCurrentWorkspace } from "../../../../../../lib/workspace";
+import { LanguageBadge } from "../../../../../components/app/LanguageBadge";
 
 export const metadata: Metadata = { title: "Compare tailored resumes" };
 export const dynamic = "force-dynamic";
@@ -31,11 +32,11 @@ export default async function CompareTailoredResumesPage({
   const [rowA, rowB] = await Promise.all([
     db.tailoredResume.findFirst({
       where: { id: idA, workspaceId: workspace.id },
-      select: { content: true, createdAt: true, targetJob: { select: { title: true, employer: true } } },
+      select: { content: true, createdAt: true, outputLanguage: true, targetJob: { select: { title: true, employer: true } } },
     }),
     db.tailoredResume.findFirst({
       where: { id: idB, workspaceId: workspace.id },
-      select: { content: true, createdAt: true, targetJob: { select: { title: true, employer: true } } },
+      select: { content: true, createdAt: true, outputLanguage: true, targetJob: { select: { title: true, employer: true } } },
     }),
   ]);
   if (!rowA || !rowB) notFound();
@@ -51,9 +52,11 @@ export default async function CompareTailoredResumesPage({
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
         <Card title={rowA.targetJob.title ?? rowA.targetJob.employer ?? "Version A"}>
           <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{new Date(rowA.createdAt).toLocaleString()}</p>
+          <LanguageBadge language={rowA.outputLanguage} />
         </Card>
         <Card title={rowB.targetJob.title ?? rowB.targetJob.employer ?? "Version B"}>
           <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{new Date(rowB.createdAt).toLocaleString()}</p>
+          <LanguageBadge language={rowB.outputLanguage} />
         </Card>
       </div>
 

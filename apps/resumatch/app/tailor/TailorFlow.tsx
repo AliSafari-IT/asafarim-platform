@@ -2,11 +2,19 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useOptionalLocale } from "@asafarim/shared-i18n";
 import { Alert, Button, Card, Input } from "@asafarim/ui";
 import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
 import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQuality";
 import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
 import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
+import {
+  LANGUAGE_LABELS,
+  OUTPUT_LANGUAGES,
+  isOutputLanguage,
+  outputLanguageFromLocale,
+  type OutputLanguage,
+} from "../../lib/tailoring/language";
 
 const MIN_PASTE_CHARS = 120;
 
@@ -77,6 +85,9 @@ interface ReviewState {
    *  echoed back from generate-preview so confirm() can re-send it for
    *  provenance without re-deriving it. */
   instructions: string | null;
+  /** The language this preview's suggestions were written in (#641),
+   *  as generate-preview recorded it; null when none was requested. */
+  outputLanguage: OutputLanguage | null;
   headline: string;
   summary: string;
   originalSkillsOrder: string[];
@@ -130,6 +141,10 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [mode, setMode] = useState<Mode>("url");
   const [instructions, setInstructions] = useState("");
+  // #641: defaults to the page language from the language bar (#640);
+  // the candidate can pick another for this run.
+  const pageLocale = useOptionalLocale();
+  const [cvLanguage, setCvLanguage] = useState<OutputLanguage>(() => outputLanguageFromLocale(pageLocale));
   const [includeCoverLetter, setIncludeCoverLetter] = useState(false);
   const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">("formal");
   const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">("standard");
@@ -296,6 +311,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             coverLetterTone: includeCoverLetter ? coverLetterTone : undefined,
             coverLetterLength: includeCoverLetter ? coverLetterLength : undefined,
             instructions: instructions.trim() || undefined,
+            outputLanguage: cvLanguage,
           }),
         });
         const body = await res.json();
@@ -337,6 +353,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           modelVersion: body.modelVersion,
           degraded: body.degraded,
           instructions: typeof body.instructions === "string" ? body.instructions : null,
+          outputLanguage: isOutputLanguage(body.outputLanguage) ? body.outputLanguage : null,
           headline: suggestions?.headline ?? profile.headline ?? "",
           summary: suggestions?.summary ?? profile.summary ?? "",
           originalSkillsOrder: profile.skills,
@@ -375,7 +392,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         setState({ kind: "error", message: "Could not reach the server." });
       }
     },
-    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength, instructions],
+    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength, instructions, cvLanguage],
   );
 
   const toggleBullet = useCallback((experienceIndex: number, bulletIndex: number) => {
@@ -603,6 +620,26 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             {state.employer ? <p style={{ color: "var(--muted)" }}>{state.employer}</p> : null}
             <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{state.snippet}…</p>
             <label className="jm-field" style={{ display: "block", margin: "0.5rem 0" }}>
+              <span className="rm-review__section-label">CV language</span>
+              <select
+                className="ui-input ui-select"
+                value={cvLanguage}
+                onChange={(e) => setCvLanguage(e.target.value as OutputLanguage)}
+                aria-describedby="rm-cv-language-help"
+                style={{ maxWidth: "16rem" }}
+              >
+                {OUTPUT_LANGUAGES.map((code) => (
+                  <option key={code} value={code}>
+                    {LANGUAGE_LABELS[code]}
+                  </option>
+                ))}
+              </select>
+              <small id="rm-cv-language-help">
+                The headline, summary and experience bullets are written in this language. Employers,
+                job titles, dates, education and skill names stay exactly as in your profile.
+              </small>
+            </label>
+            <label className="jm-field" style={{ display: "block", margin: "0.5rem 0" }}>
               <span className="rm-review__section-label">
                 Anything you want AI to keep in mind? (optional)
               </span>
@@ -666,7 +703,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             {state.review.degraded ? (
               <Alert tone="warning">
                 AI tailoring isn't available right now (budget or provider issue). You can still save
-                your confirmed profile as this tailored CV, unchanged.
+                your confirmed profile as this tailored CV, unchanged
+                {state.review.outputLanguage ? " — the CV language you picked isn't applied to it" : ""}.
               </Alert>
             ) : (
               <>
@@ -674,6 +712,13 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                   Nothing here is saved yet. Edit any text, uncheck a bullet you don't want, and
                   confirm when you're happy with it.
                 </p>
+                {state.review.outputLanguage ? (
+                  <p className="rx-lang-note">
+                    <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[state.review.outputLanguage]}</span>
+                    Suggestions are written in {LANGUAGE_LABELS[state.review.outputLanguage]}. Anything you
+                    clear or uncheck keeps your profile's original wording, which may be in another language.
+                  </p>
+                ) : null}
 
                 {state.review.instructions ? (
                   <p style={{ color: "var(--muted)", fontSize: "0.82rem", fontStyle: "italic" }}>

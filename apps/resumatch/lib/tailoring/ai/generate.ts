@@ -11,6 +11,7 @@ import type { CostAttribution } from "../../costs/ledger";
 import { getTailorProvider, resolveTailorModelVersion } from "./registry";
 import { mergeTailoringSuggestions, type TailoredResumeContent, type TailorSuggestions } from "./schema";
 import { TailorProviderError } from "./provider";
+import type { OutputLanguage } from "../language";
 
 const MAX_ATTEMPTS = 3;
 
@@ -44,11 +45,14 @@ export async function runTailorProviderCall(
    *  itself; the preview route passes its pre-minted preview id so the
    *  tailor + cover-letter line items share one workflow. */
   cost: Partial<Pick<CostAttribution, "subjectType" | "subjectId" | "workflowId">> = {},
+  /** The language to write the generated prose in (#641). Omitted, the
+   *  prompt carries no language rule (pre-#641 behaviour). */
+  outputLanguage?: OutputLanguage | null,
 ): Promise<TailorProviderCallResult> {
   const providerName = providerOverride ?? getEnv().aiProvider;
   const modelVersion = await resolveTailorModelVersion(providerName);
   const { text: profileText } = buildProfileText(profile);
-  const prompt = renderTailorPrompt(profileText, jobText, instructions);
+  const prompt = renderTailorPrompt(profileText, jobText, instructions, outputLanguage);
 
   let suggestions: TailorSuggestions | null = null;
   let degraded = false;
@@ -141,6 +145,9 @@ export interface GenerateTailoredResumeOptions {
    *  defensively. Persisted on the TailoredResume row for provenance only —
    *  it plays no role in re-deriving content once saved. */
   instructions?: string | null;
+  /** Output language for the generated prose (#641). Recorded on the row
+   *  only when it was actually applied — i.e. not on a degraded run. */
+  outputLanguage?: OutputLanguage | null;
 }
 
 export interface GeneratedTailoredResume {
@@ -186,6 +193,7 @@ export async function generateTailoredResume(
     opts.instructions,
     opts.provider,
     { subjectType: "tailored_resume", subjectId: tailoredResumeId, workflowId: tailoredResumeId },
+    opts.outputLanguage,
   );
   const content = mergeTailoringSuggestions(profile, suggestions);
 
@@ -201,6 +209,9 @@ export async function generateTailoredResume(
       modelVersion,
       degraded,
       instructions: opts.instructions?.trim() || null,
+      // A degraded run carries the profile over unchanged, so no language
+      // was applied; null says so rather than claiming a translation.
+      outputLanguage: degraded ? null : (opts.outputLanguage ?? null),
     },
     select: { id: true },
   });

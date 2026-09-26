@@ -1,4 +1,5 @@
 import type { TailoredResumeContent } from "./ai/schema";
+import { isOutputLanguage, type OutputLanguage } from "./language";
 
 /**
  * Deterministic resume-quality checks (issue #433). No provider call, no
@@ -14,13 +15,28 @@ import type { TailoredResumeContent } from "./ai/schema";
 
 const METRIC_PATTERN = /\d/;
 
-// Verbs that read as passive/vague at the start of a bullet — a cheap,
-// intentionally small list of the most common offenders, not an exhaustive
-// grammar check.
-const WEAK_LEAD_VERBS = new Set([
-  "responsible", "worked", "helped", "involved", "assisted", "participated",
-  "handled", "tasked", "duties", "was", "were", "did", "made", "got",
-]);
+// Words that read as passive/vague at the start of a bullet — a cheap,
+// intentionally small list of the most common offenders per language, not
+// an exhaustive grammar check. Per language since #641: an English list
+// run over a French CV would miss every weak opener.
+const WEAK_LEAD_WORDS: Record<OutputLanguage, ReadonlySet<string>> = {
+  en: new Set([
+    "responsible", "worked", "helped", "involved", "assisted", "participated",
+    "handled", "tasked", "duties", "was", "were", "did", "made", "got",
+  ]),
+  nl: new Set([
+    "verantwoordelijk", "werkte", "hielp", "betrokken", "assisteerde",
+    "deelgenomen", "taken", "was", "waren", "deed", "maakte",
+  ]),
+  fr: new Set([
+    "responsable", "travaillé", "aidé", "impliqué", "assisté", "participé",
+    "chargé", "tâches", "était", "étaient", "fait",
+  ]),
+  de: new Set([
+    "verantwortlich", "zuständig", "arbeitete", "half", "beteiligt",
+    "unterstützte", "aufgaben", "war", "waren", "machte",
+  ]),
+};
 
 const MAX_BULLET_CHARS = 220;
 
@@ -51,7 +67,10 @@ export interface QualityReport {
 const LOW_SKILLS_THRESHOLD = 4;
 const HIGH_SKILLS_THRESHOLD = 25;
 
-export function computeQuality(content: TailoredResumeContent): QualityReport {
+/** `language`: the CV's stored outputLanguage (#641). Null — older CVs,
+ *  or no language applied — uses the English list, as before. */
+export function computeQuality(content: TailoredResumeContent, language: string | null = null): QualityReport {
+  const weakLeadWords = WEAK_LEAD_WORDS[isOutputLanguage(language) ? language : "en"];
   const bulletsWithoutMetric: BulletFlag[] = [];
   const weakLeadBullets: BulletFlag[] = [];
   const overLengthBullets: BulletFlag[] = [];
@@ -64,8 +83,10 @@ export function computeQuality(content: TailoredResumeContent): QualityReport {
 
       if (!METRIC_PATTERN.test(text)) bulletsWithoutMetric.push(flag);
 
-      const leadWord = text.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, "");
-      if (leadWord && WEAK_LEAD_VERBS.has(leadWord)) weakLeadBullets.push(flag);
+      // Unicode letters, not [a-z]: "Travaillé" must stay "travaillé", not
+      // become "travaill" and slip past the list.
+      const leadWord = text.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^\p{L}]/gu, "");
+      if (leadWord && weakLeadWords.has(leadWord)) weakLeadBullets.push(flag);
 
       if (text.length > MAX_BULLET_CHARS) overLengthBullets.push(flag);
     });

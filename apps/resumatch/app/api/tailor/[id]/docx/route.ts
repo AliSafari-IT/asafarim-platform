@@ -21,12 +21,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // candidate's tailored resume.
   const row = await db.tailoredResume.findFirst({
     where: { id, workspaceId: workspace.id },
-    select: { content: true },
+    select: { content: true, outputLanguage: true },
   });
   if (!row) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   const content = parseTailoredResumeContent(row.content);
-  const buffer = await renderTailoredResumeDocx(content);
+  const buffer = await renderTailoredResumeDocx(content, row.outputLanguage);
   const filename = (content.fullName ?? "resume").trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "resume";
 
   return new NextResponse(new Uint8Array(buffer), {

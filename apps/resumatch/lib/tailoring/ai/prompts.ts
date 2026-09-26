@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { TAILOR_PROMPT_VERSION as REGISTRY_PROMPT_VERSION } from "./registry";
+import { PROMPT_LANGUAGE_NAMES, type OutputLanguage } from "../language";
 
 /**
  * Tailoring prompt (fence-sentinel pattern). Mirrors the old matching
@@ -22,7 +23,7 @@ import { TAILOR_PROMPT_VERSION as REGISTRY_PROMPT_VERSION } from "./registry";
  * code, not re-derived from prompt output at all (see generate.ts — those
  * fields are copied from the source profile in code, never taken from the
  * model's response). The model is therefore only ever asked for the
- * advisory `TailorSuggestions` shape described in SYSTEM_PROMPT below —
+ * advisory `TailorSuggestions` shape described in BASE_SYSTEM_PROMPT below —
  * reworded text and a proposed skill order, nothing that could itself be
  * a fact.
  */
@@ -45,7 +46,7 @@ export const MAX_INSTRUCTIONS_CHARS = 1000;
 
 export const TAILOR_PROMPT_VERSION = REGISTRY_PROMPT_VERSION;
 
-const SYSTEM_PROMPT = `You are an expert resume tailor. You rewrite a candidate's resume
+const BASE_SYSTEM_PROMPT = `You are an expert resume tailor. You rewrite a candidate's resume
 content to better fit one specific job posting, optimizing for both the
 human recruiter skimming it and the ATS (applicant tracking system)
 matching its keywords.
@@ -108,6 +109,33 @@ fit for this job, still return a valid JSON object — reworded content
 drawn conservatively from what is present, never a fabricated addition to
 fill the gap.`;
 
+/**
+ * The output-language rule (#641). Built only from the closed
+ * OUTPUT_LANGUAGES enum — no candidate text reaches it — and appended to
+ * the system prompt, so it's part of the prompt hash. Translation is
+ * scoped to the three prose fields: skillsOrder stays a verbatim
+ * reordering, and every fact keeps its exact value in any language.
+ */
+function languageRule(language: OutputLanguage): string {
+  const name = PROMPT_LANGUAGE_NAMES[language];
+  return `
+
+OUTPUT LANGUAGE — write "headline", "summary", and every string in
+"experienceBullets" in ${name}, whatever language the profile or the job
+posting is written in. Use natural, professional ${name} as a native
+recruiter would expect on a CV.
+- Translating never licenses a change of fact: every number, percentage,
+  date, duration, and name keeps its exact value.
+- Keep employer names, product and brand names, technology and tool names,
+  and certification names exactly as written in the profile data.
+- "skillsOrder" is NOT translated: it stays a verbatim reordering of the
+  profile's own skill names, exactly as the rules above require.`;
+}
+
+function buildSystemPrompt(language?: OutputLanguage | null): string {
+  return language ? BASE_SYSTEM_PROMPT + languageRule(language) : BASE_SYSTEM_PROMPT;
+}
+
 export interface RenderedTailorPrompt {
   system: string;
   user: string;
@@ -116,10 +144,12 @@ export interface RenderedTailorPrompt {
   jobTextUsed: string;
   profileTextUsed: string;
   instructionsUsed: string | null;
+  /** The output language this prompt asked for, or null for none. */
+  outputLanguage: OutputLanguage | null;
 }
 
 /**
- * Render the versioned `tailor_resume` prompt (current: @2 — see
+ * Render the versioned `tailor_resume` prompt (current: @4 — see
  * registry.ts's TAILOR_PROMPT_VERSION).
  *
  * `profileText` and `jobText` should already be normalised/redacted text —
@@ -132,12 +162,17 @@ export interface RenderedTailorPrompt {
  * steering text for this run, fenced the same way as the other two inputs.
  * The API route caps it to MAX_INSTRUCTIONS_CHARS before it ever reaches
  * here; this function caps again defensively for any other caller.
+ *
+ * `outputLanguage` (#641) adds the OUTPUT LANGUAGE rule to the system
+ * prompt. Omitted, the system prompt is exactly the pre-#641 text.
  */
 export function renderTailorPrompt(
   profileText: string,
   jobText: string,
   instructions?: string | null,
+  outputLanguage?: OutputLanguage | null,
 ): RenderedTailorPrompt {
+  const system = buildSystemPrompt(outputLanguage);
   const cappedJob =
     jobText.length > MAX_JOB_CHARS
       ? `${jobText.slice(0, MAX_JOB_CHARS)}\n[...truncated at ${MAX_JOB_CHARS} chars...]`
@@ -172,16 +207,17 @@ export function renderTailorPrompt(
   ].join("\n");
 
   const cacheKey = createHash("sha256")
-    .update(`${TAILOR_PROMPT_VERSION}::${SYSTEM_PROMPT}::${user}`)
+    .update(`${TAILOR_PROMPT_VERSION}::${system}::${user}`)
     .digest("hex");
 
   return {
-    system: SYSTEM_PROMPT,
+    system,
     user,
     version: TAILOR_PROMPT_VERSION,
     cacheKey,
     jobTextUsed: cappedJob,
     profileTextUsed: cappedProfile,
     instructionsUsed: cappedInstructions,
+    outputLanguage: outputLanguage ?? null,
   };
 }

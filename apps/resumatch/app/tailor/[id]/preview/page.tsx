@@ -7,6 +7,7 @@ import { getJobmatchDb } from "../../../../lib/db/client";
 import { parseTailoredResumeContent } from "../../../../lib/tailoring/ai/schema";
 import { computeCoverage } from "../../../../lib/tailoring/coverage";
 import { computeQuality } from "../../../../lib/tailoring/quality";
+import { LANGUAGE_LABELS, isOutputLanguage } from "../../../../lib/tailoring/language";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { CoverageReport } from "./CoverageReport";
 import { DocxButton } from "./DocxButton";
@@ -37,6 +38,7 @@ export default async function TailoredResumePreviewPage({
     select: {
       content: true,
       degraded: true,
+      outputLanguage: true,
       targetJobId: true,
       targetJob: { select: { rawText: true, title: true, employer: true } },
       // The persisted pairing (see schema's CoverLetter.tailoredResumeId
@@ -64,7 +66,7 @@ export default async function TailoredResumePreviewPage({
     .filter(Boolean)
     .join(" ");
   const coverage = row.targetJob.rawText ? computeCoverage(content.skills, row.targetJob.rawText, resumeText) : null;
-  const quality = computeQuality(content);
+  const quality = computeQuality(content, row.outputLanguage);
 
   const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
 
@@ -75,6 +77,14 @@ export default async function TailoredResumePreviewPage({
         title="Your tailored CV"
         description={jobLabel ? `Tailored toward ${jobLabel}.` : undefined}
       />
+
+      {row.outputLanguage && isOutputLanguage(row.outputLanguage) ? (
+        <p className="rx-lang-note">
+          <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[row.outputLanguage]}</span>
+          Written in {LANGUAGE_LABELS[row.outputLanguage]}. Employers, job titles, dates, education
+          and skill names are kept exactly as in your profile.
+        </p>
+      ) : null}
 
       {row.degraded ? (
         <Alert tone="warning">
@@ -99,7 +109,7 @@ export default async function TailoredResumePreviewPage({
       {coverage ? <CoverageReport coverage={coverage} /> : null}
       <QualityChecklist quality={quality} />
 
-      <ClassicTemplate content={content} />
+      <ClassicTemplate content={content} language={row.outputLanguage} />
     </>
   );
 }

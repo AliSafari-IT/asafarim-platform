@@ -4571,3 +4571,22 @@
     white-space: nowrap;
   }
 }
+
+/* ── CV language (#641) ──
+   Used on the preview page and in the review step as well as in .rx
+   sections, so it relies only on the global theme tokens. */
+[data-app="resumatch"] .rx-pill--lang {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+[data-app="resumatch"] .rx-lang-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
