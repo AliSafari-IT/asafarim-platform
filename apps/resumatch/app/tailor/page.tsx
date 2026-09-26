@@ -11,6 +11,7 @@ import { PageHero } from "../components/app/PageHero";
 import { StatRow, StatTile } from "../components/app/Stats";
 import { BriefcaseIcon, MailIcon, SparkIcon, WarningIcon } from "../profile/icons";
 import { TailorFlow } from "./TailorFlow";
+import { LanguageBadge } from "../components/app/LanguageBadge";
 
 export const metadata: Metadata = { title: "Tailor your CV" };
 export const dynamic = "force-dynamic";
@@ -71,6 +72,7 @@ export default async function TailorPage() {
         createdAt: true,
         degraded: true,
         templateKey: true,
+        outputLanguage: true,
         targetJob: { select: { title: true, employer: true } },
         coverLetter: { select: { id: true } },
       },
@@ -159,6 +161,7 @@ export default async function TailorPage() {
                     <span className="rx-card__meta">
                       <span className="jm-mono">{resume.createdAt.toISOString().slice(0, 10)}</span>
                       <span className="rx-pill">{resume.templateKey}</span>
+                      <LanguageBadge language={resume.outputLanguage} />
                       {resume.coverLetter ? <span className="rx-pill rx-pill--ok">+ Cover letter</span> : null}
                       {resume.degraded ? <span className="rx-pill rx-pill--warm">Degraded</span> : null}
                     </span>

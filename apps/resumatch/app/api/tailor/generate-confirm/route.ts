@@ -5,6 +5,7 @@ import { mergeTailoringSuggestions, parseTailorSuggestions } from "../../../../l
 import { buildCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/generate";
 import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
+import { appliedOutputLanguage } from "../../../../lib/tailoring/language";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TEMPLATE_KEY = "classic";
@@ -136,6 +137,9 @@ export async function POST(request: Request) {
       modelVersion,
       degraded,
       instructions: typeof instructions === "string" ? instructions.trim() || null : null,
+      // #641: from the server's preview record, never the client — and only
+      // if some AI-written prose was kept (see appliedOutputLanguage).
+      outputLanguage: appliedOutputLanguage(preview.outputLanguage, degraded, suggestions),
     },
     select: { id: true },
   });

@@ -45,6 +45,7 @@ export default async function TailoringHistoryPage() {
         createdAt: true,
         templateKey: true,
         degraded: true,
+        outputLanguage: true,
         promptVersion: true,
         modelVersion: true,
         profileVersionId: true,

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@asafarim/ui";
+import { LanguageBadge } from "../../components/app/LanguageBadge";
 
 /** Deterministic, locale-independent formatting — `toLocaleString()` here
  *  produced a server/client hydration mismatch (server and browser locales
@@ -21,6 +22,7 @@ interface HistoryRow {
   createdAt: string | Date;
   templateKey: string;
   degraded: boolean;
+  outputLanguage: string | null;
   promptVersion: string;
   modelVersion: string;
   targetJobId: string;
@@ -123,6 +125,7 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
                       <span className="rx-hl__meta">
                         <span className="jm-mono">{formatTimestamp(resume.createdAt).slice(11)} UTC</span>
                         <span className="rx-pill">{resume.templateKey}</span>
+                        <LanguageBadge language={resume.outputLanguage} />
                         <span className="jm-mono rx-hl__model">{resume.modelVersion}</span>
                         {resume.coverLetter ? <span className="rx-pill rx-pill--ok">+ Cover letter</span> : null}
                         {resume.degraded ? <span className="rx-pill rx-pill--warm">Degraded</span> : null}

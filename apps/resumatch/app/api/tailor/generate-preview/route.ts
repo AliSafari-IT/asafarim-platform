@@ -5,6 +5,7 @@ import { MAX_INSTRUCTIONS_CHARS } from "../../../../lib/tailoring/ai/prompts";
 import { runCoverLetterProviderCall } from "../../../../lib/tailoring/ai/coverLetter/generate";
 import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES } from "../../../../lib/tailoring/ai/coverLetter/prompts";
 import { buildProfileText } from "../../../../lib/tailoring/buildProfileText";
+import { isOutputLanguage } from "../../../../lib/tailoring/language";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getVersion } from "../../../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { profileVersionId, targetJobId, includeCoverLetter, coverLetterTone, coverLetterLength, instructions } =
+  const { profileVersionId, targetJobId, includeCoverLetter, coverLetterTone, coverLetterLength, instructions, outputLanguage } =
     (body ?? {}) as {
       profileVersionId?: unknown;
       targetJobId?: unknown;
@@ -49,6 +50,9 @@ export async function POST(request: Request) {
        *  signal only, fenced as DATA into the prompt — see
        *  lib/tailoring/ai/prompts.ts's HARD RULES. */
       instructions?: unknown;
+      /** Optional — #641. One of OUTPUT_LANGUAGES; the language to write the
+       *  generated prose in. A closed choice, validated below. */
+      outputLanguage?: unknown;
     };
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
     return NextResponse.json({ error: "profileVersionId and targetJobId are required." }, { status: 400 });
@@ -61,6 +65,9 @@ export async function POST(request: Request) {
   }
   if (instructions !== undefined && typeof instructions !== "string") {
     return NextResponse.json({ error: "Invalid instructions." }, { status: 400 });
+  }
+  if (outputLanguage !== undefined && !isOutputLanguage(outputLanguage)) {
+    return NextResponse.json({ error: "Invalid outputLanguage." }, { status: 400 });
   }
   if (typeof instructions === "string" && instructions.length > MAX_INSTRUCTIONS_CHARS) {
     return NextResponse.json({ error: `instructions must be ${MAX_INSTRUCTIONS_CHARS} characters or fewer.` }, { status: 400 });
@@ -100,6 +107,7 @@ export async function POST(request: Request) {
     typeof instructions === "string" ? instructions : null,
     undefined,
     cost,
+    isOutputLanguage(outputLanguage) ? outputLanguage : null,
   );
   const coverLetterResult =
     includeCoverLetter === true
@@ -131,6 +139,7 @@ export async function POST(request: Request) {
       coverLetterPromptVersion: coverLetterResult?.promptVersion ?? null,
       coverLetterModelVersion: coverLetterResult?.modelVersion ?? null,
       coverLetterDegraded: coverLetterResult ? coverLetterResult.degraded : null,
+      outputLanguage: isOutputLanguage(outputLanguage) ? outputLanguage : null,
     },
     select: { id: true },
   });
@@ -142,6 +151,7 @@ export async function POST(request: Request) {
     modelVersion,
     suggestions,
     instructions: typeof instructions === "string" ? instructions : null,
+    outputLanguage: isOutputLanguage(outputLanguage) ? outputLanguage : null,
     coverLetter: coverLetterResult
       ? {
           suggestion: coverLetterResult.suggestion,

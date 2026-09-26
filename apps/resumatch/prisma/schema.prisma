@@ -386,6 +386,13 @@ model TailoredResume {
   /// though it plays no role in re-deriving content.
   instructions String?
 
+  /// The language the generated prose was written in (#641): one of
+  /// lib/tailoring/language.ts's OUTPUT_LANGUAGES ("en" | "nl" | "fr" | "de").
+  /// Null when no language was applied — a CV made before #641, a degraded
+  /// run (profile carried over unchanged), or one where every suggestion
+  /// was declined. Templates render null exactly as they always have.
+  outputLanguage String?
+
   createdAt DateTime @default(now())
 
   applications Application[]
@@ -487,6 +494,10 @@ model TailorPreview {
   coverLetterPromptVersion String?
   coverLetterModelVersion  String?
   coverLetterDegraded      Boolean?
+  /// The output language this preview's tailor call was asked for (#641).
+  /// generate-confirm copies it onto the TailoredResume from here — the
+  /// server's record — never from anything the client echoes back.
+  outputLanguage           String?
 
   createdAt  DateTime  @default(now())
   /// Set by generate-confirm on first (and only) use. A second confirm
