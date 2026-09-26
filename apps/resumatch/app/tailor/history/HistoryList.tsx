@@ -130,7 +130,7 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
                         <LanguageBadge language={resume.outputLanguage} />
                         <span className="jm-mono rx-hl__model">{resume.modelVersion}</span>
                         {resume.coverLetter ? (
-                          <span className="rx-pill rx-pill--ok">{t("resumatch.history.list.plusCoverLetter")}</span>
+                          <span className="rx-pill rx-pill--ok">{t("resumatch.plusCoverLetter")}</span>
                         ) : null}
                         <LanguageBadge language={resume.coverLetter?.outputLanguage} coverLetter />
                         {resume.degraded ? (

@@ -1,58 +1,63 @@
-import type { QualityReport } from "../../../../lib/tailoring/quality";
+"use client";
 
-const FIELD_LABELS: Record<string, string> = {
-  headline: "Headline",
-  summary: "Summary",
-  email: "Email",
-  phone: "Phone",
-};
+import { useTranslation } from "@asafarim/shared-i18n";
+import type { QualityReport } from "../../../../lib/tailoring/quality";
 
 /**
  * Renders the deterministic checklist computed by lib/tailoring/quality.ts.
  * A checklist, not a score — each row states what it found and links
- * nothing back into the document. Server-rendered, no client JS needed.
+ * nothing back into the document. A client component only for
+ * `useTranslation()`.
  */
 export function QualityChecklist({ quality }: { quality: QualityReport }) {
+  const { t } = useTranslation();
+  const plural = (key: string, count: number) => t(`${key}.${count === 1 ? "one" : "other"}`, { count });
+
   const checks: { label: string; ok: boolean; detail: string | null }[] = [
     {
-      label: "Bullets include a metric",
+      label: t("resumatch.quality.metric"),
       ok: quality.totalBullets > 0 && quality.bulletsWithoutMetric.length === 0,
       detail:
         quality.totalBullets === 0
           ? null
-          : `${quality.totalBullets - quality.bulletsWithoutMetric.length} of ${quality.totalBullets} bullets contain a number.`,
+          : t("resumatch.quality.metric.detail", {
+              withMetric: quality.totalBullets - quality.bulletsWithoutMetric.length,
+              total: quality.totalBullets,
+            }),
     },
     {
-      label: "Bullets open with a strong action verb",
+      label: t("resumatch.quality.verb"),
       ok: quality.weakLeadBullets.length === 0,
       detail:
         quality.weakLeadBullets.length > 0
-          ? `${quality.weakLeadBullets.length} bullet${quality.weakLeadBullets.length === 1 ? "" : "s"} open on a weak or passive verb.`
+          ? plural("resumatch.quality.verb.detail", quality.weakLeadBullets.length)
           : null,
     },
     {
-      label: "Bullets are print-friendly length",
+      label: t("resumatch.quality.length"),
       ok: quality.overLengthBullets.length === 0,
       detail:
         quality.overLengthBullets.length > 0
-          ? `${quality.overLengthBullets.length} bullet${quality.overLengthBullets.length === 1 ? "" : "s"} likely wrap to a second line.`
+          ? plural("resumatch.quality.length.detail", quality.overLengthBullets.length)
           : null,
     },
     {
-      label: "Contact details and headline complete",
+      label: t("resumatch.quality.contact"),
       ok: quality.missingFields.length === 0,
       detail:
         quality.missingFields.length > 0
-          ? `Missing: ${quality.missingFields.map((f) => FIELD_LABELS[f]).join(", ")}.`
+          ? t("resumatch.quality.contact.detail", {
+              fields: quality.missingFields.map((f) => t(`resumatch.quality.field.${f}`)).join(", "),
+            })
           : null,
     },
     {
-      label: "Skills count looks reasonable",
+      label: t("resumatch.quality.skills"),
       ok: !quality.skillsCountIsLow && !quality.skillsCountIsHigh,
       detail: quality.skillsCountIsLow
-        ? `Only ${quality.skillsCount} skill${quality.skillsCount === 1 ? "" : "s"} listed — consider adding more.`
+        ? plural("resumatch.quality.skills.low", quality.skillsCount)
         : quality.skillsCountIsHigh
-          ? `${quality.skillsCount} skills listed — consider trimming to the most relevant.`
+          ? t("resumatch.quality.skills.high", { count: quality.skillsCount })
           : null,
     },
   ];
@@ -60,7 +65,7 @@ export function QualityChecklist({ quality }: { quality: QualityReport }) {
   return (
     <div className="rm-quality">
       <div className="rm-quality__header">
-        <strong>Document hygiene</strong>
+        <strong>{t("resumatch.quality.title")}</strong>
       </div>
       <ul className="rm-quality__list">
         {checks.map((check) => (

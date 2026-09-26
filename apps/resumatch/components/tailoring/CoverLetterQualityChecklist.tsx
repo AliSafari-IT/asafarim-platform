@@ -1,63 +1,68 @@
+"use client";
+
+import { useTranslation } from "@asafarim/shared-i18n";
 import type { CoverLetterQualityReport } from "../../lib/tailoring/coverLetterQuality";
 
 /**
  * Renders the deterministic checklist computed by
  * lib/tailoring/coverLetterQuality.ts. Same "checklist, not a score"
- * posture as the CV's QualityChecklist. Server-rendered, no client JS
- * needed.
+ * posture as the CV's QualityChecklist. A client component only for
+ * `useTranslation()`: it renders both in TailorFlow's review step and on
+ * the (server) cover-letter preview page.
  */
 export function CoverLetterQualityChecklist({ quality }: { quality: CoverLetterQualityReport }) {
+  const { t } = useTranslation();
   const checks: { label: string; ok: boolean; detail: string | null }[] = [
     {
-      label: "Length fits the target",
+      label: t("resumatch.letterQuality.length"),
       ok: quality.wordCountInRange,
-      detail: `${quality.wordCount} words across ${quality.paragraphCount} paragraph${quality.paragraphCount === 1 ? "" : "s"}${quality.wordCountInRange ? "" : " — outside the usual range for this length."}`,
+      detail:
+        t(`resumatch.letterQuality.length.detail.${quality.paragraphCount === 1 ? "one" : "other"}`, {
+          words: quality.wordCount,
+          count: quality.paragraphCount,
+        }) + (quality.wordCountInRange ? "" : t("resumatch.letterQuality.length.outOfRange")),
     },
     {
-      label: "No generic filler phrases",
+      label: t("resumatch.letterQuality.generic"),
       ok: quality.genericPhrasesFound.length === 0,
       detail:
         quality.genericPhrasesFound.length > 0
-          ? `Found: "${quality.genericPhrasesFound.join('", "')}" — these read as templated to most ATS/recruiter screens.`
+          ? t("resumatch.letterQuality.generic.detail", {
+              phrases: quality.genericPhrasesFound.map((phrase) => `"${phrase}"`).join(", "),
+            })
           : null,
     },
     {
-      label: "No unfilled placeholders",
+      label: t("resumatch.letterQuality.placeholder"),
       ok: !quality.hasUnfilledPlaceholder,
-      detail: quality.hasUnfilledPlaceholder
-        ? "A bracketed placeholder like [Company Name] appears somewhere in the letter — fill it in or remove it."
-        : null,
+      detail: quality.hasUnfilledPlaceholder ? t("resumatch.letterQuality.placeholder.detail") : null,
     },
     {
-      label: "Greeting looks intentional",
+      label: t("resumatch.letterQuality.greeting"),
       ok: quality.greetingLooksIntentional,
-      detail: quality.greetingLooksIntentional
-        ? null
-        : "The greeting looks like it still has a placeholder in it rather than a real or neutral salutation.",
+      detail: quality.greetingLooksIntentional ? null : t("resumatch.letterQuality.greeting.detail"),
     },
     // #642: only for a letter written in a language other than English.
     ...(quality.greetingMatchesLanguage === null
       ? []
       : [
           {
-            label: "Greeting and sign-off match the letter's language",
+            label: t("resumatch.letterQuality.language"),
             ok: quality.greetingMatchesLanguage,
-            detail: quality.greetingMatchesLanguage
-              ? null
-              : "The greeting or sign-off looks like it's in another language (for example an English “Dear …” or “Sincerely,”) — use this language's own formula.",
+            detail: quality.greetingMatchesLanguage ? null : t("resumatch.letterQuality.language.detail"),
           },
         ]),
     {
-      label: "Signed with your name",
+      label: t("resumatch.letterQuality.signed"),
       ok: quality.hasSignerName,
-      detail: quality.hasSignerName ? null : "Your confirmed profile has no name to sign this with yet.",
+      detail: quality.hasSignerName ? null : t("resumatch.letterQuality.signed.detail"),
     },
   ];
 
   return (
     <div className="rm-quality">
       <div className="rm-quality__header">
-        <strong>Letter hygiene</strong>
+        <strong>{t("resumatch.letterQuality.title")}</strong>
       </div>
       <ul className="rm-quality__list">
         {checks.map((check) => (

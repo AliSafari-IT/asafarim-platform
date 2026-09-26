@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { Button, Input } from "@asafarim/ui";
 
 /**
@@ -54,6 +55,7 @@ export function ManualJobForm({
   busy: boolean;
   onSubmit: (values: ManualJobFormValues) => void;
 }) {
+  const { t } = useTranslation();
   const [values, setValues] = useState<ManualJobFormValues>(EMPTY_VALUES);
 
   const set = <K extends keyof ManualJobFormValues>(key: K, value: ManualJobFormValues[K]) =>
@@ -66,94 +68,91 @@ export function ManualJobForm({
   return (
     <div style={{ marginTop: "0.75rem" }}>
       <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
-        No posting, no email, no file — a phone call, a printed letter, a conversation at a career
-        fair? Type in what you know. Only the title, employer, and at least one of responsibilities,
-        requirements, preferred qualifications, or benefits are required — leave the rest blank if
-        you don't know it yet.
+        {t("resumatch.manual.intro")}
       </p>
 
       <div className="jm-grid">
         <label className="jm-field">
-          <span>Job title *</span>
+          <span>{t("resumatch.manual.title")}</span>
           <Input value={values.title} onChange={(e) => set("title", e.target.value)} disabled={busy} />
         </label>
         <label className="jm-field">
-          <span>Employer *</span>
+          <span>{t("resumatch.manual.employer")}</span>
           <Input value={values.employer} onChange={(e) => set("employer", e.target.value)} disabled={busy} />
         </label>
         <label className="jm-field">
-          <span>Location</span>
+          <span>{t("resumatch.manual.location")}</span>
           <Input value={values.location} onChange={(e) => set("location", e.target.value)} disabled={busy} />
         </label>
         <label className="jm-field">
-          <span>Work mode</span>
+          <span>{t("resumatch.manual.workMode")}</span>
           <select className="ui-input ui-select" value={values.workMode} onChange={(e) => set("workMode", e.target.value as ManualJobFormValues["workMode"])} disabled={busy}>
-            <option value="">Not specified</option>
-            <option value="remote">Remote</option>
-            <option value="hybrid">Hybrid</option>
-            <option value="on-site">On-site</option>
+            <option value="">{t("resumatch.manual.notSpecified")}</option>
+            <option value="remote">{t("resumatch.manual.remote")}</option>
+            <option value="hybrid">{t("resumatch.manual.hybrid")}</option>
+            <option value="on-site">{t("resumatch.manual.onSite")}</option>
           </select>
         </label>
         <label className="jm-field">
-          <span>Employment type</span>
+          <span>{t("resumatch.manual.employmentType")}</span>
           <select className="ui-input ui-select"
             value={values.employmentType}
             onChange={(e) => set("employmentType", e.target.value as ManualJobFormValues["employmentType"])}
             disabled={busy}
           >
-            <option value="">Not specified</option>
-            <option value="full-time">Full-time</option>
-            <option value="part-time">Part-time</option>
-            <option value="contract">Contract</option>
-            <option value="internship">Internship</option>
+            <option value="">{t("resumatch.manual.notSpecified")}</option>
+            <option value="full-time">{t("resumatch.manual.fullTime")}</option>
+            <option value="part-time">{t("resumatch.manual.partTime")}</option>
+            <option value="contract">{t("resumatch.manual.contract")}</option>
+            <option value="internship">{t("resumatch.manual.internship")}</option>
           </select>
         </label>
         <label className="jm-field">
-          <span>Application deadline</span>
+          <span>{t("resumatch.manual.deadline")}</span>
           <Input
-            placeholder="e.g. 2026-10-15"
+            placeholder={t("resumatch.manual.deadlinePlaceholder")}
             value={values.applicationDeadline}
             onChange={(e) => set("applicationDeadline", e.target.value)}
             disabled={busy}
           />
         </label>
         <label className="jm-field">
-          <span>Salary range (optional)</span>
+          <span>{t("resumatch.manual.salary")}</span>
           <div style={{ display: "flex", gap: "0.4rem" }}>
-            <Input placeholder="Min" value={values.salaryMin} onChange={(e) => set("salaryMin", e.target.value)} disabled={busy} />
-            <Input placeholder="Max" value={values.salaryMax} onChange={(e) => set("salaryMax", e.target.value)} disabled={busy} />
+            <Input placeholder={t("resumatch.manual.min")} value={values.salaryMin} onChange={(e) => set("salaryMin", e.target.value)} disabled={busy} />
+            <Input placeholder={t("resumatch.manual.max")} value={values.salaryMax} onChange={(e) => set("salaryMax", e.target.value)} disabled={busy} />
             <Input placeholder="EUR" value={values.salaryCurrency} onChange={(e) => set("salaryCurrency", e.target.value)} disabled={busy} style={{ maxWidth: "5rem" }} />
           </div>
         </label>
         <label className="jm-field">
-          <span>Contact person</span>
+          <span>{t("resumatch.manual.contact")}</span>
           <Input value={values.contactName} onChange={(e) => set("contactName", e.target.value)} disabled={busy} />
         </label>
         <label className="jm-field">
-          <span>How you heard about it</span>
-          <Input placeholder="Referral, career fair, phone call…" value={values.source} onChange={(e) => set("source", e.target.value)} disabled={busy} />
+          <span>{t("resumatch.manual.source")}</span>
+          <Input placeholder={t("resumatch.manual.sourcePlaceholder")} value={values.source} onChange={(e) => set("source", e.target.value)} disabled={busy} />
         </label>
       </div>
 
       <label className="jm-field">
-        <span>Responsibilities</span>
+        <span>{t("resumatch.manual.responsibilities")}</span>
         <textarea className="ui-input" rows={4} value={values.responsibilities} onChange={(e) => set("responsibilities", e.target.value)} disabled={busy} style={{ width: "100%" }} />
       </label>
       <label className="jm-field">
-        <span>Requirements</span>
+        <span>{t("resumatch.manual.requirements")}</span>
         <textarea className="ui-input" rows={4} value={values.requirements} onChange={(e) => set("requirements", e.target.value)} disabled={busy} style={{ width: "100%" }} />
       </label>
       <label className="jm-field">
-        <span>Preferred qualifications</span>
+        <span>{t("resumatch.manual.preferred")}</span>
         <textarea className="ui-input" rows={3} value={values.preferredQualifications} onChange={(e) => set("preferredQualifications", e.target.value)} disabled={busy} style={{ width: "100%" }} />
       </label>
       <label className="jm-field">
-        <span>Benefits</span>
+        <span>{t("resumatch.manual.benefits")}</span>
         <textarea className="ui-input" rows={3} value={values.benefits} onChange={(e) => set("benefits", e.target.value)} disabled={busy} style={{ width: "100%" }} />
       </label>
 
       <Button onClick={() => onSubmit(values)} disabled={!canSubmit || busy}>
-        {busy ? "Saving…" : "Use these details"}
+        {busy ? t("resumatch.saving") : t("resumatch.manual.submit")}
       </Button>
     </div>
   );

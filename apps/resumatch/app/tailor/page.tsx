@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { getJobmatchDb } from "../../lib/db/client";
+import { getTranslator } from "../../lib/i18n-server";
 import { getJourneyCounts, jobKey } from "../../lib/journey";
 import { getConfirmedVersion } from "../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../lib/workspace";
-import { ActivityBars, lastNDays } from "../components/app/Charts";
+import { ActivityBars, busiestDay, lastNDays } from "../components/app/Charts";
 import { JourneyTracker } from "../components/app/JourneyTracker";
 import { PageHero } from "../components/app/PageHero";
 import { StatRow, StatTile } from "../components/app/Stats";
@@ -13,20 +14,23 @@ import { BriefcaseIcon, MailIcon, SparkIcon, WarningIcon } from "../profile/icon
 import { TailorFlow } from "./TailorFlow";
 import { LanguageBadge } from "../components/app/LanguageBadge";
 
-export const metadata: Metadata = { title: "Tailor your CV" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: t("resumatch.tailor.metaTitle") };
+}
 export const dynamic = "force-dynamic";
 
 const ACTIVITY_DAYS = 14;
 
 export default async function TailorPage() {
+  const { t } = await getTranslator();
   const workspace = await getCurrentWorkspace();
   if (!workspace) {
     return (
       <>
-        <PageHeader kicker="Tailor" title="This account cannot open a workspace." />
+        <PageHeader kicker={t("resumatch.inactive.kicker")} title={t("resumatch.inactive.title")} />
         <Alert tone="warning">
-          <strong>Account inactive.</strong> Your platform account is not active, so ResuMatch will
-          not open a workspace for it.
+          <strong>{t("resumatch.inactive.strong")}</strong> {t("resumatch.inactive.body")}
         </Alert>
       </>
     );
@@ -41,19 +45,17 @@ export default async function TailorPage() {
     return (
       <div className="rx">
         <PageHero
-          kicker="Tailor"
-          title="Confirm your profile"
-          accent="first."
-          lead="Tailoring rewrites your confirmed profile toward one job. Nothing is tailored from an unreviewed extraction."
+          kicker={t("resumatch.tailor.kicker")}
+          title={t("resumatch.tailor.confirmFirst.title")}
+          accent={t("resumatch.tailor.confirmFirst.accent")}
+          lead={t("resumatch.tailor.confirmFirst.lead")}
           aside={<JourneyTracker counts={journey} current="tailor" />}
         />
         <section className="rx-panel rx-panel--warm">
-          <h2 className="rx-panel__title">One step before tailoring</h2>
-          <p className="rx-panel__sub">
-            Upload a CV (or type your profile in), check what was read, and confirm it.
-          </p>
+          <h2 className="rx-panel__title">{t("resumatch.tailor.confirmFirst.panelTitle")}</h2>
+          <p className="rx-panel__sub">{t("resumatch.tailor.confirmFirst.panelBody")}</p>
           <Link href="/profile" className="rx-btn rx-btn--primary">
-            Go to your profile →
+            {t("resumatch.tailor.confirmFirst.cta")}
           </Link>
         </section>
       </div>
@@ -94,36 +96,43 @@ export default async function TailorPage() {
   );
   const lastTwoWeeks = activity.reduce((sum, d) => sum + d.count, 0);
   const distinctJobs = new Set(jobs.map((r) => jobKey(r.targetJob))).size;
+  const busiest = busiestDay(activity);
+  const activitySummary = [
+    t("resumatch.tailor.activity.aria", { total: lastTwoWeeks, days: ACTIVITY_DAYS }),
+    busiest ? t("resumatch.tailor.activity.busiest", { day: busiest.day, count: busiest.count }) : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="rx">
       <PageHero
-        kicker="Tailor"
-        title="Tailor your CV"
-        accent="to one job."
-        lead="Point ResuMatch at a job. AI rewords your summary and experience bullets toward it and reorders your skills — it never invents an employer, a date, a degree, or a skill you did not list."
+        kicker={t("resumatch.tailor.kicker")}
+        title={t("resumatch.tailor.hero.title")}
+        accent={t("resumatch.tailor.hero.accent")}
+        lead={t("resumatch.tailor.hero.lead")}
         aside={<JourneyTracker counts={journey} current="tailor" />}
       />
 
-      <section className="rx-flow" aria-label="Tailor a new CV">
+      <section className="rx-flow" aria-label={t("resumatch.tailor.flowAria")}>
         <TailorFlow confirmedVersionId={confirmed.id} />
       </section>
 
       {journey.tailoredCount > 0 ? (
         <>
-          <StatRow label="Your tailoring at a glance">
-            <StatTile value={journey.tailoredCount} label="tailored CVs" visual={<SparkIcon />} />
-            <StatTile value={distinctJobs} label="different jobs" visual={<BriefcaseIcon />} />
+          <StatRow label={t("resumatch.tailor.stats.aria")}>
+            <StatTile value={journey.tailoredCount} label={t("resumatch.tailor.stats.tailored")} visual={<SparkIcon />} />
+            <StatTile value={distinctJobs} label={t("resumatch.stats.jobs")} visual={<BriefcaseIcon />} />
             <StatTile
               value={coverLetters}
-              label="with a cover letter"
+              label={t("resumatch.stats.withCoverLetter")}
               visual={<MailIcon />}
               tone="ok"
             />
             <StatTile
               value={degraded}
-              label="degraded runs"
-              hint="Made by the fallback, without a real AI call"
+              label={t("resumatch.stats.degraded")}
+              hint={t("resumatch.stats.degradedHint")}
               visual={<WarningIcon />}
               tone={degraded > 0 ? "warm" : "muted"}
             />
@@ -132,29 +141,29 @@ export default async function TailorPage() {
           <section className="rx-panel">
             <div className="rx-panel__head">
               <div>
-                <h2 className="rx-panel__title">Last {ACTIVITY_DAYS} days</h2>
+                <h2 className="rx-panel__title">{t("resumatch.tailor.activity.title", { days: ACTIVITY_DAYS })}</h2>
                 <p className="rx-panel__sub">
-                  {lastTwoWeeks} tailored CV{lastTwoWeeks === 1 ? "" : "s"} — hover a bar for the day.
+                  {t(`resumatch.tailor.activity.sub.${lastTwoWeeks === 1 ? "one" : "other"}`, { count: lastTwoWeeks })}
                 </p>
               </div>
             </div>
-            <ActivityBars days={activity} label="Tailored CVs per day" />
+            <ActivityBars days={activity} summary={activitySummary} />
           </section>
 
           <section className="rx-panel" aria-labelledby="rx-recent-title">
             <div className="rx-panel__head">
               <h2 id="rx-recent-title" className="rx-panel__title">
-                Previously tailored
+                {t("resumatch.tailor.recent.title")}
               </h2>
               <Link href="/tailor/history" className="rx-link">
-                Full history & compare →
+                {t("resumatch.tailor.recent.all")}
               </Link>
             </div>
             <ul className="rx-cards">
               {history.map((resume) => (
                 <li key={resume.id}>
                   <Link href={`/tailor/${resume.id}/preview`} className="rx-card">
-                    <span className="rx-card__title">{resume.targetJob.title ?? "Tailored CV"}</span>
+                    <span className="rx-card__title">{resume.targetJob.title ?? t("resumatch.tailor.recent.fallbackTitle")}</span>
                     {resume.targetJob.employer ? (
                       <span className="rx-card__sub">{resume.targetJob.employer}</span>
                     ) : null}
@@ -162,9 +171,9 @@ export default async function TailorPage() {
                       <span className="jm-mono">{resume.createdAt.toISOString().slice(0, 10)}</span>
                       <span className="rx-pill">{resume.templateKey}</span>
                       <LanguageBadge language={resume.outputLanguage} />
-                      {resume.coverLetter ? <span className="rx-pill rx-pill--ok">+ Cover letter</span> : null}
+                      {resume.coverLetter ? <span className="rx-pill rx-pill--ok">{t("resumatch.plusCoverLetter")}</span> : null}
                       <LanguageBadge language={resume.coverLetter?.outputLanguage} coverLetter />
-                      {resume.degraded ? <span className="rx-pill rx-pill--warm">Degraded</span> : null}
+                      {resume.degraded ? <span className="rx-pill rx-pill--warm">{t("resumatch.degraded")}</span> : null}
                     </span>
                   </Link>
                 </li>
