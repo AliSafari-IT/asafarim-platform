@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { auth, signOut } from "@asafarim/auth";
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
 // Side-effect import: registers @asafarim/auth's next-auth type
 // augmentations (Session.user.roles, isActive) used by lib/workspace.ts.
 import type {} from "@asafarim/auth/types";
+import { I18nProvider } from "@asafarim/shared-i18n";
+import { getServerTranslator, resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
+import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import { ThemeProvider, ThemeToggle } from "@asafarim/theme-toggle";
 import { ThemeScript } from "@asafarim/theme-toggle/script";
 import {
@@ -18,7 +22,9 @@ import {
   toAppSwitcherLinks,
 } from "@asafarim/ui";
 import "@asafarim/ui/styles.css";
+import "@asafarim/country-language-selector/styles.css";
 import "./resumatch.css";
+import resumatchDictionaries from "../lib/i18n-dictionaries";
 
 const appUrl = process.env.NEXT_PUBLIC_RESUMATCH_URL ?? "https://resumatch.asafarim.com";
 const appName = "ResuMatch";
@@ -46,19 +52,26 @@ export const metadata: Metadata = {
 };
 
 const NAV_ITEMS = [
-  { label: "Overview", href: "/" },
-  { label: "Roadmap", href: "/roadmap" },
-  { label: "Workspace", href: "/workspace" },
-  { label: "Profile", href: "/profile" },
-  { label: "Tailor", href: "/tailor" },
-  { label: "History", href: "/tailor/history" },
-  { label: "Applications", href: "/applications" },
-  { label: "AI usage", href: "/ai-usage" },
+  { key: "resumatch.nav.overview", href: "/" },
+  { key: "resumatch.nav.roadmap", href: "/roadmap" },
+  { key: "resumatch.nav.workspace", href: "/workspace" },
+  { key: "resumatch.nav.profile", href: "/profile" },
+  { key: "resumatch.nav.tailor", href: "/tailor" },
+  { key: "resumatch.nav.history", href: "/tailor/history" },
+  { key: "resumatch.nav.applications", href: "/applications" },
+  { key: "resumatch.nav.aiUsage", href: "/ai-usage" },
 ];
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   const links = getPlatformLinks();
+
+  // The shared asafarim-lang cookie (set by the language bar in any
+  // ASafarIM app). No cookie → English, which with the Belgium lock below
+  // is the "be-en" default, as in Hub/Web/Showcase.
+  const initialLocale = resolveLocaleFromCookie((await cookies()).toString());
+  const t = getServerTranslator(initialLocale, resumatchDictionaries);
+  const navItems = NAV_ITEMS.map((item) => ({ label: t(item.key), href: item.href }));
 
   // Registry-driven, the same rule Hub's launcher and every other app's
   // switcher use — no ResuMatch-specific hardcoded visibility.
@@ -75,7 +88,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const signInHref = `${links.hub}/sign-in?callbackUrl=${encodeURIComponent(`${links.resumatch}/`)}`;
 
   return (
-    <html lang="en" data-app="resumatch" suppressHydrationWarning>
+    <html lang={initialLocale} data-app="resumatch" suppressHydrationWarning>
       <head>
         {/* Light by default, like the token block in @asafarim/ui: candidates
             read long job descriptions here and a light ground is the better
@@ -84,13 +97,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <ThemeScript defaultTheme="light" />
       </head>
       <body className="antialiased">
+        <I18nProvider initialLocale={initialLocale} dictionaries={resumatchDictionaries}>
         <ThemeProvider defaultTheme="light">
           <AppShell
             product="ResuMatch"
-            nav={<TopNav items={NAV_ITEMS} />}
+            nav={<TopNav items={navItems} />}
             user={
               <>
                 <ThemeToggle />
+                <CountryLanguageSelector lockCountry="BE" />
                 <AppSwitcher links={toAppSwitcherLinks(switcherApps, links)} />
                 {session?.user ? (
                   <UserMenu
@@ -130,6 +145,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             {children}
           </AppShell>
         </ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );
