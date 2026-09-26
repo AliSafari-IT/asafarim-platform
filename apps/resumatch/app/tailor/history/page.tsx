@@ -101,17 +101,17 @@ export default async function TailoringHistoryPage() {
         <>
           <StatRow label={t("resumatch.history.stats.aria")}>
             <StatTile value={resumes.length} label={t("resumatch.history.stats.versions")} visual={<SparkIcon />} />
-            <StatTile value={perJob.size} label={t("resumatch.history.stats.jobs")} visual={<BriefcaseIcon />} />
+            <StatTile value={perJob.size} label={t("resumatch.stats.jobs")} visual={<BriefcaseIcon />} />
             <StatTile
               value={withCoverLetter}
-              label={t("resumatch.history.stats.withCoverLetter")}
+              label={t("resumatch.stats.withCoverLetter")}
               visual={<MailIcon />}
               tone="ok"
             />
             <StatTile
               value={degraded}
-              label={t("resumatch.history.stats.degraded")}
-              hint={t("resumatch.history.stats.degradedHint")}
+              label={t("resumatch.stats.degraded")}
+              hint={t("resumatch.stats.degradedHint")}
               visual={<WarningIcon />}
               tone={degraded > 0 ? "warm" : "muted"}
             />

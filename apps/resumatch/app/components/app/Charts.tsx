@@ -10,8 +10,10 @@ export interface DayCount {
   count: number;
 }
 
-/** Last-N-days activity as bars. Zero days still get a faint stub. */
-export function ActivityBars({ days, label }: { days: DayCount[]; label: string }) {
+/** Last-N-days activity as bars. Zero days still get a faint stub.
+ *  `summary` is the chart's accessible name, already in the UI language
+ *  (see `busiestDay` for the detail it usually mentions). */
+export function ActivityBars({ days, summary }: { days: DayCount[]; summary: string }) {
   // Wide, flat drawing space: the panel is ~1000px on desktop, so this
   // renders near 1:1 instead of scaling bars and labels up ~2x.
   const W = 1000;
@@ -20,8 +22,6 @@ export function ActivityBars({ days, label }: { days: DayCount[]; label: string 
   const max = Math.max(1, ...days.map((d) => d.count));
   const slot = (W - pad * 2) / Math.max(days.length, 1);
   const barW = Math.min(Math.max(slot - 10, 4), 34);
-  const total = days.reduce((sum, d) => sum + d.count, 0);
-  const busiest = days.reduce((a, b) => (b.count > a.count ? b : a), days[0] ?? { day: "", count: 0 });
 
   return (
     <figure className="rx-chart">
@@ -29,9 +29,7 @@ export function ActivityBars({ days, label }: { days: DayCount[]; label: string 
         viewBox={`0 0 ${W} ${H + 22}`}
         className="rx-chart__svg"
         role="img"
-        aria-label={`${label}: ${total} in the last ${days.length} days${
-          busiest.count > 0 ? `, busiest ${busiest.day} with ${busiest.count}` : ""
-        }.`}
+        aria-label={summary}
       >
         <line x1={pad} y1={H} x2={W - pad} y2={H} className="rx-chart__base" />
         {days.map((d, i) => {
@@ -65,6 +63,11 @@ export function ActivityBars({ days, label }: { days: DayCount[]; label: string 
       </svg>
     </figure>
   );
+}
+
+/** The day with the most activity, or null when every day is zero. */
+export function busiestDay(days: DayCount[]): DayCount | null {
+  return days.reduce<DayCount | null>((a, b) => (b.count > (a?.count ?? 0) ? b : a), null);
 }
 
 /** Horizontal bars for a ranked list (e.g. most-tailored jobs). */

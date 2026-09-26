@@ -1,16 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commonDictionaries } from "./i18n/common";
-import { historyDictionaries } from "./i18n/history";
-import { navDictionaries } from "./i18n/nav";
-import { shellDictionaries } from "./i18n/shell";
-import resumatchDictionaries from "./i18n-dictionaries";
-
-const areas = {
-  nav: navDictionaries,
-  shell: shellDictionaries,
-  common: commonDictionaries,
-  history: historyDictionaries,
-};
+import resumatchDictionaries, { resumatchDictionaryAreas as areas } from "./i18n-dictionaries";
 const LANGS = ["nl", "fr", "de"] as const;
 
 describe("ResuMatch i18n dictionaries", () => {

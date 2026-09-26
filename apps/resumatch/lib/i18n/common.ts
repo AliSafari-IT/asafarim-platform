@@ -2,7 +2,9 @@ import type { Dictionaries } from "@asafarim/shared-i18n";
 
 /**
  * Components shared across pages: the journey tracker, the output-language
- * badge, and the account-inactive notice. Counts use `.one` / `.other` key
+ * badge, the account-inactive notice, stat labels more than one page shows,
+ * and language names for use inside sentences (the pills themselves show
+ * each language in its own name, LANGUAGE_LABELS). Counts use `.one` / `.other` key
  * pairs, since the shared formatter has no plural rules.
  */
 export const commonDictionaries: Dictionaries = {
@@ -33,6 +35,17 @@ export const commonDictionaries: Dictionaries = {
     "resumatch.untitledJob": "Untitled job",
     "resumatch.coverLetter": "Cover letter",
     "resumatch.degraded": "Degraded",
+
+    "resumatch.lang.en": "English",
+    "resumatch.lang.nl": "Dutch",
+    "resumatch.lang.fr": "French",
+    "resumatch.lang.de": "German",
+    "resumatch.stats.jobs": "different jobs",
+    "resumatch.stats.withCoverLetter": "with a cover letter",
+    "resumatch.stats.degraded": "degraded runs",
+    "resumatch.stats.degradedHint": "Made by the fallback, without a real AI call",
+    "resumatch.plusCoverLetter": "+ Cover letter",
+    "resumatch.saving": "Saving…",
   },
   nl: {
     "resumatch.journey.aria": "Je voortgang",
@@ -61,6 +74,17 @@ export const commonDictionaries: Dictionaries = {
     "resumatch.untitledJob": "Vacature zonder titel",
     "resumatch.coverLetter": "Motivatiebrief",
     "resumatch.degraded": "Beperkt",
+
+    "resumatch.lang.en": "Engels",
+    "resumatch.lang.nl": "Nederlands",
+    "resumatch.lang.fr": "Frans",
+    "resumatch.lang.de": "Duits",
+    "resumatch.stats.jobs": "verschillende vacatures",
+    "resumatch.stats.withCoverLetter": "met een motivatiebrief",
+    "resumatch.stats.degraded": "beperkte runs",
+    "resumatch.stats.degradedHint": "Gemaakt door de fallback, zonder echte AI-aanroep",
+    "resumatch.plusCoverLetter": "+ Motivatiebrief",
+    "resumatch.saving": "Opslaan…",
   },
   fr: {
     "resumatch.journey.aria": "Votre progression",
@@ -90,6 +114,17 @@ export const commonDictionaries: Dictionaries = {
     "resumatch.untitledJob": "Offre sans titre",
     "resumatch.coverLetter": "Lettre de motivation",
     "resumatch.degraded": "Dégradé",
+
+    "resumatch.lang.en": "anglais",
+    "resumatch.lang.nl": "néerlandais",
+    "resumatch.lang.fr": "français",
+    "resumatch.lang.de": "allemand",
+    "resumatch.stats.jobs": "offres différentes",
+    "resumatch.stats.withCoverLetter": "avec une lettre de motivation",
+    "resumatch.stats.degraded": "exécutions dégradées",
+    "resumatch.stats.degradedHint": "Produites par la solution de secours, sans véritable appel à l’IA",
+    "resumatch.plusCoverLetter": "+ Lettre de motivation",
+    "resumatch.saving": "Enregistrement…",
   },
   de: {
     "resumatch.journey.aria": "Dein Fortschritt",
@@ -119,5 +154,16 @@ export const commonDictionaries: Dictionaries = {
     "resumatch.untitledJob": "Stelle ohne Titel",
     "resumatch.coverLetter": "Anschreiben",
     "resumatch.degraded": "Eingeschränkt",
+
+    "resumatch.lang.en": "Englisch",
+    "resumatch.lang.nl": "Niederländisch",
+    "resumatch.lang.fr": "Französisch",
+    "resumatch.lang.de": "Deutsch",
+    "resumatch.stats.jobs": "verschiedene Stellen",
+    "resumatch.stats.withCoverLetter": "mit Anschreiben",
+    "resumatch.stats.degraded": "eingeschränkte Läufe",
+    "resumatch.stats.degradedHint": "Vom Fallback erstellt, ohne echten KI-Aufruf",
+    "resumatch.plusCoverLetter": "+ Anschreiben",
+    "resumatch.saving": "Wird gespeichert…",
   },
 };

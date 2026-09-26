@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useOptionalLocale } from "@asafarim/shared-i18n";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { Alert, Button, Card, Input } from "@asafarim/ui";
 import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
 import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQuality";
@@ -115,17 +115,18 @@ type FetchState =
   | { kind: "confirming"; review: ReviewState }
   | { kind: "error"; message: string };
 
-const FETCH_FAILURE_MESSAGES: Record<string, string> = {
-  URL_NOT_ALLOWED: "That address is not a public web page ResuMatch can fetch.",
-  REDIRECT_REFUSED: "That page redirects elsewhere, so it was not fetched.",
-  RESPONSE_TOO_LARGE: "That page is too large to read.",
-  TIMEOUT: "That page took too long to respond.",
-  BOT_BLOCKED:
-    "This site blocks automated fetching, but the posting is probably still live. Use the paste option and paste the job description instead.",
-  HTTP_ERROR: "That page could not be loaded.",
-  NETWORK_ERROR: "That page could not be reached.",
-  NO_READABLE_TEXT: "No readable job description was found on that page.",
-};
+/** fetch-job reason codes with their own message
+ *  (resumatch.flow.fetchFailed.<code>); anything else gets the generic one. */
+const FETCH_FAILURE_CODES = new Set([
+  "URL_NOT_ALLOWED",
+  "REDIRECT_REFUSED",
+  "RESPONSE_TOO_LARGE",
+  "TIMEOUT",
+  "BOT_BLOCKED",
+  "HTTP_ERROR",
+  "NETWORK_ERROR",
+  "NO_READABLE_TEXT",
+]);
 
 type Mode = "url" | "paste" | "email" | "upload" | "manual";
 
@@ -136,6 +137,7 @@ const INSTRUCTIONS_MAX_CHARS = 1000;
 
 export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const router = useRouter();
+  const { t, locale: pageLocale } = useTranslation();
   const [url, setUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
   const [emailText, setEmailText] = useState("");
@@ -145,7 +147,6 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const [instructions, setInstructions] = useState("");
   // #641: defaults to the page language from the language bar (#640);
   // the candidate can pick another for this run.
-  const pageLocale = useOptionalLocale();
   const [cvLanguage, setCvLanguage] = useState<OutputLanguage>(() => outputLanguageFromLocale(pageLocale));
   const [includeCoverLetter, setIncludeCoverLetter] = useState(false);
   const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">("formal");
@@ -166,7 +167,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       });
       const body = await res.json();
       if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? "Could not fetch that URL." });
+        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.fetchUrl") });
         return;
       }
       if (body.status === "FETCH_FAILED") {
@@ -181,9 +182,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         snippet: body.snippet,
       });
     } catch {
-      setState({ kind: "error", message: "Could not reach the server." });
+      setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [url]);
+  }, [url, t]);
 
   const pasteJob = useCallback(async () => {
     if (pastedText.trim().length < MIN_PASTE_CHARS) return;
@@ -196,7 +197,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       });
       const body = await res.json();
       if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? "Could not use that text." });
+        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.pasteText") });
         return;
       }
       setState({
@@ -207,9 +208,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         snippet: body.snippet,
       });
     } catch {
-      setState({ kind: "error", message: "Could not reach the server." });
+      setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [pastedText]);
+  }, [pastedText, t]);
 
   const pasteEmail = useCallback(async () => {
     if (emailText.trim().length < MIN_PASTE_CHARS) return;
@@ -222,7 +223,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       });
       const body = await res.json();
       if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? "Could not use that email." });
+        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.pasteEmail") });
         return;
       }
       setState({
@@ -233,9 +234,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         snippet: body.snippet,
       });
     } catch {
-      setState({ kind: "error", message: "Could not reach the server." });
+      setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [emailText, emailSubject]);
+  }, [emailText, emailSubject, t]);
 
   const uploadJob = useCallback(async () => {
     if (!uploadFile) return;
@@ -246,7 +247,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       const res = await fetch("/api/tailor/upload-job", { method: "POST", body: form });
       const body = await res.json();
       if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? "Could not read that file." });
+        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.upload") });
         return;
       }
       setState({
@@ -257,9 +258,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         snippet: body.snippet,
       });
     } catch {
-      setState({ kind: "error", message: "Could not reach the server." });
+      setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [uploadFile]);
+  }, [uploadFile, t]);
 
   const submitManualJob = useCallback(async (values: ManualJobFormValues) => {
     setState({ kind: "fetching" });
@@ -287,7 +288,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       });
       const body = await res.json();
       if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? "Could not save those details." });
+        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.manual") });
         return;
       }
       setState({
@@ -298,9 +299,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         snippet: body.snippet,
       });
     } catch {
-      setState({ kind: "error", message: "Could not reach the server." });
+      setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, []);
+  }, [t]);
 
   const startReview = useCallback(
     async (targetJobId: string) => {
@@ -322,7 +323,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         });
         const body = await res.json();
         if (!res.ok) {
-          setState({ kind: "error", message: body.error ?? "Could not tailor toward that job." });
+          setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.tailor") });
           return;
         }
 
@@ -398,10 +399,10 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
         setState({ kind: "reviewing", review });
       } catch {
-        setState({ kind: "error", message: "Could not reach the server." });
+        setState({ kind: "error", message: t("resumatch.flow.error.network") });
       }
     },
-    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength, coverLetterLanguage, instructions, cvLanguage],
+    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength, coverLetterLanguage, instructions, cvLanguage, t],
   );
 
   const toggleBullet = useCallback((experienceIndex: number, bulletIndex: number) => {
@@ -480,7 +481,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         });
         const body = await res.json();
         if (!res.ok) {
-          setState({ kind: "error", message: body.error ?? "Could not save this tailored CV." });
+          setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.save") });
           return;
         }
         router.push(
@@ -489,37 +490,38 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             : `/tailor/${body.id}/preview`,
         );
       } catch {
-        setState({ kind: "error", message: "Could not reach the server." });
+        setState({ kind: "error", message: t("resumatch.flow.error.network") });
       }
     },
-    [confirmedVersionId, router],
+    [confirmedVersionId, router, t],
   );
+
+  /** A language's name for use inside a sentence, in the UI language. */
+  const languageName = (code: OutputLanguage) => t(`resumatch.lang.${code}`);
 
   const busy = state.kind === "fetching" || state.kind === "loading_review" || state.kind === "confirming";
 
   return (
-    <Card title="Tailor your CV to a job">
+    <Card title={t("resumatch.flow.cardTitle")}>
       <p style={{ color: "var(--muted)" }}>
-        Point ResuMatch at a job you want to apply to — a URL, pasted text, a recruiter's email, an
-        uploaded file, or details you type in yourself. It shows you what AI suggests changing, and
-        only saves what you approve — reject or edit anything before it's kept.
+        {t("resumatch.flow.intro")}
       </p>
 
       <div className="rm-mode-tabs">
         <Button variant={mode === "url" ? undefined : "ghost"} size="sm" onClick={() => setMode("url")} disabled={busy}>
-          Paste a URL
+          {t("resumatch.flow.mode.url")}
         </Button>
         <Button variant={mode === "paste" ? undefined : "ghost"} size="sm" onClick={() => setMode("paste")} disabled={busy}>
-          Paste the description instead
+          {t("resumatch.flow.mode.paste")}
         </Button>
         <Button variant={mode === "email" ? undefined : "ghost"} size="sm" onClick={() => setMode("email")} disabled={busy}>
-          Paste a recruiter's email
+          {t("resumatch.flow.mode.email")}
         </Button>
         <Button variant={mode === "upload" ? undefined : "ghost"} size="sm" onClick={() => setMode("upload")} disabled={busy}>
-          Upload a file
+          {t("resumatch.flow.mode.upload")}
         </Button>
         <Button variant={mode === "manual" ? undefined : "ghost"} size="sm" onClick={() => setMode("manual")} disabled={busy}>
-          Type in the details myself
+          {t("resumatch.flow.mode.manual")}
         </Button>
       </div>
 
@@ -534,18 +536,17 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             style={{ flex: 1 }}
           />
           <Button onClick={fetchJob} disabled={!url.trim() || busy}>
-            {state.kind === "fetching" ? "Fetching…" : "Fetch job"}
+            {state.kind === "fetching" ? t("resumatch.flow.fetching") : t("resumatch.flow.fetch")}
           </Button>
         </div>
       ) : mode === "paste" ? (
         <div className="rm-intake-panel">
           <p className="rm-intake-panel__hint">
-            For postings ResuMatch can't fetch — behind a login wall, expired, or a page that
-            redirects — paste the job description text directly instead.
+            {t("resumatch.flow.paste.hint")}
           </p>
           <textarea className="ui-input"
             rows={8}
-            placeholder="Paste the full job description here…"
+            placeholder={t("resumatch.flow.paste.placeholder")}
             value={pastedText}
             onChange={(e) => setPastedText(e.target.value)}
             disabled={busy}
@@ -553,19 +554,18 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           />
           <div style={{ marginTop: "0.5rem" }}>
             <Button onClick={pasteJob} disabled={pastedText.trim().length < MIN_PASTE_CHARS || busy}>
-              {state.kind === "fetching" ? "Reading…" : "Use this text"}
+              {state.kind === "fetching" ? t("resumatch.flow.reading") : t("resumatch.flow.paste.submit")}
             </Button>
           </div>
         </div>
       ) : mode === "email" ? (
         <div className="rm-intake-panel">
           <p className="rm-intake-panel__hint">
-            Got a recruiter's invitation by email? Paste the whole thing — greeting, signature,
-            quoted thread and all. ResuMatch strips the noise and keeps the role description.
+            {t("resumatch.flow.email.hint")}
           </p>
           <Input
             type="text"
-            placeholder="Subject line (optional, helps guess the job title)"
+            placeholder={t("resumatch.flow.email.subject")}
             value={emailSubject}
             onChange={(e) => setEmailSubject(e.target.value)}
             disabled={busy}
@@ -573,7 +573,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           />
           <textarea className="ui-input"
             rows={8}
-            placeholder="Paste the full email here…"
+            placeholder={t("resumatch.flow.email.placeholder")}
             value={emailText}
             onChange={(e) => setEmailText(e.target.value)}
             disabled={busy}
@@ -581,19 +581,18 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           />
           <div style={{ marginTop: "0.5rem" }}>
             <Button onClick={pasteEmail} disabled={emailText.trim().length < MIN_PASTE_CHARS || busy}>
-              {state.kind === "fetching" ? "Reading…" : "Use this email"}
+              {state.kind === "fetching" ? t("resumatch.flow.reading") : t("resumatch.flow.email.submit")}
             </Button>
           </div>
         </div>
       ) : mode === "upload" ? (
         <div className="rm-intake-panel">
           <p className="rm-intake-panel__hint" id="rm-upload-job-hint">
-            Have the posting as a PDF or Word file — downloaded from a portal, or attached to an
-            email? Upload it directly; ResuMatch reads the text out of it.
+            {t("resumatch.flow.upload.hint")}
           </p>
           <input
             type="file"
-            aria-label="Job posting file"
+            aria-label={t("resumatch.flow.upload.aria")}
             aria-describedby="rm-upload-job-hint"
             accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
             onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
@@ -601,7 +600,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           />
           <div style={{ marginTop: "0.5rem" }}>
             <Button onClick={uploadJob} disabled={!uploadFile || busy}>
-              {state.kind === "fetching" ? "Reading…" : "Use this file"}
+              {state.kind === "fetching" ? t("resumatch.flow.reading") : t("resumatch.flow.upload.submit")}
             </Button>
           </div>
         </div>
@@ -613,7 +612,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
       {state.kind === "fetch_failed" ? (
         <div style={{ marginTop: "1rem" }}>
-          <Alert tone="warning">{FETCH_FAILURE_MESSAGES[state.reasonCode] ?? "That page could not be read."}</Alert>
+          <Alert tone="warning">{t(
+              FETCH_FAILURE_CODES.has(state.reasonCode)
+                ? `resumatch.flow.fetchFailed.${state.reasonCode}`
+                : "resumatch.flow.fetchFailed.default",
+            )}</Alert>
         </div>
       ) : null}
 
@@ -625,11 +628,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
       {state.kind === "fetched" ? (
         <div style={{ marginTop: "1rem" }}>
-          <Card title={state.title ?? "Job found"}>
+          <Card title={state.title ?? t("resumatch.flow.jobFound")}>
             {state.employer ? <p style={{ color: "var(--muted)" }}>{state.employer}</p> : null}
             <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{state.snippet}…</p>
             <label className="jm-field" style={{ display: "block", margin: "0.5rem 0" }}>
-              <span className="rm-review__section-label">CV language</span>
+              <span className="rm-review__section-label">{t("resumatch.flow.cvLanguage")}</span>
               <select
                 className="ui-input ui-select"
                 value={cvLanguage}
@@ -644,25 +647,21 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 ))}
               </select>
               <small id="rm-cv-language-help">
-                The headline, summary and experience bullets are written in this language. Employers,
-                job titles, dates, education and skill names stay exactly as in your profile.
+                {t("resumatch.flow.cvLanguageHelp")}
               </small>
             </label>
             <label className="jm-field" style={{ display: "block", margin: "0.5rem 0" }}>
-              <span className="rm-review__section-label">
-                Anything you want AI to keep in mind? (optional)
-              </span>
+              <span className="rm-review__section-label">{t("resumatch.flow.instructions.label")}</span>
               <textarea className="ui-input"
                 rows={2}
-                placeholder='e.g. "emphasize my backend work" or "keep the tone confident, not casual"'
+                placeholder={t("resumatch.flow.instructions.placeholder")}
                 value={instructions}
                 maxLength={INSTRUCTIONS_MAX_CHARS}
                 onChange={(e) => setInstructions(e.target.value)}
                 style={{ width: "100%" }}
               />
               <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
-                {instructions.length}/{INSTRUCTIONS_MAX_CHARS} — steers wording and emphasis only; it can
-                never add a skill or fact you don't already have.
+                {t("resumatch.flow.instructions.counter", { count: instructions.length, max: INSTRUCTIONS_MAX_CHARS })}
               </span>
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", margin: "0.5rem 0" }}>
@@ -671,28 +670,28 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 checked={includeCoverLetter}
                 onChange={(e) => setIncludeCoverLetter(e.target.checked)}
               />
-              <span>Also draft a cover letter for this job</span>
+              <span>{t("resumatch.flow.includeCoverLetter")}</span>
             </label>
             {includeCoverLetter ? (
               <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "0 0 0.75rem" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
-                  <span>Tone</span>
+                  <span>{t("resumatch.flow.tone")}</span>
                   <select className="ui-input ui-select" value={coverLetterTone} onChange={(e) => setCoverLetterTone(e.target.value as typeof coverLetterTone)}>
-                    <option value="formal">Formal</option>
-                    <option value="warm">Warm</option>
-                    <option value="confident">Confident</option>
+                    <option value="formal">{t("resumatch.flow.tone.formal")}</option>
+                    <option value="warm">{t("resumatch.flow.tone.warm")}</option>
+                    <option value="confident">{t("resumatch.flow.tone.confident")}</option>
                   </select>
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
-                  <span>Length</span>
+                  <span>{t("resumatch.flow.length")}</span>
                   <select className="ui-input ui-select" value={coverLetterLength} onChange={(e) => setCoverLetterLength(e.target.value as typeof coverLetterLength)}>
-                    <option value="short">Short</option>
-                    <option value="standard">Standard</option>
-                    <option value="detailed">Detailed</option>
+                    <option value="short">{t("resumatch.flow.length.short")}</option>
+                    <option value="standard">{t("resumatch.flow.length.standard")}</option>
+                    <option value="detailed">{t("resumatch.flow.length.detailed")}</option>
                   </select>
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
-                  <span>Language</span>
+                  <span>{t("resumatch.flow.language")}</span>
                   <select
                     className="ui-input ui-select"
                     value={coverLetterLanguage ?? ""}
@@ -700,7 +699,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                       setCoverLetterLanguage(isOutputLanguage(e.target.value) ? e.target.value : null)
                     }
                   >
-                    <option value="">Same as CV ({LANGUAGE_LABELS[cvLanguage]})</option>
+                    <option value="">{t("resumatch.flow.sameAsCv", { language: LANGUAGE_LABELS[cvLanguage] })}</option>
                     {OUTPUT_LANGUAGES.map((code) => (
                       <option key={code} value={code}>
                         {LANGUAGE_LABELS[code]}
@@ -710,7 +709,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 </label>
               </div>
             ) : null}
-            <Button onClick={() => startReview(state.targetJobId)}>Tailor my CV to this job</Button>
+            <Button onClick={() => startReview(state.targetJobId)}>{t("resumatch.flow.startReview")}</Button>
           </Card>
         </div>
       ) : null}
@@ -725,35 +724,32 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
       {state.kind === "reviewing" || state.kind === "confirming" ? (
         <div className="rm-review">
-          <Card title="Review before saving">
+          <Card title={t("resumatch.review.title")}>
             {state.review.degraded ? (
               <Alert tone="warning">
-                AI tailoring isn't available right now (budget or provider issue). You can still save
-                your confirmed profile as this tailored CV, unchanged
-                {state.review.outputLanguage ? " — the CV language you picked isn't applied to it" : ""}.
+                {t("resumatch.review.degraded")}
+                {state.review.outputLanguage ? ` ${t("resumatch.review.degradedLanguage")}` : ""}
               </Alert>
             ) : (
               <>
                 <p className="rm-review__intro">
-                  Nothing here is saved yet. Edit any text, uncheck a bullet you don't want, and
-                  confirm when you're happy with it.
+                  {t("resumatch.review.intro")}
                 </p>
                 {state.review.outputLanguage ? (
                   <p className="rx-lang-note">
                     <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[state.review.outputLanguage]}</span>
-                    Suggestions are written in {LANGUAGE_LABELS[state.review.outputLanguage]}. Anything you
-                    clear or uncheck keeps your profile's original wording, which may be in another language.
+                    {t("resumatch.review.langNote", { language: languageName(state.review.outputLanguage) })}
                   </p>
                 ) : null}
 
                 {state.review.instructions ? (
                   <p style={{ color: "var(--muted)", fontSize: "0.82rem", fontStyle: "italic" }}>
-                    Your steering note: “{state.review.instructions}”
+                    {t("resumatch.review.steering", { note: state.review.instructions })}
                   </p>
                 ) : null}
 
                 <div className="rm-review__section">
-                  <span className="rm-review__section-label">Headline</span>
+                  <span className="rm-review__section-label">{t("resumatch.review.headline")}</span>
                   <input
                     type="text"
                     value={state.review.headline}
@@ -763,7 +759,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 </div>
 
                 <div className="rm-review__section">
-                  <span className="rm-review__section-label">Summary</span>
+                  <span className="rm-review__section-label">{t("resumatch.review.summary")}</span>
                   <textarea className="ui-input"
                     rows={4}
                     value={state.review.summary}
@@ -782,7 +778,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                         disabled={state.kind === "confirming"}
                       />
                       <span>
-                        Reorder my skills toward this job
+                        {t("resumatch.review.reorderSkills")}
                         <span className="rm-skill-pills jm-mono">
                           {state.review.suggestedSkillsOrder.map((skill) => (
                             <span key={skill}>{skill}</span>
@@ -795,7 +791,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
                 {state.review.experience.length > 0 ? (
                   <div className="rm-review__section">
-                    <span className="rm-review__section-label">Experience bullets</span>
+                    <span className="rm-review__section-label">{t("resumatch.review.experience")}</span>
                     {state.review.experience.map((entry, entryIndex) => (
                       <div className="rm-entry" key={entryIndex}>
                         <div className="rm-entry__heading">
@@ -821,7 +817,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                           </ul>
                         ) : (
                           <p style={{ color: "var(--muted)", fontSize: "0.85rem", fontStyle: "italic", margin: "0.4rem 0 0" }}>
-                            No AI suggestion for this role — kept as written.
+                            {t("resumatch.review.noSuggestion")}
                           </p>
                         )}
                       </div>
@@ -840,30 +836,33 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                     onChange={(e) => updateCoverLetter("include", e.target.checked)}
                     disabled={state.kind === "confirming" || state.review.coverLetter.degraded}
                   />
-                  <span>Cover letter</span>
+                  <span>{t("resumatch.coverLetter")}</span>
                 </label>
 
                 {state.review.coverLetter.degraded ? (
                   <Alert tone="warning">
-                    A cover letter couldn't be drafted right now (budget or provider issue)
+                    {t("resumatch.review.cl.degraded")}
                     {state.review.coverLetter.outputLanguage
-                      ? `, so it wasn't written in ${LANGUAGE_LABELS[state.review.coverLetter.outputLanguage]}`
-                      : ""}
-                    . The CV above will still save.
+                      ? ` ${t("resumatch.review.cl.degradedLanguage", {
+                          language: languageName(state.review.coverLetter.outputLanguage),
+                        })}`
+                      : ""}{" "}
+                    {t("resumatch.review.cl.cvStillSaves")}
                   </Alert>
                 ) : state.review.coverLetter.include ? (
                   <div style={{ marginTop: "0.5rem" }} lang={state.review.coverLetter.outputLanguage ?? undefined}>
                     {state.review.coverLetter.outputLanguage ? (
-                      <p className="rx-lang-note" lang="en">
+                      <p className="rx-lang-note" lang={pageLocale}>
                         <span className="rx-pill rx-pill--lang">
                           {LANGUAGE_LABELS[state.review.coverLetter.outputLanguage]}
                         </span>
-                        Written in {LANGUAGE_LABELS[state.review.coverLetter.outputLanguage]}. Names,
-                        numbers and dates are kept exactly as in your profile and the job.
+                        {t("resumatch.review.cl.langNote", {
+                          language: languageName(state.review.coverLetter.outputLanguage),
+                        })}
                       </p>
                     ) : null}
                     <label className="jm-field">
-                      <span className="rm-review__section-label">Greeting</span>
+                      <span className="rm-review__section-label">{t("resumatch.review.cl.greeting")}</span>
                       <input
                         type="text"
                         value={state.review.coverLetter.greeting}
@@ -873,7 +872,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                     </label>
                     {state.review.coverLetter.paragraphs.map((paragraph, index) => (
                       <label className="jm-field" key={index} style={{ display: "block", marginTop: "0.5rem" }}>
-                        <span className="rm-review__section-label">Paragraph {index + 1}</span>
+                        <span className="rm-review__section-label">{t("resumatch.review.cl.paragraph", { n: index + 1 })}</span>
                         <textarea className="ui-input"
                           rows={3}
                           value={paragraph}
@@ -884,7 +883,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                       </label>
                     ))}
                     <label className="jm-field" style={{ display: "block", marginTop: "0.5rem" }}>
-                      <span className="rm-review__section-label">Sign-off</span>
+                      <span className="rm-review__section-label">{t("resumatch.review.cl.signOff")}</span>
                       <input
                         type="text"
                         value={state.review.coverLetter.signOff}
@@ -910,7 +909,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                   </div>
                 ) : (
                   <p style={{ color: "var(--muted)", fontSize: "0.85rem", fontStyle: "italic", margin: "0.3rem 0 0" }}>
-                    Declined — nothing will be saved for the letter.
+                    {t("resumatch.review.cl.declined")}
                   </p>
                 )}
               </div>
@@ -918,10 +917,10 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
             <div className="rm-review__actions">
               <Button onClick={() => confirm(state.review)} disabled={state.kind === "confirming"}>
-                {state.kind === "confirming" ? "Saving…" : "Confirm & save"}
+                {state.kind === "confirming" ? t("resumatch.saving") : t("resumatch.review.confirm")}
               </Button>
               <Button variant="ghost" onClick={() => setState({ kind: "idle" })} disabled={state.kind === "confirming"}>
-                Discard
+                {t("resumatch.review.discard")}
               </Button>
             </div>
           </Card>

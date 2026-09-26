@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { getJobmatchDb } from "../../../../lib/db/client";
+import { getTranslator } from "../../../../lib/i18n-server";
 import { parseCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { computeCoverLetterQuality } from "../../../../lib/tailoring/coverLetterQuality";
 import { LANGUAGE_LABELS, isOutputLanguage } from "../../../../lib/tailoring/language";
@@ -11,7 +12,10 @@ import { PrintButton } from "../../../../components/tailoring/PrintButton";
 import { CoverLetterDocxButton } from "./CoverLetterDocxButton";
 import { CoverLetterQualityChecklist } from "../../../../components/tailoring/CoverLetterQualityChecklist";
 
-export const metadata: Metadata = { title: "Cover letter" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: t("resumatch.coverLetter") };
+}
 export const dynamic = "force-dynamic";
 
 /**
@@ -28,6 +32,7 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
   const workspace = await getCurrentWorkspace();
   if (!workspace) notFound();
 
+  const { t } = await getTranslator();
   const db = getJobmatchDb();
   // Scoped to the workspace so an id from the URL cannot reach another
   // candidate's cover letter.
@@ -55,27 +60,26 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
   return (
     <>
       <PageHeader
-        kicker="Tailor"
-        title="Your cover letter"
-        description={jobLabel ? `Written for ${jobLabel}.` : undefined}
+        kicker={t("resumatch.preview.kicker")}
+        title={t("resumatch.letter.title")}
+        description={jobLabel ? t("resumatch.letter.description", { job: jobLabel }) : undefined}
       />
       {row.tailoredResumeId ? (
         <p style={{ margin: "-0.5rem 0 1rem" }}>
-          <Link href={`/tailor/${row.tailoredResumeId}/preview`}>← View the tailored CV it goes with</Link>
+          <Link href={`/tailor/${row.tailoredResumeId}/preview`}>{t("resumatch.letter.backToCv")}</Link>
         </p>
       ) : null}
 
       {language ? (
         <p className="rx-lang-note">
           <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[language]}</span>
-          Written in {LANGUAGE_LABELS[language]}. Names, numbers and dates are kept exactly as in your
-          profile and the job.
+          {t("resumatch.letter.langNote", { language: t(`resumatch.lang.${language}`) })}
         </p>
       ) : null}
 
       {row.degraded ? (
         <Alert tone="warning">
-          This letter could not be AI-drafted right now (budget or provider issue).
+          {t("resumatch.letter.degraded")}
         </Alert>
       ) : (
         <>

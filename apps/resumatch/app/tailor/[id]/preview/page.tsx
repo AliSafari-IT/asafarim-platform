@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { ClassicTemplate } from "../../../../components/tailoring/templates/Classic";
 import { getJobmatchDb } from "../../../../lib/db/client";
+import { getTranslator } from "../../../../lib/i18n-server";
 import { parseTailoredResumeContent } from "../../../../lib/tailoring/ai/schema";
 import { computeCoverage } from "../../../../lib/tailoring/coverage";
 import { computeQuality } from "../../../../lib/tailoring/quality";
@@ -16,7 +17,10 @@ import { PrintButton } from "../../../../components/tailoring/PrintButton";
 import { QualityChecklist } from "./QualityChecklist";
 import { SaveApplicationButton } from "./SaveApplicationButton";
 
-export const metadata: Metadata = { title: "Preview" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: t("resumatch.preview.metaTitle") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function TailoredResumePreviewPage({
@@ -31,6 +35,7 @@ export default async function TailoredResumePreviewPage({
   const workspace = await getCurrentWorkspace();
   if (!workspace) notFound();
 
+  const { t } = await getTranslator();
   const db = getJobmatchDb();
   // Scoped to the workspace so an id from the URL cannot reach another
   // candidate's tailored resume.
@@ -74,23 +79,21 @@ export default async function TailoredResumePreviewPage({
   return (
     <>
       <PageHeader
-        kicker="Tailor"
-        title="Your tailored CV"
-        description={jobLabel ? `Tailored toward ${jobLabel}.` : undefined}
+        kicker={t("resumatch.preview.kicker")}
+        title={t("resumatch.preview.title")}
+        description={jobLabel ? t("resumatch.preview.description", { job: jobLabel }) : undefined}
       />
 
       {row.outputLanguage && isOutputLanguage(row.outputLanguage) ? (
         <p className="rx-lang-note">
           <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[row.outputLanguage]}</span>
-          Written in {LANGUAGE_LABELS[row.outputLanguage]}. Employers, job titles, dates, education
-          and skill names are kept exactly as in your profile.
+          {t("resumatch.preview.langNote", { language: t(`resumatch.lang.${row.outputLanguage}`) })}
         </p>
       ) : null}
 
       {row.degraded ? (
         <Alert tone="warning">
-          This version could not be AI-tailored right now (budget or provider issue), so it shows
-          your confirmed profile carried over unchanged. Try generating it again later.
+          {t("resumatch.preview.degraded")}
         </Alert>
       ) : null}
 
@@ -101,12 +104,12 @@ export default async function TailoredResumePreviewPage({
         {coverLetterId ? (
           <>
             <Link href={`/cover-letter/${coverLetterId}/preview`} className="ui-btn ui-btn--ghost ui-btn--sm">
-              View cover letter
+              {t("resumatch.preview.viewCoverLetter")}
             </Link>
             <LanguageBadge language={row.coverLetter?.outputLanguage} coverLetter />
           </>
         ) : (
-          <span className="rm-preview-toolbar__hint">No cover letter for this CV.</span>
+          <span className="rm-preview-toolbar__hint">{t("resumatch.preview.noCoverLetter")}</span>
         )}
       </div>
 

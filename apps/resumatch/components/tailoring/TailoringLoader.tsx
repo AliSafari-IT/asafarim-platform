@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "@asafarim/shared-i18n";
 
 /**
  * The tailoring wait (issue: "up to a minute" of silence between pasting a
@@ -17,17 +18,18 @@ import { useEffect, useState } from "react";
  */
 
 const STEPS = [
-  "Reading the job posting…",
-  "Comparing it with your confirmed profile…",
-  "Rewording your summary…",
-  "Reordering your skills…",
-  "Polishing your experience bullets…",
-  "Double-checking nothing was invented…",
+  "resumatch.loader.step1",
+  "resumatch.loader.step2",
+  "resumatch.loader.step3",
+  "resumatch.loader.step4",
+  "resumatch.loader.step5",
+  "resumatch.loader.step6",
 ];
 
 const STEP_INTERVAL_MS = 3200;
 
 export function TailoringLoader() {
+  const { t } = useTranslation();
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
@@ -78,8 +80,8 @@ export function TailoringLoader() {
         <circle className="rm-tailor-loader__spark-dot" cx="156" cy="110" r="1.8" style={{ animationDelay: "0.6s" }} />
       </svg>
 
-      <p className="rm-tailor-loader__step">{STEPS[stepIndex]}</p>
-      <p className="rm-tailor-loader__hint">This can take up to a minute — no need to reload.</p>
+      <p className="rm-tailor-loader__step">{t(STEPS[stepIndex])}</p>
+      <p className="rm-tailor-loader__hint">{t("resumatch.loader.hint")}</p>
     </div>
   );
 }
