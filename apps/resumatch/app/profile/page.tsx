@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { canRetryScan, explainReasonCode } from "../../lib/documents/pipeline";
 import { getJobmatchDb } from "../../lib/db/client";
+import { getTranslator } from "../../lib/i18n-server";
 import { listDocuments } from "../../lib/documents/service";
 import { getJourneyCounts } from "../../lib/journey";
 import { emptyProfile } from "../../lib/profile/contract";
@@ -16,18 +17,21 @@ import { NextStepTrack, ProfileCompleteness, VersionTimeline } from "./ProfileIn
 import { ProfileWorkbench } from "./ProfileWorkbench";
 import { UploadPanel } from "./UploadPanel";
 
-export const metadata: Metadata = { title: "Your profile" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: t("resumatch.profile.metaTitle") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
+  const { t } = await getTranslator();
   const workspace = await getCurrentWorkspace();
   if (!workspace) {
     return (
       <>
-        <PageHeader kicker="Profile" title="This account cannot open a profile." />
+        <PageHeader kicker={t("resumatch.profile.kicker")} title={t("resumatch.profile.inactiveTitle")} />
         <Alert tone="warning">
-          <strong>Account inactive.</strong> Your platform account is not active, so ResuMatch will
-          not open a workspace for it.
+          <strong>{t("resumatch.inactive.strong")}</strong> {t("resumatch.inactive.body")}
         </Alert>
       </>
     );
@@ -61,10 +65,10 @@ export default async function ProfilePage() {
   return (
     <div className="rx">
       <PageHero
-        kicker="Profile"
-        title="Your profile,"
-        accent="in your words."
-        lead="Upload a CV to save typing, then correct whatever it got wrong. Nothing is matched against until you confirm it."
+        kicker={t("resumatch.profile.kicker")}
+        title={t("resumatch.profile.hero.title")}
+        accent={t("resumatch.profile.hero.accent")}
+        lead={t("resumatch.profile.hero.lead")}
         aside={<JourneyTracker counts={journey} current="profile" />}
       />
 
@@ -77,12 +81,10 @@ export default async function ProfilePage() {
         ) : (
           <section className="rx-panel rx-panel--warm" aria-labelledby="rx-unconfirmed-title">
             <h2 id="rx-unconfirmed-title" className="rx-panel__title">
-              Confirm your profile to unlock tailoring
+              {t("resumatch.profile.unconfirmed.title")}
             </h2>
             <p className="rx-panel__sub">
-              Tailoring never runs against an unreviewed profile — that is deliberate, not a missing
-              feature. Check what was read below, fix anything wrong, then press{" "}
-              <strong>Save and confirm</strong>.
+              {t("resumatch.profile.unconfirmed.body")} <strong>{t("resumatch.wb.saveConfirm")}</strong>.
             </p>
           </section>
         )}
