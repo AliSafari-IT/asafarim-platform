@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { canRetryScan, explainReasonCode } from "../../lib/documents/pipeline";
+import { getJobmatchDb } from "../../lib/db/client";
 import { listDocuments } from "../../lib/documents/service";
 import { getJourneyCounts } from "../../lib/journey";
 import { emptyProfile } from "../../lib/profile/contract";
@@ -32,11 +33,12 @@ export default async function ProfilePage() {
     );
   }
 
-  const [documents, latest, versions, journey] = await Promise.all([
+  const [documents, latest, versions, journey, jobsCount] = await Promise.all([
     listDocuments(workspace.id),
     getLatestVersion(workspace.id),
     listVersions(workspace.id),
     getJourneyCounts(workspace.id),
+    getJobmatchDb().targetJob.count({ where: { workspaceId: workspace.id } }),
   ]);
 
   const confirmed = versions.find((version) => version.isConfirmed) ?? null;
@@ -119,7 +121,16 @@ export default async function ProfilePage() {
 
       {versions.length > 0 ? <VersionTimeline versions={versions} /> : null}
 
-      <DataRightsPanel erasureSlaDays={ERASURE_SLA_DAYS} hasData={documents.length > 0 || versions.length > 0} />
+      <DataRightsPanel
+        erasureSlaDays={ERASURE_SLA_DAYS}
+        hasData={documents.length > 0 || versions.length > 0 || jobsCount > 0 || journey.tailoredCount > 0}
+        holdings={{
+          documents: documents.length,
+          versions: versions.length,
+          jobs: jobsCount,
+          tailored: journey.tailoredCount,
+        }}
+      />
     </div>
   );
 }

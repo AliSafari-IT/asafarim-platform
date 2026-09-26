@@ -2,7 +2,17 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Card, ConfirmDialog } from "@asafarim/ui";
+import { Alert, Button, ConfirmDialog } from "@asafarim/ui";
+import { BriefcaseIcon, DownloadIcon, LockIcon, SparkIcon, TrashIcon, UploadIcon, UserIcon } from "./icons";
+
+/** What ResuMatch currently holds for this workspace — exactly the four
+ *  kinds of row lib/profile/dataRights.ts#eraseWorkspaceData removes. */
+export interface DataHoldings {
+  documents: number;
+  versions: number;
+  jobs: number;
+  tailored: number;
+}
 
 /**
  * Candidate data rights, as buttons (JM-023).
@@ -14,9 +24,11 @@ import { Alert, Button, Card, ConfirmDialog } from "@asafarim/ui";
 export function DataRightsPanel({
   erasureSlaDays,
   hasData,
+  holdings,
 }: {
   erasureSlaDays: number;
   hasData: boolean;
+  holdings: DataHoldings;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -53,29 +65,68 @@ export function DataRightsPanel({
     }
   }, [router]);
 
-  return (
-    <Card title="Your data">
-      <p style={{ color: "var(--muted)" }}>
-        ResuMatch holds your uploaded CV, the profile read from it, any job pages you tailored toward,
-        the tailored CVs it produced, and a log of actions taken on
-        your account. Your name and email live with your ASafarIM account, not here — ResuMatch only
-        stores an opaque identifier for it.
-      </p>
+  const tiles = [
+    { icon: <UploadIcon />, count: holdings.documents, label: "CV file", plural: "CV files" },
+    { icon: <UserIcon />, count: holdings.versions, label: "profile version", plural: "profile versions" },
+    { icon: <BriefcaseIcon />, count: holdings.jobs, label: "job posting", plural: "job postings" },
+    { icon: <SparkIcon />, count: holdings.tailored, label: "tailored CV", plural: "tailored CVs" },
+  ];
 
-      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "1rem" }}>
-        <a href="/api/data-rights" download="resumatch-export.json" className="ui-btn ui-btn--secondary">
-          Download everything
-        </a>
-        <Button variant="danger" disabled={busy || !hasData} onClick={() => setConfirming(true)}>
-          Delete my CV and profile
-        </Button>
+  return (
+    <section className="rx-panel rx-data" aria-labelledby="rx-data-title">
+      <div className="rx-panel__head">
+        <div className="rx-data__intro">
+          <span className="rx-data__badge" aria-hidden="true">
+            <LockIcon />
+          </span>
+          <div>
+            <h2 id="rx-data-title" className="rx-panel__title">
+              Your data
+            </h2>
+            <p className="rx-panel__sub">
+              What ResuMatch holds for you right now. Your name and email live with your ASafarIM
+              account, not here — ResuMatch only stores an opaque identifier for it.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <p style={{ color: "var(--muted)", marginTop: "0.75rem", fontSize: "0.9rem" }}>
-        Deletion removes your uploaded files, every profile version, and the data read from them —
-        not just the original. It happens immediately, well inside the {erasureSlaDays}-day
-        commitment. The record that a deletion took place is kept, because it contains no CV content
-        and it is the only proof the deletion happened.
+      <ul className="rx-data__tiles" aria-label="Data ResuMatch holds for you">
+        {tiles.map((t) => (
+          <li key={t.plural} className="rx-data__tile">
+            <span className="rx-data__icon" aria-hidden="true">
+              {t.icon}
+            </span>
+            <strong className="rx-data__count">{t.count}</strong>
+            <span className="rx-data__label">{t.count === 1 ? t.label : t.plural}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="rx-data__actions">
+        <div className="rx-data__action">
+          <a href="/api/data-rights" download="resumatch-export.json" className="rx-btn rx-btn--outline">
+            <DownloadIcon /> Download everything
+          </a>
+          <span className="rx-data__hint">
+            One JSON file: profile versions, job postings, tailored CVs, file details and the action
+            log. The original CV files download individually from the list above.
+          </span>
+        </div>
+        <div className="rx-data__action">
+          <Button variant="danger" disabled={busy || !hasData} onClick={() => setConfirming(true)}>
+            <TrashIcon /> Delete my CV and profile
+          </Button>
+          <span className="rx-data__hint">
+            Erases all four together, immediately — well inside the {erasureSlaDays}-day commitment.
+          </span>
+        </div>
+      </div>
+
+      <p className="rx-panel__note">
+        Deletion removes the files, every profile version, and everything read from them — not just
+        the original. A record that a deletion took place is kept: it holds no CV content, and it is
+        the only proof the deletion happened.
       </p>
 
       {result ? <Alert tone="info">{result}</Alert> : null}
@@ -90,6 +141,6 @@ export function DataRightsPanel({
         onConfirm={() => void erase()}
         onCancel={() => setConfirming(false)}
       />
-    </Card>
+    </section>
   );
 }
