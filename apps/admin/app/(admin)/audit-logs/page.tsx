@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { prisma } from "@asafarim/db";
 import { ROLES, hasPermission, requireRole } from "@asafarim/auth";
 import {
   Badge,
@@ -16,24 +15,15 @@ import {
   PAGE_SIZE,
   auditHref,
   auditQueryString,
-  buildAuditWhere,
   hasAuditFilters,
   parseAuditFilters,
   type AuditFilters,
 } from "./query";
+import { AUDIT_SOURCES, type AuditStreamRow } from "../../../lib/audit-stream";
+import { resumatchActionTone } from "../../../lib/resumatch-audit";
+import { loadAuditStream } from "../../../lib/server/audit-stream";
 
 export const metadata: Metadata = { title: "Audit Logs" };
-
-interface AuditRow {
-  id: string;
-  action: string;
-  entity: string;
-  entityId: string | null;
-  changes: unknown;
-  ipAddress: string | null;
-  createdAt: Date;
-  user: { id: string; email: string } | null;
-}
 
 function formatDateTime(date: Date): string {
   return date.toISOString().replace("T", " ").slice(0, 19);
@@ -58,50 +48,22 @@ function secretChangeSummary(changes: unknown): string | null {
   return "secret changed";
 }
 
-function actionTone(action: string): BadgeTone {
+function actionTone(event: AuditStreamRow): BadgeTone {
+  if (event.source === "resumatch") return resumatchActionTone(event.action, event.changes);
+  const { action } = event;
   if (action.includes("denied") || action.includes("deleted")) return "danger";
   if (action.includes("deactivated") || action.includes("removed")) return "warning";
   return "info";
 }
 
+/**
+ * Platform events and ResuMatch's own audit trail, merged newest first
+ * (lib/server/audit-stream.ts). Null only when the platform database is
+ * down; ResuMatch being down is reported separately.
+ */
 async function getAuditData(filters: AuditFilters) {
   try {
-    const where = buildAuditWhere(filters);
-    const [events, total, actions, entities] = await Promise.all([
-      prisma.auditLog.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (filters.page - 1) * PAGE_SIZE,
-        take: PAGE_SIZE,
-        select: {
-          id: true,
-          action: true,
-          entity: true,
-          entityId: true,
-          changes: true,
-          ipAddress: true,
-          createdAt: true,
-          user: { select: { id: true, email: true } },
-        },
-      }),
-      prisma.auditLog.count({ where }),
-      prisma.auditLog.findMany({
-        distinct: ["action"],
-        select: { action: true },
-        orderBy: { action: "asc" },
-      }),
-      prisma.auditLog.findMany({
-        distinct: ["entity"],
-        select: { entity: true },
-        orderBy: { entity: "asc" },
-      }),
-    ]);
-    return {
-      events,
-      total,
-      actions: actions.map((a) => a.action),
-      entities: entities.map((e) => e.entity),
-    };
+    return await loadAuditStream(filters, { pageSize: PAGE_SIZE });
   } catch {
     return null;
   }
@@ -122,7 +84,7 @@ export default async function AuditLogsPage({
   const hasFilters = hasAuditFilters(filters);
   const data = await getAuditData(filters);
 
-  const columns: ColumnDef<AuditRow>[] = [
+  const columns: ColumnDef<AuditStreamRow>[] = [
     {
       id: "timestamp",
       header: "Timestamp (UTC)",
@@ -145,7 +107,7 @@ export default async function AuditLogsPage({
     {
       id: "action",
       header: "Action",
-      render: (event) => <Badge tone={actionTone(event.action)}>{event.action}</Badge>,
+      render: (event) => <Badge tone={actionTone(event)}>{event.action}</Badge>,
     },
     {
       id: "target",
@@ -169,7 +131,7 @@ export default async function AuditLogsPage({
       id: "detail",
       header: "Detail",
       render: (event) => {
-        if (!event.changes) return <span className="u-muted">—</span>;
+        if (!event.changes) return event.summary ?? <span className="u-muted">—</span>;
 
         const secretSummary = secretChangeSummary(event.changes);
         if (secretSummary) {
@@ -183,8 +145,8 @@ export default async function AuditLogsPage({
 
         return (
           <details>
-            <summary className="u-mono" style={{ cursor: "pointer" }}>
-              changes
+            <summary style={{ cursor: "pointer" }}>
+              {event.summary ?? <span className="u-mono">changes</span>}
             </summary>
             <pre
               style={{
@@ -213,13 +175,18 @@ export default async function AuditLogsPage({
         kicker="Event stream"
         kickerIndex="LOG"
         title="Audit Logs"
-        description="Immutable administrative and security events, newest first. Sensitive values are redacted at write time; entries cannot be edited or deleted here."
+        description="Immutable administrative, security and candidate events across the platform, newest first — including ResuMatch's own trail (applications and their status changes, tailored CVs, cover letters, uploads), read live from its isolated database. Sensitive values are redacted at write time; entries cannot be edited or deleted here."
       />
 
-      <p style={{ margin: "0 0 var(--space-4)" }}>
-        Looking for candidate activity instead?{" "}
-        <a href="/audit-logs/resumatch">ResuMatch audit events →</a>
-      </p>
+      {data?.resumatchUnavailable ? (
+        <p role="status" style={{ margin: "0 0 var(--space-4)" }}>
+          <Badge tone="warning">ResuMatch unavailable</Badge>{" "}
+          <span className="u-muted">
+            Its events are missing from this view. Check INTERNAL_API_SECRET and NEXT_PUBLIC_RESUMATCH_URL, and
+            that ResuMatch is reachable.
+          </span>
+        </p>
+      ) : null}
 
       {data === null ? (
         <EmptyState
@@ -234,6 +201,13 @@ export default async function AuditLogsPage({
             hasFilters={hasFilters}
             clearHref="/audit-logs"
             fields={[
+              {
+                kind: "select",
+                name: "source",
+                label: "source",
+                value: filters.source,
+                options: [{ value: "", label: "all" }, ...AUDIT_SOURCES],
+              },
               {
                 kind: "search",
                 name: "q",
@@ -277,7 +251,7 @@ export default async function AuditLogsPage({
 
           <DataTable
             columns={columns}
-            rows={data.events}
+            rows={data.rows}
             getRowKey={(event) => event.id}
             caption="Audit event stream"
             empty={
@@ -293,7 +267,7 @@ export default async function AuditLogsPage({
             }
           />
 
-          {data.events.length > 0 ? (
+          {data.rows.length > 0 ? (
             <Pagination
               page={filters.page}
               pageSize={PAGE_SIZE}

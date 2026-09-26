@@ -1,8 +1,8 @@
-import { prisma } from "@asafarim/db";
 import { ROLES, getSession, hasPermission, hasRole } from "@asafarim/auth";
 import { writeAuditEvent } from "../../../../lib/audit";
 import { csvResponse, toCsv } from "../../../../lib/csv";
-import { buildAuditWhere, parseAuditFilters } from "../query";
+import { loadAuditStream } from "../../../../lib/server/audit-stream";
+import { parseAuditFilters } from "../query";
 
 /** Hard ceiling: an export is an incident report, not a log shipper. */
 const MAX_ROWS = 10000;
@@ -24,23 +24,14 @@ export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const filters = parseAuditFilters(Object.fromEntries(url.searchParams));
 
+  // The same merged stream the page shows (platform + ResuMatch), so an
+  // export matches the view it came from.
   let events;
+  let resumatchUnavailable = false;
   try {
-    events = await prisma.auditLog.findMany({
-      where: buildAuditWhere(filters),
-      orderBy: { createdAt: "desc" },
-      take: MAX_ROWS,
-      select: {
-        id: true,
-        action: true,
-        entity: true,
-        entityId: true,
-        changes: true,
-        ipAddress: true,
-        createdAt: true,
-        user: { select: { email: true } },
-      },
-    });
+    const stream = await loadAuditStream(filters, { limit: MAX_ROWS });
+    events = stream.rows;
+    resumatchUnavailable = stream.resumatchUnavailable;
   } catch (error) {
     console.error("[admin] audit export failed:", error);
     return new Response("The export could not be generated.", { status: 503 });
@@ -54,7 +45,9 @@ export async function GET(request: Request): Promise<Response> {
     changes: {
       rows: events.length,
       truncated: events.length === MAX_ROWS,
+      resumatchUnavailable,
       filters: {
+        source: filters.source,
         q: filters.q,
         action: filters.action,
         entity: filters.entity,
@@ -66,14 +59,16 @@ export async function GET(request: Request): Promise<Response> {
   });
 
   const body = toCsv(
-    ["created_at", "actor_email", "action", "entity", "entity_id", "ip_address", "changes"],
+    ["created_at", "source", "actor_email", "action", "entity", "entity_id", "ip_address", "summary", "changes"],
     events.map((event) => [
       event.createdAt,
+      event.source,
       event.user?.email ?? "system",
       event.action,
       event.entity,
       event.entityId,
       event.ipAddress,
+      event.summary ?? "",
       // Already redacted at write time — serialized flat so one event is
       // one spreadsheet row.
       event.changes ? JSON.stringify(event.changes) : "",

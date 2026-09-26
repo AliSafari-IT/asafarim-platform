@@ -90,6 +90,52 @@ describe.skipIf(!TEST_DB)("GET /api/internal/audit-events", () => {
     }
   });
 
+  async function query(qs: string) {
+    const res = await GET(
+      new Request(`http://localhost/api/internal/audit-events?${qs}`, {
+        headers: { authorization: `Bearer ${process.env.INTERNAL_API_SECRET}` },
+      }),
+    );
+    expect(res.status).toBe(200);
+    return res.json() as Promise<{ events: { action: string; metadata: unknown }[]; total: number }>;
+  }
+
+  it("counts every match in `total`, not just the page", async () => {
+    const body = await query(`workspaceId=${workspaceId}&limit=1`);
+    expect(body.events).toHaveLength(1);
+    expect(body.total).toBe(3);
+  });
+
+  it("returns nothing when the actor filter matched no user", async () => {
+    const body = await query(`workspaceId=${workspaceId}&platformUserIds=`);
+    expect(body.events).toEqual([]);
+    expect(body.total).toBe(0);
+  });
+
+  it("filters by a date range", async () => {
+    const all = await query(`workspaceId=${workspaceId}`);
+    const newest = all.events[0] as unknown as { createdAt: string };
+    const body = await query(`workspaceId=${workspaceId}&from=${encodeURIComponent(newest.createdAt)}`);
+    expect(body.events.map((e) => e.action)).toEqual(["profile.confirmed"]);
+  });
+
+  it("finds an event by an id in its metadata, or by part of its action", async () => {
+    await db.auditEvent.create({
+      data: {
+        workspaceId,
+        action: "application.status_changed",
+        metadata: { applicationId: "app-search-test", fromStatus: "OFFER", toStatus: "INTERVIEWING" },
+      },
+    });
+    const byId = await query(`workspaceId=${workspaceId}&q=app-search-test`);
+    expect(byId.events.map((e) => e.action)).toEqual(["application.status_changed"]);
+    const byAction = await query(`workspaceId=${workspaceId}&q=QUARANTINED`);
+    expect(byAction.events.map((e) => e.action)).toEqual(["document.quarantined"]);
+    const byUser = await query(`q=nothing-matches&qPlatformUserIds=${encodeURIComponent(platformUserId)}`);
+    expect(byUser.total).toBe(4);
+    await db.auditEvent.deleteMany({ where: { workspaceId, action: "application.status_changed" } });
+  });
+
   it("returns the distinct set of actions for the filter dropdown", async () => {
     const res = await GET(
       new Request(`http://localhost/api/internal/audit-events?workspaceId=${workspaceId}`, {
