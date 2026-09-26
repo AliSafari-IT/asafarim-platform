@@ -1953,11 +1953,14 @@ a .ui-card {
   opacity: 0.75;
 }
 
+/* Softened via colour, not opacity: opacity also faded the accent link
+   inside the body, dropping it below WCAG AA in several apps even when
+   the accent itself passed. */
 .ui-showcase-notice__body {
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.65;
-  opacity: 0.82;
+  color: color-mix(in srgb, currentColor 82%, transparent);
   text-wrap: pretty;
 }
 
@@ -1978,9 +1981,11 @@ a .ui-card {
   text-decoration: none;
 }
 
+/* Thicker underline, not a fade: opacity dropped the link below WCAG AA
+   contrast on hover (axe flagged 3.99:1 even with a compliant accent). */
 .ui-showcase-notice__link-wrap a:hover,
 .ui-showcase-notice__link-wrap a:focus-visible {
-  opacity: 0.8;
+  text-decoration-thickness: 2px;
 }
 
 /* ── "Behind this project" page body ──────────────────────────────

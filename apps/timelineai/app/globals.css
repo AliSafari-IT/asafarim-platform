@@ -18,6 +18,10 @@
 }
 
 :root[data-app="timelineai"][data-theme="light"] {
+  /* The amber --color-accent is 1.74:1 on the notice's light ground —
+     fine for fills, unreadable as the showcase badge/link text that axe
+     checks on the homepage. #6b3c07 is the same hue at 8.1:1. */
+  --ui-showcase-accent: #6b3c07;
   --color-bg: #faf9fc;
   --color-surface: #ffffff;
   --color-text: #1b1730;
