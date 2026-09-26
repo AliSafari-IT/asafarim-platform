@@ -281,6 +281,18 @@
   }
 }
 
+/* Sidebar apps (admin): the dropdown only takes over once AppShell hides
+   .ui-shell__side at 720px — above that the sidebar is the navigation. */
+.ui-topnav-mobile.ui-topnav-mobile--side {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .ui-topnav-mobile.ui-topnav-mobile--side {
+    display: block;
+  }
+}
+
 .ui-topnav a {
   display: inline-block;
   padding: 0.3rem 0.7rem;
