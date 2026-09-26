@@ -5,6 +5,7 @@ vi.mock("@asafarim/db", () => ({
     viontoExport: { findMany: vi.fn() },
     user: { findMany: vi.fn() },
     timeline: { findMany: vi.fn() },
+    eduBooking: { findMany: vi.fn() },
   },
 }));
 
@@ -15,6 +16,7 @@ const mockPrisma = prisma as unknown as {
   viontoExport: { findMany: ReturnType<typeof vi.fn> };
   user: { findMany: ReturnType<typeof vi.fn> };
   timeline: { findMany: ReturnType<typeof vi.fn> };
+  eduBooking: { findMany: ReturnType<typeof vi.fn> };
 };
 
 beforeEach(() => {
@@ -22,16 +24,17 @@ beforeEach(() => {
   mockPrisma.viontoExport.findMany.mockResolvedValue([]);
   mockPrisma.user.findMany.mockResolvedValue([]);
   mockPrisma.timeline.findMany.mockResolvedValue([]);
+  mockPrisma.eduBooking.findMany.mockResolvedValue([]);
 });
 
 describe("getPlatformActivityApps", () => {
-  // Vionto/TimelineAI implement listAll directly (shared-DB adapters).
-  // TasksAI and ResuMatch implement it via a remote "browse" endpoint
-  // (#349, and ResuMatch's own tailored-resumes browse route). AppBuilder/
-  // Testora have no listAll yet — "no adapter yet" for this view, same
-  // principle as an app with no adapter at all.
+  // Vionto/TimelineAI/EduMatch implement listAll directly (shared-DB
+  // adapters). TasksAI and ResuMatch implement it via a remote "browse"
+  // endpoint (#349, and ResuMatch's own tailored-resumes browse route).
+  // AppBuilder/Testora have no listAll yet — "no adapter yet" for this
+  // view, same principle as an app with no adapter at all.
   it("lists every app whose adapter implements listAll, direct-DB or remote", () => {
-    expect(getPlatformActivityApps().sort()).toEqual(["resumatch", "tasksai", "timelineai", "vionto"]);
+    expect(getPlatformActivityApps().sort()).toEqual(["edumatch", "resumatch", "tasksai", "timelineai", "vionto"]);
   });
 });
 

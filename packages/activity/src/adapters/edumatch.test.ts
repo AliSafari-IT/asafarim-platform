@@ -86,4 +86,65 @@ describe("edumatchActivityAdapter", () => {
 
     expect(section.entries[0]).toMatchObject({ type: "tutor_verification", status: "VERIFIED" });
   });
+
+  describe("listAll", () => {
+    function booking(overrides: Partial<Record<string, unknown>> = {}) {
+      return {
+        id: "b1",
+        status: "SCHEDULED",
+        scheduledAt: now,
+        createdAt: now,
+        updatedAt: now,
+        studentId: "student-1",
+        student: { email: "student@example.com", name: "Stu Dent" },
+        tutor: { email: "tutor@example.com", name: "Tu Tor" },
+        quote: { quoteRequest: { inquiry: { subject: "Algebra help" } } },
+        ...overrides,
+      };
+    }
+
+    it("attributes the booking to the student as owner, keeping the tutor in metadata", async () => {
+      mockPrisma.eduBooking.findMany.mockResolvedValue([booking()]);
+
+      const result = await edumatchActivityAdapter.listAll!({ limit: 10 });
+
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0]).toMatchObject({
+        id: "b1",
+        app: "edumatch",
+        type: "booking",
+        title: "Algebra help",
+        owner: { userId: "student-1", email: "student@example.com", name: "Stu Dent" },
+        metadata: { tutorEmail: "tutor@example.com", tutorName: "Tu Tor" },
+      });
+    });
+
+    it("maps a DISPUTED booking to a dispute entry, same as getActivity", async () => {
+      mockPrisma.eduBooking.findMany.mockResolvedValue([booking({ status: "DISPUTED" })]);
+
+      const result = await edumatchActivityAdapter.listAll!({ limit: 10 });
+
+      expect(result.entries[0]).toMatchObject({ type: "dispute", status: "DISPUTED" });
+    });
+
+    it("paginates with a createdAt cursor when more rows exist than the limit", async () => {
+      mockPrisma.eduBooking.findMany.mockResolvedValue([
+        booking({ id: "b1", createdAt: new Date("2026-01-03") }),
+        booking({ id: "b2", createdAt: new Date("2026-01-02") }),
+      ]);
+
+      const result = await edumatchActivityAdapter.listAll!({ limit: 1 });
+
+      expect(result.entries).toHaveLength(1);
+      expect(result.nextCursor).toBe(new Date("2026-01-03").toISOString());
+    });
+
+    it("returns a null cursor when every row fit within the limit", async () => {
+      mockPrisma.eduBooking.findMany.mockResolvedValue([booking()]);
+
+      const result = await edumatchActivityAdapter.listAll!({ limit: 10 });
+
+      expect(result.nextCursor).toBeNull();
+    });
+  });
 });

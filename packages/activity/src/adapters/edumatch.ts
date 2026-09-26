@@ -1,5 +1,12 @@
 import { prisma } from "@asafarim/db";
-import type { ActivityEntry, ActivityLookup, ActivitySection, UserActivityAdapter } from "../types";
+import type {
+  ActivityEntry,
+  ActivityLookup,
+  ActivitySection,
+  ListAllOptions,
+  ListAllResult,
+  UserActivityAdapter,
+} from "../types";
 
 function edumatchUrl(): string {
   return process.env.NEXT_PUBLIC_EDUMATCH_URL ?? "http://localhost:3009";
@@ -90,5 +97,65 @@ export const edumatchActivityAdapter: UserActivityAdapter = {
     ];
 
     return { app: "edumatch", supported: true, available: true, entries };
+  },
+
+  /**
+   * EduMatch's flagship content for the platform-wide browse view is
+   * bookings — the actual matched, paid tutoring session, closest analog to
+   * Vionto's exports / TimelineAI's timelines. A booking has two real
+   * platform users (student and tutor); the student is attributed as
+   * `owner` since they're the one who opened the funnel (the inquiry) that
+   * led to it — the tutor's name/email are carried in `metadata` instead so
+   * neither side is silently dropped from the entry.
+   */
+  async listAll({ limit, cursor }: ListAllOptions): Promise<ListAllResult> {
+    const base = edumatchUrl();
+    const bookings = await prisma.eduBooking.findMany({
+      where: cursor ? { createdAt: { lt: new Date(cursor) } } : undefined,
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      select: {
+        id: true,
+        status: true,
+        scheduledAt: true,
+        createdAt: true,
+        updatedAt: true,
+        studentId: true,
+        student: { select: { email: true, name: true } },
+        tutor: { select: { email: true, name: true } },
+        quote: {
+          select: {
+            quoteRequest: { select: { inquiry: { select: { subject: true } } } },
+          },
+        },
+      },
+    });
+
+    const hasMore = bookings.length > limit;
+    const page = hasMore ? bookings.slice(0, limit) : bookings;
+
+    return {
+      entries: page.map((b) => ({
+        id: b.id,
+        app: "edumatch",
+        type: b.status === "DISPUTED" ? "dispute" : "booking",
+        title: b.quote.quoteRequest.inquiry.subject,
+        status: b.status,
+        createdAt: b.createdAt,
+        updatedAt: b.updatedAt,
+        href: `${base}/student/bookings/${b.id}`,
+        metadata: {
+          scheduledAt: b.scheduledAt,
+          tutorEmail: b.tutor.email,
+          tutorName: b.tutor.name,
+        },
+        owner: {
+          userId: b.studentId,
+          email: b.student.email,
+          name: b.student.name,
+        },
+      })),
+      nextCursor: hasMore ? page[page.length - 1]!.createdAt.toISOString() : null,
+    };
   },
 };
