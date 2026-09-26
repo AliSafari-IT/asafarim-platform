@@ -65,7 +65,7 @@ export function ManualJobForm({
 
   return (
     <div style={{ marginTop: "0.75rem" }}>
-      <p style={{ opacity: 0.7, fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+      <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
         No posting, no email, no file — a phone call, a printed letter, a conversation at a career
         fair? Type in what you know. Only the title, employer, and at least one of responsibilities,
         requirements, preferred qualifications, or benefits are required — leave the rest blank if
@@ -87,7 +87,7 @@ export function ManualJobForm({
         </label>
         <label className="jm-field">
           <span>Work mode</span>
-          <select value={values.workMode} onChange={(e) => set("workMode", e.target.value as ManualJobFormValues["workMode"])} disabled={busy}>
+          <select className="ui-input ui-select" value={values.workMode} onChange={(e) => set("workMode", e.target.value as ManualJobFormValues["workMode"])} disabled={busy}>
             <option value="">Not specified</option>
             <option value="remote">Remote</option>
             <option value="hybrid">Hybrid</option>
@@ -96,7 +96,7 @@ export function ManualJobForm({
         </label>
         <label className="jm-field">
           <span>Employment type</span>
-          <select
+          <select className="ui-input ui-select"
             value={values.employmentType}
             onChange={(e) => set("employmentType", e.target.value as ManualJobFormValues["employmentType"])}
             disabled={busy}
@@ -137,19 +137,19 @@ export function ManualJobForm({
 
       <label className="jm-field">
         <span>Responsibilities</span>
-        <textarea rows={4} value={values.responsibilities} onChange={(e) => set("responsibilities", e.target.value)} disabled={busy} style={{ width: "100%" }} />
+        <textarea className="ui-input" rows={4} value={values.responsibilities} onChange={(e) => set("responsibilities", e.target.value)} disabled={busy} style={{ width: "100%" }} />
       </label>
       <label className="jm-field">
         <span>Requirements</span>
-        <textarea rows={4} value={values.requirements} onChange={(e) => set("requirements", e.target.value)} disabled={busy} style={{ width: "100%" }} />
+        <textarea className="ui-input" rows={4} value={values.requirements} onChange={(e) => set("requirements", e.target.value)} disabled={busy} style={{ width: "100%" }} />
       </label>
       <label className="jm-field">
         <span>Preferred qualifications</span>
-        <textarea rows={3} value={values.preferredQualifications} onChange={(e) => set("preferredQualifications", e.target.value)} disabled={busy} style={{ width: "100%" }} />
+        <textarea className="ui-input" rows={3} value={values.preferredQualifications} onChange={(e) => set("preferredQualifications", e.target.value)} disabled={busy} style={{ width: "100%" }} />
       </label>
       <label className="jm-field">
         <span>Benefits</span>
-        <textarea rows={3} value={values.benefits} onChange={(e) => set("benefits", e.target.value)} disabled={busy} style={{ width: "100%" }} />
+        <textarea className="ui-input" rows={3} value={values.benefits} onChange={(e) => set("benefits", e.target.value)} disabled={busy} style={{ width: "100%" }} />
       </label>
 
       <Button onClick={() => onSubmit(values)} disabled={!canSubmit || busy}>

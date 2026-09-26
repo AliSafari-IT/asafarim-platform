@@ -248,7 +248,7 @@
 [data-app="resumatch"] .jm-field small {
   display: block;
   margin-top: 0.3rem;
-  opacity: 0.75;
+  color: var(--muted);
   font-size: 0.8rem;
 }
 
@@ -649,7 +649,7 @@
 }
 
 .rm-intake-panel__hint {
-  opacity: 0.7;
+  color: var(--muted);
   font-size: 0.85rem;
   margin: 0 0 0.65rem;
   line-height: 1.5;
@@ -1200,7 +1200,10 @@
   font-size: 0.78rem;
   font-weight: 500;
   background: rgba(var(--category-tint), 0.12);
-  color: rgb(var(--category-tint));
+  /* The raw tint as text on its own 12% wash is ~3.5–3.8:1. Mixing it
+     toward --ink darkens it in light mode and lightens it in dark mode,
+     so every category tint clears AA in both themes (≈6–7:1). */
+  color: color-mix(in srgb, rgb(var(--category-tint)) 60%, var(--ink));
   border: 1px solid rgba(var(--category-tint), 0.25);
 }
 
@@ -1215,7 +1218,7 @@
 .rm-skill-groups__hint {
   margin: 0;
   font-size: 0.8rem;
-  opacity: 0.7;
+  color: var(--muted);
 }
 .rm-skill-groups__suggestions {
   border: 1px solid var(--rm-line, rgba(99, 102, 241, 0.25));
@@ -1239,7 +1242,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  opacity: 0.65;
+  color: var(--muted);
   margin-bottom: 0.35rem;
 }
 .rm-skill-chip {
@@ -1253,13 +1256,16 @@
   color: inherit;
   font-size: 0.68rem;
   font-weight: 600;
-  opacity: 0.55;
+  /* No opacity: faded, it was ~2:1. It inherits the chip's readable
+     colour; the dotted underline marks it as a (select) control. */
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
   cursor: pointer;
   max-width: 6.5rem;
 }
 .rm-skill-chip__category:hover,
 .rm-skill-chip__category:focus {
-  opacity: 1;
+  text-decoration-style: solid;
 }
 
 .jm-icon-button {
@@ -1594,13 +1600,20 @@
 }
 
 .jm-dropzone:hover,
-.jm-dropzone:focus-visible {
+.jm-dropzone:focus-within {
   transform: translateY(-2px);
   border-color: rgba(167, 139, 250, 0.65);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.08) inset,
     0 24px 55px -18px rgba(124, 58, 237, 0.65);
-  outline: none;
+}
+
+/* The dropzone is a <label>; keyboard focus lands on the file input
+   inside it, so the ring is drawn on the dropzone whenever that input
+   has visible focus. */
+.jm-dropzone:has(.jm-dropzone__input:focus-visible) {
+  outline: 3px solid #a78bfa;
+  outline-offset: 3px;
 }
 
 .jm-dropzone--active {
@@ -4438,4 +4451,75 @@
   [data-app="resumatch"] .rx-hl__item {
     transition: none;
   }
+}
+
+/* ─── Accessibility fixes ────────────────────────────────────────────────
+ * The shared .ui-alert--warning text (#f0b429) is ~1.7:1 on a light
+ * ground — the showcase notices on every page. Dark amber in light mode
+ * (5.8:1), and the original bright amber stays for dark mode, where it
+ * already passes. Same approach as [data-app="web"] in @asafarim/ui.
+ */
+[data-app="resumatch"] .ui-alert--warning {
+  color: #8a4f0c;
+}
+
+[data-app="resumatch"][data-theme="dark"] .ui-alert--warning {
+  color: #f0b429;
+}
+
+/* Footer prose link: colour alone didn't set it apart from the text
+   around it (axe link-in-text-block, ~1.05:1 against the body text). */
+[data-app="resumatch"] .ui-shell__footer span a {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* Shared .ui-badge--success/--warning/--danger colours are tuned for dark
+   surfaces (see the note in @asafarim/ui components.css); ResuMatch is
+   light by default, where the success green was ~1.6:1. Light-mode
+   values are a step darker than the web/appbuilder override (its green is
+   4.45:1 on ResuMatch's ground); dark mode keeps the originals. */
+[data-app="resumatch"] .ui-badge--success { color: #166534; background: rgba(21, 128, 61, 0.09); }
+[data-app="resumatch"] .ui-badge--warning { color: #854d0e; background: rgba(161, 98, 7, 0.09); }
+[data-app="resumatch"] .ui-badge--danger { color: #b91c1c; background: rgba(185, 28, 28, 0.08); }
+[data-app="resumatch"][data-theme="dark"] .ui-badge--success { color: #4ade80; background: rgba(34, 197, 94, 0.12); }
+[data-app="resumatch"][data-theme="dark"] .ui-badge--warning { color: #fbbf24; background: rgba(251, 191, 36, 0.12); }
+[data-app="resumatch"][data-theme="dark"] .ui-badge--danger { color: #f87171; background: rgba(248, 113, 113, 0.12); }
+
+/* Workbench save status: the fallback greens/ambers are dark-surface-
+   unfriendly (#2f855a on the dark card was 3.9:1). */
+[data-app="resumatch"][data-theme="dark"] .rm-wb__status--ok { color: #4ade80; }
+[data-app="resumatch"][data-theme="dark"] .rm-wb__status--dirty { color: #fbbf24; }
+
+/* Native file inputs (e.g. "Upload a file" when tailoring) rendered the
+   browser's grey outset "Choose file" button. Style the button part to
+   match the app's secondary buttons; the file-name text inherits. */
+[data-app="resumatch"] input[type="file"] {
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+[data-app="resumatch"] input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+[data-app="resumatch"] input[type="file"]::file-selector-button:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+[data-app="resumatch"] input[type="file"]:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 999px;
 }

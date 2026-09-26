@@ -55,7 +55,7 @@ export function DataRightsPanel({
 
   return (
     <Card title="Your data">
-      <p style={{ opacity: 0.85 }}>
+      <p style={{ color: "var(--muted)" }}>
         ResuMatch holds your uploaded CV, the profile read from it, any job pages you tailored toward,
         the tailored CVs it produced, and a log of actions taken on
         your account. Your name and email live with your ASafarIM account, not here — ResuMatch only
@@ -71,7 +71,7 @@ export function DataRightsPanel({
         </Button>
       </div>
 
-      <p style={{ opacity: 0.75, marginTop: "0.75rem", fontSize: "0.9rem" }}>
+      <p style={{ color: "var(--muted)", marginTop: "0.75rem", fontSize: "0.9rem" }}>
         Deletion removes your uploaded files, every profile version, and the data read from them —
         not just the original. It happens immediately, well inside the {erasureSlaDays}-day
         commitment. The record that a deletion took place is kept, because it contains no CV content

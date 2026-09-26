@@ -50,10 +50,10 @@ export default async function CompareTailoredResumesPage({
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
         <Card title={rowA.targetJob.title ?? rowA.targetJob.employer ?? "Version A"}>
-          <p style={{ opacity: 0.6, fontSize: "0.8rem" }}>{new Date(rowA.createdAt).toLocaleString()}</p>
+          <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{new Date(rowA.createdAt).toLocaleString()}</p>
         </Card>
         <Card title={rowB.targetJob.title ?? rowB.targetJob.employer ?? "Version B"}>
-          <p style={{ opacity: 0.6, fontSize: "0.8rem" }}>{new Date(rowB.createdAt).toLocaleString()}</p>
+          <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>{new Date(rowB.createdAt).toLocaleString()}</p>
         </Card>
       </div>
 
@@ -64,7 +64,7 @@ export default async function CompareTailoredResumesPage({
             <p>{contentB.headline ?? <em>(none)</em>}</p>
           </div>
         ) : (
-          <p style={{ opacity: 0.7 }}>Unchanged: {contentA.headline ?? <em>(none)</em>}</p>
+          <p style={{ color: "var(--muted)" }}>Unchanged: {contentA.headline ?? <em>(none)</em>}</p>
         )}
       </Card>
 
@@ -75,13 +75,13 @@ export default async function CompareTailoredResumesPage({
             <p>{contentB.summary ?? <em>(none)</em>}</p>
           </div>
         ) : (
-          <p style={{ opacity: 0.7 }}>Unchanged: {contentA.summary ?? <em>(none)</em>}</p>
+          <p style={{ color: "var(--muted)" }}>Unchanged: {contentA.summary ?? <em>(none)</em>}</p>
         )}
       </Card>
 
       <Card title="Skills">
         {diff.skills.added.length === 0 && diff.skills.removed.length === 0 ? (
-          <p style={{ opacity: 0.7 }}>No change ({diff.skills.common.length} skills, unchanged).</p>
+          <p style={{ color: "var(--muted)" }}>No change ({diff.skills.common.length} skills, unchanged).</p>
         ) : (
           <>
             {diff.skills.added.length > 0 ? (
@@ -120,7 +120,7 @@ export default async function CompareTailoredResumesPage({
                   </ul>
                 </div>
               ) : (
-                <p style={{ opacity: 0.6, fontSize: "0.85rem", margin: "0.3rem 0 0" }}>Unchanged.</p>
+                <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0.3rem 0 0" }}>Unchanged.</p>
               )}
             </div>
           ))}

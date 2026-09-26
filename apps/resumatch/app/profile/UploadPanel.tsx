@@ -165,11 +165,11 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
 
   return (
     <Card title="Your CV">
-      <p style={{ opacity: 0.85 }}>
+      <p style={{ color: "var(--muted)" }}>
         PDF, Word (.docx), or plain text, up to 10 MB. Your file is scanned before anything reads it,
         stored privately, and never shared with an employer. You can delete it at any time.
       </p>
-      <p style={{ opacity: 0.7, fontSize: "0.85rem" }}>
+      <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
         Don&rsquo;t have a CV handy? You don&rsquo;t need one to get started — skip this and fill in
         your profile by hand below.
       </p>
@@ -178,20 +178,14 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
         <ShowcaseNotice variant="compact" />
       </div>
 
-      <div
+      {/* A <label> around the file input, not a div with role="button":
+          the (invisible, full-size) input is the one real control, so it
+          takes the click and the keyboard focus natively and gets its
+          accessible name from this label's text. The old role="button"
+          wrapper nested a second interactive control around it and left
+          the input itself unnamed. */}
+      <label
         className={`jm-dropzone${dragActive ? " jm-dropzone--active" : ""}${busy ? " jm-dropzone--busy" : ""}`}
-        role="button"
-        tabIndex={busy ? -1 : 0}
-        aria-disabled={busy}
-        onClick={() => {
-          if (!busy) inputRef.current?.click();
-        }}
-        onKeyDown={(event) => {
-          if (!busy && (event.key === "Enter" || event.key === " ")) {
-            event.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
         onDragOver={(event) => {
           event.preventDefault();
           if (!busy) setDragActive(true);
@@ -204,7 +198,7 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
           if (file && !busy) void upload(file);
         }}
       >
-        <div className="jm-dropzone__glow" aria-hidden="true" />
+        <span className="jm-dropzone__glow" aria-hidden="true" />
         <svg
           className="jm-dropzone__icon"
           width="44"
@@ -227,12 +221,12 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
             strokeLinejoin="round"
           />
         </svg>
-        <p className="jm-dropzone__title">
+        <span className="jm-dropzone__title">
           {dragActive ? "Drop to upload" : "Upload Your Resume"}
-        </p>
-        <p className="jm-dropzone__subtitle">
+        </span>
+        <span className="jm-dropzone__subtitle">
           PDF, DOCX, or plain text &middot; up to {maxSizeLabel}
-        </p>
+        </span>
         <input
           ref={inputRef}
           type="file"
@@ -244,7 +238,7 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
           }}
           className="jm-dropzone__input"
         />
-      </div>
+      </label>
 
       {busy ? <p className="jm-mono">Working…</p> : null}
       {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}
@@ -270,7 +264,7 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
                     ? "partly read"
                     : (STATUS_LABEL[document.status] ?? document.status.toLowerCase())}
                 </Badge>
-                <span className="jm-mono" style={{ opacity: 0.6, fontSize: "0.75rem" }}>
+                <span className="jm-mono" style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
                   {formatSize(document.byteSize)}
                 </span>
                 {document.status !== "QUARANTINED" ? (
@@ -303,7 +297,7 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
                 </AlertCard>
               ) : null}
               {document.retainUntil ? (
-                <p className="jm-mono" style={{ opacity: 0.6, fontSize: "0.75rem", margin: "0.25rem 0 0" }}>
+                <p className="jm-mono" style={{ color: "var(--muted)", fontSize: "0.75rem", margin: "0.25rem 0 0" }}>
                   kept until {document.retainUntil.slice(0, 10)}
                 </p>
               ) : null}
