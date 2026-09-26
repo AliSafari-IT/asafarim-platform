@@ -573,7 +573,7 @@ export function ProfileWorkbench({
             <Card title="Languages">
               <FieldLabel label="Languages" confidence={confidence} field="languages" />
               {content.languages.length === 0 ? (
-                <p style={{ opacity: 0.75 }}>None read from your CV. Add them if they matter for the roles you want.</p>
+                <p style={{ color: "var(--muted)" }}>None read from your CV. Add them if they matter for the roles you want.</p>
               ) : (
                 <ul className="jm-entity-list">
                   {content.languages.map((language, index) => (
@@ -703,7 +703,7 @@ export function ProfileWorkbench({
             <Card title="Experience">
               <FieldLabel label="Roles" confidence={confidence} field="experience" />
               {content.experience.length === 0 ? (
-                <p style={{ opacity: 0.75 }}>No roles were read from your CV. Add as many as you like.</p>
+                <p style={{ color: "var(--muted)" }}>No roles were read from your CV. Add as many as you like.</p>
               ) : (
                 <DndContext
                   id="resumatch-experience-dnd"
@@ -786,7 +786,7 @@ export function ProfileWorkbench({
                                   />
                                   I currently work here
                                 </label>
-                                <small style={{ opacity: 0.6, fontSize: "0.72rem" }}>
+                                <small style={{ color: "var(--muted)", fontSize: "0.72rem" }}>
                                   Dates as YYYY or YYYY-MM, e.g. 2021 or 2021-03.
                                 </small>
                               </>
@@ -917,7 +917,7 @@ export function ProfileWorkbench({
                               Still fine to apply, or dismiss and adjust categories yourself.
                             </Alert>
                           ) : (
-                            <p style={{ opacity: 0.75, fontSize: "0.85rem" }}>
+                            <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                               AI-suggested categories — review below, then apply all or dismiss.
                             </p>
                           )}
@@ -1000,7 +1000,7 @@ export function ProfileWorkbench({
           <div className="rm-wb__section rm-wb__section--education" id="rm-sec-education">
             <Card title="Education">
               {content.education.length === 0 ? (
-                <p style={{ opacity: 0.75 }}>None read from your CV. Add a degree or qualification if it's relevant.</p>
+                <p style={{ color: "var(--muted)" }}>None read from your CV. Add a degree or qualification if it's relevant.</p>
               ) : (
                 <DndContext
                   id="resumatch-education-dnd"
@@ -1060,7 +1060,7 @@ export function ProfileWorkbench({
                                     if (normalized !== event.target.value) setEntry({ completedOn: normalized || null });
                                   }}
                                 />
-                                <span style={{ opacity: 0.6, fontSize: "0.78rem" }}>
+                                <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
                                   The year you finished, e.g. 2018 — not a start–end range.
                                 </span>
                               </label>
@@ -1092,7 +1092,7 @@ export function ProfileWorkbench({
           <div className="rm-wb__section rm-wb__section--certifications" id="rm-sec-certifications">
             <Card title="Certifications">
               {content.certifications.length === 0 ? (
-                <p style={{ opacity: 0.75 }}>None read from your CV. Add one if it's relevant to the roles you want.</p>
+                <p style={{ color: "var(--muted)" }}>None read from your CV. Add one if it's relevant to the roles you want.</p>
               ) : (
                 <ul className="jm-entity-list">
                   {content.certifications.map((entry, index) => {

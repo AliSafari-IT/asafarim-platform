@@ -23,7 +23,7 @@ export function SaveApplicationButton({ targetJobId, tailoredResumeId }: { targe
     }
   }
 
-  if (state === "saved") return <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>Saved to applications</span>;
+  if (state === "saved") return <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>Saved to applications</span>;
 
   return (
     <Button variant="ghost" onClick={save} disabled={state === "saving"}>

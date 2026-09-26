@@ -473,7 +473,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
   return (
     <Card title="Tailor your CV to a job">
-      <p style={{ opacity: 0.85 }}>
+      <p style={{ color: "var(--muted)" }}>
         Point ResuMatch at a job you want to apply to — a URL, pasted text, a recruiter's email, an
         uploaded file, or details you type in yourself. It shows you what AI suggests changing, and
         only saves what you approve — reject or edit anything before it's kept.
@@ -517,7 +517,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             For postings ResuMatch can't fetch — behind a login wall, expired, or a page that
             redirects — paste the job description text directly instead.
           </p>
-          <textarea
+          <textarea className="ui-input"
             rows={8}
             placeholder="Paste the full job description here…"
             value={pastedText}
@@ -545,7 +545,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             disabled={busy}
             style={{ marginBottom: "0.5rem" }}
           />
-          <textarea
+          <textarea className="ui-input"
             rows={8}
             placeholder="Paste the full email here…"
             value={emailText}
@@ -561,12 +561,14 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         </div>
       ) : mode === "upload" ? (
         <div className="rm-intake-panel">
-          <p className="rm-intake-panel__hint">
+          <p className="rm-intake-panel__hint" id="rm-upload-job-hint">
             Have the posting as a PDF or Word file — downloaded from a portal, or attached to an
             email? Upload it directly; ResuMatch reads the text out of it.
           </p>
           <input
             type="file"
+            aria-label="Job posting file"
+            aria-describedby="rm-upload-job-hint"
             accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
             onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
             disabled={busy}
@@ -598,13 +600,13 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       {state.kind === "fetched" ? (
         <div style={{ marginTop: "1rem" }}>
           <Card title={state.title ?? "Job found"}>
-            {state.employer ? <p style={{ opacity: 0.8 }}>{state.employer}</p> : null}
-            <p style={{ opacity: 0.7, fontSize: "0.9rem" }}>{state.snippet}…</p>
+            {state.employer ? <p style={{ color: "var(--muted)" }}>{state.employer}</p> : null}
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{state.snippet}…</p>
             <label className="jm-field" style={{ display: "block", margin: "0.5rem 0" }}>
               <span className="rm-review__section-label">
                 Anything you want AI to keep in mind? (optional)
               </span>
-              <textarea
+              <textarea className="ui-input"
                 rows={2}
                 placeholder='e.g. "emphasize my backend work" or "keep the tone confident, not casual"'
                 value={instructions}
@@ -612,7 +614,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 onChange={(e) => setInstructions(e.target.value)}
                 style={{ width: "100%" }}
               />
-              <span style={{ opacity: 0.6, fontSize: "0.78rem" }}>
+              <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
                 {instructions.length}/{INSTRUCTIONS_MAX_CHARS} — steers wording and emphasis only; it can
                 never add a skill or fact you don't already have.
               </span>
@@ -629,7 +631,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "0 0 0.75rem" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
                   <span>Tone</span>
-                  <select value={coverLetterTone} onChange={(e) => setCoverLetterTone(e.target.value as typeof coverLetterTone)}>
+                  <select className="ui-input ui-select" value={coverLetterTone} onChange={(e) => setCoverLetterTone(e.target.value as typeof coverLetterTone)}>
                     <option value="formal">Formal</option>
                     <option value="warm">Warm</option>
                     <option value="confident">Confident</option>
@@ -637,7 +639,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
                   <span>Length</span>
-                  <select value={coverLetterLength} onChange={(e) => setCoverLetterLength(e.target.value as typeof coverLetterLength)}>
+                  <select className="ui-input ui-select" value={coverLetterLength} onChange={(e) => setCoverLetterLength(e.target.value as typeof coverLetterLength)}>
                     <option value="short">Short</option>
                     <option value="standard">Standard</option>
                     <option value="detailed">Detailed</option>
@@ -674,7 +676,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 </p>
 
                 {state.review.instructions ? (
-                  <p style={{ opacity: 0.7, fontSize: "0.82rem", fontStyle: "italic" }}>
+                  <p style={{ color: "var(--muted)", fontSize: "0.82rem", fontStyle: "italic" }}>
                     Your steering note: “{state.review.instructions}”
                   </p>
                 ) : null}
@@ -691,7 +693,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
                 <div className="rm-review__section">
                   <span className="rm-review__section-label">Summary</span>
-                  <textarea
+                  <textarea className="ui-input"
                     rows={4}
                     value={state.review.summary}
                     onChange={(e) => updateReview("summary", e.target.value)}
@@ -747,7 +749,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                             ))}
                           </ul>
                         ) : (
-                          <p style={{ opacity: 0.6, fontSize: "0.85rem", fontStyle: "italic", margin: "0.4rem 0 0" }}>
+                          <p style={{ color: "var(--muted)", fontSize: "0.85rem", fontStyle: "italic", margin: "0.4rem 0 0" }}>
                             No AI suggestion for this role — kept as written.
                           </p>
                         )}
@@ -789,7 +791,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                     {state.review.coverLetter.paragraphs.map((paragraph, index) => (
                       <label className="jm-field" key={index} style={{ display: "block", marginTop: "0.5rem" }}>
                         <span className="rm-review__section-label">Paragraph {index + 1}</span>
-                        <textarea
+                        <textarea className="ui-input"
                           rows={3}
                           value={paragraph}
                           onChange={(e) => updateCoverLetterParagraph(index, e.target.value)}
@@ -823,7 +825,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                     </div>
                   </div>
                 ) : (
-                  <p style={{ opacity: 0.6, fontSize: "0.85rem", fontStyle: "italic", margin: "0.3rem 0 0" }}>
+                  <p style={{ color: "var(--muted)", fontSize: "0.85rem", fontStyle: "italic", margin: "0.3rem 0 0" }}>
                     Declined — nothing will be saved for the letter.
                   </p>
                 )}

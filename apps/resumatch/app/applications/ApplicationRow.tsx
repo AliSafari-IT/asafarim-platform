@@ -57,7 +57,7 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
 
       <label className="jm-field" style={{ marginTop: "0.5rem" }}>
         <span>Notes</span>
-        <textarea
+        <textarea className="ui-input"
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
