@@ -2,20 +2,26 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { TimelineItemDTO } from "@asafarim/ai-cost-ledger";
-import { amountDisplay, basisBadge, coveragePercent, operationLabel, payerLabel, usageSummary } from "./format";
+import { getServerTranslator } from "@asafarim/shared-i18n/server";
+import resumatchDictionaries from "../i18n-dictionaries";
+import { amountDisplay, basisBadge, coveragePercent, groupLabel, operationLabel, payerLabel, usageSummary } from "./format";
 import { parseCostQuery } from "./query";
 import { CostItem } from "../../app/ai-usage/CostItem";
 
+// The real dictionaries, so these tests pin the actual English wording the
+// honesty rules depend on — and, below, that translations keep them.
+const t = getServerTranslator("en", resumatchDictionaries);
+
 describe("amountDisplay — the honesty rules (issue #587)", () => {
   it("never renders unknown cost as $0.00", () => {
-    const unknown = amountDisplay(null, "unknown");
+    const unknown = amountDisplay(null, "unknown", t);
     expect(unknown.text).toBe("Not tracked");
     expect(unknown.text).not.toMatch(/\$0/);
     expect(unknown.tone).toBe("unknown");
   });
 
   it("shows a genuine fixture zero as $0.00 with its reason", () => {
-    const free = amountDisplay("0", "fixture");
+    const free = amountDisplay("0", "fixture", t);
     expect(free.text).toBe("$0.00");
     expect(free.label).toMatch(/no AI provider was called/);
     expect(free.tone).toBe("free");
@@ -23,27 +29,37 @@ describe("amountDisplay — the honesty rules (issue #587)", () => {
 
   it("keeps sub-cent precision and says whether an amount is estimated or actual", () => {
     // $0.00045 shown at 4 decimals — a sub-cent call never collapses to $0.00.
-    expect(amountDisplay("450", "estimated").text).toBe("$0.0005");
-    expect(amountDisplay("450", "estimated").label).toMatch(/estimated/);
-    expect(amountDisplay("1250000", "actual").label).toMatch(/provider-reported/);
+    expect(amountDisplay("450", "estimated", t).text).toBe("$0.0005");
+    expect(amountDisplay("450", "estimated", t).label).toMatch(/estimated/);
+    expect(amountDisplay("1250000", "actual", t).label).toMatch(/provider-reported/);
+  });
+
+  it("keeps not-tracked distinct from free in every language", () => {
+    for (const locale of ["nl-BE", "fr-BE", "de-BE"] as const) {
+      const tl = getServerTranslator(locale, resumatchDictionaries);
+      const unknown = amountDisplay(null, "unknown", tl);
+      expect(unknown.text).not.toMatch(/\d/);
+      expect(unknown.text).not.toBe(t("resumatch.cost.amount.notTracked"));
+      expect(basisBadge("fixture", false, tl).text).not.toBe(unknown.text);
+    }
   });
 
   it("formats per locale", () => {
-    expect(amountDisplay("1500000", "estimated", "de-DE").text).toMatch(/1,50/);
+    expect(amountDisplay("1500000", "estimated", t, "de-DE").text).toMatch(/1,50/);
   });
 });
 
 describe("labels", () => {
   it("names every ResuMatch step and distinguishes cost states in text, not only colour", () => {
-    expect(operationLabel("cover_letter")).toBe("Cover letter");
-    expect(operationLabel("something_new")).toBe("something new");
-    expect(basisBadge("estimated", false).text).toBe("Estimated");
-    expect(basisBadge("actual", false).text).toBe("Actual");
-    expect(basisBadge("unknown", false).text).toBe("Not tracked");
-    expect(basisBadge("fixture", false).text).toBe("Free (fixture)");
-    expect(basisBadge("estimated", true).text).toBe("Legacy");
-    expect(payerLabel("user_byok")).toBe("Your API key");
-    expect(payerLabel("platform")).toBe("ResuMatch's key");
+    expect(operationLabel("cover_letter", t)).toBe("Cover letter");
+    expect(operationLabel("something_new", t)).toBe("something new");
+    expect(basisBadge("estimated", false, t).text).toBe("Estimated");
+    expect(basisBadge("actual", false, t).text).toBe("Actual");
+    expect(basisBadge("unknown", false, t).text).toBe("Not tracked");
+    expect(basisBadge("fixture", false, t).text).toBe("Free (fixture)");
+    expect(basisBadge("estimated", true, t).text).toBe("Legacy");
+    expect(payerLabel("user_byok", t)).toBe("Your API key");
+    expect(payerLabel("platform", t)).toBe("ResuMatch's key");
   });
 
   it("summarizes exclusive usage buckets without double counting", () => {
@@ -54,9 +70,20 @@ describe("labels", () => {
         { bucket: "output", unit: "tokens", quantity: 200 },
         { bucket: "reasoning_output", unit: "tokens", quantity: 300 },
         { bucket: "tool_call", unit: "calls", quantity: 2 },
-      ]),
+      ], t),
     ).toBe("1,000 in (600 cached) · 500 out (300 reasoning) · 2 web searches");
-    expect(usageSummary([])).toBe("No usage reported");
+    expect(usageSummary([], t)).toBe("No usage reported");
+  });
+
+  it("translates API group labels but shows a job title as-is", () => {
+    expect(groupLabel({ kind: "legacy", label: "Earlier usage (not linked to a job)" }, t)).toBe(
+      "Earlier usage (not linked to a job)",
+    );
+    const nl = getServerTranslator("nl-BE", resumatchDictionaries);
+    expect(groupLabel({ kind: "profile", label: "CV & profile" }, nl)).toBe("Cv & profiel");
+    expect(groupLabel({ kind: "job", label: "Deleted job", deleted: true }, nl)).toBe("Verwijderde vacature");
+    expect(groupLabel({ kind: "job", label: "Untitled job", deleted: false }, nl)).toBe("Vacature zonder titel");
+    expect(groupLabel({ kind: "job", label: "Data Engineer", deleted: false }, nl)).toBe("Data Engineer");
   });
 
   it("reports 'no data' coverage as null, never 100%", () => {
@@ -125,14 +152,14 @@ describe("CostItem (server render)", () => {
   };
 
   it("renders an unknown row as Not tracked with an accessible label", () => {
-    const html = renderToStaticMarkup(createElement(CostItem, { item: { ...base, amountMicros: null, basis: "unknown", costSource: "unknown" } }));
+    const html = renderToStaticMarkup(createElement(CostItem, { item: { ...base, amountMicros: null, basis: "unknown", costSource: "unknown" }, t }));
     expect(html).toContain("Not tracked");
     expect(html).not.toContain("$0.00");
     expect(html).toContain('aria-label="Cost not tracked for this call"');
   });
 
   it("renders a stable UTC timestamp on the server, and BYOK payer text", () => {
-    const html = renderToStaticMarkup(createElement(CostItem, { item: { ...base, credentialSource: "user_byok" } }));
+    const html = renderToStaticMarkup(createElement(CostItem, { item: { ...base, credentialSource: "user_byok" }, t }));
     expect(html).toContain('dateTime="2026-09-24T10:15:00.000Z"');
     expect(html).toContain("2026-09-24 10:15 UTC");
     expect(html).toContain("Your API key");
@@ -140,7 +167,7 @@ describe("CostItem (server render)", () => {
   });
 
   it("flags a billed-but-failed call", () => {
-    const html = renderToStaticMarkup(createElement(CostItem, { item: { ...base, outcome: "failed" } }));
+    const html = renderToStaticMarkup(createElement(CostItem, { item: { ...base, outcome: "failed" }, t }));
     expect(html).toContain("failed (still billed)");
   });
 });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@asafarim/shared-i18n";
 import { Card } from "@asafarim/ui";
 import type { listApplications } from "../../lib/applications/service";
 import type { ApplicationStatusName } from "../../lib/applications/constants";
@@ -15,6 +16,7 @@ type ApplicationWithRelations = Awaited<ReturnType<typeof listApplications>>[num
  *  optimistic local state to stay correct. */
 export function ApplicationRow({ application }: { application: ApplicationWithRelations }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [notes, setNotes] = useState(application.notes ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -33,7 +35,7 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
   }
 
   return (
-    <Card title={application.targetJob.title ?? application.targetJob.employer ?? "Untitled job"}>
+    <Card title={application.targetJob.title ?? application.targetJob.employer ?? t("resumatch.untitledJob")}>
       {application.targetJob.employer ? <p style={{ opacity: 0.75 }}>{application.targetJob.employer}</p> : null}
 
       <div style={{ marginTop: "0.6rem" }}>
@@ -47,16 +49,16 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         {application.tailoredResume ? (
           <a href={`/tailor/${application.tailoredResume.id}/preview`} style={{ fontSize: "0.85rem" }}>
-            View tailored resume
+            {t("resumatch.app.viewResume")}
           </a>
         ) : null}
         <a href={`/ai-usage?job=${encodeURIComponent(application.targetJobId)}&preset=year`} style={{ fontSize: "0.85rem" }}>
-          AI cost for this job
+          {t("resumatch.app.aiCost")}
         </a>
       </div>
 
       <label className="jm-field" style={{ marginTop: "0.5rem" }}>
-        <span>Notes</span>
+        <span>{t("resumatch.app.notes")}</span>
         <textarea className="ui-input"
           rows={2}
           value={notes}

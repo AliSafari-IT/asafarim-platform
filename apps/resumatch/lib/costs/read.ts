@@ -16,6 +16,7 @@ import {
   type UsageLine,
 } from "@asafarim/ai-cost-ledger";
 import { getJobmatchDb } from "../db/client";
+import { UNTITLED_JOB_LABEL } from "./format";
 
 /**
  * ResuMatch cost read model (issues #586/#587).
@@ -333,7 +334,7 @@ export async function buildCostTimeline(
         return {
           key,
           kind: "job",
-          label: job?.title ?? (job ? "Untitled job" : "Deleted job"),
+          label: job?.title ?? (job ? UNTITLED_JOB_LABEL : "Deleted job"),
           detail: job?.employer ?? null,
           totals: totalsToDTO(totals),
           application: job?.application ?? null,
