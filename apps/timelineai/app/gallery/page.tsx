@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/server/db";
-import { LAYOUT_LABELS } from "@/lib/labels";
-import type { TimelineInput } from "@/lib/schemas";
+import type { ThemeSettings, TimelineInput } from "@/lib/schemas";
+import { GalleryCard } from "@/components/gallery/GalleryCard";
 
 export const metadata: Metadata = {
   title: "Gallery",
@@ -13,6 +13,10 @@ export const metadata: Metadata = {
 // page, not something that needs to reflect a brand-new publish within
 // milliseconds.
 export const revalidate = 60;
+
+/** Events shown in a card's hover preview — enough to read the layout,
+ *  small enough that 60 cards stay a light page. */
+const PREVIEW_EVENTS = 8;
 
 export default async function GalleryPage() {
   // Exactly the same rule as canAccess()'s anonymous "view" branch and
@@ -25,24 +29,56 @@ export default async function GalleryPage() {
       editingState: "published",
     },
     select: {
+      id: true,
       publicId: true,
       title: true,
       subtitle: true,
       layout: true,
       timelineType: true,
       updatedAt: true,
+      theme: true,
       _count: { select: { events: true } },
+      events: {
+        orderBy: { sortOrder: "asc" },
+        take: PREVIEW_EVENTS,
+        select: {
+          id: true,
+          startAt: true,
+          endAt: true,
+          displayDate: true,
+          title: true,
+          description: true,
+          icon: true,
+          label: true,
+          accentColor: true,
+          sortOrder: true,
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
     take: 60,
   });
 
+  // The card header art and its date range describe the WHOLE timeline, not
+  // just the few events the preview loads — one light query for dates only.
+  const eventDates = await prisma.timelineEvent.findMany({
+    where: { timelineId: { in: timelines.map((t) => t.id) } },
+    select: { timelineId: true, startAt: true, endAt: true },
+    orderBy: { sortOrder: "asc" },
+  });
+  const datesByTimeline = new Map<string, { startAt: Date | null; endAt: Date | null }[]>();
+  for (const { timelineId, startAt, endAt } of eventDates) {
+    const list = datesByTimeline.get(timelineId) ?? [];
+    list.push({ startAt, endAt });
+    datesByTimeline.set(timelineId, list);
+  }
+
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10">
+    <div className="mx-auto max-w-6xl px-6 py-10">
       <header className="mb-8">
         <h1 className="text-2xl font-bold">Gallery</h1>
         <p className="mt-1 text-[var(--color-text-muted,inherit)]">
-          Public timelines built with TimelineAI — browse them for inspiration, or{" "}
+          Public timelines built with TimelineAI — hover a card to preview it, or{" "}
           <Link href="/create" className="underline">
             create your own
           </Link>
@@ -59,24 +95,33 @@ export default async function GalleryPage() {
           .
         </p>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="gl-grid">
           {timelines.map((timeline) => (
             <li key={timeline.publicId}>
-              <Link
-                href={`/t/${timeline.publicId}`}
-                className="block h-full rounded-xl border border-[var(--color-border,rgba(0,0,0,0.12))] bg-[var(--color-surface)] p-4 transition hover:border-[var(--color-primary)]"
-              >
-                <span className="mb-2 inline-block rounded-full bg-[var(--tl-accent,var(--color-accent))]/15 px-2 py-0.5 text-xs font-medium text-[var(--tl-accent,var(--color-accent))]">
-                  {LAYOUT_LABELS[timeline.layout as TimelineInput["layout"]] ?? timeline.layout}
-                </span>
-                <h2 className="font-semibold">{timeline.title}</h2>
-                {timeline.subtitle ? (
-                  <p className="mt-1 text-sm text-[var(--color-text-muted,inherit)]">{timeline.subtitle}</p>
-                ) : null}
-                <p className="mt-2 text-xs text-[var(--color-text-muted,inherit)]">
-                  {timeline._count.events} event{timeline._count.events === 1 ? "" : "s"}
-                </p>
-              </Link>
+              <GalleryCard
+                publicId={timeline.publicId}
+                title={timeline.title}
+                subtitle={timeline.subtitle}
+                layout={timeline.layout as TimelineInput["layout"]}
+                eventCount={timeline._count.events}
+                glyphEvents={datesByTimeline.get(timeline.id) ?? []}
+                preview={{
+                  title: timeline.title,
+                  subtitle: timeline.subtitle,
+                  theme: timeline.theme as ThemeSettings | null,
+                  // Images and links are left out of the thumbnail: images
+                  // would fetch up to 8 × 60 files for a page nobody has
+                  // hovered yet, and the preview is inert anyway.
+                  events: timeline.events.map((e) => ({
+                    ...e,
+                    startAt: e.startAt?.toISOString() ?? null,
+                    endAt: e.endAt?.toISOString() ?? null,
+                    imageUrl: null,
+                    imageStorageKey: null,
+                    link: null,
+                  })),
+                }}
+              />
             </li>
           ))}
         </ul>

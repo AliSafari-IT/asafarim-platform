@@ -1352,3 +1352,276 @@
     transition: none;
   }
 }
+
+/* ─── Gallery: flip cards with a live preview ─────────────────────────────
+ * Hover (or keyboard focus) flips a card to a scaled-down render of the
+ * timeline itself. The flip waits a beat before starting so sweeping the
+ * pointer across the grid doesn't set every card spinning. Devices without
+ * hover never flip — a tap just opens the timeline. Reduced motion swaps
+ * the 3D turn for a crossfade.
+ */
+[data-app="timelineai"] .gl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-app="timelineai"] .gl-card {
+  position: relative;
+  height: 20rem;
+  perspective: 1400px;
+}
+
+[data-app="timelineai"] .gl-card__inner {
+  position: relative;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (hover: hover) {
+  [data-app="timelineai"] .gl-card:hover .gl-card__inner {
+    transform: rotateY(180deg);
+    transition-delay: 0.15s;
+  }
+}
+
+[data-app="timelineai"] .gl-card:focus-within .gl-card__inner {
+  transform: rotateY(180deg);
+}
+
+[data-app="timelineai"] .gl-card__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+[data-app="timelineai"] .gl-card__back {
+  transform: rotateY(180deg);
+  border-color: var(--gl-accent);
+  box-shadow: var(--shadow-2);
+}
+
+/* Stretched link: sits above both faces so a click anywhere opens the
+   timeline. It carries the focus ring for the whole card. */
+[data-app="timelineai"] .gl-card__link {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 1.25rem;
+}
+
+[data-app="timelineai"] .gl-card__link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Front */
+[data-app="timelineai"] .gl-card__band {
+  position: relative;
+  flex: none;
+  height: 6.5rem;
+  background:
+    radial-gradient(circle at 85% 20%, color-mix(in srgb, var(--gl-accent) 35%, transparent), transparent 55%),
+    var(--gl-bg);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Header art drawn from the timeline's own events (CardGlyph.tsx). */
+[data-app="timelineai"] .gl-glyph {
+  position: absolute;
+  inset: 0.4rem 0.5rem 1.6rem;
+  width: calc(100% - 1rem);
+  height: calc(100% - 2rem);
+}
+
+[data-app="timelineai"] .gl-glyph__axis { stroke: var(--gl-accent); stroke-width: 2.5; stroke-linecap: round; opacity: 0.45; }
+[data-app="timelineai"] .gl-glyph__stem { stroke: var(--gl-accent); stroke-width: 1.2; opacity: 0.45; }
+[data-app="timelineai"] .gl-glyph__stub { stroke: var(--gl-accent); stroke-width: 3; stroke-linecap: round; opacity: 0.25; }
+[data-app="timelineai"] .gl-glyph__dot { fill: var(--gl-surface); stroke: var(--gl-accent); stroke-width: 2.2; }
+[data-app="timelineai"] .gl-glyph__dot--hot { fill: var(--gl-accent); }
+[data-app="timelineai"] .gl-glyph__card { fill: var(--gl-surface); stroke: var(--gl-accent); stroke-opacity: 0.35; }
+[data-app="timelineai"] .gl-glyph__bubble { fill: var(--gl-accent); opacity: 0.2; }
+[data-app="timelineai"] .gl-glyph__ring { fill: none; stroke: var(--gl-accent); stroke-width: 7; opacity: 0.25; }
+[data-app="timelineai"] .gl-glyph__bar { fill: var(--gl-accent); opacity: 0.55; }
+[data-app="timelineai"] .gl-glyph__bar--hot { opacity: 1; }
+[data-app="timelineai"] .gl-glyph__road { fill: none; stroke: var(--gl-accent); stroke-width: 9; stroke-linecap: round; opacity: 0.18; }
+[data-app="timelineai"] .gl-glyph__flag { fill: var(--gl-accent); opacity: 0.6; }
+[data-app="timelineai"] .gl-glyph__flag--hot { opacity: 1; }
+[data-app="timelineai"] .gl-glyph__cell { fill: var(--gl-accent); fill-opacity: 0.08; }
+[data-app="timelineai"] .gl-glyph__branch { fill: none; stroke: var(--gl-accent); stroke-width: 2.5; stroke-dasharray: 5 4; opacity: 0.6; }
+
+[data-app="timelineai"] .gl-card__range {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.55rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: var(--gl-surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gl-accent) 30%, transparent);
+  /* The band is painted in the timeline's own theme, which may not match
+     the app theme — ink comes from the theme swatch, not --ink. */
+  color: var(--gl-ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-app="timelineai"] .gl-card__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 0;
+  padding: 1rem 1.15rem 1.1rem;
+}
+
+[data-app="timelineai"] .gl-card__badge {
+  width: fit-content;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+[data-app="timelineai"] .gl-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
+  line-height: 1.3;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+[data-app="timelineai"] .gl-card__subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+[data-app="timelineai"] .gl-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: auto 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+[data-app="timelineai"] .gl-card__theme {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+[data-app="timelineai"] .gl-card__theme i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--gl-accent);
+  box-shadow: 0 0 0 2px var(--gl-bg), 0 0 0 3px var(--line-strong);
+}
+
+[data-app="timelineai"] .gl-card__hint {
+  margin-left: auto;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (hover: none) {
+  [data-app="timelineai"] .gl-card__hint { display: none; }
+}
+
+/* Back */
+[data-app="timelineai"] .gl-card__back-head {
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+[data-app="timelineai"] .gl-card__open {
+  color: var(--accent);
+}
+
+[data-app="timelineai"] .gl-preview {
+  --pv-scale: 0.4;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--gl-bg);
+}
+
+[data-app="timelineai"] .gl-preview__canvas {
+  transform: scale(var(--pv-scale));
+  transform-origin: top left;
+  pointer-events: none;
+}
+
+/* The renderer's own rounded frame is redundant inside the card. */
+[data-app="timelineai"] .gl-preview .tl-root {
+  border-radius: 0;
+}
+
+/* Fade the bottom edge instead of cutting the timeline off hard. */
+[data-app="timelineai"] .gl-preview::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2.5rem;
+  background: linear-gradient(transparent, var(--gl-bg));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-app="timelineai"] .gl-card__inner,
+  [data-app="timelineai"] .gl-card:hover .gl-card__inner,
+  [data-app="timelineai"] .gl-card:focus-within .gl-card__inner {
+    transform: none;
+    transition: none;
+  }
+  [data-app="timelineai"] .gl-card__back {
+    transform: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  [data-app="timelineai"] .gl-card:hover .gl-card__back,
+  [data-app="timelineai"] .gl-card:focus-within .gl-card__back {
+    opacity: 1;
+  }
+}
