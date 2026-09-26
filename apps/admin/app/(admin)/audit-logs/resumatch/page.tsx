@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ROLES, hasPermission, requireRole } from "@asafarim/auth";
-import { Badge, DataTable, EmptyState, PageHeader, type BadgeTone, type ColumnDef } from "@asafarim/ui";
+import {
+  Badge,
+  DataTable,
+  EmptyState,
+  FilterBar,
+  PageHeader,
+  type BadgeTone,
+  type ColumnDef,
+} from "@asafarim/ui";
 
 export const metadata: Metadata = { title: "ResuMatch Audit Events" };
 
@@ -25,6 +33,7 @@ interface AuditEventDto {
 interface AuditEventsResponse {
   events: AuditEventDto[];
   nextCursor: string | null;
+  actions: string[];
 }
 
 function actionTone(action: string): BadgeTone {
@@ -58,7 +67,15 @@ async function getAuditEvents(params: {
       cache: "no-store",
     });
     if (!response.ok) return null;
-    return (await response.json()) as AuditEventsResponse;
+    const body = (await response.json()) as Partial<AuditEventsResponse>;
+    // Defensive against a rolling deploy where this route ships before
+    // ResuMatch's own (the `actions` field is new) — never crash the page
+    // on it, just show an empty filter dropdown for that one request.
+    return {
+      events: body.events ?? [],
+      nextCursor: body.nextCursor ?? null,
+      actions: body.actions ?? [],
+    };
   } catch {
     return null;
   }
@@ -80,6 +97,7 @@ export default async function ResuMatchAuditLogsPage({
     action: params.action,
     cursor: params.cursor,
   });
+  const hasFilters = Boolean(params.workspaceId || params.action);
 
   const columns: ColumnDef<AuditEventDto>[] = [
     {
@@ -146,6 +164,32 @@ export default async function ResuMatchAuditLogsPage({
         />
       ) : (
         <>
+          <FilterBar
+            action="/audit-logs/resumatch"
+            hasFilters={hasFilters}
+            clearHref="/audit-logs/resumatch"
+            fields={[
+              {
+                kind: "text",
+                name: "workspaceId",
+                label: "workspace",
+                value: params.workspaceId ?? "",
+                placeholder: "workspace id…",
+                width: 14,
+              },
+              {
+                kind: "select",
+                name: "action",
+                label: "action",
+                value: params.action ?? "",
+                options: [
+                  { value: "", label: "all" },
+                  ...data.actions.map((action) => ({ value: action, label: action })),
+                ],
+              },
+            ]}
+          />
+
           <DataTable
             columns={columns}
             rows={data.events}
