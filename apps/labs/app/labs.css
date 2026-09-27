@@ -53,6 +53,10 @@
   z-index: 0;
 }
 
+.labs-hero__art--light {
+  display: none;
+}
+
 .labs-hero__veil {
   position: absolute;
   z-index: 1;
@@ -231,6 +235,99 @@
 }
 .labs-hero__wave i:nth-child(5) {
   height: 70%;
+}
+
+/* The atelier is intentionally cinematic in dark mode and airy in light mode. */
+[data-app="labs"][data-theme="light"] .labs-hero {
+  border-color: color-mix(in srgb, #478b76 24%, var(--line));
+  background: #edf2ef;
+  box-shadow:
+    0 32px 82px rgb(26 50 41 / 0.13),
+    inset 0 0 0 1px rgb(255 255 255 / 0.7);
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero::before {
+  background:
+    linear-gradient(
+      90deg,
+      rgb(247 250 248 / 0.97) 0%,
+      rgb(247 250 248 / 0.87) 31%,
+      rgb(247 250 248 / 0.1) 68%
+    ),
+    linear-gradient(0deg, rgb(235 241 237 / 0.62) 0%, transparent 36%);
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero__art--dark {
+  display: none;
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero__art--light {
+  display: block;
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero__veil {
+  background: radial-gradient(
+    circle at 76% 37%,
+    transparent 0 24%,
+    rgb(237 243 239 / 0.08) 53%,
+    rgb(229 237 232 / 0.34) 100%
+  );
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero__copy {
+  color: #0c1713;
+}
+
+[data-app="labs"][data-theme="light"] .labs-eyebrow {
+  color: #176b58;
+}
+
+[data-app="labs"][data-theme="light"] .labs-signal {
+  background: #21866d;
+  box-shadow:
+    0 0 0 5px rgb(33 134 109 / 0.11),
+    0 0 18px rgb(33 134 109 / 0.38);
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero h1 span {
+  background: linear-gradient(110deg, #08775f, #64539a 53%, #ae5b43);
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero__copy > p {
+  color: rgb(14 30 24 / 0.7);
+}
+
+[data-app="labs"][data-theme="light"] .labs-button {
+  border-color: rgb(14 30 24 / 0.2);
+  color: #10231c;
+}
+
+[data-app="labs"][data-theme="light"] .labs-button:hover {
+  border-color: rgb(14 30 24 / 0.42);
+}
+
+[data-app="labs"][data-theme="light"] .labs-button--primary {
+  border-color: #10231c;
+  background: #10231c;
+  color: #f5fbf8;
+}
+
+[data-app="labs"][data-theme="light"] .labs-button--quiet {
+  background: rgb(255 255 255 / 0.56);
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero__telemetry {
+  color: rgb(14 30 24 / 0.58);
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero__telemetry strong {
+  color: #08775f;
+}
+
+[data-app="labs"][data-theme="light"] .labs-hero__wave i {
+  background: #6551a1;
 }
 
 .labs-section-heading {
@@ -782,6 +879,53 @@
   background: var(--labs-coral);
 }
 
+[data-app="labs"][data-theme="light"] .labs-catalogue__hero {
+  border-color: color-mix(in srgb, #7564b0 23%, var(--line));
+  background:
+    radial-gradient(
+      circle at 78% 42%,
+      rgb(132 111 200 / 0.19),
+      transparent 28%
+    ),
+    radial-gradient(circle at 87% 74%, rgb(206 113 82 / 0.13), transparent 24%),
+    linear-gradient(135deg, #f9fbfa, #eff4f1 56%, #ebeaf4);
+  color: #0c1713;
+}
+
+[data-app="labs"][data-theme="light"] .labs-catalogue__hero::before {
+  opacity: 0.34;
+  background-image:
+    linear-gradient(rgb(24 55 44 / 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(24 55 44 / 0.09) 1px, transparent 1px);
+}
+
+[data-app="labs"][data-theme="light"] .labs-catalogue__intro h1 span {
+  background: linear-gradient(110deg, #08775f, #64539a 53%, #ae5b43);
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+[data-app="labs"][data-theme="light"] .labs-catalogue__intro > p {
+  color: rgb(14 30 24 / 0.68);
+}
+
+[data-app="labs"][data-theme="light"] .labs-catalogue__orbit::after {
+  border-color: rgb(24 55 44 / 0.12);
+  background: radial-gradient(circle, rgb(255 255 255 / 0.4), transparent 63%);
+}
+
+[data-app="labs"][data-theme="light"] .labs-catalogue__orbit-ring {
+  border-color: rgb(24 55 44 / 0.26);
+}
+
+[data-app="labs"][data-theme="light"] .labs-catalogue__orbit-ring--three {
+  border-color: rgb(8 119 95 / 0.38);
+}
+
+[data-app="labs"][data-theme="light"] .labs-catalogue__satellite {
+  border-color: rgb(255 255 255 / 0.9);
+}
+
 .labs-filters {
   display: flex;
   align-items: center;
@@ -1280,6 +1424,13 @@
     z-index: 1;
     inset: 0;
     background: linear-gradient(0deg, #080c14 12%, rgb(8 12 20 / 0.18) 76%);
+  }
+  [data-app="labs"][data-theme="light"] .labs-catalogue__hero::after {
+    background: linear-gradient(
+      0deg,
+      rgb(244 248 246 / 0.98) 12%,
+      rgb(244 248 246 / 0.16) 76%
+    );
   }
   .labs-filters {
     align-items: flex-start;
