@@ -13,20 +13,35 @@ export interface AppSwitcherProps {
    * the same value (e.g. the header's <UserMenu />). CSS-only, no JS.
    */
   groupName?: string;
+  /** Override any label for localization. */
+  labels?: Partial<AppSwitcherLabels>;
 }
+
+export interface AppSwitcherLabels {
+  /** Visible text of the menu button. */
+  platform: string;
+  /** Accessible name of the menu button. */
+  platformApps: string;
+}
+
+const APP_SWITCHER_DEFAULTS: AppSwitcherLabels = {
+  platform: "Platform",
+  platformApps: "Platform apps",
+};
 
 /**
  * Cross-app navigation dropdown: keeps the header uncluttered by holding
  * links to the other platform apps. CSS-only (<details>), no client JS.
  */
-export function AppSwitcher({ links, groupName = "ui-header-menu" }: AppSwitcherProps) {
+export function AppSwitcher({ links, groupName = "ui-header-menu", labels }: AppSwitcherProps) {
   if (links.length === 0) return null;
+  const l = { ...APP_SWITCHER_DEFAULTS, ...labels };
 
   return (
     <details className="ui-menu" name={groupName}>
-      <summary aria-label="Platform apps">
+      <summary aria-label={l.platformApps}>
         <span aria-hidden="true">⌘</span>
-        <span className="ui-app-switcher__label">Platform</span>
+        <span className="ui-app-switcher__label">{l.platform}</span>
         <span className="ui-menu__caret" aria-hidden="true">
           ▾
         </span>

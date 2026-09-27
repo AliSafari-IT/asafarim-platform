@@ -100,12 +100,23 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <ThemeProvider defaultTheme="light">
             <AppShell
               product="ResuMatch"
-              nav={<TopNav items={navItems} />}
+              tagline={t("shell.tagline")}
+              nav={<TopNav items={navItems} labels={{ navigation: t("shell.navigation"), menu: t("shell.menu") }} />}
               user={
                 <>
-                  <ThemeToggle />
+                  <ThemeToggle
+                    labels={{
+                      toDark: t("shell.theme.toDark"),
+                      toLight: t("shell.theme.toLight"),
+                      darkTitle: t("shell.theme.dark"),
+                      lightTitle: t("shell.theme.light"),
+                    }}
+                  />
                   <CountryLanguageSelector lockCountry="BE" />
-                  <AppSwitcher links={toAppSwitcherLinks(switcherApps, links)} />
+                  <AppSwitcher
+                    links={toAppSwitcherLinks(switcherApps, links)}
+                    labels={{ platform: t("shell.platform"), platformApps: t("shell.platformApps") }}
+                  />
                   {session?.user ? (
                     <UserMenu
                       name={session.user.name}
@@ -113,6 +124,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                       image={session.user.image}
                       roles={session.user.roles}
                       profileHref="/profile"
+                      labels={{
+                        accountMenu: t("shell.accountMenu"),
+                        signedIn: t("shell.signedIn"),
+                        viewProfile: t("shell.viewProfile"),
+                      }}
                     >
                       <form
                         action={async () => {

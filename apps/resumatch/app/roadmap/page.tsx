@@ -28,6 +28,9 @@ export default async function RoadmapPage() {
           history: t("resumatch.roadmap.history"),
           roadmap: t("resumatch.roadmap.roadmap"),
           all: t("resumatch.roadmap.all"),
+          // Filled in by the Roadmap component, so passed as a template.
+          progress: t("resumatch.roadmap.progress"),
+          toggle: t("resumatch.roadmap.toggle"),
           changelogTitle: t("resumatch.roadmap.changelogTitle"),
           changelogSubtitle: t("resumatch.roadmap.changelogSubtitle"),
           roadmapTitle: t("resumatch.roadmap.roadmapTitle"),

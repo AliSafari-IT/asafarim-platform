@@ -13,6 +13,9 @@ export interface AppShellProps {
   sideNav?: ReactNode;
   /** Extra footer content (left side gets the identity line). */
   footer?: ReactNode;
+  /** The identity line's text after "ASafariM Digital —", for localization.
+   *  Defaults to "practical apps, built with care." */
+  tagline?: string;
   children: ReactNode;
 }
 
@@ -22,6 +25,7 @@ export function AppShell({
   user,
   sideNav,
   footer,
+  tagline = "practical apps, built with care.",
   children,
 }: AppShellProps) {
   return (
@@ -41,7 +45,7 @@ export function AppShell({
       </div>
       <footer className="ui-shell__footer">
         <span>
-          <strong>ASafariM Digital</strong> — practical apps, built with care.
+          <strong>ASafariM Digital</strong> — {tagline}
         </span>
         {footer}
         <span className="ui-shell__footer-meta">

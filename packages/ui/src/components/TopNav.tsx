@@ -19,7 +19,18 @@ export interface TopNavProps {
    *  sidebar (≤720px). For apps whose primary nav is a SideNav, so they
    *  still have navigation on mobile. */
   mobileOnly?: boolean;
+  /** Override any label for localization. */
+  labels?: Partial<TopNavLabels>;
 }
+
+export interface TopNavLabels {
+  /** Accessible name of the <nav>. */
+  navigation: string;
+  /** Text of the mobile menu button. */
+  menu: string;
+}
+
+const TOP_NAV_DEFAULTS: TopNavLabels = { navigation: "Primary", menu: "Menu" };
 
 /**
  * Primary in-app navigation. Renders an inline list on desktop and a
@@ -29,7 +40,8 @@ export interface TopNavProps {
  * components.css). No app passed `active`, so nothing was ever marked;
  * it's now derived from the URL unless an item sets `active` itself.
  */
-export function TopNav({ items, mobileOnly = false }: TopNavProps) {
+export function TopNav({ items, mobileOnly = false, labels }: TopNavProps) {
+  const l = { ...TOP_NAV_DEFAULTS, ...labels };
   const scroller = useEdgeAutoScroll<HTMLUListElement>();
   const pathname = useCurrentPath();
   if (items.length === 0) return null;
@@ -41,7 +53,7 @@ export function TopNav({ items, mobileOnly = false }: TopNavProps) {
   const isActive = (item: NavItem) => item.active ?? item.href === autoActive;
 
   return (
-    <nav aria-label="Primary" className="ui-shell__topnav">
+    <nav aria-label={l.navigation} className="ui-shell__topnav">
       {mobileOnly ? null : (
         <ul
           className="ui-topnav"
@@ -67,7 +79,7 @@ export function TopNav({ items, mobileOnly = false }: TopNavProps) {
         className={`ui-menu ui-topnav-mobile${mobileOnly ? " ui-topnav-mobile--side" : ""}`}
       >
         <summary>
-          Menu <span className="ui-menu__caret">▾</span>
+          {l.menu} <span className="ui-menu__caret">▾</span>
         </summary>
         <div className="ui-menu__panel" style={{ left: 0, right: "auto" }}>
           {items.map((item) => (

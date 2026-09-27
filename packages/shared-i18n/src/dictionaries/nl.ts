@@ -44,6 +44,21 @@ const nl: Dict = {
   "cg.header.aiEngine": "AI-motor",
   "cg.generate.button": "Genereren",
   "cg.generate.hint": "Beschrijf wat je wilt maken",
+
+  // App shell (@asafarim/ui AppShell, UserMenu, AppSwitcher, TopNav;
+  // @asafarim/theme-toggle) — passed in as their `labels` / `tagline` props.
+  "shell.tagline": "praktische apps, met zorg gebouwd.",
+  "shell.accountMenu": "Accountmenu",
+  "shell.signedIn": "Aangemeld",
+  "shell.viewProfile": "Profiel bekijken →",
+  "shell.platform": "Platform",
+  "shell.platformApps": "Platform-apps",
+  "shell.navigation": "Hoofdnavigatie",
+  "shell.menu": "Menu",
+  "shell.theme.toDark": "Donker thema inschakelen",
+  "shell.theme.toLight": "Licht thema inschakelen",
+  "shell.theme.dark": "Donker thema",
+  "shell.theme.light": "Licht thema",
 };
 
 export default nl;

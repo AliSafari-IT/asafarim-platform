@@ -167,13 +167,35 @@ function MoonIcon({ size }: { size: number }) {
  * A token-styled icon button that flips the theme. Inherits each app's look
  * from CSS custom properties, so it matches Studio, Hub, Admin, etc.
  */
+export interface ThemeToggleLabels {
+  /** Accessible name while the light theme is showing. */
+  toDark: string;
+  /** Accessible name while the dark theme is showing. */
+  toLight: string;
+  /** Tooltip while the light theme is showing. */
+  darkTitle: string;
+  /** Tooltip while the dark theme is showing. */
+  lightTitle: string;
+}
+
+const THEME_TOGGLE_DEFAULTS: ThemeToggleLabels = {
+  toDark: "Switch to dark theme",
+  toLight: "Switch to light theme",
+  darkTitle: "Dark theme",
+  lightTitle: "Light theme",
+};
+
 export function ThemeToggle({
   size = 18,
   className,
+  labels,
 }: {
   size?: number;
   className?: string;
+  /** Override any label for localization. */
+  labels?: Partial<ThemeToggleLabels>;
 }) {
+  const l = { ...THEME_TOGGLE_DEFAULTS, ...labels };
   const { theme, toggle } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -187,8 +209,8 @@ export function ThemeToggle({
       type="button"
       onClick={toggle}
       className={className}
-      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-      title={isDark ? "Light theme" : "Dark theme"}
+      aria-label={isDark ? l.toLight : l.toDark}
+      title={isDark ? l.lightTitle : l.darkTitle}
       style={{
         display: "inline-flex",
         alignItems: "center",

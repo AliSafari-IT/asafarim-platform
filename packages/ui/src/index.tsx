@@ -3,6 +3,7 @@ export { AppCard, type AppCardProps } from "./components/AppCard";
 export { AppShell, type AppShellProps } from "./components/AppShell";
 export {
   AppSwitcher,
+  type AppSwitcherLabels,
   type AppSwitcherLink,
 } from "./components/AppSwitcher";
 export { Badge, type BadgeTone } from "./components/Badge";
@@ -100,8 +101,8 @@ export {
 export { StatusBadge, type Status } from "./components/StatusBadge";
 export { Timeline, type TimelineItem } from "./components/Timeline";
 export { TestEvidence, type TestEvidenceProps } from "./components/TestEvidence";
-export { TopNav, type NavItem } from "./components/TopNav";
-export { UserMenu } from "./components/UserMenu";
+export { TopNav, type NavItem, type TopNavLabels } from "./components/TopNav";
+export { UserMenu, type UserMenuLabels } from "./components/UserMenu";
 export {
   getPlatformLinks,
   toAppSwitcherLinks,
