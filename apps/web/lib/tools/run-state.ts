@@ -13,7 +13,7 @@ export type ToolRunState<TResult> =
   | ToolRunOutcome<TResult>;
 
 export type ToolRunAction<TResult> =
-  | { type: "input-changed"; input: string; exampleInput: string; limits: ToolLimits }
+  | { type: "input-changed"; input: string; isExample: boolean; limits: ToolLimits }
   | { type: "input-rejected"; issues: string[] }
   | { type: "run-started" }
   | { type: "run-finished"; outcome: ToolRunOutcome<TResult> };
@@ -43,7 +43,7 @@ export function toolRunReducer<TResult>(
       // editing the input never discards a result the user may be reviewing.
       if (state.kind === "running" || state.kind === "success" || state.kind === "degraded") return state;
       if (!action.input.trim()) return { kind: "idle" };
-      if (action.input === action.exampleInput) return { kind: "sample" };
+      if (action.isExample) return { kind: "sample" };
       return checkInput(action.input, action.limits).length ? { kind: "idle" } : { kind: "ready" };
     }
     case "input-rejected":

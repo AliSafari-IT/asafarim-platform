@@ -57,4 +57,14 @@ export interface ToolLiveSpec<TInput> {
    * `system` holds the instructions and must never contain user text.
    */
   buildPrompt(input: TInput): { system: string; user: string };
+  /**
+   * Optional post-processing of the provider's parsed JSON into the tool's
+   * output: assign ids, attach source text, drop items that fail
+   * domain checks (e.g. cite text that doesn't exist). Return null to reject
+   * the whole result (`invalid_output`); a non-empty `dropped` list makes the
+   * result `degraded`, with those UI-safe notes as warnings. The executor
+   * still validates the returned output against `outputSchema`.
+   * Without it, the provider JSON is parsed with `outputSchema` directly.
+   */
+  toOutput?(input: TInput, modelJson: unknown): { output: unknown; dropped: string[] } | null;
 }

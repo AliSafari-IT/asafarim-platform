@@ -4,7 +4,7 @@ import { checkInput, isConcluded, toolRunReducer, type ToolRunState } from "./ru
 const limits = { minInputChars: 5, maxInputChars: 20 };
 const exampleInput = "the example text";
 type S = ToolRunState<string>;
-const change = (state: S, input: string) => toolRunReducer<string>(state, { type: "input-changed", input, exampleInput, limits });
+const change = (state: S, input: string) => toolRunReducer<string>(state, { type: "input-changed", input, isExample: input === exampleInput, limits });
 
 describe("checkInput", () => {
   it("rejects empty, too-short, and too-long input with actionable messages", () => {

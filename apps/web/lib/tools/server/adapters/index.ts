@@ -1,6 +1,7 @@
 import "server-only";
 import type { ToolSlug } from "../../types";
 import type { ToolAdapter } from "../adapter";
+import { requirementsToTestPlanAdapter } from "./requirements-to-test-plan";
 import { shellReferenceAdapter } from "./shell-reference";
 
 /**
@@ -9,4 +10,5 @@ import { shellReferenceAdapter } from "./shell-reference";
  */
 export const toolAdapters: Record<ToolSlug, ToolAdapter<unknown, unknown>> = {
   "shell-reference": shellReferenceAdapter,
+  "requirements-to-test-plan": requirementsToTestPlanAdapter,
 };

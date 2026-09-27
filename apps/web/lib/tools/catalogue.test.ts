@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { toolWorkbenches } from "../../app/tools/[slug]/workbenches";
 import { toolCatalogue } from "../../content/tools";
+const referenceTool = toolCatalogue.find((t) => t.slug === "shell-reference")!;
 import { getListedTools, getRoutableTools, getTool } from "./catalogue";
 import { buildToolMetadata } from "./metadata";
 import { TOOL_SLUGS } from "./types";
@@ -43,7 +44,7 @@ describe("routing and listing", () => {
 
 describe("buildToolMetadata", () => {
   it("derives title, description, canonical, and noindex from the entry", () => {
-    const tool = toolCatalogue[0];
+    const tool = referenceTool;
     expect(buildToolMetadata(tool)).toEqual({
       title: tool.title,
       description: tool.shortDescription,
@@ -53,7 +54,7 @@ describe("buildToolMetadata", () => {
   });
 
   it("omits robots for indexable tools", () => {
-    const meta = buildToolMetadata({ ...toolCatalogue[0], lifecycle: "beta", indexable: true, internal: false });
+    const meta = buildToolMetadata({ ...referenceTool, lifecycle: "beta", indexable: true, internal: false });
     expect(meta.robots).toBeUndefined();
   });
 });

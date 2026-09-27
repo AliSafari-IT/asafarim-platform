@@ -53,10 +53,23 @@ server boundary or the provider SDK.
 | 10 | Worst-case cost ≤ `maxEstimatedCostMicros`, model is priced | `provider_disabled` (logged) | none |
 | 11 | Provider call, aborted at `timeoutMs` or when the client disconnects | `timeout` / `provider_error` / `internal` | yes |
 | 12 | Cost event written | logged; the result is still returned | — |
-| 13 | Refusal / `max_tokens` / output size / JSON / output schema | `declined` / `invalid_output` | already spent |
+| 13 | Refusal / `max_tokens` / output size / JSON / `live.toOutput` / output schema | `declined` / `invalid_output` | already spent |
 
 Unvalidated model output is never returned. `invalid_output` carries no
 fragment of what the model said.
+
+**Domain checks and partial results.** A tool's `live.toOutput(input, json)`
+turns the provider's JSON into the tool's output. It can:
+
+- assign ids and attach source text;
+- drop individual items that fail domain rules, such as a test scenario
+  citing text that isn't in the input;
+- return `null` to reject the whole result.
+
+If it drops anything, the run comes back as `status: "degraded"`, with the
+UI-safe notes it returned as `warnings`. The cost event is recorded with
+`outcome: degraded`, and the UI shows the result as a partial one with those
+notes.
 
 ## Modes and kill switches
 
@@ -171,7 +184,5 @@ gate (#679).
 
 - **Rate limits, daily spend ceiling, threat model** (#680). The
   `admit` hook is where they plug in.
-- **Degraded results.** The envelope supports `status: "degraded"` with
-  warnings; adapters don't produce it yet.
 - **Provider fallback across vendors.** `LiveProvider` is the seam; not
   needed for MVP.

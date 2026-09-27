@@ -12,7 +12,13 @@ import type { ToolRunner, ToolRunOutcome } from "./types";
  */
 export function createServerRunner<TResult>(
   slug: string,
-  options: { exampleText: string; toInput: (text: string) => unknown; fetchImpl?: typeof fetch },
+  options: {
+    exampleText: string;
+    toInput: (text: string) => unknown;
+    /** Whether this run is the catalogue example; defaults to comparing text. */
+    isExample?: (text: string) => boolean;
+    fetchImpl?: typeof fetch;
+  },
 ): ToolRunner<TResult> {
   const fetchImpl = options.fetchImpl ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
 
@@ -20,7 +26,7 @@ export function createServerRunner<TResult>(
     const body: ToolRunRequest = {
       input: options.toInput(text),
       idempotencyKey: newKey(),
-      mode: text.trim() === options.exampleText.trim() ? "example" : "live",
+      mode: (options.isExample ? options.isExample(text) : text.trim() === options.exampleText.trim()) ? "example" : "live",
     };
     const send = () =>
       fetchImpl(`/api/tools/${encodeURIComponent(slug)}/run`, {
