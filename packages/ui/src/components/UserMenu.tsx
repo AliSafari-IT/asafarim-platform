@@ -16,7 +16,24 @@ export interface UserMenuProps {
    * the same value (e.g. the header's <AppSwitcher />). CSS-only, no JS.
    */
   groupName?: string;
+  /** Override any label for localization. */
+  labels?: Partial<UserMenuLabels>;
 }
+
+export interface UserMenuLabels {
+  /** Accessible name of the avatar button. */
+  accountMenu: string;
+  /** Shown in the panel when the session has no name. */
+  signedIn: string;
+  /** Text of the `profileHref` link. */
+  viewProfile: string;
+}
+
+const USER_MENU_DEFAULTS: UserMenuLabels = {
+  accountMenu: "Account menu",
+  signedIn: "Signed in",
+  viewProfile: "View profile →",
+};
 
 function initials(name?: string | null, email?: string | null): string {
   const source = name?.trim() || email || "?";
@@ -40,10 +57,12 @@ export function UserMenu({
   profileHref,
   children,
   groupName = "ui-header-menu",
+  labels,
 }: UserMenuProps) {
+  const l = { ...USER_MENU_DEFAULTS, ...labels };
   return (
     <details className="ui-menu" name={groupName}>
-      <summary aria-label="Account menu">
+      <summary aria-label={l.accountMenu}>
         <span className="ui-avatar" aria-hidden="true">
           {image ? (
             <img src={image} alt="" className="ui-avatar__image" referrerPolicy="no-referrer" />
@@ -88,7 +107,7 @@ export function UserMenu({
               </span>
             )}
             <div>
-              <div className="ui-usermenu__name">{name ?? "Signed in"}</div>
+              <div className="ui-usermenu__name">{name ?? l.signedIn}</div>
               {email ? <div className="ui-usermenu__email">{email}</div> : null}
             </div>
           </div>
@@ -111,7 +130,7 @@ export function UserMenu({
           <>
             <hr className="ui-menu__divider" />
             <div className="ui-menu__section">
-              <a href={profileHref}>View profile →</a>
+              <a href={profileHref}>{l.viewProfile}</a>
             </div>
           </>
         ) : null}

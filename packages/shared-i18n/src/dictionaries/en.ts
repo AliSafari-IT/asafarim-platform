@@ -45,6 +45,21 @@ const en: Dict = {
   "cg.header.aiEngine": "AI Engine",
   "cg.generate.button": "Generate",
   "cg.generate.hint": "Describe what you want to create",
+
+  // App shell (@asafarim/ui AppShell, UserMenu, AppSwitcher, TopNav;
+  // @asafarim/theme-toggle) — passed in as their `labels` / `tagline` props.
+  "shell.tagline": "practical apps, built with care.",
+  "shell.accountMenu": "Account menu",
+  "shell.signedIn": "Signed in",
+  "shell.viewProfile": "View profile →",
+  "shell.platform": "Platform",
+  "shell.platformApps": "Platform apps",
+  "shell.navigation": "Primary",
+  "shell.menu": "Menu",
+  "shell.theme.toDark": "Switch to dark theme",
+  "shell.theme.toLight": "Switch to light theme",
+  "shell.theme.dark": "Dark theme",
+  "shell.theme.light": "Light theme",
 };
 
 export default en;

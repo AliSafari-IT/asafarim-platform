@@ -44,6 +44,8 @@ export interface RoadmapLabels {
   roadmapSubtitle: string;
   /** `{done}` and `{total}` are substituted. */
   progress: string;
+  /** Accessible name of the History / Roadmap / All control. */
+  toggle: string;
   status: Record<RoadmapStatus, string>;
 }
 
@@ -69,6 +71,7 @@ const DEFAULTS: RoadmapLabels = {
   roadmapTitle: "Roadmap",
   roadmapSubtitle: "What is planned next",
   progress: "{done} of {total} shipped",
+  toggle: "Timeline view",
   status: {
     shipped: "Shipped",
     "in-progress": "In progress",
@@ -153,7 +156,7 @@ export function Roadmap({
       </header>
 
       {!hideToggle ? (
-        <div className="ui-roadmap__toggle" role="group" aria-label="Timeline view">
+        <div className="ui-roadmap__toggle" role="group" aria-label={t.toggle}>
           {options.map((opt) => (
             <button
               key={opt}

@@ -44,6 +44,21 @@ const de: Dict = {
   "cg.header.aiEngine": "KI-Engine",
   "cg.generate.button": "Generieren",
   "cg.generate.hint": "Beschreiben Sie, was Sie erstellen möchten",
+
+  // App shell (@asafarim/ui AppShell, UserMenu, AppSwitcher, TopNav;
+  // @asafarim/theme-toggle) — passed in as their `labels` / `tagline` props.
+  "shell.tagline": "praktische Apps, mit Sorgfalt gebaut.",
+  "shell.accountMenu": "Kontomenü",
+  "shell.signedIn": "Angemeldet",
+  "shell.viewProfile": "Profil ansehen →",
+  "shell.platform": "Plattform",
+  "shell.platformApps": "Plattform-Apps",
+  "shell.navigation": "Hauptnavigation",
+  "shell.menu": "Menü",
+  "shell.theme.toDark": "Zum dunklen Design wechseln",
+  "shell.theme.toLight": "Zum hellen Design wechseln",
+  "shell.theme.dark": "Dunkles Design",
+  "shell.theme.light": "Helles Design",
 };
 
 export default de;
