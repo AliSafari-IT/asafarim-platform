@@ -22,7 +22,7 @@ export default function AboutPage() {
         <p>
           Any experiment can be paused or archived without notice if it misbehaves, becomes a
           maintenance burden, or is superseded. Paused/archived experiments stay listed in the{" "}
-          <a href="/changelog">changelog</a> for traceability, but their canvas may be disabled.
+          <a href="/roadmap">roadmap</a> for traceability, but their canvas may be disabled.
         </p>
         <h3>Privacy notice</h3>
         <p>

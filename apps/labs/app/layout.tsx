@@ -38,7 +38,7 @@ const NAV_ITEMS = [
   { label: "Workbench", href: "/" },
   { label: "Experiments", href: "/experiments" },
   { label: "Ideas", href: "/ideas" },
-  { label: "Changelog", href: "/changelog" },
+  { label: "Roadmap", href: "/roadmap" },
   { label: "About", href: "/about" },
 ];
 

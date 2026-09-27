@@ -7,7 +7,7 @@ Experimental workbench — labs.asafarim.com (local dev: `http://localhost:3011`
 
 ## Structure
 
-- `app/` — routes: `/`, `/experiments`, `/experiments/[slug]`, `/ideas`, `/changelog`, `/about`, `/api/status`
+- `app/` — routes: `/`, `/experiments`, `/experiments/[slug]`, `/ideas`, `/roadmap`, `/about`, `/api/status`
 - `lib/experiments/registry.ts` — typed, static experiment registry (source of truth for the catalogue)
 - `fixtures/` — static data used by experiments (e.g. `eval-runs.json` for the AI Evaluation Explorer)
 
