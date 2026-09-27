@@ -5,11 +5,10 @@ export const SUMMARY_TONES = ["friendly", "official", "confident", "concise"] as
 export type SummaryTone = (typeof SUMMARY_TONES)[number];
 
 /**
- * Summary-rewrite provider interface. Deliberately narrower than
- * extraction's or tailoring's: the only input is the candidate's own
- * current summary text and a tone — never the rest of the profile — so a
- * provider has no material from which to introduce a claim (an employer,
- * a skill, a metric) the candidate did not already write themselves.
+ * Summary write/rewrite provider interface. The prompt (see prompts.ts)
+ * carries the allow-listed profile text from `buildProfileText`, the
+ * current summary, and the candidate's optional request; its HARD RULES
+ * limit the output to facts already in the profile or summary.
  */
 export interface RewriteProviderCall {
   /** The candidate's own current Summary field. Untrusted the same way any

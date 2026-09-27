@@ -93,6 +93,22 @@ function replaceAt<T>(list: T[], index: number, item: T): T[] {
   return list.map((existing, i) => (i === index ? item : existing));
 }
 
+/**
+ * The form content as the server should see it. Rows added with "+ Add ..."
+ * and never filled in are dropped rather than sent — the schema requires a
+ * title/label, and a candidate who added a row then changed their mind
+ * should not see a validation error for leaving it empty.
+ */
+function submittableContent(content: CandidateProfileContent): CandidateProfileContent {
+  return {
+    ...content,
+    languages: content.languages.filter((language) => language.label.trim().length > 0),
+    experience: content.experience.filter((role) => role.title.trim().length > 0),
+    education: content.education.filter((entry) => entry.qualification.trim().length > 0),
+    certifications: content.certifications.filter((entry) => entry.name.trim().length > 0),
+  };
+}
+
 function needsReview(confidence: ProfileConfidence, field: string): boolean {
   const score = confidence[field];
   return score !== undefined && score < LOW_CONFIDENCE_THRESHOLD;
@@ -141,6 +157,7 @@ export function ProfileWorkbench({
   const router = useRouter();
 
   const [tone, setTone] = useState<SummaryTone>("friendly");
+  const [instructions, setInstructions] = useState("");
   const [rewriteState, setRewriteState] = useState<
     | { kind: "idle" }
     | { kind: "loading" }
@@ -220,20 +237,43 @@ export function ProfileWorkbench({
     moveEducation(oldIndex, newIndex);
   }
 
-  const requestRewrite = useCallback(async () => {
-    const currentSummary = content.summary?.trim();
-    if (!currentSummary) return;
+  const hasSummary = Boolean(content.summary?.trim());
+  // Something to write a summary from, besides the summary itself: the same
+  // fields buildProfileText sends to the prompt.
+  const hasProfileFacts =
+    Boolean(content.headline?.trim()) ||
+    content.skills.length > 0 ||
+    content.experience.some((role) => role.title.trim().length > 0) ||
+    content.education.some((entry) => entry.qualification.trim().length > 0) ||
+    content.certifications.some((entry) => entry.name.trim().length > 0);
 
+  const requestRewrite = useCallback(async () => {
     setRewriteState({ kind: "loading" });
     try {
       const response = await fetch("/api/profile/summary/rewrite", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ currentSummary, tone }),
+        body: JSON.stringify({ profile: submittableContent(content), tone, instructions: instructions.trim() || undefined }),
       });
-      const body = (await response.json()) as { rewritten?: string; degraded?: boolean; error?: string };
-      if (!response.ok || !body.rewritten) {
-        setRewriteState({ kind: "error", message: body.error ?? t("resumatch.wb.error.rewrite") });
+      const body = (await response.json()) as { rewritten?: string; degraded?: boolean; error?: string; code?: string };
+      if (!response.ok) {
+        const message =
+          body.code === "invalid_profile"
+            ? t("resumatch.wb.error.rewriteInvalidProfile")
+            : body.code === "empty_profile"
+              ? t("resumatch.wb.error.rewriteEmptyProfile")
+              : (body.error ?? t("resumatch.wb.error.rewrite"));
+        setRewriteState({ kind: "error", message });
+        return;
+      }
+      if (!body.rewritten?.trim()) {
+        // Degraded with nothing to show: writing from scratch with no AI
+        // configured (or a failed call) has no text of the candidate's own
+        // to fall back to.
+        setRewriteState({
+          kind: "error",
+          message: body.degraded ? t("resumatch.wb.rewrite.degradedEmpty") : t("resumatch.wb.error.rewrite"),
+        });
         return;
       }
       // A candidate reviews and explicitly accepts or rejects this — it
@@ -243,7 +283,7 @@ export function ProfileWorkbench({
     } catch {
       setRewriteState({ kind: "error", message: t("resumatch.wb.error.rewriteNetwork") });
     }
-  }, [content.summary, tone, t]);
+  }, [content, tone, instructions, t]);
 
   const requestCategorize = useCallback(async () => {
     const skillNames = content.skills.map((skill) => skill.name);
@@ -293,17 +333,7 @@ export function ProfileWorkbench({
     async (confirm: boolean) => {
       setState({ kind: "saving" });
       try {
-        // Rows added with "+ Add ..." and never filled in are dropped here
-        // rather than sent — the schema requires a title/label, and a
-        // candidate who added a row then changed their mind should not see
-        // a validation error for leaving it empty.
-        const submitted: CandidateProfileContent = {
-          ...content,
-          languages: content.languages.filter((language) => language.label.trim().length > 0),
-          experience: content.experience.filter((role) => role.title.trim().length > 0),
-          education: content.education.filter((entry) => entry.qualification.trim().length > 0),
-          certifications: content.certifications.filter((entry) => entry.name.trim().length > 0),
-        };
+        const submitted = submittableContent(content);
         const response = await fetch("/api/profile", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -480,6 +510,18 @@ export function ProfileWorkbench({
               </label>
 
               <div className="jm-rewrite">
+                <label className="jm-field jm-rewrite__instructions">
+                  <span>{t("resumatch.wb.rewrite.instructionsLabel")}</span>
+                  <textarea
+                    rows={2}
+                    value={instructions}
+                    onChange={(event) => setInstructions(event.target.value)}
+                    maxLength={500}
+                    disabled={rewriteState.kind === "loading"}
+                    placeholder={t("resumatch.wb.rewrite.instructionsPlaceholder")}
+                  />
+                  <small className="jm-rewrite__hint">{t("resumatch.wb.rewrite.instructionsHint")}</small>
+                </label>
                 <div className="jm-rewrite__controls">
                   <select
                     aria-label={t("resumatch.wb.rewrite.toneAria")}
@@ -496,10 +538,16 @@ export function ProfileWorkbench({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    disabled={rewriteState.kind === "loading" || !content.summary?.trim()}
+                    disabled={rewriteState.kind === "loading" || (!hasSummary && !hasProfileFacts)}
                     onClick={() => void requestRewrite()}
                   >
-                    {rewriteState.kind === "loading" ? t("resumatch.wb.rewrite.loading") : t("resumatch.wb.rewrite.suggest")}
+                    {rewriteState.kind === "loading"
+                      ? hasSummary
+                        ? t("resumatch.wb.rewrite.loading")
+                        : t("resumatch.wb.rewrite.writing")
+                      : hasSummary
+                        ? t("resumatch.wb.rewrite.suggest")
+                        : t("resumatch.wb.rewrite.write")}
                   </Button>
                 </div>
 

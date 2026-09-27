@@ -208,6 +208,19 @@ export const profileDictionaries: Dictionaries = {
     "resumatch.wb.rewrite.tone.concise": "Concise",
     "resumatch.wb.rewrite.loading": "Rewriting…",
     "resumatch.wb.rewrite.suggest": "Suggest a rewrite",
+    "resumatch.wb.rewrite.write": "Write a summary from my profile",
+    "resumatch.wb.rewrite.writing": "Writing…",
+    "resumatch.wb.rewrite.instructionsLabel": "Instructions for the AI (optional)",
+    "resumatch.wb.rewrite.instructionsPlaceholder":
+      "e.g. Focus on my backend and AI work. Leave out that I’m looking for remote roles.",
+    "resumatch.wb.rewrite.instructionsHint":
+      "Steer what to stress, what to leave out, and how long it should be. It only uses facts from your profile.",
+    "resumatch.wb.rewrite.degradedEmpty":
+      "No AI writing is configured for this deployment, so no summary could be written. Type one yourself above.",
+    "resumatch.wb.error.rewriteInvalidProfile":
+      "Some profile entries are not valid yet (for example a date). Fix them, then try again.",
+    "resumatch.wb.error.rewriteEmptyProfile":
+      "Add a headline, a role, or some skills first, so there is something to write from.",
     "resumatch.wb.rewrite.degraded":
       "No AI rewrite is configured for this deployment, so this is your text unchanged. You can still accept or reject it.",
     "resumatch.wb.rewrite.accept": "Accept",
@@ -500,6 +513,19 @@ export const profileDictionaries: Dictionaries = {
     "resumatch.wb.rewrite.tone.concise": "Beknopt",
     "resumatch.wb.rewrite.loading": "Herschrijven…",
     "resumatch.wb.rewrite.suggest": "Stel een herschrijving voor",
+    "resumatch.wb.rewrite.write": "Schrijf een samenvatting uit mijn profiel",
+    "resumatch.wb.rewrite.writing": "Schrijven…",
+    "resumatch.wb.rewrite.instructionsLabel": "Instructies voor de AI (optioneel)",
+    "resumatch.wb.rewrite.instructionsPlaceholder":
+      "bv. Leg de nadruk op mijn backend- en AI-werk. Laat weg dat ik remote werk zoek.",
+    "resumatch.wb.rewrite.instructionsHint":
+      "Bepaal wat benadrukt wordt, wat wegblijft en hoe lang het wordt. Er worden alleen feiten uit je profiel gebruikt.",
+    "resumatch.wb.rewrite.degradedEmpty":
+      "Voor deze omgeving is geen AI-schrijfhulp ingesteld, dus er kon geen samenvatting worden geschreven. Typ er zelf een hierboven.",
+    "resumatch.wb.error.rewriteInvalidProfile":
+      "Sommige profielgegevens zijn nog niet geldig (bijvoorbeeld een datum). Pas ze aan en probeer opnieuw.",
+    "resumatch.wb.error.rewriteEmptyProfile":
+      "Voeg eerst een titel, een functie of enkele vaardigheden toe, zodat er iets is om uit te schrijven.",
     "resumatch.wb.rewrite.degraded":
       "Voor deze omgeving is geen AI-herschrijving ingesteld, dus dit is je tekst ongewijzigd. Je kunt hem nog altijd aanvaarden of weigeren.",
     "resumatch.wb.rewrite.accept": "Aanvaarden",
@@ -792,6 +818,19 @@ export const profileDictionaries: Dictionaries = {
     "resumatch.wb.rewrite.tone.concise": "Concis",
     "resumatch.wb.rewrite.loading": "Réécriture…",
     "resumatch.wb.rewrite.suggest": "Proposer une réécriture",
+    "resumatch.wb.rewrite.write": "Rédiger un résumé à partir de mon profil",
+    "resumatch.wb.rewrite.writing": "Rédaction…",
+    "resumatch.wb.rewrite.instructionsLabel": "Instructions pour l’IA (facultatif)",
+    "resumatch.wb.rewrite.instructionsPlaceholder":
+      "p. ex. Mettre l’accent sur mon travail backend et IA. Ne pas mentionner que je cherche du télétravail.",
+    "resumatch.wb.rewrite.instructionsHint":
+      "Indiquez ce qu’il faut mettre en avant, ce qu’il faut omettre et la longueur voulue. Seuls les faits de votre profil sont utilisés.",
+    "resumatch.wb.rewrite.degradedEmpty":
+      "Aucune rédaction par IA n’est configurée pour ce déploiement ; aucun résumé n’a donc pu être rédigé. Saisissez-en un vous-même ci-dessus.",
+    "resumatch.wb.error.rewriteInvalidProfile":
+      "Certaines entrées du profil ne sont pas encore valides (une date, par exemple). Corrigez-les, puis réessayez.",
+    "resumatch.wb.error.rewriteEmptyProfile":
+      "Ajoutez d’abord un titre, un poste ou quelques compétences, pour qu’il y ait de quoi rédiger.",
     "resumatch.wb.rewrite.degraded":
       "Aucune réécriture par IA n’est configurée pour ce déploiement ; voici donc votre texte inchangé. Vous pouvez tout de même l’accepter ou le refuser.",
     "resumatch.wb.rewrite.accept": "Accepter",
@@ -1091,6 +1130,19 @@ export const profileDictionaries: Dictionaries = {
     "resumatch.wb.rewrite.tone.concise": "Knapp",
     "resumatch.wb.rewrite.loading": "Wird umformuliert…",
     "resumatch.wb.rewrite.suggest": "Umformulierung vorschlagen",
+    "resumatch.wb.rewrite.write": "Zusammenfassung aus meinem Profil schreiben",
+    "resumatch.wb.rewrite.writing": "Wird geschrieben…",
+    "resumatch.wb.rewrite.instructionsLabel": "Anweisungen für die KI (optional)",
+    "resumatch.wb.rewrite.instructionsPlaceholder":
+      "z. B. Betone meine Backend- und KI-Arbeit. Lass weg, dass ich Remote-Stellen suche.",
+    "resumatch.wb.rewrite.instructionsHint":
+      "Lege fest, was betont wird, was wegfällt und wie lang es wird. Es werden nur Fakten aus deinem Profil verwendet.",
+    "resumatch.wb.rewrite.degradedEmpty":
+      "Für diese Umgebung ist kein KI-Schreiben eingerichtet, daher konnte keine Zusammenfassung geschrieben werden. Schreib oben selbst eine.",
+    "resumatch.wb.error.rewriteInvalidProfile":
+      "Einige Profilangaben sind noch nicht gültig (zum Beispiel ein Datum). Korrigiere sie und versuche es erneut.",
+    "resumatch.wb.error.rewriteEmptyProfile":
+      "Füge zuerst einen Titel, eine Stelle oder einige Fähigkeiten hinzu, damit es etwas gibt, woraus geschrieben werden kann.",
     "resumatch.wb.rewrite.degraded":
       "Für diese Umgebung ist keine KI-Umformulierung eingerichtet, daher ist das dein unveränderter Text. Du kannst ihn trotzdem übernehmen oder ablehnen.",
     "resumatch.wb.rewrite.accept": "Übernehmen",

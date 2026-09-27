@@ -13,7 +13,7 @@ import { REWRITE_MODEL_VERSIONS, getRewriteProvider } from "./registry";
 import { parseRewriteOutput } from "./schema";
 
 /**
- * Degraded-mode wiring for the summary tone-rewrite call. Mirrors
+ * Degraded-mode wiring for the summary write/rewrite call. Mirrors
  * lib/tailoring/ai/degraded.ts and lib/extraction/ai/degraded.ts: budget
  * exhaustion, retries exhausted, or a response that fails schema
  * validation all fall back to the candidate's own current text, unchanged
@@ -33,12 +33,22 @@ export interface RewriteOutcome {
 
 const MAX_ATTEMPTS = 3;
 
+export interface RewriteSummaryInput {
+  /** Current Summary field; empty means "write one from the profile". */
+  currentSummary: string;
+  /** Allow-listed profile text from `buildProfileText`, summary left out. */
+  profileText: string;
+  tone: SummaryTone;
+  /** Optional free-text request from the candidate. */
+  instructions?: string;
+}
+
 export async function rewriteSummaryWithFallback(
   workspaceId: string,
-  currentSummary: string,
-  tone: SummaryTone,
+  input: RewriteSummaryInput,
   opts: { provider?: ResuMatchAiProvider } = {},
 ): Promise<RewriteOutcome> {
+  const { currentSummary, tone } = input;
   const aiProvider = opts.provider ?? getEnv().aiProvider;
   // The profile is 1:1 with the workspace and may not have a row yet when
   // a summary is rewritten, so the workspace id keys it (issue #586).
@@ -51,7 +61,7 @@ export async function rewriteSummaryWithFallback(
 
     const provider = await getRewriteProvider(aiProvider);
     const modelVersion = REWRITE_MODEL_VERSIONS[aiProvider];
-    const prompt = renderRewritePrompt(currentSummary, tone);
+    const prompt = renderRewritePrompt(input);
 
     for (let attempt = 1; ; attempt++) {
       try {
