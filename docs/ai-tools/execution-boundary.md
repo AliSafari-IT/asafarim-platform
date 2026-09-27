@@ -63,7 +63,10 @@ turns the provider's JSON into the tool's output. It can:
 
 - assign ids and attach source text;
 - drop individual items that fail domain rules, such as a test scenario
-  citing text that isn't in the input;
+  citing text that isn't in the input, or an action-plan task that assigns a
+  person or adds a deadline the notes don't contain;
+- repair structure, such as dropping dependency links to unknown tasks or
+  links that would close a cycle (surfaced to the user as an open question);
 - return `null` to reject the whole result.
 
 If it drops anything, the run comes back as `status: "degraded"`, with the

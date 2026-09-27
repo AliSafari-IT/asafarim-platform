@@ -99,8 +99,12 @@ so the second and third tools reuse what the first one proves.
   dependencies and risks made explicit, and I can see which note each action
   came from."
 - **Output:** actions with evidence excerpts; dependencies forming an acyclic
-  graph; risks and open questions. Assignees and deadlines appear **only if they
-  are in the notes** — never invented.
+  graph; risks, decisions, milestones (checkpoints, never dates) and open
+  questions. Deadlines appear **only if the notes state them**, quoted as facts
+  — never invented. The plan **never assigns people**, even when the notes name
+  someone next to the work: that ownership stays visible in the quoted notes
+  and decisions for the reader to act on. Every item is labelled as from the
+  notes, from the user's own constraints, inferred, or a suggestion.
 - **Done when:** exported or handed off.
 - **Continue in:** TasksAI.
 

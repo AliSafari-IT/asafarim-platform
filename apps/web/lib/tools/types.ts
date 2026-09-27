@@ -15,7 +15,7 @@ import type { PlatformLinks } from "@asafarim/ui";
  * `app/tools/[slug]/workbenches.tsx` (type-checked), so a tool cannot exist
  * half-registered and the route never resolves a component from user input.
  */
-export const TOOL_SLUGS = ["shell-reference", "requirements-to-test-plan"] as const;
+export const TOOL_SLUGS = ["shell-reference", "requirements-to-test-plan", "notes-to-action-plan"] as const;
 export type ToolSlug = (typeof TOOL_SLUGS)[number];
 
 /** Charter §4. Separate from the platform app registry's `active | coming-soon`. */

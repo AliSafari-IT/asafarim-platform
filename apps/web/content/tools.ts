@@ -1,4 +1,5 @@
 import type { ToolDefinition } from "../lib/tools/types";
+import { actionPlanExampleNotes, actionPlanExampleOutput } from "./tool-fixtures/notes-to-action-plan";
 import { testPlanExampleOutput, testPlanExampleRequirement } from "./tool-fixtures/requirements-to-test-plan";
 import { shellReferenceExampleInput, shellReferenceExampleOutput } from "./tool-fixtures/shell-reference";
 
@@ -41,6 +42,38 @@ export const toolCatalogue: ToolDefinition[] = [
     privacyStatement:
       "Your text is sent to our server to build the plan and isn't stored or logged. When live generation is on, it's also sent to an AI provider (Anthropic) to draft the plan. Don't paste secrets or personal data.",
     relatedApp: { key: "testora", name: "Testora", reason: "Turn planned scenarios into automated checks and track results." },
+    lastReviewed: "2026-09-27",
+  },
+  {
+    slug: "notes-to-action-plan",
+    title: "Turn messy notes into an action plan you can review",
+    shortDescription:
+      "Paste meeting notes, a brief, or an idea dump and get tasks, dependencies, risks, and open questions, each labelled with where it came from.",
+    longDescription:
+      "Paste meeting notes, a project brief, or a list of loose ideas. You get a draft plan: an objective, tasks in a suggested order with the links between them, risks, decisions already made, possible milestones, and the questions your notes leave open. Every item says whether it's from your notes (with the quote), from a constraint you gave, inferred, or a suggestion. It never assigns people or invents deadlines. Reorder, edit, remove, and pick tasks, undo mistakes, then export Markdown or JSON.",
+    category: "planning",
+    lifecycle: "experiment",
+    indexable: false,
+    liveGeneration: false,
+    inputSummary: "Meeting notes, a project brief, or an idea dump, optionally with the outcome you want, a horizon, participants, and planning depth.",
+    outputSummary: "Ordered tasks with dependencies, risks, decisions, milestones, and open questions, each labelled as from your notes, your constraint, inferred, or a suggestion.",
+    capabilities: ["structured-output", "source-grounding", "uncertainty-labelling", "human-review", "export", "fixture-mode"],
+    example: {
+      label: "Load the help-centre move example",
+      input: actionPlanExampleNotes,
+      output: actionPlanExampleOutput,
+    },
+    limits: { minInputChars: 40, maxInputChars: 10000 },
+    limitations: [
+      "It drafts a plan; it doesn't schedule, assign, or send anything, and it never writes to TasksAI.",
+      "It never assigns tasks to people or adds deadlines. Dates appear only when your notes state them.",
+      "Effort ranges are rough estimates, and dependencies marked inferred are guesses. Check both.",
+      "It only knows what you paste: no links are followed and no calendars or tools are read.",
+      "Live generation isn't switched on yet: while this tool is experimental, only the example runs.",
+    ],
+    privacyStatement:
+      "Your notes are sent to our server to build the plan and aren't stored or logged. When live generation is on, they're also sent to an AI provider (Anthropic) to draft the plan. Remove names, secrets, and personal data you don't need to share.",
+    relatedApp: { key: "tasksai", name: "TasksAI", reason: "Track the reviewed tasks on a shared board." },
     lastReviewed: "2026-09-27",
   },
   {

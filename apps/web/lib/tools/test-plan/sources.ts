@@ -28,7 +28,8 @@ export function splitSources(requirement: string, acceptanceCriteria?: string): 
   return units;
 }
 
-function toUnits(text: string): string[] {
+/** Splits free text into trimmed lines (list markers removed), long lines by sentence. */
+export function toUnits(text: string): string[] {
   return text
     .replace(/\r\n?/g, "\n")
     .split("\n")
