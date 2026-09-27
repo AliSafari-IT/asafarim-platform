@@ -1972,10 +1972,19 @@
 /* Single column: flatten rail/canvas so sections interleave in reading
    order (About → Experience → Skills → …) instead of rail-then-canvas. */
 @media (max-width: 899px) {
-  /* On a phone the bar wraps to several rows; pinned, it would permanently
-     take ~15% of the screen. It stays at the top of the form, unpinned. */
+  /* Tablet: keep the bar pinned, but on one row — the links scroll
+     sideways instead of wrapping the actions onto a second line. */
   [data-app="resumatch"] .rm-wb__bar {
-    position: static;
+    flex-wrap: nowrap;
+  }
+  [data-app="resumatch"] .rm-wb__nav {
+    flex: 1 1 8rem;
+  }
+  [data-app="resumatch"] .rm-wb__actions {
+    flex-wrap: nowrap;
+  }
+  [data-app="resumatch"] .rm-wb__version {
+    display: none;
   }
   [data-app="resumatch"] .rm-wb__rail,
   [data-app="resumatch"] .rm-wb__canvas {
@@ -1988,6 +1997,48 @@
   [data-app="resumatch"] .rm-wb__section--certifications { order: 5; }
   [data-app="resumatch"] .rm-wb__section--languages { order: 6; }
   [data-app="resumatch"] .rm-wb__section--preferences { order: 7; }
+}
+
+/* Phone: a pinned bar with links + actions would take a large share of the
+   screen. The links stay at the top of the form, unpinned; the status and
+   save buttons are pinned to the bottom edge, so saving never needs a
+   scroll back up. */
+@media (max-width: 640px) {
+  [data-app="resumatch"] .rm-wb {
+    /* Room for the fixed action bar, so the last card can scroll clear of it. */
+    padding-bottom: 4.5rem;
+  }
+  [data-app="resumatch"] .rm-wb__bar {
+    position: static;
+    /* backdrop-filter would make the bar the containing block of the fixed
+       actions below, pinning them to the bar instead of the viewport. */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  [data-app="resumatch"] .rm-wb__nav {
+    flex: 1 1 100%;
+  }
+  [data-app="resumatch"] .rm-wb__actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin: 0;
+    padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line, rgba(148, 163, 184, 0.3));
+    background: var(--surface, #fff);
+    box-shadow: 0 -6px 24px -12px rgba(15, 23, 42, 0.25);
+  }
+  /* Status on its own line, then the two buttons side by side at equal width. */
+  [data-app="resumatch"] .rm-wb__status {
+    flex: 1 1 100%;
+  }
+  [data-app="resumatch"] .rm-wb__actions > button {
+    flex: 1 1 0;
+  }
 }
 
 @media (min-width: 900px) {
