@@ -117,7 +117,12 @@ so the second and third tools reuse what the first one proves.
   conflicting accounts are flagged instead of silently resolved."
 - **Output:** events with source quote, date **at its stated precision**
   (year / month / day / approximate / range — "spring 1990" never becomes
-  `1990-04-01`), and conflicts for review.
+  `1990-04-01`), and conflicts for review. Dates use TimelineAI's own
+  contract and parser from `@asafarim/timeline-contract`: the model only
+  copies the date phrase, and the server decides its precision. Accepted
+  events export in TimelineAI's versioned import format
+  (`timelineai-events/1`), which a TimelineAI test validates against its
+  own schemas.
 - **Done when:** exported or handed off.
 - **Continue in:** TimelineAI.
 

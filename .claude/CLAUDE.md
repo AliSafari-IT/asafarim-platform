@@ -89,6 +89,7 @@ In dev, `pnpm dev` spawns both worker processes via `turbo worker:dev`.
 | `@asafarim/appbuilder-runtime` | Metadata-driven preview renderer (no DB/auth deps) |
 | `@asafarim/theme-toggle` | Light/dark mode; writes `data-theme` on `<html>` |
 | `@asafarim/vionto-schemas` | Zod validation schemas for Vionto |
+| `@asafarim/timeline-contract` | TimelineAI-owned date-precision contract, date parser, conflict detection, and versioned event-import shape (source-only, no deps) |
 | `@asafarim/ai-cost-ledger` | AI provider cost-event contract (micros, usage buckets, pricing snapshots, aggregation) — ADR 0003 |
 
 ### Theming

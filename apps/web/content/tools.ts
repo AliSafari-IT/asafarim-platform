@@ -1,6 +1,7 @@
 import type { ToolDefinition } from "../lib/tools/types";
 import { actionPlanExampleNotes, actionPlanExampleOutput } from "./tool-fixtures/notes-to-action-plan";
 import { testPlanExampleOutput, testPlanExampleRequirement } from "./tool-fixtures/requirements-to-test-plan";
+import { timelineExampleOutput, timelineExampleText } from "./tool-fixtures/text-to-cited-timeline";
 import { shellReferenceExampleInput, shellReferenceExampleOutput } from "./tool-fixtures/shell-reference";
 
 /**
@@ -74,6 +75,38 @@ export const toolCatalogue: ToolDefinition[] = [
     privacyStatement:
       "Your notes are sent to our server to build the plan and aren't stored or logged. When live generation is on, they're also sent to an AI provider (Anthropic) to draft the plan. Remove names, secrets, and personal data you don't need to share.",
     relatedApp: { key: "tasksai", name: "TasksAI", reason: "Track the reviewed tasks on a shared board." },
+    lastReviewed: "2026-09-27",
+  },
+  {
+    slug: "text-to-cited-timeline",
+    title: "Turn text into a timeline where every date shows its source",
+    shortDescription:
+      "Paste text that mentions dates and get a timeline where each event quotes its sentence, keeps the date as precise as the text was, and flags conflicts.",
+    longDescription:
+      "Paste an article, a history, minutes, or research notes. You get a timeline of the events in it. Each event quotes the sentence it came from, and its date keeps exactly the precision your text gives: \"the 1920s\" stays a decade and \"spring 1893\" stays a season, never a made-up day. When sources disagree, a range can't be right, or a date can't be placed, you see a conflict to review instead of a silent guess. Accept, reject, edit, and reorder events, decide on each conflict, preview the result, and export the accepted events as Markdown, JSON, or a file ready for TimelineAI.",
+    category: "research",
+    lifecycle: "experiment",
+    indexable: false,
+    liveGeneration: false,
+    inputSummary: "Text that mentions dated events, optionally with a title, audience, date range to focus on, and level of detail.",
+    outputSummary: "Events in date order, each with its quoted sentence, date precision, confidence, and uncertainty, plus conflicts to review.",
+    capabilities: ["structured-output", "source-grounding", "uncertainty-labelling", "human-review", "export", "fixture-mode", "handoff"],
+    example: {
+      label: "Load the library-history example",
+      input: timelineExampleText,
+      output: timelineExampleOutput,
+    },
+    limits: { minInputChars: 40, maxInputChars: 12000 },
+    limitations: [
+      "It only reads the text you paste: no links are followed, no files are read, and no facts are checked against other sources.",
+      "Dates are read as written and in English date formats; anything else is shown as written with its precision marked unclear.",
+      "It never decides which of two conflicting sources is right. That's your call.",
+      "Nothing is published or sent to TimelineAI: you download the file and take it there yourself.",
+      "Live generation isn't switched on yet: while this tool is experimental, only the example runs.",
+    ],
+    privacyStatement:
+      "Your text is sent to our server to build the timeline and isn't stored or logged. When live generation is on, it's also sent to an AI provider (Anthropic) to find the events. Don't paste private or personal material you don't want processed.",
+    relatedApp: { key: "timelineai", name: "TimelineAI", reason: "Design, publish, and share the reviewed timeline." },
     lastReviewed: "2026-09-27",
   },
   {

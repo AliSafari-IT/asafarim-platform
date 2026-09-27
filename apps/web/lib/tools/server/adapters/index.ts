@@ -4,6 +4,7 @@ import type { ToolAdapter } from "../adapter";
 import { notesToActionPlanAdapter } from "./notes-to-action-plan";
 import { requirementsToTestPlanAdapter } from "./requirements-to-test-plan";
 import { shellReferenceAdapter } from "./shell-reference";
+import { textToCitedTimelineAdapter } from "./text-to-cited-timeline";
 
 /**
  * Closed map from slug to server adapter. Exhaustive over `ToolSlug`, so a
@@ -13,4 +14,5 @@ export const toolAdapters: Record<ToolSlug, ToolAdapter<unknown, unknown>> = {
   "shell-reference": shellReferenceAdapter,
   "requirements-to-test-plan": requirementsToTestPlanAdapter,
   "notes-to-action-plan": notesToActionPlanAdapter,
+  "text-to-cited-timeline": textToCitedTimelineAdapter,
 };
