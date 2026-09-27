@@ -88,9 +88,13 @@ describe.skipIf(!hasTestDatabase())("statuses + labels (integration)", () => {
     });
 
     it("reorderStatuses persists the new position order", async () => {
-      const { listStatuses, reorderStatuses } = await import("./statuses");
+      const { listStatuses, reorderStatuses, seedDefaultStatuses } = await import("./statuses");
       const admin = await ws("st4", "admin");
+      // ws() creates the row directly, bypassing createWorkspace's seeding,
+      // so there is nothing to reorder unless the defaults are added here.
+      await seedDefaultStatuses(db, admin.w.id);
       const before = await listStatuses(admin.ctx);
+      expect(before.length).toBeGreaterThan(1);
       const ids = before.map((s) => s.id).reverse();
 
       const after = await reorderStatuses(admin.ctx, { ids });

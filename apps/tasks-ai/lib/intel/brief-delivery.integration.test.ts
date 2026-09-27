@@ -122,7 +122,13 @@ describe.skipIf(!hasTestDatabase())("proactive brief delivery (integration)", ()
     // dailyBrief() records the brief.viewed audit event used for dedup.
     await dailyBrief(ctx);
 
-    const result = await deliverBriefToMember(db, w.id, owner.id, MORNING);
+    // dailyBrief() stamps brief.viewed with the real clock, so the delivery
+    // has to happen on that same (UTC) day — the fixed MORNING would only
+    // match on the date it names. 08:00 UTC today keeps it inside the
+    // morning window whenever the suite runs.
+    const morningToday = new Date();
+    morningToday.setUTCHours(8, 0, 0, 0);
+    const result = await deliverBriefToMember(db, w.id, owner.id, morningToday);
     expect(result).toEqual({ membershipId: owner.id, delivered: false, reason: "already_viewed_today" });
     const notif = await db.notification.findFirst({ where: { workspaceId: w.id, recipientId: owner.id, kind: "daily_brief" } });
     expect(notif).toBeNull();

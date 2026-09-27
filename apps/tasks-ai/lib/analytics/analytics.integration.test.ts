@@ -41,15 +41,18 @@ describe.skipIf(!hasTestDatabase())("analytics (integration)", () => {
     const a = await ws("flow");
     const proj = await createProject(a.ctx, { name: "P", key: "FLW" });
 
-    // 3 completed inside the 30d window, 1 outside
-    for (const [c, done] of [
-      ["2026-08-20", "2026-08-25"],
-      ["2026-08-20", "2026-08-22"],
-      ["2026-08-20", "2026-08-30"],
-      ["2026-05-01", "2026-05-03"],
+    // 3 completed inside the 30d window (cycle times 5, 2 and 10 days), 1
+    // outside. Relative to today: flowDashboard's window ends at the real
+    // clock, so fixed calendar dates drift out of it.
+    const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
+    for (const [created, done] of [
+      [25, 20],
+      [25, 23],
+      [25, 15],
+      [150, 148],
     ] as const) {
       await db.task.create({
-        data: { workspaceId: a.w.id, projectId: proj.id, title: "t", createdAt: new Date(c), completedAt: new Date(done) },
+        data: { workspaceId: a.w.id, projectId: proj.id, title: "t", createdAt: daysAgo(created), completedAt: daysAgo(done) },
       });
     }
     const d = await flowDashboard(a.ctx);
