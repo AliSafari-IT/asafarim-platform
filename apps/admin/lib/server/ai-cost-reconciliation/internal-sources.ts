@@ -103,9 +103,50 @@ export const viontoInternalSource: InternalSource = {
   },
 };
 
+/** Public AI tools on the web app (#673) — platform database, anonymous runs. */
+export const webInternalSource: InternalSource = {
+  app: "web",
+  async fetchDaily(window) {
+    try {
+      const events = await prisma.webToolCostEvent.findMany({
+        where: {
+          occurredAt: { gte: dayStart(window.startDay), lt: new Date(dayStart(window.endDay).getTime() + DAY_MS) },
+          credentialSource: "platform",
+          fixture: false,
+        },
+        select: {
+          provider: true,
+          responseModel: true,
+          occurredAt: true,
+          entryType: true,
+          estimatedCostMicros: true,
+          actualCostMicros: true,
+          adjustmentDeltaMicros: true,
+          costSource: true,
+          credentialSource: true,
+          fixture: true,
+        },
+      });
+      const lines = internalDailyLines(
+        "web",
+        events.map((e) => ({
+          ...e,
+          entryType: e.entryType as EntryType,
+          costSource: e.costSource as CostSource,
+          credentialSource: e.credentialSource as CredentialSource,
+        })),
+      );
+      return { app: "web", status: "ok", lines, fetchedAt: new Date() };
+    } catch {
+      return { app: "web", status: "unavailable", error: "platform database query failed" };
+    }
+  },
+};
+
 export function getInternalSources(): InternalSource[] {
   return [
     viontoInternalSource,
+    webInternalSource,
     createRemoteInternalSource("resumatch", () => process.env.NEXT_PUBLIC_RESUMATCH_URL ?? "http://localhost:3012"),
     createRemoteInternalSource("tasks-ai", () => process.env.NEXT_PUBLIC_TASKSAI_URL ?? "http://localhost:3013"),
   ];

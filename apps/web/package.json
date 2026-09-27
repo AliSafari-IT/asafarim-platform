@@ -1,6 +1,6 @@
 {
   "name": "@asafarim/web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Public ASafarIM Digital website (asafarim.com)",
   "scripts": {
@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@asafarim/ai-cost-ledger": "workspace:*",
     "@asafarim/auth": "workspace:*",
     "@asafarim/country-language-selector": "workspace:*",
     "@asafarim/db": "workspace:*",
@@ -24,7 +26,8 @@
     "dotenv": "^17.4.2",
     "next": "^16.3.5",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@asafarim/config": "workspace:*",

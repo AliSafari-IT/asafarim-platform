@@ -16,7 +16,7 @@ export const toolCatalogue: ToolDefinition[] = [
     title: "Turn notes into a checklist (shell reference)",
     shortDescription: "Internal reference tool that exercises the Workbench shell with a prepared example.",
     longDescription:
-      "This internal tool exists to prove the shared Workbench shell end to end: loading an example, running it, reviewing a result labelled by where each item came from, and exporting it. It has no AI provider behind it — only the prepared example produces a result.",
+      "This internal tool exists to prove the shared Workbench shell end to end: loading an example, running it, reviewing a result labelled by where each item came from, and exporting it. It runs through the real server execution boundary, but has no AI provider behind it: every result comes from its deterministic fixture.",
     category: "reference",
     lifecycle: "experiment",
     indexable: false,
@@ -32,10 +32,10 @@ export const toolCatalogue: ToolDefinition[] = [
     },
     limits: { minInputChars: 20, maxInputChars: 4000 },
     limitations: [
-      "Only the prepared example produces a result; there is no live AI provider behind this tool.",
+      "There is no live AI provider behind this tool. Outside fixture mode, only the prepared example produces a result.",
       "Not listed in the catalogue and not available in production.",
     ],
-    privacyStatement: "Nothing you type here leaves your browser — this reference tool never calls a server.",
+    privacyStatement: "Your text is sent to our server to produce the result and is not stored or logged. No AI provider sees it.",
     relatedApp: { key: "tasksai", name: "TasksAI", reason: "Plan and track the actions on a shared board." },
     lastReviewed: "2026-09-27",
   },

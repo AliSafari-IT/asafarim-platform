@@ -47,7 +47,7 @@ describe("ToolOutcome", () => {
     expect(html).toContain("RESULT:r:fixture");
     expect(html).toContain("EXPORT");
     expect(html).toContain("Example result");
-    expect(html).toContain("not generated from anything you typed");
+    expect(html).toContain("No AI was used to produce it");
     expect(html).not.toContain("Result ready");
   });
 
