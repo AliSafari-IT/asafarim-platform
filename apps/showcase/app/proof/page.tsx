@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Badge, Metric, PageHeader, Panel, Section, Timeline } from "@asafarim/ui";
+import { Badge, PageHeader, Panel, Section, Timeline } from "@asafarim/ui";
 import {
   ARCHITECTURE_NODES,
   DEPLOYMENT_TOPOLOGY,
@@ -8,11 +8,13 @@ import {
   getChangelog,
   getCiMetrics,
   getLiveHealth,
-  getPackageCards,
+  getNpmPortfolio,
+  getWorkspaceCards,
 } from "./data";
 import styles from "./proof.module.css";
 import { RequestFlowDiagram } from "./_components/RequestFlowDiagram";
 import { SecurityFlowDiagram } from "./_components/SecurityFlowDiagram";
+import { ShippedInventory } from "./_components/ShippedInventory";
 
 export const metadata: Metadata = {
   title: "Engineering Proof",
@@ -33,10 +35,11 @@ const freshnessLabel = {
  * plainly instead of being hidden or faked.
  */
 export default async function ProofPage() {
-  const packages = getPackageCards();
+  const workspaces = getWorkspaceCards();
   const changelog = getChangelog();
   const ciMetrics = await getCiMetrics();
   const liveHealth = await getLiveHealth();
+  const npmPortfolio = await getNpmPortfolio();
 
   return (
     <>
@@ -122,18 +125,7 @@ export default async function ProofPage() {
       </Section>
 
       <Section kicker="Versions" kickerIndex="06" title="Shipped packages and apps">
-        <div className="ui-grid">
-          <Metric label="Packages" value={packages.filter((p) => p.kind === "package").length} hint="in packages/*" />
-          <Metric label="Apps" value={packages.filter((p) => p.kind === "app").length} hint="in apps/*" />
-        </div>
-        <div className={styles.packageGrid}>
-          {packages.map((pkg) => (
-            <div key={pkg.name} className={styles.packageCard}>
-              <span className={styles.packageName}>{pkg.name}</span>
-              <span className={styles.packageVersion}>v{pkg.version}</span>
-            </div>
-          ))}
-        </div>
+        <ShippedInventory npm={npmPortfolio} workspaces={workspaces} />
       </Section>
 
       <Section kicker="Changelog" kickerIndex="07" title="Recently shipped">
