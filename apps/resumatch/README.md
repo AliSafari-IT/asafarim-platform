@@ -126,6 +126,21 @@ originally motivated it no longer applies.
   saved → applied → interviewing → offer/rejected with a multi-step status
   indicator, optional notes, and a link back to the tailored resume used.
 
+- **Four UI languages** — every page follows the platform language bar
+  (Belgium-locked: EN · NL · FR · DE, English by default), via the shared
+  `asafarim-lang` cookie and `@asafarim/shared-i18n`. The copy lives in one
+  dictionary module per area under `lib/i18n/` (nav, shell, common,
+  history, tailor, preview, profile, tracking, landing), merged in
+  `lib/i18n-dictionaries.ts`; server components read it through
+  `getTranslator()` (`lib/i18n-server.ts`), client components through
+  `useTranslation()`. `lib/i18n-dictionaries.test.ts` fails when a language
+  is missing a key or a `{placeholder}`. Deliberately *not* translated: the
+  tailored CV and cover letter themselves (they're written in their chosen
+  output language), skill category names (they print on the CV), and
+  error bodies from the `/api/*` routes, whose JSON stays English. New UI
+  text goes into the matching `lib/i18n/` module in all four languages,
+  never hard-coded in JSX.
+
 AI-call audit events surface in the platform admin console.
 
 ## What was removed in the pivot

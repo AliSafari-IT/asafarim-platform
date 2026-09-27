@@ -14,8 +14,12 @@ toggle button.
   theme state, syncs with `localStorage`, and writes `data-theme` to
   `document.documentElement`.
 - **`<ThemeToggle />`** — accessible toggle button styled with
-  platform tokens, ready to drop into `<AppShell>`'s `user` slot.
-- **`useTheme()`** — hook returning `{ theme, setTheme, toggleTheme }`.
+  platform tokens, ready to drop into `<AppShell>`'s `user` slot. Its
+  aria-label and tooltip default to English; pass `labels={{ toDark,
+  toLight, darkTitle, lightTitle }}` to localize them (the
+  `shell.theme.*` keys in `@asafarim/shared-i18n` hold EN/NL/FR/DE
+  wording).
+- **`useTheme()`** — hook returning `{ theme, setTheme, toggle }`.
 
 ## Usage
 

@@ -124,7 +124,7 @@ bearer instead of touching the platform database (see
 | [`apps/edumatch`](apps/edumatch/README.md) | AI learning support and tutor marketplace | 3009 | edumatch.asafarim.com | Public landing; login for student, tutor, and admin workspaces |
 | [`apps/timelineai`](apps/timelineai/README.md) | Visual timeline creator (8 layouts, export, moderation, optional AI copilot) | 3010 | tlai.asafarim.com | Public gallery; login for dashboard/self-publish; guests can create/submit |
 | [`apps/labs`](apps/labs/README.md) | Experimental workbench — what's being explored next | 3011 | labs.asafarim.com | Public; no login, no database |
-| [`apps/resumatch`](apps/resumatch/README.md) | AI CV tailoring and cover letters under a no-fabrication contract, plus application tracking | 3012 | resumatch.asafarim.com | Login (shared SSO); isolated Postgres |
+| [`apps/resumatch`](apps/resumatch/README.md) | AI CV tailoring and cover letters under a no-fabrication contract, plus application tracking; UI in EN/NL/FR/DE | 3012 | resumatch.asafarim.com | Login (shared SSO); isolated Postgres |
 | [`apps/tasks-ai`](apps/tasks-ai/README.md) | AI-native work execution — capture, plan, execute | 3013 | tasks-ai.asafarim.com | Login (shared SSO); isolated Postgres |
 
 Public website copy is maintained in `apps/web/content/`; PR-specific source,
@@ -138,7 +138,7 @@ asset, and deferral records are kept in `docs/migration-notes.md`.
 | `packages/auth`     | Shared authentication helpers (Auth.js v5, platform app registry, route proxy, SMTP mailer) |
 | `packages/db`       | Prisma client, schema, and migrations for the shared platform database |
 | `packages/config`   | Shared TypeScript/ESLint/Tailwind configuration  |
-| `packages/shared-i18n` | Locale resolution, dictionaries, React i18n provider (used by Vionto) |
+| `packages/shared-i18n` | Locale resolution, dictionaries, React i18n provider, plus the `shell.*` wording `@asafarim/ui` and `@asafarim/theme-toggle` accept as labels (used by Vionto, Hub, Showcase, Admin, EduMatch, TimelineAI, ResuMatch) |
 | `packages/country-language-selector` | Country/language picker UI (used by Vionto) |
 | `packages/vionto-schemas` | Shared Vionto validation schemas |
 | `packages/appbuilder-schema` | Versioned application-specification contract and deterministic controlled-operation engine for AppBuilder |

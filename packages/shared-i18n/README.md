@@ -1,8 +1,8 @@
 # @asafarim/shared-i18n
 
 Locale resolution, dictionaries, and React i18n provider shared across
-the platform. Used by Vionto, Hub, Showcase, Admin, EduMatch, and
-TimelineAI.
+the platform. Used by Vionto, Hub, Showcase, Admin, EduMatch,
+TimelineAI, and ResuMatch.
 
 ## What's here
 
@@ -17,7 +17,14 @@ TimelineAI.
   for client components.
 - **Base dictionaries** — `en`, `nl`, `fr`, `de`, `lb` blocks with
   platform-wide keys. Apps merge their own dictionaries via
-  `mergeDictionaries()`.
+  `mergeDictionaries()`. `shell.*` keys hold the app-shell wording
+  (footer tagline, account menu, app switcher, nav, theme toggle) that
+  `@asafarim/ui` and `@asafarim/theme-toggle` accept through their
+  `labels` / `tagline` props — see the "Localization" section of
+  `packages/ui/README.md`. `lb` has no `shell.*` keys yet and falls back
+  to English.
+- **Plurals** — `format()` has no plural rules; apps use `.one` / `.other`
+  key pairs and pick one by count (as ResuMatch does).
 - **Format** — `format()` for locale-aware string formatting.
 
 ## Exports

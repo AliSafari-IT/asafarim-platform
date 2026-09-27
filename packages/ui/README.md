@@ -30,6 +30,31 @@ creative direction, per-app metaphors, and token reference.
   `toAppSwitcherLinks()` resolve app URLs from `NEXT_PUBLIC_*_URL`
   environment variables; `AppSwitcher` consumes them automatically.
 
+## Localization
+
+Components never depend on an i18n library. Every visible or accessible
+string in the shell has an English default and an optional override, so an
+app passes already-translated text:
+
+| Component | Prop | Overrides |
+|---|---|---|
+| `AppShell` | `tagline` | footer text after "ASafariM Digital —" |
+| `UserMenu` | `labels` | `accountMenu`, `signedIn`, `viewProfile` |
+| `AppSwitcher` | `labels` | `platform`, `platformApps` |
+| `TopNav` | `labels` | `navigation` (nav aria-label), `menu` (mobile button) |
+| `Roadmap` | `labels` | view names, section titles, `progress` (`{done}`/`{total}` are filled in), `toggle`, `status.*` |
+
+Generic `shell.*` wording for the first four ships in
+`@asafarim/shared-i18n`'s base dictionaries:
+
+```tsx
+const { t } = await getTranslator(); // app helper around getServerTranslator
+<AppShell tagline={t("shell.tagline")} nav={<TopNav items={items} labels={{ navigation: t("shell.navigation"), menu: t("shell.menu") }} />} … />
+```
+
+Leaving the props out keeps today's English, so existing apps need no
+change. ResuMatch (`apps/resumatch/app/layout.tsx`) is the reference.
+
 ## Exports
 
 ```ts
