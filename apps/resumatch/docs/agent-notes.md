@@ -61,7 +61,10 @@ or a wasted run at least once.
   language) from the server's `TailorPreview` row, never from the client
   (issue #525).
 - Prompt choices are closed enums (tone, length, output language), never free
-  text. Any change to prompt wording bumps the version in the relevant
+  text. The one exception is the profile Summary write/rewrite
+  (`lib/profile/ai/prompts.ts`): the candidate may add a fenced, capped
+  request (≤ 500 chars) that steers emphasis and omissions but never
+  overrides the "only facts from the profile" rule. Any change to prompt wording bumps the version in the relevant
   `registry.ts` and must change the prompt's cache key.
 
 ## Done, with a written plan

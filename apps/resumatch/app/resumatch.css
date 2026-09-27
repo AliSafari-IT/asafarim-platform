@@ -1410,6 +1410,15 @@
   margin: -0.5rem 0 1rem;
 }
 
+.jm-rewrite__instructions {
+  margin-bottom: 0.5rem;
+}
+
+.jm-rewrite__hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 .jm-rewrite__controls {
   display: flex;
   align-items: center;
