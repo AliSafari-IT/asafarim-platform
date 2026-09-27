@@ -30,6 +30,15 @@ export function getRoutableTools(env?: Env): ToolDefinition[] {
 }
 
 /**
+ * Whether the Workbench has anything public to show. Site-wide entry points
+ * (primary nav, homepage link, sitemap) stay hidden until it does, so no one
+ * is sent to an empty catalogue.
+ */
+export function hasListedTools(): boolean {
+  return getListedTools().length > 0;
+}
+
+/**
  * Tools shown on catalogue surfaces: never internal or retired; featured
  * first by `featuredOrder`, then alphabetical.
  */

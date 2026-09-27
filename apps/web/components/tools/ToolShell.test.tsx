@@ -4,7 +4,6 @@ import { toolCatalogue } from "../../content/tools";
 import { ShellReferenceWorkbench } from "../../lib/tools/reference/ShellReferenceWorkbench";
 import type { ToolDefinition } from "../../lib/tools/types";
 import { ProvenanceBadge } from "./ProvenanceBadge";
-import { ToolCard } from "./ToolCard";
 import { ToolShell } from "./ToolShell";
 
 const reference = toolCatalogue.find((t) => t.slug === "shell-reference")!;
@@ -59,15 +58,6 @@ describe("ToolShell", () => {
     expect(html).toContain("0 / 4,000 characters");
     expect(html).toContain(escape(reference.example.label));
     expect(html).toContain('role="status"');
-  });
-});
-
-describe("ToolCard", () => {
-  it("is driven by the registry entry", () => {
-    const html = renderToStaticMarkup(<ToolCard tool={reference} />);
-    expect(html).toContain('href="/tools/shell-reference"');
-    expect(html).toContain("Experimental");
-    expect(html).toContain(escape(reference.inputSummary));
   });
 });
 

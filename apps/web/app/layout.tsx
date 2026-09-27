@@ -22,6 +22,8 @@ import {
   toAppSwitcherLinks,
 } from "@asafarim/ui";
 import { site } from "../content/site";
+import { primaryNavItems } from "../lib/nav";
+import { hasListedTools } from "../lib/tools/catalogue";
 import "@asafarim/ui/styles.css";
 import "@asafarim/country-language-selector/styles.css";
 
@@ -95,15 +97,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <AppShell
           product="Digital"
           nav={
-            <TopNav
-              items={[
-                { label: t("portal.nav.studio"), href: "/" },
-                { label: t("portal.nav.about"), href: "/about" },
-                { label: t("portal.nav.services"), href: "/services" },
-                { label: t("portal.nav.projects"), href: "/projects" },
-                { label: t("portal.nav.contact"), href: "/contact" },
-              ]}
-            />
+            <TopNav items={primaryNavItems(t, { showTools: hasListedTools() })} />
           }
           user={
             <>

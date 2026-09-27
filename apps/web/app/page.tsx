@@ -7,6 +7,7 @@ import {
   getServerTranslator,
 } from "@asafarim/shared-i18n/server";
 import webDictionaries from "../lib/i18n-dictionaries";
+import { hasListedTools } from "../lib/tools/catalogue";
 import { HomeEffects } from "./_home/HomeEffects";
 import { AiBackdrop } from "./_home/AiBackdrop";
 import { NewsletterSignup } from "./_home/NewsletterSignup";
@@ -126,6 +127,7 @@ export default async function HomePage() {
   const cookieStore = await cookies();
   const locale = resolveLocaleFromCookie(cookieStore.toString());
   const t = getServerTranslator(locale, webDictionaries);
+  const showTools = hasListedTools();
 
   return (
     <div
@@ -312,12 +314,21 @@ export default async function HomePage() {
           <article className={`${styles.card} ${styles.span2} ${styles.tilt}`} data-reveal data-tilt>
             <Bot size={36} style={{ color: "var(--blush)" }} />
             <h3 className={styles.cardTitle}>{t("web.home.workCard.ai.title")}</h3>
-            <p className={styles.cardText}>
-              {t("web.home.workCard.ai.text")}
-            </p>
-            <span className={styles.cardTag} style={{ color: "var(--blush)" }}>
-              {t("web.home.workCard.ai.tag")} <Cpu size={14} />
-            </span>
+            {showTools ? (
+              <>
+                <p className={styles.cardText}>{t("web.home.workCard.ai.toolsText")}</p>
+                <a href="/tools" className={styles.cardTag} style={{ color: "var(--blush)" }}>
+                  {t("web.home.workCard.ai.toolsLink")} <ArrowUpRight size={14} />
+                </a>
+              </>
+            ) : (
+              <>
+                <p className={styles.cardText}>{t("web.home.workCard.ai.text")}</p>
+                <span className={styles.cardTag} style={{ color: "var(--blush)" }}>
+                  {t("web.home.workCard.ai.tag")} <Cpu size={14} />
+                </span>
+              </>
+            )}
           </article>
           <article className={`${styles.card} ${styles.span2} ${styles.tilt}`} data-reveal data-tilt>
             <LayoutDashboard size={36} style={{ color: "var(--sky)" }} />

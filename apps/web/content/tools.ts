@@ -21,6 +21,7 @@ export const toolCatalogue: ToolDefinition[] = [
     lifecycle: "experiment",
     indexable: false,
     internal: true,
+    liveGeneration: false,
     inputSummary: "A few lines of meeting or planning notes.",
     outputSummary: "A checklist where each item is marked as from your text, inferred, or needing your input.",
     capabilities: ["structured-output", "source-grounding", "uncertainty-labelling", "human-review", "export", "fixture-mode"],

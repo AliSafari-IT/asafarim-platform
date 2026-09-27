@@ -13,6 +13,7 @@ function tool(overrides: Partial<ToolDefinition> & { slug?: string } = {}): Tool
     category: "testing",
     lifecycle: "beta",
     indexable: true,
+    liveGeneration: true,
     inputSummary: "Requirements.",
     outputSummary: "A test plan.",
     capabilities: ["structured-output"],
@@ -69,6 +70,16 @@ describe("validateCatalogue", () => {
     const problems = validateCatalogue(both({ internal: true, featuredOrder: 1 }), opts).join();
     expect(problems).toMatch(/internal tools must be experiment and not indexable/);
     expect(problems).toMatch(/internal tools cannot be featured/);
+  });
+
+  it("forbids live generation on paused, retired, and internal tools", () => {
+    for (const overrides of [
+      { lifecycle: "paused" as const },
+      { lifecycle: "retired" as const, indexable: false },
+      { internal: true, lifecycle: "experiment" as const, indexable: false },
+    ]) {
+      expect(validateCatalogue(both(overrides), opts).join()).toMatch(/cannot offer live generation/);
+    }
   });
 
   it("requires a case study before a tool is stable", () => {

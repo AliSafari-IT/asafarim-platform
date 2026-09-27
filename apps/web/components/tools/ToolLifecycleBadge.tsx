@@ -9,7 +9,8 @@ const LIFECYCLE_BADGES: Record<ToolLifecycle, { label: string; tone: BadgeTone }
   retired: { label: "Retired", tone: "neutral" },
 };
 
-export function ToolLifecycleBadge({ lifecycle }: { lifecycle: ToolLifecycle }) {
-  const { label, tone } = LIFECYCLE_BADGES[lifecycle];
-  return <Badge tone={tone}>{label}</Badge>;
+/** `label` overrides the English default with a translated one. */
+export function ToolLifecycleBadge({ lifecycle, label }: { lifecycle: ToolLifecycle; label?: string }) {
+  const badge = LIFECYCLE_BADGES[lifecycle];
+  return <Badge tone={badge.tone}>{label ?? badge.label}</Badge>;
 }
