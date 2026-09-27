@@ -1,0 +1,12 @@
+import type { ComponentType } from "react";
+import { ShellReferenceWorkbench } from "../../../lib/tools/reference/ShellReferenceWorkbench";
+import type { ToolDefinition, ToolSlug } from "../../../lib/tools/types";
+
+/**
+ * Closed map from slug to workbench. Exhaustive over `ToolSlug`, so a new
+ * slug fails typecheck until its workbench is registered here, and a URL can
+ * only ever select one of these components — never an arbitrary one.
+ */
+export const toolWorkbenches: Record<ToolSlug, ComponentType<{ tool: ToolDefinition }>> = {
+  "shell-reference": ShellReferenceWorkbench,
+};
