@@ -65,6 +65,7 @@ export function TestPlanWorkbench({ tool }: { tool: ToolDefinition }) {
       runner={runner}
       isExample={isExample}
       optionsKey={JSON.stringify(details)}
+      trackAs={tool.slug}
       onLoadExample={() => {
         setDetails(EXAMPLE_DETAILS);
         // Uncontrolled <details>: open it directly so the filled fields are visible.

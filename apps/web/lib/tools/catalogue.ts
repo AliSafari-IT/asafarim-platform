@@ -52,3 +52,8 @@ export function getListedTools(): ToolDefinition[] {
         a.title.localeCompare(b.title)
     );
 }
+
+/** Tool pages search engines may index: routable, public, and beta/stable/paused (charter §4). */
+export function getIndexableTools(env?: Env): ToolDefinition[] {
+  return getRoutableTools(env).filter((t) => t.indexable && !t.internal);
+}

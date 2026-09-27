@@ -7,7 +7,9 @@ import { ApiError } from "../errors";
 import { emitActivity } from "../events/emit";
 import { EVENT } from "../events/names";
 import { getProjectOr404 } from "../repositories/projects";
+import { parseHandoff } from "@asafarim/tool-handoff";
 import { stageRows, type FieldMapping, type StagedRow } from "./parse";
+import { handoffAudit, stageHandoffRows } from "./handoff";
 import { initialTriagedAt } from "../capture/inbox";
 
 export const createImportSchema = z.object({
@@ -68,6 +70,53 @@ export async function createImport(ctx: RequestContext, input: unknown) {
     },
   });
   return summarize(job);
+}
+
+export const createHandoffImportSchema = z.object({
+  projectId: z.string(),
+  content: z.string().min(1).max(512_000),
+  captureToInbox: z.boolean().default(false),
+});
+
+/**
+ * Dry-run an AI Workbench handoff file (#678). Validates the shared contract
+ * again (the browser's copy is never trusted), then stages the tasks. One
+ * job per workspace and handoff id: importing the same file again returns
+ * the existing job — still previewable, or already applied — so a task is
+ * never created twice. The job records who imported what, from which tool
+ * and version, and the outcome (via its state), without copying task text
+ * into any audit field.
+ */
+export async function createHandoffImport(ctx: RequestContext, input: unknown) {
+  authorize(ctx.actor, "task.create");
+  const data = createHandoffImportSchema.parse(input);
+  const parsed = parseHandoff(data.content, "tasksai");
+  if (!parsed.ok) {
+    throw new ApiError("validation_failed", { handoff: parsed.message, code: parsed.code, ...(parsed.details ? { fields: parsed.details } : {}) });
+  }
+  const envelope = parsed.envelope;
+  const existing = await ctx.db.importJob.findFirst({
+    where: { workspaceId: ctx.workspaceId, mapping: { path: ["handoffId"], equals: envelope.handoffId } },
+  });
+  if (existing) return { ...summarize(existing), alreadyImported: existing.state === "completed" };
+
+  const project = await getProjectOr404(ctx, data.projectId);
+  const rows = stageHandoffRows(envelope);
+  const job = await ctx.db.importJob.create({
+    data: {
+      workspaceId: ctx.workspaceId,
+      membershipId: ctx.actor.membershipId,
+      kind: "json",
+      filename: "ai-workbench-handoff.json",
+      mapping: { projectId: project.id, captureToInbox: data.captureToInbox, ...handoffAudit(envelope) } as Prisma.InputJsonValue,
+      state: "dry_run_ready",
+      totalRows: rows.length,
+      failedRows: 0,
+      errors: [] as Prisma.InputJsonValue,
+      rows: rows as unknown as Prisma.InputJsonValue,
+    },
+  });
+  return { ...summarize(job), alreadyImported: false };
 }
 
 export async function getImport(ctx: RequestContext, id: string) {
@@ -172,5 +221,7 @@ function summarize(job: {
     duplicateRows: rows.filter((r) => r.status === "duplicate").length,
     okRows: rows.filter((r) => r.status === "ok").length,
     errors: job.errors,
+    /** Exactly what apply would create (first 100 rows), so the confirmation can show it. */
+    preview: rows.slice(0, 100).map((r) => ({ rowKey: r.rowKey, title: r.data.title, status: r.status })),
   };
 }

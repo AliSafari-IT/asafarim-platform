@@ -42,7 +42,7 @@ export function StackChart({ projects }: { projects: ShowcaseProject[] }) {
 
 /** Status mix across the wall, as a single stacked bar plus a legend. */
 export function StatusChart({ projects }: { projects: ShowcaseProject[] }) {
-  const order = ["live", "beta", "planned", "archived"] as const;
+  const order = ["live", "beta", "experiment", "planned", "archived"] as const;
   const counts = order.map((status) => ({
     status,
     count: projects.filter((project) => project.status === status).length,

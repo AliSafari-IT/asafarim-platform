@@ -51,6 +51,15 @@ export function describeRunState(state: ToolRunState<unknown>): StatusCopy {
     case "invalid":
       return { tone: "warning", title: "Check your input", body: state.issues.join(" ") };
     case "rate-limited":
+      if (state.scope === "daily") {
+        return {
+          tone: "warning",
+          title: "Today's live runs are used up",
+          body: `No result was produced. The tools have a daily spending limit, and it's been reached${
+            state.retryAfterSeconds ? `; live runs reopen in about ${formatWait(state.retryAfterSeconds)}` : ""
+          }. The example still works.`,
+        };
+      }
       return {
         tone: "warning",
         title: "You've reached the limit for now",

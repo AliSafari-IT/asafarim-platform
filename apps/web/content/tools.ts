@@ -1,5 +1,7 @@
 import type { ToolDefinition } from "../lib/tools/types";
+import { actionPlanExampleNotes, actionPlanExampleOutput } from "./tool-fixtures/notes-to-action-plan";
 import { testPlanExampleOutput, testPlanExampleRequirement } from "./tool-fixtures/requirements-to-test-plan";
+import { timelineExampleOutput, timelineExampleText } from "./tool-fixtures/text-to-cited-timeline";
 import { shellReferenceExampleInput, shellReferenceExampleOutput } from "./tool-fixtures/shell-reference";
 
 /**
@@ -38,9 +40,94 @@ export const toolCatalogue: ToolDefinition[] = [
       "Inferred scenarios are suggestions based on common risks, not requirements. Check each assumption.",
       "Live generation isn't switched on yet: while this tool is experimental, only the example runs.",
     ],
+    howItWorks: [
+      "Your requirement is split into numbered source lines on our server before anything else happens, and every scenario must point to those numbers or say it's an inferred risk.",
+      "The AI's answer has to match a versioned schema. Scenarios that cite text you didn't write, or claim that tests ran or passed, are removed, and you're told what was removed.",
+      "Ids are assigned by the server, not the AI, so they stay stable and sequential.",
+      "Every change to the tool runs a fixed set of normal, vague, contradictory, and adversarial requirements through the same checks before it can go live.",
+    ],
     privacyStatement:
       "Your text is sent to our server to build the plan and isn't stored or logged. When live generation is on, it's also sent to an AI provider (Anthropic) to draft the plan. Don't paste secrets or personal data.",
     relatedApp: { key: "testora", name: "Testora", reason: "Turn planned scenarios into automated checks and track results." },
+    caseStudyPath: "/projects/ai-workbench#test-plan",
+    lastReviewed: "2026-09-27",
+  },
+  {
+    slug: "notes-to-action-plan",
+    title: "Turn messy notes into an action plan you can review",
+    shortDescription:
+      "Paste meeting notes, a brief, or an idea dump and get tasks, dependencies, risks, and open questions, each labelled with where it came from.",
+    longDescription:
+      "Paste meeting notes, a project brief, or a list of loose ideas. You get a draft plan: an objective, tasks in a suggested order with the links between them, risks, decisions already made, possible milestones, and the questions your notes leave open. Every item says whether it's from your notes (with the quote), from a constraint you gave, inferred, or a suggestion. It never assigns people or invents deadlines. Reorder, edit, remove, and pick tasks, undo mistakes, then export Markdown or JSON.",
+    category: "planning",
+    lifecycle: "experiment",
+    indexable: false,
+    liveGeneration: false,
+    inputSummary: "Meeting notes, a project brief, or an idea dump, optionally with the outcome you want, a horizon, participants, and planning depth.",
+    outputSummary: "Ordered tasks with dependencies, risks, decisions, milestones, and open questions, each labelled as from your notes, your constraint, inferred, or a suggestion.",
+    capabilities: ["structured-output", "source-grounding", "uncertainty-labelling", "human-review", "export", "fixture-mode"],
+    example: {
+      label: "Load the help-centre move example",
+      input: actionPlanExampleNotes,
+      output: actionPlanExampleOutput,
+    },
+    limits: { minInputChars: 40, maxInputChars: 10000 },
+    limitations: [
+      "It drafts a plan; it doesn't schedule, assign, or send anything, and it never writes to TasksAI.",
+      "It never assigns tasks to people or adds deadlines. Dates appear only when your notes state them.",
+      "Effort ranges are rough estimates, and dependencies marked inferred are guesses. Check both.",
+      "It only knows what you paste: no links are followed and no calendars or tools are read.",
+      "Live generation isn't switched on yet: while this tool is experimental, only the example runs.",
+    ],
+    howItWorks: [
+      "Your notes are numbered line by line on our server, and every task, risk, and decision must quote those lines, point to a constraint you gave, or explain its reasoning.",
+      "Tasks that assign a person or add a date your notes don't contain are removed on the server, whatever the AI wrote. Dependencies must point to real tasks, and circular chains become open questions.",
+      "The plan has to match a versioned schema with no field for an owner or due date.",
+      "Every change runs fixed messy, vague, contradictory, and adversarial notes through the same checks before it can go live.",
+    ],
+    privacyStatement:
+      "Your notes are sent to our server to build the plan and aren't stored or logged. When live generation is on, they're also sent to an AI provider (Anthropic) to draft the plan. Remove names, secrets, and personal data you don't need to share.",
+    relatedApp: { key: "tasksai", name: "TasksAI", reason: "Track the reviewed tasks on a shared board." },
+    caseStudyPath: "/projects/ai-workbench#action-plan",
+    lastReviewed: "2026-09-27",
+  },
+  {
+    slug: "text-to-cited-timeline",
+    title: "Turn text into a timeline where every date shows its source",
+    shortDescription:
+      "Paste text that mentions dates and get a timeline where each event quotes its sentence, keeps the date as precise as the text was, and flags conflicts.",
+    longDescription:
+      "Paste an article, a history, minutes, or research notes. You get a timeline of the events in it. Each event quotes the sentence it came from, and its date keeps exactly the precision your text gives: \"the 1920s\" stays a decade and \"spring 1893\" stays a season, never a made-up day. When sources disagree, a range can't be right, or a date can't be placed, you see a conflict to review instead of a silent guess. Accept, reject, edit, and reorder events, decide on each conflict, preview the result, and export the accepted events as Markdown, JSON, or a file ready for TimelineAI.",
+    category: "research",
+    lifecycle: "experiment",
+    indexable: false,
+    liveGeneration: false,
+    inputSummary: "Text that mentions dated events, optionally with a title, audience, date range to focus on, and level of detail.",
+    outputSummary: "Events in date order, each with its quoted sentence, date precision, confidence, and uncertainty, plus conflicts to review.",
+    capabilities: ["structured-output", "source-grounding", "uncertainty-labelling", "human-review", "export", "fixture-mode", "handoff"],
+    example: {
+      label: "Load the library-history example",
+      input: timelineExampleText,
+      output: timelineExampleOutput,
+    },
+    limits: { minInputChars: 40, maxInputChars: 12000 },
+    limitations: [
+      "It only reads the text you paste: no links are followed, no files are read, and no facts are checked against other sources.",
+      "Dates are read as written and in English date formats; anything else is shown as written with its precision marked unclear.",
+      "It never decides which of two conflicting sources is right. That's your call.",
+      "Nothing is published or sent to TimelineAI: you download the file and take it there yourself.",
+      "Live generation isn't switched on yet: while this tool is experimental, only the example runs.",
+    ],
+    howItWorks: [
+      "Your text is split into numbered sentences on our server. The AI copies each date exactly as written, and the server works out its precision with TimelineAI's own date parser.",
+      "A date that isn't worded that way in the sentence it cites is removed, so a vague date can't come back as an exact one.",
+      "Impossible ranges are found by TimelineAI's own conflict check, and disagreeing sources are kept side by side for you to decide.",
+      "Accepted events export in TimelineAI's versioned import format, and every change runs fixed exact, partial, conflicting, and adversarial texts through the same checks.",
+    ],
+    privacyStatement:
+      "Your text is sent to our server to build the timeline and isn't stored or logged. When live generation is on, it's also sent to an AI provider (Anthropic) to find the events. Don't paste private or personal material you don't want processed.",
+    relatedApp: { key: "timelineai", name: "TimelineAI", reason: "Design, publish, and share the reviewed timeline." },
+    caseStudyPath: "/projects/ai-workbench#timeline",
     lastReviewed: "2026-09-27",
   },
   {
@@ -67,6 +154,7 @@ export const toolCatalogue: ToolDefinition[] = [
       "There is no live AI provider behind this tool. Outside fixture mode, only the prepared example produces a result.",
       "Not listed in the catalogue and not available in production.",
     ],
+    howItWorks: ["Runs through the real server execution boundary with a deterministic fixture and no AI provider."],
     privacyStatement: "Your text is sent to our server to produce the result and is not stored or logged. No AI provider sees it.",
     relatedApp: { key: "tasksai", name: "TasksAI", reason: "Plan and track the actions on a shared board." },
     lastReviewed: "2026-09-27",

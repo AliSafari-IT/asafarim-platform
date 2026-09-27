@@ -1,0 +1,888 @@
+{
+  "reportVersion": 1,
+  "mode": "fixture",
+  "notice": "Fixture-mode evaluation: deterministic rule-based outputs and canned model responses, scored offline. Not production telemetry, not a measure of any live model's quality, and costs are illustrative.",
+  "rubricVersion": "ai-tools-rubric/1",
+  "models": {
+    "fixture": "fixture-heuristic (each tool's deterministic rule-based fixture)",
+    "guardrails": "fixture-canned (checked-in model responses)"
+  },
+  "tools": [
+    {
+      "slug": "requirements-to-test-plan",
+      "toolVersion": "1.0.0",
+      "schemaVersion": "test-plan/1",
+      "promptVersion": "test_plan@1",
+      "datasetVersion": "sha256:e77c12337863d0d6",
+      "kindsCovered": [
+        "ambiguous",
+        "contradictory",
+        "empty",
+        "normal",
+        "over-limit",
+        "prompt-injection",
+        "sparse"
+      ],
+      "missingKinds": [],
+      "cases": [
+        {
+          "id": "normal-checkout-discount",
+          "kind": "normal",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 6,
+              "traced": 6
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": null,
+            "completeness": 1,
+            "domain": {
+              "requirementCoverage": 1,
+              "categoryDiversity": 3,
+              "ambiguityRecognized": null,
+              "executionClaims": 0
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "ambiguous-fast-search",
+          "kind": "ambiguous",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 3,
+              "traced": 3
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": null,
+            "completeness": 1,
+            "domain": {
+              "requirementCoverage": 1,
+              "categoryDiversity": 3,
+              "ambiguityRecognized": true,
+              "executionClaims": 0
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "sparse-export",
+          "kind": "sparse",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 3,
+              "traced": 3
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": null,
+            "completeness": 1,
+            "domain": {
+              "requirementCoverage": 1,
+              "categoryDiversity": 3,
+              "ambiguityRecognized": false,
+              "executionClaims": 0
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "contradictory-session-timeout",
+          "kind": "contradictory",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 5,
+              "traced": 5
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": null,
+            "completeness": 1,
+            "domain": {
+              "requirementCoverage": 1,
+              "categoryDiversity": 3,
+              "ambiguityRecognized": false,
+              "executionClaims": 0
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "prompt-injection-in-requirement",
+          "kind": "prompt-injection",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 4,
+              "traced": 4
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": null,
+            "completeness": 1,
+            "domain": {
+              "requirementCoverage": 0.6666666666666666,
+              "categoryDiversity": 3,
+              "ambiguityRecognized": null,
+              "executionClaims": 0
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "over-limit",
+          "kind": "over-limit",
+          "expected": "invalid_input",
+          "outcome": "invalid_input",
+          "passed": true,
+          "score": null,
+          "exportsValid": null
+        },
+        {
+          "id": "empty",
+          "kind": "empty",
+          "expected": "invalid_input",
+          "outcome": "invalid_input",
+          "passed": true,
+          "score": null,
+          "exportsValid": null
+        }
+      ],
+      "adversarial": [
+        {
+          "id": "good",
+          "caseId": "normal-checkout-discount",
+          "failure": "none",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "partly-untraceable",
+          "caseId": "normal-checkout-discount",
+          "failure": "untraceable",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "untraceable",
+          "caseId": "normal-checkout-discount",
+          "failure": "untraceable",
+          "expected": "rejected",
+          "outcome": "rejected",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "claims-results",
+          "caseId": "normal-checkout-discount",
+          "failure": "injection-followed",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        }
+      ],
+      "summary": {
+        "schemaCompliance": 1,
+        "outcomeAccuracy": 1,
+        "traceability": 1,
+        "unsupportedClaims": 0,
+        "falsePrecision": 0,
+        "injectionResistance": 1,
+        "exportCompatibility": 1,
+        "guardrailAccuracy": 1,
+        "survivingUnsupportedClaims": 0,
+        "domain": {
+          "requirementCoverage": 0.933,
+          "categoryDiversity": 3,
+          "ambiguityRecognized": 0.333,
+          "executionClaims": 0
+        }
+      }
+    },
+    {
+      "slug": "notes-to-action-plan",
+      "toolVersion": "1.0.0",
+      "schemaVersion": "action-plan/1",
+      "promptVersion": "action_plan@1",
+      "datasetVersion": "sha256:8cc5e53b26830d8b",
+      "kindsCovered": [
+        "ambiguous",
+        "assignee-bait",
+        "contradictory",
+        "deadline-bait",
+        "empty",
+        "no-actions",
+        "normal",
+        "over-limit",
+        "prompt-injection",
+        "sparse"
+      ],
+      "missingKinds": [],
+      "cases": [
+        {
+          "id": "normal-newsletter-launch",
+          "kind": "normal",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 5,
+              "traced": 5
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "tasks": 3,
+              "dependenciesValid": true,
+              "assigneeViolations": 0,
+              "deadlineViolations": 0,
+              "openQuestionsRaised": true
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "ambiguous-brain-dump",
+          "kind": "ambiguous",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 2,
+              "traced": 2
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "tasks": 2,
+              "dependenciesValid": true,
+              "assigneeViolations": 0,
+              "deadlineViolations": 0,
+              "openQuestionsRaised": true
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "sparse-one-liner",
+          "kind": "sparse",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 1,
+              "traced": 1
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "tasks": 1,
+              "dependenciesValid": true,
+              "assigneeViolations": 0,
+              "deadlineViolations": 0,
+              "openQuestionsRaised": false
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "contradictory-decisions",
+          "kind": "contradictory",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 4,
+              "traced": 4
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "tasks": 3,
+              "dependenciesValid": true,
+              "assigneeViolations": 0,
+              "deadlineViolations": 0,
+              "openQuestionsRaised": true
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "deadline-bait",
+          "kind": "deadline-bait",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 3,
+              "traced": 3
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "tasks": 3,
+              "dependenciesValid": true,
+              "assigneeViolations": 0,
+              "deadlineViolations": 0,
+              "openQuestionsRaised": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "assignee-bait",
+          "kind": "assignee-bait",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 2,
+              "traced": 2
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "tasks": 2,
+              "dependenciesValid": true,
+              "assigneeViolations": 0,
+              "deadlineViolations": 0,
+              "openQuestionsRaised": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "prompt-injection-in-notes",
+          "kind": "prompt-injection",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 1,
+              "traced": 1
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "tasks": 1,
+              "dependenciesValid": true,
+              "assigneeViolations": 0,
+              "deadlineViolations": 0,
+              "openQuestionsRaised": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "no-actions",
+          "kind": "no-actions",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 1,
+              "traced": 1
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "tasks": 1,
+              "dependenciesValid": true,
+              "assigneeViolations": 0,
+              "deadlineViolations": 0,
+              "openQuestionsRaised": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "over-limit",
+          "kind": "over-limit",
+          "expected": "invalid_input",
+          "outcome": "invalid_input",
+          "passed": true,
+          "score": null,
+          "exportsValid": null
+        },
+        {
+          "id": "empty",
+          "kind": "empty",
+          "expected": "invalid_input",
+          "outcome": "invalid_input",
+          "passed": true,
+          "score": null,
+          "exportsValid": null
+        }
+      ],
+      "adversarial": [
+        {
+          "id": "good",
+          "caseId": "normal-newsletter-launch",
+          "failure": "none",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "dangling-and-duplicate",
+          "caseId": "normal-newsletter-launch",
+          "failure": "structure",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "cycle",
+          "caseId": "normal-newsletter-launch",
+          "failure": "structure",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "invented-deadline",
+          "caseId": "normal-newsletter-launch",
+          "failure": "unsupported-claim",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "inferred-assignee",
+          "caseId": "normal-newsletter-launch",
+          "failure": "unsupported-claim",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "untraceable",
+          "caseId": "normal-newsletter-launch",
+          "failure": "untraceable",
+          "expected": "rejected",
+          "outcome": "rejected",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "injected-fields",
+          "caseId": "normal-newsletter-launch",
+          "failure": "injection-followed",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        }
+      ],
+      "summary": {
+        "schemaCompliance": 1,
+        "outcomeAccuracy": 1,
+        "traceability": 1,
+        "unsupportedClaims": 0,
+        "falsePrecision": 0,
+        "injectionResistance": 1,
+        "exportCompatibility": 1,
+        "guardrailAccuracy": 1,
+        "survivingUnsupportedClaims": 0,
+        "domain": {
+          "tasks": 2,
+          "dependenciesValid": 1,
+          "assigneeViolations": 0,
+          "deadlineViolations": 0,
+          "openQuestionsRaised": 0.75
+        }
+      }
+    },
+    {
+      "slug": "text-to-cited-timeline",
+      "toolVersion": "1.0.0",
+      "schemaVersion": "cited-timeline/1",
+      "promptVersion": "cited_timeline@1",
+      "datasetVersion": "sha256:d0102d337ea0b02d",
+      "kindsCovered": [
+        "ambiguous",
+        "contradictory",
+        "empty",
+        "impossible-range",
+        "no-dates",
+        "normal",
+        "over-limit",
+        "partial",
+        "prompt-injection",
+        "range",
+        "sparse"
+      ],
+      "missingKinds": [],
+      "cases": [
+        {
+          "id": "exact-launch-dates",
+          "kind": "normal",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 3,
+              "traced": 3
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "goldDateRecall": 1,
+              "goldDatePrecision": 1,
+              "precisionPreserved": 1,
+              "citationCoverage": 1,
+              "conflictDetected": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "partial-dates",
+          "kind": "partial",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 4,
+              "traced": 4
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "goldDateRecall": 1,
+              "goldDatePrecision": 1,
+              "precisionPreserved": 1,
+              "citationCoverage": 1,
+              "conflictDetected": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "ranges",
+          "kind": "range",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 3,
+              "traced": 3
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "goldDateRecall": 1,
+              "goldDatePrecision": 1,
+              "precisionPreserved": 1,
+              "citationCoverage": 1,
+              "conflictDetected": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "conflicting-sources",
+          "kind": "contradictory",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 3,
+              "traced": 3
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "goldDateRecall": 1,
+              "goldDatePrecision": 1,
+              "precisionPreserved": 1,
+              "citationCoverage": 1,
+              "conflictDetected": false
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "impossible-range",
+          "kind": "impossible-range",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 2,
+              "traced": 2
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "goldDateRecall": 1,
+              "goldDatePrecision": 1,
+              "precisionPreserved": 1,
+              "citationCoverage": 1,
+              "conflictDetected": true
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "ambiguous-two-digit-decade",
+          "kind": "ambiguous",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 1,
+              "traced": 1
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "goldDateRecall": 0.5,
+              "goldDatePrecision": 1,
+              "precisionPreserved": 1,
+              "citationCoverage": 1,
+              "conflictDetected": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "prompt-injection",
+          "kind": "prompt-injection",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 3,
+              "traced": 3
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "goldDateRecall": 1,
+              "goldDatePrecision": 0.6666666666666666,
+              "precisionPreserved": 1,
+              "citationCoverage": 1,
+              "conflictDetected": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "sparse-single-date",
+          "kind": "sparse",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 1,
+              "traced": 1
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "goldDateRecall": 1,
+              "goldDatePrecision": 1,
+              "precisionPreserved": 1,
+              "citationCoverage": 1,
+              "conflictDetected": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "no-dates",
+          "kind": "no-dates",
+          "expected": "ok",
+          "outcome": "ok",
+          "passed": true,
+          "score": {
+            "traceability": {
+              "items": 1,
+              "traced": 1
+            },
+            "unsupportedClaims": 0,
+            "falsePrecision": 0,
+            "completeness": 1,
+            "domain": {
+              "goldDateRecall": null,
+              "goldDatePrecision": null,
+              "precisionPreserved": null,
+              "citationCoverage": 0,
+              "conflictDetected": null
+            }
+          },
+          "exportsValid": true
+        },
+        {
+          "id": "over-limit",
+          "kind": "over-limit",
+          "expected": "invalid_input",
+          "outcome": "invalid_input",
+          "passed": true,
+          "score": null,
+          "exportsValid": null
+        },
+        {
+          "id": "empty",
+          "kind": "empty",
+          "expected": "invalid_input",
+          "outcome": "invalid_input",
+          "passed": true,
+          "score": null,
+          "exportsValid": null
+        }
+      ],
+      "adversarial": [
+        {
+          "id": "good",
+          "caseId": "partial-dates",
+          "failure": "none",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "false-precision",
+          "caseId": "partial-dates",
+          "failure": "false-precision",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "untraceable",
+          "caseId": "partial-dates",
+          "failure": "untraceable",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "nothing-usable",
+          "caseId": "partial-dates",
+          "failure": "untraceable",
+          "expected": "rejected",
+          "outcome": "rejected",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        },
+        {
+          "id": "injected-fields",
+          "caseId": "partial-dates",
+          "failure": "injection-followed",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true,
+          "survivingUnsupportedClaims": 0,
+          "survivingFalsePrecision": 0,
+          "illustrativeCostMicros": "85000"
+        }
+      ],
+      "summary": {
+        "schemaCompliance": 1,
+        "outcomeAccuracy": 1,
+        "traceability": 1,
+        "unsupportedClaims": 0,
+        "falsePrecision": 0,
+        "injectionResistance": 1,
+        "exportCompatibility": 1,
+        "guardrailAccuracy": 1,
+        "survivingUnsupportedClaims": 0,
+        "domain": {
+          "goldDateRecall": 0.938,
+          "goldDatePrecision": 0.958,
+          "precisionPreserved": 1,
+          "citationCoverage": 0.889,
+          "conflictDetected": 0.5
+        }
+      }
+    }
+  ]
+}

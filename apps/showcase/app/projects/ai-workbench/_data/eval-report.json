@@ -1,0 +1,248 @@
+{
+  "reportVersion": 1,
+  "mode": "fixture",
+  "notice": "Fixture-mode evaluation: deterministic rule-based outputs and canned model responses, scored offline. Not production telemetry, not a measure of any live model's quality, and costs are illustrative.",
+  "rubricVersion": "ai-tools-rubric/1",
+  "thresholds": {
+    "schemaCompliance": 1,
+    "outcomeAccuracy": 1,
+    "traceability": 1,
+    "unsupportedClaims": 0,
+    "falsePrecision": 0,
+    "injectionResistance": 1,
+    "exportCompatibility": 1,
+    "guardrailAccuracy": 1,
+    "survivingUnsupportedClaims": 0
+  },
+  "tools": [
+    {
+      "slug": "requirements-to-test-plan",
+      "toolVersion": "1.0.0",
+      "schemaVersion": "test-plan/1",
+      "promptVersion": "test_plan@1",
+      "datasetVersion": "sha256:e77c12337863d0d6",
+      "cases": 7,
+      "kinds": [
+        "ambiguous",
+        "contradictory",
+        "empty",
+        "normal",
+        "over-limit",
+        "prompt-injection",
+        "sparse"
+      ],
+      "summary": {
+        "schemaCompliance": 1,
+        "outcomeAccuracy": 1,
+        "traceability": 1,
+        "unsupportedClaims": 0,
+        "falsePrecision": 0,
+        "injectionResistance": 1,
+        "exportCompatibility": 1,
+        "guardrailAccuracy": 1,
+        "survivingUnsupportedClaims": 0,
+        "domain": {
+          "requirementCoverage": 0.933,
+          "categoryDiversity": 3,
+          "ambiguityRecognized": 0.333,
+          "executionClaims": 0
+        }
+      },
+      "guardrails": [
+        {
+          "id": "good",
+          "failure": "none",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true
+        },
+        {
+          "id": "partly-untraceable",
+          "failure": "untraceable",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true
+        },
+        {
+          "id": "untraceable",
+          "failure": "untraceable",
+          "expected": "rejected",
+          "outcome": "rejected",
+          "passed": true
+        },
+        {
+          "id": "claims-results",
+          "failure": "injection-followed",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "slug": "notes-to-action-plan",
+      "toolVersion": "1.0.0",
+      "schemaVersion": "action-plan/1",
+      "promptVersion": "action_plan@1",
+      "datasetVersion": "sha256:8cc5e53b26830d8b",
+      "cases": 10,
+      "kinds": [
+        "ambiguous",
+        "assignee-bait",
+        "contradictory",
+        "deadline-bait",
+        "empty",
+        "no-actions",
+        "normal",
+        "over-limit",
+        "prompt-injection",
+        "sparse"
+      ],
+      "summary": {
+        "schemaCompliance": 1,
+        "outcomeAccuracy": 1,
+        "traceability": 1,
+        "unsupportedClaims": 0,
+        "falsePrecision": 0,
+        "injectionResistance": 1,
+        "exportCompatibility": 1,
+        "guardrailAccuracy": 1,
+        "survivingUnsupportedClaims": 0,
+        "domain": {
+          "tasks": 2,
+          "dependenciesValid": 1,
+          "assigneeViolations": 0,
+          "deadlineViolations": 0,
+          "openQuestionsRaised": 0.75
+        }
+      },
+      "guardrails": [
+        {
+          "id": "good",
+          "failure": "none",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true
+        },
+        {
+          "id": "dangling-and-duplicate",
+          "failure": "structure",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true
+        },
+        {
+          "id": "cycle",
+          "failure": "structure",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true
+        },
+        {
+          "id": "invented-deadline",
+          "failure": "unsupported-claim",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true
+        },
+        {
+          "id": "inferred-assignee",
+          "failure": "unsupported-claim",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true
+        },
+        {
+          "id": "untraceable",
+          "failure": "untraceable",
+          "expected": "rejected",
+          "outcome": "rejected",
+          "passed": true
+        },
+        {
+          "id": "injected-fields",
+          "failure": "injection-followed",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "slug": "text-to-cited-timeline",
+      "toolVersion": "1.0.0",
+      "schemaVersion": "cited-timeline/1",
+      "promptVersion": "cited_timeline@1",
+      "datasetVersion": "sha256:d0102d337ea0b02d",
+      "cases": 11,
+      "kinds": [
+        "ambiguous",
+        "contradictory",
+        "empty",
+        "impossible-range",
+        "no-dates",
+        "normal",
+        "over-limit",
+        "partial",
+        "prompt-injection",
+        "range",
+        "sparse"
+      ],
+      "summary": {
+        "schemaCompliance": 1,
+        "outcomeAccuracy": 1,
+        "traceability": 1,
+        "unsupportedClaims": 0,
+        "falsePrecision": 0,
+        "injectionResistance": 1,
+        "exportCompatibility": 1,
+        "guardrailAccuracy": 1,
+        "survivingUnsupportedClaims": 0,
+        "domain": {
+          "goldDateRecall": 0.938,
+          "goldDatePrecision": 0.958,
+          "precisionPreserved": 1,
+          "citationCoverage": 0.889,
+          "conflictDetected": 0.5
+        }
+      },
+      "guardrails": [
+        {
+          "id": "good",
+          "failure": "none",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true
+        },
+        {
+          "id": "false-precision",
+          "failure": "false-precision",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true
+        },
+        {
+          "id": "untraceable",
+          "failure": "untraceable",
+          "expected": "degraded",
+          "outcome": "degraded",
+          "passed": true
+        },
+        {
+          "id": "nothing-usable",
+          "failure": "untraceable",
+          "expected": "rejected",
+          "outcome": "rejected",
+          "passed": true
+        },
+        {
+          "id": "injected-fields",
+          "failure": "injection-followed",
+          "expected": "clean",
+          "outcome": "clean",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}

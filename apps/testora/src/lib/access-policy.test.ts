@@ -25,6 +25,8 @@ test("members may report a bug: draft, save and file an issue", () => {
   assert.equal(isAllowed({ pathname: "/api/issues/generate", method: "POST", roles: member }), true);
   assert.equal(isAllowed({ pathname: "/api/issues", method: "POST", roles: member }), true);
   assert.equal(isAllowed({ pathname: "/api/issues/i_1/publish", method: "POST", roles: member }), true);
+  assert.equal(isAllowed({ pathname: "/api/imports/workbench/preview", method: "POST", roles: member }), true);
+  assert.equal(isAllowed({ pathname: "/api/imports/workbench/confirm", method: "POST", roles: member }), false);
   // Look-alikes stay admin-only.
   assert.equal(isAllowed({ pathname: "/api/issues/i_1/publish/x", method: "POST", roles: member }), false);
   assert.equal(isAllowed({ pathname: "/api/issues/i_1", method: "POST", roles: member }), false);

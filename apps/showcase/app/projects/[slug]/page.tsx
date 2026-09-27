@@ -23,7 +23,7 @@ interface ProjectPageProps {
 
 // These slugs have their own richer static routes (e.g. /projects/testora),
 // which take precedence over this dynamic segment — don't prerender them here.
-const HAS_STATIC_ROUTE = new Set(["testora", "ai-eval", "edumatch", "vionto"]);
+const HAS_STATIC_ROUTE = new Set(["testora", "ai-eval", "edumatch", "vionto", "ai-workbench"]);
 
 export function generateStaticParams() {
   return projects

@@ -22,6 +22,7 @@ export function ShellReferenceWorkbench({ tool }: { tool: ToolDefinition }) {
     <ToolWorkbench<ReferenceResult>
       inputLabel="Your notes"
       inputPlaceholder="Paste a few lines of meeting or planning notes…"
+      trackAs={tool.slug}
       exampleLabel={tool.example.label}
       exampleInput={tool.example.input}
       limits={tool.limits}

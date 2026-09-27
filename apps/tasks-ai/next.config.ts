@@ -20,7 +20,7 @@ const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   turbopack: { root: path.resolve(appRoot, "../..") },
-  transpilePackages: ["@asafarim/ai-cost-ledger", "@asafarim/ui", "@asafarim/theme-toggle", "@asafarim/testora-tasksai-contract", "@asafarim/auth", "@asafarim/db"],
+  transpilePackages: ["@asafarim/ai-cost-ledger", "@asafarim/ui", "@asafarim/theme-toggle", "@asafarim/testora-tasksai-contract", "@asafarim/auth", "@asafarim/db", "@asafarim/tool-handoff"],
   devIndicators: false,
   poweredByHeader: false,
   async headers() {

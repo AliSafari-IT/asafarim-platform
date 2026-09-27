@@ -25,8 +25,9 @@ import { ProviderError, type LiveCompletionResult, type LiveProvider } from "./p
  *   request shape → tool exists → input size → input schema   (no spend)
  *   → example? serve fixture                                    (no spend)
  *   → paused / disabled / fixture mode / live off               (no spend)
- *   → admission (rate limit, quota — #680)                      (no spend)
- *   → idempotency → spend ceiling → provider (timeout)          (spend)
+ *   → idempotency → spend ceiling                               (no spend)
+ *   → admission: rate limits, concurrency, daily budget (#680)  (no spend)
+ *   → provider (timeout)                                        (spend)
  *   → cost event → output size → JSON → output schema → envelope
  *
  * Nothing here logs or returns input/output text, prompts, keys, or raw
@@ -38,8 +39,13 @@ export interface ExecuteDeps {
   store: IdempotencyStore;
   sink: CostEventSink;
   log: ToolLogger;
-  /** Rate-limit / quota gate (#680). Null = admitted. */
-  admit?: (slug: string) => Promise<{ code: "rate_limited" | "quota_exceeded"; retryAfterSeconds?: number } | null>;
+  /**
+   * Live-run admission (#680): rate limits, concurrency, daily budget.
+   * Called once per fresh live execution (never for replays), with the
+   * run's worst-case cost. A granted lease is released after the call with
+   * the recorded estimate, or null when the cost is unknown.
+   */
+  admit?: (slug: string, worstCaseMicros: bigint) => Promise<Admission> | Admission;
   /** Aborted when the client disconnects. */
   signal?: AbortSignal;
   now?: () => number;
@@ -49,6 +55,10 @@ export interface ExecuteDeps {
   /** Override for tests; defaults to the validated catalogue. */
   resolveTool?: (slug: string) => ToolDefinition | undefined;
 }
+
+export type Admission =
+  | { ok: true; release(recordedMicros: bigint | null): void }
+  | { ok: false; code: "rate_limited" | "quota_exceeded"; retryAfterSeconds?: number };
 
 export interface ExecuteResult {
   status: number;
@@ -137,9 +147,6 @@ export async function executeTool(
     if (config.notes.length) deps.log({ event: "tool_config", slug: tool.slug, notes: config.notes });
     return fail("provider_disabled");
   }
-  const denied = deps.admit ? await deps.admit(tool.slug) : null;
-  if (denied) return fail(denied.code, { retryAfterSeconds: denied.retryAfterSeconds });
-
   // 4. Idempotent live execution.
   const live = adapter.live;
   const providerConfig = config.provider;
@@ -158,92 +165,111 @@ export async function executeTool(
       return toolError("provider_disabled");
     }
 
-    const runId = (deps.newRunId ?? randomUUID)();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort("timeout"), adapter.limits.timeoutMs);
-    const onClientAbort = () => controller.abort("client");
-    deps.signal?.addEventListener("abort", onClientAbort, { once: true });
-    const callStarted = now();
-    const attempt = (result: LiveCompletionResult | null, outcomeKind: LiveAttempt["outcome"]): LiveAttempt => ({
-      runId,
-      slug: tool.slug,
-      toolVersion: adapter.version,
-      promptVersion: live.promptVersion,
-      provider: providerConfig.name,
-      requestModel: providerConfig.model,
-      responseModel: result?.responseModel ?? null,
-      providerRequestId: result?.providerRequestId ?? null,
-      usage: result?.usage ?? null,
-      outcome: outcomeKind,
-      latencyMs: now() - callStarted,
-      occurredAt: new Date(callStarted),
-      fallbackUsed: result?.fallbackUsed ?? false,
-    });
-    const record = async (a: LiveAttempt): Promise<string | null> => {
-      try {
-        const ref = await deps.sink.record(buildCostEvent(a));
-        costRecorded = true;
-        return ref;
-      } catch {
-        deps.log({ event: "tool_config", slug: tool.slug, notes: ["cost event write failed"] });
-        return null;
-      }
-    };
-
-    let result: LiveCompletionResult;
+    let admission: Admission | null;
     try {
-      result = await deps.createProvider(providerConfig, adapter.limits.timeoutMs).complete({
-        model: providerConfig.model,
-        system: prompt.system,
-        user: prompt.user,
-        outputJsonSchema: live.outputJsonSchema,
-        maxOutputTokens: adapter.limits.maxOutputTokens,
-        effort: live.effort ?? "medium",
-        signal: controller.signal,
-      });
-    } catch (error) {
-      const kind = error instanceof ProviderError ? error.kind : "unavailable";
-      const timedOut = kind === "timeout" || controller.signal.reason === "timeout";
-      // Billing is unknown when the request may have reached the provider
-      // before we gave up: record it so reconciliation can account for it.
-      if (timedOut || kind === "cancelled") await record(attempt(null, "cancelled"));
-      if (timedOut) return toolError("timeout");
-      if (kind === "rate_limited") {
-        return toolError("provider_error", { retryAfterSeconds: error instanceof ProviderError ? error.retryAfterSeconds : undefined });
-      }
-      if (kind === "unavailable") return toolError("provider_error");
-      // auth / bad_request / cancelled: configuration or caller problems — final.
-      if (kind === "auth" || kind === "bad_request") {
-        deps.log({ event: "tool_config", slug: tool.slug, notes: [`provider rejected request: ${kind}`] });
-      }
-      return toolError("internal");
-    } finally {
-      clearTimeout(timer);
-      deps.signal?.removeEventListener("abort", onClientAbort);
+      admission = deps.admit ? await deps.admit(tool.slug, ceiling.micros) : null;
+    } catch {
+      // A broken limiter fails closed: no admission, no spend.
+      return toolError("rate_limited");
     }
-    fallbackUsed = result.fallbackUsed;
+    if (admission && !admission.ok) return toolError(admission.code, { retryAfterSeconds: admission.retryAfterSeconds });
+    let recordedMicros: bigint | null = null;
 
-    // 5. Validate after the call. Billed usage is recorded either way.
-    if (result.stop === "refusal") {
-      await record(attempt(result, "failed"));
-      return toolError("declined");
+    const callProvider = async (): Promise<ToolRunEnvelope> => {
+      const runId = (deps.newRunId ?? randomUUID)();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort("timeout"), adapter.limits.timeoutMs);
+      const onClientAbort = () => controller.abort("client");
+      deps.signal?.addEventListener("abort", onClientAbort, { once: true });
+      const callStarted = now();
+      const attempt = (result: LiveCompletionResult | null, outcomeKind: LiveAttempt["outcome"]): LiveAttempt => ({
+        runId,
+        slug: tool.slug,
+        toolVersion: adapter.version,
+        promptVersion: live.promptVersion,
+        provider: providerConfig.name,
+        requestModel: providerConfig.model,
+        responseModel: result?.responseModel ?? null,
+        providerRequestId: result?.providerRequestId ?? null,
+        usage: result?.usage ?? null,
+        outcome: outcomeKind,
+        latencyMs: now() - callStarted,
+        occurredAt: new Date(callStarted),
+        fallbackUsed: result?.fallbackUsed ?? false,
+      });
+      const record = async (a: LiveAttempt): Promise<string | null> => {
+        try {
+          const event = buildCostEvent(a);
+          if (event.estimatedCostMicros !== null) recordedMicros = (recordedMicros ?? BigInt(0)) + BigInt(event.estimatedCostMicros);
+          const ref = await deps.sink.record(event);
+          costRecorded = true;
+          return ref;
+        } catch {
+          deps.log({ event: "tool_config", slug: tool.slug, notes: ["cost event write failed"] });
+          return null;
+        }
+      };
+
+      let result: LiveCompletionResult;
+      try {
+        result = await deps.createProvider(providerConfig, adapter.limits.timeoutMs).complete({
+          model: providerConfig.model,
+          system: prompt.system,
+          user: prompt.user,
+          outputJsonSchema: live.outputJsonSchema,
+          maxOutputTokens: adapter.limits.maxOutputTokens,
+          effort: live.effort ?? "medium",
+          signal: controller.signal,
+        });
+      } catch (error) {
+        const kind = error instanceof ProviderError ? error.kind : "unavailable";
+        const timedOut = kind === "timeout" || controller.signal.reason === "timeout";
+        // Billing is unknown when the request may have reached the provider
+        // before we gave up: record it so reconciliation can account for it.
+        if (timedOut || kind === "cancelled") await record(attempt(null, "cancelled"));
+        if (timedOut) return toolError("timeout");
+        if (kind === "rate_limited") {
+          return toolError("provider_error", { retryAfterSeconds: error instanceof ProviderError ? error.retryAfterSeconds : undefined });
+        }
+        if (kind === "unavailable") return toolError("provider_error");
+        // auth / bad_request / cancelled: configuration or caller problems — final.
+        if (kind === "auth" || kind === "bad_request") {
+          deps.log({ event: "tool_config", slug: tool.slug, notes: [`provider rejected request: ${kind}`] });
+        }
+        return toolError("internal");
+      } finally {
+        clearTimeout(timer);
+        deps.signal?.removeEventListener("abort", onClientAbort);
+      }
+      fallbackUsed = result.fallbackUsed;
+
+      // 5. Validate after the call. Billed usage is recorded either way.
+      if (result.stop === "refusal") {
+        await record(attempt(result, "failed"));
+        return toolError("declined");
+      }
+      const parsed = result.stop === "complete" ? parseOutput(result.text, input, adapter) : null;
+      if (parsed === null) {
+        await record(attempt(result, "failed"));
+        return toolError("invalid_output");
+      }
+      const degraded = parsed.dropped.length > 0;
+      const costEventRef = await record(attempt(result, degraded ? "degraded" : "succeeded"));
+      return success(adapter, {
+        mode: "live",
+        output: parsed.output,
+        model: result.responseModel,
+        promptVersion: live.promptVersion,
+        durationMs: now() - started,
+        costEventRef,
+        warnings: parsed.dropped,
+      });
+    };
+    try {
+      return await callProvider();
+    } finally {
+      if (admission) admission.release(recordedMicros);
     }
-    const parsed = result.stop === "complete" ? parseOutput(result.text, input, adapter) : null;
-    if (parsed === null) {
-      await record(attempt(result, "failed"));
-      return toolError("invalid_output");
-    }
-    const degraded = parsed.dropped.length > 0;
-    const costEventRef = await record(attempt(result, degraded ? "degraded" : "succeeded"));
-    return success(adapter, {
-      mode: "live",
-      output: parsed.output,
-      model: result.responseModel,
-      promptVersion: live.promptVersion,
-      durationMs: now() - started,
-      costEventRef,
-      warnings: parsed.dropped,
-    });
   });
 
   if (outcome.kind === "conflict") return fail("idempotency_conflict");

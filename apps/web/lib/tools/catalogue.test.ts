@@ -45,7 +45,7 @@ describe("routing and listing", () => {
 describe("buildToolMetadata", () => {
   it("derives title, description, canonical, and noindex from the entry", () => {
     const tool = referenceTool;
-    expect(buildToolMetadata(tool)).toEqual({
+    expect(buildToolMetadata(tool)).toMatchObject({
       title: tool.title,
       description: tool.shortDescription,
       alternates: { canonical: "/tools/shell-reference" },

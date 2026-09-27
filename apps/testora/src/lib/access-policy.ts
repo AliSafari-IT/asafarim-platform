@@ -48,6 +48,8 @@ const MEMBER_WRITES: { method: string; pattern: RegExp }[] = [
   { method: "POST", pattern: /^\/api\/issues\/generate$/ },
   { method: "POST", pattern: /^\/api\/issues$/ },
   { method: "POST", pattern: /^\/api\/issues\/[^/]+\/publish$/ },
+  // Previewing an AI Workbench handoff (#678) writes nothing; confirming it stays admin-only.
+  { method: "POST", pattern: /^\/api\/imports\/workbench\/preview$/ },
 ];
 
 /** Reads that expose configuration only admins manage. */

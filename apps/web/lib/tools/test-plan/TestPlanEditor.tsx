@@ -4,6 +4,9 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Badge, Button } from "@asafarim/ui";
 import { ProvenanceBadge } from "../../../components/tools/ProvenanceBadge";
 import { ToolExport } from "../../../components/tools/ToolExport";
+import { ToolHandoff } from "../../../components/tools/ToolHandoff";
+import { testPlanHandoff } from "../handoff";
+import { useResultTracking } from "../use-edit-tracker";
 import { applyScenarioEdit, draftFrom, type ScenarioDraft } from "./edit";
 import { EXPORT_NOTICE, plannedCounts, toExportJson, toMarkdown, type EditableScenario, type ScenarioOrigin } from "./export";
 import { CATEGORY_LABELS, PRIORITIES, TEST_CATEGORIES, type TestPlan } from "./schema";
@@ -30,6 +33,7 @@ export function TestPlanEditor({ plan, origin }: { plan: TestPlan; origin: Scena
   const [announcement, setAnnouncement] = useState("");
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const baseId = useId();
+  const track = useResultTracking("requirements-to-test-plan");
 
   // A new run replaces the plan: start review over.
   useEffect(() => {
@@ -45,15 +49,18 @@ export function TestPlanEditor({ plan, origin }: { plan: TestPlan; origin: Scena
   const counts = plannedCounts(chosen);
   const srcAnchor = (id: string) => `${baseId}-src-${id}`;
 
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
+    track.edited("select");
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  };
 
   const remove = (id: string) => {
+    track.edited("remove");
     const index = active.findIndex((s) => s.id === id);
     setRemoved((prev) => new Set(prev).add(id));
     setAnnouncement(`${id} removed. You can restore it from the removed list.`);
@@ -75,6 +82,7 @@ export function TestPlanEditor({ plan, origin }: { plan: TestPlan; origin: Scena
   };
 
   const save = (updated: EditableScenario) => {
+    track.edited("edit");
     setScenarios((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
     setEditing(null);
     setAnnouncement(`${updated.id} saved.`);
@@ -214,6 +222,12 @@ export function TestPlanEditor({ plan, origin }: { plan: TestPlan; origin: Scena
               filenameBase={slugify(plan.title)}
               json={toExportJson(exportPlan, chosen)}
               markdown={toMarkdown(exportPlan, chosen)}
+              onExport={track.exported}
+            />
+            <ToolHandoff
+              destination="testora"
+              what={`the ${chosen.length} selected scenario${chosen.length === 1 ? "" : "s"}, which arrive in Testora as pending scaffolds to automate`}
+              build={() => testPlanHandoff(exportPlan, chosen)}
             />
           </>
         ) : (

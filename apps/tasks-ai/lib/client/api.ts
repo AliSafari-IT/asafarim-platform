@@ -380,6 +380,9 @@ export const api = {
       captureToInbox?: boolean;
     },
   ) => call<ImportSummary>(`/workspaces/${slug}/imports`, { method: "POST", body: JSON.stringify(body) }),
+  /** AI Workbench handoff file (#678): validated and staged server-side; idempotent per handoff id. */
+  createHandoffImport: (slug: string, body: { projectId: string; content: string; captureToInbox?: boolean }) =>
+    call<ImportSummary>(`/workspaces/${slug}/imports/handoff`, { method: "POST", body: JSON.stringify(body) }),
   applyImport: (slug: string, id: string) =>
     call<ImportSummary>(`/workspaces/${slug}/imports/${id}/apply`, { method: "POST" }),
 
@@ -443,6 +446,9 @@ export interface ImportSummary {
   duplicateRows: number;
   okRows: number;
   errors: { rowKey: string; errors: string[] }[];
+  preview?: { rowKey: string; title: string; status: string }[];
+  /** Handoff imports only: this file was already applied in this workspace. */
+  alreadyImported?: boolean;
 }
 export interface AutomationRule {
   id: string;

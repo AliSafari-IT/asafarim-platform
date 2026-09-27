@@ -1,0 +1,23 @@
+{
+  "name": "@asafarim/ai-tools-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Workbench eval gate (#679): runs every public AI tool's synthetic and adversarial datasets through the real server execution boundary in fixture mode, scores schema compliance, grounding, unsupported claims, false precision, injection resistance, limits, exports, and domain quality, and fails CI below the agreed thresholds. Live-provider evaluation is opt-in and budget-capped.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "eval": "node --import ./scripts/register.mjs --import tsx scripts/print.ts",
+    "bench:generate": "node --import ./scripts/register.mjs --import tsx scripts/generate.ts",
+    "eval:live": "node --import ./scripts/register.mjs --import tsx scripts/live.ts"
+  },
+  "dependencies": {
+    "@asafarim/timeline-contract": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11"
+  }
+}

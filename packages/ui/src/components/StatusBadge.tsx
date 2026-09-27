@@ -1,4 +1,5 @@
-export type Status = "live" | "beta" | "planned" | "archived";
+/** `experiment`: shipped and usable, but not yet promoted (e.g. AI Workbench tools before their beta gate). */
+export type Status = "live" | "beta" | "experiment" | "planned" | "archived";
 
 export interface StatusBadgeProps {
   status: Status;
@@ -7,6 +8,7 @@ export interface StatusBadgeProps {
 const labels: Record<Status, string> = {
   live: "Live",
   beta: "Beta",
+  experiment: "Experiment",
   planned: "Planned",
   archived: "Archived",
 };

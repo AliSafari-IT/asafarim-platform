@@ -15,7 +15,7 @@ import type { PlatformLinks } from "@asafarim/ui";
  * `app/tools/[slug]/workbenches.tsx` (type-checked), so a tool cannot exist
  * half-registered and the route never resolves a component from user input.
  */
-export const TOOL_SLUGS = ["shell-reference", "requirements-to-test-plan"] as const;
+export const TOOL_SLUGS = ["shell-reference", "requirements-to-test-plan", "notes-to-action-plan", "text-to-cited-timeline"] as const;
 export type ToolSlug = (typeof TOOL_SLUGS)[number];
 
 /** Charter §4. Separate from the platform app registry's `active | coming-soon`. */
@@ -99,6 +99,12 @@ export interface ToolDefinition {
   limits: ToolLimits;
   /** What this tool actually gets wrong or does not do. At least one. */
   limitations: string[];
+  /**
+   * How it works under the hood, in plain words, for the page's engineering
+   * context (#681): validation, grounding, checks. Two to six sentences, each
+   * true of the shipped code. Deeper evidence lives in the case study.
+   */
+  howItWorks: string[];
   /** Tool-specific retention/processing statement shown next to the input. */
   privacyStatement: string;
   /** The full app the result can continue in. */
@@ -131,7 +137,8 @@ export type ToolRunOutcome<TResult> =
   | { kind: "success"; mode: ToolRunMode; result: TResult }
   | { kind: "degraded"; mode: ToolRunMode; result: TResult; missing: string[] }
   | { kind: "invalid"; issues: string[] }
-  | { kind: "rate-limited"; retryAfterSeconds?: number }
+  /** `visitor`: this visitor's allowance; `daily`: the site-wide daily budget. */
+  | { kind: "rate-limited"; retryAfterSeconds?: number; scope?: "visitor" | "daily" }
   | { kind: "provider-disabled"; reason: "paused" | "unavailable" }
   | { kind: "failed"; message?: string };
 

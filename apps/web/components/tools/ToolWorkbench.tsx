@@ -3,8 +3,10 @@
 import { useEffect, useId, useReducer, useRef, useState, type ReactNode } from "react";
 import { Button } from "@asafarim/ui";
 import { checkInput, isConcluded, toolRunReducer, type ToolRunState } from "../../lib/tools/run-state";
+import { runOutcomeEvent, trackToolEvent } from "../../lib/tools/analytics";
 import { describeRunState } from "../../lib/tools/status-copy";
-import type { ToolLimits, ToolRunMode, ToolRunner } from "../../lib/tools/types";
+import type { ToolLimits, ToolRunMode, ToolRunner, ToolSlug } from "../../lib/tools/types";
+import { TOOL_VERSIONS } from "../../lib/tools/versions";
 import { ToolOutcome } from "./ToolOutcome";
 import styles from "./tools.module.css";
 
@@ -25,6 +27,8 @@ export interface ToolWorkbenchProps<TResult> {
   isExample?: (text: string) => boolean;
   /** Change it when extra fields change, so the example/ready state is recomputed. */
   optionsKey?: string;
+  /** Which tool to attribute allowlisted analytics events to (#682). */
+  trackAs?: ToolSlug;
 }
 
 /**
@@ -48,7 +52,9 @@ export function ToolWorkbench<TResult>({
   onLoadExample,
   isExample = (text) => text === exampleInput,
   optionsKey,
+  trackAs,
 }: ToolWorkbenchProps<TResult>) {
+  const base = trackAs ? { tool: trackAs, tool_version: TOOL_VERSIONS[trackAs] } : null;
   const [input, setInput] = useState("");
   const [state, dispatch] = useReducer(toolRunReducer<TResult>, { kind: "idle" } as ToolRunState<TResult>);
   const [announcement, setAnnouncement] = useState("");
@@ -89,11 +95,19 @@ export function ToolWorkbench<TResult>({
     const controller = new AbortController();
     abortRef.current = controller;
     dispatch({ type: "run-started" });
+    if (base) trackToolEvent({ name: "ai_tool_run_started", props: { ...base, input: isExample(input) ? "example" : "own" } });
     try {
       const outcome = await runner(input, controller.signal);
-      if (!controller.signal.aborted) dispatch({ type: "run-finished", outcome });
+      if (!controller.signal.aborted) {
+        dispatch({ type: "run-finished", outcome });
+        const event = base ? runOutcomeEvent(base, outcome as Parameters<typeof runOutcomeEvent>[1]) : null;
+        if (event) trackToolEvent(event);
+      }
     } catch {
-      if (!controller.signal.aborted) dispatch({ type: "run-finished", outcome: { kind: "failed" } });
+      if (!controller.signal.aborted) {
+        dispatch({ type: "run-finished", outcome: { kind: "failed" } });
+        if (base) trackToolEvent({ name: "ai_tool_run_failed", props: { ...base, category: "failed" } });
+      }
     }
   }
 
@@ -132,6 +146,7 @@ export function ToolWorkbench<TResult>({
             // Extra fields update on the next render; optionsKey then recomputes the example state.
             onLoadExample?.();
             changeInput(exampleInput);
+            if (base) trackToolEvent({ name: "ai_tool_example_loaded", props: base });
           }}
           disabled={running}
         >

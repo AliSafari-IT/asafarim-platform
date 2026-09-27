@@ -67,6 +67,9 @@ export function validateCatalogue(
     if (!tool.limitations?.length || tool.limitations.some((l) => !l.trim())) {
       fail("at least one non-empty limitation is required");
     }
+    if (!tool.howItWorks?.length || tool.howItWorks.length > 6 || tool.howItWorks.some((l) => !l.trim())) {
+      fail("howItWorks needs one to six non-empty points");
+    }
 
     // Limits and fixture.
     const { minInputChars, maxInputChars } = tool.limits ?? {};

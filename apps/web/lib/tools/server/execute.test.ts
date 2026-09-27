@@ -204,7 +204,7 @@ describe("kill switches and fail-closed config", () => {
 
   it("honours the admission hook (rate limit / quota) before spending", async () => {
     const h = harness();
-    h.deps.admit = async () => ({ code: "rate_limited", retryAfterSeconds: 30 });
+    h.deps.admit = async () => ({ ok: false, code: "rate_limited", retryAfterSeconds: 30 });
     const { envelope, status } = await h.exec(live("some valid notes"));
     expect(status).toBe(429);
     expect(!envelope.ok && envelope.error).toMatchObject({ code: "rate_limited", retryAfterSeconds: 30, retryable: true });

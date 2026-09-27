@@ -1,0 +1,106 @@
+# AI Workbench eval gate (#679): runs every public AI tool's datasets through
+# the real execution boundary in fixture mode (no API keys, no billable
+# calls), fails on schema/grounding/safety thresholds, and fails if the
+# committed reports drifted. Also runs the web tool tests, which the
+# general CI (packages only) doesn't cover. Live-provider evals are opt-in
+# and never run here.
+name: AI Workbench eval gate
+
+on:
+  push:
+    paths:
+      - "benchmarks/ai-tools/**"
+      - "apps/web/lib/tools/**"
+      - "apps/web/content/tools.ts"
+      - "apps/web/content/tool-fixtures/**"
+      - "apps/web/components/tools/**"
+      - "apps/web/app/tools/**"
+      - "apps/web/app/api/tools/**"
+      - "packages/timeline-contract/**"
+      - "packages/ai-cost-ledger/**"
+      - "apps/showcase/app/projects/ai-workbench/_data/**"
+      - ".github/workflows/ai-tools-benchmark.yml"
+  pull_request:
+    paths:
+      - "benchmarks/ai-tools/**"
+      - "apps/web/lib/tools/**"
+      - "apps/web/content/tools.ts"
+      - "apps/web/content/tool-fixtures/**"
+      - "apps/web/components/tools/**"
+      - "apps/web/app/tools/**"
+      - "apps/web/app/api/tools/**"
+      - "packages/timeline-contract/**"
+      - "packages/ai-cost-ledger/**"
+      - "apps/showcase/app/projects/ai-workbench/_data/**"
+  workflow_dispatch:
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+
+      - name: Eval gate (fixture mode, no keys)
+        run: pnpm bench:ai-tools
+
+      - name: Gate + committed-report drift check
+        run: pnpm --filter @asafarim/ai-tools-benchmark test
+
+      - name: Web AI tool tests
+        run: pnpm --filter @asafarim/web test
+
+      - name: Shared timeline contract tests
+        run: pnpm --filter @asafarim/timeline-contract test
+
+  e2e:
+    # Launch-gate E2E (#684): production build of Web in fixture mode (no
+    # provider keys), keyboard-only flows, axe, resilience, performance
+    # budgets, and a server-log leak check, on desktop and mobile profiles.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+
+      - name: Install Chromium for Playwright
+        run: pnpm --filter @asafarim/web exec playwright install --with-deps chromium
+
+      - name: Build Web
+        run: pnpm --filter @asafarim/web exec next build
+        env:
+          AUTH_SECRET: ci-e2e-throwaway-secret
+
+      - name: Run launch E2E
+        run: pnpm --filter @asafarim/web e2e
+
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ai-tools-e2e
+          path: apps/web/e2e/.artifacts/
+          retention-days: 30

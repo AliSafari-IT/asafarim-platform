@@ -25,6 +25,7 @@
     "ai:eval": "dotenv -e ../../.env.local -e ../../.env -- tsx evals/run.ts"
   },
   "dependencies": {
+    "@asafarim/tool-handoff": "workspace:*",
     "@anthropic-ai/sdk": "^0.68.0",
     "@asafarim/ai-cost-ledger": "workspace:*",
     "@asafarim/auth": "workspace:*",
