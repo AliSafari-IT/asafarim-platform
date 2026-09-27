@@ -806,16 +806,20 @@ export function ProfileWorkbench({
                                   onChange={(event) => setRole({ startedOn: event.target.value || null })}
                                 />
                               </label>
-                              <label>
-                                {t("resumatch.wb.exp.ended")}
-                                <input
-                                  type="text"
-                                  value={role.endedOn ?? ""}
-                                  placeholder="2023-12"
-                                  disabled={role.isCurrent}
-                                  onChange={(event) => setRole({ endedOn: event.target.value || null })}
-                                />
-                              </label>
+                              {/* A current role has no end date: the field is hidden
+                                  rather than disabled, so its example placeholder
+                                  can't read as a real date. */}
+                              {!role.isCurrent && (
+                                <label>
+                                  {t("resumatch.wb.exp.ended")}
+                                  <input
+                                    type="text"
+                                    value={role.endedOn ?? ""}
+                                    placeholder="2023-12"
+                                    onChange={(event) => setRole({ endedOn: event.target.value || null })}
+                                  />
+                                </label>
+                              )}
                             </div>
                             {!role.endedOn && (
                               <>
