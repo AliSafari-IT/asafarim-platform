@@ -1,15 +1,30 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getExperiment, getExperimentSlugs } from "../../../lib/experiments/registry";
+import {
+  getExperiment,
+  getExperimentSlugs,
+} from "../../../lib/experiments/registry";
 import { ExperimentShell } from "../_ExperimentShell";
 import { TimelineLayoutLab } from "../timeline-layout/TimelineLayoutLab";
 import { UiPlayground } from "../ui-playground/UiPlayground";
 import { AiEvalExplorer } from "../ai-eval-explorer/AiEvalExplorer";
+import {
+  AgentRouteSandbox,
+  ContextBudgetGarden,
+  PromptComposerLab,
+  RetrievalThresholdStudio,
+  VoiceShapeLab,
+} from "../studies/LabStudies";
 
 const COMPONENTS: Record<string, () => React.ReactElement> = {
   TimelineLayoutLab,
   UiPlayground,
   AiEvalExplorer,
+  PromptComposerLab,
+  RetrievalThresholdStudio,
+  AgentRouteSandbox,
+  VoiceShapeLab,
+  ContextBudgetGarden,
 };
 
 export function generateStaticParams() {
@@ -26,7 +41,11 @@ export async function generateMetadata({
   return { title: experiment?.title ?? "Experiment" };
 }
 
-export default async function ExperimentPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ExperimentPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const experiment = getExperiment(slug);
   if (!experiment) notFound();
