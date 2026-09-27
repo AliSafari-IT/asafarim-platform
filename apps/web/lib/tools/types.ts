@@ -99,6 +99,12 @@ export interface ToolDefinition {
   limits: ToolLimits;
   /** What this tool actually gets wrong or does not do. At least one. */
   limitations: string[];
+  /**
+   * How it works under the hood, in plain words, for the page's engineering
+   * context (#681): validation, grounding, checks. Two to six sentences, each
+   * true of the shipped code. Deeper evidence lives in the case study.
+   */
+  howItWorks: string[];
   /** Tool-specific retention/processing statement shown next to the input. */
   privacyStatement: string;
   /** The full app the result can continue in. */

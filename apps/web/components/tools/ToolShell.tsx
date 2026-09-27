@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { PageHeader, getPlatformLinks } from "@asafarim/ui";
 import type { ToolDefinition } from "../../lib/tools/types";
 import { ToolLifecycleBadge } from "./ToolLifecycleBadge";
+import { ToolStructuredData } from "./ToolStructuredData";
 import styles from "./tools.module.css";
 
 /**
@@ -17,12 +18,14 @@ export function ToolShell({ tool, children }: { tool: ToolDefinition; children: 
   const headingId = `tool-${tool.slug}-workbench`;
 
   return (
-    <article className={styles.shell}>
+    // Tool pages are English-only (docs/ai-tools/seo.md): mark them so, whatever the site locale.
+    <article className={styles.shell} lang="en">
+      {tool.indexable ? <ToolStructuredData tool={tool} /> : null}
       <PageHeader kicker="AI Workbench" title={tool.title} description={tool.shortDescription} />
 
       <div className={styles.meta}>
         <ToolLifecycleBadge lifecycle={tool.lifecycle} />
-        <span className={styles.muted}>No sign-in needed</span>
+        <span className={styles.muted}>Free to use · No sign-in needed</span>
       </div>
 
       <p className={styles.lead}>{tool.longDescription}</p>
@@ -53,6 +56,27 @@ export function ToolShell({ tool, children }: { tool: ToolDefinition; children: 
         {children}
       </section>
 
+      <section className={styles.panel} aria-labelledby={`${headingId}-example`}>
+        <h2 id={`${headingId}-example`}>Worked example</h2>
+        <p>
+          A synthetic example you can run above with &ldquo;{tool.example.label}&rdquo;. It works even when live generation is off, and its result is
+          labelled as a prepared sample.
+        </p>
+        <blockquote className={styles.example}>{excerpt(tool.example.input)}</blockquote>
+      </section>
+
+      <section className={styles.panel} aria-labelledby={`${headingId}-how`}>
+        <h2 id={`${headingId}-how`}>How it works</h2>
+        <ul className={styles.list}>
+          {tool.howItWorks.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+        <p className={styles.muted}>
+          How your text is handled: <a href="/privacy">privacy</a>. Terms for AI results: <a href="/terms">terms</a>.
+        </p>
+      </section>
+
       <section className={styles.panel} aria-labelledby={`${headingId}-limits`}>
         <h2 id={`${headingId}-limits`}>Limitations</h2>
         <ul className={styles.list}>
@@ -74,7 +98,7 @@ export function ToolShell({ tool, children }: { tool: ToolDefinition; children: 
       ) : null}
 
       <p className={styles.muted}>
-        Built by Ali Safari · Page last reviewed <time dateTime={tool.lastReviewed}>{formatDate(tool.lastReviewed)}</time>
+        Built by <a href="/about">Ali Safari</a> at ASafarIM Digital · Page last reviewed <time dateTime={tool.lastReviewed}>{formatDate(tool.lastReviewed)}</time>
       </p>
     </article>
   );
@@ -87,4 +111,10 @@ function formatDate(iso: string): string {
     year: "numeric",
     timeZone: "UTC",
   });
+}
+
+/** The first few lines of the example, for a page that reads well without running anything. */
+function excerpt(text: string): string {
+  const trimmed = text.trim();
+  return trimmed.length > 600 ? `${trimmed.slice(0, 600).replace(/\s+\S*$/, "")} …` : trimmed;
 }

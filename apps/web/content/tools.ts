@@ -40,6 +40,12 @@ export const toolCatalogue: ToolDefinition[] = [
       "Inferred scenarios are suggestions based on common risks, not requirements. Check each assumption.",
       "Live generation isn't switched on yet: while this tool is experimental, only the example runs.",
     ],
+    howItWorks: [
+      "Your requirement is split into numbered source lines on our server before anything else happens, and every scenario must point to those numbers or say it's an inferred risk.",
+      "The AI's answer has to match a versioned schema. Scenarios that cite text you didn't write, or claim that tests ran or passed, are removed, and you're told what was removed.",
+      "Ids are assigned by the server, not the AI, so they stay stable and sequential.",
+      "Every change to the tool runs a fixed set of normal, vague, contradictory, and adversarial requirements through the same checks before it can go live.",
+    ],
     privacyStatement:
       "Your text is sent to our server to build the plan and isn't stored or logged. When live generation is on, it's also sent to an AI provider (Anthropic) to draft the plan. Don't paste secrets or personal data.",
     relatedApp: { key: "testora", name: "Testora", reason: "Turn planned scenarios into automated checks and track results." },
@@ -71,6 +77,12 @@ export const toolCatalogue: ToolDefinition[] = [
       "Effort ranges are rough estimates, and dependencies marked inferred are guesses. Check both.",
       "It only knows what you paste: no links are followed and no calendars or tools are read.",
       "Live generation isn't switched on yet: while this tool is experimental, only the example runs.",
+    ],
+    howItWorks: [
+      "Your notes are numbered line by line on our server, and every task, risk, and decision must quote those lines, point to a constraint you gave, or explain its reasoning.",
+      "Tasks that assign a person or add a date your notes don't contain are removed on the server, whatever the AI wrote. Dependencies must point to real tasks, and circular chains become open questions.",
+      "The plan has to match a versioned schema with no field for an owner or due date.",
+      "Every change runs fixed messy, vague, contradictory, and adversarial notes through the same checks before it can go live.",
     ],
     privacyStatement:
       "Your notes are sent to our server to build the plan and aren't stored or logged. When live generation is on, they're also sent to an AI provider (Anthropic) to draft the plan. Remove names, secrets, and personal data you don't need to share.",
@@ -104,6 +116,12 @@ export const toolCatalogue: ToolDefinition[] = [
       "Nothing is published or sent to TimelineAI: you download the file and take it there yourself.",
       "Live generation isn't switched on yet: while this tool is experimental, only the example runs.",
     ],
+    howItWorks: [
+      "Your text is split into numbered sentences on our server. The AI copies each date exactly as written, and the server works out its precision with TimelineAI's own date parser.",
+      "A date that isn't worded that way in the sentence it cites is removed, so a vague date can't come back as an exact one.",
+      "Impossible ranges are found by TimelineAI's own conflict check, and disagreeing sources are kept side by side for you to decide.",
+      "Accepted events export in TimelineAI's versioned import format, and every change runs fixed exact, partial, conflicting, and adversarial texts through the same checks.",
+    ],
     privacyStatement:
       "Your text is sent to our server to build the timeline and isn't stored or logged. When live generation is on, it's also sent to an AI provider (Anthropic) to find the events. Don't paste private or personal material you don't want processed.",
     relatedApp: { key: "timelineai", name: "TimelineAI", reason: "Design, publish, and share the reviewed timeline." },
@@ -133,6 +151,7 @@ export const toolCatalogue: ToolDefinition[] = [
       "There is no live AI provider behind this tool. Outside fixture mode, only the prepared example produces a result.",
       "Not listed in the catalogue and not available in production.",
     ],
+    howItWorks: ["Runs through the real server execution boundary with a deterministic fixture and no AI provider."],
     privacyStatement: "Your text is sent to our server to produce the result and is not stored or logged. No AI provider sees it.",
     relatedApp: { key: "tasksai", name: "TasksAI", reason: "Plan and track the actions on a shared board." },
     lastReviewed: "2026-09-27",

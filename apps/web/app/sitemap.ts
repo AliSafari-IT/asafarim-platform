@@ -1,19 +1,17 @@
 import type { MetadataRoute } from "next";
 import { getPlatformLinks } from "@asafarim/ui";
-import { hasListedTools } from "../lib/tools/catalogue";
+import { getIndexableTools, hasListedTools } from "../lib/tools/catalogue";
+import { toolSitemapEntries } from "../lib/tools/sitemap";
 
 const routes = ["", "/about", "/services", "/projects", "/contact", "/privacy", "/terms"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const { web } = getPlatformLinks();
-  // The AI Workbench catalogue is listed once it has a public tool (#674);
-  // individual tool pages join in #681.
-  const all = hasListedTools() ? [...routes, "/tools"] : routes;
-
-  return all.map((route) => ({
+  const pages = routes.map((route) => ({
     url: `${web}${route}`,
     lastModified: new Date(),
-    changeFrequency: route === "" ? "weekly" : "monthly",
+    changeFrequency: route === "" ? ("weekly" as const) : ("monthly" as const),
     priority: route === "" ? 1 : 0.7,
   }));
+  return [...pages, ...toolSitemapEntries(web, hasListedTools(), getIndexableTools())];
 }

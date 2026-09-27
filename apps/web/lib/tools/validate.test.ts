@@ -20,6 +20,7 @@ function tool(overrides: Partial<ToolDefinition> & { slug?: string } = {}): Tool
     example: { label: "Load example", input: "An example requirement that is long enough.", output: { ok: true } },
     limits: { minInputChars: 10, maxInputChars: 1000 },
     limitations: ["Can miss edge cases."],
+    howItWorks: ["Validated against a versioned schema."],
     privacyStatement: "We don't keep your text.",
     lastReviewed: "2026-09-01",
     ...overrides,

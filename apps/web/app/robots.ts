@@ -5,7 +5,8 @@ export default function robots(): MetadataRoute.Robots {
   const { web } = getPlatformLinks();
 
   return {
-    rules: { userAgent: "*", allow: "/" },
+    // Tool pages are crawlable; the tool API (runs, results) never is.
+    rules: { userAgent: "*", allow: "/", disallow: ["/api/"] },
     sitemap: `${web}/sitemap.xml`,
   };
 }
