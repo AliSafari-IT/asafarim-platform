@@ -30,6 +30,14 @@ export const privacySections: LegalSection[] = [
     body: "When you send a message through the contact page or by email, we keep the message and your contact details for as long as needed to handle the conversation.",
   },
   {
+    title: "AI Workbench tools",
+    body: "The tools at /tools work without an account. Text you paste is sent to our server to produce a result and is not stored in a database, written to logs, or sent to analytics. While a run is in progress, and for up to two minutes afterwards, the result is kept in server memory only so a dropped connection can get it back without running it twice. When a tool's live generation is switched on, your text is also sent to Anthropic, the AI provider, which processes it to draft the result under its API terms; when it's off, only prepared examples run and no provider is involved. For each live run we keep an operational record without any of your text: which tool ran, the outcome, timing, token counts, and estimated cost. To limit abuse, your IP address is turned into a salted one-way hash that is kept in server memory for at most an hour after your last run and never stored or logged. Please don't paste passwords, secrets, or sensitive personal information; a result you download is created in your browser and not uploaded.",
+  },
+  {
+    title: "Website analytics",
+    body: "The public website uses Umami, a cookie-less analytics service, to count page views and a small set of product events (for example, that a tool ran or a result was exported). Events carry only the tool name, version, mode, and outcome category, never your text, results, email, or IP address.",
+  },
+  {
     title: "Where data lives",
     body: "Platform data is stored in a PostgreSQL database on infrastructure operated by the studio within the EU. Data is not sold or shared with third parties for marketing.",
   },
@@ -55,6 +63,10 @@ export const termsSections: LegalSection[] = [
   {
     title: "Content and ownership",
     body: "Unless stated otherwise, the software, design, and content of the platform belong to ASafarIM Digital. Open-source packages are licensed under their respective licenses as published.",
+  },
+  {
+    title: "AI Workbench tools",
+    body: "AI tool results are drafts produced by software and can be wrong, incomplete, or out of date. Review them before you rely on them; they are not professional advice and don't show that anything was tested, scheduled, or verified. Live runs are limited per visitor and per day, and tools can be paused at any time. Don't submit content you don't have the right to share or that contains secrets or other people's personal data.",
   },
   {
     title: "No warranties",

@@ -66,8 +66,9 @@ export function toOutcome<TResult>(envelope: ToolRunEnvelope<TResult>): ToolRunO
     case "invalid_request":
       return { kind: "invalid", issues: issues?.length ? issues : [message] };
     case "rate_limited":
+      return { kind: "rate-limited", retryAfterSeconds, scope: "visitor" };
     case "quota_exceeded":
-      return { kind: "rate-limited", retryAfterSeconds };
+      return { kind: "rate-limited", retryAfterSeconds, scope: "daily" };
     case "provider_disabled":
       return { kind: "provider-disabled", reason: "unavailable" };
     case "tool_paused":

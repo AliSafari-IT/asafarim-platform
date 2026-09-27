@@ -164,7 +164,7 @@ describe("server-only boundary", () => {
   const sources = [...walk(path.join(root, "lib")), ...walk(path.join(root, "components")), ...walk(path.join(root, "app"))];
 
   it("marks every non-test module under lib/tools/server as server-only", () => {
-    const serverFiles = sources.filter((f) => f.includes(`${path.sep}lib${path.sep}tools${path.sep}server${path.sep}`) && !f.endsWith(".test.ts"));
+    const serverFiles = sources.filter((f) => f.includes(`${path.sep}lib${path.sep}tools${path.sep}server${path.sep}`) && !/\.test\.tsx?$/.test(f));
     expect(serverFiles.length).toBeGreaterThan(5);
     for (const file of serverFiles) {
       expect(fs.readFileSync(file, "utf8"), file).toMatch(/^import "server-only";/);

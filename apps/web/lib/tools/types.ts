@@ -131,7 +131,8 @@ export type ToolRunOutcome<TResult> =
   | { kind: "success"; mode: ToolRunMode; result: TResult }
   | { kind: "degraded"; mode: ToolRunMode; result: TResult; missing: string[] }
   | { kind: "invalid"; issues: string[] }
-  | { kind: "rate-limited"; retryAfterSeconds?: number }
+  /** `visitor`: this visitor's allowance; `daily`: the site-wide daily budget. */
+  | { kind: "rate-limited"; retryAfterSeconds?: number; scope?: "visitor" | "daily" }
   | { kind: "provider-disabled"; reason: "paused" | "unavailable" }
   | { kind: "failed"; message?: string };
 

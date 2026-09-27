@@ -41,16 +41,17 @@ server boundary or the provider SDK.
 
 | # | Step | On failure | Spend |
 |---|---|---|---|
-| 1 | Body ≤ 64 KB, valid JSON, `{ input, idempotencyKey, mode }` shape | `input_too_large` / `invalid_request` | none |
+| 0 | Same-origin JSON request (`Origin`, `Sec-Fetch-Site`, `content-type`); per-client request rate | 403 `invalid_request` / `rate_limited` | none |
+| 1 | Body ≤ 64 KB (declared length, then streamed), valid JSON, `{ input, idempotencyKey, mode }` shape | `input_too_large` / `invalid_request` | none |
 | 2 | Tool exists and is routable, adapter registered | `tool_not_found` | none |
 | 3 | Serialized input ≤ `maxInputBytes`, then the adapter's input schema | `input_too_large` / `invalid_input` | none |
 | 4 | `mode: "example"`: must equal the catalogue example; served from the fixture | `invalid_request` | none |
 | 5 | Tool paused (lifecycle or Admin list) | `tool_paused` | none |
 | 6 | `AI_TOOLS_MODE=fixture`: served from the adapter's fixture | — | none |
 | 7 | Live off, no key, no live spec, or catalogue `liveGeneration: false` | `provider_disabled` | none |
-| 8 | Admission hook: rate limit or quota (#680) | `rate_limited` / `quota_exceeded` | none |
-| 9 | Idempotency (see below) | `idempotency_conflict` | none |
-| 10 | Worst-case cost ≤ `maxEstimatedCostMicros`, model is priced | `provider_disabled` (logged) | none |
+| 8 | Idempotency (see below): a replay returns here, without admission or spend | `idempotency_conflict` | none |
+| 9 | Worst-case cost ≤ `maxEstimatedCostMicros`, model is priced | `provider_disabled` (logged) | none |
+| 10 | Admission (#680): per-client per-tool and hourly live-run rates, one in-flight call per client, global concurrency, daily budget reservation (settled to the recorded estimate afterwards). Fails closed | `rate_limited` / `quota_exceeded` | none |
 | 11 | Provider call, aborted at `timeoutMs` or when the client disconnects | `timeout` / `provider_error` / `internal` | yes |
 | 12 | Cost event written | logged; the result is still returned | — |
 | 13 | Refusal / `max_tokens` / output size / JSON / `live.toOutput` / output schema | `declined` / `invalid_output` | already spent |
@@ -131,8 +132,9 @@ SHA-256 hash of the input:
 The store is in process memory and holds the envelope, including the result,
 for at most 2 minutes. That lets a browser that lost the response get it back
 without paying twice. It never touches disk, logs, or a shared cache. It is
-per-instance: the web container runs one replica. Scaling out needs a shared
-store; that belongs with #680.
+per-instance: the web container runs one replica, and so are the admission
+counters (`admission.ts`). Scaling out needs a shared store for both first
+(threat model R4).
 
 ## Cost events
 
@@ -185,7 +187,5 @@ gate (#679).
 
 ## Deferred
 
-- **Rate limits, daily spend ceiling, threat model** (#680). The
-  `admit` hook is where they plug in.
 - **Provider fallback across vendors.** `LiveProvider` is the seam; not
   needed for MVP.

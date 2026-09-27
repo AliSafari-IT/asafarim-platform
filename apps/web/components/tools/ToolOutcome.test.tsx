@@ -76,6 +76,13 @@ describe("ToolOutcome", () => {
     expect(render({ kind: "failed" })).toContain('tabindex="-1"');
   });
 
+  it("explains a reached daily budget differently from a per-visitor limit", () => {
+    const daily = describeRunState({ kind: "rate-limited", retryAfterSeconds: 3 * 3600, scope: "daily" });
+    expect(daily.title).toBe("Today's live runs are used up");
+    expect(daily.body).toMatch(/daily spending limit/);
+    expect(daily.body).not.toMatch(/try again/i);
+  });
+
   it("mentions the wait time when rate-limited without encouraging retries", () => {
     expect(describeRunState({ kind: "rate-limited", retryAfterSeconds: 120 }).body).toMatch(/about 2 minutes/);
   });
