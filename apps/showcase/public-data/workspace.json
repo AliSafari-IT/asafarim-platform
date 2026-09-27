@@ -1,0 +1,348 @@
+{
+  "workspaces": [
+    {
+      "name": "@asafarim/activity",
+      "kind": "package",
+      "folder": "packages/activity",
+      "description": "Cross-app user-activity adapters for the superadmin User 360 explorer",
+      "sha": "2ab2ab87",
+      "date": "2026-09-26",
+      "since": "2026-09-11",
+      "commits": 13,
+      "dependents": 1
+    },
+    {
+      "name": "@asafarim/admin",
+      "kind": "app",
+      "folder": "apps/admin",
+      "description": "ASafarIM Admin - internal admin panel (admin.asafarim.com)",
+      "sha": "1a7d3f3f",
+      "date": "2026-09-27",
+      "since": "2026-07-04",
+      "commits": 96,
+      "dependents": 0
+    },
+    {
+      "name": "@asafarim/ai-cost-ledger",
+      "kind": "package",
+      "folder": "packages/ai-cost-ledger",
+      "description": "Vendor-neutral, append-only AI provider cost-event contract — Zod schemas, integer-micro money, exclusive usage buckets, pricing snapshots, effective-cost/coverage aggregation and timeline read-model types. No Next.js, database, auth, AI SDK or browser dependency; each app persists events in its own schema.",
+      "sha": "b9b15d83",
+      "date": "2026-09-24",
+      "since": "2026-09-24",
+      "commits": 2,
+      "dependents": 5
+    },
+    {
+      "name": "@asafarim/appbuilder",
+      "kind": "app",
+      "folder": "apps/appbuilder",
+      "description": "ASafarIM AppBuilder - metadata-driven AI application factory (appbuilder.asafarim.com)",
+      "sha": "a3a1d6b0",
+      "date": "2026-09-26",
+      "since": "2026-07-21",
+      "commits": 109,
+      "dependents": 0
+    },
+    {
+      "name": "@asafarim/appbuilder-ai",
+      "kind": "package",
+      "folder": "packages/appbuilder-ai",
+      "description": "Server-only AI provider boundary and structured planning schemas for AppBuilder's M07 generation pipeline. The model may only propose allowlisted @asafarim/appbuilder-schema operations — this package never executes or returns arbitrary source code.",
+      "sha": "1f1d13a5",
+      "date": "2026-09-23",
+      "since": "2026-07-22",
+      "commits": 12,
+      "dependents": 1
+    },
+    {
+      "name": "@asafarim/appbuilder-runtime",
+      "kind": "package",
+      "folder": "packages/appbuilder-runtime",
+      "description": "Approved component/template registry and metadata-driven preview renderer for AppBuilder generated apps — no database, auth, AI, or Next.js dependency.",
+      "sha": "792fc93a",
+      "date": "2026-09-26",
+      "since": "2026-07-22",
+      "commits": 7,
+      "dependents": 2
+    },
+    {
+      "name": "@asafarim/appbuilder-schema",
+      "kind": "package",
+      "folder": "packages/appbuilder-schema",
+      "description": "Versioned AppBuilder application-specification contract and deterministic controlled-operation engine — no Next.js, database, auth, AI, or browser dependency.",
+      "sha": "1f1d13a5",
+      "date": "2026-09-23",
+      "since": "2026-07-21",
+      "commits": 3,
+      "dependents": 3
+    },
+    {
+      "name": "@asafarim/auth",
+      "kind": "package",
+      "folder": "packages/auth",
+      "description": "Shared Auth.js v5 authentication for the ASafarIM Platform",
+      "sha": "792fc93a",
+      "date": "2026-09-26",
+      "since": "2026-07-04",
+      "commits": 49,
+      "dependents": 13
+    },
+    {
+      "name": "@asafarim/config",
+      "kind": "package",
+      "folder": "packages/config",
+      "description": "Shared TypeScript, ESLint, and Tailwind configuration for the ASafarIM Platform",
+      "sha": "b1120a42",
+      "date": "2026-08-11",
+      "since": "2026-07-04",
+      "commits": 2,
+      "dependents": 23
+    },
+    {
+      "name": "@asafarim/country-language-selector",
+      "kind": "package",
+      "folder": "packages/country-language-selector",
+      "description": "",
+      "sha": "792fc93a",
+      "date": "2026-09-26",
+      "since": "2026-07-15",
+      "commits": 8,
+      "dependents": 8
+    },
+    {
+      "name": "@asafarim/db",
+      "kind": "package",
+      "folder": "packages/db",
+      "description": "Shared PostgreSQL/Prisma database package for the ASafarIM Platform",
+      "sha": "1a7d3f3f",
+      "date": "2026-09-27",
+      "since": "2026-07-04",
+      "commits": 51,
+      "dependents": 10
+    },
+    {
+      "name": "@asafarim/hub",
+      "kind": "app",
+      "folder": "apps/hub",
+      "description": "ASafarIM Hub - logged-in user dashboard (hub.asafarim.com)",
+      "sha": "792fc93a",
+      "date": "2026-09-26",
+      "since": "2026-07-04",
+      "commits": 74,
+      "dependents": 0
+    },
+    {
+      "name": "@asafarim/labs",
+      "kind": "app",
+      "folder": "apps/labs",
+      "description": "ASafarIM Labs - experimental workbench for what's being explored next (labs.asafarim.com)",
+      "sha": "3c41bd4a",
+      "date": "2026-09-27",
+      "since": "2026-08-12",
+      "commits": 17,
+      "dependents": 0
+    },
+    {
+      "name": "@asafarim/resumatch",
+      "kind": "app",
+      "folder": "apps/resumatch",
+      "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
+      "sha": "397c8876",
+      "date": "2026-09-27",
+      "since": "2026-09-18",
+      "commits": 100,
+      "dependents": 0
+    },
+    {
+      "name": "@asafarim/seed-manager",
+      "kind": "package",
+      "folder": "packages/seed-manager",
+      "description": "Typed, allowlisted seed-data providers shared by the Admin Console and the CLI seed scripts. Server-only.",
+      "sha": "792fc93a",
+      "date": "2026-09-26",
+      "since": "2026-08-09",
+      "commits": 10,
+      "dependents": 2
+    },
+    {
+      "name": "@asafarim/settings-client",
+      "kind": "package",
+      "folder": "packages/settings-client",
+      "description": "Read-only client for Admin's internal platform-settings API, for apps on their own isolated database (Testora, AppBuilder, ResuMatch). No Next.js, database or auth dependency.",
+      "sha": "11e92f21",
+      "date": "2026-09-25",
+      "since": "2026-09-23",
+      "commits": 2,
+      "dependents": 2
+    },
+    {
+      "name": "@asafarim/shared-i18n",
+      "kind": "package",
+      "folder": "packages/shared-i18n",
+      "description": "",
+      "sha": "6adeb943",
+      "date": "2026-09-27",
+      "since": "2026-07-15",
+      "commits": 8,
+      "dependents": 10
+    },
+    {
+      "name": "@asafarim/showcase",
+      "kind": "app",
+      "folder": "apps/showcase",
+      "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
+      "sha": "2e2cfbc5",
+      "date": "2026-09-27",
+      "since": "2026-07-04",
+      "commits": 336,
+      "dependents": 0
+    },
+    {
+      "name": "@asafarim/storage",
+      "kind": "package",
+      "folder": "packages/storage",
+      "description": "Shared S3-compatible object storage utilities",
+      "sha": "1f1d13a5",
+      "date": "2026-09-23",
+      "since": "2026-07-18",
+      "commits": 6,
+      "dependents": 7
+    },
+    {
+      "name": "@asafarim/tasks-ai",
+      "kind": "app",
+      "folder": "apps/tasks-ai",
+      "description": "TasksAI - AI-native work execution: scattered intent to trusted execution (tasks-ai.asafarim.com)",
+      "sha": "659c6aae",
+      "date": "2026-09-27",
+      "since": "2026-09-06",
+      "commits": 76,
+      "dependents": 0
+    },
+    {
+      "name": "@asafarim/testora-tasksai-contract",
+      "kind": "package",
+      "folder": "packages/testora-tasksai-contract",
+      "description": "Versioned cross-app contract between Testora and TasksAI — artifact-bundle, provision, webhook-event and green-light schemas plus HMAC signing helpers. No Next.js, database, auth, AI or browser dependency.",
+      "sha": "1f1d13a5",
+      "date": "2026-09-23",
+      "since": "2026-09-10",
+      "commits": 5,
+      "dependents": 3
+    },
+    {
+      "name": "@asafarim/theme-toggle",
+      "kind": "package",
+      "folder": "packages/theme-toggle",
+      "description": "Shared light/dark theme toggle for all ASafarIM apps — provider, no-flash script, and a token-styled toggle button.",
+      "sha": "6adeb943",
+      "date": "2026-09-27",
+      "since": "2026-07-19",
+      "commits": 10,
+      "dependents": 10
+    },
+    {
+      "name": "@asafarim/timeline-contract",
+      "kind": "package",
+      "folder": "packages/timeline-contract",
+      "description": "TimelineAI's canonical, dependency-free timeline contract: date values that keep their stated precision, the heuristic date-phrase parser, deterministic ordering, temporal conflict detection, and the versioned event-import shape other apps hand to TimelineAI. Owned by TimelineAI; TimelineAI's Zod schemas validate it.",
+      "sha": "659c6aae",
+      "date": "2026-09-27",
+      "since": "2026-09-27",
+      "commits": 1,
+      "dependents": 3
+    },
+    {
+      "name": "@asafarim/tool-handoff",
+      "kind": "package",
+      "folder": "packages/tool-handoff",
+      "description": "Versioned, dependency-free handoff envelope and destination payloads for moving reviewed AI Workbench results into Testora, TasksAI, and TimelineAI as a file the signed-in user imports and confirms. Includes the validator every destination runs before previewing.",
+      "sha": "659c6aae",
+      "date": "2026-09-27",
+      "since": "2026-09-27",
+      "commits": 1,
+      "dependents": 4
+    },
+    {
+      "name": "@asafarim/ui",
+      "kind": "package",
+      "folder": "packages/ui",
+      "description": "ASafarIM Platform design system: tokens, brand, and creative building blocks",
+      "sha": "659c6aae",
+      "date": "2026-09-27",
+      "since": "2026-07-04",
+      "commits": 67,
+      "dependents": 13
+    },
+    {
+      "name": "@asafarim/vionto-schemas",
+      "kind": "package",
+      "folder": "packages/vionto-schemas",
+      "description": "",
+      "sha": "b1120a42",
+      "date": "2026-08-11",
+      "since": "2026-07-15",
+      "commits": 2,
+      "dependents": 1
+    },
+    {
+      "name": "@asafarim/web",
+      "kind": "app",
+      "folder": "apps/web",
+      "description": "Public ASafarIM Digital website (asafarim.com)",
+      "sha": "659c6aae",
+      "date": "2026-09-27",
+      "since": "2026-07-04",
+      "commits": 82,
+      "dependents": 0
+    },
+    {
+      "name": "edumatch",
+      "kind": "app",
+      "folder": "apps/edumatch",
+      "description": "",
+      "sha": "a3a1d6b0",
+      "date": "2026-09-26",
+      "since": "2026-08-05",
+      "commits": 113,
+      "dependents": 0
+    },
+    {
+      "name": "testora",
+      "kind": "app",
+      "folder": "apps/testora",
+      "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
+      "sha": "659c6aae",
+      "date": "2026-09-27",
+      "since": "2026-07-21",
+      "commits": 113,
+      "dependents": 0
+    },
+    {
+      "name": "timelineai",
+      "kind": "app",
+      "folder": "apps/timelineai",
+      "description": "TimelineAI: create polished, visual timelines — project, historical, roadmap, Gantt, calendar, and interactive.",
+      "sha": "659c6aae",
+      "date": "2026-09-27",
+      "since": "2026-08-08",
+      "commits": 87,
+      "dependents": 0
+    },
+    {
+      "name": "vionto",
+      "kind": "app",
+      "folder": "apps/vionto",
+      "description": "",
+      "sha": "a3a1d6b0",
+      "date": "2026-09-26",
+      "since": "2026-07-15",
+      "commits": 132,
+      "dependents": 0
+    }
+  ],
+  "npmDependencies": [
+    "@asafarim/envage"
+  ]
+}
