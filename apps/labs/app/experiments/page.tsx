@@ -125,6 +125,181 @@ function CatalogueDrawing({ slug }: { slug: string }) {
     );
   }
 
+  if (slug === "prompt-composer") {
+    return (
+      <svg
+        viewBox="0 0 640 360"
+        role="img"
+        aria-label="Prompt ingredients flowing into a composed instruction"
+      >
+        <g className="catalogue-prompt-streams">
+          <path d="M63 82H212C254 82 255 145 298 145H392" />
+          <path d="M63 178H392" />
+          <path d="M63 274H212C254 274 255 211 298 211H392" />
+          <circle cx="63" cy="82" r="12" />
+          <circle cx="63" cy="178" r="12" />
+          <circle cx="63" cy="274" r="12" />
+        </g>
+        <rect
+          className="catalogue-prompt-card"
+          x="392"
+          y="103"
+          width="190"
+          height="150"
+          rx="24"
+        />
+        <rect
+          className="catalogue-prompt-line"
+          x="427"
+          y="140"
+          width="112"
+          height="14"
+          rx="7"
+        />
+        <rect
+          className="catalogue-prompt-line catalogue-prompt-line--short"
+          x="427"
+          y="175"
+          width="74"
+          height="11"
+          rx="6"
+        />
+        <rect
+          className="catalogue-prompt-action"
+          x="427"
+          y="211"
+          width="84"
+          height="20"
+          rx="10"
+        />
+      </svg>
+    );
+  }
+
+  if (slug === "retrieval-threshold") {
+    return (
+      <svg
+        viewBox="0 0 640 360"
+        role="img"
+        aria-label="Ranked retrieval signals crossing a relevance threshold"
+      >
+        <path className="catalogue-threshold" d="M84 190H568" />
+        <g className="catalogue-retrieval-bars">
+          {[238, 213, 184, 148, 103].map((height, index) => (
+            <rect
+              key={height}
+              x={103 + index * 96}
+              y={292 - height}
+              width="46"
+              height={height}
+              rx="23"
+            />
+          ))}
+        </g>
+        <g className="catalogue-retrieval-points">
+          <circle cx="126" cy="54" r="10" />
+          <circle cx="222" cy="79" r="10" />
+          <circle cx="318" cy="108" r="10" />
+          <circle cx="414" cy="144" r="10" />
+          <circle cx="510" cy="189" r="10" />
+        </g>
+        <text className="catalogue-threshold-label" x="88" y="180">
+          threshold
+        </text>
+      </svg>
+    );
+  }
+
+  if (slug === "agent-route") {
+    return (
+      <svg
+        viewBox="0 0 640 360"
+        role="img"
+        aria-label="An agent route moving through tools and approval gates"
+      >
+        <path className="catalogue-agent-route" d="M65 180H575" />
+        {[85, 202, 320, 438, 555].map((x, index) => (
+          <g
+            className={`catalogue-agent-point ${index === 2 || index === 4 ? "is-gate" : ""}`}
+            key={x}
+          >
+            <circle cx={x} cy="180" r={index === 2 || index === 4 ? 31 : 24} />
+            <text x={x} y="185" textAnchor="middle">
+              {index === 2 || index === 4 ? "◇" : String(index + 1)}
+            </text>
+          </g>
+        ))}
+        <path
+          className="catalogue-agent-branch"
+          d="M202 180C202 104 275 85 320 85M438 180c0 76-73 95-118 95"
+        />
+        <circle className="catalogue-agent-ghost" cx="320" cy="85" r="12" />
+        <circle className="catalogue-agent-ghost" cx="320" cy="275" r="12" />
+      </svg>
+    );
+  }
+
+  if (slug === "voice-shape") {
+    const waveform = [
+      22, 38, 62, 88, 54, 31, 68, 104, 76, 42, 24, 58, 92, 118, 82, 49, 28, 64,
+      96, 72, 40,
+    ];
+    return (
+      <svg
+        viewBox="0 0 640 360"
+        role="img"
+        aria-label="A colorful synthetic voice waveform"
+      >
+        <defs>
+          <linearGradient id="catalogue-voice" x1="0" y1="0" x2="1" y2="0">
+            <stop stopColor="#8bf3d0" />
+            <stop offset="0.52" stopColor="#a798ff" />
+            <stop offset="1" stopColor="#ffad8a" />
+          </linearGradient>
+        </defs>
+        <circle className="catalogue-voice-orb" cx="320" cy="180" r="132" />
+        <g className="catalogue-voice-bars">
+          {waveform.map((height, index) => (
+            <rect
+              key={`${height}-${index}`}
+              x={91 + index * 22}
+              y={180 - height / 2}
+              width="9"
+              height={height}
+              rx="5"
+            />
+          ))}
+        </g>
+      </svg>
+    );
+  }
+
+  if (slug === "context-budget") {
+    return (
+      <svg
+        viewBox="0 0 640 360"
+        role="img"
+        aria-label="Nested context-budget rings surrounding an answer core"
+      >
+        <g className="catalogue-budget-rings">
+          <circle cx="320" cy="180" r="138" />
+          <circle cx="320" cy="180" r="103" />
+          <circle cx="320" cy="180" r="70" />
+        </g>
+        <circle className="catalogue-budget-core" cx="320" cy="180" r="39" />
+        <g className="catalogue-budget-labels">
+          <circle cx="203" cy="108" r="10" />
+          <circle cx="403" cy="98" r="10" />
+          <circle cx="415" cy="252" r="10" />
+        </g>
+        <path
+          className="catalogue-budget-spark"
+          d="m320 157 7 16 17 7-17 7-7 17-7-17-17-7 17-7Z"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg
       viewBox="0 0 640 360"
