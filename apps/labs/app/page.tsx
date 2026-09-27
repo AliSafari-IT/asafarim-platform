@@ -160,7 +160,15 @@ export default function LabsHomePage() {
           fill
           priority
           sizes="(max-width: 760px) 100vw, 1200px"
-          className="labs-hero__art"
+          className="labs-hero__art labs-hero__art--dark"
+        />
+        <Image
+          src="/art/ai-atelier-hero-light.png"
+          alt=""
+          fill
+          priority
+          sizes="(max-width: 760px) 100vw, 1200px"
+          className="labs-hero__art labs-hero__art--light"
         />
         <div className="labs-hero__veil" />
         <div className="labs-hero__copy">
