@@ -368,3 +368,10 @@
   margin: 0;
   max-width: 60ch;
 }
+
+/* Links inside running text are underlined, not colour-only (WCAG 1.4.1, #684). */
+.shell p a,
+.shell li a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}

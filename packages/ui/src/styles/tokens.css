@@ -76,7 +76,10 @@
   --muted: #6e6557;
   --line: #ddd3bd;
   --line-strong: #c4b795;
-  --accent: #b45309;
+  /* #9f4a07, not the original #b45309: at 4.46:1 on --bg that fell just short
+     of WCAG AA for body-size text; this keeps the burnt-orange look at ≥ 4.6:1
+     on every web surface (#684). */
+  --accent: #9f4a07;
   --accent-ink: #fdfaf3;
   --accent-soft: rgba(180, 83, 9, 0.1);
   --accent-2: #0f766e;

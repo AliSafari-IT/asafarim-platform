@@ -817,6 +817,15 @@ a .ui-card {
   background: rgba(161, 98, 7, 0.09);
 }
 
+/* Web: darker warning and success text so small badges meet WCAG AA on every surface (#684). */
+[data-app="web"] .ui-badge--warning {
+  color: #7c4b05;
+}
+
+[data-app="web"] .ui-badge--success {
+  color: #166534;
+}
+
 [data-app="web"] .ui-badge--danger,
 [data-app="appbuilder"] .ui-badge--danger {
   color: #b91c1c;
@@ -1617,6 +1626,10 @@ a .ui-card {
   color: var(--accent);
   opacity: 0.8;
   margin-bottom: var(--space-3);
+}
+
+[data-app="web"] .ui-empty__glyph {
+  opacity: 1;
 }
 
 .ui-empty h2 {

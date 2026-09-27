@@ -50,6 +50,17 @@ Before marking any tool beta, and quarterly after that: in production, pause one
 | --- | --- | --- |
 | — | — | — |
 
+## Post-deploy smoke test
+
+After every deploy that touches the tools:
+
+```bash
+pnpm smoke:ai-tools                        # production: pages, robots, sitemap, guards, examples (no spend)
+AI_TOOLS_SMOKE_LIVE=1 pnpm smoke:ai-tools   # opt-in: one short synthetic live run per tool
+```
+
+Rollback steps are in [launch.md](./launch.md#rollback).
+
 ## Owners and response
 
 | Signal | First response |
