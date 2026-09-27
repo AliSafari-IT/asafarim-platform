@@ -61,8 +61,8 @@ or retired), these entry points turn on automatically:
 Before that, `/tools` shows an empty state and is `noindex`. Cards take
 their order from `featuredOrder`, and their availability badge from
 `lifecycle` + `liveGeneration`: "Runs on your text", "Examples only", or
-"Paused". Leave `liveGeneration: false` until the tool really calls a
-provider (#673). Catalogue and card wording lives under `web.tools.*` in
+"Paused". Leave `liveGeneration: false` until the tool has a `live`
+adapter spec and has passed its eval gate (#679). Catalogue and card wording lives under `web.tools.*` in
 `lib/i18n-dictionaries.ts`, and every locale must have every key (a test
 checks this).
 
@@ -72,12 +72,21 @@ Provider keys, prompts, model names meant as configuration, component
 references, or anything a visitor typed. The catalogue is effectively public:
 catalogue cards, metadata, and later Showcase all read it.
 
-## Runners
+## Running on the server
 
-Until the server execution boundary lands (#673), use `createFixtureRunner`.
-It returns the prepared result for the example input and reports "live
-generation isn't available" for anything else. It never makes up a result
-for the visitor's text.
+Every tool runs through the server execution boundary (see
+[execution-boundary.md](./execution-boundary.md)). Two more files per tool:
+
+| # | File | What you add |
+|---|---|---|
+| 7 | `lib/tools/server/adapters/<slug>.ts` | A `ToolAdapter`: input and output Zod schemas, a deterministic `fixture`, `exampleInput`, `limits` (bytes, timeout, output tokens, cost ceiling), and optionally a `live` spec (prompt version, output JSON Schema, `buildPrompt`). |
+| 8 | `lib/tools/server/adapters/index.ts` | One line mapping the slug to the adapter (`Record<ToolSlug, …>`, so a missing adapter fails typecheck). |
+
+In the workbench (step 4), use `createServerRunner(slug, { exampleText,
+toInput })`. The catalogue example goes out as `mode: "example"` and is
+always served from the fixture. Anything else is a live request, which the
+server answers with the fixture in `AI_TOOLS_MODE=fixture`, or reports as
+"live generation isn't available" until live is enabled.
 
 ## Checking your tool
 

@@ -1,20 +1,33 @@
-import type { Provenance } from "../provenance";
+import { z } from "zod";
 
 /**
- * Output of the internal shell-reference tool. Deliberately tiny: it exists
- * to exercise the shared shell and provenance contract end to end, not to be
- * a product. Real tools (#675–#677) define their own Zod-validated schemas.
+ * Input and output of the internal shell-reference tool. Deliberately tiny:
+ * it exists to exercise the shared shell, the server execution boundary,
+ * and the provenance contract end to end, not to be a product.
  */
-export interface ReferenceItem {
-  text: string;
-  provenance: Provenance;
-  /** Verbatim excerpt from the input; required when provenance is "extracted". */
-  source?: string;
-}
+export const referenceInputSchema = z.object({
+  text: z
+    .string()
+    .trim()
+    .min(20, "Add a little more text — at least 20 characters.")
+    .max(4000, "Your text is over the 4,000-character limit."),
+});
+export type ReferenceInput = z.infer<typeof referenceInputSchema>;
 
-export interface ReferenceResult {
-  items: ReferenceItem[];
-}
+export const referenceItemSchema = z
+  .object({
+    text: z.string().min(1).max(500),
+    provenance: z.enum(["extracted", "inferred", "uncertain"]),
+    /** Verbatim excerpt from the input; required when provenance is "extracted". */
+    source: z.string().min(1).max(500).optional(),
+  })
+  .refine((item) => item.provenance !== "extracted" || item.source, {
+    message: "extracted items must quote their source",
+  });
+export type ReferenceItem = z.infer<typeof referenceItemSchema>;
+
+export const referenceResultSchema = z.object({ items: z.array(referenceItemSchema).max(50) });
+export type ReferenceResult = z.infer<typeof referenceResultSchema>;
 
 export function referenceResultToMarkdown(result: ReferenceResult): string {
   const lines = ["# Checklist", ""];

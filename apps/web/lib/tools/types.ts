@@ -133,7 +133,7 @@ export type ToolRunOutcome<TResult> =
   | { kind: "invalid"; issues: string[] }
   | { kind: "rate-limited"; retryAfterSeconds?: number }
   | { kind: "provider-disabled"; reason: "paused" | "unavailable" }
-  | { kind: "failed" };
+  | { kind: "failed"; message?: string };
 
 /** Client-side runner a tool workbench supplies. Must honour `signal`. */
 export type ToolRunner<TResult> = (input: string, signal: AbortSignal) => Promise<ToolRunOutcome<TResult>>;

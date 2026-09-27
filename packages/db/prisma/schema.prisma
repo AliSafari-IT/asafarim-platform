@@ -2352,6 +2352,75 @@ model ViontoExportCostEvent {
 /// reports vs. the apps' internal AI cost events. Admin-only. Holds
 /// operational numbers and source freshness — never prompts, responses,
 /// user ids or provider credentials.
+// ─── Public AI tools (apps/web /tools) ─────────────────────────────────────
+//
+// The platform AI cost-event contract (@asafarim/ai-cost-ledger, ADR 0003)
+// for anonymous live runs of the public AI Workbench tools (#673). One
+// immutable row per provider attempt; UPDATE is rejected by a trigger. There
+// is no user relation: runs are anonymous and owned by the synthetic
+// workspace "web-public-tools". No input, output, or visitor identifier is
+// ever stored here.
+
+model WebToolCostEvent {
+  id             String @id @default(cuid())
+  /// `web:<slug>:<run id>` — unique, so a retried write is a no-op.
+  idempotencyKey String @unique
+  schemaVersion  Int    @default(1)
+  /// usage | adjustment
+  entryType      String @default("usage")
+
+  ownerType String
+  ownerId   String
+  actorId   String?
+
+  /// Tool slug, e.g. requirements-to-test-plan
+  operation String
+  /// succeeded | degraded | failed | cancelled
+  outcome   String @default("succeeded")
+  /// provisional | final
+  finality  String @default("provisional")
+
+  subjectType       String
+  subjectId         String
+  parentSubjectType String?
+  parentSubjectId   String?
+  workflowId        String?
+  traceId           String?
+
+  provider          String
+  requestModel      String?
+  responseModel     String
+  providerRequestId String?
+  promptVersion     String?
+  pricingTier       String?
+
+  usage        Json @default("[]")
+  inputTokens  Int  @default(0)
+  outputTokens Int  @default(0)
+
+  currency              String  @default("USD")
+  estimatedCostMicros   BigInt?
+  actualCostMicros      BigInt?
+  adjustmentDeltaMicros BigInt?
+  /// provider_reported | registry_estimate | reconciled_adjustment | unknown
+  costSource            String
+  /// platform | user_byok | none
+  credentialSource      String
+  pricingSnapshot       Json?
+  fixture               Boolean @default(false)
+
+  supersedesEventId String?
+  latencyMs         Int?
+  metadata          Json    @default("{}")
+
+  occurredAt  DateTime
+  finalizedAt DateTime?
+  recordedAt  DateTime  @default(now())
+
+  @@index([occurredAt(sort: Desc)])
+  @@index([operation, occurredAt(sort: Desc)])
+}
+
 model AiCostReconciliationRun {
   id          String    @id @default(cuid())
   /// manual | scheduled

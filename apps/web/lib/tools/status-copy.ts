@@ -32,7 +32,7 @@ export function describeRunState(state: ToolRunState<unknown>): StatusCopy {
         ? {
             tone: "info",
             title: "Example result",
-            body: "This is a prepared result for the example text. It was not generated from anything you typed.",
+            body: "This is prepared sample output. No AI was used to produce it, so it isn't a real result for your text.",
           }
         : {
             tone: "success",
@@ -73,7 +73,7 @@ export function describeRunState(state: ToolRunState<unknown>): StatusCopy {
       return {
         tone: "error",
         title: "Something went wrong",
-        body: "No result was produced, and nothing was saved. Please try again in a moment.",
+        body: `No result was produced, and nothing was saved. ${state.message ?? "Please try again in a moment."}`,
       };
   }
 }

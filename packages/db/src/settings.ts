@@ -400,6 +400,33 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
     max: 5000,
     unit: "bps",
   },
+  // Public AI Workbench tools (apps/web /tools, #673). Live generation is off
+  // until an admin turns it on AND the deployment sets AI_TOOLS_MODE=live;
+  // either one alone keeps every tool on its fixture examples. The env var
+  // AI_TOOLS_KILL_SWITCH=1 stops live calls even if this is on.
+  {
+    key: "web.aiTools.liveEnabled",
+    label: "AI tools — live generation",
+    description:
+      "Allow public AI tools on asafarim.com/tools to call the AI provider for visitors' own text. Off = examples only, no AI spend. Requires AI_TOOLS_MODE=live on the web deployment; AI_TOOLS_KILL_SWITCH=1 overrides this. Takes effect on the next run.",
+    group: "ai",
+    scope: "web",
+    type: "boolean",
+    defaultValue: false,
+    highImpact: true,
+  },
+  {
+    key: "web.aiTools.disabledTools",
+    label: "AI tools — paused tools",
+    description:
+      "Tool slugs (e.g. requirements-to-test-plan) whose live runs are paused. Their pages and examples stay up; visitors see that the tool is paused.",
+    group: "ai",
+    scope: "web",
+    type: "string[]",
+    defaultValue: [],
+    maxItems: 20,
+    maxLength: 60,
+  },
   {
     key: "resumatch.ai.openaiModel",
     label: "ResuMatch — OpenAI model",
