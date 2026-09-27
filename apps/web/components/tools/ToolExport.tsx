@@ -7,21 +7,29 @@ export interface ToolExportProps {
   filenameBase: string;
   json: unknown;
   markdown?: string;
+  /** Called after a download starts; for allowlisted analytics only. */
+  onExport?: (format: "markdown" | "json") => void;
 }
 
 /** Client-side download of the reviewed result. Nothing is sent to a server. */
-export function ToolExport({ filenameBase, json, markdown }: ToolExportProps) {
+export function ToolExport({ filenameBase, json, markdown, onExport }: ToolExportProps) {
   return (
     <div className={styles.actions} role="group" aria-label="Export result">
       {markdown !== undefined ? (
-        <Button variant="secondary" size="sm" onClick={() => download(`${filenameBase}.md`, markdown, "text/markdown")}>
+        <Button variant="secondary" size="sm" onClick={() => {
+          download(`${filenameBase}.md`, markdown, "text/markdown");
+          onExport?.("markdown");
+        }}>
           Download Markdown
         </Button>
       ) : null}
       <Button
         variant="secondary"
         size="sm"
-        onClick={() => download(`${filenameBase}.json`, `${JSON.stringify(json, null, 2)}\n`, "application/json")}
+        onClick={() => {
+          download(`${filenameBase}.json`, `${JSON.stringify(json, null, 2)}\n`, "application/json");
+          onExport?.("json");
+        }}
       >
         Download JSON
       </Button>

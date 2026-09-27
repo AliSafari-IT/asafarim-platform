@@ -5,6 +5,7 @@ import { Badge, Button } from "@asafarim/ui";
 import { ToolExport } from "../../../components/tools/ToolExport";
 import { ToolHandoff } from "../../../components/tools/ToolHandoff";
 import { actionPlanHandoff } from "../handoff";
+import { useResultTracking } from "../use-edit-tracker";
 import { EXPORT_NOTICE, ORIGIN_LABEL, exportSelection, toExportJson, toMarkdown } from "./export";
 import {
   addDependencyError,
@@ -34,6 +35,7 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
   const [edgeError, setEdgeError] = useState<string | null>(null);
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const baseId = useId();
+  const track = useResultTracking("notes-to-action-plan");
 
   // A new run replaces the plan: start review over (undo never crosses runs).
   useEffect(() => {
@@ -54,6 +56,7 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
     const index = review.tasks.findIndex((t) => t.id === task.id);
     const edges = review.dependencies.filter((d) => d.from === task.id || d.to === task.id).length;
     dispatch({ type: "remove-task", id: task.id });
+    track.edited("remove");
     setAnnouncement(`${task.id} removed${edges ? `, with its ${edges} dependency link${edges === 1 ? "" : "s"}` : ""}. Use Undo to bring it back.`);
     const next = review.tasks[index + 1] ?? review.tasks[index - 1];
     requestAnimationFrame(() => (next ? document.getElementById(headingId(next.id)) : listHeadingRef.current)?.focus());
@@ -63,6 +66,7 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
     const index = review.tasks.findIndex((t) => t.id === task.id);
     if (index + by < 0 || index + by >= review.tasks.length) return;
     dispatch({ type: "move", id: task.id, by });
+    track.edited("reorder");
     setAnnouncement(`${task.id} moved to position ${index + by + 1} of ${review.tasks.length}.`);
     // Keep focus on the same button after the list re-renders.
     requestAnimationFrame(() => document.getElementById(`${baseId}-move-${by}-${task.id}`)?.focus());
@@ -70,6 +74,7 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
 
   const undo = () => {
     dispatch({ type: "undo" });
+    track.edited("undo");
     setEditing(null);
     setAnnouncement("Last change undone.");
   };
@@ -80,6 +85,7 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
     setEdgeError(error);
     if (error) return;
     dispatch({ type: "add-dependency", from: edgeFrom, to: edgeTo });
+    track.edited("dependency");
     setAnnouncement(`${edgeTo} now waits for ${edgeFrom}.`);
     setEdgeFrom("");
     setEdgeTo("");
@@ -142,6 +148,7 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
                     task={t}
                     onSave={(task) => {
                       dispatch({ type: "save-task", task });
+                      track.edited("edit");
                       setEditing(null);
                       setAnnouncement(`${task.id} saved.`);
                     }}
@@ -155,7 +162,10 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
                         id={`${headingId(t.id)}-include`}
                         type="checkbox"
                         checked={selected.has(t.id)}
-                        onChange={() => dispatch({ type: "toggle", id: t.id })}
+                        onChange={() => {
+                          dispatch({ type: "toggle", id: t.id });
+                          track.edited("select");
+                        }}
                         aria-describedby={headingId(t.id)}
                       />
                       <label htmlFor={`${headingId(t.id)}-include`} className={styles.srOnly}>
@@ -178,6 +188,7 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
                       titles={taskTitle}
                       onRemove={(id) => {
                         dispatch({ type: "remove-dependency", id });
+                        track.edited("dependency");
                         setAnnouncement(`Link ${id} removed. Use Undo to bring it back.`);
                       }}
                     />
@@ -323,7 +334,7 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
                   ))}
                 </ul>
               ) : null}
-              <ToolExport filenameBase={slugify(plan.title)} json={toExportJson(plan, review)} markdown={toMarkdown(plan, review)} />
+              <ToolExport filenameBase={slugify(plan.title)} json={toExportJson(plan, review)} markdown={toMarkdown(plan, review)} onExport={track.exported} />
               <ToolHandoff
                 destination="tasksai"
                 what={`the ${review.selected.length} selected task${review.selected.length === 1 ? "" : "s"} and the links between them, with no assignees or due dates`}

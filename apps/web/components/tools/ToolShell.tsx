@@ -3,6 +3,7 @@ import { PageHeader, getPlatformLinks } from "@asafarim/ui";
 import type { ToolDefinition } from "../../lib/tools/types";
 import { ToolLifecycleBadge } from "./ToolLifecycleBadge";
 import { ToolStructuredData } from "./ToolStructuredData";
+import { ToolViewTracker, TrackedToolLink } from "./ToolTracking";
 import styles from "./tools.module.css";
 
 /**
@@ -21,6 +22,7 @@ export function ToolShell({ tool, children }: { tool: ToolDefinition; children: 
     // Tool pages are English-only (docs/ai-tools/seo.md): mark them so, whatever the site locale.
     <article className={styles.shell} lang="en">
       {tool.indexable ? <ToolStructuredData tool={tool} /> : null}
+      <ToolViewTracker tool={tool.slug} lifecycle={tool.lifecycle} />
       <PageHeader kicker="AI Workbench" title={tool.title} description={tool.shortDescription} />
 
       <div className={styles.meta}>
@@ -86,16 +88,21 @@ export function ToolShell({ tool, children }: { tool: ToolDefinition; children: 
         </ul>
       </section>
 
-      {relatedHref || caseStudyHref ? (
-        <nav className={styles.links} aria-label="Related">
-          {relatedHref && tool.relatedApp ? (
-            <a href={relatedHref}>
-              Continue in {tool.relatedApp.name} → <span className={styles.muted}>{tool.relatedApp.reason}</span>
-            </a>
-          ) : null}
-          {caseStudyHref ? <a href={caseStudyHref}>See how it was built →</a> : null}
-        </nav>
-      ) : null}
+      <nav className={styles.links} aria-label="Related">
+        {relatedHref && tool.relatedApp ? (
+          <a href={relatedHref}>
+            Continue in {tool.relatedApp.name} → <span className={styles.muted}>{tool.relatedApp.reason}</span>
+          </a>
+        ) : null}
+        {caseStudyHref ? (
+          <TrackedToolLink href={caseStudyHref} tool={tool.slug} event="ai_tool_case_study_opened">
+            See how it was built →
+          </TrackedToolLink>
+        ) : null}
+        <TrackedToolLink href="/contact" tool={tool.slug} event="ai_tool_contact_opened">
+          Discuss this kind of system →
+        </TrackedToolLink>
+      </nav>
 
       <p className={styles.muted}>
         Built by <a href="/about">Ali Safari</a> at ASafarIM Digital · Page last reviewed <time dateTime={tool.lastReviewed}>{formatDate(tool.lastReviewed)}</time>

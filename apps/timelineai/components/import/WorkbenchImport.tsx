@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import { Button, ButtonLink } from "@asafarim/ui";
+import { trackHandoffCompleted } from "@asafarim/tool-handoff";
 
 type Preview = {
   ok: true;
@@ -80,7 +81,10 @@ export function WorkbenchImport() {
     setBusy(true);
     const result = await post<Done>("/api/imports/workbench/confirm", { content, title });
     setBusy(false);
-    if (result.ok) setDone(result);
+    if (result.ok) {
+      setDone(result);
+      if (result.status === "created" && preview) trackHandoffCompleted(preview.source, "timelineai");
+    }
     else setError(result);
     focusStatus();
   };

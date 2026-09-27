@@ -58,6 +58,7 @@ export function ActionPlanWorkbench({ tool }: { tool: ToolDefinition }) {
       runner={runner}
       isExample={isExample}
       optionsKey={JSON.stringify(details)}
+      trackAs={tool.slug}
       onLoadExample={() => {
         setDetails(EXAMPLE_DETAILS);
         if (disclosureRef.current) disclosureRef.current.open = true;

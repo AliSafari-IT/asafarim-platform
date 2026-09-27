@@ -1,4 +1,5 @@
 import "server-only";
+import { SHELL_REFERENCE_TOOL_VERSION } from "../../versions";
 import { shellReferenceExampleInput, shellReferenceExampleOutput } from "../../../../content/tool-fixtures/shell-reference";
 import { referenceInputSchema, referenceResultSchema, type ReferenceInput, type ReferenceResult } from "../../reference/schema";
 import type { ToolAdapter } from "../adapter";
@@ -12,7 +13,7 @@ import type { ToolAdapter } from "../adapter";
  */
 export const shellReferenceAdapter: ToolAdapter<ReferenceInput, ReferenceResult> = {
   slug: "shell-reference",
-  version: "1.0.0",
+  version: SHELL_REFERENCE_TOOL_VERSION,
   schemaVersion: "1",
   inputSchema: referenceInputSchema,
   outputSchema: referenceResultSchema,

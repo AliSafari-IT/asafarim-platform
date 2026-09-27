@@ -89,3 +89,15 @@ describe("handoff envelope", () => {
     expect(handoffKey(id)).toBe("0b6f2a4e5c1d4e8f");
   });
 });
+
+describe("handoff completion analytics", () => {
+  it("sends only allowlisted, low-cardinality properties", async () => {
+    const { handoffCompletedEvent } = await import("./index");
+    expect(handoffCompletedEvent({ tool: "notes-to-action-plan", toolVersion: "1.0.0" }, "tasksai")).toEqual({
+      name: "ai_tool_handoff_completed",
+      props: { tool: "notes-to-action-plan", tool_version: "1.0.0", destination: "tasksai" },
+    });
+    expect(handoffCompletedEvent({ tool: "My secret plan", toolVersion: "1.0.0" }, "tasksai")).toBeNull();
+    expect(handoffCompletedEvent({ tool: "notes-to-action-plan", toolVersion: "evil@example.com" }, "tasksai")).toBeNull();
+  });
+});

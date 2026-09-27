@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { trackHandoffCompleted } from "@asafarim/tool-handoff";
 
 type Preview = {
   ok: true;
@@ -65,7 +66,10 @@ export function WorkbenchImport({ apps, defaultAppId, canConfirm }: { apps: { id
     setBusy(true);
     const result = await post<Done>("/api/imports/workbench/confirm", { content, projectId: appId });
     setBusy(false);
-    if (result.ok) setDone(result);
+    if (result.ok) {
+      setDone(result);
+      if (result.status === "created" && preview) trackHandoffCompleted(preview.source, "testora");
+    }
     else setError(result);
     focusStatus();
   };

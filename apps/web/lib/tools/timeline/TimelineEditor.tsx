@@ -5,6 +5,7 @@ import { Badge, Button } from "@asafarim/ui";
 import { ToolExport } from "../../../components/tools/ToolExport";
 import { ToolHandoff } from "../../../components/tools/ToolHandoff";
 import { timelineHandoff } from "../handoff";
+import { useResultTracking } from "../use-edit-tracker";
 import {
   acceptedEvents,
   applyEventEdit,
@@ -42,6 +43,7 @@ export function TimelineEditor({ timeline, origin }: { timeline: CitedTimeline; 
   const [editing, setEditing] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const baseId = useId();
+  const track = useResultTracking("text-to-cited-timeline");
 
   useEffect(() => {
     dispatch({ type: "reset", state: initialTimelineReview(timeline, origin) });
@@ -58,12 +60,14 @@ export function TimelineEditor({ timeline, origin }: { timeline: CitedTimeline; 
 
   const setStatus = (e: ReviewEvent, status: ReviewEvent["status"]) => {
     dispatch({ type: "set-status", id: e.id, status });
+    track.edited("status");
     setAnnouncement(`${e.id} ${status === "accepted" ? "accepted" : status === "rejected" ? "rejected" : "marked as needing a decision"}.`);
   };
   const move = (e: ReviewEvent, by: -1 | 1) => {
     const index = review.events.findIndex((x) => x.id === e.id);
     if (index + by < 0 || index + by >= review.events.length) return;
     dispatch({ type: "move", id: e.id, by });
+    track.edited("reorder");
     setAnnouncement(`${e.id} moved to position ${index + by + 1} of ${review.events.length}.`);
     requestAnimationFrame(() => document.getElementById(`${baseId}-move-${by}-${e.id}`)?.focus());
   };
@@ -117,6 +121,7 @@ export function TimelineEditor({ timeline, origin }: { timeline: CitedTimeline; 
                         checked={c.status === choice.value}
                         onChange={() => {
                           dispatch({ type: "set-conflict", id: c.id, status: choice.value });
+                          track.edited("conflict");
                           setAnnouncement(`${c.id}: ${CONFLICT_STATUS_LABEL[choice.value]}.`);
                         }}
                       />{" "}
@@ -162,6 +167,7 @@ export function TimelineEditor({ timeline, origin }: { timeline: CitedTimeline; 
                   event={e}
                   onSave={(event) => {
                     dispatch({ type: "save-event", event });
+                    track.edited("edit");
                     setEditing(null);
                     setAnnouncement(`${event.id} saved.`);
                   }}
@@ -254,7 +260,7 @@ export function TimelineEditor({ timeline, origin }: { timeline: CitedTimeline; 
               Exports the {accepted.length} accepted event{accepted.length === 1 ? "" : "s"} with their sources, precision, uncertainty, and the conflicts that
               involve them. Files are created in your browser; nothing is uploaded.
             </p>
-            <ToolExport filenameBase={slugify(timeline.title)} json={toExportJson(timeline, review)} markdown={toMarkdown(timeline, review)} />
+            <ToolExport filenameBase={slugify(timeline.title)} json={toExportJson(timeline, review)} markdown={toMarkdown(timeline, review)} onExport={track.exported} />
             <ToolHandoff
               destination="timelineai"
               what={`the ${accepted.length} accepted event${accepted.length === 1 ? "" : "s"}, each keeping its date precision and citation`}

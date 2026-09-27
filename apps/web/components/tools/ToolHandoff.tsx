@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Button, getPlatformLinks } from "@asafarim/ui";
 import { DESTINATION_NAMES, HANDOFF_FILE_SUFFIX, HANDOFF_TTL_DAYS, IMPORT_PATH, type Destination, type HandoffEnvelope } from "@asafarim/tool-handoff";
+import { trackToolEvent } from "../../lib/tools/analytics";
+import type { ToolSlug } from "../../lib/tools/types";
 import styles from "./tools.module.css";
 
 const LINK_KEY = { testora: "testora", tasksai: "tasksai", timelineai: "timelineai" } as const satisfies Record<Destination, string>;
@@ -28,6 +30,7 @@ export function ToolHandoff({ destination, build, what }: { destination: Destina
     link.click();
     URL.revokeObjectURL(url);
     setDownloaded(true);
+    trackToolEvent({ name: "ai_tool_handoff_started", props: { tool: envelope.source.tool as ToolSlug, tool_version: envelope.source.toolVersion, destination } });
   };
 
   return (

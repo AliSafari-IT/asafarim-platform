@@ -356,3 +356,35 @@ function byteLength(text: string): number {
 export function handoffKey(handoffId: string, length = 16): string {
   return handoffId.replace(/-/g, "").toLowerCase().slice(0, length);
 }
+
+// ── Analytics (#682) ─────────────────────────────────────────────────────────
+/** Tools that can create handoffs. Anything else is dropped from analytics. */
+export const HANDOFF_TOOLS = ["requirements-to-test-plan", "notes-to-action-plan", "text-to-cited-timeline"] as const;
+
+/**
+ * The destination apps' only analytics event: an import was confirmed and
+ * created records. Low-cardinality, allowlisted properties only — never the
+ * handoff id, titles, or counts — matching the AI Workbench event
+ * dictionary (ai-tools-events/1). Returns null for anything unexpected.
+ */
+export function handoffCompletedEvent(
+  source: { tool: string; toolVersion: string },
+  destination: Destination
+): { name: "ai_tool_handoff_completed"; props: { tool: string; tool_version: string; destination: Destination } } | null {
+  if (!(HANDOFF_TOOLS as readonly string[]).includes(source.tool)) return null;
+  if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(source.toolVersion)) return null;
+  if (!(DESTINATIONS as readonly string[]).includes(destination)) return null;
+  return { name: "ai_tool_handoff_completed", props: { tool: source.tool, tool_version: source.toolVersion, destination } };
+}
+
+/** Sends `handoffCompletedEvent` to Umami when it's loaded; never throws. */
+export function trackHandoffCompleted(source: { tool: string; toolVersion: string }, destination: Destination): void {
+  try {
+    const w = globalThis as { umami?: { track(name: string, data: Record<string, string>): void }; navigator?: { webdriver?: boolean } };
+    if (!w.umami || w.navigator?.webdriver) return;
+    const event = handoffCompletedEvent(source, destination);
+    if (event) w.umami.track(event.name, event.props);
+  } catch {
+    // Analytics must never break an import.
+  }
+}
