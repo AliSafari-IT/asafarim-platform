@@ -104,6 +104,14 @@ export function ToolShell({ tool, children }: { tool: ToolDefinition; children: 
         </TrackedToolLink>
       </nav>
 
+      {/* After the tool has done its job, never before it (#683). */}
+      <aside className={styles.author} aria-label="About the builder">
+        <p>
+          <strong>Built by Ali Safari</strong>, a full-stack and AI engineer. This is one of three small tools built to show how AI output can
+          stay checkable: typed contracts, visible sources, server-side checks, and an eval gate before anything goes live.
+        </p>
+      </aside>
+
       <p className={styles.muted}>
         Built by <a href="/about">Ali Safari</a> at ASafarIM Digital · Page last reviewed <time dateTime={tool.lastReviewed}>{formatDate(tool.lastReviewed)}</time>
       </p>

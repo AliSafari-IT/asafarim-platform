@@ -129,3 +129,22 @@ describe("sitemap and robots", () => {
     expect(rules).toMatchObject({ userAgent: "*", allow: "/", disallow: ["/api/"] });
   });
 });
+
+describe("portfolio links (#683)", () => {
+  const showcaseData = require("node:fs").readFileSync(require("node:path").resolve(__dirname, "../../../showcase/app/projects/ai-workbench/_data/workbench.ts"), "utf8") as string;
+
+  it("every public tool links to its anchor on the canonical Showcase case study", () => {
+    for (const tool of toolCatalogue.filter((t) => !t.internal)) {
+      const match = tool.caseStudyPath?.match(/^\/projects\/ai-workbench#([a-z-]+)$/);
+      expect(match, tool.slug).toBeTruthy();
+      expect(showcaseData).toContain(`anchor: "${match![1]}"`);
+      expect(showcaseData).toContain(`slug: "${tool.slug}"`);
+    }
+  });
+
+  it("puts the author panel after the tool and its result, with distinct actions", () => {
+    const html = renderToStaticMarkup(<ToolShell tool={as("beta")}>{<div id="workbench-marker" />}</ToolShell>);
+    expect(html.indexOf("workbench-marker")).toBeLessThan(html.indexOf('aria-label="About the builder"'));
+    for (const action of ["See how it was built", "Continue in TasksAI", "Discuss this kind of system"]) expect(html).toContain(action);
+  });
+});

@@ -296,6 +296,12 @@
   background: var(--accent-2);
 }
 
+.stackSeg[data-status="experiment"],
+.legendSwatch[data-status="experiment"] {
+  background: repeating-linear-gradient(135deg, var(--accent-2) 0 4px, transparent 4px 8px);
+  border: 1px solid var(--accent-2);
+}
+
 .stackSeg[data-status="planned"],
 .legendSwatch[data-status="planned"] {
   background: var(--line-strong);

@@ -49,7 +49,8 @@ export interface ShowcaseProject {
   title: string;
   summary: string;
   tags: string[];
-  status: "live" | "beta" | "planned" | "archived";
+  /** Same words as the Web tool catalogue: `experiment` = usable, not yet promoted to beta. */
+  status: "live" | "beta" | "experiment" | "planned" | "archived";
   glyph: string;
   index: string;
   /**
@@ -219,6 +220,25 @@ export const projects: ShowcaseProject[] = [
       "AI rewrites are structurally constrained: facts are copied from the profile in code, never taken from model output.",
       "One job URL is fetched per candidate action — no job-board aggregation, no licensing dependency.",
       "The public deployment is a non-commercial portfolio MVP, not a professional career or legal service.",
+    ],
+  },
+  {
+    slug: "ai-workbench",
+    title: "AI Workbench",
+    summary:
+      "Three narrow public AI tools — requirements to test plan, notes to action plan, text to cited timeline — where every item shows where it came from, the server removes what the input doesn't support, and a fixture-first eval gate decides when a tool may go live.",
+    tags: ["AI", "Evaluation", "Next.js"],
+    status: "experiment",
+    glyph: "AW",
+    index: "09",
+    externalUrl: `${platformLinks.web}/tools`,
+    stack: ["Next.js", "TypeScript", "Zod", "Anthropic API (behind an eval gate)", "Vitest", "Playwright"],
+    dependsOn: ["ui", "ai", "db"],
+    highlights: [
+      "Every item is labelled: quoted from the input, inferred with its assumption, or a suggestion.",
+      "Server-side checks remove fake test results, invented owners and deadlines, and false date precision.",
+      "A fixture-first eval gate in CI blocks any tool from going live until it passes.",
+      "Experimental today: the examples run; live generation stays off until each tool's gate and launch checks pass.",
     ],
   },
 ];

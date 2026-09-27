@@ -849,6 +849,11 @@ a .ui-card {
   color: var(--accent-2);
 }
 
+.ui-status--experiment {
+  color: var(--accent-2);
+  font-style: italic;
+}
+
 .ui-status--archived {
   color: var(--muted);
 }

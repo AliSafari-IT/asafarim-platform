@@ -356,3 +356,15 @@
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
+
+.author {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.author p {
+  margin: 0;
+  max-width: 60ch;
+}

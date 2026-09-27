@@ -49,6 +49,7 @@ export const toolCatalogue: ToolDefinition[] = [
     privacyStatement:
       "Your text is sent to our server to build the plan and isn't stored or logged. When live generation is on, it's also sent to an AI provider (Anthropic) to draft the plan. Don't paste secrets or personal data.",
     relatedApp: { key: "testora", name: "Testora", reason: "Turn planned scenarios into automated checks and track results." },
+    caseStudyPath: "/projects/ai-workbench#test-plan",
     lastReviewed: "2026-09-27",
   },
   {
@@ -87,6 +88,7 @@ export const toolCatalogue: ToolDefinition[] = [
     privacyStatement:
       "Your notes are sent to our server to build the plan and aren't stored or logged. When live generation is on, they're also sent to an AI provider (Anthropic) to draft the plan. Remove names, secrets, and personal data you don't need to share.",
     relatedApp: { key: "tasksai", name: "TasksAI", reason: "Track the reviewed tasks on a shared board." },
+    caseStudyPath: "/projects/ai-workbench#action-plan",
     lastReviewed: "2026-09-27",
   },
   {
@@ -125,6 +127,7 @@ export const toolCatalogue: ToolDefinition[] = [
     privacyStatement:
       "Your text is sent to our server to build the timeline and isn't stored or logged. When live generation is on, it's also sent to an AI provider (Anthropic) to find the events. Don't paste private or personal material you don't want processed.",
     relatedApp: { key: "timelineai", name: "TimelineAI", reason: "Design, publish, and share the reviewed timeline." },
+    caseStudyPath: "/projects/ai-workbench#timeline",
     lastReviewed: "2026-09-27",
   },
   {
