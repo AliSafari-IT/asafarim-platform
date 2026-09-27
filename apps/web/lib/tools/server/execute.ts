@@ -228,19 +228,21 @@ export async function executeTool(
       await record(attempt(result, "failed"));
       return toolError("declined");
     }
-    const output = result.stop === "complete" ? parseOutput(result.text, adapter) : null;
-    if (output === null) {
+    const parsed = result.stop === "complete" ? parseOutput(result.text, input, adapter) : null;
+    if (parsed === null) {
       await record(attempt(result, "failed"));
       return toolError("invalid_output");
     }
-    const costEventRef = await record(attempt(result, "succeeded"));
+    const degraded = parsed.dropped.length > 0;
+    const costEventRef = await record(attempt(result, degraded ? "degraded" : "succeeded"));
     return success(adapter, {
       mode: "live",
-      output,
+      output: parsed.output,
       model: result.responseModel,
       promptVersion: live.promptVersion,
       durationMs: now() - started,
       costEventRef,
+      warnings: parsed.dropped,
     });
   });
 
@@ -248,7 +250,11 @@ export async function executeTool(
   return finish(outcome.envelope, { replayed: outcome.kind === "replayed", costRecorded, fallbackUsed });
 }
 
-function parseOutput<TOutput>(text: string, adapter: ToolAdapter<unknown, TOutput>): TOutput | null {
+function parseOutput<TOutput>(
+  text: string,
+  input: unknown,
+  adapter: ToolAdapter<unknown, TOutput>,
+): { output: TOutput; dropped: string[] } | null {
   if (!text || Buffer.byteLength(text, "utf8") > adapter.limits.maxOutputBytes) return null;
   let json: unknown;
   try {
@@ -256,22 +262,33 @@ function parseOutput<TOutput>(text: string, adapter: ToolAdapter<unknown, TOutpu
   } catch {
     return null;
   }
-  const parsed = adapter.outputSchema.safeParse(json);
-  return parsed.success ? parsed.data : null;
+  let candidate: unknown = json;
+  let dropped: string[] = [];
+  if (adapter.live?.toOutput) {
+    const shaped = adapter.live.toOutput(input, json);
+    if (!shaped) return null;
+    candidate = shaped.output;
+    dropped = shaped.dropped;
+  }
+  const parsed = adapter.outputSchema.safeParse(candidate);
+  return parsed.success ? { output: parsed.data, dropped } : null;
 }
 
 function success(
   adapter: ToolAdapter<unknown, unknown>,
-  fields: Pick<ToolRunSuccess, "mode" | "output" | "model" | "promptVersion" | "costEventRef"> & { durationMs: number },
+  fields: Pick<ToolRunSuccess, "mode" | "output" | "model" | "promptVersion" | "costEventRef"> & {
+    durationMs: number;
+    warnings?: string[];
+  },
 ): ToolRunSuccess {
   return {
     ok: true,
     envelopeVersion: TOOL_ENVELOPE_VERSION,
-    status: "succeeded",
+    status: fields.warnings?.length ? "degraded" : "succeeded",
     tool: { slug: adapter.slug, version: adapter.version, schemaVersion: adapter.schemaVersion },
     mode: fields.mode,
     output: fields.output,
-    warnings: [],
+    warnings: fields.warnings ?? [],
     model: fields.model,
     promptVersion: fields.promptVersion,
     timing: { durationMs: fields.durationMs },

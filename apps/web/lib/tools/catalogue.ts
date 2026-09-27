@@ -39,12 +39,13 @@ export function hasListedTools(): boolean {
 }
 
 /**
- * Tools shown on catalogue surfaces: never internal or retired; featured
+ * Tools shown on catalogue surfaces: never internal, experimental, or retired
+ * (charter §4: experiments are reachable by URL but not promoted); featured
  * first by `featuredOrder`, then alphabetical.
  */
 export function getListedTools(): ToolDefinition[] {
   return toolCatalogue
-    .filter((t) => !t.internal && t.lifecycle !== "retired")
+    .filter((t) => !t.internal && t.lifecycle !== "retired" && t.lifecycle !== "experiment")
     .sort(
       (a, b) =>
         (a.featuredOrder ?? Number.POSITIVE_INFINITY) - (b.featuredOrder ?? Number.POSITIVE_INFINITY) ||

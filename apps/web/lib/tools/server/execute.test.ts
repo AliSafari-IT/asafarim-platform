@@ -2,6 +2,7 @@ import { parseCostEventWrite, type CostEventWrite } from "@asafarim/ai-cost-ledg
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { toolCatalogue } from "../../../content/tools";
+const referenceTool = toolCatalogue.find((t) => t.slug === "shell-reference")!;
 import type { ToolDefinition } from "../types";
 import type { ToolAdapter } from "./adapter";
 import { toolAdapters } from "./adapters";
@@ -16,7 +17,7 @@ const SECRET_INPUT = "Confidential roadmap: launch Project Nightjar on 3 March, 
 const EXAMPLE = "Example notes: ship the release and email the team today.";
 
 const liveTool: ToolDefinition = {
-  ...toolCatalogue[0],
+  ...referenceTool,
   slug: "shell-reference",
   internal: false,
   lifecycle: "beta",
@@ -166,8 +167,8 @@ describe("examples and fixture mode", () => {
     const ref = toolAdapters["shell-reference"];
     const input = ref.inputSchema.parse({ text: "Line one here\nLine two here" });
     expect(ref.outputSchema.parse(ref.fixture(input))).toEqual(ref.outputSchema.parse(ref.fixture(input)));
-    const example = ref.inputSchema.parse(ref.exampleInput(toolCatalogue[0].example.input));
-    expect(ref.fixture(example)).toEqual(toolCatalogue[0].example.output);
+    const example = ref.inputSchema.parse(ref.exampleInput(referenceTool.example.input));
+    expect(ref.fixture(example)).toEqual(referenceTool.example.output);
   });
 });
 

@@ -43,7 +43,8 @@ export function describeRunState(state: ToolRunState<unknown>): StatusCopy {
       return {
         tone: "warning",
         title: state.mode === "fixture" ? "Partial example result" : "Partial result",
-        body: `Some sections couldn't be produced${state.missing.length ? `: ${state.missing.join(", ")}` : ""}. What's shown is ${
+        // `missing` holds UI-safe sentences from the server (see ToolLiveSpec.toOutput).
+        body: `${state.missing.length ? state.missing.join(" ") : "Some sections couldn't be produced."} What's shown is ${
           state.mode === "fixture" ? "a prepared example, not generated from your text" : "drafted by AI — review it before use"
         }.`,
       };

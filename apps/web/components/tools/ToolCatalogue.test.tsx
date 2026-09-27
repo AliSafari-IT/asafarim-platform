@@ -2,13 +2,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { getServerTranslator } from "@asafarim/shared-i18n/server";
 import { describe, expect, it } from "vitest";
 import { toolCatalogue } from "../../content/tools";
+const referenceTool = toolCatalogue.find((t) => t.slug === "shell-reference")!;
 import webDictionaries from "../../lib/i18n-dictionaries";
 import type { ToolDefinition } from "../../lib/tools/types";
 import { ToolCatalogue } from "./ToolCatalogue";
 
 const en = getServerTranslator("en", webDictionaries);
 const nl = getServerTranslator("nl-BE", webDictionaries);
-const base = toolCatalogue[0];
+const base = referenceTool;
 
 function tool(slug: string, overrides: Partial<ToolDefinition> = {}): ToolDefinition {
   return {

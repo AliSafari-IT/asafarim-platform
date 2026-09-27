@@ -17,6 +17,14 @@ export interface ToolWorkbenchProps<TResult> {
   runner: ToolRunner<TResult>;
   renderResult: (result: TResult, mode: ToolRunMode) => ReactNode;
   resultActions?: (result: TResult, mode: ToolRunMode) => ReactNode;
+  /** Extra, tool-owned fields rendered under the main input. */
+  options?: ReactNode;
+  /** Called with the example button, so a tool can fill its extra fields too. */
+  onLoadExample?: () => void;
+  /** Whether the current input is the example; defaults to `text === exampleInput`. */
+  isExample?: (text: string) => boolean;
+  /** Change it when extra fields change, so the example/ready state is recomputed. */
+  optionsKey?: string;
 }
 
 /**
@@ -36,6 +44,10 @@ export function ToolWorkbench<TResult>({
   runner,
   renderResult,
   resultActions,
+  options,
+  onLoadExample,
+  isExample = (text) => text === exampleInput,
+  optionsKey,
 }: ToolWorkbenchProps<TResult>) {
   const [input, setInput] = useState("");
   const [state, dispatch] = useReducer(toolRunReducer<TResult>, { kind: "idle" } as ToolRunState<TResult>);
@@ -57,8 +69,15 @@ export function ToolWorkbench<TResult>({
 
   function changeInput(next: string) {
     setInput(next);
-    dispatch({ type: "input-changed", input: next, exampleInput, limits });
+    dispatch({ type: "input-changed", input: next, isExample: isExample(next), limits });
   }
+
+  // Extra fields changed: recompute whether this is still the example.
+  useEffect(() => {
+    if (optionsKey === undefined) return;
+    dispatch({ type: "input-changed", input, isExample: isExample(input), limits });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on option changes
+  }, [optionsKey]);
 
   async function run() {
     if (state.kind === "running") return;
@@ -103,11 +122,19 @@ export function ToolWorkbench<TResult>({
         </div>
       </div>
 
+      {options}
+
       <div className={styles.actions}>
         <Button type="button" variant="primary" onClick={run} disabled={running} aria-disabled={running}>
           {running ? "Running…" : "Run"}
         </Button>
-        <Button type="button" variant="secondary" onClick={() => changeInput(exampleInput)} disabled={running}>
+        <Button type="button" variant="secondary" onClick={() => {
+            // Extra fields update on the next render; optionsKey then recomputes the example state.
+            onLoadExample?.();
+            changeInput(exampleInput);
+          }}
+          disabled={running}
+        >
           {exampleLabel}
         </Button>
       </div>
