@@ -10,6 +10,8 @@ import { z } from "zod";
  * from adding one.
  */
 export const ACTION_PLAN_SCHEMA_VERSION = "action-plan/1";
+/** Bumped on any user-visible behaviour change (the server adapter reports it). */
+export const ACTION_PLAN_TOOL_VERSION = "1.0.0";
 
 export const PLANNING_DEPTHS = ["outline", "standard", "detailed"] as const;
 export type PlanningDepth = (typeof PLANNING_DEPTHS)[number];

@@ -113,11 +113,11 @@ describe("TimelineEditor", () => {
     expect(text).toContain("Move down EV-01");
   });
 
-  it("previews non-rejected events and offers the TimelineAI file", () => {
+  it("previews non-rejected events and offers a TimelineAI handoff with no content in the link", () => {
     expect(text).toContain("Preview");
     expect(text).toContain("Not published anywhere.");
-    expect(text).toContain("timelineai-events/1");
-    expect((text.match(/Download JSON/g) ?? []).length).toBe(2);
+    expect(text).toContain("Download for TimelineAI");
+    expect(html).toMatch(/href="[^"]+\/import\/workbench"/);
   });
 });
 

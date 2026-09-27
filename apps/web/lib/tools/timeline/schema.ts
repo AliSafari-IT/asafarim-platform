@@ -12,6 +12,8 @@ import { SEASONS, TEMPORAL_ERAS, TEMPORAL_PRECISIONS, type TemporalPrecision, ty
  * 1990-04-01.
  */
 export const CITED_TIMELINE_SCHEMA_VERSION = "cited-timeline/1";
+/** Bumped on any user-visible behaviour change (the server adapter reports it). */
+export const CITED_TIMELINE_TOOL_VERSION = "1.0.0";
 
 export const DETAIL_LEVELS = ["key", "standard", "detailed"] as const;
 export type DetailLevel = (typeof DETAIL_LEVELS)[number];

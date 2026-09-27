@@ -5,8 +5,15 @@ import { ImportWizard } from "../../../../components/ImportWizard";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Import" };
 
-export default async function ImportsPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ImportsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ source?: string }>;
+}) {
   const { slug } = await params;
+  const { source } = await searchParams;
   const m = await requireMembership(slug);
   const projects = await getTasksAiDb().project.findMany({
     where: { workspaceId: m.workspaceId, archivedAt: null },
@@ -21,5 +28,5 @@ export default async function ImportsPage({ params }: { params: Promise<{ slug: 
       </section>
     );
   }
-  return <ImportWizard slug={slug} projects={projects} />;
+  return <ImportWizard slug={slug} projects={projects} initialKind={source === "workbench" ? "handoff" : "csv"} />;
 }

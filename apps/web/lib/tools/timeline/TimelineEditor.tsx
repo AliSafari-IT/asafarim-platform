@@ -3,6 +3,8 @@
 import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { Badge, Button } from "@asafarim/ui";
 import { ToolExport } from "../../../components/tools/ToolExport";
+import { ToolHandoff } from "../../../components/tools/ToolHandoff";
+import { timelineHandoff } from "../handoff";
 import {
   acceptedEvents,
   applyEventEdit,
@@ -14,7 +16,6 @@ import {
   timelineReducer,
   toExportJson,
   toMarkdown,
-  toTimelineAiImport,
   type ConflictStatus,
   type EventDraft,
   type EventOrigin,
@@ -52,7 +53,6 @@ export function TimelineEditor({ timeline, origin }: { timeline: CitedTimeline; 
   const accepted = acceptedEvents(review);
   const pending = review.events.filter((e) => e.status === "pending").length;
   const openConflicts = review.conflicts.filter((c) => c.status === "open").length;
-  const timelineAi = toTimelineAiImport(timeline, review);
   const srcAnchor = (id: string) => `${baseId}-src-${id}`;
   const eventAnchor = (id: string) => `${baseId}-${id}`;
 
@@ -255,15 +255,11 @@ export function TimelineEditor({ timeline, origin }: { timeline: CitedTimeline; 
               involve them. Files are created in your browser; nothing is uploaded.
             </p>
             <ToolExport filenameBase={slugify(timeline.title)} json={toExportJson(timeline, review)} markdown={toMarkdown(timeline, review)} />
-            {timelineAi ? (
-              <div className={styles.handoff}>
-                <p className={styles.hint}>
-                  <strong>For TimelineAI:</strong> the same accepted events in TimelineAI&apos;s import format ({timelineAi.contractVersion}), keeping each
-                  date&apos;s precision and citation.
-                </p>
-                <ToolExport filenameBase={`${slugify(timeline.title)}-timelineai`} json={timelineAi} />
-              </div>
-            ) : null}
+            <ToolHandoff
+              destination="timelineai"
+              what={`the ${accepted.length} accepted event${accepted.length === 1 ? "" : "s"}, each keeping its date precision and citation`}
+              build={() => timelineHandoff(timeline, review)}
+            />
             <p className={styles.hint}>{EXPORT_NOTICE}</p>
           </>
         ) : (

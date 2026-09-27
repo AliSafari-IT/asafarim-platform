@@ -701,6 +701,9 @@ importers:
       '@asafarim/theme-toggle':
         specifier: workspace:*
         version: link:../../packages/theme-toggle
+      '@asafarim/tool-handoff':
+        specifier: workspace:*
+        version: link:../../packages/tool-handoff
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -795,6 +798,9 @@ importers:
       '@asafarim/theme-toggle':
         specifier: workspace:*
         version: link:../../packages/theme-toggle
+      '@asafarim/tool-handoff':
+        specifier: workspace:*
+        version: link:../../packages/tool-handoff
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -907,6 +913,9 @@ importers:
       '@asafarim/timeline-contract':
         specifier: workspace:*
         version: link:../../packages/timeline-contract
+      '@asafarim/tool-handoff':
+        specifier: workspace:*
+        version: link:../../packages/tool-handoff
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -1128,6 +1137,9 @@ importers:
       '@asafarim/timeline-contract':
         specifier: workspace:*
         version: link:../../packages/timeline-contract
+      '@asafarim/tool-handoff':
+        specifier: workspace:*
+        version: link:../../packages/tool-handoff
       '@asafarim/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -1608,6 +1620,25 @@ importers:
         version: 5.9.3
 
   packages/timeline-contract:
+    devDependencies:
+      '@asafarim/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+
+  packages/tool-handoff:
+    dependencies:
+      '@asafarim/timeline-contract':
+        specifier: workspace:*
+        version: link:../timeline-contract
     devDependencies:
       '@asafarim/config':
         specifier: workspace:*

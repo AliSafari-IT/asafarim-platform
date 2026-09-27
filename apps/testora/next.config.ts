@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
     "@asafarim/theme-toggle",
     "@asafarim/ui",
     "@asafarim/testora-tasksai-contract",
+    "@asafarim/tool-handoff",
   ],
   serverExternalPackages: ["testcafe", "testcafe-hammerhead", "testcafe-browser-tools", "@electron/asar"],
   // TestCafe's runtime reads several non-JS files off disk (templates, device

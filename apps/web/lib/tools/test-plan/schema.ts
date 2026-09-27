@@ -9,6 +9,8 @@ import { z } from "zod";
  * never claims to have run them. `.strict()` keeps a model from adding one.
  */
 export const TEST_PLAN_SCHEMA_VERSION = "test-plan/1";
+/** Bumped on any user-visible behaviour change (the server adapter reports it). */
+export const TEST_PLAN_TOOL_VERSION = "1.0.0";
 
 export const TEST_CATEGORIES = [
   "happy_path",

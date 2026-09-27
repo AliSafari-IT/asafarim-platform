@@ -4,6 +4,7 @@ import { prisma } from "../db";
 import type { Prisma } from "../db";
 import { assertAccess, ForbiddenError, NotFoundError, type ViewerContext } from "../authz";
 import type { TimelineInput } from "../../schemas";
+import type { TemporalValue } from "../../ai/temporal";
 
 // Unambiguous alphabet (no 0/O/1/l/I) for share URLs people might read aloud
 // or transcribe. 12 chars ≈ 62 bits of entropy — unguessable enough for an
@@ -22,6 +23,17 @@ async function generateUniquePublicId(): Promise<string> {
   throw new Error("Could not generate a unique share id — please try again.");
 }
 
+export interface CreateTimelineOptions {
+  /** Run inside a caller's transaction (e.g. so an import and its audit record commit together). */
+  tx?: Prisma.TransactionClient;
+  /**
+   * Structured date precision per event, by index. Only for values produced
+   * by TimelineAI's own parser (@asafarim/timeline-contract) and reviewed by
+   * the user, e.g. a confirmed Workbench import (#678).
+   */
+  eventTemporalValues?: (TemporalValue | null | undefined)[];
+}
+
 export interface CreateTimelineOwnership {
   ownerUserId: string | null;
   guestIdHash: string | null;
@@ -33,7 +45,7 @@ export interface CreateTimelineOwnership {
  * Guests are created as moderationStatus="pending"; authenticated owners
  * as "not_required" (they may self-publish without review).
  */
-export async function createTimeline(input: TimelineInput, ownership: CreateTimelineOwnership) {
+export async function createTimeline(input: TimelineInput, ownership: CreateTimelineOwnership, options: CreateTimelineOptions = {}) {
   if (!ownership.ownerUserId && !ownership.guestIdHash) {
     throw new ForbiddenError(
       "We couldn't identify you as a visitor — please refresh and try again."
@@ -43,7 +55,8 @@ export async function createTimeline(input: TimelineInput, ownership: CreateTime
   const publicId = await generateUniquePublicId();
   const isGuest = !ownership.ownerUserId;
 
-  return prisma.timeline.create({
+  const db = options.tx ?? prisma;
+  return db.timeline.create({
     data: {
       publicId,
       ownerUserId: ownership.ownerUserId,
@@ -71,6 +84,9 @@ export async function createTimeline(input: TimelineInput, ownership: CreateTime
           link: event.link ?? null,
           accentColor: event.accentColor ?? null,
           sortOrder: event.sortOrder ?? index,
+          ...(options.eventTemporalValues?.[index]
+            ? { temporalPrecision: options.eventTemporalValues[index] as unknown as Prisma.InputJsonValue }
+            : {}),
         })),
       },
       moderationEvents: {

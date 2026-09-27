@@ -8,6 +8,7 @@ import {
 import { findDatePhrase, precisionCaveat, readDate } from "../../timeline/dates";
 import {
   CITED_TIMELINE_SCHEMA_VERSION,
+  CITED_TIMELINE_TOOL_VERSION,
   citedTimelineSchema,
   CONFIDENCES,
   CONFLICT_KINDS,
@@ -39,7 +40,7 @@ export const TIMELINE_PROMPT_VERSION = "cited_timeline@1";
  */
 export const textToCitedTimelineAdapter: ToolAdapter<TimelineInput, CitedTimeline> = {
   slug: "text-to-cited-timeline",
-  version: "1.0.0",
+  version: CITED_TIMELINE_TOOL_VERSION,
   schemaVersion: CITED_TIMELINE_SCHEMA_VERSION,
   inputSchema: timelineInputSchema,
   outputSchema: citedTimelineSchema,

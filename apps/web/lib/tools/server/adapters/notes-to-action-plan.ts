@@ -7,6 +7,7 @@ import {
 import { findAssignee, participantNames, unsupportedCommitment, type Commitment } from "../../action-plan/commitments";
 import {
   ACTION_PLAN_SCHEMA_VERSION,
+  ACTION_PLAN_TOOL_VERSION,
   actionPlanInputSchema,
   actionPlanSchema,
   BASES,
@@ -43,7 +44,7 @@ export const ACTION_PLAN_PROMPT_VERSION = "action_plan@1";
  */
 export const notesToActionPlanAdapter: ToolAdapter<ActionPlanInput, ActionPlan> = {
   slug: "notes-to-action-plan",
-  version: "1.0.0",
+  version: ACTION_PLAN_TOOL_VERSION,
   schemaVersion: ACTION_PLAN_SCHEMA_VERSION,
   inputSchema: actionPlanInputSchema,
   outputSchema: actionPlanSchema,

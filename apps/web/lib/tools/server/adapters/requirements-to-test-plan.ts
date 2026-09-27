@@ -11,6 +11,7 @@ import {
   QUESTION_KINDS,
   TEST_CATEGORIES,
   TEST_PLAN_SCHEMA_VERSION,
+  TEST_PLAN_TOOL_VERSION,
   testPlanInputSchema,
   testPlanSchema,
   type OpenQuestion,
@@ -34,7 +35,7 @@ export const TEST_PLAN_PROMPT_VERSION = "test_plan@1";
  */
 export const requirementsToTestPlanAdapter: ToolAdapter<TestPlanInput, TestPlan> = {
   slug: "requirements-to-test-plan",
-  version: "1.0.0",
+  version: TEST_PLAN_TOOL_VERSION,
   schemaVersion: TEST_PLAN_SCHEMA_VERSION,
   inputSchema: testPlanInputSchema,
   outputSchema: testPlanSchema,

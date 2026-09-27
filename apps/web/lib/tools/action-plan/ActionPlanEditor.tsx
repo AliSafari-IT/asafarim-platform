@@ -3,6 +3,8 @@
 import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { Badge, Button } from "@asafarim/ui";
 import { ToolExport } from "../../../components/tools/ToolExport";
+import { ToolHandoff } from "../../../components/tools/ToolHandoff";
+import { actionPlanHandoff } from "../handoff";
 import { EXPORT_NOTICE, ORIGIN_LABEL, exportSelection, toExportJson, toMarkdown } from "./export";
 import {
   addDependencyError,
@@ -322,6 +324,11 @@ export function ActionPlanEditor({ plan, origin }: { plan: ActionPlan; origin: I
                 </ul>
               ) : null}
               <ToolExport filenameBase={slugify(plan.title)} json={toExportJson(plan, review)} markdown={toMarkdown(plan, review)} />
+              <ToolHandoff
+                destination="tasksai"
+                what={`the ${review.selected.length} selected task${review.selected.length === 1 ? "" : "s"} and the links between them, with no assignees or due dates`}
+                build={() => actionPlanHandoff(plan, review)}
+              />
               <p className={styles.hint}>{EXPORT_NOTICE}</p>
             </>
           ) : (

@@ -4,6 +4,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Badge, Button } from "@asafarim/ui";
 import { ProvenanceBadge } from "../../../components/tools/ProvenanceBadge";
 import { ToolExport } from "../../../components/tools/ToolExport";
+import { ToolHandoff } from "../../../components/tools/ToolHandoff";
+import { testPlanHandoff } from "../handoff";
 import { applyScenarioEdit, draftFrom, type ScenarioDraft } from "./edit";
 import { EXPORT_NOTICE, plannedCounts, toExportJson, toMarkdown, type EditableScenario, type ScenarioOrigin } from "./export";
 import { CATEGORY_LABELS, PRIORITIES, TEST_CATEGORIES, type TestPlan } from "./schema";
@@ -214,6 +216,11 @@ export function TestPlanEditor({ plan, origin }: { plan: TestPlan; origin: Scena
               filenameBase={slugify(plan.title)}
               json={toExportJson(exportPlan, chosen)}
               markdown={toMarkdown(exportPlan, chosen)}
+            />
+            <ToolHandoff
+              destination="testora"
+              what={`the ${chosen.length} selected scenario${chosen.length === 1 ? "" : "s"}, which arrive in Testora as pending scaffolds to automate`}
+              build={() => testPlanHandoff(exportPlan, chosen)}
             />
           </>
         ) : (
