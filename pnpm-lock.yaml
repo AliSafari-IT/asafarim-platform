@@ -1177,6 +1177,25 @@ importers:
 
   benchmarks/ai-eval: {}
 
+  benchmarks/ai-tools:
+    dependencies:
+      '@asafarim/timeline-contract':
+        specifier: workspace:*
+        version: link:../../packages/timeline-contract
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.2
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.0
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+
   benchmarks/edumatch: {}
 
   benchmarks/testora:

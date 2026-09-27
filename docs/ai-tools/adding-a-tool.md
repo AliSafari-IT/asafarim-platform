@@ -88,6 +88,20 @@ always served from the fixture. Anything else is a live request, which the
 server answers with the fixture in `AI_TOOLS_MODE=fixture`, or reports as
 "live generation isn't available" until live is enabled.
 
+## The eval gate
+
+Before a tool can have `liveGeneration: true` or become beta/stable, it needs
+an entry in the eval gate ([benchmarks/ai-tools](../../benchmarks/ai-tools/README.md)):
+
+1. Add `lib/tools/<tool>/eval-cases.ts` with `normal`, `ambiguous`, `sparse`,
+   `contradictory`, `over-limit`, and `prompt-injection` cases, plus canned
+   model responses that fail the ways your tool's checks must catch.
+2. Register the tool in `benchmarks/ai-tools/src/suite.ts` with a scorer.
+3. Run `pnpm bench:ai-tools:reports` and commit the reports.
+
+`lib/tools/eval-gate.test.ts` fails if a live, beta, or stable tool is missing
+from the committed report, or its versions don't match, or any gate fails.
+
 ## Checking your tool
 
 ```bash

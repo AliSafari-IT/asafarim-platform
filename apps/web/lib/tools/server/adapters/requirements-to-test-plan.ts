@@ -257,7 +257,9 @@ const VAGUE = /\b(fast|quick(ly)?|easy|easily|simple|intuitive|user[- ]friendly|
  */
 export function heuristicPlan(input: TestPlanInput): TestPlan {
   const sources: SourceUnit[] = splitSources(input.requirement, input.acceptanceCriteria);
-  const scenarios: Scenario[] = sources.slice(0, 20).map((unit, i) => ({
+  // Text that claims tests ran (often an injected instruction) is never turned into a scenario.
+  const claims = sources.filter((u) => claimsExecution(u.text));
+  const scenarios: Scenario[] = sources.filter((u) => !claimsExecution(u.text)).slice(0, 20).map((unit, i) => ({
     id: `TC-${String(i + 1).padStart(2, "0")}`,
     title: `Check: ${clip(unit.text, 280)}`,
     category: "happy_path",
@@ -294,15 +296,22 @@ export function heuristicPlan(input: TestPlanInput): TestPlan {
     expected: "Every step is reachable and understandable without a mouse.",
   });
 
-  const questions: OpenQuestion[] = sources
-    .filter((u) => VAGUE.test(u.text))
-    .slice(0, 10)
-    .map((u, i) => ({
-      id: `Q${i + 1}`,
+  const questions: OpenQuestion[] = [
+    ...claims.map((u) => ({
       kind: "ambiguity" as const,
-      question: `"${clip(u.text, 200)}" uses wording that can't be tested as written. What is the measurable expectation?`,
+      question: `${u.id} reads like a claim that tests ran, or an instruction, rather than a requirement. It wasn't turned into a scenario.`,
       sourceIds: [u.id],
-    }));
+    })),
+    ...sources
+      .filter((u) => VAGUE.test(u.text) && !claimsExecution(u.text))
+      .map((u) => ({
+        kind: "ambiguity" as const,
+        question: `"${clip(u.text, 200)}" uses wording that can't be tested as written. What is the measurable expectation?`,
+        sourceIds: [u.id],
+      })),
+  ]
+    .slice(0, 10)
+    .map((q, i) => ({ id: `Q${i + 1}`, ...q }));
 
   return {
     schemaVersion: TEST_PLAN_SCHEMA_VERSION,

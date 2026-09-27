@@ -10,7 +10,7 @@ import type { ActionPlanInputRaw, ModelOutput } from "./schema";
  */
 export interface ActionPlanEvalCase {
   id: string;
-  kind: "normal" | "messy" | "deadline-bait" | "assignee-bait" | "prompt-injection" | "no-actions" | "over-limit" | "empty";
+  kind: "normal" | "ambiguous" | "sparse" | "contradictory" | "deadline-bait" | "assignee-bait" | "prompt-injection" | "no-actions" | "over-limit" | "empty";
   input: ActionPlanInputRaw;
   expect: {
     /** Server outcome in fixture mode. */
@@ -36,12 +36,27 @@ export const actionPlanEvalCases: ActionPlanEvalCase[] = [
     expect: { fixtureOutcome: "ok", noInventedDeadlines: true, noAssignees: true, minQuestions: 1 },
   },
   {
-    id: "messy-brain-dump",
-    kind: "messy",
+    id: "ambiguous-brain-dump",
+    kind: "ambiguous",
     input: {
       notes:
         "ok so. website redo?? old one slow. maybe new CMS or just fix images. ppl complain about search. also blog is dead since march. check analytics first!! design refresh would be nice but $$. mobile nav broken on android i think",
       depth: "outline",
+    },
+    expect: { fixtureOutcome: "ok", noInventedDeadlines: true, noAssignees: true, minQuestions: 1 },
+  },
+  {
+    id: "sparse-one-liner",
+    kind: "sparse",
+    input: { notes: "We should probably redo onboarding at some point, it's confusing." },
+    expect: { fixtureOutcome: "ok", noInventedDeadlines: true, noAssignees: true, minQuestions: 1 },
+  },
+  {
+    id: "contradictory-decisions",
+    kind: "contradictory",
+    input: {
+      notes:
+        "Pricing page sync\n- Decided: keep the free plan.\n- Draft the new pricing table.\n- Later in the meeting: decided to drop the free plan for new sign-ups.\n- Update the FAQ once pricing is final.\n- Is the annual discount still 20%?",
     },
     expect: { fixtureOutcome: "ok", noInventedDeadlines: true, noAssignees: true, minQuestions: 1 },
   },
