@@ -48,6 +48,24 @@ which reads all of that from the catalogue entry.
 - **URLs can't select arbitrary code.** The route has `dynamicParams = false`
   and resolves slugs through the catalogue and the closed workbench map.
 
+## Where the tool shows up
+
+Once the catalogue lists at least one public tool (one that isn't internal
+or retired), these entry points turn on automatically:
+
+- the card on `/tools`;
+- the "Tools" item in the primary nav;
+- the homepage AI Tools link;
+- the `/tools` entry in the sitemap.
+
+Before that, `/tools` shows an empty state and is `noindex`. Cards take
+their order from `featuredOrder`, and their availability badge from
+`lifecycle` + `liveGeneration`: "Runs on your text", "Examples only", or
+"Paused". Leave `liveGeneration: false` until the tool really calls a
+provider (#673). Catalogue and card wording lives under `web.tools.*` in
+`lib/i18n-dictionaries.ts`, and every locale must have every key (a test
+checks this).
+
 ## What never goes in the catalogue
 
 Provider keys, prompts, model names meant as configuration, component

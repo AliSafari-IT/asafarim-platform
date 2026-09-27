@@ -83,6 +83,13 @@ export interface ToolDefinition {
    * outside production. They must be `experiment` and not indexable.
    */
   internal?: boolean;
+  /**
+   * Whether the visitor's own text can produce a live AI result. `false`
+   * means examples only. Must be `false` for paused, retired, and internal
+   * tools (validated). Runtime kill switches (#680) can still disable a tool
+   * whose entry says `true`.
+   */
+  liveGeneration: boolean;
   /** Position among featured tools on the catalogue; omit if not featured. */
   featuredOrder?: number;
   inputSummary: string;
@@ -100,6 +107,14 @@ export interface ToolDefinition {
   caseStudyPath?: string;
   /** ISO date (YYYY-MM-DD) the page content was last materially reviewed. */
   lastReviewed: string;
+}
+
+/** What a visitor can do with a tool right now; shown on catalogue cards. */
+export type ToolAvailability = "live" | "examples-only" | "paused";
+
+export function toolAvailability(tool: Pick<ToolDefinition, "lifecycle" | "liveGeneration">): ToolAvailability {
+  if (tool.lifecycle === "paused") return "paused";
+  return tool.liveGeneration ? "live" : "examples-only";
 }
 
 /**

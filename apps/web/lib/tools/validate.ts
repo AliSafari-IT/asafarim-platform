@@ -54,6 +54,10 @@ export function validateCatalogue(
       fail("internal tools must be experiment and not indexable");
     }
     if (tool.internal && tool.featuredOrder !== undefined) fail("internal tools cannot be featured");
+    if (typeof tool.liveGeneration !== "boolean") fail("liveGeneration must be true or false");
+    if (tool.liveGeneration && (tool.internal || tool.lifecycle === "paused" || tool.lifecycle === "retired")) {
+      fail("paused, retired, and internal tools cannot offer live generation");
+    }
     if (tool.lifecycle === "stable" && !tool.caseStudyPath) {
       fail("stable tools require a published case study (charter §4.1)");
     }
