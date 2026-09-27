@@ -100,7 +100,7 @@ export async function reorderStatuses(ctx: RequestContext, input: unknown) {
   authorize(ctx.actor, "status.manage");
   const { ids } = reorderStatusesSchema.parse(input);
 
-  return ctx.db.$transaction(async (tx) => {
+  const scope = await ctx.db.$transaction(async (tx) => {
     const rows = await tx.status.findMany({
       where: { id: { in: ids }, workspaceId: ctx.workspaceId, archivedAt: null },
       select: { id: true, projectId: true },
@@ -108,8 +108,8 @@ export async function reorderStatuses(ctx: RequestContext, input: unknown) {
     if (rows.length !== ids.length) {
       throw new ApiError("validation_failed", { ids: "one or more statuses were not found" });
     }
-    const scope = rows[0]?.projectId ?? null;
-    if (rows.some((r) => r.projectId !== scope)) {
+    const rowScope = rows[0]?.projectId ?? null;
+    if (rows.some((r) => r.projectId !== rowScope)) {
       throw new ApiError("validation_failed", { ids: "statuses must belong to the same scope" });
     }
 
@@ -125,8 +125,12 @@ export async function reorderStatuses(ctx: RequestContext, input: unknown) {
       actorId: ctx.actor.membershipId,
       data: { ids },
     });
-    return listStatusesRepo(ctx, { projectId: scope ?? undefined });
+    return rowScope;
   });
+  // Read after the transaction commits: listStatusesRepo goes through ctx.db,
+  // which cannot see the uncommitted positions, so listing inside the
+  // transaction returned the old order.
+  return listStatusesRepo(ctx, { projectId: scope ?? undefined });
 }
 
 export async function archiveStatus(ctx: RequestContext, id: string) {
