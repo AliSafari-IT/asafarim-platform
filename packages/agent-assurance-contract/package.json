@@ -1,0 +1,24 @@
+{
+  "name": "@asafarim/agent-assurance-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Vendor-neutral executable contracts and deterministic evidence evaluation for AI agents.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@asafarim/config": "workspace:*",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11"
+  }
+}

@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@asafarim/auth": "workspace:*",
+    "@asafarim/agent-assurance-contract": "workspace:*",
     "@asafarim/db": "workspace:*",
     "@asafarim/storage": "workspace:*",
     "@asafarim/testora-tasksai-contract": "workspace:*",

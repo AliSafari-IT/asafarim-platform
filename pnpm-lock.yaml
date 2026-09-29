@@ -783,6 +783,9 @@ importers:
 
   apps/testora:
     dependencies:
+      '@asafarim/agent-assurance-contract':
+        specifier: workspace:*
+        version: link:../../packages/agent-assurance-contract
       '@asafarim/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -1242,6 +1245,22 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.2
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+
+  packages/agent-assurance-contract:
+    dependencies:
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@asafarim/config':
+        specifier: workspace:*
+        version: link:../config
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
