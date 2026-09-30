@@ -32,7 +32,7 @@ import { resolveRunTarget } from "@/lib/run-target";
 import { TargetPolicyError, assertRunnableTarget } from "@/lib/target-policy";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { targetEnvironments } from "@/db/schema";
+import { projects, targetEnvironments } from "@/db/schema";
 
 // Reads live in-memory run state, so it must never be statically cached.
 export const dynamic = "force-dynamic";
@@ -169,6 +169,16 @@ export async function POST(request: Request) {
     isAdmin,
     findTarget: (id) =>
       db.query.targetEnvironments.findFirst({ where: eq(targetEnvironments.id, id) }),
+    storedUrlPairs: async () => {
+      const [targets, project] = await Promise.all([
+        db
+          .select({ baseUrl: targetEnvironments.baseUrl, apiUrl: targetEnvironments.apiUrl })
+          .from(targetEnvironments)
+          .where(eq(targetEnvironments.projectId, projectId)),
+        db.query.projects.findFirst({ where: eq(projects.id, projectId) }),
+      ]);
+      return project ? [...targets, { baseUrl: project.baseUrl, apiUrl: project.apiUrl }] : targets;
+    },
   });
   if (!resolved.ok) {
     return NextResponse.json(resolved.body, { status: resolved.status });

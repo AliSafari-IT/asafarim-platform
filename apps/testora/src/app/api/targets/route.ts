@@ -24,14 +24,20 @@ export async function GET(request: Request) {
     if (a.seeded) return a.sortOrder - b.sortOrder;
     return a.createdAt.getTime() - b.createdAt.getTime();
   });
+  // Whether each target passes the network policy here (e.g. the seeded Local
+  // target is refused in production), so the Run page can default to one that
+  // runs and label the rest.
+  const verdicts = await Promise.all(sorted.map((t) => checkStoredUrls([t.baseUrl, t.apiUrl])));
   return NextResponse.json(
-    sorted.map((t) => ({
+    sorted.map((t, i) => ({
       id: t.id,
       projectId: t.projectId,
       name: t.name,
       baseUrl: t.baseUrl,
       apiUrl: t.apiUrl,
       seeded: t.seeded,
+      runnable: verdicts[i] === null,
+      unrunnableReason: verdicts[i]?.body.error ?? null,
     })),
   );
 }

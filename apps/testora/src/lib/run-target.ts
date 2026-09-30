@@ -8,10 +8,13 @@ import {
 
 /**
  * Which deployment a run targets (#699). A run names a stored
- * target_environments row of its own project by `targetId`; raw
- * `baseUrl`/`apiUrl` overrides are admin/superadmin-only. Either way the
- * resulting URLs must pass the network policy (lib/target-policy.ts).
- * Neither given = the fixtures' own (admin-authored) URLs.
+ * target_environments row of its own project by `targetId`. Raw
+ * `baseUrl`/`apiUrl` overrides are admin/superadmin-only — unless they are
+ * exactly the URLs of one of the project's stored targets, or the project's
+ * own URLs (an app with no targets yet; an environment saved in the browser
+ * before targetId existed). Either way the resulting URLs must pass the
+ * network policy (lib/target-policy.ts). Neither given = the fixtures' own
+ * (admin-authored) URLs.
  */
 export const runTargetSchema = z.object({
   targetId: z.string().min(1).optional(),
@@ -44,6 +47,8 @@ export async function resolveRunTarget(
     projectId: string;
     isAdmin: boolean;
     findTarget: (id: string) => Promise<StoredTarget | null | undefined>;
+    /** URL pairs already stored for this project: its targets and its own URLs. */
+    storedUrlPairs?: () => Promise<{ baseUrl: string; apiUrl: string }[]>;
     production?: boolean;
     lookup?: LookupFn;
   },
@@ -84,8 +89,14 @@ export async function resolveRunTarget(
       };
     }
 
-    if (baseUrl) await assertRunnableTarget(baseUrl, { ...policy, stored: false });
-    if (apiUrl) await assertRunnableTarget(apiUrl, { ...policy, stored: false });
+    const stored =
+      !context.isAdmin && (baseUrl || apiUrl) && context.storedUrlPairs
+        ? (await context.storedUrlPairs()).some(
+            (pair) => sameUrl(pair.baseUrl, baseUrl) && sameUrl(pair.apiUrl, apiUrl),
+          )
+        : false;
+    if (baseUrl) await assertRunnableTarget(baseUrl, { ...policy, stored });
+    if (apiUrl) await assertRunnableTarget(apiUrl, { ...policy, stored });
     return { ok: true, target: { baseUrl, apiUrl } };
   } catch (error) {
     if (error instanceof TargetPolicyError) {
@@ -93,6 +104,11 @@ export async function resolveRunTarget(
     }
     throw error;
   }
+}
+
+/** Whether a sent URL (possibly omitted) matches a stored one ("" = not set). */
+function sameUrl(stored: string, sent: string | undefined): boolean {
+  return (stored || "") === (sent ?? "");
 }
 
 /**

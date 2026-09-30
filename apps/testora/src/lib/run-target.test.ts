@@ -111,3 +111,32 @@ test("saving target/project URLs applies the policy; empty URLs are fine", async
   const userinfo = await checkStoredUrls(["https://admin:pw@example.com"], { production: false });
   assert.equal(userinfo?.status, 400);
 });
+
+test("raw URLs that exactly match a stored target or the app's own URLs count as stored", async () => {
+  const withPairs = {
+    ...context(false),
+    storedUrlPairs: async () => [
+      { baseUrl: "https://tlai.asafarim.com", apiUrl: "https://tlai.asafarim.com/api" },
+      // A new app with no targets yet: only its own URLs, API not set.
+      { baseUrl: "https://example.com", apiUrl: "" },
+    ],
+  };
+  // An environment saved in the browser before targetId existed.
+  const legacy = await resolveRunTarget(
+    { baseUrl: "https://tlai.asafarim.com", apiUrl: "https://tlai.asafarim.com/api" },
+    withPairs,
+  );
+  assert.equal(legacy.ok, true);
+  // The app's own URLs.
+  assert.equal((await resolveRunTarget({ baseUrl: "https://example.com" }, withPairs)).ok, true);
+  // Anything else is still a raw URL.
+  for (const body of [
+    { baseUrl: "https://tlai.asafarim.com" }, // half a pair
+    { baseUrl: "https://example.com", apiUrl: "https://example.com/api" },
+    { baseUrl: "https://other.example.com" },
+  ]) {
+    const result = await resolveRunTarget(body, withPairs);
+    assert.equal(result.ok, false, JSON.stringify(body));
+    if (!result.ok) assert.equal(result.body.code, "RAW_TARGET_ADMIN_ONLY");
+  }
+});

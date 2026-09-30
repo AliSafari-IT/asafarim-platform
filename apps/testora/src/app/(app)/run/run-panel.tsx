@@ -86,6 +86,9 @@ interface TargetEnv {
   baseUrl: string;
   apiUrl: string;
   seeded: boolean;
+  /** Passes the server's network policy here (e.g. Local is refused in production). */
+  runnable?: boolean;
+  unrunnableReason?: string | null;
 }
 
 // Sentinel <option> value for the "add a new target" choice in the dropdown.
@@ -378,12 +381,15 @@ export function RunPanel() {
     } catch {
       /* ignore */
     }
+    // Prefer targets that can actually run here (production refuses Local).
+    const runnable = targets.filter((t) => t.runnable !== false);
+    const pool = runnable.length > 0 ? runnable : targets;
     const chosen =
-      targets.find((t) => t.id === storedId) ??
-      targets.find(
+      pool.find((t) => t.id === storedId) ??
+      pool.find(
         (t) => t.baseUrl === (environment.baseUrl ?? "") && t.apiUrl === (environment.apiUrl ?? ""),
       ) ??
-      targets[0]!;
+      pool[0]!;
     chooseTarget(chosen);
   }, [targets, environment, selectedTargetId, targetForm, chooseTarget]);
 
@@ -708,6 +714,7 @@ export function RunPanel() {
                 <option key={target.id} value={target.id}>
                   {target.name}
                   {target.seeded ? "" : " (custom)"}
+                  {target.runnable === false ? " — not available here" : ""}
                 </option>
               ))}
               {canManage && <option value={ADD_TARGET}>＋ Add new…</option>}
@@ -715,6 +722,11 @@ export function RunPanel() {
             {!targetForm && selectedTarget && (
               <span className="text-xs text-muted-foreground">
                 Site {selectedTarget.baseUrl} · API {selectedTarget.apiUrl}
+              </span>
+            )}
+            {!targetForm && selectedTarget?.runnable === false && (
+              <span className="text-xs text-destructive">
+                {selectedTarget.unrunnableReason ?? "This target can't be run from here."}
               </span>
             )}
             {canManage && !targetForm && selectedTarget && !selectedTarget.seeded && (
