@@ -25,7 +25,7 @@ export interface RoleDefinition {
  * Bump when the definitions below change in a way operators should notice.
  * The checksum catches every change; this string is what humans read.
  */
-export const FOUNDATION_DEFINITION_VERSION = "2.2.0";
+export const FOUNDATION_DEFINITION_VERSION = "2.3.0";
 
 export const FOUNDATION_PERMISSIONS: PermissionDefinition[] = [
   // Users
@@ -180,6 +180,17 @@ export const FOUNDATION_ROLES: RoleDefinition[] = [
     // — the global "admin"/"superadmin" roles are the only ones that do.
     description:
       "Admin access scoped to the EduMatch app only. Does not grant Admin Console or any other app's admin access — use \"admin\" or \"superadmin\" for that.",
+    isSystem: true,
+    isDefault: false,
+    permissions: [],
+  },
+  {
+    name: "tester",
+    displayName: "Tester",
+    // No platform RBAC permissions on purpose: Testora checks this role's
+    // NAME directly (apps/testora/src/lib/access-policy.ts isTester) to gate
+    // running tests and filing issues. Admin/superadmin already pass there.
+    description: "May run Testora tests and file issues from results",
     isSystem: true,
     isDefault: false,
     permissions: [],

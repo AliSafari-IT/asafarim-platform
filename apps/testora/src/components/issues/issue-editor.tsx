@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { markdownToHtml } from "@/lib/markdown";
 import { saveTextFile } from "@/lib/save-file";
 import { GithubStateBadge } from "@/components/issues/github-state-badge";
-import { useCanManage } from "@/components/viewer-role";
+import { TESTER_ROLE_HINT, useCanManage, useCanRunTests } from "@/components/viewer-role";
 import { LocalDateTime } from "@/components/local-date-time";
 
 export interface IssueData {
@@ -54,6 +54,8 @@ export function IssueEditor({
   // Editing and deleting issues is admin-only (src/lib/access-policy.ts);
   // members get a read-only view but may still file it on GitHub.
   const canManage = useCanManage();
+  // Publishing to GitHub needs the Tester role (or admin).
+  const canRunTests = useCanRunTests();
   const [tab, setTab] = useState<"edit" | "preview">(canManage ? "edit" : "preview");
   const [busy, setBusy] = useState<null | "save" | "publish" | "delete" | "refresh">(null);
   const [error, setError] = useState<string | null>(null);
@@ -249,8 +251,14 @@ export function IssueEditor({
         <Button
           variant="outline"
           onClick={() => void publish()}
-          disabled={busy !== null || !title.trim() || !githubConfigured}
-          title={githubConfigured ? undefined : "Connect a GitHub repo for this app in Apps"}
+          disabled={busy !== null || !title.trim() || !githubConfigured || !canRunTests}
+          title={
+            !canRunTests
+              ? TESTER_ROLE_HINT
+              : githubConfigured
+                ? undefined
+                : "Connect a GitHub repo for this app in Apps"
+          }
         >
           {busy === "publish" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Github className="h-4 w-4" />}
           {status === "published" ? "Re-send to GitHub" : "Publish to GitHub"}

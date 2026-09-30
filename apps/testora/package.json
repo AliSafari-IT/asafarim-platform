@@ -17,7 +17,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test": "node --experimental-test-module-mocks --import tsx --test \"src/**/*.test.ts\"",
     "test:e2e": "node --conditions=react-server --import tsx src/test-engine/run.ts"
   },
   "dependencies": {

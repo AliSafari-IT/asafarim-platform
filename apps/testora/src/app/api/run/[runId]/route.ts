@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { auth } from "@asafarim/auth";
 import { cancelRun, getRun } from "@/test-engine/executors/runLog";
 import { isAdminRole } from "@/lib/access-policy";
+import { requireTester } from "@/lib/viewer-role";
 
 // Cancel a run (queued or running). Several people can have runs going at
 // once, so only the person who started it — or an admin — may cancel it.
 export async function DELETE(_request: Request, { params }: { params: Promise<{ runId: string }> }) {
+  const denied = await requireTester();
+  if (denied) return denied;
   const { runId } = await params;
   const run = getRun(runId);
   if (!run || run.done) {

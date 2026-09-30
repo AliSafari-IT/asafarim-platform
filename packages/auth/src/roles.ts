@@ -5,6 +5,8 @@ export const ROLES = {
   SUPERADMIN: "superadmin",
   ADMIN: "admin",
   STANDARD_USER: "standard_user",
+  /** May run Testora tests and file issues from results. */
+  TESTER: "tester",
   GUEST: "guest",
 } as const;
 

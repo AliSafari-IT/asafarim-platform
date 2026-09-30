@@ -45,7 +45,7 @@ import {
 import { saveTextFile } from "@/lib/save-file";
 import { getDomainBrands, hostFromUrl } from "@/lib/domain-logos";
 import { useRun } from "@/components/run-provider";
-import { useCanManage } from "@/components/viewer-role";
+import { TESTER_ROLE_HINT, useCanManage, useCanRunTests } from "@/components/viewer-role";
 import { LocalDateTime } from "@/components/local-date-time";
 
 /** A result counts as re-runnable when it didn't pass and carries the ids a run needs. */
@@ -146,6 +146,8 @@ export function ResultsExplorer({
   // Deleting results is admin-only (src/lib/access-policy.ts); members can
   // view, export, re-run and report a failure as a GitHub issue.
   const canManage = useCanManage();
+  // Re-running and "Generate issue" need the Tester role (or admin).
+  const canRunTests = useCanRunTests();
   const [rows, setRows] = useState(initialRows);
   const [search, setSearch] = useState("");
   const [frId, setFrId] = useState("");
@@ -734,8 +736,8 @@ export function ResultsExplorer({
                   variant="outline"
                   size="sm"
                   onClick={() => rerunRows(selectedRows)}
-                  disabled={running}
-                  title="Re-run the failed/errored results in the selection"
+                  disabled={running || !canRunTests}
+                  title={canRunTests ? "Re-run the failed/errored results in the selection" : TESTER_ROLE_HINT}
                 >
                   <RotateCcw className="h-4 w-4" />
                   Re-run failed ({selectedRerunCount})
@@ -906,7 +908,9 @@ export function ResultsExplorer({
           {!menuIsSelection && isRerunnable(menu.row) && (
             <button
               type="button"
-              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"
+              disabled={!canRunTests}
+              title={canRunTests ? undefined : TESTER_ROLE_HINT}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted disabled:opacity-50"
               onClick={() => {
                 setIssueRow(menu.row);
                 setMenu(null);
@@ -953,7 +957,8 @@ export function ResultsExplorer({
               <div className="my-1 border-t border-border" />
               <button
                 type="button"
-                disabled={running}
+                disabled={running || !canRunTests}
+                title={canRunTests ? undefined : TESTER_ROLE_HINT}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted disabled:opacity-50"
                 onClick={() => {
                   void rerunRows(menuTargetRows);

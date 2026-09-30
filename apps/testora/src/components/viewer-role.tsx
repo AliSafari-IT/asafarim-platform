@@ -3,22 +3,45 @@
 import { createContext, useContext, type ReactNode } from "react";
 
 /**
- * Whether the signed-in viewer may manage Testora's catalog (admin or
- * superadmin). Computed once on the server in the (app) layout from the
- * session and provided to client components, so admin-only controls are
- * hidden for members.
+ * What the signed-in viewer may do, computed once on the server in the (app)
+ * layout from the session and provided to client components:
+ *   - canManage: manage Testora's catalog (admin or superadmin), so
+ *     admin-only controls are hidden for everyone else;
+ *   - canRunTests: run tests and file issues (tester, admin or superadmin),
+ *     so those controls render disabled with TESTER_ROLE_HINT otherwise.
  *
  * This only shapes the UI — the real enforcement is src/proxy.ts +
- * src/lib/access-policy.ts, which refuse the underlying API calls.
+ * src/lib/access-policy.ts (and requireTester in the routes), which refuse
+ * the underlying API calls.
  */
 const CanManageContext = createContext(false);
+const CanRunTestsContext = createContext(false);
 
-export function CanManageProvider({ value, children }: { value: boolean; children: ReactNode }) {
-  return <CanManageContext.Provider value={value}>{children}</CanManageContext.Provider>;
+/** Hint shown next to disabled tester-only controls. */
+export const TESTER_ROLE_HINT = "Requires the Tester role — ask an admin";
+
+export function CanManageProvider({
+  value,
+  canRunTests = value,
+  children,
+}: {
+  value: boolean;
+  canRunTests?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <CanManageContext.Provider value={value}>
+      <CanRunTestsContext.Provider value={canRunTests}>{children}</CanRunTestsContext.Provider>
+    </CanManageContext.Provider>
+  );
 }
 
 export function useCanManage(): boolean {
   return useContext(CanManageContext);
+}
+
+export function useCanRunTests(): boolean {
+  return useContext(CanRunTestsContext);
 }
 
 /** Renders its children only for admins/superadmins. */

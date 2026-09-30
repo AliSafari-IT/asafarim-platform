@@ -5,12 +5,16 @@ import { AppBadge } from "@/components/app-badge";
 import { PlatformHeader } from "@/components/platform-header";
 import { getActiveProjectId } from "@/lib/active-project";
 import { CanManageProvider } from "@/components/viewer-role";
-import { canManageCatalog } from "@/lib/viewer-role";
+import { canManageCatalog, canRunTests } from "@/lib/viewer-role";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [activeProject, canManage] = await Promise.all([getActiveProjectId(), canManageCatalog()]);
+  const [activeProject, canManage, mayRunTests] = await Promise.all([
+    getActiveProjectId(),
+    canManageCatalog(),
+    canRunTests(),
+  ]);
   return (
-    <CanManageProvider value={canManage}>
+    <CanManageProvider value={canManage} canRunTests={mayRunTests}>
     <div className="flex h-screen flex-col">
       {/* Shared platform header on desktop; on mobile the sidebar's own top
           bar (with the menu toggle) takes over, so hide this to avoid two bars. */}
