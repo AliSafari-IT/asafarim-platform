@@ -27,6 +27,12 @@ import type { FormattedReport } from "@/test-engine/types";
 import { getActiveProjectId } from "@/lib/active-project";
 import { isProjectViewable } from "@/lib/app-access";
 import { requireTester } from "@/lib/viewer-role";
+import { isAdminRole } from "@/lib/access-policy";
+import { resolveRunTarget } from "@/lib/run-target";
+import { TargetPolicyError, assertRunnableTarget } from "@/lib/target-policy";
+import { eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { projects, targetEnvironments } from "@/db/schema";
 
 // Reads live in-memory run state, so it must never be statically cached.
 export const dynamic = "force-dynamic";
@@ -63,12 +69,10 @@ const requestSchema = z.union([
 
 // Optional per-run "base scope" — point the whole run at a different frontend
 // origin and/or API base (local vs. production vs. …) without editing any test
-// content. `baseUrl` retargets every fixture's page origin; `apiUrl` is exposed
-// to the scripts' t.request calls (they already read process.env.WEBAPP_API_URL).
-const envSchema = z.object({
-  baseUrl: z.string().url().optional(),
-  apiUrl: z.string().url().optional(),
-});
+// content. The body names a stored target (`targetId`); raw `baseUrl`/`apiUrl`
+// are admin-only (lib/run-target.ts). `baseUrl` retargets every fixture's page
+// origin; `apiUrl` is exposed to the scripts' t.request calls (they already
+// read process.env.WEBAPP_API_URL).
 
 type RunUnit = RunPlan["units"][number];
 
@@ -155,6 +159,31 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
+
+  // Where the run points: a stored target of this app, or (admins only) raw
+  // URLs — both through the network policy (lib/target-policy.ts).
+  const session = await auth();
+  const isAdmin = isAdminRole(session?.user?.roles ?? []);
+  const resolved = await resolveRunTarget(body, {
+    projectId,
+    isAdmin,
+    findTarget: (id) =>
+      db.query.targetEnvironments.findFirst({ where: eq(targetEnvironments.id, id) }),
+    storedUrlPairs: async () => {
+      const [targets, project] = await Promise.all([
+        db
+          .select({ baseUrl: targetEnvironments.baseUrl, apiUrl: targetEnvironments.apiUrl })
+          .from(targetEnvironments)
+          .where(eq(targetEnvironments.projectId, projectId)),
+        db.query.projects.findFirst({ where: eq(projects.id, projectId) }),
+      ]);
+      return project ? [...targets, { baseUrl: project.baseUrl, apiUrl: project.apiUrl }] : targets;
+    },
+  });
+  if (!resolved.ok) {
+    return NextResponse.json(resolved.body, { status: resolved.status });
+  }
+  const { baseUrl, apiUrl, targetName } = resolved.target;
   const isAllScope = "all" in data;
   const isUiScope = "ui" in data;
   const isHeavyScope = "heavy" in data;
@@ -184,9 +213,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const env = envSchema.safeParse(body);
-  const baseUrl = env.success ? env.data.baseUrl : undefined;
-  const apiUrl = env.success ? env.data.apiUrl : undefined;
   if (baseUrl)
     runnableUnits = runnableUnits.map((unit) => retargetUnit(unit, baseUrl));
 
@@ -239,7 +265,6 @@ export async function POST(request: Request) {
     }
   }
 
-  const session = await auth();
   const runId = randomUUID();
   createRun(runId, {
     id: session?.user?.id ?? null,
@@ -280,7 +305,7 @@ export async function POST(request: Request) {
   // runLog/runScheduler); anything beyond waits in a FIFO queue and starts
   // automatically — the client is told it is queued and where.
   const admission = scheduleRun(runId, () =>
-    runInBackground(runId, { ...plan, units: runnableUnits }, { baseUrl, apiUrl }),
+    runInBackground(runId, { ...plan, units: runnableUnits }, { baseUrl, apiUrl, targetName }),
   );
 
   if (admission.status === "rejected") {
@@ -314,7 +339,7 @@ export async function POST(request: Request) {
 async function runInBackground(
   runId: string,
   plan: RunPlan,
-  env: { baseUrl?: string; apiUrl?: string },
+  env: { baseUrl?: string; apiUrl?: string; targetName?: string },
 ): Promise<void> {
   try {
     const totalCases = plan.units.reduce(
@@ -328,7 +353,7 @@ async function runInBackground(
     if (env.baseUrl || env.apiUrl) {
       appendLog(
         runId,
-        `Target: site ${env.baseUrl ?? "(default)"}${env.apiUrl ? `, API ${env.apiUrl}` : ""}`,
+        `Target${env.targetName ? ` "${env.targetName}"` : ""}: site ${env.baseUrl ?? "(default)"}${env.apiUrl ? `, API ${env.apiUrl}` : ""}`,
       );
     }
 
@@ -345,6 +370,10 @@ async function runInBackground(
         );
       }
       try {
+        // Re-check the network policy right before the browser starts: the
+        // admission check may be minutes old (queued run), and a fixture's own
+        // URL (no override) hasn't been checked yet.
+        await assertUnitTargets(unit, env.apiUrl);
         reports.push(...(await runUnitWithRetry(runId, unit, signal, env.apiUrl)));
       } catch (error) {
         if (signal?.aborted) break;
@@ -366,6 +395,22 @@ async function runInBackground(
     const run = getRun(runId);
     if (!run?.done) {
       failRun(runId, error instanceof Error ? error.message : "Run failed");
+    }
+  }
+}
+
+/** Throws (TargetPolicyError) when a fixture's page or API origin is not runnable. */
+async function assertUnitTargets(unit: RunUnit, apiUrl: string | undefined): Promise<void> {
+  for (const url of [unit.fixture.baseUrl, apiUrl]) {
+    // Relative/empty URLs resolve against an origin that was already checked.
+    if (!url || !/^[a-z][a-z0-9+.-]*:/i.test(url)) continue;
+    try {
+      await assertRunnableTarget(url, { isAdmin: true, stored: true });
+    } catch (error) {
+      if (error instanceof TargetPolicyError) {
+        throw new Error(`Blocked by the target policy — ${error.message}`);
+      }
+      throw error;
     }
   }
 }

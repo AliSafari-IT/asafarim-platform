@@ -62,6 +62,8 @@ export interface RunTarget {
 // The "base scope" for a run: which deployment the tests target. Empty fields
 // fall back to whatever the seed data hardcodes (local dev).
 export interface RunEnvironment {
+  /** The stored target the URLs came from — what the run request sends. */
+  targetId?: string;
   baseUrl?: string;
   apiUrl?: string;
 }
@@ -492,6 +494,7 @@ export function RunProvider({
       // Attach the selected base scope so the same run can target local or
       // production without any change to the test content.
       const envUsed: RunEnvironment = {
+        targetId: environment.targetId,
         baseUrl: environment.baseUrl,
         apiUrl: environment.apiUrl,
       };
@@ -501,10 +504,16 @@ export function RunProvider({
       } catch {
         /* ignore */
       }
+      // A stored target goes by id (the server looks up its URLs); raw URLs
+      // are only accepted from admins (src/lib/run-target.ts).
       const payload = {
         ...body,
-        ...(environment.baseUrl ? { baseUrl: environment.baseUrl } : {}),
-        ...(environment.apiUrl ? { apiUrl: environment.apiUrl } : {}),
+        ...(environment.targetId
+          ? { targetId: environment.targetId }
+          : {
+              ...(environment.baseUrl ? { baseUrl: environment.baseUrl } : {}),
+              ...(environment.apiUrl ? { apiUrl: environment.apiUrl } : {}),
+            }),
         ...(projectId ? { projectId } : {}),
       };
       const post = () =>
