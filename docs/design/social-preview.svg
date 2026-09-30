@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title description">
+  <title id="title">ASafariM Platform</title>
+  <desc id="description">Open-source apps. One connected platform. Built with Next.js, TypeScript, PostgreSQL, and Turborepo.</desc>
+  <rect width="1280" height="640" fill="#fdfaf3"/>
+  <path d="M0 0H1280V10H0Z" fill="#b45309"/>
+  <circle cx="1190" cy="110" r="210" fill="#f5ead6"/>
+  <circle cx="1190" cy="110" r="155" fill="#fdfaf3"/>
+  <g transform="translate(80 72) scale(1.5)">
+    <path fill="#b45309" d="M27.6 34.2H39l3.4-6.6 6.4 11.2h9.6v6H45.2l-2.6-4.6h-15v-6Zm0 12.2h10.2l3.4-3 4.8 6h12.4v6H43.2L39 51H27.6v-4.6Z"/>
+    <path fill="#171717" d="M6.4 55.6 25.4 8.4h12.4l6.6 15.6-6.2 14.8-7.6-19.6-14.2 36.4h-10Z"/>
+    <path fill="#fdfaf3" stroke="#171717" stroke-width="1.1" stroke-linejoin="round" d="M41 6.8h10.2L28.4 57.2H18.2L41 6.8Z"/>
+  </g>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <text x="198" y="125" font-size="25" font-weight="600" fill="#171717">ASafariM Digital</text>
+    <text x="198" y="155" font-size="18" fill="#766653">OPEN SOURCE / MONOREPO</text>
+    <text x="80" y="286" font-size="76" font-weight="700" fill="#171717">ASafariM Platform</text>
+    <text x="84" y="357" font-size="34" fill="#b45309">Open-source apps. One connected platform.</text>
+    <text x="84" y="409" font-size="24" fill="#62594e">AI tools, shared services, and a unified developer experience.</text>
+    <path d="M84 468H1196" stroke="#dfd4c3"/>
+    <text x="84" y="513" font-size="22" font-weight="600" fill="#171717">Next.js · TypeScript · PostgreSQL · Turborepo</text>
+    <text x="84" y="568" font-size="20" fill="#766653">github.com/AliSafari-IT/asafarim-platform</text>
+  </g>
+</svg>
