@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-09-30",
+    "title": "Testora: restrict running tests and filing issues to the tester role",
+    "sha": "bf432a3f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/bf432a3f"
+  },
+  {
     "date": "2026-09-29",
     "title": "feat: add agent assurance contract and HTTP runner",
     "sha": "fc5f7555",
@@ -112,11 +118,5 @@
     "title": "Resumatch: show applications and status changes in the admin console",
     "sha": "07fb0876",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/07fb0876"
-  },
-  {
-    "date": "2026-09-26",
-    "title": "Activity: extend Platform Activity to EduMatch (bookings)",
-    "sha": "2ab2ab87",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2ab2ab87"
   }
 ]

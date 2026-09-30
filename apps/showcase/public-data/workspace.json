@@ -93,10 +93,10 @@
       "kind": "package",
       "folder": "packages/auth",
       "description": "Shared Auth.js v5 authentication for the ASafarIM Platform",
-      "sha": "792fc93a",
-      "date": "2026-09-26",
+      "sha": "bf432a3f",
+      "date": "2026-09-30",
       "since": "2026-07-04",
-      "commits": 49,
+      "commits": 50,
       "dependents": 13
     },
     {
@@ -170,10 +170,10 @@
       "kind": "package",
       "folder": "packages/seed-manager",
       "description": "Typed, allowlisted seed-data providers shared by the Admin Console and the CLI seed scripts. Server-only.",
-      "sha": "792fc93a",
-      "date": "2026-09-26",
+      "sha": "bf432a3f",
+      "date": "2026-09-30",
       "since": "2026-08-09",
-      "commits": 10,
+      "commits": 11,
       "dependents": 2
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "d1f963ab",
-      "date": "2026-09-27",
+      "sha": "87b12496",
+      "date": "2026-09-30",
       "since": "2026-07-04",
-      "commits": 337,
+      "commits": 338,
       "dependents": 0
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/testora",
       "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-      "sha": "fc5f7555",
-      "date": "2026-09-29",
+      "sha": "bf432a3f",
+      "date": "2026-09-30",
       "since": "2026-07-21",
-      "commits": 114,
+      "commits": 115,
       "dependents": 0
     },
     {
