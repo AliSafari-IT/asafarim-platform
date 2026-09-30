@@ -4,6 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { targetEnvironments } from "@/db/schema";
 import { DEFAULT_PROJECT_ID } from "@/data/projects";
+import { checkStoredUrls } from "@/lib/run-target";
 
 // Target environments (Local / Remote / user-added) a run can be pointed at.
 // Built-in entries are seeded per app by seedDatabase(); this route also lets the
@@ -50,6 +51,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const { projectId, name, baseUrl, apiUrl } = parsed.data;
+  // Saved targets are what testers run against — hold them to the network policy.
+  const blocked = await checkStoredUrls([baseUrl, apiUrl]);
+  if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`;
   try {
@@ -82,6 +86,8 @@ export async function PATCH(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
+  const blocked = await checkStoredUrls([parsed.data.baseUrl, parsed.data.apiUrl]);
+  if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
   const [updated] = await db
     .update(targetEnvironments)
     .set({ ...parsed.data, updatedAt: new Date() })

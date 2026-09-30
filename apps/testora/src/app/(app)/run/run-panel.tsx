@@ -354,7 +354,7 @@ export function RunPanel() {
       } catch {
         /* ignore */
       }
-      setEnvironment({ baseUrl: target.baseUrl, apiUrl: target.apiUrl });
+      setEnvironment({ targetId: target.id, baseUrl: target.baseUrl, apiUrl: target.apiUrl });
     },
     [setEnvironment],
   );

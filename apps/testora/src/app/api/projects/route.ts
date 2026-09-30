@@ -11,6 +11,7 @@ import {
 } from "@/lib/app-access";
 import { encryptToken } from "@/lib/github";
 import { isPlatformGithubConfigured } from "@/lib/github";
+import { checkStoredUrls } from "@/lib/run-target";
 
 const visibility = z.enum(["public", "private"]);
 const optionalUrl = z.string().trim().url("Must be an absolute URL").or(z.literal(""));
@@ -69,6 +70,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const data = parsed.data;
+  // An app's URLs become run targets — hold them to the network policy.
+  const blocked = await checkStoredUrls([data.baseUrl, data.apiUrl]);
+  if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
   const id = slugify(data.id || data.name);
   const session = await auth();
   try {
@@ -136,6 +140,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const data = parsed.data;
+  const blocked = await checkStoredUrls([data.baseUrl, data.apiUrl]);
+  if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
   const nextVisibility = data.visibility ?? row.visibility;
 
   // GitHub token: omitted → keep; "" → clear; any value → (re)encrypt.
