@@ -206,3 +206,10 @@ test("strict mode follows NODE_ENV=production or TESTORA_TARGET_POLICY=strict", 
   assert.equal(isStrictTargetPolicy({ NODE_ENV: "development" }), false);
   assert.equal(isStrictTargetPolicy({ NODE_ENV: "development", TESTORA_TARGET_POLICY: "strict" }), true);
 });
+
+test("production: a DNS lookup that hangs is cut off and treated as unresolvable", async () => {
+  const hang: LookupFn = () => new Promise(() => {});
+  const started = Date.now();
+  await rejects("https://slow.example.org", "TARGET_UNRESOLVABLE", { ...strictStored, lookup: hang, lookupTimeoutMs: 50 });
+  assert.ok(Date.now() - started < 1_000, "the timeout must bound the wait");
+});

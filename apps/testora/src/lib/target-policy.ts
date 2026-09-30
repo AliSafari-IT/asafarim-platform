@@ -55,6 +55,23 @@ export interface TargetPolicyOptions {
   production?: boolean;
   /** DNS resolver (injectable for tests). */
   lookup?: LookupFn;
+  /** Give up on DNS after this long (treated as unresolvable). Default 3s. */
+  lookupTimeoutMs?: number;
+}
+
+const DEFAULT_LOOKUP_TIMEOUT_MS = 3_000;
+
+/** Resolve, but never wait longer than `ms` — a slow resolver must not stall a request. */
+async function lookupWithTimeout(lookup: LookupFn, hostname: string, ms: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("DNS lookup timed out")), ms);
+  });
+  try {
+    return await Promise.race([lookup(hostname), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const defaultLookup: LookupFn = (hostname) => dnsLookup(hostname, { all: true, verbatim: true });
@@ -228,7 +245,11 @@ export async function assertRunnableTarget(rawUrl: string, options: TargetPolicy
 
   let addresses: { address: string }[];
   try {
-    addresses = await (options.lookup ?? defaultLookup)(hostname);
+    addresses = await lookupWithTimeout(
+      options.lookup ?? defaultLookup,
+      hostname,
+      options.lookupTimeoutMs ?? DEFAULT_LOOKUP_TIMEOUT_MS,
+    );
   } catch {
     addresses = [];
   }
