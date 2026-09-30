@@ -6,6 +6,7 @@ import { db } from "@/db/client";
 import { issues, testResults } from "@/db/schema";
 import { isProjectViewable } from "@/lib/app-access";
 import { issueFingerprint } from "@/lib/issue-fingerprint";
+import { requireTester } from "@/lib/viewer-role";
 
 // List an app's issues. Withheld for a private app the viewer hasn't unlocked.
 export async function GET(request: Request) {
@@ -42,6 +43,8 @@ const createSchema = z.object({
 // Create a draft issue (the markdown-only fallback; publishing to GitHub is a
 // separate step).
 export async function POST(request: Request) {
+  const denied = await requireTester();
+  if (denied) return denied;
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

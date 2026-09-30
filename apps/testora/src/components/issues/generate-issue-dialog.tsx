@@ -16,7 +16,7 @@ import { useRun } from "@/components/run-provider";
 import type { ReportResultRow } from "@/lib/queries";
 import { buildIssueDraft } from "@/lib/issue-template";
 import { markdownToHtml } from "@/lib/markdown";
-import { useCanManage } from "@/components/viewer-role";
+import { TESTER_ROLE_HINT, useCanManage, useCanRunTests } from "@/components/viewer-role";
 
 /**
  * Preview + edit a GitHub-style issue generated from a failed result, then either
@@ -33,6 +33,8 @@ export function GenerateIssueDialog({
   const project = projects.find((p) => p.id === row.projectId);
   const githubConfigured = Boolean(project?.githubConfigured);
   const canManage = useCanManage();
+  // Drafting, saving and sending need the Tester role (or admin).
+  const canRunTests = useCanRunTests();
 
   const initial = useMemo(() => buildIssueDraft({ ...row, projectName: project?.name }), [row, project?.name]);
   const [title, setTitle] = useState(initial.title);
@@ -314,13 +316,20 @@ export function GenerateIssueDialog({
               <Button variant="outline" onClick={onClose} disabled={busy !== null}>
                 Cancel
               </Button>
-              <Button variant="outline" onClick={() => void saveDraft()} disabled={busy !== null || !title.trim()}>
+              {!canRunTests && <p className="mr-auto text-xs text-muted-foreground">{TESTER_ROLE_HINT}</p>}
+              <Button
+                variant="outline"
+                onClick={() => void saveDraft()}
+                disabled={busy !== null || !title.trim() || !canRunTests}
+                title={canRunTests ? undefined : TESTER_ROLE_HINT}
+              >
                 {busy === "draft" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save draft
               </Button>
               <Button
                 onClick={() => void saveAndPublish()}
-                disabled={busy !== null || !title.trim() || !githubConfigured}
+                disabled={busy !== null || !title.trim() || !githubConfigured || !canRunTests}
+                title={canRunTests ? undefined : TESTER_ROLE_HINT}
               >
                 {busy === "github" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Github className="h-4 w-4" />}
                 Save &amp; send to GitHub

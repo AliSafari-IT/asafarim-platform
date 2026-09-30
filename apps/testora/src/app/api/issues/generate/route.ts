@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isProjectViewable } from "@/lib/app-access";
 import { generateIssueDraft } from "@/lib/ai-issue";
+import { requireTester } from "@/lib/viewer-role";
 import type { IssueFacts } from "@/lib/issue-template";
 
 // Draft issue text for a failed result, using AI when OPENAI_API_KEY is set and
@@ -22,6 +23,8 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  const denied = await requireTester();
+  if (denied) return denied;
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

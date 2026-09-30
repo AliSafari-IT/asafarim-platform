@@ -26,6 +26,7 @@ import { auth } from "@asafarim/auth";
 import type { FormattedReport } from "@/test-engine/types";
 import { getActiveProjectId } from "@/lib/active-project";
 import { isProjectViewable } from "@/lib/app-access";
+import { requireTester } from "@/lib/viewer-role";
 
 // Reads live in-memory run state, so it must never be statically cached.
 export const dynamic = "force-dynamic";
@@ -127,6 +128,8 @@ function isUi(unit: RunUnit): boolean {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireTester();
+  if (denied) return denied;
   const body = await request.json();
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {

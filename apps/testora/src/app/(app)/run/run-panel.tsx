@@ -39,7 +39,7 @@ import { LockedApp } from "@/components/locked-app";
 import { hostFromUrl, setDomainBrand, getDomainBrand, type DomainBrand } from "@/lib/domain-logos";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCanManage } from "@/components/viewer-role";
+import { TESTER_ROLE_HINT, useCanManage, useCanRunTests } from "@/components/viewer-role";
 import type { SeedImpact } from "@/db/seedDatabase";
 import { UpdateTestsConfirm } from "./update-tests-confirm";
 import { QueuedRunCard, RunnerCapacityLine, useRunnerCapacity } from "./runner-capacity";
@@ -201,9 +201,11 @@ function formatDuration(ms: number): string {
 }
 
 export function RunPanel() {
-  // Members may pick a target and run; adding/editing/deleting target
-  // environments is admin-only (src/lib/access-policy.ts).
+  // Members may browse; running, cancelling and "Update tests" need the
+  // Tester role (or admin); adding/editing/deleting target environments is
+  // admin-only (src/lib/access-policy.ts).
   const canManage = useCanManage();
+  const canRunTests = useCanRunTests();
   const searchParams = useSearchParams();
   // Run state lives in RunProvider (mounted in the layout) so it survives
   // navigating to other routes while a run is in progress.
@@ -836,8 +838,12 @@ export function RunPanel() {
               size="sm"
               variant="outline"
               onClick={() => void reseed()}
-              disabled={running || seeding}
-              title="Re-seed the catalog from the test definitions (adds new tests, updates changed ones; asks before deleting anything)"
+              disabled={running || seeding || !canRunTests}
+              title={
+                canRunTests
+                  ? "Re-seed the catalog from the test definitions (adds new tests, updates changed ones; asks before deleting anything)"
+                  : TESTER_ROLE_HINT
+              }
             >
               {seeding ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -995,7 +1001,8 @@ export function RunPanel() {
             <Button
               data-tour="run"
               onClick={() => startRun({ scope, id: selectedId, includeHeavy, includeUi })}
-              disabled={running || !canRun}
+              disabled={running || !canRun || !canRunTests}
+              title={canRunTests ? undefined : TESTER_ROLE_HINT}
             >
               {running ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1005,7 +1012,12 @@ export function RunPanel() {
               {queue ? `Queued (#${queue.position})...` : running ? "Running..." : `Run ${scopeLabel}`}
             </Button>
             {running && (
-              <Button variant="destructive" onClick={() => void cancelRun()}>
+              <Button
+                variant="destructive"
+                onClick={() => void cancelRun()}
+                disabled={!canRunTests}
+                title={canRunTests ? undefined : TESTER_ROLE_HINT}
+              >
                 <StopCircle className="h-4 w-4" />
                 {queue ? "Leave queue" : "Cancel"}
               </Button>
@@ -1018,6 +1030,11 @@ export function RunPanel() {
               </span>
             )}
             {!running && <RunnerCapacityLine capacity={capacity} />}
+            {!canRunTests && (
+              <span className="text-xs text-muted-foreground" data-testid="tester-role-hint">
+                {TESTER_ROLE_HINT}. If you were just granted Tester, sign out and back in.
+              </span>
+            )}
           </div>
           {error && running && (
             <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -1150,7 +1167,8 @@ export function RunPanel() {
                   size="sm"
                   variant="outline"
                   onClick={() => void rerunFailed()}
-                  disabled={running}
+                  disabled={running || !canRunTests}
+                  title={canRunTests ? undefined : TESTER_ROLE_HINT}
                 >
                   {running ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

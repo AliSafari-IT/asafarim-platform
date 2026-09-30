@@ -3,6 +3,7 @@ import { and, desc, eq, isNotNull, ne } from "drizzle-orm";
 import { db } from "@/db/client";
 import { issues, projects, testResults } from "@/db/schema";
 import { isProjectViewable } from "@/lib/app-access";
+import { requireTester } from "@/lib/viewer-role";
 import {
   TESTORA_LABEL,
   createGithubIssue,
@@ -30,6 +31,8 @@ import { getRelatedIssues, type RelatedIssueRow } from "@/lib/related-issues";
  * (TESTORA_GITHUB_REPO / TESTORA_GITHUB_TOKEN) — see resolveGithubTarget.
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ issueId: string }> }) {
+  const denied = await requireTester();
+  if (denied) return denied;
   const { issueId } = await params;
 
   const issue = await db.query.issues.findFirst({ where: eq(issues.id, issueId) });

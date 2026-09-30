@@ -1,6 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAuthProxy } from "@asafarim/auth/proxy";
-import { PUBLIC_PAGES, isAllowed, isServiceRequest } from "@/lib/access-policy";
+import {
+  PUBLIC_PAGES,
+  TESTER_ROLE_REQUIRED,
+  isAllowed,
+  isServiceRequest,
+  isTesterWrite,
+} from "@/lib/access-policy";
+import { TESTER_ROLE_MESSAGE } from "@/lib/tester-guard";
 
 // Sign-in is centralized on the Hub app (platform SSO).
 const hubUrl =
@@ -19,7 +26,19 @@ export async function proxy(request: NextRequest) {
   if (isServiceRequest(request.method, request.nextUrl.pathname)) {
     return NextResponse.next();
   }
-  return authProxy(request);
+  const response = await authProxy(request);
+  // A refused tester-only write carries a machine-readable code, so the UI can
+  // say "ask an admin / sign in again" instead of a bare "Forbidden".
+  if (response.status === 403 && isTesterWrite(request.method, request.nextUrl.pathname)) {
+    const body = (await response.clone().json().catch(() => null)) as { error?: string } | null;
+    if (body?.error === "Forbidden") {
+      return NextResponse.json(
+        { error: TESTER_ROLE_MESSAGE, code: TESTER_ROLE_REQUIRED },
+        { status: 403 },
+      );
+    }
+  }
+  return response;
 }
 
 export const config = {
