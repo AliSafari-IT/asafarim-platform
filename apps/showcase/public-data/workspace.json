@@ -23,6 +23,17 @@
       "dependents": 0
     },
     {
+      "name": "@asafarim/agent-assurance-contract",
+      "kind": "package",
+      "folder": "packages/agent-assurance-contract",
+      "description": "Vendor-neutral executable contracts and deterministic evidence evaluation for AI agents.",
+      "sha": "fc5f7555",
+      "date": "2026-09-29",
+      "since": "2026-09-29",
+      "commits": 1,
+      "dependents": 1
+    },
+    {
       "name": "@asafarim/ai-cost-ledger",
       "kind": "package",
       "folder": "packages/ai-cost-ledger",
@@ -97,7 +108,7 @@
       "date": "2026-08-11",
       "since": "2026-07-04",
       "commits": 2,
-      "dependents": 23
+      "dependents": 24
     },
     {
       "name": "@asafarim/country-language-selector",
@@ -148,10 +159,10 @@
       "kind": "app",
       "folder": "apps/resumatch",
       "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
-      "sha": "397c8876",
-      "date": "2026-09-27",
+      "sha": "5ae49f87",
+      "date": "2026-09-30",
       "since": "2026-09-18",
-      "commits": 100,
+      "commits": 101,
       "dependents": 0
     },
     {
@@ -192,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "2e2cfbc5",
+      "sha": "d1f963ab",
       "date": "2026-09-27",
       "since": "2026-07-04",
-      "commits": 336,
+      "commits": 337,
       "dependents": 0
     },
     {
@@ -214,10 +225,10 @@
       "kind": "app",
       "folder": "apps/tasks-ai",
       "description": "TasksAI - AI-native work execution: scattered intent to trusted execution (tasks-ai.asafarim.com)",
-      "sha": "659c6aae",
-      "date": "2026-09-27",
+      "sha": "5ae49f87",
+      "date": "2026-09-30",
       "since": "2026-09-06",
-      "commits": 76,
+      "commits": 77,
       "dependents": 0
     },
     {
@@ -302,10 +313,10 @@
       "kind": "app",
       "folder": "apps/edumatch",
       "description": "",
-      "sha": "a3a1d6b0",
-      "date": "2026-09-26",
+      "sha": "5ae49f87",
+      "date": "2026-09-30",
       "since": "2026-08-05",
-      "commits": 113,
+      "commits": 114,
       "dependents": 0
     },
     {
@@ -313,10 +324,10 @@
       "kind": "app",
       "folder": "apps/testora",
       "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-      "sha": "659c6aae",
-      "date": "2026-09-27",
+      "sha": "fc5f7555",
+      "date": "2026-09-29",
       "since": "2026-07-21",
-      "commits": 113,
+      "commits": 114,
       "dependents": 0
     },
     {

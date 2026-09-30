@@ -1,8 +1,122 @@
 [
   {
+    "date": "2026-09-29",
+    "title": "feat: add agent assurance contract and HTTP runner",
+    "sha": "fc5f7555",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fc5f7555"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "Showcase: real versions on the proof board — npm portfolio + git revisions",
+    "sha": "d1f963ab",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d1f963ab"
+  },
+  {
     "date": "2026-09-27",
     "title": "Labs: replace the stale changelog with a roadmap page",
-    "sha": "3c41bd4",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3c41bd4"
+    "sha": "3c41bd4a",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3c41bd4a"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "Web: Requirements → Test Plan tool (AIT-005)",
+    "sha": "2798c612",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2798c612"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "Labs: redesign the experiments catalogue",
+    "sha": "16542209",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/16542209"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "Web: server-only AI tool execution boundary (AIT-003)",
+    "sha": "1a7d3f3f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1a7d3f3f"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "Labs: redesign workbench landing page",
+    "sha": "303dd3d1",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/303dd3d1"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "Web: /tools catalogue and main-site entry points (AIT-004)",
+    "sha": "4ae44dcc",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/4ae44dcc"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "Web: typed AI-tool registry and reusable public tool shell (AIT-002)",
+    "sha": "4b54b053",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/4b54b053"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "Resumatch: write the profile summary from the profile, with optional AI instructions",
+    "sha": "fc05d19b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fc05d19b"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "UI: localizable labels for the shared app shell; translate them in ResuMatch",
+    "sha": "3365dd74",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3365dd74"
+  },
+  {
+    "date": "2026-09-27",
+    "title": "Resumatch: translate the landing page, roadmap and remaining pages (NL/FR/DE)",
+    "sha": "63817a9f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/63817a9f"
+  },
+  {
+    "date": "2026-09-26",
+    "title": "Resumatch: translate applications and AI usage (NL/FR/DE)",
+    "sha": "e1f8332c",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/e1f8332c"
+  },
+  {
+    "date": "2026-09-26",
+    "title": "Resumatch: translate the profile page (NL/FR/DE)",
+    "sha": "9df5bac3",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9df5bac3"
+  },
+  {
+    "date": "2026-09-26",
+    "title": "Resumatch: translate the tailor flow and preview pages (NL/FR/DE)",
+    "sha": "e51b441a",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/e51b441a"
+  },
+  {
+    "date": "2026-09-26",
+    "title": "Resumatch: translate the app shell and tailoring history (NL/FR/DE)",
+    "sha": "3880680a",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3880680a"
+  },
+  {
+    "date": "2026-09-26",
+    "title": "UI: stack DataTable rows as labelled cards in narrow containers",
+    "sha": "ee11b589",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ee11b589"
+  },
+  {
+    "date": "2026-09-26",
+    "title": "Admin: show ResuMatch events on the main Audit Logs page",
+    "sha": "1098491b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1098491b"
+  },
+  {
+    "date": "2026-09-26",
+    "title": "Resumatch: show applications and status changes in the admin console",
+    "sha": "07fb0876",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/07fb0876"
+  },
+  {
+    "date": "2026-09-26",
+    "title": "Activity: extend Platform Activity to EduMatch (bookings)",
+    "sha": "2ab2ab87",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2ab2ab87"
   }
 ]
