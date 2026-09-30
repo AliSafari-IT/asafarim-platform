@@ -9,7 +9,6 @@ import { CountryLanguageSelector } from "@asafarim/country-language-selector";
 import {
   BookOpenCheck,
   ChevronDown,
-  FileText,
   Grid3X3,
   GraduationCap,
   HelpCircle,
@@ -171,7 +170,7 @@ function AccountMenu() {
   );
 }
 
-export function EduNav({ showBusinessPlanLink }: { showBusinessPlanLink: boolean }) {
+export function EduNav() {
   const { t } = useTranslation();
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -184,17 +183,6 @@ export function EduNav({ showBusinessPlanLink }: { showBusinessPlanLink: boolean
     { labelKey: "edumatch.nav.help", href: "/help", icon: HelpCircle },
     ...(isEduAdminRole(roles)
       ? [{ labelKey: "edumatch.nav.operations", href: "/admin", icon: LayoutDashboard }]
-      : []),
-    // Computed by the root layout from the same server-side rule the
-    // business-plan route gate enforces (superadmin role, or an email on the
-    // BUSINESS_PLAN_ALLOWLISTED_EMAILS allowlist — see
-    // lib/business-plan-access.ts). The env var is not NEXT_PUBLIC_*, so the
-    // decision is made in the layout and passed down — the nav link and the
-    // route can never disagree, and the allowlist never ships to the browser.
-    // The business plan is an internal strategy doc, not part of the regular
-    // admin surface, so it stays invisible to everyone else.
-    ...(showBusinessPlanLink
-      ? [{ labelKey: "edumatch.nav.businessPlan", href: "/admin/business-plan", icon: FileText }]
       : []),
   ];
 

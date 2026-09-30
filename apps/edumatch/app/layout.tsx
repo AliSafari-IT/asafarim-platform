@@ -7,8 +7,6 @@ import { EduFooter } from "@/components/EduFooter";
 import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { edumatchDictionaries } from "@/lib/i18n-dictionaries";
-import { canViewBusinessPlan } from "@/lib/business-plan-access";
-import { getAuthedUser } from "@/lib/server/auth";
 // @asafarim/ui/styles.css must load before ./globals.css: its base.css sets
 // an unscoped `body { color: var(--ink); background-color: var(--bg) }` for
 // apps that opt into the shared `data-app` mood system. EduMatch uses its
@@ -50,11 +48,6 @@ export default async function RootLayout({
   const cookieStore = await cookies();
   const initialTheme = cookieStore.get("theme")?.value === "light" ? "light" : "dark";
   const initialLocale = resolveLocaleFromCookie(cookieStore.toString());
-  // Computed server-side (BUSINESS_PLAN_ALLOWLISTED_EMAILS is not
-  // NEXT_PUBLIC_*) and passed down so the nav link and the business-plan
-  // route gate always agree on who gets in.
-  const viewer = await getAuthedUser();
-  const showBusinessPlanLink = canViewBusinessPlan(viewer);
 
   return (
     <html
@@ -75,7 +68,7 @@ export default async function RootLayout({
           dictionaries={edumatchDictionaries}
         >
           <SessionProvider>
-            <EduNav showBusinessPlanLink={showBusinessPlanLink} />
+            <EduNav />
             <main className="flex-1">{children}</main>
             <EduFooter />
           </SessionProvider>
