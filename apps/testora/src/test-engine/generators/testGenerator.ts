@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import type { TestCaseDefinition, TestFixtureDefinition } from "@/test-engine/types";
 import { generateFixtureScript } from "./fixtureGenerator";
+import { TESTORA_USER_AGENT } from "@/lib/version";
 
 // Generated specs run as standalone files via TestCafe's own compiler, which
 // has no knowledge of the "@/*" tsconfig path alias, so the scenario runner
@@ -110,18 +111,37 @@ export function specEnvPrelude(env: Record<string, string | undefined>): string 
   ].join("\n");
 }
 
+/**
+ * A request hook that sets Testora's User-Agent on every request the browser
+ * makes (#703), so site operators can identify the traffic. Done with a hook
+ * rather than a Chromium --user-agent flag because TestCafe's browser-string
+ * parsing splits on spaces, and the hook works the same in proxy mode (prod)
+ * and native automation (dev).
+ */
+export function userAgentHook(userAgent: string = TESTORA_USER_AGENT): string {
+  return [
+    `class __TestoraUserAgentHook extends RequestHook {`,
+    `  async onRequest(event) { event.requestOptions.headers["user-agent"] = ${JSON.stringify(userAgent)}; }`,
+    `  async onResponse() {}`,
+    `}`,
+    `const __testoraUserAgent = new __TestoraUserAgentHook();`,
+  ].join("\n");
+}
+
 export function generateTestSpec(
   fixture: TestFixtureDefinition,
   cases: TestCaseDefinition[],
   runEnv: Record<string, string | undefined> = {},
 ): string {
   const header = [
-    `import { Selector } from "testcafe";`,
+    `import { RequestHook, Selector } from "testcafe";`,
     `import { runScenario } from ${JSON.stringify(scenarioRunnerPath)};`,
     ``,
     specEnvPrelude(runEnv),
     ``,
     domCaptureHelper(),
+    ``,
+    userAgentHook(),
     ``,
     generateFixtureScript(fixture),
     ``,

@@ -75,6 +75,7 @@ test("testers get no admin writes; look-alikes of tester routes stay admin-only"
 test("members and testers may not create, edit or delete catalog data", () => {
   const writes: [string, string][] = [
     ["POST", "/api/projects"],
+    ["POST", "/api/projects/verify"],
     ["PATCH", "/api/projects"],
     ["DELETE", "/api/projects"],
     ["POST", "/api/requirements"],

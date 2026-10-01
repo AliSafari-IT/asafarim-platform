@@ -13,6 +13,7 @@ import {
 import { encryptToken } from "@/lib/github";
 import { isPlatformGithubConfigured } from "@/lib/github";
 import { checkStoredUrls } from "@/lib/run-target";
+import { newVerificationToken } from "@/lib/ownership";
 
 const visibility = z.enum(["public", "private"]);
 const optionalUrl = z.string().trim().url("Must be an absolute URL").or(z.literal(""));
@@ -43,6 +44,8 @@ function sanitize(row: ProjectRow) {
     githubConfigured: Boolean(row.githubTokenEnc) || isPlatformGithubConfigured(),
     seeded: row.seeded,
     autoQuarantineFlaky: row.autoQuarantineFlaky,
+    verified: row.seeded || row.verifiedAt !== null,
+    verificationToken: row.seeded ? null : row.verificationToken,
   };
 }
 
@@ -93,6 +96,9 @@ export async function POST(request: Request) {
         githubRepo: data.githubRepo || null,
         githubTokenEnc: data.githubToken ? encryptToken(data.githubToken) : null,
         seeded: false,
+        // Unverified until the operator publishes this token (#703).
+        verifiedAt: null,
+        verificationToken: newVerificationToken(),
         autoQuarantineFlaky: data.autoQuarantineFlaky ?? false,
         // Provenance only (see schema.ts) — null when created anonymously.
         createdByUserId: session?.user?.id ?? null,
@@ -157,6 +163,10 @@ export async function PATCH(request: Request) {
     .set({
       ...(data.name !== undefined ? { name: data.name } : {}),
       ...(data.baseUrl !== undefined ? { baseUrl: data.baseUrl } : {}),
+      // A different site needs its own proof of ownership (#703).
+      ...(data.baseUrl !== undefined && data.baseUrl !== row.baseUrl && !row.seeded
+        ? { verifiedAt: null }
+        : {}),
       ...(data.apiUrl !== undefined ? { apiUrl: data.apiUrl } : {}),
       ...(data.productName !== undefined ? { productName: data.productName || null } : {}),
       ...(data.companyName !== undefined ? { companyName: data.companyName || null } : {}),

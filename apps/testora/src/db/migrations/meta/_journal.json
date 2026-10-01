@@ -141,6 +141,13 @@
       "when": 1790886303849,
       "tag": "0019_left_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790888742242,
+      "tag": "0020_married_marvel_boy",
+      "breakpoints": true
     }
   ]
 }
