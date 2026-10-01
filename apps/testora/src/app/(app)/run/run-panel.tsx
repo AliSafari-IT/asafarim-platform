@@ -85,6 +85,8 @@ interface TargetEnv {
   name: string;
   baseUrl: string;
   apiUrl: string;
+  /** The Hub this target signs in through (Hub SSO apps), or null. */
+  hubUrl?: string | null;
   seeded: boolean;
   /** Passes the server's network policy here (e.g. Local is refused in production). */
   runnable?: boolean;
@@ -336,7 +338,7 @@ export function RunPanel() {
   const [selectedTargetId, setSelectedTargetId] = useState<string>("");
   // Form mode: null = none, "add" = new target, or the id of the target being edited.
   const [targetForm, setTargetForm] = useState<null | "add" | { editId: string }>(null);
-  const [targetDraft, setTargetDraft] = useState({ name: "", baseUrl: "", apiUrl: "" });
+  const [targetDraft, setTargetDraft] = useState({ name: "", baseUrl: "", apiUrl: "", hubUrl: "" });
   const [savingTarget, setSavingTarget] = useState(false);
   const [targetError, setTargetError] = useState<string | null>(null);
 
@@ -403,6 +405,7 @@ export function RunPanel() {
         name: "",
         baseUrl: environment.baseUrl ?? "",
         apiUrl: environment.apiUrl ?? "",
+        hubUrl: "",
       });
       return;
     }
@@ -414,7 +417,12 @@ export function RunPanel() {
   function startEditTarget(target: TargetEnv) {
     setTargetForm({ editId: target.id });
     setTargetError(null);
-    setTargetDraft({ name: target.name, baseUrl: target.baseUrl, apiUrl: target.apiUrl });
+    setTargetDraft({
+      name: target.name,
+      baseUrl: target.baseUrl,
+      apiUrl: target.apiUrl,
+      hubUrl: target.hubUrl ?? "",
+    });
   }
 
   async function saveTarget() {
@@ -722,6 +730,7 @@ export function RunPanel() {
             {!targetForm && selectedTarget && (
               <span className="text-xs text-muted-foreground">
                 Site {selectedTarget.baseUrl} · API {selectedTarget.apiUrl}
+                {selectedTarget.hubUrl ? ` · Hub ${selectedTarget.hubUrl}` : ""}
               </span>
             )}
             {!targetForm && selectedTarget?.runnable === false && (
@@ -763,7 +772,7 @@ export function RunPanel() {
               <span className="text-xs font-medium text-foreground">
                 {targetForm === "add" ? "New target" : "Edit target"}
               </span>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                   Name
                   <input
@@ -796,6 +805,18 @@ export function RunPanel() {
                     value={targetDraft.apiUrl}
                     onChange={(event) =>
                       setTargetDraft({ ...targetDraft, apiUrl: event.target.value })
+                    }
+                    disabled={savingTarget}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  Hub URL (optional — Hub SSO apps)
+                  <input
+                    className="h-9 rounded-md border border-border bg-muted px-3 text-sm text-foreground"
+                    placeholder="https://hub.example.com"
+                    value={targetDraft.hubUrl}
+                    onChange={(event) =>
+                      setTargetDraft({ ...targetDraft, hubUrl: event.target.value })
                     }
                     disabled={savingTarget}
                   />

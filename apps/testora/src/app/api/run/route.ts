@@ -172,7 +172,11 @@ export async function POST(request: Request) {
     storedUrlPairs: async () => {
       const [targets, project] = await Promise.all([
         db
-          .select({ baseUrl: targetEnvironments.baseUrl, apiUrl: targetEnvironments.apiUrl })
+          .select({
+            baseUrl: targetEnvironments.baseUrl,
+            apiUrl: targetEnvironments.apiUrl,
+            hubUrl: targetEnvironments.hubUrl,
+          })
           .from(targetEnvironments)
           .where(eq(targetEnvironments.projectId, projectId)),
         db.query.projects.findFirst({ where: eq(projects.id, projectId) }),
@@ -183,7 +187,7 @@ export async function POST(request: Request) {
   if (!resolved.ok) {
     return NextResponse.json(resolved.body, { status: resolved.status });
   }
-  const { baseUrl, apiUrl, targetName } = resolved.target;
+  const { baseUrl, apiUrl, hubUrl, targetName } = resolved.target;
   const isAllScope = "all" in data;
   const isUiScope = "ui" in data;
   const isHeavyScope = "heavy" in data;
@@ -305,7 +309,7 @@ export async function POST(request: Request) {
   // runLog/runScheduler); anything beyond waits in a FIFO queue and starts
   // automatically — the client is told it is queued and where.
   const admission = scheduleRun(runId, () =>
-    runInBackground(runId, { ...plan, units: runnableUnits }, { baseUrl, apiUrl, targetName }),
+    runInBackground(runId, { ...plan, units: runnableUnits }, { baseUrl, apiUrl, hubUrl, targetName }),
   );
 
   if (admission.status === "rejected") {
@@ -339,7 +343,7 @@ export async function POST(request: Request) {
 async function runInBackground(
   runId: string,
   plan: RunPlan,
-  env: { baseUrl?: string; apiUrl?: string; targetName?: string },
+  env: { baseUrl?: string; apiUrl?: string; hubUrl?: string; targetName?: string },
 ): Promise<void> {
   try {
     const totalCases = plan.units.reduce(
@@ -353,7 +357,7 @@ async function runInBackground(
     if (env.baseUrl || env.apiUrl) {
       appendLog(
         runId,
-        `Target${env.targetName ? ` "${env.targetName}"` : ""}: site ${env.baseUrl ?? "(default)"}${env.apiUrl ? `, API ${env.apiUrl}` : ""}`,
+        `Target${env.targetName ? ` "${env.targetName}"` : ""}: site ${env.baseUrl ?? "(default)"}${env.apiUrl ? `, API ${env.apiUrl}` : ""}${env.hubUrl ? `, Hub ${env.hubUrl}` : ""}`,
       );
     }
 
@@ -373,8 +377,8 @@ async function runInBackground(
         // Re-check the network policy right before the browser starts: the
         // admission check may be minutes old (queued run), and a fixture's own
         // URL (no override) hasn't been checked yet.
-        await assertUnitTargets(unit, env.apiUrl);
-        reports.push(...(await runUnitWithRetry(runId, unit, signal, env.apiUrl)));
+        await assertUnitTargets(unit, env.apiUrl, env.hubUrl);
+        reports.push(...(await runUnitWithRetry(runId, unit, signal, env)));
       } catch (error) {
         if (signal?.aborted) break;
         // A fixture that can't even start its browser shouldn't sink the whole
@@ -400,8 +404,12 @@ async function runInBackground(
 }
 
 /** Throws (TargetPolicyError) when a fixture's page or API origin is not runnable. */
-async function assertUnitTargets(unit: RunUnit, apiUrl: string | undefined): Promise<void> {
-  for (const url of [unit.fixture.baseUrl, apiUrl]) {
+async function assertUnitTargets(
+  unit: RunUnit,
+  apiUrl: string | undefined,
+  hubUrl: string | undefined,
+): Promise<void> {
+  for (const url of [unit.fixture.baseUrl, apiUrl, hubUrl]) {
     // Relative/empty URLs resolve against an origin that was already checked.
     if (!url || !/^[a-z][a-z0-9+.-]*:/i.test(url)) continue;
     try {
@@ -421,7 +429,7 @@ async function runUnitWithRetry(
   runId: string,
   unit: RunPlan["units"][number],
   signal: AbortSignal | undefined,
-  apiUrl: string | undefined,
+  env: { apiUrl?: string; hubUrl?: string },
 ): Promise<FormattedReport[]> {
   const maxAttempts = 2;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -430,7 +438,8 @@ async function runUnitWithRetry(
         onLog: (line) => appendLog(runId, line),
         signal,
         // Scoped to this run's spec — concurrent runs share this process.
-        apiUrl,
+        apiUrl: env.apiUrl,
+        hubUrl: env.hubUrl,
       });
       return toJsonReport(unit.suiteTitle, unit.fixture, unit.cases, results);
     } catch (error) {

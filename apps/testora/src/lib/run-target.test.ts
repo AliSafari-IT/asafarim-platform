@@ -140,3 +140,28 @@ test("raw URLs that exactly match a stored target or the app's own URLs count as
     if (!result.ok) assert.equal(result.body.code, "RAW_TARGET_ADMIN_ONLY");
   }
 });
+
+test("the run carries the target's Hub URL (#700)", async () => {
+  const hubTargets: StoredTarget[] = [
+    { id: "tl:local", projectId: "asafarim-timelineai", name: "Local", baseUrl: "http://localhost:3010", apiUrl: "http://localhost:3010", hubUrl: "http://localhost:3001" },
+    { id: "tl:remote", projectId: "asafarim-timelineai", name: "Remote", baseUrl: "https://tlai.asafarim.com", apiUrl: "https://tlai.asafarim.com", hubUrl: "https://hub.asafarim.com" },
+  ];
+  const ctx = (isAdmin: boolean) => ({
+    ...context(isAdmin, false),
+    findTarget: async (id: string) => hubTargets.find((t) => t.id === id),
+    storedUrlPairs: async () => hubTargets,
+  });
+  const byId = await resolveRunTarget({ targetId: "tl:local" }, ctx(false));
+  assert.equal(byId.ok && byId.target.hubUrl, "http://localhost:3001");
+  // A legacy URL pair inherits the matching target's Hub.
+  const legacy = await resolveRunTarget({ baseUrl: "https://tlai.asafarim.com", apiUrl: "https://tlai.asafarim.com" }, ctx(false));
+  assert.equal(legacy.ok && legacy.target.hubUrl, "https://hub.asafarim.com");
+  // A raw Hub override is admin-only.
+  const raw = await resolveRunTarget({ baseUrl: "https://tlai.asafarim.com", apiUrl: "https://tlai.asafarim.com", hubUrl: "https://hub.example.com" }, ctx(false));
+  assert.equal(raw.ok, false);
+  const admin = await resolveRunTarget({ baseUrl: "https://example.com", hubUrl: "https://hub.example.com" }, ctx(true));
+  assert.equal(admin.ok && admin.target.hubUrl, "https://hub.example.com");
+  // targetId plus a raw Hub is ambiguous.
+  const both = await resolveRunTarget({ targetId: "tl:local", hubUrl: "https://hub.example.com" }, ctx(true));
+  assert.equal(both.ok, false);
+});

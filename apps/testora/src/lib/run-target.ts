@@ -20,6 +20,8 @@ export const runTargetSchema = z.object({
   targetId: z.string().min(1).optional(),
   baseUrl: z.string().url().optional(),
   apiUrl: z.string().url().optional(),
+  /** Admin raw override only — a stored target carries its own Hub URL. */
+  hubUrl: z.string().url().optional(),
 });
 
 export interface StoredTarget {
@@ -28,11 +30,21 @@ export interface StoredTarget {
   name: string;
   baseUrl: string;
   apiUrl: string;
+  hubUrl?: string | null;
+}
+
+/** A URL set already stored for a project (a target, or the project's own URLs). */
+export interface StoredUrlSet {
+  baseUrl: string;
+  apiUrl: string;
+  hubUrl?: string | null;
 }
 
 export interface ResolvedRunTarget {
   baseUrl?: string;
   apiUrl?: string;
+  /** The Hub the target signs in through (SSO scripts follow it, #700). */
+  hubUrl?: string;
   /** The stored target's name, for the run log. */
   targetName?: string;
 }
@@ -48,7 +60,7 @@ export async function resolveRunTarget(
     isAdmin: boolean;
     findTarget: (id: string) => Promise<StoredTarget | null | undefined>;
     /** URL pairs already stored for this project: its targets and its own URLs. */
-    storedUrlPairs?: () => Promise<{ baseUrl: string; apiUrl: string }[]>;
+    storedUrlPairs?: () => Promise<StoredUrlSet[]>;
     production?: boolean;
     lookup?: LookupFn;
   },
@@ -61,12 +73,12 @@ export async function resolveRunTarget(
       body: { error: "Target URLs must be absolute http(s) URLs.", code: "INVALID_TARGET_URL" },
     };
   }
-  const { targetId, baseUrl, apiUrl } = parsed.data;
+  const { targetId, baseUrl, apiUrl, hubUrl } = parsed.data;
   const policy = { isAdmin: context.isAdmin, production: context.production, lookup: context.lookup };
 
   try {
     if (targetId) {
-      if (baseUrl || apiUrl) {
+      if (baseUrl || apiUrl || hubUrl) {
         return {
           ok: false,
           status: 400,
@@ -83,21 +95,35 @@ export async function resolveRunTarget(
       }
       await assertRunnableTarget(stored.baseUrl, { ...policy, stored: true });
       await assertRunnableTarget(stored.apiUrl, { ...policy, stored: true });
+      if (stored.hubUrl) await assertRunnableTarget(stored.hubUrl, { ...policy, stored: true });
       return {
         ok: true,
-        target: { baseUrl: stored.baseUrl, apiUrl: stored.apiUrl, targetName: stored.name },
+        target: {
+          baseUrl: stored.baseUrl,
+          apiUrl: stored.apiUrl,
+          ...(stored.hubUrl ? { hubUrl: stored.hubUrl } : {}),
+          targetName: stored.name,
+        },
       };
     }
 
-    const stored =
-      !context.isAdmin && (baseUrl || apiUrl) && context.storedUrlPairs
-        ? (await context.storedUrlPairs()).some(
+    // Raw URLs matching a stored set count as stored, and inherit its Hub URL.
+    const match =
+      (baseUrl || apiUrl) && context.storedUrlPairs
+        ? (await context.storedUrlPairs()).find(
             (pair) => sameUrl(pair.baseUrl, baseUrl) && sameUrl(pair.apiUrl, apiUrl),
           )
-        : false;
+        : undefined;
+    const stored = !context.isAdmin && match !== undefined;
     if (baseUrl) await assertRunnableTarget(baseUrl, { ...policy, stored });
     if (apiUrl) await assertRunnableTarget(apiUrl, { ...policy, stored });
-    return { ok: true, target: { baseUrl, apiUrl } };
+    // A raw Hub URL is an admin override (stored: false → admin-only).
+    if (hubUrl) await assertRunnableTarget(hubUrl, { ...policy, stored: false });
+    const effectiveHub = hubUrl ?? match?.hubUrl ?? undefined;
+    return {
+      ok: true,
+      target: { baseUrl, apiUrl, ...(effectiveHub ? { hubUrl: effectiveHub } : {}) },
+    };
   } catch (error) {
     if (error instanceof TargetPolicyError) {
       return { ok: false, status: error.status, body: targetPolicyErrorBody(error) };

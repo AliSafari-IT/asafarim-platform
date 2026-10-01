@@ -233,6 +233,10 @@ export const targetEnvironments = pgTable("target_environments", {
   name: text("name").notNull(),
   baseUrl: text("base_url").notNull(),
   apiUrl: text("api_url").notNull(),
+  // The Hub (SSO gateway) this deployment signs in through — Local's is the
+  // local Hub, Remote's the production one. Exposed to specs per run as
+  // TESTORA_TARGET_HUB_URL (#700). Null = the app doesn't use Hub SSO.
+  hubUrl: text("hub_url"),
   // Built-in (reconciled from code on each seed) vs user-added (kept as-is).
   seeded: boolean("seeded").notNull().default(false),
   // Orders the dropdown; seeded entries come first in their defined order.
