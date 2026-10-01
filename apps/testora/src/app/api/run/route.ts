@@ -33,7 +33,9 @@ import { TargetPolicyError, assertRunnableTarget } from "@/lib/target-policy";
 import { unitTargetsWeb } from "@/lib/web-target";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { projects, targetEnvironments } from "@/db/schema";
+import { projects, targetEnvironments, targetSecrets } from "@/db/schema";
+import { decryptToken } from "@/lib/crypto";
+import { buildRunSpecEnv } from "@/lib/run-secrets";
 
 // Reads live in-memory run state, so it must never be statically cached.
 export const dynamic = "force-dynamic";
@@ -157,6 +159,7 @@ export async function POST(request: Request) {
       const [targets, project] = await Promise.all([
         db
           .select({
+            id: targetEnvironments.id,
             baseUrl: targetEnvironments.baseUrl,
             apiUrl: targetEnvironments.apiUrl,
             hubUrl: targetEnvironments.hubUrl,
@@ -171,7 +174,10 @@ export async function POST(request: Request) {
   if (!resolved.ok) {
     return NextResponse.json(resolved.body, { status: resolved.status });
   }
-  const { baseUrl, apiUrl, hubUrl, targetName } = resolved.target;
+  const { baseUrl, apiUrl, hubUrl, targetName, targetId } = resolved.target;
+  // The target's test credentials (#702), decrypted server-side for this run
+  // only; they reach the spec as its process.env / {{NAME}} placeholders.
+  const secrets = targetId ? await loadTargetSecrets(targetId) : {};
   const isAllScope = "all" in data;
   const isUiScope = "ui" in data;
   const isHeavyScope = "heavy" in data;
@@ -296,7 +302,11 @@ export async function POST(request: Request) {
   // runLog/runScheduler); anything beyond waits in a FIFO queue and starts
   // automatically — the client is told it is queued and where.
   const admission = scheduleRun(runId, () =>
-    runInBackground(runId, { ...plan, units: runnableUnits }, { baseUrl, apiUrl, hubUrl, targetName }),
+    runInBackground(
+      runId,
+      { ...plan, units: runnableUnits },
+      { baseUrl, apiUrl, hubUrl, targetName, secrets, secretsProjectId: projectId },
+    ),
   );
 
   if (admission.status === "rejected") {
@@ -330,7 +340,7 @@ export async function POST(request: Request) {
 async function runInBackground(
   runId: string,
   plan: RunPlan,
-  env: { baseUrl?: string; apiUrl?: string; hubUrl?: string; targetName?: string },
+  env: RunEnv,
 ): Promise<void> {
   try {
     const totalCases = plan.units.reduce(
@@ -348,9 +358,14 @@ async function runInBackground(
       );
     }
 
+    if (Object.keys(env.secrets).length > 0) {
+      appendLog(runId, `Target secrets: ${Object.keys(env.secrets).sort().join(", ")}`);
+    }
+
     const run = getRun(runId);
     const signal = run?.abortController.signal;
     const reports: FormattedReport[] = [];
+    const deprecated = new Set<string>();
 
     for (const unit of plan.units) {
       if (signal?.aborted) break;
@@ -365,7 +380,25 @@ async function runInBackground(
         // admission check may be minutes old (queued run), and a fixture's own
         // URL (no override) hasn't been checked yet.
         await assertUnitTargets(unit, env.apiUrl, env.hubUrl);
-        reports.push(...(await runUnitWithRetry(runId, unit, signal, env)));
+        // Only the run's target secrets (for fixtures of the target's own app),
+        // the run's values and — deprecated, seeded ASafariM apps only — their
+        // server-env credentials. Never the rest of process.env.
+        const specEnv = buildRunSpecEnv({
+          projectId: unit.projectId,
+          targetSecrets: unit.projectId === env.secretsProjectId ? env.secrets : {},
+          runValues: {},
+          serverEnv: process.env,
+        });
+        for (const name of specEnv.deprecatedFallback) {
+          if (!deprecated.has(name)) {
+            deprecated.add(name);
+            appendLog(
+              runId,
+              `⚠ Deprecated: ${name} came from the server environment — store it as a target secret instead.`,
+            );
+          }
+        }
+        reports.push(...(await runUnitWithRetry(runId, unit, signal, env, specEnv.env)));
       } catch (error) {
         if (signal?.aborted) break;
         // A fixture that can't even start its browser shouldn't sink the whole
@@ -388,6 +421,31 @@ async function runInBackground(
       failRun(runId, error instanceof Error ? error.message : "Run failed");
     }
   }
+}
+
+interface RunEnv {
+  baseUrl?: string;
+  apiUrl?: string;
+  hubUrl?: string;
+  targetName?: string;
+  /** Decrypted secrets of the run's target. */
+  secrets: Record<string, string>;
+  /** The project those secrets belong to — they only reach that app's fixtures. */
+  secretsProjectId: string;
+}
+
+/** A target's secrets, decrypted (rows that fail to decrypt are skipped). */
+async function loadTargetSecrets(targetId: string): Promise<Record<string, string>> {
+  const rows = await db
+    .select({ name: targetSecrets.name, valueEnc: targetSecrets.valueEnc })
+    .from(targetSecrets)
+    .where(eq(targetSecrets.targetId, targetId));
+  const out: Record<string, string> = {};
+  for (const row of rows) {
+    const value = decryptToken(row.valueEnc);
+    if (value !== null) out[row.name] = value;
+  }
+  return out;
 }
 
 /** Throws (TargetPolicyError) when a fixture's page or API origin is not runnable. */
@@ -417,6 +475,7 @@ async function runUnitWithRetry(
   unit: RunPlan["units"][number],
   signal: AbortSignal | undefined,
   env: { apiUrl?: string; hubUrl?: string },
+  secretEnv: Record<string, string>,
 ): Promise<FormattedReport[]> {
   const maxAttempts = 2;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -429,6 +488,7 @@ async function runUnitWithRetry(
         hubUrl: env.hubUrl,
         // Creating accounts (sign-up fallbacks) only against local targets.
         allowSignup: !unitTargetsWeb(unit, env.apiUrl),
+        secretEnv,
       });
       return toJsonReport(unit.suiteTitle, unit.fixture, unit.cases, results);
     } catch (error) {

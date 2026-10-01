@@ -6,6 +6,7 @@ import {
   testFixtures,
   testCases,
   targetEnvironments,
+  targetSecrets,
   projects,
   testResults,
 } from "@/db/schema";
@@ -17,6 +18,8 @@ import type {
 } from "@/test-engine/types";
 import { DEFAULT_PROJECT_ID, PROJECTS, projectSeedTargets } from "@/data/projects";
 import { SEED_BUNDLES, type SeedBundle } from "@/data/bundles";
+import { encryptToken } from "@/lib/crypto";
+import { SEEDED_CREDENTIAL_NAMES } from "@/lib/run-secrets";
 
 const bundles: SeedBundle[] = SEED_BUNDLES;
 
@@ -209,6 +212,30 @@ async function seedTargetEnvironments(): Promise<void> {
 }
 
 /**
+ * Move the seeded ASafariM suites' test credentials from the server env into
+ * their built-in targets' secrets (#702). Insert-only: a secret an admin has
+ * set or changed is never overwritten, and nothing is written when the env
+ * var is absent. The run falls back to the server env (deprecated) only while
+ * a secret is missing.
+ */
+async function seedTargetSecrets(): Promise<void> {
+  for (const project of PROJECTS) {
+    const names = SEEDED_CREDENTIAL_NAMES[project.id] ?? [];
+    for (const target of projectSeedTargets(project)) {
+      const targetId = `${project.id}:${target.slug}`;
+      for (const name of names) {
+        const value = process.env[name];
+        if (!value) continue;
+        await db
+          .insert(targetSecrets)
+          .values({ id: `${targetId}:${name}`, targetId, name, valueEnc: encryptToken(value) })
+          .onConflictDoNothing({ target: [targetSecrets.targetId, targetSecrets.name] });
+      }
+    }
+  }
+}
+
+/**
  * Reconcile the test catalog with the `@/data` definitions: existing rows are
  * updated, new ones inserted, and entries no longer defined in code are PRUNED
  * (their cases + stored results cascade away). The code is the source of truth,
@@ -346,6 +373,7 @@ export async function seedDatabase(): Promise<SeedResult> {
   }
 
   await seedTargetEnvironments();
+  await seedTargetSecrets();
 
   return {
     requirements: perRequirement.length,

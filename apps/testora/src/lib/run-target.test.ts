@@ -46,7 +46,12 @@ test("a tester runs via targetId: the stored row's URLs are used", async () => {
   const result = await resolveRunTarget({ all: true, targetId: "asafarim-timelineai:remote" }, context(false));
   assert.deepEqual(result, {
     ok: true,
-    target: { baseUrl: "https://tlai.asafarim.com", apiUrl: "https://tlai.asafarim.com/api", targetName: "Remote" },
+    target: {
+      targetId: "asafarim-timelineai:remote",
+      baseUrl: "https://tlai.asafarim.com",
+      apiUrl: "https://tlai.asafarim.com/api",
+      targetName: "Remote",
+    },
   });
 });
 

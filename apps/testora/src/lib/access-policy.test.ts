@@ -100,6 +100,20 @@ test("members and testers may not create, edit or delete catalog data", () => {
   }
 });
 
+test("only admins may read or write target secrets (#702)", () => {
+  for (const roles of [member, tester]) {
+    assert.equal(isAllowed({ pathname: "/api/targets/secrets", method: "GET", roles }), false);
+    assert.equal(isAllowed({ pathname: "/api/targets/secrets", method: "PUT", roles }), false);
+    assert.equal(isAllowed({ pathname: "/api/targets/secrets", method: "DELETE", roles }), false);
+  }
+  for (const roles of [admin, superadmin]) {
+    assert.equal(isAllowed({ pathname: "/api/targets/secrets", method: "GET", roles }), true);
+    assert.equal(isAllowed({ pathname: "/api/targets/secrets", method: "PUT", roles }), true);
+  }
+  // The target list itself stays readable.
+  assert.equal(isAllowed({ pathname: "/api/targets", method: "GET", roles: member }), true);
+});
+
 test("members may not read webhook configuration", () => {
   assert.equal(isAllowed({ pathname: "/api/webhooks", method: "GET", roles: member }), false);
   assert.equal(

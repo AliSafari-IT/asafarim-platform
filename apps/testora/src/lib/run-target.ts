@@ -35,12 +35,16 @@ export interface StoredTarget {
 
 /** A URL set already stored for a project (a target, or the project's own URLs). */
 export interface StoredUrlSet {
+  /** The target row's id (absent for the project's own URLs). */
+  id?: string;
   baseUrl: string;
   apiUrl: string;
   hubUrl?: string | null;
 }
 
 export interface ResolvedRunTarget {
+  /** The stored target the run uses (its secrets apply, #702). */
+  targetId?: string;
   baseUrl?: string;
   apiUrl?: string;
   /** The Hub the target signs in through (SSO scripts follow it, #700). */
@@ -99,6 +103,7 @@ export async function resolveRunTarget(
       return {
         ok: true,
         target: {
+          targetId: stored.id,
           baseUrl: stored.baseUrl,
           apiUrl: stored.apiUrl,
           ...(stored.hubUrl ? { hubUrl: stored.hubUrl } : {}),
@@ -122,7 +127,12 @@ export async function resolveRunTarget(
     const effectiveHub = hubUrl ?? match?.hubUrl ?? undefined;
     return {
       ok: true,
-      target: { baseUrl, apiUrl, ...(effectiveHub ? { hubUrl: effectiveHub } : {}) },
+      target: {
+        ...(match?.id ? { targetId: match.id } : {}),
+        baseUrl,
+        apiUrl,
+        ...(effectiveHub ? { hubUrl: effectiveHub } : {}),
+      },
     };
   } catch (error) {
     if (error instanceof TargetPolicyError) {

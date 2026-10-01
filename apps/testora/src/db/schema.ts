@@ -245,6 +245,26 @@ export const targetEnvironments = pgTable("target_environments", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Per-target test credentials (#702). Values are AES-256-GCM encrypted
+// (lib/crypto.ts), write-only through the API, and reach a run only as that
+// run's {{NAME}} placeholders / process.env inside its spec.
+export const targetSecrets = pgTable(
+  "target_secrets",
+  {
+    id: text("id").primaryKey(),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => targetEnvironments.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    valueEnc: text("value_enc").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    targetNameUnique: uniqueIndex("target_secrets_target_name_unique").on(table.targetId, table.name),
+  }),
+);
+
 export const outboundEventStatusEnum = pgEnum("outbound_event_status", [
   "pending",
   // claimed by a dispatch run, in flight — prevents a concurrent dispatch
