@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db/client";
+import { isUniqueViolation } from "@/db/pg-error";
 import { testSuites } from "@/db/schema";
 import { getSuiteSummaries } from "@/lib/queries";
 import { isProjectViewable } from "@/lib/app-access";
@@ -36,8 +37,4 @@ export async function POST(request: Request) {
       { status: isUniqueViolation(error) ? 409 : 500 },
     );
   }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return Boolean(error && typeof error === "object" && "code" in error && (error as { code: string }).code === "23505");
 }

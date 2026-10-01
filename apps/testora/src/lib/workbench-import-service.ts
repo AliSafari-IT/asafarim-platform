@@ -1,6 +1,7 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
+import { isUniqueViolation } from "@/db/pg-error";
 import { functionalRequirements, projects, testCases, testFixtures, testSuites } from "@/db/schema";
 import { planWorkbenchImport, validateWorkbenchFile, type WorkbenchFailure } from "@/lib/workbench-import";
 
@@ -36,8 +37,4 @@ export async function confirmWorkbenchImport(text: string, projectId: string, im
     throw error;
   }
   return { ok: true, status: "created", frId: plan.ids.frId, projectId, cases: plan.cases.length };
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return Boolean(error && typeof error === "object" && "code" in error && (error as { code: string }).code === "23505");
 }

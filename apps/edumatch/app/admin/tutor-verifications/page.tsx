@@ -160,7 +160,7 @@ export default function AdminTutorVerificationsPage() {
               onClick={() => setFilter(f)}
               className={`rounded-md px-3 py-1.5 text-sm font-medium border transition-colors ${
                 filter === f
-                  ? "bg-emerald-600 text-white border-emerald-600"
+                  ? "bg-emerald-700 text-white border-emerald-700"
                   : "bg-[var(--color-surface)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-panel)]"
               }`}
             >
@@ -448,13 +448,13 @@ function TutorRowCard({
                       <div
                         className={`max-w-[80%] rounded-lg px-3 py-1.5 text-sm ${
                           mine
-                            ? "bg-emerald-600 text-white"
+                            ? "bg-emerald-700 text-white"
                             : "bg-[var(--color-panel)] text-[var(--color-text)] border border-[var(--color-border)]"
                         }`}
                       >
                         <div
                           className={`mb-0.5 text-[10px] ${
-                            mine ? "text-white/70" : "text-[var(--color-text-muted)]"
+                            mine ? "text-white/90" : "text-[var(--color-text-muted)]"
                           }`}
                         >
                           {mine

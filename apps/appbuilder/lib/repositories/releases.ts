@@ -5,6 +5,7 @@ import type { Actor } from "../auth/actor";
 import { assertCapability } from "./authz";
 import { recordAuditEvent } from "./audit";
 import { generateId } from "../db/ids";
+import { isUniqueViolation } from "../db/pgError";
 import { ConflictError, NotFoundError } from "../errors";
 import { checkReleaseEligibility } from "../deployment/eligibility";
 import { buildReleaseManifest, computeManifestChecksum } from "../deployment/manifest";
@@ -13,11 +14,6 @@ import { managedAppsBaseDomain } from "../routing/resolveAppHost";
 
 export type ReleaseRow = typeof releases.$inferSelect;
 
-const UNIQUE_VIOLATION = "23505";
-
-function isUniqueViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code: unknown }).code === UNIQUE_VIOLATION;
-}
 
 async function currentActiveReleaseId(db: Db, appId: string): Promise<string | null> {
   const [domain] = await db

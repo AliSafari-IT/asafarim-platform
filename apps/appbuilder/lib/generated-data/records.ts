@@ -3,6 +3,7 @@ import type { Db } from "../db/client";
 import { generatedDataIdempotency, generatedRecordRelations, generatedRecordRevisions, generatedRecords, generatedUniquenessClaims } from "../db/schema";
 import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
+import { isUniqueViolation } from "../db/pgError";
 import { ConflictError, NotFoundError } from "../errors";
 import type { RuntimeContext } from "./runtimeAuth";
 import type { GeneratedEnvironment } from "./environment";
@@ -54,11 +55,6 @@ export class UniqueConstraintError extends ConflictError {
     super(`Value for "${fieldId}" is already in use on another record of this entity.`);
     this.name = "UniqueConstraintError";
   }
-}
-
-const POSTGRES_UNIQUE_VIOLATION = "23505";
-function isUniqueViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && (err as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION;
 }
 
 async function claimUniqueValues(

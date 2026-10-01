@@ -142,7 +142,9 @@ export async function generateQuotePdf(data: QuotePdfData): Promise<{ url: strin
   const html = template(data);
 
   // Render PDF
-  await page.setContent(html, { waitUntil: "networkidle0" });
+  // The template is self-contained (inline CSS, no remote assets), so "load"
+  // is all there is to wait for; setContent no longer takes networkidle0.
+  await page.setContent(html, { waitUntil: "load" });
   const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
   await browser.close();
 
