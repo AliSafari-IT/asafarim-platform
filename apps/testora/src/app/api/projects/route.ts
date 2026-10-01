@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { auth, isAdmin } from "@asafarim/auth";
 import { db } from "@/db/client";
+import { isUniqueViolation } from "@/db/pg-error";
 import { projects, functionalRequirements } from "@/db/schema";
 import {
   isViewerAuthenticated,
@@ -99,8 +100,7 @@ export async function POST(request: Request) {
       .returning();
     return NextResponse.json({ project: sanitize(created as ProjectRow) }, { status: 201 });
   } catch (error) {
-    const conflict =
-      error && typeof error === "object" && "code" in error && (error as { code: string }).code === "23505";
+    const conflict = isUniqueViolation(error);
     return NextResponse.json(
       { error: conflict ? `An app with id "${id}" already exists.` : "Failed to create app" },
       { status: conflict ? 409 : 500 },

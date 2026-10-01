@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
+import { isForeignKeyViolation } from "@/db/pg-error";
 import { testSuites } from "@/db/schema";
 
 const updateSchema = z.object({
@@ -59,8 +60,4 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Suite not found" }, { status: 404 });
   }
   return NextResponse.json({ ok: true });
-}
-
-function isForeignKeyViolation(error: unknown): boolean {
-  return Boolean(error && typeof error === "object" && "code" in error && (error as { code: string }).code === "23503");
 }

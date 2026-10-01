@@ -19,13 +19,13 @@ import { assertCapability, type AppRow } from "./authz";
 import { recordAuditEvent } from "./audit";
 import { generateId } from "../db/ids";
 import { checksumOf } from "../db/hash";
+import { isUniqueViolation } from "../db/pgError";
 import { ConflictError } from "../errors";
 import type { StarterFamily, Visibility } from "../validation/createApp";
 import { withQuota } from "../quotas/enforce";
 import { countActiveAppsForOwner } from "../quotas/usage";
 import { withQuotaRejectionLogging } from "../observability/events";
 
-const UNIQUE_VIOLATION = "23505";
 
 export interface CreateAppInput {
   name: string;
@@ -455,11 +455,3 @@ export async function restoreApp(
   });
 }
 
-function isUniqueViolation(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: unknown }).code === UNIQUE_VIOLATION
-  );
-}
