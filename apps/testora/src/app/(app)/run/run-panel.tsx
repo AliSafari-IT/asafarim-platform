@@ -34,6 +34,7 @@ import {
   type RunScope,
   type RunEnvironment,
 } from "@/components/run-provider";
+import { TargetSecrets } from "@/components/run/target-secrets";
 import { DomainBrandControl } from "@/components/run/domain-brand-control";
 import { LockedApp } from "@/components/locked-app";
 import { hostFromUrl, setDomainBrand, getDomainBrand, type DomainBrand } from "@/lib/domain-logos";
@@ -845,6 +846,10 @@ export function RunPanel() {
                 </Button>
               </div>
             </div>
+          )}
+
+          {canManage && !targetForm && selectedTarget && (
+            <TargetSecrets key={selectedTarget.id} targetId={selectedTarget.id} />
           )}
 
           <div className="border-t border-border pt-3">

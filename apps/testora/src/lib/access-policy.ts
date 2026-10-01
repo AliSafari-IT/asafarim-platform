@@ -11,8 +11,8 @@
  *   tester       member + run tests, cancel a run, "Update tests", report a
  *                bug (draft, save and file an issue on GitHub)
  *   admin        every write: the tester actions plus apps, requirements,
- *   superadmin   suites, fixtures, cases, target environments, results,
- *                editing/deleting issues, webhooks
+ *   superadmin   suites, fixtures, cases, target environments and their
+ *                secrets, results, editing/deleting issues, webhooks
  *
  * Roles come from the session JWT, which is refreshed at sign-in only
  * (packages/auth/src/config.ts), so a newly granted/revoked `tester` takes
@@ -70,7 +70,11 @@ const MEMBER_WRITES: { method: string; pattern: RegExp }[] = [
 ];
 
 /** Reads that expose configuration only admins manage. */
-const ADMIN_READS: RegExp[] = [/^\/api\/webhooks(\/|$)/];
+const ADMIN_READS: RegExp[] = [
+  /^\/api\/webhooks(\/|$)/,
+  // Target secret names (values are never returned) — #702.
+  /^\/api\/targets\/secrets(\/|$)/,
+];
 
 const matches = (
   rules: { method: string; pattern: RegExp }[],

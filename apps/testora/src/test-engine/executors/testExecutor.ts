@@ -49,6 +49,13 @@ export interface ExecuteFixtureOptions {
    * TESTORA_TARGET_ALLOW_SIGNUP=1, set by the run route for local targets only.
    */
   allowSignup?: boolean;
+  /**
+   * Everything else the spec may read (#702): the target's secrets plus the
+   * deprecated server-env fallback, built by lib/run-secrets.ts. The run's own
+   * values below always win. Nothing from the server's process.env reaches
+   * the spec except through here.
+   */
+  secretEnv?: Record<string, string>;
 }
 
 // eslint-disable-next-line no-control-regex
@@ -114,6 +121,7 @@ export async function executeFixture(
   // Per-run values are baked into this spec rather than process.env, so runs
   // executing concurrently in this process never see each other's values.
   const spec = generateTestSpec(fixture, cases, {
+    ...options.secretEnv,
     TESTORA_DOM_DIR: domDir,
     WEBAPP_API_URL: options.apiUrl,
     // Where this run points (#700) — login scripts use these instead of the
@@ -502,6 +510,8 @@ export async function loadFixtureWithCases(fixtureId: string): Promise<{
 // aggregated report can attribute each case to the right suite.
 export interface RunUnit {
   suiteTitle: string;
+  /** The app the fixture belongs to (its requirement's projectId) — scopes secrets (#702). */
+  projectId?: string | null;
   fixture: TestFixtureDefinition;
   cases: TestCaseDefinition[];
 }
@@ -558,6 +568,7 @@ export async function loadFixtureRunPlan(
     units: [
       {
         suiteTitle: fixtureRow.suite?.title ?? fixtureRow.suiteId,
+        projectId: fixtureRow.suite?.functionalRequirement?.projectId ?? null,
         fixture: mapFixtureRow(
           fixtureRow,
           fixtureRow.suite?.functionalRequirement?.baseUrl,
@@ -583,6 +594,7 @@ export async function loadSuiteRunPlan(
     label: `suite "${suiteRow.title}"`,
     units: suiteRow.fixtures.map((fixtureRow) => ({
       suiteTitle: suiteRow.title,
+      projectId: suiteRow.functionalRequirement?.projectId ?? null,
       fixture: mapFixtureRow(fixtureRow, frBaseUrl),
       cases: fixtureRow.cases.map(mapCaseRow),
     })),
@@ -620,6 +632,7 @@ export async function loadSelectionRunPlan(
 
     units.push({
       suiteTitle: fixtureRow.suite?.title ?? fixtureRow.suiteId,
+      projectId: fixtureRow.suite?.functionalRequirement?.projectId ?? null,
       fixture: mapFixtureRow(
         fixtureRow,
         fixtureRow.suite?.functionalRequirement?.baseUrl,
@@ -648,6 +661,7 @@ export async function loadRequirementRunPlan(
     for (const fixtureRow of suiteRow.fixtures) {
       units.push({
         suiteTitle: suiteRow.title,
+        projectId: frRow.projectId,
         fixture: mapFixtureRow(fixtureRow, frRow.baseUrl),
         cases: fixtureRow.cases.map(mapCaseRow),
       });
@@ -674,6 +688,7 @@ export async function loadAllRunPlan(
       for (const fixtureRow of suiteRow.fixtures) {
         units.push({
           suiteTitle: suiteRow.title,
+          projectId: frRow.projectId,
           fixture: mapFixtureRow(fixtureRow, frRow.baseUrl),
           cases: fixtureRow.cases.map(mapCaseRow),
         });

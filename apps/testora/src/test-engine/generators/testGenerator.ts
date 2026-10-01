@@ -77,7 +77,7 @@ function withDomCapture(nameExpr: string, bodyLines: string[]): string[] {
 
 /**
  * Emits a TestCafe spec for one fixture and its test cases. Each generated
- * test delegates to runScenario(t, data, expected) from the scenario runner,
+ * test delegates to runScenario(t, data, expected, env) from the scenario runner,
  * which is the pluggable boundary between generic platform code and a
  * specific app's selectors/assertions.
  */
@@ -85,16 +85,21 @@ function withDomCapture(nameExpr: string, bodyLines: string[]): string[] {
  * Per-run environment for one spec. Up to TESTORA_MAX_CONCURRENT_RUNS runs
  * share this Node process, so per-run values can't live in the global
  * `process.env` (two runs would overwrite each other). Instead each spec
- * shadows `process` with a view whose `env` layers these values over the real
- * environment; everything else is the real process object.
+ * shadows `process` with a view whose `env` is ONLY this run's values — the
+ * target's secrets and the run's own TESTORA_* / WEBAPP_API_URL (#702) — never
+ * the server's environment. Everything else is the real process object.
+ *
+ * Always emitted, even for an empty env, so a spec can never fall through to
+ * the server's process.env. (Spec code is admin-authored and runs in-process,
+ * so this is a scoping guarantee for test data and well-behaved scripts, not a
+ * sandbox — see #706 for isolating the runner.)
  */
 export function specEnvPrelude(env: Record<string, string | undefined>): string {
   const overrides = Object.fromEntries(
     Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
   );
-  if (Object.keys(overrides).length === 0) return "";
   return [
-    `const __testoraRunEnv = Object.assign({}, globalThis.process.env, ${JSON.stringify(overrides)});`,
+    `const __testoraRunEnv = Object.freeze(${JSON.stringify(overrides)});`,
     `const process = new Proxy(globalThis.process, {`,
     `  get(target, key) {`,
     `    if (key === "env") return __testoraRunEnv;`,
@@ -162,7 +167,7 @@ function generateCaseBlock(fixture: TestFixtureDefinition, testCase: TestCaseDef
     return [
       `test(${nameExpr}, async t => {`,
       ...withDomCapture(nameExpr, [
-        `  await runScenario(t, ${JSON.stringify(data)}, ${JSON.stringify(testCase.expected)});`,
+        `  await runScenario(t, ${JSON.stringify(data)}, ${JSON.stringify(testCase.expected)}, process.env);`,
       ]),
       `});`,
     ].join("\n");
@@ -177,7 +182,7 @@ function generateCaseBlock(fixture: TestFixtureDefinition, testCase: TestCaseDef
     `for (const [i, run] of runs_${safeIdent(testCase.caseId)}.entries()) {`,
     `  test(${nameExpr}, async t => {`,
     ...withDomCapture(nameExpr, [
-      `  await runScenario(t, run, ${JSON.stringify(testCase.expected)});`,
+      `  await runScenario(t, run, ${JSON.stringify(testCase.expected)}, process.env);`,
     ]),
     `  });`,
     `}`,

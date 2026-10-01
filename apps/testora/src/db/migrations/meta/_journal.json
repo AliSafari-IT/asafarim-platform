@@ -134,6 +134,13 @@
       "when": 1790885101503,
       "tag": "0018_sour_morlun",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790886303849,
+      "tag": "0019_left_magneto",
+      "breakpoints": true
     }
   ]
 }
