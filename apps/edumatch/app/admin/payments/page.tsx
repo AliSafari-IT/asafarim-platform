@@ -59,7 +59,7 @@ export default function PaymentsPage() {
               onClick={() => setTab(tabName)}
               className={`rounded-md px-3 py-1.5 text-sm font-medium border transition-colors ${
                 tab === tabName
-                  ? "bg-emerald-600 text-white border-emerald-600"
+                  ? "bg-emerald-700 text-white border-emerald-700"
                   : "bg-[var(--color-surface)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-panel)]"
               }`}
             >
