@@ -1,6 +1,6 @@
 # ADR 0004: Testora runs tests in an isolated runner container
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-10-01
 **Related:** [#706](https://github.com/AliSafari-IT/asafarim-platform/issues/706) (decision), [#699](https://github.com/AliSafari-IT/asafarim-platform/issues/699) (app-layer target policy), [#702](https://github.com/AliSafari-IT/asafarim-platform/issues/702) (target secrets), [ADR 0002](0002-testora-tasksai-trust-boundary.md) (machine-to-machine auth pattern)
 
