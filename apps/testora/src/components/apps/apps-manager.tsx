@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Github, Globe, Loader2, Lock, LogIn, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Github, Globe, Loader2, Lock, LogIn, Pencil, Plus, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRun, type ClientProject } from "@/components/run-provider";
@@ -308,6 +308,7 @@ export function AppsManager() {
                         )}
                       </p>
                     )}
+                    {!p.locked && <OwnershipStatus project={p} canManage={canManage} onVerified={reload} />}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1">
@@ -354,6 +355,91 @@ export function AppsManager() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Ownership verification (#703): a non-built-in app's web targets can't run
+ * until its operator publishes the token on the site (or in DNS) and an admin
+ * presses Verify. Built-in ASafariM apps are pre-verified.
+ */
+function OwnershipStatus({
+  project,
+  canManage,
+  onVerified,
+}: {
+  project: ClientProject;
+  canManage: boolean;
+  onVerified: () => Promise<void>;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  if (project.seeded) return null;
+
+  async function verify() {
+    setChecking(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/projects/verify?id=${encodeURIComponent(project.id)}`, { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { verified?: boolean; detail?: string; error?: string };
+      setMessage(data.verified ? null : (data.error ?? data.detail ?? "Not verified yet."));
+      // Refresh either way: a first attempt also issues the app's token.
+      await onVerified();
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  if (project.verified) {
+    return (
+      <p className="mt-0.5 flex items-center gap-1 text-[11px] text-emerald-400">
+        <ShieldCheck className="h-3 w-3" /> Ownership verified
+      </p>
+    );
+  }
+  let host = "";
+  try {
+    host = project.baseUrl ? new URL(project.baseUrl).hostname : "";
+  } catch {
+    host = "";
+  }
+  const record = project.verificationToken ? `testora-verification=${project.verificationToken}` : null;
+  return (
+    <div className="mt-1 flex flex-col gap-1 text-[11px] text-amber-400">
+      <span className="flex items-center gap-1">
+        <ShieldAlert className="h-3 w-3" /> Not verified — its web targets can&apos;t run yet
+      </span>
+      {canManage && !record && host && (
+        <span className="text-muted-foreground">
+          This app has no verification token yet.{" "}
+          <button
+            type="button"
+            onClick={() => void verify()}
+            disabled={checking}
+            className="text-primary underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            {checking ? "creating…" : "Get a token"}
+          </button>
+        </span>
+      )}
+      {canManage && record && host && (
+        <span className="text-muted-foreground">
+          Publish <code className="select-all">{record}</code> at{" "}
+          <code>https://{host}/.well-known/testora-verification</code> or as a DNS TXT record on <code>{host}</code>,
+          then{" "}
+          <button
+            type="button"
+            onClick={() => void verify()}
+            disabled={checking}
+            className="text-primary underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            {checking ? "checking…" : "verify"}
+          </button>
+          .
+        </span>
+      )}
+      {message && <span className="text-destructive">{message}</span>}
     </div>
   );
 }

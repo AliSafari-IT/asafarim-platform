@@ -72,6 +72,13 @@ export const projects = pgTable("projects", {
   // quarantined automatically. Off by default — auto-quarantine changes what
   // blocks a green-light check, so a project opts in deliberately.
   autoQuarantineFlaky: boolean("auto_quarantine_flaky").notNull().default(false),
+  // Ownership verification (#703): a non-ASafariM app's targets are only
+  // runnable once its operator has published `verificationToken` at
+  // /.well-known/testora-verification or in a DNS TXT record on the app's
+  // host. Seeded (ASafariM) apps are pre-verified. Changing the app's base URL
+  // clears the verification.
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  verificationToken: text("verification_token"),
   // Platform user id (packages/db's User.id) of whoever created this app.
   // Nullable: projects created before this column existed, or created
   // anonymously before sign-in was required, have no recorded creator.

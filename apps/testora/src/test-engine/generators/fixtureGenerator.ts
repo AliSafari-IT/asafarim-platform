@@ -6,6 +6,9 @@ export function generateFixtureScript(fixture: TestFixtureDefinition): string {
   if (fixture.baseUrl) {
     lines.push(`  .page(\`${fixture.baseUrl}\`)`);
   }
+  // Identify Testora to every site it drives (#703): the hook is defined in
+  // the spec header (testGenerator.ts userAgentHook).
+  lines.push(`  .requestHooks(__testoraUserAgent)`);
   // Some targets (esp. external production SSR apps) throw benign client-side
   // errors — e.g. React hydration warnings — that TestCafe would otherwise treat
   // as test failures. `metadata.skipJsErrors` opts a fixture out: `true` ignores

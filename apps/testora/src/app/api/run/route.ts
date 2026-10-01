@@ -31,11 +31,13 @@ import { isAdminRole } from "@/lib/access-policy";
 import { resolveRunTarget } from "@/lib/run-target";
 import { TargetPolicyError, assertRunnableTarget } from "@/lib/target-policy";
 import { unitTargetsWeb } from "@/lib/web-target";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { projects, targetEnvironments, targetSecrets } from "@/db/schema";
 import { decryptToken } from "@/lib/crypto";
 import { buildRunSpecEnv } from "@/lib/run-secrets";
+import { checkRunOwnership } from "@/lib/ownership";
+import { rateLimitKey, runRateLimiter } from "@/lib/run-rate-limit";
 
 // Reads live in-memory run state, so it must never be statically cached.
 export const dynamic = "force-dynamic";
@@ -260,6 +262,43 @@ export async function POST(request: Request) {
       runnableUnits = runnableUnits.filter((unit) => !isUi(unit));
       skippedUiCount = before - runnableUnits.length;
     }
+  }
+
+  // Ownership (#703): every web URL a fixture will hit must lie within its
+  // app's verified domain — a non-ASafariM app is unrunnable until verified.
+  // (The Hub URL may be a third-party SSO provider; it is network-policy
+  // checked but not domain-bound.)
+  const unitProjectIds = [...new Set(runnableUnits.map((unit) => unit.projectId ?? projectId))];
+  const projectRows = await db
+    .select({
+      id: projects.id,
+      seeded: projects.seeded,
+      baseUrl: projects.baseUrl,
+      verifiedAt: projects.verifiedAt,
+    })
+    .from(projects)
+    .where(inArray(projects.id, unitProjectIds));
+  const projectById = new Map(projectRows.map((row) => [row.id, row]));
+  for (const unit of runnableUnits) {
+    const refusal = checkRunOwnership(projectById.get(unit.projectId ?? projectId), [
+      unit.fixture.baseUrl,
+      apiUrl,
+    ]);
+    if (refusal) return NextResponse.json(refusal.body, { status: refusal.status });
+  }
+
+  // Per-target rate limit (#703).
+  const limited = runRateLimiter().tryAcquire(
+    rateLimitKey(targetId, baseUrl ?? runnableUnits[0]?.fixture.baseUrl),
+  );
+  if (!limited.ok) {
+    return NextResponse.json(
+      {
+        error: `Too many runs against this target in the last hour. Try again in ${Math.ceil(limited.retryAfterSec / 60)} minute(s).`,
+        code: "TARGET_RATE_LIMITED",
+      },
+      { status: 429, headers: { "Retry-After": String(limited.retryAfterSec) } },
+    );
   }
 
   const runId = randomUUID();

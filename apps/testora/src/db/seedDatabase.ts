@@ -1,5 +1,5 @@
 import { db } from "@/db/client";
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import {
   functionalRequirements,
   testSuites,
@@ -267,6 +267,8 @@ async function seedProjects(): Promise<void> {
         seeded: true,
         // New seeded rows default to public; private must be opted into in the UI.
         visibility: "public",
+        // The maintainer's own apps: pre-verified (#703).
+        verifiedAt: new Date(),
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -278,6 +280,7 @@ async function seedProjects(): Promise<void> {
           productName: project.brand?.productName ?? null,
           companyName: project.brand?.companyName ?? null,
           seeded: true,
+          verifiedAt: sql`coalesce(${projects.verifiedAt}, now())`,
           updatedAt: new Date(),
           // NB: visibility + keyHash intentionally omitted — preserve user choice.
         },

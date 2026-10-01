@@ -34,6 +34,9 @@ export interface ProjectRow {
   githubTokenEnc: string | null;
   seeded: boolean;
   autoQuarantineFlaky: boolean;
+  // Ownership verification (#703).
+  verifiedAt: Date | null;
+  verificationToken: string | null;
 }
 
 /** A client-safe view of an app — sensitive fields are withheld while locked. */
@@ -53,6 +56,10 @@ export interface ViewerProject {
   // The token itself is never exposed — only this boolean.
   githubRepo?: string | null;
   githubConfigured?: boolean;
+  /** Ownership verified (or a built-in app) — its targets are runnable (#703). */
+  verified?: boolean;
+  /** The token the operator publishes to verify (public by design). */
+  verificationToken?: string | null;
 }
 
 function toViewer(row: ProjectRow, authenticated: boolean): ViewerProject {
@@ -74,6 +81,8 @@ function toViewer(row: ProjectRow, authenticated: boolean): ViewerProject {
     githubRepo: row.githubRepo,
     // An app-level token, or the platform-wide default repo (lib/github.ts).
     githubConfigured: Boolean(row.githubTokenEnc) || isPlatformGithubConfigured(),
+    verified: row.seeded || row.verifiedAt !== null,
+    verificationToken: row.seeded ? null : row.verificationToken,
   };
 }
 

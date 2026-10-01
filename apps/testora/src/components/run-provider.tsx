@@ -27,6 +27,10 @@ export interface ClientProject {
   // token itself never reaches the client.
   githubRepo?: string | null;
   githubConfigured?: boolean;
+  /** Ownership verified (or built-in) — its web targets are runnable (#703). */
+  verified?: boolean;
+  /** The token the operator publishes to verify the app's site. */
+  verificationToken?: string | null;
 }
 
 // Kept in sync with ACTIVE_PROJECT_COOKIE in @/lib/active-project (that module
