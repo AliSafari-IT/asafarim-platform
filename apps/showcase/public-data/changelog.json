@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-02",
+    "title": "Testora: ownership verification, per-target rate limit and an identifying User-Agent",
+    "sha": "b4b7208f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/b4b7208f"
+  },
+  {
     "date": "2026-10-01",
     "title": "Testora: scoped, encrypted per-target test credentials",
     "sha": "eda8a1bc",
@@ -112,11 +118,5 @@
     "title": "UI: stack DataTable rows as labelled cards in narrow containers",
     "sha": "ee11b589",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ee11b589"
-  },
-  {
-    "date": "2026-09-26",
-    "title": "Admin: show ResuMatch events on the main Audit Logs page",
-    "sha": "1098491b",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1098491b"
   }
 ]

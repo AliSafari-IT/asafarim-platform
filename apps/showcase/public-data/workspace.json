@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "20c03884",
+      "sha": "d4cf26b5",
       "date": "2026-10-01",
       "since": "2026-07-04",
-      "commits": 346,
+      "commits": 347,
       "dependents": 0
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/testora",
       "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-      "sha": "eda8a1bc",
-      "date": "2026-10-01",
+      "sha": "b4b7208f",
+      "date": "2026-10-02",
       "since": "2026-07-21",
-      "commits": 120,
+      "commits": 121,
       "dependents": 0
     },
     {
