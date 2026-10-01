@@ -4,6 +4,7 @@ import type {
   TestFixtureDefinition,
   TestCaseDefinition,
 } from "@/test-engine/types";
+import { hubSsoLoginScript } from "./hub-sso";
 
 /**
  * ASafariM TimelineAI — AI-assisted timeline builder.
@@ -16,9 +17,10 @@ import type {
  * TimelineAI-protected pages are hit.
  *
  * Tests use ASAFARIM_ADMIN_EMAIL / ASAFARIM_ADMIN_PASSWORD from the
- * environment. The Hub URL is read from ASAFARIM_HUB_URL (or its
- * NEXT_PUBLIC variant) and the TimelineAI origin from
- * ASAFARIM_TIMELINEAI_URL (or its NEXT_PUBLIC variant).
+ * environment. The Hub and TimelineAI origins follow the run's target
+ * (TESTORA_TARGET_HUB_URL / TESTORA_TARGET_BASE_URL — see ./hub-sso.ts),
+ * falling back to ASAFARIM_HUB_URL / ASAFARIM_TIMELINEAI_URL (or their
+ * NEXT_PUBLIC variants) when a run has no target.
  */
 
 export const timelineaiFR: FunctionalRequirementDefinition = {
@@ -37,33 +39,12 @@ export const timelineaiFR: FunctionalRequirementDefinition = {
 /* Shared SSO login — sign in on Hub, return to TimelineAI            */
 /* ------------------------------------------------------------------ */
 
-const TIMELINEAI_SSO_LOGIN = `
-const hubUrl = process.env.ASAFARIM_HUB_URL || process.env.NEXT_PUBLIC_ASAFARIM_HUB_URL || 'https://hub.asafarim.com';
-const timelineaiUrl = process.env.ASAFARIM_TIMELINEAI_URL || process.env.NEXT_PUBLIC_ASAFARIM_TIMELINEAI_URL || 'https://tlai.asafarim.com';
-const email = process.env.ASAFARIM_ADMIN_EMAIL || '';
-const password = process.env.ASAFARIM_ADMIN_PASSWORD || '';
-await t.expect(email.length).gt(0, 'ASAFARIM_ADMIN_EMAIL must be set in the repo-root .env.local (Testora loads it at startup).');
-await t.expect(password.length).gt(0, 'ASAFARIM_ADMIN_PASSWORD must be set in the repo-root .env.local (Testora loads it at startup).');
-
-await t.deleteCookies();
-const callback = timelineaiUrl + '/dashboard';
-await t.navigateTo(hubUrl + '/sign-in?callbackUrl=' + encodeURIComponent(callback));
-
-await t.expect(Selector('#identifier').with({ timeout: 30000 }).exists).ok('Hub /sign-in form should render');
-await t.typeText('#identifier', email, { replace: true });
-await t.typeText('#password', password, { replace: true });
-await t.click(Selector('button[type="submit"]').filterVisible());
-
-let loggedIn = false; let pathname = '';
-for (let i = 0; i < 30; i++) {
-  pathname = await t.eval(() => window.location.pathname);
-  const host = await t.eval(() => window.location.host);
-  if (host.indexOf('tlai') !== -1 && pathname.indexOf('/sign-in') === -1) { loggedIn = true; break; }
-  await t.wait(1000);
-}
-await t.expect(loggedIn).ok('SSO login did not return to TimelineAI after Hub sign-in — ended at ' + pathname);
-await t.wait(1500);
-`;
+const TIMELINEAI_SSO_LOGIN = hubSsoLoginScript({
+  appName: "TimelineAI",
+  appUrlEnv: ["ASAFARIM_TIMELINEAI_URL", "NEXT_PUBLIC_ASAFARIM_TIMELINEAI_URL"],
+  defaultAppUrl: "https://tlai.asafarim.com",
+  callbackPath: "/dashboard",
+});
 
 /* ------------------------------------------------------------------ */
 /* UI smoke generator                                                */

@@ -20,6 +20,8 @@ export interface TargetDef {
   name: string;
   baseUrl: string;
   apiUrl: string;
+  /** The Hub this deployment signs in through (null/omitted = no Hub SSO). */
+  hubUrl?: string | null;
 }
 
 export interface ProjectDef {
@@ -46,6 +48,11 @@ export interface ProjectDef {
 const TIMELINEAI_LOCAL_BASE = process.env.NEXT_PUBLIC_ASAFARIM_TIMELINEAI_LOCAL_URL || "http://localhost:3010";
 const TIMELINEAI_REMOTE_BASE =
   process.env.NEXT_PUBLIC_ASAFARIM_TIMELINEAI_URL || "https://tlai.asafarim.com";
+
+// The Hub each kind of target signs in through (#700): a Local run must use the
+// local Hub (port 3001), a Remote run the production one.
+export const LOCAL_HUB_URL = process.env.NEXT_PUBLIC_ASAFARIM_HUB_LOCAL_URL || "http://localhost:3001";
+export const REMOTE_HUB_URL = process.env.NEXT_PUBLIC_ASAFARIM_HUB_URL || "https://hub.asafarim.com";
 
 // ASafariM apps — the maintainer's own sites, each on its own subdomain, so
 // each is its own project with its own default URL. Selecting the app pre-fills
@@ -78,8 +85,8 @@ const ASAFARIM_TIMELINEAI: ProjectDef = {
   apiUrl: TIMELINEAI_REMOTE_BASE,
   brand: { productName: "TimelineAI", companyName: "ASafariM Digital" },
   targets: [
-    { slug: "local", name: "Local", baseUrl: TIMELINEAI_LOCAL_BASE, apiUrl: TIMELINEAI_LOCAL_BASE },
-    { slug: "remote", name: "Remote", baseUrl: TIMELINEAI_REMOTE_BASE, apiUrl: TIMELINEAI_REMOTE_BASE },
+    { slug: "local", name: "Local", baseUrl: TIMELINEAI_LOCAL_BASE, apiUrl: TIMELINEAI_LOCAL_BASE, hubUrl: LOCAL_HUB_URL },
+    { slug: "remote", name: "Remote", baseUrl: TIMELINEAI_REMOTE_BASE, apiUrl: TIMELINEAI_REMOTE_BASE, hubUrl: REMOTE_HUB_URL },
   ],
 };
 
@@ -103,5 +110,8 @@ export function getProject(id: string | null | undefined): ProjectDef | undefine
  */
 export function projectSeedTargets(project: ProjectDef): TargetDef[] {
   if (project.targets?.length) return project.targets;
-  return [{ slug: "remote", name: "Remote", baseUrl: project.baseUrl, apiUrl: project.apiUrl }];
+  // Every seeded ASafariM app signs in through Hub.
+  return [
+    { slug: "remote", name: "Remote", baseUrl: project.baseUrl, apiUrl: project.apiUrl, hubUrl: REMOTE_HUB_URL },
+  ];
 }

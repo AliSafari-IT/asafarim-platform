@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Writable } from "node:stream";
 import createTestCafe from "testcafe";
+import { fixtureOrigin } from "@/test-engine/fixture-origin";
 import { db } from "@/db/client";
 import {
   functionalRequirements,
@@ -38,6 +39,11 @@ export interface ExecuteFixtureOptions {
    * global env, because concurrent runs share this process.
    */
   apiUrl?: string;
+  /**
+   * The Hub the run's target signs in through, exposed to the spec as
+   * process.env.TESTORA_TARGET_HUB_URL (Hub SSO scripts follow it, #700).
+   */
+  hubUrl?: string;
 }
 
 // eslint-disable-next-line no-control-regex
@@ -105,6 +111,11 @@ export async function executeFixture(
   const spec = generateTestSpec(fixture, cases, {
     TESTORA_DOM_DIR: domDir,
     WEBAPP_API_URL: options.apiUrl,
+    // Where this run points (#700) — login scripts use these instead of the
+    // server env, so a Local run never signs in on / lands on production.
+    TESTORA_TARGET_BASE_URL: fixtureOrigin(fixture.baseUrl),
+    TESTORA_TARGET_API_URL: options.apiUrl,
+    TESTORA_TARGET_HUB_URL: options.hubUrl,
   });
   await writeFile(specPath, spec, "utf8");
 

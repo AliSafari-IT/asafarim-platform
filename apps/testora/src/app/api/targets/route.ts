@@ -27,7 +27,9 @@ export async function GET(request: Request) {
   // Whether each target passes the network policy here (e.g. the seeded Local
   // target is refused in production), so the Run page can default to one that
   // runs and label the rest.
-  const verdicts = await Promise.all(sorted.map((t) => checkStoredUrls([t.baseUrl, t.apiUrl])));
+  const verdicts = await Promise.all(
+    sorted.map((t) => checkStoredUrls([t.baseUrl, t.apiUrl, t.hubUrl])),
+  );
   return NextResponse.json(
     sorted.map((t, i) => ({
       id: t.id,
@@ -35,6 +37,7 @@ export async function GET(request: Request) {
       name: t.name,
       baseUrl: t.baseUrl,
       apiUrl: t.apiUrl,
+      hubUrl: t.hubUrl,
       seeded: t.seeded,
       runnable: verdicts[i] === null,
       unrunnableReason: verdicts[i]?.body.error ?? null,
@@ -43,12 +46,15 @@ export async function GET(request: Request) {
 }
 
 const urlField = z.string().trim().url("Must be an absolute URL (http:// or https://)");
+// Optional Hub (SSO gateway) URL; "" clears it.
+const hubField = urlField.or(z.literal("")).transform((v) => v || null);
 
 const createSchema = z.object({
   projectId: z.string().min(1),
   name: z.string().trim().min(1, "Name is required"),
   baseUrl: urlField,
   apiUrl: urlField,
+  hubUrl: hubField.optional(),
 });
 
 export async function POST(request: Request) {
@@ -56,16 +62,16 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { projectId, name, baseUrl, apiUrl } = parsed.data;
+  const { projectId, name, baseUrl, apiUrl, hubUrl } = parsed.data;
   // Saved targets are what testers run against — hold them to the network policy.
-  const blocked = await checkStoredUrls([baseUrl, apiUrl]);
+  const blocked = await checkStoredUrls([baseUrl, apiUrl, hubUrl]);
   if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `t_${Date.now()}`;
   try {
     const [target] = await db
       .insert(targetEnvironments)
-      .values({ id, projectId, name, baseUrl, apiUrl, seeded: false, sortOrder: 0 })
+      .values({ id, projectId, name, baseUrl, apiUrl, hubUrl: hubUrl ?? null, seeded: false, sortOrder: 0 })
       .returning();
     return NextResponse.json({ target }, { status: 201 });
   } catch {
@@ -78,6 +84,7 @@ const updateSchema = z
     name: z.string().trim().min(1, "Name is required").optional(),
     baseUrl: urlField.optional(),
     apiUrl: urlField.optional(),
+    hubUrl: hubField.optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "Nothing to update" });
 
@@ -92,7 +99,7 @@ export async function PATCH(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const blocked = await checkStoredUrls([parsed.data.baseUrl, parsed.data.apiUrl]);
+  const blocked = await checkStoredUrls([parsed.data.baseUrl, parsed.data.apiUrl, parsed.data.hubUrl]);
   if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
   const [updated] = await db
     .update(targetEnvironments)
