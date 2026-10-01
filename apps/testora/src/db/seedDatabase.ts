@@ -16,60 +16,9 @@ import type {
   TestCaseDefinition,
 } from "@/test-engine/types";
 import { DEFAULT_PROJECT_ID, PROJECTS, projectSeedTargets } from "@/data/projects";
-import {
-  edumatchFR,
-  edumatchSuites,
-  edumatchFixtures,
-  edumatchCases,
-} from "@/data/asafarim/edumatch";
-import {
-  viontoFR,
-  viontoSuites,
-  viontoFixtures,
-  viontoCases,
-} from "@/data/asafarim/vionto";
-import {
-  timelineaiFR,
-  timelineaiSuites,
-  timelineaiFixtures,
-  timelineaiCases,
-} from "@/data/asafarim/timelineai";
+import { SEED_BUNDLES, type SeedBundle } from "@/data/bundles";
 
-interface SeedBundle {
-  fr: FunctionalRequirementDefinition;
-  suites: TestSuiteDefinition[];
-  fixtures: TestFixtureDefinition[];
-  cases: TestCaseDefinition[];
-  /** App this bundle belongs to; defaults to {@link DEFAULT_PROJECT_ID}. */
-  projectId?: string;
-}
-
-const baseBundles: SeedBundle[] = [
-  // ── ASafariM apps (projectId: "asafarim-*") ────────────────────────────────
-  {
-    fr: timelineaiFR,
-    suites: timelineaiSuites,
-    fixtures: timelineaiFixtures,
-    cases: timelineaiCases,
-    projectId: "asafarim-timelineai",
-  },
-  {
-    fr: edumatchFR,
-    suites: edumatchSuites,
-    fixtures: edumatchFixtures,
-    cases: edumatchCases,
-    projectId: "asafarim-edumatch",
-  },
-  {
-    fr: viontoFR,
-    suites: viontoSuites,
-    fixtures: viontoFixtures,
-    cases: viontoCases,
-    projectId: "asafarim-vionto",
-  },
-];
-
-const bundles: SeedBundle[] = baseBundles;
+const bundles: SeedBundle[] = SEED_BUNDLES;
 
 export interface SeedSummary {
   title: string;

@@ -9,9 +9,14 @@ import type {
  * ASafariM EduMatch — student question flow and tutor quote flow.
  *
  * EduMatch authenticates through Hub SSO (its proxy redirects protected
- * routes to hub.asafarim.com/sign-in). These tests are
- * self-bootstrapping: they try the credentials from .env and, if the account
- * doesn't exist yet, register it on Hub (which auto-signs-in).
+ * routes to hub.asafarim.com/sign-in). They sign in with the credentials from
+ * .env; only when the run's target allows it (TESTORA_TARGET_ALLOW_SIGNUP=1,
+ * set for local targets only — #701) do they register a missing account on
+ * Hub. On a remote target a missing account fails the test instead of
+ * creating a production user.
+ *
+ * Both fixtures write real data (inquiries, profiles, quote requests, quotes)
+ * and are tagged `destructive`, so runs against a web target skip them.
  *
  * Credentials: EDUMATCH_STUDENT_EMAIL/PASSWORD and EDUMATCH_TEACHER_EMAIL/
  * PASSWORD (same for dev and prod — switch via the Run page's Target env).
@@ -59,7 +64,9 @@ if (path.indexOf('/sign-in') !== -1) {
   await t.wait(5000);
   path = await t.eval(() => window.location.pathname);
   if (path.indexOf('/sign-in') !== -1) {
-    // Login didn't take — the account likely doesn't exist yet, so register it.
+    // Login didn't take — the account likely doesn't exist yet. Registering one
+    // is only allowed on local targets; never create users on a remote Hub.
+    await t.expect(process.env.TESTORA_TARGET_ALLOW_SIGNUP === '1').ok('Sign-in with ${emailEnv} failed and creating the account is disabled on this target (TESTORA_TARGET_ALLOW_SIGNUP is set for local targets only). Create the account on this deployment first.');
     await t.navigateTo('/sign-up');
     await t.expect(Selector('#confirm-password').with({ timeout: 30000 }).exists).ok('Hub sign-up form should render');
     const token = Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
@@ -103,9 +110,10 @@ export const edumatchStudentFixture: TestFixtureDefinition = {
   baseUrl: "/",
   commonInput: {},
   // Browser flow + an external SSR app (ignore its benign client errors). Each
-  // run creates a real inquiry and triggers a live AI generation. `flaky` re-runs
-  // a failed test (transient DNS / AI rate-limit against the live app).
-  metadata: { ui: true, skipJsErrors: true, flaky: true },
+  // run creates a real inquiry and triggers a live AI generation, so it is
+  // `destructive`: never run against a web target (#701). `flaky` re-runs a
+  // failed test (transient DNS / AI rate-limit against the live app).
+  metadata: { ui: true, skipJsErrors: true, flaky: true, destructive: true },
 };
 
 const edumatchStudentCases: TestCaseDefinition[] = [
@@ -231,7 +239,8 @@ export const edumatchTutorFixture: TestFixtureDefinition = {
   // Self-onboards the tutor (creates a profile whose subjects match the
   // student's questions). PRECONDITION: the Student fixture must have run first
   // in this requirement so there's an open, subject-matching request to quote.
-  metadata: { ui: true, skipJsErrors: true, flaky: true },
+  // Writes a tutor profile and quotes → `destructive` (#701).
+  metadata: { ui: true, skipJsErrors: true, flaky: true, destructive: true },
 };
 
 const edumatchTutorCases: TestCaseDefinition[] = [
