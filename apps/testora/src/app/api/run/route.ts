@@ -30,6 +30,7 @@ import { requireTester } from "@/lib/viewer-role";
 import { isAdminRole } from "@/lib/access-policy";
 import { resolveRunTarget } from "@/lib/run-target";
 import { TargetPolicyError, assertRunnableTarget } from "@/lib/target-policy";
+import { unitTargetsWeb } from "@/lib/web-target";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { projects, targetEnvironments } from "@/db/schema";
@@ -100,23 +101,6 @@ function retargetUnit(unit: RunUnit, baseUrl: string): RunUnit {
       baseUrl: retargetOrigin(unit.fixture.baseUrl, baseUrl),
     },
   };
-}
-
-/** A web (non-local) target — anything that isn't clearly localhost. */
-function isWebTarget(baseUrl: string | undefined): boolean {
-  if (!baseUrl) return false; // no override = the seed's local URLs
-  try {
-    const host = new URL(baseUrl).hostname;
-    const local =
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host === "0.0.0.0" ||
-      host === "::1" ||
-      host.endsWith(".localhost");
-    return !local;
-  } catch {
-    return true; // unparseable → treat as web, the safer default
-  }
 }
 
 function isDestructive(unit: RunUnit): boolean {
@@ -220,20 +204,23 @@ export async function POST(request: Request) {
   if (baseUrl)
     runnableUnits = runnableUnits.map((unit) => retargetUnit(unit, baseUrl));
 
-  // Guard rail: destructive fixtures (create/delete accounts, mutate credits)
-  // must never run against a web deployment — only local.
-  let skippedDestructive: string[] = [];
-  if (isWebTarget(baseUrl)) {
-    skippedDestructive = runnableUnits
-      .filter(isDestructive)
-      .map((unit) => unit.fixture.title);
-    runnableUnits = runnableUnits.filter((unit) => !isDestructive(unit));
+  // Guard rail: destructive fixtures (create accounts, post questions/quotes,
+  // mutate credits) must never run against a web deployment — only local.
+  // Judged per fixture on where it will actually point (its retargeted page
+  // origin and the API), since the seeds' own URLs are production (#701).
+  const skippedDestructive = runnableUnits
+    .filter((unit) => isDestructive(unit) && unitTargetsWeb(unit, apiUrl))
+    .map((unit) => unit.fixture.title);
+  if (skippedDestructive.length > 0) {
+    runnableUnits = runnableUnits.filter(
+      (unit) => !(isDestructive(unit) && unitTargetsWeb(unit, apiUrl)),
+    );
     if (runnableUnits.length === 0) {
       return NextResponse.json(
         {
           error: `Blocked: this run only contains data-mutating fixtures (${skippedDestructive.join(
             ", ",
-          )}), which can't run against a web domain (${baseUrl}). Switch the target to Local.`,
+          )}), which can't run against a web deployment${baseUrl ? ` (${baseUrl})` : ""}. Switch the target to Local.`,
         },
         { status: 400 },
       );
@@ -289,7 +276,7 @@ export async function POST(request: Request) {
   if (skippedDestructive.length > 0) {
     appendLog(
       runId,
-      `⚠ Skipped ${skippedDestructive.length} data-mutating fixture(s) on a web target (${baseUrl}): ${skippedDestructive.join(", ")}`,
+      `⚠ Skipped ${skippedDestructive.length} data-mutating (destructive) fixture(s) on a web target${baseUrl ? ` (${baseUrl})` : ""}: ${skippedDestructive.join(", ")}`,
     );
   }
   if (skippedHeavy.length > 0) {
@@ -440,6 +427,8 @@ async function runUnitWithRetry(
         // Scoped to this run's spec — concurrent runs share this process.
         apiUrl: env.apiUrl,
         hubUrl: env.hubUrl,
+        // Creating accounts (sign-up fallbacks) only against local targets.
+        allowSignup: !unitTargetsWeb(unit, env.apiUrl),
       });
       return toJsonReport(unit.suiteTitle, unit.fixture, unit.cases, results);
     } catch (error) {

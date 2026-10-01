@@ -44,6 +44,11 @@ export interface ExecuteFixtureOptions {
    * process.env.TESTORA_TARGET_HUB_URL (Hub SSO scripts follow it, #700).
    */
   hubUrl?: string;
+  /**
+   * Whether scripts may create accounts (sign-up fallbacks): exposed as
+   * TESTORA_TARGET_ALLOW_SIGNUP=1, set by the run route for local targets only.
+   */
+  allowSignup?: boolean;
 }
 
 // eslint-disable-next-line no-control-regex
@@ -116,6 +121,7 @@ export async function executeFixture(
     TESTORA_TARGET_BASE_URL: fixtureOrigin(fixture.baseUrl),
     TESTORA_TARGET_API_URL: options.apiUrl,
     TESTORA_TARGET_HUB_URL: options.hubUrl,
+    TESTORA_TARGET_ALLOW_SIGNUP: options.allowSignup ? "1" : undefined,
   });
   await writeFile(specPath, spec, "utf8");
 
