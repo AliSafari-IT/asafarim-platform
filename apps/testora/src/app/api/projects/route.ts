@@ -13,7 +13,7 @@ import {
 import { encryptToken } from "@/lib/github";
 import { isPlatformGithubConfigured } from "@/lib/github";
 import { checkStoredUrls } from "@/lib/run-target";
-import { newVerificationToken } from "@/lib/ownership";
+import { builtInUrlChangeError, newVerificationToken } from "@/lib/ownership";
 
 const visibility = z.enum(["public", "private"]);
 const optionalUrl = z.string().trim().url("Must be an absolute URL").or(z.literal(""));
@@ -148,6 +148,10 @@ export async function PATCH(request: Request) {
   const data = parsed.data;
   const blocked = await checkStoredUrls([data.baseUrl, data.apiUrl]);
   if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
+  // A built-in app's ownership exemption covers its own domain only (#703).
+  const moveError =
+    row.seeded && data.baseUrl !== undefined ? builtInUrlChangeError(row.id, data.baseUrl) : null;
+  if (moveError) return NextResponse.json({ error: moveError }, { status: 400 });
   const nextVisibility = data.visibility ?? row.visibility;
 
   // GitHub token: omitted → keep; "" → clear; any value → (re)encrypt.

@@ -383,11 +383,9 @@ function OwnershipStatus({
     try {
       const res = await fetch(`/api/projects/verify?id=${encodeURIComponent(project.id)}`, { method: "POST" });
       const data = (await res.json().catch(() => ({}))) as { verified?: boolean; detail?: string; error?: string };
-      if (data.verified) {
-        await onVerified();
-        return;
-      }
-      setMessage(data.error ?? data.detail ?? "Not verified yet.");
+      setMessage(data.verified ? null : (data.error ?? data.detail ?? "Not verified yet."));
+      // Refresh either way: a first attempt also issues the app's token.
+      await onVerified();
     } finally {
       setChecking(false);
     }
@@ -412,6 +410,19 @@ function OwnershipStatus({
       <span className="flex items-center gap-1">
         <ShieldAlert className="h-3 w-3" /> Not verified — its web targets can&apos;t run yet
       </span>
+      {canManage && !record && host && (
+        <span className="text-muted-foreground">
+          This app has no verification token yet.{" "}
+          <button
+            type="button"
+            onClick={() => void verify()}
+            disabled={checking}
+            className="text-primary underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            {checking ? "creating…" : "Get a token"}
+          </button>
+        </span>
+      )}
       {canManage && record && host && (
         <span className="text-muted-foreground">
           Publish <code className="select-all">{record}</code> at{" "}

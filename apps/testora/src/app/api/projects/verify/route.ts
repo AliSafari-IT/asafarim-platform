@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { projects } from "@/db/schema";
 import { newVerificationToken, verificationRecord, WELL_KNOWN_PATH } from "@/lib/ownership";
@@ -46,7 +46,25 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   }
+  // Only mark verified if the app still has the URL and token that passed the
+  // proof — an edit while the check ran must not inherit it (TOCTOU).
   const verifiedAt = new Date();
-  await db.update(projects).set({ verifiedAt, updatedAt: verifiedAt }).where(eq(projects.id, id));
+  const marked = await db
+    .update(projects)
+    .set({ verifiedAt, updatedAt: verifiedAt })
+    .where(
+      and(
+        eq(projects.id, id),
+        eq(projects.baseUrl, project.baseUrl),
+        eq(projects.verificationToken, token),
+      ),
+    )
+    .returning({ id: projects.id });
+  if (marked.length === 0) {
+    return NextResponse.json(
+      { verified: false, detail: "The app's site URL or token changed while it was being checked — verify again." },
+      { status: 409 },
+    );
+  }
   return NextResponse.json({ verified: true, method: result.method, verifiedAt, detail: result.detail });
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
+  builtInUrlChangeError,
   checkOwnershipProof,
   checkRunOwnership,
   hostWithin,
@@ -12,6 +13,7 @@ import {
   type ProofDeps,
 } from "./ownership";
 import { RunRateLimiter, rateLimitKey, runsPerTargetPerHour } from "./run-rate-limit";
+import { readCapped } from "./ownership-verify";
 import { TESTORA_USER_AGENT, TESTORA_VERSION } from "./version";
 import { generateTestSpec } from "@/test-engine/generators/testGenerator";
 
@@ -144,4 +146,36 @@ test("every generated spec sets the User-Agent on its fixture", () => {
   assert.ok(spec.includes('import { RequestHook, Selector } from "testcafe";'));
   assert.ok(spec.includes(`event.requestOptions.headers["user-agent"] = ${JSON.stringify(TESTORA_USER_AGENT)}`));
   assert.match(spec, /fixture`T`\n {2}\.page\(`https:\/\/example\.com`\)\n {2}\.requestHooks\(__testoraUserAgent\)/);
+});
+
+// ── review fixes ──────────────────────────────────────────────────────────
+
+test("a built-in app's exemption is anchored to the code registry, not its editable URL", () => {
+  // An admin edited the built-in app's URL to someone else's site:
+  const edited: OwnershipProject = { ...asafarimApp, baseUrl: "https://example.com" };
+  assert.equal(ownedDomain(edited), "asafarim.com");
+  assert.equal(checkRunOwnership(edited, ["https://example.com"])?.body.code, "TARGET_OUTSIDE_VERIFIED_DOMAIN");
+  // A seeded row the registry no longer knows gets no exemption at all.
+  assert.equal(ownedDomain({ ...asafarimApp, id: "retired-app" }), null);
+});
+
+test("a built-in app can't be moved off its own domain", () => {
+  assert.match(builtInUrlChangeError("asafarim-edumatch", "https://example.com")!, /only point at asafarim\.com/);
+  assert.equal(builtInUrlChangeError("asafarim-edumatch", "https://staging.edumatch.asafarim.com"), null);
+  assert.equal(builtInUrlChangeError("asafarim-edumatch", ""), null);
+});
+
+test("the verification body is read with a hard byte cap, not buffered whole", async () => {
+  let pulled = 0;
+  const huge = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulled += 1;
+      if (pulled > 10_000) return controller.close();
+      controller.enqueue(new TextEncoder().encode("x".repeat(1024)));
+    },
+  });
+  const text = await readCapped(new Response(huge), 4096);
+  assert.equal(text.length, 4096);
+  assert.ok(pulled < 20, `read ${pulled} chunks — the stream must be cancelled at the cap`);
+  assert.equal(await readCapped(new Response("testora-verification=abc"), 4096), "testora-verification=abc");
 });

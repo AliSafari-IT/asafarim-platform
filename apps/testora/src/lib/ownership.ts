@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { isWebTarget } from "@/lib/web-target";
+import { getProject } from "@/data/projects";
 
 /**
  * Target ownership (#703). Running login/form automation from the VPS against
@@ -50,12 +51,30 @@ function registrableDomain(host: string): string {
   return host.split(".").slice(-2).join(".");
 }
 
+/**
+ * The domain a built-in app is pre-verified for — from the CODE registry
+ * (data/projects.ts), never from the editable baseUrl, so editing a built-in
+ * app's URL can't carry the exemption to someone else's site.
+ */
+export function builtInDomain(projectId: string): string | null {
+  const host = hostOf(getProject(projectId)?.baseUrl);
+  return host ? registrableDomain(host) : null;
+}
+
 /** The domain a project may run against, or null when it isn't verified. */
 export function ownedDomain(project: OwnershipProject): string | null {
+  if (project.seeded) return builtInDomain(project.id);
   const host = hostOf(project.baseUrl);
   if (!host) return null;
-  if (project.seeded) return registrableDomain(host);
   return project.verifiedAt ? host : null;
+}
+
+/** Why a built-in app may not move to `baseUrl`, or null. */
+export function builtInUrlChangeError(projectId: string, baseUrl: string): string | null {
+  const host = hostOf(baseUrl);
+  const domain = builtInDomain(projectId);
+  if (!baseUrl || !host || !domain || hostWithin(host, domain)) return null;
+  return `Built-in apps can only point at ${domain} or its subdomains — create a new app for ${host}.`;
 }
 
 export function hostWithin(host: string, domain: string): boolean {
