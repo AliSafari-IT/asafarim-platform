@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-01",
+    "title": "Testora: scoped, encrypted per-target test credentials",
+    "sha": "eda8a1bc",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/eda8a1bc"
+  },
+  {
     "date": "2026-09-30",
     "title": "Testora: restrict running tests and filing issues to the tester role",
     "sha": "bf432a3f",
@@ -112,11 +118,5 @@
     "title": "Admin: show ResuMatch events on the main Audit Logs page",
     "sha": "1098491b",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1098491b"
-  },
-  {
-    "date": "2026-09-26",
-    "title": "Resumatch: show applications and status changes in the admin console",
-    "sha": "07fb0876",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/07fb0876"
   }
 ]
