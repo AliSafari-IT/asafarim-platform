@@ -180,6 +180,27 @@ test("events: continues after events written without the counter (previous relea
   assert.deepEqual((await s.eventsAfter("drift", 0)).map((e) => e.seq), [1, 2, 3]);
 });
 
+test("events: an old-release insert racing a new append is retried, not lost (CodeRabbit on #741)", { skip }, async () => {
+  const s = store(1);
+  await s.create({ id: "race" });
+  assert.equal(await s.append("race", "log", "a"), 1);
+  // The previous release, mid-deploy, inserts seq 2 in its own transaction…
+  const old = await pool.connect();
+  try {
+    await old.query("BEGIN");
+    await old.query("INSERT INTO run_events (run_id, seq, kind, payload) VALUES ('race', 2, 'log', '\"old\"')");
+    // …while a new append computes seq 2 too, and waits on that key.
+    const pending = s.append("race", "log", "new");
+    await new Promise((r) => setTimeout(r, 200));
+    await old.query("COMMIT");
+    // Its insert then conflicts; the retry re-reads max(seq) and takes 3.
+    assert.equal(await pending, 3);
+  } finally {
+    old.release();
+  }
+  assert.deepEqual((await s.eventsAfter("race", 0)).map((e) => [e.seq, e.payload]), [[1, "a"], [2, "old"], [3, "new"]]);
+});
+
 test("events: appending to an unknown run fails clearly", { skip }, async () => {
   const s = store(1);
   await assert.rejects(s.append("no-such-run", "log", "x"), /run_events: no run no-such-run/);
