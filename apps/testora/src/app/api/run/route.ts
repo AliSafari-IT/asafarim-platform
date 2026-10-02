@@ -37,6 +37,7 @@ import { projects, targetEnvironments, targetSecrets } from "@/db/schema";
 import { decryptToken } from "@/lib/crypto";
 import { buildRunSpecEnv } from "@/lib/run-secrets";
 import { checkRunOwnership } from "@/lib/ownership";
+import { planScopeError } from "@/lib/run-scope";
 import { rateLimitKey, runRateLimiter } from "@/lib/run-rate-limit";
 
 // Reads live in-memory run state, so it must never be statically cached.
@@ -199,6 +200,12 @@ export async function POST(request: Request) {
       { error: "Run target not found" },
       { status: 404 },
     );
+  }
+  // Every loaded fixture must belong to the run's project (#712) — access,
+  // target, secrets and ownership were all checked against `projectId`.
+  const scopeError = planScopeError(plan.units, projectId);
+  if (scopeError) {
+    return NextResponse.json(scopeError.body, { status: scopeError.status });
   }
 
   let runnableUnits = plan.units.filter((unit) => unit.cases.length > 0);
