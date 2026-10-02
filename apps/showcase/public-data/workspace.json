@@ -49,10 +49,10 @@
       "kind": "app",
       "folder": "apps/appbuilder",
       "description": "ASafarIM AppBuilder - metadata-driven AI application factory (appbuilder.asafarim.com)",
-      "sha": "79586254",
-      "date": "2026-10-01",
+      "sha": "acda2712",
+      "date": "2026-10-03",
       "since": "2026-07-21",
-      "commits": 110,
+      "commits": 111,
       "dependents": 0
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "a26f81bc",
+      "sha": "031dd240",
       "date": "2026-10-02",
       "since": "2026-07-04",
-      "commits": 360,
+      "commits": 361,
       "dependents": 0
     },
     {
@@ -313,10 +313,10 @@
       "kind": "app",
       "folder": "apps/edumatch",
       "description": "",
-      "sha": "79586254",
-      "date": "2026-10-01",
+      "sha": "acda2712",
+      "date": "2026-10-03",
       "since": "2026-08-05",
-      "commits": 115,
+      "commits": 116,
       "dependents": 0
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/testora",
       "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-      "sha": "beae6ac8",
-      "date": "2026-10-02",
+      "sha": "acda2712",
+      "date": "2026-10-03",
       "since": "2026-07-21",
-      "commits": 130,
+      "commits": 131,
       "dependents": 0
     },
     {
@@ -335,10 +335,10 @@
       "kind": "app",
       "folder": "apps/timelineai",
       "description": "TimelineAI: create polished, visual timelines — project, historical, roadmap, Gantt, calendar, and interactive.",
-      "sha": "79586254",
-      "date": "2026-10-01",
+      "sha": "acda2712",
+      "date": "2026-10-03",
       "since": "2026-08-08",
-      "commits": 88,
+      "commits": 89,
       "dependents": 0
     },
     {
@@ -346,10 +346,10 @@
       "kind": "app",
       "folder": "apps/vionto",
       "description": "",
-      "sha": "79586254",
-      "date": "2026-10-01",
+      "sha": "acda2712",
+      "date": "2026-10-03",
       "since": "2026-07-15",
-      "commits": 133,
+      "commits": 134,
       "dependents": 0
     }
   ],
