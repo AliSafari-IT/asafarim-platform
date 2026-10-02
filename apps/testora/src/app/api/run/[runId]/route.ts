@@ -10,7 +10,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const denied = await requireTester();
   if (denied) return denied;
   const { runId } = await params;
-  const run = getRun(runId);
+  const run = await getRun(runId);
   if (!run || run.done) {
     return NextResponse.json({ error: "Run not found or already finished" }, { status: 404 });
   }
@@ -24,6 +24,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     );
   }
 
-  cancelRun(runId);
+  await cancelRun(runId);
   return NextResponse.json({ cancelled: true });
 }

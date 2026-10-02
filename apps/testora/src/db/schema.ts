@@ -9,6 +9,7 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -270,6 +271,56 @@ export const targetSecrets = pgTable(
   (table) => ({
     targetNameUnique: uniqueIndex("target_secrets_target_name_unique").on(table.targetId, table.name),
   }),
+);
+
+// Durable runs (#716, ADR 0004 step 1). The run queue and live log used to
+// live in process memory, so a deploy or crash lost queued and in-flight runs.
+// A run row is the queue entry + lease; run_events is its append-only log
+// (log lines, meta, started, done/error) that the SSE stream tails.
+//   status: created → queued → running → done | error | cancelled
+export const runs = pgTable(
+  "runs",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id"),
+    ownerId: text("owner_id"),
+    ownerName: text("owner_name"),
+    targetId: text("target_id"),
+    // Per-target rate-limit key (#703): "target:<id>" or "origin:<origin>".
+    rateKey: text("rate_key"),
+    label: text("label"),
+    status: text("status").notNull().default("created"),
+    total: integer("total"),
+    error: text("error"),
+    queuedAt: timestamp("queued_at", { withTimezone: true }).notNull().defaultNow(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    cancelRequested: boolean("cancel_requested").notNull().default(false),
+    // The frozen job (plan + per-run env incl. target secrets), AES-GCM
+    // encrypted (lib/crypto.ts); deleted when the run finishes.
+    jobEnc: text("job_enc"),
+  },
+  (table) => [
+    index("runs_status_queued_at_idx").on(table.status, table.queuedAt),
+    index("runs_owner_idx").on(table.ownerId),
+    index("runs_rate_key_idx").on(table.rateKey, table.queuedAt),
+  ],
+);
+
+export const runEvents = pgTable(
+  "run_events",
+  {
+    runId: text("run_id")
+      .notNull()
+      .references(() => runs.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    kind: text("kind").notNull(),
+    payload: jsonb("payload"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.runId, table.seq] })],
 );
 
 export const outboundEventStatusEnum = pgEnum("outbound_event_status", [
