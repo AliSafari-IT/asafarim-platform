@@ -1,2 +1,6 @@
 # Shell scripts must use LF so they run on the Linux VPS (CRLF breaks bash).
 *.sh text eol=lf
+
+# Compose files must use LF: the infra tests in
+# apps/testora/src/runner/runner-image.test.ts parse them line by line (#735).
+docker-compose*.yml text eol=lf
