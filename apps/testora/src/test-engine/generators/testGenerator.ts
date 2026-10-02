@@ -118,30 +118,63 @@ export function specEnvPrelude(env: Record<string, string | undefined>): string 
  * parsing splits on spaces, and the hook works the same in proxy mode (prod)
  * and native automation (dev).
  */
-export function userAgentHook(userAgent: string = TESTORA_USER_AGENT): string {
+export function userAgentHook(
+  userAgent: string = TESTORA_USER_AGENT,
+  allowedOrigins?: string[],
+): string {
+  // Remote runner (#717): log — not block — requests outside the run's
+  // allowed origins as OFF_TARGET_REQUEST, once per origin. Advisory telemetry;
+  // the runner host's egress filter is the enforcement (ADR 0004 §1, §3).
+  const offTarget = allowedOrigins
+    ? [
+        `    const allowed = ${JSON.stringify(allowedOrigins)};`,
+        `    try {`,
+        `      const o = event.requestOptions;`,
+        `      const origin = new URL(o.url || (o.protocol + "//" + o.host)).origin;`,
+        `      if (!allowed.includes(origin) && !__testoraOffTarget.has(origin)) {`,
+        `        __testoraOffTarget.add(origin);`,
+        `        console.log("OFF_TARGET_REQUEST " + origin);`,
+        `      }`,
+        `    } catch (e) { /* unparseable request url — ignore */ }`,
+      ]
+    : [];
   return [
+    `const __testoraOffTarget = new Set();`,
     `class __TestoraUserAgentHook extends RequestHook {`,
-    `  async onRequest(event) { event.requestOptions.headers["user-agent"] = ${JSON.stringify(userAgent)}; }`,
+    `  async onRequest(event) {`,
+    `    event.requestOptions.headers["user-agent"] = ${JSON.stringify(userAgent)};`,
+    ...offTarget,
+    `  }`,
     `  async onResponse() {}`,
     `}`,
     `const __testoraUserAgent = new __TestoraUserAgentHook();`,
   ].join("\n");
 }
 
+/** Placeholder the remote runner swaps for its own scenarioRunner path (#717). */
+export const SCENARIO_RUNNER_PLACEHOLDER = "__TESTORA_SCENARIO_RUNNER__";
+
 export function generateTestSpec(
   fixture: TestFixtureDefinition,
   cases: TestCaseDefinition[],
   runEnv: Record<string, string | undefined> = {},
+  options: {
+    /** Remote runner: advisory OFF_TARGET_REQUEST logging (#717). */
+    allowedOrigins?: string[];
+    /** Remote runner: emit a placeholder the runner resolves on its own host. */
+    portableRunnerPath?: boolean;
+  } = {},
 ): string {
+  const runnerImport = options.portableRunnerPath ? SCENARIO_RUNNER_PLACEHOLDER : scenarioRunnerPath;
   const header = [
     `import { RequestHook, Selector } from "testcafe";`,
-    `import { runScenario } from ${JSON.stringify(scenarioRunnerPath)};`,
+    `import { runScenario } from ${JSON.stringify(runnerImport)};`,
     ``,
     specEnvPrelude(runEnv),
     ``,
     domCaptureHelper(),
     ``,
-    userAgentHook(),
+    userAgentHook(TESTORA_USER_AGENT, options.allowedOrigins),
     ``,
     generateFixtureScript(fixture),
     ``,

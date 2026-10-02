@@ -298,6 +298,10 @@ export const runs = pgTable(
     leaseOwner: text("lease_owner"),
     leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
     cancelRequested: boolean("cancel_requested").notNull().default(false),
+    // Remote runner (#717): sha256 of the per-job lease token handed out with
+    // the envelope. Scopes the runner's events/artifacts/complete calls to this
+    // one job while the lease holds.
+    runnerLeaseTokenHash: text("runner_lease_token_hash"),
     // The frozen job (plan + per-run env incl. target secrets), AES-GCM
     // encrypted (lib/crypto.ts); deleted when the run finishes.
     jobEnc: text("job_enc"),

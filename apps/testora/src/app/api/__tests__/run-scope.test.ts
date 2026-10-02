@@ -51,6 +51,7 @@ mock.module("../../../test-engine/executors/runLog.ts", {
     getCapacity: () => ({ running: [], queued: [], limit: 2 }),
     // Durable run log (#716): rate-limit history + the executor's hooks.
     runStore: () => ({ recentRunTimes: async () => [] }),
+    runnerMode: () => "inprocess",
     runSignal: () => undefined,
     isRunFinished: () => false,
   },

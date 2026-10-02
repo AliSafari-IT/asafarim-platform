@@ -47,6 +47,11 @@ const SERVICE_ROUTES: { method: string; pattern: RegExp }[] = [
   { method: "GET", pattern: /^\/api\/results\/[^/]+\/artifact\/[^/]+$/ },
   { method: "POST", pattern: /^\/api\/provisions$/ },
   { method: "GET", pattern: /^\/api\/internal\/user-activity$/ },
+  // The isolated runner's pull protocol (#717): bearer + HMAC + per-job lease
+  // token, checked in each route (lib/runner-auth.ts).
+  { method: "POST", pattern: /^\/internal\/runner\/lease$/ },
+  { method: "POST", pattern: /^\/internal\/runner\/jobs\/[^/]+\/(events|complete)$/ },
+  { method: "PUT", pattern: /^\/internal\/runner\/jobs\/[^/]+\/artifacts\/[^/]+\/[^/]+$/ },
 ];
 
 /** Writes only testers (and admins) may make — the Run page's own actions. */

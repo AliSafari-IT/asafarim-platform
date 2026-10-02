@@ -14,6 +14,7 @@ import {
   setRunMeta,
   appendLog,
   scheduleRun,
+  runnerMode,
   getActiveRunFor,
   getCapacity,
   runStore,
@@ -378,7 +379,10 @@ export async function POST(request: Request) {
             running: capacity.running.length,
             limit: capacity.limit,
           },
-          message: `All ${capacity.limit} test runners are busy. Your run is #${admission.position} in the queue and will start automatically.`,
+          message:
+            runnerMode() === "remote" && capacity.running.length < capacity.limit
+              ? `Waiting for a test runner to pick it up — your run is #${admission.position} in the queue.`
+              : `All ${capacity.limit} test runners are busy. Your run is #${admission.position} in the queue and will start automatically.`,
         }
       : { runId, status: "running" },
     { status: 202 },

@@ -36,6 +36,7 @@ export interface RunRow {
   leaseExpiresAt: Date | null;
   cancelRequested: boolean;
   jobEnc: string | null;
+  runnerLeaseTokenHash: string | null;
 }
 
 export interface RunEventRow {
@@ -74,6 +75,7 @@ function toRow(r: Record<string, unknown>): RunRow {
     leaseExpiresAt: (r.lease_expires_at as Date) ?? null,
     cancelRequested: Boolean(r.cancel_requested),
     jobEnc: (r.job_enc as string) ?? null,
+    runnerLeaseTokenHash: (r.runner_lease_token_hash as string) ?? null,
   };
 }
 
@@ -103,22 +105,27 @@ export function createRunStore(pool: Pool, options: RunStoreOptions) {
   }
 
   /** Claim queued rows (oldest first) into free slots, for `leaseOwner`. */
-  async function claimInTx(client: PoolClient, leaseOwner: string): Promise<RunRow[]> {
+  async function claimInTx(
+    client: PoolClient,
+    leaseOwner: string,
+    opts: { max?: number; leaseTokenHash?: string } = {},
+  ): Promise<RunRow[]> {
     const { rows: countRows } = await client.query(
       "SELECT count(*)::int AS n FROM runs WHERE status = 'running'",
     );
-    const free = options.limit - (countRows[0]!.n as number);
+    const free = Math.min(options.limit - (countRows[0]!.n as number), opts.max ?? Infinity);
     if (free <= 0) return [];
     const { rows } = await client.query(
       `UPDATE runs SET status = 'running', started_at = now(),
-              lease_owner = $1, lease_expires_at = now() + make_interval(secs => $2)
+              lease_owner = $1, lease_expires_at = now() + make_interval(secs => $2),
+              runner_lease_token_hash = $4
         WHERE id IN (
           SELECT id FROM runs WHERE status = 'queued'
            ORDER BY queued_at, id
            FOR UPDATE SKIP LOCKED
            LIMIT $3)
         RETURNING *`,
-      [leaseOwner, options.leaseMs / 1000, free],
+      [leaseOwner, options.leaseMs / 1000, free, opts.leaseTokenHash ?? null],
     );
     return rows.map(toRow).sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime());
   }
@@ -152,7 +159,12 @@ export function createRunStore(pool: Pool, options: RunStoreOptions) {
      * included, FIFO). Returns where this run ended up, plus every run this
      * process just claimed and must start.
      */
-    async admit(runId: string, jobEnc: string, leaseOwner: string): Promise<{ admission: AdmitResult; claimed: RunRow[] }> {
+    async admit(
+      runId: string,
+      jobEnc: string,
+      leaseOwner: string,
+      admitOptions: { claim?: boolean } = {},
+    ): Promise<{ admission: AdmitResult; claimed: RunRow[] }> {
       return tx(async (client) => {
         await client.query("SELECT pg_advisory_xact_lock($1)", [QUEUE_LOCK_KEY]);
         const { rows: q } = await client.query("SELECT count(*)::int AS n FROM runs WHERE status = 'queued'");
@@ -169,7 +181,8 @@ export function createRunStore(pool: Pool, options: RunStoreOptions) {
           "UPDATE runs SET status = 'queued', job_enc = $2, queued_at = now() WHERE id = $1 AND status = 'created'",
           [runId, jobEnc],
         );
-        const claimed = await claimInTx(client, leaseOwner);
+        // Remote runner mode: only queue — the runner claims via its lease call.
+        const claimed = admitOptions.claim === false ? [] : await claimInTx(client, leaseOwner);
         if (claimed.some((row) => row.id === runId)) return { admission: { status: "running" } as AdmitResult, claimed };
         const position = await positionInTx(client, runId);
         return { admission: { status: "queued", position: position ?? 1 } as AdmitResult, claimed };
@@ -182,6 +195,29 @@ export function createRunStore(pool: Pool, options: RunStoreOptions) {
         await client.query("SELECT pg_advisory_xact_lock($1)", [QUEUE_LOCK_KEY]);
         return claimInTx(client, leaseOwner);
       });
+    },
+
+    /**
+     * Remote runner (#717): claim one queued run for `runnerOwner` (within the
+     * concurrency limit) and bind it to a lease token (hash stored).
+     */
+    async claimForRunner(runnerOwner: string, leaseTokenHash: string): Promise<RunRow | null> {
+      return tx(async (client) => {
+        await client.query("SELECT pg_advisory_xact_lock($1)", [QUEUE_LOCK_KEY]);
+        const [row] = await claimInTx(client, runnerOwner, { max: 1, leaseTokenHash });
+        return row ?? null;
+      });
+    },
+
+    /** Remote runner: extend one job's lease; returns whether a cancel was requested. */
+    async renewRunnerLease(runId: string): Promise<{ cancel: boolean } | null> {
+      const { rows } = await pool.query(
+        `UPDATE runs SET lease_expires_at = now() + make_interval(secs => $2)
+          WHERE id = $1 AND status = 'running' AND runner_lease_token_hash IS NOT NULL
+          RETURNING cancel_requested`,
+        [runId, options.leaseMs / 1000],
+      );
+      return rows[0] ? { cancel: Boolean(rows[0].cancel_requested) } : null;
     },
 
     /**
@@ -207,15 +243,19 @@ export function createRunStore(pool: Pool, options: RunStoreOptions) {
      * it belongs to an earlier instance on this same host. Returns their ids.
      */
     async sweepLost(options2: { deadOwnerPrefix?: string; currentOwner?: string } = {}): Promise<string[]> {
+      // A lost run whose cancel was already requested just ends cancelled.
       const { rows } = await pool.query(
-        `UPDATE runs SET status = 'error', error = 'runner lost', finished_at = now(), job_enc = NULL
+        `UPDATE runs SET status = CASE WHEN cancel_requested THEN 'cancelled' ELSE 'error' END,
+                error = CASE WHEN cancel_requested THEN 'Run cancelled' ELSE 'runner lost' END,
+                finished_at = now(), job_enc = NULL, runner_lease_token_hash = NULL
           WHERE status = 'running'
             AND (lease_expires_at < now()
                  OR ($1::text IS NOT NULL AND lease_owner LIKE $1 || '%' AND lease_owner <> $2))
-          RETURNING id`,
+          RETURNING id, cancel_requested`,
         [options2.deadOwnerPrefix ?? null, options2.currentOwner ?? ""],
       );
-      return rows.map((r) => r.id as string);
+      // Only the ones that really were lost need a "runner lost" event.
+      return rows.filter((r) => !r.cancel_requested).map((r) => r.id as string);
     },
 
     /** Append one event (seq = next), and notify listeners. */
@@ -244,7 +284,7 @@ export function createRunStore(pool: Pool, options: RunStoreOptions) {
     async finish(runId: string, status: "done" | "error" | "cancelled", error?: string): Promise<boolean> {
       const { rowCount } = await pool.query(
         `UPDATE runs SET status = $2, error = $3, finished_at = now(), job_enc = NULL,
-                lease_owner = NULL, lease_expires_at = NULL
+                lease_owner = NULL, lease_expires_at = NULL, runner_lease_token_hash = NULL
           WHERE id = $1 AND status IN ('created', 'queued', 'running')`,
         [runId, status, error ?? null],
       );

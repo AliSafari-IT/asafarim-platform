@@ -45,6 +45,16 @@ export function intFromEnv(value: string | undefined, fallback: number, min: num
   return Math.min(max, Math.max(min, parsed));
 }
 
+/**
+ * Where admitted runs execute (#717, ADR 0004 §6): "inprocess" (default while
+ * migrating) runs them in this server process; "remote" only queues them for
+ * the isolated runner, which claims them via POST /internal/runner/lease.
+ */
+export type RunnerMode = "inprocess" | "remote";
+export function runnerMode(env: Record<string, string | undefined> = process.env): RunnerMode {
+  return env.TESTORA_RUNNER_MODE === "remote" ? "remote" : "inprocess";
+}
+
 /** A cancelled run's browser gets this long to stop before its slot is freed anyway. */
 const CANCEL_GRACE_MS = 30_000;
 /** Hard ceiling per run; a run still going after this is failed and its slot freed. */
@@ -148,12 +158,16 @@ export async function scheduleRun(runId: string, job: RunJob): Promise<Admission
   const s = state();
   ensureRunWorker();
   await local(runId).chain; // the pre-admission log lines first
-  const { admission, claimed } = await s.store.admit(runId, encryptToken(JSON.stringify(job)), s.instanceId);
+  const { admission, claimed } = await s.store.admit(runId, encryptToken(JSON.stringify(job)), s.instanceId, {
+    claim: runnerMode() === "inprocess",
+  });
   if (admission.status === "queued") {
     const running = (await s.store.snapshot()).running.length;
     appendLog(
       runId,
-      `⏳ Queued — ${running} of ${s.store.limit} test runners are busy. You're #${admission.position} in line; this run starts automatically when a runner frees up.`,
+      runnerMode() === "remote" && running < s.store.limit
+        ? `⏳ Queued — waiting for a test runner to pick it up (#${admission.position} in line).`
+        : `⏳ Queued — ${running} of ${s.store.limit} test runners are busy. You're #${admission.position} in line; this run starts automatically when a runner frees up.`,
     );
   } else if (admission.status === "rejected") {
     await emit(runId, "error", "The test queue is full");
@@ -169,13 +183,23 @@ function startClaimed(rows: RunRow[]): void {
   for (const row of rows) void startRun(row);
 }
 
+/** Hard per-run ceiling (TESTORA_MAX_RUN_MINUTES) — also the remote runner's job timeout. */
+export function maxRunMs(): number {
+  return MAX_RUN_MS;
+}
+
+/** Tell the run's clients it started (in-process start or a runner lease). */
+export function noteRunStarted(runId: string, queuedAt: Date): void {
+  const waitedMs = Date.now() - queuedAt.getTime();
+  if (waitedMs > 1000) {
+    appendLog(runId, `▶ A runner is free — starting now (waited ${Math.round(waitedMs / 1000)}s in the queue).`);
+  }
+  void emit(runId, "started", { waitedMs });
+}
+
 async function startRun(row: RunRow): Promise<void> {
   const run = local(row.id);
-  const waitedMs = Date.now() - row.queuedAt.getTime();
-  if (waitedMs > 1000) {
-    appendLog(row.id, `▶ A runner is free — starting now (waited ${Math.round(waitedMs / 1000)}s in the queue).`);
-  }
-  void emit(row.id, "started", { waitedMs });
+  noteRunStarted(row.id, row.queuedAt);
 
   // A run that never finishes (hung browser, stuck target) must not hold a
   // runner forever — with only a few runners that would stall the queue.
@@ -235,7 +259,7 @@ async function finishLocal(
   }
   s.local.delete(runId);
   // A slot freed up: hand it to the next queued run.
-  startClaimed(await s.store.claimNext(s.instanceId).catch(() => []));
+  if (runnerMode() === "inprocess") startClaimed(await s.store.claimNext(s.instanceId).catch(() => []));
 }
 
 export async function completeRun(runId: string, result: unknown): Promise<void> {
@@ -244,6 +268,30 @@ export async function completeRun(runId: string, result: unknown): Promise<void>
 
 export async function failRun(runId: string, error: string): Promise<void> {
   await finishLocal(runId, { error });
+}
+
+/**
+ * Remote runner (#717): close a run the runner reports complete. If a cancel
+ * was requested, the client already got "Run cancelled" — just free the slot.
+ */
+export async function finishRemote(
+  runId: string,
+  outcome: { result: unknown } | { error: string },
+): Promise<void> {
+  const s = state();
+  await (s.local.get(runId)?.chain ?? Promise.resolve());
+  const row = await s.store.get(runId);
+  if (!row || !["queued", "running"].includes(row.status)) return;
+  if (row.cancelRequested) {
+    await s.store.finish(runId, "cancelled", "Run cancelled");
+  } else if ("error" in outcome) {
+    await emit(runId, "error", outcome.error);
+    await s.store.finish(runId, "error", outcome.error);
+  } else {
+    await emit(runId, "done", outcome.result);
+    await s.store.finish(runId, "done");
+  }
+  s.local.delete(runId);
 }
 
 /**
@@ -370,7 +418,7 @@ export function ensureRunWorker(): Promise<void> {
   if (!s.booted) {
     s.booted = (async () => {
       await failLost(await s.store.sweepLost({ deadOwnerPrefix: `${hostname()}:`, currentOwner: s.instanceId }));
-      startClaimed(await s.store.claimNext(s.instanceId));
+      if (runnerMode() === "inprocess") startClaimed(await s.store.claimNext(s.instanceId));
     })().catch((error) => console.error("[testora] run worker boot failed:", error));
     s.worker = setInterval(() => void tick(), TICK_MS);
     s.worker.unref?.();
@@ -392,8 +440,10 @@ async function tick(): Promise<void> {
       const run = s.local.get(id);
       if (run) abortLocal(id, run);
     }
+    // Remote mode: runner leases lapse here too ("runner lost"); the runner
+    // claims queued runs itself.
     await failLost(await s.store.sweepLost());
-    startClaimed(await s.store.claimNext(s.instanceId));
+    if (runnerMode() === "inprocess") startClaimed(await s.store.claimNext(s.instanceId));
     if (Date.now() - s.lastPrune > 60 * 60 * 1000) {
       s.lastPrune = Date.now();
       await s.store.prune(RETENTION_MS);
