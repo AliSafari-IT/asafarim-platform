@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-02",
+    "title": "Testora: durable runs — run state and queue in the database (ADR 0004 step 1)",
+    "sha": "2284cfd8",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2284cfd8"
+  },
+  {
+    "date": "2026-10-02",
     "title": "Testora: ownership verification, per-target rate limit and an identifying User-Agent",
     "sha": "b4b7208f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/b4b7208f"
@@ -112,11 +118,5 @@
     "title": "Resumatch: translate the app shell and tailoring history (NL/FR/DE)",
     "sha": "3880680a",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3880680a"
-  },
-  {
-    "date": "2026-09-26",
-    "title": "UI: stack DataTable rows as labelled cards in narrow containers",
-    "sha": "ee11b589",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ee11b589"
   }
 ]
