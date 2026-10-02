@@ -37,8 +37,8 @@ const appOrigin = new URL(${appUrlFallback}).origin;
 const hubOrigin = new URL(process.env.TESTORA_TARGET_HUB_URL || process.env.ASAFARIM_HUB_URL || process.env.NEXT_PUBLIC_ASAFARIM_HUB_URL || 'https://hub.asafarim.com').origin;
 const email = process.env.ASAFARIM_ADMIN_EMAIL || '';
 const password = process.env.ASAFARIM_ADMIN_PASSWORD || '';
-await t.expect(email.length).gt(0, 'ASAFARIM_ADMIN_EMAIL must be set in the repo-root .env.local (Testora loads it at startup).');
-await t.expect(password.length).gt(0, 'ASAFARIM_ADMIN_PASSWORD must be set in the repo-root .env.local (Testora loads it at startup).');
+await t.expect(email.length).gt(0, 'ASAFARIM_ADMIN_EMAIL is not set — add it to the secrets of the target this run uses (Targets page).');
+await t.expect(password.length).gt(0, 'ASAFARIM_ADMIN_PASSWORD is not set — add it to the secrets of the target this run uses (Targets page).');
 
 await t.deleteCookies();
 const callback = appOrigin + ${JSON.stringify(options.callbackPath)};

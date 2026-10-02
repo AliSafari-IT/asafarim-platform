@@ -110,12 +110,18 @@ as_root install -m 0755 infra/scripts/testora-egress-firewall.sh /usr/local/sbin
 as_root install -m 0644 infra/scripts/testora-egress-firewall.service /etc/systemd/system/testora-egress-firewall.service
 as_root systemctl daemon-reload
 as_root systemctl enable --quiet testora-egress-firewall.service
-if ! as_root systemctl restart testora-egress-firewall.service; then
+# Print only this run's output: `-n 40` also replayed earlier runs, including
+# full rule listings from before the summary line (#739 follow-up).
+FW_FAILED=""
+as_root systemctl restart testora-egress-firewall.service || FW_FAILED=1
+FW_INVOCATION="$(as_root systemctl show -p InvocationID --value testora-egress-firewall.service || true)"
+if [[ -n "${FW_INVOCATION}" ]]; then
+  as_root journalctl "_SYSTEMD_INVOCATION_ID=${FW_INVOCATION}" --no-pager -o cat || true
+fi
+if [[ -n "${FW_FAILED}" ]]; then
   echo "FATAL: the Testora egress filter could not be installed." >&2
-  as_root journalctl -u testora-egress-firewall.service -n 30 --no-pager >&2 || true
   exit 1
 fi
-as_root journalctl -u testora-egress-firewall.service -n 40 --no-pager -o cat || true
 
 # Use the workflow's short-lived GITHUB_TOKEN without persisting it in the
 # deploy user's normal Docker configuration. Manual deploys can instead rely
@@ -323,8 +329,14 @@ if [[ "${TESTORA_RUNNER_ENABLED}" == true ]]; then
       [[ "$port" == 80 || "$port" == 443 ]] || add_probe "$host_ip" "$port"
     done
   done
-  if ! "${COMPOSE[@]}" run --rm --no-deps -T testora-runner \
-      node main.mjs --egress-self-test --public https://hub.asafarim.com/ "${PROBES[@]}"; then
+  # The probe list names internal addresses, and a public repo's Actions logs
+  # are public: print a count on success, the full list only on failure.
+  if SELF_TEST_OUT="$("${COMPOSE[@]}" run --rm --no-deps -T testora-runner \
+      node main.mjs --egress-self-test --public https://hub.asafarim.com/ "${PROBES[@]}" 2>&1)"; then
+    echo "Egress self-test: $(grep -c '✔ blocked' <<<"$SELF_TEST_OUT")/$(grep -cE '(✔ blocked|✖ REACHABLE)' <<<"$SELF_TEST_OUT") internal targets blocked," \
+      "public $(grep -q '✔ reachable' <<<"$SELF_TEST_OUT" && echo reachable || echo UNREACHABLE) — EGRESS SELF-TEST PASSED"
+  else
+    printf '%s\n' "$SELF_TEST_OUT" >&2
     echo "FATAL: the Testora runner egress self-test failed — stopping testora-runner." >&2
     "${COMPOSE[@]}" stop testora-runner || true
     notify_discord "❌ ASafarIM deploy ${IMAGE_TAG:0:12}: Testora runner egress self-test FAILED — testora-runner stopped. See the deploy log."

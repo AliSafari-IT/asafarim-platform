@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SEED_BUNDLES } from "@/data/bundles";
-import { findUnguardedMutations, mutationReasons } from "./seed-lint";
+import { findUnguardedMutations, mutationReasons, scriptSaveWarning } from "./seed-lint";
 import { isWebTarget, unitTargetsWeb } from "./web-target";
 import type { TestCaseDefinition, TestFixtureDefinition } from "@/test-engine/types";
 
@@ -83,4 +83,17 @@ test("web targets: a fixture with no override pointing at the seed's prod URL is
   assert.equal(unitTargetsWeb({ fixture: { baseUrl: "http://localhost:3009/" } }), false);
   // A local page with a remote API still writes remotely.
   assert.equal(unitTargetsWeb({ fixture: { baseUrl: "http://localhost:3009/" } }, "https://edumatch.asafarim.com"), true);
+});
+
+test("scriptSaveWarning: warns for an unguarded writing script, not for guarded or read-only ones (#714)", () => {
+  const writes = "await t.request.post('https://app.test/api/items', { body: {} });";
+  const warning = scriptSaveWarning([writes, undefined], {});
+  assert.match(warning ?? "", /^Saved — but this script writes data \(write request \(t\.request\.post\/put\/patch\/delete\)\)/);
+  assert.match(warning ?? "", /"destructive: true"/);
+  assert.equal(scriptSaveWarning([writes], { destructive: true }), null, "destructive fixture");
+  assert.equal(scriptSaveWarning([writes], { mutatesRemote: "reviewed" }), null, "waived fixture");
+  assert.equal(scriptSaveWarning(["await t.click(Selector('a'));", null], null), null, "read-only script");
+  // Reasons are listed once even if setup and teardown both match.
+  const both = scriptSaveWarning([writes, writes], undefined) ?? "";
+  assert.equal(both.split("t.request.post").length - 1, 1);
 });

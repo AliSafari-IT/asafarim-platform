@@ -4,7 +4,9 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { isForeignKeyViolation } from "@/db/pg-error";
 import { testFixtures } from "@/db/schema";
-import { isValidFixtureBaseUrl } from "@/test-engine/resolveFixtureBaseUrl";
+import { isAbsoluteFixtureBaseUrl, isValidFixtureBaseUrl } from "@/test-engine/resolveFixtureBaseUrl";
+import { checkStoredUrls } from "@/lib/run-target";
+import { scriptSaveWarning } from "@/lib/seed-lint";
 
 const updateSchema = z.object({
   title: z.string().min(1).optional(),
@@ -31,6 +33,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ fi
   }
 
   const { baseUrl, ...rest } = parsed.data;
+  // Same network policy as saved targets for an absolute baseUrl (#714).
+  const blocked = await checkStoredUrls([isAbsoluteFixtureBaseUrl(baseUrl) ? baseUrl : null]);
+  if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
   const updateValues: Record<string, unknown> = { ...rest, updatedAt: new Date() };
   if (baseUrl !== undefined) updateValues.baseUrl = baseUrl || null;
 
@@ -44,7 +49,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ fi
     if (!updated) {
       return NextResponse.json({ error: "Fixture not found" }, { status: 404 });
     }
-    return NextResponse.json({ fixture: updated });
+    // Seed lint for setup/teardown scripts saved here (#714): warn, don't block.
+    const warning =
+      rest.setupScript !== undefined || rest.teardownScript !== undefined
+        ? scriptSaveWarning([updated.setupScript, updated.teardownScript], updated.metadata)
+        : null;
+    return NextResponse.json({ fixture: updated, ...(warning ? { warning } : {}) });
   } catch (error) {
     return NextResponse.json(
       { error: isForeignKeyViolation(error) ? "Target suite does not exist." : "Failed to update fixture" },
