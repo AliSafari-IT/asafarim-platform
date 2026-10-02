@@ -60,7 +60,9 @@ jobs:
       - uses: pnpm/action-setup@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          # Match the production image (apps/testora/Dockerfile: node:24-alpine);
+          # on 22 the route tests' @asafarim/auth mock did not apply (real auth() ran).
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
