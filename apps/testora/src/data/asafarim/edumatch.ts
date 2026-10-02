@@ -50,8 +50,8 @@ await t.deleteCookies();
 const eduOrigin = await t.eval(() => window.location.origin);
 const email = process.env.${emailEnv} || '';
 const password = process.env.${passEnv} || '';
-await t.expect(email.length).gt(0, '${emailEnv} must be set in the repo-root .env.local (Testora loads it at startup).');
-await t.expect(password.length).gt(0, '${passEnv} must be set in the repo-root .env.local (Testora loads it at startup).');
+await t.expect(email.length).gt(0, '${emailEnv} is not set — add it to the secrets of the target this run uses (Targets page).');
+await t.expect(password.length).gt(0, '${passEnv} is not set — add it to the secrets of the target this run uses (Targets page).');
 
 await t.navigateTo(eduOrigin + '${triggerPath}');
 await t.wait(3000);
