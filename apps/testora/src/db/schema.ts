@@ -273,6 +273,27 @@ export const targetSecrets = pgTable(
   }),
 );
 
+// Audit of target origin changes (#713): who pointed a target at another
+// origin, from where to where, and whether its stored secrets were kept or
+// cleared. Testora-local (its DB is isolated from the platform's AuditLog).
+export const targetChanges = pgTable(
+  "target_changes",
+  {
+    id: text("id").primaryKey(),
+    targetId: text("target_id").notNull(),
+    projectId: text("project_id"),
+    field: text("field").notNull(),
+    fromOrigin: text("from_origin"),
+    toOrigin: text("to_origin"),
+    // keep | clear | none (the target had no secrets)
+    secretsAction: text("secrets_action").notNull(),
+    userId: text("user_id"),
+    userName: text("user_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("target_changes_target_idx").on(table.targetId, table.createdAt)],
+);
+
 // Durable runs (#716, ADR 0004 step 1). The run queue and live log used to
 // live in process memory, so a deploy or crash lost queued and in-flight runs.
 // A run row is the queue entry + lease; run_events is its append-only log

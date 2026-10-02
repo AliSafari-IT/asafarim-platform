@@ -35,6 +35,7 @@ import {
   type RunEnvironment,
 } from "@/components/run-provider";
 import { TargetSecrets } from "@/components/run/target-secrets";
+import { TargetSecretsMoveDialog, type SecretsMovePrompt } from "@/components/run/target-secrets-move-dialog";
 import { DomainBrandControl } from "@/components/run/domain-brand-control";
 import { LockedApp } from "@/components/locked-app";
 import { hostFromUrl, setDomainBrand, getDomainBrand, type DomainBrand } from "@/lib/domain-logos";
@@ -342,6 +343,8 @@ export function RunPanel() {
   const [targetDraft, setTargetDraft] = useState({ name: "", baseUrl: "", apiUrl: "", hubUrl: "" });
   const [savingTarget, setSavingTarget] = useState(false);
   const [targetError, setTargetError] = useState<string | null>(null);
+  // #713: an edit would move a target with stored credentials to another origin.
+  const [secretsMove, setSecretsMove] = useState<SecretsMovePrompt | null>(null);
 
   const loadTargets = useCallback(async (project: string) => {
     const res = await fetch(`/api/targets?project=${encodeURIComponent(project)}`);
@@ -426,7 +429,7 @@ export function RunPanel() {
     });
   }
 
-  async function saveTarget() {
+  async function saveTarget(secretsChoice?: "keep" | "clear") {
     setSavingTarget(true);
     setTargetError(null);
     const editId = targetForm && targetForm !== "add" ? targetForm.editId : null;
@@ -437,10 +440,19 @@ export function RunPanel() {
         {
           method: editId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(editId ? targetDraft : { projectId, ...targetDraft }),
+          body: JSON.stringify(
+            editId
+              ? { ...targetDraft, ...(secretsChoice ? { confirmSecretsMove: true, secretsAction: secretsChoice } : {}) }
+              : { projectId, ...targetDraft },
+          ),
         },
       );
       const data = await res.json();
+      if (res.status === 409 && data.code === "TARGET_HAS_SECRETS") {
+        setSecretsMove({ changes: data.changes ?? [], secrets: data.secrets ?? [] });
+        return;
+      }
+      setSecretsMove(null);
       if (!res.ok) {
         setTargetError(
           typeof data.error === "string"
@@ -848,6 +860,12 @@ export function RunPanel() {
             </div>
           )}
 
+          <TargetSecretsMoveDialog
+            prompt={secretsMove}
+            busy={savingTarget}
+            onChoose={(action) => void saveTarget(action)}
+            onCancel={() => setSecretsMove(null)}
+          />
           {canManage && !targetForm && selectedTarget && (
             <TargetSecrets key={selectedTarget.id} targetId={selectedTarget.id} />
           )}
