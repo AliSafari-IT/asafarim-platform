@@ -7,6 +7,7 @@ import type {
 import { edumatchFR, edumatchSuites, edumatchFixtures, edumatchCases } from "@/data/asafarim/edumatch";
 import { viontoFR, viontoSuites, viontoFixtures, viontoCases } from "@/data/asafarim/vionto";
 import { timelineaiFR, timelineaiSuites, timelineaiFixtures, timelineaiCases } from "@/data/asafarim/timelineai";
+import { tasksaiFR, tasksaiSuites, tasksaiFixtures, tasksaiCases } from "@/data/asafarim/tasksai";
 
 /**
  * Every code-defined test catalog bundle. Dependency-free (no DB), so the
@@ -44,5 +45,14 @@ export const SEED_BUNDLES: SeedBundle[] = [
     fixtures: viontoFixtures,
     cases: viontoCases,
     projectId: "asafarim-vionto",
+  },
+  {
+    // #742: registered with its requirement; fixtures arrive slice by slice
+    // (see data/asafarim/tasksai-coverage.ts).
+    fr: tasksaiFR,
+    suites: tasksaiSuites,
+    fixtures: tasksaiFixtures,
+    cases: tasksaiCases,
+    projectId: "asafarim-tasks-ai",
   },
 ];
