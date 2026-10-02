@@ -227,7 +227,7 @@ export function ProfileEditor({
   const displayName = baseline.name || baseline.username || user.email;
   const initial = displayName.charAt(0).toUpperCase();
   const facts = [
-    { label: "Role", value: [baseline.jobTitle, baseline.company].filter(Boolean).join(" · ") },
+    { label: "Work", value: [baseline.jobTitle, baseline.company].filter(Boolean).join(" · ") },
     { label: "Website", value: baseline.website },
     { label: "Timezone", value: baseline.timezone },
   ];
