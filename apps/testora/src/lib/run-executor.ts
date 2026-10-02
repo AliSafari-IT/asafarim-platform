@@ -138,7 +138,7 @@ export async function loadTargetSecrets(targetId: string): Promise<Record<string
 }
 
 /** Throws (TargetPolicyError) when a fixture's page or API origin is not runnable. */
-async function assertUnitTargets(
+export async function assertUnitTargets(
   unit: RunUnit,
   apiUrl: string | undefined,
   hubUrl: string | undefined,
@@ -203,7 +203,7 @@ async function runUnitWithRetry(
 
 // Synthesize error reports for a fixture whose browser never started, so the
 // failure is visible in the results (and rerunnable via "rerun failed").
-function errorReports(
+export function errorReports(
   unit: RunPlan["units"][number],
   message: string,
 ): FormattedReport[] {

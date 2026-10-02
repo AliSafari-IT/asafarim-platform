@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "runner_lease_token_hash" text;

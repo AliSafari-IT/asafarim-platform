@@ -27,6 +27,7 @@ mock.module("../../../test-engine/executors/runLog.ts", {
     getActiveRunFor: async () => null,
     getCapacity: async () => ({ limit: 2, maxQueue: 20, running: [], queued: [] }),
     runStore: () => ({ recentRunTimes: async () => [] }),
+    runnerMode: () => "inprocess",
     completeRun: async () => {},
     failRun: async () => {},
     runSignal: () => undefined,

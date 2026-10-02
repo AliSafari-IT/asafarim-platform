@@ -160,3 +160,35 @@ test("rate limit history and retention come from the table", { skip }, async () 
   assert.equal(await s.prune(7 * 24 * 60 * 60 * 1000), 1);
   assert.equal(await s.get("x1"), null);
 });
+
+test("remote runner: queue without claiming, then a runner claims with a lease-token hash", { skip }, async () => {
+  const s = store(1);
+  await s.create({ id: "rq" });
+  const { admission, claimed } = await s.admit("rq", "job", "web:1:a", { claim: false });
+  assert.deepEqual([admission, claimed], [{ status: "queued", position: 1 }, []], "remote mode: the web only queues");
+  const row = await s.claimForRunner("runner:host:9", "hash-1");
+  assert.equal(row?.id, "rq");
+  assert.equal(row?.leaseOwner, "runner:host:9");
+  assert.equal(row?.runnerLeaseTokenHash, "hash-1");
+  assert.equal(await s.claimForRunner("runner:host:9", "hash-2"), null, "the limit holds for runners too");
+
+  assert.deepEqual(await s.renewRunnerLease("rq"), { cancel: false });
+  await s.requestCancel("rq");
+  assert.deepEqual(await s.renewRunnerLease("rq"), { cancel: true }, "the events call learns about the cancel");
+  await s.finish("rq", "cancelled", "Run cancelled");
+  const done = await s.get("rq");
+  assert.equal(done?.runnerLeaseTokenHash, null, "the lease token dies with the run");
+  assert.equal(await s.renewRunnerLease("rq"), null);
+});
+
+test("remote runner: a lost run whose cancel was requested ends cancelled, not 'runner lost'", { skip }, async () => {
+  const s = store(1);
+  await s.create({ id: "lost-cancelled" });
+  await s.admit("lost-cancelled", "job", "web:1:a", { claim: false });
+  await s.claimForRunner("runner:host:9", "h");
+  await s.requestCancel("lost-cancelled");
+  await pool.query("UPDATE runs SET lease_expires_at = now() - interval '1 second'");
+  assert.deepEqual(await s.sweepLost(), [], "no 'runner lost' event for it");
+  const row = await s.get("lost-cancelled");
+  assert.deepEqual([row?.status, row?.error], ["cancelled", "Run cancelled"]);
+});
