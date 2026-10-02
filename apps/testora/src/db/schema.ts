@@ -319,6 +319,10 @@ export const runs = pgTable(
     leaseOwner: text("lease_owner"),
     leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
     cancelRequested: boolean("cancel_requested").notNull().default(false),
+    // Last run_events.seq handed out (#740). Appends bump it in the same
+    // statement that inserts the event, so the row lock serialises one run's
+    // appends and seqs are exactly 1..n.
+    eventSeq: integer("event_seq").notNull().default(0),
     // Remote runner (#717): sha256 of the per-job lease token handed out with
     // the envelope. Scopes the runner's events/artifacts/complete calls to this
     // one job while the lease holds.

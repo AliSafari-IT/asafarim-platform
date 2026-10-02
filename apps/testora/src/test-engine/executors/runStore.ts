@@ -265,16 +265,24 @@ export function createRunStore(pool: Pool, options: RunStoreOptions) {
       return rows.filter((r) => !r.cancel_requested).map((r) => r.id as string);
     },
 
-    /** Append one event (seq = next), and notify listeners. */
+    /**
+     * Append one event (seq = next), and notify listeners. One statement:
+     * bumping runs.event_seq row-locks the run, so concurrent appends to the
+     * same run (the runner's event POSTs, a cancel elsewhere) queue on that
+     * lock and get 1..n with no gaps (#740). Other runs don't wait.
+     * `greatest(…, max(seq))` covers events written without the counter: by
+     * the previous release between the migration and its replacement during
+     * a deploy (one PK index lookup). That release can also insert while this
+     * statement runs (its insert doesn't wait for our row lock), so a seq
+     * conflict is retried a few times — re-reading max(seq). With only this
+     * release writing, the retry never fires.
+     */
     async append(runId: string, kind: string, payload: unknown): Promise<number> {
-      // Writes for one run are serialised by its process; two processes
-      // writing the same run at once (a cancel elsewhere) can race on seq —
-      // retry on the primary-key conflict.
       for (let attempt = 1; ; attempt++) {
         try {
           return await appendOnce(runId, kind, payload);
         } catch (error) {
-          if ((error as { code?: string }).code !== "23505" || attempt >= 5) throw error;
+          if ((error as { code?: string }).code !== "23505" || attempt >= 3) throw error;
         }
       }
     },
@@ -371,13 +379,19 @@ export function createRunStore(pool: Pool, options: RunStoreOptions) {
 
   async function appendOnce(runId: string, kind: string, payload: unknown): Promise<number> {
     const { rows } = await pool.query(
-      `WITH ins AS (
+      `WITH s AS (
+         UPDATE runs
+            SET event_seq = greatest(event_seq, (SELECT coalesce(max(seq), 0) FROM run_events WHERE run_id = $1)) + 1
+          WHERE id = $1
+         RETURNING id, event_seq),
+       ins AS (
          INSERT INTO run_events (run_id, seq, kind, payload)
-         VALUES ($1, (SELECT coalesce(max(seq), 0) + 1 FROM run_events WHERE run_id = $1), $2, $3)
+         SELECT id, event_seq, $2, $3 FROM s
          RETURNING run_id, seq)
        SELECT seq, pg_notify($4, run_id) FROM ins`,
       [runId, kind, JSON.stringify(payload ?? null), RUN_EVENTS_CHANNEL],
     );
+    if (rows.length === 0) throw new Error(`run_events: no run ${runId}`);
     return rows[0]!.seq as number;
   }
 
