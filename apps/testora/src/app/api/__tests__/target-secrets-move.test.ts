@@ -14,17 +14,36 @@ const state = {
   secrets: [] as { name: string }[],
   deletedSecrets: 0,
   audit: [] as Row[],
+  lockedForUpdate: false,
+  vanishBeforeUpdate: false,
 };
 
+// Reads happen inside the transaction (target row locked FOR UPDATE).
+const { targetEnvironments } = await import("../../../db/schema");
+const select = () => ({
+  from: (table: unknown) => ({
+    where: () => {
+      const rows = table === targetEnvironments ? (state.target ? [state.target] : []) : state.secrets;
+      if (table === targetEnvironments) state.lockedForUpdate = false;
+      return Object.assign(Promise.resolve(rows), {
+        for: async (mode: string) => {
+          if (mode === "update") state.lockedForUpdate = true;
+          return rows;
+        },
+      });
+    },
+  }),
+});
 const fakeDb = {
-  query: { targetEnvironments: { findFirst: async () => state.target } },
-  select: () => ({ from: () => ({ where: async () => state.secrets }) }),
+  select,
   transaction: async <T>(work: (tx: unknown) => Promise<T>) =>
     work({
+      select,
       update: () => ({
         set: (values: Row) => ({
           where: () => ({
             returning: async () => {
+              if (!state.target || state.vanishBeforeUpdate) return [];
               state.target = { ...state.target, ...values };
               return [state.target];
             },
@@ -65,6 +84,8 @@ function reset(secretNames: string[]) {
   state.secrets = secretNames.map((name) => ({ name }));
   state.deletedSecrets = 0;
   state.audit = [];
+  state.lockedForUpdate = false;
+  state.vanishBeforeUpdate = false;
 }
 
 const patch = (body: Record<string, unknown>) =>
@@ -86,6 +107,25 @@ test("an origin change on a target with secrets and no confirmation is refused w
   assert.deepEqual(body.changes, [{ field: "baseUrl", from: "https://staging.acme.test", to: "https://evil.example.org" }]);
   assert.equal(state.target!.baseUrl, "https://staging.acme.test/app", "nothing changed");
   assert.equal(state.audit.length, 0);
+  assert.equal(state.lockedForUpdate, true, "the decision is made on the locked row");
+});
+
+test("confirming without choosing keep or clear is refused too", async () => {
+  reset(["LOGIN_PASSWORD"]);
+  const res = await patch({ baseUrl: "https://new.acme.test/app", confirmSecretsMove: true });
+  assert.equal(res.status, 409);
+  assert.equal(state.target!.baseUrl, "https://staging.acme.test/app");
+});
+
+test("a target that disappears mid-request is 404 with no secret removal or audit", async () => {
+  reset(["LOGIN_PASSWORD"]);
+  state.vanishBeforeUpdate = true;
+  const res = await patch({ baseUrl: "https://new.acme.test/app", confirmSecretsMove: true, secretsAction: "clear" });
+  assert.equal(res.status, 404);
+  assert.equal(state.deletedSecrets, 0);
+  assert.equal(state.audit.length, 0);
+  state.target = null;
+  assert.equal((await patch({ name: "x" })).status, 404, "missing target");
 });
 
 test("with confirmation it succeeds — keeping the secrets, and the move is audited", async () => {
@@ -139,6 +179,7 @@ test("originChanges / secretsMoveDecision", () => {
   const changes = originChanges(existing, { baseUrl: "https://b.test" });
   assert.equal(secretsMoveDecision({ changes, secretNames: [] }).ok, true);
   assert.equal(secretsMoveDecision({ changes, secretNames: ["X"] }).ok, false);
-  assert.deepEqual(secretsMoveDecision({ changes, secretNames: ["X"], confirmSecretsMove: true }), { ok: true, clearSecrets: false });
+  assert.equal(secretsMoveDecision({ changes, secretNames: ["X"], confirmSecretsMove: true }).ok, false, "a choice is required");
+  assert.deepEqual(secretsMoveDecision({ changes, secretNames: ["X"], confirmSecretsMove: true, secretsAction: "keep" }), { ok: true, clearSecrets: false });
   assert.deepEqual(secretsMoveDecision({ changes, secretNames: ["X"], confirmSecretsMove: true, secretsAction: "clear" }), { ok: true, clearSecrets: true });
 });

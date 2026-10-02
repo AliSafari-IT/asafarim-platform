@@ -111,34 +111,38 @@ export async function PATCH(request: Request) {
   const blocked = await checkStoredUrls([fields.baseUrl, fields.apiUrl, fields.hubUrl]);
   if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
 
-  const existing = await db.query.targetEnvironments.findFirst({
-    where: and(eq(targetEnvironments.id, id), eq(targetEnvironments.seeded, false)),
-  });
-  if (!existing) {
-    return NextResponse.json(
-      { error: "Target not found or is a built-in that can't be edited" },
-      { status: 404 },
-    );
-  }
-
-  // #713: secrets saved for one origin must not silently follow the target to
-  // another — ask first (409), then keep or clear them as the admin chose.
-  const changes = originChanges(existing, fields);
-  const secretNames = changes.length
-    ? (await db.select({ name: targetSecrets.name }).from(targetSecrets).where(eq(targetSecrets.targetId, id))).map(
-        (row) => row.name,
-      )
-    : [];
-  const decision = secretsMoveDecision({ changes, secretNames, confirmSecretsMove, secretsAction });
-  if (!decision.ok) return NextResponse.json(decision.body, { status: decision.status });
-
+  const notFound = () =>
+    NextResponse.json({ error: "Target not found or is a built-in that can't be edited" }, { status: 404 });
   const session = await auth();
-  const updated = await db.transaction(async (tx) => {
+
+  // Read, decide and write in ONE transaction with the target row locked, so a
+  // secret added (or the target changed) concurrently can't slip past the
+  // decision (#713 review).
+  const outcome = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(targetEnvironments)
+      .where(and(eq(targetEnvironments.id, id), eq(targetEnvironments.seeded, false)))
+      .for("update");
+    if (!existing) return { kind: "not-found" as const };
+
+    // #713: secrets saved for one origin must not silently follow the target
+    // to another — ask first (409), then keep or clear them as the admin chose.
+    const changes = originChanges(existing, fields);
+    const secretNames = changes.length
+      ? (await tx.select({ name: targetSecrets.name }).from(targetSecrets).where(eq(targetSecrets.targetId, id))).map(
+          (row) => row.name,
+        )
+      : [];
+    const decision = secretsMoveDecision({ changes, secretNames, confirmSecretsMove, secretsAction });
+    if (!decision.ok) return { kind: "refused" as const, decision };
+
     const [row] = await tx
       .update(targetEnvironments)
       .set({ ...fields, updatedAt: new Date() })
       .where(and(eq(targetEnvironments.id, id), eq(targetEnvironments.seeded, false)))
       .returning();
+    if (!row) return { kind: "not-found" as const };
     if (decision.clearSecrets) await tx.delete(targetSecrets).where(eq(targetSecrets.targetId, id));
     if (changes.length > 0) {
       await tx.insert(targetChanges).values(
@@ -155,12 +159,14 @@ export async function PATCH(request: Request) {
         })),
       );
     }
-    return row;
+    return { kind: "updated" as const, row, cleared: decision.clearSecrets ? secretNames : [] };
   });
-  return NextResponse.json({
-    target: updated,
-    secretsCleared: decision.clearSecrets ? secretNames : [],
-  });
+
+  if (outcome.kind === "not-found") return notFound();
+  if (outcome.kind === "refused") {
+    return NextResponse.json(outcome.decision.body, { status: outcome.decision.status });
+  }
+  return NextResponse.json({ target: outcome.row, secretsCleared: outcome.cleared });
 }
 
 // Remove a user-added target. Built-in (seeded) targets can't be deleted — they

@@ -68,7 +68,9 @@ export function secretsMoveDecision(input: {
   secretsAction?: SecretsAction;
 }): SecretsMoveDecision {
   if (input.changes.length === 0 || input.secretNames.length === 0) return { ok: true, clearSecrets: false };
-  if (input.confirmSecretsMove !== true) {
+  // Confirming means choosing: keep or clear. Without an explicit choice the
+  // secrets would silently stay — so that's refused like no confirmation.
+  if (input.confirmSecretsMove !== true || input.secretsAction === undefined) {
     const moves = input.changes.map((c) => `${c.field}: ${c.from ?? "(none)"} → ${c.to ?? "(none)"}`).join(", ");
     return {
       ok: false,

@@ -483,6 +483,8 @@ export function RunPanel() {
         }
       }
     } catch {
+      // Don't leave a stale credentials prompt open over the error.
+      setSecretsMove(null);
       setTargetError("Could not save target.");
     } finally {
       setSavingTarget(false);
