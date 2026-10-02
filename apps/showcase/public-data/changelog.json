@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-02",
+    "title": "Testora: re-check the runner's egress fence while it runs (#718 follow-up)",
+    "sha": "88ce87ce",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/88ce87ce"
+  },
+  {
+    "date": "2026-10-02",
     "title": "Testora: isolated runner container, host egress filter and deploy self-test (#718)",
     "sha": "eb86061c",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/eb86061c"
@@ -112,11 +118,5 @@
     "title": "Resumatch: translate the landing page, roadmap and remaining pages (NL/FR/DE)",
     "sha": "63817a9f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/63817a9f"
-  },
-  {
-    "date": "2026-09-26",
-    "title": "Resumatch: translate applications and AI usage (NL/FR/DE)",
-    "sha": "e1f8332c",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/e1f8332c"
   }
 ]
