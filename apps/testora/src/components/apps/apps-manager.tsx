@@ -2,8 +2,28 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Github, Globe, Loader2, Lock, LogIn, Pencil, Plus, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Github,
+  Globe,
+  Loader2,
+  Lock,
+  LogIn,
+  Pencil,
+  Plus,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useRun, type ClientProject } from "@/components/run-provider";
 import { cn } from "@/lib/utils";
@@ -63,6 +83,9 @@ export function AppsManager() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<ClientProject | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function reload() {
     await refreshProjects();
@@ -131,27 +154,37 @@ export function AppsManager() {
     }
   }
 
-  async function remove(p: ClientProject) {
-    const warning = p.seeded
+  function deleteWarning(p: ClientProject) {
+    return p.seeded
       ? `Delete built-in app "${p.name}" and all its tests and results? This cannot be undone. ` +
-        `It will reappear if "Update tests" is run again.`
+          `It will reappear if "Update tests" is run again.`
       : `Delete app "${p.name}" and all its tests and results? This cannot be undone.`;
-    if (!confirm(warning)) {
-      return;
-    }
+  }
+
+  function cancelRemove() {
+    setPendingDelete(null);
+    setDeleteError(null);
+  }
+
+  async function remove(p: ClientProject) {
+    setDeleting(true);
+    setDeleteError(null);
     try {
       const res = await fetch(`/api/projects?id=${encodeURIComponent(p.id)}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(extractError(data) ?? "Could not delete app");
+        setDeleteError(extractError(data) ?? "Could not delete app");
         return;
       }
+      setPendingDelete(null);
       if (p.id === projectId) {
         setProjectId(DEFAULT_PROJECT_ID);
       }
       await reload();
     } catch {
-      setError("Could not delete app");
+      setDeleteError("Could not delete app");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -337,7 +370,10 @@ export function AppsManager() {
                     {!p.locked && canManage && (
                       <button
                         type="button"
-                        onClick={() => void remove(p)}
+                        onClick={() => {
+                          setDeleteError(null);
+                          setPendingDelete(p);
+                        }}
                         title={
                           p.seeded
                             ? "Delete this built-in app and all its data (admin only)"
@@ -355,6 +391,39 @@ export function AppsManager() {
           );
         })}
       </div>
+
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) cancelRemove();
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-red-500">
+              <AlertTriangle className="h-5 w-5" />
+              <DialogTitle>{pendingDelete?.seeded ? "Delete built-in app?" : "Delete app?"}</DialogTitle>
+            </div>
+            <DialogDescription>{pendingDelete ? deleteWarning(pendingDelete) : null}</DialogDescription>
+          </DialogHeader>
+
+          {deleteError ? <p className="text-sm text-red-500">{deleteError}</p> : null}
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={cancelRemove} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => pendingDelete && void remove(pendingDelete)}
+              disabled={deleting}
+            >
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

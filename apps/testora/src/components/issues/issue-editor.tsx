@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   Download,
   ExternalLink,
   Eye,
@@ -15,6 +16,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { markdownToHtml } from "@/lib/markdown";
 import { saveTextFile } from "@/lib/save-file";
 import { GithubStateBadge } from "@/components/issues/github-state-badge";
@@ -59,6 +67,8 @@ export function IssueEditor({
   const [tab, setTab] = useState<"edit" | "preview">(canManage ? "edit" : "preview");
   const [busy, setBusy] = useState<null | "save" | "publish" | "delete" | "refresh">(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
 
   const previewHtml = useMemo(() => markdownToHtml(body), [body]);
@@ -146,14 +156,15 @@ export function IssueEditor({
   }
 
   async function remove() {
-    if (!confirm("Delete this issue? This cannot be undone.")) return;
     setBusy("delete");
+    setDeleteError(null);
     try {
       const res = await fetch(`/api/issues/${issue.id}`, { method: "DELETE" });
       if (!res.ok) {
-        setError("Could not delete.");
+        setDeleteError("Could not delete.");
         return;
       }
+      setConfirmingDelete(false);
       router.push(`/apps/${issue.projectId}/issues`);
     } finally {
       setBusy(null);
@@ -269,7 +280,10 @@ export function IssueEditor({
         <button
           type="button"
           hidden={!canManage}
-          onClick={() => void remove()}
+          onClick={() => {
+            setDeleteError(null);
+            setConfirmingDelete(true);
+          }}
           disabled={busy !== null}
           className="ml-auto inline-flex items-center gap-1 rounded p-2 text-sm text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive disabled:opacity-50"
         >
@@ -277,6 +291,45 @@ export function IssueEditor({
           Delete
         </button>
       </div>
+
+      <Dialog
+        open={confirmingDelete}
+        onOpenChange={(open) => {
+          if (!open && busy !== "delete") {
+            setConfirmingDelete(false);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-red-500">
+              <AlertTriangle className="h-5 w-5" />
+              <DialogTitle>Delete this issue?</DialogTitle>
+            </div>
+            <DialogDescription>This cannot be undone.</DialogDescription>
+          </DialogHeader>
+
+          {deleteError ? <p className="text-sm text-red-500">{deleteError}</p> : null}
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirmingDelete(false);
+                setDeleteError(null);
+              }}
+              disabled={busy === "delete"}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void remove()} disabled={busy === "delete"}>
+              {busy === "delete" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
