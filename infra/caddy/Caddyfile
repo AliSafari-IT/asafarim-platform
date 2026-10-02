@@ -1,3 +1,7 @@
+# Mounted into Caddy as a directory (./infra/caddy:/etc/caddy:ro, #733), so
+# edits here apply on the deploy's `caddy reload` — no container recreate.
+# vps-deploy.sh fails the deploy if the live file's sha256 differs from this one.
+
 # Shared "deploying" page: served instead of a raw 502/503/504 when a
 # backend container is mid-restart (e.g. during vps-deploy.sh's sequential
 # rebuild). Auto-refreshes every 5s so the visitor doesn't have to.
