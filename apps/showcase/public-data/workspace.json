@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "6351fc0b",
+      "sha": "4232684e",
       "date": "2026-10-02",
       "since": "2026-07-04",
-      "commits": 362,
+      "commits": 363,
       "dependents": 0
     },
     {
