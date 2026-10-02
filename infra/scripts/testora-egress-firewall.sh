@@ -24,6 +24,11 @@
 # and by testora-egress-firewall.service at boot and whenever Docker restarts.
 # IPv4 only: IPv6 is disabled on testora_egress (enable_ipv6: false).
 #
+# After `ufw reload` / `ufw enable` (or any other iptables rewrite) on the
+# host, re-run this script: those can drop the chains. The runner notices
+# within about a minute when idle and at most 5 minutes mid-job
+# (src/runner/egress-guard.ts), stops its jobs and exits.
+#
 set -euo pipefail
 
 SUBNET="${TESTORA_EGRESS_SUBNET:-172.31.254.0/24}"
