@@ -782,6 +782,7 @@ services:
 
   caddy:
     image: caddy:latest
+    not_a_compose_key: true
     restart: unless-stopped
     ports:
       - "80:80"
