@@ -40,6 +40,7 @@ import {
 import type { TestRunResult } from "@/test-engine/types";
 import { buildChildEnv } from "./child-env";
 import { parseProbe, runEgressSelfTest, type Probe } from "./egress-check";
+import { EGRESS_SELF_TEST_FAILED, EgressGuard } from "./egress-guard";
 import type { ChildJob } from "./job";
 
 /**
@@ -62,6 +63,17 @@ const CONCURRENCY = Math.min(8, Math.max(1, Number(process.env.TESTORA_RUNNER_CO
 const RUNNER_ID = `${hostname()}:${process.pid}`;
 const HEARTBEAT_MS = 2_000;
 const IDLE_BACKOFF_MS = 30_000;
+/** Egress re-check while running (TESTORA_EGRESS_SELF_TEST=1): periodic, and before a lease when stale. */
+const EGRESS_RECHECK_MS = 5 * 60_000;
+const EGRESS_MAX_AGE_MS = 60_000;
+/** How long running jobs get to report a broken fence before the process exits. */
+const EGRESS_EXIT_GRACE_MS = 30_000;
+
+/** Set at start-up when the egress self-test is on; null in dev (worker:dev). */
+let egressGuard: EgressGuard | null = null;
+/** Stop handlers of the jobs running now, called when the egress fence breaks. */
+const stopForEgress = new Set<(reason: string) => void>();
+const runningJobs = new Set<Promise<void>>();
 
 const log = (...args: unknown[]) => console.log(`[runner ${RUNNER_ID}]`, ...args);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -186,9 +198,17 @@ async function runJob(envelope: RunnerEnvelope): Promise<void> {
   const logLine = (line: string) => buffered.push(line);
   let cancelled = false;
   let timedOut = false;
+  /** The egress fence broke mid-job: stop, and report it on the run. */
+  let egressFailed = false;
   let child: ChildProcess | undefined;
   /** The running fixture's own TEMP dir — its browsers are identified by it. */
   let childTemp: string | undefined;
+  const stopThisJob = (reason: string) => {
+    egressFailed = true;
+    buffered.push(`✖ ${EGRESS_SELF_TEST_FAILED}: ${reason}`);
+    if (child) killTree(child, childTemp);
+  };
+  stopForEgress.add(stopThisJob);
 
   try {
     // Write each fixture's spec, resolving the envelope's host-specific placeholders.
@@ -268,7 +288,7 @@ async function runJob(envelope: RunnerEnvelope): Promise<void> {
           // Even a clean exit can leave its Chrome behind (see killBrowsersUnder);
           // a survivor would break the next fixture's browser connection.
           void killBrowsersUnder(temp).then(() => {
-            if (!reported && !cancelled && !timedOut) {
+            if (!reported && !cancelled && !timedOut && !egressFailed) {
             crashed += 1;
             buffered.push(
               `✖ Fixture "${envelope.units[index]!.fixture.title}" — its process exited with code ${code} before reporting.`,
@@ -306,7 +326,7 @@ async function runJob(envelope: RunnerEnvelope): Promise<void> {
     }, envelope.limits.timeoutMs);
 
     // Fixtures run one after another, each in its own process.
-    for (let index = 0; index < envelope.units.length && !cancelled && !timedOut; index++) {
+    for (let index = 0; index < envelope.units.length && !cancelled && !timedOut && !egressFailed; index++) {
       await runUnit(index);
     }
     clearInterval(beat);
@@ -325,20 +345,34 @@ async function runJob(envelope: RunnerEnvelope): Promise<void> {
     }
     while (buffered.length > 0 && !cancelled) await flush();
 
-    const status = cancelled ? "cancelled" : timedOut ? "error" : units.length === 0 && code !== 0 ? "error" : "completed";
+    const status = cancelled
+      ? "cancelled"
+      : timedOut || egressFailed
+        ? "error"
+        : units.length === 0 && code !== 0
+          ? "error"
+          : "completed";
+    const error = egressFailed
+      ? `${EGRESS_SELF_TEST_FAILED}: the runner's egress filter no longer holds; the run was stopped`
+      : timedOut
+        ? "Run exceeded the maximum run time and was stopped"
+        : status === "error"
+          ? `The job process exited with code ${code}`
+          : undefined;
     const res = await call(
       "POST",
       `/internal/runner/jobs/${jobId}/complete`,
       jobId,
       JSON.stringify({
         status,
-        error: timedOut ? "Run exceeded the maximum run time and was stopped" : status === "error" ? `The job process exited with code ${code}` : undefined,
+        error,
         units: units.map((u) => ({ fixtureId: u.fixtureId, results: u.results })),
       }),
       { leaseToken },
     ).catch(() => null);
     log(`job ${jobId}: ${status} (complete → HTTP ${res?.status ?? "error"})`);
   } finally {
+    stopForEgress.delete(stopThisJob);
     if (child) killTree(child, childTemp);
     await rm(jobDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -346,6 +380,11 @@ async function runJob(envelope: RunnerEnvelope): Promise<void> {
 
 async function workerLoop(slot: number): Promise<void> {
   for (;;) {
+    // Never lease on a fence that may be gone: re-check when the last pass is stale.
+    if (egressGuard && !(await egressGuard.ensureFresh())) {
+      log(`slot ${slot}: egress filter broken — no more leases.`);
+      return;
+    }
     let res: Response | null = null;
     try {
       res = await call("POST", "/internal/runner/lease", LEASE_DELIVERY_ID, "{}");
@@ -365,12 +404,27 @@ async function workerLoop(slot: number): Promise<void> {
       continue;
     }
     const envelope = (await res.json()) as RunnerEnvelope;
-    try {
-      await runJob(envelope);
-    } catch (error) {
+    const job = runJob(envelope).catch((error) => {
       log(`job ${envelope.jobId} failed in the runner:`, error);
-    }
+    });
+    runningJobs.add(job);
+    await job;
+    runningJobs.delete(job);
   }
+}
+
+/**
+ * The egress fence broke while running: stop every job (each reports
+ * EGRESS_SELF_TEST_FAILED on its run), give them a moment to report, then exit
+ * non-zero so `restart: unless-stopped` retries — and the start-up self-test
+ * keeps the runner down until the host filter is back.
+ */
+function onEgressFailure(lines: string[]): void {
+  for (const line of lines) log(line);
+  log(`${EGRESS_SELF_TEST_FAILED}: the egress filter no longer holds — stopping all jobs and exiting.`);
+  for (const stop of stopForEgress) stop("the runner's egress filter no longer holds; this run was stopped.");
+  const grace = sleep(EGRESS_EXIT_GRACE_MS);
+  void Promise.race([Promise.allSettled([...runningJobs]), grace]).then(() => process.exit(1));
 }
 
 const DEFAULT_PUBLIC_URL = "https://hub.asafarim.com/";
@@ -405,6 +459,16 @@ async function main(): Promise<void> {
       log("refusing to start: the egress filter does not hold.");
       process.exit(1);
     }
+    // …and keep checking: the host filter can go away while the runner runs
+    // (e.g. a `ufw reload` on the VPS drops the chains).
+    egressGuard = new EgressGuard({
+      probe: () => runEgressSelfTest({ publicUrl: DEFAULT_PUBLIC_URL, requirePublic: false }),
+      intervalMs: EGRESS_RECHECK_MS,
+      maxAgeMs: EGRESS_MAX_AGE_MS,
+      onFail: (failed) => onEgressFailure(failed.lines),
+    });
+    egressGuard.markPassed();
+    egressGuard.start();
   }
   log(`pulling from ${BASE_URL} with ${CONCURRENCY} slot(s)`);
   for (let slot = 1; slot <= CONCURRENCY; slot++) void workerLoop(slot);

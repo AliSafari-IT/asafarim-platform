@@ -98,6 +98,13 @@ as_root() { if (( EUID == 0 )); then "$@"; else sudo -n "$@"; fi; }
 # every deploy whether or not the runner is enabled: it only matches the
 # testora_egress subnet, so it is inert until the runner exists. The systemd
 # unit re-applies it at boot and after Docker restarts.
+#
+# OPERATORS: never run `ufw reload` / `ufw enable` (or anything else that
+# rewrites iptables) on this host without re-running the filter right after:
+#   sudo /usr/local/sbin/testora-egress-firewall
+# They can drop the TESTORA-EGRESS chains. The runner re-checks its fence
+# every few minutes and before leasing after idle, and exits with
+# EGRESS_SELF_TEST_FAILED when it's gone — but until then it is unfenced.
 echo "[deploy $(date -Is)] Installing the Testora runner egress filter..."
 as_root install -m 0755 infra/scripts/testora-egress-firewall.sh /usr/local/sbin/testora-egress-firewall
 as_root install -m 0644 infra/scripts/testora-egress-firewall.service /etc/systemd/system/testora-egress-firewall.service
