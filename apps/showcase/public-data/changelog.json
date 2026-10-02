@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-02",
+    "title": "Testora: require confirmation when a target with secrets changes origin",
+    "sha": "682df88b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/682df88b"
+  },
+  {
+    "date": "2026-10-02",
     "title": "Testora: runner program and pull protocol behind TESTORA_RUNNER_MODE (ADR 0004 step 2)",
     "sha": "57ee2366",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/57ee2366"
@@ -112,11 +118,5 @@
     "title": "Resumatch: translate the profile page (NL/FR/DE)",
     "sha": "9df5bac3",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9df5bac3"
-  },
-  {
-    "date": "2026-09-26",
-    "title": "Resumatch: translate the tailor flow and preview pages (NL/FR/DE)",
-    "sha": "e51b441a",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/e51b441a"
   }
 ]
