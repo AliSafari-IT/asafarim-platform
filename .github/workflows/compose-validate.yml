@@ -35,5 +35,13 @@ jobs:
       - name: Validate docker-compose.yml
         run: docker compose -f docker-compose.yml config -q
 
+      # docker-compose.prod.yml's services declare `env_file: .env.production`,
+      # and Compose fails on a missing env_file before checking anything else
+      # (#735: red on every run since #651). An empty file in this throwaway
+      # workspace lets the schema check run. The env_file stays required in
+      # the compose file itself, so a VPS without it still fails loudly.
+      - name: Create an empty .env.production (CI workspace only)
+        run: ": > .env.production"
+
       - name: Validate docker-compose.prod.yml
         run: docker compose -f docker-compose.prod.yml config -q
