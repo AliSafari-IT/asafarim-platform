@@ -5,6 +5,7 @@ import { db } from "@/db/client";
 import { isForeignKeyViolation } from "@/db/pg-error";
 import { testCases } from "@/db/schema";
 import { setCaseQuarantine } from "@/lib/flake-service";
+import { caseScriptWarning } from "@/lib/script-save-warning";
 
 const updateSchema = z
   .object({
@@ -68,7 +69,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ca
     if (quarantined !== undefined) {
       updated = (await setCaseQuarantine(caseId, quarantined)) ?? updated;
     }
-    return NextResponse.json({ testCase: updated });
+    // Seed lint for UI-authored scripts (#714), when the script or its fixture
+    // changed: warn, don't block.
+    const warning =
+      rest.script !== undefined || rest.fixtureId !== undefined || rest.scriptType !== undefined
+        ? await caseScriptWarning(updated)
+        : null;
+    return NextResponse.json({ testCase: updated, ...(warning ? { warning } : {}) });
   } catch (error) {
     return NextResponse.json(
       { error: isForeignKeyViolation(error) ? "Target fixture does not exist." : "Failed to update case" },

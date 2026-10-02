@@ -38,6 +38,25 @@ export function isMutationGuarded(fixture: TestFixtureDefinition | undefined): b
   return metadata.destructive === true || metadata.mutatesRemote === "reviewed";
 }
 
+/**
+ * The warning for a script saved in the UI (#714): the same check as the seed
+ * lint, but it only warns — the save goes through. Null when nothing writes,
+ * or the fixture is destructive / waived.
+ */
+export function scriptSaveWarning(
+  scripts: (string | null | undefined)[],
+  fixtureMetadata: Record<string, unknown> | null | undefined,
+): string | null {
+  const reasons = [...new Set(scripts.flatMap((script) => mutationReasons(script ?? undefined)))];
+  if (reasons.length === 0) return null;
+  if (isMutationGuarded({ metadata: fixtureMetadata ?? {} } as TestFixtureDefinition)) return null;
+  return (
+    `Saved — but this script writes data (${reasons.join("; ")}) and its fixture is not marked ` +
+    `destructive or reviewed, so it will also run against web targets. Mark the fixture ` +
+    `"destructive: true" or add the waiver "mutatesRemote": "reviewed" after checking the write is safe.`
+  );
+}
+
 /** Every writing script whose fixture is neither destructive nor waived. */
 export function findUnguardedMutations(bundles: {
   fixtures: TestFixtureDefinition[];

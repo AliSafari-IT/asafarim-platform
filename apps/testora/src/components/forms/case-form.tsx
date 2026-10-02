@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Save } from "lucide-react";
+import { Plus, Save, TriangleAlert } from "lucide-react";
 
 type ScriptType = "single" | "multi" | "scripted";
 
@@ -59,11 +59,20 @@ export function CaseForm({ mode = "create", initial, defaultFixtureId, fixtureOp
   const [script, setScript] = useState(initial?.script ?? SCRIPT_PLACEHOLDER);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Seed-lint warning from the save (#714): the case is saved; the form stays
+  // open until the author has read it.
+  const [warning, setWarning] = useState<string | null>(null);
+
+  function acknowledgeWarning() {
+    setWarning(null);
+    onSuccess?.();
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
+    setWarning(null);
 
     let parsedInput: Record<string, unknown> | undefined;
     let parsedRuns: Record<string, unknown>[] | undefined;
@@ -115,8 +124,12 @@ export function CaseForm({ mode = "create", initial, defaultFixtureId, fixtureOp
         setCaseId("");
         setTitle("");
       }
-      onSuccess?.();
       router.refresh();
+      if (typeof data.warning === "string") {
+        setWarning(data.warning);
+        return;
+      }
+      onSuccess?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save case");
     } finally {
@@ -243,6 +256,20 @@ export function CaseForm({ mode = "create", initial, defaultFixtureId, fixtureOp
       )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {warning && (
+        <div
+          role="status"
+          className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-400"
+        >
+          <p className="flex items-start gap-2">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span>{warning}</span>
+          </p>
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={acknowledgeWarning}>
+            Got it
+          </Button>
+        </div>
+      )}
       <Button type="submit" disabled={submitting} className="self-start">
         {mode === "edit" ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
         {submitting ? "Saving..." : mode === "edit" ? "Save changes" : "Create case"}

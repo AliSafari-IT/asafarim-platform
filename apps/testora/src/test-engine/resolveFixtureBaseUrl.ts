@@ -1,7 +1,7 @@
 /** A fixture's baseUrl is valid if it's absolute (full override) or a path
  * starting with "/" (resolved against the parent FR's baseUrl). */
 export function isValidFixtureBaseUrl(value: string): boolean {
-  return isAbsoluteFixtureBaseUrl(value) || value.startsWith("/");
+  return /^https?:\/\//i.test(value) || value.startsWith("/");
 }
 
 /** An absolute (http/https) fixture baseUrl — a full override the network policy must check. */

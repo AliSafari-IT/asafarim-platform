@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { isUniqueViolation } from "@/db/pg-error";
 import { testCases } from "@/db/schema";
+import { caseScriptWarning } from "@/lib/script-save-warning";
 
 const createSchema = z
   .object({
@@ -36,7 +37,9 @@ export async function POST(request: Request) {
 
   try {
     const [testCase] = await db.insert(testCases).values(parsed.data).returning();
-    return NextResponse.json({ testCase }, { status: 201 });
+    // Seed lint for UI-authored scripts (#714): warn, don't block.
+    const warning = await caseScriptWarning(parsed.data);
+    return NextResponse.json({ testCase, ...(warning ? { warning } : {}) }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: isUniqueViolation(error) ? `A case with id "${parsed.data.caseId}" already exists.` : "Failed to create case" },
