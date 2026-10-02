@@ -60,6 +60,10 @@ export {
   removeTasksaiIdentities,
   validateTasksaiIdentityDefinitions,
   tasksaiIdentitiesGuard,
+  readDatabaseMarker,
+  checkDatabaseMarker,
+  markDatabase,
+  DEV_PLATFORM_DB_PORTS,
   type EnsuredIdentity,
 } from "./providers/tasksai-identities";
 

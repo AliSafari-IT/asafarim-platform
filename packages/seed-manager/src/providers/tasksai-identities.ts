@@ -145,55 +145,121 @@ export async function removeTasksaiIdentities(
   return { deleted, retained };
 }
 
-// ─── CLI guard ───────────────────────────────────────────────────────────
+// ─── CLI guard (fail closed) ─────────────────────────────────────────────
+//
+// Three independent signals; any production-like one refuses (#745 review):
+//  1. The URL. "Local" is proven positively: loopback AND a development port
+//     from docker-compose.yml. Production publishes its Postgres on the
+//     loopback of the production host (docker-compose.prod.yml: 127.0.0.1:5432),
+//     so loopback on any other port — the default included — is production
+//     (on that host, or through an SSH tunnel to it).
+//  2. The machine. The production host (hostname "asafarim", checkout under
+//     /var/repos/asafarim-com — see infra/scripts/vps-deploy.sh) is production.
+//  3. The database itself (checked by the CLI before any write): a dev/test
+//     database carries an explicit marker, COMMENT ON DATABASE … IS
+//     'asafarim-env=development' (or test), set once with --mark-database.
+//     Production never has it, so a missing or mismatched marker refuses.
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "host.docker.internal"]);
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+/** The platform DB's development port (docker-compose.yml "55435:5432"); pinned by a test. */
+export const DEV_PLATFORM_DB_PORTS = ["55435"] as const;
+const PRODUCTION_HOSTNAMES = new Set(["asafarim"]);
+const PRODUCTION_CHECKOUT = "/var/repos/asafarim-com";
+
+export type DatabaseEnvironment = "development" | "test" | "production";
 
 export type TasksaiIdentitiesGuardDecision =
-  | { ok: true; production: boolean; identities: TasksaiIdentityDefinition[] }
+  | { ok: true; environment: DatabaseEnvironment; production: boolean; identities: TasksaiIdentityDefinition[] }
   | { ok: false; reason: string };
 
-/**
- * Decide whether the CLI may write synthetic accounts to this database.
- * Judges the RAW DATABASE_URL (before the CLI's docker-host rewrite turns the
- * production compose host `postgres` into `localhost`).
- *   - Production (NODE_ENV=production, or the compose host `postgres`): refused
- *     unless `--allow-production-baseline` — an owner-only flag — and then only
- *     the remote-smoke baseline identity, never the rest.
- *   - Any other non-local host (a remote test environment): refused unless
- *     `--confirm-host=<that host>` names it.
- *   - Local: everything.
- */
+/** Static signals (1 and 2). The CLI then requires the database marker (3). */
 export function tasksaiIdentitiesGuard(input: {
   rawDatabaseUrl: string;
   nodeEnv?: string;
   allowProductionBaseline?: boolean;
   confirmHost?: string;
+  /** os.hostname() of the machine running the CLI */
+  machineHostname?: string;
+  /** process.cwd() */
+  cwd?: string;
 }): TasksaiIdentitiesGuardDecision {
-  let host: string;
+  let url: URL;
   try {
-    host = new URL(input.rawDatabaseUrl).hostname;
+    url = new URL(input.rawDatabaseUrl);
   } catch {
     return { ok: false, reason: "DATABASE_URL is not a valid URL." };
   }
-  const production = input.nodeEnv === "production" || host === "postgres";
-  if (production) {
+  const host = url.hostname;
+  const port = url.port || "5432";
+  const loopback = LOOPBACK_HOSTS.has(host);
+  const devLoopback = loopback && (DEV_PLATFORM_DB_PORTS as readonly string[]).includes(port);
+  const productionMachine =
+    (input.machineHostname !== undefined && PRODUCTION_HOSTNAMES.has(input.machineHostname)) ||
+    (input.cwd !== undefined && input.cwd.replace(/\\/g, "/").startsWith(PRODUCTION_CHECKOUT));
+
+  const why: string[] = [];
+  if (input.nodeEnv === "production") why.push("NODE_ENV=production");
+  if (host === "postgres") why.push('the production compose host "postgres"');
+  if (loopback && !devLoopback) why.push(`loopback on port ${port}, not a development port (${DEV_PLATFORM_DB_PORTS.join(", ")})`);
+  if (productionMachine) why.push("running on the production host");
+
+  if (why.length) {
     if (!input.allowProductionBaseline) {
       return {
         ok: false,
-        reason:
-          "This looks like the PRODUCTION platform database. Refusing. Only the owner may create the remote-smoke baseline account there, with --allow-production-baseline.",
+        reason: `Treating this as the PRODUCTION platform database (${why.join("; ")}). Refusing. Only the owner may create the remote-smoke baseline account there, with --allow-production-baseline.`,
       };
     }
-    return { ok: true, production: true, identities: TASKSAI_IDENTITIES.filter((i) => i.productionBaseline) };
+    return { ok: true, environment: "production", production: true, identities: TASKSAI_IDENTITIES.filter((i) => i.productionBaseline) };
   }
   if (input.allowProductionBaseline) {
     return { ok: false, reason: "--allow-production-baseline is only for the production database; this one isn't." };
   }
-  if (!LOCAL_HOSTS.has(host) && input.confirmHost !== host) {
-    return { ok: false, reason: `Database host "${host}" is not local. Re-run with --confirm-host=${host} if it is a test environment.` };
+  if (devLoopback) return { ok: true, environment: "development", production: false, identities: TASKSAI_IDENTITIES };
+  if (input.confirmHost !== host) {
+    return { ok: false, reason: `Database host "${host}" is not the local development database. Re-run with --confirm-host=${host} if it is a test environment.` };
   }
-  return { ok: true, production: false, identities: TASKSAI_IDENTITIES };
+  return { ok: true, environment: "test", production: false, identities: TASKSAI_IDENTITIES };
+}
+
+export const DATABASE_MARKER_PREFIX = "asafarim-env=";
+
+/** The environment marker on the connected database (COMMENT ON DATABASE), or null. */
+export async function readDatabaseMarker(prisma: SeedPrismaClient): Promise<string | null> {
+  const rows = await prisma.$queryRaw<{ comment: string | null }[]>`
+    SELECT shobj_description(d.oid, 'pg_database') AS comment
+      FROM pg_database d WHERE d.datname = current_database()`;
+  const comment = rows[0]?.comment ?? "";
+  const match = new RegExp(`${DATABASE_MARKER_PREFIX}([a-z]+)`).exec(comment);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Signal 3: the database must agree with the static decision. development and
+ * test require their marker; production refuses a database marked as dev/test
+ * (the static signals and the database disagree — stop).
+ */
+export function checkDatabaseMarker(expected: DatabaseEnvironment, marker: string | null): { ok: true } | { ok: false; reason: string } {
+  if (expected === "production") {
+    return marker === "development" || marker === "test"
+      ? { ok: false, reason: `The URL looks like production but the database is marked "${marker}". Signals disagree; refusing.` }
+      : { ok: true };
+  }
+  if (marker === expected) return { ok: true };
+  return {
+    ok: false,
+    reason:
+      marker === null
+        ? `This database has no "${DATABASE_MARKER_PREFIX}${expected}" marker, so it can't be proven to be a ${expected} database. If it is, mark it once: --mark-database=${expected}`
+        : `This database is marked "${marker}", not "${expected}". Refusing.`,
+  };
+}
+
+/** Set the marker. Only ever for development/test, and only where the static guard agreed. */
+export async function markDatabase(prisma: SeedPrismaClient, environment: "development" | "test"): Promise<void> {
+  const rows = await prisma.$queryRaw<{ db: string }[]>`SELECT current_database() AS db`;
+  const name = rows[0]!.db.replace(/"/g, '""');
+  await prisma.$executeRawUnsafe(`COMMENT ON DATABASE "${name}" IS '${DATABASE_MARKER_PREFIX}${environment}'`);
 }
 
 // ─── Inspection ──────────────────────────────────────────────────────────

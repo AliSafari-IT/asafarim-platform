@@ -10,6 +10,8 @@
 // Options:
 //   --env=<label>            names the output files (default "local"; e.g. "remote-test")
 //   --confirm-host=<host>    required when DATABASE_URL is not local
+//   --mark-database=<development|test>  one-time: mark this database (only where the
+//                            URL/machine checks already agree) so the CLI can prove it isn't production
 //   --allow-production-baseline   OWNER ONLY: on the production database, create
 //                                 just the remote-smoke member account
 //
@@ -21,10 +23,14 @@
 //                                  delete the file. Nothing else stores them.
 
 import { randomBytes } from "node:crypto";
+import { hostname } from "node:os";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
+  checkDatabaseMarker,
   ensureTasksaiIdentities,
+  markDatabase,
+  readDatabaseMarker,
   removeTasksaiIdentities,
   tasksaiIdentitiesGuard,
   tasksaiIdentitySecretNames,
@@ -52,10 +58,13 @@ async function main() {
   }
 
   const decision = tasksaiIdentitiesGuard({
-    rawDatabaseUrl: process.env.DATABASE_URL ?? "postgresql://asafarim:asafarim_dev@localhost:5432/asafarim",
+    // Default: the docker-compose.yml development database (host port 55435).
+    rawDatabaseUrl: process.env.DATABASE_URL ?? "postgresql://asafarim:asafarim_dev@localhost:55435/asafarim",
     nodeEnv: process.env.NODE_ENV,
     allowProductionBaseline: flag("allow-production-baseline"),
     confirmHost: arg("confirm-host"),
+    machineHostname: hostname(),
+    cwd: process.cwd(),
   });
   if (!decision.ok) {
     console.error(`Refused: ${decision.reason}`);
@@ -65,6 +74,24 @@ async function main() {
   if (!/^[a-z0-9-]+$/.test(env)) throw new Error("--env must be lowercase letters, digits and hyphens.");
 
   await withPrisma(resolveCliDatabaseUrl(), async (prisma) => {
+    // Signal 3: the database itself must agree before anything is written.
+    const markArg = arg("mark-database");
+    if (markArg) {
+      const environment = decision.environment;
+      if (environment === "production" || markArg !== environment) {
+        throw new Error(`--mark-database=${markArg} refused: the URL/machine checks say this is "${environment}".`);
+      }
+      await markDatabase(prisma, environment);
+      console.log(`Marked this database as "${markArg}" (COMMENT ON DATABASE). Re-run without --mark-database.`);
+      return;
+    }
+    const marker = checkDatabaseMarker(decision.environment, await readDatabaseMarker(prisma));
+    if (!marker.ok) {
+      console.error(`Refused: ${marker.reason}`);
+      process.exitCode = 2;
+      return;
+    }
+
     if (flag("remove")) {
       const { deleted, retained } = await removeTasksaiIdentities(prisma, { identities: decision.identities });
       console.log(`Removed ${deleted.length} synthetic account(s)${deleted.length ? `: ${deleted.join(", ")}` : ""}.`);
