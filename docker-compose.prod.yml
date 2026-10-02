@@ -787,7 +787,12 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile
+      # Mount the directory, not the file (#733): git replaces the Caddyfile
+      # with a new inode, and a single-file bind mount stays pinned to the old
+      # one, so reloads kept reading a stale file. Changing this service's
+      # definition needs a one-off infra/scripts/caddy-recreate.sh — the deploy
+      # never recreates Caddy itself.
+      - ./infra/caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

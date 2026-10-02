@@ -76,6 +76,24 @@ test("Caddy answers 404 for /internal/* on the public Testora host", () => {
   assert.ok(block.indexOf("respond @internal 404") < block.indexOf("reverse_proxy"));
 });
 
+test("production Caddy follows Caddyfile replacement and the deploy proves it (#733)", () => {
+  const caddy = composeService("caddy");
+  // A single-file bind mount stays pinned to the inode git replaced.
+  assert.match(caddy, /- \.\/infra\/caddy:\/etc\/caddy:ro\n/);
+  assert.doesNotMatch(caddy, /Caddyfile:\/etc\/caddy\/Caddyfile/);
+
+  const deploy = read("infra", "scripts", "vps-deploy.sh");
+  assert.match(deploy, /grep -vx caddy/);
+  assert.match(deploy, /up -d --no-build --no-recreate caddy/);
+  assert.ok(deploy.indexOf("caddy reload") < deploy.indexOf("if ! verify_caddy_config"));
+
+  const verify = read("infra", "scripts", "lib", "verify-caddy.sh");
+  assert.match(verify, /exec -T caddy sha256sum \/etc\/caddy\/Caddyfile/);
+  for (const probe of ["/internal/runner/lease", "/INTERNAL/x", "/%69nternal/runner/lease"]) {
+    assert.ok(verify.includes(probe), probe);
+  }
+});
+
 test("the image build plan and the deploy know the runner image", () => {
   assert.match(read("docker-bake.hcl"), /target "testora-runner" \{[^}]*target\s+= "runner-worker"/);
   assert.match(read("scripts", "plan-image-builds.mjs"), /image: "testora-runner"/);
