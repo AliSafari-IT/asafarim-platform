@@ -241,6 +241,13 @@ export function createRunStore(pool: Pool, options: RunStoreOptions) {
     /**
      * Fail running rows whose process is gone: the lease lapsed, or (at boot)
      * it belongs to an earlier instance on this same host. Returns their ids.
+     *
+     * In Docker the second rule rarely helps: a recreated container gets a NEW
+     * hostname, so a restarted web container never matches its predecessor's
+     * `host:pid:boot` owner. Recovery there is the lapsed-lease rule — a dead
+     * owner stops renewing, and within the lease length (30 s) the tick fails
+     * its runs as "runner lost". The isolated runner (#718) relies on exactly
+     * this; runStore.integration.test.ts pins it.
      */
     async sweepLost(options2: { deadOwnerPrefix?: string; currentOwner?: string } = {}): Promise<string[]> {
       // A lost run whose cancel was already requested just ends cancelled.

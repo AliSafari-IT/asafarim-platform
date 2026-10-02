@@ -192,3 +192,17 @@ test("remote runner: a lost run whose cancel was requested ends cancelled, not '
   const row = await s.get("lost-cancelled");
   assert.deepEqual([row?.status, row?.error], ["cancelled", "Run cancelled"]);
 });
+
+test("a lapsed lease owned by an UNKNOWN host becomes 'runner lost' (the path Docker recovery relies on)", { skip }, async () => {
+  const s = store(1);
+  // A previous container (hostname long gone) left this run running.
+  await queueRun(s, "orphan", "3f9c2a1b7d4e:1:dead");
+  // The new container boots: its boot sweep matches only ITS host — nothing.
+  assert.deepEqual(await s.sweepLost({ deadOwnerPrefix: "a1b2c3d4e5f6:", currentOwner: "a1b2c3d4e5f6:1:live" }), []);
+  assert.equal((await s.get("orphan"))?.status, "running", "not swept while the lease holds");
+  // Once the dead owner's lease lapses, the regular tick sweep fails it.
+  await pool.query("UPDATE runs SET lease_expires_at = now() - interval '1 second' WHERE id = 'orphan'");
+  assert.deepEqual(await s.sweepLost(), ["orphan"]);
+  const row = await s.get("orphan");
+  assert.deepEqual([row?.status, row?.error, row?.jobEnc], ["error", "runner lost", null]);
+});
