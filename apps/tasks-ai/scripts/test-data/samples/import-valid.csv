@@ -1,0 +1,3 @@
+title,description,dueDate,assignee
+Synthetic import one,Imported from CSV,2026-11-01,
+Synthetic import two,"Commas, quotes ""and"" Unicode: café ✓",,
