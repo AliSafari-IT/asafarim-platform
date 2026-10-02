@@ -90,10 +90,60 @@ const ASAFARIM_TIMELINEAI: ProjectDef = {
   ],
 };
 
+// ASafariM TasksAI (#742) — AI-assisted task workspace, signing in via Hub SSO.
+// Read when this module loads: at `db:seed` / "Update tests" time on the server
+// (and inlined at build time where a client bundle imports this file).
+//   NEXT_PUBLIC_ASAFARIM_TASKSAI_LOCAL_URL   Local app origin (default http://localhost:3013, its dev port)
+//   NEXT_PUBLIC_ASAFARIM_TASKSAI_URL         Remote smoke app origin (default https://tasks-ai.asafarim.com)
+//   NEXT_PUBLIC_ASAFARIM_TASKSAI_TEST_URL    Remote test environment app origin — no default
+//   NEXT_PUBLIC_ASAFARIM_TASKSAI_TEST_HUB_URL  …and the Hub it signs in through — no default
+// The Remote test environment (the only remote target mutation fixtures may
+// use) is seeded only when both TEST variables are set: there is no staging
+// hostname to guess, and it must never fall back to production.
+const TASKSAI_LOCAL_BASE = process.env.NEXT_PUBLIC_ASAFARIM_TASKSAI_LOCAL_URL || "http://localhost:3013";
+const TASKSAI_REMOTE_BASE = process.env.NEXT_PUBLIC_ASAFARIM_TASKSAI_URL || "https://tasks-ai.asafarim.com";
+const TASKSAI_TEST_BASE = process.env.NEXT_PUBLIC_ASAFARIM_TASKSAI_TEST_URL || "";
+const TASKSAI_TEST_HUB = process.env.NEXT_PUBLIC_ASAFARIM_TASKSAI_TEST_HUB_URL || "";
+
+export const TASKSAI_PROJECT_ID = "asafarim-tasks-ai";
+
+const ASAFARIM_TASKSAI: ProjectDef = {
+  id: TASKSAI_PROJECT_ID,
+  name: "ASafariM · TasksAI",
+  baseUrl: TASKSAI_REMOTE_BASE,
+  apiUrl: TASKSAI_REMOTE_BASE,
+  brand: { productName: "TasksAI", companyName: "ASafariM Digital" },
+  targets: [
+    // A hosted Testora runner can't reach a developer's localhost (and the
+    // strict target policy refuses it): Local runs need a local Testora.
+    {
+      slug: "local",
+      name: "Local (local Testora only)",
+      baseUrl: TASKSAI_LOCAL_BASE,
+      apiUrl: TASKSAI_LOCAL_BASE,
+      hubUrl: LOCAL_HUB_URL,
+    },
+    // Read-only smoke against the deployment: never a mutation target.
+    { slug: "remote-smoke", name: "Remote smoke", baseUrl: TASKSAI_REMOTE_BASE, apiUrl: TASKSAI_REMOTE_BASE, hubUrl: REMOTE_HUB_URL },
+    ...(TASKSAI_TEST_BASE && TASKSAI_TEST_HUB
+      ? [
+          {
+            slug: "remote-test",
+            name: "Remote test environment",
+            baseUrl: TASKSAI_TEST_BASE,
+            apiUrl: TASKSAI_TEST_BASE,
+            hubUrl: TASKSAI_TEST_HUB,
+          },
+        ]
+      : []),
+  ],
+};
+
 export const PROJECTS: ProjectDef[] = [
   ASAFARIM_TIMELINEAI,
   ASAFARIM_EDUMATCH,
   ASAFARIM_VIONTO,
+  ASAFARIM_TASKSAI,
 ];
 
 /** The app new catalog entries (and untagged seed bundles) belong to by default. */
