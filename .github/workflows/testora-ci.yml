@@ -51,9 +51,9 @@ jobs:
 
     env:
       # The app's own DB URL points somewhere else on purpose: the integration
-      # tests refuse to run when the test URL equals it.
+      # tests refuse to run when the test URL equals it. TESTORA_TEST_DATABASE_URL
+      # is set only on the integration step, so the unit step skips the DB tests.
       TESTORA_DATABASE_URL: postgresql://testora:testora_ci@localhost:55439/testora_ci
-      TESTORA_TEST_DATABASE_URL: postgresql://testora:testora_ci@localhost:55439/testora_test
 
     steps:
       - uses: actions/checkout@v5
@@ -80,4 +80,6 @@ jobs:
             -c "DROP DATABASE IF EXISTS testora_test;" -c "CREATE DATABASE testora_test;"
 
       - name: Integration tests (durable run queue, remote runner)
+        env:
+          TESTORA_TEST_DATABASE_URL: postgresql://testora:testora_ci@localhost:55439/testora_test
         run: pnpm --filter testora test:integration
