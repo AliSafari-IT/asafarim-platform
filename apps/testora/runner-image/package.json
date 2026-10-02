@@ -1,0 +1,8 @@
+{
+  "name": "testora-runner-image",
+  "private": true,
+  "description": "Runtime dependencies of the testora-runner image (#718, ADR 0004 §5). The runner itself is an esbuild bundle; only TestCafe stays external. Keep the version equal to the one pnpm-lock.yaml resolves for apps/testora (checked by runner-image.test.ts).",
+  "dependencies": {
+    "testcafe": "3.7.6"
+  }
+}

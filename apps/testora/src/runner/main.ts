@@ -12,9 +12,15 @@
  *
  *   pnpm --filter testora worker:dev     (dev: against http://localhost:3005)
  *
- * Env: TESTORA_RUNNER_URL, TESTORA_RUNNER_TOKEN, TESTORA_RUNNER_SIGNING_SECRETS
- * (signs with the first), TESTORA_RUNNER_CONCURRENCY (default 2), E2E_BROWSER.
- * Jobs only flow when the web app runs with TESTORA_RUNNER_MODE=remote.
+ *   node main.mjs                         (the testora-runner image, #718)
+ *   node main.mjs --egress-self-test [--public <url>] [host:port …]
+ *
+ * Env: TESTORA_CONTROL_URL (or TESTORA_RUNNER_URL), TESTORA_RUNNER_TOKEN,
+ * TESTORA_RUNNER_SIGNING_SECRETS (signs with the first),
+ * TESTORA_RUNNER_CONCURRENCY (default 2), E2E_BROWSER, and
+ * TESTORA_EGRESS_SELF_TEST=1 to refuse to start unless the egress filter
+ * holds (egress-check.ts). Jobs only flow when the web app runs with
+ * TESTORA_RUNNER_MODE=remote.
  */
 import "../test-engine/load-env";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -32,30 +38,30 @@ import {
   type StoredArtifactRef,
 } from "@/test-engine/artifact-timeline";
 import type { TestRunResult } from "@/test-engine/types";
+import { buildChildEnv } from "./child-env";
+import { parseProbe, runEgressSelfTest, type Probe } from "./egress-check";
 import type { ChildJob } from "./job";
 
-const APP_DIR = path.resolve(import.meta.dirname, "../..");
-const JOB_SCRIPT = path.join(APP_DIR, "src", "runner", "job.ts");
-const SCENARIO_RUNNER = path.join(APP_DIR, "src", "test-engine", "executors", "scenarioRunner.js");
+/**
+ * In the testora-runner image this file is an esbuild bundle (main.mjs) with
+ * job.mjs and scenarioRunner.js beside it (scripts/build-runner.mjs); in dev
+ * it runs from source through tsx.
+ */
+const BUNDLED = import.meta.filename.endsWith(".mjs");
+const APP_DIR = BUNDLED ? import.meta.dirname : path.resolve(import.meta.dirname, "../..");
+const JOB_SCRIPT = BUNDLED ? path.join(APP_DIR, "job.mjs") : path.join(APP_DIR, "src", "runner", "job.ts");
+const JOB_NODE_ARGS = BUNDLED ? [JOB_SCRIPT] : ["--import", "tsx", JOB_SCRIPT];
+const SCENARIO_RUNNER = BUNDLED
+  ? path.join(APP_DIR, "scenarioRunner.js")
+  : path.join(APP_DIR, "src", "test-engine", "executors", "scenarioRunner.js");
 
-const BASE_URL = (process.env.TESTORA_RUNNER_URL || "http://localhost:3005").replace(/\/$/, "");
+const BASE_URL = (process.env.TESTORA_CONTROL_URL || process.env.TESTORA_RUNNER_URL || "http://localhost:3005").replace(/\/$/, "");
 const TOKEN = process.env.TESTORA_RUNNER_TOKEN?.trim() || "";
 const SECRET = (process.env.TESTORA_RUNNER_SIGNING_SECRETS ?? "").split(",")[0]?.trim() || "";
 const CONCURRENCY = Math.min(8, Math.max(1, Number(process.env.TESTORA_RUNNER_CONCURRENCY) || 2));
 const RUNNER_ID = `${hostname()}:${process.pid}`;
 const HEARTBEAT_MS = 2_000;
 const IDLE_BACKOFF_MS = 30_000;
-
-/**
- * The only runner-side variables a job's child gets besides the envelope env —
- * what Node and the browser need to start on this OS. Never secrets.
- */
-export const OS_ENV_ALLOWLIST = [
-  "PATH", "Path", "PATHEXT", "SystemRoot", "SYSTEMROOT", "windir", "ComSpec",
-  "TEMP", "TMP", "TMPDIR", "HOME", "USERPROFILE", "LOCALAPPDATA", "APPDATA",
-  "ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "CommonProgramFiles",
-  "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE", "LANG", "CHROME_BIN",
-];
 
 const log = (...args: unknown[]) => console.log(`[runner ${RUNNER_ID}]`, ...args);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -209,11 +215,7 @@ async function runJob(envelope: RunnerEnvelope): Promise<void> {
     await writeFile(path.join(jobDir, "job.json"), JSON.stringify(childJob), "utf8");
 
     // The child's env: the envelope's, plus OS basics — nothing else inherited.
-    const env: Record<string, string> = { ...envelope.env };
-    for (const name of OS_ENV_ALLOWLIST) {
-      const value = process.env[name];
-      if (value !== undefined && !(name in env)) env[name] = value;
-    }
+    const env = buildChildEnv(envelope.env, process.env, process.platform);
     const units: { fixtureId: string; results: TestRunResult[]; artifacts: { resultId: string }[] }[] = [];
     let crashed = 0;
 
@@ -227,7 +229,7 @@ async function runJob(envelope: RunnerEnvelope): Promise<void> {
       const temp = path.join(jobDir, "tmp", `u${index}`);
       await mkdir(temp, { recursive: true });
       childTemp = temp;
-      const proc = spawn(process.execPath, ["--import", "tsx", JOB_SCRIPT, jobDir, String(index)], {
+      const proc = spawn(process.execPath, [...JOB_NODE_ARGS, jobDir, String(index)], {
         cwd: APP_DIR,
         env: { ...env, TEMP: temp, TMP: temp, TMPDIR: temp } as unknown as NodeJS.ProcessEnv,
         stdio: ["ignore", "pipe", "pipe"],
@@ -371,9 +373,41 @@ async function workerLoop(slot: number): Promise<void> {
   }
 }
 
-if (!TOKEN || !SECRET) {
-  log("TESTORA_RUNNER_TOKEN / TESTORA_RUNNER_SIGNING_SECRETS not set — runner disabled.");
-  process.exit(0);
+const DEFAULT_PUBLIC_URL = "https://hub.asafarim.com/";
+
+/** `--egress-self-test [--public <url>] [host:port …]`: print the report, exit 0/1. */
+async function selfTestCli(args: string[]): Promise<never> {
+  let publicUrl = DEFAULT_PUBLIC_URL;
+  const extra: Probe[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--public") publicUrl = args[++i] ?? publicUrl;
+    else extra.push(parseProbe(args[i]!));
+  }
+  const report = await runEgressSelfTest({ extra, publicUrl });
+  for (const line of report.lines) console.log(line);
+  process.exit(report.passed ? 0 : 1);
 }
-log(`pulling from ${BASE_URL} with ${CONCURRENCY} slot(s)`);
-for (let slot = 1; slot <= CONCURRENCY; slot++) void workerLoop(slot);
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  if (args[0] === "--egress-self-test") await selfTestCli(args.slice(1));
+
+  if (!TOKEN || !SECRET) {
+    log("TESTORA_RUNNER_TOKEN / TESTORA_RUNNER_SIGNING_SECRETS not set — runner disabled.");
+    process.exit(0);
+  }
+  if (process.env.TESTORA_EGRESS_SELF_TEST === "1") {
+    // Never pull a job unless the host filter holds (ADR 0004 §7). A Hub
+    // outage is only logged: it doesn't make the runner less fenced.
+    const report = await runEgressSelfTest({ publicUrl: DEFAULT_PUBLIC_URL, requirePublic: false });
+    for (const line of report.lines) log(line);
+    if (!report.passed) {
+      log("refusing to start: the egress filter does not hold.");
+      process.exit(1);
+    }
+  }
+  log(`pulling from ${BASE_URL} with ${CONCURRENCY} slot(s)`);
+  for (let slot = 1; slot <= CONCURRENCY; slot++) void workerLoop(slot);
+}
+
+void main();

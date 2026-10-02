@@ -5,6 +5,8 @@
 #              migrations against testora's own database before the app starts.
 #   runner   : slim image that serves the app. Ships chromium so the in-app
 #              TestCafe runner can drive a headless browser.
+#   runner-worker : the isolated test runner (testora-runner image, #718):
+#              runner bundle + TestCafe + chromium, nothing else.
 # ---------------------------------------------------------------------------
 FROM node:24-alpine AS builder
 WORKDIR /app
@@ -95,3 +97,38 @@ COPY --from=builder --chown=node:node /app/apps/testora/public ./apps/testora/pu
 EXPOSE 3000
 USER node
 CMD ["node", "apps/testora/server.js"]
+
+# --- isolated test runner (#718, ADR 0004 §5) --------------------------------
+# Node, Chromium, fonts and the runner bundle only: no Next.js build, no
+# workspace node_modules, nothing from .env. Runs on testora_control +
+# testora_egress (docker-compose.prod.yml), never asafarim_net.
+FROM builder AS runner-bundle
+RUN node apps/testora/scripts/build-runner.mjs
+
+# TestCafe is the bundle's one external; installed from its own lockfile,
+# pinned to the version pnpm-lock.yaml resolves (runner-image.test.ts).
+FROM node:24-alpine AS runner-deps
+WORKDIR /deps
+COPY apps/testora/runner-image/package.json apps/testora/runner-image/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+
+FROM node:24-alpine AS runner-worker
+WORKDIR /app
+ENV NODE_ENV=production
+RUN apk add --no-cache \
+      chromium \
+      nss \
+      freetype \
+      harfbuzz \
+      ca-certificates \
+      ttf-freefont
+# --no-sandbox: the container drops every capability (no user namespaces for
+# Chromium's own sandbox); the container and the host egress filter are the
+# isolation boundary.
+# TestCafe needs the browser alias (not `path:`) to accept headless mode with
+# no display: `path:` + --headless is refused as "needs a GUI" (#718 smoke).
+ENV E2E_BROWSER="chromium:headless --no-sandbox --disable-gpu --disable-dev-shm-usage"
+COPY --from=runner-deps /deps/node_modules ./node_modules
+COPY --from=runner-bundle /app/apps/testora/dist-runner/ ./
+USER node
+CMD ["node", "main.mjs"]

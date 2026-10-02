@@ -20,7 +20,8 @@
     "test": "node --experimental-test-module-mocks --import tsx --test \"src/**/*.test.ts\"",
     "test:integration": "node --import tsx --test \"src/**/*.integration.test.ts\"",
     "test:e2e": "node --conditions=react-server --import tsx src/test-engine/run.ts",
-    "worker:dev": "tsx src/runner/main.ts"
+    "worker:dev": "tsx src/runner/main.ts",
+    "build:runner": "node scripts/build-runner.mjs"
   },
   "dependencies": {
     "@asafarim/auth": "workspace:*",
