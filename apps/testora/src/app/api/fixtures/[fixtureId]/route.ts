@@ -4,7 +4,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { isForeignKeyViolation } from "@/db/pg-error";
 import { testFixtures } from "@/db/schema";
-import { isValidFixtureBaseUrl } from "@/test-engine/resolveFixtureBaseUrl";
+import { isAbsoluteFixtureBaseUrl, isValidFixtureBaseUrl } from "@/test-engine/resolveFixtureBaseUrl";
+import { checkStoredUrls } from "@/lib/run-target";
 
 const updateSchema = z.object({
   title: z.string().min(1).optional(),
@@ -31,6 +32,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ fi
   }
 
   const { baseUrl, ...rest } = parsed.data;
+  // Same network policy as saved targets for an absolute baseUrl (#714).
+  const blocked = await checkStoredUrls([isAbsoluteFixtureBaseUrl(baseUrl) ? baseUrl : null]);
+  if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
   const updateValues: Record<string, unknown> = { ...rest, updatedAt: new Date() };
   if (baseUrl !== undefined) updateValues.baseUrl = baseUrl || null;
 

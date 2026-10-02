@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { functionalRequirements } from "@/db/schema";
+import { checkStoredUrls } from "@/lib/run-target";
 
 const updateSchema = z.object({
   title: z.string().min(1).optional(),
@@ -22,6 +23,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { baseUrl, ...rest } = parsed.data;
+  // Same network policy as saved targets (#714).
+  const blocked = await checkStoredUrls([baseUrl]);
+  if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
   const updateValues: Record<string, unknown> = { ...rest, updatedAt: new Date() };
   if (baseUrl !== undefined) updateValues.baseUrl = baseUrl || null;
 

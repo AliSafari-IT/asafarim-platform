@@ -4,8 +4,9 @@ import { getTestFixtures } from "@/lib/queries";
 import { db } from "@/db/client";
 import { isUniqueViolation } from "@/db/pg-error";
 import { testFixtures } from "@/db/schema";
-import { isValidFixtureBaseUrl } from "@/test-engine/resolveFixtureBaseUrl";
+import { isAbsoluteFixtureBaseUrl, isValidFixtureBaseUrl } from "@/test-engine/resolveFixtureBaseUrl";
 import { isProjectViewable } from "@/lib/app-access";
+import { checkStoredUrls } from "@/lib/run-target";
 
 export async function GET(request: Request) {
   const projectId = new URL(request.url).searchParams.get("project") || undefined;
@@ -43,6 +44,10 @@ export async function POST(request: Request) {
   }
 
   const { baseUrl, ...rest } = parsed.data;
+  // An absolute baseUrl is a run target of its own (a run with no target uses
+  // it) — hold it to the same network policy as saved targets (#714).
+  const blocked = await checkStoredUrls([isAbsoluteFixtureBaseUrl(baseUrl) ? baseUrl : null]);
+  if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
 
   try {
     const [fixture] = await db
