@@ -1,0 +1,81 @@
+# Testora quality gate (#726).
+#
+# Typecheck + unit tests, and — the reason this workflow exists — the
+# database-backed integration tests (durable run queue #716, remote runner
+# #717), which skip elsewhere because no Postgres is available. They run
+# against a throwaway database the tests themselves migrate; they refuse the
+# dev database by design (runStore.integration.test.ts).
+name: Testora CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/testora/**"
+      - "packages/auth/**"
+      - "packages/storage/**"
+      - "packages/testora-tasksai-contract/**"
+      - "packages/tool-handoff/**"
+      - "packages/agent-assurance-contract/**"
+      - ".github/workflows/testora-ci.yml"
+  pull_request:
+    paths:
+      - "apps/testora/**"
+      - "packages/auth/**"
+      - "packages/storage/**"
+      - "packages/testora-tasksai-contract/**"
+      - "packages/tool-handoff/**"
+      - "packages/agent-assurance-contract/**"
+      - ".github/workflows/testora-ci.yml"
+  workflow_dispatch: {}
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: testora
+          POSTGRES_PASSWORD: testora_ci
+          POSTGRES_DB: testora_ci
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd "pg_isready -U testora -d testora_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # The app's own DB URL points somewhere else on purpose: the integration
+      # tests refuse to run when the test URL equals it.
+      TESTORA_DATABASE_URL: postgresql://testora:testora_ci@localhost:55439/testora_ci
+      TESTORA_TEST_DATABASE_URL: postgresql://testora:testora_ci@localhost:55439/testora_test
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter testora typecheck
+
+      - name: Unit tests
+        run: pnpm --filter testora test
+
+      - name: Create the throwaway test database
+        run: |
+          PGPASSWORD=testora_ci psql -h localhost -p 55439 -U testora -d testora_ci \
+            -c "DROP DATABASE IF EXISTS testora_test;" -c "CREATE DATABASE testora_test;"
+
+      - name: Integration tests (durable run queue, remote runner)
+        run: pnpm --filter testora test:integration
