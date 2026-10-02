@@ -150,6 +150,43 @@ test("events: ordered seq per run, read after a cursor, safe under concurrent ap
   assert.equal(tail.length, 11);
 });
 
+test("events: 60 parallel appends to one run, interleaved with another, get exactly 1..n (#740)", { skip }, async () => {
+  const s = store(1);
+  await s.create({ id: "hot" });
+  await s.create({ id: "side" });
+  const N = 60;
+  const M = 15;
+  const hot = Array.from({ length: N }, (_, i) => () => s.append("hot", "log", `h${i}`));
+  const side = Array.from({ length: M }, (_, i) => () => s.append("side", "log", `s${i}`));
+  // Interleave: every fourth call goes to the other run.
+  const calls = hot.flatMap((h, i) => (i % 4 === 0 && side[i / 4] ? [h, side[i / 4]!] : [h]));
+  const results = await Promise.all(calls.map((call) => call()));
+  assert.equal(results.length, N + M);
+
+  const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+  assert.deepEqual((await s.eventsAfter("hot", 0)).map((e) => e.seq), range(N), "no gaps, no duplicates");
+  assert.deepEqual((await s.eventsAfter("side", 0)).map((e) => e.seq), range(M), "the other run is unaffected");
+  const { rows } = await pool.query("SELECT id, event_seq FROM runs WHERE id IN ('hot', 'side') ORDER BY id");
+  assert.deepEqual(rows, [{ id: "hot", event_seq: N }, { id: "side", event_seq: M }]);
+});
+
+test("events: continues after events written without the counter (previous release mid-deploy)", { skip }, async () => {
+  const s = store(1);
+  await s.create({ id: "drift" });
+  assert.equal(await s.append("drift", "log", "new code"), 1);
+  // The old release's INSERT: seq = max + 1, event_seq untouched.
+  await pool.query("INSERT INTO run_events (run_id, seq, kind, payload) VALUES ('drift', 2, 'log', '\"old code\"')");
+  assert.equal(await s.append("drift", "log", "new code again"), 3);
+  assert.deepEqual((await s.eventsAfter("drift", 0)).map((e) => e.seq), [1, 2, 3]);
+});
+
+test("events: appending to an unknown run fails clearly", { skip }, async () => {
+  const s = store(1);
+  await assert.rejects(s.append("no-such-run", "log", "x"), /run_events: no run no-such-run/);
+  const { rows } = await pool.query("SELECT count(*)::int AS n FROM run_events");
+  assert.equal(rows[0].n, 0);
+});
+
 test("rate limit history and retention come from the table", { skip }, async () => {
   const s = store(5);
   await queueRun(s, "x1");

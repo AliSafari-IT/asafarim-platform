@@ -169,6 +169,13 @@
       "when": 1790964164145,
       "tag": "0023_tidy_anthem",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790981429496,
+      "tag": "0024_run_event_seq",
+      "breakpoints": true
     }
   ]
 }
