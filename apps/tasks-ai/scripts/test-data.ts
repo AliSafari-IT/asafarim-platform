@@ -17,7 +17,9 @@
  *   --env=<label>              output/input file label (default "local")
  *   --identities=<path>        default: <repo>/.tasksai-test/identities.<env>.json,
  *                              written by `pnpm --filter @asafarim/db db:seed:tasksai-identities`
- *   --confirm-host=<host>      required when TASKSAI_DATABASE_URL is not local
+ *   --confirm-host=<host>      required when TASKSAI_DATABASE_URL is not the local dev database
+ *   --mark-database=<development|test>  one-time: mark this database (only where the
+ *                              URL/machine checks already agree) so the script can prove it isn't production
  *   --allow-production-baseline  OWNER ONLY, production database: the read-only
  *                                remote-smoke baseline (main workspace, member only)
  *   --anchor=YYYY-MM-DD  --tz=<IANA zone>   the controlled clock (default today, Europe/Brussels)
@@ -25,11 +27,12 @@
  * Writes <repo>/.tasksai-test/test-data.<env>.json (ids/handles, no secrets).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { hostname } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/db/generated";
-import { testDataGuard } from "../lib/test-data/guard";
+import { checkDatabaseMarker, parseDatabaseMarker, testDataGuard } from "../lib/test-data/guard";
 import { HANDOFF_FILE_SUFFIX } from "@asafarim/tool-handoff";
 import {
   DEFAULT_TIMEZONE,
@@ -71,6 +74,7 @@ async function main() {
     console.error(`Usage: test-data <${COMMANDS.join("|")}> [options] — see scripts/test-data.ts`);
     process.exit(64);
   }
+  // Default: the docker-compose.yml development database (host port 55438).
   const rawUrl = process.env.TASKSAI_DATABASE_URL ?? "postgres://tasksai:tasksai_dev@127.0.0.1:55438/tasksai";
   const decision = testDataGuard({
     rawDatabaseUrl: rawUrl,
@@ -78,6 +82,8 @@ async function main() {
     nodeEnv: process.env.NODE_ENV,
     allowProductionBaseline: flag("allow-production-baseline"),
     confirmHost: arg("confirm-host"),
+    machineHostname: hostname(),
+    cwd: process.cwd(),
   });
   if (!decision.ok) {
     console.error(`Refused: ${decision.reason}`);
@@ -88,6 +94,27 @@ async function main() {
 
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: rawUrl }) });
   try {
+    // Signal 3: the database itself must agree before anything is written.
+    const comment = await db.$queryRaw<{ comment: string | null }[]>`
+      SELECT shobj_description(d.oid, 'pg_database') AS comment FROM pg_database d WHERE d.datname = current_database()`;
+    const markArg = arg("mark-database");
+    if (markArg) {
+      const environment = decision.environment;
+      if (environment === "production" || markArg !== environment) {
+        throw new Error(`--mark-database=${markArg} refused: the URL/machine checks say this is "${environment}".`);
+      }
+      const [{ db: name }] = await db.$queryRaw<{ db: string }[]>`SELECT current_database() AS db`;
+      await db.$executeRawUnsafe(`COMMENT ON DATABASE "${name.replace(/"/g, '""')}" IS 'asafarim-env=${environment}'`);
+      console.log(`Marked this database as "${environment}" (COMMENT ON DATABASE). Re-run without --mark-database.`);
+      return;
+    }
+    const marker = checkDatabaseMarker(decision.environment, parseDatabaseMarker(comment[0]?.comment));
+    if (!marker.ok) {
+      console.error(`Refused: ${marker.reason}`);
+      process.exitCode = 2;
+      return;
+    }
+
     if (command === "cleanup" || command === "reset") {
       const removed = await cleanupTestData(db);
       console.log(`cleanup: removed ${removed.workspaces.length} synthetic workspace(s)${removed.workspaces.length ? ` (${removed.workspaces.join(", ")})` : ""}`);

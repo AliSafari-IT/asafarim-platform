@@ -17,6 +17,16 @@ TasksAI stores only the accounts' opaque ids; step 2 reads them from
 
 ## Local (full data)
 
+Once per development database, mark it so the tools can prove it isn't production
+(both refuse an unmarked database):
+
+```bash
+pnpm --filter @asafarim/db db:seed:tasksai-identities -- --mark-database=development
+pnpm --filter @asafarim/tasks-ai test-data -- setup --mark-database=development
+```
+
+Then:
+
 ```bash
 pnpm --filter @asafarim/db db:seed:tasksai-identities
 pnpm --filter @asafarim/tasks-ai test-data -- setup
@@ -101,11 +111,20 @@ Whether to create it is the **owner's** decision. If yes, the owner runs both
 tools with `--allow-production-baseline`, which limits them to exactly that and
 nothing else. No catalog test mutates production data (see the coverage manifest).
 
-## Guard summary
+## Guard summary (fail closed)
+
+Three independent signals; any production-like one refuses:
+
+1. **URL**: "local" means loopback **and** the development port from `docker-compose.yml` (platform 55435, TasksAI 55438). Production publishes its databases on the production host's loopback (127.0.0.1:5432 / :5438), so loopback on any other port, including the default, is treated as production. So are the compose hosts `postgres` / `tasksai-postgres` and `NODE_ENV=production`.
+2. **Machine**: hostname `asafarim` or a checkout under `/var/repos/asafarim-com` counts as production.
+3. **Database**: a dev/test database must carry `COMMENT ON DATABASE … 'asafarim-env=development'` (or `test`), set once with `--mark-database`. It can only be set where signals 1 and 2 agree. Production never has the marker. A production-looking URL on a database marked dev/test is refused.
 
 | Database | identities CLI | test-data |
 |---|---|---|
-| local | all accounts | full data |
-| other host | needs `--confirm-host=<host>` | needs `--confirm-host=<host>` |
-| production | refused; owner flag → member only | refused; owner flag → main workspace, member only |
+| loopback dev port, marked `development` | all accounts | full data |
+| loopback dev port, not marked | refused (mark once) | refused (mark once) |
+| loopback, any other port | refused: production | refused: production |
+| production host (hostname/checkout) | refused: production | refused: production |
+| other host | needs `--confirm-host=<host>` + marker `test` | needs `--confirm-host=<host>` + marker `test` |
+| production + `--allow-production-baseline` (owner) | member only | main workspace, member only |
 | the platform DB as TASKSAI_DATABASE_URL | — | refused |
