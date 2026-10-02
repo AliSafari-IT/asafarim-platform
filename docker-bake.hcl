@@ -101,7 +101,7 @@ group "default" {
     "web", "hub", "showcase", "admin",
     "vionto", "vionto-worker",
     "edumatch",
-    "testora-migrator", "testora",
+    "testora-migrator", "testora", "testora-runner",
     "appbuilder-migrate", "appbuilder-worker", "appbuilder",
     "timelineai", "labs",
     "resumatch-migrate", "resumatch",
@@ -197,6 +197,17 @@ target "testora" {
   tags       = tag("testora")
   cache-from = cache_from("testora")
   cache-to   = cache_to("testora")
+}
+
+# Isolated test runner (#718, ADR 0004 §5): Node, Chromium, fonts and the
+# esbuild runner bundle only — no Next.js build, no workspace node_modules.
+target "testora-runner" {
+  inherits   = ["_common"]
+  dockerfile = "apps/testora/Dockerfile"
+  target     = "runner-worker"
+  tags       = tag("testora-runner")
+  cache-from = cache_from("testora-runner")
+  cache-to   = cache_to("testora-runner")
 }
 
 target "appbuilder-migrate" {

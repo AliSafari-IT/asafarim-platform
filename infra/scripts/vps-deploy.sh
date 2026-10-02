@@ -78,6 +78,38 @@ if (( ${#MISSING_VARS[@]} > 0 )); then
   exit 1
 fi
 
+# Testora's isolated runner (#718) is opt-in: it starts only once
+# TESTORA_RUNNER_TOKEN is in .env.production. Production order (#723): ship the
+# Caddy /internal/* block and the testora_control network first (a deploy
+# without the token does that), then add the token.
+env_has() { grep -qE "^$1=[\"']?[^\"'[:space:]]" .env.production; }
+TESTORA_RUNNER_ENABLED=false
+if env_has TESTORA_RUNNER_TOKEN; then
+  if ! env_has TESTORA_RUNNER_SIGNING_SECRETS; then
+    echo "FATAL: TESTORA_RUNNER_TOKEN is set but TESTORA_RUNNER_SIGNING_SECRETS is not." >&2
+    exit 1
+  fi
+  TESTORA_RUNNER_ENABLED=true
+fi
+
+as_root() { if (( EUID == 0 )); then "$@"; else sudo -n "$@"; fi; }
+
+# The runner's host egress filter goes in BEFORE any container starts, and on
+# every deploy whether or not the runner is enabled: it only matches the
+# testora_egress subnet, so it is inert until the runner exists. The systemd
+# unit re-applies it at boot and after Docker restarts.
+echo "[deploy $(date -Is)] Installing the Testora runner egress filter..."
+as_root install -m 0755 infra/scripts/testora-egress-firewall.sh /usr/local/sbin/testora-egress-firewall
+as_root install -m 0644 infra/scripts/testora-egress-firewall.service /etc/systemd/system/testora-egress-firewall.service
+as_root systemctl daemon-reload
+as_root systemctl enable --quiet testora-egress-firewall.service
+if ! as_root systemctl restart testora-egress-firewall.service; then
+  echo "FATAL: the Testora egress filter could not be installed." >&2
+  as_root journalctl -u testora-egress-firewall.service -n 30 --no-pager >&2 || true
+  exit 1
+fi
+as_root journalctl -u testora-egress-firewall.service -n 40 --no-pager -o cat || true
+
 # Use the workflow's short-lived GITHUB_TOKEN without persisting it in the
 # deploy user's normal Docker configuration. Manual deploys can instead rely
 # on an existing `docker login ghcr.io` session on the VPS.
@@ -124,6 +156,21 @@ export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-4}"
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.production)
 
 RELEASE_SERVICES=(platform-migrate web hub showcase admin vionto vionto-worker edumatch testora-migrate testora-seed testora appbuilder-migrate appbuilder-worker appbuilder timelineai labs resumatch-migrate resumatch tasksai-migrate tasksai-worker tasksai)
+if [[ "${TESTORA_RUNNER_ENABLED}" == true ]]; then
+  export COMPOSE_PROFILES=testora-runner
+  RELEASE_SERVICES+=(testora-runner)
+fi
+
+# Failure notice for the deploy gates below. The message is fixed text from
+# this script (no quotes or backslashes), so it needs no JSON escaping.
+notify_discord() {
+  local webhook=""
+  webhook="$(grep -E '^WEBHOOK_SECRET_DISCORD=' .env.production | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'")" || true
+  if [[ -n "${webhook}" && "${webhook}" == https://discord.com/api/webhooks/* ]]; then
+    curl -sS -X POST -H "Content-Type: application/json" \
+      -d '{"content":"'"$1"'"}' "${webhook}" >/dev/null || echo "Webhook notification failed (non-fatal)." >&2
+  fi
+}
 
 available_gb() {
   local docker_root
@@ -222,6 +269,50 @@ if ! "${COMPOSE[@]}" exec -T caddy \
 fi
 "${COMPOSE[@]}" exec -T caddy \
   caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+
+if [[ "${TESTORA_RUNNER_ENABLED}" == true ]]; then
+  # Egress self-test (ADR 0004 §7), from a fresh container on the runner's own
+  # networks: every internal address must be unreachable, the public Hub
+  # reachable. The runner's built-in probes (service names, metadata, an
+  # RFC1918 address, its gateway) plus this host's real addresses.
+  echo "[deploy $(date -Is)] Testora runner egress self-test..."
+  ip_of() {
+    local id; id="$("${COMPOSE[@]}" ps -q "$1" | head -n1)"
+    [[ -n "$id" ]] && docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$id" | awk '{print $1}'
+  }
+  gateway_of() {
+    docker network inspect -f '{{range .IPAM.Config}}{{.Gateway}} {{end}}' "$1" 2>/dev/null | awk '{print $1}'
+  }
+  PROBES=()
+  add_probe() { [[ -n "$1" ]] && PROBES+=("$1:$2"); return 0; }
+  add_probe "$(ip_of testora-postgres)" 5432
+  add_probe "$(ip_of redis)" 6379
+  add_probe "$(ip_of postgres)" 5432
+  add_probe "$(ip_of caddy)" 443
+  add_probe "$(gateway_of "${COMPOSE_PROJECT_NAME}_asafarim_net")" 22
+  add_probe "$(gateway_of "${COMPOSE_PROJECT_NAME}_testora_egress")" 22
+  add_probe "$(gateway_of bridge)" 22
+  # The host's public address: sshd, and every port published on it other
+  # than Caddy's 80/443 (MinIO's 9100/9011 at the time of #718).
+  for host_ip in $(ip -4 -o addr show scope global | awk '$2 !~ /^(docker|br-|veth)/ { split($4, a, "/"); print a[1] }'); do
+    add_probe "$host_ip" 22
+    for port in $(docker ps --format '{{.Ports}}' | grep -oE '0\.0\.0\.0:[0-9]+' | cut -d: -f2 | sort -un); do
+      [[ "$port" == 80 || "$port" == 443 ]] || add_probe "$host_ip" "$port"
+    done
+  done
+  if ! "${COMPOSE[@]}" run --rm --no-deps -T testora-runner \
+      node main.mjs --egress-self-test --public https://hub.asafarim.com/ "${PROBES[@]}"; then
+    echo "FATAL: the Testora runner egress self-test failed — stopping testora-runner." >&2
+    "${COMPOSE[@]}" stop testora-runner || true
+    notify_discord "❌ ASafarIM deploy ${IMAGE_TAG:0:12}: Testora runner egress self-test FAILED — testora-runner stopped. See the deploy log."
+    exit 1
+  fi
+else
+  # Rollback path: removing the token stops a runner from an earlier deploy
+  # (an inactive profile's container is not an orphan to --remove-orphans).
+  "${COMPOSE[@]}" --profile testora-runner rm -sf testora-runner >/dev/null 2>&1 || true
+  echo "[deploy $(date -Is)] Testora runner not enabled (no TESTORA_RUNNER_TOKEN) — egress self-test skipped."
+fi
 
 # Record immutable revisions for operators and retain recent images for a
 # quick rollback. Active container images are always protected by Docker.

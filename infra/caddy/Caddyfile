@@ -74,6 +74,12 @@ edumatch.asafarim.com {
 
 testora.asafarim.com {
   import deploying
+  # The runner protocol (/internal/runner/*) is served to testora-runner over
+  # the private testora_control network only — never through the public proxy
+  # (#718, ADR 0004 §1). Caddy matches the cleaned, decoded path, so
+  # /INTERNAL/…, /%69nternal/… and /x/../internal/… are caught too.
+  @internal path /internal /internal/*
+  respond @internal 404
   # Test runs stream progress over a long-lived connection; be generous.
   reverse_proxy testora:3000 {
     transport http {

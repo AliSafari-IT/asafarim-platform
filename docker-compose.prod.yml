@@ -404,6 +404,53 @@ services:
         condition: service_completed_successfully
     networks:
       - asafarim_net
+      - testora_control
+
+  # Isolated test runner (#718, ADR 0004 §1, §5). Pulls jobs from `testora`
+  # over testora_control and reaches targets over testora_egress, whose
+  # traffic the host filters (infra/scripts/testora-egress-firewall.sh). Never
+  # on asafarim_net: it can't resolve or route to postgres, redis or any app.
+  # Opt-in profile: vps-deploy.sh enables it only when TESTORA_RUNNER_TOKEN is
+  # set in .env.production, after the Caddy /internal/* block and the control
+  # network are live (#723).
+  testora-runner:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:testora-runner-${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/testora/Dockerfile
+      target: runner-worker
+    profiles: ["testora-runner"]
+    restart: unless-stopped
+    # No env_file: the runner gets its control URL, credentials and limits,
+    # nothing else from the platform's environment.
+    environment:
+      TESTORA_CONTROL_URL: http://testora:3000
+      TESTORA_RUNNER_TOKEN: ${TESTORA_RUNNER_TOKEN:-}
+      TESTORA_RUNNER_SIGNING_SECRETS: ${TESTORA_RUNNER_SIGNING_SECRETS:-}
+      TESTORA_RUNNER_CONCURRENCY: ${TESTORA_RUNNER_CONCURRENCY:-2}
+      TESTORA_EGRESS_SELF_TEST: "1"
+      E2E_BROWSER: "chromium:headless --no-sandbox --disable-gpu --disable-dev-shm-usage"
+    read_only: true
+    # /tmp: per-job specs, Chromium profiles and artifacts. HOME: Chromium
+    # writes ~/.config and ~/.cache even headless.
+    tmpfs:
+      - /tmp:size=1g,mode=1777
+      - /home/node:size=256m,uid=1000,gid=1000,mode=0700
+    user: node
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    # Sized for the default concurrency of 2: two Chromiums plus Node and the
+    # tmpfs (which counts against the memory limit).
+    pids_limit: 512
+    mem_limit: 3g
+    cpus: 2
+    shm_size: 1g
+    depends_on:
+      - testora
+    networks:
+      - testora_control
+      - testora_egress
 
   # appbuilder keeps its OWN database, isolated from the shared Prisma
   # Postgres and from testora's/others' app-local databases.
@@ -759,6 +806,17 @@ services:
 
 networks:
   asafarim_net:
+  # Runner ↔ web only (#718): no gateway, no internet.
+  testora_control:
+    internal: true
+  # The runner's way out. Fixed subnet: the host egress filter matches on it
+  # (infra/scripts/testora-egress-firewall.sh — keep the two in sync; a test
+  # checks). No IPv6 until there is an ip6tables equivalent.
+  testora_egress:
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 172.31.254.0/24
 
 volumes:
   postgres_data:

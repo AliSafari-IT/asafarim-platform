@@ -56,6 +56,7 @@ export const IMAGES = [
   { image: "edumatch", group: "edumatch", package: "edumatch" },
   { image: "testora-migrator", group: "testora", package: "testora" },
   { image: "testora", group: "testora", package: "testora" },
+  { image: "testora-runner", group: "testora", package: "testora" },
   {
     image: "appbuilder-migrate",
     group: "appbuilder",

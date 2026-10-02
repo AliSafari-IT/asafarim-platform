@@ -1,0 +1,19 @@
+# Installed by infra/scripts/vps-deploy.sh (#718). Re-applies the Testora
+# runner egress filter at boot and whenever Docker (re)starts: iptables rules
+# don't survive a reboot, and PartOf= re-runs this after a Docker restart.
+# The runner also refuses to pull jobs until the filter holds
+# (TESTORA_EGRESS_SELF_TEST=1), which covers the window at boot before this
+# unit has run.
+[Unit]
+Description=Testora runner egress filter (testora_egress)
+After=docker.service network-online.target
+Wants=network-online.target
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/testora-egress-firewall
+
+[Install]
+WantedBy=multi-user.target docker.service
