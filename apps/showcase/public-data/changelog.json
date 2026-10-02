@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-02",
+    "title": "Testora: runner program and pull protocol behind TESTORA_RUNNER_MODE (ADR 0004 step 2)",
+    "sha": "57ee2366",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/57ee2366"
+  },
+  {
+    "date": "2026-10-02",
     "title": "Testora: durable runs — run state and queue in the database (ADR 0004 step 1)",
     "sha": "2284cfd8",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2284cfd8"
@@ -112,11 +118,5 @@
     "title": "Resumatch: translate the tailor flow and preview pages (NL/FR/DE)",
     "sha": "e51b441a",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/e51b441a"
-  },
-  {
-    "date": "2026-09-26",
-    "title": "Resumatch: translate the app shell and tailoring history (NL/FR/DE)",
-    "sha": "3880680a",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3880680a"
   }
 ]
