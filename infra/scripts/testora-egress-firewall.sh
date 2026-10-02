@@ -101,6 +101,9 @@ ensure_first_jump() {
 ensure_first_jump DOCKER-USER "$FWD_CHAIN"
 ensure_first_jump INPUT "$IN_CHAIN"
 
-echo "testora egress filter: ${SUBNET} — host ${HOST_IPS[*]}, resolvers ${RESOLVERS[*]:-none}"
-ipt -S "$FWD_CHAIN" | sed 's/^/  /'
-ipt -S "$IN_CHAIN" | sed 's/^/  /'
+# A summary only: this output reaches the deploy log, and a public repo's
+# Actions logs are public (#718 review). The full rule set stays on the host:
+#   sudo iptables -S TESTORA-EGRESS; sudo iptables -S TESTORA-EGRESS-IN
+RULES="$(ipt -S "$FWD_CHAIN"; ipt -S "$IN_CHAIN")"
+echo "testora egress filter: ${SUBNET} — $(grep -c "^-A ${FWD_CHAIN} " <<<"$RULES") ${FWD_CHAIN} rules," \
+  "$(grep -c "^-A ${IN_CHAIN} " <<<"$RULES") ${IN_CHAIN} rules, sha256 $(sha256sum <<<"$RULES" | cut -c1-16)"

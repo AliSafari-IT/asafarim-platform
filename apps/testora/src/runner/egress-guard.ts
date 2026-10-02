@@ -23,6 +23,12 @@ export interface EgressGuardOptions {
   intervalMs: number;
   maxAgeMs: number;
   onFail: (report: SelfTestReport) => void;
+  /**
+   * After each passing *interval* check — one call per `intervalMs`, so the
+   * log shows the fence is still being checked. Pre-lease checks don't call
+   * it: after idle they can run every lease.
+   */
+  onPeriodicPass?: () => void;
   now?: () => number;
 }
 
@@ -79,7 +85,10 @@ export class EgressGuard {
 
   start(): void {
     if (this.timer || this.failedReport) return;
-    this.timer = setInterval(() => void this.check(), this.opts.intervalMs);
+    this.timer = setInterval(
+      () => void this.check().then((ok) => ok && this.opts.onPeriodicPass?.()),
+      this.opts.intervalMs,
+    );
   }
 
   stop(): void {

@@ -466,6 +466,7 @@ async function main(): Promise<void> {
       intervalMs: EGRESS_RECHECK_MS,
       maxAgeMs: EGRESS_MAX_AGE_MS,
       onFail: (failed) => onEgressFailure(failed.lines),
+      onPeriodicPass: () => log("egress re-check passed"),
     });
     egressGuard.markPassed();
     egressGuard.start();
