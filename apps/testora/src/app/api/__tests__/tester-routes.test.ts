@@ -14,6 +14,25 @@ let session: { user: { id: string; roles: string[] } } | null = null;
 
 mock.module("server-only", { namedExports: {} });
 mock.module("@asafarim/auth", { namedExports: { auth: async () => session } });
+// The run log is durable (DB-backed) since #716; these tests are about the
+// guard, so stand in for it: no run exists.
+mock.module("../../../test-engine/executors/runLog.ts", {
+  namedExports: {
+    getRun: async () => undefined,
+    cancelRun: async () => false,
+    createRun: async () => {},
+    setRunMeta: async () => {},
+    appendLog: () => {},
+    scheduleRun: async () => ({ status: "running" }),
+    getActiveRunFor: async () => null,
+    getCapacity: async () => ({ limit: 2, maxQueue: 20, running: [], queued: [] }),
+    runStore: () => ({ recentRunTimes: async () => [] }),
+    completeRun: async () => {},
+    failRun: async () => {},
+    runSignal: () => undefined,
+    isRunFinished: () => true,
+  },
+});
 
 const run = await import("../run/route");
 const cancel = await import("../run/[runId]/route");

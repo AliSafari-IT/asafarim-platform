@@ -8,6 +8,7 @@ import * as schema from "./schema";
 const connectionString =
   process.env.TESTORA_DATABASE_URL ?? "postgres://e2e_testora:e2e_testora@127.0.0.1:55434/e2e-testing-db";
 
-const pool = new Pool({ connectionString });
+// Exported for the durable run queue (raw SQL with row locks + LISTEN/NOTIFY).
+export const pool = new Pool({ connectionString });
 
 export const db = drizzle(pool, { schema });

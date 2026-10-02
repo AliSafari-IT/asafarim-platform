@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import {
-  executeFixture,
   loadFixtureRunPlan,
   loadSuiteRunPlan,
   loadRequirementRunPlan,
@@ -10,37 +9,36 @@ import {
   loadAllRunPlan,
   type RunPlan,
 } from "@/test-engine/executors/testExecutor";
-import { toJsonReport } from "@/test-engine/formatters/resultFormatter";
 import {
   createRun,
   setRunMeta,
   appendLog,
-  completeRun,
-  failRun,
-  getRun,
   scheduleRun,
   getActiveRunFor,
   getCapacity,
+  runStore,
 } from "@/test-engine/executors/runLog";
 import { auth } from "@asafarim/auth";
-import type { FormattedReport } from "@/test-engine/types";
 import { getActiveProjectId } from "@/lib/active-project";
 import { isProjectViewable } from "@/lib/app-access";
 import { requireTester } from "@/lib/viewer-role";
 import { isAdminRole } from "@/lib/access-policy";
 import { resolveRunTarget } from "@/lib/run-target";
-import { TargetPolicyError, assertRunnableTarget } from "@/lib/target-policy";
 import { unitTargetsWeb } from "@/lib/web-target";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { projects, targetEnvironments, targetSecrets } from "@/db/schema";
-import { decryptToken } from "@/lib/crypto";
-import { buildRunSpecEnv } from "@/lib/run-secrets";
+import { projects, targetEnvironments } from "@/db/schema";
+import { loadTargetSecrets } from "@/lib/run-executor";
 import { checkRunOwnership } from "@/lib/ownership";
 import { planScopeError } from "@/lib/run-scope";
-import { rateLimitKey, runRateLimiter } from "@/lib/run-rate-limit";
+import {
+  RATE_WINDOW_MS,
+  rateLimitDecision,
+  rateLimitKey,
+  runsPerTargetPerHour,
+} from "@/lib/run-rate-limit";
 
-// Reads live in-memory run state, so it must never be statically cached.
+// Reads live run state, so it must never be statically cached.
 export const dynamic = "force-dynamic";
 
 // Lets a client that just (re)loaded discover ITS in-progress (or queued) run
@@ -48,8 +46,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = await auth();
   return NextResponse.json({
-    active: getActiveRunFor(session?.user?.id ?? null),
-    capacity: getCapacity(),
+    active: await getActiveRunFor(session?.user?.id ?? null),
+    capacity: await getCapacity(),
   });
 }
 
@@ -295,8 +293,11 @@ export async function POST(request: Request) {
   }
 
   // Per-target rate limit (#703).
-  const limited = runRateLimiter().tryAcquire(
-    rateLimitKey(targetId, baseUrl ?? runnableUnits[0]?.fixture.baseUrl),
+  // Durable (#716): counted from the runs table, so a restart doesn't reset it.
+  const rateKey = rateLimitKey(targetId, baseUrl ?? runnableUnits[0]?.fixture.baseUrl);
+  const limited = rateLimitDecision(
+    await runStore().recentRunTimes(rateKey, RATE_WINDOW_MS),
+    runsPerTargetPerHour(),
   );
   if (!limited.ok) {
     return NextResponse.json(
@@ -309,10 +310,14 @@ export async function POST(request: Request) {
   }
 
   const runId = randomUUID();
-  createRun(runId, {
-    id: session?.user?.id ?? null,
-    name: session?.user?.name ?? session?.user?.email ?? null,
-  });
+  await createRun(
+    runId,
+    {
+      id: session?.user?.id ?? null,
+      name: session?.user?.name ?? session?.user?.email ?? null,
+    },
+    { projectId, targetId: targetId ?? null, rateKey },
+  );
 
   const totalRuns = runnableUnits.reduce(
     (total, unit) =>
@@ -323,7 +328,7 @@ export async function POST(request: Request) {
       ),
     0,
   );
-  setRunMeta(runId, totalRuns, plan.label);
+  await setRunMeta(runId, totalRuns, plan.label);
 
   if (skippedDestructive.length > 0) {
     appendLog(
@@ -344,16 +349,13 @@ export async function POST(request: Request) {
     );
   }
 
-  // At most TESTORA_MAX_CONCURRENT_RUNS runs drive a browser at once (see
-  // runLog/runScheduler); anything beyond waits in a FIFO queue and starts
-  // automatically — the client is told it is queued and where.
-  const admission = scheduleRun(runId, () =>
-    runInBackground(
-      runId,
-      { ...plan, units: runnableUnits },
-      { baseUrl, apiUrl, hubUrl, targetName, secrets, secretsProjectId: projectId },
-    ),
-  );
+  // At most TESTORA_MAX_CONCURRENT_RUNS runs drive a browser at once; anything
+  // beyond waits in the durable FIFO queue (runLog/runStore) and starts
+  // automatically — even after a restart. The job is frozen (encrypted) now.
+  const admission = await scheduleRun(runId, {
+    plan: { ...plan, units: runnableUnits },
+    env: { baseUrl, apiUrl, hubUrl, targetName, secrets, secretsProjectId: projectId },
+  });
 
   if (admission.status === "rejected") {
     return NextResponse.json(
@@ -365,7 +367,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const capacity = getCapacity();
+  const capacity = await getCapacity();
   return NextResponse.json(
     admission.status === "queued"
       ? {
@@ -381,196 +383,4 @@ export async function POST(request: Request) {
       : { runId, status: "running" },
     { status: 202 },
   );
-}
-
-async function runInBackground(
-  runId: string,
-  plan: RunPlan,
-  env: RunEnv,
-): Promise<void> {
-  try {
-    const totalCases = plan.units.reduce(
-      (total, unit) => total + unit.cases.length,
-      0,
-    );
-    appendLog(
-      runId,
-      `Starting run for ${plan.label} — ${plan.units.length} fixture(s), ${totalCases} case(s)...`,
-    );
-    if (env.baseUrl || env.apiUrl) {
-      appendLog(
-        runId,
-        `Target${env.targetName ? ` "${env.targetName}"` : ""}: site ${env.baseUrl ?? "(default)"}${env.apiUrl ? `, API ${env.apiUrl}` : ""}${env.hubUrl ? `, Hub ${env.hubUrl}` : ""}`,
-      );
-    }
-
-    if (Object.keys(env.secrets).length > 0) {
-      appendLog(runId, `Target secrets: ${Object.keys(env.secrets).sort().join(", ")}`);
-    }
-
-    const run = getRun(runId);
-    const signal = run?.abortController.signal;
-    const reports: FormattedReport[] = [];
-    const deprecated = new Set<string>();
-
-    for (const unit of plan.units) {
-      if (signal?.aborted) break;
-      if (plan.units.length > 1) {
-        appendLog(
-          runId,
-          `── Fixture: ${unit.fixture.title} (${unit.cases.length} case(s)) ──`,
-        );
-      }
-      try {
-        // Re-check the network policy right before the browser starts: the
-        // admission check may be minutes old (queued run), and a fixture's own
-        // URL (no override) hasn't been checked yet.
-        await assertUnitTargets(unit, env.apiUrl, env.hubUrl);
-        // Only the run's target secrets (for fixtures of the target's own app),
-        // the run's values and — deprecated, seeded ASafariM apps only — their
-        // server-env credentials. Never the rest of process.env.
-        const specEnv = buildRunSpecEnv({
-          projectId: unit.projectId,
-          targetSecrets: unit.projectId === env.secretsProjectId ? env.secrets : {},
-          runValues: {},
-          serverEnv: process.env,
-        });
-        for (const name of specEnv.deprecatedFallback) {
-          if (!deprecated.has(name)) {
-            deprecated.add(name);
-            appendLog(
-              runId,
-              `⚠ Deprecated: ${name} came from the server environment — store it as a target secret instead.`,
-            );
-          }
-        }
-        reports.push(...(await runUnitWithRetry(runId, unit, signal, env, specEnv.env)));
-      } catch (error) {
-        if (signal?.aborted) break;
-        // A fixture that can't even start its browser shouldn't sink the whole
-        // run — record its cases as errored and carry on to the next fixture.
-        const message =
-          error instanceof Error ? error.message : "Fixture failed to run";
-        appendLog(
-          runId,
-          `✖ Fixture "${unit.fixture.title}" could not run: ${message}`,
-        );
-        reports.push(...errorReports(unit, message));
-      }
-    }
-
-    appendLog(runId, `Run complete: ${reports.length} case(s) executed.`);
-    completeRun(runId, reports);
-  } catch (error) {
-    const run = getRun(runId);
-    if (!run?.done) {
-      failRun(runId, error instanceof Error ? error.message : "Run failed");
-    }
-  }
-}
-
-interface RunEnv {
-  baseUrl?: string;
-  apiUrl?: string;
-  hubUrl?: string;
-  targetName?: string;
-  /** Decrypted secrets of the run's target. */
-  secrets: Record<string, string>;
-  /** The project those secrets belong to — they only reach that app's fixtures. */
-  secretsProjectId: string;
-}
-
-/** A target's secrets, decrypted (rows that fail to decrypt are skipped). */
-async function loadTargetSecrets(targetId: string): Promise<Record<string, string>> {
-  const rows = await db
-    .select({ name: targetSecrets.name, valueEnc: targetSecrets.valueEnc })
-    .from(targetSecrets)
-    .where(eq(targetSecrets.targetId, targetId));
-  const out: Record<string, string> = {};
-  for (const row of rows) {
-    const value = decryptToken(row.valueEnc);
-    if (value !== null) out[row.name] = value;
-  }
-  return out;
-}
-
-/** Throws (TargetPolicyError) when a fixture's page or API origin is not runnable. */
-async function assertUnitTargets(
-  unit: RunUnit,
-  apiUrl: string | undefined,
-  hubUrl: string | undefined,
-): Promise<void> {
-  for (const url of [unit.fixture.baseUrl, apiUrl, hubUrl]) {
-    // Relative/empty URLs resolve against an origin that was already checked.
-    if (!url || !/^[a-z][a-z0-9+.-]*:/i.test(url)) continue;
-    try {
-      await assertRunnableTarget(url, { isAdmin: true, stored: true });
-    } catch (error) {
-      if (error instanceof TargetPolicyError) {
-        throw new Error(`Blocked by the target policy — ${error.message}`);
-      }
-      throw error;
-    }
-  }
-}
-
-// Browser launch is the flaky step (esp. when many fixtures run in sequence in
-// the dev server). Retry once on a connection/launch failure with a short pause.
-async function runUnitWithRetry(
-  runId: string,
-  unit: RunPlan["units"][number],
-  signal: AbortSignal | undefined,
-  env: { apiUrl?: string; hubUrl?: string },
-  secretEnv: Record<string, string>,
-): Promise<FormattedReport[]> {
-  const maxAttempts = 2;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const results = await executeFixture(unit.fixture, unit.cases, {
-        onLog: (line) => appendLog(runId, line),
-        signal,
-        // Scoped to this run's spec — concurrent runs share this process.
-        apiUrl: env.apiUrl,
-        hubUrl: env.hubUrl,
-        // Creating accounts (sign-up fallbacks) only against local targets.
-        allowSignup: !unitTargetsWeb(unit, env.apiUrl),
-        secretEnv,
-      });
-      return toJsonReport(unit.suiteTitle, unit.fixture, unit.cases, results);
-    } catch (error) {
-      if (signal?.aborted) throw error;
-      const message = error instanceof Error ? error.message : String(error);
-      const launchFailed =
-        /establish.*browser connection|browser connection|unable to establish|browser disconnected/i.test(
-          message,
-        );
-      if (launchFailed && attempt < maxAttempts) {
-        appendLog(
-          runId,
-          `Browser did not start for "${unit.fixture.title}" (attempt ${attempt}/${maxAttempts}). Retrying...`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, 4000));
-        continue;
-      }
-      throw error;
-    }
-  }
-  return [];
-}
-
-// Synthesize error reports for a fixture whose browser never started, so the
-// failure is visible in the results (and rerunnable via "rerun failed").
-function errorReports(
-  unit: RunPlan["units"][number],
-  message: string,
-): FormattedReport[] {
-  return unit.cases.map((testCase) => ({
-    suite: unit.suiteTitle,
-    fixture: unit.fixture.title,
-    fixtureId: unit.fixture.fixtureId,
-    caseId: testCase.caseId,
-    case: testCase.title,
-    status: "error" as const,
-    details: { errorMessage: message },
-  }));
 }

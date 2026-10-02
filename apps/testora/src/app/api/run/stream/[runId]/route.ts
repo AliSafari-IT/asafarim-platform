@@ -1,36 +1,40 @@
-import { getRun, queueInfo, type QueueInfo } from "@/test-engine/executors/runLog";
+import { queueInfo, runStore, type QueueInfo } from "@/test-engine/executors/runLog";
+import { isRunNotifierConnected, subscribeRunEvents } from "@/test-engine/executors/runEventsNotifier";
 
 export const dynamic = "force-dynamic";
 
+/** Poll interval when LISTEN/NOTIFY is down, and as a safety net when it's up. */
+const POLL_MS = 2_000;
+const POLL_MS_WITH_NOTIFY = 10_000;
+
+/**
+ * Live log for one run (#716): tails the run's append-only `run_events` rows,
+ * woken by LISTEN/NOTIFY with a polling fallback. Holds no run state in
+ * memory, so any process can serve any run's stream and a restart loses
+ * nothing — the client reconnects and resumes after the last event it got.
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ runId: string }> },
 ) {
   const { runId } = await params;
-  const run = getRun(runId);
+  const store = runStore();
+  const run = await store.get(runId);
   if (!run) {
     return new Response("Run not found", { status: 404 });
   }
 
   // EventSource reconnects automatically when the connection drops (common on
-  // long runs). On reconnect the browser sends back the id of the last log line
-  // it received; resume from there so we never replay lines the client already
-  // has — replaying them would double-count completed tests in the progress bar.
-  const lastEventId = Number.parseInt(
-    request.headers.get("Last-Event-ID") ?? "",
-    10,
-  );
-  const resumeFrom = Number.isNaN(lastEventId) ? -1 : lastEventId;
+  // long runs) and sends back the id of the last event it received — the
+  // event's seq. Resume after it, so lines are never replayed (replaying them
+  // would double-count completed tests in the progress bar).
+  const lastEventId = Number.parseInt(request.headers.get("Last-Event-ID") ?? "", 10);
+  let cursor = Number.isNaN(lastEventId) ? 0 : lastEventId;
 
   const encoder = new TextEncoder();
-
-  // Detaches this client's listeners from the run. Must run however the
-  // stream ends — including when the browser disconnects (tab closed,
-  // navigation, EventSource reconnect). A stale listener would otherwise
-  // write to a closed stream and THROW inside run.emitter.emit(), i.e. inside
-  // the run's own log writer or the cancel request, breaking the run.
-  let detach: () => void = () => {};
   let closed = false;
+  let unsubscribe: () => void = () => {};
+  let poller: ReturnType<typeof setTimeout> | undefined;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -38,21 +42,16 @@ export async function GET(
         if (closed) return;
         const idLine = id != null ? `id: ${id}\n` : "";
         try {
-          controller.enqueue(
-            encoder.encode(
-              `${idLine}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
-            ),
-          );
+          controller.enqueue(encoder.encode(`${idLine}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
         } catch {
-          // The client went away between checks — stop sending, never throw
-          // back into the emitter.
-          closed = true;
-          detach();
+          stop();
         }
       };
-      const close = () => {
+      const stop = () => {
         if (closed) return;
         closed = true;
+        unsubscribe();
+        if (poller) clearTimeout(poller);
         try {
           controller.close();
         } catch {
@@ -60,79 +59,75 @@ export async function GET(
         }
       };
 
-      if (run.totalRuns != null && run.label != null) {
-        send("meta", { totalRuns: run.totalRuns, label: run.label });
-      }
-      // A queued run learns where it stands right away (and on every change
-      // via the "queue" listener below); "started" fires when a runner frees up.
-      if (run.status === "queued") {
-        const info = queueInfo(runId);
-        if (info) send("queue", info);
-      }
-
-      // Each log line's id is its index in the buffer. `cursor` is the next index
-      // we still owe the client; flushing is idempotent so live emissions and the
-      // initial backlog can't duplicate or skip lines.
-      let cursor = resumeFrom + 1;
-      const flush = () => {
-        for (; cursor < run.lines.length; cursor++) {
-          send("log", run.lines[cursor], cursor);
+      let lastQueue: string | null = null;
+      let pumping = false;
+      let again = false;
+      // Send every event after `cursor`; end the stream on done/error. While
+      // queued, also report the (computed) place in line when it changes.
+      const pump = async () => {
+        if (closed) return;
+        if (pumping) {
+          again = true;
+          return;
+        }
+        pumping = true;
+        try {
+          do {
+            again = false;
+            for (const event of await store.eventsAfter(runId, cursor)) {
+              cursor = event.seq;
+              if (event.kind === "log") send("log", event.payload, event.seq);
+              else if (event.kind === "done" || event.kind === "error") {
+                send(event.kind, event.payload, event.seq);
+                stop();
+                return;
+              } else send(event.kind, event.payload, event.seq);
+            }
+            const current = await store.get(runId);
+            if (current?.status === "queued") {
+              const info = await queueInfo(runId);
+              const key = info ? JSON.stringify(info) : null;
+              if (info && key !== lastQueue) {
+                lastQueue = key;
+                send("queue", info satisfies QueueInfo);
+              }
+            }
+            // Finished without a terminal event (e.g. pruned) — nothing more will come.
+            if (current && !["created", "queued", "running"].includes(current.status) && !again) {
+              const tail = await store.eventsAfter(runId, cursor);
+              if (tail.length === 0) {
+                send(current.status === "done" ? "done" : "error", current.status === "done" ? [] : (current.error ?? "Run ended"));
+                stop();
+                return;
+              }
+              again = true;
+            }
+          } while (again && !closed);
+        } catch (error) {
+          console.error(`[testora] stream ${runId} failed to read events:`, error);
+        } finally {
+          pumping = false;
         }
       };
 
-      if (run.done) {
-        flush();
-        send(run.error ? "error" : "done", run.error ?? run.result);
-        close();
-        return;
-      }
-
-      const onLog = () => flush();
-      const onMeta = (meta: { totalRuns: number; label: string }) =>
-        send("meta", meta);
-      const onQueue = (info: QueueInfo) => send("queue", info);
-      const onStarted = (info: { waitedMs: number }) => send("started", info);
-      const onDone = (result: unknown) => {
-        flush();
-        send("done", result);
-        cleanup();
-        close();
+      const schedulePoll = () => {
+        if (closed) return;
+        poller = setTimeout(async () => {
+          await pump();
+          schedulePoll();
+        }, isRunNotifierConnected() ? POLL_MS_WITH_NOTIFY : POLL_MS);
       };
-      const onError = (error: string) => {
-        flush();
-        send("error", error);
-        cleanup();
-        close();
-      };
-      function cleanup() {
-        run!.emitter.off("log", onLog);
-        run!.emitter.off("meta", onMeta);
-        run!.emitter.off("queue", onQueue);
-        run!.emitter.off("started", onStarted);
-        run!.emitter.off("done", onDone);
-        run!.emitter.off("error", onError);
-      }
 
-      // Subscribe before the initial flush so a line appended in between still
-      // gets delivered (the listener flushes from the shared cursor).
-      run.emitter.on("log", onLog);
-      run.emitter.on("meta", onMeta);
-      run.emitter.on("queue", onQueue);
-      run.emitter.on("started", onStarted);
-      run.emitter.on("done", onDone);
-      run.emitter.on("error", onError);
-      detach = cleanup;
-      request.signal.addEventListener("abort", () => {
-        closed = true;
-        cleanup();
-      });
-
-      flush();
+      unsubscribe = subscribeRunEvents(runId, () => void pump());
+      request.signal.addEventListener("abort", stop);
+      void pump();
+      schedulePoll();
     },
     // The client disconnected.
     cancel() {
       closed = true;
-      detach();
+      unsubscribe();
+      if (poller) clearTimeout(poller);
     },
   });
 

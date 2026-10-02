@@ -49,6 +49,10 @@ mock.module("../../../test-engine/executors/runLog.ts", {
     scheduleRun: () => ({ status: "running" }),
     getActiveRunFor: () => null,
     getCapacity: () => ({ running: [], queued: [], limit: 2 }),
+    // Durable run log (#716): rate-limit history + the executor's hooks.
+    runStore: () => ({ recentRunTimes: async () => [] }),
+    runSignal: () => undefined,
+    isRunFinished: () => false,
   },
 });
 // The ownership query: no project rows (local targets need no proof anyway).

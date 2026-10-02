@@ -12,7 +12,7 @@ import {
   type OwnershipProject,
   type ProofDeps,
 } from "./ownership";
-import { RunRateLimiter, rateLimitKey, runsPerTargetPerHour } from "./run-rate-limit";
+import { rateLimitDecision, rateLimitKey, runsPerTargetPerHour } from "./run-rate-limit";
 import { readCapped } from "./ownership-verify";
 import { TESTORA_USER_AGENT, TESTORA_VERSION } from "./version";
 import { generateTestSpec } from "@/test-engine/generators/testGenerator";
@@ -109,17 +109,16 @@ test("a wrong or missing token does not verify, and says what was tried", async 
 
 // ── rate limit ────────────────────────────────────────────────────────────
 
-test("runs per target are capped per rolling hour", () => {
-  const limiter = new RunRateLimiter(2, 60 * 60 * 1000);
+test("runs per target are capped per rolling hour (decided from stored run times, #716)", () => {
+  const hour = 60 * 60 * 1000;
   const t0 = 1_000_000;
-  assert.equal(limiter.tryAcquire("target:a", t0).ok, true);
-  assert.equal(limiter.tryAcquire("target:a", t0 + 1000).ok, true);
-  const third = limiter.tryAcquire("target:a", t0 + 2000);
+  assert.equal(rateLimitDecision([], 2, t0).ok, true);
+  assert.equal(rateLimitDecision([t0], 2, t0 + 1000).ok, true);
+  const third = rateLimitDecision([t0, t0 + 1000], 2, t0 + 2000);
   assert.equal(third.ok, false);
   if (!third.ok) assert.equal(third.retryAfterSec, 3600 - 2);
-  // Other targets are independent; the window rolls.
-  assert.equal(limiter.tryAcquire("target:b", t0 + 2000).ok, true);
-  assert.equal(limiter.tryAcquire("target:a", t0 + 60 * 60 * 1000 + 1).ok, true);
+  // Runs older than the window don't count.
+  assert.equal(rateLimitDecision([t0, t0 + 1000], 2, t0 + hour + 1).ok, true);
 });
 
 test("rate-limit key and configured limit", () => {

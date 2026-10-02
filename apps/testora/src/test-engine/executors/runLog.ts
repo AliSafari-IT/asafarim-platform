@@ -1,31 +1,29 @@
-import { EventEmitter } from "node:events";
-import { RunScheduler, intFromEnv, type Admission } from "./runScheduler";
+import { hostname } from "node:os";
+import { randomUUID } from "node:crypto";
+import { pool } from "@/db/client";
+import { decryptToken, encryptToken } from "@/lib/crypto";
+import { createRunStore, type RunRow, type RunStore } from "./runStore";
+import type { RunJob } from "@/lib/run-executor";
+
+/**
+ * The run log + queue, durable (#716, ADR 0004 step 1).
+ *
+ * State lives in Postgres (runStore.ts): a deploy or crash no longer loses
+ * queued runs, and a run left "running" by a dead process ends as
+ * `error: "runner lost"` instead of hanging. Execution itself is still
+ * in-process (lib/run-executor.ts); this module keeps only what can't be
+ * persisted for the runs THIS process executes — abort controllers, the
+ * ordered log writer, watchdog timers — on globalThis so every route bundle
+ * shares it.
+ *
+ * Call sites keep the old names; reads and the finishing writes are async now.
+ */
 
 export type RunStatus = "queued" | "running" | "done";
 
 export interface RunOwner {
   id: string | null;
   name: string | null;
-}
-
-export interface RunRecord {
-  emitter: EventEmitter;
-  lines: string[];
-  status: RunStatus;
-  done: boolean;
-  result?: unknown;
-  error?: string;
-  abortController: AbortController;
-  totalRuns?: number;
-  label?: string;
-  owner: RunOwner;
-  queuedAt: number;
-  startedAt?: number;
-  finishedAt?: number;
-  /** 1-based place in the queue while status === "queued". */
-  position?: number;
-  /** Max-duration watchdog, armed when the run starts. */
-  watchdog?: ReturnType<typeof setTimeout>;
 }
 
 /** What a queued run's client is told (stream "queue" event, POST response). */
@@ -35,198 +33,277 @@ export interface QueueInfo {
   limit: number;
 }
 
-/**
- * Emit to a run's listeners (its live SSE streams) without ever letting a
- * listener's failure propagate. Emits happen inside the run itself (the
- * TestCafe log writer) and inside cancel requests — a throwing subscriber must
- * never break either.
- */
-function safeEmit(run: RunRecord, event: string, payload?: unknown): void {
-  try {
-    run.emitter.emit(event, payload);
-  } catch (error) {
-    console.error(`[testora] run listener failed on "${event}":`, error);
-  }
+export type Admission =
+  | { status: "running" }
+  | { status: "queued"; position: number }
+  | { status: "rejected"; reason: "queue-full" };
+
+/** Read an integer setting from the environment, clamped to [min, max]. */
+export function intFromEnv(value: string | undefined, fallback: number, min: number, max: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
 }
 
 /** A cancelled run's browser gets this long to stop before its slot is freed anyway. */
 const CANCEL_GRACE_MS = 30_000;
 /** Hard ceiling per run; a run still going after this is failed and its slot freed. */
 const MAX_RUN_MS = intFromEnv(process.env.TESTORA_MAX_RUN_MINUTES, 45, 5, 240) * 60_000;
+/** Lease length and renewal cadence (renew well before expiry). */
+const LEASE_MS = 30_000;
+const TICK_MS = 5_000;
+/** Finished runs (and their logs) are kept this long, then pruned. */
+const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Each Next.js route handler is compiled into its own bundle, so a plain
-// module-level singleton would not actually be shared between /api/run and
-// /api/run/stream/[runId]. Anchoring it on globalThis keeps a single Map
-// (and a single scheduler) across route bundles within the same Node process.
-const globalForRuns = globalThis as unknown as {
-  __e2eTestoraRuns?: Map<string, RunRecord>;
-  __e2eTestoraSchedulerV2?: RunScheduler;
-};
-const runs = globalForRuns.__e2eTestoraRuns ?? new Map<string, RunRecord>();
-globalForRuns.__e2eTestoraRuns = runs;
+interface LocalRun {
+  abort: AbortController;
+  /** Serialises this run's event writes so seq order = emit order. */
+  chain: Promise<unknown>;
+  finished: boolean;
+  cancelled: boolean;
+  watchdog?: ReturnType<typeof setTimeout>;
+}
 
-/**
- * At most TESTORA_MAX_CONCURRENT_RUNS (default 2, clamped 1–4) runs drive a
- * browser at once; up to TESTORA_MAX_QUEUED_RUNS (default 20) more wait their
- * turn. The queue lives in this process: a restart drops queued runs along
- * with the running ones (clients are told the run ended and can start again).
- */
-const scheduler =
-  // Versioned key: a dev hot-reload that changes the scheduler replaces the
-  // old instance instead of reusing one built from stale code.
-  globalForRuns.__e2eTestoraSchedulerV2 ??
-  new RunScheduler({
-    limit: intFromEnv(process.env.TESTORA_MAX_CONCURRENT_RUNS, 2, 1, 4),
-    maxQueue: intFromEnv(process.env.TESTORA_MAX_QUEUED_RUNS, 20, 1, 200),
-    onStart: (runId) => {
-      const run = runs.get(runId);
-      if (!run || run.done) return;
-      const waitedMs = Date.now() - run.queuedAt;
-      const wasQueued = run.status === "queued";
-      run.status = "running";
-      run.startedAt = Date.now();
-      run.position = undefined;
-      if (wasQueued && waitedMs > 1000) {
-        appendLog(runId, `▶ A runner is free — starting now (waited ${Math.round(waitedMs / 1000)}s in the queue).`);
-      }
-      safeEmit(run, "started", { waitedMs });
-      // A run that never finishes (hung browser, stuck target) must not hold
-      // a runner forever — with only a few runners that would stall the queue.
-      run.watchdog = setTimeout(() => {
-        if (run.done) return;
-        const minutes = Math.round(MAX_RUN_MS / 60_000);
-        appendLog(runId, `✖ Stopped after ${minutes} minutes — the maximum run time — to free the runner for others.`);
-        run.abortController.abort();
-        failRun(runId, `Run exceeded the ${minutes}-minute limit and was stopped`);
-        setTimeout(() => scheduler.release(runId), CANCEL_GRACE_MS).unref?.();
-      }, MAX_RUN_MS);
-      run.watchdog.unref?.();
-    },
-    onPositions: (positions) => {
-      const running = scheduler.snapshot().running.length;
-      for (const [runId, position] of positions) {
-        const run = runs.get(runId);
-        if (!run || run.done) continue;
-        run.position = position;
-        safeEmit(run, "queue", { position, running, limit: scheduler.limit } satisfies QueueInfo);
-      }
-    },
-  });
-globalForRuns.__e2eTestoraSchedulerV2 = scheduler;
+interface RunLogState {
+  instanceId: string;
+  store: RunStore;
+  local: Map<string, LocalRun>;
+  worker?: ReturnType<typeof setInterval>;
+  booted?: Promise<void>;
+  lastPrune: number;
+}
 
-// Finished runs are kept briefly so a reconnecting client can still read the
-// outcome, then dropped so the map doesn't grow for the life of the process.
-const FINISHED_RUN_TTL_MS = 60 * 60 * 1000;
+// Each Next.js route bundle gets its own module instance; anchor the state on
+// globalThis (versioned key, so a hot reload with new code replaces it).
+const globalForRuns = globalThis as unknown as { __testoraRunLogV3?: RunLogState };
 
-function pruneFinishedRuns(): void {
-  const cutoff = Date.now() - FINISHED_RUN_TTL_MS;
-  for (const [runId, run] of runs) {
-    if (run.done && (run.finishedAt ?? 0) < cutoff) runs.delete(runId);
+function state(): RunLogState {
+  if (!globalForRuns.__testoraRunLogV3) {
+    globalForRuns.__testoraRunLogV3 = {
+      // host:pid:boot — a restart on the same host gets a new id, which lets
+      // the boot sweep tell its predecessor's runs apart from live ones.
+      instanceId: `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`,
+      store: createRunStore(pool, {
+        limit: intFromEnv(process.env.TESTORA_MAX_CONCURRENT_RUNS, 2, 1, 4),
+        maxQueue: intFromEnv(process.env.TESTORA_MAX_QUEUED_RUNS, 20, 1, 200),
+        leaseMs: LEASE_MS,
+      }),
+      local: new Map(),
+      lastPrune: 0,
+    };
   }
+  return globalForRuns.__testoraRunLogV3;
 }
 
-export function createRun(runId: string, owner: RunOwner = { id: null, name: null }): void {
-  pruneFinishedRuns();
-  runs.set(runId, {
-    emitter: new EventEmitter(),
-    lines: [],
-    status: "queued",
-    done: false,
-    abortController: new AbortController(),
-    owner,
-    queuedAt: Date.now(),
-  });
+export function runStore(): RunStore {
+  return state().store;
+}
+
+function local(runId: string): LocalRun {
+  const s = state();
+  let run = s.local.get(runId);
+  if (!run) {
+    run = { abort: new AbortController(), chain: Promise.resolve(), finished: false, cancelled: false };
+    s.local.set(runId, run);
+  }
+  return run;
+}
+
+/** Queue an event write after this run's earlier ones; never throws. */
+function emit(runId: string, kind: string, payload: unknown): Promise<unknown> {
+  const run = local(runId);
+  run.chain = run.chain
+    .then(() => state().store.append(runId, kind, payload))
+    .catch((error) => console.error(`[testora] run ${runId}: could not record "${kind}":`, error));
+  return run.chain;
+}
+
+// ── Creating and admitting ─────────────────────────────────────────────────
+
+export async function createRun(
+  runId: string,
+  owner: RunOwner = { id: null, name: null },
+  extra: { projectId?: string | null; targetId?: string | null; rateKey?: string | null } = {},
+): Promise<void> {
+  await state().store.create({ id: runId, ownerId: owner.id, ownerName: owner.name, ...extra });
+  local(runId);
+}
+
+export async function setRunMeta(runId: string, totalRuns: number, label: string): Promise<void> {
+  await state().store.setMeta(runId, totalRuns, label);
+  await emit(runId, "meta", { totalRuns, label });
+}
+
+/** Append a log line. Fire-and-forget; lines are recorded in call order. */
+export function appendLog(runId: string, line: string): void {
+  void emit(runId, "log", line);
 }
 
 /**
- * Hand a created run to the scheduler: it starts now if a runner is free,
- * otherwise waits in the queue. A queued run is told where it stands.
+ * Freeze the run's job (encrypted — it holds target secrets) and queue it.
+ * It starts now if a runner is free, otherwise when one frees up — in this
+ * process or, after a restart, in the next one.
  */
-export function scheduleRun(runId: string, start: () => Promise<void>): Admission {
-  const admission = scheduler.submit(runId, start);
-  const run = runs.get(runId);
-  if (!run) return admission;
+export async function scheduleRun(runId: string, job: RunJob): Promise<Admission> {
+  const s = state();
+  ensureRunWorker();
+  await local(runId).chain; // the pre-admission log lines first
+  const { admission, claimed } = await s.store.admit(runId, encryptToken(JSON.stringify(job)), s.instanceId);
   if (admission.status === "queued") {
-    run.status = "queued";
-    run.position = admission.position;
-    const running = scheduler.snapshot().running.length;
+    const running = (await s.store.snapshot()).running.length;
     appendLog(
       runId,
-      `⏳ Queued — ${running} of ${scheduler.limit} test runners are busy. You're #${admission.position} in line; this run starts automatically when a runner frees up.`,
+      `⏳ Queued — ${running} of ${s.store.limit} test runners are busy. You're #${admission.position} in line; this run starts automatically when a runner frees up.`,
     );
-    safeEmit(run, "queue", { position: admission.position, running, limit: scheduler.limit } satisfies QueueInfo);
   } else if (admission.status === "rejected") {
-    run.status = "done";
-    run.done = true;
-    run.finishedAt = Date.now();
-    run.error = "The test queue is full";
+    await emit(runId, "error", "The test queue is full");
+    s.local.delete(runId);
   }
+  startClaimed(claimed);
   return admission;
 }
 
-export function queueInfo(runId: string): QueueInfo | null {
-  const position = scheduler.positionOf(runId);
-  if (position == null) return null;
-  return { position, running: scheduler.snapshot().running.length, limit: scheduler.limit };
+// ── Executing (this process) ───────────────────────────────────────────────
+
+function startClaimed(rows: RunRow[]): void {
+  for (const row of rows) void startRun(row);
 }
 
-export function setRunMeta(runId: string, totalRuns: number, label: string): void {
-  const run = runs.get(runId);
-  if (!run) return;
-  run.totalRuns = totalRuns;
-  run.label = label;
-  safeEmit(run, "meta", { totalRuns, label });
-}
+async function startRun(row: RunRow): Promise<void> {
+  const run = local(row.id);
+  const waitedMs = Date.now() - row.queuedAt.getTime();
+  if (waitedMs > 1000) {
+    appendLog(row.id, `▶ A runner is free — starting now (waited ${Math.round(waitedMs / 1000)}s in the queue).`);
+  }
+  void emit(row.id, "started", { waitedMs });
 
-export function cancelRun(runId: string): boolean {
-  const run = runs.get(runId);
-  if (!run || run.done) return false;
-  // A queued run just leaves the queue. A running one is aborted: TestCafe
-  // stops and the slot is released when the run's promise settles — or after
-  // a grace period if its browser session never returns.
-  const wasQueued = scheduler.cancelQueued(runId);
-  run.abortController.abort();
-  finish(run, { error: "Run cancelled" });
-  if (!wasQueued) setTimeout(() => scheduler.release(runId), CANCEL_GRACE_MS).unref?.();
-  return true;
-}
+  // A run that never finishes (hung browser, stuck target) must not hold a
+  // runner forever — with only a few runners that would stall the queue.
+  run.watchdog = setTimeout(() => {
+    if (run.finished) return;
+    const minutes = Math.round(MAX_RUN_MS / 60_000);
+    appendLog(row.id, `✖ Stopped after ${minutes} minutes — the maximum run time — to free the runner for others.`);
+    run.abort.abort();
+    void failRun(row.id, `Run exceeded the ${minutes}-minute limit and was stopped`);
+  }, MAX_RUN_MS);
+  run.watchdog.unref?.();
 
-export function appendLog(runId: string, line: string): void {
-  const run = runs.get(runId);
-  if (!run) return;
-  run.lines.push(line);
-  safeEmit(run, "log", line);
-}
-
-function finish(run: RunRecord, outcome: { result: unknown } | { error: string }): void {
-  run.done = true;
-  run.status = "done";
-  run.finishedAt = Date.now();
-  run.position = undefined;
-  if (run.watchdog) clearTimeout(run.watchdog);
-  if ("error" in outcome) {
-    run.error = outcome.error;
-    safeEmit(run, "error", outcome.error);
-  } else {
-    run.result = outcome.result;
-    safeEmit(run, "done", outcome.result);
+  const raw = row.jobEnc ? decryptToken(row.jobEnc) : null;
+  if (!raw) {
+    await failRun(row.id, "This run's job could not be read (was TESTORA_SECRET changed?)");
+    return;
+  }
+  try {
+    const { runInBackground } = await import("@/lib/run-executor");
+    const job = JSON.parse(raw) as RunJob;
+    await runInBackground(row.id, job.plan, job.env);
+  } catch (error) {
+    if (!run.finished) await failRun(row.id, error instanceof Error ? error.message : "Run failed");
   }
 }
 
-export function completeRun(runId: string, result: unknown): void {
-  const run = runs.get(runId);
-  if (!run || run.done) return;
-  finish(run, { result });
+/** The abort signal of a run this process executes. */
+export function runSignal(runId: string): AbortSignal | undefined {
+  return state().local.get(runId)?.abort.signal;
 }
 
-export function failRun(runId: string, error: string): void {
-  const run = runs.get(runId);
-  if (!run || run.done) return;
-  finish(run, { error });
+/** Whether this process already finished (or cancelled) the run. */
+export function isRunFinished(runId: string): boolean {
+  const run = state().local.get(runId);
+  return !run || run.finished;
 }
 
-export function getRun(runId: string): RunRecord | undefined {
-  return runs.get(runId);
+async function finishLocal(
+  runId: string,
+  outcome: { result: unknown } | { error: string },
+): Promise<void> {
+  const s = state();
+  const run = local(runId);
+  if (run.finished) return;
+  run.finished = true;
+  if (run.watchdog) clearTimeout(run.watchdog);
+  await run.chain;
+  if (run.cancelled) {
+    // The client already got "Run cancelled"; just free the slot.
+    await s.store.finish(runId, "cancelled", "Run cancelled");
+  } else if ("error" in outcome) {
+    await emit(runId, "error", outcome.error);
+    await s.store.finish(runId, "error", outcome.error);
+  } else {
+    await emit(runId, "done", outcome.result);
+    await s.store.finish(runId, "done");
+  }
+  s.local.delete(runId);
+  // A slot freed up: hand it to the next queued run.
+  startClaimed(await s.store.claimNext(s.instanceId).catch(() => []));
+}
+
+export async function completeRun(runId: string, result: unknown): Promise<void> {
+  await finishLocal(runId, { result });
+}
+
+export async function failRun(runId: string, error: string): Promise<void> {
+  await finishLocal(runId, { error });
+}
+
+/**
+ * Cancel a run. A queued run just leaves the queue. A running one is flagged:
+ * its process aborts TestCafe (now, if that's us; else on its next heartbeat)
+ * and frees the slot when the run settles — or after a grace period if the
+ * browser session never returns.
+ */
+export async function cancelRun(runId: string): Promise<boolean> {
+  const s = state();
+  const outcome = await s.store.requestCancel(runId);
+  if (!outcome) return false;
+  await emit(runId, "error", "Run cancelled");
+  if (outcome === "dequeued") {
+    s.local.delete(runId);
+    return true;
+  }
+  const run = s.local.get(runId);
+  if (run) abortLocal(runId, run);
+  return true;
+}
+
+function abortLocal(runId: string, run: LocalRun): void {
+  if (run.cancelled) return;
+  run.cancelled = true;
+  run.abort.abort();
+  setTimeout(() => void finishLocal(runId, { error: "Run cancelled" }), CANCEL_GRACE_MS).unref?.();
+}
+
+// ── Reads ──────────────────────────────────────────────────────────────────
+
+export interface RunView {
+  status: RunStatus;
+  /** Finished, failed, cancelled — or cancel requested (it's ending). */
+  done: boolean;
+  owner: RunOwner;
+  totalRuns?: number;
+  label?: string;
+  error?: string;
+}
+
+export async function getRun(runId: string): Promise<RunView | undefined> {
+  const row = await state().store.get(runId);
+  if (!row) return undefined;
+  const active = row.status === "queued" || row.status === "running" || row.status === "created";
+  return {
+    status: row.status === "queued" || row.status === "created" ? "queued" : row.status === "running" ? "running" : "done",
+    done: !active || row.cancelRequested,
+    owner: { id: row.ownerId, name: row.ownerName },
+    totalRuns: row.total ?? undefined,
+    label: row.label ?? undefined,
+    error: row.error ?? undefined,
+  };
+}
+
+export async function queueInfo(runId: string): Promise<QueueInfo | null> {
+  const s = state();
+  const position = await s.store.position(runId);
+  if (position == null) return null;
+  return { position, running: (await s.store.snapshot()).running.length, limit: s.store.limit };
 }
 
 export interface ActiveRunSummary {
@@ -240,23 +317,19 @@ export interface ActiveRunSummary {
 /**
  * The viewer's own unfinished run (most recent first), so a freshly loaded
  * client re-attaches to *its* run — with several people running tests, the
- * first active run in the map may belong to someone else.
+ * first active run may belong to someone else.
  */
-export function getActiveRunFor(ownerId: string | null): ActiveRunSummary | null {
-  let best: [string, RunRecord] | null = null;
-  for (const entry of runs.entries()) {
-    const run = entry[1];
-    if (run.done || run.owner.id !== ownerId) continue;
-    if (!best || run.queuedAt > best[1].queuedAt) best = entry;
-  }
-  if (!best) return null;
-  const [runId, run] = best;
+export async function getActiveRunFor(ownerId: string | null): Promise<ActiveRunSummary | null> {
+  const s = state();
+  const row = await s.store.activeFor(ownerId);
+  if (!row) return null;
+  const position = row.status === "queued" ? ((await s.store.position(row.id)) ?? undefined) : undefined;
   return {
-    runId,
-    status: run.status === "queued" ? "queued" : "running",
-    totalRuns: run.totalRuns,
-    label: run.label,
-    position: run.position,
+    runId: row.id,
+    status: row.status === "queued" ? "queued" : "running",
+    totalRuns: row.total ?? undefined,
+    label: row.label ?? undefined,
+    position,
   };
 }
 
@@ -268,16 +341,72 @@ export interface CapacitySnapshot {
 }
 
 /** Who is using the runners right now — shown on the Run page. */
-export function getCapacity(): CapacitySnapshot {
-  const snap = scheduler.snapshot();
-  const describe = (runId: string) => {
-    const run = runs.get(runId);
-    return { runId, label: run?.label ?? null, owner: run?.owner.name ?? null };
-  };
+export async function getCapacity(): Promise<CapacitySnapshot> {
+  const s = state();
+  const snap = await s.store.snapshot();
   return {
-    limit: snap.limit,
-    maxQueue: snap.maxQueue,
-    running: snap.running.map((runId) => ({ ...describe(runId), startedAt: runs.get(runId)?.startedAt ?? null })),
-    queued: snap.queued.map((runId, index) => ({ ...describe(runId), position: index + 1 })),
+    limit: s.store.limit,
+    maxQueue: s.store.maxQueue,
+    running: snap.running.map((r) => ({
+      runId: r.id,
+      label: r.label,
+      owner: r.ownerName,
+      startedAt: r.startedAt?.getTime() ?? null,
+    })),
+    queued: snap.queued.map((r, index) => ({ runId: r.id, label: r.label, owner: r.ownerName, position: index + 1 })),
   };
+}
+
+// ── The worker loop ────────────────────────────────────────────────────────
+
+/**
+ * Start this process's queue worker (idempotent): at boot, fail the runs a
+ * dead predecessor on this host left "running"; then every few seconds renew
+ * our leases (and pick up cancels from other processes), fail runs whose
+ * lease lapsed elsewhere, and fill free slots from the queue.
+ */
+export function ensureRunWorker(): Promise<void> {
+  const s = state();
+  if (!s.booted) {
+    s.booted = (async () => {
+      await failLost(await s.store.sweepLost({ deadOwnerPrefix: `${hostname()}:`, currentOwner: s.instanceId }));
+      startClaimed(await s.store.claimNext(s.instanceId));
+    })().catch((error) => console.error("[testora] run worker boot failed:", error));
+    s.worker = setInterval(() => void tick(), TICK_MS);
+    s.worker.unref?.();
+  }
+  return s.booted;
+}
+
+async function failLost(ids: string[]): Promise<void> {
+  for (const id of ids) {
+    await state().store.append(id, "error", "runner lost — the server restarted while this run was executing. Start it again.").catch(() => {});
+  }
+}
+
+async function tick(): Promise<void> {
+  const s = state();
+  try {
+    const { cancel } = await s.store.heartbeat(s.instanceId, [...s.local.keys()]);
+    for (const id of cancel) {
+      const run = s.local.get(id);
+      if (run) abortLocal(id, run);
+    }
+    await failLost(await s.store.sweepLost());
+    startClaimed(await s.store.claimNext(s.instanceId));
+    if (Date.now() - s.lastPrune > 60 * 60 * 1000) {
+      s.lastPrune = Date.now();
+      await s.store.prune(RETENTION_MS);
+    }
+  } catch (error) {
+    console.error("[testora] run worker tick failed:", error);
+  }
+}
+
+/** Stop the worker (tests). */
+export function stopRunWorker(): void {
+  const s = state();
+  if (s.worker) clearInterval(s.worker);
+  s.worker = undefined;
+  s.booted = undefined;
 }
