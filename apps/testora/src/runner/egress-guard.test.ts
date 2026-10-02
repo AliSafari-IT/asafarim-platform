@@ -11,6 +11,7 @@ function setup(answers: (SelfTestReport | Error)[]) {
   let clock = 0;
   let probes = 0;
   const failures: SelfTestReport[] = [];
+  let periodicPasses = 0;
   const guard = new EgressGuard({
     probe: async () => {
       const next = answers[Math.min(probes++, answers.length - 1)]!;
@@ -20,12 +21,14 @@ function setup(answers: (SelfTestReport | Error)[]) {
     intervalMs: 300_000,
     maxAgeMs: 60_000,
     onFail: (report) => failures.push(report),
+    onPeriodicPass: () => periodicPasses++,
     now: () => clock,
   });
   return {
     guard,
     failures,
     probes: () => probes,
+    periodicPasses: () => periodicPasses,
     advance: (ms: number) => {
       clock += ms;
     },
@@ -88,4 +91,19 @@ test("start() re-checks on the interval and stops itself after a failure", async
   t.mock.timers.tick(900_000); // stopped: no more probes
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(s.probes(), 2);
+  assert.equal(s.periodicPasses(), 1); // the first interval passed, the second failed
+});
+
+test("only interval passes are reported, not pre-lease checks", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const s = setup([PASS]);
+  s.guard.markPassed();
+  s.guard.start();
+  s.advance(60_001);
+  assert.equal(await s.guard.ensureFresh(), true); // pre-lease re-probe
+  assert.equal(s.periodicPasses(), 0);
+  t.mock.timers.tick(300_000);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(s.periodicPasses(), 1);
+  s.guard.stop();
 });
