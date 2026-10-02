@@ -13,6 +13,7 @@ import {
 import { appbuilderProvider } from "./providers/appbuilder";
 import { edumatchProvider } from "./providers/edumatch";
 import { platformFoundationProvider } from "./providers/platform-foundation";
+import { tasksaiIdentitiesProvider } from "./providers/tasksai-identities";
 import { testoraProvider } from "./providers/testora";
 import { timelineaiProvider } from "./providers/timelineai";
 import { createUnavailableProvider } from "./providers/unavailable";
@@ -64,6 +65,8 @@ export const SEED_PROVIDERS: readonly SeedProvider[] = Object.freeze([
   timelineaiProvider,
   testoraProvider,
   appbuilderProvider,
+  // Status only in the console; accounts are created from the CLI (#742).
+  tasksaiIdentitiesProvider,
 ]);
 
 const BY_ID = new Map(SEED_PROVIDERS.map((provider) => [provider.id, provider]));

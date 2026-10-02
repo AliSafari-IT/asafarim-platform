@@ -34,11 +34,12 @@ describe("provider registry", () => {
     }
   });
 
-  it("configures exactly the five providers this release supports", () => {
+  it("configures exactly the six providers this release supports", () => {
     expect(configuredProviders().map((p) => p.id).sort()).toEqual([
       "appbuilder",
       "edumatch",
       "platform-foundation",
+      "tasksai-test-identities",
       "testora",
       "timelineai",
     ]);

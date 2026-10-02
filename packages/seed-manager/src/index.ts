@@ -22,6 +22,7 @@ export {
 export * from "./definitions/foundation";
 export * from "./definitions/edumatch";
 export * from "./definitions/timelineai";
+export * from "./definitions/tasksai-identities";
 
 // Reusable seed functions. The CLI entry points are thin wrappers over these,
 // so the console and the command line can never drift apart.
@@ -52,6 +53,15 @@ export {
   applyDemoTimeline,
   validateTimelineaiDefinitions,
 } from "./providers/timelineai";
+
+export {
+  tasksaiIdentitiesProvider,
+  ensureTasksaiIdentities,
+  removeTasksaiIdentities,
+  validateTasksaiIdentityDefinitions,
+  tasksaiIdentitiesGuard,
+  type EnsuredIdentity,
+} from "./providers/tasksai-identities";
 
 export { testoraProvider } from "./providers/testora";
 export { appbuilderProvider } from "./providers/appbuilder";
