@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { targetEnvironments } from "@/db/schema";
+import { targetChanges, targetEnvironments, targetSecrets } from "@/db/schema";
+import { auth } from "@asafarim/auth";
+import { originChanges, secretsMoveDecision } from "@/lib/target-origin-change";
 import { DEFAULT_PROJECT_ID } from "@/data/projects";
 import { checkStoredUrls } from "@/lib/run-target";
 
@@ -85,8 +87,14 @@ const updateSchema = z
     baseUrl: urlField.optional(),
     apiUrl: urlField.optional(),
     hubUrl: hubField.optional(),
+    // #713: required to move a target with stored secrets to another origin.
+    confirmSecretsMove: z.boolean().optional(),
+    secretsAction: z.enum(["keep", "clear"]).optional(),
   })
-  .refine((v) => Object.keys(v).length > 0, { message: "Nothing to update" });
+  .refine(
+    (v) => v.name !== undefined || v.baseUrl !== undefined || v.apiUrl !== undefined || v.hubUrl !== undefined,
+    { message: "Nothing to update" },
+  );
 
 // Edit a user-added target. Built-in (seeded) targets can't be edited — they are
 // reconciled from code on each re-seed, so any DB edit would be overwritten.
@@ -99,20 +107,66 @@ export async function PATCH(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const blocked = await checkStoredUrls([parsed.data.baseUrl, parsed.data.apiUrl, parsed.data.hubUrl]);
+  const { confirmSecretsMove, secretsAction, ...fields } = parsed.data;
+  const blocked = await checkStoredUrls([fields.baseUrl, fields.apiUrl, fields.hubUrl]);
   if (blocked) return NextResponse.json(blocked.body, { status: blocked.status });
-  const [updated] = await db
-    .update(targetEnvironments)
-    .set({ ...parsed.data, updatedAt: new Date() })
-    .where(and(eq(targetEnvironments.id, id), eq(targetEnvironments.seeded, false)))
-    .returning();
-  if (!updated) {
-    return NextResponse.json(
-      { error: "Target not found or is a built-in that can't be edited" },
-      { status: 404 },
-    );
+
+  const notFound = () =>
+    NextResponse.json({ error: "Target not found or is a built-in that can't be edited" }, { status: 404 });
+  const session = await auth();
+
+  // Read, decide and write in ONE transaction with the target row locked, so a
+  // secret added (or the target changed) concurrently can't slip past the
+  // decision (#713 review).
+  const outcome = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(targetEnvironments)
+      .where(and(eq(targetEnvironments.id, id), eq(targetEnvironments.seeded, false)))
+      .for("update");
+    if (!existing) return { kind: "not-found" as const };
+
+    // #713: secrets saved for one origin must not silently follow the target
+    // to another — ask first (409), then keep or clear them as the admin chose.
+    const changes = originChanges(existing, fields);
+    const secretNames = changes.length
+      ? (await tx.select({ name: targetSecrets.name }).from(targetSecrets).where(eq(targetSecrets.targetId, id))).map(
+          (row) => row.name,
+        )
+      : [];
+    const decision = secretsMoveDecision({ changes, secretNames, confirmSecretsMove, secretsAction });
+    if (!decision.ok) return { kind: "refused" as const, decision };
+
+    const [row] = await tx
+      .update(targetEnvironments)
+      .set({ ...fields, updatedAt: new Date() })
+      .where(and(eq(targetEnvironments.id, id), eq(targetEnvironments.seeded, false)))
+      .returning();
+    if (!row) return { kind: "not-found" as const };
+    if (decision.clearSecrets) await tx.delete(targetSecrets).where(eq(targetSecrets.targetId, id));
+    if (changes.length > 0) {
+      await tx.insert(targetChanges).values(
+        changes.map((change) => ({
+          id: crypto.randomUUID(),
+          targetId: id,
+          projectId: existing.projectId,
+          field: change.field,
+          fromOrigin: change.from,
+          toOrigin: change.to,
+          secretsAction: secretNames.length === 0 ? "none" : decision.clearSecrets ? "clear" : "keep",
+          userId: session?.user?.id ?? null,
+          userName: session?.user?.name ?? session?.user?.email ?? null,
+        })),
+      );
+    }
+    return { kind: "updated" as const, row, cleared: decision.clearSecrets ? secretNames : [] };
+  });
+
+  if (outcome.kind === "not-found") return notFound();
+  if (outcome.kind === "refused") {
+    return NextResponse.json(outcome.decision.body, { status: outcome.decision.status });
   }
-  return NextResponse.json({ target: updated });
+  return NextResponse.json({ target: outcome.row, secretsCleared: outcome.cleared });
 }
 
 // Remove a user-added target. Built-in (seeded) targets can't be deleted — they
