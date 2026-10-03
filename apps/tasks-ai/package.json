@@ -22,6 +22,7 @@
     "db:migrate:deploy": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate deploy --schema prisma/schema.prisma",
     "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --schema prisma/schema.prisma --port 5558 --browser none",
     "db:seed": "dotenv -e ../../.env.local -e ../../.env -- tsx prisma/seed.ts",
+    "test-data": "dotenv -e ../../.env.local -e ../../.env -- tsx --tsconfig scripts/tsconfig.test-data.json scripts/test-data.ts",
     "ai:eval": "dotenv -e ../../.env.local -e ../../.env -- tsx evals/run.ts"
   },
   "dependencies": {

@@ -1,0 +1,12 @@
+{
+  // Only for `pnpm test-data` (scripts/test-data.ts): TasksAI's services start
+  // with `import "server-only"`, which resolves only inside Next.js. Outside it
+  // (like vitest, see vitest.config.ts) map it to the same no-op stub.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../*"],
+      "server-only": ["../vitest.server-only-stub.ts"]
+    }
+  }
+}
