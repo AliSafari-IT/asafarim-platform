@@ -170,6 +170,26 @@ www.asafarim.be {
   }
 }
 
+# asafarim.site — placeholder landing for ASafarIM OS (#775) until the OS stack
+# deploys. Moves to sites/asafarim-os.caddy at the edge cutover (#770).
+# The page lives under the config directory that is already mounted at
+# /etc/caddy, so a normal deploy (validate + `caddy reload`, no container
+# recreate) serves it. `root` is the page's own folder: nothing else under
+# /etc/caddy (the Caddyfile included) is reachable.
+asafarim.site {
+  root * /etc/caddy/static/asafarim-site
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy strict-origin-when-cross-origin
+    Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+  }
+  file_server
+}
+
+www.asafarim.site {
+  redir https://asafarim.site{uri} 301
+}
+
 # M11: wildcard managed-app hosting. Every `{app-slug}.apps.asafarim.com`
 # host is routed to the SAME AppBuilder container as the builder itself —
 # there is no per-app container or deployment target. AppBuilder's own

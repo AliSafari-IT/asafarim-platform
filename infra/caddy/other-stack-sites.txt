@@ -3,3 +3,6 @@
 # "Other stacks on the same edge (not drift)" (asafarim-os, #767).
 asafarim.be
 www.asafarim.be
+# ASafarIM OS placeholder (#775); becomes the asafarim-os stack's own site file at the edge cutover (#770).
+asafarim.site
+www.asafarim.site
