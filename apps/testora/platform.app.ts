@@ -13,6 +13,8 @@ export default {
   owner: "ASafarIM Digital",
   domains: {
     primary: "testora.asafarim.com",
+    // Public pages (#762): testora.cloud serves the marketing pages, the rest redirects.
+    aliases: ["testora.cloud", "www.testora.cloud"],
   },
   runtime: {
     image: "testora",

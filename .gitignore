@@ -97,3 +97,7 @@ apps/tasks-ai/lib/db/generated/
 # Synthetic TasksAI test identities/credentials (#742): local output of
 # db:seed:tasksai-identities and apps/tasks-ai test-data. Never commit.
 .tasksai-test/
+
+# Compiled app manifests (asafarim-os `platform manifest compile`): generated in CI
+# for the drift report, never committed; the source is apps/*/platform.app.ts.
+apps/*/platform.app.json
