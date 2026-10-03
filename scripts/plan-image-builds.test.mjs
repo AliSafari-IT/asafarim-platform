@@ -86,6 +86,8 @@ test("docs, READMEs, tests and deploy scripts rebuild nothing", () => {
       "apps/appbuilder/.env.production.age",
       "infra/scripts/vps-deploy.sh",
       "infra/caddy/Caddyfile",
+      "infra/edge/caddy/sites/asafarim-com.caddy",
+      "infra/edge/docker-compose.yml",
       "docker-compose.prod.yml",
       ".github/workflows/ci-status.yml",
       "benchmarks/testora/src/run.ts"

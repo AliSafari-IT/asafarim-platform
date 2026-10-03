@@ -110,7 +110,9 @@ const ROOT_PATHS_WITHOUT_IMAGE_EFFECT = [
   /^\.github\/(?!workflows\/deploy\.yml$)/,
   /^\.claude\//,
   /^\.age\//,
-  /^infra\/(caddy|scripts)\//,
+  // infra/edge: the shared edge's project and site files (#770), deployed by
+  // vps-deploy.sh like infra/caddy; no image reads them.
+  /^infra\/(caddy|edge|scripts)\//,
   /^docker-compose(\.[\w-]+)?\.ya?ml$/,
   /^scripts\//,
   /^\.env(\.local|\.production)?\.age$/,

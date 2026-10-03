@@ -1,0 +1,209 @@
+# asafarim-com stack's site file on the shared edge (#770). Published by
+# vps-deploy.sh through infra/edge/scripts/edge-deploy-site.sh, which validates
+# the whole edge config before swapping it in.
+#
+# Until the edge cutover this mirrors infra/caddy/Caddyfile (minus asafarim.be,
+# which is sites/asafarim-be.caddy), and the asafarim-com Caddy still serves
+# that file. infra/edge/scripts/edge-config.test.mjs fails if the two configs
+# stop adapting to the same routes, so change both together until the cutover
+# retires infra/caddy/Caddyfile.
+#
+# Snippet names share one namespace across every stack's file: keep the
+# asafarim_com_ prefix.
+
+# Shared "deploying" page: served instead of a raw 502/503/504 when a
+# backend container is mid-restart (e.g. during vps-deploy.sh's sequential
+# rebuild). Auto-refreshes every 5s so the visitor doesn't have to.
+(asafarim_com_deploying) {
+  handle_errors {
+    @maintenance expression {err.status_code} in [502, 503, 504]
+    header @maintenance Content-Type "text/html; charset=utf-8"
+    respond @maintenance <<HTML
+<!doctype html>
+<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="5">
+<title>Deploying…</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;
+    display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+  .box{text-align:center;max-width:28rem;padding:2rem}
+  h1{font-size:1.5rem;margin-bottom:.5rem}
+  p{color:#94a3b8}
+  .dots::after{content:'';animation:dots 1.4s infinite}
+  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+</style></head>
+<body><div class="box">
+  <h1>Deploying an update<span class="dots"></span></h1>
+  <p>This page will refresh automatically in a few seconds.</p>
+</div></body></html>
+HTML 503
+  }
+}
+
+asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy web:3000
+}
+
+www.asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy web:3000
+}
+
+hub.asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy hub:3000
+}
+
+admin.asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy admin:3000
+}
+
+showcase.asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy showcase:3000
+}
+
+vionto.asafarim.com {
+  import asafarim_com_deploying
+  # Media uploads can be large; give the proxy generous timeouts.
+  reverse_proxy vionto:3000 {
+    transport http {
+      read_timeout 600s
+      write_timeout 600s
+    }
+  }
+}
+
+edumatch.asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy edumatch:3000 {
+    transport http {
+      read_timeout 600s
+      write_timeout 600s
+    }
+  }
+}
+
+testora.asafarim.com {
+  import asafarim_com_deploying
+  # The runner protocol (/internal/runner/*) is served to testora-runner over
+  # the private testora_control network only — never through the public proxy
+  # (#718, ADR 0004 §1). Caddy matches the cleaned, decoded path, so
+  # /INTERNAL/…, /%69nternal/… and /x/../internal/… are caught too.
+  @internal path /internal /internal/*
+  respond @internal 404
+  # Test runs stream progress over a long-lived connection; be generous.
+  reverse_proxy testora:3000 {
+    transport http {
+      read_timeout 600s
+      write_timeout 600s
+    }
+  }
+}
+
+# testora.cloud — Testora's own domain, phase A (#762). Only the public pages
+# and their static assets are served here. Every other path goes to
+# testora.asafarim.com, where sign-in works today: the session cookie is scoped
+# to .asafarim.com, so the app itself moves only once cross-domain sign-in
+# exists. Handles are mutually exclusive and tried in order: the /internal 404
+# first, then the public pages, then the redirect.
+testora.cloud {
+  import asafarim_com_deploying
+  @internal path /internal /internal/*
+  handle @internal {
+    respond 404
+  }
+  @public path / /about-this-project /roadmap /_next/* /icon.svg /apple-icon.png /favicon.ico /robots.txt
+  handle @public {
+    reverse_proxy testora:3000
+  }
+  handle {
+    redir https://testora.asafarim.com{uri} 302
+  }
+}
+
+www.testora.cloud {
+  redir https://testora.cloud{uri} 301
+}
+
+appbuilder.asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy appbuilder:3000
+}
+
+resumatch.asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy resumatch:3000
+}
+
+tasks-ai.asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy tasksai:3000
+}
+
+labs.asafarim.com {
+  import asafarim_com_deploying
+  reverse_proxy labs:3000
+}
+
+tlai.asafarim.com {
+  import asafarim_com_deploying
+  # Puppeteer export requests (Task #10) can take several seconds; be generous.
+  reverse_proxy timelineai:3000 {
+    transport http {
+      read_timeout 600s
+      write_timeout 600s
+    }
+  }
+}
+
+# asafarim.site — placeholder landing for ASafariM OS (#775) until the OS stack
+# deploys. Moves to sites/asafarim-os.caddy at the edge cutover (#770).
+# The page lives under the config directory that is already mounted at
+# /etc/caddy, so a normal deploy (validate + `caddy reload`, no container
+# recreate) serves it. `root` is the page's own folder: nothing else under
+# /etc/caddy (the Caddyfile included) is reachable.
+asafarim.site {
+  root * /etc/caddy/static/asafarim-site
+  header {
+    # HTTPS only from now on (Caddy sends no HSTS by default; #778 follow-up from #777).
+    Strict-Transport-Security "max-age=31536000"
+    X-Content-Type-Options nosniff
+    Referrer-Policy strict-origin-when-cross-origin
+    Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+  }
+  file_server
+}
+
+www.asafarim.site {
+  redir https://asafarim.site{uri} 301
+}
+
+# M11: wildcard managed-app hosting. Every `{app-slug}.apps.asafarim.com`
+# host is routed to the SAME AppBuilder container as the builder itself —
+# there is no per-app container or deployment target. AppBuilder's own
+# proxy.ts (lib/routing/resolveAppHost.ts) does the real work: it normalizes
+# and validates the Host header, rejects reserved/malformed slugs with a
+# generic 404, and resolves the active production release server-side from
+# the persisted `app_domains` table — Caddy's only job here is getting the
+# request to the right container.
+#
+# DELIBERATELY COMMENTED OUT: a wildcard certificate requires a DNS-01
+# challenge, which requires a Caddy build with a DNS provider module (the
+# stock `caddy:latest` image used by docker-compose.prod.yml has none) —
+# uncommenting this block against the current image would fail to parse and
+# take down EVERY app behind this Caddy instance, not just AppBuilder. See
+# docs/appbuilder-m11-releases-deployment.md#dns-and-tls for the required
+# wildcard DNS record, the custom Caddy build (infra/caddy/Dockerfile),
+# provider-module confirmation, secret handling, staging-cert testing, and
+# the exact rollout sequence before uncommenting this in a real deployment.
+#
+# *.apps.asafarim.com {
+#   reverse_proxy appbuilder:3000
+#   tls {
+#     # Replace <provider> with the DNS-01 module actually built into
+#     # infra/caddy/Dockerfile for your DNS host.
+#     dns <provider> {env.CADDY_DNS_API_TOKEN}
+#   }
+# }

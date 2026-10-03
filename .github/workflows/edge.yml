@@ -1,17 +1,23 @@
-# Shared edge gateway (#770 / #774): shellcheck the edge scripts and run the
+# Shared edge gateway (#770 / #774): shellcheck the edge scripts, run the
 # behaviour tests of edge-deploy-site.sh (lock, .prev restore, validation
-# before the swap) against a fake docker. Linux only: the script needs flock.
+# before the swap) against a fake docker, and (phase 2) check that the edge's
+# site files route exactly what infra/caddy/Caddyfile routes today. Linux only:
+# the script needs flock; the config check needs Docker (the pinned caddy).
 name: Edge
 
 on:
   pull_request:
     paths:
       - "infra/edge/**"
+      - "infra/caddy/**"
+      - "infra/scripts/lib/edge.sh"
       - ".github/workflows/edge.yml"
   push:
     branches: [main]
     paths:
       - "infra/edge/**"
+      - "infra/caddy/**"
+      - "infra/scripts/lib/edge.sh"
       - ".github/workflows/edge.yml"
   workflow_dispatch: {}
 
@@ -32,6 +38,8 @@ jobs:
           # No install here (see brand-spelling.yml).
           package-manager-cache: false
       - name: shellcheck
-        run: shellcheck -S warning infra/edge/scripts/*.sh
+        run: shellcheck -S warning infra/edge/scripts/*.sh infra/scripts/lib/edge.sh
       - name: edge-deploy-site.sh behaviour
         run: node --test infra/edge/scripts/edge-deploy-site.test.mjs
+      - name: The edge config routes what production routes today
+        run: node --test infra/edge/scripts/edge-config.test.mjs
