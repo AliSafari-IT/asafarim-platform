@@ -86,6 +86,13 @@ model Membership {
   workspaceId    String
   platformUserId String
   role           MemberRole @default(member)
+  /// Profile snapshot (#759): the display name and avatar the Hub session
+  /// carried when this member last signed in. Copied per membership, never
+  /// read from the platform DB; deleted with the membership. See ADR 0001
+  /// addendum. Null until the member's first signed-in request.
+  displayName     String?
+  avatarUrl       String?
+  profileSyncedAt DateTime?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   archivedAt     DateTime?

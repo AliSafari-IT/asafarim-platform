@@ -272,7 +272,7 @@ export function TaskDetailPanel({
       { value: "", label: "Nobody" },
       ...members
         .filter((m) => m.role !== "guest")
-        .map((m) => ({ value: m.id, label: m.isMe ? "Me" : m.platformUserId })),
+        .map((m) => ({ value: m.id, label: m.isMe ? "Me" : m.displayName })),
     ],
     [members],
   );

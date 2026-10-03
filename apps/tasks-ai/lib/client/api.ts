@@ -502,6 +502,8 @@ export interface Comment {
   id: string;
   taskId: string;
   authorId: string;
+  /** The author's display name (#759). */
+  authorName: string;
   body: string;
   mentions: string[];
   editedAt: string | null;
@@ -696,6 +698,8 @@ export interface WorkspaceMember {
   id: string;
   role: string;
   platformUserId: string;
+  /** Profile snapshot or a safe fallback (#759). Render this, never platformUserId. */
+  displayName: string;
   isMe: boolean;
 }
 export interface Task {
