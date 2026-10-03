@@ -32,7 +32,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/db/generated";
-import { checkDatabaseMarker, parseDatabaseMarker, testDataGuard } from "../lib/test-data/guard";
+import { checkCanMarkDatabase, checkDatabaseMarker, parseDatabaseMarker, testDataGuard } from "../lib/test-data/guard";
 import { HANDOFF_FILE_SUFFIX } from "@asafarim/tool-handoff";
 import {
   DEFAULT_TIMEZONE,
@@ -103,6 +103,8 @@ async function main() {
       if (environment === "production" || markArg !== environment) {
         throw new Error(`--mark-database=${markArg} refused: the URL/machine checks say this is "${environment}".`);
       }
+      const canMark = checkCanMarkDatabase(parseDatabaseMarker(comment[0]?.comment));
+      if (!canMark.ok) throw new Error(`--mark-database refused: ${canMark.reason}`);
       const [{ db: name }] = await db.$queryRaw<{ db: string }[]>`SELECT current_database() AS db`;
       await db.$executeRawUnsafe(`COMMENT ON DATABASE "${name.replace(/"/g, '""')}" IS 'asafarim-env=${environment}'`);
       console.log(`Marked this database as "${environment}" (COMMENT ON DATABASE). Re-run without --mark-database.`);

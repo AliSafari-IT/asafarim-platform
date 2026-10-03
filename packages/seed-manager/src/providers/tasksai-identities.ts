@@ -240,6 +240,11 @@ export async function readDatabaseMarker(prisma: SeedPrismaClient): Promise<stri
  * (the static signals and the database disagree — stop).
  */
 export function checkDatabaseMarker(expected: DatabaseEnvironment, marker: string | null): { ok: true } | { ok: false; reason: string } {
+  // The deploy stamps production databases positively (#747): that wins over
+  // anything the URL suggests (e.g. a tunnel onto a development port).
+  if (marker === "production" && expected !== "production") {
+    return { ok: false, reason: 'This database is marked "production" (stamped by the deploy). Refusing, whatever the URL looks like.' };
+  }
   if (expected === "production") {
     return marker === "development" || marker === "test"
       ? { ok: false, reason: `The URL looks like production but the database is marked "${marker}". Signals disagree; refusing.` }
@@ -253,6 +258,13 @@ export function checkDatabaseMarker(expected: DatabaseEnvironment, marker: strin
         ? `This database has no "${DATABASE_MARKER_PREFIX}${expected}" marker, so it can't be proven to be a ${expected} database. If it is, mark it once: --mark-database=${expected}`
         : `This database is marked "${marker}", not "${expected}". Refusing.`,
   };
+}
+
+/** --mark-database must never overwrite the deploy's production stamp (#747). */
+export function checkCanMarkDatabase(current: string | null): { ok: true } | { ok: false; reason: string } {
+  return current === "production"
+    ? { ok: false, reason: 'This database is marked "production" (stamped by the deploy); --mark-database will not overwrite that.' }
+    : { ok: true };
 }
 
 /** Set the marker. Only ever for development/test, and only where the static guard agreed. */

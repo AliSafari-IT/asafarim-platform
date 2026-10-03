@@ -275,6 +275,24 @@ mapfile -t STACK_SERVICES < <("${COMPOSE[@]}" config --services | grep -vx caddy
 "${COMPOSE[@]}" up -d --remove-orphans --no-build "${STACK_SERVICES[@]}"
 "${COMPOSE[@]}" up -d --no-build --no-recreate caddy
 
+# Positive production marker (#747). The synthetic test-data CLIs
+# (db:seed:tasksai-identities, tasks-ai test-data) refuse any database marked
+# asafarim-env=production, whatever its URL looks like (e.g. a tunnel onto a
+# development port). Idempotent; the container's own user owns its database.
+# Add a compose service here to stamp another app's database.
+PRODUCTION_MARKED_DB_SERVICES=(postgres tasksai-postgres)
+for db_service in "${PRODUCTION_MARKED_DB_SERVICES[@]}"; do
+  # shellcheck disable=SC2016 # expanded inside the container, not here
+  if stamped="$("${COMPOSE[@]}" exec -T "$db_service" sh -c \
+      'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -qAt -v ON_ERROR_STOP=1 -c "COMMENT ON DATABASE \"$POSTGRES_DB\" IS '"'"'asafarim-env=production'"'"'" -c "SELECT current_database()"')"; then
+    echo "[deploy $(date -Is)] production marker: ${db_service}/${stamped} → asafarim-env=production"
+  else
+    # Not fatal: the CLIs' URL and machine checks still apply. But loud.
+    echo "WARNING: could not stamp the production marker on ${db_service}." >&2
+    notify_discord "⚠️ ASafarIM deploy ${IMAGE_TAG:0:12}: could not stamp asafarim-env=production on ${db_service}. See the deploy log."
+  fi
+done
+
 # The Caddy directory is bind-mounted, so applying configuration does not require a
 # container replacement. Force-recreating Caddy briefly closes public ports 80
 # and 443; visitors then see the browser's ERR_CONNECTION_TIMED_OUT page and

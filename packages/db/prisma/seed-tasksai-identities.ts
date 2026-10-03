@@ -27,6 +27,7 @@ import { hostname } from "node:os";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
+  checkCanMarkDatabase,
   checkDatabaseMarker,
   ensureTasksaiIdentities,
   markDatabase,
@@ -81,6 +82,8 @@ async function main() {
       if (environment === "production" || markArg !== environment) {
         throw new Error(`--mark-database=${markArg} refused: the URL/machine checks say this is "${environment}".`);
       }
+      const canMark = checkCanMarkDatabase(await readDatabaseMarker(prisma));
+      if (!canMark.ok) throw new Error(`--mark-database refused: ${canMark.reason}`);
       await markDatabase(prisma, environment);
       console.log(`Marked this database as "${markArg}" (COMMENT ON DATABASE). Re-run without --mark-database.`);
       return;

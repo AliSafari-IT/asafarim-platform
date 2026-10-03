@@ -86,6 +86,17 @@ and its byte-identical duplicate) are generated into `.tasksai-test/`.
 
 Not provided by setup: the **automation worker**. Its liveness is a queue heartbeat, not a row, so Testora's preflight checks it.
 
+## Side effects of setup (outbox events)
+
+`setup` goes through TasksAI's services, so it writes the same activity and
+outbox rows ordinary use does. What the worker does with them:
+
+- `notification.dispatch`: delivery is a **stub**. It logs and marks the notification for a future digest; TasksAI has **no email sender** today. Even if it gains one, `.test` addresses are undeliverable.
+- `activity.fanout`: runs **active** automation rules only. Setup's rule is a **draft**, so nothing fires, including a rule's webhook action.
+- `search.index`: indexes the synthetic records, inside their own workspaces.
+
+Nothing leaves the system.
+
 ## Remote test environment
 
 ```bash
@@ -115,6 +126,7 @@ nothing else. No catalog test mutates production data (see the coverage manifest
 
 Three independent signals; any production-like one refuses:
 
+0. **Production stamp** (#747): every deploy sets `COMMENT ON DATABASE … 'asafarim-env=production'` on the platform and TasksAI databases. Both tools refuse a database carrying it, whatever the URL says (only `--allow-production-baseline` accepts it), and `--mark-database` will not overwrite it.
 1. **URL**: "local" means loopback **and** the development port from `docker-compose.yml` (platform 55435, TasksAI 55438). Production publishes its databases on the production host's loopback (127.0.0.1:5432 / :5438), so loopback on any other port, including the default, is treated as production. So are the compose hosts `postgres` / `tasksai-postgres` and `NODE_ENV=production`.
 2. **Machine**: hostname `asafarim` or a checkout under `/var/repos/asafarim-com` counts as production.
 3. **Database**: a dev/test database must carry `COMMENT ON DATABASE … 'asafarim-env=development'` (or `test`), set once with `--mark-database`. It can only be set where signals 1 and 2 agree. Production never has the marker. A production-looking URL on a database marked dev/test is refused.

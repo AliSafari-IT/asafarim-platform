@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEV_TASKSAI_DB_PORTS, checkDatabaseMarker, parseDatabaseMarker, testDataGuard } from "./guard";
+import { DEV_TASKSAI_DB_PORTS, checkCanMarkDatabase, checkDatabaseMarker, parseDatabaseMarker, testDataGuard } from "./guard";
 
 const dev = "postgres://tasksai:tasksai_dev@127.0.0.1:55438/tasksai";
 const laptop = { machineHostname: "dev-laptop", cwd: "C:/repos/asafarim-platform/apps/tasks-ai" };
@@ -94,5 +94,28 @@ describe("test-data production guard: the database's own marker", () => {
   it("production refuses a database marked development/test (signals disagree)", () => {
     expect(checkDatabaseMarker("production", null)).toEqual({ ok: true });
     expect(checkDatabaseMarker("production", "development").ok).toBe(false);
+  });
+});
+
+describe("the deploy's positive production marker (#747)", () => {
+  it("a dev-loopback URL on a database marked production is refused", () => {
+    const decision = testDataGuard({ rawDatabaseUrl: dev, ...laptop });
+    expect(decision).toMatchObject({ ok: true, environment: "development" }); // URL + machine pass…
+    const db = checkDatabaseMarker(decision.ok ? decision.environment : "development", "production");
+    expect(db.ok).toBe(false); // …the database's own stamp refuses
+    expect(!db.ok && db.reason).toMatch(/marked "production"/);
+  });
+
+  it("--mark-database never overwrites a production marker", () => {
+    expect(checkCanMarkDatabase("production").ok).toBe(false);
+    expect(checkCanMarkDatabase(null)).toEqual({ ok: true });
+  });
+
+  it("baseline mode on a production-marked database: allowed (read-only baseline only)", () => {
+    expect(testDataGuard({ rawDatabaseUrl: "postgres://tasksai:x@tasksai-postgres:5432/tasksai", allowProductionBaseline: true, ...laptop })).toMatchObject({
+      ok: true,
+      mode: "production-baseline",
+    });
+    expect(checkDatabaseMarker("production", "production")).toEqual({ ok: true });
   });
 });
