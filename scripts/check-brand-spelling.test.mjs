@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { RIGHT, WRONG, findWrongSpelling } from "./check-brand-spelling.mjs";
 
 function repoWith(files) {
@@ -37,4 +38,20 @@ test("every occurrence of the wrong spelling is reported with file and line", ()
 
 test("this repository is clean", () => {
   assert.deepEqual(findWrongSpelling(), []);
+});
+
+test("the CLI exits 1 and lists the hit when a tracked file has the wrong spelling, 0 when clean", () => {
+  const cli = fileURLToPath(new URL("./check-brand-spelling.mjs", import.meta.url));
+  const bad = repoWith({ "page.html": `${WRONG}\n` });
+  const good = repoWith({ "page.html": `${RIGHT}\n` });
+  try {
+    const failing = spawnSync(process.execPath, [cli], { cwd: bad, encoding: "utf8" });
+    assert.equal(failing.status, 1);
+    assert.match(failing.stderr, /page\.html:1:/);
+    const passing = spawnSync(process.execPath, [cli], { cwd: good, encoding: "utf8" });
+    assert.equal(passing.status, 0);
+  } finally {
+    rmSync(bad, { recursive: true, force: true });
+    rmSync(good, { recursive: true, force: true });
+  }
 });
