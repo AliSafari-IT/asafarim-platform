@@ -93,10 +93,10 @@
       "kind": "package",
       "folder": "packages/auth",
       "description": "Shared Auth.js v5 authentication for the ASafarIM Platform",
-      "sha": "79586254",
-      "date": "2026-10-01",
+      "sha": "604c72f2",
+      "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 51,
+      "commits": 52,
       "dependents": 13
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "d1fb7762",
+      "sha": "0201cb87",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 372,
+      "commits": 373,
       "dependents": 0
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/testora",
       "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-      "sha": "33ad0e4f",
+      "sha": "604c72f2",
       "date": "2026-10-03",
       "since": "2026-07-21",
-      "commits": 136,
+      "commits": 137,
       "dependents": 0
     },
     {
