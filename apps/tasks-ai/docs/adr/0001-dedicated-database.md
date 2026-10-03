@@ -1,11 +1,11 @@
 # ADR-0001 — Dedicated TasksAI PostgreSQL database
 
-**Status:** Accepted (M00) · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafarIM
+**Status:** Accepted (M00) · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafariM
 **Deciders:** platform maintainer · **Supersedes:** none
 
 ## Context
 
-The ASafarIM platform runs a shared Prisma schema (`packages/db`) for users, RBAC, audit, and several verticals. Two isolated apps (Testora, AppBuilder) use their own Drizzle databases; JobMatch uses its own **Prisma** schema and Postgres with the client generated into the app so it cannot collide with the platform client.
+The ASafariM platform runs a shared Prisma schema (`packages/db`) for users, RBAC, audit, and several verticals. Two isolated apps (Testora, AppBuilder) use their own Drizzle databases; JobMatch uses its own **Prisma** schema and Postgres with the client generated into the app so it cannot collide with the platform client.
 
 TasksAI introduces a large, fast-moving multi-tenant work graph (workspaces, projects, tasks, hierarchy, dependency edges, events, outbox). Putting this in the shared schema would couple TasksAI's migration cadence to every other app and risk cross-vertical schema conflicts.
 

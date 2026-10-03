@@ -173,7 +173,7 @@ export function GenerateIssueDialog({
             {githubConfigured
               ? project?.githubRepo
                 ? `Reports go to ${project.githubRepo}; if this bug is already open there, you’ll be linked to it instead.`
-                : "Reports go to the ASafarIM platform repo; if this bug is already open there, you’ll be linked to it instead."
+                : "Reports go to the ASafariM platform repo; if this bug is already open there, you’ll be linked to it instead."
               : "GitHub reporting isn’t set up for this app yet, so it can only be saved as a draft."}
           </DialogDescription>
         </DialogHeader>

@@ -1,6 +1,6 @@
-# ASafarIM Web (asafarim.com)
+# ASafariM Web (asafarim.com)
 
-The public **ASafarIM Digital** website — the marketing-facing, systems-minded studio site that introduces the platform, showcases work, and explains the full-stack & AI application studio offering. Copy and branding are centralized in `content/site.ts`; translations live in `lib/i18n-dictionaries.ts`.
+The public **ASafariM Digital** website — the marketing-facing, systems-minded studio site that introduces the platform, showcases work, and explains the full-stack & AI application studio offering. Copy and branding are centralized in `content/site.ts`; translations live in `lib/i18n-dictionaries.ts`.
 
 ## Development
 

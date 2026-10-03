@@ -67,7 +67,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const links = getPlatformLinks();
 
   // The shared asafarim-lang cookie (set by the language bar in any
-  // ASafarIM app). No cookie → English, which with the Belgium lock below
+  // ASafariM app). No cookie → English, which with the Belgium lock below
   // is the "be-en" default, as in Hub/Web/Showcase.
   const { locale: initialLocale, t } = await getTranslator();
   const navItems = NAV_ITEMS.map((item) => ({ label: t(item.key), href: item.href }));

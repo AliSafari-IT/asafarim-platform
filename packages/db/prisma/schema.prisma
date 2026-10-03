@@ -1,4 +1,4 @@
-// ASafarIM Platform — Prisma Schema
+// ASafariM Platform — Prisma Schema
 // Foundation only: Auth.js v5 required tables + RBAC + audit log.
 // Migrated from asafarim-digital (source of truth); product-specific models
 // (Edu*, Vionto*, Content*, Marketing*, Tenant/billing) follow in later PRs.

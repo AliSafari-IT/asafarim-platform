@@ -2,7 +2,7 @@
   "name": "@asafarim/theme-toggle",
   "version": "0.1.0",
   "private": true,
-  "description": "Shared light/dark theme toggle for all ASafarIM apps — provider, no-flash script, and a token-styled toggle button.",
+  "description": "Shared light/dark theme toggle for all ASafariM apps — provider, no-flash script, and a token-styled toggle button.",
   "main": "./src/index.tsx",
   "types": "./src/index.tsx",
   "exports": {

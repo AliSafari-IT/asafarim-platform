@@ -104,7 +104,7 @@ test("asafarim.site placeholder: served from the mounted config dir, www redirec
   assert.match(block, /file_server/);
   assert.match(block, /Content-Security-Policy "default-src 'none';/);
   assert.match(caddy, /\nwww\.asafarim\.site \{\n {2}redir https:\/\/asafarim\.site\{uri\} 301\n\}/);
-  assert.match(read("infra", "caddy", "static", "asafarim-site", "index.html"), /<title>ASafarIM OS/);
+  assert.match(read("infra", "caddy", "static", "asafarim-site", "index.html"), /<title>ASafariM OS/);
   assert.doesNotMatch(read("infra", "caddy", "static", "asafarim-site", "index.html"), /<script/i);
   const others = read("infra", "caddy", "other-stack-sites.txt").split(/\r?\n/);
   assert.ok(others.includes("asafarim.site") && others.includes("www.asafarim.site"));

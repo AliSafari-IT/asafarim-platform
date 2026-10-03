@@ -170,7 +170,7 @@ www.asafarim.be {
   }
 }
 
-# asafarim.site — placeholder landing for ASafarIM OS (#775) until the OS stack
+# asafarim.site — placeholder landing for ASafariM OS (#775) until the OS stack
 # deploys. Moves to sites/asafarim-os.caddy at the edge cutover (#770).
 # The page lives under the config directory that is already mounted at
 # /etc/caddy, so a normal deploy (validate + `caddy reload`, no container
@@ -179,6 +179,8 @@ www.asafarim.be {
 asafarim.site {
   root * /etc/caddy/static/asafarim-site
   header {
+    # HTTPS only from now on (Caddy sends no HSTS by default; #778 follow-up from #777).
+    Strict-Transport-Security "max-age=31536000"
     X-Content-Type-Options nosniff
     Referrer-Policy strict-origin-when-cross-origin
     Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"

@@ -12,9 +12,9 @@ import "@asafarim/ui/styles.css";
 import "./labs.css";
 
 const appUrl = process.env.NEXT_PUBLIC_LABS_URL ?? "https://labs.asafarim.com";
-const appName = "ASafarIM Labs";
+const appName = "ASafariM Labs";
 const appDescription =
-  "The experimental workbench for ASafarIM — interact with what's being explored next, not just what's already shipped.";
+  "The experimental workbench for ASafariM — interact with what's being explored next, not just what's already shipped.";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
     default: `${appName} | Prototypes and interactive canvases`,
-    template: "%s | ASafarIM Labs",
+    template: "%s | ASafariM Labs",
   },
   description: appDescription,
   applicationName: appName,

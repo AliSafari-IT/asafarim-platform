@@ -1,4 +1,4 @@
-# ASafarIM Showcase
+# ASafariM Showcase
 
 Public gallery of real software built on the platform — project
 write-ups, architecture diagrams, and live links to running apps. Lives

@@ -17,7 +17,7 @@ export default function RoadmapPage() {
         <Roadmap
           kicker="Product & operations"
           title="The Vionto journey"
-          description="A code-backed view of what Vionto can do today and what it needs next. The forward plan prioritizes a secure, auditable superadmin area whose authorization and shell can be reused by future ASafarIM apps."
+          description="A code-backed view of what Vionto can do today and what it needs next. The forward plan prioritizes a secure, auditable superadmin area whose authorization and shell can be reused by future ASafariM apps."
           items={roadmapItems}
           labels={{
             changelogTitle: "Delivered & in progress",

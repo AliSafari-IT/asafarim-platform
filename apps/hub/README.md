@@ -1,6 +1,6 @@
-# ASafarIM Hub
+# ASafariM Hub
 
-The logged-in heart of the platform — one sign-in for every ASafarIM app.
+The logged-in heart of the platform — one sign-in for every ASafariM app.
 Launch apps from the app switcher, manage your profile and identity, and
 keep settings in one place. Lives at [hub.asafarim.com](https://hub.asafarim.com),
 local dev on port **3001**.
@@ -59,7 +59,7 @@ Hub reads the shared root `.env.local` (see repo-root
 
 ## Deployment
 
-Hub is deployed as part of the ASafarIM Platform using Docker Compose and Caddy:
+Hub is deployed as part of the ASafariM Platform using Docker Compose and Caddy:
 
 - **App container** — built from `apps/hub/Dockerfile` (Next.js standalone), proxied by Caddy at `https://hub.asafarim.com`
 - **Database** — shared PostgreSQL via `@asafarim/db`

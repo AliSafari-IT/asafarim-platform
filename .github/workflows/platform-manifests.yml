@@ -1,4 +1,4 @@
-# ASafarIM OS drift report (#765) — NON-BLOCKING for now.
+# ASafariM OS drift report (#765) — NON-BLOCKING for now.
 #
 # Each app describes itself in apps/<folder>/platform.app.ts (descriptive only;
 # nothing reads them at runtime). This job checks out AliSafari-IT/asafarim-os
@@ -6,7 +6,7 @@
 # manifests with the hand-written registry (packages/auth/src/apps.ts),
 # docker-compose.prod.yml, docker-bake.hcl, scripts/plan-image-builds.mjs and
 # infra/caddy/Caddyfile. The report lands in the job summary. Drift doesn't
-# fail the workflow (continue-on-error) until ASafarIM OS P1 makes the
+# fail the workflow (continue-on-error) until ASafariM OS P1 makes the
 # generated files authoritative.
 name: Platform manifests (drift report)
 
@@ -98,7 +98,7 @@ jobs:
         shell: bash
         run: |
           {
-            echo "## ASafarIM OS drift report (non-blocking)"
+            echo "## ASafariM OS drift report (non-blocking)"
             echo
             echo '```'
             grep -vE '^ *•|turbo |Tasks:|Cached:|Time:' "$RUNNER_TEMP/drift.txt" || true

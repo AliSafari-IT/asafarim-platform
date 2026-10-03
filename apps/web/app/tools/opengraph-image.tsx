@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "AI Workbench — narrow AI tools that show their sources, by ASafarIM Digital";
+export const alt = "AI Workbench — narrow AI tools that show their sources, by ASafariM Digital";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

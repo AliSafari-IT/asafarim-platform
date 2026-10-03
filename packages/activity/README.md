@@ -4,7 +4,7 @@ Cross-app user-activity adapters for the superadmin User 360 explorer.
 
 ## Purpose
 
-This package provides a unified interface for collecting and normalizing user activity data across different ASafarIM Platform applications. It enables the superadmin User 360 explorer to display comprehensive user activity by standardizing activity events from various apps.
+This package provides a unified interface for collecting and normalizing user activity data across different ASafariM Platform applications. It enables the superadmin User 360 explorer to display comprehensive user activity by standardizing activity events from various apps.
 
 ## Features
 

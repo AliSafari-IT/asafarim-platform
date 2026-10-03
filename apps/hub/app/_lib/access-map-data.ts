@@ -22,7 +22,7 @@ export function getAccessMapNodes(context: AppAccessContext, links: object): Acc
     return {
       key: app.key,
       glyph: app.glyph,
-      name: app.name.replace(/^ASafarIM\s+/i, ""),
+      name: app.name.replace(/^ASafariM\s+/i, ""),
       granted,
       // Open to a guest, but only its public pages — the workspace needs an
       // account (e.g. Vionto, EduMatch). Signed-in users get the full app.

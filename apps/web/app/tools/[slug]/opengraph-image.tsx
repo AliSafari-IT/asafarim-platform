@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getRoutableTools, getTool } from "../../../lib/tools/catalogue";
 
-export const alt = "An AI Workbench tool by ASafarIM Digital";
+export const alt = "An AI Workbench tool by ASafariM Digital";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

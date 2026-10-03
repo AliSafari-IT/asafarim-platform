@@ -1,6 +1,6 @@
 # ADR-0005 — Transactional activity + outbox events
 
-**Status:** Accepted (M00) · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafarIM
+**Status:** Accepted (M00) · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafariM
 
 ## Context
 

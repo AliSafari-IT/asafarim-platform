@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Behind this project",
   description:
-    "Testora is a working test-automation application published as a showcase by ASafarIM Digital: what runs live, what is committed benchmark evidence, and where it stands commercially.",
+    "Testora is a working test-automation application published as a showcase by ASafariM Digital: what runs live, what is committed benchmark evidence, and where it stands commercially.",
   ...publicPageUrls("/about-this-project"),
 };
 

@@ -9,8 +9,8 @@ ENV COREPACK_HOME=/usr/local/share/corepack
 ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 
-ARG NEXT_PUBLIC_COMPANY_NAME="ASafarIM Digital"
-ARG NEXT_PUBLIC_PLATFORM_NAME="ASafarIM Platform"
+ARG NEXT_PUBLIC_COMPANY_NAME="ASafariM Digital"
+ARG NEXT_PUBLIC_PLATFORM_NAME="ASafariM Platform"
 ARG NEXT_PUBLIC_WEB_URL=https://asafarim.com
 ARG NEXT_PUBLIC_HUB_URL=https://hub.asafarim.com
 ARG NEXT_PUBLIC_SHOWCASE_URL=https://showcase.asafarim.com

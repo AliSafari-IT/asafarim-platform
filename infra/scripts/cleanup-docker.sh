@@ -4,7 +4,7 @@
 #
 # Removes:
 #   - stopped containers and dangling images
-#   - ASafarIM platform images except the current and previous releases
+#   - ASafariM platform images except the current and previous releases
 #   - build cache and unused networks older than seven days
 #
 # Named and anonymous volumes are deliberately never pruned automatically.

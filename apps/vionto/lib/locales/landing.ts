@@ -20,7 +20,7 @@ const landingDictionaries: Dictionaries = {
 
     "vionto.landing.showcase.label": "Showcase project",
     "vionto.landing.showcase.summary":
-      "Vionto is in beta — a live product demonstration built and deployed by ASafarIM Digital. The render pipeline, storage, and background workers run for real on production infrastructure; some provider integrations are not enabled, and the published benchmark runs on fixtures rather than real media.",
+      "Vionto is in beta — a live product demonstration built and deployed by ASafariM Digital. The render pipeline, storage, and background workers run for real on production infrastructure; some provider integrations are not enabled, and the published benchmark runs on fixtures rather than real media.",
     "vionto.landing.showcase.about": "Behind this project",
 
     "vionto.landing.trust.gptClaude": "GPT-4 + Claude",
@@ -128,7 +128,7 @@ const landingDictionaries: Dictionaries = {
 
     "vionto.landing.showcase.label": "Showcaseproject",
     "vionto.landing.showcase.summary":
-      "Vionto is in bèta — een live productdemonstratie, gebouwd en uitgerold door ASafarIM Digital. De renderpijplijn, opslag en achtergrondworkers draaien echt op productie-infrastructuur; sommige provider-integraties staan uit, en de gepubliceerde benchmark draait op fixtures in plaats van echte media.",
+      "Vionto is in bèta — een live productdemonstratie, gebouwd en uitgerold door ASafariM Digital. De renderpijplijn, opslag en achtergrondworkers draaien echt op productie-infrastructuur; sommige provider-integraties staan uit, en de gepubliceerde benchmark draait op fixtures in plaats van echte media.",
     "vionto.landing.showcase.about": "Achter dit project",
 
     "vionto.landing.trust.gptClaude": "GPT-4 + Claude",
@@ -236,7 +236,7 @@ const landingDictionaries: Dictionaries = {
 
     "vionto.landing.showcase.label": "Projet vitrine",
     "vionto.landing.showcase.summary":
-      "Vionto est en bêta — une démonstration de produit en direct, conçue et déployée par ASafarIM Digital. Le pipeline de rendu, le stockage et les workers d’arrière-plan tournent réellement sur une infrastructure de production ; certaines intégrations de fournisseurs ne sont pas activées, et le benchmark publié s’exécute sur des fixtures plutôt que sur de vrais médias.",
+      "Vionto est en bêta — une démonstration de produit en direct, conçue et déployée par ASafariM Digital. Le pipeline de rendu, le stockage et les workers d’arrière-plan tournent réellement sur une infrastructure de production ; certaines intégrations de fournisseurs ne sont pas activées, et le benchmark publié s’exécute sur des fixtures plutôt que sur de vrais médias.",
     "vionto.landing.showcase.about": "Les coulisses du projet",
 
     "vionto.landing.trust.gptClaude": "GPT-4 + Claude",
@@ -344,7 +344,7 @@ const landingDictionaries: Dictionaries = {
 
     "vionto.landing.showcase.label": "Showcase-Projekt",
     "vionto.landing.showcase.summary":
-      "Vionto befindet sich in der Beta — eine Live-Produktdemonstration, gebaut und bereitgestellt von ASafarIM Digital. Render-Pipeline, Speicher und Hintergrund-Worker laufen echt auf Produktionsinfrastruktur; einige Anbieter-Integrationen sind nicht aktiviert, und der veröffentlichte Benchmark läuft auf Fixtures statt auf echten Medien.",
+      "Vionto befindet sich in der Beta — eine Live-Produktdemonstration, gebaut und bereitgestellt von ASafariM Digital. Render-Pipeline, Speicher und Hintergrund-Worker laufen echt auf Produktionsinfrastruktur; einige Anbieter-Integrationen sind nicht aktiviert, und der veröffentlichte Benchmark läuft auf Fixtures statt auf echten Medien.",
     "vionto.landing.showcase.about": "Hinter diesem Projekt",
 
     "vionto.landing.trust.gptClaude": "GPT-4 + Claude",

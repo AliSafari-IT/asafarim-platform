@@ -26,11 +26,11 @@ import "@asafarim/country-language-selector/styles.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "ASafarIM Showcase",
-    template: "%s | ASafarIM Showcase",
+    default: "ASafariM Showcase",
+    template: "%s | ASafariM Showcase",
   },
   description:
-    "Curated projects from the ASafarIM Digital lab — demos, case studies, and experiments.",
+    "Curated projects from the ASafariM Digital lab — demos, case studies, and experiments.",
   icons: { icon: "/favicon.svg" },
 };
 

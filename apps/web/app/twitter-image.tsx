@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { site } from "../content/site";
 
 export const runtime = "edge";
-export const alt = "ASafarIM Digital — Full-Stack & AI Application Studio";
+export const alt = "ASafariM Digital — Full-Stack & AI Application Studio";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

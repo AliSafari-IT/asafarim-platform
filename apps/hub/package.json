@@ -2,7 +2,7 @@
   "name": "@asafarim/hub",
   "version": "0.1.0",
   "private": true,
-  "description": "ASafarIM Hub - logged-in user dashboard (hub.asafarim.com)",
+  "description": "ASafariM Hub - logged-in user dashboard (hub.asafarim.com)",
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "next build",
