@@ -77,6 +77,58 @@ describe.skipIf(!hasTestDatabase())("privacy + admin (integration)", () => {
     expect(m.export.searchHistory).toHaveLength(1);
   });
 
+  // ── #759: the membership profile snapshot is personal data ──────────────
+  const SNAPSHOT = { displayName: "Ada Lovelace", avatarUrl: "https://cdn.example/ada.png", profileSyncedAt: new Date() };
+
+  it("DSR export includes the profile snapshot (#759)", async () => {
+    const { createDsr, processDsr } = await import("./dsr");
+    const a = await ws("dsrp");
+    await db.membership.create({ data: { workspaceId: a.w.id, platformUserId: "s3", role: "member", ...SNAPSHOT } });
+
+    const created = await createDsr(a.ctx, { subjectUserId: "s3", kind: "export" });
+    expect((created.manifest as { found: Record<string, number> }).found.profile).toBe(1);
+    const done = await processDsr(a.ctx, created.id);
+    const m = done.manifest as { export: { profile: { displayName: string; avatarUrl: string; profileSyncedAt: string } } };
+    expect(m.export.profile).toMatchObject({ displayName: "Ada Lovelace", avatarUrl: "https://cdn.example/ada.png" });
+    expect(m.export.profile.profileSyncedAt).toBeTruthy();
+  });
+
+  it("DSR delete clears the profile snapshot and counts it in the verification (#759)", async () => {
+    const { createDsr, processDsr } = await import("./dsr");
+    const a = await ws("dsrd");
+    const subject = await db.membership.create({
+      data: { workspaceId: a.w.id, platformUserId: "s4", role: "member", ...SNAPSHOT },
+    });
+
+    const done = await processDsr(a.ctx, (await createDsr(a.ctx, { subjectUserId: "s4", kind: "delete" })).id);
+    expect(done.state).toBe("completed");
+    const v = done.verification as { residualNonComment: unknown[]; afterCounts: Record<string, number> };
+    expect(v.afterCounts.profile).toBe(0);
+    expect(v.residualNonComment).toHaveLength(0);
+    expect(await db.membership.findUnique({ where: { id: subject.id } })).toMatchObject({
+      displayName: null,
+      avatarUrl: null,
+      profileSyncedAt: null,
+      archivedAt: expect.any(Date),
+    });
+  });
+
+  it("removing a member, or SCIM deprovisioning, clears the profile snapshot (#759)", async () => {
+    const { revokeMemberAccess } = await import("../admin/service");
+    const { scimPush } = await import("../enterprise/scim");
+    const a = await ws("rmp");
+    const removed = await db.membership.create({ data: { workspaceId: a.w.id, platformUserId: "r1", role: "member", ...SNAPSHOT } });
+    await db.membership.create({ data: { workspaceId: a.w.id, platformUserId: "r2", role: "member", ...SNAPSHOT } });
+
+    await revokeMemberAccess(a.ctx, removed.id);
+    await scimPush(a.ctx, { op: "deactivate", platformUserId: "r2", externalId: "ext-r2" });
+
+    for (const platformUserId of ["r1", "r2"]) {
+      const m = await db.membership.findFirst({ where: { workspaceId: a.w.id, platformUserId } });
+      expect(m).toMatchObject({ displayName: null, avatarUrl: null, profileSyncedAt: null, archivedAt: expect.any(Date) });
+    }
+  });
+
   it("audit search filters by name + revoking a member revokes their API tokens", async () => {
     const { searchAudit, revokeMemberAccess } = await import("../admin/service");
     const { createToken } = await import("../tokens/service");

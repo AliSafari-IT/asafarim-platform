@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { RequestContext } from "../context";
 import { ApiError } from "../errors";
 import { recordAudit } from "../events/emit";
+import { CLEARED_PROFILE } from "../members/profile";
 
 /**
  * Minimal SCIM-style provisioning (docs: M15). Not a full SCIM 2.0 server —
@@ -25,7 +26,8 @@ export async function scimPush(ctx: RequestContext, input: unknown) {
   if (d.op === "deactivate") {
     const m = await ctx.db.membership.updateMany({
       where: { workspaceId: ctx.workspaceId, platformUserId: d.platformUserId },
-      data: { archivedAt: new Date() },
+      // Deprovisioning drops the profile snapshot too (#759).
+      data: { archivedAt: new Date(), ...CLEARED_PROFILE },
     });
     if (m.count === 0) throw new ApiError("not_found");
   } else {

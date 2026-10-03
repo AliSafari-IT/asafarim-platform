@@ -23,6 +23,7 @@ Scoped external security testing is commissioned before the beta opens
 | Data | Where | Legal basis | Retention |
 |---|---|---|---|
 | Account link (opaque platform user id) | `Membership.platformUserId` | Contract | Until workspace deletion; archived on member revoke |
+| Profile snapshot (display name, avatar URL; no email), copied from the member's own Hub session (#759) | `Membership.displayName`, `avatarUrl`, `profileSyncedAt` | Contract | Refreshed on sign-in; cleared on member revoke, SCIM deprovisioning and DSR delete; included in DSR export |
 | Task / project / comment content | dedicated Postgres (`TASKSAI_DATABASE_URL`) | Contract (workspace owner is joint controller) | Workspace-configurable, default 24 months for activity; then archive |
 | Attachments (bytes) | private object storage, EU region | Contract | Retention hook + deletion on DSR |
 | Audit / security events | `AuditEvent` | Legal obligation / legitimate interest | 24 months min; security events up to 7 years where required |
@@ -60,12 +61,14 @@ that ranks or evaluates people (out of scope, M08 guard enforces).
 
 `POST /workspaces/{slug}/privacy/dsr { subjectUserId, kind }` (owner):
 
-- **export** — builds a JSON bundle of the subject's own comments, time
-  entries, saved views, search history; state → `completed` with the
+- **export** — builds a JSON bundle of the subject's own profile snapshot
+  (display name, avatar URL, last sync; #759), comments, time entries, saved
+  views, search history; state → `completed` with the
   bundle in `manifest`.
 - **delete** — removes search history, notifications, saved views,
   proposal + signal feedback, time entries; revokes API tokens; **redacts**
-  comments in place (thread integrity), archives the membership. Then
+  comments in place (thread integrity), archives the membership and clears
+  its profile snapshot (#759; counted as `profile` in the verification). Then
   **re-counts** every category and records `verification.residualNonComment`
   — the request is `completed` only when that is empty (verified deletion).
   Integration-tested end to end.
