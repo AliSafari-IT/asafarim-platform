@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "f66c5a43",
+      "sha": "aa3d4dfa",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 376,
+      "commits": 377,
       "dependents": 0
     },
     {
@@ -225,10 +225,10 @@
       "kind": "app",
       "folder": "apps/tasks-ai",
       "description": "TasksAI - AI-native work execution: scattered intent to trusted execution (tasks-ai.asafarim.com)",
-      "sha": "506fe769",
+      "sha": "04408a57",
       "date": "2026-10-03",
       "since": "2026-09-06",
-      "commits": 81,
+      "commits": 82,
       "dependents": 0
     },
     {
