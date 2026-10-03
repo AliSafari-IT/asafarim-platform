@@ -5,6 +5,7 @@ import { count } from "drizzle-orm";
 import { db } from "@/db/client";
 import { functionalRequirements, testSuites, testFixtures, testCases } from "@/db/schema";
 import { PipelineVisual } from "./PipelineVisual";
+import { publicPageUrls } from "@/lib/public-site";
 
 const showcase = getShowcaseProject("testora")!;
 const webUrl = process.env.NEXT_PUBLIC_WEB_URL || "https://asafarim.com";
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
   title: "Behind this project",
   description:
     "Testora is a working test-automation application published as a showcase by ASafarIM Digital: what runs live, what is committed benchmark evidence, and where it stands commercially.",
+  ...publicPageUrls("/about-this-project"),
 };
 
 export default async function AboutThisProjectPage() {

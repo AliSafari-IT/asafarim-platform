@@ -16,6 +16,7 @@ import { ShowcaseNotice } from "@asafarim/ui";
 import { Button } from "@/components/ui/button";
 import { LiveTestBoard } from "@/components/marketing/live-test-board";
 import { PROJECTS } from "@/data/projects";
+import { appUrl, publicPageUrls } from "@/lib/public-site";
 
 const showcase = getShowcaseProject("testora")!;
 
@@ -27,6 +28,7 @@ export const metadata: Metadata = {
   title: "Testora — ASafarIM apps, tested like a real user",
   description:
     "Testora runs end-to-end tests against ASafarIM apps the way a real user would. Sign in with your ASafarIM account to see the latest results; testers run tests and report a failure to our GitHub repo in one click — or learn we already know about it.",
+  ...publicPageUrls("/"),
 };
 
 const steps = [
@@ -126,7 +128,7 @@ export default function HomePage() {
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <Link href="/dashboard">
+              <Link href={appUrl("/dashboard")}>
                 Open the app
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -234,7 +236,7 @@ export default function HomePage() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <Link href="/dashboard">
+              <Link href={appUrl("/dashboard")}>
                 Open the app
                 <ArrowRight className="h-4 w-4" />
               </Link>
