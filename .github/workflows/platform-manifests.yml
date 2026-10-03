@@ -54,7 +54,7 @@ jobs:
           # Pinned (#767): a change in asafarim-os can't silently change this CI.
           # Bump by hand to a newer asafarim-os commit (Dependabot can't update a
           # checkout `ref:` input; it only bumps `uses:` references).
-          ref: PIN_ME
+          ref: 2552a2fd3eb765a8cca2948c187cda4737f82614 # asafarim-os #14
           path: asafarim-os
           persist-credentials: false
 
