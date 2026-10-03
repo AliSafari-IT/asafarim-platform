@@ -24,6 +24,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          # No install here: without this, setup-node@v5 enables pnpm caching
+          # from package.json#packageManager and fails looking for pnpm.
+          package-manager-cache: false
       - name: No old brand spelling in tracked files
         run: node scripts/check-brand-spelling.mjs
       - name: Guard tests
