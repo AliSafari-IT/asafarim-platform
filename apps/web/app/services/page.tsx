@@ -5,7 +5,7 @@ import { engagement, services } from "../../content/services";
 export const metadata: Metadata = {
   title: "Services",
   description:
-    "Freelance services from ASafarIM Digital: full-stack web applications, APIs and platform architecture, dashboards, deployment, test automation, and AI-assisted tools.",
+    "Freelance services from ASafariM Digital: full-stack web applications, APIs and platform architecture, dashboards, deployment, test automation, and AI-assisted tools.",
   alternates: { canonical: "/services" },
 };
 

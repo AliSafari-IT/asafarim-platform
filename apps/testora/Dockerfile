@@ -20,9 +20,9 @@ ENV pnpm_config_verify_deps_before_run=false
 RUN corepack enable
 # NEXT_PUBLIC_* are inlined into client bundles at build time (e.g. the SSO
 # sign-in link reads NEXT_PUBLIC_HUB_URL). Provided by compose's public-build-args.
-ARG NEXT_PUBLIC_COMPANY_NAME="ASafarIM Digital"
-ARG NEXT_PUBLIC_PLATFORM_NAME="ASafarIM Platform"
-ARG NEXT_PUBLIC_HUB_NAME="ASafarIM Hub"
+ARG NEXT_PUBLIC_COMPANY_NAME="ASafariM Digital"
+ARG NEXT_PUBLIC_PLATFORM_NAME="ASafariM Platform"
+ARG NEXT_PUBLIC_HUB_NAME="ASafariM Hub"
 ARG NEXT_PUBLIC_WEB_URL=https://asafarim.com
 ARG NEXT_PUBLIC_HUB_URL=https://hub.asafarim.com
 ARG NEXT_PUBLIC_SHOWCASE_URL=https://showcase.asafarim.com

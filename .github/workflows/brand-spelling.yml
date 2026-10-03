@@ -1,0 +1,30 @@
+# Brand spelling guard (#778): the brand is "ASafariM". Fails when the old
+# spelling (capital I) appears in any tracked text file, and lists each hit.
+# No install, a few seconds, and it runs on every push and PR regardless of
+# IS_CI_ON, so it can be a required status check.
+name: Brand spelling
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  brand:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: No old brand spelling in tracked files
+        run: node scripts/check-brand-spelling.mjs
+      - name: Guard tests
+        run: node --test scripts/check-brand-spelling.test.mjs

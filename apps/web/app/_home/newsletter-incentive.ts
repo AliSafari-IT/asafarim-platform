@@ -42,7 +42,7 @@ export async function resolveNewsletterIncentivePath(): Promise<string> {
 export function buildNewsletterIncentiveEmail() {
   const subject = "Your Vionto AI pipeline architecture guide";
   const text = [
-    "Thanks for subscribing to ASafarIM Digital's engineering notes.",
+    "Thanks for subscribing to ASafariM Digital's engineering notes.",
     "",
     "Your copy of The Real Architecture Behind Vionto's AI Pipeline is attached.",
     "",
@@ -51,7 +51,7 @@ export function buildNewsletterIncentiveEmail() {
     "No fluff, no funnel - just the architecture behind the production system.",
     "",
     "Ali Safari",
-    "ASafarIM Digital",
+    "ASafariM Digital",
     "https://asafarim.com",
   ].join("\n");
 
@@ -77,7 +77,7 @@ export function buildNewsletterIncentiveEmail() {
             </tr>
             <tr>
               <td style="padding:18px 42px 38px;color:#68645e;font-size:13px;line-height:1.6;">
-                Ali Safari<br />ASafarIM Digital<br />
+                Ali Safari<br />ASafariM Digital<br />
                 <a href="https://asafarim.com" style="color:#b45309;">asafarim.com</a>
               </td>
             </tr>

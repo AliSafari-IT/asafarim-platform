@@ -11,10 +11,10 @@ import "./seed-data.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "ASafarIM Admin",
-    template: "%s | ASafarIM Admin",
+    default: "ASafariM Admin",
+    template: "%s | ASafariM Admin",
   },
-  description: "System operations console of the ASafarIM Platform",
+  description: "System operations console of the ASafariM Platform",
   icons: { icon: "/favicon.svg" },
 };
 

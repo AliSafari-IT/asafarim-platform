@@ -378,7 +378,7 @@ always safe (verified in CI/verification — see the M02 PR).
 
 ## Deployment
 
-AppBuilder is deployed as part of the ASafarIM Platform using Docker Compose and Caddy:
+AppBuilder is deployed as part of the ASafariM Platform using Docker Compose and Caddy:
 
 - **App container** — built from `apps/appbuilder/Dockerfile` (Next.js standalone), proxied by Caddy at `https://appbuilder.asafarim.com`
 - **Database** — isolated PostgreSQL in Docker

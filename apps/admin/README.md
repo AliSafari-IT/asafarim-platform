@@ -1,4 +1,4 @@
-# ASafarIM Admin
+# ASafariM Admin
 
 Internal admin panel for platform operations — user management, RBAC,
 audit logs, platform settings, seed data, and live system metrics.
@@ -24,7 +24,7 @@ port **3003**. Access requires `admin` or `superadmin` role.
   powered by `@asafarim/seed-manager`.
 - **Settings** (`/settings`) — platform-wide settings
   (`PlatformSetting` key/value store).
-- **Devices** (`/devices`) — read-only list of machines on the ASafarIM
+- **Devices** (`/devices`) — read-only list of machines on the ASafariM
   tailnet, fetched from the Tailscale API. See
   [Tailscale (Devices page)](#tailscale-devices-page).
 - **Subscriptions** (`/subscriptions`) — subscription overview.
@@ -109,7 +109,7 @@ development.
 
 ## Deployment
 
-Admin is deployed as part of the ASafarIM Platform using Docker Compose and Caddy:
+Admin is deployed as part of the ASafariM Platform using Docker Compose and Caddy:
 
 - **App container** — built from `apps/admin/Dockerfile` (Next.js standalone), proxied by Caddy at `https://admin.asafarim.com`
 - **Database** — shared PostgreSQL via `@asafarim/db`

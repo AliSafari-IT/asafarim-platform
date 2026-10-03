@@ -24,7 +24,7 @@ export const roadmapItems: RoadmapItem[] = [
     status: "shipped",
     timeframe: "Foundation",
     summary:
-      "Vionto runs as a Next.js application and separate BullMQ/FFmpeg worker inside the ASafarIM monorepo, with shared Hub SSO, PostgreSQL, Redis, object storage, health endpoints, and production container wiring.",
+      "Vionto runs as a Next.js application and separate BullMQ/FFmpeg worker inside the ASafariM monorepo, with shared Hub SSO, PostgreSQL, Redis, object storage, health endpoints, and production container wiring.",
     tags: ["platform", "infra"],
     links: [ARCHITECTURE],
   },
@@ -91,7 +91,7 @@ export const roadmapItems: RoadmapItem[] = [
     status: "planned",
     timeframe: "Tracking epic",
     summary:
-      "Deliver a least-privilege Vionto operations console, validate it against the real media pipeline, then extract only the proven authorization, navigation, audit, and safety contracts for future ASafarIM apps.",
+      "Deliver a least-privilege Vionto operations console, validate it against the real media pipeline, then extract only the proven authorization, navigation, audit, and safety contracts for future ASafariM apps.",
     tags: ["epic", "admin", "shared"],
     links: [ISSUE_SPEC("VSA-000")],
   },
@@ -204,7 +204,7 @@ export const roadmapItems: RoadmapItem[] = [
     status: "exploring",
     timeframe: "After Vionto validation",
     summary:
-      "Package the proven guard, shell contracts, module registry, audit helpers, destructive-action patterns, and adoption guide so another ASafarIM app can add a least-privilege admin area without copying Vionto code.",
+      "Package the proven guard, shell contracts, module registry, audit helpers, destructive-action patterns, and adoption guide so another ASafariM app can add a least-privilege admin area without copying Vionto code.",
     tags: ["shared", "developer experience"],
     links: [ISSUE_SPEC("VSA-012")],
   },

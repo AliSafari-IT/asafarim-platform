@@ -1,5 +1,5 @@
 /**
- * testora: ASafarIM OS app manifest (#765). DESCRIPTIVE ONLY: nothing reads
+ * testora: ASafariM OS app manifest (#765). DESCRIPTIVE ONLY: nothing reads
  * this file at runtime yet. It states what this app is today, so the
  * asafarim-os drift report (`platform sync --check --against <this repo>`)
  * can compare it with the hand-written registry, compose, bake, build plan and
@@ -10,7 +10,7 @@ export default {
   name: "Testora",
   version: "1.0.0",
   platform: ">=0.1 <1",
-  owner: "ASafarIM Digital",
+  owner: "ASafariM Digital",
   domains: {
     primary: "testora.asafarim.com",
     // Public pages (#762): testora.cloud serves the marketing pages, the rest redirects.

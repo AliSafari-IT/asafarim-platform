@@ -17,7 +17,7 @@ import { ThemeToggle } from "@asafarim/theme-toggle";
 /**
  * The shared platform header — same brand mark, app-switcher and user-menu
  * dropdowns used across web/hub/showcase/admin, so testora reads as part of
- * the ASafarIM platform. Server component: reads the SSO session directly and
+ * the ASafariM platform. Server component: reads the SSO session directly and
  * signs out via a server action. testora keeps its own tool sidebar below this.
  *
  * `nav` is left empty by default — the signed-in (app) layout already has

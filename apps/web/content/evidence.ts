@@ -104,7 +104,7 @@ export const workByProblem: ProblemSolved[] = [
   {
     problem: "Every new app meant rebuilding login, roles, and user data from scratch.",
     solution:
-      "Designed a shared identity package (Auth.js + PostgreSQL + RBAC) once, then reused it across every app on the ASafarIM Platform — this site, the Hub, the Admin console, and beyond.",
+      "Designed a shared identity package (Auth.js + PostgreSQL + RBAC) once, then reused it across every app on the ASafariM Platform — this site, the Hub, the Admin console, and beyond.",
     result: "One account and one role system now cover 10+ apps.",
     link: "https://github.com/AliSafari-IT/asafarim-platform",
     linkLabel: "View the platform",

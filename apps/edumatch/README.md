@@ -4,7 +4,7 @@ A personal learning assistant that understands where a student is struggling,
 helps immediately where it can, and — when human support is worth it —
 prepares, matches, books, and tracks the tutoring. The web app, API routes,
 tutor matching, payments, notification flows, and documentation live in this
-Next.js app inside the ASafarIM Platform monorepo.
+Next.js app inside the ASafariM Platform monorepo.
 
 The core journey is: **ask → understand → clarify → help now → build a Learning
 Brief → match up to five tutors → compare prepared proposals → book → learn →

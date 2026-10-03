@@ -113,7 +113,7 @@ export function ToolShell({ tool, children }: { tool: ToolDefinition; children: 
       </aside>
 
       <p className={styles.muted}>
-        Built by <a href="/about">Ali Safari</a> at ASafarIM Digital · Page last reviewed <time dateTime={tool.lastReviewed}>{formatDate(tool.lastReviewed)}</time>
+        Built by <a href="/about">Ali Safari</a> at ASafariM Digital · Page last reviewed <time dateTime={tool.lastReviewed}>{formatDate(tool.lastReviewed)}</time>
       </p>
     </article>
   );

@@ -38,7 +38,7 @@ export const experiments: Experiment[] = [
   },
   {
     slug: "ui-playground",
-    title: "ASafarIM UI Playground",
+    title: "ASafariM UI Playground",
     tagline: "Poke the design tokens.",
     description:
       "A visual testbench for shared design tokens, buttons, inputs, empty states, and feedback banners across viewport sizes and pseudo-states.",

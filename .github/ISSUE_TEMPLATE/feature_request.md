@@ -12,7 +12,7 @@ A clear and concise description of the feature you'd like to see implemented.
 ## App/Package affected
 Which app or package should this feature be added to?
 
-- [ ] `apps/web` - Public ASafarIM Digital site
+- [ ] `apps/web` - Public ASafariM Digital site
 - [ ] `apps/hub` - Logged-in user dashboard
 - [ ] `apps/showcase` - Public demos and case studies
 - [ ] `apps/admin` - Internal admin panel

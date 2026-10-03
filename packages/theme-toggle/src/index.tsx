@@ -3,7 +3,7 @@
 /**
  * @asafarim/theme-toggle
  *
- * A small, framework-light light/dark theme system shared by every ASafarIM
+ * A small, framework-light light/dark theme system shared by every ASafariM
  * app. It writes the chosen theme to `document.documentElement` as
  * `data-theme="light|dark"`, persists it to localStorage, and respects the
  * OS preference until the user makes an explicit choice.

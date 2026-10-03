@@ -1,6 +1,6 @@
 # @asafarim/theme-toggle
 
-Shared light/dark theme system for every ASafarIM app. Provides a
+Shared light/dark theme system for every ASafariM app. Provides a
 no-flash inline script, a React context provider, and a token-styled
 toggle button.
 

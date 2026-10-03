@@ -1,6 +1,6 @@
 # @asafarim/db
 
-Shared PostgreSQL/Prisma database package for the ASafarIM Platform.
+Shared PostgreSQL/Prisma database package for the ASafariM Platform.
 Every app that uses the shared platform database (web, hub, admin,
 vionto, edumatch, timelineai) imports the Prisma client and generated
 types from here. Apps with isolated databases (AppBuilder, Testora) use

@@ -1,6 +1,6 @@
 # TasksAI — Event Taxonomy (M00)
 
-**Status:** Approved at M00 sign-off · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafarIM
+**Status:** Approved at M00 sign-off · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafariM
 
 Canonical event names and payload shapes. Feeds `ActivityEvent`, `AuditEvent`, and `OutboxEvent` ([ADR-0005](../adr/0005-event-outbox-strategy.md)) and the KPI dictionary. Implemented as typed constants + Zod schemas in `lib/events/*` starting M02.
 

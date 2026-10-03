@@ -31,7 +31,7 @@ Scoped external security testing is commissioned before the beta opens
 | AI prompt context (transient) | provider (Anthropic / OpenAI) under DPA, no training | Contract | Not retained by TasksAI; provider per DPA |
 | Search history | `SearchHistory` | Legitimate interest | Deleted on DSR; user can clear |
 
-**Controller:** the operating entity (ASafarIM, entity TBD — see
+**Controller:** the operating entity (ASafariM, entity TBD — see
 `compliance/decisions.md`). **DPIA decision:** limited-risk AI (proposal-only,
 human applies every change); DPIA revisited at M13 and before any feature
 that ranks or evaluates people (out of scope, M08 guard enforces).
@@ -97,7 +97,7 @@ that ranks or evaluates people (out of scope, M08 guard enforces).
 | p95 task CRUD | ≤ 400 ms |
 | Worker outbox lag | ≤ 60 s |
 
-Incident response: on-call owner = Ali Safari / ASafarIM. AI-specific
+Incident response: on-call owner = Ali Safari / ASafariM. AI-specific
 incidents → `docs/ai-incident-playbook.md` (kill switch, budget freeze).
 Provider outage → auto-degrade to fixture (M06). Source/integration
 takedown → revoke the `Integration` row + its secret; disable the webhook

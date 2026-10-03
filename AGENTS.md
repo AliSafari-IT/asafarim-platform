@@ -1,6 +1,6 @@
 # Repository guidance
 
-This is the public, open-source ASafarIM implementation repository.
+This is the public, open-source ASafariM implementation repository.
 
 - Keep source code, schemas, tests, public API references, and the minimum
   technical documentation required to build and use the software here.

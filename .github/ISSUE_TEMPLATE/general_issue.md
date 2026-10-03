@@ -20,7 +20,7 @@ What type of issue is this?
 ## App/Package affected
 Which app or package is this issue related to?
 
-- [ ] `apps/web` - Public ASafarIM Digital site
+- [ ] `apps/web` - Public ASafariM Digital site
 - [ ] `apps/hub` - Logged-in user dashboard
 - [ ] `apps/showcase` - Public demos and case studies
 - [ ] `apps/admin` - Internal admin panel

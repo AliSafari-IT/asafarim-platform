@@ -24,11 +24,11 @@ import "./hub-ai.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "ASafarIM Hub",
-    template: "%s | ASafarIM Hub",
+    default: "ASafariM Hub",
+    template: "%s | ASafariM Hub",
   },
   description:
-    "Your workspace for apps, showcases, and experiments — mission control for the ASafarIM Platform.",
+    "Your workspace for apps, showcases, and experiments — mission control for the ASafariM Platform.",
   icons: { icon: "/favicon.svg" },
 };
 

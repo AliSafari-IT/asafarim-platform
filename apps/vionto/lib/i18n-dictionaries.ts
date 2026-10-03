@@ -130,7 +130,7 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.flow.status.rendering": "Rendering {progress}%",
     "vionto.flow.status.videoReady": "Video ready",
     "vionto.flow.status.draft": "Draft",
-    "vionto.create.hubLink": "ASafarIM Hub",
+    "vionto.create.hubLink": "ASafariM Hub",
 
     // Upload
     "vionto.upload.eyebrow": "Uploads",
@@ -798,7 +798,7 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.flow.status.rendering": "Renderen {progress}%",
     "vionto.flow.status.videoReady": "Video klaar",
     "vionto.flow.status.draft": "Concept",
-    "vionto.create.hubLink": "ASafarIM Hub",
+    "vionto.create.hubLink": "ASafariM Hub",
 
     "vionto.upload.eyebrow": "Uploads",
     "vionto.upload.title": "Upload een herinneringenset",
@@ -1470,7 +1470,7 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.flow.status.rendering": "Rendu {progress} %",
     "vionto.flow.status.videoReady": "Vidéo prête",
     "vionto.flow.status.draft": "Brouillon",
-    "vionto.create.hubLink": "ASafarIM Hub",
+    "vionto.create.hubLink": "ASafariM Hub",
 
     "vionto.upload.eyebrow": "Uploads",
     "vionto.upload.title": "Uploader un ensemble de souvenirs",
@@ -2123,7 +2123,7 @@ export const viontoDictionaries: Dictionaries = {
     "vionto.flow.status.rendering": "Rendern {progress} %",
     "vionto.flow.status.videoReady": "Video fertig",
     "vionto.flow.status.draft": "Entwurf",
-    "vionto.create.hubLink": "ASafarIM Hub",
+    "vionto.create.hubLink": "ASafariM Hub",
     "vionto.album.startFromBase": "Mit allen Bildern vom Basisalbum starten",
     "vionto.project.manage": "Projekte verwalten",
     "vionto.script.version": "Version",

@@ -127,7 +127,7 @@ export const profileDictionaries: Dictionaries = {
 
     "resumatch.data.title": "Your data",
     "resumatch.data.sub":
-      "What ResuMatch holds for you right now. Your name and email live with your ASafarIM account, not here — ResuMatch only stores an opaque identifier for it.",
+      "What ResuMatch holds for you right now. Your name and email live with your ASafariM account, not here — ResuMatch only stores an opaque identifier for it.",
     "resumatch.data.tilesAria": "Data ResuMatch holds for you",
     "resumatch.data.documents.one": "CV file",
     "resumatch.data.documents.other": "CV files",
@@ -431,7 +431,7 @@ export const profileDictionaries: Dictionaries = {
 
     "resumatch.data.title": "Je gegevens",
     "resumatch.data.sub":
-      "Wat ResuMatch nu over je bewaart. Je naam en e-mail horen bij je ASafarIM-account, niet hier — ResuMatch bewaart er alleen een ondoorzichtige identificatie van.",
+      "Wat ResuMatch nu over je bewaart. Je naam en e-mail horen bij je ASafariM-account, niet hier — ResuMatch bewaart er alleen een ondoorzichtige identificatie van.",
     "resumatch.data.tilesAria": "Gegevens die ResuMatch over je bewaart",
     "resumatch.data.documents.one": "cv-bestand",
     "resumatch.data.documents.other": "cv-bestanden",
@@ -737,7 +737,7 @@ export const profileDictionaries: Dictionaries = {
 
     "resumatch.data.title": "Vos données",
     "resumatch.data.sub":
-      "Ce que ResuMatch conserve à votre sujet en ce moment. Votre nom et votre e-mail sont liés à votre compte ASafarIM, pas ici — ResuMatch n’en garde qu’un identifiant opaque.",
+      "Ce que ResuMatch conserve à votre sujet en ce moment. Votre nom et votre e-mail sont liés à votre compte ASafariM, pas ici — ResuMatch n’en garde qu’un identifiant opaque.",
     "resumatch.data.tilesAria": "Données que ResuMatch conserve à votre sujet",
     "resumatch.data.documents.one": "fichier CV",
     "resumatch.data.documents.other": "fichiers CV",
@@ -1046,7 +1046,7 @@ export const profileDictionaries: Dictionaries = {
 
     "resumatch.data.title": "Deine Daten",
     "resumatch.data.sub":
-      "Was ResuMatch gerade über dich speichert. Dein Name und deine E-Mail gehören zu deinem ASafarIM-Konto, nicht hierher — ResuMatch speichert nur eine undurchsichtige Kennung dafür.",
+      "Was ResuMatch gerade über dich speichert. Dein Name und deine E-Mail gehören zu deinem ASafariM-Konto, nicht hierher — ResuMatch speichert nur eine undurchsichtige Kennung dafür.",
     "resumatch.data.tilesAria": "Daten, die ResuMatch über dich speichert",
     "resumatch.data.documents.one": "Lebenslauf-Datei",
     "resumatch.data.documents.other": "Lebenslauf-Dateien",

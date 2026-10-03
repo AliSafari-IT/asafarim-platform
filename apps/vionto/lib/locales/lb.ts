@@ -109,7 +109,7 @@ const lbVionto: Dict = {
   // Create workflow
   "vionto.create.eyebrow": "Foto-zu-Geschicht Video MVP",
   "vionto.create.headline": "Erënnerungen a poetesch Beweegung verwandelen.",
-  "vionto.create.hubLink": "ASafarIM Hub",
+  "vionto.create.hubLink": "ASafariM Hub",
 
   // Upload
   "vionto.upload.eyebrow": "Uploaden",

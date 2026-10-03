@@ -2,7 +2,7 @@ import type { Dictionaries } from "@asafarim/shared-i18n";
 
 const webDictionaries: Dictionaries = {
   en: {
-    "web.home.hero.eyebrow": "ASafarIM Digital",
+    "web.home.hero.eyebrow": "ASafariM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "DEVELOPER",
     "web.home.hero.title3": "AI BUILDER.",
@@ -17,7 +17,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "AI listings, in production",
     "web.home.heroCard.projectVionto": "AI photo-to-story app",
     "web.home.hero.lede":
-      "ASafarIM Digital is a full-stack & AI application studio that designs, builds, and operates end-to-end platforms — from identity and data layers to real-time dashboards and AI-assisted tools. Founded and run by Ali Safari in Belgium.",
+      "ASafariM Digital is a full-stack & AI application studio that designs, builds, and operates end-to-end platforms — from identity and data layers to real-time dashboards and AI-assisted tools. Founded and run by Ali Safari in Belgium.",
     "web.home.stats.yearsCoding": "Years coding",
     "web.home.stats.githubRepos": "GitHub Repositories",
     "web.home.stats.freeOpen": "Free & open",
@@ -143,7 +143,7 @@ const webDictionaries: Dictionaries = {
     "web.home.contact.githubCta": "GitHub",
   },
   nl: {
-    "web.home.hero.eyebrow": "ASafarIM Digital",
+    "web.home.hero.eyebrow": "ASafariM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "ONTWIKKELAAR",
     "web.home.hero.title3": "& AI-BOUWER.",
@@ -158,7 +158,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "AI-listings, in productie",
     "web.home.heroCard.projectVionto": "AI foto-naar-verhaal app",
     "web.home.hero.lede":
-      "ASafarIM Digital is een full-stack & AI application studio die end-to-end platformen ontwerpt, bouwt en operationeel houdt — van identity en data lagen tot real-time dashboards en AI-assisted tools. Opgericht en geleid door Ali Safari in België.",
+      "ASafariM Digital is een full-stack & AI application studio die end-to-end platformen ontwerpt, bouwt en operationeel houdt — van identity en data lagen tot real-time dashboards en AI-assisted tools. Opgericht en geleid door Ali Safari in België.",
     "web.home.stats.yearsCoding": "Jaren coderen",
     "web.home.stats.githubRepos": "GitHub Repositories",
     "web.home.stats.freeOpen": "Gratis & open",
@@ -284,7 +284,7 @@ const webDictionaries: Dictionaries = {
     "web.home.contact.githubCta": "GitHub",
   },
   fr: {
-    "web.home.hero.eyebrow": "ASafarIM Digital",
+    "web.home.hero.eyebrow": "ASafariM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "DÉVELOPPEUR",
     "web.home.hero.title3": "& BUILDER IA.",
@@ -299,7 +299,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "Listings IA, en production",
     "web.home.heroCard.projectVionto": "App photo-récit IA",
     "web.home.hero.lede":
-      "ASafarIM Digital est un studio full-stack & IA qui conçoit, construit et exploite des plateformes de bout en bout — de l'identité et des couches de données aux tableaux de bord en temps réel et aux outils assistés par IA. Fondé et dirigé par Ali Safari en Belgique.",
+      "ASafariM Digital est un studio full-stack & IA qui conçoit, construit et exploite des plateformes de bout en bout — de l'identité et des couches de données aux tableaux de bord en temps réel et aux outils assistés par IA. Fondé et dirigé par Ali Safari en Belgique.",
     "web.home.stats.yearsCoding": "Années de code",
     "web.home.stats.githubRepos": "Dépôts GitHub",
     "web.home.stats.freeOpen": "Gratuit & open",
@@ -425,7 +425,7 @@ const webDictionaries: Dictionaries = {
     "web.home.contact.githubCta": "GitHub",
   },
   de: {
-    "web.home.hero.eyebrow": "ASafarIM Digital",
+    "web.home.hero.eyebrow": "ASafariM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "ENTWICKLER",
     "web.home.hero.title3": "AI BUILDER.",
@@ -440,7 +440,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "AI Listings, in Produktion",
     "web.home.heroCard.projectVionto": "AI Foto-zu-Geschichte-App",
     "web.home.hero.lede":
-      "ASafarIM Digital ist ein Full-Stack & AI Application Studio, das End-to-End-Plattformen entwirft, baut und betreibt — von Identitäts- und Datenschichten bis hin zu Echtzeit-Dashboards und KI-gestützten Tools. Gegründet und geleitet von Ali Safari in Belgien.",
+      "ASafariM Digital ist ein Full-Stack & AI Application Studio, das End-to-End-Plattformen entwirft, baut und betreibt — von Identitäts- und Datenschichten bis hin zu Echtzeit-Dashboards und KI-gestützten Tools. Gegründet und geleitet von Ali Safari in Belgien.",
     "web.home.stats.yearsCoding": "Jahre coden",
     "web.home.stats.githubRepos": "GitHub Repositories",
     "web.home.stats.freeOpen": "Kostenlos & offen",
@@ -565,7 +565,7 @@ const webDictionaries: Dictionaries = {
     "web.home.contact.githubCta": "GitHub",
   },
   lb: {
-    "web.home.hero.eyebrow": "ASafarIM Digital",
+    "web.home.hero.eyebrow": "ASafariM Digital",
     "web.home.hero.title1": "FULL-STACK",
     "web.home.hero.title2": "DEVELOPER",
     "web.home.hero.title3": "AI BUILDER.",
@@ -580,7 +580,7 @@ const webDictionaries: Dictionaries = {
     "web.home.heroCard.projectImmo": "AI listings, in production",
     "web.home.heroCard.projectVionto": "AI photo-to-story app",
     "web.home.hero.lede":
-      "ASafarIM Digital is a full-stack & AI application studio that designs, builds, and operates end-to-end platforms — from identity and data layers to real-time dashboards and AI-assisted tools. Founded and run by Ali Safari in Belgium.",
+      "ASafariM Digital is a full-stack & AI application studio that designs, builds, and operates end-to-end platforms — from identity and data layers to real-time dashboards and AI-assisted tools. Founded and run by Ali Safari in Belgium.",
     "web.home.stats.yearsCoding": "Years coding",
     "web.home.stats.githubRepos": "GitHub Repositories",
     "web.home.stats.freeOpen": "Free & open",

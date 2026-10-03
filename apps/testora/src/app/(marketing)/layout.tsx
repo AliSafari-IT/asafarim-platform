@@ -43,7 +43,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               href="https://asafarim.com"
               className="transition-colors hover:text-foreground"
             >
-              ASafarIM
+              ASafariM
             </a>
           </div>
         </div>
