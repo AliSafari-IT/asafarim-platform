@@ -19,6 +19,7 @@ on:
       - "docker-bake.hcl"
       - "scripts/plan-image-builds.mjs"
       - "infra/caddy/Caddyfile"
+      - "infra/caddy/other-stack-sites.txt"
       - ".github/workflows/platform-manifests.yml"
   push:
     branches: [main]
@@ -29,6 +30,7 @@ on:
       - "docker-bake.hcl"
       - "scripts/plan-image-builds.mjs"
       - "infra/caddy/Caddyfile"
+      - "infra/caddy/other-stack-sites.txt"
       - ".github/workflows/platform-manifests.yml"
   workflow_dispatch: {}
 
@@ -49,7 +51,10 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: AliSafari-IT/asafarim-os
-          ref: main
+          # Pinned (#767): a change in asafarim-os can't silently change this CI.
+          # Bump by hand to a newer asafarim-os commit (Dependabot can't update a
+          # checkout `ref:` input; it only bumps `uses:` references).
+          ref: PIN_ME
           path: asafarim-os
           persist-credentials: false
 
@@ -66,6 +71,18 @@ jobs:
         working-directory: asafarim-os
         run: pnpm install --frozen-lockfile
 
+      # The drift report reads platform.app.json only and never executes another
+      # checkout's code (asafarim-os #767). Compile our own manifests here, with
+      # this checkout as the trusted workspace (pnpm runs from inside it).
+      - name: Compile the app manifests
+        working-directory: platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in apps/*/platform.app.ts; do
+            pnpm --dir "$GITHUB_WORKSPACE/asafarim-os" --silent platform manifest compile "$PWD/$f"
+          done
+
       - name: Drift report (non-blocking)
         id: drift
         continue-on-error: true
@@ -73,7 +90,8 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          pnpm --silent platform sync --check --against "$GITHUB_WORKSPACE/platform" 2>&1 | tee "$RUNNER_TEMP/drift.txt"
+          pnpm --silent platform sync --check --against "$GITHUB_WORKSPACE/platform" \
+            --other-stack-sites "$GITHUB_WORKSPACE/platform/infra/caddy/other-stack-sites.txt" 2>&1 | tee "$RUNNER_TEMP/drift.txt"
 
       - name: Publish the report
         if: always()
