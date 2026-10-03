@@ -1,3 +1,4 @@
+import launcherRegistry from "../../../generated/platform/launcher-registry.json";
 import { ROLES } from "./roles";
 
 /**
@@ -109,56 +110,12 @@ export interface PlatformApp {
 const SHOWCASE_ABOUT_HREF = "/about-this-project";
 const SHOWCASE_LABEL = "Showcase project";
 
-export const PLATFORM_APPS: readonly PlatformApp[] = [
-  {
-    key: "web",
-    name: "ASafariM Digital",
-    description: "The public studio website: services, projects, and contact.",
-    glyph: "WB",
-    meta: "asafarim.com",
-    status: "active",
-    access: "public",
-  },
-  {
-    key: "hub",
-    name: "Hub",
-    description: "The signed-in workbench: dashboard, profile, and app launcher.",
-    glyph: "HB",
-    meta: "hub.asafarim.com",
-    status: "active",
-    access: "authenticated",
-  },
-  {
-    // Route policy decision: Showcase stays public — it is the exhibition
-    // wall for demos and case studies, same as the current deployment.
-    key: "showcase",
-    name: "Showcase",
-    description: "The exhibition wall: demos, case studies, and experiments.",
-    glyph: "SC",
-    meta: "showcase.asafarim.com",
-    status: "active",
-    access: "public",
-  },
-  {
-    key: "admin",
-    name: "Admin Console",
-    description: "Users, roles, permissions, and the audit stream.",
-    glyph: "AD",
-    meta: "admin.asafarim.com · restricted",
-    status: "active",
-    access: [ROLES.ADMIN],
-  },
-  {
-    // Vionto's own proxy keeps the landing and creation entry public;
-    // project work requires sign-in inside the app itself.
-    key: "vionto",
-    name: "Vionto",
-    description: "Photo-to-story studio: turn photo collections into narrated videos.",
-    glyph: "VN",
-    meta: "vionto.asafarim.com · beta",
-    status: "active",
-    access: "public",
-    requiresAccountToUse: true,
+/**
+ * Showcase copy, keyed by app. It is long, translated marketing text, not
+ * manifest data, so it stays here and is joined onto the generated entries.
+ */
+const SHOWCASE_COPY: Record<string, Pick<PlatformApp, "showcase" | "showcaseByLocale">> = {
+  vionto: {
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
@@ -204,21 +161,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
         "Beta showcase product. Free to explore, built on production infrastructure, and not sold as a commercial service.",
     },
   },
-  {
-    // Public landing; private apps-under-test gate themselves on a signed-in
-    // session inside the tool (see apps/testora app-access).
-    key: "testora",
-    name: "Testora",
-    description:
-      "Live end-to-end results for ASafariM apps — testers spot a failure and file it to our repo in one click.",
-    glyph: "TS",
-    meta: "testora.asafarim.com",
-    status: "active",
-    access: "public",
-    // Seeing per-app E2E results needs an account; running tests and filing
-    // bugs to the platform repo also need the Tester role (or admin) —
-    // apps/testora/src/lib/access-policy.ts. Guests only get the public pages.
-    requiresAccountToUse: true,
+  testora: {
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
@@ -260,47 +203,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
         "A working internal-grade tool, published as a showcase. Not sold, not commercially operated, and not offering support or SLAs.",
     },
   },
-  {
-    // Any signed-in active user may open AppBuilder; per-generated-app
-    // ownership/collaborator access is enforced separately inside the app
-    // (apps/appbuilder/lib/repositories/authz.ts), not at this platform gate.
-    key: "appbuilder",
-    name: "AppBuilder",
-    description: "Describe an internal app in plain language and get a controlled, versioned application back.",
-    glyph: "AB",
-    meta: "appbuilder.asafarim.com",
-    status: "active",
-    access: "authenticated",
-  },
-  {
-    // DevTools is a separate deployment on asafarim.be (its own docker-compose
-    // project on the same VPS), not a subdomain of asafarim.com. It is listed
-    // here so the platform launcher and app-switcher link to it; access is
-    // "public" because the DevTools app handles its own auth independently.
-    key: "devtools",
-    name: "DevTools",
-    description: "Developer tooling and utilities — logo normalizer and more.",
-    glyph: "DT",
-    meta: "asafarim.be",
-    status: "active",
-    access: "public",
-  },
-  {
-    // Landing page is a public marketing/product page with no auth gate
-    // (app/page.tsx renders unconditionally); student/tutor routes gate
-    // themselves individually via requireStudent/requireRole, same split
-    // as vionto and testora. "authenticated" here hid EduMatch from every
-    // platform switcher's anonymous-visitor view (e.g. Hub's, which
-    // filters by canAccessApp), even though the page itself was already
-    // reachable and browsable without signing in.
-    key: "edumatch",
-    name: "EduMatch",
-    description: "AI learning support and an explainable, trusted tutor marketplace.",
-    glyph: "EM",
-    meta: "edumatch.asafarim.com",
-    status: "active",
-    access: "public",
-    requiresAccountToUse: true,
+  edumatch: {
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
@@ -395,17 +298,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
       },
     },
   },
-  {
-    // Public landing + guest create/export/submit flow, same public-first
-    // split as vionto/testora/edumatch — dashboard and admin gate
-    // themselves individually inside the app (requireUser/requireRole).
-    key: "timelineai",
-    name: "TimelineAI",
-    description: "Create polished, visual timelines — project plans, roadmaps, and storytelling.",
-    glyph: "TL",
-    meta: "tlai.asafarim.com",
-    status: "active",
-    access: "public",
+  timelineai: {
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
@@ -447,45 +340,40 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
         "Free public showcase tool from ASafariM Digital. Genuinely usable, deployed on production infrastructure, and not a commercial service.",
     },
   },
+};
+
+type Ordered<T> = T & { order: number };
+
+/**
+ * Entries that no app manifest describes: Admin is a core service in ASafariM
+ * OS (its manifest, admin-console, has no launcher tile), DevTools is another
+ * stack, and the deferred apps have no implementation. `order` places them
+ * between the generated tiles.
+ */
+const HAND_WRITTEN_APPS: Ordered<PlatformApp>[] = [
   {
-    // Public, unstable-by-design workbench — see apps/labs/app/about. No
-    // showcase block: it never claims to be a finished product, the /about
-    // page already carries that disclaimer, and every experiment card
-    // states its own status.
-    key: "labs",
-    name: "Labs",
-    description: "The experimental workbench: prototypes and interactive canvases for what's next.",
-    glyph: "LB",
-    meta: "labs.asafarim.com",
+    key: "admin",
+    name: "Admin Console",
+    description: "Users, roles, permissions, and the audit stream.",
+    glyph: "AD",
+    meta: "admin.asafarim.com · restricted",
+    status: "active",
+    access: [ROLES.ADMIN],
+    order: 40,
+  },
+  {
+    // DevTools is a separate deployment on asafarim.be (its own docker-compose
+    // project on the same VPS), not a subdomain of asafarim.com. It is listed
+    // here so the platform launcher and app-switcher link to it; access is
+    // "public" because the DevTools app handles its own auth independently.
+    key: "devtools",
+    name: "DevTools",
+    description: "Developer tooling and utilities — logo normalizer and more.",
+    glyph: "DT",
+    meta: "asafarim.be",
     status: "active",
     access: "public",
-  },
-  {
-    // Authenticated-only in the launcher: the landing page at / is public
-    // (proxy.ts allows it), while the candidate workspace requires a session.
-    // ResuMatch is a deployed, non-commercial portfolio showcase — an
-    // AI-powered CV-tailoring tool, not a job-search or recruiting service.
-    key: "resumatch",
-    name: "ResuMatch",
-    description: "AI-tailored CVs: paste a job URL, rewrite your resume toward it.",
-    glyph: "RM",
-    meta: "resumatch.asafarim.com",
-    status: "active",
-    access: "authenticated",
-  },
-  {
-    // Public landing at / (proxy.ts allows it); the /workspace surface
-    // requires a platform session. TasksAI is in early development — a
-    // deployable shell, not a launched or commercial product. It keeps its
-    // own isolated database and stores only an opaque platform user id.
-    // See apps/tasks-ai/docs/charter.md and docs/adr/0001-dedicated-database.md.
-    key: "tasksai",
-    name: "TasksAI",
-    description: "AI-native work execution: scattered intent to trusted execution.",
-    glyph: "TA",
-    meta: "tasks-ai.asafarim.com",
-    status: "active",
-    access: "authenticated",
+    order: 80,
   },
   // ── Deferred apps: visible as coming-soon metadata only. No access is
   //    granted until their implementation PRs land. ─────────────────────
@@ -497,6 +385,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     meta: "content · planned",
     status: "coming-soon",
     access: null,
+    order: 900,
   },
   {
     key: "marketing-content",
@@ -506,8 +395,34 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     meta: "marketing · planned",
     status: "coming-soon",
     access: null,
+    order: 910,
   },
-] as const;
+];
+
+/**
+ * The app tiles generated from the manifests (`ui.launcher` in
+ * apps/<app>/platform.app.ts). Regenerate after a manifest change with
+ * `platform sync --root .` (see generated/platform/README.md); CI fails when
+ * the committed file has drifted.
+ */
+function generatedApps(): Ordered<PlatformApp>[] {
+  return launcherRegistry.apps.map((entry) => {
+    if (entry.status !== "active" && entry.status !== "coming-soon")
+      throw new Error(`launcher-registry.json: ${entry.key} has an unknown status "${entry.status}"`);
+    if (entry.access !== "public" && entry.access !== "authenticated")
+      throw new Error(`launcher-registry.json: ${entry.key} has an unknown access "${entry.access}"`);
+    const { order, ...rest } = entry;
+    return { ...rest, status: entry.status, access: entry.access, ...SHOWCASE_COPY[entry.key], order };
+  });
+}
+
+/**
+ * The registry: generated tiles plus the hand-written entries, by `order`
+ * (ties keep generated tiles first).
+ */
+export const PLATFORM_APPS: readonly PlatformApp[] = [...generatedApps(), ...HAND_WRITTEN_APPS]
+  .sort((a, b) => a.order - b.order)
+  .map(({ order: _order, ...app }) => app);
 
 export interface AppAccessContext {
   /** Role names held by the user (empty for anonymous visitors). */

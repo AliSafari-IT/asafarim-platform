@@ -1,6 +1,8 @@
 /**
- * appbuilder: ASafariM OS app manifest (#765). DESCRIPTIVE ONLY: nothing reads
- * this file at runtime yet. It states what this app is today, so the
+ * appbuilder: ASafariM OS app manifest (#765). No app reads this file
+ * at runtime. Its ui.launcher block is generated into
+ * generated/platform/launcher-registry.json (#769), which @asafarim/auth
+ * reads; the rest is descriptive. It states what this app is today, so the
  * asafarim-os drift report (`platform sync --check --against <this repo>`)
  * can compare it with the hand-written registry, compose, bake, build plan and
  * Caddy files. Schema: @asafarim/app-manifest in AliSafari-IT/asafarim-os.
@@ -71,5 +73,16 @@ export default {
     color: "#7c3aed",
     nav: [],
     status: "active",
+    // The launcher tile (Hub, app switchers): `platform sync` writes it to
+    // generated/platform/launcher-registry.json, which @asafarim/auth reads.
+    // Any signed-in active user may open AppBuilder; per-generated-app
+    // ownership/collaborator access is enforced separately inside the app
+    // (apps/appbuilder/lib/repositories/authz.ts), not at this platform gate.
+    launcher: {
+      description: "Describe an internal app in plain language and get a controlled, versioned application back.",
+      meta: "appbuilder.asafarim.com",
+      access: "authenticated",
+      order: 70,
+    },
   },
 };

@@ -8,6 +8,10 @@
 # infra/caddy/Caddyfile. The report lands in the job summary. Drift doesn't
 # fail the workflow (continue-on-error) until ASafariM OS P1 makes the
 # generated files authoritative.
+#
+# The launcher registry (#769) is the exception: generated/platform/
+# launcher-registry.json IS authoritative (@asafarim/auth reads it), so the
+# "Generated files are up to date" step below fails the job when it drifts.
 name: Platform manifests (drift report)
 
 on:
@@ -15,6 +19,7 @@ on:
     paths:
       - "apps/*/platform.app.ts"
       - "packages/auth/src/apps.ts"
+      - "generated/platform/**"
       - "docker-compose.prod.yml"
       - "docker-bake.hcl"
       - "scripts/plan-image-builds.mjs"
@@ -26,6 +31,7 @@ on:
     paths:
       - "apps/*/platform.app.ts"
       - "packages/auth/src/apps.ts"
+      - "generated/platform/**"
       - "docker-compose.prod.yml"
       - "docker-bake.hcl"
       - "scripts/plan-image-builds.mjs"
@@ -54,7 +60,7 @@ jobs:
           # Pinned (#767): a change in asafarim-os can't silently change this CI.
           # Bump by hand to a newer asafarim-os commit (Dependabot can't update a
           # checkout `ref:` input; it only bumps `uses:` references).
-          ref: 2552a2fd3eb765a8cca2948c187cda4737f82614 # asafarim-os #14
+          ref: 66431cc9c62316f611069cfc403c8926c6a89946 # asafarim-os #18 (includes #14, #15)
           path: asafarim-os
           persist-credentials: false
 
@@ -82,6 +88,13 @@ jobs:
           for f in apps/*/platform.app.ts; do
             pnpm --dir "$GITHUB_WORKSPACE/asafarim-os" --silent platform manifest compile "$PWD/$f"
           done
+
+      # Blocking: generated/platform/ must be exactly what the manifests
+      # generate. Fix locally by compiling the manifests and running
+      # `platform sync --root <this checkout>` (see generated/platform/README.md).
+      - name: Generated files are up to date
+        working-directory: asafarim-os
+        run: pnpm --silent platform sync --check --root "$GITHUB_WORKSPACE/platform"
 
       - name: Drift report (non-blocking)
         id: drift
