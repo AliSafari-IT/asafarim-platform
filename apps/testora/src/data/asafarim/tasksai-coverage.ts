@@ -93,7 +93,17 @@ function entry(
   return { id, group, scenario, role, mutation, targets, caseIds: [`tasksai-${group}-${key}`], prerequisites, slice, status: "planned" };
 }
 
-export const TASKSAI_COVERAGE: CoverageEntry[] = [
+/** Delivered scenarios (each slice's PR adds its own). */
+const IMPLEMENTED = new Set([
+  // Slice 3 (#742): authentication + the member daily-work journey.
+  "tasksai.auth.redirect-to-hub",
+  "tasksai.auth.login-returns",
+  "tasksai.auth.invalid-sign-in",
+  "tasksai.auth.sign-out",
+  "tasksai.daily-work.journey",
+]);
+
+const PLANNED_COVERAGE: CoverageEntry[] = [
   // Authentication
   entry("auth", "redirect-to-hub", "Protected workspace redirects through the target's Hub", "signed-out", "read", 3, []),
   entry("auth", "login-returns", "Sign-in returns to the selected TasksAI origin and workspace", "member", "read", 3, [BASELINE]),
@@ -229,3 +239,7 @@ export const TASKSAI_COVERAGE: CoverageEntry[] = [
   entry("daily-work", "journey", "Sign in → capture → triage → assign self / due date → My Work → completion check → complete → persists", "member", "mutates", 3, [BASELINE]),
   entry("ai-planning", "journey", "Generate → review/edit → partially apply → verify → undo", "member", "mutates", 6, [BASELINE, AI_FIXTURE]),
 ];
+
+export const TASKSAI_COVERAGE: CoverageEntry[] = PLANNED_COVERAGE.map((e) =>
+  IMPLEMENTED.has(e.id) ? { ...e, status: "implemented" as const } : e,
+);

@@ -15,6 +15,10 @@
  * tested prod" can't pass.
  *
  * The snippet declares `pathname` (callers reuse it) and `appOrigin`.
+ *
+ * Credentials default to the ASafariM admin secrets. A catalog that tests
+ * roles (TasksAI, #742) passes its own target-secret names per fixture, so a
+ * member or guest case never runs with admin rights.
  */
 export function hubSsoLoginScript(options: {
   /** App name used in failure messages, e.g. "TimelineAI". */
@@ -25,7 +29,14 @@ export function hubSsoLoginScript(options: {
   defaultAppUrl: string;
   /** Path on the app to come back to after sign-in. */
   callbackPath: string;
+  /** Target-secret names holding the account to sign in as (default: the ASafariM admin). */
+  credentials?: { emailEnv: string; passwordEnv: string };
 }): string {
+  const emailEnv = options.credentials?.emailEnv ?? "ASAFARIM_ADMIN_EMAIL";
+  const passwordEnv = options.credentials?.passwordEnv ?? "ASAFARIM_ADMIN_PASSWORD";
+  for (const name of [emailEnv, passwordEnv]) {
+    if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new Error(`hubSsoLoginScript: invalid secret name "${name}"`);
+  }
   const appUrlFallback = [
     "process.env.TESTORA_TARGET_BASE_URL",
     ...options.appUrlEnv.map((name) => `process.env.${name}`),
@@ -35,10 +46,10 @@ export function hubSsoLoginScript(options: {
   return `
 const appOrigin = new URL(${appUrlFallback}).origin;
 const hubOrigin = new URL(process.env.TESTORA_TARGET_HUB_URL || process.env.ASAFARIM_HUB_URL || process.env.NEXT_PUBLIC_ASAFARIM_HUB_URL || 'https://hub.asafarim.com').origin;
-const email = process.env.ASAFARIM_ADMIN_EMAIL || '';
-const password = process.env.ASAFARIM_ADMIN_PASSWORD || '';
-await t.expect(email.length).gt(0, 'ASAFARIM_ADMIN_EMAIL is not set — add it to the secrets of the target this run uses (Targets page).');
-await t.expect(password.length).gt(0, 'ASAFARIM_ADMIN_PASSWORD is not set — add it to the secrets of the target this run uses (Targets page).');
+const email = process.env.${emailEnv} || '';
+const password = process.env.${passwordEnv} || '';
+await t.expect(email.length).gt(0, '${emailEnv} is not set — add it to the secrets of the target this run uses (Targets page).');
+await t.expect(password.length).gt(0, '${passwordEnv} is not set — add it to the secrets of the target this run uses (Targets page).');
 
 await t.deleteCookies();
 const callback = appOrigin + ${JSON.stringify(options.callbackPath)};

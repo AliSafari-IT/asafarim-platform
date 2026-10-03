@@ -9,8 +9,13 @@ import { fixtureOrigin } from "@/test-engine/fixture-origin";
  * browser starts wherever the script navigates, and pressing "Sign in" sends
  * it to `landOn` — standing in for wherever Hub actually redirects.
  */
-async function runLogin(options: { env: Record<string, string | undefined>; landOn?: string }) {
+async function runLogin(options: {
+  env: Record<string, string | undefined>;
+  landOn?: string;
+  credentials?: { emailEnv: string; passwordEnv: string };
+}) {
   const visited: string[] = [];
+  const typed: string[] = [];
   let current = new URL("about:blank");
   const expectation = (value: unknown) => ({
     gt: async (n: number, message: string) => {
@@ -29,7 +34,9 @@ async function runLogin(options: { env: Record<string, string | undefined>; land
       current = new URL(url);
       visited.push(current.href);
     },
-    typeText: async () => {},
+    typeText: async (_selector: string, text: string) => {
+      typed.push(text);
+    },
     click: async () => {
       // Hub honours the callbackUrl unless the test says it goes elsewhere.
       const callback = current.searchParams.get("callbackUrl");
@@ -57,12 +64,13 @@ async function runLogin(options: { env: Record<string, string | undefined>; land
     appUrlEnv: ["ASAFARIM_TIMELINEAI_URL"],
     defaultAppUrl: "https://tlai.asafarim.com",
     callbackPath: "/dashboard",
+    credentials: options.credentials,
   });
   // Same shape a generated spec has: the per-run prelude, then the script.
   const body = `${specEnvPrelude(env)}\nconst console = { log() {} };\n${script}`;
   const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
   await new AsyncFunction("t", "Selector", body)(t, Selector);
-  return visited;
+  return Object.assign(visited, { typed });
 }
 
 const LOCAL = {
@@ -117,4 +125,28 @@ test("the spec's target base URL is the fixture's (retargeted) origin", () => {
   assert.equal(fixtureOrigin("https://tlai.asafarim.com/"), "https://tlai.asafarim.com");
   assert.equal(fixtureOrigin("/relative"), undefined);
   assert.equal(fixtureOrigin(undefined), undefined);
+});
+
+test("a role catalog signs in with its own target secrets, not the admin's (#742)", async () => {
+  const member = { emailEnv: "TASKSAI_TEST_MEMBER_EMAIL", passwordEnv: "TASKSAI_TEST_MEMBER_PASSWORD" };
+  const result = await runLogin({
+    env: { ...LOCAL, TASKSAI_TEST_MEMBER_EMAIL: "tasksai-test+member@asafarim.test", TASKSAI_TEST_MEMBER_PASSWORD: "member-pw" },
+    credentials: member,
+  });
+  assert.deepEqual(result.typed, ["tasksai-test+member@asafarim.test", "member-pw"]);
+});
+
+test("a missing role secret fails by name and never falls back to the admin account", async () => {
+  // The admin secrets are present (runLogin always sets them); the member's are not.
+  await assert.rejects(
+    runLogin({ env: LOCAL, credentials: { emailEnv: "TASKSAI_TEST_MEMBER_EMAIL", passwordEnv: "TASKSAI_TEST_MEMBER_PASSWORD" } }),
+    /TASKSAI_TEST_MEMBER_EMAIL is not set/,
+  );
+});
+
+test("secret names are validated (they are inlined into the generated spec)", () => {
+  assert.throws(
+    () => hubSsoLoginScript({ appName: "X", appUrlEnv: [], defaultAppUrl: "https://x.test", callbackPath: "/", credentials: { emailEnv: "A; process.exit()", passwordEnv: "B" } }),
+    /invalid secret name/,
+  );
 });
