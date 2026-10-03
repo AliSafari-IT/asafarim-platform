@@ -1,0 +1,1 @@
+ASafarIM Digital (deliberate wrong spelling to prove the #778 guard fails)
