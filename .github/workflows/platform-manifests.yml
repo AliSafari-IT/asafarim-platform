@@ -1,0 +1,108 @@
+# ASafariM OS drift report (#765) — NON-BLOCKING for now.
+#
+# Each app describes itself in apps/<folder>/platform.app.ts (descriptive only;
+# nothing reads them at runtime). This job checks out AliSafari-IT/asafarim-os
+# and runs its read-only drift report against this checkout: it compares the
+# manifests with the hand-written registry (packages/auth/src/apps.ts),
+# docker-compose.prod.yml, docker-bake.hcl, scripts/plan-image-builds.mjs and
+# infra/caddy/Caddyfile. The report lands in the job summary. Drift doesn't
+# fail the workflow (continue-on-error) until ASafariM OS P1 makes the
+# generated files authoritative.
+name: Platform manifests (drift report)
+
+on:
+  pull_request:
+    paths:
+      - "apps/*/platform.app.ts"
+      - "packages/auth/src/apps.ts"
+      - "docker-compose.prod.yml"
+      - "docker-bake.hcl"
+      - "scripts/plan-image-builds.mjs"
+      - "infra/caddy/Caddyfile"
+      - "infra/caddy/other-stack-sites.txt"
+      - ".github/workflows/platform-manifests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/*/platform.app.ts"
+      - "packages/auth/src/apps.ts"
+      - "docker-compose.prod.yml"
+      - "docker-bake.hcl"
+      - "scripts/plan-image-builds.mjs"
+      - "infra/caddy/Caddyfile"
+      - "infra/caddy/other-stack-sites.txt"
+      - ".github/workflows/platform-manifests.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: platform
+          # The job runs code from asafarim-os; leave no token in .git/config.
+          persist-credentials: false
+
+      - uses: actions/checkout@v5
+        with:
+          repository: AliSafari-IT/asafarim-os
+          # Pinned (#767): a change in asafarim-os can't silently change this CI.
+          # Bump by hand to a newer asafarim-os commit (Dependabot can't update a
+          # checkout `ref:` input; it only bumps `uses:` references).
+          ref: 2552a2fd3eb765a8cca2948c187cda4737f82614 # asafarim-os #14
+          path: asafarim-os
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5
+        with:
+          package_json_file: asafarim-os/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: asafarim-os/.nvmrc
+          cache: pnpm
+          cache-dependency-path: asafarim-os/pnpm-lock.yaml
+
+      - name: Install the platform CLI
+        working-directory: asafarim-os
+        run: pnpm install --frozen-lockfile
+
+      # The drift report reads platform.app.json only and never executes another
+      # checkout's code (asafarim-os #767). Compile our own manifests here, with
+      # this checkout as the trusted workspace (pnpm runs from inside it).
+      - name: Compile the app manifests
+        working-directory: platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in apps/*/platform.app.ts; do
+            pnpm --dir "$GITHUB_WORKSPACE/asafarim-os" --silent platform manifest compile "$PWD/$f"
+          done
+
+      - name: Drift report (non-blocking)
+        id: drift
+        continue-on-error: true
+        working-directory: asafarim-os
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --silent platform sync --check --against "$GITHUB_WORKSPACE/platform" \
+            --other-stack-sites "$GITHUB_WORKSPACE/platform/infra/caddy/other-stack-sites.txt" 2>&1 | tee "$RUNNER_TEMP/drift.txt"
+
+      - name: Publish the report
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## ASafariM OS drift report (non-blocking)"
+            echo
+            echo '```'
+            grep -vE '^ *•|turbo |Tasks:|Cached:|Time:' "$RUNNER_TEMP/drift.txt" || true
+            echo '```'
+            echo
+            echo "Outcome: ${{ steps.drift.outcome }} (drift doesn't fail this workflow yet)."
+          } >> "$GITHUB_STEP_SUMMARY"

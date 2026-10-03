@@ -1,6 +1,6 @@
-# ASafarIM Platform
+# ASafariM Platform
 
-Unified monorepo for all **ASafarIM Digital** apps and services: the public
+Unified monorepo for all **ASafariM Digital** apps and services: the public
 website (web), the Hub dashboard, the Showcase, the Admin panel, Vionto
 (AI photo-to-story video), EduMatch (AI learning support and tutor
 marketplace), AppBuilder (metadata-driven AI application factory), Testora
@@ -114,7 +114,7 @@ bearer instead of touching the platform database (see
 
 | App              | Purpose                        | Dev port | Target domain          | Access                      |
 | ---------------- | ------------------------------ | -------- | ---------------------- | --------------------------- |
-| [`apps/web`](apps/web/README.md)       | Public ASafarIM Digital site   | 3000     | asafarim.com           | Public                      |
+| [`apps/web`](apps/web/README.md)       | Public ASafariM Digital site   | 3000     | asafarim.com           | Public                      |
 | [`apps/hub`](apps/hub/README.md)       | Logged-in user dashboard       | 3001     | hub.asafarim.com       | Login for dashboard/apps/profile/settings |
 | [`apps/showcase`](apps/showcase/README.md)  | Public demos and case studies  | 3002     | showcase.asafarim.com   | Public                      |
 | [`apps/admin`](apps/admin/README.md)     | Internal admin panel           | 3003     | admin.asafarim.com     | admin / superadmin role     |

@@ -19,7 +19,7 @@ import { ShippedInventory } from "./_components/ShippedInventory";
 export const metadata: Metadata = {
   title: "Engineering Proof",
   description:
-    "How the ASafarIM platform is actually built: architecture, security boundaries, deployment topology, shipped versions, and quality status — with sources, not just claims.",
+    "How the ASafariM platform is actually built: architecture, security boundaries, deployment topology, shipped versions, and quality status — with sources, not just claims.",
 };
 
 const freshnessLabel = {

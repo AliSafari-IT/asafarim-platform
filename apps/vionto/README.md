@@ -1,6 +1,6 @@
 # Vionto
 
-Vionto is the AI-powered photo-to-story video app in the ASafarIM Platform. It turns image collections into narrated MP4 videos: projects own the source images, albums are non-destructive subsets/orderings, and video versions carry the creative settings that scripts, audio tracks, render jobs, and exports hang off. Ported from `asafarim-digital` (see [docs/vionto-architecture.md](../../docs/vionto-architecture.md) for the full architecture).
+Vionto is the AI-powered photo-to-story video app in the ASafariM Platform. It turns image collections into narrated MP4 videos: projects own the source images, albums are non-destructive subsets/orderings, and video versions carry the creative settings that scripts, audio tracks, render jobs, and exports hang off. Ported from `asafarim-digital` (see [docs/vionto-architecture.md](../../docs/vionto-architecture.md) for the full architecture).
 
 ## Development
 

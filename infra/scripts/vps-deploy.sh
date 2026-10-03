@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Server-side deploy for the ASafarIM platform (runs ON the VPS).
+# Server-side deploy for the ASafariM platform (runs ON the VPS).
 # Invoked manually or by the GitHub Actions "Deploy to VPS" workflow over SSH.
 #
 # Prerequisites already provisioned on the VPS (one-time):
@@ -289,7 +289,7 @@ for db_service in "${PRODUCTION_MARKED_DB_SERVICES[@]}"; do
   else
     # Not fatal: the CLIs' URL and machine checks still apply. But loud.
     echo "WARNING: could not stamp the production marker on ${db_service}." >&2
-    notify_discord "⚠️ ASafarIM deploy ${IMAGE_TAG:0:12}: could not stamp asafarim-env=production on ${db_service}. See the deploy log."
+    notify_discord "⚠️ ASafariM deploy ${IMAGE_TAG:0:12}: could not stamp asafarim-env=production on ${db_service}. See the deploy log."
   fi
 done
 
@@ -313,7 +313,7 @@ fi
 echo "[deploy $(date -Is)] Verifying the live Caddy configuration..."
 if ! verify_caddy_config; then
   echo "FATAL: Caddy is not serving this release's configuration." >&2
-  notify_discord "❌ ASafarIM deploy ${IMAGE_TAG:0:12}: Caddy config check FAILED — the live proxy is not serving this release's Caddyfile. See the deploy log."
+  notify_discord "❌ ASafariM deploy ${IMAGE_TAG:0:12}: Caddy config check FAILED — the live proxy is not serving this release's Caddyfile. See the deploy log."
   exit 1
 fi
 
@@ -357,7 +357,7 @@ if [[ "${TESTORA_RUNNER_ENABLED}" == true ]]; then
     printf '%s\n' "$SELF_TEST_OUT" >&2
     echo "FATAL: the Testora runner egress self-test failed — stopping testora-runner." >&2
     "${COMPOSE[@]}" stop testora-runner || true
-    notify_discord "❌ ASafarIM deploy ${IMAGE_TAG:0:12}: Testora runner egress self-test FAILED — testora-runner stopped. See the deploy log."
+    notify_discord "❌ ASafariM deploy ${IMAGE_TAG:0:12}: Testora runner egress self-test FAILED — testora-runner stopped. See the deploy log."
     exit 1
   fi
 else
@@ -386,7 +386,7 @@ fi
 if [[ -n "${DISCORD_WEBHOOK}" && "${DISCORD_WEBHOOK}" == https://discord.com/api/webhooks/* ]]; then
   HOSTNAME="${HOSTNAME:-$(hostname)}"
   curl -sS -X POST -H "Content-Type: application/json" \
-    -d '{"content":"✅ ASafarIM Platform deployed successfully on '"${HOSTNAME}"'."}' \
+    -d '{"content":"✅ ASafariM Platform deployed successfully on '"${HOSTNAME}"'."}' \
     "${DISCORD_WEBHOOK}" || echo "Webhook notification failed (non-fatal)." >&2
 else
   echo "WEBHOOK_SECRET_DISCORD not configured — skipping notification."

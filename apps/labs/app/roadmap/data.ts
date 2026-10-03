@@ -19,7 +19,7 @@ export const roadmapItems: RoadmapItem[] = [
     timeframe: "12 Aug 2026",
     summary:
       "Labs launched as a public, sign-in-free workbench with three prototypes, an ideas pipeline, and a status API.",
-    highlights: ["Timeline Layout Lab", "ASafarIM UI Playground", "AI Evaluation Explorer"],
+    highlights: ["Timeline Layout Lab", "ASafariM UI Playground", "AI Evaluation Explorer"],
     tags: ["foundation"],
     links: [PR(176)],
   },

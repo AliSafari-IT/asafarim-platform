@@ -110,7 +110,7 @@ export interface ShowcaseAboutProps {
   /** App name, used in the page's own headings. */
   appName: string;
   content: ShowcaseAboutContent;
-  /** Absolute URL of the ASafarIM Digital contact page. */
+  /** Absolute URL of the ASafariM Digital contact page. */
   contactHref: string;
   /** Translated section/CTA copy — omit for the English defaults. */
   labels?: ShowcaseAboutLabels;

@@ -12,14 +12,17 @@ import { getSession } from "@asafarim/auth";
  * credentials.
  */
 export interface PlatformViewer {
-  /** Opaque platform user id. The only identity fact TasksAI persists. */
+  /** Opaque platform user id: TasksAI's identity key. */
   id: string;
   roles: string[];
+  /** From the Hub session, for the membership profile snapshot (#759). */
+  name?: string | null;
+  image?: string | null;
 }
 
 export async function getViewer(): Promise<PlatformViewer | null> {
   const session = await getSession();
   const id = session?.user?.id;
   if (!id || session.user.isActive === false) return null;
-  return { id, roles: session.user.roles ?? [] };
+  return { id, roles: session.user.roles ?? [], name: session.user.name ?? null, image: session.user.image ?? null };
 }

@@ -308,7 +308,7 @@ Acceptance criteria:
 
 **Extract the reusable application-admin kit**
 
-Outcome: a second ASafarIM app can adopt the proven boundary without copying
+Outcome: a second ASafariM app can adopt the proven boundary without copying
 Vionto-specific code.
 
 Acceptance criteria:

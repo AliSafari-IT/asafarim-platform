@@ -517,7 +517,7 @@ export const apps = pgTable(
   "apps",
   {
     id: text("id").primaryKey(),
-    // External ASafarIM SSO user id of the app's owner. Opaque reference —
+    // External ASafariM SSO user id of the app's owner. Opaque reference —
     // no FK to the platform's Prisma `users` table.
     ownerPrincipalId: text("owner_principal_id").notNull(),
     name: text("name").notNull(),

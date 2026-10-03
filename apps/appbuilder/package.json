@@ -2,7 +2,7 @@
   "name": "@asafarim/appbuilder",
   "version": "0.4.0",
   "private": true,
-  "description": "ASafarIM AppBuilder - metadata-driven AI application factory (appbuilder.asafarim.com)",
+  "description": "ASafariM AppBuilder - metadata-driven AI application factory (appbuilder.asafarim.com)",
   "scripts": {
     "dev": "next dev --port 3006",
     "build": "next build",

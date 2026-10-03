@@ -268,7 +268,7 @@ export function InboxTriage({ slug, me, role }: { slug: string; me: string; role
       { value: "", label: "Nobody yet" },
       ...members.map((m) => ({
         value: m.id,
-        label: m.isMe ? "Me" : m.platformUserId,
+        label: m.isMe ? "Me" : m.displayName,
       })),
     ],
     [members],

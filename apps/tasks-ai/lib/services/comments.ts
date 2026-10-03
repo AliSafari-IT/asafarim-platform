@@ -7,6 +7,7 @@ import { EVENT } from "../events/names";
 import { parseMentions } from "../mentions";
 import { getTaskOr404 } from "../repositories/tasks";
 import { notifyMany } from "./notifications";
+import { memberLabel } from "../members/profile";
 
 export const createCommentSchema = z.object({
   body: z.string().min(1).max(20000),
@@ -91,11 +92,13 @@ export async function addComment(ctx: RequestContext, taskId: string, input: unk
 
 export async function listComments(ctx: RequestContext, taskId: string) {
   await getTaskOr404(ctx, taskId);
-  return ctx.db.comment.findMany({
+  const rows = await ctx.db.comment.findMany({
     where: { workspaceId: ctx.workspaceId, taskId, deletedAt: null },
     orderBy: { createdAt: "asc" },
-    include: { reactions: true },
+    include: { reactions: true, author: { select: { id: true, displayName: true } } },
   });
+  // The author is shown by their profile snapshot (#759), never an id.
+  return rows.map(({ author, ...comment }) => ({ ...comment, authorName: memberLabel(author) }));
 }
 
 export async function editComment(ctx: RequestContext, id: string, input: unknown) {

@@ -8,15 +8,15 @@
 
 | Item | Decision / assumption | Owner | Gate |
 |---|---|---|---|
-| Repo license today | Source-available; portfolio evaluation and personal non-commercial review only. TasksAI code inherits this. | Ali Safari / ASafarIM | — |
-| Commercial license | A written commercial license or a relicensing decision for the TasksAI app is **required before accepting payment or operating as commercial SaaS**. | Ali Safari / ASafarIM | **GATE: M14** |
+| Repo license today | Source-available; portfolio evaluation and personal non-commercial review only. TasksAI code inherits this. | Ali Safari / ASafariM | — |
+| Commercial license | A written commercial license or a relicensing decision for the TasksAI app is **required before accepting payment or operating as commercial SaaS**. | Ali Safari / ASafariM | **GATE: M14** |
 | Third-party deps | All new deps must be permissive (MIT/Apache-2.0/BSD/ISC). Copyleft (GPL/AGPL) requires explicit review before adding. | Eng | ongoing |
 
 ## 2. Operating entity
 
 | Item | Assumption | Owner | Gate |
 |---|---|---|---|
-| Legal entity | Belgian entity (or sole-proprietor bridge) to be confirmed; TasksAI operated by "ASafarIM (entity TBD)". | Ali Safari | **GATE: M14** |
+| Legal entity | Belgian entity (or sole-proprietor bridge) to be confirmed; TasksAI operated by "ASafariM (entity TBD)". | Ali Safari | **GATE: M14** |
 | Data controller | The operating entity is **controller** for account/workspace data. | Ali Safari | M12 register |
 
 ## 3. GDPR roles

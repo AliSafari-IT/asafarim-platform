@@ -5,7 +5,7 @@ import { legalDisclaimer, termsSections } from "../../content/legal";
 export const metadata: Metadata = {
   title: "Terms",
   description:
-    "Terms of use for the ASafarIM Digital website and ASafarIM Platform accounts.",
+    "Terms of use for the ASafariM Digital website and ASafariM Platform accounts.",
   alternates: { canonical: "/terms" },
 };
 

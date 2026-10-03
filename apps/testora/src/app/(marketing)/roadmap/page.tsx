@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Roadmap } from "@asafarim/ui";
 import { roadmapItems } from "./data";
+import { publicPageUrls } from "@/lib/public-site";
 
 export const metadata: Metadata = {
   title: "Roadmap",
   description:
     "What runs in Testora today — including the completed autonomous quality loop with TasksAI — and the AI-native quality assistant that comes next.",
+  ...publicPageUrls("/roadmap"),
 };
 
 export default function RoadmapPage() {

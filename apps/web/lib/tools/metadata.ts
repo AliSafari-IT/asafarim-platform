@@ -20,7 +20,7 @@ export function buildToolMetadata(tool: ToolDefinition): Metadata {
     title: tool.title,
     description: tool.shortDescription,
     alternates: { canonical: url },
-    openGraph: { type: "website", url, title: tool.title, description: tool.shortDescription, siteName: "ASafarIM Digital", locale: "en" },
+    openGraph: { type: "website", url, title: tool.title, description: tool.shortDescription, siteName: "ASafariM Digital", locale: "en" },
     twitter: { card: "summary_large_image", title: tool.title, description: tool.shortDescription },
     ...(tool.indexable ? {} : { robots: { index: false, follow: true } }),
   };
@@ -54,7 +54,7 @@ export function toolStructuredData(tool: ToolDefinition, origin: string) {
     isAccessibleForFree: true,
     offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
     author: { "@type": "Person", name: "Ali Safari", url: `${origin}/about` },
-    publisher: { "@type": "Organization", name: "ASafarIM Digital", url: origin },
+    publisher: { "@type": "Organization", name: "ASafariM Digital", url: origin },
     dateModified: tool.lastReviewed,
   };
 }

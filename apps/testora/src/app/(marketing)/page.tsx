@@ -16,6 +16,7 @@ import { ShowcaseNotice } from "@asafarim/ui";
 import { Button } from "@/components/ui/button";
 import { LiveTestBoard } from "@/components/marketing/live-test-board";
 import { PROJECTS } from "@/data/projects";
+import { appUrl, publicPageUrls } from "@/lib/public-site";
 
 const showcase = getShowcaseProject("testora")!;
 
@@ -24,19 +25,20 @@ const coveredApps = PROJECTS.map((p) => p.name.replace(/^ASafar[iI]M\s*·\s*/, "
 const coveredAppsText = new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(coveredApps);
 
 export const metadata: Metadata = {
-  title: "Testora — ASafarIM apps, tested like a real user",
+  title: "Testora — ASafariM apps, tested like a real user",
   description:
-    "Testora runs end-to-end tests against ASafarIM apps the way a real user would. Sign in with your ASafarIM account to see the latest results; testers run tests and report a failure to our GitHub repo in one click — or learn we already know about it.",
+    "Testora runs end-to-end tests against ASafariM apps the way a real user would. Sign in with your ASafariM account to see the latest results; testers run tests and report a failure to our GitHub repo in one click — or learn we already know about it.",
+  ...publicPageUrls("/"),
 };
 
 const steps = [
   {
     title: "Run like a user",
-    body: "Real headless-browser suites exercise ASafarIM apps end to end.",
+    body: "Real headless-browser suites exercise ASafariM apps end to end.",
   },
   {
     title: "Watch the results",
-    body: "Anyone with an ASafarIM account sees the latest pass/fail per app, with evidence.",
+    body: "Anyone with an ASafariM account sees the latest pass/fail per app, with evidence.",
   },
   {
     title: "Testers report in one click",
@@ -48,7 +50,7 @@ const features = [
   {
     icon: Activity,
     title: "Live results per app",
-    body: "The latest end-to-end run for each ASafarIM product, pass/fail at a glance.",
+    body: "The latest end-to-end run for each ASafariM product, pass/fail at a glance.",
   },
   {
     icon: Bug,
@@ -108,25 +110,25 @@ export default function HomePage() {
             <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-primary to-accent px-2 py-0.5 font-bold text-white">
               <Sparkles className="h-3 w-3" /> AI
             </span>
-            E2E for the ASafarIM platform
+            E2E for the ASafariM platform
           </span>
 
           <h1 className="mt-6 text-4xl font-extrabold leading-[1.04] tracking-tight sm:text-5xl lg:text-6xl">
-            ASafarIM apps, tested{" "}
+            ASafariM apps, tested{" "}
             <span className="bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_auto] bg-clip-text text-transparent motion-safe:animate-[sheen_8s_linear_infinite]">
               like a real user.
             </span>
           </h1>
 
           <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-            Testora runs end-to-end tests against {coveredAppsText}. Sign in with your ASafarIM
+            Testora runs end-to-end tests against {coveredAppsText}. Sign in with your ASafariM
             account to see the latest results per app. Testers run the tests and, when something
             breaks, report it to our repo in one click.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <Link href="/dashboard">
+              <Link href={appUrl("/dashboard")}>
                 Open the app
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -196,7 +198,7 @@ export default function HomePage() {
           <ol className="grid gap-3">
             {[
               ["A test fails", "The run records the failing step, expected vs. actual, and a screenshot."],
-              ["A tester clicks “Report bug”", "Signed in with an ASafarIM account that has the Tester role (or admin) — no GitHub account needed."],
+              ["A tester clicks “Report bug”", "Signed in with an ASafariM account that has the Tester role (or admin) — no GitHub account needed."],
               ["Testora checks open issues", "The failure is matched against issues already open on the repo."],
               ["Filed — or already tracked", "No match: a new issue is filed with the evidence. Match: you’re told we know and are on it."],
             ].map(([title, body], i) => (
@@ -226,15 +228,15 @@ export default function HomePage() {
             }}
           />
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Help us keep ASafarIM apps working
+            Help us keep ASafariM apps working
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            Sign in with your ASafarIM account to follow the results. Want to run tests or report
+            Sign in with your ASafariM account to follow the results. Want to run tests or report
             bugs? Ask an admin for the Tester role.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild size="lg">
-              <Link href="/dashboard">
+              <Link href={appUrl("/dashboard")}>
                 Open the app
                 <ArrowRight className="h-4 w-4" />
               </Link>

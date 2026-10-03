@@ -35,6 +35,21 @@ verify_caddy_config() {
     fi
   done
 
+  # testora.cloud (#762) blocks /internal the same way. A connection or TLS
+  # failure (000) only warns: the domain's first certificate is issued around
+  # this reload and may lag. Any other non-404 answer means /internal is
+  # reachable there, and fails the deploy.
+  for path in /internal/runner/lease /%69nternal/runner/lease; do
+    code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 -X POST "https://testora.cloud${path}")" || code="000"
+    echo "POST https://testora.cloud${path} -> ${code}"
+    if [[ "${code}" == 000 ]]; then
+      echo "WARNING: https://testora.cloud is not reachable yet (certificate still being issued?)." >&2
+    elif [[ "${code}" != 404 ]]; then
+      echo "Public testora.cloud${path} returned ${code}, expected 404 from Caddy." >&2
+      return 1
+    fi
+  done
+
   # The app may still be starting after `up -d`; Caddy then serves its 50x
   # "deploying" page. Allow it about a minute.
   local attempt

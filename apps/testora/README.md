@@ -16,7 +16,7 @@
 
 ## Overview
 
-Testora is an end-to-end testing orchestration app in the ASafarIM Platform that provides:
+Testora is an end-to-end testing orchestration app in the ASafariM Platform that provides:
 - a web UI (Next.js) to manage test suites, fixtures, and runs
 - API routes for creating and running tests programmatically
 - a small test-engine for generating and executing test scenarios
@@ -47,7 +47,7 @@ The app is intended for local development and CI integration to run deterministi
 
 ## Quick Start
 
-Testora is part of the ASafarIM Platform monorepo. Development is done from the repo root:
+Testora is part of the ASafariM Platform monorepo. Development is done from the repo root:
 
 ```bash
 # From the repo root
@@ -131,7 +131,7 @@ Automated tests (unit / integration) are not included by default — add your pr
 
 ## Deployment
 
-Testora is deployed as part of the ASafarIM Platform using Docker Compose and Caddy:
+Testora is deployed as part of the ASafariM Platform using Docker Compose and Caddy:
 
 - **App container** — built from `apps/testora/Dockerfile` (Next.js standalone), proxied by Caddy at `https://testora.asafarim.com`
 - **Database** — isolated PostgreSQL in Docker
@@ -147,7 +147,7 @@ See [docs/deployment.md](../../docs/deployment.md) for VPS setup details and the
 
 ## License
 
-This repository is part of the ASafarIM Platform, a **portfolio project** shared publicly for skills assessment. It is licensed under a custom **Portfolio Evaluation & Source-Available License** — see the main [`LICENSE`](../../LICENSE) for the full legal text.
+This repository is part of the ASafariM Platform, a **portfolio project** shared publicly for skills assessment. It is licensed under a custom **Portfolio Evaluation & Source-Available License** — see the main [`LICENSE`](../../LICENSE) for the full legal text.
 
 **Permitted:**
 - 👀 Viewing and reading the source code

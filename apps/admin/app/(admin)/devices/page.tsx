@@ -91,7 +91,7 @@ export default async function DevicesPage() {
         kicker="Network"
         kickerIndex="NET"
         title="Devices"
-        description="Machines on the ASafarIM tailnet, read from the Tailscale API. For approvals, key rotation, or removal, use the Tailscale admin console directly."
+        description="Machines on the ASafariM tailnet, read from the Tailscale API. For approvals, key rotation, or removal, use the Tailscale admin console directly."
       />
 
       {result.state === "not_configured" ? (

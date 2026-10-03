@@ -117,7 +117,7 @@ export default function SignInPage() {
           </span>
         </div>
         <Kicker index="SYS">Admin gateway</Kicker>
-        <h1 style={{ marginBottom: "var(--space-5)" }}>ASafarIM Admin</h1>
+        <h1 style={{ marginBottom: "var(--space-5)" }}>ASafariM Admin</h1>
         <Suspense fallback={null}>
           <div className={styles.formCard}>
             <SignInForm onStateChange={setAuthState} />

@@ -5,6 +5,7 @@ import type { RequestContext } from "../context";
 import { ApiError } from "../errors";
 import { recordAudit } from "../events/emit";
 import { toCsv } from "../export/csv";
+import { CLEARED_PROFILE } from "../members/profile";
 
 function requireAdmin(ctx: RequestContext) {
   if (ctx.actor.role !== "owner" && ctx.actor.role !== "admin") throw new ApiError("forbidden");
@@ -73,7 +74,8 @@ export async function revokeMemberAccess(ctx: RequestContext, membershipId: stri
   if (m.role === "owner") requireOwner(ctx);
 
   await ctx.db.$transaction([
-    ctx.db.membership.update({ where: { id: membershipId }, data: { archivedAt: new Date() } }),
+    // Ending the membership also drops its profile snapshot (#759).
+    ctx.db.membership.update({ where: { id: membershipId }, data: { archivedAt: new Date(), ...CLEARED_PROFILE } }),
     // revoke every API token that member issued
     ctx.db.apiToken.updateMany({
       where: { workspaceId: ctx.workspaceId, membershipId, revokedAt: null },

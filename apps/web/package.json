@@ -2,7 +2,7 @@
   "name": "@asafarim/web",
   "version": "0.2.0",
   "private": true,
-  "description": "Public ASafarIM Digital website (asafarim.com)",
+  "description": "Public ASafariM Digital website (asafarim.com)",
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",

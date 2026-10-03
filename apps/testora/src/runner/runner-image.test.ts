@@ -94,6 +94,22 @@ test("production Caddy follows Caddyfile replacement and the deploy proves it (#
   }
 });
 
+test("asafarim.site placeholder: served from the mounted config dir, www redirects, listed as another stack (#775)", () => {
+  const caddy = read("infra", "caddy", "Caddyfile").replace(/\r\n/g, "\n");
+  const site = caddy.slice(caddy.indexOf("\nasafarim.site {"));
+  const block = site.slice(0, site.indexOf("\n}\n"));
+  // Inside ./infra/caddy (mounted at /etc/caddy), so a reload serves it with no
+  // container recreate, and `root` is the page's own folder only.
+  assert.match(block, /root \* \/etc\/caddy\/static\/asafarim-site\n/);
+  assert.match(block, /file_server/);
+  assert.match(block, /Content-Security-Policy "default-src 'none';/);
+  assert.match(caddy, /\nwww\.asafarim\.site \{\n {2}redir https:\/\/asafarim\.site\{uri\} 301\n\}/);
+  assert.match(read("infra", "caddy", "static", "asafarim-site", "index.html"), /<title>ASafariM OS/);
+  assert.doesNotMatch(read("infra", "caddy", "static", "asafarim-site", "index.html"), /<script/i);
+  const others = read("infra", "caddy", "other-stack-sites.txt").split(/\r?\n/);
+  assert.ok(others.includes("asafarim.site") && others.includes("www.asafarim.site"));
+});
+
 test("the image build plan and the deploy know the runner image", () => {
   assert.match(read("docker-bake.hcl"), /target "testora-runner" \{[^}]*target\s+= "runner-worker"/);
   assert.match(read("scripts", "plan-image-builds.mjs"), /image: "testora-runner"/);

@@ -1,13 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { TopNav } from "@asafarim/ui";
 import { Logo } from "@/components/logo";
 import { PlatformHeader } from "@/components/platform-header";
+import { PUBLIC_SITE_URL, appUrl } from "@/lib/public-site";
+
+/** Canonical and OpenGraph URLs of the public pages resolve against testora.cloud (#762). */
+export const metadata: Metadata = { metadataBase: new URL(PUBLIC_SITE_URL) };
 
 const navItems = [
   { label: "Home", href: "/" },
   { label: "About & Guide", href: "/about-this-project" },
   { label: "Roadmap", href: "/roadmap" },
-  { label: "Open the app", href: "/dashboard" },
+  // The app lives on its own origin; on testora.cloud only the public pages are served.
+  { label: "Open the app", href: appUrl("/dashboard") },
 ];
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
@@ -30,14 +36,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <Link href="/roadmap" className="transition-colors hover:text-foreground">
               Roadmap
             </Link>
-            <Link href="/dashboard" className="transition-colors hover:text-foreground">
+            <a href={appUrl("/dashboard")} className="transition-colors hover:text-foreground">
               Open the app
-            </Link>
+            </a>
             <a
               href="https://asafarim.com"
               className="transition-colors hover:text-foreground"
             >
-              ASafarIM
+              ASafariM
             </a>
           </div>
         </div>

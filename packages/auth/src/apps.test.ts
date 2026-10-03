@@ -239,7 +239,7 @@ describe("showcase positioning", () => {
   });
 
   it("keeps infrastructure, internal, and studio apps out of it", () => {
-    // web IS ASafarIM Digital; hub/admin are internal; showcase already says
+    // web IS ASafariM Digital; hub/admin are internal; showcase already says
     // everything on it is a demo. A notice on any of these would either
     // contradict itself or duplicate messaging.
     for (const key of ["web", "hub", "admin", "showcase", "appbuilder"]) {

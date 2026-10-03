@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { PrismaClient } from "../db/generated";
 import type { RequestContext } from "../context";
 import { authorize } from "../authz";
+import { memberLabel } from "../members/profile";
 import { ApiError } from "../errors";
 import { emitActivity } from "../events/emit";
 import { EVENT, OUTBOX_TYPE } from "../events/names";
@@ -274,6 +275,8 @@ export interface AssignableMember {
   id: string;
   role: string;
   platformUserId: string;
+  /** How to show this member (#759): the profile snapshot, or a safe fallback. Never the platform id. */
+  displayName: string;
   isMe: boolean;
 }
 
@@ -353,22 +356,22 @@ export async function listAssignableMembers(
       workspaceId: ctx.workspaceId,
       archivedAt: null,
       role: { not: "guest" },
-      ...(opts.q ? { platformUserId: { contains: opts.q, mode: "insensitive" as const } } : {}),
+      ...(opts.q ? { displayName: { contains: opts.q, mode: "insensitive" as const } } : {}),
     },
-    select: { id: true, platformUserId: true, role: true },
+    select: { id: true, platformUserId: true, role: true, displayName: true },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: limit + 1,
     ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
   });
 
   const hasMore = rows.length > limit;
-  // TasksAI stores only the opaque platform user id (docs/adr/0002) — there
-  // is no name column to leak here. The viewer's own row is flagged so the
-  // UI can say "me" instead of an id.
+  // People are shown by their profile snapshot (#759), never their platform
+  // id. The viewer's own row is flagged so the UI can say "Me".
   const items = rows.slice(0, limit).map((m) => ({
     id: m.id,
     role: m.role,
     platformUserId: m.platformUserId,
+    displayName: memberLabel(m),
     isMe: m.id === ctx.actor.membershipId,
   }));
   return { items, nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null };

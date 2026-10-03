@@ -30,5 +30,5 @@ data-handling concern.
 
 ## Owners
 
-AI subsystem: Ali Safari / ASafarIM. Escalation for spend: same. Legal/data:
+AI subsystem: Ali Safari / ASafariM. Escalation for spend: same. Legal/data:
 see `docs/compliance/decisions.md`.
