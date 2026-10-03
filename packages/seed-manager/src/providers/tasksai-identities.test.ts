@@ -10,6 +10,7 @@ import {
 import type { SeedPrismaClient } from "../prisma-client";
 import {
   DEV_PLATFORM_DB_PORTS,
+  checkCanMarkDatabase,
   checkDatabaseMarker,
   ensureTasksaiIdentities,
   tasksaiIdentitiesGuard,
@@ -111,6 +112,32 @@ describe("TasksAI test identities (#742)", () => {
       expect(checkDatabaseMarker("production", null)).toEqual({ ok: true });
       expect(checkDatabaseMarker("production", "development").ok).toBe(false);
       expect(checkDatabaseMarker("production", "test").ok).toBe(false);
+    });
+  });
+
+  describe("the deploy's positive production marker (#747)", () => {
+    const tunnelOntoDevPort = { rawDatabaseUrl: "postgresql://asafarim:pw@localhost:55435/asafarim", machineHostname: "dev-laptop", cwd: "C:/repos/x" };
+
+    it("a dev-loopback URL on a database marked production is refused", () => {
+      const decision = tasksaiIdentitiesGuard(tunnelOntoDevPort);
+      expect(decision).toMatchObject({ ok: true, environment: "development" }); // URL + machine pass…
+      const db = checkDatabaseMarker(decision.ok ? decision.environment : "development", "production");
+      expect(db.ok).toBe(false); // …the database's own stamp refuses
+      expect(!db.ok && db.reason).toMatch(/marked "production"/);
+      expect(checkDatabaseMarker("test", "production").ok).toBe(false);
+    });
+
+    it("--mark-database never overwrites a production marker", () => {
+      expect(checkCanMarkDatabase("production").ok).toBe(false);
+      expect(checkCanMarkDatabase(null)).toEqual({ ok: true });
+      expect(checkCanMarkDatabase("development")).toEqual({ ok: true });
+    });
+
+    it("baseline mode on a production-marked database: allowed, baseline identities only", () => {
+      const decision = tasksaiIdentitiesGuard({ rawDatabaseUrl: "postgresql://asafarim:pw@postgres:5432/asafarim", allowProductionBaseline: true });
+      expect(decision).toMatchObject({ ok: true, environment: "production" });
+      expect(decision.ok && decision.identities.map((i) => i.key)).toEqual(["member"]);
+      expect(checkDatabaseMarker("production", "production")).toEqual({ ok: true });
     });
   });
 

@@ -62,6 +62,7 @@ export {
   tasksaiIdentitiesGuard,
   readDatabaseMarker,
   checkDatabaseMarker,
+  checkCanMarkDatabase,
   markDatabase,
   DEV_PLATFORM_DB_PORTS,
   type EnsuredIdentity,
