@@ -93,3 +93,7 @@ apps/tasks-ai/lib/db/generated/
 # race the tracked file it's a snapshot of (see infra/scripts/deploy-prod.sh).
 # Self-removed on exit; ignored here only as a safety net against a crash.
 /infra/scripts/.vps-deploy.*.sh
+
+# Synthetic TasksAI test identities/credentials (#742): local output of
+# db:seed:tasksai-identities and apps/tasks-ai test-data. Never commit.
+.tasksai-test/
