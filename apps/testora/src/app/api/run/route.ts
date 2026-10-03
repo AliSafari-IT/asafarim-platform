@@ -140,10 +140,10 @@ export async function POST(request: Request) {
       ? body.projectId
       : undefined;
   const projectId = bodyProjectId || (await getActiveProjectId());
-  // A locked private app's tests can't be run without unlocking it first.
+  // A private app's tests need a signed-in platform user (lib/app-access.ts).
   if (!(await isProjectViewable(projectId))) {
     return NextResponse.json(
-      { error: "This app is locked. Unlock it with its key to run its tests." },
+      { error: "Sign in with your ASafarIM account to run this app's tests." },
       { status: 403 },
     );
   }

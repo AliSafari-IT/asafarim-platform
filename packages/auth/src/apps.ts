@@ -210,18 +210,19 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     key: "testora",
     name: "Testora",
     description:
-      "Live end-to-end results for every ASafarIM app — spot a failure, file it to our repo in one click.",
+      "Live end-to-end results for ASafarIM apps — testers spot a failure and file it to our repo in one click.",
     glyph: "TS",
-    meta: "testora.asafarim.com · coming soon",
+    meta: "testora.asafarim.com",
     status: "active",
     access: "public",
-    // Seeing per-app E2E results and filing bugs to the platform repo
-    // needs an account; guests only get the public pages.
+    // Seeing per-app E2E results needs an account; running tests and filing
+    // bugs to the platform repo also need the Tester role (or admin) —
+    // apps/testora/src/lib/access-policy.ts. Guests only get the public pages.
     requiresAccountToUse: true,
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
-        "Testora is a working test-automation application built and deployed by ASafarIM Digital, not a commercial service. Signed-in users run real TestCafe executions against real targets; the benchmark results published on Showcase are committed snapshots from a seeded sample app and do not execute live.",
+        "Testora is a working test-automation application built and deployed by ASafarIM Digital, not a commercial service. Testers (a role an admin grants) run real TestCafe executions against real targets, and any signed-in user can read the results; the benchmark results published on Showcase are committed snapshots from a seeded sample app and do not execute live.",
       aboutLabel: "Behind this project",
       aboutHref: SHOWCASE_ABOUT_HREF,
       aboutTitle: "Real test runs here. Committed evidence on Showcase.",
@@ -232,11 +233,11 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
         },
         {
           title: "Live TestCafe execution",
-          body: "Signed-in users drive a real headless browser against local or remote targets and watch run progress stream in.",
+          body: "Testers drive a real headless browser against local or remote targets and watch run progress stream in.",
         },
         {
           title: "Results, screenshots, and issue drafting",
-          body: "Every run is stored with pass/fail status and failure screenshots, and a failing result can be turned into a ready-to-file GitHub issue.",
+          body: "Every run is stored with pass/fail status and failure screenshots, and a tester can turn a failing result into a ready-to-file GitHub issue.",
         },
       ],
       synthetic: [

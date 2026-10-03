@@ -2,21 +2,20 @@ import { Check, X, Search, Bug, BellRing } from "lucide-react";
 import styles from "./live-test-board.module.css";
 
 /**
- * Hero illustration of what Testora is for: E2E suites exercising every
- * ASafarIM app like an end user, one failure surfacing, and the one-click
+ * Hero illustration of what Testora is for: E2E suites exercising the apps it
+ * covers like an end user, one failure surfacing, and a tester's one-click
  * report flow — including the duplicate check that tells the reporter the bug
- * is already tracked. Clearly labelled as an illustrative preview: Testora is
- * not running live yet, so none of these numbers are real.
+ * is already tracked. Clearly labelled as an illustrative tester view: the
+ * numbers are made up, and "Report bug" needs the Tester role (#751).
  *
  * Pure CSS animation (see the module), server-rendered; reduced-motion users
  * get the final state.
  */
 const ROWS = [
-  { app: "Hub", glyph: "HB", passed: 18, total: 18 },
   { app: "Vionto", glyph: "VN", passed: 23, total: 24, failing: true },
   { app: "EduMatch", glyph: "EM", passed: 31, total: 31 },
-  { app: "AppBuilder", glyph: "AB", passed: 12, total: 12 },
   { app: "TimelineAI", glyph: "TL", passed: 9, total: 9 },
+  { app: "TasksAI", glyph: "TA", passed: 14, total: 14 },
 ];
 
 export function LiveTestBoard() {
@@ -29,7 +28,7 @@ export function LiveTestBoard() {
           <span />
         </span>
         <span className={styles.title}>Live test board</span>
-        <span className={styles.sample}>Illustrative preview</span>
+        <span className={styles.sample}>Illustrative · tester view</span>
       </div>
 
       <ul className={styles.rows}>
