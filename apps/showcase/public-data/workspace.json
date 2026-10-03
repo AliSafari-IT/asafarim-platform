@@ -49,10 +49,10 @@
       "kind": "app",
       "folder": "apps/appbuilder",
       "description": "ASafariM AppBuilder - metadata-driven AI application factory (appbuilder.asafarim.com)",
-      "sha": "eae7cdd9",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-07-21",
-      "commits": 115,
+      "commits": 116,
       "dependents": 0
     },
     {
@@ -93,10 +93,10 @@
       "kind": "package",
       "folder": "packages/auth",
       "description": "Shared Auth.js v5 authentication for the ASafariM Platform",
-      "sha": "3b49dbdf",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 53,
+      "commits": 54,
       "dependents": 13
     },
     {
@@ -137,10 +137,10 @@
       "kind": "app",
       "folder": "apps/hub",
       "description": "ASafariM Hub - logged-in user dashboard (hub.asafarim.com)",
-      "sha": "3b49dbdf",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 78,
+      "commits": 79,
       "dependents": 0
     },
     {
@@ -148,10 +148,10 @@
       "kind": "app",
       "folder": "apps/labs",
       "description": "ASafariM Labs - experimental workbench for what's being explored next (labs.asafarim.com)",
-      "sha": "3b49dbdf",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-08-12",
-      "commits": 20,
+      "commits": 21,
       "dependents": 0
     },
     {
@@ -159,10 +159,10 @@
       "kind": "app",
       "folder": "apps/resumatch",
       "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
-      "sha": "3b49dbdf",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-09-18",
-      "commits": 104,
+      "commits": 105,
       "dependents": 0
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "f3e8a151",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 386,
+      "commits": 388,
       "dependents": 0
     },
     {
@@ -225,10 +225,10 @@
       "kind": "app",
       "folder": "apps/tasks-ai",
       "description": "TasksAI - AI-native work execution: scattered intent to trusted execution (tasks-ai.asafarim.com)",
-      "sha": "8dc1bd30",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-09-06",
-      "commits": 85,
+      "commits": 86,
       "dependents": 0
     },
     {
@@ -302,10 +302,10 @@
       "kind": "app",
       "folder": "apps/web",
       "description": "Public ASafariM Digital website (asafarim.com)",
-      "sha": "3b49dbdf",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 85,
+      "commits": 86,
       "dependents": 0
     },
     {
@@ -313,10 +313,10 @@
       "kind": "app",
       "folder": "apps/edumatch",
       "description": "",
-      "sha": "eae7cdd9",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-08-05",
-      "commits": 120,
+      "commits": 121,
       "dependents": 0
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/testora",
       "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-      "sha": "eae7cdd9",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-07-21",
-      "commits": 144,
+      "commits": 145,
       "dependents": 0
     },
     {
@@ -335,10 +335,10 @@
       "kind": "app",
       "folder": "apps/timelineai",
       "description": "TimelineAI: create polished, visual timelines — project, historical, roadmap, Gantt, calendar, and interactive.",
-      "sha": "eae7cdd9",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-08-08",
-      "commits": 93,
+      "commits": 94,
       "dependents": 0
     },
     {
@@ -346,10 +346,10 @@
       "kind": "app",
       "folder": "apps/vionto",
       "description": "",
-      "sha": "eae7cdd9",
+      "sha": "f804cb6d",
       "date": "2026-10-03",
       "since": "2026-07-15",
-      "commits": 138,
+      "commits": 139,
       "dependents": 0
     }
   ],
