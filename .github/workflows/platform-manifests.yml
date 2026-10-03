@@ -1,0 +1,90 @@
+# ASafarIM OS drift report (#765) — NON-BLOCKING for now.
+#
+# Each app describes itself in apps/<folder>/platform.app.ts (descriptive only;
+# nothing reads them at runtime). This job checks out AliSafari-IT/asafarim-os
+# and runs its read-only drift report against this checkout: it compares the
+# manifests with the hand-written registry (packages/auth/src/apps.ts),
+# docker-compose.prod.yml, docker-bake.hcl, scripts/plan-image-builds.mjs and
+# infra/caddy/Caddyfile. The report lands in the job summary. Drift doesn't
+# fail the workflow (continue-on-error) until ASafarIM OS P1 makes the
+# generated files authoritative.
+name: Platform manifests (drift report)
+
+on:
+  pull_request:
+    paths:
+      - "apps/*/platform.app.ts"
+      - "packages/auth/src/apps.ts"
+      - "docker-compose.prod.yml"
+      - "docker-bake.hcl"
+      - "scripts/plan-image-builds.mjs"
+      - "infra/caddy/Caddyfile"
+      - ".github/workflows/platform-manifests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/*/platform.app.ts"
+      - "packages/auth/src/apps.ts"
+      - "docker-compose.prod.yml"
+      - "docker-bake.hcl"
+      - "scripts/plan-image-builds.mjs"
+      - "infra/caddy/Caddyfile"
+      - ".github/workflows/platform-manifests.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: platform
+          # The job runs code from asafarim-os; leave no token in .git/config.
+          persist-credentials: false
+
+      - uses: actions/checkout@v5
+        with:
+          repository: AliSafari-IT/asafarim-os
+          ref: main
+          path: asafarim-os
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5
+        with:
+          package_json_file: asafarim-os/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: asafarim-os/.nvmrc
+          cache: pnpm
+          cache-dependency-path: asafarim-os/pnpm-lock.yaml
+
+      - name: Install the platform CLI
+        working-directory: asafarim-os
+        run: pnpm install --frozen-lockfile
+
+      - name: Drift report (non-blocking)
+        id: drift
+        continue-on-error: true
+        working-directory: asafarim-os
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --silent platform sync --check --against "$GITHUB_WORKSPACE/platform" 2>&1 | tee "$RUNNER_TEMP/drift.txt"
+
+      - name: Publish the report
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## ASafarIM OS drift report (non-blocking)"
+            echo
+            echo '```'
+            grep -vE '^ *•|turbo |Tasks:|Cached:|Time:' "$RUNNER_TEMP/drift.txt" || true
+            echo '```'
+            echo
+            echo "Outcome: ${{ steps.drift.outcome }} (drift doesn't fail this workflow yet)."
+          } >> "$GITHUB_STEP_SUMMARY"
