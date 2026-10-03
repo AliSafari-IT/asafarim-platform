@@ -190,13 +190,13 @@ export default function HomePage() {
             </p>
             <p className="mt-6 inline-flex items-center gap-2 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4 text-accent" />
-              Results are behind platform sign-in; running tests and reporting need the Tester role.
+              Results are behind platform sign-in; running tests and reporting need the Tester role (or admin).
             </p>
           </div>
           <ol className="grid gap-3">
             {[
               ["A test fails", "The run records the failing step, expected vs. actual, and a screenshot."],
-              ["A tester clicks “Report bug”", "Signed in with an ASafarIM account that has the Tester role — no GitHub account needed."],
+              ["A tester clicks “Report bug”", "Signed in with an ASafarIM account that has the Tester role (or admin) — no GitHub account needed."],
               ["Testora checks open issues", "The failure is matched against issues already open on the repo."],
               ["Filed — or already tracked", "No match: a new issue is filed with the evidence. Match: you’re told we know and are on it."],
             ].map(([title, body], i) => (
