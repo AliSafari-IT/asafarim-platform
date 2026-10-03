@@ -81,6 +81,15 @@ export const IMAGES = [
   { image: "tasksai", group: "tasksai", package: "@asafarim/tasks-ai" },
 ];
 
+/**
+ * Files outside every workspace package that one package reads, so a change
+ * to them affects exactly that package's dependents. `platform sync` writes
+ * the launcher registry, and @asafarim/auth imports it (#769).
+ */
+const FILES_OWNED_BY_PACKAGE = {
+  "generated/platform/launcher-registry.json": "@asafarim/auth",
+};
+
 /** Directories pnpm-workspace.yaml declares as workspace package roots. */
 const WORKSPACE_ROOTS = ["apps", "packages", "benchmarks"];
 
@@ -96,6 +105,8 @@ const WORKSPACE_ROOTS = ["apps", "packages", "benchmarks"];
 const ROOT_PATHS_WITHOUT_IMAGE_EFFECT = [
   /^docs\//,
   /^[^/]+\.md$/,
+  // How to regenerate generated/<dir>/ (#769); no image reads it.
+  /^generated\/[^/]+\/README\.md$/,
   /^\.github\/(?!workflows\/deploy\.yml$)/,
   /^\.claude\//,
   /^\.age\//,
@@ -123,6 +134,7 @@ const PACKAGE_PATHS_WITHOUT_IMAGE_EFFECT = [
   /(^|\/)\.env(\.[^/]*)?$/,
   /\.(test|spec)\.[cm]?[jt]sx?$/,
   /(^|\/)__tests__\//,
+  /(^|\/)__fixtures__\//,
   /(^|\/)e2e\//,
   // ASafariM OS app manifests (#765): descriptive only, nothing in an image reads them.
   /(^|\/)platform\.app\.(ts|json)$/,
@@ -177,6 +189,14 @@ export function planBuilds({ changedFiles, packages, images = IMAGES }) {
     if (extraFor.length > 0) {
       for (const i of extraFor) forcedImages.add(i.image);
       reasons.push(`${file} → ${extraFor.map((i) => i.image).join(", ")}`);
+      continue;
+    }
+
+    const ownerName = FILES_OWNED_BY_PACKAGE[file];
+    if (ownerName && packageNames.has(ownerName)) {
+      if (!changedPackages.has(ownerName))
+        reasons.push(`${file} → ${ownerName}`);
+      changedPackages.add(ownerName);
       continue;
     }
 
