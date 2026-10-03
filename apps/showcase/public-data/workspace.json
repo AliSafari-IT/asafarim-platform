@@ -49,10 +49,10 @@
       "kind": "app",
       "folder": "apps/appbuilder",
       "description": "ASafariM AppBuilder - metadata-driven AI application factory (appbuilder.asafarim.com)",
-      "sha": "3b49dbdf",
+      "sha": "eae7cdd9",
       "date": "2026-10-03",
       "since": "2026-07-21",
-      "commits": 113,
+      "commits": 115,
       "dependents": 0
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "3b49dbdf",
+      "sha": "94b25764",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 382,
+      "commits": 383,
       "dependents": 0
     },
     {
@@ -313,10 +313,10 @@
       "kind": "app",
       "folder": "apps/edumatch",
       "description": "",
-      "sha": "3b49dbdf",
+      "sha": "eae7cdd9",
       "date": "2026-10-03",
       "since": "2026-08-05",
-      "commits": 118,
+      "commits": 120,
       "dependents": 0
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/testora",
       "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-      "sha": "3b49dbdf",
+      "sha": "eae7cdd9",
       "date": "2026-10-03",
       "since": "2026-07-21",
-      "commits": 142,
+      "commits": 144,
       "dependents": 0
     },
     {
@@ -335,10 +335,10 @@
       "kind": "app",
       "folder": "apps/timelineai",
       "description": "TimelineAI: create polished, visual timelines — project, historical, roadmap, Gantt, calendar, and interactive.",
-      "sha": "3b49dbdf",
+      "sha": "eae7cdd9",
       "date": "2026-10-03",
       "since": "2026-08-08",
-      "commits": 91,
+      "commits": 93,
       "dependents": 0
     },
     {
@@ -346,10 +346,10 @@
       "kind": "app",
       "folder": "apps/vionto",
       "description": "",
-      "sha": "3b49dbdf",
+      "sha": "eae7cdd9",
       "date": "2026-10-03",
       "since": "2026-07-15",
-      "commits": 136,
+      "commits": 138,
       "dependents": 0
     }
   ],
