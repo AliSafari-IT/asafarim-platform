@@ -31,7 +31,7 @@ export const roadmapItems: RoadmapItem[] = [
     title: "Live TestCafe execution with streamed progress",
     status: "shipped",
     summary:
-      "Signed-in users drive a real headless browser against local or remote targets and watch run progress stream in over SSE. Repeat runs per case, and a per-fixture flaky flag that adds retries.",
+      "Testers drive a real headless browser against local or remote targets and watch run progress stream in over SSE. Repeat runs per case, and a per-fixture flaky flag that adds retries.",
   },
   {
     id: "Targets",

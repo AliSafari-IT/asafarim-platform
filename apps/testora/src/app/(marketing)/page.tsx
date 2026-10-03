@@ -15,27 +15,32 @@ import { getShowcaseProject } from "@asafarim/auth/apps";
 import { ShowcaseNotice } from "@asafarim/ui";
 import { Button } from "@/components/ui/button";
 import { LiveTestBoard } from "@/components/marketing/live-test-board";
+import { PROJECTS } from "@/data/projects";
 
 const showcase = getShowcaseProject("testora")!;
 
+/** The apps Testora covers, read from the catalog so the copy can't drift (#751). */
+const coveredApps = PROJECTS.map((p) => p.name.replace(/^ASafar[iI]M\s*·\s*/, ""));
+const coveredAppsText = new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(coveredApps);
+
 export const metadata: Metadata = {
-  title: "Testora — Every ASafarIM app, tested like a real user",
+  title: "Testora — ASafarIM apps, tested like a real user",
   description:
-    "Testora runs end-to-end tests against every ASafarIM app the way a real user would. Sign up to see live results per app and file a failure to our GitHub repo in one click — or learn we already know about it.",
+    "Testora runs end-to-end tests against ASafarIM apps the way a real user would. Sign in with your ASafarIM account to see the latest results; testers run tests and report a failure to our GitHub repo in one click — or learn we already know about it.",
 };
 
 const steps = [
   {
     title: "Run like a user",
-    body: "Real headless-browser suites exercise every ASafarIM app end to end.",
+    body: "Real headless-browser suites exercise ASafarIM apps end to end.",
   },
   {
     title: "Watch the results",
-    body: "Signed-in users see the latest pass/fail per app, with evidence.",
+    body: "Anyone with an ASafarIM account sees the latest pass/fail per app, with evidence.",
   },
   {
-    title: "Report in one click",
-    body: "A failure becomes a GitHub issue — or you learn it’s already tracked.",
+    title: "Testers report in one click",
+    body: "A tester turns a failure into a GitHub issue — or learns it’s already tracked.",
   },
 ];
 
@@ -48,7 +53,7 @@ const features = [
   {
     icon: Bug,
     title: "One-click bug reports",
-    body: "Turn a failing test into an issue on the platform repo without leaving the page.",
+    body: "Testers turn a failing test into an issue on the platform repo without leaving the page.",
   },
   {
     icon: BellRing,
@@ -103,19 +108,20 @@ export default function HomePage() {
             <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-primary to-accent px-2 py-0.5 font-bold text-white">
               <Sparkles className="h-3 w-3" /> AI
             </span>
-            E2E for the ASafarIM platform · coming soon
+            E2E for the ASafarIM platform
           </span>
 
           <h1 className="mt-6 text-4xl font-extrabold leading-[1.04] tracking-tight sm:text-5xl lg:text-6xl">
-            Every app, tested{" "}
+            ASafarIM apps, tested{" "}
             <span className="bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_auto] bg-clip-text text-transparent motion-safe:animate-[sheen_8s_linear_infinite]">
               like a real user.
             </span>
           </h1>
 
           <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-            Testora runs end-to-end tests against every ASafarIM product. Sign up to see the latest
-            results per app — and when something breaks, report it to our repo in one click.
+            Testora runs end-to-end tests against {coveredAppsText}. Sign in with your ASafarIM
+            account to see the latest results per app. Testers run the tests and, when something
+            breaks, report it to our repo in one click.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -184,13 +190,13 @@ export default function HomePage() {
             </p>
             <p className="mt-6 inline-flex items-center gap-2 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4 text-accent" />
-              Results and reporting are behind platform sign-in.
+              Results are behind platform sign-in; running tests and reporting need the Tester role.
             </p>
           </div>
           <ol className="grid gap-3">
             {[
               ["A test fails", "The run records the failing step, expected vs. actual, and a screenshot."],
-              ["You click “Report bug”", "Signed in with your ASafarIM account — no GitHub access needed."],
+              ["A tester clicks “Report bug”", "Signed in with an ASafarIM account that has the Tester role — no GitHub account needed."],
               ["Testora checks open issues", "The failure is matched against issues already open on the repo."],
               ["Filed — or already tracked", "No match: a new issue is filed with the evidence. Match: you’re told we know and are on it."],
             ].map(([title, body], i) => (
@@ -220,10 +226,11 @@ export default function HomePage() {
             }}
           />
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Help us keep every app working
+            Help us keep ASafarIM apps working
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            Sign up with your ASafarIM account to follow the results and report what breaks.
+            Sign in with your ASafarIM account to follow the results. Want to run tests or report
+            bugs? Ask an admin for the Tester role.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild size="lg">

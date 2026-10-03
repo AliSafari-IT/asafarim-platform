@@ -1090,7 +1090,7 @@ export function RunPanel() {
             {!running && <RunnerCapacityLine capacity={capacity} />}
             {!canRunTests && (
               <span className="text-xs text-muted-foreground" data-testid="tester-role-hint">
-                {TESTER_ROLE_HINT}. If you were just granted Tester, sign out and back in.
+                {TESTER_ROLE_HINT}.
               </span>
             )}
           </div>

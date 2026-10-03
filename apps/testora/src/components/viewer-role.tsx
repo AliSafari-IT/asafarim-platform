@@ -18,7 +18,7 @@ const CanManageContext = createContext(false);
 const CanRunTestsContext = createContext(false);
 
 /** Hint shown next to disabled tester-only controls. */
-export const TESTER_ROLE_HINT = "Requires the Tester role — ask an admin";
+export const TESTER_ROLE_HINT = "Requires the Tester role — ask an admin, then sign in again";
 
 export function CanManageProvider({
   value,
