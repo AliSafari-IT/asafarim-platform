@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-04",
+    "title": "Infra: wire in the shared edge, no port change (Refs #770, #774 phase 2)",
+    "sha": "75b8c0a3",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/75b8c0a3"
+  },
+  {
     "date": "2026-10-03",
     "title": "Infra: asafarim.site placeholder landing (#775)",
     "sha": "5bdf6594",
@@ -112,11 +118,5 @@
     "title": "Web: /tools catalogue and main-site entry points (AIT-004)",
     "sha": "4ae44dcc",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/4ae44dcc"
-  },
-  {
-    "date": "2026-09-27",
-    "title": "Web: typed AI-tool registry and reusable public tool shell (AIT-002)",
-    "sha": "4b54b053",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/4b54b053"
   }
 ]
