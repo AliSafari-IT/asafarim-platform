@@ -11,6 +11,12 @@
  * client-bundle guard in the Next app is unchanged.
  *
  * `registerHooks` (in-thread, synchronous) covers both `import` and `require`.
+ *
+ * Requires Node >= 22.15 or >= 23.5 (where `module.registerHooks` exists). The
+ * worker image is node:24-alpine, and TasksAI CI uses Node 22 (the latest
+ * 22.x). On an older Node, the named import below fails at startup with
+ * "does not provide an export named 'registerHooks'": a loud crash, never a
+ * silent fallback.
  */
 import { registerHooks } from "node:module";
 
