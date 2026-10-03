@@ -79,6 +79,7 @@ test("docs, READMEs, tests and deploy scripts rebuild nothing", () => {
       "apps/tasks-ai/docs/adr/0001-dedicated-database.md",
       "apps/hub/lib/auth.test.ts",
       "packages/auth/src/__fixtures__/platform-apps.snapshot.json",
+      "generated/platform/README.md",
       "apps/edumatch/e2e/intake.spec.ts",
       "apps/testora/platform.app.ts",
       "apps/tasks-ai/platform.app.json",

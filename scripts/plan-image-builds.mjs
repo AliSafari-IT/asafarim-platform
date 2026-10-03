@@ -105,6 +105,8 @@ const WORKSPACE_ROOTS = ["apps", "packages", "benchmarks"];
 const ROOT_PATHS_WITHOUT_IMAGE_EFFECT = [
   /^docs\//,
   /^[^/]+\.md$/,
+  // How to regenerate generated/<dir>/ (#769); no image reads it.
+  /^generated\/[^/]+\/README\.md$/,
   /^\.github\/(?!workflows\/deploy\.yml$)/,
   /^\.claude\//,
   /^\.age\//,
