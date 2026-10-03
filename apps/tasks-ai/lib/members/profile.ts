@@ -38,6 +38,13 @@ export function memberLabel(member: { id: string; displayName?: string | null })
 }
 
 /**
+ * The snapshot fields, emptied. Spread into every update that ends a
+ * membership (member removal, SCIM deprovisioning, DSR delete), so personal
+ * data never outlives the membership it was copied for.
+ */
+export const CLEARED_PROFILE = { displayName: null, avatarUrl: null, profileSyncedAt: null } as const;
+
+/**
  * Refresh the snapshot when the session's name or image differs from what is
  * stored. A no-op (no write) when nothing changed, so it's cheap on every
  * signed-in request.
@@ -55,4 +62,50 @@ export async function syncMemberProfile(
     data: { ...next, profileSyncedAt: new Date() },
   });
   return true;
+}
+
+/** Where a failed refresh is reported. Only ids and error codes, never names or URLs. */
+export interface SyncFailureLog {
+  warn(fields: { membershipId: string; error: string }, message: string): void;
+}
+
+const MAX_REPORTED = 1000;
+const reported = new Set<string>();
+
+/** Name or code of an error, never its message (a database error can echo the values). */
+export function errorCode(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as { code?: unknown; name?: unknown };
+    if (typeof e.code === "string" && e.code) return e.code;
+    if (typeof e.name === "string" && e.name) return e.name;
+  }
+  return "unknown";
+}
+
+/**
+ * `syncMemberProfile` for the request path: a failure never blocks the request,
+ * but it isn't swallowed either. It's logged once per membership per process
+ * (so a broken database doesn't flood the log), with the membership id and
+ * the error code only.
+ */
+export async function syncMemberProfileSafely(
+  db: Db,
+  membership: { id: string; displayName?: string | null; avatarUrl?: string | null },
+  source: ProfileSource,
+  log: SyncFailureLog,
+): Promise<boolean> {
+  try {
+    return await syncMemberProfile(db, membership, source);
+  } catch (error) {
+    if (!reported.has(membership.id) && reported.size < MAX_REPORTED) {
+      reported.add(membership.id);
+      log.warn({ membershipId: membership.id, error: errorCode(error) }, "member profile snapshot refresh failed");
+    }
+    return false;
+  }
+}
+
+/** Test hook: forget which memberships were already reported. */
+export function resetReportedSyncFailures(): void {
+  reported.clear();
 }

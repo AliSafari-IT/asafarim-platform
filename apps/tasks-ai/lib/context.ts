@@ -4,7 +4,8 @@ import type { PrismaClient } from "./db/generated";
 import { ApiError } from "./errors";
 import type { Actor } from "./authz";
 import { getViewer } from "./session";
-import { syncMemberProfile } from "./members/profile";
+import { syncMemberProfileSafely } from "./members/profile";
+import { logger } from "./observability/logger";
 
 /**
  * A resolved request context: the tenant and the acting member. No handler
@@ -44,8 +45,9 @@ export async function resolveContext(
   if (!membership || membership.archivedAt) throw new ApiError("not_found");
 
   // Keep the member's name/avatar snapshot current with their Hub session
-  // (#759). Writes only when something changed; a failure never blocks the request.
-  await syncMemberProfile(db, membership, viewer).catch(() => false);
+  // (#759). Writes only when something changed; a failure never blocks the
+  // request and is logged (membership id + error code, no personal data).
+  await syncMemberProfileSafely(db, membership, viewer, logger);
 
   return {
     db,

@@ -4,6 +4,7 @@ import type { Prisma } from "../db/generated";
 import type { RequestContext } from "../context";
 import { ApiError } from "../errors";
 import { recordAudit } from "../events/emit";
+import { CLEARED_PROFILE } from "../members/profile";
 
 function requireOwner(ctx: RequestContext) {
   if (ctx.actor.role !== "owner") throw new ApiError("forbidden");
@@ -18,9 +19,11 @@ const dsrSchema = z.object({
 async function collect(db: RequestContext["db"], workspaceId: string, subjectUserId: string) {
   const membership = await db.membership.findFirst({
     where: { workspaceId, platformUserId: subjectUserId },
-    select: { id: true },
+    // The profile snapshot (#759) is personal data copied from the Hub session.
+    select: { id: true, displayName: true, avatarUrl: true },
   });
   const membershipId = membership?.id;
+  const profile = membership && (membership.displayName !== null || membership.avatarUrl !== null) ? 1 : 0;
   const [comments, timeEntries, feedback, signalFeedback, tokens, savedViews, searches, notifications] = await Promise.all([
     membershipId ? db.comment.count({ where: { workspaceId, authorId: membershipId } }) : 0,
     membershipId ? db.timeEntry.count({ where: { workspaceId, membershipId } }) : 0,
@@ -33,7 +36,7 @@ async function collect(db: RequestContext["db"], workspaceId: string, subjectUse
   ]);
   return {
     membershipId,
-    counts: { comments, timeEntries, feedback, signalFeedback, tokens, savedViews, searches, notifications },
+    counts: { profile, comments, timeEntries, feedback, signalFeedback, tokens, savedViews, searches, notifications },
   };
 }
 
@@ -73,6 +76,10 @@ export async function processDsr(ctx: RequestContext, id: string) {
   if (dsr.kind === "export") {
     const bundle = membershipId
       ? {
+          profile: await ctx.db.membership.findUnique({
+            where: { id: membershipId },
+            select: { displayName: true, avatarUrl: true, profileSyncedAt: true },
+          }),
           comments: await ctx.db.comment.findMany({ where: { workspaceId: ctx.workspaceId, authorId: membershipId }, select: { id: true, taskId: true, body: true, createdAt: true } }),
           timeEntries: await ctx.db.timeEntry.findMany({ where: { workspaceId: ctx.workspaceId, membershipId } }),
           savedViews: await ctx.db.savedView.findMany({ where: { workspaceId: ctx.workspaceId, ownerId: membershipId } }),
@@ -104,7 +111,8 @@ export async function processDsr(ctx: RequestContext, id: string) {
       ctx.db.apiToken.updateMany({ where: { workspaceId: ctx.workspaceId, membershipId, revokedAt: null }, data: { revokedAt: new Date() } }),
       // comments are redacted, not deleted, to preserve thread integrity
       ctx.db.comment.updateMany({ where: { workspaceId: ctx.workspaceId, authorId: membershipId, deletedAt: null }, data: { body: "[removed at the author's request]", mentions: [], deletedAt: new Date() } }),
-      ctx.db.membership.update({ where: { id: membershipId }, data: { archivedAt: new Date() } }),
+      // archived, and its profile snapshot (#759) cleared
+      ctx.db.membership.update({ where: { id: membershipId }, data: { archivedAt: new Date(), ...CLEARED_PROFILE } }),
     ]);
   }
 
