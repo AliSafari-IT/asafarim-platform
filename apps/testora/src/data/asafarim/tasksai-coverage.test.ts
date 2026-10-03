@@ -46,9 +46,13 @@ test("status rules: implemented cases exist, excluded entries say why", () => {
     }
     if (e.status === "excluded") assert.ok(e.reason?.trim(), `${e.id} is excluded without a reason`);
   }
-  // Slice 1 ships no executable cases: nothing may claim to be implemented yet.
-  assert.equal(tasksaiCases.length, 0);
-  assert.deepEqual(TASKSAI_COVERAGE.filter((e) => e.status === "implemented").map((e) => e.id), []);
+  // And the reverse: every executable TasksAI case is accounted for by an implemented scenario.
+  const implementedCases = new Set(TASKSAI_COVERAGE.filter((e) => e.status === "implemented").flatMap((e) => e.caseIds));
+  assert.deepEqual(tasksaiCases.map((c) => c.caseId).filter((id) => !implementedCases.has(id)), [], "case without an implemented scenario");
+  assert.deepEqual(
+    TASKSAI_COVERAGE.filter((e) => e.status === "implemented").map((e) => e.id),
+    ["tasksai.auth.redirect-to-hub", "tasksai.auth.login-returns", "tasksai.auth.invalid-sign-in", "tasksai.auth.sign-out", "tasksai.daily-work.journey"],
+  );
 });
 
 test("TasksAI is registered with Local and Remote smoke targets, and a separate seeded bundle", () => {
