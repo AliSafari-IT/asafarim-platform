@@ -93,6 +93,31 @@ testora.asafarim.com {
   }
 }
 
+# testora.cloud — Testora's own domain, phase A (#762). Only the public pages
+# and their static assets are served here. Every other path goes to
+# testora.asafarim.com, where sign-in works today: the session cookie is scoped
+# to .asafarim.com, so the app itself moves only once cross-domain sign-in
+# exists. Handles are mutually exclusive and tried in order: the /internal 404
+# first, then the public pages, then the redirect.
+testora.cloud {
+  import deploying
+  @internal path /internal /internal/*
+  handle @internal {
+    respond 404
+  }
+  @public path / /about-this-project /roadmap /_next/* /icon.svg /apple-icon.png /favicon.ico /robots.txt
+  handle @public {
+    reverse_proxy testora:3000
+  }
+  handle {
+    redir https://testora.asafarim.com{uri} 302
+  }
+}
+
+www.testora.cloud {
+  redir https://testora.cloud{uri} 301
+}
+
 appbuilder.asafarim.com {
   import deploying
   reverse_proxy appbuilder:3000
