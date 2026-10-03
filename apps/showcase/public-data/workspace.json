@@ -16,10 +16,10 @@
       "kind": "app",
       "folder": "apps/admin",
       "description": "ASafarIM Admin - internal admin panel (admin.asafarim.com)",
-      "sha": "506fe769",
+      "sha": "82fe8123",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 98,
+      "commits": 99,
       "dependents": 0
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "aa3d4dfa",
+      "sha": "504f5ce0",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 377,
+      "commits": 378,
       "dependents": 0
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/testora",
       "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-      "sha": "a57131b8",
+      "sha": "82fe8123",
       "date": "2026-10-03",
       "since": "2026-07-21",
-      "commits": 139,
+      "commits": 140,
       "dependents": 0
     },
     {
