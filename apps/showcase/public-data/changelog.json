@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-03",
+    "title": "Testora: serve the public pages on testora.cloud (#762, phase A)",
+    "sha": "a57131b8",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/a57131b8"
+  },
+  {
+    "date": "2026-10-03",
     "title": "Testora: register TasksAI with Local/Remote smoke targets and a coverage manifest (#742 slice 1)",
     "sha": "ad4a2926",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ad4a2926"
@@ -112,11 +118,5 @@
     "title": "Resumatch: write the profile summary from the profile, with optional AI instructions",
     "sha": "fc05d19b",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fc05d19b"
-  },
-  {
-    "date": "2026-09-27",
-    "title": "UI: localizable labels for the shared app shell; translate them in ResuMatch",
-    "sha": "3365dd74",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3365dd74"
   }
 ]
