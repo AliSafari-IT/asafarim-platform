@@ -1,0 +1,4 @@
+# The shared edge (#770). Nothing here but the per-stack site files: each
+# stack owns exactly one sites/<stack>.caddy and nobody edits another's.
+# Snippet names must be unique across stacks (they share one namespace).
+import sites/*.caddy
