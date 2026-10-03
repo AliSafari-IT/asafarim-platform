@@ -4,3 +4,7 @@
 # Compose files must use LF: the infra tests in
 # apps/testora/src/runner/runner-image.test.ts parse them line by line (#735).
 docker-compose*.yml text eol=lf
+
+# Generated contract files compared byte-for-byte by tests: LF everywhere, so
+# apps/tasks-ai lib/api/openapi.test.ts passes on Windows checkouts too.
+apps/*/docs/**/*.json text eol=lf
