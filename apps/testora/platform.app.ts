@@ -1,6 +1,8 @@
 /**
- * testora: ASafariM OS app manifest (#765). DESCRIPTIVE ONLY: nothing reads
- * this file at runtime yet. It states what this app is today, so the
+ * testora: ASafariM OS app manifest (#765). No app reads this file
+ * at runtime. Its ui.launcher block is generated into
+ * generated/platform/launcher-registry.json (#769), which @asafarim/auth
+ * reads; the rest is descriptive. It states what this app is today, so the
  * asafarim-os drift report (`platform sync --check --against <this repo>`)
  * can compare it with the hand-written registry, compose, bake, build plan and
  * Caddy files. Schema: @asafarim/app-manifest in AliSafari-IT/asafarim-os.
@@ -109,5 +111,19 @@ export default {
       },
     ],
     status: "active",
+    // The launcher tile (Hub, app switchers): `platform sync` writes it to
+    // generated/platform/launcher-registry.json, which @asafarim/auth reads.
+    // Public landing; private apps-under-test gate themselves on a signed-in
+    // session inside the tool (see apps/testora app-access).
+    launcher: {
+      description: "Live end-to-end results for ASafariM apps — testers spot a failure and file it to our repo in one click.",
+      meta: "testora.asafarim.com",
+      access: "public",
+      // Seeing per-app E2E results needs an account; running tests and filing
+      // bugs to the platform repo also need the Tester role (or admin) —
+      // apps/testora/src/lib/access-policy.ts. Guests only get the public pages.
+      requiresAccountToUse: true,
+      order: 60,
+    },
   },
 };

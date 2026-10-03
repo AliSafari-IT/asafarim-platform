@@ -78,6 +78,7 @@ test("docs, READMEs, tests and deploy scripts rebuild nothing", () => {
       "apps/resumatch/AGENTS.md",
       "apps/tasks-ai/docs/adr/0001-dedicated-database.md",
       "apps/hub/lib/auth.test.ts",
+      "packages/auth/src/__fixtures__/platform-apps.snapshot.json",
       "apps/edumatch/e2e/intake.spec.ts",
       "apps/testora/platform.app.ts",
       "apps/tasks-ai/platform.app.json",
@@ -89,6 +90,19 @@ test("docs, READMEs, tests and deploy scripts rebuild nothing", () => {
       "benchmarks/testora/src/run.ts"
     ),
     []
+  );
+});
+
+test("the generated launcher registry rebuilds what @asafarim/auth rebuilds", () => {
+  assert.deepEqual(
+    plan("generated/platform/launcher-registry.json"),
+    plan("packages/auth/src/apps.ts")
+  );
+  assert.ok(plan("generated/platform/launcher-registry.json").includes("hub"));
+  assert.notDeepEqual(
+    plan("generated/platform/launcher-registry.json"),
+    everyImage,
+    "a registry change is not a root build input"
   );
 });
 
