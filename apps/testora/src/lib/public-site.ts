@@ -12,8 +12,21 @@
  */
 import { getPlatformLinks } from "@asafarim/ui";
 
-/** Canonical origin of the public pages. */
-export const PUBLIC_SITE_URL = process.env.NEXT_PUBLIC_TESTORA_PUBLIC_URL || "https://testora.cloud";
+const DEFAULT_PUBLIC_SITE_URL = "https://testora.cloud";
+
+/** The env override when it's an absolute http(s) URL; the default otherwise. */
+function resolvePublicSiteUrl(value: string | undefined): string {
+  if (!value) return DEFAULT_PUBLIC_SITE_URL;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : DEFAULT_PUBLIC_SITE_URL;
+  } catch {
+    return DEFAULT_PUBLIC_SITE_URL;
+  }
+}
+
+/** Canonical origin of the public pages; always safe to pass to `new URL()`. */
+export const PUBLIC_SITE_URL = resolvePublicSiteUrl(process.env.NEXT_PUBLIC_TESTORA_PUBLIC_URL);
 
 /** Paths the gateway serves on the public domain (keep in sync with the Caddyfile). */
 export const PUBLIC_PATHS = ["/", "/about-this-project", "/roadmap"] as const;
