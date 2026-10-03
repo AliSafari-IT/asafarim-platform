@@ -126,10 +126,10 @@
       "kind": "package",
       "folder": "packages/db",
       "description": "Shared PostgreSQL/Prisma database package for the ASafarIM Platform",
-      "sha": "15f126fb",
+      "sha": "c8417d91",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 52,
+      "commits": 53,
       "dependents": 10
     },
     {
@@ -170,10 +170,10 @@
       "kind": "package",
       "folder": "packages/seed-manager",
       "description": "Typed, allowlisted seed-data providers shared by the Admin Console and the CLI seed scripts. Server-only.",
-      "sha": "15f126fb",
+      "sha": "c8417d91",
       "date": "2026-10-03",
       "since": "2026-08-09",
-      "commits": 12,
+      "commits": 13,
       "dependents": 2
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "cbfccee4",
+      "sha": "399c836c",
       "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 368,
+      "commits": 370,
       "dependents": 0
     },
     {
@@ -225,10 +225,10 @@
       "kind": "app",
       "folder": "apps/tasks-ai",
       "description": "TasksAI - AI-native work execution: scattered intent to trusted execution (tasks-ai.asafarim.com)",
-      "sha": "2a9ffe7b",
+      "sha": "c8417d91",
       "date": "2026-10-03",
       "since": "2026-09-06",
-      "commits": 79,
+      "commits": 80,
       "dependents": 0
     },
     {
