@@ -276,6 +276,27 @@ export const openapiDocument = {
           isMe: { type: "boolean" },
         },
       },
+      Comment: {
+        type: "object",
+        description:
+          "A task comment. `authorId` is a membership id; show `authorName`, the author's profile snapshot (#759) or the same safe fallback as `WorkspaceMember.displayName`.",
+        properties: {
+          id: { type: "string" },
+          workspaceId: { type: "string" },
+          taskId: { type: "string" },
+          authorId: { type: "string" },
+          authorName: {
+            type: "string",
+            description: 'The author\'s name, or "Member ·<last 4 of the membership id>". Never the platform user id.',
+          },
+          body: { type: "string" },
+          mentions: { type: "array", items: { type: "string" }, description: "Mentioned membership ids." },
+          reactions: { type: "array", items: { type: "object" } },
+          editedAt: { type: ["string", "null"], format: "date-time" },
+          deletedAt: { type: ["string", "null"], format: "date-time" },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
     },
   },
   security: [{ session: [] }],
@@ -711,7 +732,7 @@ export const openapiDocument = {
     },
     "/workspaces/{slug}/tasks/{id}/comments": {
       parameters: [pathParam("slug"), pathParam("id")],
-      get: { summary: "List comments on a task", responses: { "200": { description: "ok" } } },
+      get: { summary: "List comments on a task", responses: { "200": jsonList("Comment") } },
       post: {
         summary: "Add a comment (mentions via @[Name](membershipId))",
         requestBody: jsonBody({ type: "object", required: ["body"], properties: { body: { type: "string" } } }),
