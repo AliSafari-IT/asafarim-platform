@@ -79,6 +79,8 @@ test("docs, READMEs, tests and deploy scripts rebuild nothing", () => {
       "apps/tasks-ai/docs/adr/0001-dedicated-database.md",
       "apps/hub/lib/auth.test.ts",
       "apps/edumatch/e2e/intake.spec.ts",
+      "apps/testora/platform.app.ts",
+      "apps/tasks-ai/platform.app.json",
       "apps/appbuilder/.env.production.age",
       "infra/scripts/vps-deploy.sh",
       "infra/caddy/Caddyfile",
