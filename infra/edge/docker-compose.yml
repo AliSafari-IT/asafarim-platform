@@ -1,4 +1,4 @@
-# The shared edge (ASafarIM OS P1.2, #770): ONE Caddy that owns 80/443 for
+# The shared edge (ASafariM OS P1.2, #770): ONE Caddy that owns 80/443 for
 # every stack on this host (asafarim-com, asafarim-be, later asafarim-os).
 #
 # Its own compose project, deployed to /var/repos/edge from this directory:
