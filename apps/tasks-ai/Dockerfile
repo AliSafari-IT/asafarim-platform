@@ -84,7 +84,8 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @asafarim/tasks-ai db:generate
 WORKDIR /app/apps/tasks-ai
 USER node
-CMD ["pnpm", "exec", "tsx", "worker/index.ts"]
+# --import: `server-only` resolves to an empty module in this process (#787).
+CMD ["pnpm", "exec", "tsx", "--import", "./worker/server-only-noop.mjs", "worker/index.ts"]
 
 FROM node:24-alpine AS runner
 WORKDIR /app

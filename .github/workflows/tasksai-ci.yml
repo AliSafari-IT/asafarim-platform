@@ -81,5 +81,11 @@ jobs:
       - name: Integration tests
         run: pnpm --filter @asafarim/tasks-ai test:integration
 
+      # One cycle of every worker job with the production worker's exact
+      # loader, against tasksai_test (migrated by the integration tests).
+      # Fails on any module that can't load outside Next.js (#363, #787).
+      - name: Worker smoke test
+        run: pnpm --filter @asafarim/tasks-ai worker:smoke
+
       - name: AI offline evals (fixture provider — no billable calls)
         run: pnpm --filter @asafarim/tasks-ai ai:eval

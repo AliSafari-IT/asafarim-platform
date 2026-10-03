@@ -6,7 +6,11 @@ export interface WorkerHealth {
   checks: {
     redis: boolean;
     database: boolean;
+    /** No job has failed UNHEALTHY_AFTER times in a row (#787). */
+    jobs: boolean;
   };
+  /** Jobs currently failing repeatedly, by name. */
+  unhealthyJobs: string[];
   timestamp: string;
 }
 
@@ -17,13 +21,15 @@ export interface WorkerHealth {
 export function buildWorkerHealth(
   redisOk: boolean,
   db: DbReadiness,
+  unhealthyJobs: string[] = [],
   now: Date = new Date(),
 ): WorkerHealth {
-  const checks = { redis: redisOk, database: db.ok };
+  const checks = { redis: redisOk, database: db.ok, jobs: unhealthyJobs.length === 0 };
   return {
     ok: Object.values(checks).every(Boolean),
     service: "tasks-ai-worker",
     checks,
+    unhealthyJobs,
     timestamp: now.toISOString(),
   };
 }

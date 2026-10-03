@@ -12,7 +12,7 @@ import { getEnv } from "../lib/env";
 import { pingTasksAiDb } from "../lib/db/readiness";
 import { logger } from "../lib/observability/logger";
 import { buildWorkerHealth } from "./health";
-import { drainOutboxOnce } from "./outbox";
+import { JobFailureTracker, WORKER_JOBS, runCycle } from "./jobs";
 import { JOB, QUEUE } from "./queues";
 
 const env = getEnv();
@@ -29,7 +29,7 @@ const worker = new Worker(
   async (job) => {
     if (job.name === JOB.healthPing) {
       const db = await pingTasksAiDb();
-      const health = buildWorkerHealth(connection.status === "ready", db);
+      const health = buildWorkerHealth(connection.status === "ready", db, tracker.unhealthy());
       logger.info({ health }, "worker.health");
       return health;
     }
@@ -53,61 +53,16 @@ const heartbeat = setInterval(() => {
     .catch((err) => logger.error({ err: String(err) }, "worker.heartbeat_enqueue_failed"));
 }, HEARTBEAT_MS);
 
-// Outbox drainer: notification dispatch, automation fan-out (docs/adr/0005).
-const OUTBOX_MS = 2000;
-const outboxTimer = setInterval(() => {
-  drainOutboxOnce()
-    .then((r) => {
-      if (r.processed || r.dead) logger.info(r, "outbox.drained");
-    })
-    .catch((err) => logger.error({ err: String(err) }, "outbox.drain_failed"));
-}, OUTBOX_MS);
-
-// Housekeeping (M12): prune expired rate-limit counters hourly.
-const PRUNE_MS = 3_600_000;
-const pruneTimer = setInterval(() => {
-  import("../lib/db/client")
-    .then(({ getTasksAiDb }) => import("../lib/security/ratelimit").then(({ pruneRateCounters }) => pruneRateCounters(getTasksAiDb())))
-    .then((n) => n && logger.info({ pruned: n }, "ratecounters.pruned"))
-    .catch((err) => logger.error({ err: String(err) }, "ratecounters.prune_failed"));
-}, PRUNE_MS);
-
-// Webhook delivery (M09): signed POSTs with exponential backoff + dead-letter.
-const WEBHOOK_MS = 3000;
-const webhookTimer = setInterval(() => {
-  import("../lib/webhooks/service")
-    .then(({ drainWebhooksOnce }) => import("../lib/db/client").then(({ getTasksAiDb }) => drainWebhooksOnce(getTasksAiDb())))
-    .then((r) => {
-      if (r.delivered || r.dead) logger.info(r, "webhooks.drained");
-    })
-    .catch((err) => logger.error({ err: String(err) }, "webhooks.drain_failed"));
-}, WEBHOOK_MS);
-
-// Proactive daily brief delivery (issue #242): every opted-in member gets
-// one push to the notification inbox per local morning. No per-member
-// BullMQ cron precedent existed in this file, so this follows the same
-// setInterval sweep pattern as the prune/webhook timers above rather than
-// scheduling one job per member — the sweep itself skips anyone whose
-// local time isn't morning, is in quiet hours, or already saw today's
-// brief via the pull endpoint.
-const BRIEF_DELIVERY_MS = 15 * 60_000;
-const briefDeliveryTimer = setInterval(() => {
-  import("../lib/intel/brief-delivery")
-    .then(({ runBriefDeliverySweep }) => import("../lib/db/client").then(({ getTasksAiDb }) => runBriefDeliverySweep(getTasksAiDb())))
-    .then((results) => {
-      const delivered = results.filter((r) => r.delivered).length;
-      if (results.length) logger.info({ candidates: results.length, delivered }, "brief_delivery.swept");
-    })
-    .catch((err) => logger.error({ err: String(err) }, "brief_delivery.sweep_failed"));
-}, BRIEF_DELIVERY_MS);
+// The periodic jobs (outbox, webhooks, rate-counter prune, brief delivery)
+// live in jobs.ts so the CI smoke test runs the same code (#787). Repeated
+// failures are tracked per job: see JobFailureTracker.
+const tracker = new JobFailureTracker();
+const jobTimers = WORKER_JOBS.map((job) => setInterval(() => void runCycle(job, tracker), job.intervalMs));
 
 async function shutdown(signal: string) {
   logger.info({ signal }, "worker.shutdown");
   clearInterval(heartbeat);
-  clearInterval(outboxTimer);
-  clearInterval(webhookTimer);
-  clearInterval(pruneTimer);
-  clearInterval(briefDeliveryTimer);
+  for (const timer of jobTimers) clearInterval(timer);
   await worker.close();
   await maintenanceQueue.close();
   await connection.quit();

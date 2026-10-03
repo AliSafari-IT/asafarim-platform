@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm db:generate && next dev --port 3013",
-    "worker:dev": "tsx watch worker/index.ts",
-    "worker:start": "tsx worker/index.ts",
+    "worker:dev": "tsx watch --import ./worker/server-only-noop.mjs worker/index.ts",
+    "worker:start": "tsx --import ./worker/server-only-noop.mjs worker/index.ts",
+    "worker:smoke": "tsx --import ./worker/server-only-noop.mjs worker/smoke.ts",
     "prebuild": "pnpm db:generate",
     "build": "next build",
     "start": "next start --port 3013",
