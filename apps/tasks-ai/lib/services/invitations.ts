@@ -7,6 +7,7 @@ import { ApiError } from "../errors";
 import { emitActivity, recordAudit } from "../events/emit";
 import { EVENT } from "../events/names";
 import { getViewer } from "../session";
+import { profileSnapshot } from "../members/profile";
 import { getTasksAiDb } from "../db/client";
 import { notifyMany } from "./notifications";
 
@@ -115,8 +116,11 @@ export async function acceptInvitation(token: string, correlationId: string) {
         workspaceId: invitation.workspaceId,
         platformUserId: viewer.id,
         role: invitation.role,
+        // Profile snapshot from the Hub session (#759).
+        ...profileSnapshot(viewer),
+        profileSyncedAt: new Date(),
       },
-      update: { archivedAt: null },
+      update: { archivedAt: null, ...profileSnapshot(viewer), profileSyncedAt: new Date() },
     });
 
     await tx.invitation.update({

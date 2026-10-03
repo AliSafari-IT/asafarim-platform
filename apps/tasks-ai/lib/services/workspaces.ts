@@ -6,6 +6,7 @@ import { EVENT } from "../events/names";
 import { ApiError } from "../errors";
 import { getViewer } from "../session";
 import { seedDefaultStatuses } from "./statuses";
+import { profileSnapshot } from "../members/profile";
 
 export const createWorkspaceSchema = z.object({
   name: z.string().min(1).max(120),
@@ -36,7 +37,14 @@ export async function createWorkspace(input: unknown, correlationId: string) {
       data: { name: data.name, slug: data.slug },
     });
     const membership = await tx.membership.create({
-      data: { workspaceId: workspace.id, platformUserId: viewer.id, role: "owner" },
+      data: {
+        workspaceId: workspace.id,
+        platformUserId: viewer.id,
+        role: "owner",
+        // Profile snapshot from the Hub session (#759).
+        ...profileSnapshot(viewer),
+        profileSyncedAt: new Date(),
+      },
     });
     // Todo / In Progress / Done (issue #387) — a brand-new workspace must
     // never present an empty status picker.

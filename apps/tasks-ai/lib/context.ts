@@ -4,6 +4,7 @@ import type { PrismaClient } from "./db/generated";
 import { ApiError } from "./errors";
 import type { Actor } from "./authz";
 import { getViewer } from "./session";
+import { syncMemberProfile } from "./members/profile";
 
 /**
  * A resolved request context: the tenant and the acting member. No handler
@@ -36,11 +37,15 @@ export async function resolveContext(
 
   const membership = await db.membership.findUnique({
     where: { workspaceId_platformUserId: { workspaceId: workspace.id, platformUserId: viewer.id } },
-    select: { id: true, role: true, archivedAt: true },
+    select: { id: true, role: true, archivedAt: true, displayName: true, avatarUrl: true },
   });
   // A non-member (or removed member) must not learn whether the workspace
   // exists: same 404 as a missing slug.
   if (!membership || membership.archivedAt) throw new ApiError("not_found");
+
+  // Keep the member's name/avatar snapshot current with their Hub session
+  // (#759). Writes only when something changed; a failure never blocks the request.
+  await syncMemberProfile(db, membership, viewer).catch(() => false);
 
   return {
     db,

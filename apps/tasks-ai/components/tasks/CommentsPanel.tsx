@@ -57,7 +57,7 @@ export function CommentsPanel({ slug, taskId }: { slug: string; taskId: string }
           {comments.map((c) => (
             <li key={c.id}>
               <p className="ta-comments__meta">
-                <code>{c.authorId.slice(-6)}</code> · {new Date(c.createdAt).toLocaleString()}
+                <strong>{c.authorName}</strong> · {new Date(c.createdAt).toLocaleString()}
                 {c.editedAt && " · edited"}
               </p>
               <p className="ta-comments__body">{c.body}</p>
