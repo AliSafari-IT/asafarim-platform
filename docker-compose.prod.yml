@@ -86,6 +86,8 @@ services:
         condition: service_completed_successfully
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   hub:
     image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:hub-${IMAGE_TAG:-local}
@@ -108,6 +110,8 @@ services:
         condition: service_completed_successfully
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   showcase:
     image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:showcase-${IMAGE_TAG:-local}
@@ -130,6 +134,8 @@ services:
         condition: service_completed_successfully
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   admin:
     image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:admin-${IMAGE_TAG:-local}
@@ -152,6 +158,8 @@ services:
         condition: service_completed_successfully
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   redis:
     image: redis:7-alpine
@@ -185,6 +193,8 @@ services:
         condition: service_completed_successfully
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   vionto-worker:
     image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:vionto-worker-${IMAGE_TAG:-local}
@@ -256,6 +266,8 @@ services:
       start_period: 20s
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   timelineai:
     image: ${IMAGE_REPOSITORY:-ghcr.io/alisafari-it/asafarim-platform}:timelineai-${IMAGE_TAG:-local}
@@ -292,6 +304,8 @@ services:
         condition: service_completed_successfully
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   # Labs is intentionally the simplest service in this stack: a static
   # experiment registry with no auth, no shared database, and no worker —
@@ -310,6 +324,8 @@ services:
       NEXT_PUBLIC_APP_URL: https://labs.asafarim.com
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   # testora keeps its OWN database, isolated from the shared Prisma Postgres.
   testora-postgres:
@@ -405,6 +421,8 @@ services:
     networks:
       - asafarim_net
       - testora_control
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   # Isolated test runner (#718, ADR 0004 §1, §5). Pulls jobs from `testora`
   # over testora_control and reaches targets over testora_egress, whose
@@ -569,6 +587,8 @@ services:
         condition: service_started
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   # resumatch keeps its OWN database, isolated from the shared Prisma
   # Postgres. pgvector is on the image from a prior milestone's plans;
@@ -680,6 +700,8 @@ services:
         condition: service_started
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   # TasksAI keeps its OWN database, isolated from the shared Prisma
   # Postgres and from every other app's — the tenant work graph needs its
@@ -779,6 +801,8 @@ services:
         condition: service_started
     networks:
       - asafarim_net
+      # Shared edge (#770): only public-facing services join edge_net.
+      - edge_net
 
   caddy:
     image: caddy:latest
@@ -811,6 +835,12 @@ services:
 
 networks:
   asafarim_net:
+  # The shared edge's network (#770), created by vps-deploy.sh before `up`.
+  # Only public-facing services join it; databases, workers and internal
+  # services stay on asafarim_net.
+  edge_net:
+    external: true
+    name: edge_net
   # Runner ↔ web only (#718): no gateway, no internet.
   testora_control:
     internal: true

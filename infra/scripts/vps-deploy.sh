@@ -195,6 +195,8 @@ available_gb() {
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/prune-release-images.sh"
 # shellcheck source=lib/verify-caddy.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/verify-caddy.sh"
+# shellcheck source=lib/edge.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/edge.sh"
 
 # Remove only legacy Compose-built application tags from the old deployment
 # model. Docker refuses to delete an image still used by a container, so the
@@ -267,6 +269,11 @@ if ! "${COMPOSE[@]}" run --rm platform-migrate; then
   exit 1
 fi
 
+# The public services join the shared edge's network (#770); it must exist
+# before `up`. Creating it changes nothing for traffic: the asafarim-com Caddy
+# still owns 80/443 until the edge cutover.
+ensure_edge_net
+
 echo "[deploy $(date -Is)] Starting stack..."
 # Caddy is started but never recreated here (#733): a change to its service
 # definition (mounts, image, ports) would otherwise recreate it from CI and
@@ -315,6 +322,16 @@ if ! verify_caddy_config; then
   echo "FATAL: Caddy is not serving this release's configuration." >&2
   notify_discord "❌ ASafariM deploy ${IMAGE_TAG:0:12}: Caddy config check FAILED — the live proxy is not serving this release's Caddyfile. See the deploy log."
   exit 1
+fi
+
+# Shared edge, phase 2 (#770): install the edge project and publish this
+# stack's site file. Before the cutover there is no edge container, so this
+# validates the WHOLE edge config with this release's file and installs it,
+# nothing more. Warn-only until the cutover makes the edge the live proxy.
+echo "[deploy $(date -Is)] Publishing sites/asafarim-com.caddy to the shared edge..."
+if ! install_edge_project || ! publish_edge_site; then
+  echo "WARNING: the shared edge did not accept this release's site file (pre-cutover: production traffic is unaffected)." >&2
+  notify_discord "⚠️ ASafariM deploy ${IMAGE_TAG:0:12}: the shared edge refused sites/asafarim-com.caddy (pre-cutover, traffic unaffected). See the deploy log."
 fi
 
 if [[ "${TESTORA_RUNNER_ENABLED}" == true ]]; then
