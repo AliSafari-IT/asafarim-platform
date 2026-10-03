@@ -126,10 +126,10 @@
       "kind": "package",
       "folder": "packages/db",
       "description": "Shared PostgreSQL/Prisma database package for the ASafarIM Platform",
-      "sha": "1a7d3f3f",
-      "date": "2026-09-27",
+      "sha": "15f126fb",
+      "date": "2026-10-03",
       "since": "2026-07-04",
-      "commits": 51,
+      "commits": 52,
       "dependents": 10
     },
     {
@@ -170,10 +170,10 @@
       "kind": "package",
       "folder": "packages/seed-manager",
       "description": "Typed, allowlisted seed-data providers shared by the Admin Console and the CLI seed scripts. Server-only.",
-      "sha": "bf432a3f",
-      "date": "2026-09-30",
+      "sha": "15f126fb",
+      "date": "2026-10-03",
       "since": "2026-08-09",
-      "commits": 11,
+      "commits": 12,
       "dependents": 2
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "27df5ac9",
+      "sha": "e51b8a9a",
       "date": "2026-10-02",
       "since": "2026-07-04",
-      "commits": 366,
+      "commits": 367,
       "dependents": 0
     },
     {
