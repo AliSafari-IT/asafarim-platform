@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default: site.title,
-    template: "%s — ASafarIM Digital",
+    template: "%s — ASafariM Digital",
   },
   description: site.description,
   alternates: { canonical: "/" },

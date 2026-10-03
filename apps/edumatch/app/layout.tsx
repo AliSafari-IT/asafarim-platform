@@ -18,7 +18,7 @@ import "./globals.css";
 
 const appName = "EduMatch";
 const appDescription =
-  "A working showcase project from ASafarIM Digital: a complete AI-guided tutoring-marketplace architecture, deployed on production infrastructure. Not an operating marketplace.";
+  "A working showcase project from ASafariM Digital: a complete AI-guided tutoring-marketplace architecture, deployed on production infrastructure. Not an operating marketplace.";
 
 export const viewport: Viewport = {
   width: "device-width",

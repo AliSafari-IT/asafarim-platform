@@ -1,6 +1,6 @@
 # Shared by vps-deploy.sh and cleanup-docker.sh — sourced, not executed.
 #
-# Defines prune_superseded_platform_images(), which removes every ASafarIM
+# Defines prune_superseded_platform_images(), which removes every ASafariM
 # platform image (label com.asafarim.platform=true) except the ones recorded
 # in .deploy/current-release and .deploy/previous-release. Callers must `cd`
 # to the repo root first so those paths resolve.

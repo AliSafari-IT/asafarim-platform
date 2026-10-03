@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { absolute: t("web.tools.meta.title") },
     description: t("web.tools.meta.description"),
     alternates: { canonical: "/tools" },
-    openGraph: { type: "website", url: "/tools", title: t("web.tools.meta.title"), description: t("web.tools.meta.description"), siteName: "ASafarIM Digital" },
+    openGraph: { type: "website", url: "/tools", title: t("web.tools.meta.title"), description: t("web.tools.meta.description"), siteName: "ASafariM Digital" },
     twitter: { card: "summary_large_image", title: t("web.tools.meta.title"), description: t("web.tools.meta.description") },
     // An empty catalogue is not a page worth indexing.
     ...(getListedTools().length ? {} : { robots: { index: false, follow: true } }),

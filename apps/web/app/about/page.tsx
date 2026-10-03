@@ -5,7 +5,7 @@ import { site } from "../../content/site";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "ASafarIM Digital is a full-stack and AI application studio in Hasselt, Belgium, built on a research background in engineering hydrology.",
+    "ASafariM Digital is a full-stack and AI application studio in Hasselt, Belgium, built on a research background in engineering hydrology.",
   alternates: { canonical: "/about" },
 };
 
@@ -15,7 +15,7 @@ export default function AboutPage() {
       <PageHeader
         kicker="The studio"
         kickerIndex="01"
-        title="About ASafarIM Digital"
+        title="About ASafariM Digital"
         description={site.about.lede}
       />
 

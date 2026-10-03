@@ -1,6 +1,6 @@
 # ADR-0003 — API-first `/api/v1` boundary
 
-**Status:** Accepted (M00) · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafarIM
+**Status:** Accepted (M00) · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafariM
 
 ## Context
 

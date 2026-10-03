@@ -1,8 +1,8 @@
-# ASafarIM Labs
+# ASafariM Labs
 
 Experimental workbench — labs.asafarim.com (local dev: `http://localhost:3011`).
 
-> Showcase explains what ASafarIM has built. Labs lets visitors interact with what ASafarIM is
+> Showcase explains what ASafariM has built. Labs lets visitors interact with what ASafariM is
 > exploring next.
 
 ## Structure
@@ -14,7 +14,7 @@ Experimental workbench — labs.asafarim.com (local dev: `http://localhost:3011`
 ## Launch experiments
 
 1. **Timeline Layout Lab** (`/experiments/timeline-layout`) — one dataset, four layouts (vertical, horizontal, roadmap, storytelling card).
-2. **ASafarIM UI Playground** (`/experiments/ui-playground`) — visual testbench for shared design tokens across viewports and pseudo-states.
+2. **ASafariM UI Playground** (`/experiments/ui-playground`) — visual testbench for shared design tokens across viewports and pseudo-states.
 3. **AI Evaluation Explorer** (`/experiments/ai-eval-explorer`) — static multi-model fixture comparison (latency, token efficiency, hallucination markers, formatting adherence).
 
 ## Adding a new experiment

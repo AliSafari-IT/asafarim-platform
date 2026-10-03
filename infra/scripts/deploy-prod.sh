@@ -18,7 +18,7 @@ SERVER_USER="${SERVER_USER:-root}"
 PROJECT_DIR="${PROJECT_DIR:-/var/repos/asafarim-com}"
 BRANCH="${BRANCH:-main}"
 
-echo "Deploying ASafarIM Platform to ${SERVER_USER}@${SERVER_HOST}:${PROJECT_DIR} (${BRANCH})..."
+echo "Deploying ASafariM Platform to ${SERVER_USER}@${SERVER_HOST}:${PROJECT_DIR} (${BRANCH})..."
 
 ssh "${SERVER_USER}@${SERVER_HOST}" << EOF
   set -euo pipefail

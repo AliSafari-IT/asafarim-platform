@@ -13,7 +13,7 @@ const FEATURES = [
   {
     glyph: "02",
     title: "Identity",
-    body: "A single account with roles and permissions shared across all ASafarIM apps.",
+    body: "A single account with roles and permissions shared across all ASafariM apps.",
   },
   {
     glyph: "03",
@@ -65,14 +65,14 @@ export default async function HubHomePage() {
             </h1>
           ) : (
             <h1 className={styles.title}>
-              One sign-in. <span className={styles.accent}>Every ASafarIM app.</span>
+              One sign-in. <span className={styles.accent}>Every ASafariM app.</span>
             </h1>
           )}
 
           <p className={styles.lede}>
             {user
               ? "One identity, checked at every door. Pick an app on the map to jump straight in."
-              : "The Hub is the heart of the platform: one identity that every ASafarIM app checks before it opens."}
+              : "The Hub is the heart of the platform: one identity that every ASafariM app checks before it opens."}
           </p>
 
           <div className={styles.actions}>

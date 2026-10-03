@@ -1,6 +1,6 @@
 # @asafarim/auth
 
-Shared Auth.js v5 authentication for the entire ASafarIM Platform. One
+Shared Auth.js v5 authentication for the entire ASafariM Platform. One
 session, one cookie, every app — there is no per-app login.
 
 ## What's here

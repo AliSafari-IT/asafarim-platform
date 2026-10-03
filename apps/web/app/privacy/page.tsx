@@ -5,7 +5,7 @@ import { legalDisclaimer, privacySections } from "../../content/legal";
 export const metadata: Metadata = {
   title: "Privacy",
   description:
-    "How ASafarIM Digital and the ASafarIM Platform handle personal data, cookies, and contact messages.",
+    "How ASafariM Digital and the ASafariM Platform handle personal data, cookies, and contact messages.",
   alternates: { canonical: "/privacy" },
 };
 

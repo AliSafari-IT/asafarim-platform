@@ -2,7 +2,7 @@
   "name": "@asafarim/showcase",
   "version": "0.1.0",
   "private": true,
-  "description": "ASafarIM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
+  "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
   "scripts": {
     "dev": "next dev --port 3002",
     "build": "next build",

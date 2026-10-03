@@ -1,5 +1,5 @@
 /**
- * Projects content for the public ASafarIM Digital website.
+ * Projects content for the public ASafariM Digital website.
  */
 import { getPlatformLinks } from "@asafarim/ui";
 
@@ -28,7 +28,7 @@ export const projectGroups: ProjectGroup[] = [
       "The shared layer every app runs on: identity, data, UI primitives, and deployment patterns built once and reused across the ecosystem.",
     projects: [
       {
-        name: "ASafarIM Platform",
+        name: "ASafariM Platform",
         status: "live",
         description:
           "The monorepo backbone: auth, database schema, design system, and deployment plumbing shared by 13 apps, deployed as one Docker Compose stack behind Caddy.",
@@ -128,7 +128,7 @@ export const projectGroups: ProjectGroup[] = [
       "Live, interactive demos, benchmarking tools, and the experimental workbench for what's being explored next.",
     projects: [
       {
-        name: "ASafarIM Showcase",
+        name: "ASafariM Showcase",
         status: "live",
         description:
           "Public gallery of working software demos and case studies hosted on the platform.",
@@ -144,7 +144,7 @@ export const projectGroups: ProjectGroup[] = [
         href: links.testora,
       },
       {
-        name: "ASafarIM Labs",
+        name: "ASafariM Labs",
         status: "beta",
         description:
           "Experimental workbench — Showcase explains what's been built; Labs lets visitors interact with what's being explored next.",

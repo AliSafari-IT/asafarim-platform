@@ -22,8 +22,8 @@ RUN corepack enable
 # NEXT_PUBLIC_* are inlined into client bundles at build time. Provided by
 # compose's public-build-args once appbuilder joins docker-compose.prod.yml
 # (production routing/deployment ships in M11).
-ARG NEXT_PUBLIC_COMPANY_NAME="ASafarIM Digital"
-ARG NEXT_PUBLIC_PLATFORM_NAME="ASafarIM Platform"
+ARG NEXT_PUBLIC_COMPANY_NAME="ASafariM Digital"
+ARG NEXT_PUBLIC_PLATFORM_NAME="ASafariM Platform"
 ARG NEXT_PUBLIC_WEB_URL=https://asafarim.com
 ARG NEXT_PUBLIC_HUB_URL=https://hub.asafarim.com
 ARG NEXT_PUBLIC_SHOWCASE_URL=https://showcase.asafarim.com

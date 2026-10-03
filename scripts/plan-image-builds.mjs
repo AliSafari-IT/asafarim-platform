@@ -124,7 +124,7 @@ const PACKAGE_PATHS_WITHOUT_IMAGE_EFFECT = [
   /\.(test|spec)\.[cm]?[jt]sx?$/,
   /(^|\/)__tests__\//,
   /(^|\/)e2e\//,
-  // ASafarIM OS app manifests (#765): descriptive only, nothing in an image reads them.
+  // ASafariM OS app manifests (#765): descriptive only, nothing in an image reads them.
   /(^|\/)platform\.app\.(ts|json)$/,
 ];
 

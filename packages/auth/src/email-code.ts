@@ -112,7 +112,7 @@ async function createLoginCode(email: string): Promise<string> {
 
 function loginCodeEmail(input: { name?: string | null; code: string; expiresInMinutes: number }) {
   const greeting = input.name?.trim() || "there";
-  const platformName = process.env.NEXT_PUBLIC_PLATFORM_NAME || "ASafarIM Platform";
+  const platformName = process.env.NEXT_PUBLIC_PLATFORM_NAME || "ASafariM Platform";
   const subject = `${input.code} — Your ${platformName} login code`;
 
   const text = [

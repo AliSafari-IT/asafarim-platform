@@ -264,11 +264,15 @@ export const openapiDocument = {
       WorkspaceMember: {
         type: "object",
         description:
-          "An assignable membership. TasksAI stores only the opaque platform user id — there is no name or email here.",
+          "An assignable membership. Identity is the opaque platform user id; there is no email here. `displayName` comes from the membership's profile snapshot (the name the member's Hub session carried, copied per membership and deleted with it, #759), or a safe fallback. Render `displayName`, never `platformUserId`.",
         properties: {
           id: { type: "string" },
           role: { type: "string", enum: ["owner", "admin", "member", "guest"] },
           platformUserId: { type: "string" },
+          displayName: {
+            type: "string",
+            description: 'The member\'s name, or "Member ·<last 4 of the membership id>" until they sign in. Never the platform user id.',
+          },
           isMe: { type: "boolean" },
         },
       },

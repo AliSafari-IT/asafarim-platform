@@ -103,7 +103,7 @@ function SignUpPageContent() {
               <span className={styles.featureIcon}>
                 <CheckIcon />
               </span>
-              One login for every ASafarIM app
+              One login for every ASafariM app
             </li>
             <li className={styles.featureItem}>
               <span className={styles.featureIcon}>

@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     const res = await fetch(url, {
       headers: {
         // Nominatim's usage policy requires an identifying User-Agent.
-        "User-Agent": "ASafarIM-Platform/1.0 (hub.asafarim.com; profile address lookup)",
+        "User-Agent": "ASafariM-Platform/1.0 (hub.asafarim.com; profile address lookup)",
         Accept: "application/json",
       },
     });

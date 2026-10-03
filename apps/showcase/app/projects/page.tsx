@@ -16,7 +16,7 @@ import styles from "./_components/analysis.module.css";
 export const metadata: Metadata = {
   title: "Projects",
   description:
-    "How the ASafarIM showcase fits together: status and stack breakdowns, the shared platform elements each project builds on, and the architecture behind them.",
+    "How the ASafariM showcase fits together: status and stack breakdowns, the shared platform elements each project builds on, and the architecture behind them.",
 };
 
 /**

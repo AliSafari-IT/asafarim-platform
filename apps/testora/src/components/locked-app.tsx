@@ -8,7 +8,7 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
 
 /**
  * Shown in place of a private app's data when the viewer is not signed in.
- * Access is managed by the platform SSO — signing in through the ASafarIM
+ * Access is managed by the platform SSO — signing in through the ASafariM
  * identity (any active user) unlocks every private app at once.
  */
 export function LockedApp({ name }: { projectId: string; name: string }) {
@@ -26,7 +26,7 @@ export function LockedApp({ name }: { projectId: string; name: string }) {
             “{name}” is private
           </CardTitle>
           <CardDescription>
-            Sign in with your ASafarIM account to view this app&apos;s requirements, suites,
+            Sign in with your ASafariM account to view this app&apos;s requirements, suites,
             fixtures, cases and results. One sign-in covers every private app across the platform.
           </CardDescription>
         </CardHeader>

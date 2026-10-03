@@ -132,7 +132,7 @@ function SignInPageContentInner() {
       <div className={styles.topRow}>
         <div className={styles.intro}>
           <Kicker index="ID">Authentication</Kicker>
-          <h1 style={{ marginBottom: "0.35rem" }}>Sign in to ASafarIM</h1>
+          <h1 style={{ marginBottom: "0.35rem" }}>Sign in to ASafariM</h1>
           <p className="u-muted" style={{ margin: 0 }}>
             New here?{" "}
             <Link
@@ -148,7 +148,7 @@ function SignInPageContentInner() {
               <span className={styles.featureIcon}>
                 <CheckIcon />
               </span>
-              One identity, every ASafarIM app
+              One identity, every ASafariM app
             </li>
             <li className={styles.featureItem}>
               <span className={styles.featureIcon}>

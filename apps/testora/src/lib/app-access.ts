@@ -7,7 +7,7 @@ import { isPlatformGithubConfigured } from "@/lib/github";
 
 // Server-only access control for private apps. Access is managed by the
 // platform SSO: a private app's catalog and results are withheld until the
-// viewer is signed in through the ASafarIM identity (any authenticated, active
+// viewer is signed in through the ASafariM identity (any authenticated, active
 // user). Public apps are always viewable. There are no per-app keys.
 
 /** Whether the current viewer is a signed-in, active platform user. */

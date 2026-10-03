@@ -195,7 +195,7 @@ export function AppsManager() {
           <h1 className="text-2xl font-semibold">Apps</h1>
           <p className="text-muted-foreground">
             Each app has its own test catalog. Private apps require signing in through the
-            ASafarIM platform — their requirements, fixtures, cases and results stay hidden until
+            ASafariM platform — their requirements, fixtures, cases and results stay hidden until
             you do.
           </p>
         </div>

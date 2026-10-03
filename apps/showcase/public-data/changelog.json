@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-03",
+    "title": "Infra: asafarim.site placeholder landing (#775)",
+    "sha": "5bdf6594",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5bdf6594"
+  },
+  {
+    "date": "2026-10-03",
     "title": "Testora: serve the public pages on testora.cloud (#762, phase A)",
     "sha": "a57131b8",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/a57131b8"
@@ -112,11 +118,5 @@
     "title": "Web: typed AI-tool registry and reusable public tool shell (AIT-002)",
     "sha": "4b54b053",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/4b54b053"
-  },
-  {
-    "date": "2026-09-27",
-    "title": "Resumatch: write the profile summary from the profile, with optional AI instructions",
-    "sha": "fc05d19b",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fc05d19b"
   }
 ]

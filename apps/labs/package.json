@@ -2,7 +2,7 @@
   "name": "@asafarim/labs",
   "version": "0.1.0",
   "private": true,
-  "description": "ASafarIM Labs - experimental workbench for what's being explored next (labs.asafarim.com)",
+  "description": "ASafariM Labs - experimental workbench for what's being explored next (labs.asafarim.com)",
   "scripts": {
     "dev": "next dev --port 3011",
     "build": "next build",

@@ -30,7 +30,7 @@ export function parseRepo(input: string | null | undefined): RepoRef | null {
 
 // ── Where issues go ──────────────────────────────────────────────────────────
 //
-// Every app Testora tests is an ASafarIM product, so bugs default to one
+// Every app Testora tests is an ASafariM product, so bugs default to one
 // platform repo configured once via env (TESTORA_GITHUB_REPO +
 // TESTORA_GITHUB_TOKEN). An app can still override it with its own repo +
 // encrypted PAT (set by an admin in Apps).

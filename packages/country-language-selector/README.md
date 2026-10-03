@@ -1,6 +1,6 @@
 # @asafarim/country-language-selector
 
-Country/language picker UI for the ASafarIM Platform. Provides a
+Country/language picker UI for the ASafariM Platform. Provides a
 `<CountryLanguageSelector>` React component and locale/region detection
 helpers. Used by Vionto, Hub, Showcase, Admin, and EduMatch.
 

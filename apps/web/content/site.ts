@@ -1,23 +1,23 @@
 /**
- * Site-wide content for the public ASafarIM Digital website.
+ * Site-wide content for the public ASafariM Digital website.
  * Company-facing voice: the studio builds and operates full-stack and
  * AI application systems end to end. Keep copy changes here, not in page files.
  */
 
 export const site = {
-  name: "ASafarIM Digital",
-  title: "ASafarIM Digital — Full-Stack & AI Application Studio in Belgium",
+  name: "ASafariM Digital",
+  title: "ASafariM Digital — Full-Stack & AI Application Studio in Belgium",
   description:
-    "ASafarIM Digital is a Belgium-based full-stack & AI application studio run by Ali Safari. We design, build, and operate production platforms — identity and data layers, real-time dashboards, and AI-assisted tools — free, open-source products you can use today.",
+    "ASafariM Digital is a Belgium-based full-stack & AI application studio run by Ali Safari. We design, build, and operate production platforms — identity and data layers, real-time dashboards, and AI-assisted tools — free, open-source products you can use today.",
 
   organization: {
-    name: "ASafarIM Digital",
+    name: "ASafariM Digital",
     jobTitle: "Full-Stack & AI Application Studio",
   },
 
   hero: {
-    kicker: "ASafarIM Digital · Systems studio",
-    title: "ASafarIM Digital builds full-stack and AI application systems that ship and stay up.",
+    kicker: "ASafariM Digital · Systems studio",
+    title: "ASafariM Digital builds full-stack and AI application systems that ship and stay up.",
     lede: "From engineering hydrology research to production web platforms: we design, build, and operate systems end to end — identity and data layers, real-time dashboards, and AI-assisted tools, not slide decks.",
   },
 
@@ -78,7 +78,7 @@ export const site = {
     },
     {
       time: "2023–2026",
-      title: "Building the ASafarIM product ecosystem",
+      title: "Building the ASafariM product ecosystem",
       meta: "10+ apps in production, 8 open-source packages",
     },
   ],
@@ -98,7 +98,7 @@ export const site = {
 
   intro: {
     heading: "A studio, not an agency",
-    body: "Architecture, implementation, and operations sit under one roof. Ten-plus apps run on the ASafarIM Platform today — sharing one identity system, one design language, and one deploy pipeline.",
+    body: "Architecture, implementation, and operations sit under one roof. Ten-plus apps run on the ASafariM Platform today — sharing one identity system, one design language, and one deploy pipeline.",
   },
 
   stats: [
@@ -109,18 +109,18 @@ export const site = {
 
   platform: {
     heading: "One platform, many doors",
-    body: "Everything the studio ships lives on the ASafarIM Platform: this website is the front door, the Showcase is the gallery of working software, and the Hub is the signed-in workspace where apps and tools launch from one account.",
+    body: "Everything the studio ships lives on the ASafariM Platform: this website is the front door, the Showcase is the gallery of working software, and the Hub is the signed-in workspace where apps and tools launch from one account.",
     items: [
       {
-        title: "ASafarIM Digital",
+        title: "ASafariM Digital",
         text: "The public studio — services, projects, and contact.",
       },
       {
-        title: "ASafarIM Showcase",
+        title: "ASafariM Showcase",
         text: "Live demos and case studies you can open and try.",
       },
       {
-        title: "ASafarIM Hub",
+        title: "ASafariM Hub",
         text: "One sign-in for every app: launcher, profile, and settings.",
       },
     ],
@@ -142,7 +142,7 @@ export const site = {
   },
 
   about: {
-    lede: "ASafarIM Digital is a software studio built on a research background: data-first engineering, full-stack ownership, and no hand-offs.",
+    lede: "ASafariM Digital is a software studio built on a research background: data-first engineering, full-stack ownership, and no hand-offs.",
     story: [
       {
         title: "From river models to web platforms",
@@ -150,7 +150,7 @@ export const site = {
       },
       {
         title: "Production experience",
-        body: "Years of full-stack scientific application development across .NET + React platforms, IoT dashboards, and internal tools — and since then, a steadily growing ecosystem of self-built products on the ASafarIM Platform.",
+        body: "Years of full-stack scientific application development across .NET + React platforms, IoT dashboards, and internal tools — and since then, a steadily growing ecosystem of self-built products on the ASafariM Platform.",
       },
       {
         title: "Built in the open",

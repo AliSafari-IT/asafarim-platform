@@ -1,5 +1,5 @@
 /**
- * tasks-ai: ASafarIM OS app manifest (#765). DESCRIPTIVE ONLY: nothing reads
+ * tasks-ai: ASafariM OS app manifest (#765). DESCRIPTIVE ONLY: nothing reads
  * this file at runtime yet. It states what this app is today, so the
  * asafarim-os drift report (`platform sync --check --against <this repo>`)
  * can compare it with the hand-written registry, compose, bake, build plan and
@@ -10,7 +10,7 @@ export default {
   name: "TasksAI",
   version: "0.1.0",
   platform: ">=0.1 <1",
-  owner: "ASafarIM Digital",
+  owner: "ASafariM Digital",
   domains: {
     primary: "tasks-ai.asafarim.com",
   },

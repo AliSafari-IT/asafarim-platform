@@ -1,6 +1,6 @@
 # @asafarim/config
 
-Shared TypeScript, ESLint, and Tailwind configuration for the ASafarIM
+Shared TypeScript, ESLint, and Tailwind configuration for the ASafariM
 Platform monorepo. Consumed by every app and package via `extends` in
 their `tsconfig.json`.
 

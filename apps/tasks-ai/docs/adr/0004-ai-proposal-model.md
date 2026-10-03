@@ -1,6 +1,6 @@
 # ADR-0004 — Proposal-only AI mutation model
 
-**Status:** Accepted (M00) · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafarIM
+**Status:** Accepted (M00) · **Date:** 2026-09-06 · **Owner:** Ali Safari / ASafariM
 
 ## Context
 

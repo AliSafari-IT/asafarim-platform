@@ -97,7 +97,7 @@ export default async function SettingsPage() {
             <div className={styles.panelHead}>
               <div>
                 <h2 id="methods-title">Sign-in methods</h2>
-                <p>Every way you can get into your ASafarIM account.</p>
+                <p>Every way you can get into your ASafariM account.</p>
               </div>
             </div>
             <ul className={styles.rows}>

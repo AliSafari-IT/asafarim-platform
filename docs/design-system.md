@@ -1,4 +1,4 @@
-# Design System — ASafarIM Platform
+# Design System — ASafariM Platform
 
 ## Creative direction
 
@@ -19,9 +19,9 @@ Guiding metaphors (used subtly):
 ## Brand hierarchy
 
 ```txt
-Company     ASafarIM Digital
-Platform    ASafarIM Platform
-Product     ASafarIM Hub (+ Showcase, Admin)
+Company     ASafariM Digital
+Platform    ASafariM Platform
+Product     ASafariM Hub (+ Showcase, Admin)
 Repo        asafarim-platform
 ```
 
@@ -29,7 +29,7 @@ Brand components (in `@asafarim/ui`):
 
 - `<LogoMark />` — a monospace "A/" chip; intentional placeholder until a
   designed logo exists. Swappable without touching call sites.
-- `<BrandWordmark product="Hub" />` — "ASafarIM" plus a technical product
+- `<BrandWordmark product="Hub" />` — "ASafariM" plus a technical product
   chip. Every app header renders `LogoMark + BrandWordmark`.
 
 ## Shared DNA vs. per-app mood
@@ -123,11 +123,11 @@ glyphs marked `aria-hidden`.
 
 ## Voice
 
-Placeholder copy sounds like ASafarIM Digital, never lorem ipsum:
+Placeholder copy sounds like ASafariM Digital, never lorem ipsum:
 
 - "Practical digital products, designed and built end to end."
 - "Your workspace for apps, showcases, and experiments."
-- "Curated projects from the ASafarIM Digital lab."
+- "Curated projects from the ASafariM Digital lab."
 - "System access is limited to authorized roles."
 
 ## How apps consume the system

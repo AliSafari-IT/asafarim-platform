@@ -112,7 +112,7 @@ const SHOWCASE_LABEL = "Showcase project";
 export const PLATFORM_APPS: readonly PlatformApp[] = [
   {
     key: "web",
-    name: "ASafarIM Digital",
+    name: "ASafariM Digital",
     description: "The public studio website: services, projects, and contact.",
     glyph: "WB",
     meta: "asafarim.com",
@@ -162,7 +162,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
-        "Vionto is in beta — a live product demonstration built and deployed by ASafarIM Digital. The render pipeline, storage, and background workers run for real on production infrastructure; some provider integrations are not enabled, and the published benchmark runs on fixtures rather than real media.",
+        "Vionto is in beta — a live product demonstration built and deployed by ASafariM Digital. The render pipeline, storage, and background workers run for real on production infrastructure; some provider integrations are not enabled, and the published benchmark runs on fixtures rather than real media.",
       aboutLabel: "Behind this project",
       aboutHref: SHOWCASE_ABOUT_HREF,
       aboutTitle: "A real render pipeline, still in beta.",
@@ -210,7 +210,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     key: "testora",
     name: "Testora",
     description:
-      "Live end-to-end results for ASafarIM apps — testers spot a failure and file it to our repo in one click.",
+      "Live end-to-end results for ASafariM apps — testers spot a failure and file it to our repo in one click.",
     glyph: "TS",
     meta: "testora.asafarim.com",
     status: "active",
@@ -222,7 +222,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
-        "Testora is a working test-automation application built and deployed by ASafarIM Digital, not a commercial service. Testers (a role an admin grants) run real TestCafe executions against real targets, and any signed-in user can read the results; the benchmark results published on Showcase are committed snapshots from a seeded sample app and do not execute live.",
+        "Testora is a working test-automation application built and deployed by ASafariM Digital, not a commercial service. Testers (a role an admin grants) run real TestCafe executions against real targets, and any signed-in user can read the results; the benchmark results published on Showcase are committed snapshots from a seeded sample app and do not execute live.",
       aboutLabel: "Behind this project",
       aboutHref: SHOWCASE_ABOUT_HREF,
       aboutTitle: "Real test runs here. Committed evidence on Showcase.",
@@ -304,7 +304,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
-        "A working showcase project built and deployed by ASafarIM Digital. The matching engine, bookings, disputes, and admin workflows are real and running on production infrastructure — but this is not an operating tutor marketplace. The tutors shown are synthetic, and no money changes hands.",
+        "A working showcase project built and deployed by ASafariM Digital. The matching engine, bookings, disputes, and admin workflows are real and running on production infrastructure — but this is not an operating tutor marketplace. The tutors shown are synthetic, and no money changes hands.",
       aboutLabel: "See what's real and what's demonstration data",
       aboutHref: SHOWCASE_ABOUT_HREF,
       aboutTitle: "A complete marketplace architecture — without the marketplace.",
@@ -315,7 +315,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
         },
         {
           title: "Single sign-on and RBAC",
-          body: "One account shared across every ASafarIM app. Student, tutor, admin, and superadmin permissions are enforced and covered by tests.",
+          body: "One account shared across every ASafariM app. Student, tutor, admin, and superadmin permissions are enforced and covered by tests.",
         },
         {
           title: "Shared production data layer",
@@ -352,7 +352,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
       nl: {
         label: SHOWCASE_LABEL,
         summary:
-          "Een werkend showcaseproject, gebouwd en uitgerold door ASafarIM Digital. De matching-engine, boekingen, geschillen en beheerworkflows zijn echt en draaien op productie-infrastructuur — maar dit is geen operationele tutor-marktplaats. De getoonde tutors zijn synthetisch en er gaat geen geld om.",
+          "Een werkend showcaseproject, gebouwd en uitgerold door ASafariM Digital. De matching-engine, boekingen, geschillen en beheerworkflows zijn echt en draaien op productie-infrastructuur — maar dit is geen operationele tutor-marktplaats. De getoonde tutors zijn synthetisch en er gaat geen geld om.",
         aboutLabel: "Bekijk wat echt is en wat demonstratiedata is",
         aboutHref: SHOWCASE_ABOUT_HREF,
         aboutTitle: "Een complete marktplaatsarchitectuur — zonder de marktplaats.",
@@ -363,7 +363,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
           },
           {
             title: "Eenmalige aanmelding en RBAC",
-            body: "Eén account gedeeld over elke ASafarIM-app. Rechten voor student, tutor, beheerder en superadmin worden afgedwongen en zijn gedekt door tests.",
+            body: "Eén account gedeeld over elke ASafariM-app. Rechten voor student, tutor, beheerder en superadmin worden afgedwongen en zijn gedekt door tests.",
           },
           {
             title: "Gedeelde productie-datalaag",
@@ -409,7 +409,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
     showcase: {
       label: SHOWCASE_LABEL,
       summary:
-        "A working showcase product from ASafarIM Digital. Create and export real timelines — no account needed. It runs on the same production infrastructure as the rest of the platform, and it is not a commercial service or marketplace.",
+        "A working showcase product from ASafariM Digital. Create and export real timelines — no account needed. It runs on the same production infrastructure as the rest of the platform, and it is not a commercial service or marketplace.",
       aboutLabel: "Behind this project",
       aboutHref: SHOWCASE_ABOUT_HREF,
       aboutTitle: "A public tool you can actually use.",
@@ -444,7 +444,7 @@ export const PLATFORM_APPS: readonly PlatformApp[] = [
         "Server-rendered export from structured content",
       ],
       operationalStatus:
-        "Free public showcase tool from ASafarIM Digital. Genuinely usable, deployed on production infrastructure, and not a commercial service.",
+        "Free public showcase tool from ASafariM Digital. Genuinely usable, deployed on production infrastructure, and not a commercial service.",
     },
   },
   {

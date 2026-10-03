@@ -143,7 +143,7 @@ export async function POST(request: Request) {
   // A private app's tests need a signed-in platform user (lib/app-access.ts).
   if (!(await isProjectViewable(projectId))) {
     return NextResponse.json(
-      { error: "Sign in with your ASafarIM account to run this app's tests." },
+      { error: "Sign in with your ASafariM account to run this app's tests." },
       { status: 403 },
     );
   }

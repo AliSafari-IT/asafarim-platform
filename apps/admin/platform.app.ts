@@ -1,16 +1,21 @@
 /**
- * admin: ASafarIM OS app manifest (#765). DESCRIPTIVE ONLY: nothing reads
+ * admin: ASafariM OS app manifest (#765). DESCRIPTIVE ONLY: nothing reads
  * this file at runtime yet. It states what this app is today, so the
  * asafarim-os drift report (`platform sync --check --against <this repo>`)
  * can compare it with the hand-written registry, compose, bake, build plan and
  * Caddy files. Schema: @asafarim/app-manifest in AliSafari-IT/asafarim-os.
+ *
+ * Id: `admin` is reserved by the manifest schema, so this app is
+ * `admin-console`. The launcher registry key stays `admin` until ASafariM OS P1
+ * generates the registry from the manifests, so the drift report shows
+ * `registry: admin` as unclaimed. That ✖ is expected and explained here (#767).
  */
 export default {
   id: "admin-console",
   name: "Admin Console",
   version: "0.2.0",
   platform: ">=0.1 <1",
-  owner: "ASafarIM Digital",
+  owner: "ASafariM Digital",
   domains: {
     primary: "admin.asafarim.com",
   },

@@ -10,12 +10,12 @@ export interface LegalSection {
 }
 
 export const legalDisclaimer =
-  "This page provides general information about how the ASafarIM Platform handles data. It is not final legal text and will receive professional review before being relied upon.";
+  "This page provides general information about how the ASafariM Platform handles data. It is not final legal text and will receive professional review before being relied upon.";
 
 export const privacySections: LegalSection[] = [
   {
     title: "Who we are",
-    body: "ASafarIM Digital is a software studio based in Hasselt, Belgium. This website and the related ASafarIM Platform apps (Hub, Showcase, Admin) are operated by the studio.",
+    body: "ASafariM Digital is a software studio based in Hasselt, Belgium. This website and the related ASafariM Platform apps (Hub, Showcase, Admin) are operated by the studio.",
   },
   {
     title: "What we collect",
@@ -50,7 +50,7 @@ export const privacySections: LegalSection[] = [
 export const termsSections: LegalSection[] = [
   {
     title: "About these terms",
-    body: "These terms cover the use of the public ASafarIM Digital website and, where applicable, accounts on the ASafarIM Platform (Hub and related apps).",
+    body: "These terms cover the use of the public ASafariM Digital website and, where applicable, accounts on the ASafariM Platform (Hub and related apps).",
   },
   {
     title: "Use of the website",
@@ -62,7 +62,7 @@ export const termsSections: LegalSection[] = [
   },
   {
     title: "Content and ownership",
-    body: "Unless stated otherwise, the software, design, and content of the platform belong to ASafarIM Digital. Open-source packages are licensed under their respective licenses as published.",
+    body: "Unless stated otherwise, the software, design, and content of the platform belong to ASafariM Digital. Open-source packages are licensed under their respective licenses as published.",
   },
   {
     title: "AI Workbench tools",

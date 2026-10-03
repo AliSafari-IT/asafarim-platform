@@ -43,7 +43,7 @@ export const SEED_PROVIDERS: readonly SeedProvider[] = Object.freeze([
   createUnavailableProvider({
     id: "web",
     appId: "web",
-    displayName: "ASafarIM Digital",
+    displayName: "ASafariM Digital",
     reason:
       "The public site renders content from code and the shared database; it has no deterministic seed dataset yet.",
   }),

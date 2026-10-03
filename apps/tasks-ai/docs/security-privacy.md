@@ -23,6 +23,7 @@ Scoped external security testing is commissioned before the beta opens
 | Data | Where | Legal basis | Retention |
 |---|---|---|---|
 | Account link (opaque platform user id) | `Membership.platformUserId` | Contract | Until workspace deletion; archived on member revoke |
+| Profile snapshot (display name, avatar URL; no email), copied from the member's own Hub session (#759) | `Membership.displayName`, `avatarUrl`, `profileSyncedAt` | Contract | Refreshed on sign-in; cleared on member revoke, SCIM deprovisioning and DSR delete; included in DSR export |
 | Task / project / comment content | dedicated Postgres (`TASKSAI_DATABASE_URL`) | Contract (workspace owner is joint controller) | Workspace-configurable, default 24 months for activity; then archive |
 | Attachments (bytes) | private object storage, EU region | Contract | Retention hook + deletion on DSR |
 | Audit / security events | `AuditEvent` | Legal obligation / legitimate interest | 24 months min; security events up to 7 years where required |
@@ -30,7 +31,7 @@ Scoped external security testing is commissioned before the beta opens
 | AI prompt context (transient) | provider (Anthropic / OpenAI) under DPA, no training | Contract | Not retained by TasksAI; provider per DPA |
 | Search history | `SearchHistory` | Legitimate interest | Deleted on DSR; user can clear |
 
-**Controller:** the operating entity (ASafarIM, entity TBD — see
+**Controller:** the operating entity (ASafariM, entity TBD — see
 `compliance/decisions.md`). **DPIA decision:** limited-risk AI (proposal-only,
 human applies every change); DPIA revisited at M13 and before any feature
 that ranks or evaluates people (out of scope, M08 guard enforces).
@@ -60,12 +61,14 @@ that ranks or evaluates people (out of scope, M08 guard enforces).
 
 `POST /workspaces/{slug}/privacy/dsr { subjectUserId, kind }` (owner):
 
-- **export** — builds a JSON bundle of the subject's own comments, time
-  entries, saved views, search history; state → `completed` with the
+- **export** — builds a JSON bundle of the subject's own profile snapshot
+  (display name, avatar URL, last sync; #759), comments, time entries, saved
+  views, search history; state → `completed` with the
   bundle in `manifest`.
 - **delete** — removes search history, notifications, saved views,
   proposal + signal feedback, time entries; revokes API tokens; **redacts**
-  comments in place (thread integrity), archives the membership. Then
+  comments in place (thread integrity), archives the membership and clears
+  its profile snapshot (#759; counted as `profile` in the verification). Then
   **re-counts** every category and records `verification.residualNonComment`
   — the request is `completed` only when that is empty (verified deletion).
   Integration-tested end to end.
@@ -94,7 +97,7 @@ that ranks or evaluates people (out of scope, M08 guard enforces).
 | p95 task CRUD | ≤ 400 ms |
 | Worker outbox lag | ≤ 60 s |
 
-Incident response: on-call owner = Ali Safari / ASafarIM. AI-specific
+Incident response: on-call owner = Ali Safari / ASafariM. AI-specific
 incidents → `docs/ai-incident-playbook.md` (kill switch, budget freeze).
 Provider outage → auto-degrade to fixture (M06). Source/integration
 takedown → revoke the `Integration` row + its secret; disable the webhook

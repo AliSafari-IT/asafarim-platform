@@ -1,6 +1,6 @@
 # @asafarim/storage
 
-Shared S3-compatible object storage utilities for the ASafarIM Platform.
+Shared S3-compatible object storage utilities for the ASafariM Platform.
 Used by Vionto (media uploads), EduMatch (file uploads, quote PDFs),
 TimelineAI (export images), and Hub (profile avatars).
 
