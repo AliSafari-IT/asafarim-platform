@@ -1,0 +1,20 @@
+# asafarim-be stack's site file on the shared edge (#770): asafarim.be is a
+# separate deployment (the asafarim-devtools and logo-normalizer compose
+# projects). Their public services join edge_net so the edge can reach them.
+asafarim.be {
+  handle /apps/logo-normalizer* {
+    reverse_proxy logo-normalizer:3202
+  }
+  handle {
+    reverse_proxy devtools:3200
+  }
+}
+
+www.asafarim.be {
+  handle /apps/logo-normalizer* {
+    reverse_proxy logo-normalizer:3202
+  }
+  handle {
+    reverse_proxy devtools:3200
+  }
+}

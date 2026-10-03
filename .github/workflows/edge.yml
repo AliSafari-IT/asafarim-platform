@@ -1,0 +1,37 @@
+# Shared edge gateway (#770 / #774): shellcheck the edge scripts and run the
+# behaviour tests of edge-deploy-site.sh (lock, .prev restore, validation
+# before the swap) against a fake docker. Linux only: the script needs flock.
+name: Edge
+
+on:
+  pull_request:
+    paths:
+      - "infra/edge/**"
+      - ".github/workflows/edge.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/edge/**"
+      - ".github/workflows/edge.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  edge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          # No install here (see brand-spelling.yml).
+          package-manager-cache: false
+      - name: shellcheck
+        run: shellcheck -S warning infra/edge/scripts/*.sh
+      - name: edge-deploy-site.sh behaviour
+        run: node --test infra/edge/scripts/edge-deploy-site.test.mjs

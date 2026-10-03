@@ -1,0 +1,48 @@
+# The shared edge (ASafariM OS P1.2, #770): ONE Caddy that owns 80/443 for
+# every stack on this host (asafarim-com, asafarim-be, later asafarim-os).
+#
+# Its own compose project, deployed to /var/repos/edge from this directory:
+#   docker compose -p edge -f docker-compose.yml up -d
+#
+# - caddy/Caddyfile only imports sites/*.caddy. Each stack owns ONE site
+#   file and writes it with infra/edge/scripts/edge-deploy-site.sh, which
+#   validates the whole config before a graceful reload. One stack's bad file
+#   fails only that stack's deploy; the edge keeps serving the previous config.
+# - The config is a DIRECTORY mount (the #733 lesson: a single-file bind mount
+#   stays pinned to a replaced inode).
+# - Certificates: the existing asafarim-com_caddy_data volume is reused, so the
+#   cutover issues no new certificates (Let's Encrypt rate limits).
+# - edge_net is the only network shared between stacks. Only public-facing
+#   services join it; databases and internal services stay on their stack's
+#   private networks.
+name: edge
+
+services:
+  caddy:
+    # Pinned to the version production runs today (was caddy:latest = 2.11.4).
+    image: caddy:2.11.4
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge_net
+    mem_limit: 256m
+    cpus: 0.5
+
+networks:
+  edge_net:
+    external: true
+
+volumes:
+  caddy_data:
+    external: true
+    name: asafarim-com_caddy_data
+  caddy_config:
+    external: true
+    name: asafarim-com_caddy_config
