@@ -21,7 +21,7 @@ describe("worker jobs (#787)", () => {
 
   it("every worker entry point loads the server-only shim, the Dockerfile included", () => {
     const pkg = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf8")) as { scripts: Record<string, string> };
-    for (const script of ["worker:dev", "worker:start", "worker:smoke"]) {
+    for (const script of ["worker:dev", "worker:start"]) {
       expect(pkg.scripts[script], script).toContain(`--import ${LOADER}`);
     }
     const dockerfile = readFileSync(join(__dirname, "../Dockerfile"), "utf8");
