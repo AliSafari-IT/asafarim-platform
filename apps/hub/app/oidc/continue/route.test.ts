@@ -8,6 +8,7 @@ vi.mock("@asafarim/db", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
 import { auth } from "@asafarim/auth";
 import { prisma } from "@asafarim/db";
 import { GET } from "./route";
+import { resumeKey, signResume, verifyResume } from "@/lib/oidc-handoff";
 
 let identity: Awaited<ReturnType<typeof generateKeyPair>>;
 
@@ -17,6 +18,7 @@ beforeAll(async () => {
   process.env.HUB_IDENTITY_TICKET_PUBLIC_JWK = JSON.stringify(await exportJWK(identity.publicKey));
   process.env.HUB_OIDC_ASSERTION_PRIVATE_JWK = JSON.stringify(await exportJWK(hub.privateKey));
   process.env.IDENTITY_ISSUER_URL = "https://id.asafarim.site";
+  process.env.AUTH_SECRET = "a-route-test-secret-of-some-length";
 });
 
 beforeEach(() => {
@@ -35,6 +37,21 @@ async function ticket(uid = "uid-abc") {
 }
 
 const request = (t: string) => new Request(`https://hub.asafarim.com/oidc/continue?ticket=${encodeURIComponent(t)}`);
+
+// #801: the resume cookie. NODE_ENV is "test" here, so it is the plain, non-Secure name.
+const COOKIE = "hub_handoff";
+const bare = (cookie?: string) =>
+  new Request("https://hub.asafarim.com/oidc/continue", cookie === undefined ? {} : { headers: { cookie: `${COOKIE}=${cookie}` } });
+const withBoth = (t: string, cookie: string) =>
+  new Request(`https://hub.asafarim.com/oidc/continue?ticket=${encodeURIComponent(t)}`, { headers: { cookie: `${COOKIE}=${cookie}` } });
+const resume = (uid: string) => signResume(uid, resumeKey());
+const signedIn = (id = "user-1", isActive = true) => {
+  vi.mocked(auth).mockResolvedValue({ user: { id } } as never);
+  vi.mocked(prisma.user.findUnique).mockResolvedValue({ id, isActive } as never);
+};
+/** The value of the resume cookie a response sets, if any. */
+const setCookieValue = (res: Response) => /^hub_handoff=([^;]*)/.exec(res.headers.get("set-cookie") ?? "")?.[1];
+const assertionOf = (html: string) => decodeJwt(/name="assertion" value="([^"]+)"/.exec(html)![1]!);
 
 describe("GET /oidc/continue (#782)", () => {
   it("with a session → an auto-POST page whose form targets exactly <issuer>/interaction/<uid>/hub", async () => {
@@ -84,14 +101,15 @@ describe("GET /oidc/continue (#782)", () => {
     }
   });
 
-  it("without a session → Hub's sign-in with a return path back here", async () => {
+  it("without a session → Hub's sign-in with a return path back here, without the ticket (#801)", async () => {
     vi.mocked(auth).mockResolvedValue(null as never);
     const t = await ticket();
     const res = await GET(request(t));
     expect(res.status).toBe(303);
     const to = new URL(res.headers.get("location")!);
     expect(to.pathname).toBe("/sign-in");
-    expect(to.searchParams.get("callbackUrl")).toBe(`/oidc/continue?ticket=${encodeURIComponent(t)}`);
+    expect(to.searchParams.get("callbackUrl")).toBe("/oidc/continue");
+    expect(res.headers.get("location")).not.toContain("ticket");
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
@@ -140,6 +158,143 @@ describe("GET /oidc/continue (#782)", () => {
       process.env.IDENTITY_ISSUER_URL = saved;
       process.env.HUB_IDENTITY_TICKET_PUBLIC_JWK = savedPub;
       process.env.HUB_OIDC_ASSERTION_PRIVATE_JWK = savedPriv;
+    }
+  });
+});
+
+describe("GET /oidc/continue: the resume cookie across a slow sign-in (#801, spec §4.3)", () => {
+  it("ticket + no session → 303 to /sign-in?callbackUrl=%2Foidc%2Fcontinue, no ticket in Location, resume cookie set", async () => {
+    vi.mocked(auth).mockResolvedValue(null as never);
+    const t = await ticket("uid-slow");
+    const res = await GET(request(t));
+    expect(res.status).toBe(303);
+    const location = res.headers.get("location")!;
+    expect(location).toBe("https://hub.asafarim.com/sign-in?callbackUrl=%2Foidc%2Fcontinue");
+    expect(location).not.toContain("ticket");
+    const header = res.headers.get("set-cookie")!;
+    expect(header).toMatch(/^hub_handoff=[\w.-]+;/);
+    for (const attr of ["Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=600"]) expect(header).toContain(attr);
+    expect(header).not.toContain("Secure"); // local http
+    expect(await verifyResume(setCookieValue(res)!, resumeKey())).toEqual({ uid: "uid-slow" });
+  });
+
+  it("the resume cookie never carries the ticket or anything secret: just the uid", async () => {
+    vi.mocked(auth).mockResolvedValue(null as never);
+    const t = await ticket("uid-slow");
+    const value = setCookieValue(await GET(request(t)))!;
+    expect(value).not.toContain(t);
+    expect(decodeJwt(value)).toEqual({ uid: "uid-slow", iat: expect.any(Number), exp: expect.any(Number) });
+  });
+
+  it("no ticket + valid cookie + session → the assertion page for the cookie's uid; the cookie is not cleared", async () => {
+    signedIn();
+    const res = await GET(bare(await resume("uid-from-cookie")));
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(/<form id="handoff" method="post" action="([^"]+)">/.exec(html)![1]).toBe("https://id.asafarim.site/interaction/uid-from-cookie/hub");
+    expect(assertionOf(html)).toMatchObject({ sub: "user-1", uid: "uid-from-cookie" });
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("no ticket + no cookie → 400 handoff_missing, no assertion, no session lookup", async () => {
+    signedIn();
+    const res = await GET(bare());
+    expect(res.status).toBe(400);
+    const html = await res.text();
+    expect(html).toContain("handoff_missing");
+    expect(html).toContain("start signing in again");
+    expect(html).not.toContain('name="assertion"');
+    expect(html).not.toContain("<a ");
+    expect(auth).not.toHaveBeenCalled();
+  });
+
+  it("no ticket + an invalid cookie (garbage, tampered, wrong key, expired) → 400 handoff_missing", async () => {
+    signedIn();
+    const good = await resume("uid-x");
+    const wrongKey = await signResume("uid-x", resumeKey({ AUTH_SECRET: "some-other-secret-of-some-length" }));
+    const expired = await signResume("uid-x", resumeKey(), new Date(Date.now() - 700_000));
+    for (const value of ["garbage", `${good.slice(0, -3)}AAA`, wrongKey, expired]) {
+      const res = await GET(bare(value));
+      expect(res.status, value).toBe(400);
+      expect(await res.text()).toContain("handoff_missing");
+    }
+    expect(auth).not.toHaveBeenCalled();
+  });
+
+  it("ticket + a cookie for another uid → the assertion uses the ticket's uid, and the cookie is replaced", async () => {
+    signedIn();
+    const res = await GET(withBoth(await ticket("uid-ticket"), await resume("uid-old")));
+    expect(res.status).toBe(200);
+    expect(assertionOf(await res.text())).toMatchObject({ uid: "uid-ticket" });
+    expect(await verifyResume(setCookieValue(res)!, resumeKey())).toEqual({ uid: "uid-ticket" });
+  });
+
+  it("an expired ticket → a 400 page with exactly one link, to <issuer>/interaction/<uid>; the CSP is still the error policy", async () => {
+    vi.mocked(auth).mockResolvedValue(null as never);
+    const expiredTicket = await new SignJWT({ uid: "uid-late", nonce: "n".repeat(22) })
+      .setProtectedHeader({ alg: "EdDSA" })
+      .setIssuer("id")
+      .setAudience("hub")
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 300)
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 180)
+      .sign(identity.privateKey);
+    const res = await GET(request(expiredTicket));
+    expect(res.status).toBe(400);
+    const html = await res.text();
+    expect(html.match(/<a /g)).toHaveLength(1);
+    expect(html).toContain('<a href="https://id.asafarim.site/interaction/uid-late">Try again</a>');
+    expect(html).not.toContain("<form");
+    const csp = res.headers.get("content-security-policy")!;
+    expect(csp).toContain("form-action 'none'");
+    expect(csp).not.toContain("script-src");
+    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(auth).not.toHaveBeenCalled();
+  });
+
+  it("an invalid (forged) ticket gets no 'Try again' link", async () => {
+    vi.mocked(auth).mockResolvedValue(null as never);
+    const forged = await new SignJWT({ uid: "uid-late", nonce: "n".repeat(22) })
+      .setProtectedHeader({ alg: "EdDSA" })
+      .setIssuer("id")
+      .setAudience("hub")
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 300)
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 180)
+      .sign((await generateKeyPair("EdDSA", { crv: "Ed25519" })).privateKey);
+    const html = await (await GET(request(forged))).text();
+    expect(html).not.toContain("<a ");
+  });
+
+  it("an inactive user via the cookie → 403, no assertion, and the cookie is cleared", async () => {
+    signedIn("user-9", false);
+    const res = await GET(bare(await resume("uid-x")));
+    expect(res.status).toBe(403);
+    const html = await res.text();
+    expect(html).toContain("account_inactive");
+    expect(html).not.toContain('name="assertion"');
+    const header = res.headers.get("set-cookie")!;
+    expect(header).toMatch(/^hub_handoff=;/);
+    expect(header).toContain("Max-Age=0");
+  });
+
+  it("in production the cookie is __Host- prefixed and Secure, and that is the one the route reads", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      vi.mocked(auth).mockResolvedValue(null as never);
+      const res = await GET(request(await ticket("uid-prod")));
+      const header = res.headers.get("set-cookie")!;
+      expect(header).toMatch(/^__Host-hub_handoff=/);
+      expect(header).toContain("Secure");
+      expect(header).toContain("Path=/");
+      expect(header).not.toContain("Domain");
+      signedIn();
+      const value = /^__Host-hub_handoff=([^;]*)/.exec(header)![1]!;
+      const resumed = await GET(new Request("https://hub.asafarim.com/oidc/continue", { headers: { cookie: `__Host-hub_handoff=${value}` } }));
+      expect(resumed.status).toBe(200);
+      // the plain (non-prefixed) cookie name is not accepted in production
+      const plain = await GET(new Request("https://hub.asafarim.com/oidc/continue", { headers: { cookie: `hub_handoff=${value}` } }));
+      expect(plain.status).toBe(400);
+    } finally {
+      vi.unstubAllEnvs();
     }
   });
 });
