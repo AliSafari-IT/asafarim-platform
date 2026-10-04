@@ -247,10 +247,10 @@ describe("guard: no app navigates to a query-derived value without the helper (#
   const ALLOWED: Record<string, RegExp> = {
     // normalises the raw query value with the shared helper and assigns only its result
     "admin/app/sign-in/page.tsx": /createCallbackUrlNormalizer/,
-    "hub/app/sign-in/_components/SignInPageContent.tsx":
-      /normalizeCallbackUrl\(/,
-    // takes `callbackUrl` as a prop, already normalised by SignInPageContent
-    "hub/app/sign-in/_components/EmailCodeForm.tsx": /callbackUrl: string/,
+    // the one place Hub navigates after sign-in (#800); takes the already-normalised `callbackUrl` from
+    // SignInPageContent / EmailCodeForm, which never assign to location themselves
+    "hub/app/sign-in/_components/navigate-after-sign-in.ts":
+      /callbackUrl: string/,
   };
 
   it("only the allow-listed sign-in files assign to location, and each uses the helper", () => {
