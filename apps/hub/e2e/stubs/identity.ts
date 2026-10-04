@@ -118,7 +118,7 @@ async function handleIdentity(req: IncomingMessage, res: ServerResponse) {
     mode = next;
     return json(res, { mode });
   }
-  // Not used yet: kept for #801's expired-ticket case. Don't remove it as dead code.
+  // Test hook for #801's slow-sign-in and expired-ticket cases (handoff.spec.ts).
   if (url.pathname === "/__ticket-ttl" && method === "POST") {
     ticketTtl = Math.min(
       120,
@@ -149,6 +149,21 @@ async function handleIdentity(req: IncomingMessage, res: ServerResponse) {
       {
         "set-cookie": `_interaction=${interactionCookie}; Path=/interaction/${uid}; HttpOnly; SameSite=Lax`,
       }
+    );
+  }
+
+  // GET /interaction/<uid>: the identity service's own start of the hand-off for a live interaction. Hub's
+  // "Try again" link (an expired ticket) points here: a browser holding the interaction cookie gets a new ticket.
+  const restart = /^\/interaction\/([\w-]{1,128})$/.exec(url.pathname);
+  if (restart && method === "GET") {
+    const restartUid = restart[1]!;
+    const live = interactions.get(restartUid);
+    hits.push({ method, path: `/interaction/${restartUid}` });
+    if (!live || cookies(req)["_interaction"] !== live.interactionCookie)
+      return send(res, 400, "interaction_expired");
+    return redirect(
+      res,
+      `${HUB_URL}/oidc/continue?ticket=${encodeURIComponent(await ticketFor(restartUid))}`
     );
   }
 

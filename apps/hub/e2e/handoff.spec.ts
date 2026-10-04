@@ -33,6 +33,12 @@ const setMode = (mode: "page" | "redirect") =>
     body: new URLSearchParams({ mode }),
   });
 
+const setTicketTtl = (seconds: number) =>
+  fetch(`${IDENTITY}/__ticket-ttl`, {
+    method: "POST",
+    body: new URLSearchParams({ seconds: String(seconds) }),
+  });
+
 test.beforeEach(async () => {
   await fetch(`${IDENTITY}/__reset`, { method: "POST" });
 });
@@ -75,7 +81,6 @@ test.describe("Hub OIDC hand-off", () => {
     expect(assertions[0]!.sub).toBe(await sessionUserId(context));
     await context.close();
   });
-
 });
 
 // The canary is its own describe so it can opt out of CI retries: a canary that sometimes reaches the app is
@@ -176,5 +181,75 @@ test.describe("Hub OIDC hand-off (continued)", () => {
     expect(log.appHits).toEqual([]);
     await a.close();
     await b.close();
+  });
+});
+
+// #801: a sign-in can outlast the 120 s ticket, so Hub resumes from a short-lived cookie, not the ticket.
+test.describe("Hub OIDC hand-off: slow sign-in and expired tickets (#801)", () => {
+  test("slow sign-in resumes: a ticket that expires mid-sign-in still reaches the app, with one assertion", async ({
+    browser,
+  }) => {
+    await setTicketTtl(2);
+    const context = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
+    const page = await context.newPage();
+    await page.goto(`${IDENTITY}/start`);
+    await page.waitForURL(/\/sign-in/);
+    // The ticket is not carried through sign-in (not in the URL); only the interaction uid rides in a cookie.
+    expect(page.url()).not.toContain("ticket");
+    await page.waitForTimeout(3000); // the 2 s ticket is now expired
+    await signInThroughForm(page);
+    await page.waitForURL(APP_CB, { timeout: 30_000 });
+    await expect(page.locator("body")).toContainText("APP OK");
+
+    const log = await stubLog();
+    expect(
+      log.hits.filter((h) => h.path.endsWith("/hub") && h.sub)
+    ).toHaveLength(1);
+    expect(log.hits.find((h) => h.path.endsWith("/complete"))?.status).toBe(
+      303
+    );
+    await context.close();
+  });
+
+  test("expired ticket → Hub's error page with one 'Try again' link to the identity service, which finishes the sign-in", async ({
+    browser,
+  }) => {
+    await setTicketTtl(1);
+    const context = await signedInContext(browser);
+    // Start a sign-in without following it: the context now holds the interaction cookie.
+    const start = await context.request.get(`${IDENTITY}/start`, {
+      maxRedirects: 0,
+    });
+    expect(start.status()).toBe(303);
+    const hubUrl = start.headers()["location"]!;
+    const ticket = new URL(hubUrl).searchParams.get("ticket")!;
+    const { uid } = JSON.parse(
+      Buffer.from(ticket.split(".")[1]!, "base64url").toString()
+    ) as { uid: string };
+    await new Promise((resolve) => setTimeout(resolve, 2500)); // the 1 s ticket is now expired
+    await setTicketTtl(120); // the identity service's new ticket must live
+
+    const page = await context.newPage();
+    await page.goto(hubUrl);
+    await expect(page.locator("body")).toContainText("ticket_expired");
+    const links = page.locator("main a");
+    await expect(links).toHaveCount(1);
+    await expect(links).toHaveText("Try again");
+    await expect(links).toHaveAttribute(
+      "href",
+      `${IDENTITY}/interaction/${uid}`
+    );
+    expect((await stubLog()).appHits).toEqual([]);
+
+    await links.click();
+    await page.waitForURL(APP_CB, { timeout: 30_000 });
+    await expect(page.locator("body")).toContainText("APP OK");
+    const log = await stubLog();
+    expect(
+      log.hits.filter((h) => h.path.endsWith("/hub") && h.sub)
+    ).toHaveLength(1);
+    await context.close();
   });
 });
