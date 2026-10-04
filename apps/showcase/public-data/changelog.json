@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-04",
+    "title": "Hub: ASafariM OS sign-in hand-off + read-only accounts view (Refs #782, P2.2)",
+    "sha": "8d455f55",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/8d455f55"
+  },
+  {
+    "date": "2026-10-04",
     "title": "Infra: wire in the shared edge, no port change (Refs #770, #774 phase 2)",
     "sha": "75b8c0a3",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/75b8c0a3"
@@ -112,11 +118,5 @@
     "title": "Labs: redesign workbench landing page",
     "sha": "303dd3d1",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/303dd3d1"
-  },
-  {
-    "date": "2026-09-27",
-    "title": "Web: /tools catalogue and main-site entry points (AIT-004)",
-    "sha": "4ae44dcc",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/4ae44dcc"
   }
 ]
