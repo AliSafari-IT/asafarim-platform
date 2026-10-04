@@ -1,0 +1,58 @@
+# Hub and Admin unit tests (#809).
+#
+# ci-status.yml runs `turbo test` over packages/* only, and the per-app workflows each test their own
+# app (resumatch-ci, tasksai-ci, testora-ci, ...). Nothing ran apps/hub or apps/admin's unit tests, so
+# a test like apps/admin/app/sign-in/callback-url.test.ts could fail on a PR and still merge.
+#
+# These tests need no database and no env vars: they mock @asafarim/db, and `pnpm install` runs
+# packages/db's `prisma generate` postinstall, which is all the Prisma client they need. No secrets.
+# Hub's E2E suite is separate (hub-e2e.yml); ci-status.yml is deliberately left alone.
+name: Hub and Admin unit tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/hub/**"
+      - "apps/admin/**"
+      - "packages/auth/**"
+      - "packages/ui/**"
+      - ".github/workflows/hub-admin-unit.yml"
+  pull_request:
+    paths:
+      - "apps/hub/**"
+      - "apps/admin/**"
+      - "packages/auth/**"
+      - "packages/ui/**"
+      - ".github/workflows/hub-admin-unit.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Both run even if the first fails, so one red PR shows every failing suite.
+      - name: Hub unit tests
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @asafarim/hub test
+
+      - name: Admin unit tests
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @asafarim/admin test
