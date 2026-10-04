@@ -273,9 +273,20 @@ fi
 # without a password; the identity service (P2.3) uses it to read
 # identity_accounts_v and nothing else. Its password lives only in the
 # encrypted env. It travels as an environment variable into the container and
-# psql reads it with \getenv, so it never appears on a command line. Until P2.3
-# adds IDENTITY_RO_PASSWORD, the role simply stays NOLOGIN.
-IDENTITY_RO_PASSWORD="$(grep -E '^IDENTITY_RO_PASSWORD=' .env.production | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'")" || true
+# psql reads it with \getenv, so it never appears on a command line.
+# Empty or absent → the role is put back to NOLOGIN with no password on every
+# deploy, so removing the variable really revokes a previously enabled login.
+#
+# The value is read the way Compose reads it: only a pair of SURROUNDING
+# quotes is removed, so quotes inside the password survive.
+IDENTITY_RO_PASSWORD="$(grep -E '^IDENTITY_RO_PASSWORD=' .env.production | tail -n1 | cut -d= -f2- | tr -d '\r')" || true
+if [[ ${#IDENTITY_RO_PASSWORD} -ge 2 ]]; then
+  first="${IDENTITY_RO_PASSWORD:0:1}"
+  last="${IDENTITY_RO_PASSWORD: -1}"
+  if [[ ( "$first" == '"' || "$first" == "'" ) && "$first" == "$last" ]]; then
+    IDENTITY_RO_PASSWORD="${IDENTITY_RO_PASSWORD:1:${#IDENTITY_RO_PASSWORD}-2}"
+  fi
+fi
 if [[ -n "${IDENTITY_RO_PASSWORD}" ]]; then
   export IDENTITY_RO_PASSWORD
   # shellcheck disable=SC2016 # expanded inside the container, not here
@@ -288,6 +299,16 @@ if [[ -n "${IDENTITY_RO_PASSWORD}" ]]; then
     notify_discord "⚠️ ASafariM deploy ${IMAGE_TAG:0:12}: could not set the identity_ro password. See the deploy log."
   fi
   unset IDENTITY_RO_PASSWORD
+else
+  # shellcheck disable=SC2016 # expanded inside the container, not here
+  if printf '%s\n' 'ALTER ROLE identity_ro NOLOGIN PASSWORD NULL;' |
+      "${COMPOSE[@]}" exec -T postgres \
+        sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -qAt -v ON_ERROR_STOP=1'; then
+    echo "[deploy $(date -Is)] identity_ro: NOLOGIN (no IDENTITY_RO_PASSWORD in the env)"
+  else
+    echo "WARNING: could not set identity_ro to NOLOGIN." >&2
+    notify_discord "⚠️ ASafariM deploy ${IMAGE_TAG:0:12}: could not set identity_ro to NOLOGIN. See the deploy log."
+  fi
 fi
 
 # The public services join the shared edge's network (#770); it must exist

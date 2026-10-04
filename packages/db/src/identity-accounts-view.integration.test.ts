@@ -4,9 +4,13 @@
  * identity service reads (asafarim-os core/identity/src/accounts.ts).
  *
  * Needs PLATFORM_TEST_DATABASE_URL: a THROWAWAY database with every migration
- * applied (`prisma migrate deploy`), connected as a role that may ALTER ROLE.
- * It sets a random password on identity_ro for the test and puts the role
- * back to NOLOGIN afterwards. Skipped without it.
+ * applied (`prisma migrate deploy`), connected as a role that may CREATE ROLE.
+ * Skipped without it.
+ *
+ * Roles are cluster-wide, so the test never touches identity_ro's own login
+ * (that could lock out a real identity service on a shared cluster). It
+ * connects as a temporary login role that is a MEMBER of identity_ro and
+ * inherits exactly its privileges, then drops it.
  */
 import { randomBytes } from "node:crypto";
 import pg from "pg";
@@ -18,14 +22,16 @@ describe.skipIf(!ADMIN_URL)("identity_accounts_v and identity_ro (integration)",
   let admin: pg.Client;
   let ro: pg.Client;
   const tag = `idv-${Date.now()}`;
+  const probeRole = `identity_ro_probe_${Date.now()}`;
 
   beforeAll(async () => {
     admin = new pg.Client({ connectionString: ADMIN_URL });
     await admin.connect();
+    // base64url: no quotes, safe to inline in the DDL (roles can't be bound parameters).
     const password = randomBytes(24).toString("base64url");
-    await admin.query(`ALTER ROLE identity_ro LOGIN PASSWORD '${password}'`);
+    await admin.query(`CREATE ROLE "${probeRole}" LOGIN INHERIT PASSWORD '${password}' IN ROLE identity_ro`);
     const url = new URL(ADMIN_URL!);
-    url.username = "identity_ro";
+    url.username = probeRole;
     url.password = password;
     ro = new pg.Client({ connectionString: url.href });
     await ro.connect();
@@ -53,7 +59,7 @@ describe.skipIf(!ADMIN_URL)("identity_accounts_v and identity_ro (integration)",
     if (admin) {
       await admin.query(`DELETE FROM "User" WHERE id LIKE $1`, [`${tag}-%`]);
       await admin.query(`DELETE FROM "Role" WHERE id LIKE $1`, [`${tag}-%`]);
-      await admin.query("ALTER ROLE identity_ro NOLOGIN PASSWORD NULL");
+      await admin.query(`DROP ROLE IF EXISTS "${probeRole}"`);
       await admin.end();
     }
   });
