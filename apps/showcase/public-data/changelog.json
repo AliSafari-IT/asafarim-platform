@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-05",
+    "title": "Hub: resume cookie across sign-in, \"Try again\" for expired tickets, hand-off comments (Fixes #801, Fixes #802)",
+    "sha": "caaa54d0",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/caaa54d0"
+  },
+  {
     "date": "2026-10-04",
     "title": "Hub: ASafariM OS sign-in hand-off + read-only accounts view (Refs #782, P2.2)",
     "sha": "8d455f55",
@@ -112,11 +118,5 @@
     "title": "Web: server-only AI tool execution boundary (AIT-003)",
     "sha": "1a7d3f3f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1a7d3f3f"
-  },
-  {
-    "date": "2026-09-27",
-    "title": "Labs: redesign workbench landing page",
-    "sha": "303dd3d1",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/303dd3d1"
   }
 ]
