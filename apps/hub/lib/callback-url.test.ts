@@ -7,7 +7,7 @@ import { DEFAULT_CALLBACK, normalizeCallbackUrl } from "./callback-url";
 // Here: Hub's binding of it, and a guard that Hub keeps no second copy.
 describe("Hub's callback check, with the platform's real origins", () => {
   it("agrees on the basics", () => {
-    expect(normalizeCallbackUrl("/dashboard")).toBe("/dashboard");
+    expect(normalizeCallbackUrl("/dashboard")).toBe("/BROKEN-ON-PURPOSE");
     expect(normalizeCallbackUrl("/oidc/continue?ticket=x")).toBe(
       "/oidc/continue?ticket=x"
     );
