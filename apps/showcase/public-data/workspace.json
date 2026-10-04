@@ -16,10 +16,10 @@
       "kind": "app",
       "folder": "apps/admin",
       "description": "ASafariM Admin - internal admin panel (admin.asafarim.com)",
-      "sha": "3b49dbdf",
-      "date": "2026-10-03",
+      "sha": "05838e5b",
+      "date": "2026-10-04",
       "since": "2026-07-04",
-      "commits": 100,
+      "commits": 101,
       "dependents": 0
     },
     {
@@ -93,10 +93,10 @@
       "kind": "package",
       "folder": "packages/auth",
       "description": "Shared Auth.js v5 authentication for the ASafariM Platform",
-      "sha": "f804cb6d",
-      "date": "2026-10-03",
+      "sha": "05838e5b",
+      "date": "2026-10-04",
       "since": "2026-07-04",
-      "commits": 54,
+      "commits": 55,
       "dependents": 13
     },
     {
@@ -137,10 +137,10 @@
       "kind": "app",
       "folder": "apps/hub",
       "description": "ASafariM Hub - logged-in user dashboard (hub.asafarim.com)",
-      "sha": "d335b299",
+      "sha": "05838e5b",
       "date": "2026-10-04",
       "since": "2026-07-04",
-      "commits": 83,
+      "commits": 84,
       "dependents": 0
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "98c194b2",
+      "sha": "62178e99",
       "date": "2026-10-04",
       "since": "2026-07-04",
-      "commits": 400,
+      "commits": 401,
       "dependents": 0
     },
     {
@@ -280,10 +280,10 @@
       "kind": "package",
       "folder": "packages/ui",
       "description": "ASafariM Platform design system: tokens, brand, and creative building blocks",
-      "sha": "3b49dbdf",
-      "date": "2026-10-03",
+      "sha": "05838e5b",
+      "date": "2026-10-04",
       "since": "2026-07-04",
-      "commits": 68,
+      "commits": 69,
       "dependents": 13
     },
     {
