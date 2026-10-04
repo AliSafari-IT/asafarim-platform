@@ -184,7 +184,13 @@ Add `restartUid` to the existing error-page helper as an optional `action: { hre
 
 ### 4.5 Sign-in navigation (M2)
 
-In `apps/hub/app/sign-in/_components/SignInPageContent.tsx`, every post-sign-in navigation whose `callbackUrl` starts with `/oidc/` must be a **full document navigation** (`window.location.assign(callbackUrl)`), not `router.push`. That covers the password, email-code and any other client-side paths. Google OAuth already returns by a server redirect.
+Both client-side sign-in paths navigate to `callbackUrl` themselves: the password form in `SignInPageContent.tsx` and the email-code form in `EmailCodeForm.tsx`. Each does `router.push(callbackUrl); router.refresh()` for a relative URL. Add one shared helper, `navigateAfterSignIn(callbackUrl, router)`, in `apps/hub/app/sign-in/_components/`, and use it in both:
+
+- `callbackUrl` starts with `/oidc/` → `window.location.assign(callbackUrl)`. This is a **full document navigation**, with no `router.push` or `router.refresh`.
+- any other relative URL → today's `router.push` + `router.refresh`, unchanged.
+- an absolute URL → today's `window.location.href`, unchanged.
+
+Google OAuth already returns by a server redirect.
 
 Why both safeguards (full navigation **and** not clearing the cookie in step 6):
 
@@ -210,7 +216,8 @@ Route (`apps/hub/app/oidc/continue/route.test.ts`):
 
 Sign-in:
 
-- [ ] A component test, or a small unit around the navigation helper: `/oidc/continue` → `location.assign`; `/dashboard` → `router.push`.
+- [ ] A unit test for `navigateAfterSignIn`: `/oidc/continue` → `location.assign`, and no router calls; `/dashboard` → `router.push` + `router.refresh`; a trusted absolute URL → `location.href`.
+- [ ] Both `SignInPageContent.tsx` and `EmailCodeForm.tsx` call the helper. Grep check: neither calls `router.push(callbackUrl)` directly.
 
 E2E (extends §2.3):
 
@@ -220,7 +227,7 @@ E2E (extends §2.3):
 
 - `apps/hub/lib/oidc-handoff.ts`: resume helpers, the `verifyTicket` result type, the error-page action.
 - `apps/hub/app/oidc/continue/route.ts`: the flow in §4.3.
-- `apps/hub/app/sign-in/_components/SignInPageContent.tsx`: §4.5.
+- `apps/hub/app/sign-in/_components/SignInPageContent.tsx` and `EmailCodeForm.tsx`, plus the new `navigateAfterSignIn` helper: §4.5.
 - Tests as listed above.
 - No env changes: the key comes from `AUTH_SECRET`.
 
