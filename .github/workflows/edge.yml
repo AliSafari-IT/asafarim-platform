@@ -11,6 +11,7 @@ on:
       - "infra/edge/**"
       - "infra/caddy/**"
       - "infra/scripts/lib/edge.sh"
+      - "docker-compose.prod.yml"
       - ".github/workflows/edge.yml"
   push:
     branches: [main]
@@ -18,6 +19,7 @@ on:
       - "infra/edge/**"
       - "infra/caddy/**"
       - "infra/scripts/lib/edge.sh"
+      - "docker-compose.prod.yml"
       - ".github/workflows/edge.yml"
   workflow_dispatch: {}
 
@@ -43,3 +45,5 @@ jobs:
         run: node --test infra/edge/scripts/edge-deploy-site.test.mjs
       - name: The edge config routes what production routes today
         run: node --test infra/edge/scripts/edge-config.test.mjs
+      - name: edge_net membership is an explicit allow-list
+        run: node --test infra/edge/scripts/edge-net.test.mjs
