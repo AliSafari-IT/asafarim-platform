@@ -1,0 +1,97 @@
+# Hub E2E suite (#803): the OIDC hand-off (/oidc/continue) in a real browser, against a stub identity service.
+#
+# apps/hub/e2e/stubs/identity.ts stands in for the ASafariM OS identity service and implements the contract in
+# asafarim-os core/identity/README.md ("Login hand-off"). The canary test proves Chromium blocks the old
+# redirect-after-POST behaviour under Hub's `form-action` CSP; if it ever starts passing through, Hub's CSP loosened.
+# Playwright starts Hub (dev server) and the stub itself, via apps/hub/playwright.config.ts's `webServer`.
+# Test keys are generated per run by that config; nothing is committed.
+#
+# Browser matrix: chromium only on PRs (fast feedback); chromium + firefox on the nightly schedule and manual runs.
+name: Hub E2E
+
+on:
+  pull_request:
+    paths:
+      - "apps/hub/**"
+      - "packages/auth/**"
+      - "packages/db/**"
+      - ".github/workflows/hub-e2e.yml"
+  schedule:
+    - cron: "37 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: asafarim
+          POSTGRES_PASSWORD: e2e_ci_password
+          POSTGRES_DB: asafarim
+        ports:
+          - 55435:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://asafarim:e2e_ci_password@127.0.0.1:55435/asafarim
+      # Not real secrets: this stack is torn down at the end of the job.
+      AUTH_SECRET: ci-only-throwaway-secret-do-not-reuse
+      SEED_ADMIN_EMAIL: hub-e2e-admin@example.test
+      SEED_ADMIN_PASSWORD: ci-only-throwaway-hub-admin-password
+      AUTH_URL: http://localhost:3001
+      AUTH_TRUST_HOST: "true"
+      NEXTAUTH_URL: http://localhost:3001
+      NEXT_PUBLIC_HUB_URL: http://localhost:3001
+      PLAYWRIGHT_TEST_BASE_URL: http://localhost:3001
+      PROJECTS: ${{ github.event_name == 'pull_request' && 'chromium' || 'chromium,firefox' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Apply database migrations
+        run: pnpm db:migrate:deploy
+
+      - name: Seed RBAC roles and the admin user
+        run: pnpm db:seed
+
+      - name: Install Playwright browsers
+        working-directory: apps/hub
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Run Hub E2E suite
+        working-directory: apps/hub
+        run: |
+          IFS=',' read -ra PROJECT_ARR <<< "$PROJECTS"
+          ARGS=()
+          for p in "${PROJECT_ARR[@]}"; do
+            ARGS+=(--project="$p")
+          done
+          npx playwright test "${ARGS[@]}"
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: hub-playwright-report
+          path: |
+            apps/hub/playwright-report/
+            apps/hub/test-results/
+          retention-days: 14

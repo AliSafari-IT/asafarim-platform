@@ -72,3 +72,7 @@ pnpm deploy:prod
 ```
 
 See [docs/deployment.md](../../docs/deployment.md) for VPS setup details and the full deployment pipeline.
+
+## End-to-end tests (hand-off)
+
+`pnpm --filter @asafarim/hub e2e` runs `e2e/handoff.spec.ts` in a real browser: real Hub and sign-in, a stub identity service (`e2e/stubs/identity.ts`, the contract in asafarim-os `core/identity/README.md`) and a fake app on another origin. It needs a migrated and seeded database (`pnpm db:migrate:deploy && pnpm db:seed` with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`) and `AUTH_SECRET`. Test keys are generated per run; ports 3901/3902 are configurable with `E2E_IDENTITY_PORT` / `E2E_APP_PORT`. The `@chromium-only` canary pins that Chromium blocks a redirect after Hub's assertion POST (`form-action`); if it ever passes through, Hub's CSP has loosened.
