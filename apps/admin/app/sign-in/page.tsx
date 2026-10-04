@@ -3,7 +3,16 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Alert, Button, FormRow, Input, Kicker, Label } from "@asafarim/ui";
+import { createCallbackUrlNormalizer } from "@asafarim/auth/callback-url";
+import {
+  Alert,
+  Button,
+  FormRow,
+  Input,
+  Kicker,
+  Label,
+  getTrustedPlatformOrigins,
+} from "@asafarim/ui";
 import { AdminSignInScene, type AdminAuthState } from "./AdminSignInScene";
 import styles from "./admin-sign-in.module.css";
 
@@ -14,7 +23,8 @@ function SignInForm({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  // callbackUrl is untrusted query input (#807): decide on the resolved URL, never follow the raw string.
+  const rawCallbackUrl = searchParams.get("callbackUrl");
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -45,11 +55,17 @@ function SignInForm({
 
     onStateChange("success");
 
+    const callbackUrl = createCallbackUrlNormalizer({
+      selfOrigin: window.location.origin,
+      trustedOrigins: getTrustedPlatformOrigins(),
+      fallback: "/",
+      signInPaths: ["/sign-in"],
+    })(rawCallbackUrl);
     if (callbackUrl.startsWith("/")) {
       router.push(callbackUrl);
       router.refresh();
     } else {
-      window.location.href = callbackUrl;
+      window.location.assign(callbackUrl);
     }
   }
 

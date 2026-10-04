@@ -105,6 +105,7 @@ export { TopNav, type NavItem, type TopNavLabels } from "./components/TopNav";
 export { UserMenu, type UserMenuLabels } from "./components/UserMenu";
 export {
   getPlatformLinks,
+  getTrustedPlatformOrigins,
   toAppSwitcherLinks,
   type PlatformLinks,
   type AppSwitcherSource,

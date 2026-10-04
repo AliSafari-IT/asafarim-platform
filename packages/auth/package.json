@@ -11,7 +11,8 @@
     "./types": "./src/types.ts",
     "./mailer": "./src/mailer.ts",
     "./roles": "./src/roles.ts",
-    "./apps": "./src/apps.ts"
+    "./apps": "./src/apps.ts",
+    "./callback-url": "./src/callback-url.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
