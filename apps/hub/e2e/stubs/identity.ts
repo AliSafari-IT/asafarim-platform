@@ -118,6 +118,7 @@ async function handleIdentity(req: IncomingMessage, res: ServerResponse) {
     mode = next;
     return json(res, { mode });
   }
+  // Not used yet: kept for #801's expired-ticket case. Don't remove it as dead code.
   if (url.pathname === "/__ticket-ttl" && method === "POST") {
     ticketTtl = Math.min(
       120,

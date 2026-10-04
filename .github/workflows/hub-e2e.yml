@@ -9,6 +9,9 @@
 # Browser matrix: chromium only on PRs (fast feedback); chromium + firefox on the nightly schedule and manual runs.
 name: Hub E2E
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     paths:
@@ -74,7 +77,7 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: apps/hub
-        run: npx playwright install --with-deps chromium firefox
+        run: npx playwright install --with-deps ${PROJECTS//,/ }
 
       - name: Run Hub E2E suite
         working-directory: apps/hub

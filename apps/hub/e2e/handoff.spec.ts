@@ -76,6 +76,13 @@ test.describe("Hub OIDC hand-off", () => {
     await context.close();
   });
 
+});
+
+// The canary is its own describe so it can opt out of CI retries: a canary that sometimes reaches the app is
+// exactly the signal we want, and a retry would hide it.
+test.describe("Hub OIDC hand-off canary", () => {
+  test.describe.configure({ retries: 0 });
+
   // CANARY. This asserts Chromium's behaviour: it applies Hub's `form-action <identity origin>` to every redirect
   // after the assertion POST, so an identity service that answers with a redirect chain reaching the app's origin
   // is blocked. It exists so that the "page" test above can't pass for the wrong reason. If this ever starts
@@ -109,7 +116,9 @@ test.describe("Hub OIDC hand-off", () => {
     expect(log.appHits).toEqual([]);
     await context.close();
   });
+});
 
+test.describe("Hub OIDC hand-off (continued)", () => {
   test("signed out → Hub sign-in → reaches the app", async ({ browser }) => {
     const context = await browser.newContext({
       storageState: { cookies: [], origins: [] },
