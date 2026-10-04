@@ -75,3 +75,12 @@ export function getPlatformLinks(): PlatformLinks {
     tasksai: process.env.NEXT_PUBLIC_TASKSAI_URL ?? "http://localhost:3013",
   };
 }
+
+/**
+ * Origins of the platform apps a sign-in page may send a person back to (the `trustedOrigins` of
+ * `@asafarim/auth/callback-url`). `devtools` is a separate domain and never a sign-in return target.
+ */
+export function getTrustedPlatformOrigins(): Set<string> {
+  const { devtools: _devtools, ...links } = getPlatformLinks();
+  return new Set(Object.values(links).map((url) => new URL(url).origin));
+}
