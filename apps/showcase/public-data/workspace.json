@@ -137,10 +137,10 @@
       "kind": "app",
       "folder": "apps/hub",
       "description": "ASafariM Hub - logged-in user dashboard (hub.asafarim.com)",
-      "sha": "8d455f55",
+      "sha": "e73550e9",
       "date": "2026-10-04",
       "since": "2026-07-04",
-      "commits": 80,
+      "commits": 81,
       "dependents": 0
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "08e5e3b7",
+      "sha": "a0380989",
       "date": "2026-10-04",
       "since": "2026-07-04",
-      "commits": 394,
+      "commits": 395,
       "dependents": 0
     },
     {
