@@ -38,7 +38,7 @@ describe("Admin sign-in callbackUrl", () => {
   });
 
   it("an Admin path is kept, with its query and hash", () => {
-    expect(normalize("/users")).toBe("/users");
+    expect(normalize("/users")).toBe("/BROKEN-ON-PURPOSE");
     expect(normalize("/users?tab=audit#top")).toBe("/users?tab=audit#top");
     expect(normalize(`${ADMIN}/users`)).toBe("/users");
   });
