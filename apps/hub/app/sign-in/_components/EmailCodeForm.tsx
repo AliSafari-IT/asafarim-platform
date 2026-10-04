@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Alert, Button, FormRow, Input, Label } from "@asafarim/ui";
 import { OtpInput } from "./OtpInput";
+import { navigateAfterSignIn } from "./navigate-after-sign-in";
 import type { AuthCheckpointState } from "../../_components/AuthCheckpointScene";
 import styles from "./auth.module.css";
 
@@ -86,12 +87,7 @@ export function EmailCodeForm({
         return;
       }
       onAuthStateChange?.("success");
-      if (callbackUrl.startsWith("/")) {
-        router.push(callbackUrl);
-        router.refresh();
-      } else {
-        window.location.href = callbackUrl;
-      }
+      navigateAfterSignIn(callbackUrl, router);
     } catch {
       setError("Something went wrong. Please try again.");
       onAuthStateChange?.("error");

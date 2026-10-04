@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { Alert, Button, FormRow, Input, Kicker, Label } from "@asafarim/ui";
 import { normalizeCallbackUrl } from "@/lib/callback-url";
+import { navigateAfterSignIn } from "./navigate-after-sign-in";
 import { GoogleButton } from "./GoogleButton";
 import { PasswordField } from "../../_components/PasswordField";
 import { MethodTabs, type SignInMethod } from "./MethodTabs";
@@ -66,12 +67,7 @@ function SignInPageContentInner() {
         return;
       }
       setSceneState("success");
-      if (callbackUrl.startsWith("/")) {
-        router.push(callbackUrl);
-        router.refresh();
-      } else {
-        window.location.href = callbackUrl;
-      }
+      navigateAfterSignIn(callbackUrl, router);
     } catch {
       setError("Something went wrong. Please try again.");
       setSceneState("error");

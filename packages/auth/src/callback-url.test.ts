@@ -247,11 +247,58 @@ describe("guard: no app navigates to a query-derived value without the helper (#
   const ALLOWED: Record<string, RegExp> = {
     // normalises the raw query value with the shared helper and assigns only its result
     "admin/app/sign-in/page.tsx": /createCallbackUrlNormalizer/,
-    "hub/app/sign-in/_components/SignInPageContent.tsx":
-      /normalizeCallbackUrl\(/,
-    // takes `callbackUrl` as a prop, already normalised by SignInPageContent
-    "hub/app/sign-in/_components/EmailCodeForm.tsx": /callbackUrl: string/,
+    // the one place Hub navigates after sign-in (#800); takes the already-normalised `callbackUrl` from
+    // SignInPageContent / EmailCodeForm, which never assign to location themselves
+    "hub/app/sign-in/_components/navigate-after-sign-in.ts":
+      /callbackUrl: string/,
   };
+
+  // #811: the helper that navigates must only ever receive a NORMALISED value. These callers are the only
+  // ones, and each passes `callbackUrl` (the normalised value), never the raw query string.
+  const CALLERS = [
+    "hub/app/sign-in/_components/SignInPageContent.tsx",
+    "hub/app/sign-in/_components/EmailCodeForm.tsx",
+  ];
+
+  it("only the sign-in forms call navigateAfterSignIn, and never with a raw query value", () => {
+    const callers: string[] = [];
+    for (const file of sourceFiles(path.join(appsDir, "hub"))) {
+      const rel = path.relative(appsDir, file).split(path.sep).join("/");
+      if (rel.endsWith("/navigate-after-sign-in.ts")) continue; // the definition
+      const src = readFileSync(file, "utf8");
+      if (!/\bnavigateAfterSignIn\s*\(/.test(src)) continue;
+      callers.push(rel);
+      expect(CALLERS, `${rel} calls navigateAfterSignIn`).toContain(rel);
+      expect(src, rel).toMatch(/navigateAfterSignIn\(\s*callbackUrl\s*,/);
+      // never the raw query value
+      expect(src, rel).not.toMatch(
+        /navigateAfterSignIn\(\s*(?:searchParams|rawCallbackUrl|params|[^,)]*\.get\()/
+      );
+    }
+    expect(callers.sort()).toEqual([...CALLERS].sort());
+  });
+
+  it("SignInPageContent derives its callbackUrl with normalizeCallbackUrl", () => {
+    const src = readFileSync(
+      path.join(appsDir, "hub/app/sign-in/_components/SignInPageContent.tsx"),
+      "utf8"
+    );
+    expect(src).toMatch(/callbackUrl\s*=\s*normalizeCallbackUrl\(/);
+  });
+
+  it("EmailCodeForm only takes callbackUrl as a prop, from SignInPageContent", () => {
+    const form = readFileSync(
+      path.join(appsDir, "hub/app/sign-in/_components/EmailCodeForm.tsx"),
+      "utf8"
+    );
+    expect(form).toMatch(/callbackUrl: string/);
+    expect(form).not.toMatch(/searchParams|useSearchParams/);
+    const page = readFileSync(
+      path.join(appsDir, "hub/app/sign-in/_components/SignInPageContent.tsx"),
+      "utf8"
+    );
+    expect(page).toMatch(/<EmailCodeForm[\s\S]*?callbackUrl=\{callbackUrl\}/);
+  });
 
   it("only the allow-listed sign-in files assign to location, and each uses the helper", () => {
     const found: string[] = [];
