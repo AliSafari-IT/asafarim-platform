@@ -269,6 +269,27 @@ if ! "${COMPOSE[@]}" run --rm platform-migrate; then
   exit 1
 fi
 
+# identity_ro (#782, P2.2): the migration creates this login role NOLOGIN and
+# without a password; the identity service (P2.3) uses it to read
+# identity_accounts_v and nothing else. Its password lives only in the
+# encrypted env. It travels as an environment variable into the container and
+# psql reads it with \getenv, so it never appears on a command line. Until P2.3
+# adds IDENTITY_RO_PASSWORD, the role simply stays NOLOGIN.
+IDENTITY_RO_PASSWORD="$(grep -E '^IDENTITY_RO_PASSWORD=' .env.production | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'")" || true
+if [[ -n "${IDENTITY_RO_PASSWORD}" ]]; then
+  export IDENTITY_RO_PASSWORD
+  # shellcheck disable=SC2016 # expanded inside the container, not here
+  if printf '%s\n' '\getenv pw IDENTITY_RO_PASSWORD' "ALTER ROLE identity_ro LOGIN PASSWORD :'pw';" |
+      "${COMPOSE[@]}" exec -T -e IDENTITY_RO_PASSWORD postgres \
+        sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -qAt -v ON_ERROR_STOP=1'; then
+    echo "[deploy $(date -Is)] identity_ro: login enabled (password from the encrypted env)"
+  else
+    echo "WARNING: could not set the identity_ro password; the identity service can't read accounts." >&2
+    notify_discord "⚠️ ASafariM deploy ${IMAGE_TAG:0:12}: could not set the identity_ro password. See the deploy log."
+  fi
+  unset IDENTITY_RO_PASSWORD
+fi
+
 # The public services join the shared edge's network (#770); it must exist
 # before `up`. Creating it changes nothing for traffic: the asafarim-com Caddy
 # still owns 80/443 until the edge cutover.
