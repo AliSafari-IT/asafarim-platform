@@ -11,7 +11,7 @@
  * Each direction has its own Ed25519 key pair, unrelated to the OIDC JWKS.
  * Until P2.3 sets the env below, /oidc/continue answers "not enabled".
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { SignJWT, errors as joseErrors, importJWK, jwtVerify, type CryptoKey, type JWK, type KeyObject } from "jose";
 
 export const TICKET_ISSUER = "id";
@@ -141,6 +141,32 @@ function page(title: string, body: string, extraHead = ""): string {
 <style>${STYLE}</style></head><body><main><p class="brand">ASafariM</p>${body}</main></body></html>`;
 }
 
+/** The page's only script: submit the hand-off form. Its hash is in the CSP. */
+export const SUBMIT_SCRIPT = 'document.getElementById("handoff").submit();';
+export const SUBMIT_SCRIPT_HASH = `'sha256-${createHash("sha256").update(SUBMIT_SCRIPT).digest("base64")}'`;
+
+/**
+ * The assertion page's own strict CSP (#794). Hub has no CSP today; a future
+ * site-wide one must not silently break sign-in, and the page that carries a
+ * signed assertion should run only its submit script and post only to the
+ * identity service's origin.
+ */
+export function assertionPageCsp(identityIssuer: string): string {
+  const origin = new URL(identityIssuer).origin;
+  return [
+    "default-src 'none'",
+    `script-src ${SUBMIT_SCRIPT_HASH}`,
+    "style-src 'unsafe-inline'",
+    `form-action ${origin}`,
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
+
+/** CSP for the hand-off's error and "not enabled" pages: no script, no forms. */
+export const HANDOFF_ERROR_CSP =
+  "default-src 'none'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
+
 /**
  * The auto-submitted POST back to the identity service. The assertion is a
  * form field, never in a URL. With JavaScript the form submits itself; without
@@ -154,7 +180,7 @@ export function assertionPage(target: string, assertion: string): string {
 <input type="hidden" name="assertion" value="${escapeHtml(assertion)}">
 <noscript><p>JavaScript is off: continue manually.</p></noscript>
 <button type="submit">Continue</button></form>
-<script>document.getElementById("handoff").submit();</script>`,
+<script>${SUBMIT_SCRIPT}</script>`,
   );
 }
 

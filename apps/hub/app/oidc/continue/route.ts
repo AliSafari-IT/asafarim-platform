@@ -11,8 +11,10 @@
 import { auth } from "@asafarim/auth";
 import { prisma } from "@asafarim/db";
 import {
+  HANDOFF_ERROR_CSP,
   TicketError,
   assertionPage,
+  assertionPageCsp,
   assertionTarget,
   handoffErrorPage,
   loadHandoffConfig,
@@ -22,11 +24,13 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function html(status: number, body: string): Response {
+/** Every response gets a strict CSP: the assertion page its own (#794), the rest no script at all. */
+function html(status: number, body: string, csp: string = HANDOFF_ERROR_CSP): Response {
   return new Response(body, {
     status,
     headers: {
       "content-type": "text/html; charset=utf-8",
+      "content-security-policy": csp,
       "cache-control": "no-store",
       "referrer-policy": "no-referrer",
       "x-frame-options": "DENY",
@@ -86,5 +90,5 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const assertion = await signAssertion(user.id, uid, config.assertionPrivateKey);
-  return html(200, assertionPage(assertionTarget(config.identityIssuer, uid), assertion));
+  return html(200, assertionPage(assertionTarget(config.identityIssuer, uid), assertion), assertionPageCsp(config.identityIssuer));
 }

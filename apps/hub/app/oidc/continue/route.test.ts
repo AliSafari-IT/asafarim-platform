@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { SignJWT, decodeJwt, exportJWK, generateKeyPair } from "jose";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -47,6 +48,40 @@ describe("GET /oidc/continue (#782)", () => {
     expect(action).toBe("https://id.asafarim.site/interaction/uid-abc/hub");
     const assertion = /name="assertion" value="([^"]+)"/.exec(html)![1]!;
     expect(decodeJwt(assertion)).toMatchObject({ sub: "user-1", uid: "uid-abc", aud: "id", iss: "hub" });
+  });
+
+  it("the assertion page has its own strict CSP (#794): form-action = the identity origin, script-src = the inline script's hash", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-1" } } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "user-1", isActive: true } as never);
+    const res = await GET(request(await ticket()));
+    const csp = res.headers.get("content-security-policy");
+    expect(csp).toBeTruthy();
+    const directives = Object.fromEntries(
+      csp!.split(";").map((d) => d.trim().split(/\s+/)).map(([name, ...values]) => [name, values.join(" ")]),
+    );
+    expect(directives["default-src"]).toBe("'none'");
+    expect(directives["form-action"]).toBe("https://id.asafarim.site");
+    expect(directives["base-uri"]).toBe("'none'");
+    expect(directives["frame-ancestors"]).toBe("'none'");
+    expect(directives["style-src"]).toBe("'unsafe-inline'");
+
+    // Hash the inline script exactly as served: it must be the only allowed script.
+    const html = await res.text();
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]!);
+    expect(scripts).toHaveLength(1);
+    const hash = `'sha256-${createHash("sha256").update(scripts[0]!).digest("base64")}'`;
+    expect(directives["script-src"]).toBe(hash);
+  });
+
+  it("every other response gets a no-script, no-form CSP", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "user-3" } } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "user-3", isActive: false } as never);
+    for (const res of [await GET(request("bad")), await GET(request(await ticket()))]) {
+      const csp = res.headers.get("content-security-policy")!;
+      expect(csp).toContain("default-src 'none'");
+      expect(csp).toContain("form-action 'none'");
+      expect(csp).not.toContain("script-src");
+    }
   });
 
   it("without a session → Hub's sign-in with a return path back here", async () => {
