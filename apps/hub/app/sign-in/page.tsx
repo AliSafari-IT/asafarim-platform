@@ -1,40 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@asafarim/auth";
-import { getPlatformLinks } from "@asafarim/ui";
+import { normalizeCallbackUrl } from "@/lib/callback-url";
 import { SignInPageContent } from "./_components/SignInPageContent";
-
-const links = getPlatformLinks();
-const trustedOrigins = new Set(
-  [
-    links.web,
-    links.hub,
-    links.showcase,
-    links.admin,
-    links.vionto,
-    links.testora,
-    links.appbuilder,
-    links.edumatch,
-    links.timelineai,
-    links.labs,
-    links.resumatch,
-    links.tasksai,
-  ].map((url) => new URL(url).origin)
-);
-
-function normalizeCallbackUrl(raw: string | null): string {
-  if (!raw) return "/dashboard";
-  if (raw.startsWith("/") && !raw.startsWith("//")) {
-    if (raw.startsWith("/sign-in") || raw.startsWith("/sign-up")) return "/dashboard";
-    return raw;
-  }
-  try {
-    const url = new URL(raw);
-    if (trustedOrigins.has(url.origin)) return raw;
-  } catch {
-    // ignore malformed URLs
-  }
-  return "/dashboard";
-}
 
 export default async function SignInPage({
   searchParams,
