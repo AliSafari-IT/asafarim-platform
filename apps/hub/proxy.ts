@@ -1,7 +1,9 @@
 import { createAuthProxy } from "@asafarim/auth/proxy";
 
 export const proxy = createAuthProxy({
-  publicRoutes: ["/", "/sign-in", "/sign-up", "/api/health"],
+  // /oidc/continue checks the ticket first and the session itself (#782):
+  // an invalid ticket gets an error page even when signed out.
+  publicRoutes: ["/", "/sign-in", "/sign-up", "/api/health", "/oidc/continue"],
 });
 
 export const config = {

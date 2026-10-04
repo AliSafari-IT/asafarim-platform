@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { auth, signOut, getAppSwitcherApps } from "@asafarim/auth";
+import { endIdentitySessions } from "@/lib/identity-signout";
 import { I18nProvider } from "@asafarim/shared-i18n";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { CountryLanguageSelector } from "@asafarim/country-language-selector";
@@ -96,6 +97,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     <form
                       action={async () => {
                         "use server";
+                        await endIdentitySessions(session.user.id);
                         await signOut({ redirectTo: "/" });
                       }}
                     >
