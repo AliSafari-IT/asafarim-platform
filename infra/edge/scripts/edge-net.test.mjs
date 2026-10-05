@@ -60,7 +60,7 @@ function serviceNetworks() {
       const map = /^ {6}([\w-]+):\s*$/.exec(line);
       if (list) result[current].push(list[1]);
       else if (map) result[current].push(map[1]);
-      else if (line.trim() !== "" && !/^ {6}/.test(line)) inNetworks = false; // dedented: the block ended
+      else if (line.trim() !== "" && !/^\s*#/.test(line) && !/^ {6}/.test(line)) inNetworks = false; // dedented: the block ended (comments never end it)
     }
   }
   return result;
