@@ -16,3 +16,7 @@ One Caddy that will own ports 80/443 for **every** stack on the host (asafarim-c
 4. **Upstream names are shared** (the edge resolves `web`, `hub`, … on `edge_net`). A new stack must not reuse another stack's service names: prefix them or give them unique aliases.
 
 `scripts/edge-net.test.mjs` enforces 1 and 3 for this repository's compose file. Every service on `edge_net` must be on an explicit allow-list with a reason, and nothing on the never-join list may appear. Adding a service to `edge_net` means adding it to that list in the same PR, where review sees it.
+
+### `identity_db`: a second shared network, not part of the edge
+
+`identity_db` links this stack's `postgres` (alias `platform-postgres`) to asafarim-os's `identity` service, which reads the platform database read-only as the `identity_ro` role. `vps-deploy.sh` creates it (`ensure_identity_db_net`) before the **first** `compose up`, because `postgres` joins it and a missing external network fails the whole deploy. Only those two containers join it, and Postgres still never joins `edge_net`. `scripts/edge-net.test.mjs` enforces that `postgres` is the only service of this stack on `identity_db`, and that the network is created before the first `up`.

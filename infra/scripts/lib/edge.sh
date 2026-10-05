@@ -5,6 +5,11 @@
 #
 #   ensure_edge_net      create the shared edge_net network (idempotent). Must
 #                        run before `compose up`: the public services join it.
+#   ensure_identity_db_net create the identity_db network (idempotent): the private
+#                        link between the platform's Postgres and asafarim-os's
+#                        identity service. Must run before the FIRST `compose up`
+#                        (postgres joins it, and an external network that is
+#                        missing fails the whole deploy).
 #   install_edge_project copy infra/edge (compose file, Caddyfile, static pages,
 #                        scripts) to EDGE_DIR, under the edge's deploy lock.
 #                        Never touches sites/ except to seed asafarim-be.caddy
@@ -21,6 +26,15 @@ ensure_edge_net() {
   if ! docker network inspect edge_net >/dev/null 2>&1; then
     docker network create edge_net >/dev/null
     echo "edge: created network edge_net"
+  fi
+}
+
+# identity_db carries only the platform's Postgres (alias platform-postgres) and
+# asafarim-os's identity container; nothing else joins it, and it is not edge_net.
+ensure_identity_db_net() {
+  if ! docker network inspect identity_db >/dev/null 2>&1; then
+    docker network create identity_db >/dev/null
+    echo "identity: created network identity_db"
   fi
 }
 

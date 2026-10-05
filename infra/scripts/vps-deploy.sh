@@ -238,6 +238,11 @@ if (( ${#STALE_REPLACEMENT_CONTAINERS[@]} > 0 )); then
   docker rm -f "${STALE_REPLACEMENT_CONTAINERS[@]}"
 fi
 
+# postgres joins the external identity_db network (asafarim-os's identity reads the
+# platform database over it), so it must exist before the FIRST `up` below, not
+# just before the full stack start. Idempotent; creating it changes nothing else.
+ensure_identity_db_net
+
 # Run the shared-schema migration BEFORE recreating any app container, and let
 # a failure abort the deploy while the currently-running (working) stack is
 # still untouched. `up -d` would enforce this ordering on its own via

@@ -4,6 +4,9 @@
 // So only public-facing services join, each listed here with its reason, and
 // databases, caches, workers, migrators and runners never do.
 //
+// It also pins the other shared network, identity_db (asafarim-os#45): the private
+// link between this stack's Postgres and asafarim-os's identity service.
+//
 //   node --test infra/edge/scripts/edge-net.test.mjs
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -52,9 +55,12 @@ function serviceNetworks() {
       continue;
     }
     if (inNetworks) {
-      const net = /^ {6}- ([\w-]+)\s*$/.exec(line);
-      if (net) result[current].push(net[1]);
-      else if (!/^ {6}#/.test(line)) inNetworks = false;
+      // Both Compose forms: "- net", or "net:" with options (aliases, ...) below it.
+      const list = /^ {6}- ([\w-]+)\s*$/.exec(line);
+      const map = /^ {6}([\w-]+):\s*$/.exec(line);
+      if (list) result[current].push(list[1]);
+      else if (map) result[current].push(map[1]);
+      else if (line.trim() !== "" && !/^ {6}/.test(line)) inNetworks = false; // dedented: the block ended
     }
   }
   return result;
@@ -87,4 +93,52 @@ test("the allow-list has no stale entries (each one is a real service on edge_ne
 
 test("edge_net is the external shared network", () => {
   assert.match(compose, /\n {2}edge_net:\n(?: {4}#.*\n)* {4}external: true\n {4}name: edge_net\n/);
+});
+
+/** One service's block of the compose file (from its header to the next service). */
+function serviceBlock(name) {
+  const start = compose.indexOf(`\n  ${name}:\n`);
+  if (start < 0) return "";
+  const rest = compose.slice(start + 1);
+  const next = rest.slice(1).search(/\n {2}[a-z0-9-]+:\s*\n/);
+  return next < 0 ? rest : rest.slice(0, next + 1);
+}
+
+const onIdentityDb = Object.entries(nets)
+  .filter(([, n]) => n.includes("identity_db"))
+  .map(([s]) => s)
+  .sort();
+
+test("postgres is on asafarim_net and identity_db, and never on edge_net", () => {
+  assert.ok(nets.postgres, "postgres is a service of the prod compose file");
+  assert.ok(nets.postgres.includes("asafarim_net"));
+  assert.ok(nets.postgres.includes("identity_db"));
+  assert.ok(!nets.postgres.includes("edge_net"), "a database never joins edge_net");
+});
+
+test("postgres is the only asafarim-com service on identity_db", () => {
+  assert.deepEqual(onIdentityDb, ["postgres"]);
+});
+
+test("postgres is reachable from identity as platform-postgres, on identity_db", () => {
+  assert.match(serviceBlock("postgres"), /\n {6}identity_db:\n {8}aliases:\n {10}- platform-postgres\n/);
+});
+
+test("identity_db is an external network owned by no stack", () => {
+  assert.match(compose, /\n {2}identity_db:\n(?: {4}#.*\n)* {4}external: true\n {4}name: identity_db\n/);
+});
+
+test("vps-deploy.sh creates identity_db before the FIRST `compose up`", () => {
+  // postgres joins an external network: if it is missing at the first `up`, the whole deploy fails.
+  const deploy = readFileSync(path.join(repo, "infra/scripts/vps-deploy.sh"), "utf8").replace(/\r\n/g, "\n");
+  const ensure = deploy.indexOf("\nensure_identity_db_net\n");
+  const firstUp = deploy.search(/"\$\{COMPOSE\[@\]\}" up /);
+  assert.ok(ensure > 0, "vps-deploy.sh must call ensure_identity_db_net");
+  assert.ok(firstUp > 0, "expected a `compose up` in vps-deploy.sh");
+  assert.ok(ensure < firstUp, "ensure_identity_db_net must run before the first `compose up`");
+});
+
+test("lib/edge.sh defines ensure_identity_db_net, creating only identity_db", () => {
+  const edgeSh = readFileSync(path.join(repo, "infra/scripts/lib/edge.sh"), "utf8");
+  assert.match(edgeSh, /\nensure_identity_db_net\(\) \{\n[\s\S]*?docker network create identity_db >\/dev\/null/);
 });
