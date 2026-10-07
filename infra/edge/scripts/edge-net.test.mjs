@@ -140,5 +140,12 @@ test("vps-deploy.sh creates identity_db before the FIRST `compose up`", () => {
 
 test("lib/edge.sh defines ensure_identity_db_net, creating only identity_db", () => {
   const edgeSh = readFileSync(path.join(repo, "infra/scripts/lib/edge.sh"), "utf8");
-  assert.match(edgeSh, /\nensure_identity_db_net\(\) \{\n[\s\S]*?docker network create identity_db >\/dev\/null/);
+  assert.match(edgeSh, /\nensure_identity_db_net\(\) \{\n[\s\S]*?docker network create --internal identity_db >\/dev\/null/);
+});
+
+test("identity_db is created --internal: no gateway, no route to the host or the internet", () => {
+  const edgeSh = readFileSync(path.join(repo, "infra/scripts/lib/edge.sh"), "utf8");
+  const creates = edgeSh.split("\n").filter((l) => /^\s*docker network create\b.*\bidentity_db\b/.test(l));
+  assert.equal(creates.length, 1, "expected exactly one `docker network create ... identity_db`");
+  assert.match(creates[0], /--internal\b/);
 });
