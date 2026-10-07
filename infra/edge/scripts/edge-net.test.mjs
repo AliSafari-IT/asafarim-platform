@@ -9,7 +9,9 @@
 //
 //   node --test infra/edge/scripts/edge-net.test.mjs
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
@@ -148,4 +150,56 @@ test("identity_db is created --internal: no gateway, no route to the host or the
   const creates = edgeSh.split("\n").filter((l) => /^\s*docker network create\b.*\bidentity_db\b/.test(l));
   assert.equal(creates.length, 1, "expected exactly one `docker network create ... identity_db`");
   assert.match(creates[0], /--internal\b/);
+});
+
+/**
+ * Run ensure_identity_db_net against a stub `docker`. `existing` is null (no such network), "true" or "false"
+ * (the network exists with that .Internal value). Returns the exit status, the output and the stub's call log.
+ */
+function runEnsureIdentityDb(existing) {
+  const dir = mkdtempSync(path.join(tmpdir(), "identity-db-"));
+  try {
+    const stub = [
+      "#!/usr/bin/env bash",
+      'echo "$*" >> "$DOCKER_LOG"',
+      'if [[ "$1 $2" == "network inspect" ]]; then',
+      '  [[ -z "$EXISTING" ]] && exit 1',
+      '  [[ "$*" == *--format* ]] && echo "$EXISTING"',
+      "  exit 0",
+      "fi",
+      "exit 0",
+      "",
+    ].join("\n");
+    writeFileSync(path.join(dir, "docker"), stub);
+    chmodSync(path.join(dir, "docker"), 0o755);
+    const log = path.join(dir, "calls.log");
+    writeFileSync(log, "");
+    const run = spawnSync("bash", ["-c", 'source "$1" && ensure_identity_db_net', "bash", path.join(repo, "infra/scripts/lib/edge.sh")], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, DOCKER_LOG: log, EXISTING: existing ?? "" },
+    });
+    return { status: run.status, output: `${run.stdout}${run.stderr}`, calls: readFileSync(log, "utf8") };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("ensure_identity_db_net creates the network internal when it is missing", () => {
+  const r = runEnsureIdentityDb(null);
+  assert.equal(r.status, 0, r.output);
+  assert.match(r.calls, /network create --internal identity_db/);
+});
+
+test("ensure_identity_db_net reuses an existing internal network and creates nothing", () => {
+  const r = runEnsureIdentityDb("true");
+  assert.equal(r.status, 0, r.output);
+  assert.doesNotMatch(r.calls, /network create/);
+});
+
+test("ensure_identity_db_net refuses an existing non-internal network, with the remediation", () => {
+  const r = runEnsureIdentityDb("false");
+  assert.notEqual(r.status, 0, "a non-internal identity_db must abort the deploy");
+  assert.match(r.output, /not internal/);
+  assert.match(r.output, /network create --internal identity_db/);
+  assert.doesNotMatch(r.calls, /network create/);
 });
