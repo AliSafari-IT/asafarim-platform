@@ -5,6 +5,15 @@
 #
 #   ensure_edge_net      create the shared edge_net network (idempotent). Must
 #                        run before `compose up`: the public services join it.
+#   ensure_identity_db_net create the identity_db network (idempotent): the private
+#                        link between the platform's Postgres and asafarim-os's
+#                        identity service. Created --internal (isolated from
+#                        external networks; no default route through it). Must
+#                        run before the FIRST `compose up` (postgres joins it,
+#                        and an external network that is missing fails the
+#                        whole deploy). An existing network that is NOT internal
+#                        aborts the deploy: reusing it would silently drop the
+#                        isolation.
 #   install_edge_project copy infra/edge (compose file, Caddyfile, static pages,
 #                        scripts) to EDGE_DIR, under the edge's deploy lock.
 #                        Never touches sites/ except to seed asafarim-be.caddy
@@ -21,6 +30,26 @@ ensure_edge_net() {
   if ! docker network inspect edge_net >/dev/null 2>&1; then
     docker network create edge_net >/dev/null
     echo "edge: created network edge_net"
+  fi
+}
+
+# identity_db carries only the platform's Postgres (alias platform-postgres) and
+# asafarim-os's identity container; nothing else joins it, and it is not edge_net.
+ensure_identity_db_net() {
+  if docker network inspect identity_db >/dev/null 2>&1; then
+    # An existing network is reused only if it is internal: Compose would attach
+    # Postgres to a non-internal one without complaint.
+    if [[ "$(docker network inspect identity_db --format '{{.Internal}}')" != "true" ]]; then
+      echo "identity: identity_db exists but is not internal. Stop the containers attached to it, remove it, recreate it with 'docker network create --internal identity_db', then rerun the deploy." >&2
+      return 1
+    fi
+  else
+    # --internal isolates the network from external networks: no default route
+    # through it, so no internet. Containers can still reach its gateway IP and
+    # the host can reach container IPs; the isolation is from the outside, not
+    # from the host.
+    docker network create --internal identity_db >/dev/null
+    echo "identity: created network identity_db"
   fi
 }
 

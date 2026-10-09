@@ -22,7 +22,14 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - asafarim_net
+      asafarim_net:
+      # ASafariM OS identity (asafarim-os) reads the platform database, read-only
+      # (the identity_ro role), over this dedicated network and nothing else. Only
+      # this service and the identity container join it; Postgres never joins
+      # edge_net. identity connects to the alias, not to this service name.
+      identity_db:
+        aliases:
+          - platform-postgres
 
   # Applies pending Prisma migrations to the SHARED platform database, then
   # plants the TimelineAI demo timelines if (and only if) none exist yet.
@@ -841,6 +848,13 @@ networks:
   edge_net:
     external: true
     name: edge_net
+  # identity ↔ the platform's Postgres, read-only (asafarim-os, #45). Owned by no
+  # stack: vps-deploy.sh creates it (ensure_identity_db_net) before the FIRST
+  # `up`, because postgres joins it. Only `postgres` here joins; the other side is
+  # asafarim-os's identity container. A test pins both.
+  identity_db:
+    external: true
+    name: identity_db
   # Runner ↔ web only (#718): no gateway, no internet.
   testora_control:
     internal: true
