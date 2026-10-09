@@ -10,8 +10,8 @@ Dev port **3013** · domain `tasks-ai.asafarim.com`.
 > Per the milestone plan, a Showcase entry stays `planned` → `beta` only at
 > M13 → `live` only at M14, which is why the public
 > [`/projects`](https://asafarim.com/projects) page lists TasksAI as beta.
-> See [`docs/charter.md`](docs/charter.md) and the milestone plan in
-> [`docs/roadmap-implementation-plan.md`](docs/roadmap-implementation-plan.md).
+> See internal docs `ventures/tasks-ai/product/product-charter.md` and the milestone plan in
+> internal docs `ventures/tasks-ai/roadmap/internal-implementation-plan.md`.
 > The commercial-license gate and public launch are M14; design-partner
 > beta begins at M13 ([`docs/beta-plan.md`](docs/beta-plan.md)).
 
@@ -43,12 +43,12 @@ project sub-routes show a breadcrumb back to Projects. The command palette
 - **Workspace Home** ([`docs/`](docs/) · `lib/home/`): a guided first-run
   activation flow and a single-screen overview of projects, due work, and
   entry points — the answer to "where do I start?"
-- **Capture & Inbox** ([`docs/capture-inbox.md`](docs/capture-inbox.md)): a
+- **Capture & Inbox** (internal docs `ventures/tasks-ai/engineering/capture-inbox.md`): a
   global Capture action on every workspace page; an Inbox that means
   "captured but not organized yet" (a persisted `task.triagedAt`, not a
   filter over open tasks); a keyboard-driven triage pass that moves work
   into normal planning.
-- **My Work** ([`docs/my-work.md`](docs/my-work.md)): the daily execution
+- **My Work** (internal docs `ventures/tasks-ai/engineering/my-work.md`): the daily execution
   view — everything assigned to me, grouped by Overdue / Today / Blocked /
   Upcoming / No due date, with quick edit and keyboard control. Deliberately
   *not* a ranking; Focus is the separate prioritization layer.
@@ -62,12 +62,12 @@ project sub-routes show a breadcrumb back to Projects. The command palette
   names which checks are pending instead of a generic error). Status and
   labels are not yet wired up here; see
   [issue #387](https://github.com/AliSafari-IT/asafarim-platform/issues/387).
-- **AI Copilot** ([`docs/copilot.md`](docs/copilot.md)): a guided
+- **AI Copilot** (internal docs `ventures/tasks-ai/engineering/copilot.md`): a guided
   intent→plan flow at `/w/{slug}/copilot` — paste notes, pick an intent and
   destination, generate a **proposal**, review a grouped diff (create /
   update / link) with source citations and confidence, partially accept,
   edit, apply, undo, and leave feedback. The human is always the author.
-- **Focus** ([`docs/intelligence.md`](docs/intelligence.md)): explainable
+- **Focus** (internal docs `ventures/tasks-ai/engineering/intelligence.md`): explainable
   focus ranking with per-factor transparency and user overrides.
 - **Automations**: trigger → conditions → actions rules, created as drafts,
   dry-run before activation.
@@ -97,8 +97,8 @@ assignees, dates, roles, permissions, billing, and messaging are not
 representable in the schema, so prompt injection cannot widen the scope.
 The pipeline, provider boundary (fixture / Anthropic / OpenAI), redaction,
 quotas, kill switch, and offline evals are documented in
-[`docs/ai-boundary.md`](docs/ai-boundary.md) and ADR
-[0004](docs/adr/0004-ai-proposal-model.md). Core task management stays fully
+internal docs `ventures/tasks-ai/engineering/ai-boundary.md` and ADR
+0004 (internal docs `ventures/tasks-ai/adr/0004-ai-proposal-model.md`). Core task management stays fully
 usable with AI disabled.
 
 ## Testora ↔ TasksAI integration
@@ -141,10 +141,10 @@ Resolved and validated in [`lib/env.ts`](lib/env.ts). See
    stops boot.
 2. **No shared-DB fallback** — TasksAI never falls back to the platform
    `DATABASE_URL`, and refuses a `TASKSAI_DATABASE_URL` byte-identical to it
-   ([`docs/adr/0001-dedicated-database.md`](docs/adr/0001-dedicated-database.md)).
+   (internal docs `ventures/tasks-ai/adr/0001-dedicated-database.md`).
 3. **Never echo values** — errors name the variable, never its contents.
 
 ## Deployment
 
-See [`docs/deploy-plan.md`](docs/deploy-plan.md). Docker stages: `builder`,
+See internal docs `ventures/tasks-ai/operations/deployment-plan.md`. Docker stages: `builder`,
 `migrator` (one-shot `prisma migrate deploy`), `worker`, `runner`.

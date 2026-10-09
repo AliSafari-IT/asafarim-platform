@@ -9,7 +9,7 @@ import { z } from "zod";
  *    production stops the process rather than surfacing later as a
  *    connection error inside a request handler.
  * 2. **No shared-database fallback.** TasksAI has its own PostgreSQL
- *    instance (docs/adr/0001-dedicated-database.md). Falling back to the
+ *    instance (internal docs: ventures/tasks-ai/adr/0001-dedicated-database.md). Falling back to the
  *    platform `DATABASE_URL` would point the tenant work graph at the
  *    identity database — exactly the boundary this app exists to keep. The
  *    contract also refuses a `TASKSAI_DATABASE_URL` that is byte-identical

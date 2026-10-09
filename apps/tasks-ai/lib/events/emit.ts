@@ -25,7 +25,7 @@ export interface OutboxSpec {
  * Write an ActivityEvent plus the default fan-out OutboxEvent inside the
  * caller's transaction. Callers pass the same `tx` they used for the domain
  * write, so either everything commits or nothing does
- * (docs/adr/0005-event-outbox-strategy.md).
+ * (internal docs: ventures/tasks-ai/adr/0005-event-outbox-strategy.md).
  */
 export async function emitActivity(
   tx: Tx,

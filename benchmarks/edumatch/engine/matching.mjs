@@ -56,7 +56,7 @@ function availabilityOverlap(a, b) {
  * Hard constraints. Returns null when the tutor is eligible, otherwise a list
  * of machine-readable reasons — every reason is reported, not just the first.
  *
- * Constraint order (documented in docs/edumatch-benchmark.md):
+ * Constraint order (documented in internal docs: operations/platform/benchmarks/edumatch-benchmark.md):
  *   subject → level → language → availability → mode/distance
  */
 export function checkConstraints(tutor, need) {

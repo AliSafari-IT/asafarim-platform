@@ -1,11 +1,11 @@
 // TasksAI dedicated schema — isolated from the platform Prisma client.
 // Client is generated into apps/tasks-ai/lib/db/generated so it can never
-// collide with @asafarim/db's client. See docs/adr/0001-dedicated-database.md.
+// collide with @asafarim/db's client. See internal docs: ventures/tasks-ai/adr/0001-dedicated-database.md.
 //
 // M02: the multi-tenant work graph. Every tenant-owned row carries
-// workspaceId (docs/adr/0002-tenant-model.md) and a soft-delete marker.
+// workspaceId (internal docs: ventures/tasks-ai/adr/0002-tenant-model.md) and a soft-delete marker.
 // Every mutation writes ActivityEvent + OutboxEvent in the same transaction
-// (docs/adr/0005-event-outbox-strategy.md).
+// (internal docs: ventures/tasks-ai/adr/0005-event-outbox-strategy.md).
 
 generator client {
   provider = "prisma-client-js"

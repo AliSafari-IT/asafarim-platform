@@ -1,7 +1,7 @@
 /**
  * The five provider interfaces the AI-director layer depends on.
  * Vendor adapters implement these; the rest of the app never imports a
- * vendor SDK directly. See docs/ai-architecture.md.
+ * vendor SDK directly. See internal docs: ventures/vionto/engineering/ai-architecture.md.
  */
 import type {
   AlbumAnalysisInput,

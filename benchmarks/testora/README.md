@@ -43,4 +43,4 @@ pnpm --filter @asafarim/testora-benchmark bench          # both
 First run downloads the Chromium build: `pnpm --filter @asafarim/testora-benchmark exec playwright install chromium`.
 
 Methodology and the five benchmark dimensions are documented in
-[`docs/testora-benchmark.md`](../../docs/testora-benchmark.md).
+internal docs `operations/platform/benchmarks/testora-benchmark.md`.

@@ -1349,8 +1349,9 @@ export const openapiDocument = {
   },
   // Machine endpoints outside /api/v1: POST /api/inbound/email (bearer),
   // POST /api/integrations/github (per-repo HMAC), POST /api/billing/stripe
-  // (Stripe webhook, 404 until billing is open). See docs/billing-launch.md
-  // and docs/enterprise.md.
+  // (Stripe webhook, 404 until billing is open). See internal docs
+  // (ventures/tasks-ai/strategy/billing-and-launch-plan.md and
+  // ventures/tasks-ai/roadmap/enterprise.md).
 } as const;
 
 function pathParam(name: string) {

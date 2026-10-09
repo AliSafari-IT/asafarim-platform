@@ -3,7 +3,7 @@
  *
  * These types are the contract between the app and the pluggable AI providers.
  * The rest of the app depends on these + the interfaces in `interfaces.ts`,
- * never on a vendor SDK directly. See docs/ai-architecture.md.
+ * never on a vendor SDK directly. See internal docs: ventures/vionto/engineering/ai-architecture.md.
  */
 
 /** Capabilities a provider can offer. One provider may offer several. */

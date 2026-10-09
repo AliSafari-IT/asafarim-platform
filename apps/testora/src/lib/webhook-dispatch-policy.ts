@@ -7,7 +7,7 @@ export const MAX_DELIVERY_ATTEMPTS = 6;
 const MAX_BACKOFF_SECONDS = 300;
 
 /** Exponential backoff, capped, in seconds — same shape as the platform's
- *  other outbox drainers (see docs/adr/0005-event-outbox-strategy.md). */
+ *  other outbox drainers (see internal docs: ventures/tasks-ai/adr/0005-event-outbox-strategy.md). */
 export function backoffSeconds(attempts: number): number {
   return Math.min(2 ** Math.max(attempts, 0), MAX_BACKOFF_SECONDS);
 }

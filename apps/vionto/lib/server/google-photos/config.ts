@@ -73,7 +73,7 @@ export function isGooglePhotosConfigured(): boolean {
  * Direct shared-album-URL import (Library API sharing) is gated behind a
  * restricted scope + Google security assessment. Until that is approved this
  * flag stays false and the shared-album endpoint returns a "use the picker"
- * fallback. See docs/google-photos-import.md §4.
+ * fallback. See internal docs: ventures/vionto/engineering/google-photos-import.md §4.
  */
 export function isSharedAlbumImportEnabled(): boolean {
   return process.env.GOOGLE_PHOTOS_SHARING_ENABLED === "true";

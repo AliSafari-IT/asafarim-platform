@@ -3,7 +3,7 @@
 /**
  * Thin typed client over /api/v1. Every UI data call goes through here so
  * error handling, the correlation header, and optimistic-concurrency
- * plumbing live in one place (docs/adr/0003-api-first-boundary.md).
+ * plumbing live in one place (internal docs: ventures/tasks-ai/adr/0003-api-first-boundary.md).
  */
 import type {
   MyWorkContextCounts,

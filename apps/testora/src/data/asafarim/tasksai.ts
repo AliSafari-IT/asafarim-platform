@@ -15,7 +15,7 @@ import { hubSsoLoginScript } from "./hub-sso";
  * "implemented". Slice 3 (this file): authentication and the member's
  * daily-work journey.
  *
- * Prerequisites (apps/tasks-ai/docs/testora-test-data.md): the synthetic
+ * Prerequisites (internal docs: ventures/tasks-ai/engineering/testora-test-data.md): the synthetic
  * accounts (db:seed:tasksai-identities) and workspaces (tasks-ai test-data
  * setup). Credentials come only from the run target's secrets
  * (TASKSAI_TEST_<ROLE>_EMAIL / _PASSWORD); the workspace slug from the

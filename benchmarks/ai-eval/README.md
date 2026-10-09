@@ -49,4 +49,4 @@ pnpm --filter @asafarim/ai-eval-benchmark bench           # both
 ```
 
 No install step, no browser, no keys. Methodology is documented in
-[`docs/ai-eval-benchmark.md`](../../docs/ai-eval-benchmark.md).
+internal docs `operations/platform/benchmarks/ai-eval-benchmark.md`.

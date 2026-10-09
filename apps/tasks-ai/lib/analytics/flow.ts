@@ -2,7 +2,7 @@
  * Flow metrics (docs: M10). Pure functions over task snapshots so every
  * chart's number is reproducible and unit-tested. Each metric carries a
  * `defVersion` string — the documented semantics version
- * (docs/metric-semantics.md). A metric that talks about *people* is not
+ * (internal docs: ventures/tasks-ai/engineering/metric-semantics.md). A metric that talks about *people* is not
  * here; these are all about *work*.
  */
 export const METRIC_DEF_VERSION = "flow@1";

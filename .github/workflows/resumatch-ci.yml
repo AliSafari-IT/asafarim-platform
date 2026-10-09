@@ -31,7 +31,7 @@ jobs:
     services:
       # A throwaway database for the migration check. ResuMatch must never be
       # pointed at a shared or developer database by a test run — see
-      # apps/resumatch/docs/threat-model.md#test-data-isolation.
+      # internal docs: ventures/resumatch/engineering/threat-model.md#test-data-isolation.
       postgres:
         image: pgvector/pgvector:pg16
         env:

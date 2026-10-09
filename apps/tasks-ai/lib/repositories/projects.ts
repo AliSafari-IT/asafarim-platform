@@ -10,7 +10,7 @@ export interface ListOptions {
 /**
  * All reads are scoped by `ctx.workspaceId`. Handlers never pass a raw
  * workspace id; the lint rule forbids `ctx.db.project` calls outside this
- * directory (docs/adr/0002-tenant-model.md).
+ * directory (internal docs: ventures/tasks-ai/adr/0002-tenant-model.md).
  */
 export async function listProjects(ctx: RequestContext, opts: ListOptions) {
   const rows = await ctx.db.project.findMany({

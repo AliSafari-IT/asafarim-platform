@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Client instrumentation for the M03 KPIs (docs/research/kpi-dictionary.md):
+ * Client instrumentation for the M03 KPIs (internal docs: ventures/tasks-ai/research/kpi-dictionary.md):
  * time-to-first-project, time-to-first-task, completion, view performance.
  *
  * M03 records to the console + a buffered POST to /api/v1 telemetry is a

@@ -137,7 +137,7 @@ function validateAndBuildRuns(briefs, labels) {
     // "Observed" cost recomputed from the actual final artifacts. In fixture
     // mode this is identical to the pre-run estimate because nothing about
     // the brief varies between estimate-time and generation-time — there is
-    // no live provider to introduce real deviation. See docs/vionto-benchmark.md.
+    // no live provider to introduce real deviation. See internal docs: operations/platform/benchmarks/vionto-benchmark.md.
     const costObserved =
       job.state === "succeeded"
         ? costEstimate

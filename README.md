@@ -134,7 +134,7 @@ asset, and deferral records are kept in `docs/migration-notes.md`.
 
 | Package             | Purpose                                          |
 | ------------------- | ------------------------------------------------ |
-| `packages/ui`       | Design system: tokens, brand, creative components (see [docs/design-system.md](docs/design-system.md)) |
+| `packages/ui`       | Design system: tokens, brand, creative components (see internal docs `operations/platform/design-system.md`) |
 | `packages/auth`     | Shared authentication helpers (Auth.js v5, platform app registry, route proxy, SMTP mailer) |
 | `packages/db`       | Prisma client, schema, and migrations for the shared platform database |
 | `packages/config`   | Shared TypeScript/ESLint/Tailwind configuration  |

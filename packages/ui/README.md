@@ -2,7 +2,7 @@
 
 Design system for the ASafariM Platform — tokens, brand components, and
 creative building blocks shared by every app. See
-[docs/design-system.md](../../docs/design-system.md) for the full
+internal docs `operations/platform/design-system.md` for the full
 creative direction, per-app metaphors, and token reference.
 
 ## What's here

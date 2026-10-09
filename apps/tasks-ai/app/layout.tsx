@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   applicationName: appName,
   icons: { icon: "/favicon.svg" },
   // Nothing is indexable until the M00 commercial and compliance gates are
-  // resolved and there is a launched product — see docs/charter.md.
+  // resolved and there is a launched product — see internal docs: ventures/tasks-ai/product/product-charter.md.
   robots: { index: false, follow: false },
 };
 

@@ -35,7 +35,7 @@ This benchmark ships **fixture mode only**. `engine/providers.mjs` documents
 the interface a real provider adapter (an LLM for scripts, a render farm for
 video) would implement, and a `LiveProviderStub` that always throws — even
 when explicitly asked to run live — because no live integration exists here.
-See `docs/vionto-benchmark.md` for the full policy.
+See internal docs `operations/platform/benchmarks/vionto-benchmark.md` for the full policy.
 
 ## Commands
 

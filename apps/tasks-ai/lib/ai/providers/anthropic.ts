@@ -6,7 +6,7 @@ import { anthropicMeta, withBilledUsage } from "../cost/meta";
  * Anthropic adapter (server-only). Thin wrapper over @anthropic-ai/sdk with
  * structured output. Not exercised in CI — the fixture provider is. Requires
  * ANTHROPIC_API_KEY; a no-training DPA is a contractual requirement recorded
- * in docs/compliance/decisions.md.
+ * in internal docs: ventures/tasks-ai/compliance/decisions.md.
  *
  * Pricing per 1M tokens is a static table here; the usage ledger is the
  * source of truth for spend and is reconciled monthly.

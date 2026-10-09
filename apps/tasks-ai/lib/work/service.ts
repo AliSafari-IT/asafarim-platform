@@ -25,7 +25,7 @@ import {
  * instead of saying "no tasks match the view".
  *
  * Scoped by `ctx.workspaceId` like every other read, and guests stay limited
- * to projects they belong to (docs/adr/0002-tenant-model.md).
+ * to projects they belong to (internal docs: ventures/tasks-ai/adr/0002-tenant-model.md).
  */
 
 export interface MyWorkPage {

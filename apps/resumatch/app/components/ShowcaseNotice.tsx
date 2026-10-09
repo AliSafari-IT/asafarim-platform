@@ -13,7 +13,7 @@ const CONTACT = "mailto:asafarim@gmail.com?subject=ResuMatch%20showcase%20%E2%80
  * at the upload point itself, where the full text has already been seen.
  *
  * The licensing decision this notice implements is recorded in
- * `docs/jm-001-licensing-decision.md`. The English text is the reference
+ * internal docs: ventures/resumatch/strategy/licensing-commercial-notes.md. The English text is the reference
  * wording; the NL/FR/DE versions in lib/i18n/profile.ts translate it.
  * A client component only for `useTranslation()`.
  */
