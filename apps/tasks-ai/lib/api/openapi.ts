@@ -1,6 +1,6 @@
 /**
  * OpenAPI 3.1 description of /api/v1. Hand-maintained in M02 alongside the
- * routes; the served document and the checked-in docs/api/openapi.json are
+ * routes; the served document and the checked-in lib/api/openapi.json are
  * asserted equal in CI so a route change without a spec change fails.
  */
 export const openapiDocument = {

@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import { openapiDocument } from "./openapi";
 
 describe("openapi contract", () => {
-  it("the checked-in docs/api/openapi.json matches the served document", () => {
-    const onDisk = readFileSync(join(__dirname, "../../docs/api/openapi.json"), "utf8");
+  it("the checked-in openapi.json matches the served document", () => {
+    const onDisk = readFileSync(join(__dirname, "openapi.json"), "utf8");
     expect(onDisk).toBe(JSON.stringify(openapiDocument, null, 2) + "\n");
   });
 
