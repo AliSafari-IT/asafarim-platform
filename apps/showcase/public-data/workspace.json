@@ -159,10 +159,10 @@
       "kind": "app",
       "folder": "apps/resumatch",
       "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
-      "sha": "f804cb6d",
-      "date": "2026-10-03",
+      "sha": "f0ace74c",
+      "date": "2026-10-10",
       "since": "2026-09-18",
-      "commits": 105,
+      "commits": 106,
       "dependents": 0
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "f2ffa799",
-      "date": "2026-10-09",
+      "sha": "de1e7b93",
+      "date": "2026-10-10",
       "since": "2026-07-04",
-      "commits": 410,
+      "commits": 412,
       "dependents": 0
     },
     {
@@ -225,10 +225,10 @@
       "kind": "app",
       "folder": "apps/tasks-ai",
       "description": "TasksAI - AI-native work execution: scattered intent to trusted execution (tasks-ai.asafarim.com)",
-      "sha": "c3403d45",
-      "date": "2026-10-04",
+      "sha": "f0ace74c",
+      "date": "2026-10-10",
       "since": "2026-09-06",
-      "commits": 88,
+      "commits": 89,
       "dependents": 0
     },
     {
@@ -280,10 +280,10 @@
       "kind": "package",
       "folder": "packages/ui",
       "description": "ASafariM Platform design system: tokens, brand, and creative building blocks",
-      "sha": "05838e5b",
-      "date": "2026-10-04",
+      "sha": "f0ace74c",
+      "date": "2026-10-10",
       "since": "2026-07-04",
-      "commits": 69,
+      "commits": 70,
       "dependents": 13
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/testora",
       "description": "E2E test automation platform: define functional requirements, suites, fixtures and cases, run them with TestCafe, and store results in PostgreSQL.",
-      "sha": "f804cb6d",
-      "date": "2026-10-03",
+      "sha": "f0ace74c",
+      "date": "2026-10-10",
       "since": "2026-07-21",
-      "commits": 145,
+      "commits": 146,
       "dependents": 0
     },
     {
@@ -346,10 +346,10 @@
       "kind": "app",
       "folder": "apps/vionto",
       "description": "",
-      "sha": "f804cb6d",
-      "date": "2026-10-03",
+      "sha": "f0ace74c",
+      "date": "2026-10-10",
       "since": "2026-07-15",
-      "commits": 139,
+      "commits": 140,
       "dependents": 0
     }
   ],
