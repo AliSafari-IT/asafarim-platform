@@ -5,7 +5,7 @@ import { openAiMeta, withBilledUsage } from "../cost/meta";
 /**
  * OpenAI adapter (server-only). Thin wrapper over the `openai` SDK with JSON
  * response format. Not exercised in CI. Requires OPENAI_API_KEY and a
- * no-training agreement (docs/compliance/decisions.md).
+ * no-training agreement (internal docs: ventures/tasks-ai/compliance/decisions.md).
  */
 const PRICE: Record<string, { in: number; out: number }> = {
   "gpt-4.1": { in: 2, out: 8 },

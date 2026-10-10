@@ -437,7 +437,7 @@ export function MyWork({ slug, me, role }: { slug: string; me: string; role: str
                 <p className="ta-hint">{group.description}</p>
                 {virtualized ? (
                   // Windowed rendering keeps very large sections cheap
-                  // (docs/performance-budgets.md).
+                  // (internal docs: ventures/tasks-ai/engineering/performance-budgets.md).
                   <VirtualList
                     items={group.items}
                     rowHeight={ROW_HEIGHT}

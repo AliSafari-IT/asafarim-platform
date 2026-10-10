@@ -270,7 +270,7 @@ function ListView({
   onOpen: (id: string) => void;
   onComplete: (t: Task) => void;
 }) {
-  // Windowed rendering keeps large lists cheap (docs/performance-budgets.md).
+  // Windowed rendering keeps large lists cheap (internal docs: ventures/tasks-ai/engineering/performance-budgets.md).
   if (tasks.length > VIRTUALIZE_THRESHOLD) {
     return (
       <VirtualList

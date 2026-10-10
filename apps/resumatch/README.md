@@ -14,8 +14,8 @@ via the browser's own print dialog or as DOCX. Runs at
 ResuMatch only ever looks at the one posting a candidate explicitly
 provides — no job-board aggregation — which needs no job-board licensing at
 all. See
-[`docs/business-plan.md`](docs/business-plan.md) for the milestone sequence
-and [`docs/threat-model.md`](docs/threat-model.md) for what the tailoring
+internal docs `ventures/resumatch/strategy/jobmatch-business-plan.md` for the milestone sequence
+and internal docs `ventures/resumatch/engineering/threat-model.md` for what the tailoring
 flow does and does not defend against. [`docs/megaplan.md`](docs/megaplan.md)
 is the audit of what's broken, what's deferred, and what could come next.
 
@@ -34,7 +34,7 @@ showcase. The public deployment is subject to the repository's
 [`LICENSE`](../../LICENSE). JM-001 (issue #205) is **decided**: the instance
 runs strictly as a non-commercial portfolio showcase operated by the
 Licensor, with a showcase disclosure shown before CV upload. See
-[`docs/jm-001-licensing-decision.md`](docs/jm-001-licensing-decision.md) for
+internal docs `ventures/resumatch/strategy/licensing-commercial-notes.md` for
 the decision record, dependency/license inventory, and permissions register
 — including a short note on why the job-board licensing constraint that
 originally motivated it no longer applies.
@@ -151,7 +151,7 @@ the authorized-source ingestion pipeline (`JobSource`/`JobSnapshot`/
 the tracked-job workflow and its CSV export, embedding-based ranking, and
 the structured match-evaluation pipeline (`MatchResult`/`MatchRun`). None of
 it shipped a live model call or a connected job source before the pivot —
-see `docs/business-plan.md` for the full milestone-by-milestone account of
+see internal docs `ventures/resumatch/strategy/jobmatch-business-plan.md` for the full milestone-by-milestone account of
 what existed and why it was cut.
 
 ## Where a fuller version could go

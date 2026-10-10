@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-reviewed ground truth: for each brief, the exact event sequence to replay (engine/replay.mjs) and the expected terminal state/retryCount. Derived by actually running the pipeline and reviewing the trace before committing — see docs/vionto-benchmark.md#match-methodology.",
+  "_comment": "Hand-reviewed ground truth: for each brief, the exact event sequence to replay (engine/replay.mjs) and the expected terminal state/retryCount. Derived by actually running the pipeline and reviewing the trace before committing — see internal docs: operations/platform/benchmarks/vionto-benchmark.md#match-methodology.",
   "B-01": {
     "events": ["start", "approve", "approve"],
     "expectedState": "succeeded",

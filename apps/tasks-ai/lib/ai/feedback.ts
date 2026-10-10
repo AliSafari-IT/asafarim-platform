@@ -37,7 +37,7 @@ export async function recordProposalFeedback(ctx: RequestContext, proposalId: st
   return row;
 }
 
-/** Aggregate copilot KPIs for the workspace (docs/research/kpi-dictionary.md). */
+/** Aggregate copilot KPIs for the workspace (internal docs: ventures/tasks-ai/research/kpi-dictionary.md). */
 export async function copilotMetrics(ctx: RequestContext) {
   const since = new Date(Date.now() - 30 * 86_400_000);
   const [proposals, applied, feedback, spend] = await Promise.all([

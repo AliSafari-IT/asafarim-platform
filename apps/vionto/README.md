@@ -37,7 +37,7 @@ section): `REDIS_URL`, `VIONTO_STORAGE_DRIVER`/`DO_SPACES_*`,
 `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` (+ vision model overrides),
 `AZURE_SPEECH_KEY`/`ELEVENLABS_API_KEY`, `PIXABAY_API_KEY`,
 `GOOGLE_PHOTOS_*` + `VIONTO_TOKEN_ENCRYPTION_KEY` (see
-[docs/google-photos-import.md](docs/google-photos-import.md)), and
+internal docs `ventures/vionto/engineering/google-photos-import.md`), and
 `WORKER_HEALTH_PORT`/`FFMPEG_PATH`/`FFPROBE_PATH`.
 
 ## Deployment

@@ -79,7 +79,7 @@ export default {
     // requires a platform session. TasksAI is in early development — a
     // deployable shell, not a launched or commercial product. It keeps its
     // own isolated database and stores only an opaque platform user id.
-    // See apps/tasks-ai/docs/charter.md and docs/adr/0001-dedicated-database.md.
+    // See internal docs: ventures/tasks-ai/product/product-charter.md and internal docs: ventures/tasks-ai/adr/0001-dedicated-database.md.
     launcher: {
       description: "AI-native work execution: scattered intent to trusted execution.",
       meta: "tasks-ai.asafarim.com",

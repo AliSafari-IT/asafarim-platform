@@ -17,7 +17,7 @@ export default defineConfig({
     // Unit tests only. Anything needing a live ResuMatch database belongs in
     // a *.integration.test.ts file behind RESUMATCH_TEST_DATABASE_URL — the
     // dev database must never be a test target (see the AppBuilder incident
-    // recorded in docs/threat-model.md).
+    // recorded in internal docs: ventures/resumatch/engineering/threat-model.md).
     include: ["lib/**/*.test.ts", "app/**/*.test.ts", "worker/**/*.test.ts", "evals/**/*.test.ts"],
     // *.integration.test.ts also matches the includes above; excluding it
     // keeps `pnpm test` database-free, which is what makes it safe to run

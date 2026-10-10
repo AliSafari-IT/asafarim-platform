@@ -7,7 +7,7 @@
  *
  * Three of the behaviours below carry INTENTIONAL, SEEDED defects. They are the
  * "known regressions" the benchmark measures detection against — see
- * ../fixtures/scenarios.ts and ../../docs/testora-benchmark.md. Do not "fix"
+ * ../fixtures/scenarios.ts and internal docs: operations/platform/benchmarks/testora-benchmark.md. Do not "fix"
  * them; they are the point.
  */
 (function () {

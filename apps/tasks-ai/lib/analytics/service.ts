@@ -45,7 +45,7 @@ export async function flowDashboard(ctx: RequestContext, projectId?: string, win
     throughput: throughput(tasks, start, now),
     aging: agingWip(tasks, now),
     predictability: predictability(tasks, now),
-    note: "All metrics describe the flow of work — not any individual. See docs/metric-semantics.md.",
+    note: "All metrics describe the flow of work — not any individual. See internal docs: ventures/tasks-ai/engineering/metric-semantics.md.",
   };
   assertNoSurveillance(payload);
   return payload;

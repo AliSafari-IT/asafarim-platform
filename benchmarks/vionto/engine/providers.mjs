@@ -69,7 +69,7 @@ export const FixtureProvider = {
 function refuse() {
   throw new Error(
     "LiveProviderStub is not implemented in this benchmark. This repo ships fixture mode only — " +
-      "see docs/vionto-benchmark.md for the adapter interface a real integration would implement.",
+      "see internal docs: operations/platform/benchmarks/vionto-benchmark.md for the adapter interface a real integration would implement.",
   );
 }
 

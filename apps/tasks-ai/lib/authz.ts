@@ -2,7 +2,7 @@ import type { MemberRole } from "./db/generated";
 import { ApiError } from "./errors";
 
 /**
- * The single authorization helper (docs/adr/0002-tenant-model.md). Every
+ * The single authorization helper (internal docs: ventures/tasks-ai/adr/0002-tenant-model.md). Every
  * mutating service calls `authorize(actor, action, resource?)` before it
  * touches data. Reads are scoped by the repository layer; writes are gated
  * here.

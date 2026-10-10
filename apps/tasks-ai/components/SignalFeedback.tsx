@@ -6,7 +6,7 @@ import { api } from "../lib/client/api";
 /**
  * Inline "was this useful?" for an M08 risk/workload signal. Verdict is
  * tied to the signal's ruleVersion so a later rule change stays
- * attributable (see docs/intelligence.md).
+ * attributable (see internal docs: ventures/tasks-ai/engineering/intelligence.md).
  */
 export function SignalFeedback({
   slug,

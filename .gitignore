@@ -76,7 +76,7 @@ next-env.d.ts
 # apps/resumatch/prisma/schema.prisma for why it cannot live in node_modules).
 apps/resumatch/lib/db/generated/
 
-# TasksAI's own Prisma client, same reason (docs/adr/0001-dedicated-database.md).
+# TasksAI's own Prisma client, same reason (internal docs: ventures/tasks-ai/adr/0001-dedicated-database.md).
 apps/tasks-ai/lib/db/generated/
 
 # Local AI tooling config (not repo content).

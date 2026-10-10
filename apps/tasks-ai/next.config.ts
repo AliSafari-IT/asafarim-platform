@@ -12,7 +12,7 @@ loadEnv({ path: path.join(process.cwd(), "../../.env") });
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 
-// Static security headers (docs/security-privacy.md). The Content-Security-
+// Static security headers (internal docs: ventures/tasks-ai/engineering/security-privacy.md). The Content-Security-
 // Policy is NOT set here: it needs a fresh per-request nonce for Next.js to
 // hydrate under `script-src 'nonce-…' 'strict-dynamic'`, which a static
 // header can't carry. proxy.ts builds and emits the full CSP (from the same

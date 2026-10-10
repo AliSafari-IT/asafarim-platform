@@ -1,5 +1,5 @@
 /**
- * Canonical event names (docs/research/event-taxonomy.md). Adding a name
+ * Canonical event names (internal docs: ventures/tasks-ai/research/event-taxonomy.md). Adding a name
  * here is the only supported way to introduce one — services reference the
  * constant, never a string literal.
  */

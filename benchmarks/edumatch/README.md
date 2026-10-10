@@ -28,7 +28,7 @@ logic. No real names, institutions, or identifiers appear anywhere.
 Sensitive attributes (age, gender, ethnicity, disability, religion, etc.) are
 **not modelled at all** — the matching factors are strictly qualification and
 logistics: subject, level, language, availability, mode/distance, rating, and
-verification status. See `docs/edumatch-benchmark.md` for the full policy.
+verification status. See internal docs `operations/platform/benchmarks/edumatch-benchmark.md` for the full policy.
 
 ## Commands
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * The AI boundary contract (docs/adr/0004-ai-proposal-model.md).
+ * The AI boundary contract (internal docs: ventures/tasks-ai/adr/0004-ai-proposal-model.md).
  *
  * A provider returns a `ProposalDraft`: a set of operations drawn from a
  * fixed allowlist, each fact carrying a citation (a span of the input) or
