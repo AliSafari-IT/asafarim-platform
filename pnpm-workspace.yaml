@@ -50,3 +50,17 @@ overrides:
   "qs@>=6.0.0 <6.16.0": ^6.16.0
   # drizzle-kit (dev-only CLI) -> @esbuild-kit/core-utils pins esbuild 0.18.
   "@esbuild-kit/core-utils>esbuild": ^0.25.12
+  # #817. drizzle-orm -> gel -> shell-quote (appbuilder, testora): critical,
+  # quote() command injection via a line terminator (GHSA, fixed in 1.11.0).
+  # gel 2.2.1 still allows the vulnerable range (^1.8.1).
+  "shell-quote@<1.11.0": ^1.11.0
+  # testcafe -> testcafe-hammerhead -> http-cache-semantics (testora e2e):
+  # high, max-stale handling can disclose cross-user responses (fixed in 4.3.0).
+  "http-cache-semantics@<4.3.0": ^4.3.0
+  # postcss -> source-map-js (vite, next, tailwind): high, event-loop DoS
+  # through crafted source maps (fixed in 1.2.2).
+  "source-map-js@>=1.0.0 <1.2.2": ^1.2.2
+  # tsup (appbuilder, vionto worker builds) pins esbuild ^0.27: low, arbitrary
+  # file read through the development server (fixed in 0.28.1). tsup only
+  # calls esbuild's build API, never serve.
+  "esbuild@>=0.27.3 <0.28.1": ^0.28.1
