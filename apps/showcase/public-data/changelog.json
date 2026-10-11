@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-11",
+    "title": "Igs: nightly encrypted Postgres backups to S3 + restore drill (#829)",
+    "sha": "6b076d40",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/6b076d40"
+  },
+  {
+    "date": "2026-10-11",
     "title": "Igs: health check with Discord alerts on change (#828)",
     "sha": "bb55297d",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/bb55297d"
@@ -112,11 +118,5 @@
     "title": "Labs: replace the stale changelog with a roadmap page",
     "sha": "3c41bd4a",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/3c41bd4a"
-  },
-  {
-    "date": "2026-09-27",
-    "title": "Web: Requirements → Test Plan tool (AIT-005)",
-    "sha": "2798c612",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2798c612"
   }
 ]
