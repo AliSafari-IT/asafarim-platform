@@ -62,7 +62,7 @@ ensure_edge_net
 
 # 2. Images.
 log "Pulling igs-pharma-{web,platform,worker}:${SHA:0:12}..."
-"${COMPOSE[@]}" pull --quiet igs-postgres igs-migrate igs-web igs-platform igs-worker
+"${COMPOSE[@]}" pull --quiet igs-postgres-tls igs-postgres igs-migrate igs-web igs-platform igs-worker
 
 # 3. Database, then migrations, before any app changes.
 log "Starting igs-postgres..."

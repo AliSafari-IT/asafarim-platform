@@ -215,9 +215,26 @@ const IGS_ALLOWED = {
   "igs-platform": "platform.igs-pharma.be (edge IP allowlist + the staff 2-step login)",
 };
 
-test("igs: the stack has its services, each on igs_internal", () => {
-  assert.deepEqual(Object.keys(igsNets).sort(), ["igs-migrate", "igs-platform", "igs-postgres", "igs-web", "igs-worker"]);
-  for (const [svc, n] of Object.entries(igsNets)) assert.ok(n.includes("igs_internal"), `${svc} is on igs_internal`);
+/** igs services with no network at all (network_mode: none), and why. */
+const IGS_OFFLINE = {
+  "igs-postgres-tls": "one-shot: writes igs-postgres's TLS certificate into a volume (#826)",
+};
+
+test("igs: the stack has its services, each on igs_internal (or on no network)", () => {
+  assert.deepEqual(Object.keys(igsNets).sort(), [
+    "igs-migrate",
+    "igs-platform",
+    "igs-postgres",
+    "igs-postgres-tls",
+    "igs-web",
+    "igs-worker",
+  ]);
+  for (const [svc, n] of Object.entries(igsNets)) {
+    if (svc in IGS_OFFLINE) {
+      assert.deepEqual(n, [], `${svc} joins no network`);
+      assert.match(igsCompose, new RegExp(`\\n {2}${svc}:\\n(?: {4}.*\\n)*? {4}network_mode: none\\n`), `${svc} has network_mode: none`);
+    } else assert.ok(n.includes("igs_internal"), `${svc} is on igs_internal`);
+  }
 });
 
 test("igs: only igs-web and igs-platform join edge_net; Postgres, the worker and the migrator never do", () => {
