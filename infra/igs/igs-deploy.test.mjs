@@ -175,3 +175,61 @@ test("igs-deploy.sh rejects a short SHA before touching docker or age", () => {
   assert.match(r.stderr, /full 40-character commit SHA/);
   assert.throws(() => readFileSync(calls), "no docker/age call");
 });
+
+test("igs-postgres serves TLS from the igs-postgres-tls volume, which runs first (#826)", () => {
+  const compose = readFileSync(
+    path.join(repo, "infra/igs/docker-compose.yml"),
+    "utf8"
+  );
+  const pg = compose.slice(
+    compose.indexOf("\n  igs-postgres:\n"),
+    compose.indexOf("\n  igs-migrate:\n")
+  );
+  for (const flag of [
+    "ssl=on",
+    "ssl_cert_file=/var/lib/postgresql/tls/server.crt",
+    "ssl_key_file=/var/lib/postgresql/tls/server.key",
+  ])
+    assert.match(pg, new RegExp(`\\n {6}- ${flag}\\n`), flag);
+  assert.match(pg, /\n {6}- igs_postgres_tls:\/var\/lib\/postgresql\/tls:ro\n/);
+  assert.match(
+    pg,
+    /\n {6}igs-postgres-tls:\n {8}condition: service_completed_successfully\n/
+  );
+  assert.match(compose, /\nvolumes:\n(?:.*\n)* {2}igs_postgres_tls:\n/);
+});
+
+test("postgres-tls-init.sh creates a key only Postgres can read, and keeps it on later runs", () => {
+  const dir = mkdtempSync(path.join(scratch, "tls-"));
+  const owner = `${process.getuid()}:${process.getgid()}`;
+  const run = () =>
+    spawnSync("sh", [path.join(repo, "infra/igs/postgres-tls-init.sh")], {
+      encoding: "utf8",
+      env: { ...process.env, TLS_DIR: dir, TLS_OWNER: owner },
+    });
+  const first = run();
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /created a self-signed certificate/);
+  const mode = (f) =>
+    spawnSync("stat", ["-c", "%a", path.join(dir, f)], {
+      encoding: "utf8",
+    }).stdout.trim();
+  assert.equal(mode("server.key"), "600");
+  assert.equal(mode("server.crt"), "644");
+  const cert = readFileSync(path.join(dir, "server.crt"), "utf8");
+  assert.match(cert, /^-----BEGIN CERTIFICATE-----\n/);
+
+  chmodSync(path.join(dir, "server.key"), 0o644);
+  const second = run();
+  assert.equal(second.status, 0, second.stderr);
+  assert.match(second.stdout, /keeping the existing certificate/);
+  assert.equal(readFileSync(path.join(dir, "server.crt"), "utf8"), cert);
+  assert.equal(mode("server.key"), "600", "the key mode is reset");
+});
+
+test("igs-deploy.sh pulls igs-postgres-tls with the rest", () => {
+  assert.match(
+    readFileSync(DEPLOY, "utf8"),
+    /\bpull --quiet igs-postgres-tls igs-postgres igs-migrate\b/
+  );
+});

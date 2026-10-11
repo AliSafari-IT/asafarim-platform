@@ -20,15 +20,42 @@
 name: igs
 
 services:
+  # One-shot, before igs-postgres (#826): its self-signed TLS certificate, created
+  # on the first run and kept after (infra/igs/postgres-tls-init.sh). postgres:16
+  # because it ships openssl; no network.
+  igs-postgres-tls:
+    image: postgres:16
+    entrypoint: ["/bin/sh", "/usr/local/bin/igs-postgres-tls-init.sh"]
+    restart: "no"
+    network_mode: none
+    volumes:
+      - ./postgres-tls-init.sh:/usr/local/bin/igs-postgres-tls-init.sh:ro
+      - igs_postgres_tls:/tls
+    mem_limit: 64m
+    cpus: 0.5
+
   igs-postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    # TLS on (#826): the igs-pharma apps always connect with `ssl: "require"`.
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/var/lib/postgresql/tls/server.crt
+      - -c
+      - ssl_key_file=/var/lib/postgresql/tls/server.key
     environment:
       POSTGRES_DB: igs
       POSTGRES_USER: igs
       POSTGRES_PASSWORD: ${IGS_POSTGRES_PASSWORD:?}
     volumes:
       - igs_postgres_data:/var/lib/postgresql/data
+      - igs_postgres_tls:/var/lib/postgresql/tls:ro
+    depends_on:
+      igs-postgres-tls:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U igs -d igs"]
       interval: 5s
@@ -149,3 +176,5 @@ networks:
 
 volumes:
   igs_postgres_data:
+  # igs-postgres's TLS certificate and key (#826), kept across restarts.
+  igs_postgres_tls:
