@@ -17,6 +17,8 @@
 #    Caddy that owns 443 today (asafarim-com's), validated and reloaded.
 # 6. Install or refresh the health check (igs-healthcheck.timer, every 2
 #    minutes, #828): it alerts to Discord when the stack goes down or recovers.
+# 7. Install or refresh the nightly encrypted backup (igs-backup.timer, #829)
+#    when the IGS_BACKUP_* keys are set; otherwise skip it with a warning.
 #
 # Idempotent: running it again with the same SHA changes nothing but the
 # reloads. It only ever uses the compose project `igs`: it never starts, stops
@@ -123,6 +125,23 @@ as_root systemctl daemon-reload
 as_root systemctl enable --now --quiet igs-healthcheck.timer
 if [[ "$(igs_env_value "$ENV_FILE" IGS_ALERT_WEBHOOK_DISCORD || true)" != https://* ]]; then
   log "Note: IGS_ALERT_WEBHOOK_DISCORD is not set in ${ENV_FILE}.age; the health check only logs (journalctl -u igs-healthcheck)."
+fi
+
+# 7. The nightly backup (#829): installed and enabled only when the IGS_BACKUP_*
+#    keys are set; without them the deploy still succeeds and the timer is off.
+log "Installing the nightly backup (igs-backup.timer, 02:30 Europe/Brussels)..."
+backup_unit="$(mktemp)"
+trap 'rm -f "$rendered" "$unit" "$backup_unit"' EXIT
+sed "s|@REPO_DIR@|${REPO_DIR}|" "${STACK_DIR}/igs-backup.service" >"$backup_unit"
+as_root install -m 0755 infra/scripts/igs-backup.sh /usr/local/sbin/igs-backup
+as_root install -m 0644 "$backup_unit" /etc/systemd/system/igs-backup.service
+as_root install -m 0644 "${STACK_DIR}/igs-backup.timer" /etc/systemd/system/igs-backup.timer
+as_root systemctl daemon-reload
+if IGS_BACKUP_ENV_FILE="$ENV_FILE" bash infra/scripts/igs-backup.sh --check; then
+  as_root systemctl enable --now --quiet igs-backup.timer
+else
+  as_root systemctl disable --now --quiet igs-backup.timer 2>/dev/null || true
+  log "WARNING: the backup keys are not set in ${ENV_FILE}.age, so there are NO backups (igs-backup.timer is off)."
 fi
 
 log "Done: igs-pharma ${SHA:0:12} is up. Check: curl -sI https://igs-pharma.be/nl ; curl -s https://igs-pharma.be/api/health"
