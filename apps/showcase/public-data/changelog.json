@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-11",
+    "title": "Infra: igs-pharma.be staging stack, edge site and igs-deploy.sh (#822)",
+    "sha": "c8b5de27",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/c8b5de27"
+  },
+  {
     "date": "2026-10-05",
     "title": "Hub: resume cookie across sign-in, \"Try again\" for expired tickets, hand-off comments (Fixes #801, Fixes #802)",
     "sha": "caaa54d0",
@@ -112,11 +118,5 @@
     "title": "Labs: redesign the experiments catalogue",
     "sha": "16542209",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/16542209"
-  },
-  {
-    "date": "2026-09-27",
-    "title": "Web: server-only AI tool execution boundary (AIT-003)",
-    "sha": "1a7d3f3f",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1a7d3f3f"
   }
 ]
