@@ -247,3 +247,200 @@ test("igs-deploy.sh pulls igs-postgres-tls with the rest", () => {
     /\bpull --quiet igs-postgres-tls igs-postgres igs-migrate\b/
   );
 });
+
+// --- The health check (#828): infra/scripts/igs-healthcheck.sh ---
+const HEALTH = path.join(repo, "infra/scripts/igs-healthcheck.sh");
+// A made-up webhook: it must never show up in any output.
+const WEBHOOK = "https://discord.com/api/webhooks/123456/fake-token_for-tests";
+
+/** Run `<fn> args...` with igs-healthcheck.sh sourced. */
+function health(fn, ...args) {
+  // $0 is not the script: sourcing it must only define the functions.
+  return spawnSync(
+    "bash",
+    ["-c", `source "$1" && shift && ${fn} "$@"`, "test", HEALTH, ...args],
+    {
+      encoding: "utf8",
+    }
+  );
+}
+
+test("igs_health_transition: an alert on going down, a recovery on coming back, nothing otherwise", () => {
+  const dir = mkdtempSync(path.join(scratch, "state-"));
+  const state = path.join(dir, "state");
+  const step = (s) => {
+    const action = health("igs_health_transition", state, s).stdout.trim();
+    health("igs_health_record", state, s);
+    return action;
+  };
+  assert.equal(step("ok"), "none", "first run, healthy: nothing to say");
+  assert.equal(step("ok"), "none");
+  assert.equal(step("down"), "alert");
+  assert.equal(step("down"), "none", "still down: no second alert");
+  assert.equal(step("ok"), "recover");
+  assert.equal(step("ok"), "none");
+  rmSync(state);
+  assert.equal(step("down"), "alert", "down on the first run alerts");
+});
+
+test("igs_alert_webhook accepts only a Discord webhook URL", () => {
+  const env = path.join(scratch, "env.webhook");
+  for (const [value, ok] of [
+    [WEBHOOK, true],
+    [`"${WEBHOOK}"`, true],
+    ["CHANGE_ME", false],
+    ["", false],
+    ["http://discord.com/api/webhooks/1/x", false],
+    ["https://example.com/api/webhooks/1/x", false],
+  ]) {
+    writeFileSync(env, `AUTH_SECRET=x\nIGS_ALERT_WEBHOOK_DISCORD=${value}\n`);
+    assert.equal(
+      health("igs_alert_webhook", env).stdout,
+      ok ? WEBHOOK : "",
+      value
+    );
+  }
+  assert.equal(
+    health("igs_alert_webhook", path.join(scratch, "missing")).stdout,
+    ""
+  );
+});
+
+/**
+ * A fake VPS: docker answers for the igs services except those in DOWN, and
+ * curl answers the public health URL with PUBLIC (200 by default) and records
+ * every webhook post (its stdin config and its body) in posts.log.
+ */
+function fakeVps() {
+  const dir = mkdtempSync(path.join(scratch, "vps-"));
+  const bin = path.join(dir, "bin");
+  spawnSync("mkdir", ["-p", bin, path.join(dir, "repo/infra/igs")]);
+  writeFileSync(
+    path.join(bin, "docker"),
+    `#!/usr/bin/env bash
+if [[ "$1" == ps ]]; then
+  for a in "$@"; do [[ "$a" == label=com.docker.compose.service=* ]] && svc="\${a#*=}" && svc="\${svc#*=}"; done
+  [[ " \${DOWN:-} " == *" $svc "* ]] || echo "id-$svc"
+  exit 0
+fi
+if [[ "$1" == exec ]]; then [[ " \${SICK:-} " == *" \${2#id-} "* ]] && exit 1; exit 0; fi
+exit 2
+`
+  );
+  writeFileSync(
+    path.join(bin, "curl"),
+    `#!/usr/bin/env bash
+for a in "$@"; do
+  if [[ "$a" == "-K" ]]; then { cat; printf '%s\\n' "$*"; } >>"${dir}/posts.log"; exit 0; fi
+done
+printf '%s' "\${PUBLIC:-200}"
+`
+  );
+  chmodSync(path.join(bin, "docker"), 0o755);
+  chmodSync(path.join(bin, "curl"), 0o755);
+  const env = path.join(dir, "repo/infra/igs/.env.igs");
+  writeFileSync(env, `IGS_ALERT_WEBHOOK_DISCORD=${WEBHOOK}\n`);
+  const run = (extra = {}) =>
+    spawnSync("bash", [HEALTH], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        REPO_DIR: path.join(dir, "repo"),
+        IGS_HEALTH_STATE_DIR: path.join(dir, "state"),
+        ...extra,
+      },
+    });
+  const posts = () => {
+    try {
+      return readFileSync(path.join(dir, "posts.log"), "utf8");
+    } catch {
+      return "";
+    }
+  };
+  return { run, posts, env };
+}
+
+test("igs-healthcheck.sh posts one alert when igs-worker stops and one recovery when it's back", () => {
+  const vps = fakeVps();
+  const outputs = [];
+  const run = (extra) => {
+    const r = vps.run(extra);
+    assert.equal(r.status, 0, r.stderr);
+    outputs.push(r.stdout + r.stderr);
+    return r;
+  };
+
+  assert.match(run().stdout, /healthy/);
+  assert.equal(vps.posts(), "", "healthy: nothing posted");
+
+  assert.match(
+    run({ DOWN: "igs-worker" }).stdout,
+    /UNHEALTHY: igs-worker is not running/
+  );
+  run({ DOWN: "igs-worker" });
+  const afterDown = vps.posts();
+  assert.equal(afterDown.match(/"content"/g)?.length, 1, "exactly one alert");
+  assert.match(afterDown, /unhealthy:\\n- igs-worker is not running/);
+  assert.match(
+    afterDown,
+    /^url = "https:\/\/discord\.com\/api\/webhooks\//m,
+    "the URL reaches curl on stdin"
+  );
+
+  run();
+  run();
+  const all = vps.posts();
+  assert.equal(all.match(/"content"/g)?.length, 2, "exactly one recovery");
+  assert.match(all, /has recovered/);
+
+  for (const out of outputs)
+    assert.ok(
+      !out.includes("fake-token"),
+      "the webhook never shows in the log"
+    );
+  for (const line of all.split("\n").filter((l) => !l.startsWith("url = ")))
+    assert.ok(
+      !line.includes("fake-token"),
+      "the webhook is not on curl's command line"
+    );
+});
+
+test("igs-healthcheck.sh names each failed check, and without a webhook it only logs", () => {
+  const vps = fakeVps();
+  writeFileSync(vps.env, "IGS_ALERT_WEBHOOK_DISCORD=CHANGE_ME\n");
+  const r = vps.run({
+    SICK: "igs-platform",
+    PUBLIC: "502",
+    DOWN: "igs-postgres",
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /igs-postgres is not running/);
+  assert.match(r.stdout, /igs-platform \/api\/health is not 200/);
+  assert.match(r.stdout, /answered 502, not 200/);
+  assert.doesNotMatch(r.stdout, /igs-web \/api\/health/);
+  assert.match(r.stdout, /no IGS_ALERT_WEBHOOK_DISCORD set/);
+  assert.equal(vps.posts(), "");
+});
+
+test("igs-deploy.sh installs the health check timer, and the units are well-formed", () => {
+  const deploy = readFileSync(DEPLOY, "utf8");
+  assert.match(
+    deploy,
+    /install -m 0755 infra\/scripts\/igs-healthcheck\.sh \/usr\/local\/sbin\/igs-healthcheck/
+  );
+  assert.match(deploy, /systemctl enable --now --quiet igs-healthcheck\.timer/);
+  const service = readFileSync(
+    path.join(repo, "infra/igs/igs-healthcheck.service"),
+    "utf8"
+  );
+  assert.match(service, /\nType=oneshot\n/);
+  assert.match(service, /\nEnvironment=REPO_DIR=@REPO_DIR@\n/);
+  assert.match(service, /\nExecStart=\/usr\/local\/sbin\/igs-healthcheck\n/);
+  const timer = readFileSync(
+    path.join(repo, "infra/igs/igs-healthcheck.timer"),
+    "utf8"
+  );
+  assert.match(timer, /\nOnUnitActiveSec=2min\n/);
+  assert.match(timer, /\nWantedBy=timers\.target\n/);
+});
