@@ -6,3 +6,7 @@ www.asafarim.be
 # ASafariM OS placeholder (#775); becomes the asafarim-os stack's own site file at the edge cutover (#770).
 asafarim.site
 www.asafarim.site
+# igs-pharma.be staging, the igs stack's own site file (#822).
+igs-pharma.be
+www.igs-pharma.be
+platform.igs-pharma.be

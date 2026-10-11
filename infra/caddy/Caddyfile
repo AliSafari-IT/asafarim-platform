@@ -170,6 +170,15 @@ www.asafarim.be {
   }
 }
 
+# igs-pharma.be staging (#822): a separate stack (compose project `igs`, which
+# joins edge_net). Until the edge cutover this Caddy owns 443, so it imports the
+# igs stack's site file here. infra/scripts/igs-deploy.sh renders it (with the
+# back-office allowlist from the igs env) into sites.local/, which is
+# git-ignored: real values never reach git, and `git reset --hard` keeps it. No
+# file there (CI, a host without igs) imports nothing. Moves to the edge's
+# sites/igs-pharma.caddy at the cutover (#770).
+import sites.local/*.caddy
+
 # asafarim.site — placeholder landing for ASafariM OS (#775) until the OS stack
 # deploys. Moves to sites/asafarim-os.caddy at the edge cutover (#770).
 # The page lives under the config directory that is already mounted at

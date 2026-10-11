@@ -1,0 +1,32 @@
+# igs-pharma.be staging (asafarim-platform#822, roadmap IGS-D3): the igs
+# stack's site file. This is a TEMPLATE. infra/scripts/igs-deploy.sh replaces
+# {$IGS_PLATFORM_ALLOW_IPS} with the validated allowlist from the igs env and
+# publishes the result:
+#   - on the shared edge as sites/igs-pharma.caddy (edge-deploy-site.sh);
+#   - before the edge cutover, also as infra/caddy/sites.local/igs-pharma.caddy,
+#     which the live Caddyfile imports (git-ignored: real values never reach git).
+#
+# The apps send their own security headers (CSP, HSTS, X-Robots-Tag while the
+# shop is closed): nothing here adds or overwrites one. Upstream names are
+# prefixed (igs-web, igs-platform): they share edge_net with every stack.
+# Named matchers are prefixed too (one shared namespace on the edge).
+
+igs-pharma.be {
+	reverse_proxy igs-web:3000
+}
+
+www.igs-pharma.be {
+	redir https://igs-pharma.be{uri} 301
+}
+
+# The back-office: only the allow-listed networks reach it (several IPv4/IPv6
+# CIDRs). Everyone else gets a plain 403 from the edge, before the app.
+platform.igs-pharma.be {
+	@igs_platform_allowed remote_ip {$IGS_PLATFORM_ALLOW_IPS}
+	handle @igs_platform_allowed {
+		reverse_proxy igs-platform:3001
+	}
+	handle {
+		respond "Forbidden" 403
+	}
+}

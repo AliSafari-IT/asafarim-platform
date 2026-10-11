@@ -33,14 +33,15 @@ const ALLOWED = {
   tasksai: "tasks-ai.asafarim.com",
   labs: "labs.asafarim.com",
   timelineai: "tlai.asafarim.com",
+  caddy: "the live proxy until the edge cutover (#770): reaches other stacks' public services, e.g. igs-web, igs-platform (#822)",
 };
 
 /** Kinds of service that must never join, whatever the allow-list says. */
 const NEVER = /(postgres|redis|clamav|worker|migrat|seed|runner)/;
 
-/** service name → its networks, from the top-level `services:` block. */
-function serviceNetworks() {
-  const services = compose.slice(compose.indexOf("\nservices:\n"), compose.indexOf("\nnetworks:\n"));
+/** service name → its networks, from the top-level `services:` block of a compose file. */
+function serviceNetworks(text = compose) {
+  const services = text.slice(text.indexOf("\nservices:\n"), text.indexOf("\nnetworks:\n"));
   const result = {};
   let current = null;
   let inNetworks = false;
@@ -202,4 +203,45 @@ test("ensure_identity_db_net refuses an existing non-internal network, with the 
   assert.match(r.output, /not internal/);
   assert.match(r.output, /network create --internal identity_db/);
   assert.doesNotMatch(r.calls, /network create/);
+});
+
+// --- The igs stack (igs-pharma.be staging, #822): its own compose project. ---
+const igsCompose = "\n" + readFileSync(path.join(repo, "infra/igs/docker-compose.yml"), "utf8").replace(/\r\n/g, "\n");
+const igsNets = serviceNetworks(igsCompose);
+
+/** igs services allowed on edge_net, and the site that proxies to each. */
+const IGS_ALLOWED = {
+  "igs-web": "igs-pharma.be, www.igs-pharma.be (storefront; closed by SITE_GATE until Gate 1)",
+  "igs-platform": "platform.igs-pharma.be (edge IP allowlist + the staff 2-step login)",
+};
+
+test("igs: the stack has its services, each on igs_internal", () => {
+  assert.deepEqual(Object.keys(igsNets).sort(), ["igs-migrate", "igs-platform", "igs-postgres", "igs-web", "igs-worker"]);
+  for (const [svc, n] of Object.entries(igsNets)) assert.ok(n.includes("igs_internal"), `${svc} is on igs_internal`);
+});
+
+test("igs: only igs-web and igs-platform join edge_net; Postgres, the worker and the migrator never do", () => {
+  const onIgsEdge = Object.entries(igsNets).filter(([, n]) => n.includes("edge_net")).map(([s]) => s).sort();
+  assert.deepEqual(onIgsEdge, Object.keys(IGS_ALLOWED).sort());
+  assert.deepEqual(onIgsEdge.filter((s) => NEVER.test(s)), []);
+});
+
+test("igs: every service name is prefixed igs- (upstream names are shared on edge_net)", () => {
+  for (const svc of Object.keys(igsNets)) assert.match(svc, /^igs-/);
+});
+
+test("igs: every container has a memory limit, and nothing publishes a host port", () => {
+  for (const svc of Object.keys(igsNets)) {
+    const start = igsCompose.indexOf(`\n  ${svc}:\n`);
+    const rest = igsCompose.slice(start + 1);
+    const next = rest.slice(1).search(/\n {2}[a-z0-9-]+:\s*\n|\nnetworks:\n/);
+    const block = next < 0 ? rest : rest.slice(0, next + 1);
+    assert.match(block, /\n {4}mem_limit: \d+m\n/, `${svc} has a mem_limit`);
+  }
+  assert.doesNotMatch(igsCompose, /\n {4}ports:/, "the igs stack publishes no host port (the edge reaches it on edge_net)");
+});
+
+test("igs: edge_net is the external shared network; igs_internal is the stack's own", () => {
+  assert.match(igsCompose, /\n {2}edge_net:\n(?: {4}#.*\n)* {4}external: true\n {4}name: edge_net\n/);
+  assert.match(igsCompose, /\nname: igs\n/);
 });
