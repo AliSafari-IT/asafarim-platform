@@ -15,6 +15,8 @@
 # 5. Render the site file with the allowlist and publish it on the shared edge
 #    (edge-deploy-site.sh). Before the edge cutover, also install it for the
 #    Caddy that owns 443 today (asafarim-com's), validated and reloaded.
+# 6. Install or refresh the health check (igs-healthcheck.timer, every 2
+#    minutes, #828): it alerts to Discord when the stack goes down or recovers.
 #
 # Idempotent: running it again with the same SHA changes nothing but the
 # reloads. It only ever uses the compose project `igs`: it never starts, stops
@@ -105,6 +107,22 @@ EDGE_DIR="$EDGE_DIR" bash infra/edge/scripts/edge-deploy-site.sh igs-pharma "$re
 if [[ -z "$(docker compose -p edge ps -q caddy 2>/dev/null || true)" ]]; then
   log "Pre-cutover: the asafarim-com Caddy owns 443; installing the site file there too..."
   igs_publish_live "$rendered"
+fi
+
+# 6. The health check (#828): the script, the service (with this checkout's path)
+#    and the timer. Idempotent: the same files are rewritten and the timer stays on.
+as_root() { if ((EUID == 0)); then "$@"; else sudo -n "$@"; fi; }
+log "Installing the health check (igs-healthcheck.timer, every 2 minutes)..."
+unit="$(mktemp)"
+trap 'rm -f "$rendered" "$unit"' EXIT
+sed "s|@REPO_DIR@|${REPO_DIR}|" "${STACK_DIR}/igs-healthcheck.service" >"$unit"
+as_root install -m 0755 infra/scripts/igs-healthcheck.sh /usr/local/sbin/igs-healthcheck
+as_root install -m 0644 "$unit" /etc/systemd/system/igs-healthcheck.service
+as_root install -m 0644 "${STACK_DIR}/igs-healthcheck.timer" /etc/systemd/system/igs-healthcheck.timer
+as_root systemctl daemon-reload
+as_root systemctl enable --now --quiet igs-healthcheck.timer
+if [[ "$(igs_env_value "$ENV_FILE" IGS_ALERT_WEBHOOK_DISCORD || true)" != https://* ]]; then
+  log "Note: IGS_ALERT_WEBHOOK_DISCORD is not set in ${ENV_FILE}.age; the health check only logs (journalctl -u igs-healthcheck)."
 fi
 
 log "Done: igs-pharma ${SHA:0:12} is up. Check: curl -sI https://igs-pharma.be/nl ; curl -s https://igs-pharma.be/api/health"

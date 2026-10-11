@@ -1,0 +1,12 @@
+# Installed by infra/scripts/igs-deploy.sh (#828). One run of the igs-pharma.be
+# staging health check; igs-healthcheck.timer starts it every 2 minutes.
+[Unit]
+Description=igs-pharma.be staging health check (alerts to Discord on change)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=REPO_DIR=@REPO_DIR@
+ExecStart=/usr/local/sbin/igs-healthcheck
+TimeoutStartSec=90

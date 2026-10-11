@@ -1,0 +1,12 @@
+# Installed by infra/scripts/igs-deploy.sh (#828): the igs-pharma.be staging
+# health check every 2 minutes, from 2 minutes after boot.
+[Unit]
+Description=igs-pharma.be staging health check, every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

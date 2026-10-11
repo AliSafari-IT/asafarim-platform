@@ -14,6 +14,7 @@ on:
       - "infra/scripts/lib/edge.sh"
       - "infra/igs/**"
       - "infra/scripts/igs-deploy.sh"
+      - "infra/scripts/igs-healthcheck.sh"
       - "infra/scripts/lib/igs.sh"
       - "docker-compose.prod.yml"
       - ".github/workflows/edge.yml"
@@ -25,6 +26,7 @@ on:
       - "infra/scripts/lib/edge.sh"
       - "infra/igs/**"
       - "infra/scripts/igs-deploy.sh"
+      - "infra/scripts/igs-healthcheck.sh"
       - "infra/scripts/lib/igs.sh"
       - "docker-compose.prod.yml"
       - ".github/workflows/edge.yml"
@@ -47,7 +49,7 @@ jobs:
           # No install here (see brand-spelling.yml).
           package-manager-cache: false
       - name: shellcheck
-        run: shellcheck -S warning infra/edge/scripts/*.sh infra/scripts/lib/edge.sh infra/scripts/lib/igs.sh infra/scripts/igs-deploy.sh infra/igs/postgres-tls-init.sh
+        run: shellcheck -S warning infra/edge/scripts/*.sh infra/scripts/lib/edge.sh infra/scripts/lib/igs.sh infra/scripts/igs-deploy.sh infra/scripts/igs-healthcheck.sh infra/igs/postgres-tls-init.sh
       - name: edge-deploy-site.sh behaviour
         run: node --test infra/edge/scripts/edge-deploy-site.test.mjs
       - name: The edge config routes what production routes today
