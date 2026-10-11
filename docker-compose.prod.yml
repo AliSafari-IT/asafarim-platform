@@ -839,6 +839,11 @@ services:
       - tasksai
     networks:
       - asafarim_net
+      # Until the edge cutover (#770) this Caddy owns 443 and proxies to the
+      # other stacks' public services (igs-web, igs-platform, #822) over the
+      # shared edge network. Takes effect on the next caddy-recreate.sh; a
+      # running Caddy joins once with `docker network connect edge_net <id>`.
+      - edge_net
 
 networks:
   asafarim_net:

@@ -101,3 +101,8 @@ apps/tasks-ai/lib/db/generated/
 # Compiled app manifests (asafarim-os `platform manifest compile`): generated in CI
 # for the drift report, never committed; the source is apps/*/platform.app.ts.
 apps/*/platform.app.json
+
+# igs-pharma.be staging (#822): the readable placeholders are tracked; the
+# rendered live site file (it holds the real allowlist) never is.
+!infra/igs/.env.igs.example
+infra/caddy/sites.local/

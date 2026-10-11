@@ -1,0 +1,151 @@
+# igs-pharma.be staging (asafarim-platform#822, roadmap IGS-D2/D3/D8).
+#
+# Its OWN compose project (`igs`), deployed by infra/scripts/igs-deploy.sh,
+# separate from the asafarim-com stack (like asafarim-be): nothing here is in
+# docker-compose.prod.yml, and nothing there depends on this.
+#
+#   docker compose -p igs -f infra/igs/docker-compose.yml --env-file infra/igs/.env.igs ...
+#
+# - Env: infra/igs/.env.igs.age, decrypted by igs-deploy.sh. The apps get
+#   .env.igs.apps, the same file WITHOUT its IGS_* keys (the migrator's
+#   connection, the Postgres password and the allowlist are deploy-only).
+# - Images come from igs-pharma's CI, tagged with the FULL commit SHA
+#   (IGS_IMAGE_TAG, set by igs-deploy.sh; there is no `latest` on purpose).
+# - Only igs-web and igs-platform join edge_net (the edge proxies to them under
+#   those prefixed names, infra/edge/README.md "The edge_net rule"). Postgres,
+#   the worker and the migrator stay on the private igs_internal network.
+# - Postgres is dedicated to igs (never the platform DB) and has no host port.
+# - Every container has a memory limit so igs can't starve the other stacks
+#   on the shared host: 1.5 GiB in total while the migrator runs, 1.25 GiB after.
+name: igs
+
+services:
+  igs-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: igs
+      POSTGRES_USER: igs
+      POSTGRES_PASSWORD: ${IGS_POSTGRES_PASSWORD:?}
+    volumes:
+      - igs_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U igs -d igs"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - igs_internal
+    mem_limit: 512m
+    cpus: 0.5
+
+  # One-shot: applies the Drizzle migrations and pg-boss's schema, then exits 0
+  # (a second run is a no-op). The apps only start once it succeeded.
+  igs-migrate:
+    image: ghcr.io/alisafari-it/igs-pharma-worker:${IGS_IMAGE_TAG:?set by igs-deploy.sh}
+    command: ["node", "dist/migrate.js"]
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      # DDL-capable (the migrator role), never the apps' connection.
+      DATABASE_URL: ${IGS_MIGRATOR_DATABASE_URL:?}
+    depends_on:
+      igs-postgres:
+        condition: service_healthy
+    networks:
+      - igs_internal
+    mem_limit: 256m
+    cpus: 0.5
+
+  igs-web:
+    image: ghcr.io/alisafari-it/igs-pharma-web:${IGS_IMAGE_TAG:?set by igs-deploy.sh}
+    restart: unless-stopped
+    env_file:
+      - .env.igs.apps
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      AUTH_URL: https://igs-pharma.be
+      # Closed ("coming soon", noindex) unless the env file says otherwise.
+      SITE_GATE: ${SITE_GATE:-coming-soon}
+    depends_on:
+      igs-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # No database access: proves the server answers. /api/health (with the
+      # database) is igs-deploy.sh's readiness check.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health/live').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - igs_internal
+      - edge_net
+    mem_limit: 384m
+    cpus: 0.75
+
+  igs-platform:
+    image: ghcr.io/alisafari-it/igs-pharma-platform:${IGS_IMAGE_TAG:?set by igs-deploy.sh}
+    restart: unless-stopped
+    env_file:
+      - .env.igs.apps
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      HOSTNAME: 0.0.0.0
+      # Passkeys and sign-in links bind to this origin.
+      AUTH_URL: https://platform.igs-pharma.be
+    depends_on:
+      igs-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/api/health/live').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - igs_internal
+      - edge_net
+    mem_limit: 384m
+    cpus: 0.75
+
+  igs-worker:
+    image: ghcr.io/alisafari-it/igs-pharma-worker:${IGS_IMAGE_TAG:?set by igs-deploy.sh}
+    restart: unless-stopped
+    env_file:
+      - .env.igs.apps
+    environment:
+      NODE_ENV: production
+    depends_on:
+      igs-migrate:
+        condition: service_completed_successfully
+    networks:
+      - igs_internal
+    mem_limit: 256m
+    cpus: 0.5
+
+networks:
+  igs_internal:
+  # The shared edge's network (#770), created by igs-deploy.sh (ensure_edge_net)
+  # before `up`. Only igs-web and igs-platform join it.
+  edge_net:
+    external: true
+    name: edge_net
+
+volumes:
+  igs_postgres_data:
