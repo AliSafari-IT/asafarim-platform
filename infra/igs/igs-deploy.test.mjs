@@ -225,6 +225,20 @@ test("postgres-tls-init.sh creates a key only Postgres can read, and keeps it on
   assert.match(second.stdout, /keeping the existing certificate/);
   assert.equal(readFileSync(path.join(dir, "server.crt"), "utf8"), cert);
   assert.equal(mode("server.key"), "600", "the key mode is reset");
+
+  // An interrupted run: a key that doesn't match the certificate is replaced.
+  const other = mkdtempSync(path.join(scratch, "tls-other-"));
+  spawnSync("sh", [path.join(repo, "infra/igs/postgres-tls-init.sh")], {
+    env: { ...process.env, TLS_DIR: other, TLS_OWNER: owner },
+  });
+  writeFileSync(
+    path.join(dir, "server.key"),
+    readFileSync(path.join(other, "server.key"))
+  );
+  const third = run();
+  assert.equal(third.status, 0, third.stderr);
+  assert.match(third.stdout, /created a self-signed certificate/);
+  assert.notEqual(readFileSync(path.join(dir, "server.crt"), "utf8"), cert);
 });
 
 test("igs-deploy.sh pulls igs-postgres-tls with the rest", () => {
