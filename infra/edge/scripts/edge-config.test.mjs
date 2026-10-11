@@ -1,6 +1,6 @@
 // The shared edge's config routes exactly what production routes today
 // (#770 phase 2). Until the cutover retires infra/caddy/Caddyfile, the edge's
-// site files (sites/asafarim-com.caddy + sites/asafarim-be.caddy) duplicate it,
+// site files (sites/asafarim-com.caddy, asafarim-be.caddy, igs-pharma.caddy) duplicate it,
 // so this test pins the two together: both are adapted by the pinned Caddy and
 // must produce the same JSON (routes compared as a set, since the edge imports
 // the stacks' files in a different order). The asafarim.site page served by the
@@ -77,7 +77,7 @@ test("the edge serves the same asafarim.site page as the live Caddy", () => {
 });
 
 test("site files only import snippets they define, with a stack prefix (one shared namespace)", () => {
-  for (const [stack, prefix] of [["asafarim-com", "asafarim_com_"]]) {
+  for (const [stack, prefix] of [["asafarim-com", "asafarim_com_"], ["igs-pharma", "igs_pharma_"]]) {
     const text = readFileSync(path.join(EDGE_DIR, "sites", `${stack}.caddy`), "utf8");
     const defined = [...text.matchAll(/^\(([\w-]+)\)\s*\{/gm)].map((m) => m[1]);
     for (const name of defined) assert.ok(name.startsWith(prefix), `${stack}: snippet ${name} must start with ${prefix}`);

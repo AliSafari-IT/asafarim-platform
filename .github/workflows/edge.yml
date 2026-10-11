@@ -1,7 +1,9 @@
 # Shared edge gateway (#770 / #774): shellcheck the edge scripts, run the
 # behaviour tests of edge-deploy-site.sh (lock, .prev restore, validation
 # before the swap) against a fake docker, and (phase 2) check that the edge's
-# site files route exactly what infra/caddy/Caddyfile routes today. Linux only:
+# site files route exactly what infra/caddy/Caddyfile routes today. Also the igs
+# stack (igs-pharma.be staging, #822): its compose file, igs-deploy.sh's
+# behaviour against a fake docker, and its edge_net membership. Linux only:
 # the script needs flock; the config check needs Docker (the pinned caddy).
 name: Edge
 
@@ -9,6 +11,9 @@ on:
   pull_request:
     paths:
       - "infra/edge/**"
+      - "infra/igs/**"
+      - "infra/scripts/igs-deploy.sh"
+      - ".env.igs.example"
       - "infra/caddy/**"
       - "infra/scripts/lib/edge.sh"
       - "docker-compose.prod.yml"
@@ -17,6 +22,9 @@ on:
     branches: [main]
     paths:
       - "infra/edge/**"
+      - "infra/igs/**"
+      - "infra/scripts/igs-deploy.sh"
+      - ".env.igs.example"
       - "infra/caddy/**"
       - "infra/scripts/lib/edge.sh"
       - "docker-compose.prod.yml"
@@ -40,10 +48,17 @@ jobs:
           # No install here (see brand-spelling.yml).
           package-manager-cache: false
       - name: shellcheck
-        run: shellcheck -S warning infra/edge/scripts/*.sh infra/scripts/lib/edge.sh
+        run: shellcheck -S warning infra/edge/scripts/*.sh infra/scripts/lib/edge.sh infra/scripts/igs-deploy.sh
       - name: edge-deploy-site.sh behaviour
         run: node --test infra/edge/scripts/edge-deploy-site.test.mjs
       - name: The edge config routes what production routes today
         run: node --test infra/edge/scripts/edge-config.test.mjs
       - name: edge_net membership is an explicit allow-list
         run: node --test infra/edge/scripts/edge-net.test.mjs
+      - name: igs-deploy.sh behaviour
+        run: node --test infra/igs/igs-deploy.test.mjs
+      - name: The igs compose file resolves with every variable .env.igs.example names
+        run: |
+          sed 's/REPLACE_ME_openssl_rand_hex_32/0000000000000000000000000000000000000000000000000000000000000000/' .env.igs.example > "$RUNNER_TEMP/env.igs"
+          IGS_IMAGE_TAG=0000000000000000000000000000000000000000 \
+            docker compose -p igs -f infra/igs/docker-compose.yml --env-file "$RUNNER_TEMP/env.igs" config --quiet

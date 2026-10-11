@@ -1,0 +1,154 @@
+# igs-pharma.be staging (#822): its own compose project, `igs`, deployed by
+# infra/scripts/igs-deploy.sh <sha>. It never shares a compose project, a
+# network (other than edge_net) or a database with the asafarim-com stack.
+#
+#   docker compose -p igs -f infra/igs/docker-compose.yml --env-file .env.igs ...
+#
+# - Images come from igs-pharma's CI (ghcr.io/alisafari-it/igs-pharma-*), tagged
+#   with the full commit SHA; IGS_IMAGE_TAG is set by igs-deploy.sh, never
+#   committed.
+# - Networks follow the edge_net rule (infra/edge/README.md): only igs-web and
+#   igs-platform join edge_net, under igs- prefixed names (upstream names are
+#   shared across stacks). Postgres, the migrator and the worker stay on
+#   igs_internal, which has no route out (no internet).
+# - igs-postgres has no host port: nothing outside this project reaches it.
+# - Every container has a memory limit (IGS-D8), so igs can't starve the other
+#   stacks on the host: 512m + 512m + 512m + 256m running, plus the one-shot
+#   migrator's 256m during a deploy (1.75 GiB steady, 2 GiB peak).
+# - Values come from .env.igs (decrypted from .env.igs.age; placeholders in
+#   .env.igs.example). Each service gets only the variables it needs.
+name: igs
+
+services:
+  igs-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: igs_pharma
+      POSTGRES_USER: igs
+      POSTGRES_PASSWORD: ${IGS_POSTGRES_PASSWORD:?set IGS_POSTGRES_PASSWORD in .env.igs}
+    volumes:
+      - igs_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U igs -d igs_pharma"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - igs_internal
+    mem_limit: 512m
+    cpus: 1
+    security_opt:
+      - no-new-privileges:true
+
+  # One shot, before the apps: the committed Drizzle migrations and the pg-boss
+  # schema (igs-pharma#46). Idempotent: a second run changes nothing.
+  igs-migrate:
+    image: ghcr.io/alisafari-it/igs-pharma-worker:${IGS_IMAGE_TAG:?set by igs-deploy.sh}
+    command: ["node", "dist/migrate.js"]
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env.igs}
+      LOG_LEVEL: info
+    depends_on:
+      igs-postgres:
+        condition: service_healthy
+    networks:
+      - igs_internal
+    mem_limit: 256m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+
+  igs-web:
+    image: ghcr.io/alisafari-it/igs-pharma-web:${IGS_IMAGE_TAG:?set by igs-deploy.sh}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env.igs}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env.igs}
+      AUTH_URL: ${AUTH_URL:?set AUTH_URL in .env.igs}
+      AUDIT_HMAC_KEY: ${AUDIT_HMAC_KEY:?set AUDIT_HMAC_KEY in .env.igs}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env.igs}
+      # Closed behind the "coming soon" page unless set to off on purpose.
+      SITE_GATE: ${SITE_GATE:-coming-soon}
+      LOG_LEVEL: info
+    depends_on:
+      igs-migrate:
+        condition: service_completed_successfully
+    # Liveness only (no database): readiness is /api/health, which igs-deploy.sh
+    # checks after the start. 127.0.0.1, not localhost (::1 isn't served).
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - igs_internal
+      # Public: igs-pharma.be proxies here (sites/igs-pharma.caddy).
+      - edge_net
+    mem_limit: 512m
+    cpus: 1
+    security_opt:
+      - no-new-privileges:true
+
+  igs-platform:
+    image: ghcr.io/alisafari-it/igs-pharma-platform:${IGS_IMAGE_TAG:?set by igs-deploy.sh}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env.igs}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env.igs}
+      AUTH_URL: ${IGS_PLATFORM_AUTH_URL:?set IGS_PLATFORM_AUTH_URL in .env.igs}
+      AUDIT_HMAC_KEY: ${AUDIT_HMAC_KEY:?set AUDIT_HMAC_KEY in .env.igs}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env.igs}
+      LOG_LEVEL: info
+    depends_on:
+      igs-migrate:
+        condition: service_completed_successfully
+    # The platform's only health route, /api/health, checks the database too.
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - igs_internal
+      # Public: platform.igs-pharma.be proxies here, behind the staff IP
+      # allow-list (sites/igs-pharma.caddy).
+      - edge_net
+    mem_limit: 512m
+    cpus: 1
+    security_opt:
+      - no-new-privileges:true
+
+  igs-worker:
+    image: ghcr.io/alisafari-it/igs-pharma-worker:${IGS_IMAGE_TAG:?set by igs-deploy.sh}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env.igs}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env.igs}
+      LOG_LEVEL: info
+    depends_on:
+      igs-migrate:
+        condition: service_completed_successfully
+    networks:
+      - igs_internal
+    mem_limit: 256m
+    cpus: 0.5
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  # The stack's private network. Internal: no gateway, so nothing on it reaches
+  # the internet (igs-web and igs-platform get out through edge_net).
+  igs_internal:
+    internal: true
+  # The shared edge's network (#770), created by vps-deploy.sh (and by
+  # igs-deploy.sh if it is missing). Only igs-web and igs-platform join it.
+  edge_net:
+    external: true
+    name: edge_net
+
+volumes:
+  igs_postgres_data:

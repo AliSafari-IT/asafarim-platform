@@ -1,0 +1,35 @@
+# igs stack's site file on the shared edge (#822): igs-pharma.be staging, a
+# separate compose project (infra/igs/docker-compose.yml, project `igs`).
+# Published by infra/scripts/igs-deploy.sh through
+# infra/edge/scripts/edge-deploy-site.sh.
+#
+# Until the edge cutover the asafarim-com Caddy serves infra/caddy/Caddyfile,
+# which carries the same blocks; infra/edge/scripts/edge-config.test.mjs fails
+# if the two stop adapting to the same routes, so change both together.
+#
+# Only igs-web and igs-platform are on edge_net (prefixed names: upstream
+# names are shared across stacks). The apps set their own security headers
+# (CSP with a nonce, HSTS, ...), so nothing here adds or overrides any.
+#
+# The back-office is staff only: platform.igs-pharma.be answers 403 unless the
+# client IP is in IGS_PLATFORM_ALLOW_IPS (space-separated IPs or CIDRs), read
+# from the Caddy container's environment when the config is loaded. Unset, it
+# falls back to 192.0.2.1/32 (TEST-NET-1, nobody), so it fails closed.
+
+igs-pharma.be {
+  reverse_proxy igs-web:3000
+}
+
+www.igs-pharma.be {
+  redir https://igs-pharma.be{uri} 301
+}
+
+platform.igs-pharma.be {
+  @igs_pharma_staff remote_ip {$IGS_PLATFORM_ALLOW_IPS:192.0.2.1/32}
+  handle @igs_pharma_staff {
+    reverse_proxy igs-platform:3001
+  }
+  handle {
+    respond "Forbidden" 403
+  }
+}

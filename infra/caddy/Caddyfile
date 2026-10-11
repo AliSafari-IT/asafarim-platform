@@ -192,6 +192,31 @@ www.asafarim.site {
   redir https://asafarim.site{uri} 301
 }
 
+# igs-pharma.be staging (#822): a separate deployment (compose project `igs`,
+# infra/scripts/igs-deploy.sh) that shares this Caddy for TLS until the edge
+# cutover, when infra/edge/caddy/sites/igs-pharma.caddy takes over. Keep the
+# two identical (edge-config.test.mjs). This Caddy reaches igs-web and
+# igs-platform on edge_net. The apps set their own security headers.
+# platform.igs-pharma.be is staff only: IGS_PLATFORM_ALLOW_IPS (IPs or CIDRs,
+# space-separated) from this container's environment; unset, nobody (TEST-NET-1).
+igs-pharma.be {
+  reverse_proxy igs-web:3000
+}
+
+www.igs-pharma.be {
+  redir https://igs-pharma.be{uri} 301
+}
+
+platform.igs-pharma.be {
+  @igs_pharma_staff remote_ip {$IGS_PLATFORM_ALLOW_IPS:192.0.2.1/32}
+  handle @igs_pharma_staff {
+    reverse_proxy igs-platform:3001
+  }
+  handle {
+    respond "Forbidden" 403
+  }
+}
+
 # M11: wildcard managed-app hosting. Every `{app-slug}.apps.asafarim.com`
 # host is routed to the SAME AppBuilder container as the builder itself —
 # there is no per-app container or deployment target. AppBuilder's own

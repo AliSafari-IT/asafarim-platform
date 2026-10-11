@@ -30,6 +30,11 @@ services:
       - ./caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
+    environment:
+      # sites/igs-pharma.caddy's staff allow-list for platform.igs-pharma.be
+      # (#822), from the shell running `docker compose -p edge up`. Unset,
+      # nobody gets in.
+      IGS_PLATFORM_ALLOW_IPS: ${IGS_PLATFORM_ALLOW_IPS:-192.0.2.1/32}
     networks:
       - edge_net
     mem_limit: 256m

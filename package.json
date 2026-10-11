@@ -23,6 +23,8 @@
     "env:decrypt:local": "envage decrypt --all --env local",
     "env:encrypt:production": "envage encrypt --all --env production",
     "env:decrypt:production": "envage decrypt --all --env production",
+    "env:encrypt:igs": "envage encrypt --all --env igs",
+    "env:decrypt:igs": "envage decrypt --all --env igs",
     "db:generate": "pnpm --filter @asafarim/db db:generate",
     "db:migrate": "pnpm --filter @asafarim/db db:migrate",
     "db:migrate:deploy": "pnpm --filter @asafarim/db db:migrate:deploy",

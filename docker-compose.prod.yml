@@ -837,8 +837,16 @@ services:
       - appbuilder
       - resumatch
       - tasksai
+    environment:
+      # platform.igs-pharma.be's staff allow-list (#822), in .env.production.
+      # Unset, the Caddyfile's default lets nobody in.
+      IGS_PLATFORM_ALLOW_IPS: ${IGS_PLATFORM_ALLOW_IPS:-192.0.2.1/32}
     networks:
       - asafarim_net
+      # Until the edge cutover this Caddy is the gateway for other stacks too:
+      # it reaches the igs stack's igs-web and igs-platform on edge_net (#822).
+      # A changed definition needs infra/scripts/caddy-recreate.sh --yes once.
+      - edge_net
 
 networks:
   asafarim_net:
