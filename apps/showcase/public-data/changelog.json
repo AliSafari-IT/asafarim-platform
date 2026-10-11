@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-11",
+    "title": "Igs: health check with Discord alerts on change (#828)",
+    "sha": "bb55297d",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/bb55297d"
+  },
+  {
+    "date": "2026-10-11",
     "title": "Infra: igs-pharma.be staging stack, edge site and igs-deploy.sh (#822)",
     "sha": "c8b5de27",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/c8b5de27"
@@ -112,11 +118,5 @@
     "title": "Web: Requirements → Test Plan tool (AIT-005)",
     "sha": "2798c612",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2798c612"
-  },
-  {
-    "date": "2026-09-27",
-    "title": "Labs: redesign the experiments catalogue",
-    "sha": "16542209",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/16542209"
   }
 ]
