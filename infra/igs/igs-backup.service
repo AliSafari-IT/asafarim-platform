@@ -1,0 +1,13 @@
+# Installed by infra/scripts/igs-deploy.sh (#829). One encrypted backup of the igs
+# Postgres to the S3 bucket in the igs env; igs-backup.timer starts it nightly.
+[Unit]
+Description=igs-pharma.be staging: encrypted Postgres backup to S3
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=REPO_DIR=@REPO_DIR@
+ExecStart=/usr/local/sbin/igs-backup
+TimeoutStartSec=1h
+Nice=10

@@ -1,0 +1,13 @@
+# Installed by infra/scripts/igs-deploy.sh (#829) when the backup keys are set:
+# the igs Postgres backup every night at about 02:30 Brussels time. A run missed
+# while the server was off runs at the next boot.
+[Unit]
+Description=igs-pharma.be staging: nightly encrypted Postgres backup
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 Europe/Brussels
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
