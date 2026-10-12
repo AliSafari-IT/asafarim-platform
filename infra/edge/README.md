@@ -4,7 +4,7 @@ One Caddy that will own ports 80/443 for **every** stack on the host (asafarim-c
 
 - Phase 1 (#774): the project, the deploy script and its tests.
 - Phase 2 (#791): `edge_net` and the site files are installed by every asafarim-com deploy, with **no port change**. `scripts/edge-config.test.mjs` keeps `sites/asafarim-com.caddy` routing exactly what `infra/caddy/Caddyfile` routes today.
-- Phase 3 (needs the owner's go-ahead): the cutover. Stop `asafarim-com-caddy-1` **before** `docker compose -p edge up`, because the two share the certificate volumes.
+- Phase 3 (needs the owner's go-ahead): the cutover. Stop `asafarim-com-caddy-1` **before** `docker compose -p edge up`, because the two share the certificate volumes. Before it, run `scripts/edge-cutover-check.sh` (#839) on the VPS: read-only, it compares the live Caddy and the edge **by host name**, checks that every file other stacks installed in the live `sites.local/` has an identical copy in the edge's `sites/`, validates the edge's combined config and ends with PASS or FAIL. `--snapshot <file>` and `--compare <before> <after>` record and compare each host's HTTP status and certificate expiry around the switch.
 
 ## The `edge_net` rule
 
