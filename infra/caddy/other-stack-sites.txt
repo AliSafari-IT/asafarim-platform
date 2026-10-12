@@ -3,7 +3,7 @@
 # "Other stacks on the same edge (not drift)" (asafarim-os, #767).
 asafarim.be
 www.asafarim.be
-# ASafariM OS placeholder (#775); becomes the asafarim-os stack's own site file at the edge cutover (#770).
+# ASafariM OS landing page: the asafarim-os stack's own site file (asafarim-os#97, #837).
 asafarim.site
 www.asafarim.site
 # igs-pharma.be staging, the igs stack's own site file (#822).
