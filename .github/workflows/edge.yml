@@ -60,6 +60,8 @@ jobs:
         run: node --test infra/edge/scripts/edge-deploy-site.test.mjs
       - name: The edge config routes what production routes today
         run: node --test infra/edge/scripts/edge-config.test.mjs
+      - name: edge-cutover-check.sh, the read-only cutover check (#839)
+        run: node --test infra/edge/scripts/edge-cutover-check.test.mjs
       - name: edge_net membership is an explicit allow-list
         run: node --test infra/edge/scripts/edge-net.test.mjs
       - name: igs-pharma staging deploy helpers (#822)
