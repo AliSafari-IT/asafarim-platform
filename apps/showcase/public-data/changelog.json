@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-13",
+    "title": "Edge: read-only edge cutover check script (#839)",
+    "sha": "082908a4",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/082908a4"
+  },
+  {
     "date": "2026-10-12",
     "title": "Igs: automatic staging deploy through a forced-command SSH key (#833)",
     "sha": "55c1dfa7",
@@ -112,11 +118,5 @@
     "title": "feat: add agent assurance contract and HTTP runner",
     "sha": "fc5f7555",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fc5f7555"
-  },
-  {
-    "date": "2026-09-27",
-    "title": "Showcase: real versions on the proof board — npm portfolio + git revisions",
-    "sha": "d1f963ab",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d1f963ab"
   }
 ]
