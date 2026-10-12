@@ -95,12 +95,14 @@ igs_json_string() {
   printf '"%s"' "$s"
 }
 
-# Posts to Discord; the URL goes to curl through a config on stdin.
+# Posts to Discord; the URL goes to curl through a config on stdin. Fails unless
+# Discord answers 2xx (--fail), so a rate limit, a revoked webhook or an outage
+# is retried instead of counted as sent.
 igs_notify() { # <webhook> <message>
   local body
   body="{\"content\":$(igs_json_string "$2")}"
   printf 'url = "%s"\n' "$1" |
-    curl -sS -o /dev/null --max-time 15 -X POST -H "Content-Type: application/json" \
+    curl -sS --fail -o /dev/null --max-time 15 -X POST -H "Content-Type: application/json" \
       --data-binary "$body" -K - 2>/dev/null
 }
 

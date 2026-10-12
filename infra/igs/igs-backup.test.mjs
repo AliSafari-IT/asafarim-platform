@@ -480,6 +480,43 @@ exec "${realDocker}" "$@"
   }
 );
 
+test("a backup failure whose Discord alert is rejected logs that and still exits 1 (#835)", () => {
+  const bin = mkdtempSync(path.join(scratch, "bin-"));
+  const posts = path.join(bin, "posts.log");
+  // Discord answers 429: like real curl, only --fail turns that into exit 22.
+  writeFileSync(
+    path.join(bin, "curl"),
+    `#!/usr/bin/env bash\n{ echo "ARGS $*"; cat; echo; } >>"${posts}"\n[[ " $* " == *" --fail "* ]] && exit 22\nexit 0\n`
+  );
+  chmodSync(path.join(bin, "curl"), 0o755);
+  const env = envFile({
+    IGS_ALERT_WEBHOOK_DISCORD:
+      "https://discord.com/api/webhooks/123/test-token",
+  });
+  const r = spawnSync(
+    "bash",
+    [
+      "-c",
+      `source "$1" && IGS_BACKUP_ENV_FILE="$2" igs_backup_fail "pg_dump broke"`,
+      "test",
+      BACKUP,
+      env,
+    ],
+    {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    }
+  );
+  assert.equal(r.status, 1, r.stderr);
+  assert.match(r.stdout, /FAILED: pg_dump broke/);
+  assert.match(r.stdout, /could not post the failure to Discord/);
+  assert.match(readFileSync(posts, "utf8"), /backup failed: pg_dump broke/);
+  assert.ok(
+    !(r.stdout + r.stderr).includes("test-token"),
+    "the webhook URL is never printed"
+  );
+});
+
 test("the timer runs nightly at 02:30 Brussels time and the deploy installs it only when configured", () => {
   const timer = readFileSync(
     path.join(repo, "infra/igs/igs-backup.timer"),

@@ -309,7 +309,9 @@ test("igs_alert_webhook accepts only a Discord webhook URL", () => {
 /**
  * A fake VPS: docker answers for the igs services except those in DOWN, and
  * curl answers the public health URL with PUBLIC (200 by default) and records
- * every webhook post (its stdin config and its body) in posts.log.
+ * every webhook post (its stdin config and its body) in posts.log. With
+ * FAIL_POST (an HTTP status), Discord rejects the post: like real curl, the
+ * fake only exits non-zero (22) when it is called with --fail.
  */
 function fakeVps() {
   const dir = mkdtempSync(path.join(scratch, "vps-"));
@@ -331,7 +333,11 @@ exit 2
     path.join(bin, "curl"),
     `#!/usr/bin/env bash
 for a in "$@"; do
-  if [[ "$a" == "-K" ]]; then { cat; printf '%s\\n' "$*"; } >>"${dir}/posts.log"; exit 0; fi
+  if [[ "$a" == "-K" ]]; then
+    { cat; printf '%s\\n' "$*"; } >>"${dir}/posts.log"
+    [[ -n "\${FAIL_POST:-}" && " $* " == *" --fail "* ]] && exit 22
+    exit 0
+  fi
 done
 printf '%s' "\${PUBLIC:-200}"
 `
@@ -403,6 +409,44 @@ test("igs-healthcheck.sh posts one alert when igs-worker stops and one recovery 
     assert.ok(
       !line.includes("fake-token"),
       "the webhook is not on curl's command line"
+    );
+});
+
+test("igs-healthcheck.sh keeps the state when Discord rejects the alert, and sends it on the next run (#835)", () => {
+  const vps = fakeVps();
+  const outputs = [];
+  const run = (extra) => {
+    const r = vps.run(extra);
+    assert.equal(r.status, 0, r.stderr);
+    outputs.push(r.stdout + r.stderr);
+    return r;
+  };
+  const alerts = () => vps.posts().match(/"content"/g)?.length ?? 0;
+
+  run();
+  for (const status of ["429", "500"]) {
+    assert.match(
+      run({ DOWN: "igs-worker", FAIL_POST: status }).stdout,
+      /could not send the alert message to Discord; retrying on the next run/
+    );
+  }
+  assert.equal(alerts(), 2, "each rejected run tried to post");
+
+  const sent = run({ DOWN: "igs-worker" });
+  assert.match(sent.stdout, /sent the alert message to Discord/);
+  assert.equal(alerts(), 3, "the next run sends the alert");
+  run({ DOWN: "igs-worker" });
+  assert.equal(alerts(), 3, "and only once");
+
+  run({ FAIL_POST: "503" });
+  run();
+  assert.equal(alerts(), 5, "a rejected recovery is retried too");
+  assert.match(vps.posts(), /has recovered/);
+
+  for (const out of outputs)
+    assert.ok(
+      !out.includes("fake-token"),
+      "the webhook never shows in the log"
     );
 });
 
