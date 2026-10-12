@@ -20,6 +20,7 @@ on:
       - "infra/scripts/lib/igs.sh"
       - "docker-compose.prod.yml"
       - ".github/workflows/edge.yml"
+      - ".github/workflows/igs-deploy.yml"
   push:
     branches: [main]
     paths:
@@ -34,6 +35,7 @@ on:
       - "infra/scripts/lib/igs.sh"
       - "docker-compose.prod.yml"
       - ".github/workflows/edge.yml"
+      - ".github/workflows/igs-deploy.yml"
   workflow_dispatch: {}
 
 permissions:
@@ -53,7 +55,7 @@ jobs:
           # No install here (see brand-spelling.yml).
           package-manager-cache: false
       - name: shellcheck
-        run: shellcheck -S warning infra/edge/scripts/*.sh infra/scripts/lib/edge.sh infra/scripts/lib/igs.sh infra/scripts/igs-deploy.sh infra/scripts/igs-healthcheck.sh infra/scripts/igs-backup.sh infra/scripts/igs-restore-drill.sh infra/igs/postgres-tls-init.sh
+        run: shellcheck -S warning infra/edge/scripts/*.sh infra/scripts/lib/edge.sh infra/scripts/lib/igs.sh infra/scripts/igs-deploy.sh infra/scripts/igs-healthcheck.sh infra/scripts/igs-backup.sh infra/scripts/igs-restore-drill.sh infra/igs/postgres-tls-init.sh infra/igs/deploy-key-wrapper.sh
       - name: edge-deploy-site.sh behaviour
         run: node --test infra/edge/scripts/edge-deploy-site.test.mjs
       - name: The edge config routes what production routes today
@@ -62,6 +64,8 @@ jobs:
         run: node --test infra/edge/scripts/edge-net.test.mjs
       - name: igs-pharma staging deploy helpers (#822)
         run: node --test infra/igs/igs-deploy.test.mjs
+      - name: igs automatic staging deploy key and workflow (#833)
+        run: node --test infra/igs/deploy-key-wrapper.test.mjs
       - name: Install age (backup encryption tests)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
       - name: igs nightly encrypted backups and restore drill (#829)

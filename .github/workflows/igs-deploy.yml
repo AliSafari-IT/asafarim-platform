@@ -1,0 +1,108 @@
+# igs-pharma.be staging: automatic deploy (asafarim-platform#833, roadmap IGS-D6).
+#
+# Deploys one igs-pharma commit (its images are on GHCR, tagged with the full
+# SHA) by running infra/scripts/igs-deploy.sh <sha> on the VPS. The SSH key can
+# only do that: its authorized_keys line forces infra/igs/deploy-key-wrapper.sh,
+# which accepts one full SHA and nothing else (no shell, no pty, no forwarding).
+#
+# Triggers:
+#   - by hand: Actions > igs-deploy > Run workflow, with the full SHA;
+#   - from igs-pharma after `publish` on main: a repository_dispatch of type
+#     igs-deploy with client_payload.sha.
+#
+# The igs-staging environment holds everything sensitive (add a required
+# reviewer there to approve each deploy):
+#   secrets IGS_DEPLOY_SSH_KEY (private key), IGS_DEPLOY_KNOWN_HOSTS (the VPS host
+#   key line), IGS_DEPLOY_HOST (the VPS address);
+#   variables IGS_DEPLOY_USER (default root), IGS_DEPLOY_PORT (default 22).
+# This repository is public, so the deploy's output is shown with IP addresses
+# redacted.
+name: igs-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full 40-character igs-pharma commit SHA (its images must be on GHCR)
+        required: true
+        type: string
+  repository_dispatch:
+    types: [igs-deploy]
+
+permissions: {}
+
+concurrency:
+  group: igs-deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy igs-pharma to staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: igs-staging
+    env:
+      SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.event.client_payload.sha }}
+    steps:
+      - name: Check the SHA
+        run: |
+          if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Not a full 40-character lowercase commit SHA."
+            exit 1
+          fi
+          echo "Deploying igs-pharma ${SHA}"
+
+      - name: Set up the deploy key
+        env:
+          SSH_KEY: ${{ secrets.IGS_DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.IGS_DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.IGS_DEPLOY_HOST }}
+        run: |
+          missing=()
+          [[ -n "$SSH_KEY" ]] || missing+=(IGS_DEPLOY_SSH_KEY)
+          [[ -n "$KNOWN_HOSTS" ]] || missing+=(IGS_DEPLOY_KNOWN_HOSTS)
+          [[ -n "$HOST" ]] || missing+=(IGS_DEPLOY_HOST)
+          if ((${#missing[@]})); then
+            echo "::error::Set these secrets in the igs-staging environment: ${missing[*]}"
+            exit 1
+          fi
+          dir="${RUNNER_TEMP}/igs-ssh"
+          (umask 077 && mkdir -p "$dir" && printf '%s\n' "$SSH_KEY" >"${dir}/key" && printf '%s\n' "$KNOWN_HOSTS" >"${dir}/known_hosts")
+
+      - name: Run igs-deploy.sh on the VPS
+        env:
+          HOST: ${{ secrets.IGS_DEPLOY_HOST }}
+          SSH_USER: ${{ vars.IGS_DEPLOY_USER || 'root' }}
+          SSH_PORT: ${{ vars.IGS_DEPLOY_PORT || '22' }}
+        run: |
+          set -o pipefail
+          dir="${RUNNER_TEMP}/igs-ssh"
+          start=$(date +%s)
+          status=0
+          # -T: no pty. The forced command ignores everything but the SHA.
+          ssh -T -i "${dir}/key" -p "$SSH_PORT" \
+            -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="${dir}/known_hosts" \
+            -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 \
+            "${SSH_USER}@${HOST}" "$SHA" 2>&1 |
+            sed -E -e 's/\b([0-9]{1,3}\.){3}[0-9]{1,3}(\/[0-9]{1,2})?\b/[ip]/g' \
+              -e 's/\b([0-9a-fA-F]{0,4}:){4,7}[0-9a-fA-F]{0,4}(\/[0-9]{1,3})?/[ip]/g' \
+              -e 's/[0-9a-fA-F:]*::[0-9a-fA-F:]*(\/[0-9]{1,3})?/[ip]/g' |
+            tee "${dir}/deploy.log" || status=$?
+          seconds=$(($(date +%s) - start))
+          {
+            echo "### igs-pharma staging deploy"
+            echo
+            echo "- Commit: \`${SHA}\`"
+            if ((status == 0)); then echo "- Result: deployed"; else echo "- Result: **failed** (exit ${status})"; fi
+            echo "- Duration: ${seconds}s"
+            echo
+            echo '```'
+            tail -n 15 "${dir}/deploy.log"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Remove the deploy key
+        if: always()
+        run: rm -rf "${RUNNER_TEMP}/igs-ssh"
