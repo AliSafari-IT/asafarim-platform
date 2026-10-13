@@ -3,12 +3,16 @@
 # one-shot igs-postgres-tls service (postgres:16, which ships openssl; the
 # alpine image Postgres runs on doesn't), with no network.
 #
-# The igs-pharma apps always connect with TLS (`ssl: "require"`, certificate
-# not verified yet: B-08), so igs-postgres needs a key pair. On the first run
+# The igs-pharma apps always connect with TLS and verify the certificate and
+# its host name (igs-pharma#78), so igs-postgres needs a key pair. On the first run
 # this creates a self-signed one (CN igs-postgres, 10 years) in the
 # igs_postgres_tls volume; every later run keeps it unless the pair is broken
 # or mismatched. Either way it (re)sets what Postgres requires: the key owned
 # by Postgres's user and not readable by anyone else.
+#
+# It then copies ONLY the public certificate to the igs_postgres_ca volume
+# (ca.crt, read-only for everyone, #841): the apps mount that one to verify
+# the server, and never the volume that holds the key.
 set -eu
 
 DIR="${TLS_DIR:-/tls}"
@@ -16,6 +20,7 @@ DIR="${TLS_DIR:-/tls}"
 OWNER="${TLS_OWNER:-70:70}"
 CRT="${DIR}/server.crt"
 KEY="${DIR}/server.key"
+CA_DIR="${CA_DIR:-/ca}"
 
 # A pair that parses and belongs together (an interrupted first run can leave
 # a new key next to an old or missing certificate: regenerate then).
@@ -42,3 +47,10 @@ fi
 chown "$OWNER" "$CRT" "$KEY"
 chmod 0600 "$KEY"
 chmod 0644 "$CRT"
+
+# The public certificate for the apps (#841): replaced atomically, never the key.
+rm -f "${CA_DIR}/ca.crt.new"
+cp "$CRT" "${CA_DIR}/ca.crt.new"
+chmod 0444 "${CA_DIR}/ca.crt.new"
+mv -f "${CA_DIR}/ca.crt.new" "${CA_DIR}/ca.crt"
+echo "igs-postgres-tls: published the public certificate as ca.crt"
