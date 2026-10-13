@@ -3,7 +3,8 @@
 # before the swap) against a fake docker, and (phase 2) check that the edge's
 # site files route exactly what infra/caddy/Caddyfile routes today. Linux only:
 # the script needs flock; the config check needs Docker (the pinned caddy).
-# Also the igs-pharma.be stack's deploy helpers and site file (#822).
+# Also the igs-pharma.be stack's deploy helpers and site file (#822), and the
+# read-only edge cutover check (#839).
 name: Edge
 
 on:
@@ -62,6 +63,8 @@ jobs:
         run: node --test infra/edge/scripts/edge-config.test.mjs
       - name: edge_net membership is an explicit allow-list
         run: node --test infra/edge/scripts/edge-net.test.mjs
+      - name: The edge cutover check (read-only, #839)
+        run: node --test infra/edge/scripts/edge-cutover-check.test.mjs
       - name: igs-pharma staging deploy helpers (#822)
         run: node --test infra/igs/igs-deploy.test.mjs
       - name: igs automatic staging deploy key and workflow (#833)
