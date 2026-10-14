@@ -11,8 +11,12 @@
 # check makes any recurrence fail the deploy instead of passing silently.
 #
 # Returns non-zero with a reason on stderr; prints nothing else on failure.
+#
+# verify_caddy_config = the Caddyfile sha256 check on the asafarim-com Caddy
+# container + verify_public_routes (below), which alone is what a deploy checks
+# once the shared edge is live.
 verify_caddy_config() {
-  local host_sum container_sum code path
+  local host_sum container_sum
 
   host_sum="$(sha256sum infra/caddy/Caddyfile | awk '{print $1}')"
   container_sum="$("${COMPOSE[@]}" exec -T caddy sha256sum /etc/caddy/Caddyfile | awk '{print $1}')" || container_sum=""
@@ -23,6 +27,17 @@ verify_caddy_config() {
     echo "  infra/scripts/caddy-recreate.sh --yes" >&2
     return 1
   fi
+
+  verify_public_routes
+}
+
+# The checks on what the PUBLIC proxy answers, whichever Caddy runs it. After
+# the shared-edge cutover (#770) the asafarim-com Caddy is stopped and the
+# edge serves traffic, so vps-deploy.sh calls only this one: the sha256 check
+# above is about the old container, and edge-deploy-site.sh already proves the
+# edge sees this release's site file.
+verify_public_routes() {
+  local code path
 
   # The runner protocol must never be reachable through the public proxy
   # (#718, ADR 0004 §1). A 404 here comes from Caddy; the app answers 401/503.
