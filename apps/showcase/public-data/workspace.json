@@ -93,10 +93,10 @@
       "kind": "package",
       "folder": "packages/auth",
       "description": "Shared Auth.js v5 authentication for the ASafariM Platform",
-      "sha": "63ed992d",
-      "date": "2026-10-11",
+      "sha": "844ab783",
+      "date": "2026-10-14",
       "since": "2026-07-04",
-      "commits": 57,
+      "commits": 58,
       "dependents": 13
     },
     {
@@ -203,10 +203,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "281f016b",
+      "sha": "76507a4d",
       "date": "2026-10-14",
       "since": "2026-07-04",
-      "commits": 434,
+      "commits": 435,
       "dependents": 0
     },
     {
