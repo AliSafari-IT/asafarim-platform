@@ -186,7 +186,7 @@ describe("configuration", () => {
     assert.equal(r.status, 0, r.stderr);
     const text = readFileSync(out, "utf8");
     assert.ok(!/IGS_BACKUP|test-secret|age1/.test(text), text);
-    assert.match(text, /^DATABASE_URL=/m);
+    assert.match(text, /^AUTH_SECRET=/m);
   });
 });
 

@@ -6,7 +6,9 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
+  mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -117,6 +119,7 @@ test("igs_app_env drops the deploy-only IGS_* keys and is private", () => {
       "IGS_MIGRATOR_DATABASE_URL=postgres://m",
       "IGS_PLATFORM_ALLOW_IPS=192.0.2.10/32",
       "DATABASE_URL=postgres://a",
+      "DATABASE_MIGRATE_URL=postgres://m",
       'AUTH_SECRET="s$x"',
       "SITE_GATE=coming-soon",
       "",
@@ -125,7 +128,9 @@ test("igs_app_env drops the deploy-only IGS_* keys and is private", () => {
   assert.equal(lib("igs_app_env", full, apps).status, 0);
   const text = readFileSync(apps, "utf8");
   assert.ok(!/^IGS_/m.test(text), text);
-  for (const key of ["DATABASE_URL", "AUTH_SECRET", "SITE_GATE"])
+  // The compose file sets each service's connection (#841): none from the env file.
+  assert.ok(!/^DATABASE_(MIGRATE_)?URL=/m.test(text), text);
+  for (const key of ["AUTH_SECRET", "SITE_GATE"])
     assert.match(text, new RegExp(`^${key}=`, "m"));
   assert.equal(
     spawnSync("stat", ["-c", "%a", apps], { encoding: "utf8" }).stdout.trim(),
@@ -201,11 +206,12 @@ test("igs-postgres serves TLS from the igs-postgres-tls volume, which runs first
 
 test("postgres-tls-init.sh creates a key only Postgres can read, and keeps it on later runs", () => {
   const dir = mkdtempSync(path.join(scratch, "tls-"));
+  const ca = mkdtempSync(path.join(scratch, "ca-"));
   const owner = `${process.getuid()}:${process.getgid()}`;
   const run = () =>
     spawnSync("sh", [path.join(repo, "infra/igs/postgres-tls-init.sh")], {
       encoding: "utf8",
-      env: { ...process.env, TLS_DIR: dir, TLS_OWNER: owner },
+      env: { ...process.env, TLS_DIR: dir, CA_DIR: ca, TLS_OWNER: owner },
     });
   const first = run();
   assert.equal(first.status, 0, first.stderr);
@@ -218,6 +224,14 @@ test("postgres-tls-init.sh creates a key only Postgres can read, and keeps it on
   assert.equal(mode("server.crt"), "644");
   const cert = readFileSync(path.join(dir, "server.crt"), "utf8");
   assert.match(cert, /^-----BEGIN CERTIFICATE-----\n/);
+  // #841: the apps' volume gets the public certificate only, read-only.
+  const caMode = () =>
+    spawnSync("stat", ["-c", "%a", path.join(ca, "ca.crt")], {
+      encoding: "utf8",
+    }).stdout.trim();
+  assert.equal(readFileSync(path.join(ca, "ca.crt"), "utf8"), cert);
+  assert.equal(caMode(), "444");
+  assert.deepEqual(readdirSync(ca), ["ca.crt"], "never the key");
 
   chmodSync(path.join(dir, "server.key"), 0o644);
   const second = run();
@@ -229,7 +243,7 @@ test("postgres-tls-init.sh creates a key only Postgres can read, and keeps it on
   // An interrupted run: a key that doesn't match the certificate is replaced.
   const other = mkdtempSync(path.join(scratch, "tls-other-"));
   spawnSync("sh", [path.join(repo, "infra/igs/postgres-tls-init.sh")], {
-    env: { ...process.env, TLS_DIR: other, TLS_OWNER: owner },
+    env: { ...process.env, TLS_DIR: other, CA_DIR: other, TLS_OWNER: owner },
   });
   writeFileSync(
     path.join(dir, "server.key"),
@@ -238,7 +252,10 @@ test("postgres-tls-init.sh creates a key only Postgres can read, and keeps it on
   const third = run();
   assert.equal(third.status, 0, third.stderr);
   assert.match(third.stdout, /created a self-signed certificate/);
-  assert.notEqual(readFileSync(path.join(dir, "server.crt"), "utf8"), cert);
+  const renewed = readFileSync(path.join(dir, "server.crt"), "utf8");
+  assert.notEqual(renewed, cert);
+  assert.equal(readFileSync(path.join(ca, "ca.crt"), "utf8"), renewed);
+  assert.equal(caMode(), "444");
 });
 
 test("igs-deploy.sh pulls igs-postgres-tls with the rest", () => {
@@ -487,4 +504,308 @@ test("igs-deploy.sh installs the health check timer, and the units are well-form
   );
   assert.match(timer, /\nOnUnitActiveSec=2min\n/);
   assert.match(timer, /\nWantedBy=timers\.target\n/);
+});
+
+// --- Least-privilege logins and verified TLS (#841) ---
+const COMPOSE = path.join(repo, "infra/igs/docker-compose.yml");
+
+/** One service's block of the compose file (two-space-indented key to the next one). */
+function service(name) {
+  const compose = readFileSync(COMPOSE, "utf8");
+  const start = compose.indexOf(`\n  ${name}:\n`);
+  assert.notEqual(start, -1, name);
+  const rest = compose.slice(start + 1);
+  const end = rest.slice(1).search(/\n {2}[a-z][a-z0-9-]*:\n|\n[a-z]/);
+  return end === -1 ? rest : rest.slice(0, end + 1);
+}
+
+test("each IGS service connects as its own login, the migrator only in igs-migrate (#841)", () => {
+  for (const name of ["igs-web", "igs-platform"])
+    assert.match(
+      service(name),
+      /\n {6}DATABASE_URL: \$\{IGS_APP_DATABASE_URL:\?\}\n/,
+      name
+    );
+  assert.match(
+    service("igs-worker"),
+    /\n {6}DATABASE_URL: \$\{IGS_WORKER_DATABASE_URL:\?\}\n/
+  );
+  const migrate = service("igs-migrate");
+  assert.match(
+    migrate,
+    /\n {6}DATABASE_MIGRATE_URL: \$\{IGS_MIGRATOR_DATABASE_URL:\?\}\n/
+  );
+  const runtime = /\n {6}DATABASE_URL: \$\{(IGS_[A-Z_]+):\?\}\n/.exec(migrate);
+  assert.ok(runtime, "igs-migrate has a runtime DATABASE_URL");
+  assert.notEqual(runtime[1], "IGS_MIGRATOR_DATABASE_URL");
+  // The owner's connection reaches no other service.
+  for (const name of ["igs-web", "igs-platform", "igs-worker"])
+    assert.doesNotMatch(service(name), /MIGRATE|MIGRATOR/, name);
+});
+
+test("every IGS app verifies the database against the public certificate only (#841)", () => {
+  for (const name of ["igs-migrate", "igs-web", "igs-platform", "igs-worker"]) {
+    const block = service(name);
+    assert.match(
+      block,
+      /\n {6}DATABASE_SSL_CA: \/run\/igs-db-ca\/ca\.crt\n/,
+      name
+    );
+    assert.match(block, /\n {6}- igs_postgres_ca:\/run\/igs-db-ca:ro\n/, name);
+    assert.doesNotMatch(
+      block,
+      /igs_postgres_tls/,
+      `${name} never mounts the key`
+    );
+  }
+  assert.match(service("igs-postgres-tls"), /\n {6}- igs_postgres_ca:\/ca\n/);
+  assert.doesNotMatch(service("igs-postgres"), /igs_postgres_ca/);
+  assert.match(
+    readFileSync(COMPOSE, "utf8"),
+    /\nvolumes:\n(?:.*\n)* {2}igs_postgres_ca:\n/
+  );
+});
+
+test("nothing turns database TLS verification off (#841)", () => {
+  for (const file of [
+    COMPOSE,
+    path.join(repo, "infra/igs/.env.igs.example"),
+    DEPLOY,
+    path.join(repo, "infra/scripts/igs-cli.sh"),
+  ])
+    assert.doesNotMatch(
+      readFileSync(file, "utf8"),
+      /DATABASE_SSL\s*[:=]\s*["']?(insecure-dev|off)\b/,
+      file
+    );
+});
+
+test("igs_db_logins: own users per service, host igs-postgres, no password in the output", () => {
+  const SECRET = "s3cret-never-printed";
+  const env = (
+    app,
+    worker,
+    migrator = `postgres://igs:${SECRET}@igs-postgres:5432/igs`
+  ) => {
+    const file = path.join(mkdtempSync(path.join(scratch, "logins-")), "env");
+    writeFileSync(
+      file,
+      [
+        `IGS_MIGRATOR_DATABASE_URL=${migrator}`,
+        `IGS_APP_DATABASE_URL=${app}`,
+        `IGS_WORKER_DATABASE_URL=${worker}`,
+        "",
+      ].join("\n")
+    );
+    return lib("igs_db_logins", file);
+  };
+  const app = `postgres://igs_app_login:${SECRET}@igs-postgres:5432/igs`;
+  const worker = `postgresql://igs_worker_login:${SECRET}@igs-postgres:5432/igs?sslmode=verify-full`;
+  assert.equal(env(app, worker).status, 0, env(app, worker).stderr);
+
+  const failures = [
+    [
+      `postgres://igs:${SECRET}@igs-postgres:5432/igs`,
+      worker,
+      /IGS_APP_DATABASE_URL logs in as 'igs'/,
+    ],
+    [
+      app,
+      `postgres://igs:${SECRET}@igs-postgres/igs`,
+      /IGS_WORKER_DATABASE_URL logs in as 'igs'/,
+    ],
+    [app, app, /the same user/],
+    [
+      `postgres://igs_app_login:${SECRET}@localhost:5432/igs`,
+      worker,
+      /host igs-postgres/,
+    ],
+    [
+      "not-a-dsn",
+      worker,
+      /IGS_APP_DATABASE_URL is not a postgres:\/\/ connection string/,
+    ],
+  ];
+  for (const [a, w, message] of failures) {
+    const r = env(a, w);
+    assert.notEqual(r.status, 0, String(message));
+    assert.match(r.stderr, message);
+    assert.ok(!r.stderr.includes(SECRET), "never prints a password");
+  }
+});
+
+/** A fake checkout + stand-in docker/age that log their arguments. */
+function fakeHost({ dockerScript = "" } = {}) {
+  const root = mkdtempSync(path.join(scratch, "host-"));
+  const bin = path.join(root, "bin");
+  const calls = path.join(root, "calls.log");
+  mkdirSync(bin);
+  mkdirSync(path.join(root, ".age"));
+  mkdirSync(path.join(root, "infra/igs"), { recursive: true });
+  writeFileSync(path.join(root, ".age/key.txt"), "fake");
+  writeFileSync(path.join(root, "infra/igs/.env.igs.age"), "fake");
+  writeFileSync(
+    path.join(root, "infra/igs/create-login-roles.sql"),
+    readFileSync(path.join(repo, "infra/igs/create-login-roles.sql"))
+  );
+  const plain = [
+    "IGS_POSTGRES_PASSWORD=p",
+    "IGS_MIGRATOR_DATABASE_URL=postgres://igs:p@igs-postgres:5432/igs",
+    "IGS_APP_DATABASE_URL=postgres://igs_app_login:a@igs-postgres:5432/igs",
+    "IGS_WORKER_DATABASE_URL=postgres://igs_worker_login:w@igs-postgres:5432/igs",
+    "IGS_PLATFORM_ALLOW_IPS=192.0.2.10/32",
+    "AUTH_SECRET=x",
+    "AUDIT_HMAC_KEY=x",
+    "ENCRYPTION_KEY=x",
+    "",
+  ].join("\n");
+  writeFileSync(
+    path.join(bin, "age"),
+    `#!/bin/sh\necho "age $*" >>"${calls}"\ncat <<'ENV'\n${plain}ENV\n`
+  );
+  writeFileSync(
+    path.join(bin, "docker"),
+    `#!/bin/sh\necho "docker $*" >>"${calls}"\n${dockerScript}\nexit 0\n`
+  );
+  for (const tool of ["age", "docker"]) chmodSync(path.join(bin, tool), 0o755);
+  const run = (script, args, env = {}) =>
+    spawnSync("bash", [script, ...args], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        REPO_DIR: root,
+        ...env,
+      },
+    });
+  const log = () => {
+    try {
+      return readFileSync(calls, "utf8");
+    } catch {
+      return "";
+    }
+  };
+  return { root, run, log };
+}
+
+const SHA = "0123456789abcdef0123456789abcdef01234567";
+
+test("igs-deploy.sh --migrate-only runs igs-migrate and leaves the apps alone (#841)", () => {
+  const host = fakeHost();
+  const r = host.run(DEPLOY, ["--migrate-only", SHA]);
+  assert.equal(r.status, 0, r.stderr);
+  const calls = host.log();
+  assert.match(
+    calls,
+    /docker compose -p igs .* run --rm --no-deps igs-migrate\n/
+  );
+  assert.doesNotMatch(calls, /up -d --wait --no-deps igs-web/);
+  assert.doesNotMatch(calls, /systemctl|edge-deploy-site/);
+  assert.match(r.stdout, /Next: infra\/scripts\/igs-db-roles\.sh/);
+});
+
+test("igs-deploy.sh refuses a runtime login that is the migrator, before docker (#841)", () => {
+  const host = fakeHost();
+  const env = path.join(host.root, "bin/age");
+  writeFileSync(
+    env,
+    readFileSync(env, "utf8").replace(
+      "postgres://igs_app_login:a@",
+      "postgres://igs:a@"
+    )
+  );
+  const r = host.run(DEPLOY, [SHA]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /IGS_APP_DATABASE_URL logs in as 'igs'/);
+  assert.doesNotMatch(host.log(), /^docker /m);
+});
+
+test("igs-db-roles.sh runs the pinned SQL as the owner with the two login names, no password", () => {
+  const host = fakeHost({
+    dockerScript: [
+      'case "$*" in',
+      '  "compose -p igs ps -q igs-postgres") echo pg0123456789ab ;;',
+      '  *"SELECT count(*) FROM pg_roles"*) echo 2 ;;',
+      '  *"app_login=igs_app_login"*) cat >"$(dirname "$0")/../stdin.sql" ;;',
+      "esac",
+    ].join("\n"),
+  });
+  const r = host.run(path.join(repo, "infra/scripts/igs-db-roles.sh"), []);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(
+    host.log(),
+    /docker exec -i pg0123456789ab psql -X -q -U igs -d igs -v ON_ERROR_STOP=1 -v app_login=igs_app_login -v worker_login=igs_worker_login\n/
+  );
+  assert.equal(
+    readFileSync(path.join(host.root, "stdin.sql"), "utf8"),
+    readFileSync(path.join(repo, "infra/igs/create-login-roles.sql"), "utf8")
+  );
+  assert.match(r.stdout, /\\password igs_app_login/);
+  assert.doesNotMatch(host.log(), /PASSWORD '/i);
+});
+
+test("igs-db-roles.sh stops when the groups don't exist yet", () => {
+  const host = fakeHost({
+    dockerScript: [
+      'case "$*" in',
+      '  "compose -p igs ps -q igs-postgres") echo pg0123456789ab ;;',
+      '  *"SELECT count(*) FROM pg_roles"*) echo 0 ;;',
+      "esac",
+    ].join("\n"),
+  });
+  const r = host.run(path.join(repo, "infra/scripts/igs-db-roles.sh"), []);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /--migrate-only/);
+  assert.doesNotMatch(host.log(), /app_login=/);
+});
+
+test("the pinned create-login-roles.sql names its igs-pharma commit", () => {
+  assert.match(
+    readFileSync(path.join(repo, "infra/igs/create-login-roles.sql"), "utf8"),
+    /^-- Pinned copy of igs-pharma infra\/db\/create-login-roles\.sql at [0-9a-f]{40}\b/
+  );
+});
+
+test("igs-cli.sh runs a CLI in igs-migrate on the running worker's image, not in the worker (#841)", () => {
+  const dockerScript = [
+    'case "$*" in',
+    '  "compose -p igs ps -q igs-worker") echo wk0123456789ab ;;',
+    `  "inspect -f {{.Config.Image}} wk0123456789ab") echo ghcr.io/alisafari-it/igs-pharma-worker:${SHA} ;;`,
+    '  *" run "*) echo "IGS_IMAGE_TAG=$IGS_IMAGE_TAG" >>"$(dirname "$0")/../calls.log" ;;',
+    "esac",
+  ].join("\n");
+  const host = fakeHost({ dockerScript });
+  const r = host.run(path.join(repo, "infra/scripts/igs-cli.sh"), [
+    "bootstrap-owner",
+    "--email",
+    "owner@example.test",
+    "--reissue",
+  ]);
+  assert.equal(r.status, 0, r.stderr);
+  const calls = host.log();
+  assert.match(
+    calls,
+    /run --rm --no-deps -T igs-migrate node dist\/bootstrap-owner\.js --email owner@example\.test --reissue\n/
+  );
+  assert.match(calls, new RegExp(`IGS_IMAGE_TAG=${SHA}`));
+  assert.doesNotMatch(calls, /docker exec/);
+
+  const seed = fakeHost({ dockerScript });
+  const s = seed.run(
+    path.join(repo, "infra/scripts/igs-cli.sh"),
+    ["seed-catalog"],
+    {
+      IGS_ALLOW_SYNTHETIC_SEED: "1",
+    }
+  );
+  assert.equal(s.status, 0, s.stderr);
+  assert.match(
+    seed.log(),
+    /run --rm --no-deps -T -e IGS_ALLOW_SYNTHETIC_SEED=1 igs-migrate node dist\/seed-catalog\.js\n/
+  );
+
+  const bad = fakeHost({ dockerScript });
+  const b = bad.run(path.join(repo, "infra/scripts/igs-cli.sh"), ["migrate"]);
+  assert.equal(b.status, 2);
+  assert.equal(bad.log(), "");
 });

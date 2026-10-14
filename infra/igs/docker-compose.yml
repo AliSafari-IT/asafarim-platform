@@ -17,6 +17,12 @@
 # - Postgres is dedicated to igs (never the platform DB) and has no host port.
 # - Every container has a memory limit so igs can't starve the other stacks
 #   on the shared host: 1.5 GiB in total while the migrator runs, 1.25 GiB after.
+# - Database logins (#841, igs-pharma#66/#75): web and platform connect as
+#   igs_app_login, the worker as igs_worker_login (both created by
+#   infra/scripts/igs-db-roles.sh), igs-migrate as the owner `igs`. Every one
+#   verifies the database certificate (igs-pharma#78) against igs_postgres_ca,
+#   a volume holding ONLY the public certificate; the key stays in
+#   igs_postgres_tls, which only Postgres mounts.
 name: igs
 
 services:
@@ -31,13 +37,14 @@ services:
     volumes:
       - ./postgres-tls-init.sh:/usr/local/bin/igs-postgres-tls-init.sh:ro
       - igs_postgres_tls:/tls
+      - igs_postgres_ca:/ca
     mem_limit: 64m
     cpus: 0.5
 
   igs-postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    # TLS on (#826): the igs-pharma apps always connect with `ssl: "require"`.
+    # TLS on (#826); the apps verify the certificate and its host name (#841).
     command:
       - postgres
       - -c
@@ -68,14 +75,23 @@ services:
 
   # One-shot: applies the Drizzle migrations and pg-boss's schema, then exits 0
   # (a second run is a no-op). The apps only start once it succeeded.
+  # The operator CLIs (bootstrap-owner, seed-catalog) run in this service too,
+  # through infra/scripts/igs-cli.sh: they need the owner's connection, which
+  # the long-running worker never gets.
   igs-migrate:
     image: ghcr.io/alisafari-it/igs-pharma-worker:${IGS_IMAGE_TAG:?set by igs-deploy.sh}
     command: ["node", "dist/migrate.js"]
     restart: "no"
     environment:
       NODE_ENV: production
-      # DDL-capable (the migrator role), never the apps' connection.
-      DATABASE_URL: ${IGS_MIGRATOR_DATABASE_URL:?}
+      # The owner (DDL-capable): what migrate, bootstrap-owner and seed-catalog use.
+      DATABASE_MIGRATE_URL: ${IGS_MIGRATOR_DATABASE_URL:?}
+      # A runtime login: igs-pharma refuses to start in production unless the
+      # two URLs log in as different users (igs-pharma#75).
+      DATABASE_URL: ${IGS_WORKER_DATABASE_URL:?}
+      DATABASE_SSL_CA: /run/igs-db-ca/ca.crt
+    volumes:
+      - igs_postgres_ca:/run/igs-db-ca:ro
     depends_on:
       igs-postgres:
         condition: service_healthy
@@ -94,8 +110,12 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       AUTH_URL: https://igs-pharma.be
+      DATABASE_URL: ${IGS_APP_DATABASE_URL:?}
+      DATABASE_SSL_CA: /run/igs-db-ca/ca.crt
       # Closed ("coming soon", noindex) unless the env file says otherwise.
       SITE_GATE: ${SITE_GATE:-coming-soon}
+    volumes:
+      - igs_postgres_ca:/run/igs-db-ca:ro
     depends_on:
       igs-migrate:
         condition: service_completed_successfully
@@ -130,6 +150,10 @@ services:
       HOSTNAME: 0.0.0.0
       # Passkeys and sign-in links bind to this origin.
       AUTH_URL: https://platform.igs-pharma.be
+      DATABASE_URL: ${IGS_APP_DATABASE_URL:?}
+      DATABASE_SSL_CA: /run/igs-db-ca/ca.crt
+    volumes:
+      - igs_postgres_ca:/run/igs-db-ca:ro
     depends_on:
       igs-migrate:
         condition: service_completed_successfully
@@ -158,6 +182,10 @@ services:
       - .env.igs.apps
     environment:
       NODE_ENV: production
+      DATABASE_URL: ${IGS_WORKER_DATABASE_URL:?}
+      DATABASE_SSL_CA: /run/igs-db-ca/ca.crt
+    volumes:
+      - igs_postgres_ca:/run/igs-db-ca:ro
     depends_on:
       igs-migrate:
         condition: service_completed_successfully
@@ -178,3 +206,6 @@ volumes:
   igs_postgres_data:
   # igs-postgres's TLS certificate and key (#826), kept across restarts.
   igs_postgres_tls:
+  # ONLY the public certificate (ca.crt), copied from igs_postgres_tls by
+  # igs-postgres-tls (#841): what the apps verify the database against.
+  igs_postgres_ca:

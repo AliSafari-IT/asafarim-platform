@@ -4,12 +4,15 @@
 # Runs ON the VPS, by Ali, from the asafarim-com checkout:
 #
 #   infra/scripts/igs-deploy.sh <full-40-char-igs-pharma-commit-sha>
+#   infra/scripts/igs-deploy.sh --migrate-only <sha>   steps 1-3 only (#841)
 #
 # 1. Decrypt infra/igs/.env.igs.age (the igs env, separate from every other app's)
 #    and check it: required keys set, no placeholders, a valid allowlist.
 # 2. Pull the three igs-pharma images for that SHA.
 # 3. Start igs-postgres, run igs-migrate (one-shot, idempotent). A failed
-#    migration stops here: the running release keeps serving.
+#    migration stops here: the running release keeps serving. With
+#    --migrate-only it also stops here, successfully: that is how the database
+#    roles exist before infra/scripts/igs-db-roles.sh creates the logins.
 # 4. Start igs-web, igs-platform and igs-worker on the same SHA and wait until
 #    they are healthy and /api/health (with the database) answers 200.
 # 5. Render the site file with the allowlist and publish it on the shared edge
@@ -26,6 +29,8 @@
 # reloads the live Caddy gracefully, as every asafarim-com deploy does.
 set -euo pipefail
 
+MIGRATE_ONLY=false
+if [[ "${1:-}" == --migrate-only ]]; then MIGRATE_ONLY=true; shift; fi
 SHA="${1:-}"
 REPO_DIR="${REPO_DIR:-/var/repos/asafarim-com}"
 EDGE_DIR="${EDGE_DIR:-/var/repos/edge}"
@@ -48,8 +53,8 @@ log() { echo "[igs-deploy $(date -Is)] $*"; }
 (umask 077 && age -d -i .age/key.txt "${ENV_FILE}.age" >"$ENV_FILE")
 
 missing=()
-for key in IGS_POSTGRES_PASSWORD IGS_MIGRATOR_DATABASE_URL IGS_PLATFORM_ALLOW_IPS \
-  DATABASE_URL AUTH_SECRET AUDIT_HMAC_KEY ENCRYPTION_KEY; do
+for key in IGS_POSTGRES_PASSWORD IGS_MIGRATOR_DATABASE_URL IGS_APP_DATABASE_URL \
+  IGS_WORKER_DATABASE_URL IGS_PLATFORM_ALLOW_IPS AUTH_SECRET AUDIT_HMAC_KEY ENCRYPTION_KEY; do
   value="$(igs_env_value "$ENV_FILE" "$key" || true)"
   if [[ -z "$value" || "$value" == *CHANGE_ME* ]]; then missing+=("$key"); fi
 done
@@ -57,6 +62,7 @@ if ((${#missing[@]})); then
   echo "FATAL: set these in ${ENV_FILE}.age (decrypt, edit, re-encrypt): ${missing[*]}" >&2
   exit 1
 fi
+igs_db_logins "$ENV_FILE" || exit 1
 ALLOWLIST="$(igs_allowlist "$(igs_env_value "$ENV_FILE" IGS_PLATFORM_ALLOW_IPS)")"
 igs_app_env "$ENV_FILE" "${STACK_DIR}/.env.igs.apps"
 
@@ -75,6 +81,10 @@ log "Running igs-migrate..."
 if ! "${COMPOSE[@]}" run --rm --no-deps igs-migrate; then
   echo "FATAL: igs-migrate failed; the apps were not changed (the running release keeps serving)." >&2
   exit 1
+fi
+if [[ "$MIGRATE_ONLY" == true ]]; then
+  log "Done: migrations of igs-pharma ${SHA:0:12} applied; the apps were not changed. Next: infra/scripts/igs-db-roles.sh"
+  exit 0
 fi
 
 # 4. Apps, on the same SHA.

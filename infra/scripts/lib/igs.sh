@@ -12,6 +12,13 @@
 #   igs_app_env <full> <out>        the apps' env: the env file without its IGS_*
 #                                   keys (deploy-only: the migrator's connection, the
 #                                   Postgres password and the allowlist never reach an app)
+#                                   and without DATABASE_URL / DATABASE_MIGRATE_URL: the
+#                                   compose file sets each service's connection (#841)
+#   igs_db_logins <env file>        check the three database connections (#841): the
+#                                   apps' and the worker's log in as their own users, never
+#                                   as the migrator, and all use host igs-postgres (the
+#                                   name the database certificate is issued for)
+#   igs_running_tag                 the image tag (full igs-pharma SHA) igs-worker runs now
 #   igs_publish_live <rendered>     BEFORE the edge cutover only: install the site file
 #                                   for the Caddy that owns 443 today (asafarim-com's),
 #                                   validate → swap → reload → verify, restore on failure
@@ -85,7 +92,62 @@ igs_render_site() {
 
 igs_app_env() {
   local full="$1" out="$2"
-  (umask 077 && grep -Ev '^[[:space:]]*IGS_[A-Z0-9_]*=' "$full" >"$out" || true)
+  (umask 077 && grep -Ev '^[[:space:]]*(IGS_[A-Z0-9_]*|DATABASE_URL|DATABASE_MIGRATE_URL)=' "$full" >"$out" || true)
+}
+
+# The user and the host of a postgres:// connection string (never the password).
+_igs_dsn_part() { # <dsn> user|host
+  local dsn="$1" rest auth
+  [[ "$dsn" =~ ^postgres(ql)?://([^/?#]*) ]] || return 1
+  rest="${BASH_REMATCH[2]}"
+  if [[ "$rest" == *@* ]]; then auth="${rest%@*}"; rest="${rest##*@}"; else auth=""; fi
+  case "$2" in
+    user) printf '%s' "${auth%%:*}" ;;
+    host) rest="${rest%:*}"; printf '%s' "$rest" ;;
+  esac
+}
+
+igs_db_logins() {
+  local file="$1" key dsn user host migrator="" failed=0
+  declare -A users=()
+  for key in IGS_MIGRATOR_DATABASE_URL IGS_APP_DATABASE_URL IGS_WORKER_DATABASE_URL; do
+    dsn="$(igs_env_value "$file" "$key" || true)"
+    user="$(_igs_dsn_part "$dsn" user || true)"
+    host="$(_igs_dsn_part "$dsn" host || true)"
+    # Never echo a connection string: it carries a password.
+    if [[ -z "$user" ]]; then
+      echo "igs: ${key} is not a postgres:// connection string with a user." >&2
+      failed=1
+      continue
+    fi
+    if [[ "$host" != igs-postgres ]]; then
+      echo "igs: ${key} must use host igs-postgres (the name the database certificate is issued for), not '${host}'." >&2
+      failed=1
+    fi
+    users[$key]="$user"
+  done
+  ((failed == 0)) || return 1
+  migrator="${users[IGS_MIGRATOR_DATABASE_URL]}"
+  for key in IGS_APP_DATABASE_URL IGS_WORKER_DATABASE_URL; do
+    if [[ "${users[$key]}" == "$migrator" ]]; then
+      echo "igs: ${key} logs in as '${migrator}', the migrator (owner). Use its own login (igs_app_login / igs_worker_login, infra/scripts/igs-db-roles.sh)." >&2
+      failed=1
+    fi
+  done
+  if [[ "${users[IGS_APP_DATABASE_URL]}" == "${users[IGS_WORKER_DATABASE_URL]}" ]]; then
+    echo "igs: IGS_APP_DATABASE_URL and IGS_WORKER_DATABASE_URL log in as the same user; the worker has its own login (igs_worker_login)." >&2
+    failed=1
+  fi
+  return "$failed"
+}
+
+igs_running_tag() {
+  local id image
+  id="$(docker compose -p igs ps -q igs-worker 2>/dev/null | head -n 1)"
+  [[ -n "$id" ]] || { echo "igs: igs-worker is not running; deploy first (infra/scripts/igs-deploy.sh <sha>)." >&2; return 1; }
+  image="$(docker inspect -f '{{.Config.Image}}' "$id")" || return 1
+  igs_require_sha "${image##*:}" >/dev/null 2>&1 || { echo "igs: igs-worker runs '${image}', not a full-SHA tag." >&2; return 1; }
+  printf '%s' "${image##*:}"
 }
 
 igs_publish_live() {
