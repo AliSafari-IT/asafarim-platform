@@ -29,6 +29,7 @@ import path from "node:path";
 import {
   checkCanMarkDatabase,
   checkDatabaseMarker,
+  checkMarkRequest,
   ensureTasksaiIdentities,
   markDatabase,
   readDatabaseMarker,
@@ -78,13 +79,11 @@ async function main() {
     // Signal 3: the database itself must agree before anything is written.
     const markArg = arg("mark-database");
     if (markArg) {
-      const environment = decision.environment;
-      if (environment === "production" || markArg !== environment) {
-        throw new Error(`--mark-database=${markArg} refused: the URL/machine checks say this is "${environment}".`);
-      }
+      const request = checkMarkRequest(markArg, decision.environment);
+      if (!request.ok) throw new Error(request.reason);
       const canMark = checkCanMarkDatabase(await readDatabaseMarker(prisma));
       if (!canMark.ok) throw new Error(`--mark-database refused: ${canMark.reason}`);
-      await markDatabase(prisma, environment);
+      await markDatabase(prisma, request.environment);
       console.log(`Marked this database as "${markArg}" (COMMENT ON DATABASE). Re-run without --mark-database.`);
       return;
     }

@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   TASKSAI_IDENTITIES,
@@ -13,6 +11,8 @@ import {
   checkCanMarkDatabase,
   checkDatabaseMarker,
   ensureTasksaiIdentities,
+  markDatabase,
+  readDatabaseMarker,
   tasksaiIdentitiesGuard,
   tasksaiIdentitiesProvider,
   validateTasksaiIdentityDefinitions,
@@ -33,111 +33,52 @@ describe("TasksAI test identities (#742)", () => {
     expect(TASKSAI_IDENTITIES.filter((i) => i.productionBaseline).map((i) => i.key)).toEqual(["member"]);
   });
 
-  describe("CLI guard: static signals (fail closed)", () => {
-    const devUrl = "postgresql://asafarim:pw@localhost:55435/asafarim";
+  // The guard's rules are tested once, in @asafarim/db-env-guard (#749).
+  // These tests cover only the wiring: the platform profile and the identities.
+  describe("CLI guard wiring (#749)", () => {
     const laptop = { machineHostname: "dev-laptop", cwd: "C:/repos/asafarim-platform/packages/db" };
 
-    it("allows loopback on the development port: all identities", () => {
-      const decision = tasksaiIdentitiesGuard({ rawDatabaseUrl: devUrl, ...laptop });
+    it("uses the platform database profile: all identities on the development database", () => {
+      expect([...DEV_PLATFORM_DB_PORTS]).toEqual(["55435"]);
+      const decision = tasksaiIdentitiesGuard({ rawDatabaseUrl: "postgresql://asafarim:pw@localhost:55435/asafarim", ...laptop });
       expect(decision).toMatchObject({ ok: true, environment: "development", production: false });
+      expect(decision.ok && decision.identities.length).toBe(TASKSAI_IDENTITIES.length);
+      const prod = tasksaiIdentitiesGuard({ rawDatabaseUrl: "postgresql://asafarim:pw@postgres:5432/asafarim", ...laptop });
+      expect(!prod.ok && prod.reason).toMatch(/PRODUCTION platform database.*compose host "postgres"/);
+    });
+
+    it("a remote test database gets all identities", () => {
+      const decision = tasksaiIdentitiesGuard({ rawDatabaseUrl: "postgresql://u:pw@db.tasks-test.example:5432/asafarim", confirmHost: "db.tasks-test.example", ...laptop });
+      expect(decision).toMatchObject({ ok: true, environment: "test", production: false });
       expect(decision.ok && decision.identities.length).toBe(TASKSAI_IDENTITIES.length);
     });
 
-    it("treats loopback on the default port as PRODUCTION (production host, or an SSH tunnel to it)", () => {
-      for (const url of [
-        "postgresql://asafarim:pw@localhost:5432/asafarim",
-        "postgresql://asafarim:pw@127.0.0.1/asafarim",
-        "postgresql://asafarim:pw@[::1]:6543/asafarim",
-      ]) {
-        const decision = tasksaiIdentitiesGuard({ rawDatabaseUrl: url, ...laptop });
-        expect(decision.ok, url).toBe(false);
-        expect(!decision.ok && decision.reason).toMatch(/PRODUCTION.*loopback/);
-      }
-    });
-
-    it("refuses on the production host even with a development-looking URL", () => {
-      for (const machine of [
-        { machineHostname: "asafarim", cwd: "/home/x" },
-        { machineHostname: "other", cwd: "/var/repos/asafarim-com/packages/db" },
-      ]) {
-        const decision = tasksaiIdentitiesGuard({ rawDatabaseUrl: devUrl, ...machine });
-        expect(decision.ok).toBe(false);
-        expect(!decision.ok && decision.reason).toMatch(/production host/);
-      }
-    });
-
-    it("refuses the compose host and NODE_ENV=production without the owner flag", () => {
-      for (const input of [
-        { rawDatabaseUrl: "postgresql://asafarim:pw@postgres:5432/asafarim", ...laptop },
-        { rawDatabaseUrl: devUrl, nodeEnv: "production", ...laptop },
-      ]) {
-        expect(tasksaiIdentitiesGuard(input).ok).toBe(false);
-      }
-    });
-
-    it("with --allow-production-baseline, production gets the baseline identity only", () => {
-      const decision = tasksaiIdentitiesGuard({ rawDatabaseUrl: "postgresql://asafarim:pw@localhost:5432/asafarim", allowProductionBaseline: true, ...laptop });
-      expect(decision).toMatchObject({ ok: true, environment: "production" });
-      expect(decision.ok && decision.identities.map((i) => i.key)).toEqual(["member"]);
-    });
-
-    it("rejects the owner flag against the development database", () => {
-      expect(tasksaiIdentitiesGuard({ rawDatabaseUrl: devUrl, allowProductionBaseline: true, ...laptop }).ok).toBe(false);
-    });
-
-    it("requires --confirm-host for a remote test database", () => {
-      const remote = "postgresql://u:pw@db.tasks-test.example:5432/asafarim";
-      expect(tasksaiIdentitiesGuard({ rawDatabaseUrl: remote, ...laptop }).ok).toBe(false);
-      expect(tasksaiIdentitiesGuard({ rawDatabaseUrl: remote, confirmHost: "db.tasks-test.example", ...laptop })).toMatchObject({ ok: true, environment: "test" });
-    });
-
-    it("pins the development port to docker-compose.yml (fails if the dev port changes)", () => {
-      const compose = readFileSync(path.resolve(__dirname, "../../../../docker-compose.yml"), "utf8");
-      const postgres = compose.slice(compose.indexOf("\n  postgres:"), compose.indexOf("\n  testora-postgres:"));
-      const published = [...postgres.matchAll(/-\s*"(?:127\.0\.0\.1:)?(\d+):5432"/g)].map((m) => m[1]);
-      expect(published).toEqual([...DEV_PLATFORM_DB_PORTS]);
-    });
-  });
-
-  describe("CLI guard: the database's own marker", () => {
-    it("development/test need their marker; a missing or other marker refuses", () => {
-      expect(checkDatabaseMarker("development", "development")).toEqual({ ok: true });
-      expect(checkDatabaseMarker("development", null).ok).toBe(false);
-      expect(checkDatabaseMarker("development", "test").ok).toBe(false);
-      expect(checkDatabaseMarker("test", "test")).toEqual({ ok: true });
-      expect(checkDatabaseMarker("test", "development").ok).toBe(false);
-    });
-
-    it("production refuses a database marked development/test (signals disagree)", () => {
-      expect(checkDatabaseMarker("production", null)).toEqual({ ok: true });
-      expect(checkDatabaseMarker("production", "development").ok).toBe(false);
-      expect(checkDatabaseMarker("production", "test").ok).toBe(false);
-    });
-  });
-
-  describe("the deploy's positive production marker (#747)", () => {
-    const tunnelOntoDevPort = { rawDatabaseUrl: "postgresql://asafarim:pw@localhost:55435/asafarim", machineHostname: "dev-laptop", cwd: "C:/repos/x" };
-
-    it("a dev-loopback URL on a database marked production is refused", () => {
-      const decision = tasksaiIdentitiesGuard(tunnelOntoDevPort);
-      expect(decision).toMatchObject({ ok: true, environment: "development" }); // URL + machine pass…
-      const db = checkDatabaseMarker(decision.ok ? decision.environment : "development", "production");
-      expect(db.ok).toBe(false); // …the database's own stamp refuses
-      expect(!db.ok && db.reason).toMatch(/marked "production"/);
-      expect(checkDatabaseMarker("test", "production").ok).toBe(false);
-    });
-
-    it("--mark-database never overwrites a production marker", () => {
-      expect(checkCanMarkDatabase("production").ok).toBe(false);
-      expect(checkCanMarkDatabase(null)).toEqual({ ok: true });
-      expect(checkCanMarkDatabase("development")).toEqual({ ok: true });
-    });
-
-    it("baseline mode on a production-marked database: allowed, baseline identities only", () => {
+    it("production, with the owner flag, gets the baseline identity only", () => {
       const decision = tasksaiIdentitiesGuard({ rawDatabaseUrl: "postgresql://asafarim:pw@postgres:5432/asafarim", allowProductionBaseline: true });
-      expect(decision).toMatchObject({ ok: true, environment: "production" });
+      expect(decision).toMatchObject({ ok: true, environment: "production", production: true });
       expect(decision.ok && decision.identities.map((i) => i.key)).toEqual(["member"]);
-      expect(checkDatabaseMarker("production", "production")).toEqual({ ok: true });
+    });
+
+    it("re-exports the marker checks the CLI uses", () => {
+      expect(checkDatabaseMarker("development", "production").ok).toBe(false);
+      expect(checkCanMarkDatabase("production").ok).toBe(false);
+    });
+
+    it("reads and sets the marker through Prisma with the shared SQL", async () => {
+      const calls: string[] = [];
+      const prisma = {
+        $queryRawUnsafe: async (sql: string) => {
+          calls.push(sql);
+          return /shobj_description/.test(sql) ? [{ comment: "asafarim-env=test" }] : [{ db: "asafarim" }];
+        },
+        $executeRawUnsafe: async (sql: string) => {
+          calls.push(sql);
+          return 1;
+        },
+      } as unknown as SeedPrismaClient;
+      expect(await readDatabaseMarker(prisma)).toBe("test");
+      await markDatabase(prisma, "development");
+      expect(calls.at(-1)).toBe(`COMMENT ON DATABASE "asafarim" IS 'asafarim-env=development'`);
     });
   });
 

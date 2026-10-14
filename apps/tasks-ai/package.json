@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@asafarim/tool-handoff": "workspace:*",
+    "@asafarim/db-env-guard": "workspace:*",
     "@anthropic-ai/sdk": "^0.68.0",
     "@asafarim/ai-cost-ledger": "workspace:*",
     "@asafarim/auth": "workspace:*",

@@ -32,7 +32,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/db/generated";
-import { checkCanMarkDatabase, checkDatabaseMarker, parseDatabaseMarker, testDataGuard } from "../lib/test-data/guard";
+import { CURRENT_DATABASE_SQL, READ_DATABASE_COMMENT_SQL, markDatabaseSql } from "@asafarim/db-env-guard";
+import { checkCanMarkDatabase, checkDatabaseMarker, checkMarkRequest, parseDatabaseMarker, testDataGuard } from "../lib/test-data/guard";
 import { HANDOFF_FILE_SUFFIX } from "@asafarim/tool-handoff";
 import {
   DEFAULT_TIMEZONE,
@@ -95,19 +96,16 @@ async function main() {
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: rawUrl }) });
   try {
     // Signal 3: the database itself must agree before anything is written.
-    const comment = await db.$queryRaw<{ comment: string | null }[]>`
-      SELECT shobj_description(d.oid, 'pg_database') AS comment FROM pg_database d WHERE d.datname = current_database()`;
+    const comment = await db.$queryRawUnsafe<{ comment: string | null }[]>(READ_DATABASE_COMMENT_SQL);
     const markArg = arg("mark-database");
     if (markArg) {
-      const environment = decision.environment;
-      if (environment === "production" || markArg !== environment) {
-        throw new Error(`--mark-database=${markArg} refused: the URL/machine checks say this is "${environment}".`);
-      }
+      const request = checkMarkRequest(markArg, decision.environment);
+      if (!request.ok) throw new Error(request.reason);
       const canMark = checkCanMarkDatabase(parseDatabaseMarker(comment[0]?.comment));
       if (!canMark.ok) throw new Error(`--mark-database refused: ${canMark.reason}`);
-      const [{ db: name }] = await db.$queryRaw<{ db: string }[]>`SELECT current_database() AS db`;
-      await db.$executeRawUnsafe(`COMMENT ON DATABASE "${name.replace(/"/g, '""')}" IS 'asafarim-env=${environment}'`);
-      console.log(`Marked this database as "${environment}" (COMMENT ON DATABASE). Re-run without --mark-database.`);
+      const [{ db: name }] = await db.$queryRawUnsafe<{ db: string }[]>(CURRENT_DATABASE_SQL);
+      await db.$executeRawUnsafe(markDatabaseSql(name, request.environment));
+      console.log(`Marked this database as "${request.environment}" (COMMENT ON DATABASE). Re-run without --mark-database.`);
       return;
     }
     const marker = checkDatabaseMarker(decision.environment, parseDatabaseMarker(comment[0]?.comment));
