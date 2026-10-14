@@ -387,7 +387,7 @@ export function ResultsExplorer({
   }
 
   function deleteIds(ids: string[], label: string) {
-    if (ids.length === 0) return;
+    if (!canManage || ids.length === 0) return;
     setDeleteError(null);
     setConfirmDelete({ ids, label });
   }
@@ -679,21 +679,24 @@ export function ResultsExplorer({
                 <span>· {summary.passRate}% pass rate</span>
               </CardDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-500 hover:text-red-600"
-              onClick={() =>
-                deleteIds(
-                  filtered.map((r) => r.id),
-                  "filtered result(s)",
-                )
-              }
-              disabled={filtered.length === 0}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete all filtered ({filtered.length})
-            </Button>
+            {/* Admin-only: DELETE /api/results is refused for everyone else. */}
+            {canManage && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-500 hover:text-red-600"
+                onClick={() =>
+                  deleteIds(
+                    filtered.map((r) => r.id),
+                    "filtered result(s)",
+                  )
+                }
+                disabled={filtered.length === 0}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete all filtered ({filtered.length})
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
