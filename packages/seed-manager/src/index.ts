@@ -63,6 +63,7 @@ export {
   readDatabaseMarker,
   checkDatabaseMarker,
   checkCanMarkDatabase,
+  checkMarkRequest,
   markDatabase,
   DEV_PLATFORM_DB_PORTS,
   type EnsuredIdentity,

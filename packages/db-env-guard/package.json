@@ -1,0 +1,22 @@
+{
+  "name": "@asafarim/db-env-guard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dependency-free, fail-closed guard deciding whether a synthetic-data CLI may write a database: URL and machine signals, the asafarim-env database marker and its SQL. Shared by the TasksAI identities CLI and the TasksAI test-data CLI.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@asafarim/config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11"
+  }
+}

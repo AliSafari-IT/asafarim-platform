@@ -11,12 +11,14 @@ on:
     paths:
       - "apps/tasks-ai/**"
       - "packages/auth/**"
+      - "packages/db-env-guard/**"
       - "packages/ui/**"
       - ".github/workflows/tasksai-ci.yml"
   pull_request:
     paths:
       - "apps/tasks-ai/**"
       - "packages/auth/**"
+      - "packages/db-env-guard/**"
       - "packages/ui/**"
       - ".github/workflows/tasksai-ci.yml"
   workflow_dispatch: {}
@@ -65,6 +67,11 @@ jobs:
 
       - name: Registry and auth tests
         run: pnpm --filter @asafarim/auth test
+
+      - name: Database-environment guard (shared with the identities CLI)
+        run: |
+          pnpm --filter @asafarim/db-env-guard typecheck
+          pnpm --filter @asafarim/db-env-guard test
 
       - name: Create throwaway shadow + test databases
         run: |
