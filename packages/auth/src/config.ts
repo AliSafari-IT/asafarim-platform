@@ -337,6 +337,33 @@ function getTrustedOrigins(): string[] {
     .map((u) => new URL(u).origin);
 }
 
+/**
+ * Decides where Auth.js sends the browser after sign-in/out.
+ *
+ * - a relative URL is resolved against `baseUrl`;
+ * - a URL on `baseUrl`'s origin is returned as is;
+ * - a URL on a trusted platform origin is returned as is;
+ * - anything else, including a value `new URL()` cannot parse, falls back to
+ *   `baseUrl` (never throws, so a mangled link can't turn into a 500).
+ */
+export function resolveRedirect(
+  url: string,
+  baseUrl: string,
+  trustedOrigins: () => readonly string[]
+): string {
+  if (url.startsWith("/")) return `${baseUrl}${url}`;
+  try {
+    const origin = new URL(url).origin;
+    if (origin === baseUrl) return url;
+    // Read lazily and inside the try, as before: a malformed NEXT_PUBLIC_*_URL
+    // must not turn a redirect into a 500 either.
+    if (trustedOrigins().includes(origin)) return url;
+  } catch {
+    // unparseable value: fall through to the safe default
+  }
+  return baseUrl;
+}
+
 export const authConfig: NextAuthConfig = {
   // JWT strategy: no database adapter needed; the jwt callback syncs the
   // token with the database via ensureAuthUser.
@@ -401,19 +428,7 @@ export const authConfig: NextAuthConfig = {
 
   callbacks: {
     async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      if (new URL(url).origin === baseUrl) return url;
-      // Allow cross-origin callbacks for trusted platform apps
-      try {
-        const urlOrigin = new URL(url).origin;
-        if (getTrustedOrigins().includes(urlOrigin)) return url;
-      } catch {
-        // ignore invalid URLs
-      }
-
-      return baseUrl;
+      return resolveRedirect(url, baseUrl, getTrustedOrigins);
     },
 
     async jwt({ token, user, account, trigger }) {
