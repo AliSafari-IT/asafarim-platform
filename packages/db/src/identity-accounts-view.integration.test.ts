@@ -5,7 +5,9 @@
  *
  * Needs PLATFORM_TEST_DATABASE_URL: a THROWAWAY database with every migration
  * applied (`prisma migrate deploy`), connected as a role that may CREATE ROLE.
- * Skipped without it.
+ * Skipped without it, except where PLATFORM_DB_INTEGRATION_REQUIRED=1 (the
+ * platform-db.yml CI job, #796): there a missing URL fails the run instead of
+ * silently skipping the suite.
  *
  * Roles are cluster-wide, so the test never touches identity_ro's own login
  * (that could lock out a real identity service on a shared cluster). It
@@ -17,6 +19,10 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const ADMIN_URL = process.env.PLATFORM_TEST_DATABASE_URL;
+
+if (!ADMIN_URL && process.env.PLATFORM_DB_INTEGRATION_REQUIRED === "1") {
+  throw new Error("PLATFORM_DB_INTEGRATION_REQUIRED=1 but PLATFORM_TEST_DATABASE_URL is not set: refusing to skip the identity_accounts_v integration suite.");
+}
 
 describe.skipIf(!ADMIN_URL)("identity_accounts_v and identity_ro (integration)", () => {
   let admin: pg.Client;

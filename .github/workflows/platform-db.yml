@@ -1,0 +1,73 @@
+# Platform database integration tests (#796).
+#
+# packages/db/src/identity-accounts-view.integration.test.ts proves the
+# identity_accounts_v contract and that identity_ro is denied on every table.
+# It needs PLATFORM_TEST_DATABASE_URL, which ci-status.yml (`turbo test` over
+# packages/*) doesn't have, so there it skips. This job gives it one:
+#
+#  - its own postgres:16 service, i.e. its own cluster. Roles are
+#    cluster-wide and the test creates and drops a login role;
+#  - `prisma migrate deploy` on the empty database, which also proves every
+#    migration applies from scratch;
+#  - the package tests with PLATFORM_DB_INTEGRATION_REQUIRED=1, so the suite
+#    fails instead of skipping if the URL ever goes missing here.
+#
+# No secrets: the database is a throwaway with a CI-only password.
+name: Platform DB
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/db/**"
+      - ".github/workflows/platform-db.yml"
+  pull_request:
+    paths:
+      - "packages/db/**"
+      - ".github/workflows/platform-db.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform_ci
+          POSTGRES_DB: platform_ci
+        ports:
+          - 55435:5432
+        options: >-
+          --health-cmd "pg_isready -U platform -d platform_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://platform:platform_ci@localhost:55435/platform_ci
+      PLATFORM_TEST_DATABASE_URL: postgresql://platform:platform_ci@localhost:55435/platform_ci
+      PLATFORM_DB_INTEGRATION_REQUIRED: "1"
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Migrations apply to an empty database
+        run: pnpm --filter @asafarim/db exec prisma migrate deploy
+
+      - name: Package tests, integration included
+        run: pnpm --filter @asafarim/db test
