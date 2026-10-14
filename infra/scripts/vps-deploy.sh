@@ -197,6 +197,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/prune-release-images.s
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/verify-caddy.sh"
 # shellcheck source=lib/edge.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/edge.sh"
+# shellcheck source=lib/proxy.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/proxy.sh"
 
 # Remove only legacy Compose-built application tags from the old deployment
 # model. Docker refuses to delete an image still used by a container, so the
@@ -321,13 +323,18 @@ fi
 # still owns 80/443 until the edge cutover.
 ensure_edge_net
 
+# After the cutover the shared edge owns 80/443 and asafarim-com's own Caddy is
+# stopped (lib/proxy.sh). Decided once, so every proxy step below agrees.
+EDGE_LIVE=false
+if edge_is_live; then EDGE_LIVE=true; fi
+
 echo "[deploy $(date -Is)] Starting stack..."
 # Caddy is started but never recreated here (#733): a change to its service
 # definition (mounts, image, ports) would otherwise recreate it from CI and
 # drop 80/443. Ops applies those with infra/scripts/caddy-recreate.sh.
 mapfile -t STACK_SERVICES < <("${COMPOSE[@]}" config --services | grep -vx caddy)
 "${COMPOSE[@]}" up -d --remove-orphans --no-build "${STACK_SERVICES[@]}"
-"${COMPOSE[@]}" up -d --no-build --no-recreate caddy
+start_legacy_caddy "${EDGE_LIVE}"
 
 # Positive production marker (#747). The synthetic test-data CLIs
 # (db:seed:tasksai-identities, tasks-ai test-data) refuse any database marked
@@ -347,39 +354,10 @@ for db_service in "${PRODUCTION_MARKED_DB_SERVICES[@]}"; do
   fi
 done
 
-# The Caddy directory is bind-mounted, so applying configuration does not require a
-# container replacement. Force-recreating Caddy briefly closes public ports 80
-# and 443; visitors then see the browser's ERR_CONNECTION_TIMED_OUT page and
-# Caddy cannot serve the friendly 502/503/504 deployment fallback. Validate the
-# new file first, then reload it inside the existing process. `caddy reload`
-# swaps configuration gracefully without interrupting active listeners.
-echo "[deploy $(date -Is)] Validating and gracefully reloading Caddy..."
-if ! "${COMPOSE[@]}" exec -T caddy \
-  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
-  echo "FATAL: Caddy configuration is invalid — keeping the current proxy configuration." >&2
-  exit 1
-fi
-"${COMPOSE[@]}" exec -T caddy \
-  caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
-
-# A reload that reads a stale file still succeeds ("config is unchanged"), so
-# prove the running Caddy has this checkout's Caddyfile and blocks /internal/*.
-echo "[deploy $(date -Is)] Verifying the live Caddy configuration..."
-if ! verify_caddy_config; then
-  echo "FATAL: Caddy is not serving this release's configuration." >&2
-  notify_discord "❌ ASafariM deploy ${IMAGE_TAG:0:12}: Caddy config check FAILED — the live proxy is not serving this release's Caddyfile. See the deploy log."
-  exit 1
-fi
-
-# Shared edge, phase 2 (#770): install the edge project and publish this
-# stack's site file. Before the cutover there is no edge container, so this
-# validates the WHOLE edge config with this release's file and installs it,
-# nothing more. Warn-only until the cutover makes the edge the live proxy.
-echo "[deploy $(date -Is)] Publishing sites/asafarim-com.caddy to the shared edge..."
-if ! install_edge_project || ! publish_edge_site; then
-  echo "WARNING: the shared edge did not accept this release's site file (pre-cutover: production traffic is unaffected)." >&2
-  notify_discord "⚠️ ASafariM deploy ${IMAGE_TAG:0:12}: the shared edge refused sites/asafarim-com.caddy (pre-cutover, traffic unaffected). See the deploy log."
-fi
+# Validate, reload and verify the proxy that serves traffic, and publish this
+# stack's site file to the shared edge (lib/proxy.sh): before the cutover that is
+# asafarim-com's own Caddy, after it the shared edge.
+apply_proxy_config "${EDGE_LIVE}" || exit 1
 
 if [[ "${TESTORA_RUNNER_ENABLED}" == true ]]; then
   # Egress self-test (ADR 0004 §7), from a fresh container on the runner's own

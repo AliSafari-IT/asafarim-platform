@@ -18,6 +18,9 @@
 #                        scripts) to EDGE_DIR, under the edge's deploy lock.
 #                        Never touches sites/ except to seed asafarim-be.caddy
 #                        once (that stack has no deploy hook of its own yet).
+#   edge_is_live         true when the shared edge's Caddy container is running,
+#                        i.e. the cutover has happened. The same test
+#                        edge-deploy-site.sh uses to decide whether to reload.
 #   publish_edge_site    edge-deploy-site.sh asafarim-com: validate the WHOLE
 #                        edge config with this release's site file, install it,
 #                        and (only once an edge container runs) reload + verify.
@@ -25,6 +28,10 @@
 # Expects REPO_DIR (the checkout). EDGE_DIR defaults to /var/repos/edge.
 
 EDGE_DIR="${EDGE_DIR:-/var/repos/edge}"
+
+edge_is_live() {
+  [[ -n "$(docker compose -p edge ps -q caddy 2>/dev/null | head -n1)" ]]
+}
 
 ensure_edge_net() {
   if ! docker network inspect edge_net >/dev/null 2>&1; then
