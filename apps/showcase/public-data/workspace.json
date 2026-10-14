@@ -108,7 +108,7 @@
       "date": "2026-10-03",
       "since": "2026-07-04",
       "commits": 3,
-      "dependents": 24
+      "dependents": 25
     },
     {
       "name": "@asafarim/country-language-selector",
@@ -126,11 +126,22 @@
       "kind": "package",
       "folder": "packages/db",
       "description": "Shared PostgreSQL/Prisma database package for the ASafariM Platform",
-      "sha": "ae0e2bb9",
-      "date": "2026-10-04",
+      "sha": "5fb6ac17",
+      "date": "2026-10-15",
       "since": "2026-07-04",
-      "commits": 56,
+      "commits": 57,
       "dependents": 10
+    },
+    {
+      "name": "@asafarim/db-env-guard",
+      "kind": "package",
+      "folder": "packages/db-env-guard",
+      "description": "Dependency-free, fail-closed guard deciding whether a synthetic-data CLI may write a database: URL and machine signals, the asafarim-env database marker and its SQL. Shared by the TasksAI identities CLI and the TasksAI test-data CLI.",
+      "sha": "5fb6ac17",
+      "date": "2026-10-15",
+      "since": "2026-10-15",
+      "commits": 1,
+      "dependents": 2
     },
     {
       "name": "@asafarim/hub",
@@ -170,10 +181,10 @@
       "kind": "package",
       "folder": "packages/seed-manager",
       "description": "Typed, allowlisted seed-data providers shared by the Admin Console and the CLI seed scripts. Server-only.",
-      "sha": "3b49dbdf",
-      "date": "2026-10-03",
+      "sha": "5fb6ac17",
+      "date": "2026-10-15",
       "since": "2026-08-09",
-      "commits": 14,
+      "commits": 15,
       "dependents": 2
     },
     {
@@ -203,10 +214,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "eca6d824",
+      "sha": "bae3b48c",
       "date": "2026-10-14",
       "since": "2026-07-04",
-      "commits": 436,
+      "commits": 437,
       "dependents": 0
     },
     {
@@ -225,10 +236,10 @@
       "kind": "app",
       "folder": "apps/tasks-ai",
       "description": "TasksAI - AI-native work execution: scattered intent to trusted execution (tasks-ai.asafarim.com)",
-      "sha": "63ed992d",
-      "date": "2026-10-11",
+      "sha": "5fb6ac17",
+      "date": "2026-10-15",
       "since": "2026-09-06",
-      "commits": 90,
+      "commits": 91,
       "dependents": 0
     },
     {
