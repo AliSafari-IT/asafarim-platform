@@ -59,8 +59,15 @@ apply_proxy_config() {
     echo "FATAL: Caddy configuration is invalid — keeping the current proxy configuration." >&2
     return 1
   fi
-  "${COMPOSE[@]}" exec -T caddy \
-    caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+  # Check it explicitly: vps-deploy.sh calls this function inside `|| exit 1`, where
+  # `set -e` does not apply, so an unchecked failure here would let the deploy go on
+  # and report success while Caddy still serves the old configuration.
+  if ! "${COMPOSE[@]}" exec -T caddy \
+    caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; then
+    echo "FATAL: Caddy did not reload — it keeps serving the previous configuration." >&2
+    notify_discord "❌ ASafariM deploy ${IMAGE_TAG:0:12}: Caddy reload FAILED — the live proxy keeps its previous configuration. See the deploy log."
+    return 1
+  fi
 
   # A reload that reads a stale file still succeeds ("config is unchanged"), so
   # prove the running Caddy has this checkout's Caddyfile and blocks /internal/*.
