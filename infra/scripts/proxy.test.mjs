@@ -26,7 +26,7 @@ const lib = path.join(repo, "infra/scripts/lib");
 
 const FAKE_DOCKER = `#!/usr/bin/env bash
 # Test double for docker. FAKE_LOG gets every call. FAKE_EDGE_ID: what \`docker compose -p edge ps -q caddy\`
-# prints (empty: no edge). FAKE_VALIDATE_RC: exit code of the old Caddy's \`caddy validate\`. FAKE_STALE=1: the
+# prints (empty: no edge). FAKE_VALIDATE_RC / FAKE_RELOAD_RC: exit codes of the old Caddy's \`caddy validate\` / \`caddy reload\`. FAKE_STALE=1: the
 # old Caddy's sha256sum differs from the checkout's.
 printf 'docker %s\\n' "$*" >>"$FAKE_LOG"
 case "$*" in
@@ -35,6 +35,7 @@ case "$*" in
     [[ -n "\${FAKE_EDGE_ID:-}" ]] && echo "$FAKE_EDGE_ID"
     exit 0 ;;
   *"exec -T caddy caddy validate"*) exit "\${FAKE_VALIDATE_RC:-0}" ;;
+  *"exec -T caddy caddy reload"*) exit "\${FAKE_RELOAD_RC:-0}" ;;
   *"exec -T caddy sha256sum"*)
     if [[ "\${FAKE_STALE:-0}" == 1 ]]; then echo "0000000000000000000000000000000000000000000000000000000000000000  /etc/caddy/Caddyfile"
     else sha256sum infra/caddy/Caddyfile | sed 's#  .*#  /etc/caddy/Caddyfile#'; fi
@@ -70,6 +71,8 @@ sleep() { :; }
 case "$1" in
   start) start_legacy_caddy "$2" ;;
   apply) apply_proxy_config "$2" ;;
+  # exactly how vps-deploy.sh calls it: inside \`||\`, where \`set -e\` does not apply to the function body
+  deploy) apply_proxy_config "$2" || exit 1 ;;
   live) edge_is_live ;;
   public) verify_public_routes ;;
   legacy) verify_caddy_config ;;
@@ -178,6 +181,23 @@ describe("before the cutover (the asafarim-com Caddy is live)", () => {
     assert.equal(r.status, 1);
     assert.match(r.stderr, /Caddy configuration is invalid/);
     assert.equal(has(r.calls, "caddy reload"), false);
+  });
+
+  test("a failed reload fails the deploy, also when called the way vps-deploy.sh calls it", () => {
+    // \`apply_proxy_config ... || exit 1\` switches \`set -e\` off inside the function, so an unchecked
+    // \`caddy reload\` would let the deploy go on and report success while Caddy serves the old config.
+    for (const mode of ["apply", "deploy"]) {
+      const r = run([mode, "false"], { FAKE_RELOAD_RC: "1" });
+      assert.equal(r.status, 1, `${mode}: ${r.stderr}`);
+      assert.match(r.stderr, /Caddy did not reload/);
+      assert.ok(has(r.calls, "notify ❌"));
+      assert.equal(
+        has(r.calls, "sha256sum"),
+        false,
+        "must stop before verifying"
+      );
+      assert.equal(has(r.calls, "publish_edge_site"), false);
+    }
   });
 
   test("a Caddy serving a stale file fails the deploy", () => {
