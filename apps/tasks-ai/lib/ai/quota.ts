@@ -37,18 +37,37 @@ export async function usageSummary(ctx: RequestContext): Promise<UsageSummary> {
 }
 
 /**
- * Called before every AI job. Throws:
- *  - `forbidden` when the workspace kill switch is off,
- *  - `rate_limited` when the month's budget or job quota is exhausted.
- * The core task manager keeps working either way — this only gates AI.
+ * The workspace kill switch. Checked before anything else in an AI job,
+ * cache hits included: a disabled workspace gets no AI output at all and
+ * never reaches context retrieval.
  */
-export async function assertCanRunAiJob(ctx: RequestContext): Promise<void> {
+export async function assertAiEnabled(ctx: RequestContext): Promise<void> {
+  const settings = await getAiSettings(ctx);
+  if (!settings.enabled) throw new ApiError("forbidden", { reason: "AI is disabled for this workspace" });
+}
+
+/**
+ * The month's budget and job quota. Checked only on a path that will call a
+ * provider: a cache hit reuses a draft that was already paid for, so it is
+ * not gated (issue #536). Throws `rate_limited` when either is exhausted.
+ */
+export async function assertWithinAiQuota(ctx: RequestContext): Promise<void> {
   const u = await usageSummary(ctx);
-  if (!u.enabled) throw new ApiError("forbidden", { reason: "AI is disabled for this workspace" });
   if (u.budgetUsd != null && u.monthUsd >= u.budgetUsd) {
     throw new ApiError("rate_limited", { reason: "monthly AI budget reached", budgetUsd: u.budgetUsd });
   }
   if (u.jobQuota != null && u.monthJobs >= u.jobQuota) {
     throw new ApiError("rate_limited", { reason: "monthly AI job quota reached", jobQuota: u.jobQuota });
   }
+}
+
+/**
+ * Both gates at once, for a caller that has no cache to consult. Throws:
+ *  - `forbidden` when the workspace kill switch is off,
+ *  - `rate_limited` when the month's budget or job quota is exhausted.
+ * The core task manager keeps working either way — this only gates AI.
+ */
+export async function assertCanRunAiJob(ctx: RequestContext): Promise<void> {
+  await assertAiEnabled(ctx);
+  await assertWithinAiQuota(ctx);
 }

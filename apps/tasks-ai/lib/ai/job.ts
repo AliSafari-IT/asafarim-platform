@@ -12,7 +12,7 @@ import { guardDraft } from "./guard";
 import { retrieveContext } from "./retrieval";
 import { getProvider } from "./registry";
 import { getAiSettings } from "./settings";
-import { assertCanRunAiJob } from "./quota";
+import { assertAiEnabled, assertWithinAiQuota } from "./quota";
 import { ProviderError, type ProviderDelta } from "./provider";
 import { buildAiCostEvent, legacyUsd, recordStandaloneAiCost, type CostAttribution } from "./cost/ledger";
 import { billedUsageOf } from "./cost/meta";
@@ -50,10 +50,10 @@ export class AiJobCancelledError extends Error {
 
 /**
  * The AI job pipeline (docs/adr/0004, M06 scope):
- *   kill-switch + quota → redact → render versioned prompt → cache lookup
- *   → provider call (retry, degraded fallback to fixture) → guard against
- *   the operation allowlist + blast radius → persist AiJob + usage ledger
- *   + a Proposal in `draft` state. NOTHING is applied here.
+ *   kill-switch → redact → render versioned prompt → cache lookup
+ *   → (miss only) budget/quota → provider call (retry, degraded fallback
+ *   to fixture) → guard against the operation allowlist + blast radius
+ *   → persist AiJob + usage ledger + a Proposal in `draft` state. NOTHING is applied here.
  *
  * `streamOpts` (issue #236) is only ever set by the streaming route
  * (app/api/.../ai/jobs/stream): `onDelta` is forwarded to the provider for
@@ -70,7 +70,8 @@ export async function runAiJob(
   streamOpts?: { onDelta?: (delta: ProviderDelta) => void; signal?: AbortSignal },
 ) {
   const { kind, input: rawInput, projectId, taskId } = runJobSchema.parse(input);
-  await assertCanRunAiJob(ctx);
+  // Kill switch first; the budget/quota check waits for a cache miss (#536).
+  await assertAiEnabled(ctx);
   // Billing gates — no-op until the commercial license is signed (M14).
   const { assertFeature, assertAllowance, recordUsage } = await import("../billing/service");
   await assertFeature(ctx, "ai");
@@ -105,7 +106,7 @@ export async function runAiJob(
   // Grounded context retrieval (issue #232): an authorization-scoped set of
   // the most relevant existing tasks/comments/project brief, derived from
   // the already-redacted input so nothing unredacted reaches the query
-  // builder. Only reached once assertCanRunAiJob() above has confirmed AI
+  // builder. Only reached once assertAiEnabled() above has confirmed AI
   // is enabled for this workspace — a disabled workspace never queries for
   // retrieval context, let alone calls a provider with it.
   const retrieved = await retrieveContext(ctx, {
@@ -144,6 +145,10 @@ export async function runAiJob(
       retrieved: retrieved.map(({ id, title }) => ({ id, title })),
     };
   }
+
+  // A miss will call a provider and spend: only now does the month's budget
+  // and job quota apply. A hit above reused a draft already paid for (#536).
+  await assertWithinAiQuota(ctx);
 
   const job = await ctx.db.aiJob.create({
     data: {

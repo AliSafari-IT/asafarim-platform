@@ -139,6 +139,50 @@ describe.skipIf(!hasTestDatabase())("AI boundary (integration, fixture provider)
     });
   });
 
+  // ── cache before quota (issue #536) ───────────────────────────────────
+  // A cache hit reuses a draft already paid for, so the month's budget and
+  // job quota don't gate it. The kill switch still does, and a miss at the
+  // ceiling is still refused.
+
+  it("quota: at the job quota a cached, reviewable draft is still returned", async () => {
+    const { runAiJob } = await import("./job");
+    const { updateAiSettings } = await import("./settings");
+    const a = await ws("aiquotacache");
+    const first = await runAiJob(a.ctx, { kind: "extract_plan", input: "- one\n- two\n- three" });
+    expect(first.proposal.state).toBe("draft");
+
+    await updateAiSettings(a.ctx, { monthlyJobQuota: 1 });
+    const again = await runAiJob(a.ctx, { kind: "extract_plan", input: "- one\n- two\n- three" });
+    expect(again.cached).toBe(true);
+    expect(again.proposal.id).toBe(first.proposal.id);
+    expect(await db.aiJob.count({ where: { workspaceId: a.w.id } })).toBe(1);
+  });
+
+  it("quota: at the job quota a cache miss is still rate_limited", async () => {
+    const { runAiJob } = await import("./job");
+    const { updateAiSettings } = await import("./settings");
+    const a = await ws("aiquotamiss");
+    await runAiJob(a.ctx, { kind: "extract_plan", input: "- one\n- two\n- three" });
+
+    await updateAiSettings(a.ctx, { monthlyJobQuota: 1 });
+    await expect(runAiJob(a.ctx, { kind: "extract_plan", input: "- four\n- five\n- six" })).rejects.toMatchObject({
+      code: "rate_limited",
+    });
+    expect(await db.aiJob.count({ where: { workspaceId: a.w.id } })).toBe(1);
+  });
+
+  it("kill switch: a disabled workspace gets no cached draft either", async () => {
+    const { runAiJob } = await import("./job");
+    const { updateAiSettings } = await import("./settings");
+    const a = await ws("aikillcache");
+    await runAiJob(a.ctx, { kind: "extract_plan", input: "- one\n- two\n- three" });
+
+    await updateAiSettings(a.ctx, { enabled: false });
+    await expect(runAiJob(a.ctx, { kind: "extract_plan", input: "- one\n- two\n- three" })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+
   it("apply then undo: create ops become tasks, undo archives them", async () => {
     const { runAiJob } = await import("./job");
     const { applyProposal, undoProposal } = await import("./proposals");
