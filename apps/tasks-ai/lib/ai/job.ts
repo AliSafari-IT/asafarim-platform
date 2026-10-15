@@ -10,7 +10,7 @@ import { renderPrompt } from "./prompts";
 import { mapCitationSpans, redact } from "./redact";
 import { guardDraft } from "./guard";
 import { retrieveContext } from "./retrieval";
-import { getProvider } from "./registry";
+import { fallbackProviderFor, getProvider } from "./registry";
 import { getAiSettings } from "./settings";
 import { assertAiEnabled, assertWithinAiQuota } from "./quota";
 import { ProviderError, type ProviderDelta } from "./provider";
@@ -51,8 +51,9 @@ export class AiJobCancelledError extends Error {
 /**
  * The AI job pipeline (docs/adr/0004, M06 scope):
  *   kill-switch → redact → render versioned prompt → cache lookup
- *   → (miss only) budget/quota → provider call (retry, degraded fallback
- *   to fixture) → guard against the operation allowlist + blast radius
+ *   → (miss only) budget/quota → provider call (retry, then one attempt
+ *   on a second configured real provider, then degraded fallback to
+ *   fixture) → guard against the operation allowlist + blast radius
  *   → persist AiJob + usage ledger + a Proposal in `draft` state. NOTHING is applied here.
  *
  * `streamOpts` (issue #236) is only ever set by the streaming route
@@ -183,6 +184,11 @@ export async function runAiJob(
   let output;
   let usedProvider = settings.provider;
   let degraded = false;
+  // One bounded attempt on a second real provider before degrading to the
+  // fixture (#537). Only reached when the primary was exhausted on a
+  // retryable-class failure; a non-retryable one would fail the same way.
+  const fallbackProvider = fallbackProviderFor(settings.provider);
+  let triedFallback = false;
 
   let usedModel = settings.model;
 
@@ -256,6 +262,11 @@ export async function runAiJob(
       }
       const retryable = err instanceof ProviderError ? err.retryable : true;
       if (attempt >= MAX_ATTEMPTS || !retryable) {
+        if (retryable && fallbackProvider && !triedFallback && usedProvider === settings.provider) {
+          usedProvider = fallbackProvider;
+          triedFallback = true;
+          continue;
+        }
         if (usedProvider !== "fixture") {
           // Degraded mode: fall back to the offline provider so the user
           // still gets an (assumption-heavy) draft instead of an error.
@@ -334,6 +345,9 @@ export async function runAiJob(
       data: {
         state: degraded ? "degraded" : "succeeded",
         provider: usedProvider,
+        // A job a fallback real provider served records that provider's
+        // model; a degraded job keeps the configured one, as before.
+        ...(output.fixture ? {} : { model: usedModel }),
         inputTokens: output.inputTokens,
         outputTokens: output.outputTokens,
         costUsd: legacyCostUsd,
@@ -364,7 +378,7 @@ export async function runAiJob(
         workspaceId: ctx.workspaceId,
         aiJobId: job.id,
         provider: usedProvider,
-        model: output.fixture ? "fixture-1" : settings.model,
+        model: output.fixture ? "fixture-1" : usedModel,
         inputTokens: output.inputTokens,
         outputTokens: output.outputTokens,
         costUsd: legacyCostUsd,
@@ -385,6 +399,7 @@ export async function runAiJob(
     groundedRatio: Number(guard.groundedRatio.toFixed(2)),
     redactionCounts,
     degraded,
+    ...(!degraded && usedProvider !== settings.provider ? { fallbackFrom: settings.provider } : {}),
   }, ctx.correlationId);
 
   await recordUsage(ctx, "ai_proposals");
