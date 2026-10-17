@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-17",
+    "title": "Resumatch: flag thin job-posting fetches with a quality signal",
+    "sha": "88bda18c",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/88bda18c"
+  },
+  {
+    "date": "2026-10-17",
     "title": "Resumatch: read JobPosting JSON-LD before the page text strip",
     "sha": "55e4b44a",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/55e4b44a"
@@ -112,11 +118,5 @@
     "title": "Testora: require confirmation when a target with secrets changes origin",
     "sha": "682df88b",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/682df88b"
-  },
-  {
-    "date": "2026-10-02",
-    "title": "Testora: runner program and pull protocol behind TESTORA_RUNNER_MODE (ADR 0004 step 2)",
-    "sha": "57ee2366",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/57ee2366"
   }
 ]
