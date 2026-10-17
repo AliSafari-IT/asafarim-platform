@@ -102,9 +102,15 @@ export function normalizeWhitespace(input: string): string {
 
 async function extractPdf(bytes: Uint8Array, signal: AbortSignal): Promise<ExtractionOutcome> {
   let pdf: Awaited<ReturnType<typeof import("unpdf").getDocumentProxy>> | undefined;
+  // Frees pdf.js's parsed state and cancels any work still queued for the
+  // document. Runs on the deadline too: a page read that never settles would
+  // otherwise never reach `finally`.
+  const release = () => void pdf?.loadingTask.destroy().catch(() => {});
   try {
     const { getDocumentProxy } = await import("unpdf");
     pdf = await getDocumentProxy(bytes);
+    if (signal.aborted) return { ok: false, reasonCode: "EXTRACTION_ERROR" };
+    signal.addEventListener("abort", release, { once: true });
 
     // Read the runs with their positions rather than taking the library's
     // flattened string. That string is in drawing order, which for a
@@ -140,9 +146,8 @@ async function extractPdf(bytes: Uint8Array, signal: AbortSignal): Promise<Extra
     // pdf.js messages routinely quote document content.
     return { ok: false, reasonCode: "EXTRACTION_ERROR" };
   } finally {
-    // Frees pdf.js's parsed state; after a timeout this also cancels any
-    // work the document still has queued.
-    void pdf?.loadingTask.destroy().catch(() => {});
+    signal.removeEventListener("abort", release);
+    release();
   }
 }
 

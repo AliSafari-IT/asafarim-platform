@@ -73,6 +73,8 @@ describe("extractText parse deadline (#528)", () => {
       ok: false,
       reasonCode: "EXTRACTION_ERROR",
     });
+    // The stuck page read never settles, so only the deadline can free it.
+    expect(pdf.loadingTask.destroy).toHaveBeenCalled();
   });
 
   it("stops reading pages once the deadline has passed", async () => {
