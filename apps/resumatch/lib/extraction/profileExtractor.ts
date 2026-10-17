@@ -32,8 +32,8 @@ import { parseSkillLines } from "../profile/parseSkillsText";
  * `parseProfileContent` rejects them structurally if a future change tries.
  */
 
-export const PROFILE_EXTRACTOR_NAME = "resumatch-rules";
-export const PROFILE_EXTRACTOR_VERSION = "1.0.0";
+/** Defined in ./versions, with the rule for when to bump it (#523). */
+export { PROFILE_EXTRACTOR_NAME, PROFILE_EXTRACTOR_VERSION } from "./versions";
 
 export interface ExtractedProfile {
   content: CandidateProfileContent;

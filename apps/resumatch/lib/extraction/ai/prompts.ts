@@ -32,7 +32,9 @@ export const MAX_CV_CHARS = 12000;
  *  visible in a CandidateDocument's provenance. Owned here, not in
  *  registry.ts (#417) — the registry imports this constant, not the other
  *  way around, so the version and the prompt text it names can never
- *  drift apart. */
+ *  drift apart. The full bump rule (bump for any change that can alter
+ *  stored output, including a fix) is in ../versions.ts; old rows stamped
+ *  with an earlier value show up in the stale-version report (#523). */
 export const EXTRACT_PROMPT_VERSION = "extract_profile@1";
 
 const SYSTEM_PROMPT = `You read a candidate's CV and extract it into structured profile data.

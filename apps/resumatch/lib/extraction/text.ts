@@ -180,9 +180,9 @@ function extractPlainText(bytes: Uint8Array): ExtractionOutcome {
   }
 }
 
-/** Identifies which code produced a profile version, for reproducibility. */
-export const EXTRACTOR_NAME = "resumatch-local-text";
-export const EXTRACTOR_VERSION = "1.0.0";
+/** Identifies which code produced a profile version, for reproducibility.
+ *  Defined in ./versions (with the rule for when to bump it). */
+export { EXTRACTOR_NAME, EXTRACTOR_VERSION } from "./versions";
 
 export async function extractText(
   bytes: Uint8Array,
