@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { logError } from "../../observability/logger";
-import { getEnv, type ResuMatchAiProvider } from "../../env";
+import { getEnv, type ResuMatchAiProvider, type ResuMatchRealAiProvider } from "../../env";
 import type { ProfileConfidence } from "../../profile/contract";
 import {
   PROFILE_EXTRACTOR_NAME,
@@ -10,6 +10,7 @@ import {
 } from "../profileExtractor";
 import { recordBilledFailure, settleProviderCall, QuotaExceededError } from "../../tailoring/ai/quota";
 import { runProviderCallWithBudget } from "../../ai/runProviderCall";
+import { resolveFallbackProvider } from "../../ai/fallbackProvider";
 import type { CostAttribution } from "../../costs/ledger";
 import { renderExtractPrompt } from "./prompts";
 import { ExtractionProviderError } from "./provider";
@@ -87,6 +88,8 @@ export async function extractProfileWithFallback(
     provider?: ResuMatchAiProvider;
     /** The CandidateDocument being extracted (issue #586). */
     documentId?: string;
+    /** Issue #511: overrides `RESUMATCH_AI_FALLBACK_PROVIDER`; null = none. */
+    fallbackProvider?: ResuMatchRealAiProvider | null;
   } = {},
 ): Promise<ExtractionOutcome> {
   const aiProvider = opts.provider ?? getEnv().aiProvider;
@@ -123,11 +126,21 @@ export async function extractProfileWithFallback(
   const cached = getDedupedResult<ExtractionOutcome>(dedupKey);
   if (cached) return cached;
 
+  // Each attempt carries the provider serving it, so a fallback-served call
+  // (issue #511) is ledgered and versioned under the fallback provider.
+  const route = async (name: ResuMatchAiProvider) => ({
+    provider: await getExtractionProvider(name),
+    name,
+    modelVersion: EXTRACT_MODEL_VERSIONS[name],
+  });
+  const fallbackName = resolveFallbackProvider(aiProvider, opts.fallbackProvider);
+
   const result = await runProviderCallWithBudget({
     workspaceId,
     kind: "extract",
-    prepare: () => getExtractionProvider(aiProvider),
-    call: async (provider) => {
+    prepare: () => route(aiProvider),
+    fallback: fallbackName ? { prepare: () => route(fallbackName) } : null,
+    call: async ({ provider, name, modelVersion }) => {
       const started = Date.now();
       const output = await provider.extract({
         text,
@@ -153,7 +166,7 @@ export async function extractProfileWithFallback(
         {
           workspaceId,
           kind: "extract",
-          provider: aiProvider,
+          provider: name,
           model: modelVersion,
           promptVersion: prompt.version,
           inputTokens: output.inputTokens,
@@ -177,15 +190,16 @@ export async function extractProfileWithFallback(
         // extractor's "layout could not be read" caveat does not apply.
         layoutReliable: true,
         extractorName: `${PROFILE_EXTRACTOR_NAME}-ai`,
-        extractorVersion: `${aiProvider}:${modelVersion}:${prompt.version}`,
+        extractorVersion: `${name}:${modelVersion}:${prompt.version}`,
         degraded: false,
       };
+      // Stored under the primary's key, the one the next lookup uses.
       storeDedupedResult(dedupKey, outcome);
       return outcome;
     },
-    onAttemptFailed: async (err, _provider, attempt) => {
-      await recordBilledFailure(err, { workspaceId, kind: "extract", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
-      logError("extraction.ai.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
+    onAttemptFailed: async (err, { name, modelVersion }, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "extract", provider: name, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("extraction.ai.provider_call_failed", err, { workspaceId, attempt, provider: name });
     },
     isRetryable: (err) => (err instanceof ExtractionProviderError ? err.retryable : false),
   });

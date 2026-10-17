@@ -208,5 +208,57 @@ describe("ResuMatch environment contract", () => {
         /RESUMATCH_JOB_FETCH_AI_ESCALATION/,
       );
     });
+
+    describe("RESUMATCH_AI_FALLBACK_PROVIDER (issue #511)", () => {
+      const prodOpenAi = {
+        ...prodBase,
+        RESUMATCH_AI_PROVIDER: "openai",
+        RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF: "true",
+        OPENAI_API_KEY: "sk-test-not-a-real-key",
+      };
+
+      it("defaults to no fallback", () => {
+        expect(resolveEnv({ NODE_ENV: "development" }).aiFallbackProvider).toBeNull();
+        expect(resolveEnv(prodOpenAi).aiFallbackProvider).toBeNull();
+      });
+
+      it("is ignored next to the fixture primary", () => {
+        expect(resolveEnv({ NODE_ENV: "development", RESUMATCH_AI_FALLBACK_PROVIDER: "anthropic" }).aiFallbackProvider).toBeNull();
+      });
+
+      it("resolves the other real provider", () => {
+        const env = resolveEnv({ ...prodOpenAi, RESUMATCH_AI_FALLBACK_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "test-not-a-real-key" });
+        expect(env.aiFallbackProvider).toBe("anthropic");
+      });
+
+      it("refuses the primary itself as its fallback", () => {
+        expect(() =>
+          resolveEnv({ NODE_ENV: "development", RESUMATCH_AI_PROVIDER: "openai", RESUMATCH_AI_FALLBACK_PROVIDER: "openai" }),
+        ).toThrow(/RESUMATCH_AI_FALLBACK_PROVIDER/);
+      });
+
+      it("refuses a deployed fallback without its key, naming no key material", () => {
+        try {
+          resolveEnv({ ...prodOpenAi, RESUMATCH_AI_FALLBACK_PROVIDER: "anthropic" });
+          throw new Error("expected a validation failure");
+        } catch (error) {
+          expect(error).toBeInstanceOf(EnvValidationError);
+          const message = (error as Error).message;
+          expect(message).toContain("RESUMATCH_AI_FALLBACK_PROVIDER");
+          expect(message.toLowerCase()).not.toContain("sk-");
+        }
+      });
+
+      it("local/dev does not need the fallback key", () => {
+        const env = resolveEnv({ NODE_ENV: "development", RESUMATCH_AI_PROVIDER: "openai", RESUMATCH_AI_FALLBACK_PROVIDER: "anthropic" });
+        expect(env.aiFallbackProvider).toBe("anthropic");
+      });
+
+      it("refuses an unknown value by name", () => {
+        expect(() => resolveEnv({ NODE_ENV: "development", RESUMATCH_AI_FALLBACK_PROVIDER: "fixture" })).toThrow(
+          /RESUMATCH_AI_FALLBACK_PROVIDER/,
+        );
+      });
+    });
   });
 });

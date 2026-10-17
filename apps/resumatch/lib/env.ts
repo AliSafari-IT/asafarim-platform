@@ -97,7 +97,16 @@ export interface ResuMatchEnv {
    * is selected. `false` keeps job-fetch deterministic-only (cost control).
    */
   jobFetchAiEscalation: boolean;
+  /**
+   * Issue #511: the provider tried once when the primary's retries are
+   * exhausted on a retryable error. `null` (the default, and always when
+   * the primary is `fixture`) means no fallback.
+   */
+  aiFallbackProvider: ResuMatchRealAiProvider | null;
 }
+
+/** A provider that makes real model calls. */
+export type ResuMatchRealAiProvider = Exclude<ResuMatchAiProvider, "fixture">;
 
 /** Build-time values, injectable so the contract stays testable. */
 export interface BuildTimeUrls {
@@ -133,6 +142,8 @@ const rawSchema = z.object({
     }),
   /** Issue #517: "off" keeps job-fetch deterministic-only even with a real provider. Default "on". */
   RESUMATCH_JOB_FETCH_AI_ESCALATION: z.enum(["on", "off"]).default("on"),
+  /** Issue #511: "none" (default) or the other real provider. Never the primary. */
+  RESUMATCH_AI_FALLBACK_PROVIDER: z.enum(["none", "openai", "anthropic"]).default("none"),
   /** Shared platform key (see .env.example). Unused unless a provider selects it. Never logged. */
   OPENAI_API_KEY: z.string().min(1).optional(),
   /** Shared platform key (see .env.example). Unused unless a provider selects it. Never logged. */
@@ -189,6 +200,23 @@ export function resolveEnv(
     }
   }
 
+  // Issue #511: the fallback provider only means something next to a real
+  // primary. Naming the primary itself is a mistake worth refusing over, and
+  // a deployed fallback needs its own key just as the primary does (the
+  // JM-005 sign-off above already covers it).
+  const fallback = raw.RESUMATCH_AI_FALLBACK_PROVIDER;
+  const aiFallbackProvider: ResuMatchRealAiProvider | null =
+    fallback === "none" || raw.RESUMATCH_AI_PROVIDER === "fixture" ? null : fallback;
+  if (aiFallbackProvider !== null) {
+    if (aiFallbackProvider === raw.RESUMATCH_AI_PROVIDER) {
+      throw new EnvValidationError(["RESUMATCH_AI_FALLBACK_PROVIDER"]);
+    }
+    const fallbackKey = aiFallbackProvider === "openai" ? raw.OPENAI_API_KEY : raw.ANTHROPIC_API_KEY;
+    if (requiresExplicitSecrets && !fallbackKey) {
+      throw new EnvValidationError(["RESUMATCH_AI_FALLBACK_PROVIDER"]);
+    }
+  }
+
   // Runtime value first (a real env var overrides), then the value Next
   // inlined at build, then the local default.
   const appUrl = raw.NEXT_PUBLIC_RESUMATCH_URL ?? buildTime.appUrl ?? LOCAL_APP_URL;
@@ -215,6 +243,7 @@ export function resolveEnv(
     aiClassificationSignedOff: raw.RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF ?? false,
     aiMonthlyBudgetUsd: raw.RESUMATCH_AI_MONTHLY_BUDGET_USD ?? DEFAULT_AI_MONTHLY_BUDGET_USD,
     jobFetchAiEscalation: raw.RESUMATCH_JOB_FETCH_AI_ESCALATION !== "off",
+    aiFallbackProvider,
   };
 }
 

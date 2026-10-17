@@ -1,7 +1,8 @@
 import { logError } from "../../observability/logger";
-import { getEnv, type ResuMatchAiProvider } from "../../env";
+import { getEnv, type ResuMatchAiProvider, type ResuMatchRealAiProvider } from "../../env";
 import { recordBilledFailure, settleProviderCall, QuotaExceededError } from "../../tailoring/ai/quota";
 import { runProviderCallWithBudget } from "../../ai/runProviderCall";
+import { resolveFallbackProvider } from "../../ai/fallbackProvider";
 import type { CostAttribution } from "../../costs/ledger";
 import { renderRewritePrompt } from "./prompts";
 import { RewriteProviderError, type SummaryTone } from "./provider";
@@ -40,7 +41,11 @@ export interface RewriteSummaryInput {
 export async function rewriteSummaryWithFallback(
   workspaceId: string,
   input: RewriteSummaryInput,
-  opts: { provider?: ResuMatchAiProvider } = {},
+  opts: {
+    provider?: ResuMatchAiProvider;
+    /** Issue #511: overrides `RESUMATCH_AI_FALLBACK_PROVIDER`; null = none. */
+    fallbackProvider?: ResuMatchRealAiProvider | null;
+  } = {},
 ): Promise<RewriteOutcome> {
   const { currentSummary, tone } = input;
   const aiProvider = opts.provider ?? getEnv().aiProvider;
@@ -49,16 +54,29 @@ export async function rewriteSummaryWithFallback(
   const attribution: CostAttribution = { subjectType: "candidate_profile", subjectId: workspaceId };
 
   if (aiProvider === "fixture") return { text: currentSummary, degraded: true };
+  const fallbackName = resolveFallbackProvider(aiProvider, opts.fallbackProvider);
 
   const result = await runProviderCallWithBudget({
     workspaceId,
     kind: "rewrite",
     prepare: async () => ({
       provider: await getRewriteProvider(aiProvider),
+      name: aiProvider,
       modelVersion: REWRITE_MODEL_VERSIONS[aiProvider],
       prompt: renderRewritePrompt(input),
     }),
-    call: async ({ provider, modelVersion, prompt }) => {
+    // Issue #511: the same prompt, served by the other provider.
+    fallback: fallbackName
+      ? {
+          prepare: async () => ({
+            provider: await getRewriteProvider(fallbackName),
+            name: fallbackName,
+            modelVersion: REWRITE_MODEL_VERSIONS[fallbackName],
+            prompt: renderRewritePrompt(input),
+          }),
+        }
+      : null,
+    call: async ({ provider, name, modelVersion, prompt }) => {
       const started = Date.now();
       const output = await provider.rewrite({
         currentSummary,
@@ -76,7 +94,7 @@ export async function rewriteSummaryWithFallback(
         {
           workspaceId,
           kind: "rewrite",
-          provider: aiProvider,
+          provider: name,
           model: modelVersion,
           promptVersion: prompt.version,
           inputTokens: output.inputTokens,
@@ -90,9 +108,9 @@ export async function rewriteSummaryWithFallback(
 
       return { text, degraded: false };
     },
-    onAttemptFailed: async (err, { modelVersion, prompt }, attempt) => {
-      await recordBilledFailure(err, { workspaceId, kind: "rewrite", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
-      logError("profile.rewrite.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
+    onAttemptFailed: async (err, { name, modelVersion, prompt }, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "rewrite", provider: name, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("profile.rewrite.provider_call_failed", err, { workspaceId, attempt, provider: name });
     },
     isRetryable: (err) => (err instanceof RewriteProviderError ? err.retryable : false),
   });
