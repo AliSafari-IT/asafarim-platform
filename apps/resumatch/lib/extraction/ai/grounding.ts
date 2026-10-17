@@ -91,9 +91,20 @@ export function ungroundedProseTokenCount(text: string, sourceLower: string, mod
         continue;
       }
     }
-    if (!sourceLower.includes(token.toLowerCase())) count += 1;
+    const grounded = isNumber ? containsWholeNumber(sourceLower, token) : sourceLower.includes(token.toLowerCase());
+    if (!grounded) count += 1;
   }
   return count;
+}
+
+/**
+ * A number must match a whole number in the source: "5%" must not pass
+ * because the source says "15%", nor "2.5" because it says "12.5" (#855
+ * review). A following "%" or unit is fine ("40" matches "40%").
+ */
+function containsWholeNumber(sourceLower: string, token: string): boolean {
+  const escaped = token.replace(/[.%]/g, (c) => `\\${c}`);
+  return new RegExp(`(?<![\\d.])${escaped}(?!\\.?\\d)`).test(sourceLower);
 }
 
 /**

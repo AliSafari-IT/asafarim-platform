@@ -54,6 +54,12 @@ describe("groundCoverLetterSuggestion", () => {
     expect(groundCoverLetterSuggestion(input, PROFILE, JOB, "en").suggestion?.paragraphs).toEqual([GROUNDED]);
   });
 
+  it("does not accept a metric that is only a substring of a real one", () => {
+    // PROFILE says 40%; "0%" is a substring of it, not the same claim.
+    const input = letter([GROUNDED, "I reduced error rates to 0%."]);
+    expect(groundCoverLetterSuggestion(input, PROFILE, JOB, "en").suggestion?.paragraphs).toEqual([GROUNDED]);
+  });
+
   it("degrades (null suggestion) when no paragraph survives", () => {
     const input = letter(["I scaled Kubernetes at Initech to 500 nodes."]);
     const result = groundCoverLetterSuggestion(input, PROFILE, JOB, "en");
