@@ -1,7 +1,8 @@
 import { logError } from "../../../observability/logger";
-import { getEnv, type ResuMatchAiProvider } from "../../../env";
+import { getEnv, type ResuMatchAiProvider, type ResuMatchRealAiProvider } from "../../../env";
 import { recordBilledFailure, recordUsage, QuotaExceededError } from "../../../tailoring/ai/quota";
 import { runProviderCallWithBudget } from "../../../ai/runProviderCall";
+import { resolveFallbackProvider } from "../../../ai/fallbackProvider";
 import type { CostAttribution } from "../../../costs/ledger";
 import { renderCategorizePrompt } from "./prompts";
 import { CategorizeSkillsProviderError } from "./provider";
@@ -50,7 +51,11 @@ async function fixtureFallback(
 export async function categorizeSkillsWithFallback(
   workspaceId: string,
   skillNames: string[],
-  opts: { provider?: ResuMatchAiProvider } = {},
+  opts: {
+    provider?: ResuMatchAiProvider;
+    /** Issue #511: overrides `RESUMATCH_AI_FALLBACK_PROVIDER`; null = none. */
+    fallbackProvider?: ResuMatchRealAiProvider | null;
+  } = {},
 ): Promise<CategorizeOutcome> {
   const aiProvider = opts.provider ?? getEnv().aiProvider;
   const prompt = renderCategorizePrompt(skillNames);
@@ -58,11 +63,20 @@ export async function categorizeSkillsWithFallback(
 
   if (aiProvider === "fixture") return fixtureFallback(skillNames, prompt);
 
+  // Each attempt carries the provider serving it (issue #511).
+  const route = async (name: ResuMatchAiProvider) => ({
+    provider: await getCategorizeSkillsProvider(name),
+    name,
+    modelVersion: CATEGORIZE_MODEL_VERSIONS[name],
+  });
+  const fallbackName = resolveFallbackProvider(aiProvider, opts.fallbackProvider);
+
   const result = await runProviderCallWithBudget({
     workspaceId,
     kind: "categorize_skills",
-    prepare: async () => ({ provider: await getCategorizeSkillsProvider(aiProvider), modelVersion: CATEGORIZE_MODEL_VERSIONS[aiProvider] }),
-    call: async ({ provider, modelVersion }) => {
+    prepare: () => route(aiProvider),
+    fallback: fallbackName ? { prepare: () => route(fallbackName) } : null,
+    call: async ({ provider, name, modelVersion }) => {
       const started = Date.now();
       const output = await provider.categorize({
         skillNames: prompt.skillNamesUsed,
@@ -74,7 +88,7 @@ export async function categorizeSkillsWithFallback(
       await recordUsage({
         workspaceId,
         kind: "categorize_skills",
-        provider: aiProvider,
+        provider: name,
         model: modelVersion,
         promptVersion: prompt.version,
         inputTokens: output.inputTokens,
@@ -85,9 +99,9 @@ export async function categorizeSkillsWithFallback(
       });
       return { suggestions: mergeSuggestedCategories(skillNames, output.suggestions), degraded: false };
     },
-    onAttemptFailed: async (err, { modelVersion }, attempt) => {
-      await recordBilledFailure(err, { workspaceId, kind: "categorize_skills", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
-      logError("profile.categorize.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
+    onAttemptFailed: async (err, { name, modelVersion }, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "categorize_skills", provider: name, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("profile.categorize.provider_call_failed", err, { workspaceId, attempt, provider: name });
     },
     isRetryable: (err) => (err instanceof CategorizeSkillsProviderError ? err.retryable : false),
   });

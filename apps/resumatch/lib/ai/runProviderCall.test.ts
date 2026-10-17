@@ -272,3 +272,136 @@ describe("runProviderCallWithBudget outcome records (#512)", () => {
     await expect(run()).resolves.toEqual({ ok: true, value: 42 });
   });
 });
+
+describe("runProviderCallWithBudget cross-provider fallback (#511)", () => {
+  type Ctx = { name: "openai" | "anthropic" };
+
+  function setupFallback(opts: {
+    primary: (attempt: number) => Promise<string>;
+    fallback?: () => Promise<string>;
+    fallbackPrepare?: () => Promise<Ctx>;
+    hasFallback?: boolean;
+  }) {
+    const sleeps: number[] = [];
+    const failures: Array<[string, number]> = [];
+    const outcomes: CallOutcomeRecord[] = [];
+    const fallbackCall = vi.fn(opts.fallback ?? (async () => "from-fallback"));
+    const fallbackPrepare = vi.fn(opts.fallbackPrepare ?? (async (): Promise<Ctx> => ({ name: "anthropic" })));
+    const run = () =>
+      runProviderCallWithBudget<Ctx, string>({
+        workspaceId: "ws-1",
+        kind: "extract",
+        prepare: async () => ({ name: "openai" }),
+        fallback: opts.hasFallback === false ? null : { prepare: fallbackPrepare },
+        call: (ctx, attempt) => (ctx.name === "openai" ? opts.primary(attempt) : fallbackCall()),
+        onAttemptFailed: (_err, ctx, attempt) => {
+          failures.push([ctx.name, attempt]);
+        },
+        isRetryable: (err) => (err instanceof FakeError ? err.retryable : false),
+        sleep: async (ms) => {
+          sleeps.push(ms);
+        },
+        recordOutcome: async (record) => {
+          outcomes.push(record);
+        },
+      });
+    return { run, sleeps, failures, outcomes, fallbackCall, fallbackPrepare };
+  }
+
+  it("tries the fallback once after the primary is exhausted on a retryable error, and returns its value", async () => {
+    const primary = vi.fn(async () => {
+      throw new FakeError(true);
+    });
+    const { run, sleeps, failures, outcomes, fallbackCall } = setupFallback({ primary });
+    await expect(run()).resolves.toEqual({ ok: true, value: "from-fallback" });
+    expect(primary).toHaveBeenCalledTimes(MAX_ATTEMPTS);
+    expect(fallbackCall).toHaveBeenCalledTimes(1);
+    // No extra backoff before the fallback: a different provider.
+    expect(sleeps).toEqual([250, 500]);
+    expect(failures).toEqual([
+      ["openai", 1],
+      ["openai", 2],
+      ["openai", 3],
+    ]);
+    expect(outcomes).toEqual([
+      expect.objectContaining({ outcome: "success", attempts: MAX_ATTEMPTS + 1, degraded: false, usedFallback: true, errorCode: null }),
+    ]);
+  });
+
+  it("never reaches the fallback on a non-retryable error", async () => {
+    const { run, outcomes, fallbackCall, fallbackPrepare } = setupFallback({
+      primary: async () => {
+        throw new FakeError(false);
+      },
+    });
+    const result = await run();
+    expect(result.ok).toBe(false);
+    expect(fallbackPrepare).not.toHaveBeenCalled();
+    expect(fallbackCall).not.toHaveBeenCalled();
+    expect(outcomes[0]).toMatchObject({ outcome: "non_retryable", attempts: 1, usedFallback: false });
+  });
+
+  it("does not use the fallback when the last primary error is non-retryable", async () => {
+    const { run, outcomes, fallbackPrepare } = setupFallback({
+      primary: async (attempt) => {
+        throw new FakeError(attempt < MAX_ATTEMPTS);
+      },
+    });
+    expect((await run()).ok).toBe(false);
+    expect(fallbackPrepare).not.toHaveBeenCalled();
+    expect(outcomes[0]).toMatchObject({ outcome: "exhausted", attempts: MAX_ATTEMPTS, usedFallback: false });
+  });
+
+  it("never reaches the fallback when the budget refuses", async () => {
+    const refusal = Object.assign(new Error("over budget"), { name: "QuotaExceededError" });
+    assertCanRunProviderCall.mockRejectedValueOnce(refusal);
+    const primary = vi.fn(async () => "never");
+    const { run, outcomes, fallbackPrepare } = setupFallback({ primary });
+    await expect(run()).resolves.toEqual({ ok: false, error: refusal });
+    expect(primary).not.toHaveBeenCalled();
+    expect(fallbackPrepare).not.toHaveBeenCalled();
+    expect(outcomes[0]).toMatchObject({ outcome: "budget_refused", usedFallback: false });
+  });
+
+  it("degrades with the fallback's error when the fallback fails too, after recording its failure", async () => {
+    const fallbackError = new FakeError(true);
+    const { run, failures, outcomes } = setupFallback({
+      primary: async () => {
+        throw new FakeError(true);
+      },
+      fallback: async () => {
+        throw fallbackError;
+      },
+    });
+    await expect(run()).resolves.toEqual({ ok: false, error: fallbackError });
+    expect(failures.at(-1)).toEqual(["anthropic", MAX_ATTEMPTS + 1]);
+    expect(outcomes[0]).toMatchObject({ outcome: "exhausted", attempts: MAX_ATTEMPTS + 1, degraded: true, usedFallback: true });
+  });
+
+  it("degrades as exhausted when the fallback can't load, with no extra attempt", async () => {
+    const loadError = Object.assign(new Error("no key"), { code: "missing_key" });
+    const { run, outcomes, fallbackCall } = setupFallback({
+      primary: async () => {
+        throw new FakeError(true);
+      },
+      fallbackPrepare: async () => {
+        throw loadError;
+      },
+    });
+    await expect(run()).resolves.toEqual({ ok: false, error: loadError });
+    expect(fallbackCall).not.toHaveBeenCalled();
+    expect(outcomes[0]).toMatchObject({ outcome: "exhausted", attempts: MAX_ATTEMPTS, usedFallback: true, errorCode: "missing_key" });
+  });
+
+  it("with no fallback configured, exhaustion behaves exactly as before", async () => {
+    const { run, outcomes, fallbackPrepare } = setupFallback({
+      primary: async () => {
+        throw new FakeError(true);
+      },
+      hasFallback: false,
+    });
+    expect((await run()).ok).toBe(false);
+    expect(fallbackPrepare).not.toHaveBeenCalled();
+    expect(outcomes[0]).toMatchObject({ outcome: "exhausted", attempts: MAX_ATTEMPTS, usedFallback: false });
+  });
+});

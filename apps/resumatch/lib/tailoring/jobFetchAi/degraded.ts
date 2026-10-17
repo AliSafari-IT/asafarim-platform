@@ -1,7 +1,8 @@
 import { logError } from "../../observability/logger";
-import { getEnv, type ResuMatchAiProvider } from "../../env";
+import { getEnv, type ResuMatchAiProvider, type ResuMatchRealAiProvider } from "../../env";
 import { recordBilledFailure, settleProviderCall, QuotaExceededError } from "../ai/quota";
 import { runProviderCallWithBudget } from "../../ai/runProviderCall";
+import { resolveFallbackProvider } from "../../ai/fallbackProvider";
 import type { CostAttribution } from "../../costs/ledger";
 import { assessFetchQuality } from "../fetchQuality";
 import { fetchJobPosting, isPublicHttpsUrl, type JobFetchRefusal, type JobFetchResult } from "../fetchJob";
@@ -59,6 +60,8 @@ export async function fetchJobWithFallback(
     targetJobId?: string;
     /** Overrides `RESUMATCH_JOB_FETCH_AI_ESCALATION` (tests). */
     escalate?: boolean;
+    /** Issue #511: overrides `RESUMATCH_AI_FALLBACK_PROVIDER`; null = none. */
+    fallbackProvider?: ResuMatchRealAiProvider | null;
   } = {},
 ): Promise<JobFetchOutcome> {
   const attribution: CostAttribution = {
@@ -97,11 +100,21 @@ export async function fetchJobWithFallback(
   const cached = getDedupedResult<JobFetchOutcome>(dedupKey);
   if (cached) return cached;
 
+  // Each attempt carries the provider serving it, so a fallback-served call
+  // (issue #511) is ledgered under the fallback provider.
+  const route = async (name: ResuMatchAiProvider) => ({
+    provider: await getJobFetchProvider(name),
+    name,
+    modelVersion: FETCH_JOB_MODEL_VERSIONS[name],
+  });
+  const fallbackName = resolveFallbackProvider(aiProvider, opts.fallbackProvider);
+
   const result = await runProviderCallWithBudget({
     workspaceId,
     kind: "fetch_job",
-    prepare: () => getJobFetchProvider(aiProvider),
-    call: async (provider) => {
+    prepare: () => route(aiProvider),
+    fallback: fallbackName ? { prepare: () => route(fallbackName) } : null,
+    call: async ({ provider, name, modelVersion }) => {
       const started = Date.now();
       const output = await provider.fetch({
         url,
@@ -118,7 +131,7 @@ export async function fetchJobWithFallback(
         {
           workspaceId,
           kind: "fetch_job",
-          provider: aiProvider,
+          provider: name,
           model: modelVersion,
           promptVersion: prompt.version,
           inputTokens: output.inputTokens,
@@ -140,12 +153,13 @@ export async function fetchJobWithFallback(
         quality: assessFetchQuality(parsed),
         degraded: false,
       };
+      // Stored under the primary's key, the one the next lookup uses.
       storeDedupedResult(dedupKey, outcome);
       return outcome;
     },
-    onAttemptFailed: async (err, _provider, attempt) => {
-      await recordBilledFailure(err, { workspaceId, kind: "fetch_job", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
-      logError("tailoring.job_fetch_ai.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
+    onAttemptFailed: async (err, { name, modelVersion }, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "fetch_job", provider: name, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("tailoring.job_fetch_ai.provider_call_failed", err, { workspaceId, attempt, provider: name });
     },
     isRetryable: (err) => (err instanceof JobFetchProviderError ? err.retryable : false),
   });

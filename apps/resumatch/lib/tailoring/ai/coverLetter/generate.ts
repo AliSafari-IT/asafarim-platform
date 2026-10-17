@@ -1,10 +1,11 @@
-import { getEnv } from "../../../env";
+import { getEnv, type ResuMatchAiProvider } from "../../../env";
 import { logError } from "../../../observability/logger";
 import { buildCoverLetterContent, type CoverLetterContent, type CoverLetterSuggestion } from "./schema";
 import { renderCoverLetterPrompt, type CoverLetterLength, type CoverLetterTone } from "./prompts";
 import type { OutputLanguage } from "../../language";
 import { recordBilledFailure, recordUsage } from "../quota";
 import { runProviderCallWithBudget } from "../../../ai/runProviderCall";
+import { resolveFallbackProvider } from "../../../ai/fallbackProvider";
 import type { CostAttribution } from "../../../costs/ledger";
 import { getCoverLetterProvider, COVER_LETTER_MODEL_VERSIONS } from "./registry";
 import { CoverLetterProviderError } from "./provider";
@@ -17,6 +18,8 @@ export interface CoverLetterProviderCallResult {
   suggestion: CoverLetterSuggestion | null;
   degraded: boolean;
   promptVersion: string;
+  /** The model and provider that served the call: the fallback's when the
+   *  fallback served it (issue #511), else the primary's. */
   modelVersion: string;
   providerName: "fixture" | "openai" | "anthropic";
 }
@@ -46,8 +49,11 @@ export async function runCoverLetterProviderCall(
   /** #642 — the language to write the letter in; null for no rule. */
   outputLanguage: OutputLanguage | null = null,
 ): Promise<CoverLetterProviderCallResult> {
-  const providerName = providerOverride ?? getEnv().aiProvider;
-  const modelVersion = COVER_LETTER_MODEL_VERSIONS[providerName];
+  const primaryName = providerOverride ?? getEnv().aiProvider;
+  // Issue #511: RESUMATCH_AI_FALLBACK_PROVIDER, if set.
+  const fallbackName = resolveFallbackProvider(primaryName);
+  let providerName: ResuMatchAiProvider = primaryName;
+  let modelVersion = COVER_LETTER_MODEL_VERSIONS[primaryName];
   const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length, outputLanguage);
 
   let suggestion: CoverLetterSuggestion | null = null;
@@ -65,8 +71,17 @@ export async function runCoverLetterProviderCall(
   const result = await runProviderCallWithBudget({
     workspaceId,
     kind: "cover_letter",
-    prepare: () => getCoverLetterProvider(providerName),
-    call: async (provider) => {
+    prepare: async () => ({ provider: await getCoverLetterProvider(primaryName), name: primaryName, modelVersion: COVER_LETTER_MODEL_VERSIONS[primaryName] }),
+    fallback: fallbackName
+      ? {
+          prepare: async () => ({
+            provider: await getCoverLetterProvider(fallbackName),
+            name: fallbackName,
+            modelVersion: COVER_LETTER_MODEL_VERSIONS[fallbackName],
+          }),
+        }
+      : null,
+    call: async ({ provider, name, modelVersion }) => {
       const started = Date.now();
       const output = await provider.generate({
         profileText,
@@ -79,7 +94,7 @@ export async function runCoverLetterProviderCall(
       await recordUsage({
         workspaceId,
         kind: "cover_letter",
-        provider: providerName,
+        provider: name,
         model: modelVersion,
         promptVersion: prompt.version,
         inputTokens: output.inputTokens,
@@ -88,17 +103,19 @@ export async function runCoverLetterProviderCall(
         latencyMs: Date.now() - started,
         attribution,
       });
-      return output.suggestion;
+      return { suggestion: output.suggestion, name, modelVersion };
     },
-    onAttemptFailed: async (err, _provider, attempt) => {
-      await recordBilledFailure(err, { workspaceId, kind: "cover_letter", provider: providerName, model: modelVersion, promptVersion: prompt.version, attribution });
-      logError("coverLetter.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
+    onAttemptFailed: async (err, { name, modelVersion }, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "cover_letter", provider: name, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("coverLetter.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: name });
     },
     isRetryable: (err) => (err instanceof CoverLetterProviderError ? err.retryable : true),
   });
 
   if (result.ok) {
-    suggestion = result.value;
+    suggestion = result.value.suggestion;
+    providerName = result.value.name;
+    modelVersion = result.value.modelVersion;
   } else {
     logError("coverLetter.generate.degraded", result.error, { workspaceId, targetJobId, provider: providerName });
     degraded = true;

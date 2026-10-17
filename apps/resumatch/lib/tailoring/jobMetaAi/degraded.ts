@@ -1,7 +1,8 @@
 import { logError } from "../../observability/logger";
-import { getEnv, type ResuMatchAiProvider } from "../../env";
+import { getEnv, type ResuMatchAiProvider, type ResuMatchRealAiProvider } from "../../env";
 import { recordBilledFailure, recordUsage, QuotaExceededError } from "../ai/quota";
 import { runProviderCallWithBudget } from "../../ai/runProviderCall";
+import { resolveFallbackProvider } from "../../ai/fallbackProvider";
 import type { CostAttribution } from "../../costs/ledger";
 import { renderJobMetaPrompt } from "./prompts";
 import { JobMetaProviderError } from "./provider";
@@ -33,6 +34,8 @@ export async function inferJobMetaWithFallback(
     /** The TargetJob this metadata is for — pre-minted by the create routes
      *  so the cost event names the job before its row exists (issue #586). */
     targetJobId?: string;
+    /** Issue #511: overrides `RESUMATCH_AI_FALLBACK_PROVIDER`; null = none. */
+    fallbackProvider?: ResuMatchRealAiProvider | null;
   } = {},
 ): Promise<JobMetaOutcome> {
   const aiProvider = opts.provider ?? getEnv().aiProvider;
@@ -44,12 +47,20 @@ export async function inferJobMetaWithFallback(
   if (aiProvider === "fixture" || jobText.trim().length === 0) return degradeToUnknown();
 
   const prompt = renderJobMetaPrompt(jobText);
+  // Each attempt carries the provider serving it (issue #511).
+  const route = async (name: ResuMatchAiProvider) => ({
+    provider: await getJobMetaProvider(name),
+    name,
+    modelVersion: JOB_META_MODEL_VERSIONS[name],
+  });
+  const fallbackName = resolveFallbackProvider(aiProvider, opts.fallbackProvider);
 
   const result = await runProviderCallWithBudget({
     workspaceId,
     kind: "job_meta",
-    prepare: async () => ({ provider: await getJobMetaProvider(aiProvider), modelVersion: JOB_META_MODEL_VERSIONS[aiProvider] }),
-    call: async ({ provider, modelVersion }) => {
+    prepare: () => route(aiProvider),
+    fallback: fallbackName ? { prepare: () => route(fallbackName) } : null,
+    call: async ({ provider, name, modelVersion }) => {
       const started = Date.now();
       const output = await provider.infer({
         jobText: prompt.jobTextUsed,
@@ -61,7 +72,7 @@ export async function inferJobMetaWithFallback(
       await recordUsage({
         workspaceId,
         kind: "job_meta",
-        provider: aiProvider,
+        provider: name,
         model: modelVersion,
         promptVersion: prompt.version,
         inputTokens: output.inputTokens,
@@ -72,9 +83,9 @@ export async function inferJobMetaWithFallback(
       });
       return { title: output.title, employer: output.employer, degraded: false };
     },
-    onAttemptFailed: async (err, { modelVersion }, attempt) => {
-      await recordBilledFailure(err, { workspaceId, kind: "job_meta", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
-      logError("tailoring.job_meta.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
+    onAttemptFailed: async (err, { name, modelVersion }, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "job_meta", provider: name, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("tailoring.job_meta.provider_call_failed", err, { workspaceId, attempt, provider: name });
     },
     isRetryable: (err) => (err instanceof JobMetaProviderError ? err.retryable : false),
   });

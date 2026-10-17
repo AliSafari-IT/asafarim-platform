@@ -20,10 +20,18 @@ import { errorCodeOf, recordCallOutcome, type CallOutcome, type RecordCallOutcom
  * `prepare`, a non-retryable error or the last failed attempt all come
  * back as `{ ok: false, error }`.
  *
+ * Cross-provider fallback (issue #511): when a domain passes `fallback`
+ * and the primary provider's last attempt fails with a retryable error,
+ * the call gets one more attempt against the fallback provider's context
+ * before it degrades. A non-retryable error, a budget refusal or a failed
+ * `prepare` never reaches the fallback: those say "this input can't be
+ * served" or "don't spend", not "this provider is down".
+ *
  * Every call that gets here also leaves one outcome record (issue #512,
- * `callOutcome.ts`): success or the reason it degraded, and the number of
- * attempts. That write is best effort: if it fails, the call's result is
- * the same as if it had succeeded.
+ * `callOutcome.ts`): success or the reason it degraded, the number of
+ * attempts (a fallback attempt included) and whether the fallback was
+ * tried. That write is best effort: if it fails, the call's result is the
+ * same as if it had succeeded.
  */
 
 /** Attempts per call, the first one included. */
@@ -51,6 +59,12 @@ export interface RunProviderCallOptions<TContext, T> {
   onAttemptFailed: (error: unknown, context: TContext, attempt: number) => Promise<void> | void;
   /** Whether a failed attempt may be tried again. */
   isRetryable: (error: unknown) => boolean;
+  /** Issue #511: the fallback provider, tried once after the primary's
+   *  attempts are exhausted on a retryable error. Its context goes to the
+   *  same `call` and `onAttemptFailed`, so the domain records spend and
+   *  failures under the provider that actually served the attempt. Omitted
+   *  or null: no fallback. */
+  fallback?: { prepare: () => Promise<TContext> | TContext } | null;
   /** Tests only. */
   sleep?: (ms: number) => Promise<void>;
   /** Tests only; defaults to writing an `ai_call_outcomes` row. */
@@ -65,6 +79,7 @@ export async function runProviderCallWithBudget<TContext, T>(
   const sleep = opts.sleep ?? defaultSleep;
   let phase: "budget" | "prepare" | "attempts" = "budget";
   let attempts = 0;
+  let usedFallback = false;
   // Set by the attempt loop just before it gives up; still null if
   // `onAttemptFailed` threw.
   let attemptEnd: CallOutcome | null = null;
@@ -77,17 +92,20 @@ export async function runProviderCallWithBudget<TContext, T>(
     const context = await opts.prepare();
     phase = "attempts";
 
+    let value: T | undefined;
+    let served = false;
+    let lastError: unknown;
     for (let attempt = 1; ; attempt++) {
       attempts = attempt;
       try {
-        result = { ok: true, value: await opts.call(context, attempt) };
-        outcome = "success";
+        value = await opts.call(context, attempt);
+        served = true;
         break;
       } catch (err) {
         await opts.onAttemptFailed(err, context, attempt);
         if (attempt >= MAX_ATTEMPTS) {
-          attemptEnd = "exhausted";
-          throw err;
+          lastError = err;
+          break;
         }
         if (!opts.isRetryable(err)) {
           attemptEnd = "non_retryable";
@@ -96,6 +114,32 @@ export async function runProviderCallWithBudget<TContext, T>(
         await sleep(backoffMs(attempt));
       }
     }
+
+    if (!served) {
+      // The primary is exhausted. Only a retryable last error ("this
+      // provider is unavailable") is worth a second provider.
+      if (!opts.fallback || !opts.isRetryable(lastError)) {
+        attemptEnd = "exhausted";
+        throw lastError;
+      }
+      usedFallback = true;
+      // A fallback that can't even load still ends the call as exhausted;
+      // its error code says why.
+      attemptEnd = "exhausted";
+      const fallbackContext = await opts.fallback.prepare();
+      attemptEnd = null;
+      attempts += 1;
+      try {
+        value = await opts.call(fallbackContext, attempts);
+      } catch (err) {
+        await opts.onAttemptFailed(err, fallbackContext, attempts);
+        attemptEnd = "exhausted";
+        throw err;
+      }
+    }
+
+    result = { ok: true, value: value as T };
+    outcome = "success";
   } catch (error) {
     result = { ok: false, error };
     outcome =
@@ -115,8 +159,7 @@ export async function runProviderCallWithBudget<TContext, T>(
       outcome,
       attempts,
       degraded: !result.ok,
-      // No fallback provider exists yet (#511).
-      usedFallback: false,
+      usedFallback,
       errorCode: result.ok ? null : errorCodeOf(result.error),
     });
   } catch {

@@ -222,3 +222,63 @@ describe("extractProfileWithFallback — short-TTL dedup (issue #513)", () => {
     expect(extract).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("extractProfileWithFallback — cross-provider fallback (issue #511)", () => {
+  const okOutput = { data: { fullName: "Jane Doe" }, inputTokens: 100, outputTokens: 20, costUsd: 0.002 };
+
+  beforeEach(() => {
+    assertCanRunProviderCall.mockReset().mockResolvedValue(undefined);
+    recordUsage.mockReset().mockResolvedValue(undefined);
+    getExtractionProvider.mockReset();
+    clearDedupCacheForTests();
+  });
+
+  function providers(openaiExtract: ReturnType<typeof vi.fn>, anthropicExtract: ReturnType<typeof vi.fn>) {
+    getExtractionProvider.mockImplementation(async (name: string) =>
+      name === "anthropic" ? { name, extract: anthropicExtract } : { name, extract: openaiExtract },
+    );
+  }
+
+  it("serves the call from the fallback provider after the primary's retryable failures, and ledgers it under the fallback", async () => {
+    const openaiExtract = vi.fn().mockRejectedValue(new ExtractionProviderError("rate limited", true));
+    const anthropicExtract = vi.fn().mockResolvedValue(okOutput);
+    providers(openaiExtract, anthropicExtract);
+
+    const result = await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai", fallbackProvider: "anthropic" });
+
+    expect(result.degraded).toBe(false);
+    expect(result.content.fullName).toBe("Jane Doe");
+    expect(result.extractorVersion.startsWith("anthropic:anthropic-extract-unconfigured:")).toBe(true);
+    expect(openaiExtract).toHaveBeenCalledTimes(3);
+    expect(anthropicExtract).toHaveBeenCalledTimes(1);
+    expect(anthropicExtract).toHaveBeenCalledWith(expect.objectContaining({ model: "anthropic-extract-unconfigured" }));
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    expect(recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "extract", provider: "anthropic", model: "anthropic-extract-unconfigured", outcome: "succeeded" }),
+    );
+  });
+
+  it("degrades at once on a non-retryable primary failure without touching the fallback", async () => {
+    const openaiExtract = vi.fn().mockRejectedValue(new ExtractionProviderError("bad request", false));
+    const anthropicExtract = vi.fn().mockResolvedValue(okOutput);
+    providers(openaiExtract, anthropicExtract);
+
+    const result = await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai", fallbackProvider: "anthropic" });
+
+    expect(result.degraded).toBe(true);
+    expect(openaiExtract).toHaveBeenCalledTimes(1);
+    expect(anthropicExtract).not.toHaveBeenCalled();
+    expect(getExtractionProvider).not.toHaveBeenCalledWith("anthropic");
+  });
+
+  it("is off when disabled, even with a second provider available", async () => {
+    const openaiExtract = vi.fn().mockRejectedValue(new ExtractionProviderError("rate limited", true));
+    const anthropicExtract = vi.fn().mockResolvedValue(okOutput);
+    providers(openaiExtract, anthropicExtract);
+
+    const result = await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai", fallbackProvider: null });
+
+    expect(result.degraded).toBe(true);
+    expect(anthropicExtract).not.toHaveBeenCalled();
+  });
+});

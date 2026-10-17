@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getJobmatchDb } from "../../db/client";
-import { getEnv } from "../../env";
+import { getEnv, type ResuMatchAiProvider } from "../../env";
 import { logError } from "../../observability/logger";
 import type { CandidateProfileContent } from "../../profile/contract";
 import { getVersion } from "../../profile/versions";
@@ -8,6 +8,7 @@ import { buildProfileText } from "../buildProfileText";
 import { renderTailorPrompt } from "./prompts";
 import { recordBilledFailure, recordUsage } from "./quota";
 import { runProviderCallWithBudget } from "../../ai/runProviderCall";
+import { resolveFallbackProvider } from "../../ai/fallbackProvider";
 import type { CostAttribution } from "../../costs/ledger";
 import { getTailorProvider, resolveTailorModelVersion } from "./registry";
 import { mergeTailoringSuggestions, type TailoredResumeContent, type TailorSuggestions } from "./schema";
@@ -20,6 +21,8 @@ export interface TailorProviderCallResult {
   suggestions: TailorSuggestions | null;
   degraded: boolean;
   promptVersion: string;
+  /** The model and provider that served the call: the fallback's when the
+   *  fallback served it (issue #511), else the primary's. */
   modelVersion: string;
   providerName: "fixture" | "openai" | "anthropic";
 }
@@ -48,8 +51,12 @@ export async function runTailorProviderCall(
    *  prompt carries no language rule (pre-#641 behaviour). */
   outputLanguage?: OutputLanguage | null,
 ): Promise<TailorProviderCallResult> {
-  const providerName = providerOverride ?? getEnv().aiProvider;
-  const modelVersion = await resolveTailorModelVersion(providerName);
+  const primaryName = providerOverride ?? getEnv().aiProvider;
+  const primaryModelVersion = await resolveTailorModelVersion(primaryName);
+  // Issue #511: RESUMATCH_AI_FALLBACK_PROVIDER, if set.
+  const fallbackName = resolveFallbackProvider(primaryName);
+  let providerName: ResuMatchAiProvider = primaryName;
+  let modelVersion = primaryModelVersion;
   const { text: profileText } = buildProfileText(profile);
   const prompt = renderTailorPrompt(profileText, jobText, instructions, outputLanguage);
 
@@ -68,8 +75,17 @@ export async function runTailorProviderCall(
   const result = await runProviderCallWithBudget({
     workspaceId,
     kind: "tailor",
-    prepare: () => getTailorProvider(providerName),
-    call: async (provider) => {
+    prepare: async () => ({ provider: await getTailorProvider(primaryName), name: primaryName, modelVersion: primaryModelVersion }),
+    fallback: fallbackName
+      ? {
+          prepare: async () => ({
+            provider: await getTailorProvider(fallbackName),
+            name: fallbackName,
+            modelVersion: await resolveTailorModelVersion(fallbackName),
+          }),
+        }
+      : null,
+    call: async ({ provider, name, modelVersion }) => {
       const started = Date.now();
       const output = await provider.generate({
         profileText,
@@ -85,7 +101,7 @@ export async function runTailorProviderCall(
       await recordUsage({
         workspaceId,
         kind: "tailor",
-        provider: providerName,
+        provider: name,
         model: modelVersion,
         promptVersion: prompt.version,
         inputTokens: output.inputTokens,
@@ -94,17 +110,19 @@ export async function runTailorProviderCall(
         latencyMs: Date.now() - started,
         attribution,
       });
-      return output.suggestions;
+      return { suggestions: output.suggestions, name, modelVersion };
     },
-    onAttemptFailed: async (err, _provider, attempt) => {
-      await recordBilledFailure(err, { workspaceId, kind: "tailor", provider: providerName, model: modelVersion, promptVersion: prompt.version, attribution });
-      logError("tailoring.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
+    onAttemptFailed: async (err, { name, modelVersion }, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "tailor", provider: name, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("tailoring.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: name });
     },
     isRetryable: (err) => (err instanceof TailorProviderError ? err.retryable : true),
   });
 
   if (result.ok) {
-    suggestions = result.value;
+    suggestions = result.value.suggestions;
+    providerName = result.value.name;
+    modelVersion = result.value.modelVersion;
   } else {
     logError("tailoring.generate.degraded", result.error, { workspaceId, targetJobId, provider: providerName });
     degraded = true;
