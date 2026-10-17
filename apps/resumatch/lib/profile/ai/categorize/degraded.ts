@@ -1,6 +1,7 @@
 import { logError } from "../../../observability/logger";
 import { getEnv, type ResuMatchAiProvider } from "../../../env";
-import { assertCanRunProviderCall, recordBilledFailure, recordUsage, QuotaExceededError } from "../../../tailoring/ai/quota";
+import { recordBilledFailure, recordUsage, QuotaExceededError } from "../../../tailoring/ai/quota";
+import { runProviderCallWithBudget } from "../../../ai/runProviderCall";
 import type { CostAttribution } from "../../../costs/ledger";
 import { renderCategorizePrompt } from "./prompts";
 import { CategorizeSkillsProviderError } from "./provider";
@@ -31,8 +32,6 @@ export interface CategorizeOutcome {
   degraded: boolean;
 }
 
-const MAX_ATTEMPTS = 3;
-
 async function fixtureFallback(
   skillNames: string[],
   prompt: ReturnType<typeof renderCategorizePrompt>,
@@ -59,49 +58,45 @@ export async function categorizeSkillsWithFallback(
 
   if (aiProvider === "fixture") return fixtureFallback(skillNames, prompt);
 
-  try {
-    await assertCanRunProviderCall(workspaceId, "categorize_skills");
+  const result = await runProviderCallWithBudget({
+    workspaceId,
+    kind: "categorize_skills",
+    prepare: async () => ({ provider: await getCategorizeSkillsProvider(aiProvider), modelVersion: CATEGORIZE_MODEL_VERSIONS[aiProvider] }),
+    call: async ({ provider, modelVersion }) => {
+      const started = Date.now();
+      const output = await provider.categorize({
+        skillNames: prompt.skillNamesUsed,
+        system: prompt.system,
+        user: prompt.user,
+        promptVersion: prompt.version,
+        model: modelVersion,
+      });
+      await recordUsage({
+        workspaceId,
+        kind: "categorize_skills",
+        provider: aiProvider,
+        model: modelVersion,
+        promptVersion: prompt.version,
+        inputTokens: output.inputTokens,
+        outputTokens: output.outputTokens,
+        meta: output,
+        latencyMs: Date.now() - started,
+        attribution,
+      });
+      return { suggestions: mergeSuggestedCategories(skillNames, output.suggestions), degraded: false };
+    },
+    onAttemptFailed: async (err, { modelVersion }, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "categorize_skills", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("profile.categorize.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
+    },
+    isRetryable: (err) => (err instanceof CategorizeSkillsProviderError ? err.retryable : false),
+  });
+  if (result.ok) return result.value;
 
-    const provider = await getCategorizeSkillsProvider(aiProvider);
-    const modelVersion = CATEGORIZE_MODEL_VERSIONS[aiProvider];
-
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const started = Date.now();
-        const output = await provider.categorize({
-          skillNames: prompt.skillNamesUsed,
-          system: prompt.system,
-          user: prompt.user,
-          promptVersion: prompt.version,
-          model: modelVersion,
-        });
-        await recordUsage({
-          workspaceId,
-          kind: "categorize_skills",
-          provider: aiProvider,
-          model: modelVersion,
-          promptVersion: prompt.version,
-          inputTokens: output.inputTokens,
-          outputTokens: output.outputTokens,
-          meta: output,
-          latencyMs: Date.now() - started,
-          attribution,
-        });
-        return { suggestions: mergeSuggestedCategories(skillNames, output.suggestions), degraded: false };
-      } catch (err) {
-        await recordBilledFailure(err, { workspaceId, kind: "categorize_skills", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
-        const retryable = err instanceof CategorizeSkillsProviderError ? err.retryable : false;
-        logError("profile.categorize.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
-        if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
-        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-      }
-    }
-  } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      logError("profile.categorize.degraded.budget_exhausted", error, { workspaceId, reason: error.reason });
-    } else {
-      logError("profile.categorize.degraded.provider_call_failed", error, { workspaceId });
-    }
-    return fixtureFallback(skillNames, prompt);
+  if (result.error instanceof QuotaExceededError) {
+    logError("profile.categorize.degraded.budget_exhausted", result.error, { workspaceId, reason: result.error.reason });
+  } else {
+    logError("profile.categorize.degraded.provider_call_failed", result.error, { workspaceId });
   }
+  return fixtureFallback(skillNames, prompt);
 }

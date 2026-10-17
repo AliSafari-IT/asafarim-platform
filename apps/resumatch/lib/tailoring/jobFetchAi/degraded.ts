@@ -1,6 +1,7 @@
 import { logError } from "../../observability/logger";
 import { getEnv, type ResuMatchAiProvider } from "../../env";
-import { assertCanRunProviderCall, recordBilledFailure, settleProviderCall, QuotaExceededError } from "../ai/quota";
+import { recordBilledFailure, settleProviderCall, QuotaExceededError } from "../ai/quota";
+import { runProviderCallWithBudget } from "../../ai/runProviderCall";
 import type { CostAttribution } from "../../costs/ledger";
 import { assessFetchQuality } from "../fetchQuality";
 import { fetchJobPosting, isPublicHttpsUrl, type JobFetchRefusal, type JobFetchResult } from "../fetchJob";
@@ -32,8 +33,6 @@ import { getDedupedResult, storeDedupedResult, type DedupKeyParts } from "../../
  */
 
 export type JobFetchOutcome = JobFetchResult & { degraded?: boolean };
-
-const MAX_ATTEMPTS = 3;
 
 function degradeToRawFetch(url: string): Promise<JobFetchOutcome> {
   return fetchJobPosting(url).then((result) => ({ ...result, degraded: true }));
@@ -98,67 +97,64 @@ export async function fetchJobWithFallback(
   const cached = getDedupedResult<JobFetchOutcome>(dedupKey);
   if (cached) return cached;
 
-  try {
-    await assertCanRunProviderCall(workspaceId, "fetch_job");
+  const result = await runProviderCallWithBudget({
+    workspaceId,
+    kind: "fetch_job",
+    prepare: () => getJobFetchProvider(aiProvider),
+    call: async (provider) => {
+      const started = Date.now();
+      const output = await provider.fetch({
+        url,
+        system: prompt.system,
+        user: prompt.user,
+        promptVersion: prompt.version,
+        model: modelVersion,
+      });
 
-    const provider = await getJobFetchProvider(aiProvider);
-
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const started = Date.now();
-        const output = await provider.fetch({
-          url,
-          system: prompt.system,
-          user: prompt.user,
-          promptVersion: prompt.version,
+      // A response that doesn't match the schema is a failed call, not a
+      // partial apply — thrown here so it degrades below. Never retried:
+      // the same malformed shape would recur against the same input.
+      const parsed = await settleProviderCall(
+        {
+          workspaceId,
+          kind: "fetch_job",
+          provider: aiProvider,
           model: modelVersion,
-        });
+          promptVersion: prompt.version,
+          inputTokens: output.inputTokens,
+          outputTokens: output.outputTokens,
+          meta: output,
+          latencyMs: Date.now() - started,
+          attribution,
+        },
+        () => parseJobFetchOutput({ title: output.title, employer: output.employer, rawText: output.rawText }),
+      );
 
-        // A response that doesn't match the schema is a failed call, not a
-        // partial apply — thrown here so it degrades below. Never retried:
-        // the same malformed shape would recur against the same input.
-        const parsed = await settleProviderCall(
-          {
-            workspaceId,
-            kind: "fetch_job",
-            provider: aiProvider,
-            model: modelVersion,
-            promptVersion: prompt.version,
-            inputTokens: output.inputTokens,
-            outputTokens: output.outputTokens,
-            meta: output,
-            latencyMs: Date.now() - started,
-            attribution,
-          },
-          () => parseJobFetchOutput({ title: output.title, employer: output.employer, rawText: output.rawText }),
-        );
+      const outcome: JobFetchOutcome = {
+        ok: true,
+        title: parsed.title,
+        employer: parsed.employer,
+        rawText: parsed.rawText,
+        // The same heuristics as tier 1 (#520): a model reading a cookie
+        // wall can hand back boilerplate too.
+        quality: assessFetchQuality(parsed),
+        degraded: false,
+      };
+      storeDedupedResult(dedupKey, outcome);
+      return outcome;
+    },
+    onAttemptFailed: async (err, _provider, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "fetch_job", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("tailoring.job_fetch_ai.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
+    },
+    isRetryable: (err) => (err instanceof JobFetchProviderError ? err.retryable : false),
+  });
+  if (result.ok) return result.value;
 
-        const outcome: JobFetchOutcome = {
-          ok: true,
-          title: parsed.title,
-          employer: parsed.employer,
-          rawText: parsed.rawText,
-          // The same heuristics as tier 1 (#520): a model reading a cookie
-          // wall can hand back boilerplate too.
-          quality: assessFetchQuality(parsed),
-          degraded: false,
-        };
-        storeDedupedResult(dedupKey, outcome);
-        return outcome;
-      } catch (err) {
-        await recordBilledFailure(err, { workspaceId, kind: "fetch_job", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
-        const retryable = err instanceof JobFetchProviderError ? err.retryable : false;
-        logError("tailoring.job_fetch_ai.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
-        if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
-        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-      }
-    }
-  } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      logError("tailoring.job_fetch_ai.degraded.budget_exhausted", error, { workspaceId, reason: error.reason });
-    } else {
-      logError("tailoring.job_fetch_ai.degraded.provider_call_failed", error, { workspaceId });
-    }
-    return degradeToDeterministic();
+  if (result.error instanceof QuotaExceededError) {
+    logError("tailoring.job_fetch_ai.degraded.budget_exhausted", result.error, { workspaceId, reason: result.error.reason });
+  } else {
+    logError("tailoring.job_fetch_ai.degraded.provider_call_failed", result.error, { workspaceId });
   }
+  return degradeToDeterministic();
 }
