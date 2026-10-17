@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { logError } from "../../observability/logger";
 import { getEnv, type ResuMatchAiProvider } from "../../env";
 import type { ProfileConfidence } from "../../profile/contract";
@@ -19,6 +20,7 @@ import { ExtractionProviderError } from "./provider";
 import { EXTRACT_MODEL_VERSIONS, getExtractionProvider } from "./registry";
 import { mergeAiExtraction, parseAiExtractionOutput } from "./schema";
 import { groundExperienceSummaries, groundHeadlineAndSummary } from "./grounding";
+import { getDedupedResult, storeDedupedResult, type DedupKeyParts } from "../../shared/aiDedupCache";
 
 /**
  * Degraded-mode wiring for CV extraction. Mirrors
@@ -110,12 +112,27 @@ export async function extractProfileWithFallback(
   // takes the AI path below.
   if (aiProvider === "fixture") return deterministic(text);
 
+  const modelVersion = EXTRACT_MODEL_VERSIONS[aiProvider];
+  const prompt = renderExtractPrompt(text);
+  // Issue #513: the same CV text submitted again within a few minutes
+  // (a re-upload after an unconfirmed save) reuses the last successful
+  // result: no quota check, no provider call, no second ledger row.
+  const dedupKey: DedupKeyParts = {
+    workspaceId,
+    kind: "extract",
+    provider: aiProvider,
+    model: modelVersion,
+    // The prompt hash only covers the capped text, while grounding below
+    // reads the full text, so the full text is hashed in too.
+    promptCacheKey: `${prompt.cacheKey}:${createHash("sha256").update(text).digest("hex")}`,
+  };
+  const cached = getDedupedResult<ExtractionOutcome>(dedupKey);
+  if (cached) return cached;
+
   try {
     await assertCanRunProviderCall(workspaceId, "extract");
 
     const provider = await getExtractionProvider(aiProvider);
-    const modelVersion = EXTRACT_MODEL_VERSIONS[aiProvider];
-    const prompt = renderExtractPrompt(text);
 
     for (let attempt = 1; ; attempt++) {
       try {
@@ -160,7 +177,7 @@ export async function extractProfileWithFallback(
             ),
         );
 
-        return {
+        const outcome: ExtractionOutcome = {
           content,
           confidence: confidenceFor(content),
           // AI reads the whole document at once rather than depending on
@@ -171,6 +188,8 @@ export async function extractProfileWithFallback(
           extractorVersion: `${aiProvider}:${modelVersion}:${prompt.version}`,
           degraded: false,
         };
+        storeDedupedResult(dedupKey, outcome);
+        return outcome;
       } catch (err) {
         await recordBilledFailure(err, { workspaceId, kind: "extract", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
         const retryable = err instanceof ExtractionProviderError ? err.retryable : false;

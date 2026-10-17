@@ -47,6 +47,7 @@ vi.mock("./registry", () => ({
 }));
 
 const { extractProfileWithFallback } = await import("./degraded");
+const { AI_DEDUP_TTL_MS, clearDedupCacheForTests } = await import("../../shared/aiDedupCache");
 
 const SAMPLE_CV = "Jane Doe\njane@example.test";
 
@@ -55,6 +56,7 @@ describe("extractProfileWithFallback — degrade paths", () => {
     assertCanRunProviderCall.mockReset().mockResolvedValue(undefined);
     recordUsage.mockReset().mockResolvedValue(undefined);
     getExtractionProvider.mockReset();
+    clearDedupCacheForTests();
   });
 
   afterEach(() => {
@@ -130,5 +132,93 @@ describe("extractProfileWithFallback — degrade paths", () => {
     expect(result.content.fullName).toBe("Jane Doe");
     expect(recordUsage).toHaveBeenCalledTimes(1);
     expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws_1", kind: "extract" }));
+  });
+});
+
+describe("extractProfileWithFallback — short-TTL dedup (issue #513)", () => {
+  const okOutput = { data: { fullName: "Jane Doe" }, inputTokens: 100, outputTokens: 20, costUsd: 0.002 };
+
+  beforeEach(() => {
+    assertCanRunProviderCall.mockReset().mockResolvedValue(undefined);
+    recordUsage.mockReset().mockResolvedValue(undefined);
+    getExtractionProvider.mockReset();
+    clearDedupCacheForTests();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reuses the result for identical text within the TTL: one provider call, one ledger row, one quota check", async () => {
+    const extract = vi.fn().mockResolvedValue(okOutput);
+    getExtractionProvider.mockResolvedValue({ name: "openai", extract });
+
+    const first = await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai" });
+    const second = await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai" });
+
+    expect(second).toEqual(first);
+    expect(second.degraded).toBe(false);
+    expect(extract).toHaveBeenCalledTimes(1);
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    expect(assertCanRunProviderCall).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands each caller its own copy, so mutating one result can't change the next", async () => {
+    getExtractionProvider.mockResolvedValue({ name: "openai", extract: vi.fn().mockResolvedValue(okOutput) });
+
+    const first = await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai" });
+    first.content.fullName = "Mutated";
+    const second = await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai" });
+
+    expect(second.content.fullName).toBe("Jane Doe");
+  });
+
+  it("calls the provider again once the TTL has passed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const extract = vi.fn().mockResolvedValue(okOutput);
+    getExtractionProvider.mockResolvedValue({ name: "openai", extract });
+
+    await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai" });
+    vi.setSystemTime(Date.now() + AI_DEDUP_TTL_MS + 1);
+    await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai" });
+
+    expect(extract).toHaveBeenCalledTimes(2);
+    expect(recordUsage).toHaveBeenCalledTimes(2);
+  });
+
+  it("never shares a result across workspaces", async () => {
+    const extract = vi.fn().mockResolvedValue(okOutput);
+    getExtractionProvider.mockResolvedValue({ name: "openai", extract });
+
+    await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai" });
+    await extractProfileWithFallback("ws_2", SAMPLE_CV, { provider: "openai" });
+
+    expect(extract).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats different text as a different input, even past the prompt's character cap", async () => {
+    const extract = vi.fn().mockResolvedValue(okOutput);
+    getExtractionProvider.mockResolvedValue({ name: "openai", extract });
+    const long = `${SAMPLE_CV}\n${"x".repeat(100_000)}`;
+
+    await extractProfileWithFallback("ws_1", `${long}A`, { provider: "openai" });
+    await extractProfileWithFallback("ws_1", `${long}B`, { provider: "openai" });
+
+    expect(extract).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not cache a degraded result: the next identical submission tries the provider again", async () => {
+    const extract = vi
+      .fn()
+      .mockRejectedValueOnce(new ExtractionProviderError("no API key", false))
+      .mockResolvedValueOnce(okOutput);
+    getExtractionProvider.mockResolvedValue({ name: "openai", extract });
+
+    const first = await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai" });
+    const second = await extractProfileWithFallback("ws_1", SAMPLE_CV, { provider: "openai" });
+
+    expect(first.degraded).toBe(true);
+    expect(second.degraded).toBe(false);
+    expect(extract).toHaveBeenCalledTimes(2);
   });
 });
