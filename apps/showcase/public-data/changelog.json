@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-17",
+    "title": "Resumatch: read JobPosting JSON-LD before the page text strip",
+    "sha": "55e4b44a",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/55e4b44a"
+  },
+  {
+    "date": "2026-10-17",
     "title": "Resumatch: report profile versions extracted by stale extractor code",
     "sha": "583f399a",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/583f399a"
@@ -112,11 +118,5 @@
     "title": "Testora: runner program and pull protocol behind TESTORA_RUNNER_MODE (ADR 0004 step 2)",
     "sha": "57ee2366",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/57ee2366"
-  },
-  {
-    "date": "2026-10-02",
-    "title": "Testora: durable runs — run state and queue in the database (ADR 0004 step 1)",
-    "sha": "2284cfd8",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2284cfd8"
   }
 ]
