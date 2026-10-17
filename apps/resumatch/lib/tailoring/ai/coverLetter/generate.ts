@@ -3,13 +3,12 @@ import { logError } from "../../../observability/logger";
 import { buildCoverLetterContent, type CoverLetterContent, type CoverLetterSuggestion } from "./schema";
 import { renderCoverLetterPrompt, type CoverLetterLength, type CoverLetterTone } from "./prompts";
 import type { OutputLanguage } from "../../language";
-import { assertCanRunProviderCall, recordBilledFailure, recordUsage } from "../quota";
+import { recordBilledFailure, recordUsage } from "../quota";
+import { runProviderCallWithBudget } from "../../../ai/runProviderCall";
 import type { CostAttribution } from "../../../costs/ledger";
 import { getCoverLetterProvider, COVER_LETTER_MODEL_VERSIONS } from "./registry";
 import { CoverLetterProviderError } from "./provider";
 import { groundCoverLetterSuggestion } from "./grounding";
-
-const MAX_ATTEMPTS = 3;
 
 export interface CoverLetterProviderCallResult {
   /** null when the call degraded — nothing to review. Unlike tailoring,
@@ -63,45 +62,45 @@ export async function runCoverLetterProviderCall(
     workflowId: cost.workflowId ?? null,
   };
 
-  try {
-    await assertCanRunProviderCall(workspaceId, "cover_letter");
-    const provider = await getCoverLetterProvider(providerName);
+  const result = await runProviderCallWithBudget({
+    workspaceId,
+    kind: "cover_letter",
+    prepare: () => getCoverLetterProvider(providerName),
+    call: async (provider) => {
+      const started = Date.now();
+      const output = await provider.generate({
+        profileText,
+        jobText: prompt.jobTextUsed,
+        system: prompt.system,
+        user: prompt.user,
+        promptVersion: prompt.version,
+        model: modelVersion,
+      });
+      await recordUsage({
+        workspaceId,
+        kind: "cover_letter",
+        provider: providerName,
+        model: modelVersion,
+        promptVersion: prompt.version,
+        inputTokens: output.inputTokens,
+        outputTokens: output.outputTokens,
+        meta: output,
+        latencyMs: Date.now() - started,
+        attribution,
+      });
+      return output.suggestion;
+    },
+    onAttemptFailed: async (err, _provider, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "cover_letter", provider: providerName, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("coverLetter.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
+    },
+    isRetryable: (err) => (err instanceof CoverLetterProviderError ? err.retryable : true),
+  });
 
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const started = Date.now();
-        const output = await provider.generate({
-          profileText,
-          jobText: prompt.jobTextUsed,
-          system: prompt.system,
-          user: prompt.user,
-          promptVersion: prompt.version,
-          model: modelVersion,
-        });
-        await recordUsage({
-          workspaceId,
-          kind: "cover_letter",
-          provider: providerName,
-          model: modelVersion,
-          promptVersion: prompt.version,
-          inputTokens: output.inputTokens,
-          outputTokens: output.outputTokens,
-          meta: output,
-          latencyMs: Date.now() - started,
-          attribution,
-        });
-        suggestion = output.suggestion;
-        break;
-      } catch (err) {
-        await recordBilledFailure(err, { workspaceId, kind: "cover_letter", provider: providerName, model: modelVersion, promptVersion: prompt.version, attribution });
-        const retryable = err instanceof CoverLetterProviderError ? err.retryable : true;
-        logError("coverLetter.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
-        if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
-        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-      }
-    }
-  } catch (error) {
-    logError("coverLetter.generate.degraded", error, { workspaceId, targetJobId, provider: providerName });
+  if (result.ok) {
+    suggestion = result.value;
+  } else {
+    logError("coverLetter.generate.degraded", result.error, { workspaceId, targetJobId, provider: providerName });
     degraded = true;
     suggestion = null;
   }

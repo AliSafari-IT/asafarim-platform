@@ -6,14 +6,13 @@ import type { CandidateProfileContent } from "../../profile/contract";
 import { getVersion } from "../../profile/versions";
 import { buildProfileText } from "../buildProfileText";
 import { renderTailorPrompt } from "./prompts";
-import { assertCanRunProviderCall, recordBilledFailure, recordUsage } from "./quota";
+import { recordBilledFailure, recordUsage } from "./quota";
+import { runProviderCallWithBudget } from "../../ai/runProviderCall";
 import type { CostAttribution } from "../../costs/ledger";
 import { getTailorProvider, resolveTailorModelVersion } from "./registry";
 import { mergeTailoringSuggestions, type TailoredResumeContent, type TailorSuggestions } from "./schema";
 import { TailorProviderError } from "./provider";
 import type { OutputLanguage } from "../language";
-
-const MAX_ATTEMPTS = 3;
 
 export interface TailorProviderCallResult {
   /** null when the call degraded — nothing to review, the profile carries
@@ -66,48 +65,48 @@ export async function runTailorProviderCall(
     workflowId: cost.workflowId ?? null,
   };
 
-  try {
-    await assertCanRunProviderCall(workspaceId, "tailor");
-    const provider = await getTailorProvider(providerName);
+  const result = await runProviderCallWithBudget({
+    workspaceId,
+    kind: "tailor",
+    prepare: () => getTailorProvider(providerName),
+    call: async (provider) => {
+      const started = Date.now();
+      const output = await provider.generate({
+        profileText,
+        jobText: prompt.jobTextUsed,
+        system: prompt.system,
+        user: prompt.user,
+        promptVersion: prompt.version,
+        model: modelVersion,
+        profileSkillNames: profile.skills.map((s) => s.name),
+        experienceSummaries: profile.experience.map((e) => e.summary),
+        instructions: prompt.instructionsUsed,
+      });
+      await recordUsage({
+        workspaceId,
+        kind: "tailor",
+        provider: providerName,
+        model: modelVersion,
+        promptVersion: prompt.version,
+        inputTokens: output.inputTokens,
+        outputTokens: output.outputTokens,
+        meta: output,
+        latencyMs: Date.now() - started,
+        attribution,
+      });
+      return output.suggestions;
+    },
+    onAttemptFailed: async (err, _provider, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "tailor", provider: providerName, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("tailoring.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
+    },
+    isRetryable: (err) => (err instanceof TailorProviderError ? err.retryable : true),
+  });
 
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const started = Date.now();
-        const output = await provider.generate({
-          profileText,
-          jobText: prompt.jobTextUsed,
-          system: prompt.system,
-          user: prompt.user,
-          promptVersion: prompt.version,
-          model: modelVersion,
-          profileSkillNames: profile.skills.map((s) => s.name),
-          experienceSummaries: profile.experience.map((e) => e.summary),
-          instructions: prompt.instructionsUsed,
-        });
-        await recordUsage({
-          workspaceId,
-          kind: "tailor",
-          provider: providerName,
-          model: modelVersion,
-          promptVersion: prompt.version,
-          inputTokens: output.inputTokens,
-          outputTokens: output.outputTokens,
-          meta: output,
-          latencyMs: Date.now() - started,
-          attribution,
-        });
-        suggestions = output.suggestions;
-        break;
-      } catch (err) {
-        await recordBilledFailure(err, { workspaceId, kind: "tailor", provider: providerName, model: modelVersion, promptVersion: prompt.version, attribution });
-        const retryable = err instanceof TailorProviderError ? err.retryable : true;
-        logError("tailoring.generate.provider_call_failed", err, { workspaceId, targetJobId, attempt, provider: providerName });
-        if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
-        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-      }
-    }
-  } catch (error) {
-    logError("tailoring.generate.degraded", error, { workspaceId, targetJobId, provider: providerName });
+  if (result.ok) {
+    suggestions = result.value;
+  } else {
+    logError("tailoring.generate.degraded", result.error, { workspaceId, targetJobId, provider: providerName });
     degraded = true;
     suggestions = null;
   }

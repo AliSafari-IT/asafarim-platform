@@ -1,6 +1,7 @@
 import { logError } from "../../observability/logger";
 import { getEnv, type ResuMatchAiProvider } from "../../env";
-import { assertCanRunProviderCall, recordBilledFailure, recordUsage, QuotaExceededError } from "../ai/quota";
+import { recordBilledFailure, recordUsage, QuotaExceededError } from "../ai/quota";
+import { runProviderCallWithBudget } from "../../ai/runProviderCall";
 import type { CostAttribution } from "../../costs/ledger";
 import { renderJobMetaPrompt } from "./prompts";
 import { JobMetaProviderError } from "./provider";
@@ -19,8 +20,6 @@ export interface JobMetaOutcome {
   employer: string | null;
   degraded: boolean;
 }
-
-const MAX_ATTEMPTS = 3;
 
 function degradeToUnknown(): JobMetaOutcome {
   return { title: null, employer: null, degraded: true };
@@ -46,49 +45,45 @@ export async function inferJobMetaWithFallback(
 
   const prompt = renderJobMetaPrompt(jobText);
 
-  try {
-    await assertCanRunProviderCall(workspaceId, "job_meta");
+  const result = await runProviderCallWithBudget({
+    workspaceId,
+    kind: "job_meta",
+    prepare: async () => ({ provider: await getJobMetaProvider(aiProvider), modelVersion: JOB_META_MODEL_VERSIONS[aiProvider] }),
+    call: async ({ provider, modelVersion }) => {
+      const started = Date.now();
+      const output = await provider.infer({
+        jobText: prompt.jobTextUsed,
+        system: prompt.system,
+        user: prompt.user,
+        promptVersion: prompt.version,
+        model: modelVersion,
+      });
+      await recordUsage({
+        workspaceId,
+        kind: "job_meta",
+        provider: aiProvider,
+        model: modelVersion,
+        promptVersion: prompt.version,
+        inputTokens: output.inputTokens,
+        outputTokens: output.outputTokens,
+        meta: output,
+        latencyMs: Date.now() - started,
+        attribution,
+      });
+      return { title: output.title, employer: output.employer, degraded: false };
+    },
+    onAttemptFailed: async (err, { modelVersion }, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "job_meta", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("tailoring.job_meta.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
+    },
+    isRetryable: (err) => (err instanceof JobMetaProviderError ? err.retryable : false),
+  });
+  if (result.ok) return result.value;
 
-    const provider = await getJobMetaProvider(aiProvider);
-    const modelVersion = JOB_META_MODEL_VERSIONS[aiProvider];
-
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const started = Date.now();
-        const output = await provider.infer({
-          jobText: prompt.jobTextUsed,
-          system: prompt.system,
-          user: prompt.user,
-          promptVersion: prompt.version,
-          model: modelVersion,
-        });
-        await recordUsage({
-          workspaceId,
-          kind: "job_meta",
-          provider: aiProvider,
-          model: modelVersion,
-          promptVersion: prompt.version,
-          inputTokens: output.inputTokens,
-          outputTokens: output.outputTokens,
-          meta: output,
-          latencyMs: Date.now() - started,
-          attribution,
-        });
-        return { title: output.title, employer: output.employer, degraded: false };
-      } catch (err) {
-        await recordBilledFailure(err, { workspaceId, kind: "job_meta", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
-        const retryable = err instanceof JobMetaProviderError ? err.retryable : false;
-        logError("tailoring.job_meta.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
-        if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
-        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-      }
-    }
-  } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      logError("tailoring.job_meta.degraded.budget_exhausted", error, { workspaceId, reason: error.reason });
-    } else {
-      logError("tailoring.job_meta.degraded.provider_call_failed", error, { workspaceId });
-    }
-    return degradeToUnknown();
+  if (result.error instanceof QuotaExceededError) {
+    logError("tailoring.job_meta.degraded.budget_exhausted", result.error, { workspaceId, reason: result.error.reason });
+  } else {
+    logError("tailoring.job_meta.degraded.provider_call_failed", result.error, { workspaceId });
   }
+  return degradeToUnknown();
 }

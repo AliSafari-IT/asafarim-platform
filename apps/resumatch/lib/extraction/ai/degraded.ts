@@ -8,12 +8,8 @@ import {
   extractProfileFromText,
   type ExtractedProfile,
 } from "../profileExtractor";
-import {
-  assertCanRunProviderCall,
-  recordBilledFailure,
-  settleProviderCall,
-  QuotaExceededError,
-} from "../../tailoring/ai/quota";
+import { recordBilledFailure, settleProviderCall, QuotaExceededError } from "../../tailoring/ai/quota";
+import { runProviderCallWithBudget } from "../../ai/runProviderCall";
 import type { CostAttribution } from "../../costs/ledger";
 import { renderExtractPrompt } from "./prompts";
 import { ExtractionProviderError } from "./provider";
@@ -49,8 +45,6 @@ export interface ExtractionOutcome extends ExtractedProfile {
    *  a real provider call failed/exhausted its budget/retries. */
   degraded: boolean;
 }
-
-const MAX_ATTEMPTS = 3;
 
 /** AI extraction doesn't produce calibrated per-field confidence scores.
  *  Every field it actually populated is scored at the same tier as the
@@ -129,81 +123,78 @@ export async function extractProfileWithFallback(
   const cached = getDedupedResult<ExtractionOutcome>(dedupKey);
   if (cached) return cached;
 
-  try {
-    await assertCanRunProviderCall(workspaceId, "extract");
+  const result = await runProviderCallWithBudget({
+    workspaceId,
+    kind: "extract",
+    prepare: () => getExtractionProvider(aiProvider),
+    call: async (provider) => {
+      const started = Date.now();
+      const output = await provider.extract({
+        text,
+        system: prompt.system,
+        user: prompt.user,
+        promptVersion: prompt.version,
+        model: modelVersion,
+      });
 
-    const provider = await getExtractionProvider(aiProvider);
-
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const started = Date.now();
-        const output = await provider.extract({
-          text,
-          system: prompt.system,
-          user: prompt.user,
-          promptVersion: prompt.version,
+      // A response that doesn't match the schema is a failed call, not a
+      // partial apply — thrown here so it degrades below, same as a
+      // provider-level failure. Never retried: the same malformed shape
+      // would recur against the same input.
+      //
+      // groundExperienceSummaries runs on the already-validated content,
+      // dropping any per-role highlight that mentions a technology,
+      // employer, or number not traceable back to the source CV text —
+      // see grounding.ts's doc comment for why this check exists
+      // alongside the prompt's own no-fabrication rules (issue #420).
+      // groundHeadlineAndSummary applies the same guard to the top-level
+      // headline/summary prose (issue #522).
+      const content = await settleProviderCall(
+        {
+          workspaceId,
+          kind: "extract",
+          provider: aiProvider,
           model: modelVersion,
-        });
+          promptVersion: prompt.version,
+          inputTokens: output.inputTokens,
+          outputTokens: output.outputTokens,
+          meta: output,
+          latencyMs: Date.now() - started,
+          attribution,
+        },
+        () =>
+          groundHeadlineAndSummary(
+            groundExperienceSummaries(mergeAiExtraction(parseAiExtractionOutput(output.data)), text),
+            text,
+          ),
+      );
 
-        // A response that doesn't match the schema is a failed call, not a
-        // partial apply — thrown here so it degrades below, same as a
-        // provider-level failure. Never retried: the same malformed shape
-        // would recur against the same input.
-        //
-        // groundExperienceSummaries runs on the already-validated content,
-        // dropping any per-role highlight that mentions a technology,
-        // employer, or number not traceable back to the source CV text —
-        // see grounding.ts's doc comment for why this check exists
-        // alongside the prompt's own no-fabrication rules (issue #420).
-        // groundHeadlineAndSummary applies the same guard to the top-level
-        // headline/summary prose (issue #522).
-        const content = await settleProviderCall(
-          {
-            workspaceId,
-            kind: "extract",
-            provider: aiProvider,
-            model: modelVersion,
-            promptVersion: prompt.version,
-            inputTokens: output.inputTokens,
-            outputTokens: output.outputTokens,
-            meta: output,
-            latencyMs: Date.now() - started,
-            attribution,
-          },
-          () =>
-            groundHeadlineAndSummary(
-              groundExperienceSummaries(mergeAiExtraction(parseAiExtractionOutput(output.data)), text),
-              text,
-            ),
-        );
+      const outcome: ExtractionOutcome = {
+        content,
+        confidence: confidenceFor(content),
+        // AI reads the whole document at once rather than depending on
+        // section-splitting by reading order, so the deterministic
+        // extractor's "layout could not be read" caveat does not apply.
+        layoutReliable: true,
+        extractorName: `${PROFILE_EXTRACTOR_NAME}-ai`,
+        extractorVersion: `${aiProvider}:${modelVersion}:${prompt.version}`,
+        degraded: false,
+      };
+      storeDedupedResult(dedupKey, outcome);
+      return outcome;
+    },
+    onAttemptFailed: async (err, _provider, attempt) => {
+      await recordBilledFailure(err, { workspaceId, kind: "extract", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
+      logError("extraction.ai.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
+    },
+    isRetryable: (err) => (err instanceof ExtractionProviderError ? err.retryable : false),
+  });
+  if (result.ok) return result.value;
 
-        const outcome: ExtractionOutcome = {
-          content,
-          confidence: confidenceFor(content),
-          // AI reads the whole document at once rather than depending on
-          // section-splitting by reading order, so the deterministic
-          // extractor's "layout could not be read" caveat does not apply.
-          layoutReliable: true,
-          extractorName: `${PROFILE_EXTRACTOR_NAME}-ai`,
-          extractorVersion: `${aiProvider}:${modelVersion}:${prompt.version}`,
-          degraded: false,
-        };
-        storeDedupedResult(dedupKey, outcome);
-        return outcome;
-      } catch (err) {
-        await recordBilledFailure(err, { workspaceId, kind: "extract", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
-        const retryable = err instanceof ExtractionProviderError ? err.retryable : false;
-        logError("extraction.ai.provider_call_failed", err, { workspaceId, attempt, provider: aiProvider });
-        if (attempt >= MAX_ATTEMPTS || !retryable) throw err;
-        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-      }
-    }
-  } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      logError("extraction.ai.degraded.budget_exhausted", error, { workspaceId, reason: error.reason });
-    } else {
-      logError("extraction.ai.degraded.provider_call_failed", error, { workspaceId });
-    }
-    return deterministic(text);
+  if (result.error instanceof QuotaExceededError) {
+    logError("extraction.ai.degraded.budget_exhausted", result.error, { workspaceId, reason: result.error.reason });
+  } else {
+    logError("extraction.ai.degraded.provider_call_failed", result.error, { workspaceId });
   }
+  return deterministic(text);
 }
