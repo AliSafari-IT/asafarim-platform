@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { extractReadableText, fetchJobPosting, isPublicHttpsUrl } from "./fetchJob";
+import {
+  extractReadableText,
+  fetchJobPosting,
+  isPublicHttpsUrl,
+  MIN_USEFUL_CHARACTERS,
+} from "./fetchJob";
 
 describe("outbound destination policy", () => {
   it("accepts a public HTTPS endpoint", () => {
@@ -155,5 +162,153 @@ describe("fetchJobPosting", () => {
     const fetchImpl = vi.fn().mockRejectedValue(abortError);
     const result = await fetchJobPosting("https://jobs.example.test/posting/1", fetchImpl);
     expect(result).toEqual({ ok: false, reasonCode: "TIMEOUT" });
+  });
+});
+
+describe("fetchJobPosting with JobPosting JSON-LD (#516)", () => {
+  const fixture = (name: string) =>
+    readFileSync(path.resolve(__dirname, "../../fixtures/job-postings", name), "utf8");
+
+  async function fetchHtml(html: string) {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(html, { status: 200, headers: { "content-type": "text/html" } }));
+    return fetchJobPosting("https://jobs.example.test/posting/1", fetchImpl);
+  }
+
+  it("Greenhouse-style page: entity-escaped description replaces the page boilerplate", async () => {
+    const result = await fetchHtml(fixture("greenhouse-style.html"));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.title).toBe("Platform Engineer");
+    // Not og:site_name ("Greenhouse"), which names the ATS rather than the employer.
+    expect(result.employer).toBe("Northwind Labs");
+    expect(result.rawText).toContain("Northwind Labs is hiring a Platform Engineer");
+    expect(result.rawText).toContain("What you'll do");
+    expect(result.rawText).toContain("Own Terraform modules for three AWS accounts");
+    expect(result.rawText).not.toMatch(/&lt;|<p>|<li>/);
+    for (const boilerplate of ["cookie", "Submit application", "Powered by Greenhouse", "Benefits"]) {
+      expect(result.rawText).not.toContain(boilerplate);
+    }
+  });
+
+  it("Lever-style page: array JSON-LD with a string employer and literal line breaks", async () => {
+    const result = await fetchHtml(fixture("lever-style.html"));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.title).toBe("Senior Data Analyst");
+    expect(result.employer).toBe("Contoso Health");
+    expect(result.rawText).toContain("About the role");
+    expect(result.rawText).toContain("3+ years in healthcare or insurance analytics");
+    expect(result.rawText).not.toContain("Jobs powered by Lever");
+    expect(result.rawText).not.toContain("Apply for this job");
+  });
+
+  it("Workday-style page: a JS shell whose only posting text is in @graph JSON-LD", async () => {
+    const html = fixture("workday-style.html");
+    // Without the structured data this page has no readable text at all.
+    expect(extractReadableText(html).length).toBeLessThan(MIN_USEFUL_CHARACTERS);
+
+    const result = await fetchHtml(html);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.title).toBe("QA Automation Engineer \u2013 Payments");
+    expect(result.employer).toBe("Fabrikam N.V.");
+    expect(result.rawText).toContain("Playwright end-to-end tests");
+    expect(result.rawText).not.toContain("Loading");
+  });
+
+  it("a page without JobPosting markup gives exactly today's result", async () => {
+    const html = `
+      <html><head>
+        <title>Backend Engineer at Example Corp</title>
+        <meta property="og:site_name" content="Example Corp" />
+        <script type="application/ld+json">{"@type":"Organization","name":"Other Org"}</script>
+      </head><body>
+        <h1>Backend Engineer</h1>
+        <p>We are looking for a backend engineer with strong Node.js and PostgreSQL experience to join our growing platform team and help scale our infrastructure.</p>
+      </body></html>
+    `;
+    expect(await fetchHtml(html)).toEqual({
+      ok: true,
+      rawText: extractReadableText(html),
+      title: "Backend Engineer at Example Corp",
+      employer: "Example Corp",
+    });
+  });
+
+  it("malformed JSON-LD falls through to the existing heuristics", async () => {
+    const html = `
+      <html><head>
+        <meta property="og:title" content="Backend Engineer" />
+        <meta property="og:site_name" content="Example Corp" />
+        <script type="application/ld+json">{ "@type": "JobPosting", "title": "Broken", </script>
+      </head><body>
+        <p>We are looking for a backend engineer with strong Node.js and PostgreSQL experience to join our growing platform team and help scale our infrastructure.</p>
+      </body></html>
+    `;
+    expect(await fetchHtml(html)).toEqual({
+      ok: true,
+      rawText: extractReadableText(html),
+      title: "Backend Engineer",
+      employer: "Example Corp",
+    });
+  });
+
+  it("a thin JSON-LD description falls back to the page text, keeping the structured title and employer", async () => {
+    const html = `
+      <html><head>
+        <meta property="og:title" content="Careers" />
+        <script type="application/ld+json">${JSON.stringify({
+          "@type": "JobPosting",
+          title: "Backend Engineer",
+          hiringOrganization: { name: "Example Corp" },
+          description: "See below.",
+        })}</script>
+      </head><body>
+        <p>We are looking for a backend engineer with strong Node.js and PostgreSQL experience to join our growing platform team and help scale our infrastructure.</p>
+      </body></html>
+    `;
+    const result = await fetchHtml(html);
+    expect(result).toEqual({
+      ok: true,
+      rawText: extractReadableText(html),
+      title: "Backend Engineer",
+      employer: "Example Corp",
+    });
+  });
+
+  it("a JSON-LD title without an employer keeps the og:site_name employer", async () => {
+    const html = `
+      <html><head>
+        <meta property="og:site_name" content="Example Corp" />
+        <script type="application/ld+json">{"@type":"JobPosting","title":"Backend Engineer"}</script>
+      </head><body>
+        <p>We are looking for a backend engineer with strong Node.js and PostgreSQL experience to join our growing platform team and help scale our infrastructure.</p>
+      </body></html>
+    `;
+    const result = await fetchHtml(html);
+    expect(result.ok && result.employer).toBe("Example Corp");
+    expect(result.ok && result.title).toBe("Backend Engineer");
+  });
+
+  it("caps a huge JSON-LD description at the extraction limit", async () => {
+    const description = "Responsible engineer. ".repeat(20_000);
+    const html = `<script type="application/ld+json">${JSON.stringify({
+      "@type": "JobPosting",
+      title: "Role",
+      description,
+    })}</script>`;
+    const result = await fetchHtml(html);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.rawText.length).toBeLessThanOrEqual(200_000);
+  });
+
+  it("still refuses a page where neither the JSON-LD nor the page has enough text", async () => {
+    const html = `<script type="application/ld+json">{"@type":"JobPosting","title":"Role","description":"Short."}</script>`;
+    expect(await fetchHtml(html)).toEqual({ ok: false, reasonCode: "NO_READABLE_TEXT" });
   });
 });

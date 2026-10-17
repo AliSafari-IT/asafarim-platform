@@ -1,5 +1,6 @@
 import "server-only";
 import { normalizeWhitespace } from "../extraction/text";
+import { decodeHtmlEntities, extractJobPostingStructuredData } from "./jobPostingJsonLd";
 
 /**
  * Single job-URL fetch + extraction for the CV-tailoring flow.
@@ -124,7 +125,17 @@ export async function fetchJobPosting(
     clearTimeout(timer);
   }
 
-  const rawText = extractReadableText(html);
+  // Structured JobPosting data (#516), when the page has it, is a better
+  // signal than the og:/<title> tags and the whole-page strip. Each field
+  // falls back on its own, so a posting with a title but no usable
+  // description still gets the page text.
+  const structured = extractJobPostingStructuredData(html);
+  const structuredText = structured?.descriptionHtml
+    ? readableDescription(structured.descriptionHtml)
+    : "";
+
+  const rawText =
+    structuredText.length >= MIN_USEFUL_CHARACTERS ? structuredText : extractReadableText(html);
   if (rawText.length < MIN_USEFUL_CHARACTERS) {
     return { ok: false, reasonCode: "NO_READABLE_TEXT" };
   }
@@ -132,9 +143,23 @@ export async function fetchJobPosting(
   return {
     ok: true,
     rawText,
-    title: extractTitle(html),
-    employer: extractEmployer(html),
+    title: structured?.title ?? extractTitle(html),
+    employer: structured?.employer ?? extractEmployer(html),
   };
+}
+
+/**
+ * A JobPosting `description` is HTML, sometimes entity-escaped a second time
+ * (`&lt;p&gt;…`). Unescape that layer first so the tags are stripped rather
+ * than kept as literal text.
+ */
+function readableDescription(description: string): string {
+  const looksEscaped = !/<[a-z!/]/i.test(description) && /&lt;\/?[a-z]/i.test(description);
+  const html = looksEscaped ? decodeHtmlEntities(description) : description;
+  return normalizeWhitespace(decodeHtmlEntities(extractReadableText(html))).slice(
+    0,
+    MAX_EXTRACTED_CHARACTERS,
+  );
 }
 
 /** Below this, "extraction succeeded" is almost certainly an empty shell page.

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8">
+  <title>Careers</title>
+  <!-- Synthetic fixture for #516, shaped like a Workday-style career site: the
+       visible body is a JavaScript shell, and only the @graph JSON-LD carries
+       the posting. Not a real posting. -->
+  <script type='application/ld+json'>
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "WebSite", "name": "Fabrikam Careers", "url": "https://careers.fabrikam.example.test" },
+      {
+        "@type": ["JobPosting"],
+        "title": "QA Automation Engineer &#8211; Payments",
+        "hiringOrganization": { "@type": "Organization", "name": "Fabrikam N.V." },
+        "datePosted": "2026-09-28",
+        "description": "Fabrikam N.V. is looking for a QA Automation Engineer for its payments team. You will write Playwright end-to-end tests, keep our contract tests green in CI, and work with developers on testability. We expect experience with TypeScript and REST APIs; Cypress or Selenium experience is a plus. Location: Mechelen, hybrid."
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <div id="root">Loading…</div>
+  <noscript>Please enable JavaScript to view this site.</noscript>
+  <script src="/wday/main.js"></script>
+</body>
+</html>
