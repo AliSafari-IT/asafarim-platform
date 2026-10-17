@@ -107,11 +107,11 @@ export async function runCoverLetterProviderCall(
   }
 
   // Issue #529: the structural half of the prompt's no-fabrication rule.
-  // Checked against exactly what the model was shown (both inputs capped).
+  // Checked against the full profile and job text (see grounding.ts).
   // A letter with no grounded paragraph left degrades the same way a failed
   // call does — the provider call was still billed above.
   if (suggestion) {
-    suggestion = groundCoverLetterSuggestion(suggestion, prompt.profileTextUsed, prompt.jobTextUsed, outputLanguage).suggestion;
+    suggestion = groundCoverLetterSuggestion(suggestion, profileText, jobText, outputLanguage).suggestion;
     if (!suggestion) degraded = true;
   }
 

@@ -94,6 +94,22 @@ describe("groundCoverLetterSuggestion", () => {
     expect(result.suggestion?.signOff).toBe(COVER_LETTER_CONVENTIONS.nl.signOff);
   });
 
+  it("replaces a sign-off with an invented signature, keeps a grounded or conventional one", () => {
+    const invented = groundCoverLetterSuggestion(letter([GROUNDED], { signOff: "Regards, John Smith" }), PROFILE, JOB, "en");
+    expect(invented.suggestion?.signOff).toBe(COVER_LETTER_CONVENTIONS.en.signOff);
+    const own = groundCoverLetterSuggestion(letter([GROUNDED], { signOff: "Regards, Jane Doe" }), PROFILE, JOB, "en");
+    expect(own.signOffReplaced).toBe(false);
+    for (const signOff of ["Kind regards,", "Best regards,", "Yours sincerely,"]) {
+      expect(groundCoverLetterSuggestion(letter([GROUNDED], { signOff }), PROFILE, JOB, "en").signOffReplaced).toBe(false);
+    }
+  });
+
+  it("grounds against the full profile text, not only the prompt's capped copy", () => {
+    const longProfile = `${"Shipped small fixes. ".repeat(500)}Led the migration to Kotlin at Acme Corp.`;
+    const input = letter(["I led the migration to Kotlin at Acme Corp."]);
+    expect(groundCoverLetterSuggestion(input, longProfile, JOB, "en").suggestion).toEqual(input);
+  });
+
   it("does not drop German prose for its capitalized nouns, but still catches numbers and tech names", () => {
     const german = "Bei Acme Corp habe ich die Zahlungs-API mit Node.js und PostgreSQL gebaut und die Latenz um 40% gesenkt.";
     const input = letter([german, "Außerdem betreibe ich Cluster mit K8s für 200 Kunden."]);

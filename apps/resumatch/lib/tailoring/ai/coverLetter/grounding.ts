@@ -15,8 +15,10 @@ import type { CoverLetterSuggestion } from "./schema";
  * the candidate's profile (employers, technologies, metrics) *and* from the
  * job posting (the hiring company, the role title, the terms the prompt
  * tells the model to echo). Every token is checked against the union of the
- * profile text and the job text the model was actually shown (both capped
- * by `renderCoverLetterPrompt`), never against either one alone.
+ * full profile text and the full job text, never against either one alone.
+ * Full, not the prompt's capped copies: a token found anywhere in either
+ * source is a real fact, not a fabrication, and the fixture provider builds
+ * its letter from the uncapped profile text.
  *
  * **What happens on a miss — the decision #529 asks for.**
  * - A **paragraph** with any ungrounded token is dropped whole, never
@@ -42,8 +44,16 @@ import type { CoverLetterSuggestion } from "./schema";
  * not caught; numbers and tech-shaped names are. A greeting is checked in
  * `"prose"` mode with salutation words ("Hiring", "Manager", "Herren"…)
  * allowed, so a name after "Dear Ms." is still checked. A sign-off carries
- * no facts by design (the name is added from the profile in code), so it is
- * only checked for numbers and tech-shaped tokens.
+ * no name by design (the candidate's name is added from the profile in
+ * code): any language's conventional closing is accepted as is; anything
+ * else is checked the same way as a greeting, so an invented signature
+ * ("Regards, John Smith") is replaced.
+ *
+ * Known gap, accepted (the shared #522 bar): a capitalized word at a
+ * sentence start is not checked, so "Initech hired me." is not caught on
+ * its own. Telling a sentence-initial name from an ordinary opener ("At",
+ * "During", "Thank") needs a word list or entity recognition, and would also
+ * change CV extraction's check.
  */
 
 /** Words that may appear capitalized in a salutation without being a fact. */
@@ -90,6 +100,23 @@ function ungrounded(text: string, sourceLower: string, mode: ProseGroundingMode)
   return ungroundedProseTokenCount(text.replace(HONORIFIC_DOT, "$1"), sourceLower, mode) > 0;
 }
 
+function normalizeClosing(text: string): string {
+  return text.trim().replace(/[,.!]+$/, "").toLowerCase();
+}
+
+/** Every language's conventional closing, plus common English ones. */
+const CONVENTIONAL_SIGN_OFFS = new Set(
+  [
+    ...Object.values(COVER_LETTER_CONVENTIONS).map((c) => c.signOff),
+    "Kind regards",
+    "Best regards",
+    "Regards",
+    "Yours sincerely",
+    "Yours faithfully",
+    "With kind regards",
+  ].map(normalizeClosing),
+);
+
 export interface CoverLetterGroundingResult {
   /** null when nothing grounded is left to review — treat as degraded. */
   suggestion: CoverLetterSuggestion | null;
@@ -113,7 +140,8 @@ export function groundCoverLetterSuggestion(
 
   const greetingSource = `${sourceLower}\n${SALUTATION_WORDS.join(" ")}`;
   const greetingReplaced = ungrounded(suggestion.greeting, greetingSource, "prose");
-  const signOffReplaced = ungrounded(suggestion.signOff, sourceLower, "headline");
+  const signOffReplaced =
+    !CONVENTIONAL_SIGN_OFFS.has(normalizeClosing(suggestion.signOff)) && ungrounded(suggestion.signOff, greetingSource, "prose");
 
   if (droppedParagraphs > 0 || greetingReplaced || signOffReplaced) {
     log.warn("coverLetter.ai.ungrounded", {
