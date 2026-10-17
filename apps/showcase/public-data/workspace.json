@@ -170,10 +170,10 @@
       "kind": "app",
       "folder": "apps/resumatch",
       "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
-      "sha": "271e1ce1",
+      "sha": "5bd3e02b",
       "date": "2026-10-17",
       "since": "2026-09-18",
-      "commits": 110,
+      "commits": 111,
       "dependents": 0
     },
     {
@@ -214,10 +214,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "3366172f",
+      "sha": "0e0e73ee",
       "date": "2026-10-17",
       "since": "2026-07-04",
-      "commits": 446,
+      "commits": 447,
       "dependents": 0
     },
     {

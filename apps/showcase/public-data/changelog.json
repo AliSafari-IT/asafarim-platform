@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-17",
+    "title": "Resumatch: tiered job fetch, deterministic first, AI only when it fails",
+    "sha": "5bd3e02b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5bd3e02b"
+  },
+  {
+    "date": "2026-10-17",
     "title": "Resumatch: short-TTL dedup cache for extraction and job-fetch",
     "sha": "271e1ce1",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/271e1ce1"
@@ -112,11 +118,5 @@
     "title": "Testora: ownership verification, per-target rate limit and an identifying User-Agent",
     "sha": "b4b7208f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/b4b7208f"
-  },
-  {
-    "date": "2026-10-01",
-    "title": "Testora: scoped, encrypted per-target test credentials",
-    "sha": "eda8a1bc",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/eda8a1bc"
   }
 ]
