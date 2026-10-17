@@ -178,6 +178,33 @@ describe("extractJobPostingStructuredData", () => {
     expect(extractJobPostingStructuredData(html)).toBeNull();
   });
 
+  it("stays fast on a page full of unclosed ld+json openers", () => {
+    const html =
+      '<script type="application/ld+json">{"@type":"JobPosting",'.repeat(
+        50_000
+      ) + "x".repeat(1_000_000);
+    const started = performance.now();
+    expect(extractJobPostingStructuredData(html)).toBeNull();
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
+  it("reads at most 20 blocks", () => {
+    const filler =
+      '<script type="application/ld+json">{"@type":"WebSite"}</script>'.repeat(
+        20
+      );
+    const posting = `<script type="application/ld+json">${JSON.stringify({
+      "@type": "JobPosting",
+      title: "Role",
+    })}</script>`;
+    expect(extractJobPostingStructuredData(filler + posting)).toBeNull();
+    expect(
+      extractJobPostingStructuredData(
+        filler.slice(0, (-1 * filler.length) / 20) + posting
+      )?.title
+    ).toBe("Role");
+  });
+
   it("stops walking a pathologically deep structure", () => {
     let nested: unknown = { "@type": "JobPosting", title: "Too deep" };
     for (let i = 0; i < 50; i++) nested = [nested];

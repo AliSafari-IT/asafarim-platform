@@ -24,8 +24,10 @@ const MAX_BLOCKS = 20;
 const MAX_NODES = 500;
 const MAX_DEPTH = 6;
 
-const LD_JSON_SCRIPT =
-  /<script\b[^>]*\btype\s*=\s*["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script\s*>/gi;
+/** Only the opening tag: the body is found with `indexOf`, so a page full of
+ *  unclosed openers can't make a lazy `[\s\S]*?` rescan to the end each time. */
+const LD_JSON_OPENER =
+  /<script\b[^>]*\btype\s*=\s*["']?application\/ld\+json["']?[^>]*>/gi;
 
 /**
  * Returns the first `JobPosting` on the page that carries a title or a
@@ -34,10 +36,19 @@ const LD_JSON_SCRIPT =
 export function extractJobPostingStructuredData(
   html: string
 ): JobPostingStructuredData | null {
-  let blocks = 0;
-  for (const match of html.matchAll(LD_JSON_SCRIPT)) {
-    if (++blocks > MAX_BLOCKS) break;
-    const parsed = parseJsonLd(match[1] ?? "");
+  const lower = html.toLowerCase();
+  const opener = new RegExp(LD_JSON_OPENER.source, "gi");
+  for (let blocks = 0; blocks < MAX_BLOCKS; blocks++) {
+    const match = opener.exec(html);
+    if (!match) break;
+
+    const start = match.index + match[0].length;
+    const end = lower.indexOf("</script", start);
+    // No closing tag anywhere after this one means none after later ones either.
+    if (end === -1) break;
+    opener.lastIndex = end;
+
+    const parsed = parseJsonLd(html.slice(start, end));
     if (parsed === undefined) continue;
 
     const posting = findJobPosting(parsed);
