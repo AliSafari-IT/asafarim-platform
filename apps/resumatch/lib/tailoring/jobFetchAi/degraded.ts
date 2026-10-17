@@ -7,6 +7,7 @@ import { renderJobFetchPrompt } from "./prompts";
 import { JobFetchProviderError } from "./provider";
 import { FETCH_JOB_MODEL_VERSIONS, getJobFetchProvider } from "./registry";
 import { parseJobFetchOutput } from "./schema";
+import { getDedupedResult, storeDedupedResult, type DedupKeyParts } from "../../shared/aiDedupCache";
 
 /**
  * Degrade wiring for the AI job-fetch call — mirrors
@@ -49,12 +50,25 @@ export async function fetchJobWithFallback(
   const aiProvider = opts.provider ?? getEnv().aiProvider;
   if (aiProvider === "fixture") return degradeToRawFetch(url);
 
+  const modelVersion = FETCH_JOB_MODEL_VERSIONS[aiProvider];
+  const prompt = renderJobFetchPrompt(url);
+  // Issue #513: the same URL fetched again within a few minutes (a retry
+  // after a transient error) reuses the last successful result: no quota
+  // check, no provider call, no second ledger row.
+  const dedupKey: DedupKeyParts = {
+    workspaceId,
+    kind: "fetch_job",
+    provider: aiProvider,
+    model: modelVersion,
+    promptCacheKey: prompt.cacheKey,
+  };
+  const cached = getDedupedResult<JobFetchOutcome>(dedupKey);
+  if (cached) return cached;
+
   try {
     await assertCanRunProviderCall(workspaceId, "fetch_job");
 
     const provider = await getJobFetchProvider(aiProvider);
-    const modelVersion = FETCH_JOB_MODEL_VERSIONS[aiProvider];
-    const prompt = renderJobFetchPrompt(url);
 
     for (let attempt = 1; ; attempt++) {
       try {
@@ -86,13 +100,15 @@ export async function fetchJobWithFallback(
           () => parseJobFetchOutput({ title: output.title, employer: output.employer, rawText: output.rawText }),
         );
 
-        return {
+        const outcome: JobFetchOutcome = {
           ok: true,
           title: parsed.title,
           employer: parsed.employer,
           rawText: parsed.rawText,
           degraded: false,
         };
+        storeDedupedResult(dedupKey, outcome);
+        return outcome;
       } catch (err) {
         await recordBilledFailure(err, { workspaceId, kind: "fetch_job", provider: aiProvider, model: modelVersion, promptVersion: prompt.version, attribution });
         const retryable = err instanceof JobFetchProviderError ? err.retryable : false;

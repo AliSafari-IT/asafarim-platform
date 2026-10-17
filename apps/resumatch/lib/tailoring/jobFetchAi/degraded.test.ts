@@ -51,6 +51,7 @@ vi.mock("../fetchJob", async () => {
 });
 
 const { fetchJobWithFallback } = await import("./degraded");
+const { clearDedupCacheForTests } = await import("../../shared/aiDedupCache");
 
 const URL = "https://example.test/jobs/1";
 
@@ -59,6 +60,7 @@ describe("fetchJobWithFallback — degrade paths", () => {
     assertCanRunProviderCall.mockReset().mockResolvedValue(undefined);
     recordUsage.mockReset().mockResolvedValue(undefined);
     getJobFetchProvider.mockReset();
+    clearDedupCacheForTests();
     fetchJobPosting.mockReset().mockResolvedValue({
       ok: true,
       rawText: "Fallback raw text.",
@@ -134,5 +136,63 @@ describe("fetchJobWithFallback — degrade paths", () => {
     }
     expect(recordUsage).toHaveBeenCalledTimes(1);
     expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws_1", kind: "fetch_job" }));
+  });
+});
+
+describe("fetchJobWithFallback — short-TTL dedup (issue #513)", () => {
+  const okOutput = {
+    title: "Implementation Analyst",
+    employer: "Kingfisher IT",
+    rawText: "Real job description text read by the model.",
+    inputTokens: 500,
+    outputTokens: 100,
+    costUsd: 0.001,
+  };
+
+  beforeEach(() => {
+    assertCanRunProviderCall.mockReset().mockResolvedValue(undefined);
+    recordUsage.mockReset().mockResolvedValue(undefined);
+    getJobFetchProvider.mockReset();
+    fetchJobPosting.mockReset().mockResolvedValue({ ok: true, rawText: "Fallback raw text.", title: "Fallback Title", employer: null });
+    clearDedupCacheForTests();
+  });
+
+  it("reuses the result for the same URL within the TTL: one provider call, one ledger row", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(okOutput);
+    getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
+
+    const first = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+    const second = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+
+    expect(second).toEqual(first);
+    expect(second.degraded).toBe(false);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    expect(assertCanRunProviderCall).toHaveBeenCalledTimes(1);
+  });
+
+  it("fetches a different URL fresh", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(okOutput);
+    getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
+
+    await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+    await fetchJobWithFallback("ws_1", "https://example.test/jobs/2", { provider: "openai" });
+
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not cache a degraded raw-fetch result: a retry after a failure calls the provider again", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockRejectedValueOnce(new JobFetchProviderError("no API key", false))
+      .mockResolvedValueOnce(okOutput);
+    getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
+
+    const first = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+    const second = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+
+    expect(first.degraded).toBe(true);
+    expect(second.degraded).toBe(false);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 });
