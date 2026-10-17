@@ -326,6 +326,16 @@ model TargetJob {
   /// — see lib/tailoring/manualJob.ts for the shape.
   structuredFields Json?
 
+  /// Fetch-quality signal for a fetched URL (issue #520, see
+  /// lib/tailoring/fetchQuality.ts): true when the page cleared the bare
+  /// minimum but looks like a cookie wall, loading shell or other thin page.
+  /// A warning shown before an AI call is spent, never a block. Null for
+  /// rows from before #520, for failed fetches and for the other intake paths.
+  fetchLooksIncomplete Boolean?
+  /// Stable reason codes behind `fetchLooksIncomplete` (FetchQualityReason).
+  /// Empty when the fetch looks complete or was never assessed.
+  fetchQualityReasons String[] @default([])
+
   status TargetJobStatus
 
   fetchedAt DateTime  @default(now())

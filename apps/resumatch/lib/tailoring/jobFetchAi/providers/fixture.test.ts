@@ -16,6 +16,7 @@ describe("JobFetchFixtureProvider", () => {
       rawText: "Some job description text.",
       title: "Backend Engineer",
       employer: "Acme Corp",
+      quality: { looksIncomplete: true, reasons: ["TEXT_TOO_SHORT"] },
     });
 
     const output = await provider.fetch({

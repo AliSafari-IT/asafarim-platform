@@ -2,6 +2,7 @@ import { logError } from "../../observability/logger";
 import { getEnv, type ResuMatchAiProvider } from "../../env";
 import { assertCanRunProviderCall, recordBilledFailure, settleProviderCall, QuotaExceededError } from "../ai/quota";
 import type { CostAttribution } from "../../costs/ledger";
+import { assessFetchQuality } from "../fetchQuality";
 import { fetchJobPosting, isPublicHttpsUrl, type JobFetchRefusal, type JobFetchResult } from "../fetchJob";
 import { renderJobFetchPrompt } from "./prompts";
 import { JobFetchProviderError } from "./provider";
@@ -137,6 +138,9 @@ export async function fetchJobWithFallback(
           title: parsed.title,
           employer: parsed.employer,
           rawText: parsed.rawText,
+          // The same heuristics as tier 1 (#520): a model reading a cookie
+          // wall can hand back boilerplate too.
+          quality: assessFetchQuality(parsed),
           degraded: false,
         };
         storeDedupedResult(dedupKey, outcome);

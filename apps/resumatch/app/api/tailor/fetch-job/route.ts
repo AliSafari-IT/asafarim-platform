@@ -58,6 +58,8 @@ export async function POST(request: Request) {
       rawText: result.rawText,
       title: result.title,
       employer: result.employer,
+      fetchLooksIncomplete: result.quality.looksIncomplete,
+      fetchQualityReasons: result.quality.reasons,
       status: "FETCHED",
     },
     select: { id: true, status: true, title: true, employer: true },
@@ -69,5 +71,7 @@ export async function POST(request: Request) {
     title: targetJob.title,
     employer: targetJob.employer,
     snippet: result.rawText.slice(0, 400),
+    // #520: a warning, not a refusal. The job is stored and usable either way.
+    quality: result.quality,
   });
 }

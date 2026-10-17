@@ -237,6 +237,8 @@ describe("fetchJobPosting with JobPosting JSON-LD (#516)", () => {
       rawText: extractReadableText(html),
       title: "Backend Engineer at Example Corp",
       employer: "Example Corp",
+      // ~150 characters of page text: usable, but flagged as thin (#520).
+      quality: { looksIncomplete: true, reasons: ["TEXT_TOO_SHORT"] },
     });
   });
 
@@ -255,6 +257,8 @@ describe("fetchJobPosting with JobPosting JSON-LD (#516)", () => {
       rawText: extractReadableText(html),
       title: "Backend Engineer",
       employer: "Example Corp",
+      // ~150 characters of page text: usable, but flagged as thin (#520).
+      quality: { looksIncomplete: true, reasons: ["TEXT_TOO_SHORT"] },
     });
   });
 
@@ -278,6 +282,8 @@ describe("fetchJobPosting with JobPosting JSON-LD (#516)", () => {
       rawText: extractReadableText(html),
       title: "Backend Engineer",
       employer: "Example Corp",
+      // ~150 characters of page text: usable, but flagged as thin (#520).
+      quality: { looksIncomplete: true, reasons: ["TEXT_TOO_SHORT"] },
     });
   });
 
