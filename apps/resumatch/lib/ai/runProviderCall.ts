@@ -1,4 +1,5 @@
 import { assertCanRunProviderCall, type ProviderCallKind } from "../tailoring/ai/quota";
+import { errorCodeOf, recordCallOutcome, type CallOutcome, type RecordCallOutcome } from "./callOutcome";
 
 /**
  * The shared provider-call runtime (issue #510): budget check → attempt
@@ -18,6 +19,11 @@ import { assertCanRunProviderCall, type ProviderCallKind } from "../tailoring/ai
  * It never throws: a budget refusal (`QuotaExceededError`), an error from
  * `prepare`, a non-retryable error or the last failed attempt all come
  * back as `{ ok: false, error }`.
+ *
+ * Every call that gets here also leaves one outcome record (issue #512,
+ * `callOutcome.ts`): success or the reason it degraded, and the number of
+ * attempts. That write is best effort: if it fails, the call's result is
+ * the same as if it had succeeded.
  */
 
 /** Attempts per call, the first one included. */
@@ -47,6 +53,8 @@ export interface RunProviderCallOptions<TContext, T> {
   isRetryable: (error: unknown) => boolean;
   /** Tests only. */
   sleep?: (ms: number) => Promise<void>;
+  /** Tests only; defaults to writing an `ai_call_outcomes` row. */
+  recordOutcome?: RecordCallOutcome;
 }
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -55,20 +63,70 @@ export async function runProviderCallWithBudget<TContext, T>(
   opts: RunProviderCallOptions<TContext, T>,
 ): Promise<ProviderCallResult<T>> {
   const sleep = opts.sleep ?? defaultSleep;
+  let phase: "budget" | "prepare" | "attempts" = "budget";
+  let attempts = 0;
+  // Set by the attempt loop just before it gives up; still null if
+  // `onAttemptFailed` threw.
+  let attemptEnd: CallOutcome | null = null;
+
+  let result: ProviderCallResult<T>;
+  let outcome: CallOutcome;
   try {
     await assertCanRunProviderCall(opts.workspaceId, opts.kind);
+    phase = "prepare";
     const context = await opts.prepare();
+    phase = "attempts";
 
     for (let attempt = 1; ; attempt++) {
+      attempts = attempt;
       try {
-        return { ok: true, value: await opts.call(context, attempt) };
+        result = { ok: true, value: await opts.call(context, attempt) };
+        outcome = "success";
+        break;
       } catch (err) {
         await opts.onAttemptFailed(err, context, attempt);
-        if (attempt >= MAX_ATTEMPTS || !opts.isRetryable(err)) throw err;
+        if (attempt >= MAX_ATTEMPTS) {
+          attemptEnd = "exhausted";
+          throw err;
+        }
+        if (!opts.isRetryable(err)) {
+          attemptEnd = "non_retryable";
+          throw err;
+        }
         await sleep(backoffMs(attempt));
       }
     }
   } catch (error) {
-    return { ok: false, error };
+    result = { ok: false, error };
+    outcome =
+      phase === "budget"
+        ? isQuotaRefusal(error)
+          ? "budget_refused"
+          : "budget_check_failed"
+        : phase === "prepare"
+          ? "prepare_failed"
+          : (attemptEnd ?? "attempt_hook_failed");
   }
+
+  try {
+    await (opts.recordOutcome ?? recordCallOutcome)({
+      workspaceId: opts.workspaceId,
+      kind: opts.kind,
+      outcome,
+      attempts,
+      degraded: !result.ok,
+      // No fallback provider exists yet (#511).
+      usedFallback: false,
+      errorCode: result.ok ? null : errorCodeOf(result.error),
+    });
+  } catch {
+    // Best effort: an outcome record must never change the call's result.
+  }
+  return result;
+}
+
+/** `QuotaExceededError` from `quota.ts`, matched by name so this module
+ *  doesn't need the class at runtime. */
+function isQuotaRefusal(error: unknown): boolean {
+  return error instanceof Error && error.name === "QuotaExceededError";
 }

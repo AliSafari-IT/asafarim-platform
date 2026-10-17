@@ -606,6 +606,34 @@ model AiUsageLedger {
   @@map("ai_usage_ledger")
 }
 
+/// One row per provider call that reached the shared runtime
+/// (lib/ai/runProviderCall.ts, issue #512): success, degrade or hard
+/// failure. Kept apart from AiUsageLedger / AiCostEvent so the spend ledgers
+/// stay success-only and "did this call succeed cleanly" is queryable on its
+/// own. Operational metadata only: never a prompt, response, CV text or
+/// error message.
+model AiCallOutcome {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  /// `ProviderCallKind`, as in AiUsageLedger.kind.
+  kind         String
+  /// `success | budget_refused | budget_check_failed | prepare_failed |
+  /// non_retryable | exhausted | attempt_hook_failed`. See lib/ai/callOutcome.ts.
+  outcome      String
+  /// Provider attempts made; 0 when the call ended before the first one.
+  attempts     Int
+  degraded     Boolean
+  /// Always false until a fallback provider exists (#511).
+  usedFallback Boolean  @default(false)
+  /// A stable error class or code (never a message), null on success.
+  errorCode    String?
+  createdAt    DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("ai_call_outcomes")
+}
+
 // ─── AI cost ledger (milestone #31, issue #586) ───────────────────────────
 //
 // Implements the platform AI cost-event contract (@asafarim/ai-cost-ledger,
