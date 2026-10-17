@@ -36,16 +36,20 @@ const LD_JSON_OPENER =
 export function extractJobPostingStructuredData(
   html: string
 ): JobPostingStructuredData | null {
-  const lower = html.toLowerCase();
   const opener = new RegExp(LD_JSON_OPENER.source, "gi");
+  // Searched in `html` itself: `toLowerCase()` can lengthen a string ("İ"
+  // becomes two code units), which would shift every index after it.
+  const closer = /<\/script/gi;
   for (let blocks = 0; blocks < MAX_BLOCKS; blocks++) {
     const match = opener.exec(html);
     if (!match) break;
 
     const start = match.index + match[0].length;
-    const end = lower.indexOf("</script", start);
+    closer.lastIndex = start;
+    const close = closer.exec(html);
     // No closing tag anywhere after this one means none after later ones either.
-    if (end === -1) break;
+    if (!close) break;
+    const end = close.index;
     opener.lastIndex = end;
 
     const parsed = parseJsonLd(html.slice(start, end));

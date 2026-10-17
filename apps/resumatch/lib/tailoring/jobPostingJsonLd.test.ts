@@ -173,6 +173,13 @@ describe("extractJobPostingStructuredData", () => {
     }
   });
 
+  it("keeps block offsets right after characters that lengthen when lowercased", () => {
+    const html = `<title>İstanbul İzmir — Careers</title>${page(
+      JSON.stringify({ "@type": "JobPosting", title: "Role" })
+    )}`;
+    expect(extractJobPostingStructuredData(html)?.title).toBe("Role");
+  });
+
   it("does not read ordinary scripts", () => {
     const html = `<script>var x = ${JSON.stringify({ "@type": "JobPosting", title: "Role" })}</script>`;
     expect(extractJobPostingStructuredData(html)).toBeNull();
