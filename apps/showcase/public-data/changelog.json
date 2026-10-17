@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-17",
+    "title": "Resumatch: ground cover-letter prose against the profile and job text",
+    "sha": "9071f15a",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9071f15a"
+  },
+  {
     "date": "2026-10-13",
     "title": "Edge: read-only edge cutover check script (#839)",
     "sha": "082908a4",
@@ -112,11 +118,5 @@
     "title": "Testora: restrict running tests and filing issues to the tester role",
     "sha": "bf432a3f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/bf432a3f"
-  },
-  {
-    "date": "2026-09-29",
-    "title": "feat: add agent assurance contract and HTTP runner",
-    "sha": "fc5f7555",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/fc5f7555"
   }
 ]
