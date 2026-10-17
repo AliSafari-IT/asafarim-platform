@@ -63,8 +63,16 @@ export interface RunProviderCallOptions<TContext, T> {
    *  attempts are exhausted on a retryable error. Its context goes to the
    *  same `call` and `onAttemptFailed`, so the domain records spend and
    *  failures under the provider that actually served the attempt. Omitted
-   *  or null: no fallback. */
-  fallback?: { prepare: () => Promise<TContext> | TContext } | null;
+   *  or null: no fallback.
+   *
+   *  `isEligible` narrows which last errors may reach the fallback; it
+   *  defaults to `isRetryable`. A domain that retries unknown errors (e.g.
+   *  a failed spend write after a successful response) passes a narrower
+   *  check so only a provider failure ever reaches a second provider. */
+  fallback?: {
+    prepare: () => Promise<TContext> | TContext;
+    isEligible?: (error: unknown) => boolean;
+  } | null;
   /** Tests only. */
   sleep?: (ms: number) => Promise<void>;
   /** Tests only; defaults to writing an `ai_call_outcomes` row. */
@@ -118,7 +126,8 @@ export async function runProviderCallWithBudget<TContext, T>(
     if (!served) {
       // The primary is exhausted. Only a retryable last error ("this
       // provider is unavailable") is worth a second provider.
-      if (!opts.fallback || !opts.isRetryable(lastError)) {
+      const eligible = opts.fallback?.isEligible ?? opts.isRetryable;
+      if (!opts.fallback || !opts.isRetryable(lastError) || !eligible(lastError)) {
         attemptEnd = "exhausted";
         throw lastError;
       }

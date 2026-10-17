@@ -97,4 +97,25 @@ describe("runTailorProviderCall — cross-provider fallback (issue #511)", () =>
     expect(result.modelVersion).toBe("openai-model");
     expect(getTailorProvider).not.toHaveBeenCalledWith("anthropic");
   });
+
+  it("never calls the fallback when the primary answered but recording its spend failed", async () => {
+    recordUsage.mockRejectedValue(new Error("ledger down"));
+    const openaiGenerate = vi.fn().mockResolvedValue(okOutput);
+    const anthropicGenerate = vi.fn().mockResolvedValue(okOutput);
+    getTailorProvider.mockImplementation(async (name: string) => ({
+      name,
+      generate: name === "anthropic" ? anthropicGenerate : openaiGenerate,
+    }));
+
+    const result = await runTailorProviderCall(
+      "ws_1",
+      "job_1",
+      emptyProfile(),
+      "A job"
+    );
+
+    expect(result.degraded).toBe(true);
+    expect(openaiGenerate).toHaveBeenCalledTimes(3);
+    expect(anthropicGenerate).not.toHaveBeenCalled();
+  });
 });

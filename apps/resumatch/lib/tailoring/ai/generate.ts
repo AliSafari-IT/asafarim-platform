@@ -83,6 +83,9 @@ export async function runTailorProviderCall(
             name: fallbackName,
             modelVersion: await resolveTailorModelVersion(fallbackName),
           }),
+          // Unknown errors are retried, but only a provider failure is worth
+          // a second provider: never a failed spend write after a success.
+          isEligible: (err: unknown) => err instanceof TailorProviderError && err.retryable,
         }
       : null,
     call: async ({ provider, name, modelVersion }) => {

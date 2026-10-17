@@ -281,6 +281,7 @@ describe("runProviderCallWithBudget cross-provider fallback (#511)", () => {
     fallback?: () => Promise<string>;
     fallbackPrepare?: () => Promise<Ctx>;
     hasFallback?: boolean;
+    isEligible?: (error: unknown) => boolean;
   }) {
     const sleeps: number[] = [];
     const failures: Array<[string, number]> = [];
@@ -292,7 +293,7 @@ describe("runProviderCallWithBudget cross-provider fallback (#511)", () => {
         workspaceId: "ws-1",
         kind: "extract",
         prepare: async () => ({ name: "openai" }),
-        fallback: opts.hasFallback === false ? null : { prepare: fallbackPrepare },
+        fallback: opts.hasFallback === false ? null : { prepare: fallbackPrepare, isEligible: opts.isEligible },
         call: (ctx, attempt) => (ctx.name === "openai" ? opts.primary(attempt) : fallbackCall()),
         onAttemptFailed: (_err, ctx, attempt) => {
           failures.push([ctx.name, attempt]);
@@ -399,6 +400,18 @@ describe("runProviderCallWithBudget cross-provider fallback (#511)", () => {
         throw new FakeError(true);
       },
       hasFallback: false,
+    });
+    expect((await run()).ok).toBe(false);
+    expect(fallbackPrepare).not.toHaveBeenCalled();
+    expect(outcomes[0]).toMatchObject({ outcome: "exhausted", attempts: MAX_ATTEMPTS, usedFallback: false });
+  });
+
+  it("skips the fallback when the domain's isEligible rejects the last error", async () => {
+    const { run, outcomes, fallbackPrepare } = setupFallback({
+      primary: async () => {
+        throw new FakeError(true);
+      },
+      isEligible: () => false,
     });
     expect((await run()).ok).toBe(false);
     expect(fallbackPrepare).not.toHaveBeenCalled();

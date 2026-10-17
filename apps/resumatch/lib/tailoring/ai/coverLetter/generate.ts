@@ -79,6 +79,9 @@ export async function runCoverLetterProviderCall(
             name: fallbackName,
             modelVersion: COVER_LETTER_MODEL_VERSIONS[fallbackName],
           }),
+          // Unknown errors are retried, but only a provider failure is worth
+          // a second provider: never a failed spend write after a success.
+          isEligible: (err: unknown) => err instanceof CoverLetterProviderError && err.retryable,
         }
       : null,
     call: async ({ provider, name, modelVersion }) => {
