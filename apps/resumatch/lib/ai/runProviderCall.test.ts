@@ -5,6 +5,12 @@ vi.mock("../tailoring/ai/quota", () => ({
   assertCanRunProviderCall: (...args: unknown[]) => assertCanRunProviderCall(...args),
 }));
 
+const outcomeCreate = vi.fn();
+vi.mock("../db/client", () => ({
+  getJobmatchDb: () => ({ aiCallOutcome: { create: (...args: unknown[]) => outcomeCreate(...args) } }),
+}));
+
+import type { CallOutcomeRecord } from "./callOutcome";
 import { MAX_ATTEMPTS, backoffMs, runProviderCallWithBudget } from "./runProviderCall";
 
 class FakeError extends Error {
@@ -16,6 +22,7 @@ class FakeError extends Error {
 function setup(call: (attempt: number) => Promise<string>) {
   const sleeps: number[] = [];
   const failures: number[] = [];
+  const outcomes: CallOutcomeRecord[] = [];
   const prepare = vi.fn(async () => ({ provider: "p" }));
   const run = () =>
     runProviderCallWithBudget({
@@ -31,13 +38,18 @@ function setup(call: (attempt: number) => Promise<string>) {
       sleep: async (ms) => {
         sleeps.push(ms);
       },
+      recordOutcome: async (record) => {
+        outcomes.push(record);
+      },
     });
-  return { run, sleeps, failures, prepare };
+  return { run, sleeps, failures, prepare, outcomes };
 }
 
 beforeEach(() => {
   assertCanRunProviderCall.mockReset();
   assertCanRunProviderCall.mockResolvedValue(undefined);
+  outcomeCreate.mockReset();
+  outcomeCreate.mockResolvedValue({});
 });
 
 describe("runProviderCallWithBudget", () => {
@@ -125,5 +137,138 @@ describe("runProviderCallWithBudget", () => {
     });
     expect(result).toEqual({ ok: false, error: recordError });
     expect(call).toHaveBeenCalledTimes(1);
+  });
+});
+
+class QuotaExceededError extends Error {
+  readonly reason = "monthly_budget_exceeded";
+  constructor() {
+    super("monthly_budget_exceeded");
+    this.name = "QuotaExceededError";
+  }
+}
+
+describe("runProviderCallWithBudget outcome records (#512)", () => {
+  const base = { workspaceId: "ws-1", kind: "tailor", usedFallback: false } as const;
+
+  it("records a first-try success with one attempt and no error code", async () => {
+    const { run, outcomes } = setup(async () => "ok");
+    await run();
+    expect(outcomes).toEqual([{ ...base, outcome: "success", attempts: 1, degraded: false, errorCode: null }]);
+  });
+
+  it("records a retry-then-success with the attempt count", async () => {
+    const { run, outcomes } = setup(async (attempt) => {
+      if (attempt < 3) throw new FakeError(true);
+      return "third";
+    });
+    await run();
+    expect(outcomes).toEqual([{ ...base, outcome: "success", attempts: 3, degraded: false, errorCode: null }]);
+  });
+
+  it("records exhaustion after MAX_ATTEMPTS", async () => {
+    const { run, outcomes } = setup(async () => {
+      throw new FakeError(true);
+    });
+    await run();
+    expect(outcomes).toEqual([{ ...base, outcome: "exhausted", attempts: 3, degraded: true, errorCode: "Error" }]);
+  });
+
+  it("records a non-retryable stop with the error's code, never its message", async () => {
+    const fatal = Object.assign(new FakeError(false), { code: "INVALID_SCHEMA" });
+    fatal.message = "provider said: secret prompt text";
+    const { run, outcomes } = setup(async () => {
+      throw fatal;
+    });
+    await run();
+    expect(outcomes).toEqual([
+      { ...base, outcome: "non_retryable", attempts: 1, degraded: true, errorCode: "INVALID_SCHEMA" },
+    ]);
+    expect(JSON.stringify(outcomes)).not.toContain("secret");
+  });
+
+  it("records a budget refusal with zero attempts", async () => {
+    assertCanRunProviderCall.mockRejectedValue(new QuotaExceededError());
+    const { run, outcomes } = setup(async () => "never");
+    await run();
+    expect(outcomes).toEqual([
+      { ...base, outcome: "budget_refused", attempts: 0, degraded: true, errorCode: "monthly_budget_exceeded" },
+    ]);
+  });
+
+  it("tells a failed budget check apart from a refusal", async () => {
+    assertCanRunProviderCall.mockRejectedValue(new TypeError("db down"));
+    const { run, outcomes } = setup(async () => "never");
+    await run();
+    expect(outcomes[0]).toMatchObject({ outcome: "budget_check_failed", attempts: 0, errorCode: "TypeError" });
+  });
+
+  it("records a failed prepare with zero attempts", async () => {
+    const { run, prepare, outcomes } = setup(async () => "never");
+    prepare.mockRejectedValueOnce(new Error("no provider"));
+    await run();
+    expect(outcomes[0]).toMatchObject({ outcome: "prepare_failed", attempts: 0, degraded: true });
+  });
+
+  it("records a throwing onAttemptFailed as attempt_hook_failed", async () => {
+    const outcomes: CallOutcomeRecord[] = [];
+    await runProviderCallWithBudget({
+      workspaceId: "ws-1",
+      kind: "extract",
+      prepare: () => null,
+      call: async () => {
+        throw new FakeError(true);
+      },
+      onAttemptFailed: () => {
+        throw new Error("ledger down");
+      },
+      isRetryable: () => true,
+      sleep: async () => {},
+      recordOutcome: async (r) => {
+        outcomes.push(r);
+      },
+    });
+    expect(outcomes[0]).toMatchObject({ kind: "extract", outcome: "attempt_hook_failed", attempts: 1 });
+  });
+
+  it("returns the same result when the outcome write fails", async () => {
+    const result = await runProviderCallWithBudget({
+      workspaceId: "ws-1",
+      kind: "tailor",
+      prepare: () => null,
+      call: async () => "ok",
+      onAttemptFailed: () => {},
+      isRetryable: () => true,
+      recordOutcome: async () => {
+        throw new Error("outcome table missing");
+      },
+    });
+    expect(result).toEqual({ ok: true, value: "ok" });
+  });
+
+  it("writes an ai_call_outcomes row by default, and survives that write failing", async () => {
+    const run = () =>
+      runProviderCallWithBudget({
+        workspaceId: "ws-9",
+        kind: "job_meta",
+        prepare: () => null,
+        call: async () => 42,
+        onAttemptFailed: () => {},
+        isRetryable: () => false,
+      });
+    await expect(run()).resolves.toEqual({ ok: true, value: 42 });
+    expect(outcomeCreate).toHaveBeenCalledWith({
+      data: {
+        workspaceId: "ws-9",
+        kind: "job_meta",
+        outcome: "success",
+        attempts: 1,
+        degraded: false,
+        usedFallback: false,
+        errorCode: null,
+      },
+    });
+    outcomeCreate.mockRejectedValueOnce(new Error("P2021"));
+    await expect(run()).resolves.toEqual({ ok: true, value: 42 });
   });
 });
