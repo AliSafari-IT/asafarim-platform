@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-17",
+    "title": "Resumatch: short-TTL dedup cache for extraction and job-fetch",
+    "sha": "271e1ce1",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/271e1ce1"
+  },
+  {
+    "date": "2026-10-17",
     "title": "Resumatch: ground cover-letter prose against the profile and job text",
     "sha": "9071f15a",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9071f15a"
@@ -112,11 +118,5 @@
     "title": "Testora: scoped, encrypted per-target test credentials",
     "sha": "eda8a1bc",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/eda8a1bc"
-  },
-  {
-    "date": "2026-09-30",
-    "title": "Testora: restrict running tests and filing issues to the tester role",
-    "sha": "bf432a3f",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/bf432a3f"
   }
 ]
