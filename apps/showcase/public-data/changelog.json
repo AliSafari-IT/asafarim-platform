@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-18",
+    "title": "Resumatch: cross-provider AI fallback (OpenAI ↔ Anthropic)",
+    "sha": "d4ae33d8",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d4ae33d8"
+  },
+  {
     "date": "2026-10-17",
     "title": "Resumatch: record one outcome row per AI provider call (#512)",
     "sha": "1d845c68",
@@ -112,11 +118,5 @@
     "title": "Testora: re-check the runner's egress fence while it runs (#718 follow-up)",
     "sha": "88ce87ce",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/88ce87ce"
-  },
-  {
-    "date": "2026-10-02",
-    "title": "Testora: isolated runner container, host egress filter and deploy self-test (#718)",
-    "sha": "eb86061c",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/eb86061c"
   }
 ]
