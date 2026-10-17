@@ -7,9 +7,11 @@ import { z } from "zod";
  * there is no field here a fabricated fact could hide in, because unlike
  * the tailored-resume contract there is no structured fact-carrying field
  * at all (no employer/date/skill array) for a model to get right or wrong.
- * The no-fabrication guarantee here is enforced by the prompt's HARD RULES
- * (see prompts.ts) rather than by a code-built merge step, because a letter
- * is prose through and through — there is nothing to merge it against.
+ * There is no code-built merge step, because a letter is prose through and
+ * through — there is nothing to merge it against. The no-fabrication
+ * guarantee is the prompt's HARD RULES (see prompts.ts) plus a structural
+ * check over the output: `grounding.ts` (issue #529) drops any paragraph
+ * whose numbers or proper nouns don't appear in the profile or job text.
  */
 
 export const COVER_LETTER_CONTRACT_VERSION = "1.0.0";

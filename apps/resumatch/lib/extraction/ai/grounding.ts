@@ -46,6 +46,8 @@ const SENTENCE_START = /(?:^|[.!?\n]\s*|\s[-–—]\s)$/;
  */
 const DISTINCTIVE_SHAPE = /\d|[+#]|.\.[A-Za-z]|[a-z][A-Z]|^[A-Z]{2,}$/;
 
+export type ProseGroundingMode = "prose" | "headline";
+
 /**
  * Count the notable tokens in top-level prose that are not traceable to
  * the source text. `mode` picks which tokens count as a fabrication signal
@@ -71,8 +73,12 @@ const DISTINCTIVE_SHAPE = /\d|[+#]|.\.[A-Za-z]|[a-z][A-Z]|^[A-Z]{2,}$/;
  * Trailing dots are stripped so "React." at a sentence end is checked as
  * "React" — otherwise a grounded word would only match if the source
  * happened to punctuate it identically.
+ *
+ * Exported for the cover-letter check (issue #529), which applies the same
+ * bar to letter prose rather than keeping a diverging copy. `sourceLower`
+ * must already be lower-cased.
  */
-function ungroundedProseTokenCount(text: string, sourceLower: string, mode: "prose" | "headline"): number {
+export function ungroundedProseTokenCount(text: string, sourceLower: string, mode: ProseGroundingMode): number {
   let count = 0;
   for (const match of text.matchAll(NOTABLE_TOKEN)) {
     const token = match[0].replace(/\.+$/, "");
