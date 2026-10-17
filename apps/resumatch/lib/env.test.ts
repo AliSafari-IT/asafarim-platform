@@ -200,5 +200,13 @@ describe("ResuMatch environment contract", () => {
       const defaulted = resolveEnv({ NODE_ENV: "development" });
       expect(defaulted.aiMonthlyBudgetUsd).toBe(20);
     });
+
+    it("RESUMATCH_JOB_FETCH_AI_ESCALATION defaults on, accepts off, and refuses anything else by name (issue #517)", () => {
+      expect(resolveEnv({ NODE_ENV: "development" }).jobFetchAiEscalation).toBe(true);
+      expect(resolveEnv({ NODE_ENV: "development", RESUMATCH_JOB_FETCH_AI_ESCALATION: "off" }).jobFetchAiEscalation).toBe(false);
+      expect(() => resolveEnv({ NODE_ENV: "development", RESUMATCH_JOB_FETCH_AI_ESCALATION: "false" })).toThrow(
+        /RESUMATCH_JOB_FETCH_AI_ESCALATION/,
+      );
+    });
   });
 });

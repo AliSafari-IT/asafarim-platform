@@ -91,6 +91,12 @@ export interface ResuMatchEnv {
   aiClassificationSignedOff: boolean;
   /** JM-047 monthly spend ceiling in USD. `0` freezes AI spend entirely. */
   aiMonthlyBudgetUsd: number;
+  /**
+   * Issue #517: whether a job fetch the deterministic GET could not read may
+   * escalate to the AI-browsing provider. Only matters when a real provider
+   * is selected. `false` keeps job-fetch deterministic-only (cost control).
+   */
+  jobFetchAiEscalation: boolean;
 }
 
 /** Build-time values, injectable so the contract stays testable. */
@@ -125,6 +131,8 @@ const rawSchema = z.object({
     .refine((value) => value === undefined || (Number.isFinite(value) && value >= 0), {
       message: "must be a non-negative number",
     }),
+  /** Issue #517: "off" keeps job-fetch deterministic-only even with a real provider. Default "on". */
+  RESUMATCH_JOB_FETCH_AI_ESCALATION: z.enum(["on", "off"]).default("on"),
   /** Shared platform key (see .env.example). Unused unless a provider selects it. Never logged. */
   OPENAI_API_KEY: z.string().min(1).optional(),
   /** Shared platform key (see .env.example). Unused unless a provider selects it. Never logged. */
@@ -206,6 +214,7 @@ export function resolveEnv(
     aiProvider: raw.RESUMATCH_AI_PROVIDER,
     aiClassificationSignedOff: raw.RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF ?? false,
     aiMonthlyBudgetUsd: raw.RESUMATCH_AI_MONTHLY_BUDGET_USD ?? DEFAULT_AI_MONTHLY_BUDGET_USD,
+    jobFetchAiEscalation: raw.RESUMATCH_JOB_FETCH_AI_ESCALATION !== "off",
   };
 }
 

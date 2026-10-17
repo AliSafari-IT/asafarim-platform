@@ -61,12 +61,8 @@ describe("fetchJobWithFallback — degrade paths", () => {
     recordUsage.mockReset().mockResolvedValue(undefined);
     getJobFetchProvider.mockReset();
     clearDedupCacheForTests();
-    fetchJobPosting.mockReset().mockResolvedValue({
-      ok: true,
-      rawText: "Fallback raw text.",
-      title: "Fallback Title",
-      employer: null,
-    });
+    // Tier 1 can't read the page, so these tests exercise the AI tier.
+    fetchJobPosting.mockReset().mockResolvedValue({ ok: false, reasonCode: "NO_READABLE_TEXT" });
   });
 
   afterEach(() => {
@@ -74,13 +70,14 @@ describe("fetchJobWithFallback — degrade paths", () => {
   });
 
   it("refuses a disallowed URL before touching any provider", async () => {
-    const result = await fetchJobWithFallback("ws_1", "http://internal.example/jobs/1", { provider: "openai" });
+    const result = await fetchJobWithFallback("ws_1", "http://internal.example/jobs/1", { provider: "openai", escalate: true });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reasonCode).toBe("URL_NOT_ALLOWED");
     expect(assertCanRunProviderCall).not.toHaveBeenCalled();
   });
 
   it("uses the raw fetch directly with the fixture provider — no budget check, no ledger write", async () => {
+    fetchJobPosting.mockResolvedValue({ ok: true, rawText: "Fallback raw text.", title: "Fallback Title", employer: null });
     const result = await fetchJobWithFallback("ws_1", URL, { provider: "fixture" });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.degraded).toBe(true);
@@ -88,18 +85,16 @@ describe("fetchJobWithFallback — degrade paths", () => {
     expect(recordUsage).not.toHaveBeenCalled();
   });
 
-  it("degrades to the raw fetch when the real provider throws a non-retryable error", async () => {
+  it("degrades to the tier-1 result when the real provider throws a non-retryable error", async () => {
     const fetchFn = vi.fn().mockRejectedValue(new JobFetchProviderError("no API key", false));
     getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
 
-    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
 
     expect(fetchFn).toHaveBeenCalledTimes(1);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.degraded).toBe(true);
-      expect(result.title).toBe("Fallback Title");
-    }
+    expect(result).toEqual({ ok: false, reasonCode: "NO_READABLE_TEXT", degraded: true });
+    // The page is fetched once, not again on the way out.
+    expect(fetchJobPosting).toHaveBeenCalledTimes(1);
     expect(recordUsage).not.toHaveBeenCalled();
   });
 
@@ -108,11 +103,10 @@ describe("fetchJobWithFallback — degrade paths", () => {
     const fetchFn = vi.fn();
     getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
 
-    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
 
     expect(fetchFn).not.toHaveBeenCalled();
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.degraded).toBe(true);
+    expect(result).toEqual({ ok: false, reasonCode: "NO_READABLE_TEXT", degraded: true });
   });
 
   it("records usage and returns a non-degraded result on a successful, valid call", async () => {
@@ -126,7 +120,7 @@ describe("fetchJobWithFallback — degrade paths", () => {
     });
     getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
 
-    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -153,7 +147,7 @@ describe("fetchJobWithFallback — short-TTL dedup (issue #513)", () => {
     assertCanRunProviderCall.mockReset().mockResolvedValue(undefined);
     recordUsage.mockReset().mockResolvedValue(undefined);
     getJobFetchProvider.mockReset();
-    fetchJobPosting.mockReset().mockResolvedValue({ ok: true, rawText: "Fallback raw text.", title: "Fallback Title", employer: null });
+    fetchJobPosting.mockReset().mockResolvedValue({ ok: false, reasonCode: "NO_READABLE_TEXT" });
     clearDedupCacheForTests();
   });
 
@@ -161,8 +155,8 @@ describe("fetchJobWithFallback — short-TTL dedup (issue #513)", () => {
     const fetchFn = vi.fn().mockResolvedValue(okOutput);
     getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
 
-    const first = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
-    const second = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+    const first = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
+    const second = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
 
     expect(second).toEqual(first);
     expect(second.degraded).toBe(false);
@@ -175,8 +169,8 @@ describe("fetchJobWithFallback — short-TTL dedup (issue #513)", () => {
     const fetchFn = vi.fn().mockResolvedValue(okOutput);
     getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
 
-    await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
-    await fetchJobWithFallback("ws_1", "https://example.test/jobs/2", { provider: "openai" });
+    await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
+    await fetchJobWithFallback("ws_1", "https://example.test/jobs/2", { provider: "openai", escalate: true });
 
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
@@ -188,11 +182,94 @@ describe("fetchJobWithFallback — short-TTL dedup (issue #513)", () => {
       .mockResolvedValueOnce(okOutput);
     getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
 
-    const first = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
-    const second = await fetchJobWithFallback("ws_1", URL, { provider: "openai" });
+    const first = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
+    const second = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
 
     expect(first.degraded).toBe(true);
     expect(second.degraded).toBe(false);
     expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("fetchJobWithFallback — tiered strategy (issue #517)", () => {
+  const okOutput = {
+    title: "Implementation Analyst",
+    employer: "Kingfisher IT",
+    rawText: "Real job description text read by the model.",
+    inputTokens: 500,
+    outputTokens: 100,
+    costUsd: 0.001,
+  };
+  const serverRendered = { ok: true, rawText: "Server-rendered job description.", title: "Data Engineer", employer: "Acme" };
+  let fetchFn: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    assertCanRunProviderCall.mockReset().mockResolvedValue(undefined);
+    recordUsage.mockReset().mockResolvedValue(undefined);
+    fetchFn = vi.fn().mockResolvedValue(okOutput);
+    getJobFetchProvider.mockReset().mockResolvedValue({ name: "openai", fetch: fetchFn });
+    fetchJobPosting.mockReset();
+    clearDedupCacheForTests();
+  });
+
+  it("returns a page the deterministic fetch reads without any AI call, quota check or ledger row", async () => {
+    fetchJobPosting.mockResolvedValue(serverRendered);
+
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
+
+    expect(result).toEqual({ ...serverRendered, degraded: false });
+    expect(fetchJobPosting).toHaveBeenCalledTimes(1);
+    expect(getJobFetchProvider).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(assertCanRunProviderCall).not.toHaveBeenCalled();
+    expect(recordUsage).not.toHaveBeenCalled();
+  });
+
+  it.each(["NO_READABLE_TEXT", "BOT_BLOCKED", "HTTP_ERROR", "TIMEOUT", "NETWORK_ERROR", "REDIRECT_REFUSED", "RESPONSE_TOO_LARGE"] as const)(
+    "escalates to the AI tier when the deterministic fetch fails with %s",
+    async (reasonCode) => {
+      fetchJobPosting.mockResolvedValue({ ok: false, reasonCode });
+
+      const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true });
+
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+      expect(recordUsage).toHaveBeenCalledTimes(1);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.degraded).toBe(false);
+        expect(result.title).toBe("Implementation Analyst");
+      }
+    },
+  );
+
+  it("never hands a URL the deterministic tier refuses as not allowed to the AI tier", async () => {
+    const { shouldEscalate } = await import("./degraded");
+    expect(shouldEscalate("URL_NOT_ALLOWED")).toBe(false);
+
+    const result = await fetchJobWithFallback("ws_1", "https://localhost/jobs/1", { provider: "openai", escalate: true });
+
+    expect(result).toEqual({ ok: false, reasonCode: "URL_NOT_ALLOWED" });
+    expect(fetchJobPosting).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("stays deterministic-only when escalation is turned off", async () => {
+    fetchJobPosting.mockResolvedValue({ ok: false, reasonCode: "NO_READABLE_TEXT" });
+
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: false });
+
+    expect(result).toEqual({ ok: false, reasonCode: "NO_READABLE_TEXT", degraded: true });
+    expect(getJobFetchProvider).not.toHaveBeenCalled();
+    expect(assertCanRunProviderCall).not.toHaveBeenCalled();
+    expect(recordUsage).not.toHaveBeenCalled();
+  });
+
+  it("keeps the fixture provider deterministic-only even with escalation on", async () => {
+    fetchJobPosting.mockResolvedValue({ ok: false, reasonCode: "NO_READABLE_TEXT" });
+
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "fixture", escalate: true });
+
+    expect(result).toEqual({ ok: false, reasonCode: "NO_READABLE_TEXT", degraded: true });
+    expect(getJobFetchProvider).not.toHaveBeenCalled();
   });
 });
