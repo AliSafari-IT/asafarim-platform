@@ -31,6 +31,52 @@ export const MIN_USEFUL_CHARACTERS = 120;
 /** Guards against a decompression bomb producing a gigabyte of text. */
 export const MAX_EXTRACTED_CHARACTERS = 400_000;
 
+/**
+ * Wall-clock budget for parsing one document (#528).
+ *
+ * The byte cap bounds the input and MAX_EXTRACTED_CHARACTERS bounds the
+ * output, but neither bounds the parse itself: a small PDF with a
+ * pathological structure can keep pdf.js busy far longer than any real CV.
+ * A long multi-page CV parses in a few seconds at most, so 20s only fires on
+ * genuinely broken input, and it stays below the upload route's 60s
+ * `maxDuration`. The bound lives here, not in the route, so it keeps holding
+ * once a background worker (which has no route timeout) drives extraction.
+ */
+export const EXTRACTION_TIMEOUT_MS = 20_000;
+
+/**
+ * Runs `work` with a deadline. On expiry the signal is aborted (so a parser
+ * loop can stop at its next check) and the call settles as a clean
+ * EXTRACTION_ERROR instead of waiting for the parser. The timer is always
+ * cleared, so a fast parse never keeps the process alive.
+ *
+ * Limit: this bounds every await the parser yields at (each page, each
+ * text-content read). A single synchronous step that never yields cannot be
+ * pre-empted on the same thread; that would need a worker thread.
+ */
+async function withParseDeadline(
+  work: (signal: AbortSignal) => Promise<ExtractionOutcome>,
+  timeoutMs: number,
+): Promise<ExtractionOutcome> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<ExtractionOutcome>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve({ ok: false, reasonCode: "EXTRACTION_ERROR" });
+    }, timeoutMs);
+  });
+  const parse = work(controller.signal);
+  // If the deadline wins, the parser may still reject later; that result is
+  // no longer anyone's, so it must not surface as an unhandled rejection.
+  parse.catch(() => {});
+  try {
+    return await Promise.race([parse, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function finish(raw: string): ExtractionOutcome {
   const text = normalizeWhitespace(raw).slice(0, MAX_EXTRACTED_CHARACTERS);
   if (text.length < MIN_USEFUL_CHARACTERS) return { ok: false, reasonCode: "NO_TEXT_LAYER" };
@@ -54,10 +100,17 @@ export function normalizeWhitespace(input: string): string {
     .trim();
 }
 
-async function extractPdf(bytes: Uint8Array): Promise<ExtractionOutcome> {
+async function extractPdf(bytes: Uint8Array, signal: AbortSignal): Promise<ExtractionOutcome> {
+  let pdf: Awaited<ReturnType<typeof import("unpdf").getDocumentProxy>> | undefined;
+  // Frees pdf.js's parsed state and cancels any work still queued for the
+  // document. Runs on the deadline too: a page read that never settles would
+  // otherwise never reach `finally`.
+  const release = () => void pdf?.loadingTask.destroy().catch(() => {});
   try {
     const { getDocumentProxy } = await import("unpdf");
-    const pdf = await getDocumentProxy(bytes);
+    pdf = await getDocumentProxy(bytes);
+    if (signal.aborted) return { ok: false, reasonCode: "EXTRACTION_ERROR" };
+    signal.addEventListener("abort", release, { once: true });
 
     // Read the runs with their positions rather than taking the library's
     // flattened string. That string is in drawing order, which for a
@@ -65,6 +118,8 @@ async function extractPdf(bytes: Uint8Array): Promise<ExtractionOutcome> {
     // every extraction fault reported so far. See pdfLayout.ts.
     const pages: { items: PositionedItem[]; width: number }[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      // Past the deadline the caller has already answered; stop parsing.
+      if (signal.aborted) return { ok: false, reasonCode: "EXTRACTION_ERROR" };
       const page = await pdf.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1 });
       const content = await page.getTextContent();
@@ -90,6 +145,9 @@ async function extractPdf(bytes: Uint8Array): Promise<ExtractionOutcome> {
     // The parser's own error is deliberately discarded rather than logged:
     // pdf.js messages routinely quote document content.
     return { ok: false, reasonCode: "EXTRACTION_ERROR" };
+  } finally {
+    signal.removeEventListener("abort", release);
+    release();
   }
 }
 
@@ -132,9 +190,10 @@ export async function extractText(
 ): Promise<ExtractionOutcome> {
   switch (contentType) {
     case "application/pdf":
-      return extractPdf(bytes);
+      return withParseDeadline((signal) => extractPdf(bytes, signal), EXTRACTION_TIMEOUT_MS);
     case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-      return extractDocx(bytes);
+      // mammoth has no cancellation hook; the deadline still frees the caller.
+      return withParseDeadline(() => extractDocx(bytes), EXTRACTION_TIMEOUT_MS);
     case "text/plain":
       return extractPlainText(bytes);
     default:
