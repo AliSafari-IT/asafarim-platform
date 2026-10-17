@@ -7,6 +7,7 @@ import { assertCanRunProviderCall, recordBilledFailure, recordUsage } from "../q
 import type { CostAttribution } from "../../../costs/ledger";
 import { getCoverLetterProvider, COVER_LETTER_MODEL_VERSIONS } from "./registry";
 import { CoverLetterProviderError } from "./provider";
+import { groundCoverLetterSuggestion } from "./grounding";
 
 const MAX_ATTEMPTS = 3;
 
@@ -26,7 +27,8 @@ export interface CoverLetterProviderCallResult {
  * `../generate.ts`'s `runTailorProviderCall` structure exactly — same
  * budget check (shared monthly ceiling, `"cover_letter"` kind), same
  * retry/degrade posture — applied to the cover-letter prompt/schema
- * instead. Returns the raw (already schema-validated) suggestion; turning
+ * instead. Returns the schema-validated suggestion after the grounding
+ * check (`grounding.ts`, #529) has dropped anything ungrounded; turning
  * it into persisted content is `buildCoverLetterContent`'s job, called
  * separately once a caller knows the suggestion was actually approved
  * (see #454's review step).
@@ -102,6 +104,15 @@ export async function runCoverLetterProviderCall(
     logError("coverLetter.generate.degraded", error, { workspaceId, targetJobId, provider: providerName });
     degraded = true;
     suggestion = null;
+  }
+
+  // Issue #529: the structural half of the prompt's no-fabrication rule.
+  // Checked against the full profile and job text (see grounding.ts).
+  // A letter with no grounded paragraph left degrades the same way a failed
+  // call does — the provider call was still billed above.
+  if (suggestion) {
+    suggestion = groundCoverLetterSuggestion(suggestion, profileText, jobText, outputLanguage).suggestion;
+    if (!suggestion) degraded = true;
   }
 
   return { suggestion, degraded, promptVersion: prompt.version, modelVersion, providerName };

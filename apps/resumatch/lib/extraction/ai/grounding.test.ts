@@ -64,6 +64,14 @@ describe("groundHeadlineAndSummary", () => {
     return { ...emptyProfile(), headline, summary };
   }
 
+  it("does not accept a number that only appears inside a larger one", () => {
+    // SOURCE says 40%: "0%" and "4" are substrings of it but not the same metric.
+    const result = groundHeadlineAndSummary(withProse(null, "Developer who cut page load time by 0% and shipped 4 products."), SOURCE);
+    expect(result.summary).toBeNull();
+    const kept = groundHeadlineAndSummary(withProse(null, "Developer who cut page load time by 40%."), SOURCE);
+    expect(kept.summary).not.toBeNull();
+  });
+
   it("keeps a well-grounded headline and summary unchanged", () => {
     const content = withProse(
       "Full-Stack Developer · React · ASP.NET Core",

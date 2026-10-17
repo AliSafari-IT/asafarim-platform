@@ -46,6 +46,8 @@ const SENTENCE_START = /(?:^|[.!?\n]\s*|\s[-–—]\s)$/;
  */
 const DISTINCTIVE_SHAPE = /\d|[+#]|.\.[A-Za-z]|[a-z][A-Z]|^[A-Z]{2,}$/;
 
+export type ProseGroundingMode = "prose" | "headline";
+
 /**
  * Count the notable tokens in top-level prose that are not traceable to
  * the source text. `mode` picks which tokens count as a fabrication signal
@@ -71,8 +73,12 @@ const DISTINCTIVE_SHAPE = /\d|[+#]|.\.[A-Za-z]|[a-z][A-Z]|^[A-Z]{2,}$/;
  * Trailing dots are stripped so "React." at a sentence end is checked as
  * "React" — otherwise a grounded word would only match if the source
  * happened to punctuate it identically.
+ *
+ * Exported for the cover-letter check (issue #529), which applies the same
+ * bar to letter prose rather than keeping a diverging copy. `sourceLower`
+ * must already be lower-cased.
  */
-function ungroundedProseTokenCount(text: string, sourceLower: string, mode: "prose" | "headline"): number {
+export function ungroundedProseTokenCount(text: string, sourceLower: string, mode: ProseGroundingMode): number {
   let count = 0;
   for (const match of text.matchAll(NOTABLE_TOKEN)) {
     const token = match[0].replace(/\.+$/, "");
@@ -85,9 +91,20 @@ function ungroundedProseTokenCount(text: string, sourceLower: string, mode: "pro
         continue;
       }
     }
-    if (!sourceLower.includes(token.toLowerCase())) count += 1;
+    const grounded = isNumber ? containsWholeNumber(sourceLower, token) : sourceLower.includes(token.toLowerCase());
+    if (!grounded) count += 1;
   }
   return count;
+}
+
+/**
+ * A number must match a whole number in the source: "5%" must not pass
+ * because the source says "15%", nor "2.5" because it says "12.5" (#855
+ * review). A following "%" or unit is fine ("40" matches "40%").
+ */
+function containsWholeNumber(sourceLower: string, token: string): boolean {
+  const escaped = token.replace(/[.%]/g, (c) => `\\${c}`);
+  return new RegExp(`(?<![\\d.])${escaped}(?!\\.?\\d)`).test(sourceLower);
 }
 
 /**
