@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-17",
+    "title": "Resumatch: record one outcome row per AI provider call (#512)",
+    "sha": "1d845c68",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1d845c68"
+  },
+  {
+    "date": "2026-10-17",
     "title": "Resumatch: flag thin job-posting fetches with a quality signal",
     "sha": "88bda18c",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/88bda18c"
@@ -112,11 +118,5 @@
     "title": "Testora: isolated runner container, host egress filter and deploy self-test (#718)",
     "sha": "eb86061c",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/eb86061c"
-  },
-  {
-    "date": "2026-10-02",
-    "title": "Testora: require confirmation when a target with secrets changes origin",
-    "sha": "682df88b",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/682df88b"
   }
 ]
