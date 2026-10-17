@@ -1,5 +1,6 @@
 import "server-only";
 import { normalizeWhitespace } from "../extraction/text";
+import { assessFetchQuality, type FetchQuality } from "./fetchQuality";
 import { decodeHtmlEntities, extractJobPostingStructuredData } from "./jobPostingJsonLd";
 
 /**
@@ -64,6 +65,9 @@ export type JobFetchResult =
       rawText: string;
       title: string | null;
       employer: string | null;
+      /** Whether the page looks like a real, complete posting (#520). A
+       *  warning for the candidate, never a refusal. */
+      quality: FetchQuality;
     }
   | { ok: false; reasonCode: JobFetchRefusal };
 
@@ -134,17 +138,20 @@ export async function fetchJobPosting(
     ? readableDescription(structured.descriptionHtml)
     : "";
 
-  const rawText =
-    structuredText.length >= MIN_USEFUL_CHARACTERS ? structuredText : extractReadableText(html);
+  const fromStructuredData = structuredText.length >= MIN_USEFUL_CHARACTERS;
+  const rawText = fromStructuredData ? structuredText : extractReadableText(html);
   if (rawText.length < MIN_USEFUL_CHARACTERS) {
     return { ok: false, reasonCode: "NO_READABLE_TEXT" };
   }
 
+  const title = structured?.title ?? extractTitle(html);
+  const employer = structured?.employer ?? extractEmployer(html);
   return {
     ok: true,
     rawText,
-    title: structured?.title ?? extractTitle(html),
-    employer: structured?.employer ?? extractEmployer(html),
+    title,
+    employer,
+    quality: assessFetchQuality({ rawText, title, employer, fromStructuredData }),
   };
 }
 

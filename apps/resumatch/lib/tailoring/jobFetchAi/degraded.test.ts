@@ -127,6 +127,8 @@ describe("fetchJobWithFallback — degrade paths", () => {
       expect(result.degraded).toBe(false);
       expect(result.title).toBe("Implementation Analyst");
       expect(result.rawText).toContain("Real job description");
+      // #520: the AI tier's text gets the same quality check as tier 1's.
+      expect(result.quality).toEqual({ looksIncomplete: true, reasons: ["TEXT_TOO_SHORT"] });
     }
     expect(recordUsage).toHaveBeenCalledTimes(1);
     expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws_1", kind: "fetch_job" }));

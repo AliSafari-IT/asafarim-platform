@@ -51,9 +51,21 @@ export async function POST(request: Request) {
 
   const updated = await db.targetJob.update({
     where: { id: targetJobId },
-    data: { rawText: result.rawText, title: result.title, employer: result.employer, status: "FETCHED" },
+    data: {
+      rawText: result.rawText,
+      title: result.title,
+      employer: result.employer,
+      fetchLooksIncomplete: result.quality.looksIncomplete,
+      fetchQualityReasons: result.quality.reasons,
+      status: "FETCHED",
+    },
     select: { title: true, employer: true },
   });
 
-  return NextResponse.json({ title: updated.title, employer: updated.employer, degraded: result.degraded ?? false });
+  return NextResponse.json({
+    title: updated.title,
+    employer: updated.employer,
+    degraded: result.degraded ?? false,
+    quality: result.quality,
+  });
 }
