@@ -215,6 +215,7 @@ pnpm --filter @asafarim/resumatch test
 | `RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF` | staging, production (only if a real provider is selected) | JM-005 gate. Flipping this is a config-only change — no code edit. |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | staging, production (only if the matching provider is selected) | Shared platform keys (see root `.env.example`). Unused while `RESUMATCH_AI_PROVIDER` stays `fixture`. |
 | `RESUMATCH_AI_MONTHLY_BUDGET_USD` | none — default `20` | Monthly spend ceiling in USD shared across all provider-call kinds (`tailor`, `extract`, `rewrite`, `fetch_job`, `cover_letter`, `categorize_skills`, `job_meta`). `0` freezes AI spend entirely. |
+| `RESUMATCH_JOB_FETCH_AI_ESCALATION` | none — default `on` | Job-URL fetch is tiered (issue #517): the plain HTTPS GET always runs first and costs nothing; only a page it can't read (unreadable text, bot wall, HTTP/network error, redirect, oversized body) goes to the AI-browsing provider, and only when a real provider is selected. `off` keeps job-fetch deterministic-only. A URL refused as not allowed is never sent to the model. |
 
 ## Worker
 

@@ -2,7 +2,7 @@ import { logError } from "../../observability/logger";
 import { getEnv, type ResuMatchAiProvider } from "../../env";
 import { assertCanRunProviderCall, recordBilledFailure, settleProviderCall, QuotaExceededError } from "../ai/quota";
 import type { CostAttribution } from "../../costs/ledger";
-import { fetchJobPosting, isPublicHttpsUrl, type JobFetchResult } from "../fetchJob";
+import { fetchJobPosting, isPublicHttpsUrl, type JobFetchRefusal, type JobFetchResult } from "../fetchJob";
 import { renderJobFetchPrompt } from "./prompts";
 import { JobFetchProviderError } from "./provider";
 import { FETCH_JOB_MODEL_VERSIONS, getJobFetchProvider } from "./registry";
@@ -10,17 +10,24 @@ import { parseJobFetchOutput } from "./schema";
 import { getDedupedResult, storeDedupedResult, type DedupKeyParts } from "../../shared/aiDedupCache";
 
 /**
- * Degrade wiring for the AI job-fetch call — mirrors
- * lib/extraction/ai/degraded.ts's shape. Unlike extraction (where the
- * fixture path is what runs by default and a real provider is additive),
- * job-fetch was chosen to have AI REPLACE the raw fetch entirely once a
- * real provider is configured — see issue #443's decision record — so
- * this module's degrade path exists purely as a safety net for an actual
- * failure (network/budget/malformed response), not as the routine case.
- * `RESUMATCH_AI_PROVIDER=fixture` (the default everywhere) still gets
- * today's exact raw-fetch behavior, unchanged, with zero budget/ledger
- * interaction — same convention every other AI feature in this app
- * follows.
+ * Tiered job fetch (issue #517). Every request tries the cheap,
+ * deterministic `fetchJobPosting` GET first; the AI-browsing provider is
+ * only a second tier, used when that GET could not read the page:
+ *
+ * - deterministic `ok: true` → returned as is: no quota check, no provider
+ *   call, no ledger row (most career pages are server-rendered);
+ * - deterministic failure for a page reason (see `shouldEscalate`) and a
+ *   real provider configured with escalation on → the AI-browsing call,
+ *   with the existing dedup cache, quota, retry and degrade handling;
+ * - the AI tier fails or is over budget → the deterministic result is
+ *   returned, marked `degraded` (the same answer a fixture deployment gets).
+ *
+ * This replaces issue #443's "AI replaces the raw fetch entirely" choice,
+ * which paid for an AI call on every fetch even when the GET would have
+ * worked. `RESUMATCH_AI_PROVIDER=fixture` (the default everywhere) keeps
+ * the exact raw-fetch behavior with zero budget/ledger interaction, and
+ * `RESUMATCH_JOB_FETCH_AI_ESCALATION=off` keeps a real-provider deployment
+ * deterministic-only for cost control.
  */
 
 export type JobFetchOutcome = JobFetchResult & { degraded?: boolean };
@@ -31,6 +38,18 @@ function degradeToRawFetch(url: string): Promise<JobFetchOutcome> {
   return fetchJobPosting(url).then((result) => ({ ...result, degraded: true }));
 }
 
+/**
+ * Whether a deterministic refusal may go to the AI tier. Every refusal is
+ * about the page (unreadable text, a bot wall, an HTTP or network error, a
+ * redirect our SSRF rule won't follow, an oversized body), which a browsing
+ * model fetching from its own infrastructure may still read — except
+ * `URL_NOT_ALLOWED`: a URL we refuse to fetch is never handed to a model
+ * to fetch instead.
+ */
+export function shouldEscalate(reasonCode: JobFetchRefusal): boolean {
+  return reasonCode !== "URL_NOT_ALLOWED";
+}
+
 export async function fetchJobWithFallback(
   workspaceId: string,
   url: string,
@@ -38,6 +57,8 @@ export async function fetchJobWithFallback(
     provider?: ResuMatchAiProvider;
     /** Existing (refresh) or pre-minted (first fetch) TargetJob id (issue #586). */
     targetJobId?: string;
+    /** Overrides `RESUMATCH_JOB_FETCH_AI_ESCALATION` (tests). */
+    escalate?: boolean;
   } = {},
 ): Promise<JobFetchOutcome> {
   const attribution: CostAttribution = {
@@ -49,6 +70,17 @@ export async function fetchJobWithFallback(
 
   const aiProvider = opts.provider ?? getEnv().aiProvider;
   if (aiProvider === "fixture") return degradeToRawFetch(url);
+
+  // Tier 1: the deterministic GET, at zero AI cost.
+  const deterministic = await fetchJobPosting(url);
+  if (deterministic.ok) return { ...deterministic, degraded: false };
+
+  const escalate = opts.escalate ?? getEnv().jobFetchAiEscalation;
+  if (!escalate || !shouldEscalate(deterministic.reasonCode)) {
+    return { ...deterministic, degraded: true };
+  }
+  // Tier 2 failed below → hand back the tier-1 answer without fetching again.
+  const degradeToDeterministic = (): JobFetchOutcome => ({ ...deterministic, degraded: true });
 
   const modelVersion = FETCH_JOB_MODEL_VERSIONS[aiProvider];
   const prompt = renderJobFetchPrompt(url);
@@ -123,6 +155,6 @@ export async function fetchJobWithFallback(
     } else {
       logError("tailoring.job_fetch_ai.degraded.provider_call_failed", error, { workspaceId });
     }
-    return degradeToRawFetch(url);
+    return degradeToDeterministic();
   }
 }
