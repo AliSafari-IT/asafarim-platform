@@ -79,6 +79,7 @@ model User {
 
   // EduMatch — age-aware accounts (parent-managed minors)
   eduParentProfile EduParentProfile?
+  eduAiCostEvents  EduAiCostEvent[]
 
   // Vionto — photo-to-story video pipeline
   viontoProjects         ViontoProject[]
@@ -1324,6 +1325,78 @@ model EduAiResponse {
   @@index([inquiryId])
   @@index([createdAt])
   @@index([moderationOutcome])
+}
+
+// The platform AI cost-event contract (@asafarim/ai-cost-ledger) for the
+// EduMatch AI tutor (#540): one immutable row per paid provider call
+// (answer generation, streamed or queued, and Whisper transcription).
+// UPDATE is rejected by a trigger (see migration). Spend is recorded even
+// when the attempt that paid for it is later superseded or fails to save.
+
+model EduAiCostEvent {
+  id             String @id @default(cuid())
+  /// `edumatch:<operation>:<inquiry id>:<attempt>:<seq>` — unique, so a
+  /// retried write is a no-op instead of a second charge.
+  idempotencyKey String @unique
+  schemaVersion  Int    @default(1)
+  /// usage | adjustment
+  entryType      String @default("usage")
+
+  /// The student whose inquiry this served. Cascades with the user.
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actorId String?
+
+  /// tutor_answer | tutor_answer_stream | transcription
+  operation String
+  /// succeeded | degraded | failed | cancelled
+  outcome   String @default("succeeded")
+  /// provisional | final
+  finality  String @default("provisional")
+
+  /// inquiry
+  subjectType       String
+  subjectId         String
+  parentSubjectType String?
+  parentSubjectId   String?
+  /// One id per AI attempt: groups its transcription and generation rows.
+  workflowId        String?
+  traceId           String?
+
+  provider          String
+  requestModel      String?
+  responseModel     String
+  providerRequestId String?
+  promptVersion     String?
+  pricingTier       String?
+
+  usage        Json @default("[]")
+  inputTokens  Int  @default(0)
+  outputTokens Int  @default(0)
+
+  currency              String  @default("USD")
+  estimatedCostMicros   BigInt?
+  actualCostMicros      BigInt?
+  adjustmentDeltaMicros BigInt?
+  /// provider_reported | registry_estimate | reconciled_adjustment | unknown
+  costSource            String
+  /// platform | user_byok | none
+  credentialSource      String
+  pricingSnapshot       Json?
+  fixture               Boolean @default(false)
+
+  supersedesEventId String?
+  latencyMs         Int?
+  metadata          Json    @default("{}")
+
+  occurredAt  DateTime
+  finalizedAt DateTime?
+  recordedAt  DateTime  @default(now())
+
+  @@index([occurredAt(sort: Desc)])
+  @@index([userId, occurredAt(sort: Desc), id(sort: Desc)])
+  @@index([subjectType, subjectId])
+  @@index([workflowId])
 }
 
 model EduQuoteRequest {
