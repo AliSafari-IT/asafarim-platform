@@ -333,6 +333,51 @@ describe("GET /api/inquiries/[id]/ai (streaming path)", () => {
     });
   });
 
+  it("records an accepted OpenAI call that the Anthropic fallback replaced", async () => {
+    const { safeAnthropicUsage } = await import("@/lib/server/ai-cost");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.doMock("@/lib/server/ai-orchestrator", async () => {
+      const actual = await vi.importActual<typeof import("@/lib/server/ai-orchestrator")>(
+        "@/lib/server/ai-orchestrator",
+      );
+      return {
+        ...actual,
+        // 200 from OpenAI, then no body: the fallback takes over.
+        streamOpenAI: async function* () {
+          yield { accepted: { provider: "openai", requestModel: "gpt-4o-mini" } };
+          yield { error: "No response body.", done: true };
+        },
+        streamAnthropic: async function* () {
+          yield { accepted: { provider: "anthropic", requestModel: "claude-haiku-4-5" } };
+          yield { token: "Subtract 5 first." };
+          yield {
+            billed: {
+              provider: "anthropic",
+              requestModel: "claude-haiku-4-5",
+              responseModel: "claude-haiku-4-5-20251001",
+              providerRequestId: "msg_2",
+              usage: safeAnthropicUsage({ input_tokens: 1000, output_tokens: 100 }),
+              latencyMs: 900,
+            },
+          };
+          yield { done: true };
+        },
+      };
+    });
+
+    const body = await run();
+
+    expect(body).toContain("event: done");
+    const rows = costRows();
+    expect(rows.map((r) => [r.provider, r.outcome, r.costSource])).toEqual([
+      ["openai", "cancelled", "unknown"],
+      ["anthropic", "succeeded", "registry_estimate"],
+    ]);
+    expect(new Set(rows.map((r) => r.idempotencyKey)).size).toBe(2);
+    // One part is unknown, so the attempt total is unknown, not a partial sum.
+    expect(prismaMock.eduAiResponse.create.mock.calls[0][0].data.tokenCostMicros).toBeNull();
+  });
+
   it("records a broken stream's call as cancelled with an unknown cost", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockStream(async function* () {

@@ -272,6 +272,24 @@ export async function GET(
           await recordBilledCall(attempt, "tutor_answer_stream", billed, outcome, answerSeq++),
         );
       }
+      // A billed call that never reported its usage (the stream broke, the
+      // client went away mid-answer, or a fallback replaced it) is still
+      // recorded, with an unknown cost, so the ledger never misses a call.
+      async function recordInFlightAsCancelled(): Promise<void> {
+        const call = inFlight;
+        if (!call) return;
+        await recordAnswerCall(
+          {
+            provider: call.provider,
+            requestModel: call.requestModel,
+            responseModel: null,
+            providerRequestId: null,
+            usage: null,
+            latencyMs: Date.now() - call.startedAt,
+          },
+          "cancelled",
+        );
+      }
 
       const priorStatus = inquiry.status;
       async function persistResponse(): Promise<void> {
@@ -327,6 +345,8 @@ export async function GET(
           try {
             for await (const chunk of streamWithFallback()) {
               if (chunk.accepted) {
+                // An earlier accepted call that a fallback replaced.
+                await recordInFlightAsCancelled();
                 inFlight = { ...chunk.accepted, startedAt: Date.now() };
                 continue;
               }
@@ -380,23 +400,7 @@ export async function GET(
               // The client went away mid-stream; nothing left to tell it.
             }
           } finally {
-            // A billed call that never reported its usage (the stream broke
-            // or the client went away mid-answer) is still recorded, with an
-            // unknown cost, so the ledger never silently misses a call.
-            if (inFlight) {
-              const call: { provider: "openai" | "anthropic"; requestModel: string; startedAt: number } = inFlight;
-              await recordAnswerCall(
-                {
-                  provider: call.provider,
-                  requestModel: call.requestModel,
-                  responseModel: null,
-                  providerRequestId: null,
-                  usage: null,
-                  latencyMs: Date.now() - call.startedAt,
-                },
-                "cancelled",
-              );
-            }
+            await recordInFlightAsCancelled();
             // Free the claim before the client sees the stream end, so a
             // retry right after an error isn't refused. No-op when
             // persistence already cleared it.
