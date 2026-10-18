@@ -6,7 +6,12 @@ import { streamOpenAI, streamAnthropic, buildVisionContent, buildSystemPrompt, t
 import { moderatePrompt, moderationAllowsGeneration } from "@/lib/server/moderation";
 import { recordEduAuditEvent } from "@/lib/server/audit";
 import { redactForProvider } from "@/lib/server/ai-redact";
-import { claimAiGeneration, releaseAiClaim } from "@/lib/server/ai-claim";
+import {
+  AiClaimLostError,
+  claimAiGeneration,
+  persistUnderClaim,
+  releaseAiClaim,
+} from "@/lib/server/ai-claim";
 import { getSignedDownloadUrl } from "@/lib/server/storage";
 import { prisma } from "@asafarim/db";
 
@@ -63,6 +68,7 @@ export async function GET(
         { status: 409 },
       );
     }
+    const claimedAt = claim.claimedAt;
     if (claim.staleTakeover) {
       console.warn(
         `[AI] inquiry ${inquiryId}: taking over a stale in-flight claim (previous attempt crashed?); regenerating`,
@@ -122,31 +128,26 @@ export async function GET(
         const redirect =
           moderation.redirectMessage ??
           "EduMatch AI couldn't safely respond to that prompt. Please rephrase.";
-        const [refusalRow] = await prisma.$transaction([
-          prisma.eduAiResponse.create({
-            data: {
-              inquiryId,
-              modelUsed: "moderation",
-              promptVersion: "v1-stream",
-              explanation: redirect,
-              moderationOutcome: moderation.outcome,
-              moderationCategory: moderation.category,
-              moderationReason: moderation.reason,
-            },
-            select: { id: true },
-          }),
-          prisma.eduInquiry.update({
-            where: { id: inquiryId },
-            data: {
-              status: "REFUSED",
-              aiSummary: redirect.slice(0, 500),
-              moderationOutcome: moderation.outcome,
-              moderationCategory: moderation.category,
-              moderationReason: moderation.reason,
-              aiClaimedAt: null,
-            },
-          }),
-        ]);
+        // Fenced by the claim: written together, or not at all if a newer
+        // attempt took the claim over.
+        const refusalRow = await persistUnderClaim(inquiryId, claimedAt, {
+          response: {
+            inquiryId,
+            modelUsed: "moderation",
+            promptVersion: "v1-stream",
+            explanation: redirect,
+            moderationOutcome: moderation.outcome,
+            moderationCategory: moderation.category,
+            moderationReason: moderation.reason,
+          },
+          inquiry: {
+            status: "REFUSED",
+            aiSummary: redirect.slice(0, 500),
+            moderationOutcome: moderation.outcome,
+            moderationCategory: moderation.category,
+            moderationReason: moderation.reason,
+          },
+        });
         void recordEduAuditEvent({
           actorId: user.id,
           actorRole: "STUDENT",
@@ -230,33 +231,27 @@ export async function GET(
 
       const priorStatus = inquiry.status;
       async function persistResponse(): Promise<void> {
-        // One transaction: the response row and the inquiry's status flip
-        // (which also releases the in-flight claim) land together.
-        const [row] = await prisma.$transaction([
-          prisma.eduAiResponse.create({
-            data: {
-              inquiryId,
-              modelUsed,
-              promptVersion: "v1-stream",
-              explanation: fullOutput,
-              moderationOutcome: moderation.outcome,
-              moderationCategory: moderation.category,
-              moderationReason: moderation.reason,
-            },
-            select: { id: true },
-          }),
-          prisma.eduInquiry.update({
-            where: { id: inquiryId },
-            data: {
-              status: "AI_RESPONDED",
-              aiSummary: fullOutput.slice(0, 500),
-              moderationOutcome: moderation.outcome,
-              moderationCategory: moderation.category,
-              moderationReason: moderation.reason,
-              aiClaimedAt: null,
-            },
-          }),
-        ]);
+        // One transaction, fenced by the claim: the response row and the
+        // inquiry's status flip land together, or not at all if a newer
+        // attempt took the claim over (AiClaimLostError).
+        const row = await persistUnderClaim(inquiryId, claimedAt, {
+          response: {
+            inquiryId,
+            modelUsed,
+            promptVersion: "v1-stream",
+            explanation: fullOutput,
+            moderationOutcome: moderation.outcome,
+            moderationCategory: moderation.category,
+            moderationReason: moderation.reason,
+          },
+          inquiry: {
+            status: "AI_RESPONDED",
+            aiSummary: fullOutput.slice(0, 500),
+            moderationOutcome: moderation.outcome,
+            moderationCategory: moderation.category,
+            moderationReason: moderation.reason,
+          },
+        });
         void recordEduAuditEvent({
           actorId: user.id,
           actorRole: "STUDENT",
@@ -299,8 +294,17 @@ export async function GET(
                 try {
                   await persistResponse();
                 } catch (e) {
-                  console.error("[AI] post-stream persist failed:", e);
-                  controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: "Saving the AI response failed." })}\n\n`));
+                  const superseded = e instanceof AiClaimLostError;
+                  console.error(
+                    superseded
+                      ? "[AI] post-stream persist skipped: claim superseded by a newer attempt"
+                      : "[AI] post-stream persist failed:",
+                    e,
+                  );
+                  const message = superseded
+                    ? "A newer AI response for this inquiry replaced this one."
+                    : "Saving the AI response failed.";
+                  controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: message })}\n\n`));
                   return;
                 }
                 controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
@@ -317,7 +321,7 @@ export async function GET(
             // Free the claim before the client sees the stream end, so a
             // retry right after an error isn't refused. No-op when
             // persistence already cleared it.
-            await releaseAiClaim(inquiryId, claim.claimedAt);
+            await releaseAiClaim(inquiryId, claimedAt);
             try {
               controller.close();
             } catch {
@@ -337,7 +341,7 @@ export async function GET(
       });
     } finally {
       if (!claimHandedToStream) {
-        await releaseAiClaim(inquiryId, claim.claimedAt);
+        await releaseAiClaim(inquiryId, claimedAt);
       }
     }
   } catch (error) {

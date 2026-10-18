@@ -25,7 +25,12 @@ import {
 } from "./moderation";
 import { recordEduAuditEvent } from "./audit";
 import { redactForProvider } from "./ai-redact";
-import { claimAiGeneration, releaseAiClaim } from "./ai-claim";
+import {
+  AiClaimLostError,
+  claimAiGeneration,
+  persistUnderClaim,
+  releaseAiClaim,
+} from "./ai-claim";
 
 /** Inquiry states after which a redelivered queued job must not regenerate. */
 const TERMINAL_AI_STATUSES: readonly string[] = ["AI_RESPONDED", "REFUSED"];
@@ -397,7 +402,15 @@ export async function orchestrateResponse(
   }
 
   try {
-    return await generateClaimed(inquiry, forceProvider, options);
+    return await generateClaimed(inquiry, claim.claimedAt, forceProvider, options);
+  } catch (err) {
+    if (err instanceof AiClaimLostError) {
+      // A newer attempt took the claim over while this one was still
+      // generating; its result wins, so this one writes nothing.
+      console.warn(`[AI] inquiry ${inquiryId}: ${err.message}; discarding this attempt's result`);
+      return { error: "AI generation was superseded by a newer attempt." };
+    }
+    throw err;
   } finally {
     // No-op when persistence already cleared the claim.
     await releaseAiClaim(inquiryId, claim.claimedAt);
@@ -414,6 +427,7 @@ type ClaimedInquiry = {
 
 async function generateClaimed(
   inquiry: ClaimedInquiry,
+  claimedAt: Date,
   forceProvider: "openai" | "anthropic" | undefined,
   options: { localeHint?: string } | undefined,
 ): Promise<AiResponseResult & { responseId?: string }> {
@@ -444,33 +458,27 @@ async function generateClaimed(
       moderation.redirectMessage ??
       "EduMatch AI couldn't safely respond to that prompt. Please rephrase.";
 
-    // One transaction (#542): the refusal row and the inquiry's new status
-    // (which also releases the in-flight claim) land together or not at all.
-    const [refusalRow] = await prisma.$transaction([
-      prisma.eduAiResponse.create({
-        data: {
-          inquiryId,
-          modelUsed: "moderation",
-          promptVersion: "v1",
-          explanation: refusalOutput,
-          moderationOutcome: moderation.outcome,
-          moderationCategory: moderation.category,
-          moderationReason: moderation.reason,
-        },
-        select: { id: true },
-      }),
-      prisma.eduInquiry.update({
-        where: { id: inquiryId },
-        data: {
-          status: "REFUSED",
-          aiSummary: refusalOutput.slice(0, 500),
-          moderationOutcome: moderation.outcome,
-          moderationCategory: moderation.category,
-          moderationReason: moderation.reason,
-          aiClaimedAt: null,
-        },
-      }),
-    ]);
+    // One transaction, fenced by the claim (#542): the refusal row and the
+    // inquiry's new status land together, or not at all if a newer attempt
+    // took the claim over.
+    const refusalRow = await persistUnderClaim(inquiryId, claimedAt, {
+      response: {
+        inquiryId,
+        modelUsed: "moderation",
+        promptVersion: "v1",
+        explanation: refusalOutput,
+        moderationOutcome: moderation.outcome,
+        moderationCategory: moderation.category,
+        moderationReason: moderation.reason,
+      },
+      inquiry: {
+        status: "REFUSED",
+        aiSummary: refusalOutput.slice(0, 500),
+        moderationOutcome: moderation.outcome,
+        moderationCategory: moderation.category,
+        moderationReason: moderation.reason,
+      },
+    });
 
     await recordEduAuditEvent({
       actorId: inquiry.studentId,
@@ -536,43 +544,36 @@ async function generateClaimed(
   }
 
   // Persist (with moderation snapshot — ALLOW or REVIEW for non-refused).
-  // One transaction (#542): the response row and the inquiry update (status
-  // on success, and in every case the release of the in-flight claim) land
-  // together, so a crash can't leave a response without its status flip.
-  const [responseRow] = await prisma.$transaction([
-    prisma.eduAiResponse.create({
-      data: {
-        inquiryId,
-        modelUsed: "error" in result ? "none" : result.model,
-        promptVersion: "v1",
-        explanation: "error" in result ? "" : result.output,
-        latencyMs: "error" in result ? undefined : result.latencyMs,
-        promptTokens: "error" in result ? undefined : result.promptTokens,
-        completionTokens: "error" in result ? undefined : result.completionTokens,
-        totalTokens: "error" in result ? undefined : result.totalTokens,
-        truncated: "error" in result ? false : result.truncated,
-        stopReason: "error" in result ? undefined : result.stopReason,
-        moderationOutcome: moderation.outcome,
-        moderationCategory: moderation.category,
-        moderationReason: moderation.reason,
-      },
-      select: { id: true },
-    }),
-    prisma.eduInquiry.update({
-      where: { id: inquiryId },
-      data:
-        "error" in result
-          ? { aiClaimedAt: null }
-          : {
-              status: "AI_RESPONDED",
-              aiSummary: result.output.slice(0, 500),
-              moderationOutcome: moderation.outcome,
-              moderationCategory: moderation.category,
-              moderationReason: moderation.reason,
-              aiClaimedAt: null,
-            },
-    }),
-  ]);
+  // One transaction, fenced by the claim (#542): the response row and the
+  // inquiry update (status on success; in every case the claim is cleared)
+  // land together, or not at all if a newer attempt took the claim over.
+  const responseRow = await persistUnderClaim(inquiryId, claimedAt, {
+    response: {
+      inquiryId,
+      modelUsed: "error" in result ? "none" : result.model,
+      promptVersion: "v1",
+      explanation: "error" in result ? "" : result.output,
+      latencyMs: "error" in result ? undefined : result.latencyMs,
+      promptTokens: "error" in result ? undefined : result.promptTokens,
+      completionTokens: "error" in result ? undefined : result.completionTokens,
+      totalTokens: "error" in result ? undefined : result.totalTokens,
+      truncated: "error" in result ? false : result.truncated,
+      stopReason: "error" in result ? undefined : result.stopReason,
+      moderationOutcome: moderation.outcome,
+      moderationCategory: moderation.category,
+      moderationReason: moderation.reason,
+    },
+    inquiry:
+      "error" in result
+        ? {}
+        : {
+            status: "AI_RESPONDED",
+            aiSummary: result.output.slice(0, 500),
+            moderationOutcome: moderation.outcome,
+            moderationCategory: moderation.category,
+            moderationReason: moderation.reason,
+          },
+  });
 
   if (!("error" in result)) {
     await recordEduAuditEvent({

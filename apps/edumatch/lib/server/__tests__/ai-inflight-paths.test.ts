@@ -5,58 +5,82 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-type Op = { op: "create" | "update"; args: { data: Record<string, unknown> } };
+type Saved = {
+  inquiry: Record<string, unknown>;
+  response: Record<string, unknown>;
+};
 
 const state = vi.hoisted(() => ({
   /** The inquiry's aiClaimedAt, as the in-memory "database" holds it. */
   claimedAt: null as Date | null,
   failTransaction: false,
-  transactions: [] as Op[][],
+  /** Committed transactions: the inquiry update and the response row. */
+  transactions: [] as Saved[],
   events: [] as string[],
   streamGate: null as Promise<void> | null,
   streamCalls: 0,
+  /** Runs while the provider is "generating" (e.g. a takeover). */
+  duringGeneration: null as (() => void) | null,
 }));
+
+/** A tiny model of the conditional updates in ai-claim.ts. */
+function applyUpdateMany({
+  where,
+  data,
+}: {
+  where: { aiClaimedAt: null | Date | { lt: Date } };
+  data: Record<string, unknown>;
+}) {
+  const held = state.claimedAt;
+  const cond = where.aiClaimedAt;
+  let match = false;
+  if (cond === null) match = held === null;
+  else if (cond instanceof Date)
+    match = held !== null && held.getTime() === cond.getTime();
+  else match = held !== null && held.getTime() < cond.lt.getTime();
+  if (!match) return { count: 0 };
+  state.claimedAt = data.aiClaimedAt as Date | null;
+  return { count: 1 };
+}
 
 const prismaMock = vi.hoisted(() => ({
   eduInquiry: {
     findUnique: vi.fn(),
-    update: vi.fn((args: Op["args"]) => ({ op: "update", args })),
-    // A tiny model of the conditional claim/release updates in ai-claim.ts.
-    updateMany: vi.fn(
-      async ({
-        where,
-        data,
-      }: {
-        where: { aiClaimedAt: null | Date | { lt: Date } };
-        data: { aiClaimedAt: Date | null };
-      }) => {
-        const held = state.claimedAt;
-        const cond = where.aiClaimedAt;
-        let match = false;
-        if (cond === null) match = held === null;
-        else if (cond instanceof Date)
-          match = held !== null && held.getTime() === cond.getTime();
-        else match = held !== null && held.getTime() < cond.lt.getTime();
-        if (!match) return { count: 0 };
-        state.claimedAt = data.aiClaimedAt;
-        return { count: 1 };
-      }
+    updateMany: vi.fn(async (args: Parameters<typeof applyUpdateMany>[0]) =>
+      applyUpdateMany(args)
     ),
   },
-  eduAiResponse: {
-    create: vi.fn((args: Op["args"]) => ({ op: "create", args })),
-  },
-  // Array transaction: all operations apply together, or none do.
-  $transaction: vi.fn(async (ops: Op[]) => {
+  // Interactive transaction: everything inside commits together, or the
+  // claim state is rolled back and nothing is recorded.
+  $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
     state.events.push("transaction");
-    if (state.failTransaction) throw new Error("connection lost mid-commit");
-    state.transactions.push(ops);
-    for (const o of ops) {
-      if (o.op === "update" && "aiClaimedAt" in o.args.data) {
-        state.claimedAt = o.args.data.aiClaimedAt as Date | null;
-      }
+    const before = state.claimedAt;
+    let pending: Saved = { inquiry: {}, response: {} };
+    const tx = {
+      eduInquiry: {
+        updateMany: async (args: Parameters<typeof applyUpdateMany>[0]) => {
+          const r = applyUpdateMany(args);
+          if (r.count === 1) pending.inquiry = args.data;
+          return r;
+        },
+      },
+      eduAiResponse: {
+        create: async (args: { data: Record<string, unknown> }) => {
+          pending.response = args.data;
+          return { id: "resp-1" };
+        },
+      },
+    };
+    try {
+      const result = await fn(tx);
+      if (state.failTransaction) throw new Error("connection lost mid-commit");
+      state.transactions.push(pending);
+      return result;
+    } catch (err) {
+      state.claimedAt = before;
+      pending = { inquiry: {}, response: {} };
+      throw err;
     }
-    return ops.map((o) => (o.op === "create" ? { id: "resp-1" } : {}));
   }),
 }));
 
@@ -89,6 +113,7 @@ vi.mock("@/lib/server/ai-orchestrator", async () => {
     streamOpenAI: async function* () {
       state.streamCalls += 1;
       if (state.streamGate) await state.streamGate;
+      state.duringGeneration?.();
       yield { token: "Subtract 5 first." };
       yield { done: true };
     },
@@ -137,14 +162,16 @@ beforeEach(() => {
   state.events = [];
   state.streamGate = null;
   state.streamCalls = 0;
+  state.duringGeneration = null;
   auditMock.mockReset();
   prismaMock.$transaction.mockClear();
-  prismaMock.eduInquiry.update.mockClear();
-  prismaMock.eduAiResponse.create.mockClear();
   prismaMock.eduInquiry.findUnique.mockReset().mockResolvedValue(INQUIRY);
   vi.stubEnv("OPENAI_API_KEY", "test-openai");
   vi.stubEnv("ANTHROPIC_API_KEY", "test-anthropic");
-  fetchMock = vi.fn(async () => openAiOk());
+  fetchMock = vi.fn(async () => {
+    state.duringGeneration?.();
+    return openAiOk();
+  });
   global.fetch = fetchMock as unknown as typeof fetch;
 });
 
@@ -160,10 +187,10 @@ describe("orchestrateResponse (queued path)", () => {
 
     expect(result).toHaveProperty("responseId", "resp-1");
     expect(state.transactions).toHaveLength(1);
-    const [create, update] = state.transactions[0];
-    expect(create.op).toBe("create");
-    expect(update.op).toBe("update");
-    expect(update.args.data).toMatchObject({
+    expect(state.transactions[0].response).toMatchObject({
+      explanation: "Subtract 5 first.",
+    });
+    expect(state.transactions[0].inquiry).toMatchObject({
       status: "AI_RESPONDED",
       aiClaimedAt: null,
     });
@@ -207,6 +234,21 @@ describe("orchestrateResponse (queued path)", () => {
     );
   });
 
+  it("writes nothing when a newer attempt took the claim over mid-generation", async () => {
+    const newer = new Date(Date.now() + 1000);
+    state.duringGeneration = () => {
+      state.claimedAt = newer;
+    };
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await orchestrateResponse("inq-1");
+
+    expect(result).toHaveProperty("error");
+    expect(state.transactions).toHaveLength(0);
+    // The newer attempt's claim is left alone.
+    expect(state.claimedAt).toBe(newer);
+  });
+
   it("frees the claim without a status change when every provider fails", async () => {
     fetchMock.mockImplementation(async () => ({
       ok: false,
@@ -219,7 +261,7 @@ describe("orchestrateResponse (queued path)", () => {
 
     expect(result).toHaveProperty("error");
     expect(state.transactions).toHaveLength(1);
-    expect(state.transactions[0][1].args.data).toEqual({ aiClaimedAt: null });
+    expect(state.transactions[0].inquiry).toEqual({ aiClaimedAt: null });
     expect(state.claimedAt).toBeNull();
   });
 });
@@ -259,13 +301,29 @@ describe("GET /api/inquiries/[id]/ai (streaming path)", () => {
 
     expect(state.events).toEqual(["transaction"]);
     expect(state.transactions).toHaveLength(1);
-    expect(state.transactions[0][1].args.data).toMatchObject({
+    expect(state.transactions[0].inquiry).toMatchObject({
       status: "AI_RESPONDED",
       aiClaimedAt: null,
     });
     expect(body.indexOf("Subtract 5 first.")).toBeLessThan(
       body.indexOf("event: done")
     );
+  });
+
+  it("saves nothing and reports an error when a newer attempt took the claim over", async () => {
+    const newer = new Date(Date.now() + 1000);
+    state.duringGeneration = () => {
+      state.claimedAt = newer;
+    };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await callStream();
+    const body = await res.text();
+
+    expect(body).toContain("event: error");
+    expect(body).not.toContain("event: done");
+    expect(state.transactions).toHaveLength(0);
+    expect(state.claimedAt).toBe(newer);
   });
 
   it("reports a failed save as an error, not done, and frees the claim", async () => {
