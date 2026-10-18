@@ -34,10 +34,15 @@ import { getPlatformSetting } from "../../platform-settings";
  * already used by the whole workspace/process), applied identically to every
  * workspace — unless an admin sets the platform-wide
  * `resumatch.aiMonthlyBudgetUsd` override in the admin console, which wins
- * (read via lib/platform-settings.ts, cached ~60s, env value on any failure). `usageSummary` still takes a `workspaceId` and every ledger
- * query is workspace-scoped, so switching to a per-workspace override later
- * (once such a settings model exists) only changes where `budgetUsd` comes
- * from, not this module's shape or call sites.
+ * (read via lib/platform-settings.ts, cached ~60s, env value on any failure).
+ *
+ * **Per-workspace override (issue #514).** `Workspace.aiMonthlyBudgetUsd`,
+ * when set, wins over both: one heavy workspace can be capped (or given more
+ * room) without moving every other workspace's ceiling. Null means "no
+ * override" and falls through to the default above, so a workspace nobody
+ * configured behaves exactly as before. Zero is a valid override and
+ * freezes that workspace. Operators set it via
+ * app/api/internal/workspace-ai-budget; the candidate never can.
  */
 
 export class QuotaExceededError extends Error {
@@ -69,10 +74,49 @@ function monthStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
+/**
+ * Where the budget in effect came from: the workspace's own override, or
+ * the platform default (Admin setting, else env). The default is reported
+ * as one source because the settings client only returns the value, not
+ * whether an admin override produced it.
+ */
+export type BudgetSource = "workspace" | "default";
+
 export interface UsageSummary {
   workspaceId: string;
   monthUsd: number;
   budgetUsd: number;
+  budgetSource: BudgetSource;
+}
+
+/** The platform-wide default: an Admin-console override, else env. */
+export async function defaultMonthlyBudgetUsd(): Promise<number> {
+  return getPlatformSetting("resumatch.aiMonthlyBudgetUsd", getEnv().aiMonthlyBudgetUsd);
+}
+
+/**
+ * Resolves the budget in effect for one workspace. A non-null override
+ * always wins (0 included); otherwise the default is read — and only then,
+ * so an overridden workspace never waits on the settings API.
+ */
+export async function resolveMonthlyBudget(
+  overrideUsd: number | null,
+  readDefault: () => Promise<number> = defaultMonthlyBudgetUsd,
+): Promise<{ budgetUsd: number; budgetSource: BudgetSource }> {
+  if (overrideUsd !== null && Number.isFinite(overrideUsd) && overrideUsd >= 0) {
+    return { budgetUsd: overrideUsd, budgetSource: "workspace" };
+  }
+  return { budgetUsd: await readDefault(), budgetSource: "default" };
+}
+
+/** The workspace's override as a number, or null when unset/unknown. */
+export async function workspaceBudgetOverrideUsd(workspaceId: string): Promise<number | null> {
+  const row = await getJobmatchDb().workspace.findUnique({
+    where: { id: workspaceId },
+    select: { aiMonthlyBudgetUsd: true },
+  });
+  const value = row?.aiMonthlyBudgetUsd;
+  return value === null || value === undefined ? null : Number(value);
 }
 
 /**
@@ -88,11 +132,9 @@ export interface UsageSummary {
  */
 export async function usageSummary(workspaceId: string): Promise<UsageSummary> {
   const db = getJobmatchDb();
-  // An admin-console override wins; otherwise RESUMATCH_AI_MONTHLY_BUDGET_USD.
-  const aiMonthlyBudgetUsd = await getPlatformSetting(
-    "resumatch.aiMonthlyBudgetUsd",
-    getEnv().aiMonthlyBudgetUsd,
-  );
+  // Workspace override, else the Admin-console override, else
+  // RESUMATCH_AI_MONTHLY_BUDGET_USD.
+  const budget = await resolveMonthlyBudget(await workspaceBudgetOverrideUsd(workspaceId));
   const since = monthStart();
 
   const [legacy, events] = await Promise.all([
@@ -111,7 +153,8 @@ export async function usageSummary(workspaceId: string): Promise<UsageSummary> {
   return {
     workspaceId,
     monthUsd: (legacy._sum.costUsd ?? 0) + Number(eventMicros) / 1_000_000,
-    budgetUsd: aiMonthlyBudgetUsd,
+    budgetUsd: budget.budgetUsd,
+    budgetSource: budget.budgetSource,
   };
 }
 

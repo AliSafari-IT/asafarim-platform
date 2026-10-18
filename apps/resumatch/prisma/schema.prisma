@@ -40,6 +40,14 @@ model Workspace {
   /// workspace per authenticated user.
   platformUserId String @unique
 
+  /// Per-workspace monthly AI budget in USD (issue #514). Null = no
+  /// override: the Admin `resumatch.aiMonthlyBudgetUsd` setting, else
+  /// `RESUMATCH_AI_MONTHLY_BUDGET_USD`, applies exactly as before. Zero is
+  /// a valid override and freezes this workspace's AI spend. Set by an
+  /// operator through /api/internal/workspace-ai-budget, never by the
+  /// candidate. See lib/tailoring/ai/quota.ts.
+  aiMonthlyBudgetUsd Decimal? @db.Decimal(10, 2)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
