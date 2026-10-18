@@ -2,7 +2,18 @@ import { NextResponse } from "next/server";
 import { resolveLocaleFromCookie } from "@asafarim/shared-i18n/server";
 import { requireStudent } from "@/lib/server/profiles";
 import { handleEduError, badRequest, serverError } from "@/lib/server";
-import { streamOpenAI, streamAnthropic, buildVisionContent, buildSystemPrompt, transcribeAudio } from "@/lib/server/ai-orchestrator";
+import {
+  streamOpenAI,
+  streamAnthropic,
+  buildVisionContent,
+  buildSystemPrompt,
+  transcribeForAttempt,
+  recordBilledCall,
+  type BilledCall,
+  type StreamChunk,
+} from "@/lib/server/ai-orchestrator";
+import { attemptCostMicros, type EduAiAttempt } from "@/lib/server/ai-cost";
+import { totalInputTokens, totalOutputTokens } from "@asafarim/ai-cost-ledger";
 import { moderatePrompt, moderationAllowsGeneration } from "@/lib/server/moderation";
 import { recordEduAuditEvent } from "@/lib/server/audit";
 import { redactForProvider } from "@/lib/server/ai-redact";
@@ -107,11 +118,18 @@ export async function GET(
         })),
       );
 
+      // Cost ledger (#540): every paid call of this attempt is recorded as
+      // it returns, whatever happens to the attempt afterwards.
+      const attempt: EduAiAttempt = { inquiryId, studentId: user.id, claimedAt };
+      const attemptCosts: (bigint | null)[] = [];
+
       // Transcribe audio if present (blocking before stream; could be cached)
       let audioText = "";
+      let audioSeq = 0;
       for (const att of attachments) {
         if (att.mime.startsWith("audio/")) {
-          const t = await transcribeAudio(att.url);
+          const { transcript: t, costMicros } = await transcribeForAttempt(att.url, attempt, audioSeq++);
+          if (t) attemptCosts.push(costMicros);
           if (t?.text) audioText += `\n[Voice transcript]: ${t.text}`;
         }
       }
@@ -136,6 +154,8 @@ export async function GET(
             modelUsed: "moderation",
             promptVersion: "v1-stream",
             explanation: redirect,
+            // Only transcription can have been paid for before a refusal.
+            ...(attemptCosts.length > 0 ? { tokenCostMicros: attemptCostMicros(attemptCosts) } : {}),
             moderationOutcome: moderation.outcome,
             moderationCategory: moderation.category,
             moderationReason: moderation.reason,
@@ -196,7 +216,7 @@ export async function GET(
         : process.env.OPENAI_MODEL_CHAT ?? "gpt-4o-mini";
 
       async function* streamWithFallback(): AsyncGenerator<
-        { token?: string; done?: boolean; error?: string; provider?: "openai" | "anthropic" },
+        StreamChunk & { provider?: "openai" | "anthropic" },
         void,
         unknown
       > {
@@ -206,6 +226,10 @@ export async function GET(
           if (chunk.error) {
             openAIError = chunk.error;
             break;
+          }
+          if (chunk.accepted || chunk.billed) {
+            yield chunk;
+            continue;
           }
           if (chunk.token || chunk.done) {
             yield { ...chunk, provider: "openai" };
@@ -222,11 +246,49 @@ export async function GET(
               yield { error: `OpenAI: ${openAIError} | Anthropic: ${chunk.error}` };
               return;
             }
+            if (chunk.accepted || chunk.billed) {
+              yield chunk;
+              continue;
+            }
             if (chunk.token || chunk.done) {
               yield { ...chunk, provider: "anthropic" };
             }
           }
         }
+      }
+
+      // The provider call currently streaming (accepted with a 200, so it
+      // is billed) and the seq of the next answer call in this attempt.
+      let inFlight: { provider: "openai" | "anthropic"; requestModel: string; startedAt: number } | null = null;
+      let answerSeq = 0;
+      let lastBilled: BilledCall | null = null;
+      async function recordAnswerCall(
+        billed: BilledCall,
+        outcome: "succeeded" | "failed" | "cancelled",
+      ): Promise<void> {
+        inFlight = null;
+        lastBilled = billed;
+        attemptCosts.push(
+          await recordBilledCall(attempt, "tutor_answer_stream", billed, outcome, answerSeq++),
+        );
+      }
+      // A billed call that never reported its usage (the stream broke, the
+      // client went away mid-answer, or a fallback replaced it) is still
+      // recorded, with an unknown cost, so the ledger never misses a call.
+      async function recordInFlightAsCancelled(): Promise<void> {
+        const call = inFlight;
+        if (!call) return;
+        await recordAnswerCall(
+          {
+            provider: call.provider,
+            requestModel: call.requestModel,
+            responseModel: null,
+            providerRequestId: null,
+            usage: null,
+            latencyMs: Date.now() - call.startedAt,
+          },
+          "cancelled",
+        );
       }
 
       const priorStatus = inquiry.status;
@@ -240,6 +302,16 @@ export async function GET(
             modelUsed,
             promptVersion: "v1-stream",
             explanation: fullOutput,
+            // Token counts and cost for the streamed answer (#540).
+            ...(lastBilled?.usage
+              ? {
+                  promptTokens: totalInputTokens(lastBilled.usage),
+                  completionTokens: totalOutputTokens(lastBilled.usage),
+                  totalTokens: totalInputTokens(lastBilled.usage) + totalOutputTokens(lastBilled.usage),
+                }
+              : {}),
+            latencyMs: lastBilled?.latencyMs,
+            tokenCostMicros: attemptCostMicros(attemptCosts),
             moderationOutcome: moderation.outcome,
             moderationCategory: moderation.category,
             moderationReason: moderation.reason,
@@ -272,6 +344,16 @@ export async function GET(
         async start(controller) {
           try {
             for await (const chunk of streamWithFallback()) {
+              if (chunk.accepted) {
+                // An earlier accepted call that a fallback replaced.
+                await recordInFlightAsCancelled();
+                inFlight = { ...chunk.accepted, startedAt: Date.now() };
+                continue;
+              }
+              if (chunk.billed) {
+                await recordAnswerCall(chunk.billed, "succeeded");
+                continue;
+              }
               if (chunk.error) {
                 controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: chunk.error })}\n\n`));
                 return;
@@ -318,6 +400,7 @@ export async function GET(
               // The client went away mid-stream; nothing left to tell it.
             }
           } finally {
+            await recordInFlightAsCancelled();
             // Free the claim before the client sees the stream end, so a
             // retry right after an error isn't refused. No-op when
             // persistence already cleared it.
