@@ -14,7 +14,11 @@ const prismaMock = vi.hoisted(() => ({
   eduAiCostEvent: { createMany: vi.fn() },
   $transaction: vi.fn(),
 }));
-const quota = vi.hoisted(() => ({ block: null as EduAiBlockReason | null }));
+const quota = vi.hoisted(() => ({
+  block: null as EduAiBlockReason | null,
+  /** A block found only once the claim is held (a concurrent burst). */
+  underClaim: null as EduAiBlockReason | null,
+}));
 const auditMock = vi.hoisted(() => vi.fn());
 const streamCalls = vi.hoisted(() => ({ count: 0 }));
 
@@ -25,6 +29,10 @@ vi.mock("@/lib/server/ai-quota", async (importOriginal) => {
     ...actual,
     assertCanGenerateAiResponse: vi.fn(async () => {
       if (quota.block) throw new actual.EduAiBlockedError(quota.block);
+    }),
+    assertStudentQuotaUnderClaim: vi.fn(async () => {
+      if (quota.underClaim)
+        throw new actual.EduAiBlockedError(quota.underClaim);
     }),
   };
 });
@@ -86,6 +94,7 @@ const fetchMock = vi.fn(async () => {
 
 beforeEach(() => {
   quota.block = null;
+  quota.underClaim = null;
   streamCalls.count = 0;
   auditMock.mockReset();
   fetchMock.mockClear();
@@ -208,4 +217,55 @@ describe("GET /api/inquiries/[id]/ai (streaming path)", () => {
       expectBlockedAudit(reason);
     }
   );
+});
+
+describe("student quota re-checked under the claim (concurrent burst)", () => {
+  /** Claimed once, then released by the same attempt: two conditional updates. */
+  function expectClaimTakenAndReleased() {
+    const calls = prismaMock.eduInquiry.updateMany.mock.calls.map(
+      ([arg]) => arg.data.aiClaimedAt
+    );
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toBeInstanceOf(Date);
+    expect(calls[1]).toBeNull();
+  }
+
+  function expectNoSpendNoWrite() {
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.eduAiResponse.create).not.toHaveBeenCalled();
+    expect(prismaMock.eduInquiry.update).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(prismaMock.eduAiCostEvent.createMany).not.toHaveBeenCalled();
+  }
+
+  it("queued path: releases its claim and calls no provider", async () => {
+    quota.underClaim = "student_quota";
+    const { orchestrateResponse } =
+      await import("@/lib/server/ai-orchestrator");
+    const result = await orchestrateResponse("inq-1");
+
+    expect(result).toMatchObject({ blocked: "student_quota" });
+    expectClaimTakenAndReleased();
+    expectNoSpendNoWrite();
+    expectBlockedAudit("student_quota");
+  });
+
+  it("streaming path: answers 429, releases its claim and never streams", async () => {
+    quota.underClaim = "student_quota";
+    const { GET } = await import("@/app/api/inquiries/[id]/ai/route");
+    const res = await GET(
+      new Request("http://localhost/api/inquiries/inq-1/ai?stream=1"),
+      { params: Promise.resolve({ id: "inq-1" }) }
+    );
+
+    expect(res.status).toBe(429);
+    expect(await res.json()).toMatchObject({
+      error: "ai_blocked",
+      reason: "student_quota",
+    });
+    expect(streamCalls.count).toBe(0);
+    expectClaimTakenAndReleased();
+    expectNoSpendNoWrite();
+    expectBlockedAudit("student_quota");
+  });
 });

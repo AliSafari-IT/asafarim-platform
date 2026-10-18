@@ -22,7 +22,13 @@ const state = vi.hoisted(() => ({
   answerRows: [] as { workflowId: string | null }[],
   spendError: null as Error | null,
   countError: null as Error | null,
+  /** The student's other inquiries with a live in-flight claim. */
+  otherLiveClaims: 0,
 }));
+
+const inquiryCount = vi.hoisted(() =>
+  vi.fn(async (_args: unknown) => state.otherLiveClaims)
+);
 
 const findMany = vi.hoisted(() =>
   vi.fn(async (args: { distinct?: string[] }) => {
@@ -38,7 +44,7 @@ const findMany = vi.hoisted(() =>
 );
 
 vi.mock("@asafarim/db", () => ({
-  prisma: { eduAiCostEvent: { findMany } },
+  prisma: { eduAiCostEvent: { findMany }, eduInquiry: { count: inquiryCount } },
   getBooleanSetting: vi.fn(async (key: string, fallback: boolean) =>
     state.settings.has(key) ? state.settings.get(key) : fallback
   ),
@@ -49,6 +55,7 @@ vi.mock("@asafarim/db", () => ({
 
 const {
   assertCanGenerateAiResponse,
+  assertStudentQuotaUnderClaim,
   blockedHttpStatus,
   countStudentAnswerAttempts,
   EduAiBlockedError,
@@ -91,7 +98,9 @@ beforeEach(() => {
   state.answerRows = [];
   state.spendError = null;
   state.countError = null;
+  state.otherLiveClaims = 0;
   findMany.mockClear();
+  inquiryCount.mockClear();
 });
 
 describe("getEduAiLimits", () => {
@@ -250,5 +259,57 @@ describe("blockedHttpStatus", () => {
     expect(blockedHttpStatus("student_quota")).toBe(429);
     expect(blockedHttpStatus("budget")).toBe(503);
     expect(blockedHttpStatus("disabled")).toBe(503);
+  });
+});
+
+describe("assertStudentQuotaUnderClaim", () => {
+  async function underClaimReason(): Promise<string | null> {
+    try {
+      await assertStudentQuotaUnderClaim("stu-1", "inq-1", NOW);
+      return null;
+    } catch (err) {
+      if (err instanceof EduAiBlockedError) return err.reason;
+      throw err;
+    }
+  }
+
+  it("counts the student's other live claims toward the quota", async () => {
+    state.settings.set(EDUMATCH_AI_STUDENT_QUOTA_KEY, 3);
+    state.answerRows = [{ workflowId: "a" }];
+    state.otherLiveClaims = 1;
+    expect(await underClaimReason()).toBeNull();
+
+    state.otherLiveClaims = 2;
+    expect(await underClaimReason()).toBe("student_quota");
+  });
+
+  it("blocks a burst of concurrent inquiries that each passed the first check", async () => {
+    // Quota 2, nothing billed yet, 4 inquiries claimed at once: each sees the
+    // other 3 live claims, so none goes past the quota.
+    state.settings.set(EDUMATCH_AI_STUDENT_QUOTA_KEY, 2);
+    state.otherLiveClaims = 3;
+    expect(await underClaimReason()).toBe("student_quota");
+  });
+
+  it("only counts other inquiries' live (not stale) claims of this student", async () => {
+    await underClaimReason();
+    expect(inquiryCount).toHaveBeenCalledWith({
+      where: {
+        studentId: "stu-1",
+        id: { not: "inq-1" },
+        aiClaimedAt: { gte: new Date(NOW.getTime() - 5 * 60 * 1000) },
+      },
+    });
+  });
+
+  it("blocks with a quota of 0 and fails closed when counting fails", async () => {
+    state.settings.set(EDUMATCH_AI_STUDENT_QUOTA_KEY, 0);
+    expect(await underClaimReason()).toBe("student_quota");
+
+    state.settings.set(EDUMATCH_AI_STUDENT_QUOTA_KEY, 5);
+    inquiryCount.mockRejectedValueOnce(new Error("db down"));
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await underClaimReason()).toBe("disabled");
+    errorLog.mockRestore();
   });
 });

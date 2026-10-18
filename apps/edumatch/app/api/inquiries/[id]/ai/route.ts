@@ -19,6 +19,7 @@ import { recordEduAuditEvent } from "@/lib/server/audit";
 import { redactForProvider } from "@/lib/server/ai-redact";
 import {
   assertCanGenerateAiResponse,
+  assertStudentQuotaUnderClaim,
   blockedHttpStatus,
   EduAiBlockedError,
 } from "@/lib/server/ai-quota";
@@ -133,6 +134,31 @@ export async function GET(
     // return or throw releases the claim in the finally below.
     let claimHandedToStream = false;
     try {
+      // Student quota again, now that this attempt's claim is visible to
+      // any concurrent attempt (#539). A block releases the claim below.
+      try {
+        await assertStudentQuotaUnderClaim(user.id, inquiryId);
+      } catch (err) {
+        if (err instanceof EduAiBlockedError) {
+          console.warn(`[AI] inquiry ${inquiryId}: AI generation blocked (${err.reason})`);
+          void recordEduAuditEvent({
+            actorId: user.id,
+            actorRole: "STUDENT",
+            action: "AI_GENERATION_BLOCKED",
+            entity: "EduInquiry",
+            entityId: inquiryId,
+            prevState: inquiry.status,
+            nextState: inquiry.status,
+            reason: err.reason,
+          });
+          return NextResponse.json(
+            { error: "ai_blocked", reason: err.reason, message: err.message },
+            { status: blockedHttpStatus(err.reason) },
+          );
+        }
+        throw err;
+      }
+
       // For simplicity, require explicit ?stream=1 to avoid accidental buffering
       // in clients that don't expect SSE.
       // (In a full implementation you'd parse URL from request)

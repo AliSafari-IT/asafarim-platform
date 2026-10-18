@@ -25,6 +25,7 @@ vi.mock("@asafarim/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/server/ai-quota", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/server/ai-quota")>()),
   assertCanGenerateAiResponse: vi.fn(async () => {}),
+  assertStudentQuotaUnderClaim: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/server/audit", () => ({ recordEduAuditEvent: vi.fn() }));
 vi.mock("@/lib/server/storage", () => ({

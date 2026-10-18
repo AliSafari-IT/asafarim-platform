@@ -1,4 +1,5 @@
 import { getBooleanSetting, getNumberSetting, prisma } from "@asafarim/db";
+import { AI_CLAIM_STALE_MS } from "./ai-claim";
 import { getEduAiSpend, utcMonthRange, type EduCostOperation } from "./ai-cost";
 
 /**
@@ -110,7 +111,8 @@ export async function countStudentAnswerAttempts(
  * Throws {@link EduAiBlockedError} when this student may not start a paid AI
  * attempt now. Checks, in order: kill switch, platform budget, student quota.
  * Call it before the in-flight claim and before any provider call,
- * transcription included.
+ * transcription included; then, once the claim is held,
+ * {@link assertStudentQuotaUnderClaim}.
  */
 export async function assertCanGenerateAiResponse(
   studentId: string,
@@ -150,5 +152,56 @@ export async function assertCanGenerateAiResponse(
     throw new EduAiBlockedError("disabled");
   }
   if (attempts >= limits.studentMonthlyQuota)
+    throw new EduAiBlockedError("student_quota");
+}
+
+/**
+ * The student quota, re-checked while this attempt holds its inquiry's
+ * in-flight claim (#542). The check before the claim alone is a
+ * check-then-act race: a student could start many inquiries at once and
+ * every one would pass before any of them wrote a ledger event.
+ *
+ * Here the count is the month's billed answer attempts plus the student's
+ * other inquiries with a live claim. Every attempt claims before it counts,
+ * and a paid attempt writes its ledger event before it releases its claim,
+ * so two concurrent attempts always see each other: at worst both are
+ * blocked (the student can retry), never both admitted past the quota. An
+ * attempt that already wrote its event but hasn't released its claim yet is
+ * counted twice for a moment, which errs the same safe way.
+ *
+ * On a block the caller must release its claim before any provider call.
+ */
+export async function assertStudentQuotaUnderClaim(
+  studentId: string,
+  inquiryId: string,
+  now: Date = new Date()
+): Promise<void> {
+  const quota = await getNumberSetting(
+    EDUMATCH_AI_STUDENT_QUOTA_KEY,
+    DEFAULT_STUDENT_MONTHLY_QUOTA
+  );
+  if (quota <= 0) throw new EduAiBlockedError("student_quota");
+
+  let attempts: number;
+  let otherLiveClaims: number;
+  try {
+    [attempts, otherLiveClaims] = await Promise.all([
+      countStudentAnswerAttempts(studentId, utcMonthRange(now)),
+      prisma.eduInquiry.count({
+        where: {
+          studentId,
+          id: { not: inquiryId },
+          aiClaimedAt: { gte: new Date(now.getTime() - AI_CLAIM_STALE_MS) },
+        },
+      }),
+    ]);
+  } catch (err) {
+    console.error(
+      "[AI quota] could not count this student's AI answers; blocking AI generation",
+      err
+    );
+    throw new EduAiBlockedError("disabled");
+  }
+  if (attempts + otherLiveClaims >= quota)
     throw new EduAiBlockedError("student_quota");
 }

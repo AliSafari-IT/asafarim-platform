@@ -25,7 +25,10 @@ import {
 } from "./moderation";
 import { recordEduAuditEvent } from "./audit";
 import { redactForProvider } from "./ai-redact";
-import { assertCanGenerateAiResponse, EduAiBlockedError, type EduAiBlockReason } from "./ai-quota";
+import {
+  assertCanGenerateAiResponse,
+  assertStudentQuotaUnderClaim,
+  EduAiBlockedError, type EduAiBlockReason } from "./ai-quota";
 import {
   attemptCostMicros,
   recordEduAiCost,
@@ -541,6 +544,27 @@ export async function orchestrateResponse(
   }
 
   try {
+    // Student quota again, now that this attempt's claim is visible to any
+    // concurrent attempt (#539). A block releases the claim in the finally.
+    try {
+      await assertStudentQuotaUnderClaim(inquiry.studentId, inquiryId);
+    } catch (err) {
+      if (err instanceof EduAiBlockedError) {
+        console.warn(`[AI] inquiry ${inquiryId}: AI generation blocked (${err.reason})`);
+        await recordEduAuditEvent({
+          actorId: inquiry.studentId,
+          actorRole: "SYSTEM",
+          action: "AI_GENERATION_BLOCKED",
+          entity: "EduInquiry",
+          entityId: inquiryId,
+          prevState: inquiry.status,
+          nextState: inquiry.status,
+          reason: err.reason,
+        });
+        return { error: err.message, blocked: err.reason };
+      }
+      throw err;
+    }
     return await generateClaimed(inquiry, claim.claimedAt, forceProvider, options);
   } catch (err) {
     if (err instanceof AiClaimLostError) {
