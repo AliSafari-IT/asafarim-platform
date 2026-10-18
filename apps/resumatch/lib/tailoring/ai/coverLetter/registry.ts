@@ -1,5 +1,6 @@
 import type { ResuMatchAiProvider } from "../../../env";
 import type { CoverLetterProvider } from "./provider";
+import { createProviderRegistry } from "../../../ai/providerRegistry";
 
 /** Model / prompt registry for the cover-letter call. Mirrors
  *  `../registry.ts` exactly, one call kind over. */
@@ -19,32 +20,20 @@ export function coverLetterModelVersionFor(provider: ResuMatchAiProvider): strin
   return COVER_LETTER_MODEL_VERSIONS[provider];
 }
 
-const coverLetterProviderCache = new Map<string, CoverLetterProvider>();
-
-export async function getCoverLetterProvider(name: ResuMatchAiProvider): Promise<CoverLetterProvider> {
-  const cached = coverLetterProviderCache.get(name);
-  if (cached) return cached;
-
-  let provider: CoverLetterProvider;
-  switch (name) {
-    case "fixture": {
+export const getCoverLetterProvider = createProviderRegistry<CoverLetterProvider>({
+  label: "cover-letter",
+  loaders: {
+    fixture: async () => {
       const { CoverLetterFixtureProvider } = await import("./providers/fixture");
-      provider = new CoverLetterFixtureProvider();
-      break;
-    }
-    case "openai": {
+      return new CoverLetterFixtureProvider();
+    },
+    openai: async () => {
       const { OpenAiCoverLetterProvider } = await import("./providers/openai");
-      provider = new OpenAiCoverLetterProvider();
-      break;
-    }
-    case "anthropic": {
+      return new OpenAiCoverLetterProvider();
+    },
+    anthropic: async () => {
       const { AnthropicCoverLetterProvider } = await import("./providers/anthropic");
-      provider = new AnthropicCoverLetterProvider();
-      break;
-    }
-    default:
-      throw new Error(`unknown ResuMatch cover-letter provider: ${name as string}`);
-  }
-  coverLetterProviderCache.set(name, provider);
-  return provider;
-}
+      return new AnthropicCoverLetterProvider();
+    },
+  },
+});

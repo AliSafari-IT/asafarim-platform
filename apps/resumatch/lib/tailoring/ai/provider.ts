@@ -1,6 +1,7 @@
 import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
 import type { TailorSuggestions } from "./schema";
+import { AiProviderError } from "../../ai/providerError";
 
 /**
  * Tailoring provider interface. Mirrors the shape of the old matching
@@ -52,11 +53,9 @@ export interface TailorProvider {
   generate(call: TailorProviderCall): Promise<TailorProviderOutput>;
 }
 
-export class TailorProviderError extends Error {
-  readonly retryable: boolean;
+export class TailorProviderError extends AiProviderError {
   constructor(message: string, retryable = true) {
-    super(message);
+    super(message, retryable);
     this.name = "TailorProviderError";
-    this.retryable = retryable;
   }
 }

@@ -1,5 +1,6 @@
 import type { ResuMatchAiProvider } from "../../env";
 import type { JobMetaProvider } from "./provider";
+import { createProviderRegistry } from "../../ai/providerRegistry";
 
 export { JOB_META_PROMPT_VERSION } from "./prompts";
 
@@ -9,32 +10,20 @@ export const JOB_META_MODEL_VERSIONS: Record<ResuMatchAiProvider, string> = {
   anthropic: "anthropic-job-meta-unconfigured",
 };
 
-const jobMetaProviderCache = new Map<string, JobMetaProvider>();
-
-export async function getJobMetaProvider(name: ResuMatchAiProvider): Promise<JobMetaProvider> {
-  const cached = jobMetaProviderCache.get(name);
-  if (cached) return cached;
-
-  let provider: JobMetaProvider;
-  switch (name) {
-    case "fixture": {
+export const getJobMetaProvider = createProviderRegistry<JobMetaProvider>({
+  label: "job-meta",
+  loaders: {
+    fixture: async () => {
       const { JobMetaFixtureProvider } = await import("./providers/fixture");
-      provider = new JobMetaFixtureProvider();
-      break;
-    }
-    case "openai": {
+      return new JobMetaFixtureProvider();
+    },
+    openai: async () => {
       const { OpenAiJobMetaProvider } = await import("./providers/openai");
-      provider = new OpenAiJobMetaProvider();
-      break;
-    }
-    case "anthropic": {
+      return new OpenAiJobMetaProvider();
+    },
+    anthropic: async () => {
       const { AnthropicJobMetaProvider } = await import("./providers/anthropic");
-      provider = new AnthropicJobMetaProvider();
-      break;
-    }
-    default:
-      throw new Error(`unknown ResuMatch job-meta provider: ${name as string}`);
-  }
-  jobMetaProviderCache.set(name, provider);
-  return provider;
-}
+      return new AnthropicJobMetaProvider();
+    },
+  },
+});

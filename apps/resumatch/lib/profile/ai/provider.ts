@@ -1,5 +1,6 @@
 import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
+import { AiProviderError } from "../../ai/providerError";
 
 export const SUMMARY_TONES = ["friendly", "official", "confident", "concise"] as const;
 export type SummaryTone = (typeof SUMMARY_TONES)[number];
@@ -39,11 +40,9 @@ export interface RewriteProvider {
   rewrite(call: RewriteProviderCall): Promise<RewriteProviderOutput>;
 }
 
-export class RewriteProviderError extends Error {
-  readonly retryable: boolean;
+export class RewriteProviderError extends AiProviderError {
   constructor(message: string, retryable = true) {
-    super(message);
+    super(message, retryable);
     this.name = "RewriteProviderError";
-    this.retryable = retryable;
   }
 }

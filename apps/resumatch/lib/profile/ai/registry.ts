@@ -1,5 +1,6 @@
 import type { ResuMatchAiProvider } from "../../env";
 import type { RewriteProvider } from "./provider";
+import { createProviderRegistry } from "../../ai/providerRegistry";
 
 export { REWRITE_PROMPT_VERSION } from "./prompts";
 
@@ -9,32 +10,20 @@ export const REWRITE_MODEL_VERSIONS: Record<ResuMatchAiProvider, string> = {
   anthropic: "anthropic-rewrite-unconfigured",
 };
 
-const rewriteProviderCache = new Map<string, RewriteProvider>();
-
-export async function getRewriteProvider(name: ResuMatchAiProvider): Promise<RewriteProvider> {
-  const cached = rewriteProviderCache.get(name);
-  if (cached) return cached;
-
-  let provider: RewriteProvider;
-  switch (name) {
-    case "fixture": {
+export const getRewriteProvider = createProviderRegistry<RewriteProvider>({
+  label: "rewrite",
+  loaders: {
+    fixture: async () => {
       const { RewriteFixtureProvider } = await import("./providers/fixture");
-      provider = new RewriteFixtureProvider();
-      break;
-    }
-    case "openai": {
+      return new RewriteFixtureProvider();
+    },
+    openai: async () => {
       const { OpenAiRewriteProvider } = await import("./providers/openai");
-      provider = new OpenAiRewriteProvider();
-      break;
-    }
-    case "anthropic": {
+      return new OpenAiRewriteProvider();
+    },
+    anthropic: async () => {
       const { AnthropicRewriteProvider } = await import("./providers/anthropic");
-      provider = new AnthropicRewriteProvider();
-      break;
-    }
-    default:
-      throw new Error(`unknown ResuMatch rewrite provider: ${name as string}`);
-  }
-  rewriteProviderCache.set(name, provider);
-  return provider;
-}
+      return new AnthropicRewriteProvider();
+    },
+  },
+});

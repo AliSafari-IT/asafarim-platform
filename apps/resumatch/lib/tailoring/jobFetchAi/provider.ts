@@ -1,5 +1,6 @@
 import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
+import { AiProviderError } from "../../ai/providerError";
 
 /**
  * Job-fetch provider interface. Unlike the extraction/tailoring/rewrite
@@ -36,11 +37,9 @@ export interface JobFetchProvider {
   fetch(call: JobFetchProviderCall): Promise<JobFetchProviderOutput>;
 }
 
-export class JobFetchProviderError extends Error {
-  readonly retryable: boolean;
+export class JobFetchProviderError extends AiProviderError {
   constructor(message: string, retryable = true) {
-    super(message);
+    super(message, retryable);
     this.name = "JobFetchProviderError";
-    this.retryable = retryable;
   }
 }

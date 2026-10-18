@@ -1,5 +1,6 @@
 import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
+import { AiProviderError } from "../../ai/providerError";
 
 /**
  * Extraction provider interface. Mirrors lib/tailoring/ai/provider.ts's
@@ -37,11 +38,9 @@ export interface ExtractionProvider {
   extract(call: ExtractionProviderCall): Promise<ExtractionProviderOutput>;
 }
 
-export class ExtractionProviderError extends Error {
-  readonly retryable: boolean;
+export class ExtractionProviderError extends AiProviderError {
   constructor(message: string, retryable = true) {
-    super(message);
+    super(message, retryable);
     this.name = "ExtractionProviderError";
-    this.retryable = retryable;
   }
 }

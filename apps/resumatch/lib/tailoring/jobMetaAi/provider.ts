@@ -1,5 +1,6 @@
 import type { ProviderCallMeta } from "../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../env";
+import { AiProviderError } from "../../ai/providerError";
 
 /**
  * Job-title/employer inference from already-extracted job text — the
@@ -40,11 +41,9 @@ export interface JobMetaProvider {
   infer(call: JobMetaProviderCall): Promise<JobMetaProviderOutput>;
 }
 
-export class JobMetaProviderError extends Error {
-  readonly retryable: boolean;
+export class JobMetaProviderError extends AiProviderError {
   constructor(message: string, retryable = true) {
-    super(message);
+    super(message, retryable);
     this.name = "JobMetaProviderError";
-    this.retryable = retryable;
   }
 }

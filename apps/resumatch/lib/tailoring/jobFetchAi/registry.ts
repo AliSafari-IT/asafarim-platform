@@ -1,5 +1,6 @@
 import type { ResuMatchAiProvider } from "../../env";
 import type { JobFetchProvider } from "./provider";
+import { createProviderRegistry } from "../../ai/providerRegistry";
 
 export { FETCH_JOB_PROMPT_VERSION } from "./prompts";
 
@@ -11,32 +12,20 @@ export const FETCH_JOB_MODEL_VERSIONS: Record<ResuMatchAiProvider, string> = {
   anthropic: "anthropic-fetch-job-unconfigured",
 };
 
-const jobFetchProviderCache = new Map<string, JobFetchProvider>();
-
-export async function getJobFetchProvider(name: ResuMatchAiProvider): Promise<JobFetchProvider> {
-  const cached = jobFetchProviderCache.get(name);
-  if (cached) return cached;
-
-  let provider: JobFetchProvider;
-  switch (name) {
-    case "fixture": {
+export const getJobFetchProvider = createProviderRegistry<JobFetchProvider>({
+  label: "job-fetch",
+  loaders: {
+    fixture: async () => {
       const { JobFetchFixtureProvider } = await import("./providers/fixture");
-      provider = new JobFetchFixtureProvider();
-      break;
-    }
-    case "openai": {
+      return new JobFetchFixtureProvider();
+    },
+    openai: async () => {
       const { OpenAiJobFetchProvider } = await import("./providers/openai");
-      provider = new OpenAiJobFetchProvider();
-      break;
-    }
-    case "anthropic": {
+      return new OpenAiJobFetchProvider();
+    },
+    anthropic: async () => {
       const { AnthropicJobFetchProvider } = await import("./providers/anthropic");
-      provider = new AnthropicJobFetchProvider();
-      break;
-    }
-    default:
-      throw new Error(`unknown ResuMatch job-fetch provider: ${name as string}`);
-  }
-  jobFetchProviderCache.set(name, provider);
-  return provider;
-}
+      return new AnthropicJobFetchProvider();
+    },
+  },
+});

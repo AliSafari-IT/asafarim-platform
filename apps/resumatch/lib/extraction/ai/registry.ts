@@ -1,5 +1,6 @@
 import type { ResuMatchAiProvider } from "../../env";
 import type { ExtractionProvider } from "./provider";
+import { createProviderRegistry } from "../../ai/providerRegistry";
 
 /**
  * Model / prompt registry for the AI CV-extraction call. Mirrors
@@ -24,38 +25,26 @@ export function extractModelVersionFor(provider: ResuMatchAiProvider): string {
   return EXTRACT_MODEL_VERSIONS[provider];
 }
 
-const extractionProviderCache = new Map<string, ExtractionProvider>();
-
 /**
  * Resolve an extraction provider by name. `fixture` delegates to the
  * deterministic extractor (no SDK, no network); `openai`/`anthropic` are
  * loaded only when actually selected, so importing this module never pulls
  * in a provider SDK.
  */
-export async function getExtractionProvider(name: ResuMatchAiProvider): Promise<ExtractionProvider> {
-  const cached = extractionProviderCache.get(name);
-  if (cached) return cached;
-
-  let provider: ExtractionProvider;
-  switch (name) {
-    case "fixture": {
+export const getExtractionProvider = createProviderRegistry<ExtractionProvider>({
+  label: "extraction",
+  loaders: {
+    fixture: async () => {
       const { ExtractionFixtureProvider } = await import("./providers/fixture");
-      provider = new ExtractionFixtureProvider();
-      break;
-    }
-    case "openai": {
+      return new ExtractionFixtureProvider();
+    },
+    openai: async () => {
       const { OpenAiExtractionProvider } = await import("./providers/openai");
-      provider = new OpenAiExtractionProvider();
-      break;
-    }
-    case "anthropic": {
+      return new OpenAiExtractionProvider();
+    },
+    anthropic: async () => {
       const { AnthropicExtractionProvider } = await import("./providers/anthropic");
-      provider = new AnthropicExtractionProvider();
-      break;
-    }
-    default:
-      throw new Error(`unknown ResuMatch extraction provider: ${name as string}`);
-  }
-  extractionProviderCache.set(name, provider);
-  return provider;
-}
+      return new AnthropicExtractionProvider();
+    },
+  },
+});
