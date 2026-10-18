@@ -12,8 +12,10 @@ const RAW_KEY = ["sk", "live_abcdefghijklmnop1234"].join("-");
 const DESCRIPTION = `Hi, I'm Noor. Email me at ${RAW_EMAIL} or call ${RAW_PHONE}. My key is ${RAW_KEY}. How do I solve 3x + 5 = 20?`;
 
 const prismaMock = vi.hoisted(() => ({
-  eduInquiry: { findUnique: vi.fn(), update: vi.fn() },
+  eduInquiry: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   eduAiResponse: { create: vi.fn() },
+  // #542: persistence runs in one array transaction; resolve each operation.
+  $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
 }));
 const moderationInputs = vi.hoisted(() => [] as string[]);
 const streamedContent = vi.hoisted(() => [] as unknown[]);
@@ -55,6 +57,8 @@ beforeEach(() => {
   streamedContent.length = 0;
   prismaMock.eduInquiry.findUnique.mockReset();
   prismaMock.eduInquiry.update.mockReset().mockResolvedValue({});
+  // #542: the in-flight claim succeeds.
+  prismaMock.eduInquiry.updateMany.mockReset().mockResolvedValue({ count: 1 });
   prismaMock.eduAiResponse.create
     .mockReset()
     .mockResolvedValue({ id: "resp-1" });
