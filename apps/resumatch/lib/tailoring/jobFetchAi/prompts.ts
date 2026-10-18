@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { OUTPUT_FORMAT_JSON_ONLY, promptCacheKey } from "../../ai/promptKit";
 
 /**
  * Job-fetch browsing prompt. The model is given a URL and asked to browse
@@ -11,6 +11,10 @@ import { createHash } from "node:crypto";
  * HARD RULES below apply that same DATA-ONLY posture to whatever the
  * browsing tool reads back, mirroring lib/extraction/ai/prompts.ts and
  * lib/tailoring/ai/prompts.ts.
+ *
+ * **The one domain without the "no tools" rule.** This call does have a
+ * tool (the provider's browsing tool), so it must not claim otherwise; it
+ * deliberately does not use promptKit's NO_TOOLS_RULE or hardRulesHeader.
  */
 
 export const FETCH_JOB_PROMPT_VERSION = "fetch_job@1";
@@ -31,8 +35,7 @@ HARD RULES:
   null field is correct when the page genuinely has nothing to offer for
   it. Never fabricate a plausible-looking value to fill a gap.
 
-OUTPUT FORMAT — your entire reply is one JSON object, no prose before or
-after, no markdown fences:
+${OUTPUT_FORMAT_JSON_ONLY}
 { "title": string|null, "employer": string|null, "rawText": string }
 
 "rawText" is the job's own readable content — role summary, responsibilities,
@@ -49,6 +52,6 @@ export interface RenderedJobFetchPrompt {
 
 export function renderJobFetchPrompt(url: string): RenderedJobFetchPrompt {
   const user = `Browse this job posting and extract it as the single JSON object described in your instructions:\n${url}`;
-  const cacheKey = createHash("sha256").update(`${FETCH_JOB_PROMPT_VERSION}::${SYSTEM_PROMPT}::${user}`).digest("hex");
+  const cacheKey = promptCacheKey(FETCH_JOB_PROMPT_VERSION, SYSTEM_PROMPT, user);
   return { system: SYSTEM_PROMPT, user, version: FETCH_JOB_PROMPT_VERSION, cacheKey };
 }
