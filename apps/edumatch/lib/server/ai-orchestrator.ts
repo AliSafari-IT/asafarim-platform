@@ -25,6 +25,7 @@ import {
 } from "./moderation";
 import { recordEduAuditEvent } from "./audit";
 import { redactForProvider } from "./ai-redact";
+import { assertCanGenerateAiResponse, EduAiBlockedError, type EduAiBlockReason } from "./ai-quota";
 import {
   attemptCostMicros,
   recordEduAiCost,
@@ -94,7 +95,12 @@ export type AiResponseSuccess = {
   billed?: BilledCall;
 };
 
-export type AiResponseFailure = { error: string; billed?: BilledCall };
+export type AiResponseFailure = {
+  error: string;
+  billed?: BilledCall;
+  /** Set when the spend controls (#539) stopped the attempt before any paid call. */
+  blocked?: EduAiBlockReason;
+};
 export type AiResponseResult = AiResponseSuccess | AiResponseFailure;
 
 function getProviderError(payload: unknown): string | undefined {
@@ -478,6 +484,29 @@ export async function orchestrateResponse(
       latencyMs: latest.latencyMs ?? 0,
       responseId: latest.id,
     };
+  }
+
+  // Spend controls (#539): kill switch, monthly budget, student quota. Before
+  // the claim and before any paid call (transcription included). A block
+  // persists nothing, so it never looks like a moderation refusal.
+  try {
+    await assertCanGenerateAiResponse(inquiry.studentId);
+  } catch (err) {
+    if (err instanceof EduAiBlockedError) {
+      console.warn(`[AI] inquiry ${inquiryId}: AI generation blocked (${err.reason})`);
+      await recordEduAuditEvent({
+        actorId: inquiry.studentId,
+        actorRole: "SYSTEM",
+        action: "AI_GENERATION_BLOCKED",
+        entity: "EduInquiry",
+        entityId: inquiryId,
+        prevState: inquiry.status,
+        nextState: inquiry.status,
+        reason: err.reason,
+      });
+      return { error: err.message, blocked: err.reason };
+    }
+    throw err;
   }
 
   // In-flight claim (#542): only one attempt per inquiry may reach a paid
