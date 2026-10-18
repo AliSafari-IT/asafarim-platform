@@ -46,6 +46,31 @@ describe("redactForProvider: personal data and secrets are removed", () => {
     expect(counts).toEqual({ "[EMAIL]": 2, "[PHONE]": 1 });
   });
 
+  it.each([
+    ["Tel: 0470 12 34 56 / 02 123 45 67", "Tel: [PHONE] / [PHONE]"],
+    ["0470 12 34 56 0470 65 43 21", "[PHONE] [PHONE]"],
+    ["mum 0470 12 34 56\n0470 65 43 21 dad", "mum [PHONE]\n[PHONE] dad"],
+    ["+32 470 12 34 56  +352 621 123 456", "[PHONE]  [PHONE]"],
+  ])("splits two joined phone numbers: %s", (input, expected) => {
+    expect(r(input)).toBe(expected);
+  });
+
+  it("fails closed on an unsplittable over-long run that starts like a phone", () => {
+    expect(r("call 04701234560470654321")).toBe("call [PHONE]");
+  });
+
+  it("counts every phone number in a split match", () => {
+    const { counts } = redactForProvider("0470 12 34 56 / 02 123 45 67");
+    expect(counts).toEqual({ "[PHONE]": 2 });
+  });
+
+  it("stays fast on long text with many word boundaries and no @", () => {
+    const input = "a.".repeat(32_000);
+    const start = performance.now();
+    expect(r(input)).toBe(input);
+    expect(performance.now() - start).toBeLessThan(500);
+  });
+
   it("leaves no raw value behind when several kinds are mixed", () => {
     const input =
       "Hi, I'm Noor (noor@school.be, 0470 12 34 56). My key is sk-test_1234567890abcdef. Can you explain fractions?";

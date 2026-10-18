@@ -47,9 +47,29 @@ function cardOrKeep(match: string): string {
   return luhnValid(digits) ? CARD : match;
 }
 
+/** Splits a match at the given separators, keeping them, and rechecks each part. */
+function recheckParts(match: string, separator: RegExp): string | null {
+  const parts = match.split(separator);
+  if (parts.length < 2) return null;
+  return parts.map((p, i) => (i % 2 === 1 ? p : phoneOrKeep(p))).join("");
+}
+
 function phoneOrKeep(match: string): string {
   const digits = match.replace(/\D/g, "");
-  if (digits.length < 9 || digits.length > 15) return match;
+  if (digits.length > 15) {
+    // Too long for one phone number: usually two numbers the greedy pattern
+    // joined ("0470 12 34 56 / 02 123 45 67"). Split at clear boundaries
+    // (slash, line break, a run of spaces), then before each group that
+    // starts like a phone number (`+`, or a trunk `0` followed by 1–9), and
+    // check each part again. Never let such a match through unchecked.
+    return (
+      recheckParts(match, /(\s*\/\s*|\s*\n\s*|\s{2,})/) ??
+      recheckParts(match, /(\s+)(?=\+|\(?0[1-9])/) ??
+      // Still one unsplittable run: fail closed if it starts like a phone.
+      (/^(?:\+|\(?0)/.test(match) ? PHONE : match)
+    );
+  }
+  if (digits.length < 9) return match;
   // A plain decimal number, e.g. 3.14159265 or 1234.56789.
   if (/^\d+\.\d+$/.test(match)) return match;
   const groups = match.split(/[^\d]+/).filter((g) => g.length > 0);
@@ -65,7 +85,13 @@ function phoneOrKeep(match: string): string {
 const RULES: [RegExp, Replacer, string][] = [
   // DSN before EMAIL, so `user:pass@host` is replaced whole.
   [/\b[A-Za-z0-9_-]{2,}:\/\/[^\s"'@]+:[^\s"'@]+@[^\s"']+/g, "[DSN]", "[DSN]"],
-  [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[EMAIL]", "[EMAIL]"],
+  // Bounded lengths (RFC 5321 limits) keep this linear on long text with
+  // many word boundaries and no `@`; unbounded, it was quadratic.
+  [
+    /\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,63}\b/g,
+    "[EMAIL]",
+    "[EMAIL]",
+  ],
   [
     /\b(?:sk|pk|rk|ghp|gho|xox[baprs])[-_][A-Za-z0-9\-_]{12,}\b/g,
     "[SECRET]",
@@ -96,7 +122,11 @@ export function redactForProvider(input: string): RedactionResult {
     re.lastIndex = 0;
     text = text.replace(re, (match) => {
       const out = typeof replacer === "string" ? replacer : replacer(match);
-      if (out !== match) counts[token] = (counts[token] ?? 0) + 1;
+      if (out !== match) {
+        // A split phone match can hold several tokens.
+        const n = Math.max(1, out.split(token).length - 1);
+        counts[token] = (counts[token] ?? 0) + n;
+      }
       return out;
     });
   }
