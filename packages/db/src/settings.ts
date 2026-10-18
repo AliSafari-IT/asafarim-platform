@@ -427,6 +427,49 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
     maxItems: 20,
     maxLength: 60,
   },
+  // EduMatch AI tutor spend controls (#539). Platform-wide: EduMatch has no
+  // workspaces and the platform pays for every call. Read by
+  // apps/edumatch/lib/server/ai-quota.ts before any paid provider call;
+  // a change takes effect on the next AI request, with no redeploy.
+  {
+    key: "edumatch.ai.enabled",
+    label: "EduMatch AI tutor",
+    description:
+      "Kill switch for EduMatch's AI tutor. Off = no AI answers and no AI spend; students see that AI help is paused. Takes effect on the next request.",
+    group: "ai",
+    scope: "edumatch",
+    type: "boolean",
+    defaultValue: true,
+    highImpact: true,
+  },
+  {
+    key: "edumatch.ai.monthlyBudgetUsd",
+    label: "EduMatch AI monthly budget",
+    description:
+      "Platform-wide AI spend ceiling per UTC month, from EduMatch's cost ledger. Once the month's known spend reaches it, AI answers stop until next month. 0 freezes AI spend. Calls the ledger could not price do not count toward it.",
+    group: "ai",
+    scope: "edumatch",
+    type: "number",
+    defaultValue: 50,
+    min: 0,
+    max: 10000,
+    unit: "USD",
+    highImpact: true,
+  },
+  {
+    key: "edumatch.ai.studentMonthlyAnswerQuota",
+    label: "EduMatch AI answers per student",
+    description:
+      "How many AI answer attempts one student may start per UTC month. A fallback to the second provider within one attempt counts once; voice transcription does not count. 0 blocks AI answers.",
+    group: "ai",
+    scope: "edumatch",
+    type: "number",
+    defaultValue: 100,
+    min: 0,
+    max: 10000,
+    unit: "answers",
+    highImpact: true,
+  },
   {
     key: "resumatch.ai.openaiModel",
     label: "ResuMatch — OpenAI model",

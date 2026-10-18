@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { ContextualHelpLink } from "@/components/help/ContextualHelpLink";
+import { aiErrorMessageKey } from "@/lib/ai-blocked";
 
 type Attachment = {
   url: string;
@@ -191,7 +192,10 @@ export default function InquiryDetail() {
       });
 
       if (!res.ok || !res.body) {
-        setError(t("edumatch.inquiry.detail.aiUnavailable"));
+        // A spend-control block (#539) names its reason; anything else
+        // keeps the generic message.
+        const body: unknown = res.ok ? null : await res.json().catch(() => null);
+        setError(t(aiErrorMessageKey(body)));
         setStreaming(false);
         return;
       }

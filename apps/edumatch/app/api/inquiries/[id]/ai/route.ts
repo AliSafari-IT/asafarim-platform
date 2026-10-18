@@ -18,6 +18,12 @@ import { moderatePrompt, moderationAllowsGeneration } from "@/lib/server/moderat
 import { recordEduAuditEvent } from "@/lib/server/audit";
 import { redactForProvider } from "@/lib/server/ai-redact";
 import {
+  assertCanGenerateAiResponse,
+  assertStudentQuotaUnderClaim,
+  blockedHttpStatus,
+  EduAiBlockedError,
+} from "@/lib/server/ai-quota";
+import {
   AiClaimLostError,
   claimAiGeneration,
   persistUnderClaim,
@@ -44,6 +50,9 @@ export const runtime = "nodejs";
  * - If OpenAI fails (quota exceeded, etc.), automatically falls back to Anthropic streaming.
  * - On stream completion, persists EduAiResponse and updates inquiry status
  *   in one transaction, before the `done` event is sent.
+ * - Spend controls (#539): when AI is switched off, the month's budget is
+ *   used up, or the student used this month's answers, the request gets
+ *   503/429 `{ error: "ai_blocked", reason }` before any provider call.
  * - Only one AI attempt per inquiry may run at a time (#542): a request made
  *   while another stream or queued job holds the in-flight claim gets 409
  *   and never reaches a provider.
@@ -68,6 +77,32 @@ export async function GET(
     }
     if (inquiry.studentId !== user.id) {
       return handleEduError("inquiries/ai", new Error("Forbidden"));
+    }
+
+    // Spend controls (#539): kill switch, monthly budget, student quota,
+    // checked before the claim and before any paid call. A block persists
+    // nothing, so it stays distinct from a moderation refusal.
+    try {
+      await assertCanGenerateAiResponse(user.id);
+    } catch (err) {
+      if (err instanceof EduAiBlockedError) {
+        console.warn(`[AI] inquiry ${inquiryId}: AI generation blocked (${err.reason})`);
+        void recordEduAuditEvent({
+          actorId: user.id,
+          actorRole: "STUDENT",
+          action: "AI_GENERATION_BLOCKED",
+          entity: "EduInquiry",
+          entityId: inquiryId,
+          prevState: inquiry.status,
+          nextState: inquiry.status,
+          reason: err.reason,
+        });
+        return NextResponse.json(
+          { error: "ai_blocked", reason: err.reason, message: err.message },
+          { status: blockedHttpStatus(err.reason) },
+        );
+      }
+      throw err;
     }
 
     // In-flight claim (#542): a second tab or a refresh mid-stream must not
@@ -99,6 +134,31 @@ export async function GET(
     // return or throw releases the claim in the finally below.
     let claimHandedToStream = false;
     try {
+      // Student quota again, now that this attempt's claim is visible to
+      // any concurrent attempt (#539). A block releases the claim below.
+      try {
+        await assertStudentQuotaUnderClaim(user.id, inquiryId);
+      } catch (err) {
+        if (err instanceof EduAiBlockedError) {
+          console.warn(`[AI] inquiry ${inquiryId}: AI generation blocked (${err.reason})`);
+          void recordEduAuditEvent({
+            actorId: user.id,
+            actorRole: "STUDENT",
+            action: "AI_GENERATION_BLOCKED",
+            entity: "EduInquiry",
+            entityId: inquiryId,
+            prevState: inquiry.status,
+            nextState: inquiry.status,
+            reason: err.reason,
+          });
+          return NextResponse.json(
+            { error: "ai_blocked", reason: err.reason, message: err.message },
+            { status: blockedHttpStatus(err.reason) },
+          );
+        }
+        throw err;
+      }
+
       // For simplicity, require explicit ?stream=1 to avoid accidental buffering
       // in clients that don't expect SSE.
       // (In a full implementation you'd parse URL from request)

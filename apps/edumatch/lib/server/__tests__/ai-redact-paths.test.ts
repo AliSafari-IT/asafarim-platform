@@ -21,6 +21,12 @@ const moderationInputs = vi.hoisted(() => [] as string[]);
 const streamedContent = vi.hoisted(() => [] as unknown[]);
 
 vi.mock("@asafarim/db", () => ({ prisma: prismaMock }));
+// Spend controls (#539) are tested in ai-quota*.test.ts; here they always allow.
+vi.mock("@/lib/server/ai-quota", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/server/ai-quota")>()),
+  assertCanGenerateAiResponse: vi.fn(async () => {}),
+  assertStudentQuotaUnderClaim: vi.fn(async () => {}),
+}));
 vi.mock("@/lib/server/audit", () => ({ recordEduAuditEvent: vi.fn() }));
 vi.mock("@/lib/server/storage", () => ({
   objectExists: vi.fn(async () => true),

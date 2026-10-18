@@ -322,6 +322,9 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.inquiry.detail.viewQuotes": "View Quotes",
     "edumatch.inquiry.detail.dismiss": "dismiss",
     "edumatch.inquiry.detail.aiUnavailable": "AI service unavailable.",
+    "edumatch.inquiry.detail.aiPaused": "AI help is paused right now. Please try again later.",
+    "edumatch.inquiry.detail.aiBudgetReached": "AI help has reached its limit for this month. Please try again next month.",
+    "edumatch.inquiry.detail.aiStudentQuotaReached": "You've used your AI answers for this month. They reset at the start of next month.",
     "edumatch.inquiry.detail.streamInterrupted": "Stream interrupted.",
     "edumatch.inquiry.detail.locationRequired":
       "Location required to find nearby tutors. Please set your home location in your student profile or allow browser location access.",
@@ -1934,6 +1937,9 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.inquiry.detail.viewQuotes": "Offertes Bekijken",
     "edumatch.inquiry.detail.dismiss": "sluiten",
     "edumatch.inquiry.detail.aiUnavailable": "AI-dienst niet beschikbaar.",
+    "edumatch.inquiry.detail.aiPaused": "AI-hulp is momenteel gepauzeerd. Probeer het later opnieuw.",
+    "edumatch.inquiry.detail.aiBudgetReached": "AI-hulp heeft de limiet voor deze maand bereikt. Probeer het volgende maand opnieuw.",
+    "edumatch.inquiry.detail.aiStudentQuotaReached": "Je hebt je AI-antwoorden voor deze maand gebruikt. Ze worden begin volgende maand opnieuw beschikbaar.",
     "edumatch.inquiry.detail.streamInterrupted": "Stroom onderbroken.",
     "edumatch.inquiry.detail.locationRequired":
       "Locatie vereist om tutors in de buurt te vinden. Stel je thuislocatie in je studentprofiel in of sta browsertoegang tot locatie toe.",
@@ -3385,6 +3391,9 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.inquiry.detail.viewQuotes": "Voir les Devis",
     "edumatch.inquiry.detail.dismiss": "fermer",
     "edumatch.inquiry.detail.aiUnavailable": "Service IA indisponible.",
+    "edumatch.inquiry.detail.aiPaused": "L'aide IA est en pause pour le moment. Réessayez plus tard.",
+    "edumatch.inquiry.detail.aiBudgetReached": "L'aide IA a atteint sa limite pour ce mois. Réessayez le mois prochain.",
+    "edumatch.inquiry.detail.aiStudentQuotaReached": "Vous avez utilisé vos réponses IA pour ce mois. Elles se renouvellent au début du mois prochain.",
     "edumatch.inquiry.detail.streamInterrupted": "Flux interrompu.",
     "edumatch.inquiry.detail.locationRequired":
       "Localisation requise pour trouver des tuteurs à proximité. Veuillez définir votre adresse domicile dans votre profil étudiant ou autoriser l'accès à la localisation du navigateur.",
@@ -4536,6 +4545,9 @@ export const edumatchDictionaries: Dictionaries = {
     "edumatch.inquiry.detail.viewQuotes": "Angebote Ansehen",
     "edumatch.inquiry.detail.dismiss": "schließen",
     "edumatch.inquiry.detail.aiUnavailable": "KI-Dienst nicht verfügbar.",
+    "edumatch.inquiry.detail.aiPaused": "Die KI-Hilfe ist gerade pausiert. Bitte versuche es später erneut.",
+    "edumatch.inquiry.detail.aiBudgetReached": "Die KI-Hilfe hat ihr Limit für diesen Monat erreicht. Bitte versuche es nächsten Monat erneut.",
+    "edumatch.inquiry.detail.aiStudentQuotaReached": "Du hast deine KI-Antworten für diesen Monat aufgebraucht. Sie werden zu Beginn des nächsten Monats erneuert.",
     "edumatch.inquiry.detail.streamInterrupted": "Stream unterbrochen.",
     "edumatch.inquiry.detail.locationRequired":
       "Standort erforderlich, um Tutoren in der Nähe zu finden. Bitte lege deinen Heimatstandort in deinem Studentenprofil fest oder erlaube den Browserzugriff auf deinen Standort.",
