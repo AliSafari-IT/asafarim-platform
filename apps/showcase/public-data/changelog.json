@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-18",
+    "title": "Resumatch: per-workspace AI monthly budget override",
+    "sha": "082c292f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/082c292f"
+  },
+  {
+    "date": "2026-10-18",
     "title": "Resumatch: cross-provider AI fallback (OpenAI ↔ Anthropic)",
     "sha": "d4ae33d8",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d4ae33d8"
@@ -112,11 +118,5 @@
     "title": "Testora: register TasksAI with Local/Remote smoke targets and a coverage manifest (#742 slice 1)",
     "sha": "ad4a2926",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ad4a2926"
-  },
-  {
-    "date": "2026-10-02",
-    "title": "Testora: re-check the runner's egress fence while it runs (#718 follow-up)",
-    "sha": "88ce87ce",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/88ce87ce"
   }
 ]
