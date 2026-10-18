@@ -5,6 +5,7 @@ import { handleEduError, badRequest, serverError } from "@/lib/server";
 import { streamOpenAI, streamAnthropic, buildVisionContent, buildSystemPrompt, transcribeAudio } from "@/lib/server/ai-orchestrator";
 import { moderatePrompt, moderationAllowsGeneration } from "@/lib/server/moderation";
 import { recordEduAuditEvent } from "@/lib/server/audit";
+import { redactForProvider } from "@/lib/server/ai-redact";
 import { getSignedDownloadUrl } from "@/lib/server/storage";
 import { prisma } from "@asafarim/db";
 
@@ -76,7 +77,9 @@ export async function GET(
       }
     }
 
-    const description = inquiry.description + audioText;
+    // Redact personal data and secrets first (#541): moderation and every
+    // provider call below see only the redacted text.
+    const description = redactForProvider(inquiry.description + audioText).text;
 
     // Moderation pre-check: if the prompt is unsafe, do not open a stream.
     // Persist the refusal as an EduAiResponse + flip inquiry to REFUSED, then
