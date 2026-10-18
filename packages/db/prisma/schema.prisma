@@ -1275,6 +1275,11 @@ model EduInquiry {
   moderationCategory String? // CHEATING, EXAM_BYPASS, PLAGIARISM, UNSAFE_PERSONAL, OTHER, NONE
   moderationReason   String? @db.Text
 
+  // In-flight claim for AI generation (#542). Set before any paid provider
+  // call, cleared when the response is persisted or the attempt ends. A
+  // claim older than the stale window is treated as a crashed attempt.
+  aiClaimedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
