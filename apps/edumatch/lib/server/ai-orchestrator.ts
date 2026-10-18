@@ -24,6 +24,7 @@ import {
   type ModerationDecision,
 } from "./moderation";
 import { recordEduAuditEvent } from "./audit";
+import { redactForProvider } from "./ai-redact";
 
 const OPENAI_VISION_MODEL = process.env.OPENAI_MODEL_VISION ?? "gpt-4o";
 const OPENAI_CHAT_MODEL = process.env.OPENAI_MODEL_CHAT ?? "gpt-4o-mini";
@@ -375,8 +376,9 @@ export async function orchestrateResponse(
     }
   }
 
-  // 2) Build prompt
-  const baseDescription = inquiry.description + audioText;
+  // 2) Build prompt. Redact personal data and secrets first (#541): from
+  // here on, moderation and every provider call see only the redacted text.
+  const baseDescription = redactForProvider(inquiry.description + audioText).text;
   const systemPrompt = buildSystemPrompt(options?.localeHint);
 
   // 2a) Moderation pre-check. If REFUSE, short-circuit and persist a
