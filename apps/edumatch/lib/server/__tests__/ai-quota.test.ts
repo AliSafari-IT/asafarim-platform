@@ -313,3 +313,35 @@ describe("assertStudentQuotaUnderClaim", () => {
     errorLog.mockRestore();
   });
 });
+
+describe("assertStudentQuotaUnderClaim: an attempt finishing between the two reads", () => {
+  it("still counts it (live claims are read before the ledger)", async () => {
+    // Quota 1. Attempt A (another inquiry) is generating: a live claim, no
+    // ledger event yet. Right after this check's first database read, A
+    // writes its ledger event and then releases its claim.
+    state.settings.set(EDUMATCH_AI_STUDENT_QUOTA_KEY, 1);
+    let aFinished = false;
+    let reads = 0;
+    const afterRead = () => {
+      reads += 1;
+      if (reads === 1) aFinished = true;
+    };
+    inquiryCount.mockImplementationOnce(async () => {
+      const live = aFinished ? 0 : 1;
+      afterRead();
+      return live;
+    });
+    findMany.mockImplementationOnce(async () => {
+      const rows = aFinished ? [{ workflowId: "a" }] : [];
+      afterRead();
+      return rows;
+    });
+
+    await expect(
+      assertStudentQuotaUnderClaim("stu-1", "inq-b", NOW)
+    ).rejects.toMatchObject({ reason: "student_quota" });
+    expect(inquiryCount.mock.invocationCallOrder[0]!).toBeLessThan(
+      findMany.mock.invocationCallOrder[0]!
+    );
+  });
+});
