@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-18",
+    "title": "EduMatch: AI cost ledger for every paid provider call (#540)",
+    "sha": "cbdf1fe0",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/cbdf1fe0"
+  },
+  {
+    "date": "2026-10-18",
     "title": "EduMatch: redact PII and secrets before student text reaches AI providers",
     "sha": "35883200",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/35883200"
@@ -112,11 +118,5 @@
     "title": "Infra: asafarim.site placeholder landing (#775)",
     "sha": "5bdf6594",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5bdf6594"
-  },
-  {
-    "date": "2026-10-03",
-    "title": "Testora: serve the public pages on testora.cloud (#762, phase A)",
-    "sha": "a57131b8",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/a57131b8"
   }
 ]
