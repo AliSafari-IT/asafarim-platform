@@ -1,6 +1,7 @@
 import type { ResuMatchAiProvider } from "../../env";
 import { getPlatformSetting } from "../../platform-settings";
 import type { TailorProvider } from "./provider";
+import { createProviderRegistry } from "../../ai/providerRegistry";
 
 /**
  * Model / prompt registry for the CV-tailoring call. Mirrors the old
@@ -50,37 +51,25 @@ export async function resolveTailorModelVersion(provider: ResuMatchAiProvider): 
   return getPlatformSetting(settingKey, envDefault);
 }
 
-const tailorProviderCache = new Map<string, TailorProvider>();
-
 /**
  * Resolve a tailoring provider by name. `fixture` is constructed eagerly
  * (no SDK, no network); `openai`/`anthropic` are loaded only when actually
  * selected, so importing this module never pulls in a provider SDK.
  */
-export async function getTailorProvider(name: ResuMatchAiProvider): Promise<TailorProvider> {
-  const cached = tailorProviderCache.get(name);
-  if (cached) return cached;
-
-  let provider: TailorProvider;
-  switch (name) {
-    case "fixture": {
+export const getTailorProvider = createProviderRegistry<TailorProvider>({
+  label: "tailoring",
+  loaders: {
+    fixture: async () => {
       const { TailorFixtureProvider } = await import("./providers/fixture");
-      provider = new TailorFixtureProvider();
-      break;
-    }
-    case "openai": {
+      return new TailorFixtureProvider();
+    },
+    openai: async () => {
       const { OpenAiTailorProvider } = await import("./providers/openai");
-      provider = new OpenAiTailorProvider();
-      break;
-    }
-    case "anthropic": {
+      return new OpenAiTailorProvider();
+    },
+    anthropic: async () => {
       const { AnthropicTailorProvider } = await import("./providers/anthropic");
-      provider = new AnthropicTailorProvider();
-      break;
-    }
-    default:
-      throw new Error(`unknown ResuMatch tailoring provider: ${name as string}`);
-  }
-  tailorProviderCache.set(name, provider);
-  return provider;
-}
+      return new AnthropicTailorProvider();
+    },
+  },
+});

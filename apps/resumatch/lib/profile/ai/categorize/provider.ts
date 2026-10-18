@@ -1,5 +1,6 @@
 import type { ProviderCallMeta } from "../../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../../env";
+import { AiProviderError } from "../../../ai/providerError";
 
 /**
  * Skill-categorization provider interface. Deliberately narrow the same way
@@ -43,11 +44,9 @@ export interface CategorizeSkillsProvider {
   categorize(call: CategorizeSkillsProviderCall): Promise<CategorizeSkillsProviderOutput>;
 }
 
-export class CategorizeSkillsProviderError extends Error {
-  readonly retryable: boolean;
+export class CategorizeSkillsProviderError extends AiProviderError {
   constructor(message: string, retryable = true) {
-    super(message);
+    super(message, retryable);
     this.name = "CategorizeSkillsProviderError";
-    this.retryable = retryable;
   }
 }

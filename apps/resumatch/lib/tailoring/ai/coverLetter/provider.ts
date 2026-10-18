@@ -1,6 +1,7 @@
 import type { ProviderCallMeta } from "../../../costs/providerMeta";
 import type { ResuMatchAiProvider } from "../../../env";
 import type { CoverLetterSuggestion } from "./schema";
+import { AiProviderError } from "../../../ai/providerError";
 
 /** Mirrors `../provider.ts`'s `TailorProviderCall`/`TailorProvider` shape,
  *  applied to the cover-letter prompt instead. */
@@ -27,11 +28,9 @@ export interface CoverLetterProvider {
   generate(call: CoverLetterProviderCall): Promise<CoverLetterProviderOutput>;
 }
 
-export class CoverLetterProviderError extends Error {
-  readonly retryable: boolean;
+export class CoverLetterProviderError extends AiProviderError {
   constructor(message: string, retryable = true) {
-    super(message);
+    super(message, retryable);
     this.name = "CoverLetterProviderError";
-    this.retryable = retryable;
   }
 }
