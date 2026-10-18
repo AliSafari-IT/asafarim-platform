@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-18",
+    "title": "EduMatch: AI kill switch, monthly budget and per-student quota (#539)",
+    "sha": "52014deb",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/52014deb"
+  },
+  {
+    "date": "2026-10-18",
     "title": "EduMatch: AI cost ledger for every paid provider call (#540)",
     "sha": "cbdf1fe0",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/cbdf1fe0"
@@ -112,11 +118,5 @@
     "title": "Infra: wire in the shared edge, no port change (Refs #770, #774 phase 2)",
     "sha": "75b8c0a3",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/75b8c0a3"
-  },
-  {
-    "date": "2026-10-03",
-    "title": "Infra: asafarim.site placeholder landing (#775)",
-    "sha": "5bdf6594",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5bdf6594"
   }
 ]

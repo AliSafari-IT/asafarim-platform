@@ -126,10 +126,10 @@
       "kind": "package",
       "folder": "packages/db",
       "description": "Shared PostgreSQL/Prisma database package for the ASafariM Platform",
-      "sha": "cbdf1fe0",
+      "sha": "52014deb",
       "date": "2026-10-18",
       "since": "2026-07-04",
-      "commits": 60,
+      "commits": 61,
       "dependents": 10
     },
     {
@@ -214,10 +214,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "1ff3fb6c",
+      "sha": "916afc05",
       "date": "2026-10-18",
       "since": "2026-07-04",
-      "commits": 460,
+      "commits": 461,
       "dependents": 0
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/edumatch",
       "description": "",
-      "sha": "cbdf1fe0",
+      "sha": "52014deb",
       "date": "2026-10-18",
       "since": "2026-08-05",
-      "commits": 125,
+      "commits": 126,
       "dependents": 0
     },
     {
