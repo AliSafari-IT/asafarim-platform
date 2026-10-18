@@ -28,6 +28,7 @@ export const proxy = createAuthProxy({
     "/api/internal/ai-spend",
     "/api/internal/audit-events",
     "/api/internal/ai-cost-daily",
+    "/api/internal/workspace-ai-budget",
   ],
   signInUrl: `${hubUrl}/sign-in`,
 });

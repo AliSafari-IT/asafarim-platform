@@ -18,6 +18,9 @@ export const ALLOWED_KEYS = new Set([
   "action",
   "applicationId",
   "attempt",
+  // Workspace AI budget override in USD (issue #514): an operator setting,
+  // never personal data.
+  "budgetUsd",
   // Comma-separated field names only ("notes,followUpDate"), never values.
   "changedFields",
   "connector",
@@ -36,6 +39,7 @@ export const ALLOWED_KEYS = new Set([
   "outcome",
   "outputLanguage",
   "path",
+  "previousBudgetUsd",
   "reasonCode",
   "service",
   "sourceKey",

@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { groupTotals, totalsToDTO, type CostSource, type CredentialSource } from "@asafarim/ai-cost-ledger";
 import { getJobmatchDb } from "@/lib/db/client";
+import { getWorkspaceBudget } from "@/lib/ai/workspaceBudget";
 
 /**
  * AI spend view: AiUsageLedger, aggregated by kind (embed/evaluate under the
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
   const ledgerWhere = workspaceId ? { workspaceId } : {};
 
   const eventWhere = workspaceId ? { workspaceId } : {};
-  const [ledgerAgg, ledgerByKind, events] = await Promise.all([
+  const [ledgerAgg, ledgerByKind, events, budget] = await Promise.all([
     db.aiUsageLedger.aggregate({
       where: ledgerWhere,
       _sum: { costUsd: true, inputTokens: true, outputTokens: true },
@@ -66,6 +67,9 @@ export async function GET(request: Request) {
         outputTokens: true,
       },
     }),
+    // Issue #514: this month's spend against the budget in effect, only
+    // for a single-workspace view (null for an unknown workspace).
+    workspaceId ? getWorkspaceBudget(workspaceId) : Promise.resolve(null),
   ]);
 
   const rows = events.map((e) => ({
@@ -78,6 +82,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     workspaceId,
+    budget,
     ledger: {
       totalCostUsd: ledgerAgg._sum.costUsd ?? 0,
       totalInputTokens: ledgerAgg._sum.inputTokens ?? 0,
