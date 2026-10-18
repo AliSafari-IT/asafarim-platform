@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-10-18",
+    "title": "EduMatch: redact PII and secrets before student text reaches AI providers",
+    "sha": "35883200",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/35883200"
+  },
+  {
+    "date": "2026-10-18",
     "title": "Resumatch: per-workspace AI monthly budget override",
     "sha": "082c292f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/082c292f"
@@ -112,11 +118,5 @@
     "title": "Testora: serve the public pages on testora.cloud (#762, phase A)",
     "sha": "a57131b8",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/a57131b8"
-  },
-  {
-    "date": "2026-10-03",
-    "title": "Testora: register TasksAI with Local/Remote smoke targets and a coverage manifest (#742 slice 1)",
-    "sha": "ad4a2926",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ad4a2926"
   }
 ]
