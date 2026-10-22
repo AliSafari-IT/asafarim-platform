@@ -89,8 +89,10 @@ test("production Caddy follows Caddyfile replacement and the deploy proves it (#
   const proxy = read("infra", "scripts", "lib", "proxy.sh");
   assert.match(proxy, /up -d --no-build --no-recreate caddy/);
   assert.doesNotMatch(proxy, /--force-recreate caddy/);
-  assert.ok(proxy.indexOf("caddy reload") !== -1);
-  assert.ok(proxy.indexOf("caddy reload") < proxy.indexOf("if ! verify_caddy_config"));
+  // the reload command itself (a comment above it mentions `caddy reload` too)
+  const reload = proxy.indexOf("caddy reload --config /etc/caddy/Caddyfile");
+  assert.notEqual(reload, -1);
+  assert.ok(reload < proxy.indexOf("if ! verify_caddy_config"));
 
   const verify = read("infra", "scripts", "lib", "verify-caddy.sh");
   assert.match(verify, /exec -T caddy sha256sum \/etc\/caddy\/Caddyfile/);
