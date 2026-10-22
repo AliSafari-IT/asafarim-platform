@@ -84,8 +84,13 @@ test("production Caddy follows Caddyfile replacement and the deploy proves it (#
 
   const deploy = read("infra", "scripts", "vps-deploy.sh");
   assert.match(deploy, /grep -vx caddy/);
-  assert.match(deploy, /up -d --no-build --no-recreate caddy/);
-  assert.ok(deploy.indexOf("caddy reload") < deploy.indexOf("if ! verify_caddy_config"));
+  // Since the edge cutover work (#843) the Caddy steps live in lib/proxy.sh.
+  assert.match(deploy, /source .*\/lib\/proxy\.sh"/);
+  const proxy = read("infra", "scripts", "lib", "proxy.sh");
+  assert.match(proxy, /up -d --no-build --no-recreate caddy/);
+  assert.doesNotMatch(proxy, /--force-recreate caddy/);
+  assert.ok(proxy.indexOf("caddy reload") !== -1);
+  assert.ok(proxy.indexOf("caddy reload") < proxy.indexOf("if ! verify_caddy_config"));
 
   const verify = read("infra", "scripts", "lib", "verify-caddy.sh");
   assert.match(verify, /exec -T caddy sha256sum \/etc\/caddy\/Caddyfile/);
@@ -94,20 +99,22 @@ test("production Caddy follows Caddyfile replacement and the deploy proves it (#
   }
 });
 
-test("asafarim.site placeholder: served from the mounted config dir, www redirects, listed as another stack (#775)", () => {
-  const caddy = read("infra", "caddy", "Caddyfile").replace(/\r\n/g, "\n");
-  const site = caddy.slice(caddy.indexOf("\nasafarim.site {"));
-  const block = site.slice(0, site.indexOf("\n}\n"));
-  // Inside ./infra/caddy (mounted at /etc/caddy), so a reload serves it with no
-  // container recreate, and `root` is the page's own folder only.
-  assert.match(block, /root \* \/etc\/caddy\/static\/asafarim-site\n/);
-  assert.match(block, /file_server/);
-  assert.match(block, /Content-Security-Policy "default-src 'none';/);
-  assert.match(caddy, /\nwww\.asafarim\.site \{\n {2}redir https:\/\/asafarim\.site\{uri\} 301\n\}/);
-  assert.match(read("infra", "caddy", "static", "asafarim-site", "index.html"), /<title>ASafariM OS/);
-  assert.doesNotMatch(read("infra", "caddy", "static", "asafarim-site", "index.html"), /<script/i);
+test("asafarim.site belongs to the asafarim-os stack; the placeholder stays for a rollback (#775, #838)", () => {
+  // #838 removed the placeholder blocks: the OS publishes its own site file for
+  // these hosts, and a second definition would make either Caddy refuse it.
+  for (const file of [
+    ["infra", "caddy", "Caddyfile"],
+    ["infra", "edge", "caddy", "sites", "asafarim-com.caddy"],
+  ]) {
+    const caddy = read(...file).replace(/\r\n/g, "\n");
+    assert.doesNotMatch(caddy, /^(www\.)?asafarim\.site[ ,{]/m, file.join("/"));
+  }
   const others = read("infra", "caddy", "other-stack-sites.txt").split(/\r?\n/);
   assert.ok(others.includes("asafarim.site") && others.includes("www.asafarim.site"));
+  // the placeholder page is kept, static and script-free, for the rollback
+  const page = read("infra", "caddy", "static", "asafarim-site", "index.html");
+  assert.match(page, /<title>ASafariM OS/);
+  assert.doesNotMatch(page, /<script/i);
 });
 
 test("the image build plan and the deploy know the runner image", () => {
