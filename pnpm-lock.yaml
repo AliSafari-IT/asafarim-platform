@@ -197,11 +197,11 @@ importers:
         specifier: ^5.11.1
         version: 5.11.1(supports-color@7.2.0)
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       next-auth:
         specifier: ^5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
+        version: 5.0.0-beta.32(next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -267,11 +267,11 @@ importers:
         specifier: ^5.11.1
         version: 5.11.1(supports-color@7.2.0)
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       next-auth:
         specifier: ^5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
+        version: 5.0.0-beta.32(next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
       openai:
         specifier: ^4.73.0
         version: 4.104.0(ws@8.21.3)(zod@3.25.76)
@@ -373,11 +373,11 @@ importers:
         specifier: ^0.462.0
         version: 0.462.0(react@19.3.0)
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       next-auth:
         specifier: ^5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
+        version: 5.0.0-beta.32(next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
       puppeteer:
         specifier: ^25.12.0
         version: 25.12.0(yauzl@2.10.0)
@@ -473,11 +473,11 @@ importers:
         specifier: ^6.2.12
         version: 6.2.12
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       next-auth:
         specifier: ^5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
+        version: 5.0.0-beta.32(next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -531,8 +531,8 @@ importers:
         specifier: ^17.4.2
         version: 17.4.2
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -616,8 +616,8 @@ importers:
         specifier: ^1.12.2
         version: 1.12.2
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -628,8 +628,8 @@ importers:
         specifier: ^1.8.1
         version: 1.8.1
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@asafarim/config':
         specifier: workspace:*
@@ -686,8 +686,8 @@ importers:
         specifier: ^17.4.2
         version: 17.4.2
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -715,7 +715,7 @@ importers:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.68.0
-        version: 0.68.0(zod@4.4.3)
+        version: 0.68.0(zod@4.6.7)
       '@asafarim/ai-cost-ledger':
         specifier: workspace:*
         version: link:../../packages/ai-cost-ledger
@@ -765,11 +765,11 @@ importers:
         specifier: ^5.11.1
         version: 5.11.1(supports-color@7.2.0)
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       openai:
         specifier: ^4.77.0
-        version: 4.104.0(ws@8.21.3)(zod@4.4.3)
+        version: 4.104.0(ws@8.21.3)(zod@4.6.7)
       pino:
         specifier: ^9.6.0
         version: 9.14.0
@@ -783,8 +783,8 @@ importers:
         specifier: ^17.5.0
         version: 17.7.0
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@asafarim/config':
         specifier: workspace:*
@@ -871,8 +871,8 @@ importers:
         specifier: ^0.468.0
         version: 0.468.0(react@19.3.0)
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       pg:
         specifier: ^8.13.1
         version: 8.23.1
@@ -980,11 +980,11 @@ importers:
         specifier: ^5.0.9
         version: 5.1.16
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       next-auth:
         specifier: ^5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
+        version: 5.0.0-beta.32(next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
       puppeteer:
         specifier: ^25.12.0
         version: 25.12.0(yauzl@2.10.0)
@@ -1086,11 +1086,11 @@ importers:
         specifier: ^0.462.0
         version: 0.462.0(react@19.3.0)
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       next-auth:
         specifier: ^5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
+        version: 5.0.0-beta.32(next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
       openai:
         specifier: ^4.73.0
         version: 4.104.0(ws@8.21.3)(zod@3.25.76)
@@ -1151,7 +1151,7 @@ importers:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.128.0
-        version: 0.128.0(zod@4.4.3)
+        version: 0.128.0(zod@4.6.7)
       '@asafarim/ai-cost-ledger':
         specifier: workspace:*
         version: link:../../packages/ai-cost-ledger
@@ -1195,8 +1195,8 @@ importers:
         specifier: ^17.4.2
         version: 17.4.2
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -1204,8 +1204,8 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@asafarim/config':
         specifier: workspace:*
@@ -1423,7 +1423,7 @@ importers:
         version: 2.4.3
       next-auth:
         specifier: ^5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
+        version: 5.0.0-beta.32(next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
       nodemailer:
         specifier: ^10.0.13
         version: 10.0.13
@@ -1431,8 +1431,8 @@ importers:
         specifier: ^1.0.39
         version: 1.0.41
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@asafarim/config':
         specifier: workspace:*
@@ -1447,8 +1447,8 @@ importers:
         specifier: ^0.7.39
         version: 0.7.39
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
@@ -1470,8 +1470,8 @@ importers:
         specifier: workspace:*
         version: link:../shared-i18n
       next:
-        specifier: ^16.3.8
-        version: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^16.4.3
+        version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
     devDependencies:
       '@types/react':
         specifier: ^19.3.0
@@ -3415,60 +3415,60 @@ packages:
   '@neon-rs/load@0.0.4':
     resolution: {integrity: sha512-kTPhdZyTQxB+2wpiRcFWrDcejc4JI6tkPuS7UZCG4l6Zvc5kU/gGQ/ozvHTh1XR5tS+UlfAfGuPajjzQjCiHCw==}
 
-  '@next/env@16.3.8':
-    resolution: {integrity: sha512-Al9zqHVV7TJv0eFuOU4U7Lvv74PTih4Ch63sk2xCIpSTkE3udFnaOcnzP2lQVymiL7yS9Cj2iClUXlR3EQ5sEw==}
+  '@next/env@16.4.3':
+    resolution: {integrity: sha512-a7tz1QCcWWkwC/rPJcPMJk/UNRu9CFhDd3OHYE5hddbJrs8BqRTalxI6GlKCWEGzRLHN+S/B7a4PAHCtm25aBQ==}
 
   '@next/eslint-plugin-next@16.3.7':
     resolution: {integrity: sha512-ZQwUKBxqKAasarxLHJkkIv0cuG80pJ7TKvCUcFvlKewkuzYkL+Lsxb++DQlcBnY4uT0kOazDye4j1pyDPlDcDQ==}
 
-  '@next/swc-darwin-arm64@16.3.8':
-    resolution: {integrity: sha512-2JPRMh2nmQG5CiL7cXGL9AGwnPWJQ//cTtAUCT+w511QHk79SYz3LGv/pc5X643B/WEO0rvu3Yww0hqwt3kgeA==}
+  '@next/swc-darwin-arm64@16.4.3':
+    resolution: {integrity: sha512-4yq5EXBt+VDtAZwTyfijaFp5D2C5oz3Ikw5a2kiX2K9nw72vrZX2q5UuAlkPtUMO1tQz6JTKpaKWjS7OOefTDQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
 
-  '@next/swc-darwin-x64@16.3.8':
-    resolution: {integrity: sha512-GZtCCOBKJ4leVIT/Th0llWKhD1ca92lzbQiS5R5ON9QkoiFnilFsebDae1JU2a3HWoKMEmEZWGs1AGLavVM72Q==}
+  '@next/swc-darwin-x64@16.4.3':
+    resolution: {integrity: sha512-1Rvkn/LUhnEF8WxnRkOrqGhbwXui1bkWFxONKIbN+r7C+9KHDSZ+iUoj4CzymVMWUyZIyx9szcb9+kbKhD500A==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
 
-  '@next/swc-linux-arm64-gnu@16.3.8':
-    resolution: {integrity: sha512-O659ygeQYqneJ1fBKMpFxIFqYkYswu8IAS1OCKK/4f3ZgJJm1dRz4fVJZRi/kLLWjnBKnebOePA4WNv+sV1pVA==}
+  '@next/swc-linux-arm64-gnu@16.4.3':
+    resolution: {integrity: sha512-dCKpXErGg3abUM6t5JTJV/ottVBTStJB5lRJTbgdUdQaQ+jNHiK56Hsc0YAEg/rinSh42hYG3HWiYmEMdilnxg==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@next/swc-linux-arm64-musl@16.3.8':
-    resolution: {integrity: sha512-dSjKSyWpzxoO1d3DIZZcP4XJcNaKeLmxQMFOiYl5vuBRMmweIqnAhty8tAmRsvTss779cK1FtYnDMj40e4TQlg==}
+  '@next/swc-linux-arm64-musl@16.4.3':
+    resolution: {integrity: sha512-WwYbhWkhYBvBtib1K4W0kL8MW2snBD2A5b3SN4vPpqalZbZs5+bQ1yzAdepVoOqrFfEW3dmREy4Zs1MrWcrFbw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@next/swc-linux-x64-gnu@16.3.8':
-    resolution: {integrity: sha512-lbqOuz3RPRcv+o9msNsJw5x4+Y1ZwPTs6vmL6DCf7i0fZfvng/F59wyeDwqHIvV0mK//RBy/jJkZ+nCKsSMXjQ==}
+  '@next/swc-linux-x64-gnu@16.4.3':
+    resolution: {integrity: sha512-QymWvfUwDEC5/lpJOsxX5VAbyoR2D13+2Jsjz4be7gT4LPqEgdpkeLIR/HFfCLgKzoMhpJbp6I/JnogyNZHcaA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@next/swc-linux-x64-musl@16.3.8':
-    resolution: {integrity: sha512-+316WswI8ScVgZeUd+1KGaXkHhaYQzCjvH/05TZSpJ8zBizb1a4G7DtO7F12jcBIqMOtsz9ji1t48fmKtzqsGA==}
+  '@next/swc-linux-x64-musl@16.4.3':
+    resolution: {integrity: sha512-Vmjd9D7DpA4Vv3cUlr82QWgJD/BQZmns801vtC5VWHg6jCIA4a5vMKpQnfrM2pyCrp2eV0ENdUg4PlN3bAc2Yw==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@next/swc-win32-arm64-msvc@16.3.8':
-    resolution: {integrity: sha512-ji0gd4kMYUxO+1fJBIbiBVRCjzG/lloiyCccnlebvb1ZJ5qXCPZqYg4Jl1DrrixnWNMKylzgpmMWx0yNDYXlzw==}
+  '@next/swc-win32-arm64-msvc@16.4.3':
+    resolution: {integrity: sha512-lG1pPdPLk7gTyGb00n5JIMLdBJgjb+UEhSdZvFbhUMg0DyC6z4B7RnpSKF9VCd4imkLObVbXOFA0kFCpw7yFow==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
 
-  '@next/swc-win32-x64-msvc@16.3.8':
-    resolution: {integrity: sha512-WcTlaKt/TWkh5kUjdJcUmB1XgZ+1c6fz4Y9fDHL73YNSdGaUWjceeWrrlwF0nv19iABYWC4iAq1oX1w4Bn0vfg==}
+  '@next/swc-win32-x64-msvc@16.4.3':
+    resolution: {integrity: sha512-NmQC9RkJdnPXRaMxtkCzobB3teVjqF33oSOnwDfi+XYGWWYpt+xlGK3mtktSKLbdjwaWbJu2OkkMiRFGUUncKg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
@@ -6846,8 +6846,8 @@ packages:
       nodemailer:
         optional: true
 
-  next@16.3.8:
-    resolution: {integrity: sha512-U7QEZaTini6wKrb8A8hqLLqYQyCetegKjCpJOyxk642vWoMoU1x5PyZCJFvgYgiptA8xc5j/9xYlZFO7w9Sjmw==}
+  next@16.4.3:
+    resolution: {integrity: sha512-OqxKTGi9u80FydydsMNYNjnuje9Au+kvHlt2GZ//ftdpDHm1dxKqAaENoOOTX5wKzn+9vaKUNIfZeyZUuLhCnA==}
     engines: {node: '>=20.9.0'}
     hasBin: true
     peerDependencies:
@@ -8428,8 +8428,8 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
@@ -8452,18 +8452,18 @@ snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
 
-  '@anthropic-ai/sdk@0.128.0(zod@4.4.3)':
+  '@anthropic-ai/sdk@0.128.0(zod@4.6.7)':
     dependencies:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.1.1
     optionalDependencies:
-      zod: 4.4.3
+      zod: 4.6.7
 
-  '@anthropic-ai/sdk@0.68.0(zod@4.4.3)':
+  '@anthropic-ai/sdk@0.68.0(zod@4.6.7)':
     dependencies:
       json-schema-to-ts: 3.1.1
     optionalDependencies:
-      zod: 4.4.3
+      zod: 4.6.7
 
   '@asafarim/envage@0.4.2':
     dependencies:
@@ -10108,7 +10108,7 @@ snapshots:
   '@neon-rs/load@0.0.4':
     optional: true
 
-  '@next/env@16.3.8': {}
+  '@next/env@16.4.3': {}
 
   '@next/eslint-plugin-next@16.3.7(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))':
     dependencies:
@@ -10117,28 +10117,28 @@ snapshots:
     transitivePeerDependencies:
       - eslint
 
-  '@next/swc-darwin-arm64@16.3.8':
+  '@next/swc-darwin-arm64@16.4.3':
     optional: true
 
-  '@next/swc-darwin-x64@16.3.8':
+  '@next/swc-darwin-x64@16.4.3':
     optional: true
 
-  '@next/swc-linux-arm64-gnu@16.3.8':
+  '@next/swc-linux-arm64-gnu@16.4.3':
     optional: true
 
-  '@next/swc-linux-arm64-musl@16.3.8':
+  '@next/swc-linux-arm64-musl@16.4.3':
     optional: true
 
-  '@next/swc-linux-x64-gnu@16.3.8':
+  '@next/swc-linux-x64-gnu@16.4.3':
     optional: true
 
-  '@next/swc-linux-x64-musl@16.3.8':
+  '@next/swc-linux-x64-musl@16.4.3':
     optional: true
 
-  '@next/swc-win32-arm64-msvc@16.3.8':
+  '@next/swc-win32-arm64-msvc@16.4.3':
     optional: true
 
-  '@next/swc-win32-x64-msvc@16.3.8':
+  '@next/swc-win32-x64-msvc@16.4.3':
     optional: true
 
   '@noble/ciphers@2.2.0': {}
@@ -13507,17 +13507,17 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  next-auth@5.0.0-beta.32(next@16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0):
+  next-auth@5.0.0-beta.32(next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0):
     dependencies:
       '@auth/core': 0.41.3(nodemailer@10.0.13)
-      next: 16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      next: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react: 19.3.0
     optionalDependencies:
       nodemailer: 10.0.13
 
-  next@16.3.8(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
+  next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:
-      '@next/env': 16.3.8
+      '@next/env': 16.4.3
       '@swc/helpers': 0.5.23
       baseline-browser-mapping: 2.11.26
       caniuse-lite: 1.0.30001813
@@ -13526,14 +13526,14 @@ snapshots:
       react-dom: 19.3.0(react@19.3.0)
       styled-jsx: 5.1.6(@babel/core@7.29.7(supports-color@7.2.0))(react@19.3.0)
     optionalDependencies:
-      '@next/swc-darwin-arm64': 16.3.8
-      '@next/swc-darwin-x64': 16.3.8
-      '@next/swc-linux-arm64-gnu': 16.3.8
-      '@next/swc-linux-arm64-musl': 16.3.8
-      '@next/swc-linux-x64-gnu': 16.3.8
-      '@next/swc-linux-x64-musl': 16.3.8
-      '@next/swc-win32-arm64-msvc': 16.3.8
-      '@next/swc-win32-x64-msvc': 16.3.8
+      '@next/swc-darwin-arm64': 16.4.3
+      '@next/swc-darwin-x64': 16.4.3
+      '@next/swc-linux-arm64-gnu': 16.4.3
+      '@next/swc-linux-arm64-musl': 16.4.3
+      '@next/swc-linux-x64-gnu': 16.4.3
+      '@next/swc-linux-x64-musl': 16.4.3
+      '@next/swc-win32-arm64-msvc': 16.4.3
+      '@next/swc-win32-x64-msvc': 16.4.3
       '@playwright/test': 1.61.1
       sharp: 0.35.5(@types/node@24.13.2)
     transitivePeerDependencies:
@@ -13664,7 +13664,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  openai@4.104.0(ws@8.21.3)(zod@4.4.3):
+  openai@4.104.0(ws@8.21.3)(zod@4.6.7):
     dependencies:
       '@types/node': 18.19.130
       '@types/node-fetch': 2.6.13
@@ -13675,7 +13675,7 @@ snapshots:
       node-fetch: 2.7.0
     optionalDependencies:
       ws: 8.21.3
-      zod: 4.4.3
+      zod: 4.6.7
     transitivePeerDependencies:
       - encoding
 
@@ -15304,7 +15304,7 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zod@4.4.3: {}
+  zod@4.6.7: {}
 
   zustand@4.5.7(@types/react@19.3.0)(react@19.3.0):
     dependencies:
