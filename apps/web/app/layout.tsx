@@ -14,6 +14,7 @@ import { ThemeScript } from "@asafarim/theme-toggle/script";
 import {
   AppShell,
   AppSwitcher,
+  appSwitcherLabelsFrom,
   Button,
   ButtonLink,
   TopNav,
@@ -111,6 +112,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   }),
                   links
                 )}
+                labels={appSwitcherLabelsFrom(t)}
               />
               {session?.user ? (
                 <UserMenu

@@ -35,6 +35,8 @@ export interface AppSwitcherSource {
   key: string;
   name: string;
   meta: string;
+  /** Short monospace glyph for the switcher tile, e.g. "WB". */
+  glyph?: string;
 }
 
 /**
@@ -45,15 +47,73 @@ export interface AppSwitcherSource {
 export function toAppSwitcherLinks(
   apps: readonly AppSwitcherSource[],
   links: PlatformLinks
-): { label: string; href: string; meta: string }[] {
+): { label: string; href: string; meta: string; glyph?: string }[] {
   return apps
     .filter((app) => app.key in links)
     .map((app) => ({
       label: app.name,
       href: links[app.key as keyof PlatformLinks],
       meta: app.meta,
+      ...(app.glyph ? { glyph: app.glyph } : {}),
     }));
 }
+
+/**
+ * ASafariM products that live outside this monorepo: the ASafariM OS
+ * (asafarim.site, its own repo) and the Android apps. They are not
+ * platform apps — no registry entry, no access rules, no NEXT_PUBLIC_*_URL —
+ * so they sit here as plain links that every app switcher appends below the
+ * platform apps. The Android apps link to their landing pages, not to
+ * Google Play, while they are still in Play testing.
+ */
+export type EcosystemAppKind = "web" | "android";
+
+/** Release state shown as a badge. "play-testing": not yet public on Google Play. */
+export type EcosystemAppStatus = "play-testing";
+
+export interface EcosystemApp {
+  key: "os" | "breinhap" | "igs-pharma";
+  kind: EcosystemAppKind;
+  name: string;
+  href: string;
+  /** Host shown under the name. */
+  host: string;
+  glyph: string;
+  /** Android package id, for Android apps. */
+  packageId?: string;
+  status?: EcosystemAppStatus;
+}
+
+export const ECOSYSTEM_APPS: readonly EcosystemApp[] = [
+  {
+    key: "os",
+    kind: "web",
+    name: "ASafariM OS",
+    href: "https://asafarim.site",
+    host: "asafarim.site",
+    glyph: "OS",
+  },
+  {
+    key: "breinhap",
+    kind: "android",
+    name: "Breinhap",
+    href: "https://breinhap.asafarim.site",
+    host: "breinhap.asafarim.site",
+    glyph: "BH",
+    packageId: "com.asafarim.breinhap",
+    status: "play-testing",
+  },
+  {
+    key: "igs-pharma",
+    kind: "android",
+    name: "IGS-Pharma",
+    href: "https://igs.asafarim.site",
+    host: "igs.asafarim.site",
+    glyph: "IG",
+    packageId: "be.igspharma.app",
+    status: "play-testing",
+  },
+];
 
 export function getPlatformLinks(): PlatformLinks {
   return {

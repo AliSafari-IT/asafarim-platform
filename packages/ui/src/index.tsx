@@ -3,6 +3,7 @@ export { AppCard, type AppCardProps } from "./components/AppCard";
 export { AppShell, type AppShellProps } from "./components/AppShell";
 export {
   AppSwitcher,
+  appSwitcherLabelsFrom,
   type AppSwitcherLabels,
   type AppSwitcherLink,
 } from "./components/AppSwitcher";
@@ -107,6 +108,10 @@ export {
   getPlatformLinks,
   getTrustedPlatformOrigins,
   toAppSwitcherLinks,
+  ECOSYSTEM_APPS,
+  type EcosystemApp,
+  type EcosystemAppKind,
+  type EcosystemAppStatus,
   type PlatformLinks,
   type AppSwitcherSource,
 } from "./links";
