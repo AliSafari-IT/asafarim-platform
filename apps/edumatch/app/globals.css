@@ -331,6 +331,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .edu-app-menu p { padding: 6px 10px 10px; color: var(--color-text-subtle); font-size: .68rem; font-weight: 750; text-transform: uppercase; letter-spacing: .12em; }
 .edu-app-menu a { display: flex; justify-content: space-between; padding: 10px 11px; border-radius: 11px; color: var(--color-text-muted); font-size: .86rem; }
 .edu-app-menu a:hover { color: var(--color-text); background: var(--color-surface-muted); }
+.edu-app-menu { max-height: calc(100dvh - 6rem); overflow-y: auto; }
+.edu-app-menu-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--color-border-strong); }
+.edu-app-menu-group p { padding-top: 8px; }
+.edu-app-menu a { align-items: center; gap: 8px; }
+.edu-app-menu-badge { flex-shrink: 0; padding: 1px 8px; border: 1px solid var(--color-border-strong); border-radius: 999px; color: var(--color-text); font-size: .64rem; font-weight: 700; letter-spacing: .03em; }
 .edu-nav-cta { padding: 9px 16px; border-radius: 11px; color: #07101b; background: var(--gradient-brand); font-size: .84rem; font-weight: 750; box-shadow: var(--shadow-glow); }
 .edu-account-button { height: 39px; padding: 4px 9px 4px 5px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--color-border); border-radius: 13px; color: var(--color-text); background: var(--color-panel); cursor: pointer; }
 .edu-avatar { width: 29px; height: 29px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; color: #08121e; background: linear-gradient(135deg, #7d9bff, #55e7c7); font-size: .66rem; font-weight: 800; }

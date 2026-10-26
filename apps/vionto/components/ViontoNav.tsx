@@ -16,6 +16,7 @@ import { useTranslation } from "@asafarim/shared-i18n";
 // Pure registry module — safe in a client component, unlike the
 // "@asafarim/auth" root entry which carries the server-only Auth.js surface.
 import { getAppSwitcherApps } from "@asafarim/auth/apps";
+import { ECOSYSTEM_APPS } from "@asafarim/ui";
 
 const hubUrl = process.env.NEXT_PUBLIC_HUB_URL || "http://localhost:3001";
 const viontoUrl = process.env.NEXT_PUBLIC_VIONTO_URL || "http://localhost:3004";
@@ -99,7 +100,10 @@ export function ThemeToggle() {
   );
 }
 
-/** Cross-app switcher: links to the other platform apps. */
+const headingClass =
+  "px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]";
+
+/** Cross-app switcher: the other platform apps, then the ASafariM OS and Android apps. */
 function AppSwitcher() {
   const { t } = useTranslation();
   const { data: session } = useSession();
@@ -131,7 +135,7 @@ function AppSwitcher() {
       // panel runs off the left edge of the viewport on narrow screens
       // once its own button sits near the left of a crowded top bar.
       const r = btnRef.current.getBoundingClientRect();
-      const dropW = 256;
+      const dropW = 288;
       const left = Math.max(8, Math.min(r.right - dropW, window.innerWidth - dropW - 8));
       setDropdownStyle({
         position: "fixed",
@@ -167,8 +171,9 @@ function AppSwitcher() {
       {open && (
         <div
           style={dropdownStyle}
-          className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] p-2 shadow-lg"
+          className="max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] p-2 shadow-lg"
         >
+          <p className={headingClass}>{t("shell.platformApps")}</p>
           {apps.map((app) => (
             <a
               key={app.href}
@@ -178,6 +183,32 @@ function AppSwitcher() {
               <span>{app.label}</span>
               <span className="text-[11px] text-[var(--color-text-muted)]">{app.meta}</span>
             </a>
+          ))}
+          {(["web", "android"] as const).map((kind) => (
+            <div key={kind} className="mt-1 border-t border-[var(--color-border-strong)] pt-1">
+              <p className={headingClass}>
+                {t(kind === "web" ? "shell.osSection" : "shell.androidApps")}
+              </p>
+              {ECOSYSTEM_APPS.filter((app) => app.kind === kind).map((app) => (
+                <a
+                  key={app.key}
+                  href={app.href}
+                  className="flex items-center justify-between gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition hover:bg-[var(--color-surface)]"
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span>{app.name}</span>
+                    <span className="truncate text-[11px] text-[var(--color-text-muted)]">{app.host}</span>
+                  </span>
+                  {app.status === "play-testing" ? (
+                    <span className="shrink-0 rounded-full border border-[var(--color-primary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-primary)]">
+                      {t("shell.playTesting")}
+                    </span>
+                  ) : (
+                    <span aria-hidden="true" className="text-[var(--color-text-muted)]">↗</span>
+                  )}
+                </a>
+              ))}
+            </div>
           ))}
         </div>
       )}

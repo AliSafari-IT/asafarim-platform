@@ -21,7 +21,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
+import { ECOSYSTEM_APPS, getPlatformLinks, toAppSwitcherLinks } from "@asafarim/ui";
 // Subpath import: the registry is a pure module, so this stays out of the
 // client bundle's way — importing "@asafarim/auth" root here would pull the
 // server-only Auth.js/Prisma surface into the browser.
@@ -108,6 +108,21 @@ function AppMenu() {
             <a href={href} key={href} onClick={() => setOpen(false)}>
               <span>{label}</span><span>↗</span>
             </a>
+          ))}
+          {(["web", "android"] as const).map((kind) => (
+            <div className="edu-app-menu-group" key={kind}>
+              <p>{t(kind === "web" ? "shell.osSection" : "shell.androidApps")}</p>
+              {ECOSYSTEM_APPS.filter((app) => app.kind === kind).map((app) => (
+                <a href={app.href} key={app.key} onClick={() => setOpen(false)}>
+                  <span>{app.name}</span>
+                  {app.status === "play-testing" ? (
+                    <span className="edu-app-menu-badge">{t("shell.playTesting")}</span>
+                  ) : (
+                    <span>↗</span>
+                  )}
+                </a>
+              ))}
+            </div>
           ))}
         </div>
       )}
