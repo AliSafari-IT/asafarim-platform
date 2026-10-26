@@ -30,33 +30,52 @@ HTML 503
   }
 }
 
+# Baseline security headers for every asafarim.com app. The "?" form only
+# sets a header the app didn't send, so an app's own policy (tasks-ai's
+# headers, AppBuilder's preview X-Frame-Options) always wins. No CSP here: a
+# blanket policy would break apps, so CSP stays per app. HSTS leaves out
+# includeSubDomains and preload until every subdomain is known to be HTTPS.
+(security_headers) {
+  header ?Strict-Transport-Security "max-age=31536000"
+  header ?X-Content-Type-Options "nosniff"
+  header ?X-Frame-Options "SAMEORIGIN"
+  header ?Referrer-Policy "strict-origin-when-cross-origin"
+  header ?Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+}
+
 asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy web:3000
 }
 
 www.asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy web:3000
 }
 
 hub.asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy hub:3000
 }
 
 admin.asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy admin:3000
 }
 
 showcase.asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy showcase:3000
 }
 
 vionto.asafarim.com {
   import deploying
+  import security_headers
   # Media uploads can be large; give the proxy generous timeouts.
   reverse_proxy vionto:3000 {
     transport http {
@@ -68,6 +87,7 @@ vionto.asafarim.com {
 
 edumatch.asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy edumatch:3000 {
     transport http {
       read_timeout 600s
@@ -78,6 +98,7 @@ edumatch.asafarim.com {
 
 testora.asafarim.com {
   import deploying
+  import security_headers
   # The runner protocol (/internal/runner/*) is served to testora-runner over
   # the private testora_control network only — never through the public proxy
   # (#718, ADR 0004 §1). Caddy matches the cleaned, decoded path, so
@@ -101,6 +122,7 @@ testora.asafarim.com {
 # first, then the public pages, then the redirect.
 testora.cloud {
   import deploying
+  import security_headers
   @internal path /internal /internal/*
   handle @internal {
     respond 404
@@ -120,26 +142,31 @@ www.testora.cloud {
 
 appbuilder.asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy appbuilder:3000
 }
 
 resumatch.asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy resumatch:3000
 }
 
 tasks-ai.asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy tasksai:3000
 }
 
 labs.asafarim.com {
   import deploying
+  import security_headers
   reverse_proxy labs:3000
 }
 
 tlai.asafarim.com {
   import deploying
+  import security_headers
   # Puppeteer export requests (Task #10) can take several seconds; be generous.
   reverse_proxy timelineai:3000 {
     transport http {
