@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-26",
+    "title": "UI: group the app switcher and add ASafariM OS and Android apps",
+    "sha": "1aaa5fee",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1aaa5fee"
+  },
+  {
     "date": "2026-10-18",
     "title": "EduMatch: AI kill switch, monthly budget and per-student quota (#539)",
     "sha": "52014deb",
@@ -112,11 +118,5 @@
     "title": "Hub: ASafariM OS sign-in hand-off + read-only accounts view (Refs #782, P2.2)",
     "sha": "8d455f55",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/8d455f55"
-  },
-  {
-    "date": "2026-10-04",
-    "title": "Infra: wire in the shared edge, no port change (Refs #770, #774 phase 2)",
-    "sha": "75b8c0a3",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/75b8c0a3"
   }
 ]

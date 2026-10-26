@@ -170,10 +170,10 @@
       "kind": "app",
       "folder": "apps/resumatch",
       "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
-      "sha": "44adb469",
+      "sha": "1aaa5fee",
       "date": "2026-10-26",
       "since": "2026-09-18",
-      "commits": 121,
+      "commits": 122,
       "dependents": 0
     },
     {
@@ -203,10 +203,10 @@
       "kind": "package",
       "folder": "packages/shared-i18n",
       "description": "",
-      "sha": "6adeb943",
-      "date": "2026-09-27",
+      "sha": "1aaa5fee",
+      "date": "2026-10-26",
       "since": "2026-07-15",
-      "commits": 8,
+      "commits": 9,
       "dependents": 10
     },
     {
@@ -214,10 +214,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "44adb469",
+      "sha": "1aaa5fee",
       "date": "2026-10-26",
       "since": "2026-07-04",
-      "commits": 474,
+      "commits": 476,
       "dependents": 0
     },
     {
@@ -291,10 +291,10 @@
       "kind": "package",
       "folder": "packages/ui",
       "description": "ASafariM Platform design system: tokens, brand, and creative building blocks",
-      "sha": "f0ace74c",
-      "date": "2026-10-10",
+      "sha": "1aaa5fee",
+      "date": "2026-10-26",
       "since": "2026-07-04",
-      "commits": 70,
+      "commits": 71,
       "dependents": 13
     },
     {
@@ -313,10 +313,10 @@
       "kind": "app",
       "folder": "apps/web",
       "description": "Public ASafariM Digital website (asafarim.com)",
-      "sha": "44adb469",
+      "sha": "1aaa5fee",
       "date": "2026-10-26",
       "since": "2026-07-04",
-      "commits": 88,
+      "commits": 89,
       "dependents": 0
     },
     {
@@ -324,10 +324,10 @@
       "kind": "app",
       "folder": "apps/edumatch",
       "description": "",
-      "sha": "44adb469",
+      "sha": "1aaa5fee",
       "date": "2026-10-26",
       "since": "2026-08-05",
-      "commits": 128,
+      "commits": 129,
       "dependents": 0
     },
     {
@@ -357,10 +357,10 @@
       "kind": "app",
       "folder": "apps/vionto",
       "description": "",
-      "sha": "44adb469",
+      "sha": "1aaa5fee",
       "date": "2026-10-26",
       "since": "2026-07-15",
-      "commits": 143,
+      "commits": 144,
       "dependents": 0
     }
   ],
