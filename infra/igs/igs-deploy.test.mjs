@@ -120,7 +120,7 @@ test("igs_render_site: with an allowlist, the allowlist variant filled in, nothi
   assert.ok(!text.includes("{$IGS_PLATFORM_ALLOW_IPS}"));
   assert.ok(!text.includes("# igs:"), "no variant markers left");
   const platform = platformBlock(text);
-  assert.match(platform, /respond "Forbidden" 403/);
+  assert.match(platform, /\n\t\t\tHTML 403\n/, "the branded 403 page");
   // the only proxy to the back-office is behind the allowlist matcher
   assert.equal(platform.match(/reverse_proxy igs-platform:3001/g).length, 1);
   assert.match(
@@ -179,6 +179,24 @@ test("igs_render_site refuses a template without the placeholder or the variant 
     assert.notEqual(r.status, 0, String(message));
     assert.match(r.stderr, message);
   }
+});
+
+test("the back-office 403 is a branded HTML page, not a bare 'Forbidden'", () => {
+  const text = readFileSync(TEMPLATE, "utf8");
+  const site = text.slice(text.indexOf("platform.igs-pharma.be {"));
+  const page = site.slice(site.indexOf("respond <<HTML"));
+  assert.match(page, /^respond <<HTML\n[\s\S]*\n\t+HTML 403\n/);
+  assert.ok(!site.includes('respond "Forbidden"'));
+  assert.match(site, /Content-Type "text\/html; charset=utf-8"/);
+  assert.match(site, /Cache-Control "no-store"/);
+  assert.match(site, /X-Robots-Tag "noindex/);
+  // Shows the visitor's address and gives a way on.
+  assert.ok(page.includes("{client_ip}"));
+  assert.ok(page.includes('href="https://igs-pharma.be/"'));
+  // Caddy reads every { } in a response body as a placeholder: the page holds
+  // only the one it means.
+  const body = page.slice(0, page.indexOf("HTML 403"));
+  assert.deepEqual(body.match(/[{}]/g), ["{", "}"]);
 });
 
 test("igs_app_env drops the deploy-only IGS_* keys and is private", () => {
@@ -875,7 +893,7 @@ test("igs-deploy.sh with an allowlist keeps today's behaviour: no image check, t
     site,
     /@igs_platform_allowed remote_ip 192\.0\.2\.10\/32 2001:db8:1234::\/64\n/
   );
-  assert.match(site, /respond "Forbidden" 403/);
+  assert.match(site, /\n\t\t\tHTML 403\n/, "the branded 403 page");
 });
 
 test("igs-deploy.sh refuses an invalid allowlist without echoing it, before docker", () => {
