@@ -62,10 +62,23 @@ test("igs_allowlist accepts several IPv4 and IPv6 CIDRs, comma- or space-separat
   );
 });
 
-test("igs_allowlist rejects empty lists, /0, bare IPs and junk, without echoing the value", () => {
+test("igs_allowlist: empty, unset or only separators means no IP filter (the default)", () => {
+  for (const off of ["", " ", " , ", ",,"]) {
+    const r = lib("igs_allowlist", off);
+    assert.equal(r.status, 0, `'${off}' is off: ${r.stderr}`);
+    assert.equal(r.stdout, "");
+    assert.equal(r.stderr, "");
+  }
+  // unset: no argument at all
+  const unset = spawnSync("bash", ["-c", 'source "$0" && igs_allowlist', LIB], {
+    encoding: "utf8",
+  });
+  assert.equal(unset.status, 0, unset.stderr);
+  assert.equal(unset.stdout, "");
+});
+
+test("igs_allowlist rejects /0, bare IPs and junk, without echoing the value", () => {
   for (const bad of [
-    "",
-    " , ",
     "0.0.0.0/0",
     "::/0",
     "192.0.2.10",
@@ -75,16 +88,22 @@ test("igs_allowlist rejects empty lists, /0, bare IPs and junk, without echoing 
     "2001:db8::/129",
     "example.com/32",
     "CHANGE_ME",
+    "192.0.2.10/32, 0.0.0.0/0",
+    "192.0.2.10/32 junk",
   ]) {
     const r = lib("igs_allowlist", bad);
     assert.notEqual(r.status, 0, `rejects '${bad}'`);
     assert.equal(r.stdout, "");
-    if (bad.trim().replace(/,/g, ""))
-      assert.ok(!r.stderr.includes(bad), `does not echo '${bad}'`);
+    for (const part of bad.split(/[ ,]+/).filter((p) => p !== "192.0.2.10/32"))
+      assert.ok(!r.stderr.includes(part), `does not echo '${part}'`);
   }
 });
 
-test("igs_render_site fills the allowlist in and leaves no placeholder", () => {
+/** The rendered site file's platform.igs-pharma.be block. */
+const platformBlock = (text) =>
+  text.slice(text.indexOf("platform.igs-pharma.be {"));
+
+test("igs_render_site: with an allowlist, the allowlist variant filled in, nothing else", () => {
   const out = path.join(scratch, "site.caddy");
   const r = lib(
     "igs_render_site",
@@ -99,13 +118,67 @@ test("igs_render_site fills the allowlist in and leaves no placeholder", () => {
     /@igs_platform_allowed remote_ip 192\.0\.2\.10\/32 2001:db8:1234::\/64\n/
   );
   assert.ok(!text.includes("{$IGS_PLATFORM_ALLOW_IPS}"));
+  assert.ok(!text.includes("# igs:"), "no variant markers left");
+  const platform = platformBlock(text);
+  assert.match(platform, /respond "Forbidden" 403/);
+  // the only proxy to the back-office is behind the allowlist matcher
+  assert.equal(platform.match(/reverse_proxy igs-platform:3001/g).length, 1);
+  assert.match(
+    platform,
+    /handle @igs_platform_allowed \{\n\t\treverse_proxy igs-platform:3001\n/
+  );
+});
 
-  const noToken = path.join(scratch, "no-token.caddy");
-  writeFileSync(noToken, "igs-pharma.be {\n\trespond ok\n}\n");
-  assert.notEqual(
-    lib("igs_render_site", noToken, "192.0.2.10/32", out).status,
+test("igs_render_site: without an allowlist, the open variant and no leftover placeholder", () => {
+  const out = path.join(scratch, "open.caddy");
+  const r = lib("igs_render_site", TEMPLATE, "", out);
+  assert.equal(r.status, 0, r.stderr);
+  const text = readFileSync(out, "utf8");
+  assert.ok(!text.includes("{$IGS_PLATFORM_ALLOW_IPS}"), "no placeholder");
+  assert.ok(!text.includes("$IGS_PLATFORM_ALLOW_IPS"), "no placeholder");
+  assert.ok(!text.includes("# igs:"), "no variant markers left");
+  const platform = platformBlock(text);
+  assert.doesNotMatch(platform, /remote_ip|@igs_platform_allowed|403/);
+  assert.match(
+    platform,
+    /^platform\.igs-pharma\.be \{\n\treverse_proxy igs-platform:3001\n\}\n$/
+  );
+  // the rest of the file is the same in both variants
+  const allow = path.join(scratch, "allow.caddy");
+  assert.equal(
+    lib("igs_render_site", TEMPLATE, "192.0.2.10/32", allow).status,
     0
   );
+  const head = (t) => t.slice(0, t.indexOf("platform.igs-pharma.be {"));
+  assert.equal(head(text), head(readFileSync(allow, "utf8")));
+});
+
+test("igs_render_site refuses a template without the placeholder or the variant markers", () => {
+  const out = path.join(scratch, "bad.caddy");
+  const write = (name, text) => {
+    const file = path.join(scratch, name);
+    writeFileSync(file, text);
+    return file;
+  };
+  const template = readFileSync(TEMPLATE, "utf8");
+  const noToken = write("no-token.caddy", "igs-pharma.be {\n\trespond ok\n}\n");
+  const noOpen = write(
+    "no-open.caddy",
+    template.replace(/\t# igs:open:begin\n[^]*?\t# igs:open:end\n/, "")
+  );
+  const tokenOutside = write(
+    "token-outside.caddy",
+    `${template}\nexample.test {\n\t@x remote_ip {$IGS_PLATFORM_ALLOW_IPS}\n}\n`
+  );
+  for (const [file, allow, message] of [
+    [noToken, "192.0.2.10/32", /no \{\$IGS_PLATFORM_ALLOW_IPS\} placeholder/],
+    [noOpen, "", /exactly one '# igs:open:begin' line/],
+    [tokenOutside, "", /outside the allowlist variant/],
+  ]) {
+    const r = lib("igs_render_site", file, allow, out);
+    assert.notEqual(r.status, 0, String(message));
+    assert.match(r.stderr, message);
+  }
 });
 
 test("igs_app_env drops the deploy-only IGS_* keys and is private", () => {
@@ -150,6 +223,11 @@ test("the env example and the template carry placeholders only", () => {
       line.slice(line.indexOf("=") + 1),
     ];
     if (key === "SITE_GATE") continue;
+    // optional, off by default: empty means no IP filter in front of the back-office
+    if (key === "IGS_PLATFORM_ALLOW_IPS") {
+      assert.equal(value, "", "the allowlist is off by default");
+      continue;
+    }
     assert.match(value, /CHANGE_ME/, `${key} is a placeholder`);
   }
   assert.ok(
@@ -635,7 +713,7 @@ test("igs_db_logins: own users per service, host igs-postgres, no password in th
 });
 
 /** A fake checkout + stand-in docker/age that log their arguments. */
-function fakeHost({ dockerScript = "" } = {}) {
+function fakeHost({ dockerScript = "", allow = "192.0.2.10/32" } = {}) {
   const root = mkdtempSync(path.join(scratch, "host-"));
   const bin = path.join(root, "bin");
   const calls = path.join(root, "calls.log");
@@ -653,7 +731,7 @@ function fakeHost({ dockerScript = "" } = {}) {
     "IGS_MIGRATOR_DATABASE_URL=postgres://igs:p@igs-postgres:5432/igs",
     "IGS_APP_DATABASE_URL=postgres://igs_app_login:a@igs-postgres:5432/igs",
     "IGS_WORKER_DATABASE_URL=postgres://igs_worker_login:w@igs-postgres:5432/igs",
-    "IGS_PLATFORM_ALLOW_IPS=192.0.2.10/32",
+    ...(allow === null ? [] : [`IGS_PLATFORM_ALLOW_IPS=${allow}`]),
     "AUTH_SECRET=x",
     "AUDIT_HMAC_KEY=x",
     "ENCRYPTION_KEY=x",
@@ -702,6 +780,136 @@ test("igs-deploy.sh --migrate-only runs igs-migrate and leaves the apps alone (#
   assert.doesNotMatch(calls, /up -d --wait --no-deps igs-web/);
   assert.doesNotMatch(calls, /systemctl|edge-deploy-site/);
   assert.match(r.stdout, /Next: infra\/scripts\/igs-db-roles\.sh/);
+});
+
+// --- The open back-office (no IGS_PLATFORM_ALLOW_IPS) never runs code older than igs-pharma d4a1eb8 ---
+
+/**
+ * A fake host whose deploy stops at step 5: a stand-in edge-deploy-site.sh keeps the site file
+ * it is given (published.caddy) and fails, so nothing past the publish runs (no systemctl).
+ */
+function publishingHost(options) {
+  const host = fakeHost(options);
+  writeFileSync(
+    path.join(host.root, "infra/igs/igs-pharma.caddy.template"),
+    readFileSync(TEMPLATE)
+  );
+  const edge = path.join(host.root, "edge");
+  mkdirSync(path.join(edge, "caddy"), { recursive: true });
+  writeFileSync(path.join(edge, "caddy/Caddyfile"), "# fake edge\n");
+  const scripts = path.join(host.root, "infra/edge/scripts");
+  mkdirSync(scripts, { recursive: true });
+  writeFileSync(
+    path.join(scripts, "edge-deploy-site.sh"),
+    `#!/bin/sh\ncp "$2" "${path.join(host.root, "published.caddy")}"\nexit 3\n`
+  );
+  const deploy = () => host.run(DEPLOY, [SHA], { EDGE_DIR: edge });
+  const published = () =>
+    readFileSync(path.join(host.root, "published.caddy"), "utf8");
+  return { ...host, deploy, published };
+}
+
+const GREP_CHECK = new RegExp(
+  `docker run --rm --network none --entrypoint grep ghcr\\.io/alisafari-it/igs-pharma-platform:${SHA} -rqF -- `,
+  "g"
+);
+
+for (const [label, allow] of [
+  ["empty", ""],
+  ["unset", null],
+]) {
+  test(`igs-deploy.sh with IGS_PLATFORM_ALLOW_IPS ${label}: checks the platform image, then publishes the open site`, () => {
+    const host = publishingHost({ allow });
+    const r = host.deploy();
+    assert.equal(r.status, 3, "stops at the stand-in publish");
+    const calls = host.log();
+    // both hardening markers, in the platform image of exactly this SHA, before migrations
+    assert.equal(calls.match(GREP_CHECK)?.length, 2, calls);
+    assert.match(
+      calls,
+      /-rqF -- "STAFF_ONLY" \/app\/apps\/platform\/\.next\/server\n/
+    );
+    assert.match(
+      calls,
+      /-rqF -- "\/sign-in\/\*" \/app\/apps\/platform\/\.next\/server\n/
+    );
+    assert.ok(
+      calls.search(GREP_CHECK) <
+        calls.indexOf("run --rm --no-deps igs-migrate"),
+      "checked before anything changes"
+    );
+    const site = host.published();
+    assert.ok(!site.includes("{$IGS_PLATFORM_ALLOW_IPS}"), "no placeholder");
+    assert.doesNotMatch(platformBlock(site), /remote_ip|403/);
+    assert.match(
+      site,
+      /platform\.igs-pharma\.be \{\n\treverse_proxy igs-platform:3001\n\}/
+    );
+  });
+}
+
+test("igs-deploy.sh refuses the open back-office on a platform image without the hardening, changing nothing", () => {
+  const host = publishingHost({
+    allow: "",
+    // the image has the first marker but not the second: an older build
+    dockerScript:
+      'case "$*" in *"--entrypoint grep"*"/sign-in/*"*) exit 1 ;; esac',
+  });
+  const r = host.deploy();
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /does not have the staff sign-in hardening/);
+  assert.match(r.stderr, /igs-pharma d4a1eb8/);
+  assert.match(r.stderr, /FATAL: nothing was changed/);
+  const calls = host.log();
+  assert.doesNotMatch(calls, /up -d|igs-migrate\n|edge-deploy-site/);
+  assert.throws(() => host.published(), "nothing published");
+});
+
+test("igs-deploy.sh with an allowlist keeps today's behaviour: no image check, the 403 variant", () => {
+  const host = publishingHost({ allow: "192.0.2.10/32, 2001:db8:1234::/64" });
+  const r = host.deploy();
+  assert.equal(r.status, 3, r.stderr);
+  assert.doesNotMatch(host.log(), /--entrypoint grep/);
+  const site = host.published();
+  assert.match(
+    site,
+    /@igs_platform_allowed remote_ip 192\.0\.2\.10\/32 2001:db8:1234::\/64\n/
+  );
+  assert.match(site, /respond "Forbidden" 403/);
+});
+
+test("igs-deploy.sh refuses an invalid allowlist without echoing it, before docker", () => {
+  const host = publishingHost({ allow: "0.0.0.0/0" });
+  const r = host.deploy();
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /A \/0 would allow everyone/);
+  assert.ok(!r.stderr.includes("0.0.0.0/0"));
+  assert.doesNotMatch(host.log(), /^docker /m);
+});
+
+test("igs-deploy.sh --migrate-only does not need the open-site image check", () => {
+  const host = fakeHost({
+    allow: "",
+    dockerScript: 'case "$*" in *"--entrypoint grep"*) exit 1 ;; esac',
+  });
+  const r = host.run(DEPLOY, ["--migrate-only", SHA]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(host.log(), /--entrypoint grep/);
+});
+
+test("the image check reads the platform image the compose file runs", () => {
+  const compose = readFileSync(
+    path.join(repo, "infra/igs/docker-compose.yml"),
+    "utf8"
+  );
+  assert.match(
+    compose,
+    /image: ghcr\.io\/alisafari-it\/igs-pharma-platform:\$\{IGS_IMAGE_TAG:/
+  );
+  assert.match(
+    readFileSync(LIB, "utf8"),
+    /^IGS_PLATFORM_IMAGE="ghcr\.io\/alisafari-it\/igs-pharma-platform"$/m
+  );
 });
 
 test("igs-deploy.sh refuses a runtime login that is the migrator, before docker (#841)", () => {

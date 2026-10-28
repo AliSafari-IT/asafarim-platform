@@ -1,7 +1,6 @@
 # igs-pharma.be staging (asafarim-platform#822, roadmap IGS-D3): the igs
-# stack's site file. This is a TEMPLATE. infra/scripts/igs-deploy.sh replaces
-# {$IGS_PLATFORM_ALLOW_IPS} with the validated allowlist from the igs env and
-# publishes the result:
+# stack's site file. This is a TEMPLATE. infra/scripts/igs-deploy.sh renders it
+# (igs_render_site) and publishes the result:
 #   - on the shared edge as sites/igs-pharma.caddy (edge-deploy-site.sh);
 #   - before the edge cutover, also as infra/caddy/sites.local/igs-pharma.caddy,
 #     which the live Caddyfile imports (git-ignored: real values never reach git).
@@ -10,6 +9,13 @@
 # shop is closed): nothing here adds or overwrites one. Upstream names are
 # prefixed (igs-web, igs-platform): they share edge_net with every stack.
 # Named matchers are prefixed too (one shared namespace on the edge).
+#
+# Client address: no Caddy config here or on the edge sets trusted_proxies, so
+# reverse_proxy drops any X-Forwarded-For a client sends and passes the peer
+# address as the ONE value of X-Forwarded-For, to igs-web and igs-platform
+# alike. The igs-pharma Better Auth instances rate limit per client from that
+# single value (igs-pharma d4a1eb8); do not add header_up X-Forwarded-For or
+# trusted_proxies without changing them too.
 
 igs-pharma.be {
 	reverse_proxy igs-web:3000
@@ -19,9 +25,16 @@ www.igs-pharma.be {
 	redir https://igs-pharma.be{uri} 301
 }
 
-# The back-office: only the allow-listed networks reach it (several IPv4/IPv6
-# CIDRs). Everyone else gets a plain 403 from the edge, before the app.
+# The back-office. igs_render_site keeps ONE of the two marked variants:
+#   - IGS_PLATFORM_ALLOW_IPS empty or unset (the default): open to every
+#     network. The staff sign-in protects it: no sign-up, passkey + 2-step
+#     login, staff-only sessions (8 h, 30 min idle), per-IP rate limits.
+#     igs-deploy.sh refuses this variant for an igs-pharma-platform image
+#     without that hardening (igs_platform_open_ready).
+#   - IGS_PLATFORM_ALLOW_IPS set: only those networks (IPv4/IPv6 CIDRs); everyone
+#     else gets a plain 403 from the edge, before the app.
 platform.igs-pharma.be {
+	# igs:allowlist:begin
 	@igs_platform_allowed remote_ip {$IGS_PLATFORM_ALLOW_IPS}
 	handle @igs_platform_allowed {
 		reverse_proxy igs-platform:3001
@@ -29,4 +42,8 @@ platform.igs-pharma.be {
 	handle {
 		respond "Forbidden" 403
 	}
+	# igs:allowlist:end
+	# igs:open:begin
+	reverse_proxy igs-platform:3001
+	# igs:open:end
 }
