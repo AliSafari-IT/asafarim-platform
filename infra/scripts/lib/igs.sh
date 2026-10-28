@@ -6,9 +6,13 @@
 #   igs_env_value <file> <key>      one KEY=value from a dotenv file (no `source`:
 #                                   values may contain $ or quotes)
 #   igs_allowlist <raw>             validate IGS_PLATFORM_ALLOW_IPS (IPv4/IPv6 CIDRs,
-#                                   comma- or space-separated); prints them space-separated
+#                                   comma- or space-separated); prints them space-separated.
+#                                   Empty or unset: prints nothing (no IP filter, the default)
 #   igs_render_site <template> <allowlist> <out>
-#                                   the site file with the allowlist filled in
+#                                   the site file: the allowlist variant with the CIDRs
+#                                   filled in, or (empty allowlist) the open variant
+#   igs_platform_open_ready <sha>   the igs-pharma-platform image of that SHA has the staff
+#                                   sign-in hardening the open back-office relies on
 #   igs_app_env <full> <out>        the apps' env: the env file without its IGS_*
 #                                   keys (deploy-only: the migrator's connection, the
 #                                   Postgres password and the allowlist never reach an app)
@@ -73,21 +77,66 @@ igs_allowlist() {
       return 1
     fi
   done
-  if ((${#valid[@]} == 0)); then
-    echo "igs: IGS_PLATFORM_ALLOW_IPS is empty. Set at least one CIDR in the igs env, or nobody can reach platform.igs-pharma.be." >&2
-    return 1
-  fi
+  # Nothing set (empty, unset, only separators): no IP filter. The back-office is then open to
+  # every network and its staff sign-in protects it; igs-deploy.sh checks that the platform image
+  # has that hardening (igs_platform_open_ready).
   printf '%s' "${valid[*]}"
 }
 
+# The template marks the back-office's two variants with `# igs:<variant>:begin|end` lines;
+# igs_render_site keeps the allowlist variant (with the CIDRs filled in) when there is an
+# allowlist, the open variant when there is none, and drops the marker lines.
 igs_render_site() {
-  local template="$1" allowlist="$2" out="$3" text
+  local template="$1" allowlist="$2" out="$3" text line variant edge section="" drop
+  local lines=()
   text="$(<"$template")"
   if [[ "$text" != *"$IGS_ALLOWLIST_TOKEN"* ]]; then
     echo "igs: ${template} has no ${IGS_ALLOWLIST_TOKEN} placeholder." >&2
     return 1
   fi
-  printf '%s\n' "${text//"$IGS_ALLOWLIST_TOKEN"/$allowlist}" >"$out"
+  for variant in allowlist open; do
+    for edge in begin end; do
+      if [[ "$(grep -cE "^[[:space:]]*# igs:${variant}:${edge}$" "$template")" != 1 ]]; then
+        echo "igs: ${template} needs exactly one '# igs:${variant}:${edge}' line." >&2
+        return 1
+      fi
+    done
+  done
+  if [[ -n "$allowlist" ]]; then drop=open; else drop=allowlist; fi
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ ^[[:space:]]*#\ igs:(allowlist|open):(begin|end)$ ]]; then
+      if [[ "${BASH_REMATCH[2]}" == begin ]]; then section="${BASH_REMATCH[1]}"; else section=""; fi
+      continue
+    fi
+    if [[ "$line" == *"$IGS_ALLOWLIST_TOKEN"* && "$section" != allowlist ]]; then
+      echo "igs: ${template} has ${IGS_ALLOWLIST_TOKEN} outside the allowlist variant." >&2
+      return 1
+    fi
+    [[ "$section" == "$drop" ]] && continue
+    lines+=("${line//"$IGS_ALLOWLIST_TOKEN"/$allowlist}")
+  done <"$template"
+  printf '%s\n' "${lines[@]}" >"$out"
+}
+
+# What the open back-office relies on (igs-pharma d4a1eb8, "staff auth safe on the open
+# internet"), as it appears in the platform's server bundle: the staff instance refusing
+# non-staff sessions ("STAFF_ONLY") and its per-IP rate-limit rules ("/sign-in/*"). Neither
+# string exists in igs-pharma, nor in its dependencies, before that commit. If igs-pharma
+# renames them, update these: the deploy fails closed (refuses the open variant) until then.
+IGS_PLATFORM_IMAGE="ghcr.io/alisafari-it/igs-pharma-platform"
+IGS_OPEN_PLATFORM_MARKERS=('"STAFF_ONLY"' '"/sign-in/*"')
+
+igs_platform_open_ready() {
+  local sha="$1" image marker
+  igs_require_sha "$sha" || return 2
+  image="${IGS_PLATFORM_IMAGE}:${sha}"
+  for marker in "${IGS_OPEN_PLATFORM_MARKERS[@]}"; do
+    if ! docker run --rm --network none --entrypoint grep "$image" \
+        -rqF -- "$marker" /app/apps/platform/.next/server; then
+      echo "igs: IGS_PLATFORM_ALLOW_IPS is empty, so platform.igs-pharma.be would be open to every network, but ${image##*/} does not have the staff sign-in hardening that requires (igs-pharma d4a1eb8: per-IP rate limits, staff-only sessions). Deploy that igs-pharma commit or a later one, or set IGS_PLATFORM_ALLOW_IPS." >&2
+      return 1
+    fi
+  done
 }
 
 igs_app_env() {

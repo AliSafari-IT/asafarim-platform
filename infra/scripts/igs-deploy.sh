@@ -7,15 +7,18 @@
 #   infra/scripts/igs-deploy.sh --migrate-only <sha>   steps 1-3 only (#841)
 #
 # 1. Decrypt infra/igs/.env.igs.age (the igs env, separate from every other app's)
-#    and check it: required keys set, no placeholders, a valid allowlist.
-# 2. Pull the three igs-pharma images for that SHA.
+#    and check it: required keys set, no placeholders, a valid allowlist or none
+#    (IGS_PLATFORM_ALLOW_IPS empty or unset: the back-office is open to every network).
+# 2. Pull the three igs-pharma images for that SHA. With no allowlist, refuse a
+#    platform image without the staff sign-in hardening (igs-pharma d4a1eb8)
+#    before anything changes: the back-office is never open on older code.
 # 3. Start igs-postgres, run igs-migrate (one-shot, idempotent). A failed
 #    migration stops here: the running release keeps serving. With
 #    --migrate-only it also stops here, successfully: that is how the database
 #    roles exist before infra/scripts/igs-db-roles.sh creates the logins.
 # 4. Start igs-web, igs-platform and igs-worker on the same SHA and wait until
 #    they are healthy and /api/health (with the database) answers 200.
-# 5. Render the site file with the allowlist and publish it on the shared edge
+# 5. Render the site file (the allowlist variant, or the open one) and publish it on the shared edge
 #    (edge-deploy-site.sh). Before the edge cutover, also install it for the
 #    Caddy that owns 443 today (asafarim-com's), validated and reloaded.
 # 6. Install or refresh the health check (igs-healthcheck.timer, every 2
@@ -54,7 +57,7 @@ log() { echo "[igs-deploy $(date -Is)] $*"; }
 
 missing=()
 for key in IGS_POSTGRES_PASSWORD IGS_MIGRATOR_DATABASE_URL IGS_APP_DATABASE_URL \
-  IGS_WORKER_DATABASE_URL IGS_PLATFORM_ALLOW_IPS AUTH_SECRET AUDIT_HMAC_KEY ENCRYPTION_KEY; do
+  IGS_WORKER_DATABASE_URL AUTH_SECRET AUDIT_HMAC_KEY ENCRYPTION_KEY; do
   value="$(igs_env_value "$ENV_FILE" "$key" || true)"
   if [[ -z "$value" || "$value" == *CHANGE_ME* ]]; then missing+=("$key"); fi
 done
@@ -63,7 +66,8 @@ if ((${#missing[@]})); then
   exit 1
 fi
 igs_db_logins "$ENV_FILE" || exit 1
-ALLOWLIST="$(igs_allowlist "$(igs_env_value "$ENV_FILE" IGS_PLATFORM_ALLOW_IPS)")"
+# Optional: empty or unset means no IP filter in front of the back-office.
+ALLOWLIST="$(igs_allowlist "$(igs_env_value "$ENV_FILE" IGS_PLATFORM_ALLOW_IPS || true)")"
 igs_app_env "$ENV_FILE" "${STACK_DIR}/.env.igs.apps"
 
 export IGS_IMAGE_TAG="$SHA"
@@ -73,6 +77,10 @@ ensure_edge_net
 # 2. Images.
 log "Pulling igs-pharma-{web,platform,worker}:${SHA:0:12}..."
 "${COMPOSE[@]}" pull --quiet igs-postgres-tls igs-postgres igs-migrate igs-web igs-platform igs-worker
+if [[ -z "$ALLOWLIST" && "$MIGRATE_ONLY" != true ]]; then
+  log "No IGS_PLATFORM_ALLOW_IPS: the back-office will be open; checking igs-pharma-platform:${SHA:0:12} for the staff sign-in hardening..."
+  igs_platform_open_ready "$SHA" || { echo "FATAL: nothing was changed." >&2; exit 1; }
+fi
 
 # 3. Database, then migrations, before any app changes.
 log "Starting igs-postgres..."
@@ -105,7 +113,7 @@ for svc in "igs-web 3000" "igs-platform 3001"; do
   exit 1
 done
 
-# 5. The site file: render (the allowlist stays on the server), publish.
+# 5. The site file: render (the allowlist, if any, stays on the server), publish.
 rendered="$(mktemp)"
 trap 'rm -f "$rendered"' EXIT
 igs_render_site "${STACK_DIR}/igs-pharma.caddy.template" "$ALLOWLIST" "$rendered"
