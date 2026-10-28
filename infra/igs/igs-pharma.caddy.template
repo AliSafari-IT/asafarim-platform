@@ -20,13 +20,56 @@ www.igs-pharma.be {
 }
 
 # The back-office: only the allow-listed networks reach it (several IPv4/IPv6
-# CIDRs). Everyone else gets a plain 403 from the edge, before the app.
+# CIDRs). Everyone else gets a 403 from the edge, before the app: a small
+# branded page that says what this host is, shows the visitor's address (what
+# staff send the administrator to get it added to IGS_PLATFORM_ALLOW_IPS) and
+# links to the shop. It has no { } besides Caddy placeholders (inline styles,
+# light-dark() for the dark theme), so nothing in it is read as one, and it
+# loads nothing but the IGS icon from igs.asafarim.site.
 platform.igs-pharma.be {
 	@igs_platform_allowed remote_ip {$IGS_PLATFORM_ALLOW_IPS}
 	handle @igs_platform_allowed {
 		reverse_proxy igs-platform:3001
 	}
 	handle {
-		respond "Forbidden" 403
+		header {
+			Content-Type "text/html; charset=utf-8"
+			Cache-Control "no-store"
+			X-Robots-Tag "noindex, nofollow"
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "no-referrer"
+			Content-Security-Policy "default-src 'none'; img-src https://igs.asafarim.site; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		}
+		respond <<HTML
+			<!doctype html>
+			<html lang="en" style="color-scheme:light dark">
+			<head>
+			<meta charset="utf-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1">
+			<meta name="robots" content="noindex">
+			<title>IGS-Pharma back-office: staff network only</title>
+			<link rel="icon" href="https://igs.asafarim.site/icon.svg" type="image/svg+xml">
+			</head>
+			<body style="margin:0;min-height:100vh;display:flex;flex-direction:column;font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:light-dark(#d8e6f1,#262626);color:light-dark(#15212b,#f2f2f2)">
+			<header style="background:#222;color:#f4f4f4;padding:12px 16px">
+			<a href="https://igs-pharma.be/" style="display:inline-flex;align-items:center;gap:10px;color:inherit;text-decoration:none;font-weight:700">
+			<img src="https://igs.asafarim.site/icon.svg" width="32" height="32" alt="">IGS-Pharma</a>
+			</header>
+			<main style="flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px">
+			<div style="box-sizing:border-box;width:100%;max-width:560px;background:light-dark(#fff,#1c1c1c);border:1px solid light-dark(#b9cfdf,#3d3d3d);border-radius:12px;padding:24px">
+			<p style="margin:0 0 4px;color:light-dark(#4b5b69,#b5b5b5);font-size:14px">Error 403</p>
+			<h1 style="margin:0 0 12px;font-size:24px;line-height:1.25">This is the staff back-office</h1>
+			<p style="margin:0 0 12px">The IGS-Pharma back-office opens only from approved networks, and the network you are on now is not one of them.</p>
+			<p style="margin:0 0 4px;color:light-dark(#4b5b69,#b5b5b5);font-size:14px">Your network address</p>
+			<p style="margin:0 0 16px"><code style="font-size:18px;padding:4px 8px;border-radius:6px;background:light-dark(#eef4f9,#303030);user-select:all;overflow-wrap:anywhere">{client_ip}</code></p>
+			<p style="margin:0 0 20px"><strong>Staff:</strong> send this address to the IGS-Pharma administrator and ask for it to be added to the back-office allowlist, or connect from an approved network.</p>
+			<p style="margin:0 0 20px"><a href="https://igs-pharma.be/" style="display:inline-block;background:light-dark(#0f4c6e,#7fb0dc);color:light-dark(#fff,#0d1b26);padding:10px 18px;border-radius:8px;font-weight:600;text-decoration:none">Go to the IGS-Pharma shop</a></p>
+			<p lang="nl" style="margin:0;padding-top:16px;border-top:1px solid light-dark(#b9cfdf,#3d3d3d);color:light-dark(#4b5b69,#b5b5b5);font-size:14px">Op zoek naar de apotheek? <a href="https://igs-pharma.be/nl" style="color:inherit">Ga naar de webshop</a>. · <span lang="fr">Vous cherchez la pharmacie ? <a href="https://igs-pharma.be/fr" style="color:inherit">Aller à la boutique</a>.</span> · <span lang="de">Sie suchen die Apotheke? <a href="https://igs-pharma.be/de" style="color:inherit">Zum Shop</a>.</span></p>
+			</div>
+			</main>
+			<footer style="padding:16px;text-align:center;font-size:14px;color:light-dark(#4b5b69,#b5b5b5)"><a href="https://igs.asafarim.site/" style="color:inherit">About IGS-Pharma</a> · <a href="https://igs.asafarim.site/en/privacy/" style="color:inherit">Privacy</a></footer>
+			</body>
+			</html>
+			HTML 403
 	}
 }

@@ -108,6 +108,24 @@ test("igs_render_site fills the allowlist in and leaves no placeholder", () => {
   );
 });
 
+test("the back-office 403 is a branded HTML page, not a bare 'Forbidden'", () => {
+  const text = readFileSync(TEMPLATE, "utf8");
+  const site = text.slice(text.indexOf("platform.igs-pharma.be {"));
+  const page = site.slice(site.indexOf("respond <<HTML"));
+  assert.match(page, /^respond <<HTML\n[\s\S]*\n\t+HTML 403\n/);
+  assert.ok(!site.includes('respond "Forbidden"'));
+  assert.match(site, /Content-Type "text\/html; charset=utf-8"/);
+  assert.match(site, /Cache-Control "no-store"/);
+  assert.match(site, /X-Robots-Tag "noindex/);
+  // Shows the visitor's address and gives a way on.
+  assert.ok(page.includes("{client_ip}"));
+  assert.ok(page.includes('href="https://igs-pharma.be/"'));
+  // Caddy reads every { } in a response body as a placeholder: the page holds
+  // only the one it means.
+  const body = page.slice(0, page.indexOf("HTML 403"));
+  assert.deepEqual(body.match(/[{}]/g), ["{", "}"]);
+});
+
 test("igs_app_env drops the deploy-only IGS_* keys and is private", () => {
   const full = path.join(scratch, "env");
   const apps = path.join(scratch, "env.apps");
