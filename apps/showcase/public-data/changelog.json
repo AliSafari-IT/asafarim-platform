@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-10-31",
+    "title": "Igs: send health check alerts to Telegram as well as Discord",
+    "sha": "6862ab5f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/6862ab5f"
+  },
+  {
     "date": "2026-10-26",
     "title": "UI: group the app switcher and add ASafariM OS and Android apps",
     "sha": "1aaa5fee",
@@ -112,11 +118,5 @@
     "title": "Hub: resume cookie across sign-in, \"Try again\" for expired tickets, hand-off comments (Fixes #801, Fixes #802)",
     "sha": "caaa54d0",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/caaa54d0"
-  },
-  {
-    "date": "2026-10-04",
-    "title": "Hub: ASafariM OS sign-in hand-off + read-only accounts view (Refs #782, P2.2)",
-    "sha": "8d455f55",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/8d455f55"
   }
 ]
