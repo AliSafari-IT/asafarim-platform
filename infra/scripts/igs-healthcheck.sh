@@ -7,13 +7,17 @@
 #     platform is IP-allowlisted at the edge), as igs-deploy.sh's ready() does;
 #   - https://igs-pharma.be/api/health from outside, through the edge;
 #   - that igs-postgres and igs-worker are running.
-# It alerts to Discord on a state CHANGE only: healthy -> unhealthy (one alert)
-# and back (one recovery message). The last state lives in
+# It alerts on a state CHANGE only: healthy -> unhealthy (one alert) and back
+# (one recovery message). The last state lives in
 # ${IGS_HEALTH_STATE_DIR:-/var/lib/igs-health}/state.
 #
-# The webhook is IGS_ALERT_WEBHOOK_DISCORD in the igs env (infra/igs/.env.igs,
-# decrypted by igs-deploy.sh). Unset, a placeholder or not a Discord webhook URL:
-# the script only logs. The URL is never printed, and it reaches curl on stdin,
+# Two channels, either or both, set in the igs env (infra/igs/.env.igs,
+# decrypted by igs-deploy.sh):
+#   - Discord: IGS_ALERT_WEBHOOK_DISCORD, a Discord webhook URL;
+#   - Telegram: IGS_ALERT_TELEGRAM_TOKEN (the bot token from @BotFather) and
+#     IGS_ALERT_TELEGRAM_CHAT_ID (a user, group or channel id).
+# With neither set (or a placeholder, or a malformed value) the script only logs.
+# The webhook URL and the bot token are never printed, and reach curl on stdin,
 # not on its command line.
 #
 # Sourcing this file only defines the functions (tests:
@@ -74,15 +78,33 @@ igs_health_record() { # <state-file> <ok|down>
   printf '%s\n' "$2" >"${1}.tmp" && mv -f "${1}.tmp" "$1"
 }
 
-# The webhook URL, only if it really is a Discord webhook (else nothing).
-igs_alert_webhook() { # <env-file>
+# One KEY=value from a dotenv file, one pair of surrounding quotes stripped.
+igs_dotenv_value() { # <env-file> <key>
   local line value
   [[ -r "$1" ]] || return 0
-  line="$(grep -E '^IGS_ALERT_WEBHOOK_DISCORD=' "$1" | tail -n 1)" || return 0
+  line="$(grep -E "^${2}=" "$1" | tail -n 1)" || return 0
   value="${line#*=}"
   if [[ "$value" =~ ^\"(.*)\"$ || "$value" =~ ^\'(.*)\'$ ]]; then value="${BASH_REMATCH[1]}"; fi
+  printf '%s' "$value"
+}
+
+# The webhook URL, only if it really is a Discord webhook (else nothing).
+igs_alert_webhook() { # <env-file>
+  local value
+  value="$(igs_dotenv_value "$1" IGS_ALERT_WEBHOOK_DISCORD)"
   if [[ "$value" =~ ^https://(discord\.com|discordapp\.com)/api/webhooks/[A-Za-z0-9_/-]+$ ]]; then
     printf '%s' "$value"
+  fi
+}
+
+# "<sendMessage URL> <chat id>", only if the bot token and the chat id both look
+# right (else nothing). The URL carries the token: treat it like a secret.
+igs_alert_telegram() { # <env-file>
+  local token chat
+  token="$(igs_dotenv_value "$1" IGS_ALERT_TELEGRAM_TOKEN)"
+  chat="$(igs_dotenv_value "$1" IGS_ALERT_TELEGRAM_CHAT_ID)"
+  if [[ "$token" =~ ^[0-9]{6,}:[A-Za-z0-9_-]{30,}$ && "$chat" =~ ^-?[0-9]+$ ]]; then
+    printf 'https://api.telegram.org/bot%s/sendMessage %s' "$token" "$chat"
   fi
 }
 
@@ -101,6 +123,16 @@ igs_json_string() {
 igs_notify() { # <webhook> <message>
   local body
   body="{\"content\":$(igs_json_string "$2")}"
+  printf 'url = "%s"\n' "$1" |
+    curl -sS --fail -o /dev/null --max-time 15 -X POST -H "Content-Type: application/json" \
+      --data-binary "$body" -K - 2>/dev/null
+}
+
+# Posts to Telegram: the sendMessage URL (it carries the bot token) goes to curl
+# through a config on stdin. Fails unless Telegram answers 2xx, like igs_notify.
+igs_notify_telegram() { # <sendMessage URL> <chat id> <message>
+  local body
+  body="{\"chat_id\":$(igs_json_string "$2"),\"text\":$(igs_json_string "$3")}"
   printf 'url = "%s"\n' "$1" |
     curl -sS --fail -o /dev/null --max-time 15 -X POST -H "Content-Type: application/json" \
       --data-binary "$body" -K - 2>/dev/null
@@ -127,18 +159,39 @@ igs_healthcheck_main() {
   else
     message="🟢 igs-pharma.be staging has recovered: every check passes again."
   fi
-  webhook="$(igs_alert_webhook "${repo_dir}/infra/igs/.env.igs")"
-  if [[ -z "$webhook" ]]; then
-    log "no IGS_ALERT_WEBHOOK_DISCORD set; not sending the ${action} message"
+  local env_file="${repo_dir}/infra/igs/.env.igs" telegram tg_url tg_chat configured=0 sent=0
+  webhook="$(igs_alert_webhook "$env_file")"
+  telegram="$(igs_alert_telegram "$env_file")"
+  if [[ -z "$webhook" && -z "$telegram" ]]; then
+    log "no IGS_ALERT_WEBHOOK_DISCORD or IGS_ALERT_TELEGRAM_TOKEN/CHAT_ID set; not sending the ${action} message"
     igs_health_record "${state_dir}/state" "$state"
     return 0
   fi
-  if igs_notify "$webhook" "$message"; then
-    log "sent the ${action} message to Discord"
+  if [[ -n "$webhook" ]]; then
+    configured=$((configured + 1))
+    if igs_notify "$webhook" "$message"; then
+      log "sent the ${action} message to Discord"
+      sent=$((sent + 1))
+    else
+      log "could not send the ${action} message to Discord"
+    fi
+  fi
+  if [[ -n "$telegram" ]]; then
+    tg_url="${telegram%% *}"
+    tg_chat="${telegram#* }"
+    configured=$((configured + 1))
+    if igs_notify_telegram "$tg_url" "$tg_chat" "$message"; then
+      log "sent the ${action} message to Telegram"
+      sent=$((sent + 1))
+    else
+      log "could not send the ${action} message to Telegram"
+    fi
+  fi
+  if ((sent > 0)); then
     igs_health_record "${state_dir}/state" "$state"
   else
     # The state stays as it was, so the next run tries again.
-    log "could not send the ${action} message to Discord; retrying on the next run"
+    log "no channel took the ${action} message (${configured} tried); retrying on the next run"
   fi
 }
 

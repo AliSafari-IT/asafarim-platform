@@ -251,6 +251,11 @@ test("the env example and the template carry placeholders only", () => {
       assert.equal(value, "", "the preview is off by default");
       continue;
     }
+    // optional, off by default: empty means no Telegram alerts
+    if (key === "IGS_ALERT_TELEGRAM_TOKEN" || key === "IGS_ALERT_TELEGRAM_CHAT_ID") {
+      assert.equal(value, "", `${key} is off by default`);
+      continue;
+    }
     assert.match(value, /CHANGE_ME/, `${key} is a placeholder`);
   }
   assert.ok(
@@ -545,7 +550,7 @@ test("igs-healthcheck.sh keeps the state when Discord rejects the alert, and sen
   for (const status of ["429", "500"]) {
     assert.match(
       run({ DOWN: "igs-worker", FAIL_POST: status }).stdout,
-      /could not send the alert message to Discord; retrying on the next run/
+      /could not send the alert message to Discord[\s\S]*retrying on the next run/
     );
   }
   assert.equal(alerts(), 2, "each rejected run tried to post");
@@ -581,8 +586,81 @@ test("igs-healthcheck.sh names each failed check, and without a webhook it only 
   assert.match(r.stdout, /igs-platform \/api\/health is not 200/);
   assert.match(r.stdout, /answered 502, not 200/);
   assert.doesNotMatch(r.stdout, /igs-web \/api\/health/);
-  assert.match(r.stdout, /no IGS_ALERT_WEBHOOK_DISCORD set/);
+  assert.match(r.stdout, /no IGS_ALERT_WEBHOOK_DISCORD or IGS_ALERT_TELEGRAM_TOKEN\/CHAT_ID set/);
   assert.equal(vps.posts(), "");
+});
+
+// A made-up bot token: it must never show up in any output.
+const TG_TOKEN = "123456789:AAFfake_token-for-tests_0123456789abc";
+
+test("igs_alert_telegram needs a well-formed bot token and chat id", () => {
+  const env = path.join(scratch, "env.telegram");
+  for (const [token, chat, ok] of [
+    [TG_TOKEN, "7218992221", true],
+    [`"${TG_TOKEN}"`, "-1001234567890", true],
+    [TG_TOKEN, "", false],
+    [TG_TOKEN, "@channel", false],
+    ["", "7218992221", false],
+    ["CHANGE_ME", "7218992221", false],
+    ["123:short", "7218992221", false],
+  ]) {
+    writeFileSync(
+      env,
+      `IGS_ALERT_TELEGRAM_TOKEN=${token}\nIGS_ALERT_TELEGRAM_CHAT_ID=${chat}\n`
+    );
+    assert.equal(
+      health("igs_alert_telegram", env).stdout,
+      ok ? `https://api.telegram.org/bot${TG_TOKEN}/sendMessage ${chat}` : "",
+      `${token} ${chat}`
+    );
+  }
+});
+
+test("igs-healthcheck.sh alerts through Telegram, token only on curl's stdin", () => {
+  const vps = fakeVps();
+  writeFileSync(
+    vps.env,
+    `IGS_ALERT_TELEGRAM_TOKEN=${TG_TOKEN}\nIGS_ALERT_TELEGRAM_CHAT_ID=7218992221\n`
+  );
+  const outputs = [];
+  const run = (extra) => {
+    const r = vps.run(extra);
+    assert.equal(r.status, 0, r.stderr);
+    outputs.push(r.stdout + r.stderr);
+    return r;
+  };
+  run();
+  assert.match(
+    run({ DOWN: "igs-worker" }).stdout,
+    /sent the alert message to Telegram/
+  );
+  run({ DOWN: "igs-worker" });
+  run();
+  const all = vps.posts();
+  assert.equal(all.match(/"text"/g)?.length, 2, "one alert, one recovery");
+  assert.match(all, /"chat_id":"7218992221"/);
+  assert.match(all, /^url = "https:\/\/api\.telegram\.org\/bot/m);
+  for (const out of outputs)
+    assert.ok(!out.includes("fake_token"), "the token never shows in the log");
+  for (const line of all.split("\n").filter((l) => !l.startsWith("url = ")))
+    assert.ok(!line.includes("fake_token"), "the token is not on curl's command line");
+});
+
+test("igs-healthcheck.sh keeps the state when Telegram rejects the alert", () => {
+  const vps = fakeVps();
+  writeFileSync(
+    vps.env,
+    `IGS_ALERT_TELEGRAM_TOKEN=${TG_TOKEN}\nIGS_ALERT_TELEGRAM_CHAT_ID=7218992221\n`
+  );
+  vps.run();
+  assert.match(
+    vps.run({ DOWN: "igs-worker", FAIL_POST: "401" }).stdout,
+    /could not send the alert message to Telegram[\s\S]*retrying on the next run/
+  );
+  assert.match(
+    vps.run({ DOWN: "igs-worker" }).stdout,
+    /sent the alert message to Telegram/
+  );
 });
 
 test("igs-deploy.sh installs the health check timer, and the units are well-formed", () => {
