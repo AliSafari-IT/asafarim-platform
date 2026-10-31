@@ -246,6 +246,11 @@ test("the env example and the template carry placeholders only", () => {
       assert.equal(value, "", "the allowlist is off by default");
       continue;
     }
+    // optional, off by default: empty means no storefront preview (igs-pharma#62)
+    if (key === "IGS_PREVIEW_KEY") {
+      assert.equal(value, "", "the preview is off by default");
+      continue;
+    }
     assert.match(value, /CHANGE_ME/, `${key} is a placeholder`);
   }
   assert.ok(
@@ -637,6 +642,15 @@ test("each IGS service connects as its own login, the migrator only in igs-migra
   // The owner's connection reaches no other service.
   for (const name of ["igs-web", "igs-platform", "igs-worker"])
     assert.doesNotMatch(service(name), /MIGRATE|MIGRATOR/, name);
+});
+
+test("the storefront preview key reaches igs-web only (igs-pharma#62)", () => {
+  assert.match(
+    service("igs-web"),
+    /\n {6}IGS_PREVIEW_KEY: \$\{IGS_PREVIEW_KEY:-\}\n/
+  );
+  for (const name of ["igs-migrate", "igs-platform", "igs-worker"])
+    assert.doesNotMatch(service(name), /PREVIEW/, name);
 });
 
 test("every IGS app verifies the database against the public certificate only (#841)", () => {
