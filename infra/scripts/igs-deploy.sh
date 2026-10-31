@@ -22,7 +22,7 @@
 #    (edge-deploy-site.sh). Before the edge cutover, also install it for the
 #    Caddy that owns 443 today (asafarim-com's), validated and reloaded.
 # 6. Install or refresh the health check (igs-healthcheck.timer, every 2
-#    minutes, #828): it alerts to Discord when the stack goes down or recovers.
+#    minutes, #828): it alerts to Discord and/or Telegram when the stack goes down or recovers.
 # 7. Install or refresh the nightly encrypted backup (igs-backup.timer, #829)
 #    when the IGS_BACKUP_* keys are set; otherwise skip it with a warning.
 #
@@ -141,8 +141,9 @@ as_root install -m 0644 "$unit" /etc/systemd/system/igs-healthcheck.service
 as_root install -m 0644 "${STACK_DIR}/igs-healthcheck.timer" /etc/systemd/system/igs-healthcheck.timer
 as_root systemctl daemon-reload
 as_root systemctl enable --now --quiet igs-healthcheck.timer
-if [[ "$(igs_env_value "$ENV_FILE" IGS_ALERT_WEBHOOK_DISCORD || true)" != https://* ]]; then
-  log "Note: IGS_ALERT_WEBHOOK_DISCORD is not set in ${ENV_FILE}.age; the health check only logs (journalctl -u igs-healthcheck)."
+if [[ "$(igs_env_value "$ENV_FILE" IGS_ALERT_WEBHOOK_DISCORD || true)" != https://* &&
+  -z "$(igs_env_value "$ENV_FILE" IGS_ALERT_TELEGRAM_TOKEN || true)" ]]; then
+  log "Note: neither IGS_ALERT_WEBHOOK_DISCORD nor IGS_ALERT_TELEGRAM_TOKEN is set in ${ENV_FILE}.age; the health check only logs (journalctl -u igs-healthcheck)."
 fi
 
 # 7. The nightly backup (#829): installed and enabled only when the IGS_BACKUP_*
