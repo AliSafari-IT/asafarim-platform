@@ -246,11 +246,6 @@ test("the env example and the template carry placeholders only", () => {
       assert.equal(value, "", "the allowlist is off by default");
       continue;
     }
-    // optional, off by default: empty means no storefront preview (igs-pharma#62)
-    if (key === "IGS_PREVIEW_KEY") {
-      assert.equal(value, "", "the preview is off by default");
-      continue;
-    }
     // optional, off by default: empty means no Telegram alerts
     if (key === "IGS_ALERT_TELEGRAM_TOKEN" || key === "IGS_ALERT_TELEGRAM_CHAT_ID") {
       assert.equal(value, "", `${key} is off by default`);
@@ -724,13 +719,11 @@ test("each IGS service connects as its own login, the migrator only in igs-migra
     assert.doesNotMatch(service(name), /MIGRATE|MIGRATOR/, name);
 });
 
-test("the storefront preview key reaches igs-web only (igs-pharma#62)", () => {
-  assert.match(
-    service("igs-web"),
-    /\n {6}IGS_PREVIEW_KEY: \$\{IGS_PREVIEW_KEY:-\}\n/
-  );
-  for (const name of ["igs-migrate", "igs-platform", "igs-worker"])
+test("the shared preview key is gone (igs-pharma#205): early access replaced it", () => {
+  for (const name of ["igs-migrate", "igs-web", "igs-platform", "igs-worker"])
     assert.doesNotMatch(service(name), /PREVIEW/, name);
+  const example = readFileSync(new URL("./.env.igs.example", import.meta.url), "utf8");
+  assert.doesNotMatch(example, /PREVIEW/);
 });
 
 test("every IGS app verifies the database against the public certificate only (#841)", () => {
