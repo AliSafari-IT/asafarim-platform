@@ -114,6 +114,10 @@ services:
       DATABASE_SSL_CA: /run/igs-db-ca/ca.crt
       # Closed ("coming soon", noindex) unless the env file says otherwise.
       SITE_GATE: ${SITE_GATE:-coming-soon}
+      # The storefront preview key (igs-pharma#62, #91): /preview opens the closed shop for whoever
+      # holds it. Deploy-only like every IGS_* key, so it reaches igs-web here and nowhere else.
+      # Unset (the default): no preview.
+      IGS_PREVIEW_KEY: ${IGS_PREVIEW_KEY:-}
     volumes:
       - igs_postgres_ca:/run/igs-db-ca:ro
     depends_on:
