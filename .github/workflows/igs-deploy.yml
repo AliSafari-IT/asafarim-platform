@@ -7,8 +7,8 @@
 #
 # Triggers:
 #   - by hand: Actions > igs-deploy > Run workflow, with the full SHA;
-#   - from igs-pharma after `publish` on main: a repository_dispatch of type
-#     igs-deploy with client_payload.sha.
+#   - from igs-pharma after successful main CI: a repository_dispatch of type
+#     igs-deploy with client_payload.sha and client_payload.run_id.
 #
 # The igs-staging environment holds everything sensitive (add a required
 # reviewer there to approve each deploy):
@@ -36,7 +36,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate requested IGS release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      deploy: ${{ steps.release.outputs.deploy }}
+    env:
+      SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.event.client_payload.sha }}
+      RUN_ID: ${{ github.event.client_payload.run_id }}
+      EVENT_NAME: ${{ github.event_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Validate release provenance
+        id: release
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid release SHA"; exit 1; }
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [[ "$RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo "::error::Missing or invalid source CI run ID"; exit 1; }
+          run=$(gh api "repos/AliSafari-IT/igs-pharma/actions/runs/$RUN_ID")
+          jq -e --arg sha "$SHA" '
+            .repository.full_name == "AliSafari-IT/igs-pharma" and
+            .head_repository.full_name == "AliSafari-IT/igs-pharma" and
+            .path == ".github/workflows/ci.yml" and
+            .event == "push" and .head_branch == "main" and
+            .head_sha == $sha and .status == "completed" and .conclusion == "success"
+          ' <<< "$run" > /dev/null || { echo "::error::Release lacks successful main CI provenance"; exit 1; }
+          head=$(gh api repos/AliSafari-IT/igs-pharma/commits/main --jq .sha)
+          if [[ "$head" != "$SHA" ]]; then
+            echo "Skipping superseded automatic release $SHA" >> "$GITHUB_STEP_SUMMARY"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
+    needs: validate
+    if: needs.validate.outputs.deploy == 'true'
     name: Deploy igs-pharma to staging
     runs-on: ubuntu-latest
     timeout-minutes: 30
