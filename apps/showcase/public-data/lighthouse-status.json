@@ -1,16 +1,16 @@
 {
-  "measuredAt": "2026-11-03T04:22:33.673Z",
+  "measuredAt": "2026-11-04T04:22:52.258Z",
   "method": "Lighthouse CI (treosh/lighthouse-ci-action) against the deployed showcase, on a schedule.",
   "results": [
     {
       "url": "https://showcase.asafarim.com/",
       "accessibility": 100,
-      "performance": 96
+      "performance": 90
     },
     {
       "url": "https://showcase.asafarim.com/proof",
       "accessibility": 92,
-      "performance": 87
+      "performance": 84
     }
   ]
 }
