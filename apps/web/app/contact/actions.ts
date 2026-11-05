@@ -1,7 +1,13 @@
 "use server";
 
 import { createTransport } from "@asafarim/auth/mailer";
+import { headers } from "next/headers";
 import { site } from "../../content/site";
+import { clientKey } from "../../lib/tools/server/admission";
+import { ContactRateLimiter, spamReason } from "./spam";
+
+/** At most 3 messages per visitor per 10 minutes (in memory, per web container). */
+const limiter = new ContactRateLimiter();
 
 export type ContactFormState =
   | { status: "idle" }
@@ -44,6 +50,24 @@ export async function sendContactMessage(
   }
 
   const { name, email, message } = validation.data;
+
+  // Bots get the same "sent" answer as people, and nothing is sent: they learn nothing.
+  const reason = spamReason({
+    name,
+    message,
+    honeypot: String(formData.get("company") ?? ""),
+    startedAt: String(formData.get("startedAt") ?? ""),
+  });
+  if (reason) {
+    console.info(JSON.stringify({ event: "contact.screened", reason }));
+    return { status: "success" };
+  }
+  if (!limiter.allow(clientKey(await headers()))) {
+    return {
+      status: "error",
+      message: `You've sent several messages in a short time. Please try again later, or email ${site.contact.email} directly.`,
+    };
+  }
 
   try {
     const { transporter, from, bcc } = await createTransport();

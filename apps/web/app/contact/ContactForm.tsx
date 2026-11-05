@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   Alert,
   Button,
@@ -15,6 +15,9 @@ export function ContactForm() {
   const [state, formAction, pending] = useActionState(sendContactMessage, {
     status: "idle",
   });
+  // When the form appeared: a submission seconds later is a script (see ./spam.ts).
+  const [startedAt, setStartedAt] = useState("");
+  useEffect(() => setStartedAt(String(Date.now())), []);
 
   if (state.status === "success") {
     return (
@@ -27,6 +30,17 @@ export function ContactForm() {
   return (
     <form action={formAction} aria-label="Project inquiry">
       {state.status === "error" && <Alert tone="error">{state.message}</Alert>}
+      <input type="hidden" name="startedAt" value={startedAt} />
+      {/* Honeypot: hidden from people (off-screen, not focusable, not announced);
+          bots that fill every field trip it. */}
+      <input
+        type="text"
+        name="company"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        style={{ position: "absolute", left: "-10000px", width: 1, height: 1, opacity: 0 }}
+      />
       <FormRow>
         <Label htmlFor="name">Your name</Label>
         <Input
