@@ -12,6 +12,7 @@ import {
   Badge,
   BulkActionBar,
   Button,
+  ChipList,
   DataTable,
   EmptyState,
   FilterBar,
@@ -57,31 +58,37 @@ async function getUsersData(filters: UserFilters): Promise<UsersData | null> {
   const where = buildUserWhere(filters);
 
   try {
-    const [users, filteredCount, all, active, admins, roles] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (filters.page - 1) * PAGE_SIZE,
-        take: PAGE_SIZE,
-        select: {
-          id: true,
-          name: true,
-          username: true,
-          email: true,
-          isActive: true,
-          createdAt: true,
-          updatedAt: true,
-          userRoles: { select: { role: { select: { name: true } } } },
-        },
-      }),
-      prisma.user.count({ where }),
-      prisma.user.count(),
-      prisma.user.count({ where: { isActive: true } }),
-      prisma.user.count({
-        where: { userRoles: { some: { role: { name: { in: ADMIN_ROLE_NAMES } } } } },
-      }),
-      prisma.role.findMany({ select: { name: true }, orderBy: { name: "asc" } }),
-    ]);
+    const [users, filteredCount, all, active, admins, roles] =
+      await Promise.all([
+        prisma.user.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip: (filters.page - 1) * PAGE_SIZE,
+          take: PAGE_SIZE,
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            email: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+            userRoles: { select: { role: { select: { name: true } } } },
+          },
+        }),
+        prisma.user.count({ where }),
+        prisma.user.count(),
+        prisma.user.count({ where: { isActive: true } }),
+        prisma.user.count({
+          where: {
+            userRoles: { some: { role: { name: { in: ADMIN_ROLE_NAMES } } } },
+          },
+        }),
+        prisma.role.findMany({
+          select: { name: true },
+          orderBy: { name: "asc" },
+        }),
+      ]);
     return {
       users,
       filteredCount,
@@ -177,17 +184,14 @@ export default async function UsersPage({
           authenticated: user.isActive,
         });
         return (
-          <span className="ui-chips">
-            {apps.length === 0 ? (
-              <span className="u-muted">—</span>
-            ) : (
-              apps.map((app) => (
-                <Badge key={app.key} tone="neutral">
-                  {app.key}
-                </Badge>
-              ))
-            )}
-          </span>
+          <ChipList
+            noun="apps"
+            items={apps.map((app) => (
+              <Badge key={app.key} tone="neutral">
+                {app.key}
+              </Badge>
+            ))}
+          />
         );
       },
     },
@@ -228,11 +232,30 @@ export default async function UsersPage({
         />
       ) : (
         <>
-          <div className="ui-grid ui-grid--metrics" style={{ marginBottom: "var(--space-5)" }}>
-            <Metric label="Total users" value={data.totals.all} hint="registered accounts" />
-            <Metric label="Active" value={data.totals.active} hint="can sign in" />
-            <Metric label="Inactive" value={data.totals.inactive} hint="deactivated" />
-            <Metric label="Admins" value={data.totals.admins} hint="admin + superadmin" />
+          <div
+            className="ui-grid ui-grid--metrics"
+            style={{ marginBottom: "var(--space-5)" }}
+          >
+            <Metric
+              label="Total users"
+              value={data.totals.all}
+              hint="registered accounts"
+            />
+            <Metric
+              label="Active"
+              value={data.totals.active}
+              hint="can sign in"
+            />
+            <Metric
+              label="Inactive"
+              value={data.totals.inactive}
+              hint="deactivated"
+            />
+            <Metric
+              label="Admins"
+              value={data.totals.admins}
+              hint="admin + superadmin"
+            />
           </div>
 
           <FilterBar
@@ -255,24 +278,31 @@ export default async function UsersPage({
                 value: filters.role,
                 options: [
                   { value: "", label: "all roles" },
-                  ...data.roleNames.map((name) => ({ value: name, label: name })),
+                  ...data.roleNames.map((name) => ({
+                    value: name,
+                    label: name,
+                  })),
                 ],
               },
             ]}
             chips={{
               label: "status",
-              options: (["all", "active", "inactive"] as const).map((option) => ({
-                label: option,
-                href: userHref(filters, { status: option, page: 1 }),
-                active: filters.status === option,
-              })),
+              options: (["all", "active", "inactive"] as const).map(
+                (option) => ({
+                  label: option,
+                  href: userHref(filters, { status: option, page: 1 }),
+                  active: filters.status === option,
+                })
+              ),
             }}
           />
 
           {data.users.length === 0 ? (
             <EmptyState
               glyph="[usr]"
-              title={hasUserFilters(filters) ? "No matching users" : "No users yet"}
+              title={
+                hasUserFilters(filters) ? "No matching users" : "No users yet"
+              }
               description={
                 hasUserFilters(filters)
                   ? "Nothing in the directory matches this search/filter combination."
@@ -315,7 +345,10 @@ export default async function UsersPage({
                 caption="User directory"
                 selection={
                   canDeactivate
-                    ? { name: "userIds", label: "Select all users on this page" }
+                    ? {
+                        name: "userIds",
+                        label: "Select all users on this page",
+                      }
                     : undefined
                 }
               />
@@ -327,7 +360,11 @@ export default async function UsersPage({
                 noun="user"
                 hrefFor={(page) => userHref(filters, { page })}
                 actions={
-                  <a href={exportQs ? `/users/export?${exportQs}` : "/users/export"}>
+                  <a
+                    href={
+                      exportQs ? `/users/export?${exportQs}` : "/users/export"
+                    }
+                  >
                     export csv
                   </a>
                 }
