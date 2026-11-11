@@ -16,10 +16,10 @@
       "kind": "app",
       "folder": "apps/admin",
       "description": "ASafariM Admin - internal admin panel (admin.asafarim.com)",
-      "sha": "44adb469",
-      "date": "2026-10-26",
+      "sha": "f669657b",
+      "date": "2026-11-11",
       "since": "2026-07-04",
-      "commits": 104,
+      "commits": 105,
       "dependents": 0
     },
     {
@@ -214,10 +214,10 @@
       "kind": "app",
       "folder": "apps/showcase",
       "description": "ASafariM Showcase - public demos and portfolio experiments (showcase.asafarim.com)",
-      "sha": "c8b8fe29",
-      "date": "2026-11-05",
+      "sha": "b3eb44f1",
+      "date": "2026-11-11",
       "since": "2026-07-04",
-      "commits": 499,
+      "commits": 506,
       "dependents": 0
     },
     {
@@ -291,10 +291,10 @@
       "kind": "package",
       "folder": "packages/ui",
       "description": "ASafariM Platform design system: tokens, brand, and creative building blocks",
-      "sha": "1aaa5fee",
-      "date": "2026-10-26",
+      "sha": "f669657b",
+      "date": "2026-11-11",
       "since": "2026-07-04",
-      "commits": 71,
+      "commits": 72,
       "dependents": 13
     },
     {
@@ -313,10 +313,10 @@
       "kind": "app",
       "folder": "apps/web",
       "description": "Public ASafariM Digital website (asafarim.com)",
-      "sha": "ec115b44",
-      "date": "2026-11-05",
+      "sha": "f669657b",
+      "date": "2026-11-11",
       "since": "2026-07-04",
-      "commits": 90,
+      "commits": 91,
       "dependents": 0
     },
     {
