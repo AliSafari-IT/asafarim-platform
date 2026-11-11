@@ -10,7 +10,7 @@
 export default {
   id: "web",
   name: "ASafariM Digital",
-  version: "0.2.0",
+  version: "0.2.1",
   platform: ">=0.1 <1",
   owner: "ASafariM Digital",
   domains: {

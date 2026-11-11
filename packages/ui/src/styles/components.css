@@ -1635,6 +1635,49 @@ a .ui-card {
   align-items: center;
 }
 
+/* ChipList: the first few chips, then a "+N" toggle that opens the rest in place. */
+.ui-chiplist {
+  max-width: 100%;
+}
+
+.ui-chiplist__more {
+  display: inline-block;
+}
+
+.ui-chiplist__more > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  user-select: none;
+}
+
+.ui-chiplist__more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ui-chiplist__more > summary:hover,
+.ui-chiplist__more[open] > summary {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.ui-chiplist__more > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ui-chiplist__rest {
+  margin-top: 0.3rem;
+}
+
 /* ── Project card (Showcase gallery) ────────────────────────────── */
 
 .ui-projectcard {

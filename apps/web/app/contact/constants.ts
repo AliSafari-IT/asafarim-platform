@@ -10,25 +10,22 @@ export const EMAIL_ATTACH_CAP_BYTES = 20 * 1024 * 1024;
 export const MAX_HTML_LENGTH = 200_000;
 
 /** Allowed upload extensions: docs, spreadsheets, markdown/text, and images. */
+// Legacy Office formats (doc, xls, ppt, rtf: macros and OLE exploits) and svg (active
+// content) are not accepted; the content of every accepted type is verified on the server.
 export const ALLOWED_EXTENSIONS = [
   "pdf",
-  "doc",
   "docx",
   "md",
   "markdown",
   "txt",
-  "rtf",
-  "xls",
   "xlsx",
   "csv",
-  "ppt",
   "pptx",
   "png",
   "jpg",
   "jpeg",
   "gif",
   "webp",
-  "svg",
   "heic",
 ] as const;
 
@@ -37,23 +34,18 @@ export const ACCEPT_ATTR = ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(",");
 
 const MIME_BY_EXT: Record<string, string> = {
   pdf: "application/pdf",
-  doc: "application/msword",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   md: "text/markdown",
   markdown: "text/markdown",
   txt: "text/plain",
-  rtf: "application/rtf",
-  xls: "application/vnd.ms-excel",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   csv: "text/csv",
-  ppt: "application/vnd.ms-powerpoint",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   png: "image/png",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   gif: "image/gif",
   webp: "image/webp",
-  svg: "image/svg+xml",
   heic: "image/heic",
 };
 
@@ -68,7 +60,9 @@ export function isAllowedFile(fileName: string): boolean {
 
 /** Best-effort content type from a filename, falling back to the browser value. */
 export function contentTypeFor(fileName: string, browserType?: string): string {
-  return MIME_BY_EXT[extOf(fileName)] ?? (browserType || "application/octet-stream");
+  return (
+    MIME_BY_EXT[extOf(fileName)] ?? (browserType || "application/octet-stream")
+  );
 }
 
 export function formatBytes(bytes: number): string {
@@ -80,13 +74,16 @@ export function formatBytes(bytes: number): string {
 }
 
 /** A coarse category used to pick an icon/label for an attachment. */
-export function fileKind(fileName: string): "image" | "pdf" | "doc" | "sheet" | "slides" | "text" | "file" {
+export function fileKind(
+  fileName: string
+): "image" | "pdf" | "doc" | "sheet" | "slides" | "text" | "file" {
   const ext = extOf(fileName);
-  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "heic"].includes(ext)) return "image";
+  if (["png", "jpg", "jpeg", "gif", "webp", "heic"].includes(ext))
+    return "image";
   if (ext === "pdf") return "pdf";
-  if (["doc", "docx", "rtf"].includes(ext)) return "doc";
-  if (["xls", "xlsx", "csv"].includes(ext)) return "sheet";
-  if (["ppt", "pptx"].includes(ext)) return "slides";
+  if (["docx"].includes(ext)) return "doc";
+  if (["xlsx", "csv"].includes(ext)) return "sheet";
+  if (["pptx"].includes(ext)) return "slides";
   if (["md", "markdown", "txt"].includes(ext)) return "text";
   return "file";
 }

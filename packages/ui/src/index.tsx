@@ -8,6 +8,7 @@ export {
   type AppSwitcherLink,
 } from "./components/AppSwitcher";
 export { Badge, type BadgeTone } from "./components/Badge";
+export { ChipList, type ChipListProps } from "./components/ChipList";
 export {
   BrandWordmark,
   LogoMark,
