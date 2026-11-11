@@ -1,6 +1,6 @@
 {
   "name": "@asafarim/admin",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "ASafariM Admin - internal admin panel (admin.asafarim.com)",
   "scripts": {
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@asafarim/config": "workspace:*",
+    "@playwright/test": "^1.59.1",
     "@types/node": "^24.0.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

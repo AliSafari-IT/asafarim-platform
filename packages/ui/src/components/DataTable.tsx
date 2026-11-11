@@ -54,10 +54,13 @@ export interface DataTableProps<T> {
    * How the table adapts to a narrow container. `"auto"` (default): once
    * the table's own box is narrower than ~40rem (a phone, or a tablet with
    * the sidebar open), each row becomes a stacked card with every value
-   * labelled by its column. `"never"`: always a table, scrolling sideways
-   * when it doesn't fit; for comparison grids that only read as a grid.
+   * labelled by its column. `"wide"`: the same cards, but below 58rem; for
+   * tables with too many columns to fit 40rem (the admin users table), which
+   * would otherwise scroll sideways between the two widths. `"never"`:
+   * always a table, scrolling sideways when it doesn't fit; for comparison
+   * grids that only read as a grid.
    */
-  stack?: "auto" | "never";
+  stack?: "auto" | "wide" | "never";
 }
 
 /** A column's name for the stacked layout's per-cell label. */
@@ -90,7 +93,11 @@ export function DataTable<T>({
     : [];
 
   return (
-    <div className={`ui-tablewrap${stack === "auto" ? " ui-tablewrap--stack" : ""}`}>
+    <div
+      className={`ui-tablewrap${
+        stack === "auto" ? " ui-tablewrap--stack" : stack === "wide" ? " ui-tablewrap--stack-wide" : ""
+      }`}
+    >
       <table className={`ui-table${nowrap ? " ui-table--nowrap" : ""}`}>
         {caption ? <caption className="u-visually-hidden">{caption}</caption> : null}
         <thead>
