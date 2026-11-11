@@ -36,6 +36,13 @@ describe("DataTable", () => {
     expect(never).toContain('class="ui-tablewrap"');
     expect(never).not.toContain("ui-tablewrap--stack");
   });
+
+  it("can stack below the wider breakpoint instead", () => {
+    const wide = renderToStaticMarkup(
+      <DataTable columns={columns} rows={rows} getRowKey={(r) => r.id} stack="wide" />,
+    );
+    expect(wide).toContain('class="ui-tablewrap ui-tablewrap--stack-wide"');
+  });
 });
 
 describe("columnLabel", () => {
