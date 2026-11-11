@@ -86,11 +86,19 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NEXT_PUBLIC_APP_URL: https://asafarim.com
       AUTH_URL: https://asafarim.com
+      # Contact-form attachments are scanned by the shared ClamAV sidecar before they are
+      # stored or e-mailed. Without a reachable scanner, attachments are refused (fail
+      # closed); messages without files still go through.
+      CONTACT_SCANNER_URL: tcp://clamav:3310
     depends_on:
       postgres:
         condition: service_started
       platform-migrate:
         condition: service_completed_successfully
+      # Not service_healthy: the first signature download takes minutes, and the contact
+      # form works without files in the meantime.
+      clamav:
+        condition: service_started
     networks:
       - asafarim_net
       # Shared edge (#770): only public-facing services join edge_net.
