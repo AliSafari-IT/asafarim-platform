@@ -51,6 +51,8 @@ describe("PATCH /api/applications/[id]", () => {
     ["an invalid date", { followUpDate: "not-a-date" }],
     ["an impossible date", { followUpDate: "2026-02-30" }],
     ["a numeric date", { followUpDate: 1_700_000_000_000 }],
+    ["a day outside the accepted range", { followUpDate: "0002-11-19" }],
+    ["a timestamp without an offset", { followUpDate: "2026-12-01T10:00:00" }],
     ["a null status", { status: null }],
     ["an unknown status", { status: "HIRED" }],
   ])("400s on %s without calling the service", async (_label, body) => {
@@ -75,6 +77,18 @@ describe("PATCH /api/applications/[id]", () => {
   it("passes a validated Date for followUpDate", async () => {
     await patch({ followUpDate: "2026-12-01" });
     expect(updateApplication).toHaveBeenCalledWith("ws-1", "app-1", { followUpDate: new Date("2026-12-01T00:00:00Z") });
+  });
+
+  it("clears followUpDate with null", async () => {
+    await patch({ followUpDate: null });
+    expect(updateApplication).toHaveBeenCalledWith("ws-1", "app-1", { followUpDate: null });
+  });
+
+  it("does not leak database errors for a follow-up date", async () => {
+    updateApplication.mockRejectedValue(new Error("PrismaClientKnownRequestError: invalid datetime"));
+    const res = await patch({ followUpDate: "2026-12-01" });
+    expect(res.status).toBe(500);
+    expect(await res.text()).not.toContain("Prisma");
   });
 
   it("404s when the application is not in this workspace", async () => {
