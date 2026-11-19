@@ -286,7 +286,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   apps/appbuilder:
     dependencies:
@@ -386,7 +386,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   apps/edumatch:
     dependencies:
@@ -501,7 +501,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   apps/hub:
     dependencies:
@@ -568,7 +568,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   apps/labs:
     dependencies:
@@ -694,6 +694,9 @@ importers:
       '@asafarim/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@playwright/test':
+        specifier: ^1.59.1
+        version: 1.61.1
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.2
@@ -706,6 +709,9 @@ importers:
       dotenv-cli:
         specifier: ^7.4.2
         version: 7.4.4
+      next-auth:
+        specifier: ^5.0.0-beta.32
+        version: 5.0.0-beta.32(next@16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@10.0.13)(react@19.3.0)
       prisma:
         specifier: 7.8.0
         version: 7.8.0(@types/node@24.13.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
@@ -717,7 +723,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   apps/showcase:
     dependencies:
@@ -875,7 +881,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   apps/testora:
     dependencies:
@@ -1099,7 +1105,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   apps/vionto:
     dependencies:
@@ -1205,7 +1211,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   apps/web:
     dependencies:
@@ -1290,7 +1296,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   benchmarks/ai-eval: {}
 
@@ -1311,7 +1317,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   benchmarks/edumatch: {}
 
@@ -1346,7 +1352,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/agent-assurance-contract:
     dependencies:
@@ -1362,7 +1368,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/ai-cost-ledger:
     dependencies:
@@ -1381,7 +1387,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/appbuilder-ai:
     dependencies:
@@ -1409,7 +1415,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/appbuilder-runtime:
     dependencies:
@@ -1446,7 +1452,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/appbuilder-schema:
     dependencies:
@@ -1471,7 +1477,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/auth:
     dependencies:
@@ -1520,7 +1526,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/config: {}
 
@@ -1605,7 +1611,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/db-env-guard:
     devDependencies:
@@ -1620,7 +1626,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/seed-manager:
     dependencies:
@@ -1672,7 +1678,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/settings-client:
     devDependencies:
@@ -1687,7 +1693,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/shared-i18n:
     devDependencies:
@@ -1721,7 +1727,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/testora-tasksai-contract:
     dependencies:
@@ -1740,7 +1746,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/theme-toggle:
     dependencies:
@@ -1774,7 +1780,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/tool-handoff:
     dependencies:
@@ -1793,7 +1799,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/ui:
     dependencies:
@@ -1821,7 +1827,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.11
-        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+        version: 4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
 
   packages/vionto-schemas:
     dependencies:
@@ -11252,7 +11258,7 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.11(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))':
+  '@vitest/mocker@4.1.11(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))':
     dependencies:
       '@vitest/spy': 4.1.11
       estree-walker: 3.0.3
@@ -15176,10 +15182,10 @@ snapshots:
       tsx: 4.23.0
       yaml: 2.9.1
 
-  vitest@4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0)):
+  vitest@4.1.11(@types/node@24.13.2)(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1)):
     dependencies:
       '@vitest/expect': 4.1.11
-      '@vitest/mocker': 4.1.11(vite@8.1.4(@types/node@24.13.2)(tsx@4.23.0))
+      '@vitest/mocker': 4.1.11(vite@8.1.4(@types/node@24.13.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.0)(yaml@2.9.1))
       '@vitest/pretty-format': 4.1.11
       '@vitest/runner': 4.1.11
       '@vitest/snapshot': 4.1.11
