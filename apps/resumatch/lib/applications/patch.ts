@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { APPLICATION_STATUSES } from "./constants";
+import { followUpDayToDate, parseFollowUpDay } from "./followUp";
 
 /**
  * The one accepted shape for `PATCH /api/applications/[id]` (issue #895).
@@ -25,25 +26,27 @@ import { APPLICATION_STATUSES } from "./constants";
  *  note, small enough that a runaway client can't store megabytes. */
 export const APPLICATION_NOTES_MAX_LENGTH = 20_000;
 
-const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** A calendar date (`YYYY-MM-DD`, stored as UTC midnight) or a full ISO
- *  8601 timestamp with an offset. Anything `new Date()` would merely
- *  guess at, such as "soon", "2026-02-30" or "11/19/2026", is rejected. */
+/** The day a follow-up date names, stored as that day at 00:00 UTC (see
+ *  lib/applications/followUp.ts, issue #896). Two input forms:
+ *
+ * - `YYYY-MM-DD`, what the UI sends;
+ * - an ISO 8601 timestamp with an offset, kept for API callers. It names
+ *   the day as written, in its own offset: "2026-12-01T23:30:00-05:00" is
+ *   1 December, not the 2 December it is in UTC. The time is dropped.
+ *
+ * Anything `new Date()` would merely guess at ("soon", "2026-02-30",
+ * "11/19/2026"), a timestamp without an offset, and a day outside
+ * FOLLOW_UP_MIN_DAY..FOLLOW_UP_MAX_DAY are rejected. */
 export function parseFollowUpDate(value: string): Date | null {
-  const dateOnly = DATE_ONLY.exec(value);
-  if (dateOnly) {
-    const [, y, m, d] = dateOnly;
-    const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
-    // Date.UTC rolls 2026-02-30 over to March 2; a real date round-trips.
-    if (date.getUTCFullYear() !== Number(y) || date.getUTCMonth() !== Number(m) - 1 || date.getUTCDate() !== Number(d)) {
-      return null;
-    }
-    return date;
+  let day = value;
+  if (!DATE_ONLY.test(value)) {
+    if (!z.iso.datetime({ offset: true }).safeParse(value).success) return null;
+    day = value.slice(0, 10);
   }
-  if (!z.iso.datetime({ offset: true }).safeParse(value).success) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  const valid = parseFollowUpDay(day);
+  return valid ? followUpDayToDate(valid) : null;
 }
 
 const followUpDate = z
@@ -51,7 +54,7 @@ const followUpDate = z
   .transform((value, ctx) => {
     const date = parseFollowUpDate(value);
     if (!date) {
-      ctx.addIssue({ code: "custom", message: "must be a valid date (YYYY-MM-DD) or ISO 8601 timestamp" });
+      ctx.addIssue({ code: "custom", message: "must be a valid day (YYYY-MM-DD) between 2000 and 2100" });
       return z.NEVER;
     }
     return date;

@@ -15,7 +15,9 @@ import {
   type SaveErrorKind,
   type SaveOutcome,
 } from "../../lib/applications/fieldSaver";
+import { followUpDateToDay } from "../../lib/applications/followUp";
 import { ApplicationStatusStepper } from "./ApplicationStatusStepper";
+import { FollowUpDateField } from "./FollowUpDateField";
 
 type ApplicationWithRelations = Awaited<ReturnType<typeof listApplications>>[number];
 
@@ -28,7 +30,7 @@ function useFieldSaver<T>(initial: T, send: (value: T) => Promise<SaveOutcome>, 
   return [state, saver] as const;
 }
 
-/** One row: status stepper and notes, both PATCHing /api/applications/[id].
+/** One row: status stepper, follow-up date and notes, all PATCHing /api/applications/[id].
  *
  *  Server data stays the source of truth: the stepper always shows the
  *  persisted status (a failed change leaves it where it was, with an error
@@ -55,6 +57,14 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
     refresh,
   );
   const [draft, setDraft] = useState(application.notes ?? "");
+  // Follow-up date as a `YYYY-MM-DD` day, "" for none (lib/applications/followUp.ts).
+  const serverFollowUp = followUpDateToDay(application.followUpDate) ?? "";
+  const [followUpState, followUpSaver] = useFieldSaver<string>(
+    serverFollowUp,
+    (day) => patchApplication(application.id, { followUpDate: day === "" ? null : day }),
+    refresh,
+  );
+  const [followUpDraft, setFollowUpDraft] = useState(serverFollowUp);
 
   // A refresh brings the server's values. Status always follows them (unless
   // a save is in flight); notes only when the draft has no unsaved edits.
@@ -70,17 +80,25 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
     notesSaver.syncPersisted(serverNotes);
   }, [serverNotes, notesSaver]);
 
+  useEffect(() => {
+    if (followUpSaver.isBusy()) return;
+    const { persisted } = followUpSaver.getState();
+    setFollowUpDraft((current) => (current === persisted ? serverFollowUp : current));
+    followUpSaver.syncPersisted(serverFollowUp);
+  }, [serverFollowUp, followUpSaver]);
+
   const notesDirty = draft !== notesState.persisted;
 
-  // Warn before leaving the page with notes that never reached the server.
+  // Warn before leaving the page with notes or a date that never reached
+  // the server.
   useEffect(() => {
-    if (!notesDirty) return;
+    if (!notesDirty && followUpDraft === followUpState.persisted) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [notesDirty]);
+  }, [notesDirty, followUpDraft, followUpState.persisted]);
 
   const reason = (kind: SaveErrorKind | null) => t(`resumatch.app.save.error.${kind ?? "server"}`);
   const statusLabel = (status: ApplicationStatusName) => t(`resumatch.app.status.${status}`);
@@ -125,6 +143,14 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
           </div>
         ) : null}
       </div>
+
+      <FollowUpDateField
+        status={statusState.persisted}
+        saveState={followUpState}
+        saver={followUpSaver}
+        draft={followUpDraft}
+        setDraft={setFollowUpDraft}
+      />
 
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         {application.tailoredResume ? (

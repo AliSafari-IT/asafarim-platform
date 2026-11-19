@@ -4796,3 +4796,44 @@
 [data-app="resumatch"][data-theme="dark"] .ui-alert--error {
   color: #f87171;
 }
+
+/* Follow-up date editor on /applications (issue #896). The input keeps
+   its natural width so the due badge and the formatted day sit beside it
+   on wide screens and wrap below it on a phone. */
+[data-app="resumatch"] .rm-followup {
+  margin-top: 0.75rem;
+}
+
+[data-app="resumatch"] .rm-followup__label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+[data-app="resumatch"] .rm-followup__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+[data-app="resumatch"] .rm-followup__input {
+  box-sizing: border-box;
+  width: auto;
+  max-width: 100%;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm, 6px);
+  font: inherit;
+}
+
+[data-app="resumatch"] .rm-followup__due {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

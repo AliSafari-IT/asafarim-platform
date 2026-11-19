@@ -68,6 +68,27 @@ describe.skipIf(!TEST_DB)("updateApplication", () => {
     expect(row).toMatchObject({ status: "APPLIED", notes: null, followUpDate: new Date("2026-12-01T00:00:00Z") });
   });
 
+  it("sets, changes and clears a follow-up date, auditing only the field name", async () => {
+    const { workspaceId, applicationId } = await seed();
+    const { parseFollowUpDate } = await import("./patch");
+    const { followUpDateToDay } = await import("./followUp");
+    for (const day of ["2026-12-31", "2027-01-01"]) {
+      await service.updateApplication(workspaceId, applicationId, { followUpDate: parseFollowUpDate(day) });
+      const row = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
+      expect(followUpDateToDay(row.followUpDate)).toBe(day);
+    }
+    await service.updateApplication(workspaceId, applicationId, { followUpDate: null });
+    const row = await db.application.findUniqueOrThrow({ where: { id: applicationId } });
+    expect(row.followUpDate).toBeNull();
+
+    const updates = await db.auditEvent.findMany({ where: { workspaceId, action: "application.updated" } });
+    expect(updates).toHaveLength(3);
+    for (const event of updates) {
+      expect(event.metadata).toMatchObject({ changedFields: "followUpDate" });
+      expect(JSON.stringify(event.metadata)).not.toMatch(/2026|2027/);
+    }
+  });
+
   it("writes nothing for an unchanged update", async () => {
     const { workspaceId, applicationId } = await seed();
     const before = await db.application.findUniqueOrThrow({ where: { id: applicationId } });

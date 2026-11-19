@@ -62,9 +62,11 @@ describe("parseApplicationPatch", () => {
       ok: true,
       patch: { followUpDate: new Date("2026-12-01T00:00:00Z") },
     });
+    // A timestamp names the day as written in its own offset, stored as
+    // that day's UTC midnight (issue #896).
     expect(parseApplicationPatch({ followUpDate: "2026-12-01T09:30:00+01:00" })).toEqual({
       ok: true,
-      patch: { followUpDate: new Date("2026-12-01T08:30:00Z") },
+      patch: { followUpDate: new Date("2026-12-01T00:00:00Z") },
     });
   });
 
@@ -84,6 +86,18 @@ describe("parseApplicationPatch", () => {
 });
 
 describe("parseFollowUpDate", () => {
+  it("keeps the written day for timestamps on either side of UTC", () => {
+    expect(parseFollowUpDate("2026-12-01T23:30:00-05:00")).toEqual(new Date("2026-12-01T00:00:00Z"));
+    expect(parseFollowUpDate("2027-01-01T00:30:00+14:00")).toEqual(new Date("2027-01-01T00:00:00Z"));
+    expect(parseFollowUpDate("2026-12-31T23:59:59Z")).toEqual(new Date("2026-12-31T00:00:00Z"));
+  });
+
+  it("rejects days outside 2000-2100 and impossible timestamp days", () => {
+    for (const value of ["0002-11-19", "1999-12-31", "2101-01-01", "2026-02-30T10:00:00Z"]) {
+      expect(parseFollowUpDate(value), value).toBeNull();
+    }
+  });
+
   it("accepts leap days only in leap years", () => {
     expect(parseFollowUpDate("2028-02-29")).toEqual(new Date("2028-02-29T00:00:00Z"));
     expect(parseFollowUpDate("2027-02-29")).toBeNull();
