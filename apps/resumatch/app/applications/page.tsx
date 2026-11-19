@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Alert, PageHeader } from "@asafarim/ui";
 import { listApplicationPage } from "../../lib/applications/service";
 import {
@@ -100,9 +99,10 @@ export default async function ApplicationsPage({
       {result.total === 0 ? (
         <Alert tone="info">
           {t("resumatch.app.list.noMatchBody")}{" "}
-          <Link href={applicationListHref({ ...DEFAULT_APPLICATION_LIST_QUERY, sort: query.sort, pageSize: query.pageSize })}>
+          {/* A plain link, like the list controls: see ApplicationListControls. */}
+          <a href={applicationListHref({ ...DEFAULT_APPLICATION_LIST_QUERY, sort: query.sort, pageSize: query.pageSize })}>
             {t("resumatch.app.list.clearFilters")}
-          </Link>
+          </a>
         </Alert>
       ) : (
         <>
