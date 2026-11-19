@@ -1,0 +1,79 @@
+# ResuMatch browser regression suite (apps/resumatch/e2e, started by #896).
+#
+# Runs against `next dev` and a disposable Postgres with pgvector (the
+# ResuMatch migrations need it). No Hub: e2e/fixtures.ts mints the session
+# cookie with this job's throwaway AUTH_SECRET, so the app's own proxy and
+# workspace checks still run. All data is synthetic and no AI call is made.
+#
+# Both Playwright projects are Chromium (desktop and a Pixel 5 profile), so
+# only one browser is installed.
+name: ResuMatch E2E
+
+on:
+  pull_request:
+    paths:
+      - "apps/resumatch/**"
+      - "packages/auth/**"
+      - "packages/ui/**"
+      - "packages/shared-i18n/**"
+      - ".github/workflows/resumatch-e2e.yml"
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: resumatch
+          POSTGRES_PASSWORD: e2e_ci_password
+          POSTGRES_DB: resumatch
+        ports:
+          - 55437:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      RESUMATCH_DATABASE_URL: postgresql://resumatch:e2e_ci_password@127.0.0.1:55437/resumatch
+      # Not a real secret: this stack is torn down at the end of the job.
+      AUTH_SECRET: ci-only-throwaway-secret-do-not-reuse
+      AUTH_TRUST_HOST: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply ResuMatch migrations
+        working-directory: apps/resumatch
+        run: pnpm exec prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Install Playwright Chromium
+        working-directory: apps/resumatch
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run ResuMatch E2E suite
+        working-directory: apps/resumatch
+        run: pnpm exec playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: resumatch-playwright-report
+          path: |
+            apps/resumatch/playwright-report/
+            apps/resumatch/test-results/
+          retention-days: 14
