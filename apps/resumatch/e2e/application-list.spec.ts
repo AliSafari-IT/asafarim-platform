@@ -153,3 +153,30 @@ test("malformed parameters fall back to defaults on the page and are 400s on the
   expect(bad.status()).toBe(400);
   expect((await bad.json()).invalid.sort()).toEqual(["pageSize", "today"]);
 });
+
+test("changing page asks first while a failed note save still holds the draft", async ({ page }) => {
+  await seedManyApplications(bulk());
+  await page.goto("/applications");
+  await page.route("**/api/applications/*", (route) =>
+    route.request().method() === "PATCH"
+      ? route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"Could not save the change."}' })
+      : route.continue(),
+  );
+  const [firstTitle] = await cardTitles(page);
+  const card = applicationCard(page, firstTitle);
+  const notes = card.getByLabel("Notes");
+  await notes.fill("Call the recruiter on Monday");
+  await notes.blur();
+  await expect(card.getByRole("button", { name: "Retry" })).toBeVisible();
+
+  // Next is a document navigation, so the row's beforeunload guard asks.
+  const dialogs: string[] = [];
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.type());
+    void dialog.dismiss();
+  });
+  await page.getByRole("link", { name: "Next" }).click();
+  await expect.poll(() => dialogs).toEqual(["beforeunload"]);
+  await expect(page).toHaveURL(/\/applications$/);
+  await expect(notes).toHaveValue("Call the recruiter on Monday");
+});
