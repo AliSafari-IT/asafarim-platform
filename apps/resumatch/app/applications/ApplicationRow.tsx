@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { Alert, Button, Card } from "@asafarim/ui";
-import type { listApplications } from "../../lib/applications/service";
+import type { ApplicationListRow } from "../../lib/applications/service";
 import type { ApplicationStatusName } from "../../lib/applications/constants";
 import { APPLICATION_NOTES_MAX_LENGTH } from "../../lib/applications/patch";
 import {
@@ -19,7 +19,7 @@ import { followUpDateToDay } from "../../lib/applications/followUp";
 import { ApplicationStatusStepper } from "./ApplicationStatusStepper";
 import { FollowUpDateField } from "./FollowUpDateField";
 
-type ApplicationWithRelations = Awaited<ReturnType<typeof listApplications>>[number];
+type ApplicationWithRelations = ApplicationListRow;
 
 /** Builds a field saver once per row and mirrors its state into React. */
 function useFieldSaver<T>(initial: T, send: (value: T) => Promise<SaveOutcome>, onSaved: () => void) {

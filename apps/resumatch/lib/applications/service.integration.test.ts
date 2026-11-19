@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { DEFAULT_APPLICATION_LIST_QUERY } from "./listQuery";
 
 /**
  * Application updates against a real database (issue #895): workspace
@@ -50,8 +51,8 @@ describe.skipIf(!TEST_DB)("updateApplication", () => {
     await expect(
       service.updateApplication(theirs.workspaceId, mine.applicationId, { notes: "overwritten" }),
     ).rejects.toBeInstanceOf(service.ApplicationNotFoundError);
-    const listed = await service.listApplications(theirs.workspaceId);
-    expect(listed.map((a) => a.id)).not.toContain(mine.applicationId);
+    const listed = await service.listApplicationPage(theirs.workspaceId, DEFAULT_APPLICATION_LIST_QUERY);
+    expect(listed.applications.map((a) => a.id)).not.toContain(mine.applicationId);
     const row = await db.application.findUniqueOrThrow({ where: { id: mine.applicationId } });
     expect(row.notes).toBe("first note");
   });
