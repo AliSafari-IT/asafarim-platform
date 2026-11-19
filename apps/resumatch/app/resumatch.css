@@ -4837,3 +4837,40 @@
   font-size: 0.85rem;
   color: var(--muted);
 }
+
+/* /applications search, filters and pagination (#897). */
+[data-app="resumatch"] .rm-app-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0 0.9rem;
+  align-items: end;
+  margin: 1.25rem 0 0.25rem;
+}
+
+[data-app="resumatch"] .rm-app-filters__search {
+  grid-column: 1 / -1;
+}
+
+[data-app="resumatch"] .rm-app-filters__actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+[data-app="resumatch"] .rm-app-summary {
+  min-height: 1.2em;
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+[data-app="resumatch"] .rm-app-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0.5rem;
+  font-size: 0.85rem;
+}

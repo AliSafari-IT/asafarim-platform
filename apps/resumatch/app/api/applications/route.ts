@@ -1,15 +1,27 @@
 import { NextResponse } from "next/server";
-import { ApplicationNotFoundError, createApplication, listApplications } from "../../../lib/applications/service";
+import { ApplicationNotFoundError, createApplication, listApplicationPage } from "../../../lib/applications/service";
+import { parseApplicationListQuery } from "../../../lib/applications/listQuery";
 import { getCurrentWorkspace } from "../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/** One page of the caller's applications (issue #897). Takes the same
+ *  query parameters as /applications (lib/applications/listQuery.ts):
+ *  `q`, `status`, `due` + `today`, `sort`, `page`, `pageSize` (default 20,
+ *  at most 100). Malformed parameters are a 400 that names them, never a
+ *  silently widened result; a page past the end is an empty page. The
+ *  search text is never logged. */
+export async function GET(request: Request) {
   const workspace = await getCurrentWorkspace();
   if (!workspace) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
-  const applications = await listApplications(workspace.id);
-  return NextResponse.json({ applications });
+  const parsed = parseApplicationListQuery(new URL(request.url).searchParams, "strict");
+  if (!parsed.ok) {
+    return NextResponse.json({ error: "Invalid query parameters.", invalid: parsed.invalid }, { status: 400 });
+  }
+
+  const result = await listApplicationPage(workspace.id, parsed.query);
+  return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {

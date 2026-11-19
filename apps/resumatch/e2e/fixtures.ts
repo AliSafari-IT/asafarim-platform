@@ -95,3 +95,41 @@ export const test = base.extend<{ signedIn: void }>({
 });
 
 export { expect };
+
+export interface BulkApplication {
+  title: string;
+  employer: string;
+  status: SeedApplication["status"];
+  followUpDate: Date | null;
+}
+
+/** Like seedApplications, for hundreds of rows: one createMany per table,
+ *  and every application shares one createdAt, so pagination has to rely
+ *  on its id tie-breaker (issue #897). */
+export async function seedManyApplications(applications: BulkApplication[], createdAt = new Date("2026-11-01T10:00:00Z")) {
+  const prisma = e2eDb();
+  await prisma.workspace.deleteMany({ where: { platformUserId: E2E_PLATFORM_USER_ID } });
+  const workspace = await prisma.workspace.create({ data: { platformUserId: E2E_PLATFORM_USER_ID } });
+  const ids = applications.map((_, index) => `e2e-bulk-${String(index).padStart(4, "0")}`);
+  await prisma.targetJob.createMany({
+    data: applications.map((app, index) => ({
+      id: ids[index],
+      workspaceId: workspace.id,
+      sourceUrl: `https://jobs.example.test/${ids[index]}`,
+      title: app.title,
+      employer: app.employer,
+      status: "FETCHED" as const,
+    })),
+  });
+  await prisma.application.createMany({
+    data: applications.map((app, index) => ({
+      id: ids[index],
+      workspaceId: workspace.id,
+      targetJobId: ids[index],
+      status: app.status,
+      followUpDate: app.followUpDate,
+      createdAt,
+    })),
+  });
+  return workspace;
+}

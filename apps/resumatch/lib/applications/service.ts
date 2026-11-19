@@ -1,8 +1,11 @@
 import "server-only";
 import { getJobmatchDb } from "../db/client";
+import type { Prisma } from "../db/generated";
 import { recordAuditEvent } from "../workspace";
 import { applicationAuditEvents } from "./audit";
 import type { ApplicationStatusName } from "./constants";
+import { FOLLOW_UP_CLOSED_STATUSES, followUpDayToDate } from "./followUp";
+import { pageCount, type ApplicationListQuery, type ApplicationSort } from "./listQuery";
 
 /**
  * Per-application tracking (issue #432). Every row is either user-supplied
@@ -126,14 +129,97 @@ export async function updateApplication(workspaceId: string, id: string, input: 
   return application;
 }
 
-export async function listApplications(workspaceId: string) {
-  const db = getJobmatchDb();
-  return db.application.findMany({
-    where: { workspaceId },
-    orderBy: { createdAt: "desc" },
-    include: {
-      targetJob: { select: { title: true, employer: true, sourceUrl: true } },
-      tailoredResume: { select: { id: true, createdAt: true } },
-    },
-  });
+/** The row shape the list page and `GET /api/applications` return. Notes
+ *  are included because the row edits them; they are never searched. */
+const LIST_INCLUDE = {
+  targetJob: { select: { title: true, employer: true, sourceUrl: true } },
+  tailoredResume: { select: { id: true, createdAt: true } },
+} satisfies Prisma.ApplicationInclude;
+
+/** The `where` for a list query, always inside `workspaceId`. Due filters
+ *  compare days: the stored value is a day at UTC midnight, so "today" is
+ *  `[today 00:00Z, tomorrow 00:00Z)`. Using a range rather than equality
+ *  also files a legacy timestamp row under its UTC day, as the row shows it
+ *  (lib/applications/followUp.ts). Closed applications and rows without a
+ *  date never match a due filter, the same rule as the due badge. */
+export function applicationListWhere(workspaceId: string, query: ApplicationListQuery): Prisma.ApplicationWhereInput {
+  const and: Prisma.ApplicationWhereInput[] = [{ workspaceId }];
+  if (query.status) and.push({ status: query.status });
+  if (query.q) {
+    // Prisma passes `contains` to ILIKE without escaping, so "%" or "_" in
+    // the search would act as wildcards. Searched as typed instead.
+    const text = query.q.replace(/[\\%_]/g, (c) => `\\${c}`);
+    and.push({
+      targetJob: {
+        OR: [
+          { title: { contains: text, mode: "insensitive" } },
+          { employer: { contains: text, mode: "insensitive" } },
+        ],
+      },
+    });
+  }
+  if (query.due) {
+    if (!query.today) throw new Error("A due filter needs the client's today");
+    const start = followUpDayToDate(query.today);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    const range =
+      query.due === "overdue" ? { lt: start } : query.due === "today" ? { gte: start, lt: end } : { gte: end };
+    and.push({ followUpDate: range, status: { notIn: [...FOLLOW_UP_CLOSED_STATUSES] } });
+  }
+  return { AND: and };
 }
+
+/** Always ends in the id, so rows with equal dates or timestamps keep one
+ *  order across requests and offset pages never repeat or skip a row. */
+export function applicationListOrderBy(sort: ApplicationSort): Prisma.ApplicationOrderByWithRelationInput[] {
+  if (sort === "followUp") {
+    return [{ followUpDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }];
+  }
+  return [{ createdAt: "desc" }, { id: "desc" }];
+}
+
+export interface ApplicationListPage<Row> {
+  applications: Row[];
+  /** Rows matching the filters, in this workspace. */
+  total: number;
+  /** All rows in this workspace, to tell "no matches" from "empty tracker". */
+  workspaceTotal: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
+/**
+ * One page of the tracker (issue #897). Every count and row is scoped to
+ * `workspaceId`; the query must come from `parseApplicationListQuery`, so
+ * the page size is already bounded. With `clampPage`, a page past the end
+ * (the last row of the last page was just filtered out by an edit) shows the
+ * last page instead; without it (the API), it is an empty page.
+ */
+export async function listApplicationPage(
+  workspaceId: string,
+  query: ApplicationListQuery,
+  options: { clampPage?: boolean } = {},
+) {
+  const db = getJobmatchDb();
+  const where = applicationListWhere(workspaceId, query);
+  const [total, workspaceTotal] = await db.$transaction([
+    db.application.count({ where }),
+    db.application.count({ where: { workspaceId } }),
+  ]);
+  const pages = pageCount(total, query.pageSize);
+  const page = options.clampPage ? Math.min(query.page, pages) : query.page;
+  const applications =
+    (page - 1) * query.pageSize >= total
+      ? []
+      : await db.application.findMany({
+          where,
+          orderBy: applicationListOrderBy(query.sort),
+          skip: (page - 1) * query.pageSize,
+          take: query.pageSize,
+          include: LIST_INCLUDE,
+        });
+  return { applications, total, workspaceTotal, page, pageSize: query.pageSize, pageCount: pages };
+}
+
+export type ApplicationListRow = Awaited<ReturnType<typeof listApplicationPage>>["applications"][number];
