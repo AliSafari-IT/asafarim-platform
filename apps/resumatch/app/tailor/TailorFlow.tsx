@@ -135,6 +135,19 @@ type Mode = "url" | "paste" | "email" | "upload" | "manual";
  *  risks pulling in a server-side module (see #471's server-only leak). */
 const INSTRUCTIONS_MAX_CHARS = 1000;
 
+/** Reads a JSON response body, or null when the body is not JSON. A proxy
+ *  502/504 or a framework error page is HTML; letting res.json() throw
+ *  there sent it to the catch and showed "Could not reach the server" for
+ *  what was really a server error. */
+async function readJsonBody(res: Response): Promise<Record<string, any> | null> {
+  try {
+    const body: unknown = await res.json();
+    return body && typeof body === "object" ? (body as Record<string, any>) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const router = useRouter();
   const { t, locale: pageLocale } = useTranslation();
@@ -165,9 +178,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url: url.trim() }),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.fetchUrl") });
+      const body = await readJsonBody(res);
+      if (!res.ok || !body) {
+        setState({
+          kind: "error",
+          message: body?.error ?? `${t("resumatch.flow.error.fetchUrl")} ${t("resumatch.flow.error.server", { status: res.status })}`,
+        });
         return;
       }
       if (body.status === "FETCH_FAILED") {
@@ -195,9 +211,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text: pastedText }),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.pasteText") });
+      const body = await readJsonBody(res);
+      if (!res.ok || !body) {
+        setState({
+          kind: "error",
+          message: body?.error ?? `${t("resumatch.flow.error.pasteText")} ${t("resumatch.flow.error.server", { status: res.status })}`,
+        });
         return;
       }
       setState({
@@ -221,9 +240,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text: emailText, subject: emailSubject.trim() || undefined }),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.pasteEmail") });
+      const body = await readJsonBody(res);
+      if (!res.ok || !body) {
+        setState({
+          kind: "error",
+          message: body?.error ?? `${t("resumatch.flow.error.pasteEmail")} ${t("resumatch.flow.error.server", { status: res.status })}`,
+        });
         return;
       }
       setState({
@@ -245,9 +267,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       const form = new FormData();
       form.append("file", uploadFile);
       const res = await fetch("/api/tailor/upload-job", { method: "POST", body: form });
-      const body = await res.json();
-      if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.upload") });
+      const body = await readJsonBody(res);
+      if (!res.ok || !body) {
+        setState({
+          kind: "error",
+          message: body?.error ?? `${t("resumatch.flow.error.upload")} ${t("resumatch.flow.error.server", { status: res.status })}`,
+        });
         return;
       }
       setState({
@@ -286,9 +311,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           source: values.source || undefined,
         }),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.manual") });
+      const body = await readJsonBody(res);
+      if (!res.ok || !body) {
+        setState({
+          kind: "error",
+          message: body?.error ?? `${t("resumatch.flow.error.manual")} ${t("resumatch.flow.error.server", { status: res.status })}`,
+        });
         return;
       }
       setState({
@@ -321,9 +349,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             outputLanguage: cvLanguage,
           }),
         });
-        const body = await res.json();
-        if (!res.ok) {
-          setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.tailor") });
+        const body = await readJsonBody(res);
+        if (!res.ok || !body) {
+          setState({
+            kind: "error",
+            message: body?.error ?? `${t("resumatch.flow.error.tailor")} ${t("resumatch.flow.error.server", { status: res.status })}`,
+          });
           return;
         }
 
@@ -479,9 +510,12 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 : null,
           }),
         });
-        const body = await res.json();
-        if (!res.ok) {
-          setState({ kind: "error", message: body.error ?? t("resumatch.flow.error.save") });
+        const body = await readJsonBody(res);
+        if (!res.ok || !body) {
+          setState({
+            kind: "error",
+            message: body?.error ?? `${t("resumatch.flow.error.save")} ${t("resumatch.flow.error.server", { status: res.status })}`,
+          });
           return;
         }
         router.push(

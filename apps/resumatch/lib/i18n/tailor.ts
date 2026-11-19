@@ -77,6 +77,7 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.flow.error.tailor": "Could not tailor toward that job.",
     "resumatch.flow.error.save": "Could not save this tailored CV.",
     "resumatch.flow.error.network": "Could not reach the server.",
+    "resumatch.flow.error.server": "The server returned an error (HTTP {status}). Try again in a moment.",
 
     "resumatch.flow.jobFound": "Job found",
     "resumatch.flow.cvLanguage": "CV language",
@@ -235,6 +236,7 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.flow.error.tailor": "Afstemmen op die vacature is niet gelukt.",
     "resumatch.flow.error.save": "Dit afgestemde cv kon niet worden opgeslagen.",
     "resumatch.flow.error.network": "De server was niet bereikbaar.",
+    "resumatch.flow.error.server": "De server gaf een fout terug (HTTP {status}). Probeer het zo opnieuw.",
 
     "resumatch.flow.jobFound": "Vacature gevonden",
     "resumatch.flow.cvLanguage": "Taal van het cv",
@@ -393,6 +395,7 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.flow.error.tailor": "Impossible d’adapter le CV à cette offre.",
     "resumatch.flow.error.save": "Impossible d’enregistrer ce CV adapté.",
     "resumatch.flow.error.network": "Le serveur est injoignable.",
+    "resumatch.flow.error.server": "Le serveur a renvoyé une erreur (HTTP {status}). Réessayez dans un instant.",
 
     "resumatch.flow.jobFound": "Offre trouvée",
     "resumatch.flow.cvLanguage": "Langue du CV",
@@ -553,6 +556,7 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.flow.error.tailor": "Die Anpassung an diese Stelle ist fehlgeschlagen.",
     "resumatch.flow.error.save": "Dieser angepasste Lebenslauf konnte nicht gespeichert werden.",
     "resumatch.flow.error.network": "Der Server war nicht erreichbar.",
+    "resumatch.flow.error.server": "Der Server hat einen Fehler gemeldet (HTTP {status}). Bitte gleich erneut versuchen.",
 
     "resumatch.flow.jobFound": "Stelle gefunden",
     "resumatch.flow.cvLanguage": "Sprache des Lebenslaufs",
