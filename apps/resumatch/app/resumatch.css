@@ -4760,3 +4760,39 @@
   line-height: 1.5;
   color: var(--muted);
 }
+
+/* Inline save feedback on /applications (issue #895). */
+.rm-save-status {
+  min-height: 1.2em;
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.rm-save-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.rm-save-error > .ui-alert {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+
+.rm-save-error p {
+  margin: 0;
+}
+
+/* The shared .ui-alert--error text (#f87171) is ~2.5:1 on ResuMatch's
+   light ground (axe, issue #895's save errors). Dark red in light mode,
+   the original in dark mode, the same approach as the warning override. */
+[data-app="resumatch"] .ui-alert--error {
+  color: #b91c1c;
+}
+
+[data-app="resumatch"][data-theme="dark"] .ui-alert--error {
+  color: #f87171;
+}

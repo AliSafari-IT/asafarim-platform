@@ -98,6 +98,18 @@ export async function updateApplication(workspaceId: string, id: string, input: 
     if (!resume) throw new ApplicationNotFoundError("tailoredResume");
   }
 
+  const events = applicationAuditEvents(
+    { applicationId: existing.id, targetJobId: existing.targetJobId },
+    existing,
+    input,
+  );
+  // Nothing actually changes (a repeated save, or the same status clicked
+  // again): skip the write so `updatedAt` stays honest, and return the row
+  // as it is.
+  if (events.length === 0) {
+    return db.application.findFirstOrThrow({ where: { id, workspaceId } });
+  }
+
   const application = await db.application.update({
     where: { id },
     data: {
@@ -108,11 +120,7 @@ export async function updateApplication(workspaceId: string, id: string, input: 
     },
   });
 
-  for (const event of applicationAuditEvents(
-    { applicationId: application.id, targetJobId: existing.targetJobId },
-    existing,
-    input,
-  )) {
+  for (const event of events) {
     await recordAuditEvent(workspaceId, event.action, event.metadata);
   }
   return application;
