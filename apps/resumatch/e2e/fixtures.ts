@@ -134,6 +134,108 @@ export async function seedManyApplications(applications: BulkApplication[], crea
   return workspace;
 }
 
+export const E2E_LINKS = [
+  { kind: "linkedin", label: null, url: "https://www.linkedin.com/in/jordan-example/" },
+  { kind: "github", label: null, url: "https://github.com/jordan-example" },
+  { kind: "website", label: null, url: "https://jordan.example.test" },
+  { kind: "product", label: "Example Tracker", url: "https://tracker.example.test" },
+];
+
+/** A long, multi-page tailored CV (with links and languages) and the
+ *  cover letter paired with it. */
+export async function seedTailoredResume(id: string, letterId: string) {
+  const prisma = e2eDb();
+  await prisma.workspace.deleteMany({ where: { platformUserId: E2E_PLATFORM_USER_ID } });
+  const workspace = await prisma.workspace.create({ data: { platformUserId: E2E_PLATFORM_USER_ID } });
+  const profile = await prisma.candidateProfile.create({ data: { workspaceId: workspace.id } });
+  const version = await prisma.candidateProfileVersion.create({
+    data: {
+      profileId: profile.id,
+      origin: "MANUAL",
+      versionNumber: 1,
+      extractorName: "manual",
+      extractorVersion: "1",
+      content: {
+        contractVersion: "1.0.0",
+        fullName: "Jordan Example",
+        email: "jordan@example.test",
+        phone: "+32 470 00 00 00",
+        baseLocation: "Genk, Belgium",
+        links: E2E_LINKS,
+      },
+    },
+  });
+  const job = await prisma.targetJob.create({
+    data: {
+      workspaceId: workspace.id,
+      sourceUrl: "https://jobs.example.test/software-developer",
+      rawText: "job",
+      title: "Software Developer",
+      employer: "Example Audio",
+      status: "FETCHED",
+    },
+  });
+  const bullet =
+    "Built and ran production web applications end to end, from the API and data layer to the deployment pipeline, and documented each system for the team.";
+  await prisma.tailoredResume.create({
+    data: {
+      id,
+      workspaceId: workspace.id,
+      profileVersionId: version.id,
+      targetJobId: job.id,
+      templateKey: "classic",
+      promptVersion: "e2e",
+      modelVersion: "e2e",
+      outputLanguage: "en",
+      content: {
+        contractVersion: "1.0.0",
+        fullName: "Jordan Example",
+        email: "jordan@example.test",
+        phone: "+32 470 00 00 00",
+        location: "Genk, Belgium",
+        links: E2E_LINKS,
+        headline: "Full-Stack Developer",
+        summary: "Full-stack developer who builds and runs production web applications. ".repeat(4).trim(),
+        skills: ["TypeScript", "React", "Node.js", "PostgreSQL", "Docker", "Playwright"],
+        experience: Array.from({ length: 7 }, (_, index) => ({
+          title: `Software Developer ${index + 1}`,
+          employer: `Example Company ${index + 1}`,
+          startedOn: `${2012 + index * 2}-01`,
+          endedOn: `${2013 + index * 2}-12`,
+          isCurrent: false,
+          bullets: [bullet, bullet, bullet],
+        })),
+        education: [{ qualification: "MSc Computer Science", institution: "Example University", completedOn: "2011" }],
+        certifications: [],
+        languages: [
+          { code: "en", label: "English", proficiency: "professional" },
+          { code: "nl", label: "Dutch", proficiency: "native" },
+        ],
+      },
+    },
+  });
+  await prisma.coverLetter.create({
+    data: {
+      id: letterId,
+      workspaceId: workspace.id,
+      profileVersionId: version.id,
+      targetJobId: job.id,
+      tailoredResumeId: id,
+      promptVersion: "cover_letter@4",
+      modelVersion: "e2e",
+      outputLanguage: "en",
+      createdAt: new Date("2026-11-20T10:00:00Z"),
+      content: {
+        contractVersion: "1.0.0",
+        greeting: "Dear Hiring Manager,",
+        paragraphs: ["I would like to apply for the Software Developer role."],
+        signOff: "Sincerely,",
+        fullName: "Jordan Example",
+      },
+    },
+  });
+}
+
 /** One confirmed profile, one job typed in by hand (with a contact person)
  *  and one cover letter per entry of `letters`, keyed by id. */
 export async function seedCoverLetters(letters: { id: string; paragraphs: string[] }[]) {

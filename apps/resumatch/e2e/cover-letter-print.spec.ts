@@ -50,6 +50,9 @@ for (const words of LENGTHS) {
   for (const format of ["A4", "Letter"] as const) {
     test(`a ${words}-word letter prints on one ${format} page`, async ({ page }) => {
       await page.goto(`/cover-letter/e2e-letter-${words}/preview`);
+      // Wait for the streamed page, or the PDF is of the loading screen
+      // (which is one page whatever the letter's length).
+      await expect(page.getByTestId("cover-letter").filter({ visible: true })).toBeVisible();
       // displayHeaderFooter mirrors Chrome's default "Headers and footers"
       // setting; the letter's zero-margin page leaves them no room.
       const pdf = await page.pdf({ format, displayHeaderFooter: true });

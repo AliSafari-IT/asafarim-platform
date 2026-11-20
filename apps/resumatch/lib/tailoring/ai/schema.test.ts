@@ -171,3 +171,28 @@ describe("parseTailorSuggestions", () => {
     });
   });
 });
+
+describe("mergeTailoringSuggestions — links, location and languages", () => {
+  const links = [
+    { kind: "linkedin" as const, label: null, url: "https://www.linkedin.com/in/jordan" },
+    { kind: "product" as const, label: "Example App", url: "https://app.example.test" },
+  ];
+  const languages = [{ code: "nl", label: "Dutch", proficiency: "professional" as const }];
+
+  it("copies them verbatim from the profile", () => {
+    const merged = mergeTailoringSuggestions(profileWith({ links, languages, baseLocation: "Genk, Belgium" }), null);
+    expect(merged.links).toEqual(links);
+    expect(merged.languages).toEqual(languages);
+    expect(merged.location).toBe("Genk, Belgium");
+  });
+
+  it("never takes a link from provider output", () => {
+    const suggestions = parseTailorSuggestions({
+      headline: "Engineer",
+      links: [{ kind: "github", label: null, url: "https://github.com/invented" }],
+    });
+    expect(suggestions).not.toHaveProperty("links");
+    const merged = mergeTailoringSuggestions(profileWith(), suggestions);
+    expect(merged.links).toEqual([]);
+  });
+});

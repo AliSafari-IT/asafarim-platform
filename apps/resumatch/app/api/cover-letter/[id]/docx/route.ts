@@ -38,7 +38,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // Same frame as the print view (coverLetterLayout.ts): sender, recipient,
   // place and date, subject — all copied from confirmed data in code.
   const layout = buildLetterLayout(
-    { fullName: content.fullName, email: profile.email, phone: profile.phone, baseLocation: profile.baseLocation },
+    {
+      fullName: content.fullName,
+      email: profile.email,
+      phone: profile.phone,
+      baseLocation: profile.baseLocation,
+      links: profile.links,
+    },
     row.targetJob,
     row.createdAt,
     row.outputLanguage,

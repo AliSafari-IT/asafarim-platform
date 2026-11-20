@@ -3,7 +3,7 @@ import { getJobmatchDb } from "../db/client";
 import { EXTRACTOR_NAME, EXTRACTOR_VERSION, extractText } from "../extraction/text";
 import { extractProfileWithFallback } from "../extraction/ai/degraded";
 import { logError, log } from "../observability/logger";
-import { createVersion } from "../profile/versions";
+import { createVersion, getLatestVersion } from "../profile/versions";
 import { recordAuditEvent } from "../workspace";
 import {
   type SupportedContentType,
@@ -366,10 +366,14 @@ export async function extractDocument(
 
   try {
     const profile = await extractProfileWithFallback(workspaceId, extracted.text, { documentId });
+    // Links are typed by the candidate, never extracted: keep the ones they
+    // already entered so uploading a newer CV doesn't wipe them.
+    const previous = await getLatestVersion(workspaceId).catch(() => null);
+    const links = previous?.content.links ?? [];
 
     const version = await createVersion({
       workspaceId,
-      content: profile.content,
+      content: links.length > 0 ? { ...profile.content, links } : profile.content,
       confidence: profile.confidence,
       origin: "EXTRACTED",
       // Both extractors are recorded: the text layer and the profile rules

@@ -8,7 +8,7 @@ describe("buildLetterLayout", () => {
   it("builds sender, recipient, place and date, and subject from confirmed data", () => {
     const layout = buildLetterLayout(sender, { title: "Backend Engineer", employer: "Acme", structuredFields: null }, date, null);
     expect(layout).toEqual({
-      sender: { name: "Jane Doe", lines: ["Genk, Belgium", "jane@example.test"] },
+      sender: { name: "Jane Doe", lines: ["Genk, Belgium", "jane@example.test"], links: [] },
       recipient: ["Acme"],
       dateLine: "Genk, 20 November 2026",
       subject: "Application: Backend Engineer",
@@ -23,9 +23,25 @@ describe("buildLetterLayout", () => {
 
   it("leaves out what isn't known", () => {
     const layout = buildLetterLayout({ fullName: null, email: null, phone: null, baseLocation: null }, { title: "Engineer", employer: null }, date, "en");
-    expect(layout.sender).toEqual({ name: null, lines: [] });
+    expect(layout.sender).toEqual({ name: null, lines: [], links: [] });
     expect(layout.recipient).toEqual([]);
     expect(layout.dateLine).toBe("20 November 2026");
+  });
+
+  it("adds up to three profile links to the sender block, never products", () => {
+    const links = [
+      { kind: "product" as const, label: "ResuMatch", url: "https://resumatch.example.test" },
+      { kind: "website" as const, label: null, url: "https://www.jane.example.test/" },
+      { kind: "npm" as const, label: null, url: "https://www.npmjs.com/~jane" },
+      { kind: "github" as const, label: null, url: "https://github.com/jane" },
+      { kind: "linkedin" as const, label: null, url: "https://www.linkedin.com/in/jane/" },
+    ];
+    const layout = buildLetterLayout({ ...sender, links }, { title: null, employer: null }, date, "en");
+    expect(layout.sender.links).toEqual([
+      { text: "linkedin.com/in/jane", url: "https://www.linkedin.com/in/jane/" },
+      { text: "github.com/jane", url: "https://github.com/jane" },
+      { text: "jane.example.test", url: "https://www.jane.example.test/" },
+    ]);
   });
 
   it("localises the date and subject to the letter's language", () => {

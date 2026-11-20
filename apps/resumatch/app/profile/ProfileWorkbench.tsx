@@ -14,13 +14,15 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Alert, Badge, Button, Card, useEdgeAutoScroll } from "@asafarim/ui";
-import { LOW_CONFIDENCE_THRESHOLD } from "../../lib/profile/contract";
+import { LINK_KINDS, LOW_CONFIDENCE_THRESHOLD, linkSchema } from "../../lib/profile/contract";
+import { normalizeLinkUrl } from "../../lib/profile/links";
 import type {
   CandidateProfileContent,
   CertificationEntry,
   EducationEntry,
   ExperienceEntry,
   LanguageEntry,
+  LinkEntry,
   ProfileConfidence,
 } from "../../lib/profile/contract";
 import { AwardIcon, BriefcaseIcon, GlobeIcon, GraduationCapIcon, TrashIcon } from "./icons";
@@ -106,7 +108,16 @@ function submittableContent(content: CandidateProfileContent): CandidateProfileC
     experience: content.experience.filter((role) => role.title.trim().length > 0),
     education: content.education.filter((entry) => entry.qualification.trim().length > 0),
     certifications: content.certifications.filter((entry) => entry.name.trim().length > 0),
+    links: content.links
+      .map((link) => ({ ...link, url: normalizeLinkUrl(link.url), label: link.label?.trim() || null }))
+      .filter((link) => link.url.length > 0),
   };
+}
+
+/** A typed link the contract would refuse (after adding https://). */
+function isInvalidLink(link: LinkEntry): boolean {
+  const url = normalizeLinkUrl(link.url);
+  return url.length > 0 && !linkSchema.safeParse({ ...link, url, label: link.label?.trim() || null }).success;
 }
 
 function needsReview(confidence: ProfileConfidence, field: string): boolean {
@@ -365,6 +376,7 @@ export function ProfileWorkbench({
     { id: "skills", label: t("resumatch.wb.nav.skills"), count: content.skills.length },
     { id: "education", label: t("resumatch.wb.nav.education"), count: content.education.length },
     { id: "certifications", label: t("resumatch.wb.nav.certifications"), count: content.certifications.length },
+    { id: "links", label: t("resumatch.wb.nav.links"), count: content.links.length },
     { id: "languages", label: t("resumatch.wb.nav.languages"), count: content.languages.length },
     { id: "preferences", label: t("resumatch.wb.nav.preferences") },
   ];
@@ -611,6 +623,103 @@ export function ProfileWorkbench({
                 </select>
                 <small>{t("resumatch.wb.about.rtwHint")}</small>
               </label>
+            </Card>
+          </div>
+          <div className="rm-wb__section rm-wb__section--links" id="rm-sec-links">
+            <Card title={t("resumatch.wb.links.title")}>
+              <p className="rm-wb__hint">{t("resumatch.wb.links.intro")}</p>
+              {content.links.length === 0 ? (
+                <p style={{ color: "var(--muted)" }}>{t("resumatch.wb.links.none")}</p>
+              ) : (
+                <ul className="jm-entity-list rm-links">
+                  {content.links.map((link, index) => {
+                    const invalid = isInvalidLink(link);
+                    const errorId = `rm-link-error-${index}`;
+                    return (
+                      <li key={index} className="jm-entity-card rm-links__row">
+                        <span className="rm-links__fields">
+                          <select
+                            aria-label={t("resumatch.wb.links.kindAria")}
+                            value={link.kind}
+                            onChange={(event) =>
+                              update(
+                                "links",
+                                replaceAt(content.links, index, { ...link, kind: event.target.value as LinkEntry["kind"] }),
+                              )
+                            }
+                          >
+                            {LINK_KINDS.map((kind) => (
+                              <option key={kind} value={kind}>
+                                {t(`resumatch.wb.links.kind.${kind}`)}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            aria-label={
+                              link.kind === "product" ? t("resumatch.wb.links.productLabel") : t("resumatch.wb.links.label")
+                            }
+                            placeholder={
+                              link.kind === "product" ? t("resumatch.wb.links.productLabel") : t("resumatch.wb.links.label")
+                            }
+                            value={link.label ?? ""}
+                            maxLength={80}
+                            onChange={(event) =>
+                              update("links", replaceAt(content.links, index, { ...link, label: event.target.value || null }))
+                            }
+                          />
+                          <input
+                            type="url"
+                            inputMode="url"
+                            aria-label={t("resumatch.wb.links.urlAria")}
+                            aria-invalid={invalid || undefined}
+                            aria-describedby={invalid ? errorId : undefined}
+                            placeholder="https://"
+                            value={link.url}
+                            maxLength={300}
+                            onChange={(event) =>
+                              update("links", replaceAt(content.links, index, { ...link, url: event.target.value }))
+                            }
+                            onBlur={(event) => {
+                              const url = normalizeLinkUrl(event.target.value);
+                              if (url !== link.url) update("links", replaceAt(content.links, index, { ...link, url }));
+                            }}
+                          />
+                          <button
+                            type="button"
+                            aria-label={t("resumatch.wb.remove", {
+                              name: link.label || link.url || t("resumatch.wb.links.fallback"),
+                            })}
+                            className="jm-icon-button"
+                            onClick={() => update("links", removeAt(content.links, index))}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </span>
+                        {invalid ? (
+                          <small id={errorId} className="rm-links__error">
+                            {t("resumatch.wb.links.invalid")}
+                          </small>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={content.links.length >= 12}
+                onClick={() => {
+                  const used = new Set(content.links.map((link) => link.kind));
+                  const kind = (["linkedin", "github", "website"] as const).find((k) => !used.has(k)) ?? "product";
+                  const blank: LinkEntry = { kind, label: null, url: "" };
+                  update("links", [...content.links, blank]);
+                }}
+              >
+                {t("resumatch.wb.links.add")}
+              </Button>
             </Card>
           </div>
           <div className="rm-wb__section rm-wb__section--languages" id="rm-sec-languages">

@@ -17,9 +17,23 @@ import { PrintButton } from "../../../../components/tailoring/PrintButton";
 import { QualityChecklist } from "./QualityChecklist";
 import { SaveApplicationButton } from "./SaveApplicationButton";
 
-export async function generateMetadata(): Promise<Metadata> {
+/** The tab title doubles as the browser's default PDF file name, so it
+ *  names the candidate and the employer rather than the site (as the
+ *  cover-letter preview does). */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { t } = await getTranslator();
-  return { title: t("resumatch.preview.metaTitle") };
+  const { id } = await params;
+  const workspace = await getCurrentWorkspace();
+  const row = workspace
+    ? await getJobmatchDb().tailoredResume.findFirst({
+        where: { id, workspaceId: workspace.id },
+        select: { content: true, targetJob: { select: { employer: true } } },
+      })
+    : null;
+  if (!row) return { title: t("resumatch.preview.metaTitle") };
+  const fullName = parseTailoredResumeContent(row.content).fullName;
+  const parts = [fullName, "CV", row.targetJob.employer].filter(Boolean);
+  return { title: { absolute: parts.join(" – ") } };
 }
 export const dynamic = "force-dynamic";
 
@@ -78,6 +92,9 @@ export default async function TailoredResumePreviewPage({
 
   return (
     <>
+      {/* Everything outside the CV <article> is screen-only: the print/PDF
+          output is the CV alone (app/resumatch.css, @media print). */}
+      <div className="rm-screen-only">
       <PageHeader
         kicker={t("resumatch.preview.kicker")}
         title={t("resumatch.preview.title")}
@@ -119,6 +136,7 @@ export default async function TailoredResumePreviewPage({
 
       {coverage ? <CoverageReport coverage={coverage} /> : null}
       <QualityChecklist quality={quality} />
+      </div>
 
       <ClassicTemplate content={content} language={row.outputLanguage} />
     </>

@@ -132,7 +132,37 @@ describe("ClassicTemplate in another language", () => {
     ],
     education: [{ qualification: "MSc Informatica", institution: "KU Leuven", completedOn: "2019" }],
     certifications: [],
+    location: null,
+    links: [],
+    languages: [],
   } as unknown as TailoredResumeContent;
+
+  it("shows location, clickable profile links, products and spoken languages", () => {
+    const html = renderToStaticMarkup(
+      createElement(ClassicTemplate, {
+        content: {
+          ...content,
+          location: "Genk, België",
+          links: [
+            { kind: "product", label: "Voorbeeld-app", url: "https://app.example.test" },
+            { kind: "github", label: null, url: "https://github.com/ada" },
+            { kind: "linkedin", label: null, url: "https://www.linkedin.com/in/ada/" },
+          ],
+          languages: [
+            { code: "nl", label: "Nederlands", proficiency: "native" },
+            { code: "en", label: "Engels", proficiency: null },
+          ],
+        },
+        language: "nl",
+      }),
+    );
+    expect(html).toContain("Genk, België");
+    expect(html).toContain('<a href="https://www.linkedin.com/in/ada/">linkedin.com/in/ada</a>');
+    expect(html.indexOf("linkedin.com/in/ada")).toBeLessThan(html.indexOf("github.com/ada"));
+    expect(html).toContain(">Projecten &amp; producten<");
+    expect(html).toContain('<a href="https://app.example.test">app.example.test</a>');
+    expect(html).toContain("Nederlands (Moedertaal) · Engels");
+  });
 
   it("localises headings, 'Present' and dates, keeps facts verbatim, and marks lang", () => {
     const html = renderToStaticMarkup(createElement(ClassicTemplate, { content, language: "nl" }));

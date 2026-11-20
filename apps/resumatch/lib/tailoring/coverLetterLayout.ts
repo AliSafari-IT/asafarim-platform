@@ -1,4 +1,6 @@
 import { DOCUMENT_LOCALES, isOutputLanguage, type OutputLanguage } from "./language";
+import type { LinkEntry } from "../profile/contract";
+import { displayUrl, headerLinks } from "../profile/links";
 
 /**
  * The business-letter frame around a cover letter: sender block, recipient
@@ -23,7 +25,13 @@ export interface LetterSenderInput {
   email: string | null;
   phone: string | null;
   baseLocation: string | null;
+  /** The profile's links; the letter shows the first few profile links
+   *  (LinkedIn, GitHub, website…), never products. */
+  links?: LinkEntry[];
 }
+
+/** A letter's sender block stays short so the letter keeps to one page. */
+export const LETTER_MAX_LINKS = 3;
 
 export interface LetterJobInput {
   title: string | null;
@@ -33,7 +41,7 @@ export interface LetterJobInput {
 }
 
 export interface LetterLayout {
-  sender: { name: string | null; lines: string[] };
+  sender: { name: string | null; lines: string[]; links: { text: string; url: string }[] };
   /** Empty when the job names no employer or contact. */
   recipient: string[];
   /** "Genk, 20 November 2026" — the place only when the profile has one. */
@@ -84,7 +92,13 @@ export function buildLetterLayout(
   // "Genk, Belgium" → "Genk, 20 November 2026": the place line takes the town only.
   const place = sender.baseLocation?.split(",")[0]?.trim() || null;
   return {
-    sender: { name: sender.fullName, lines: senderLines },
+    sender: {
+      name: sender.fullName,
+      lines: senderLines,
+      links: headerLinks(sender.links ?? [])
+        .slice(0, LETTER_MAX_LINKS)
+        .map((link) => ({ text: displayUrl(link.url), url: link.url })),
+    },
     recipient,
     dateLine: place ? `${place}, ${date}` : date,
     subject: job.title ? SUBJECT[lang](job.title) : null,

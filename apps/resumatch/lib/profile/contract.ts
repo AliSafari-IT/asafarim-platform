@@ -120,6 +120,31 @@ export const workAuthorizationSchema = z.enum([
 ]);
 
 /**
+ * Kinds of profile link a CV header shows. `product` is something the
+ * candidate built or runs (rendered with its label, in its own CV section);
+ * every other kind is a profile of the candidate and sits in the header.
+ */
+export const LINK_KINDS = ["linkedin", "github", "website", "portfolio", "npm", "product", "other"] as const;
+export const linkKindSchema = z.enum(LINK_KINDS);
+
+/** http(s) only: a `javascript:` or `data:` URL must never reach an href
+ *  in the CV, the cover letter or the DOCX. */
+const HTTP_URL = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
+
+/**
+ * A link the candidate typed themselves. Links are never extracted or
+ * written by a model: extraction leaves this list empty (a re-upload keeps
+ * the previous version's links, see lib/documents/service.ts), and tailoring
+ * copies it verbatim in code (lib/tailoring/ai/schema.ts).
+ */
+export const linkSchema = z.object({
+  kind: linkKindSchema,
+  /** Optional display label, e.g. a product's name. */
+  label: trimmed(80).nullable().default(null),
+  url: z.string().trim().max(300).regex(HTTP_URL),
+});
+
+/**
  * Preferences the candidate sets, not facts extracted from a CV. Kept in the
  * same version so a match is explainable against the preferences that were
  * actually in force at the time.
@@ -154,6 +179,11 @@ export const candidateProfileSchema = z
     baseLocation: trimmed(120).nullable().default(null),
     workAuthorization: workAuthorizationSchema.nullable().default(null),
 
+    /** Profile and product links (LinkedIn, GitHub, website, products…).
+     *  Typed by the candidate; contact data like email, so never sent to a
+     *  model (buildProfileText's allow-list leaves it out). */
+    links: z.array(linkSchema).max(12).default([]),
+
     languages: z.array(languageSchema).max(20).default([]),
     skills: z.array(skillSchema).max(200).default([]),
     experience: z.array(experienceSchema).max(60).default([]),
@@ -170,6 +200,8 @@ export type SkillEntry = z.infer<typeof skillSchema>;
 export type ExperienceEntry = z.infer<typeof experienceSchema>;
 export type EducationEntry = z.infer<typeof educationSchema>;
 export type CertificationEntry = z.infer<typeof certificationSchema>;
+export type LinkEntry = z.infer<typeof linkSchema>;
+export type LinkKind = z.infer<typeof linkKindSchema>;
 
 /** An empty, valid profile — the starting point for manual creation. */
 export function emptyProfile(): CandidateProfileContent {

@@ -48,7 +48,10 @@ export interface TemplateLabels {
   experience: string;
   education: string;
   certifications: string;
+  languages: string;
+  products: string;
   present: string;
+  proficiency: Record<"basic" | "conversational" | "professional" | "native", string>;
   skillCategories: Record<SkillCategory, string>;
 }
 
@@ -59,7 +62,10 @@ const LABELS: Record<OutputLanguage, TemplateLabels> = {
     experience: "Experience",
     education: "Education",
     certifications: "Certifications",
+    languages: "Languages",
+    products: "Projects & products",
     present: "Present",
+    proficiency: { basic: "Basic", conversational: "Conversational", professional: "Professional", native: "Native" },
     skillCategories: {
       "Languages & Frameworks": "Languages & Frameworks",
       "Frontend Development": "Frontend Development",
@@ -80,7 +86,10 @@ const LABELS: Record<OutputLanguage, TemplateLabels> = {
     experience: "Werkervaring",
     education: "Opleiding",
     certifications: "Certificaten",
+    languages: "Talen",
+    products: "Projecten & producten",
     present: "heden",
+    proficiency: { basic: "Basis", conversational: "Gevorderd", professional: "Professioneel", native: "Moedertaal" },
     skillCategories: {
       "Languages & Frameworks": "Talen & frameworks",
       "Frontend Development": "Frontendontwikkeling",
@@ -101,7 +110,10 @@ const LABELS: Record<OutputLanguage, TemplateLabels> = {
     experience: "Expérience professionnelle",
     education: "Formation",
     certifications: "Certifications",
+    languages: "Langues",
+    products: "Projets & produits",
     present: "aujourd’hui",
+    proficiency: { basic: "Notions", conversational: "Intermédiaire", professional: "Professionnel", native: "Langue maternelle" },
     skillCategories: {
       "Languages & Frameworks": "Langages & frameworks",
       "Frontend Development": "Développement frontend",
@@ -122,7 +134,10 @@ const LABELS: Record<OutputLanguage, TemplateLabels> = {
     experience: "Berufserfahrung",
     education: "Ausbildung",
     certifications: "Zertifikate",
+    languages: "Sprachen",
+    products: "Projekte & Produkte",
     present: "heute",
+    proficiency: { basic: "Grundkenntnisse", conversational: "Gute Kenntnisse", professional: "Verhandlungssicher", native: "Muttersprache" },
     skillCategories: {
       "Languages & Frameworks": "Sprachen & Frameworks",
       "Frontend Development": "Frontend-Entwicklung",
@@ -235,4 +250,17 @@ export function appliedCoverLetterLanguage(
 ): OutputLanguage | null {
   if (degraded || !isOutputLanguage(requested)) return null;
   return requested;
+}
+
+/** "English (Native) · Dutch (Professional)" for the CV's Languages
+ *  section, with the level in the CV's own language. */
+export function formatSpokenLanguages(
+  entries: { label: string; proficiency: keyof TemplateLabels["proficiency"] | null }[],
+  language: string | null | undefined,
+  separator = " · ",
+): string {
+  const labels = templateLabels(language);
+  return entries
+    .map((entry) => (entry.proficiency ? `${entry.label} (${labels.proficiency[entry.proficiency]})` : entry.label))
+    .join(separator);
 }
