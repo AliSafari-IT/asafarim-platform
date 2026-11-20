@@ -60,7 +60,11 @@ const tailoredExperienceSchema = z.object({
   startedOn: z.string().nullable().default(null),
   endedOn: z.string().nullable().default(null),
   isCurrent: z.boolean().default(false),
-  bullets: z.array(z.string().trim().max(400)).max(8).default([]),
+  /** 2000, not the 400 a provider bullet is held to: an entry the
+   *  provider (or the candidate, on the review screen) gave no bullets
+   *  falls back to the profile's own `summary`, which the profile contract
+   *  allows up to 2000 characters. */
+  bullets: z.array(z.string().trim().max(2000)).max(8).default([]),
 });
 
 export const tailoredResumeContentSchema = z
@@ -72,9 +76,15 @@ export const tailoredResumeContentSchema = z
     phone: trimmed(40).nullable().default(null),
 
     headline: trimmed(200).nullable().default(null),
-    summary: z.string().trim().max(2000).nullable().default(null),
+    // The limits below match lib/profile/contract.ts, never tighter: every
+    // field here can be carried over from the confirmed profile unchanged,
+    // so a limit stricter than the profile's turns a valid profile into a
+    // save that cannot succeed (a profile with more than 60 skills, a
+    // summary over 2000 characters, or a long role summary used to make
+    // generate-confirm throw and answer HTTP 500).
+    summary: z.string().trim().max(4000).nullable().default(null),
 
-    skills: z.array(trimmed(80)).max(60).default([]),
+    skills: z.array(trimmed(80)).max(200).default([]),
     experience: z.array(tailoredExperienceSchema).max(60).default([]),
 
     /** Unchanged from the profile — never rewritten. */

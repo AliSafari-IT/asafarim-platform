@@ -122,6 +122,40 @@ describe("mergeTailoringSuggestions — no-fabrication guarantee", () => {
   });
 });
 
+describe("mergeTailoringSuggestions — any valid profile can be saved", () => {
+  // Regression: these profiles are all valid under lib/profile/contract.ts
+  // but used to fail tailoredResumeContentSchema, so generate-confirm threw
+  // and the candidate saw "Could not save this tailored CV (HTTP 500)".
+  it("keeps a role summary longer than 400 characters as its fallback bullet", () => {
+    const longSummary = "Ran the platform team's on-call and release process. ".repeat(30).trim();
+    expect(longSummary.length).toBeGreaterThan(400);
+    const profile = profileWith({
+      experience: [{ ...profileWith().experience[0]!, summary: longSummary }],
+    });
+    expect(mergeTailoringSuggestions(profile, null).experience[0]!.bullets).toEqual([longSummary]);
+    expect(mergeTailoringSuggestions(profile, parseTailorSuggestions({})).experience[0]!.bullets).toEqual([
+      longSummary,
+    ]);
+  });
+
+  it("keeps every skill of a profile with more than 60 skills", () => {
+    const skills = Array.from({ length: 120 }, (_, i) => ({
+      name: `Skill ${i + 1}`,
+      rawLabel: null,
+      yearsExperience: null,
+      category: null,
+    }));
+    const result = mergeTailoringSuggestions(profileWith({ skills }), parseTailorSuggestions({ skillsOrder: ["Skill 7"] }));
+    expect(result.skills).toHaveLength(120);
+    expect(result.skills[0]).toBe("Skill 7");
+  });
+
+  it("keeps a profile summary longer than 2000 characters", () => {
+    const summary = "x".repeat(3500);
+    expect(mergeTailoringSuggestions(profileWith({ summary }), null).summary).toBe(summary);
+  });
+});
+
 describe("parseTailorSuggestions", () => {
   it("rejects a payload shaped as something other than suggestions", () => {
     expect(() => parseTailorSuggestions({ skillsOrder: "not-an-array" })).toThrow();
