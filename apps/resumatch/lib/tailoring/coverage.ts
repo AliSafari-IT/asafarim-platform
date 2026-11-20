@@ -16,7 +16,7 @@
 // "le"/"de"/"vous" through as if they were meaningful missing keywords,
 // which is exactly the kind of low-quality result that undermines trust in
 // a "coverage report" feature.
-const STOPWORDS = new Set([
+export const STOPWORDS = new Set([
   // English
   "the", "and", "for", "with", "you", "your", "our", "are", "will", "have",
   "this", "that", "from", "into", "who", "what", "when", "where", "why", "how",
@@ -51,7 +51,7 @@ const STOPWORDS = new Set([
 ]);
 
 /** Accent-folded comparison key: "équipe" → "equipe", "für" → "fur". */
-function fold(token: string): string {
+export function fold(token: string): string {
   return token.normalize("NFD").replace(/\p{M}/gu, "");
 }
 
@@ -60,7 +60,7 @@ function fold(token: string): string {
  * the ASCII-only split cut accented words apart ("équipe" → "quipe",
  * "für" → "f" + "r"), so French and German keywords came out as fragments.
  */
-function words(text: string): string[] {
+export function words(text: string): string[] {
   return text
     .toLowerCase()
     .split(/[^\p{L}\p{N}+#.]+/u)

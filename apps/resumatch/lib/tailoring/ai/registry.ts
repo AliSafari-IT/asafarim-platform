@@ -13,7 +13,7 @@ import { createProviderRegistry } from "../../ai/providerRegistry";
 
 /** Bump whenever prompts.ts's tailoring prompt wording changes in a way
  *  that should be visible in a TailoredResume's provenance. */
-export const TAILOR_PROMPT_VERSION = "tailor_resume@4"; // @4: optional OUTPUT LANGUAGE rule (#641)
+export const TAILOR_PROMPT_VERSION = "tailor_resume@5"; // @4: optional OUTPUT LANGUAGE rule (#641); @5: optional LOW-FIT rule
 
 /** Per-provider model version, named the same way the old registry's
  *  `EVALUATION_MODEL_VERSIONS` was: a stable string a TailoredResume can

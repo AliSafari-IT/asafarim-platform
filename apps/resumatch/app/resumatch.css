@@ -714,6 +714,49 @@
   margin-bottom: 0.5rem;
 }
 
+/* Job fit check on the fetched-job card (components/tailoring/JobFitPanel). */
+.rm-fit {
+  margin: 0.75rem 0;
+}
+.rm-fit--quiet > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.rm-fit--low .ui-alert p {
+  margin: 0.35rem 0 0;
+}
+.rm-fit__details {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+}
+.rm-fit__details dt {
+  font-weight: 600;
+}
+.rm-fit__details dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0 0 0.35rem;
+}
+.rm-fit__question {
+  font-weight: 600;
+  margin: 0.75rem 0 0.25rem;
+}
+.rm-fit__hint,
+.rm-fit__review-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+.rm-fit__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .rm-review__section input[type="text"],
 .rm-review__section textarea {
   box-sizing: border-box;

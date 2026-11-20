@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { Alert, Button, Card, Input } from "@asafarim/ui";
@@ -8,6 +8,8 @@ import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
 import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQuality";
 import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
 import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
+import { JobFitPanel } from "../../components/tailoring/JobFitPanel";
+import type { JobFit } from "../../lib/tailoring/jobFit";
 import {
   LANGUAGE_LABELS,
   OUTPUT_LANGUAGES,
@@ -94,6 +96,9 @@ interface ReviewState {
   /** The language this preview's suggestions were written in (#641),
    *  as generate-preview recorded it; null when none was requested. */
   outputLanguage: OutputLanguage | null;
+  /** The candidate confirmed this job despite a low fit; the suggestions
+   *  lead with transferable strengths. */
+  lowFit: boolean;
   headline: string;
   summary: string;
   originalSkillsOrder: string[];
@@ -109,10 +114,17 @@ interface ReviewState {
   profileFullName: string | null;
 }
 
+interface FetchedJob {
+  targetJobId: string;
+  title: string | null;
+  employer: string | null;
+  snippet: string;
+}
+
 type FetchState =
   | { kind: "idle" }
   | { kind: "fetching" }
-  | { kind: "fetched"; targetJobId: string; title: string | null; employer: string | null; snippet: string }
+  | ({ kind: "fetched" } & FetchedJob)
   | { kind: "fetch_failed"; reasonCode: string }
   | { kind: "loading_review"; targetJobId: string }
   | { kind: "reviewing"; review: ReviewState }
@@ -172,6 +184,42 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   // language until the candidate picks a different one on purpose.
   const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(null);
   const [state, setState] = useState<FetchState>({ kind: "idle" });
+  // The fit check for the job on the card (lib/tailoring/jobFit.ts): null
+  // while loading or when it couldn't run, which never blocks tailoring.
+  const [fit, setFit] = useState<{ targetJobId: string; fit: JobFit } | null>(null);
+  // The candidate's explicit "yes, tailor anyway" for a low-fit job.
+  const [lowFitConfirmedFor, setLowFitConfirmedFor] = useState<string | null>(null);
+  const [lastFetched, setLastFetched] = useState<FetchedJob | null>(null);
+
+  const showFetched = useCallback((body: Record<string, any>) => {
+    const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet };
+    setFit(null);
+    setLowFitConfirmedFor(null);
+    setLastFetched(job);
+    setState({ kind: "fetched", ...job });
+  }, []);
+
+  const fetchedJobId = state.kind === "fetched" ? state.targetJobId : null;
+  useEffect(() => {
+    if (!fetchedJobId || fit?.targetJobId === fetchedJobId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/tailor/job-fit", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ profileVersionId: confirmedVersionId, targetJobId: fetchedJobId }),
+        });
+        const body = await readJsonBody(res);
+        if (!cancelled && res.ok && body?.fit) setFit({ targetJobId: fetchedJobId, fit: body.fit as JobFit });
+      } catch {
+        // No fit shown; generate-preview still checks it before any AI call.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchedJobId, fit?.targetJobId, confirmedVersionId]);
 
   const fetchJob = useCallback(async () => {
     if (!url.trim()) return;
@@ -194,17 +242,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         setState({ kind: "fetch_failed", reasonCode: body.reasonCode ?? "HTTP_ERROR" });
         return;
       }
-      setState({
-        kind: "fetched",
-        targetJobId: body.id,
-        title: body.title,
-        employer: body.employer,
-        snippet: body.snippet,
-      });
+      showFetched(body);
     } catch {
       setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [url, t]);
+  }, [url, t, showFetched]);
 
   const pasteJob = useCallback(async () => {
     if (pastedText.trim().length < MIN_PASTE_CHARS) return;
@@ -223,17 +265,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         });
         return;
       }
-      setState({
-        kind: "fetched",
-        targetJobId: body.id,
-        title: body.title,
-        employer: body.employer,
-        snippet: body.snippet,
-      });
+      showFetched(body);
     } catch {
       setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [pastedText, t]);
+  }, [pastedText, t, showFetched]);
 
   const pasteEmail = useCallback(async () => {
     if (emailText.trim().length < MIN_PASTE_CHARS) return;
@@ -252,17 +288,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         });
         return;
       }
-      setState({
-        kind: "fetched",
-        targetJobId: body.id,
-        title: body.title,
-        employer: body.employer,
-        snippet: body.snippet,
-      });
+      showFetched(body);
     } catch {
       setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [emailText, emailSubject, t]);
+  }, [emailText, emailSubject, t, showFetched]);
 
   const uploadJob = useCallback(async () => {
     if (!uploadFile) return;
@@ -279,17 +309,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         });
         return;
       }
-      setState({
-        kind: "fetched",
-        targetJobId: body.id,
-        title: body.title,
-        employer: body.employer,
-        snippet: body.snippet,
-      });
+      showFetched(body);
     } catch {
       setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [uploadFile, t]);
+  }, [uploadFile, t, showFetched]);
 
   const submitManualJob = useCallback(async (values: ManualJobFormValues) => {
     setState({ kind: "fetching" });
@@ -323,17 +347,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         });
         return;
       }
-      setState({
-        kind: "fetched",
-        targetJobId: body.id,
-        title: body.title,
-        employer: body.employer,
-        snippet: body.snippet,
-      });
+      showFetched(body);
     } catch {
       setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [t]);
+  }, [t, showFetched]);
 
   const startReview = useCallback(
     async (targetJobId: string) => {
@@ -351,9 +369,17 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             coverLetterOutputLanguage: includeCoverLetter ? (coverLetterLanguage ?? undefined) : undefined,
             instructions: instructions.trim() || undefined,
             outputLanguage: cvLanguage,
+            proceedDespiteLowFit: lowFitConfirmedFor === targetJobId ? true : undefined,
           }),
         });
         const body = await readJsonBody(res);
+        // The server's own fit check found a low fit the card hadn't shown
+        // (the fit request failed or was still loading): show the warning.
+        if (res.status === 409 && body?.code === "LOW_FIT_UNCONFIRMED" && body.fit && lastFetched?.targetJobId === targetJobId) {
+          setFit({ targetJobId, fit: body.fit as JobFit });
+          setState({ kind: "fetched", ...lastFetched });
+          return;
+        }
         if (!res.ok || !body) {
           setState({
             kind: "error",
@@ -399,6 +425,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           degraded: body.degraded,
           instructions: typeof body.instructions === "string" ? body.instructions : null,
           outputLanguage: isOutputLanguage(body.outputLanguage) ? body.outputLanguage : null,
+          lowFit: body.lowFit === true,
           headline: suggestions?.headline ?? profile.headline ?? "",
           summary: suggestions?.summary ?? profile.summary ?? "",
           originalSkillsOrder: profile.skills,
@@ -441,7 +468,18 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
         setState({ kind: "error", message: t("resumatch.flow.error.network") });
       }
     },
-    [confirmedVersionId, includeCoverLetter, coverLetterTone, coverLetterLength, coverLetterLanguage, instructions, cvLanguage, t],
+    [
+      confirmedVersionId,
+      includeCoverLetter,
+      coverLetterTone,
+      coverLetterLength,
+      coverLetterLanguage,
+      instructions,
+      cvLanguage,
+      lowFitConfirmedFor,
+      lastFetched,
+      t,
+    ],
   );
 
   const toggleBullet = useCallback((experienceIndex: number, bulletIndex: number) => {
@@ -677,6 +715,20 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           <Card title={state.title ?? t("resumatch.flow.jobFound")}>
             {state.employer ? <p style={{ color: "var(--muted)" }}>{state.employer}</p> : null}
             <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{state.snippet}…</p>
+            {fit && fit.targetJobId === state.targetJobId ? (
+              <JobFitPanel
+                fit={fit.fit}
+                confirmed={lowFitConfirmedFor === state.targetJobId}
+                onConfirm={() => setLowFitConfirmedFor(state.targetJobId)}
+                onDecline={() => {
+                  setFit(null);
+                  setLowFitConfirmedFor(null);
+                  setState({ kind: "idle" });
+                }}
+              />
+            ) : null}
+            {fit?.targetJobId === state.targetJobId && fit.fit.level === "low" && lowFitConfirmedFor !== state.targetJobId ? null : (
+            <>
             <label className="jm-field" style={{ display: "block", margin: "0.5rem 0" }}>
               <span className="rm-review__section-label">{t("resumatch.flow.cvLanguage")}</span>
               <select
@@ -756,6 +808,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               </div>
             ) : null}
             <Button onClick={() => startReview(state.targetJobId)}>{t("resumatch.flow.startReview")}</Button>
+            </>
+            )}
           </Card>
         </div>
       ) : null}
@@ -786,6 +840,10 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                     <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[state.review.outputLanguage]}</span>
                     {t("resumatch.review.langNote", { language: languageName(state.review.outputLanguage) })}
                   </p>
+                ) : null}
+
+                {state.review.lowFit ? (
+                  <p className="rm-fit__review-note">{t("resumatch.review.lowFitNote")}</p>
                 ) : null}
 
                 {state.review.instructions ? (
