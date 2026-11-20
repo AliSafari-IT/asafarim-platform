@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { CandidateProfileContent } from "../../profile/contract";
-import { certificationSchema, educationSchema } from "../../profile/contract";
+import { certificationSchema, educationSchema, languageSchema, linkSchema } from "../../profile/contract";
 
 /**
  * The tailored-resume contract.
@@ -74,6 +74,11 @@ export const tailoredResumeContentSchema = z
     fullName: trimmed(160).nullable().default(null),
     email: z.string().trim().email().max(320).nullable().default(null),
     phone: trimmed(40).nullable().default(null),
+    /** The profile's baseLocation, unchanged. */
+    location: trimmed(120).nullable().default(null),
+    /** Unchanged from the profile — typed by the candidate, never written
+     *  or completed by a model. Older CVs have none. */
+    links: z.array(linkSchema).max(12).default([]),
 
     headline: trimmed(200).nullable().default(null),
     // The limits below match lib/profile/contract.ts, never tighter: every
@@ -91,6 +96,8 @@ export const tailoredResumeContentSchema = z
     education: z.array(educationSchema).max(30).default([]),
     /** Unchanged from the profile — never rewritten. */
     certifications: z.array(certificationSchema).max(40).default([]),
+    /** Unchanged from the profile — spoken languages and level. */
+    languages: z.array(languageSchema).max(20).default([]),
   })
   .strict();
 
@@ -165,12 +172,15 @@ export function mergeTailoringSuggestions(
     fullName: profile.fullName,
     email: profile.email,
     phone: profile.phone,
+    location: profile.baseLocation,
+    links: profile.links,
     headline: s.headline ?? profile.headline,
     summary: s.summary ?? profile.summary,
     skills: orderedSkills,
     experience,
     education: profile.education,
     certifications: profile.certifications,
+    languages: profile.languages,
   });
 }
 

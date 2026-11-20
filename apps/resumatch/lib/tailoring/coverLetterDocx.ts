@@ -1,4 +1,4 @@
-import { AlignmentType, Document, Packer, Paragraph, TextRun } from "docx";
+import { AlignmentType, Document, ExternalHyperlink, Packer, Paragraph, TextRun } from "docx";
 import type { CoverLetterContent } from "./ai/coverLetter/schema";
 import { DOCUMENT_LOCALES, isOutputLanguage } from "./language";
 import { letterDensity, letterWordCount, type LetterDensity, type LetterLayout } from "./coverLetterLayout";
@@ -46,9 +46,20 @@ export function buildCoverLetterDocx(
       ...(layout.sender.name ? [{ text: layout.sender.name, bold: true, muted: false }] : []),
       ...layout.sender.lines.map((text) => ({ text, bold: false, muted: true })),
     ];
+    const senderLinks = layout.sender.links;
     sender.forEach((entry, index) =>
-      children.push(line(entry.text, { ...entry, after: index === sender.length - 1 ? size.after * 2 : 0 })),
+      children.push(
+        line(entry.text, { ...entry, after: index === sender.length - 1 && senderLinks.length === 0 ? size.after * 2 : 0 }),
+      ),
     );
+    if (senderLinks.length > 0) {
+      const runs: (TextRun | ExternalHyperlink)[] = [];
+      senderLinks.forEach((link, index) => {
+        if (index > 0) runs.push(new TextRun({ text: " · ", color: "4B5563" }));
+        runs.push(new ExternalHyperlink({ link: link.url, children: [new TextRun({ text: link.text, style: "Hyperlink" })] }));
+      });
+      children.push(new Paragraph({ spacing: { after: size.after * 2, line: size.line }, children: runs }));
+    }
 
     layout.recipient.forEach((text, index) =>
       children.push(line(text, { after: index === layout.recipient.length - 1 ? size.after * 2 : 0 })),

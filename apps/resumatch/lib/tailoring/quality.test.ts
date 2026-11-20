@@ -14,6 +14,9 @@ function content(overrides: Partial<TailoredResumeContent> = {}): TailoredResume
     experience: [],
     education: [],
     certifications: [],
+    location: null,
+    links: [],
+    languages: [],
     ...overrides,
   };
 }

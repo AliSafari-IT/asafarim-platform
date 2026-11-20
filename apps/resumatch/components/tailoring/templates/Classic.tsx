@@ -1,6 +1,7 @@
 import type { TailoredResumeContent } from "../../../lib/tailoring/ai/schema";
 import { groupSkillsByCategory, type SkillCategory } from "../../../lib/profile/skillCategories";
-import { formatProfileDate, formatSpan, templateLabels } from "../../../lib/tailoring/language";
+import { formatProfileDate, formatSpan, formatSpokenLanguages, templateLabels } from "../../../lib/tailoring/language";
+import { displayUrl, headerLinks, linkText, productLinks } from "../../../lib/profile/links";
 
 /**
  * The one layout this pass ships. Plain, print-first HTML/CSS: no canvas,
@@ -28,20 +29,25 @@ export function ClassicTemplate({
   return (
     // lang marks the CV's own language (#641) so assistive tech reads a
     // Dutch CV as Dutch even when the page around it is in English.
-    <article className="rm-resume rm-resume--classic" lang={language ?? undefined}>
+    <article className="rm-resume rm-resume--classic rm-cv" lang={language ?? undefined} data-testid="cv">
       <header className="rm-resume__header">
         {content.fullName ? <h1>{content.fullName}</h1> : null}
         {content.headline ? <p className="rm-resume__headline">{content.headline}</p> : null}
-        {content.email || content.phone ? (
-          <p className="rm-resume__contact">
-            {[content.email, content.phone].filter(Boolean).map((item, index, all) => (
-              <span key={item}>
-                {item}
-                {index < all.length - 1 ? <span className="rm-resume__contact-sep" aria-hidden="true" /> : null}
-              </span>
-            ))}
-          </p>
-        ) : null}
+        <ContactLine
+          items={[
+            content.email ? { key: "email", text: content.email, href: `mailto:${content.email}` } : null,
+            content.phone ? { key: "phone", text: content.phone, href: telHref(content.phone) } : null,
+            content.location ? { key: "location", text: content.location } : null,
+          ]}
+        />
+        <ContactLine
+          className="rm-resume__links"
+          items={headerLinks(content.links).map((link, index) => ({
+            key: `link-${index}`,
+            text: linkText(link),
+            href: link.url,
+          }))}
+        />
       </header>
 
       {content.summary ? (
@@ -98,6 +104,21 @@ export function ClassicTemplate({
         </section>
       ) : null}
 
+      {productLinks(content.links).length > 0 ? (
+        <section className="rm-resume__section">
+          <h2>{labels.products}</h2>
+          <ul className="rm-resume__products">
+            {productLinks(content.links).map((link, index) => (
+              <li key={index}>
+                {link.label ? <strong>{link.label}</strong> : null}
+                {link.label ? " — " : null}
+                <a href={link.url}>{displayUrl(link.url)}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {content.education.length > 0 ? (
         <section className="rm-resume__section">
           <h2>{labels.education}</h2>
@@ -132,6 +153,42 @@ export function ClassicTemplate({
           ))}
         </section>
       ) : null}
+
+      {content.languages.length > 0 ? (
+        <section className="rm-resume__section">
+          <h2>{labels.languages}</h2>
+          <p className="rm-resume__languages">
+            {formatSpokenLanguages(content.languages, language)}
+          </p>
+        </section>
+      ) : null}
     </article>
+  );
+}
+
+/** A tel: link only for a plain number ("+32 470 00 00 00", "(02) 123-45-67");
+ *  anything else (an extension, a note) stays plain text rather than
+ *  becoming a link that dials the wrong number. */
+export function telHref(phone: string): string | undefined {
+  if (!/^\+?[\d\s().-]{6,}$/.test(phone.trim())) return undefined;
+  return `tel:${phone.replace(/[^+\d]/g, "")}`;
+}
+
+type ContactItem = { key: string; text: string; href?: string };
+
+/** One centred line of contact items with dot separators. Links stay real
+ *  anchors so they are clickable in the printed PDF. */
+function ContactLine({ items, className }: { items: (ContactItem | null)[]; className?: string }) {
+  const present = items.filter((item): item is ContactItem => item !== null);
+  if (present.length === 0) return null;
+  return (
+    <p className={["rm-resume__contact", className].filter(Boolean).join(" ")}>
+      {present.map((item, index) => (
+        <span key={item.key}>
+          {item.href ? <a href={item.href}>{item.text}</a> : item.text}
+          {index < present.length - 1 ? <span className="rm-resume__contact-sep" aria-hidden="true" /> : null}
+        </span>
+      ))}
+    </p>
   );
 }

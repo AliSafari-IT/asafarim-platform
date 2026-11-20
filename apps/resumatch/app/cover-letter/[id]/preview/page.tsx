@@ -74,7 +74,13 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
   const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
   const profile = parseProfileContent(row.profileVersion.content);
   const layout = buildLetterLayout(
-    { fullName: content.fullName, email: profile.email, phone: profile.phone, baseLocation: profile.baseLocation },
+    {
+      fullName: content.fullName,
+      email: profile.email,
+      phone: profile.phone,
+      baseLocation: profile.baseLocation,
+      links: profile.links,
+    },
     row.targetJob,
     row.createdAt,
     row.outputLanguage,
@@ -130,6 +136,16 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
             {layout.sender.lines.map((line) => (
               <p key={line}>{line}</p>
             ))}
+            {layout.sender.links.length > 0 ? (
+              <p className="rm-letter__links">
+                {layout.sender.links.map((link, index) => (
+                  <span key={link.url}>
+                    {index > 0 ? " · " : null}
+                    <a href={link.url}>{link.text}</a>
+                  </span>
+                ))}
+              </p>
+            ) : null}
           </div>
           {layout.recipient.length > 0 ? (
             <div className="rm-letter__recipient">

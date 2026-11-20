@@ -1,7 +1,8 @@
-import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
+import { AlignmentType, Document, ExternalHyperlink, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
+import { displayUrl, headerLinks, linkText, productLinks } from "../profile/links";
 import type { TailoredResumeContent } from "./ai/schema";
 import { groupSkillsByCategory, type SkillCategory } from "../profile/skillCategories";
-import { formatProfileDate, formatSpan, templateLabels } from "./language";
+import { formatProfileDate, formatSpan, formatSpokenLanguages, templateLabels } from "./language";
 
 /**
  * DOCX export (issue #435). Renders the same single-column, ATS-safe
@@ -14,6 +15,11 @@ import { formatProfileDate, formatSpan, templateLabels } from "./language";
 
 function heading(text: string): Paragraph {
   return new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 240, after: 120 }, children: [new TextRun({ text, bold: true })] });
+}
+
+/** A clickable link; Word's own "Hyperlink" character style colours it. */
+function hyperlink(text: string, url: string): ExternalHyperlink {
+  return new ExternalHyperlink({ link: url, children: [new TextRun({ text, style: "Hyperlink", size: 20 })] });
 }
 
 function entryHeading(title: string, sub: string | null, dates: string | null): Paragraph {
@@ -41,9 +47,23 @@ export function buildTailoredResumeDocx(content: TailoredResumeContent, language
   if (content.headline) {
     children.push(new Paragraph({ children: [new TextRun({ text: content.headline, italics: true })] }));
   }
-  const contact = [content.email, content.phone].filter(Boolean).join("  ·  ");
+  const contact = [content.email, content.phone, content.location].filter(Boolean).join("  ·  ");
+  const profileLinks = headerLinks(content.links);
   if (contact) {
-    children.push(new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: contact, size: 20 })] }));
+    children.push(
+      new Paragraph({
+        spacing: { after: profileLinks.length > 0 ? 0 : 120 },
+        children: [new TextRun({ text: contact, size: 20 })],
+      }),
+    );
+  }
+  if (profileLinks.length > 0) {
+    const runs: (TextRun | ExternalHyperlink)[] = [];
+    profileLinks.forEach((link, index) => {
+      if (index > 0) runs.push(new TextRun({ text: "  ·  ", size: 20 }));
+      runs.push(hyperlink(linkText(link), link.url));
+    });
+    children.push(new Paragraph({ spacing: { after: 120 }, children: runs }));
   }
 
   if (content.summary) {
@@ -77,6 +97,17 @@ export function buildTailoredResumeDocx(content: TailoredResumeContent, language
     }
   }
 
+  const products = productLinks(content.links);
+  if (products.length > 0) {
+    children.push(heading(labels.products));
+    for (const link of products) {
+      const runs: (TextRun | ExternalHyperlink)[] = [];
+      if (link.label) runs.push(new TextRun({ text: `${link.label} — `, bold: true }));
+      runs.push(hyperlink(displayUrl(link.url), link.url));
+      children.push(new Paragraph({ bullet: { level: 0 }, children: runs }));
+    }
+  }
+
   if (content.education.length > 0) {
     children.push(heading(labels.education));
     for (const entry of content.education) {
@@ -89,6 +120,11 @@ export function buildTailoredResumeDocx(content: TailoredResumeContent, language
     for (const entry of content.certifications) {
       children.push(entryHeading(entry.name, entry.issuer, null));
     }
+  }
+
+  if (content.languages.length > 0) {
+    children.push(heading(labels.languages));
+    children.push(new Paragraph({ children: [new TextRun({ text: formatSpokenLanguages(content.languages, language, "  ·  ") })] }));
   }
 
   return new Document({ sections: [{ children }] });
