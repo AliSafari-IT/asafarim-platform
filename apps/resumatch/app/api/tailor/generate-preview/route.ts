@@ -5,6 +5,7 @@ import { MAX_INSTRUCTIONS_CHARS } from "../../../../lib/tailoring/ai/prompts";
 import { runCoverLetterProviderCall } from "../../../../lib/tailoring/ai/coverLetter/generate";
 import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES } from "../../../../lib/tailoring/ai/coverLetter/prompts";
 import { buildProfileText } from "../../../../lib/tailoring/buildProfileText";
+import { assessJobFit } from "../../../../lib/tailoring/jobFit";
 import { isOutputLanguage } from "../../../../lib/tailoring/language";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getVersion } from "../../../../lib/profile/versions";
@@ -26,6 +27,14 @@ export const maxDuration = 60;
  * same monthly budget (lib/tailoring/ai/quota.ts's "cover_letter" kind),
  * and a candidate tailoring a CV toward a job they're still deciding on
  * shouldn't pay for a letter they didn't ask for yet.
+ *
+ * A job the fit check rates "low" (lib/tailoring/jobFit.ts) is refused with
+ * 409 LOW_FIT_UNCONFIRMED until the request carries
+ * `proceedDespiteLowFit: true`, the candidate's explicit "yes, apply
+ * anyway" after the warning. Checked here, not only in the UI, so no AI is
+ * spent on an off-scope job the candidate never confirmed. A confirmed
+ * low-fit run adds the prompt's LOW-FIT rule (lead with transferable
+ * strengths; every no-fabrication rule still applies).
  */
 export async function POST(request: Request) {
   const workspace = await getCurrentWorkspace();
@@ -47,6 +56,7 @@ export async function POST(request: Request) {
     coverLetterOutputLanguage,
     instructions,
     outputLanguage,
+    proceedDespiteLowFit,
   } = (body ?? {}) as {
       profileVersionId?: unknown;
       targetJobId?: unknown;
@@ -64,6 +74,9 @@ export async function POST(request: Request) {
       /** Optional — #642. One of OUTPUT_LANGUAGES for the cover letter;
        *  omitted, it follows the CV's `outputLanguage`. */
       coverLetterOutputLanguage?: unknown;
+      /** Optional. true only after the candidate saw the low-fit warning
+       *  and chose to continue. */
+      proceedDespiteLowFit?: unknown;
     };
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
     return NextResponse.json({ error: "profileVersionId and targetJobId are required." }, { status: 400 });
@@ -100,6 +113,14 @@ export async function POST(request: Request) {
   }
 
   const profile = version.content;
+  const fit = assessJobFit(profile, targetJob.rawText);
+  const lowFit = fit.level === "low";
+  if (lowFit && proceedDespiteLowFit !== true) {
+    return NextResponse.json(
+      { error: "This job looks outside your profile. Confirm that you want to tailor anyway.", code: "LOW_FIT_UNCONFIRMED", fit },
+      { status: 409 },
+    );
+  }
   const cvLanguage = isOutputLanguage(outputLanguage) ? outputLanguage : null;
   // #642: the letter defaults to the language of the CV it's paired with.
   const letterLanguage =
@@ -130,6 +151,7 @@ export async function POST(request: Request) {
     undefined,
     cost,
     cvLanguage,
+    lowFit,
   );
   const coverLetterResult =
     includeCoverLetter === true
@@ -176,6 +198,7 @@ export async function POST(request: Request) {
     suggestions,
     instructions: typeof instructions === "string" ? instructions : null,
     outputLanguage: cvLanguage,
+    lowFit,
     coverLetter: coverLetterResult
       ? {
           suggestion: coverLetterResult.suggestion,

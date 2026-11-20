@@ -137,8 +137,37 @@ recruiter would expect on a CV.
   profile's own skill names, exactly as the rules above require.`;
 }
 
-function buildSystemPrompt(language?: OutputLanguage | null): string {
-  return language ? BASE_SYSTEM_PROMPT + languageRule(language) : BASE_SYSTEM_PROMPT;
+/**
+ * The low-fit rule (tailor_resume@5). Added only after the candidate was
+ * warned that the job looks outside their profile (lib/tailoring/jobFit.ts)
+ * and chose to go on. It changes emphasis, never the facts: every HARD RULE
+ * above still applies, and the merge in schema.ts still copies employers,
+ * titles, dates, education and skill names in code.
+ */
+const LOW_FIT_RULE = `
+
+LOW-FIT JOB — the candidate was told this posting looks outside their
+background and chose to apply anyway. Make the most honest case the profile
+supports:
+- Lead with TRANSFERABLE strengths: real skills, responsibilities and results
+  from the profile that carry over to this kind of work (for example
+  analysis, reporting, quality checks, planning, customer contact, safety,
+  documentation, learning new tools), named in the posting's vocabulary only
+  where the profile supports it.
+- "summary": frame the candidate truthfully as someone bringing their actual
+  background to this role. Do not claim, imply or hint at experience,
+  training, licences or qualifications the posting asks for and the profile
+  lacks. Never write that the candidate "has experience in" or "is skilled
+  in" a requirement the profile does not state.
+- "headline": aim it at this role using only the candidate's real role
+  vocabulary and transferable strengths; never the posting's job title as if
+  the candidate already held it.
+- "skillsOrder": put the transferable skills first.
+- "experienceBullets": in each entry, lead with the bullets that carry over
+  best. Entries with little in common stay short and factual.`;
+
+function buildSystemPrompt(language?: OutputLanguage | null, lowFit = false): string {
+  return BASE_SYSTEM_PROMPT + (lowFit ? LOW_FIT_RULE : "") + (language ? languageRule(language) : "");
 }
 
 export interface RenderedTailorPrompt {
@@ -151,10 +180,13 @@ export interface RenderedTailorPrompt {
   instructionsUsed: string | null;
   /** The output language this prompt asked for, or null for none. */
   outputLanguage: OutputLanguage | null;
+  /** Whether the LOW-FIT rule was added (the candidate confirmed an
+   *  off-scope job). */
+  lowFit: boolean;
 }
 
 /**
- * Render the versioned `tailor_resume` prompt (current: @4 — see
+ * Render the versioned `tailor_resume` prompt (current: @5 — see
  * registry.ts's TAILOR_PROMPT_VERSION).
  *
  * `profileText` and `jobText` should already be normalised/redacted text —
@@ -170,14 +202,18 @@ export interface RenderedTailorPrompt {
  *
  * `outputLanguage` (#641) adds the OUTPUT LANGUAGE rule to the system
  * prompt. Omitted, the system prompt is exactly the pre-#641 text.
+ *
+ * `lowFit` adds the LOW-FIT rule, for a job the candidate was warned looks
+ * outside their profile and confirmed anyway. Omitted, nothing changes.
  */
 export function renderTailorPrompt(
   profileText: string,
   jobText: string,
   instructions?: string | null,
   outputLanguage?: OutputLanguage | null,
+  lowFit = false,
 ): RenderedTailorPrompt {
-  const system = buildSystemPrompt(outputLanguage);
+  const system = buildSystemPrompt(outputLanguage, lowFit);
   const cappedJob = capWithMarker(jobText, MAX_JOB_CHARS);
   const cappedProfile = capWithMarker(profileText, MAX_PROFILE_CHARS);
   const trimmedInstructions = instructions?.trim() || null;
@@ -207,5 +243,6 @@ export function renderTailorPrompt(
     profileTextUsed: cappedProfile,
     instructionsUsed: cappedInstructions,
     outputLanguage: outputLanguage ?? null,
+    lowFit,
   };
 }

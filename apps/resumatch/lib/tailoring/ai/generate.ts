@@ -50,6 +50,9 @@ export async function runTailorProviderCall(
   /** The language to write the generated prose in (#641). Omitted, the
    *  prompt carries no language rule (pre-#641 behaviour). */
   outputLanguage?: OutputLanguage | null,
+  /** The candidate confirmed a job the fit check rated low
+   *  (lib/tailoring/jobFit.ts): lead with transferable strengths. */
+  lowFit = false,
 ): Promise<TailorProviderCallResult> {
   const primaryName = providerOverride ?? getEnv().aiProvider;
   const primaryModelVersion = await resolveTailorModelVersion(primaryName);
@@ -58,7 +61,7 @@ export async function runTailorProviderCall(
   let providerName: ResuMatchAiProvider = primaryName;
   let modelVersion = primaryModelVersion;
   const { text: profileText } = buildProfileText(profile);
-  const prompt = renderTailorPrompt(profileText, jobText, instructions, outputLanguage);
+  const prompt = renderTailorPrompt(profileText, jobText, instructions, outputLanguage, lowFit);
 
   let suggestions: TailorSuggestions | null = null;
   let degraded = false;

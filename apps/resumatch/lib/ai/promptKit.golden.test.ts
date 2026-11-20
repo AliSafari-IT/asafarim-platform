@@ -48,6 +48,7 @@ const cases: Record<
   coverNl: renderCoverLetterPrompt("profile", long, "warm", "detailed", "nl"),
   tailor: renderTailorPrompt("profile", "job"),
   tailorFull: renderTailorPrompt(long, long, "lead with backend", "fr"),
+  tailorLowFit: renderTailorPrompt("profile", "job", null, "nl", true),
   jobFetch: renderJobFetchPrompt("https://example.com/job/1"),
   jobMeta: renderJobMetaPrompt("Backend Engineer at Acme"),
 };
@@ -102,12 +103,19 @@ const golden: Record<string, [string, string, string]> = {
   tailor: [
     "c82b677732b69c44335939d19087063c5932c97f6b06ebd0688b1cc097a9f316",
     "12b86724d995331521808557f2c9a1936554c80554dd9d36485c5f14aebc8516",
-    "35c024a7f105cdf63f47fafb55fc82a0df75bad5b8116dd7059c8d5b5c8e0e35",
+    "b3a9b1c8965afb40d12b8280e13b189823a86cba28ef1ae7002f1f5355f95b74",
   ],
   tailorFull: [
     "a71391cc04388273430d04b9dc29f46cb57db2eed65877d54c4390e3cf8ee058",
     "fbc51d46ff00a9b82fbd568e04d2ccbf824611c3b2f0018797217e18c9cee94d",
-    "30dfa2e623978e4584cdb34f8c4fcd51fb80b7c6c7e1cf923a1e4a92ab8fc44d",
+    "5542494310c63cccab5b1ce4179a4732f607a2b55838f7e6ed8668cbe03d5090",
+  ],
+  // tailor_resume@5: the LOW-FIT rule. The two cases above are @5 too; only
+  // their cache keys moved (the version is part of the key), not their text.
+  tailorLowFit: [
+    "53b3f7f1e6be50bef5afc7cc533df9242bfb8f19bc420dced58e989a9697b93e",
+    "12b86724d995331521808557f2c9a1936554c80554dd9d36485c5f14aebc8516",
+    "1bafa9fc103953815c641c021c838ca0b22290ede98fa29a77f824747676452e",
   ],
   jobFetch: [
     "c7a6a8bfd85b3d045d680f3445f86ecd315e8a4350e5bf600770baa518599111",

@@ -79,4 +79,23 @@ describe("renderTailorPrompt", () => {
     const b = renderTailorPrompt("profile text", "job text B");
     expect(a.cacheKey).not.toBe(b.cacheKey);
   });
+
+  it("adds the LOW-FIT rule only when asked, keeping every hard rule", () => {
+    const plain = renderTailorPrompt("profile", "job");
+    const lowFit = renderTailorPrompt("profile", "job", null, null, true);
+    expect(plain.system).not.toMatch(/LOW-FIT JOB/);
+    expect(plain.lowFit).toBe(false);
+    expect(lowFit.lowFit).toBe(true);
+    expect(lowFit.system).toMatch(/LOW-FIT JOB/);
+    expect(lowFit.system).toMatch(/TRANSFERABLE/);
+    expect(lowFit.system).toMatch(/never invent or alter a fact/i);
+    expect(lowFit.system).toMatch(/Do not claim, imply or hint at experience/);
+    expect(lowFit.system.startsWith(plain.system)).toBe(true);
+    expect(lowFit.cacheKey).not.toBe(plain.cacheKey);
+  });
+
+  it("keeps the language rule last when both rules apply", () => {
+    const rendered = renderTailorPrompt("profile", "job", null, "de", true);
+    expect(rendered.system.indexOf("LOW-FIT JOB")).toBeLessThan(rendered.system.indexOf("OUTPUT LANGUAGE"));
+  });
 });
