@@ -16,6 +16,8 @@ import { DataRightsPanel } from "./DataRightsPanel";
 import { NextStepTrack, ProfileCompleteness, VersionTimeline } from "./ProfileInsights";
 import { ProfileWorkbench } from "./ProfileWorkbench";
 import { UploadPanel } from "./UploadPanel";
+import { PhotoPanel } from "./PhotoPanel";
+import { describePhoto, getProfilePhoto } from "../../lib/profile/photoStore";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getTranslator();
@@ -37,12 +39,13 @@ export default async function ProfilePage() {
     );
   }
 
-  const [documents, latest, versions, journey, jobsCount] = await Promise.all([
+  const [documents, latest, versions, journey, jobsCount, photo] = await Promise.all([
     listDocuments(workspace.id),
     getLatestVersion(workspace.id),
     listVersions(workspace.id),
     getJourneyCounts(workspace.id),
     getJobmatchDb().targetJob.count({ where: { workspaceId: workspace.id } }),
+    getProfilePhoto(workspace.id),
   ]);
 
   const confirmed = versions.find((version) => version.isConfirmed) ?? null;
@@ -104,6 +107,8 @@ export default async function ProfilePage() {
         }))}
       />
 
+      <PhotoPanel initialPhoto={photo ? describePhoto(photo) : null} />
+
       <section>
         {/* Keyed by version id so a newly extracted profile REPLACES the
             form after router.refresh(). Without the key, the client
@@ -125,7 +130,7 @@ export default async function ProfilePage() {
 
       <DataRightsPanel
         erasureSlaDays={ERASURE_SLA_DAYS}
-        hasData={documents.length > 0 || versions.length > 0 || jobsCount > 0 || journey.tailoredCount > 0}
+        hasData={photo !== null || documents.length > 0 || versions.length > 0 || jobsCount > 0 || journey.tailoredCount > 0}
         holdings={{
           documents: documents.length,
           versions: versions.length,

@@ -60,6 +60,7 @@ model Workspace {
   coverLetters    CoverLetter[]
   tailorPreviews  TailorPreview[]
   aiCostEvents    AiCostEvent[]
+  profilePhoto    ProfilePhoto?
 
   @@map("workspaces")
 }
@@ -411,6 +412,12 @@ model TailoredResume {
   /// was declined. Templates render null exactly as they always have.
   outputLanguage String?
 
+  /// Whether this CV shows the candidate's profile photo. Null follows
+  /// ProfilePhoto.includeByDefault, so a CV only stores a choice the
+  /// candidate actually made on it. Rendering only — never part of
+  /// `content`, never seen by a model.
+  showPhoto Boolean?
+
   createdAt DateTime @default(now())
 
   applications Application[]
@@ -425,6 +432,36 @@ model TailoredResume {
   @@index([workspaceId, createdAt])
   @@index([targetJobId])
   @@map("tailored_resumes")
+}
+
+/// The candidate's optional CV photo (one per workspace). Deliberately
+/// outside the versioned profile content: it is never turned into prompt
+/// text, never read by tailoring, and only joined in when a CV is rendered.
+/// The bytes are a metadata-stripped square JPEG in private storage
+/// (lib/profile/photo.ts, lib/profile/photoStore.ts).
+model ProfilePhoto {
+  id String @id @default(cuid())
+
+  workspaceId String    @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// Derived from the workspace id and a random UUID; never exposed.
+  storageKey  String @unique
+  contentType String
+  byteSize    Int
+  /// Side of the square, in pixels.
+  pixelSize   Int
+  contentHash String
+
+  /// "circle" | "square" — how the CV crops it on display.
+  shape String @default("circle")
+  /// Whether CVs without their own choice show the photo.
+  includeByDefault Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("profile_photos")
 }
 
 /// One AI-drafted cover letter, reviewed and confirmed the same way a

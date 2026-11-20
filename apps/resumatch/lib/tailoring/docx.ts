@@ -1,4 +1,18 @@
-import { AlignmentType, Document, ExternalHyperlink, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
+import {
+  AlignmentType,
+  Document,
+  ExternalHyperlink,
+  HeadingLevel,
+  HorizontalPositionRelativeFrom,
+  ImageRun,
+  Packer,
+  Paragraph,
+  TextRun,
+  TextWrappingSide,
+  TextWrappingType,
+  VerticalPositionRelativeFrom,
+} from "docx";
+import { photoAltText, type PhotoShape } from "../profile/photo";
 import { displayUrl, headerLinks, linkText, productLinks } from "../profile/links";
 import type { TailoredResumeContent } from "./ai/schema";
 import { groupSkillsByCategory, type SkillCategory } from "../profile/skillCategories";
@@ -29,18 +43,87 @@ function entryHeading(title: string, sub: string | null, dates: string | null): 
   return new Paragraph({ spacing: { before: 120 }, children });
 }
 
+/** The optional CV photo's bytes (a sanitized square JPEG) and shape. */
+export interface DocxPhoto {
+  data: Uint8Array;
+  shape: PhotoShape;
+}
+
+/** 30 mm, the same as the printed CV (app/resumatch.css). docx sizes
+ *  images in pixels at 96 dpi. */
+const PHOTO_PX = Math.round((30 / 25.4) * 96);
+const EMU_PER_MM = 36000;
+
+/**
+ * An image whose picture geometry is an ellipse instead of a rectangle, so
+ * Word, LibreOffice and Google Docs clip it to a circle — the same as the
+ * preview's `border-radius: 50%`. docx always writes `prst="rect"`; this
+ * rewrites that one attribute in the run's own XML tree and nothing else.
+ * docx.test.ts checks the output, so a library change that moves this
+ * shows up as a failing test (and a square photo), not a broken file.
+ */
+class EllipseImageRun extends ImageRun {
+  override prepForXml(context: Parameters<ImageRun["prepForXml"]>[0]) {
+    const xml = super.prepForXml(context);
+    const visit = (node: unknown): void => {
+      if (Array.isArray(node)) return node.forEach(visit);
+      if (!node || typeof node !== "object") return;
+      for (const [key, value] of Object.entries(node)) {
+        if (key === "a:prstGeom" && Array.isArray(value)) {
+          for (const part of value as { _attr?: { prst?: string } }[]) {
+            if (part?._attr?.prst === "rect") part._attr.prst = "ellipse";
+          }
+        } else {
+          visit(value);
+        }
+      }
+    };
+    visit(xml);
+    return xml;
+  }
+}
+
+function photoRun(photo: DocxPhoto, alt: string): ImageRun {
+  const options = {
+    type: "jpg" as const,
+    data: photo.data,
+    transformation: { width: PHOTO_PX, height: PHOTO_PX },
+    altText: { name: alt, description: alt, title: alt },
+    // Floats at the top-left of the text column with the name, headline and
+    // contact lines wrapping beside it, like the printed header. Floating
+    // keeps it out of the text flow, so it never adds a page.
+    floating: {
+      horizontalPosition: { relative: HorizontalPositionRelativeFrom.MARGIN, offset: 0 },
+      verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: 0 },
+      wrap: { type: TextWrappingType.SQUARE, side: TextWrappingSide.RIGHT },
+      margins: { right: 6 * EMU_PER_MM, bottom: 2 * EMU_PER_MM },
+    },
+  };
+  return photo.shape === "circle" ? new EllipseImageRun(options) : new ImageRun(options);
+}
+
 /** `language`: the CV's stored outputLanguage (#641); null keeps the
- *  English labels and raw dates older CVs have always exported with. */
-export function buildTailoredResumeDocx(content: TailoredResumeContent, language: string | null = null): Document {
+ *  English labels and raw dates older CVs have always exported with.
+ *  `photo`: the candidate's CV photo when this CV shows it — never part of
+ *  `content`. */
+export function buildTailoredResumeDocx(
+  content: TailoredResumeContent,
+  language: string | null = null,
+  photo: DocxPhoto | null = null,
+): Document {
   const labels = templateLabels(language);
   const children: Paragraph[] = [];
 
-  if (content.fullName) {
+  const photoImage = photo ? photoRun(photo, photoAltText(content.fullName, labels)) : null;
+  if (content.fullName || photoImage) {
     children.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_1,
         alignment: AlignmentType.LEFT,
-        children: [new TextRun({ text: content.fullName, bold: true })],
+        children: [
+          ...(photoImage ? [photoImage] : []),
+          ...(content.fullName ? [new TextRun({ text: content.fullName, bold: true })] : []),
+        ],
       }),
     );
   }
@@ -130,6 +213,10 @@ export function buildTailoredResumeDocx(content: TailoredResumeContent, language
   return new Document({ sections: [{ children }] });
 }
 
-export function renderTailoredResumeDocx(content: TailoredResumeContent, language: string | null = null): Promise<Buffer> {
-  return Packer.toBuffer(buildTailoredResumeDocx(content, language));
+export function renderTailoredResumeDocx(
+  content: TailoredResumeContent,
+  language: string | null = null,
+  photo: DocxPhoto | null = null,
+): Promise<Buffer> {
+  return Packer.toBuffer(buildTailoredResumeDocx(content, language, photo));
 }
