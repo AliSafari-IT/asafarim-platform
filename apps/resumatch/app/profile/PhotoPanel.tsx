@@ -496,7 +496,13 @@ export function PhotoPanel({
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => setDraft(null)}
+                onClick={() => {
+                  setDraft(null);
+                  // The sync effect skipped any refresh that arrived while
+                  // cropping (an erasure, another tab); fetch the server's
+                  // current photo now rather than showing a stale one.
+                  router.refresh();
+                }}
                 disabled={busy}
               >
                 {t("resumatch.photo.cancel")}

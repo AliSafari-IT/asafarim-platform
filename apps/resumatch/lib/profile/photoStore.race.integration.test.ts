@@ -1,8 +1,8 @@
-import { mkdtempSync, readdirSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { sanitizePhotoJpeg } from "./photo";
 
 /**
  * Races on the CV photo (saves from two tabs, a save during a delete or an
@@ -25,6 +25,9 @@ const PHOTO = new Uint8Array(
   )
 );
 
+const sanitized = sanitizePhotoJpeg(PHOTO);
+const STORED = sanitized.ok ? sanitized.bytes : new Uint8Array();
+
 describe.skipIf(!TEST_DB)("CV photo races", () => {
   let db: import("../db/generated").PrismaClient;
   let store: typeof import("./photoStore");
@@ -36,6 +39,28 @@ describe.skipIf(!TEST_DB)("CV photo races", () => {
     readdirSync(STORAGE_DIR).filter(
       (name) => name.includes("profile-photos") && !name.endsWith(".json")
     );
+  /** Run racing operations to completion. A save may lose its final
+   *  read-back to a concurrent delete/erasure (ProfilePhotoVanished); any
+   *  other error fails the test. */
+  async function settle(operations: Promise<unknown>[]) {
+    for (const result of await Promise.allSettled(operations)) {
+      if (
+        result.status === "rejected" &&
+        !(
+          result.reason instanceof Error &&
+          result.reason.message === "ProfilePhotoVanished"
+        )
+      ) {
+        throw result.reason;
+      }
+    }
+  }
+  /** Whenever a row exists, its object holds the stored (sanitized) photo. */
+  async function expectRowReachable() {
+    if (!(await rowKey())) return;
+    const bytes = await store.readProfilePhotoBytes(workspaceId);
+    expect(bytes && Buffer.from(bytes).equals(Buffer.from(STORED))).toBe(true);
+  }
   const rowKey = async () =>
     (
       await db.profilePhoto.findUnique({
@@ -68,34 +93,38 @@ describe.skipIf(!TEST_DB)("CV photo races", () => {
     expect(key).not.toBeNull();
     expect(objects()).toHaveLength(1);
     expect(objects()[0]).toContain(workspaceId);
+    await expectRowReachable();
 
     await Promise.all(
       [1, 2, 3].map(() => store.saveProfilePhoto(workspaceId, PHOTO))
     );
     expect(objects()).toHaveLength(1);
     expect(await rowKey()).not.toBe(key);
+    await expectRowReachable();
   });
 
   it("a save racing a delete never leaves an object without a row, or a row without its object", async () => {
     for (let round = 0; round < 5; round += 1) {
       await store.saveProfilePhoto(workspaceId, PHOTO);
-      await Promise.all([
+      await settle([
         store.deleteProfilePhoto(workspaceId),
         store.saveProfilePhoto(workspaceId, PHOTO),
       ]);
       const key = await rowKey();
       expect(objects().length, `round ${round}`).toBe(key ? 1 : 0);
+      await expectRowReachable();
     }
   });
 
   it("a save racing an erasure keeps storage and rows consistent", async () => {
     await store.saveProfilePhoto(workspaceId, PHOTO);
-    await Promise.all([
+    await settle([
       eraseWorkspaceData(workspaceId),
       store.saveProfilePhoto(workspaceId, PHOTO),
     ]);
     const key = await rowKey();
     expect(objects().length).toBe(key ? 1 : 0);
+    await expectRowReachable();
     await store.deleteProfilePhoto(workspaceId);
     expect(objects()).toHaveLength(0);
     expect(await rowKey()).toBeNull();
