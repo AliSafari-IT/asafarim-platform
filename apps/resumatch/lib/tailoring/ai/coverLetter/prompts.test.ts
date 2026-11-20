@@ -12,7 +12,7 @@ describe("renderCoverLetterPrompt", () => {
   it("defaults to formal tone and standard length when omitted", () => {
     const rendered = renderCoverLetterPrompt("profile", "job");
     expect(rendered.system).toMatch(/formal, professional register/i);
-    expect(rendered.system).toMatch(/3 to 5 paragraphs/i);
+    expect(rendered.system).toMatch(/3 to 4 paragraphs/i);
   });
 
   it("reflects a warm tone in the system prompt", () => {
@@ -32,7 +32,7 @@ describe("renderCoverLetterPrompt", () => {
 
   it("reflects a detailed length in the system prompt", () => {
     const rendered = renderCoverLetterPrompt("profile", "job", "formal", "detailed");
-    expect(rendered.system).toMatch(/4 to 6 thorough paragraphs/i);
+    expect(rendered.system).toMatch(/4 to 5 paragraphs, at most about 380 words/i);
   });
 
   it("still states the no-fabrication hard rules regardless of tone/length", () => {
@@ -73,7 +73,7 @@ describe("renderCoverLetterPrompt — output language (#642)", () => {
   });
 
   it("is on a bumped prompt version", () => {
-    expect(COVER_LETTER_PROMPT_VERSION).toBe("cover_letter@3");
+    expect(COVER_LETTER_PROMPT_VERSION).toBe("cover_letter@4");
   });
 
   it.each([

@@ -2,6 +2,7 @@ import { inflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import type { CoverLetterContent } from "./ai/coverLetter/schema";
 import { renderCoverLetterDocx } from "./coverLetterDocx";
+import { buildLetterLayout } from "./coverLetterLayout";
 
 /** One part of the DOCX zip, by name — walks the local file headers (the
  *  docx package writes sizes there, no data descriptors). */
@@ -68,5 +69,21 @@ describe("renderCoverLetterDocx", () => {
     const styles = zipEntry(await renderCoverLetterDocx(content()), "word/styles.xml");
     expect(styles).not.toBeNull();
     expect(styles).not.toMatch(/<w:lang /);
+  });
+
+  it("writes the business-letter frame before the greeting", async () => {
+    const layout = buildLetterLayout(
+      { fullName: "Jane Doe", email: "jane@example.test", phone: "+32 470 00 00 00", baseLocation: "Genk, Belgium" },
+      { title: "Backend Engineer", employer: "Acme", structuredFields: { contactName: "Ms. Smith", location: "Brussels" } },
+      new Date("2026-11-20T10:00:00Z"),
+      "en",
+    );
+    const xml = zipEntry(await renderCoverLetterDocx(content(), "en", layout), "word/document.xml") ?? "";
+    const order = ["Jane Doe", "jane@example.test · +32 470 00 00 00", "Ms. Smith", "Acme", "Brussels", "Genk, 20 November 2026", "Application: Backend Engineer", "Dear Hiring Manager,", "Sincerely,"];
+    const positions = order.map((text) => xml.indexOf(text));
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    // One-page sizing: Calibri 11pt (22 half-points) for a short letter.
+    expect(zipEntry(await renderCoverLetterDocx(content(), "en", layout), "word/styles.xml")).toContain('w:val="22"');
   });
 });
