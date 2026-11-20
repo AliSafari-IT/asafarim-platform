@@ -668,8 +668,11 @@ export function ProfileWorkbench({
                               update("links", replaceAt(content.links, index, { ...link, label: event.target.value || null }))
                             }
                           />
+                          {/* type="text", not "url": the browser's own URL check would
+                              block Enter-to-save on a bare "github.com/me" before
+                              normalizeLinkUrl adds https:// on blur or save. */}
                           <input
-                            type="url"
+                            type="text"
                             inputMode="url"
                             aria-label={t("resumatch.wb.links.urlAria")}
                             aria-invalid={invalid || undefined}

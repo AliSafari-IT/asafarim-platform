@@ -367,8 +367,9 @@ export async function extractDocument(
   try {
     const profile = await extractProfileWithFallback(workspaceId, extracted.text, { documentId });
     // Links are typed by the candidate, never extracted: keep the ones they
-    // already entered so uploading a newer CV doesn't wipe them.
-    const previous = await getLatestVersion(workspaceId).catch(() => null);
+    // already entered so uploading a newer CV doesn't wipe them. A failed
+    // read fails the extraction (retryable) rather than dropping them.
+    const previous = await getLatestVersion(workspaceId);
     const links = previous?.content.links ?? [];
 
     const version = await createVersion({

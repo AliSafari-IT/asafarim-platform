@@ -16,7 +16,7 @@ import {
 import { renderTailorPrompt, TAILOR_PROMPT_VERSION } from "./ai/prompts";
 import { computeQuality } from "./quality";
 import { computeCoverage } from "./coverage";
-import { ClassicTemplate } from "../../components/tailoring/templates/Classic";
+import { ClassicTemplate, telHref } from "../../components/tailoring/templates/Classic";
 import type { TailoredResumeContent } from "./ai/schema";
 
 describe("output language basics", () => {
@@ -181,6 +181,15 @@ describe("ClassicTemplate in another language", () => {
     expect(html).toContain(">Experience<");
     expect(html).toContain("2021-03 – Present");
     expect(html).not.toContain("lang=");
+  });
+});
+
+describe("telHref", () => {
+  it("links a plain number and leaves extensions or notes as text", () => {
+    expect(telHref("+32 470 00 00 00")).toBe("tel:+32470000000");
+    expect(telHref("(02) 123-45-67")).toBe("tel:021234567");
+    expect(telHref("+32 470 00 00 00 ext. 123")).toBeUndefined();
+    expect(telHref("on request")).toBeUndefined();
   });
 });
 

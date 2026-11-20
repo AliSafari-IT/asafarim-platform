@@ -36,7 +36,7 @@ export function ClassicTemplate({
         <ContactLine
           items={[
             content.email ? { key: "email", text: content.email, href: `mailto:${content.email}` } : null,
-            content.phone ? { key: "phone", text: content.phone, href: `tel:${content.phone.replace(/[^+\d]/g, "")}` } : null,
+            content.phone ? { key: "phone", text: content.phone, href: telHref(content.phone) } : null,
             content.location ? { key: "location", text: content.location } : null,
           ]}
         />
@@ -164,6 +164,14 @@ export function ClassicTemplate({
       ) : null}
     </article>
   );
+}
+
+/** A tel: link only for a plain number ("+32 470 00 00 00", "(02) 123-45-67");
+ *  anything else (an extension, a note) stays plain text rather than
+ *  becoming a link that dials the wrong number. */
+export function telHref(phone: string): string | undefined {
+  if (!/^\+?[\d\s().-]{6,}$/.test(phone.trim())) return undefined;
+  return `tel:${phone.replace(/[^+\d]/g, "")}`;
 }
 
 type ContactItem = { key: string; text: string; href?: string };
