@@ -518,10 +518,14 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           });
           return;
         }
+        // The CV is saved even when its letter is not (coverLetterError);
+        // the preview page then says so instead of silently dropping it.
         router.push(
           body.coverLetterId
             ? `/tailor/${body.id}/preview?coverLetterId=${body.coverLetterId}`
-            : `/tailor/${body.id}/preview`,
+            : body.coverLetterError
+              ? `/tailor/${body.id}/preview?coverLetterFailed=1`
+              : `/tailor/${body.id}/preview`,
         );
       } catch {
         setState({ kind: "error", message: t("resumatch.flow.error.network") });
