@@ -12,7 +12,7 @@ describe("profile links contract", () => {
     expect(parseProfileContent({}).links).toEqual([]);
   });
 
-  it.each(["javascript:alert(1)", "data:text/html,hi", "ftp://example.test", "github.com/me", "https://"])(
+  it.each(["javascript:alert(1)", "data:text/html,hi", "ftp://example.test", "github.com/me", "https://", "https://a b", "https://localhost"])(
     "rejects %s",
     (url) => {
       expect(linkSchema.safeParse({ kind: "other", url }).success).toBe(false);

@@ -128,8 +128,17 @@ export const LINK_KINDS = ["linkedin", "github", "website", "portfolio", "npm", 
 export const linkKindSchema = z.enum(LINK_KINDS);
 
 /** http(s) only: a `javascript:` or `data:` URL must never reach an href
- *  in the CV, the cover letter or the DOCX. */
-const HTTP_URL = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
+ *  in the CV, the cover letter or the DOCX. Parsed with URL (not a regex),
+ *  no whitespace anywhere, and the host must look like a real domain. */
+function isHttpUrl(value: string): boolean {
+  if (/\s/.test(value)) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:") && /^[^.]+(\.[^.]+)+$/.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * A link the candidate typed themselves. Links are never extracted or
@@ -141,7 +150,7 @@ export const linkSchema = z.object({
   kind: linkKindSchema,
   /** Optional display label, e.g. a product's name. */
   label: trimmed(80).nullable().default(null),
-  url: z.string().trim().max(300).regex(HTTP_URL),
+  url: z.string().trim().max(300).refine(isHttpUrl, "Must be a full http(s) web address."),
 });
 
 /**

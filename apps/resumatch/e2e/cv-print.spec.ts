@@ -1,3 +1,4 @@
+import { extractText, getDocumentProxy } from "unpdf";
 import { expect, seedTailoredResume, test } from "./fixtures";
 
 /**
@@ -51,6 +52,11 @@ for (const format of ["A4", "Letter"] as const) {
     const pages = pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? [];
     expect(pages.length).toBeGreaterThanOrEqual(2);
     expect(pages.length).toBeLessThanOrEqual(3);
+    // The text is the CV's alone: no browser date, tab title, URL or page number.
+    const { text } = await extractText(await getDocumentProxy(new Uint8Array(pdf)), { mergePages: true });
+    expect(text).toContain("Jordan Example");
+    expect(text).toContain("Software Developer 7");
+    expect(text).not.toMatch(/localhost|\/tailor\/|\b1\/\d\b|– CV –/);
   });
 }
 
