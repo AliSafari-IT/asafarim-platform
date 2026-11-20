@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Something went wrong while saving this tailored CV, and nothing was saved. Try Save again; if it keeps failing, generate the suggestions again.",
+          "Something went wrong while saving this tailored CV. Try Save again; if it keeps failing, generate the suggestions again.",
       },
       { status: 500 },
     );
@@ -217,46 +217,54 @@ async function confirmTailoring(request: Request): Promise<Response> {
   // `coverLetter.approved: null` — a legitimate outcome the same way
   // `approved: null` is for the CV above. Nothing about the tailored
   // resume above depends on this; a rejected letter never blocks the CV.
+  // From here on the CV is saved, so nothing below may answer as if the
+  // whole save failed: a letter problem comes back next to the CV's id.
   let coverLetterId: string | null = null;
+  let coverLetterError: string | null = null;
   if (letterSuggestion) {
     if (preview.coverLetterPromptVersion === null || preview.coverLetterModelVersion === null) {
-      return NextResponse.json(
-        { error: "That preview did not include a cover letter." },
-        { status: 400 },
-      );
+      coverLetterError = "Your CV was saved, but that preview did not include a cover letter.";
+    } else {
+      const coverLetterPromptVersion = preview.coverLetterPromptVersion;
+      const coverLetterModelVersion = preview.coverLetterModelVersion;
+      try {
+        const letterContent = buildCoverLetterContent(letterSuggestion, version.content.fullName);
+        const letterRow = await db.coverLetter.create({
+          data: {
+            workspaceId: workspace.id,
+            profileVersionId,
+            targetJobId,
+            // Pairs this letter with the specific CV it was reviewed alongside
+            // — targetJobId alone can't do that once a candidate re-tailors
+            // toward the same job more than once. See the schema's own comment
+            // on CoverLetter.tailoredResumeId.
+            tailoredResumeId: row.id,
+            content: letterContent,
+            promptVersion: coverLetterPromptVersion,
+            modelVersion: coverLetterModelVersion,
+            degraded: preview.coverLetterDegraded === true,
+            // #642: from the server's preview record, and null if degraded.
+            outputLanguage: appliedCoverLetterLanguage(
+              preview.coverLetterOutputLanguage,
+              preview.coverLetterDegraded === true,
+            ),
+          },
+          select: { id: true, degraded: true, outputLanguage: true },
+        });
+        coverLetterId = letterRow.id;
+        await recordAuditEvent(workspace.id, "cover_letter.created", {
+          coverLetterId: letterRow.id,
+          tailoringId: row.id,
+          targetJobId,
+          degraded: letterRow.degraded,
+          outputLanguage: letterRow.outputLanguage ?? "",
+        });
+      } catch (error) {
+        logError("tailoring.confirm.cover_letter_failed", error, { tailoringId: row.id });
+        coverLetterError = "Your CV was saved, but the cover letter could not be saved.";
+      }
     }
-    const letterContent = buildCoverLetterContent(letterSuggestion, version.content.fullName);
-    const letterRow = await db.coverLetter.create({
-      data: {
-        workspaceId: workspace.id,
-        profileVersionId,
-        targetJobId,
-        // Pairs this letter with the specific CV it was reviewed alongside
-        // — targetJobId alone can't do that once a candidate re-tailors
-        // toward the same job more than once. See the schema's own comment
-        // on CoverLetter.tailoredResumeId.
-        tailoredResumeId: row.id,
-        content: letterContent,
-        promptVersion: preview.coverLetterPromptVersion,
-        modelVersion: preview.coverLetterModelVersion,
-        degraded: preview.coverLetterDegraded === true,
-        // #642: from the server's preview record, and null if degraded.
-        outputLanguage: appliedCoverLetterLanguage(
-          preview.coverLetterOutputLanguage,
-          preview.coverLetterDegraded === true,
-        ),
-      },
-      select: { id: true, degraded: true, outputLanguage: true },
-    });
-    coverLetterId = letterRow.id;
-    await recordAuditEvent(workspace.id, "cover_letter.created", {
-      coverLetterId: letterRow.id,
-      tailoringId: row.id,
-      targetJobId,
-      degraded: letterRow.degraded,
-      outputLanguage: letterRow.outputLanguage ?? "",
-    });
   }
 
-  return NextResponse.json({ id: row.id, coverLetterId });
+  return NextResponse.json({ id: row.id, coverLetterId, coverLetterError });
 }
