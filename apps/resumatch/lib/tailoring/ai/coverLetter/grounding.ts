@@ -133,6 +133,9 @@ export interface CoverLetterGroundingResult {
   droppedParagraphs: number;
   /** Sentences removed by the claim check (claims.ts). */
   removedClaimSentences: number;
+  /** Paragraphs dropped by the name/number check only — never overlaps
+   *  removedClaimSentences, so the two can be added up for the candidate. */
+  tokenDroppedParagraphs: number;
   greetingReplaced: boolean;
   signOffReplaced: boolean;
 }
@@ -160,6 +163,7 @@ export function groundCoverLetterSuggestion(
 
   const paragraphs = claimChecked.filter((paragraph) => !ungrounded(paragraph, sourceLower, paragraphMode));
   const droppedParagraphs = suggestion.paragraphs.length - paragraphs.length;
+  const tokenDroppedParagraphs = claimChecked.length - paragraphs.length;
 
   const greetingSource = `${sourceLower}\n${SALUTATION_WORDS.join(" ")}`;
   const greetingReplaced = ungrounded(suggestion.greeting, greetingSource, "prose");
@@ -179,7 +183,7 @@ export function groundCoverLetterSuggestion(
   }
 
   if (paragraphs.length === 0) {
-    return { suggestion: null, droppedParagraphs, removedClaimSentences, greetingReplaced, signOffReplaced };
+    return { suggestion: null, droppedParagraphs, removedClaimSentences, tokenDroppedParagraphs, greetingReplaced, signOffReplaced };
   }
 
   return {
@@ -190,6 +194,7 @@ export function groundCoverLetterSuggestion(
     },
     droppedParagraphs,
     removedClaimSentences,
+    tokenDroppedParagraphs,
     greetingReplaced,
     signOffReplaced,
   };

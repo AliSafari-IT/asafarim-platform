@@ -110,6 +110,17 @@ describe("groundCoverLetterSuggestion — claim check", () => {
     expect(result.suggestion?.paragraphs.join(" ")).not.toMatch(/mentor/i);
   });
 
+  it("counts a paragraph emptied by the claim check once, as a sentence", () => {
+    const result = groundCoverLetterSuggestion(
+      { greeting: "Dear Hiring Manager,", paragraphs: ["I mentor developers.", "I build applications."], signOff: "Sincerely," },
+      PROFILE,
+      JOB,
+      "en",
+    );
+    expect(result.removedClaimSentences).toBe(1);
+    expect(result.tokenDroppedParagraphs).toBe(0);
+  });
+
   it("degrades when nothing grounded is left", () => {
     const result = groundCoverLetterSuggestion(
       { greeting: "Dear Hiring Manager,", paragraphs: ["I mentor developers."], signOff: "Sincerely," },
