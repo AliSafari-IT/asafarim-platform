@@ -106,4 +106,20 @@ describe("assessJobFit", () => {
   it("is deterministic", () => {
     expect(assessJobFit(developer, nurseJob)).toEqual(assessJobFit(developer, nurseJob));
   });
+
+  it("matches short technical skill names (C++, C#, CI/CD) and applies the three-skill exception", () => {
+    const embedded = parseProfileContent({
+      headline: "Embedded engineer",
+      summary: "Writes firmware for industrial controllers.",
+      skills: [{ name: "C++" }, { name: "C#" }, { name: "CI/CD" }],
+      experience: [{ title: "Embedded engineer", summary: "Firmware for industrial controllers." }],
+    });
+    const job = `Game studio hiring. Engine programmer: gameplay systems, rendering, shaders, physics,
+      animation, multiplayer netcode, consoles, profiling, tooling. You use C++ and C# daily and keep our CI/CD green.
+      Gameplay, rendering, shaders, physics, animation, netcode, consoles.`;
+    const fit = assessJobFit(embedded, job);
+    expect(fit.matchedSkills).toEqual(["C++", "C#", "CI/CD"]);
+    expect(fit.level).not.toBe("low");
+  });
 });
+

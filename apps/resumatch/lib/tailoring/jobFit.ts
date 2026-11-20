@@ -1,5 +1,5 @@
 import type { CandidateProfileContent } from "../profile/contract";
-import { fold, STOPWORDS, words } from "./coverage";
+import { fold, STOPWORDS, words as coverageWords } from "./coverage";
 
 /**
  * Job fit check: does this posting look like it is within the candidate's
@@ -42,6 +42,7 @@ const JOB_AD_STOPWORDS = new Set([
   "friday", "salary", "eur", "euro", "euros", "gross", "month", "monthly",
   "annual", "yearly", "start", "starting", "date", "deadline", "contact",
   "cookie", "cookies", "privacy", "policy", "share", "save", "jobs",
+  "and/or", "m/f", "m/v", "m/w", "h/f", "f/m",
   // Dutch
   "kandidaat", "kandidaten", "bedrijf", "onderneming", "aanbod", "profiel",
   "solliciteer", "solliciteren", "sollicitatie", "contract", "voltijds",
@@ -116,6 +117,21 @@ export const STRONG_FIT_SCORE = 45;
 /** A posting naming this many of the candidate's own skills is never "low". */
 const SKILLS_THAT_RULE_OUT_LOW = 3;
 const MAX_LISTED_TERMS = 10;
+
+/**
+ * coverage.ts's words, plus short technical names it drops: "C++", "C#",
+ * "CI/CD", "UI/UX". Kept separate so the coverage report doesn't change.
+ * A token with one of + # / survives at two characters or more; plain
+ * words still need three.
+ */
+function words(text: string): string[] {
+  const technical = text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}+#./]+/u)
+    .map((t) => t.replace(/^[./]+|[./]+$/g, ""))
+    .filter((t) => /[+#/]/.test(t) && t.length >= 2 && /\p{L}/u.test(t) && !t.includes("//"));
+  return [...coverageWords(text), ...technical];
+}
 
 /**
  * A light stem so "developer"/"development" and "postgres"/"postgresql"
