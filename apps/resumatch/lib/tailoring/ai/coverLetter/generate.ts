@@ -22,8 +22,10 @@ export interface CoverLetterProviderCallResult {
    *  fallback served it (issue #511), else the primary's. */
   modelVersion: string;
   providerName: "fixture" | "openai" | "anthropic";
-  /** What the grounding check took out, so the review screen can say so.
-   *  Zero when nothing was removed or the call degraded. */
+  /** What the grounding check took out, so the review screen can say so:
+   *  sentences removed by the claim check, and paragraphs dropped by the
+   *  name/number check (never overlapping). Zero when nothing was removed
+   *  or the call degraded. */
   removedSentences: number;
   droppedParagraphs: number;
 }
@@ -139,7 +141,7 @@ export async function runCoverLetterProviderCall(
     const grounded = groundCoverLetterSuggestion(suggestion, profileText, jobText, outputLanguage);
     suggestion = grounded.suggestion;
     removedSentences = grounded.removedClaimSentences;
-    droppedParagraphs = grounded.droppedParagraphs;
+    droppedParagraphs = grounded.tokenDroppedParagraphs;
     if (!suggestion) degraded = true;
   }
 
