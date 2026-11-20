@@ -50,9 +50,9 @@ const TONE_INSTRUCTIONS: Record<CoverLetterTone, string> = {
 };
 
 const LENGTH_INSTRUCTIONS: Record<CoverLetterLength, string> = {
-  short: "2 to 3 concise paragraphs — state the role, one strong grounded connection to it, and a brief close",
-  standard: "3 to 5 paragraphs — an opening hook, one or two paragraphs connecting real accomplishments to the role, and a close",
-  detailed: "4 to 6 thorough paragraphs — an opening hook, several paragraphs each grounding a distinct real accomplishment in the role's stated priorities, and a close",
+  short: "2 to 3 concise paragraphs, about 150 to 200 words in total — state the role, one strong grounded connection to it, and a brief close",
+  standard: "3 to 4 paragraphs, about 230 to 300 words in total — an opening hook, one or two paragraphs connecting real accomplishments to the role, and a close",
+  detailed: "4 to 5 paragraphs, at most about 380 words in total — an opening hook, several paragraphs each grounding a distinct real accomplishment in the role's stated priorities, and a close",
 };
 
 /**
@@ -98,10 +98,20 @@ ${NO_TOOLS_RULE}
   candidate unless it already appears in the profile data.
 - You may NEVER claim experience with a technology, domain, or
   responsibility the profile does not already state.
+- In particular, never say the candidate mentors, coaches, trains or teaches
+  people, manages or leads a team, hires, speaks a language, holds a
+  certification, award, publication or patent, or speaks at events, unless
+  the profile data says so. A duty the job asks for is not a duty the
+  candidate has: connect to it only through what the profile does state
+  (e.g. "my documentation work would carry over to partner training").
+- Every sentence about the candidate must be traceable to the profile data.
+  When unsure whether something is stated, leave it out.
 - Do not invent the hiring manager's name if the job data does not name one
   — use a neutral greeting instead (e.g. "Dear Hiring Manager").
 - Do not fabricate the employer's name if the job data does not clearly
   state one.
+
+The letter is printed on a single page, so stay within the word range below.
 
 WHAT TO PRODUCE:
 - "greeting": a salutation line. Use a named recipient only if the job data

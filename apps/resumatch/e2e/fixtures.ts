@@ -133,3 +133,60 @@ export async function seedManyApplications(applications: BulkApplication[], crea
   });
   return workspace;
 }
+
+/** One confirmed profile, one job typed in by hand (with a contact person)
+ *  and one cover letter per entry of `letters`, keyed by id. */
+export async function seedCoverLetters(letters: { id: string; paragraphs: string[] }[]) {
+  const prisma = e2eDb();
+  await prisma.workspace.deleteMany({ where: { platformUserId: E2E_PLATFORM_USER_ID } });
+  const workspace = await prisma.workspace.create({ data: { platformUserId: E2E_PLATFORM_USER_ID } });
+  const profile = await prisma.candidateProfile.create({ data: { workspaceId: workspace.id } });
+  const version = await prisma.candidateProfileVersion.create({
+    data: {
+      profileId: profile.id,
+      origin: "MANUAL",
+      versionNumber: 1,
+      extractorName: "manual",
+      extractorVersion: "1",
+      content: {
+        contractVersion: "1.0.0",
+        fullName: "Jordan Example",
+        email: "jordan@example.test",
+        phone: "+32 470 00 00 00",
+        baseLocation: "Genk, Belgium",
+      },
+    },
+  });
+  const job = await prisma.targetJob.create({
+    data: {
+      workspaceId: workspace.id,
+      sourceUrl: "https://jobs.example.test/solutions-engineer",
+      rawText: "job",
+      title: "Solutions Engineer",
+      employer: "Example Audio",
+      status: "FETCHED",
+      structuredFields: { contactName: "Ms. Example", location: "Brussels, Belgium" },
+    },
+  });
+  for (const letter of letters) {
+    await prisma.coverLetter.create({
+      data: {
+        id: letter.id,
+        workspaceId: workspace.id,
+        profileVersionId: version.id,
+        targetJobId: job.id,
+        promptVersion: "cover_letter@4",
+        modelVersion: "e2e",
+        outputLanguage: "en",
+        createdAt: new Date("2026-11-20T10:00:00Z"),
+        content: {
+          contractVersion: "1.0.0",
+          greeting: "Dear Ms. Example,",
+          paragraphs: letter.paragraphs,
+          signOff: "Sincerely,",
+          fullName: "Jordan Example",
+        },
+      },
+    });
+  }
+}

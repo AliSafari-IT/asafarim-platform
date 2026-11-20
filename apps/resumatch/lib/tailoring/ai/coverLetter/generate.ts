@@ -22,6 +22,10 @@ export interface CoverLetterProviderCallResult {
    *  fallback served it (issue #511), else the primary's. */
   modelVersion: string;
   providerName: "fixture" | "openai" | "anthropic";
+  /** What the grounding check took out, so the review screen can say so.
+   *  Zero when nothing was removed or the call degraded. */
+  removedSentences: number;
+  droppedParagraphs: number;
 }
 
 /**
@@ -129,12 +133,17 @@ export async function runCoverLetterProviderCall(
   // Checked against the full profile and job text (see grounding.ts).
   // A letter with no grounded paragraph left degrades the same way a failed
   // call does — the provider call was still billed above.
+  let removedSentences = 0;
+  let droppedParagraphs = 0;
   if (suggestion) {
-    suggestion = groundCoverLetterSuggestion(suggestion, profileText, jobText, outputLanguage).suggestion;
+    const grounded = groundCoverLetterSuggestion(suggestion, profileText, jobText, outputLanguage);
+    suggestion = grounded.suggestion;
+    removedSentences = grounded.removedClaimSentences;
+    droppedParagraphs = grounded.droppedParagraphs;
     if (!suggestion) degraded = true;
   }
 
-  return { suggestion, degraded, promptVersion: prompt.version, modelVersion, providerName };
+  return { suggestion, degraded, promptVersion: prompt.version, modelVersion, providerName, removedSentences, droppedParagraphs };
 }
 
 export { buildCoverLetterContent };
