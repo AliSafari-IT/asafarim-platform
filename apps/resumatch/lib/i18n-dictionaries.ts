@@ -3,6 +3,7 @@ import { commonDictionaries } from "./i18n/common";
 import { historyDictionaries } from "./i18n/history";
 import { landingDictionaries } from "./i18n/landing";
 import { navDictionaries } from "./i18n/nav";
+import { photoDictionaries } from "./i18n/photo";
 import { previewDictionaries } from "./i18n/preview";
 import { profileDictionaries } from "./i18n/profile";
 import { shellDictionaries } from "./i18n/shell";
@@ -27,6 +28,7 @@ export const resumatchDictionaryAreas: Record<string, Dictionaries> = {
   tailor: tailorDictionaries,
   preview: previewDictionaries,
   profile: profileDictionaries,
+  photo: photoDictionaries,
   tracking: trackingDictionaries,
   landing: landingDictionaries,
 };

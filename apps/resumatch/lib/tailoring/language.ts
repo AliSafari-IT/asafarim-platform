@@ -50,6 +50,9 @@ export interface TemplateLabels {
   certifications: string;
   languages: string;
   products: string;
+  /** Alt text for the CV photo: "Photo of <name>", or "Photo" with no name. */
+  photo: string;
+  photoOf: string;
   present: string;
   proficiency: Record<"basic" | "conversational" | "professional" | "native", string>;
   skillCategories: Record<SkillCategory, string>;
@@ -64,6 +67,8 @@ const LABELS: Record<OutputLanguage, TemplateLabels> = {
     certifications: "Certifications",
     languages: "Languages",
     products: "Projects & products",
+    photo: "Photo",
+    photoOf: "Photo of",
     present: "Present",
     proficiency: { basic: "Basic", conversational: "Conversational", professional: "Professional", native: "Native" },
     skillCategories: {
@@ -88,6 +93,8 @@ const LABELS: Record<OutputLanguage, TemplateLabels> = {
     certifications: "Certificaten",
     languages: "Talen",
     products: "Projecten & producten",
+    photo: "Foto",
+    photoOf: "Foto van",
     present: "heden",
     proficiency: { basic: "Basis", conversational: "Gevorderd", professional: "Professioneel", native: "Moedertaal" },
     skillCategories: {
@@ -112,6 +119,8 @@ const LABELS: Record<OutputLanguage, TemplateLabels> = {
     certifications: "Certifications",
     languages: "Langues",
     products: "Projets & produits",
+    photo: "Photo",
+    photoOf: "Photo de",
     present: "aujourd’hui",
     proficiency: { basic: "Notions", conversational: "Intermédiaire", professional: "Professionnel", native: "Langue maternelle" },
     skillCategories: {
@@ -136,6 +145,8 @@ const LABELS: Record<OutputLanguage, TemplateLabels> = {
     certifications: "Zertifikate",
     languages: "Sprachen",
     products: "Projekte & Produkte",
+    photo: "Foto",
+    photoOf: "Foto von",
     present: "heute",
     proficiency: { basic: "Grundkenntnisse", conversational: "Gute Kenntnisse", professional: "Verhandlungssicher", native: "Muttersprache" },
     skillCategories: {

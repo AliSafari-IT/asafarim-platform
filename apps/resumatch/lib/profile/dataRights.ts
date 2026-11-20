@@ -75,9 +75,22 @@ export interface DataExport {
     profileVersionId: string;
     templateKey: string;
     degraded: boolean;
+    showPhoto: boolean | null;
     createdAt: string;
     content: unknown;
   }[];
+  /** The optional CV photo's metadata. The image itself is not embedded;
+   *  it can be downloaded from the profile page. */
+  profilePhoto: {
+    contentType: string;
+    byteSize: number;
+    pixelSize: number;
+    contentHash: string;
+    shape: string;
+    includeByDefault: boolean;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
   auditEvents: { action: string; createdAt: string }[];
   /** Stated in the export itself so the recipient is not left inferring it. */
   notes: string[];
@@ -92,7 +105,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -117,6 +130,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       orderBy: { createdAt: "asc" },
       select: { action: true, createdAt: true },
     }),
+    db.profilePhoto.findUnique({ where: { workspaceId } }),
   ]);
 
   await recordAuditEvent(workspaceId, "datarights.export", { count: documents.length });
@@ -169,17 +183,31 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       profileVersionId: resume.profileVersionId,
       templateKey: resume.templateKey,
       degraded: resume.degraded,
+      showPhoto: resume.showPhoto,
       createdAt: resume.createdAt.toISOString(),
       // Re-parsed for the same reason profile version content is: the
       // export is a statement about what is held, not a shape a stale
       // contract version might have written.
       content: parseTailoredResumeContent(resume.content),
     })),
+    profilePhoto: profilePhoto
+      ? {
+          contentType: profilePhoto.contentType,
+          byteSize: profilePhoto.byteSize,
+          pixelSize: profilePhoto.pixelSize,
+          contentHash: profilePhoto.contentHash,
+          shape: profilePhoto.shape,
+          includeByDefault: profilePhoto.includeByDefault,
+          createdAt: profilePhoto.createdAt.toISOString(),
+          updatedAt: profilePhoto.updatedAt.toISOString(),
+        }
+      : null,
     auditEvents: auditEvents.map((event) => ({
       action: event.action,
       createdAt: event.createdAt.toISOString(),
     })),
     notes: [
+      "Your CV photo, if you added one, is not embedded in this JSON. Open it from the photo card on the profile page.",
       "Original uploaded files are not included in this JSON. Download them individually from the profile page while they are still within their retention window.",
       "Your name, email address, and platform account details are held by the ASafariM platform, not by ResuMatch. ResuMatch stores only an opaque account identifier.",
       "Audit events record what happened and when. They never contain CV content.",
@@ -194,6 +222,7 @@ export interface ErasureResult {
   tailoredResumesDeleted: number;
   objectsDeleted: number;
   objectsFailed: number;
+  photoDeleted: boolean;
 }
 
 /**
@@ -238,6 +267,25 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     }
   }
 
+  // The CV photo: same rule as documents — the row goes only with its
+  // bytes, so a failed delete is counted and the row kept to retry.
+  const photo = await db.profilePhoto.findUnique({ where: { workspaceId }, select: { id: true, storageKey: true } });
+  let photoDeleted = false;
+  if (photo) {
+    try {
+      if (await deleteDocumentBytes(photo.storageKey)) {
+        objectsDeleted += 1;
+        photoDeleted = true;
+      } else {
+        objectsFailed += 1;
+        logError("datarights.erase.photo_failed", new Error("ObjectStillPresent"));
+      }
+    } catch (error) {
+      objectsFailed += 1;
+      logError("datarights.erase.photo_failed", error);
+    }
+  }
+
   const profile = await db.candidateProfile.findUnique({
     where: { workspaceId },
     select: { id: true, _count: { select: { versions: true } } },
@@ -268,6 +316,7 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // the row orphans it permanently), and one whose object delete failed
     // (the same outcome). Both stay, and the caller is told.
     await tx.candidateDocument.deleteMany({ where: { workspaceId, id: { in: removedIds } } });
+    if (photo && photoDeleted) await tx.profilePhoto.delete({ where: { id: photo.id } });
 
     return [targetJobs.count, tailoredResumes.count];
   });
@@ -287,5 +336,6 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     tailoredResumesDeleted,
     objectsDeleted,
     objectsFailed,
+    photoDeleted,
   };
 }

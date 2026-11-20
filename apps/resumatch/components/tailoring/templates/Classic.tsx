@@ -2,6 +2,7 @@ import type { TailoredResumeContent } from "../../../lib/tailoring/ai/schema";
 import { groupSkillsByCategory, type SkillCategory } from "../../../lib/profile/skillCategories";
 import { formatProfileDate, formatSpan, formatSpokenLanguages, templateLabels } from "../../../lib/tailoring/language";
 import { displayUrl, headerLinks, linkText, productLinks } from "../../../lib/profile/links";
+import { photoAltText, type CvPhoto } from "../../../lib/profile/photo";
 
 /**
  * The one layout this pass ships. Plain, print-first HTML/CSS: no canvas,
@@ -18,36 +19,60 @@ export const CLASSIC_TEMPLATE_KEY = "classic";
  * categories, "Present" and month dates follow it. Null — older CVs, or no
  * language applied — renders exactly as before (English labels, raw dates).
  */
+/**
+ * `photo` is the candidate's optional CV photo, already resolved against
+ * this CV's own show/hide choice by the page. It is never part of
+ * `content`: tailoring and the AI never see it.
+ */
 export function ClassicTemplate({
   content,
   language = null,
+  photo = null,
 }: {
   content: TailoredResumeContent;
   language?: string | null;
+  photo?: CvPhoto | null;
 }) {
   const labels = templateLabels(language);
   return (
     // lang marks the CV's own language (#641) so assistive tech reads a
     // Dutch CV as Dutch even when the page around it is in English.
     <article className="rm-resume rm-resume--classic rm-cv" lang={language ?? undefined} data-testid="cv">
-      <header className="rm-resume__header">
-        {content.fullName ? <h1>{content.fullName}</h1> : null}
-        {content.headline ? <p className="rm-resume__headline">{content.headline}</p> : null}
-        <ContactLine
-          items={[
-            content.email ? { key: "email", text: content.email, href: `mailto:${content.email}` } : null,
-            content.phone ? { key: "phone", text: content.phone, href: telHref(content.phone) } : null,
-            content.location ? { key: "location", text: content.location } : null,
-          ]}
-        />
-        <ContactLine
-          className="rm-resume__links"
-          items={headerLinks(content.links).map((link, index) => ({
-            key: `link-${index}`,
-            text: linkText(link),
-            href: link.url,
-          }))}
-        />
+      <header className={photo ? "rm-resume__header rm-resume__header--photo" : "rm-resume__header"}>
+        {photo ? (
+          // A plain <img>: the photo is a private, authenticated route, so
+          // next/image's optimiser (which fetches it server-side, without
+          // the session) can't serve it. Sized in CSS; the intrinsic size
+          // is set so the header doesn't shift while it loads.
+          <img
+            className={`rm-resume__photo rm-resume__photo--${photo.shape}`}
+            src={photo.src}
+            alt={photoAltText(content.fullName, labels)}
+            width={600}
+            height={600}
+            decoding="async"
+            data-testid="cv-photo"
+          />
+        ) : null}
+        <div className="rm-resume__identity">
+          {content.fullName ? <h1>{content.fullName}</h1> : null}
+          {content.headline ? <p className="rm-resume__headline">{content.headline}</p> : null}
+          <ContactLine
+            items={[
+              content.email ? { key: "email", text: content.email, href: `mailto:${content.email}` } : null,
+              content.phone ? { key: "phone", text: content.phone, href: telHref(content.phone) } : null,
+              content.location ? { key: "location", text: content.location } : null,
+            ]}
+          />
+          <ContactLine
+            className="rm-resume__links"
+            items={headerLinks(content.links).map((link, index) => ({
+              key: `link-${index}`,
+              text: linkText(link),
+              href: link.url,
+            }))}
+          />
+        </div>
       </header>
 
       {content.summary ? (

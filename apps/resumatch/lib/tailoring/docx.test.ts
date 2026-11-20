@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import type { TailoredResumeContent } from "./ai/schema";
@@ -87,5 +89,40 @@ describe("renderTailoredResumeDocx", () => {
     expect(xml).toContain("<w:hyperlink");
     expect(rels).toContain("https://github.com/jane");
     expect(rels).toContain("https://app.example.test");
+  });
+
+  describe("CV photo", () => {
+    const photoBytes = new Uint8Array(
+      readFileSync(join(__dirname, "../../fixtures/photo/square-300-progressive.jpg")),
+    );
+
+    function hasEntry(buffer: Buffer, prefix: string): boolean {
+      return buffer.toString("latin1").includes(prefix);
+    }
+
+    it("embeds a round photo with alt text in the CV's language", async () => {
+      const buffer = await renderTailoredResumeDocx(content(), "nl", { data: photoBytes, shape: "circle" });
+      const xml = zipEntry(buffer, "word/document.xml") ?? "";
+      expect(xml).toContain('prst="ellipse"');
+      expect(xml).not.toContain('prst="rect"');
+      expect(xml).toContain('descr="Foto van Jane Doe"');
+      // Floats beside the header text rather than taking its own lines.
+      expect(xml).toContain("<wp:anchor");
+      expect(hasEntry(buffer, "word/media/")).toBe(true);
+    });
+
+    it("keeps a square photo square", async () => {
+      const buffer = await renderTailoredResumeDocx(content(), null, { data: photoBytes, shape: "square" });
+      const xml = zipEntry(buffer, "word/document.xml") ?? "";
+      expect(xml).toContain('prst="rect"');
+      expect(xml).toContain('descr="Photo of Jane Doe"');
+    });
+
+    it("has no image at all without a photo", async () => {
+      const buffer = await renderTailoredResumeDocx(content(), "en");
+      const xml = zipEntry(buffer, "word/document.xml") ?? "";
+      expect(xml).not.toContain("<w:drawing");
+      expect(hasEntry(buffer, "word/media/")).toBe(false);
+    });
   });
 });

@@ -10,7 +10,7 @@
 export default {
   id: "resumatch",
   name: "ResuMatch",
-  version: "0.1.9",
+  version: "0.1.10",
   platform: ">=0.1 <1",
   owner: "ASafariM Digital",
   domains: {

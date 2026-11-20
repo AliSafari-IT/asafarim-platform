@@ -11,6 +11,9 @@ import { computeQuality } from "../../../../lib/tailoring/quality";
 import { LANGUAGE_LABELS, isOutputLanguage } from "../../../../lib/tailoring/language";
 import { LanguageBadge } from "../../../components/app/LanguageBadge";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
+import { cvShowsPhoto, photoSrc } from "../../../../lib/profile/photo";
+import { getProfilePhoto } from "../../../../lib/profile/photoStore";
+import { PhotoToggle } from "./PhotoToggle";
 import { CoverageReport } from "./CoverageReport";
 import { DocxButton } from "./DocxButton";
 import { PrintButton } from "../../../../components/tailoring/PrintButton";
@@ -59,6 +62,7 @@ export default async function TailoredResumePreviewPage({
       content: true,
       degraded: true,
       outputLanguage: true,
+      showPhoto: true,
       targetJobId: true,
       targetJob: { select: { rawText: true, title: true, employer: true } },
       // The persisted pairing (see schema's CoverLetter.tailoredResumeId
@@ -71,6 +75,11 @@ export default async function TailoredResumePreviewPage({
   if (!row) notFound();
 
   const coverLetterId = row.coverLetter?.id ?? coverLetterIdFromQuery ?? null;
+
+  // The photo is joined in here, at render time, from its own row — never
+  // from the CV's content, which the AI wrote.
+  const profilePhoto = await getProfilePhoto(workspace.id);
+  const showPhoto = cvShowsPhoto(profilePhoto, row.showPhoto);
 
   const content = parseTailoredResumeContent(row.content);
 
@@ -134,11 +143,17 @@ export default async function TailoredResumePreviewPage({
         )}
       </div>
 
+      <PhotoToggle id={id} hasPhoto={profilePhoto !== null} initialShown={showPhoto} />
+
       {coverage ? <CoverageReport coverage={coverage} /> : null}
       <QualityChecklist quality={quality} />
       </div>
 
-      <ClassicTemplate content={content} language={row.outputLanguage} />
+      <ClassicTemplate
+        content={content}
+        language={row.outputLanguage}
+        photo={profilePhoto && showPhoto ? { src: photoSrc(profilePhoto.contentHash), shape: profilePhoto.shape } : null}
+      />
     </>
   );
 }

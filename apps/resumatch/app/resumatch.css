@@ -362,6 +362,38 @@
   letter-spacing: 0.01em;
   color: var(--rm-ink);
 }
+/* Optional CV photo (lib/profile/photo.ts). With a photo the header turns
+   into two columns, the name block left-aligned beside the photo, which is
+   the usual European layout; without one it stays centred as before. */
+.rm-resume__header--photo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 1.5rem;
+  text-align: left;
+}
+.rm-resume__photo {
+  display: block;
+  width: 7.25rem;
+  height: 7.25rem;
+  object-fit: cover;
+  background: var(--rm-line);
+}
+.rm-resume__photo--circle {
+  border-radius: 50%;
+}
+.rm-resume__photo--square {
+  border-radius: 0.35rem;
+}
+@media (max-width: 30rem) {
+  .rm-resume__header--photo {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    row-gap: 0.9rem;
+    text-align: center;
+  }
+}
+
 .rm-resume__headline {
   margin: 0 0 0.55rem;
   font-size: 1rem;
@@ -620,12 +652,36 @@
 
 .rm-preview-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
   max-width: 48rem;
   margin: 0 auto 1rem;
 }
+/* "Show photo on this CV" switch in the preview toolbar. */
+.rm-photo-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.rm-preview-photo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.25rem 0.75rem;
+  max-width: 48rem;
+  margin: -0.25rem auto 1rem;
+  font-size: 0.85rem;
+}
+.rm-preview-photo__hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .rm-preview-toolbar__hint {
   font-size: 0.82rem;
   opacity: 0.6;
@@ -2005,6 +2061,18 @@
   }
   .rm-cv .rm-resume__header {
     break-inside: avoid;
+  }
+  /* Fixed physical size so the photo never pushes the header onto two
+     pages or grows with the paper width. */
+  .rm-cv .rm-resume__photo {
+    width: 30mm;
+    height: 30mm;
+  }
+  .rm-cv .rm-resume__header--photo {
+    grid-template-columns: 30mm minmax(0, 1fr);
+    column-gap: 7mm;
+    justify-items: stretch;
+    text-align: left;
   }
   .rm-cv .rm-resume__section h2 {
     break-after: avoid;
@@ -5136,4 +5204,147 @@
 }
 [data-app="resumatch"][data-theme="dark"] .rm-links__error {
   color: #f87171;
+}
+
+.rm-photo-toggle__error {
+  color: var(--color-danger-text, #b00020);
+}
+
+/* ─── Optional CV photo card (/profile, app/profile/PhotoPanel.tsx) ──── */
+.rm-photo {
+  scroll-margin-top: 5rem;
+}
+.rm-photo__intro,
+.rm-photo__regions,
+.rm-photo__none,
+.rm-photo__formats,
+.rm-photo__help {
+  color: var(--muted);
+}
+.rm-photo__regions,
+.rm-photo__formats,
+.rm-photo__help {
+  font-size: 0.85rem;
+}
+.rm-photo__current,
+.rm-photo__editor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.rm-photo__thumb {
+  display: block;
+  width: 7rem;
+  height: 7rem;
+  object-fit: cover;
+  background: var(--ui-border, #e2e4ea);
+}
+.rm-photo__thumb--circle {
+  border-radius: 50%;
+}
+.rm-photo__thumb--square {
+  border-radius: 0.4rem;
+}
+.rm-photo__stage {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  background: #111;
+  border-radius: 0.5rem;
+  max-width: 100%;
+  user-select: none;
+}
+.rm-photo__stage:active {
+  cursor: grabbing;
+}
+.rm-photo__stage:focus-visible {
+  outline: 3px solid var(--ui-focus, #4338ca);
+  outline-offset: 3px;
+}
+.rm-photo__stage img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+/* The part outside the crop is dimmed; the crop itself is clear. */
+.rm-photo__mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}
+.rm-photo__stage--circle .rm-photo__mask {
+  border-radius: 50%;
+}
+.rm-photo__zoom {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+.rm-photo__zoom input {
+  width: 12rem;
+}
+.rm-photo__shape {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  border: 0;
+  margin: 0.5rem 0;
+  padding: 0;
+}
+.rm-photo__shape legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+.rm-photo__shape label,
+.rm-photo__default {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.rm-photo__default {
+  margin: 0.5rem 0;
+}
+.rm-photo__default-hint {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.rm-photo__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.rm-photo__pick {
+  position: relative;
+  cursor: pointer;
+}
+.rm-photo__pick:focus-within {
+  outline: 3px solid var(--ui-focus, #4338ca);
+  outline-offset: 2px;
+}
+.rm-photo__pick.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+/* Visually hidden but still the real, focusable control. */
+.rm-photo__file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
