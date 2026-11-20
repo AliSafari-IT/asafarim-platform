@@ -316,7 +316,11 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // the row orphans it permanently), and one whose object delete failed
     // (the same outcome). Both stay, and the caller is told.
     await tx.candidateDocument.deleteMany({ where: { workspaceId, id: { in: removedIds } } });
-    if (photo && photoDeleted) await tx.profilePhoto.delete({ where: { id: photo.id } });
+    // Only if the row still names the object just removed: a photo saved
+    // from another tab meanwhile keeps its row, so its bytes are never
+    // left without one.
+    if (photo && photoDeleted)
+      await tx.profilePhoto.deleteMany({ where: { id: photo.id, storageKey: photo.storageKey } });
 
     return [targetJobs.count, tailoredResumes.count];
   });

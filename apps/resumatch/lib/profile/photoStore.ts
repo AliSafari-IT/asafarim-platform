@@ -100,8 +100,13 @@ export type SavePhotoResult =
  *
  * The new object is written and the row pointed at it before the old object
  * is removed, so a failure part-way never leaves the CV pointing at nothing.
- * A failed delete of the old object is logged (it is unreachable from the
- * app either way: the row no longer names it).
+ *
+ * The row is switched with a compare-and-swap on the storage key, retried
+ * a few times, so two saves (or a save and a delete) racing from two tabs
+ * can't strand an object: only the save whose swap succeeded deletes the
+ * key it actually replaced, and a save that never wins deletes its own
+ * object. A failed delete of the old object is logged (it is unreachable
+ * from the app either way: no row names it).
  */
 export async function saveProfilePhoto(
   workspaceId: string,
@@ -111,11 +116,6 @@ export async function saveProfilePhoto(
   if (!sanitized.ok) return sanitized;
 
   const db = getJobmatchDb();
-  const previous = await db.profilePhoto.findUnique({
-    where: { workspaceId },
-    select: { storageKey: true },
-  });
-
   const storageKey = buildPhotoKey(workspaceId);
   await putDocumentBytes(storageKey, sanitized.bytes, "image/jpeg");
 
@@ -126,26 +126,45 @@ export async function saveProfilePhoto(
     pixelSize: sanitized.pixels,
     contentHash: hashBytes(sanitized.bytes),
   };
-  let row;
+
+  let replacedKey: string | null = null;
+  let swapped = false;
   try {
-    row = await db.profilePhoto.upsert({
-      where: { workspaceId },
-      // A first photo is shown on new CVs by default: the candidate added it
-      // to use it. They can turn that off, and each CV has its own switch.
-      create: { workspaceId, ...data },
-      update: data,
-      select: ROW_SELECT,
-    });
+    for (let attempt = 0; attempt < 5 && !swapped; attempt += 1) {
+      const previous = await db.profilePhoto.findUnique({
+        where: { workspaceId },
+        select: { storageKey: true },
+      });
+      if (!previous) {
+        try {
+          // A first photo is shown on new CVs by default: the candidate
+          // added it to use it. They can turn that off, and each CV has
+          // its own switch.
+          await db.profilePhoto.create({ data: { workspaceId, ...data } });
+          swapped = true;
+        } catch (error) {
+          if (!isUniqueViolation(error)) throw error; // another save created it first
+        }
+      } else {
+        const updated = await db.profilePhoto.updateMany({
+          where: { workspaceId, storageKey: previous.storageKey },
+          data,
+        });
+        if (updated.count === 1) {
+          swapped = true;
+          replacedKey = previous.storageKey;
+        }
+      }
+    }
+    if (!swapped) throw new Error("ProfilePhotoSwapContended");
   } catch (error) {
-    // The row didn't change, so the new object is the orphan.
+    // No row names the new object, so it is the orphan.
     await deleteDocumentBytes(storageKey).catch(() => false);
     throw error;
   }
 
-  if (previous && previous.storageKey !== storageKey) {
-    const removed = await deleteDocumentBytes(previous.storageKey).catch(
-      () => false
-    );
+  if (replacedKey) {
+    const removed = await deleteDocumentBytes(replacedKey).catch(() => false);
     if (!removed)
       logError(
         "profile.photo.old_object_delete_failed",
@@ -155,8 +174,15 @@ export async function saveProfilePhoto(
 
   await recordAuditEvent(
     workspaceId,
-    previous ? "profile.photo.replaced" : "profile.photo.added"
+    replacedKey ? "profile.photo.replaced" : "profile.photo.added"
   );
+  // Read back by workspace: if a later save already replaced this one,
+  // the candidate sees the photo that is actually stored.
+  const row = await db.profilePhoto.findUnique({
+    where: { workspaceId },
+    select: ROW_SELECT,
+  });
+  if (!row) throw new Error("ProfilePhotoVanished");
   return {
     ok: true,
     photo: { ...row, shape: row.shape === "square" ? "square" : "circle" },
@@ -168,22 +194,20 @@ export async function updateProfilePhotoSettings(
   settings: { shape?: PhotoShape; includeByDefault?: boolean }
 ): Promise<ProfilePhotoRow | null> {
   const db = getJobmatchDb();
-  const existing = await db.profilePhoto.findUnique({
-    where: { workspaceId },
-    select: { id: true },
-  });
-  if (!existing) return null;
-  const row = await db.profilePhoto.update({
+  const updated = await db.profilePhoto.updateMany({
     where: { workspaceId },
     data: settings,
-    select: ROW_SELECT,
   });
-  return { ...row, shape: row.shape === "square" ? "square" : "circle" };
+  if (updated.count === 0) return null;
+  return getProfilePhoto(workspaceId);
 }
 
 /**
  * Remove the photo. The row goes only once the object is confirmed gone,
- * so "deleted" is never reported while the bytes remain. Returns
+ * so "deleted" is never reported while the bytes remain. The row is
+ * deleted only if it still names the object just removed: when another
+ * tab replaced the photo meanwhile, the new photo (and its bytes) stay and
+ * this reports "failed", which is true — a photo is still stored. Returns
  * "missing" when there was no photo.
  */
 export async function deleteProfilePhoto(
@@ -200,7 +224,20 @@ export async function deleteProfilePhoto(
     logError("profile.photo.delete_failed", new Error("ObjectStillPresent"));
     return "failed";
   }
-  await db.profilePhoto.delete({ where: { id: row.id } });
+  const deleted = await db.profilePhoto.deleteMany({
+    where: { id: row.id, storageKey: row.storageKey },
+  });
+  if (deleted.count === 0) return "failed";
   await recordAuditEvent(workspaceId, "profile.photo.deleted");
   return "deleted";
+}
+
+/** Prisma's unique-constraint error, by code (as lib/workspace.ts does). */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
 }

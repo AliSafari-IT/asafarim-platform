@@ -107,8 +107,11 @@ async function renderCrop(draft: Draft): Promise<Blob> {
  */
 export function PhotoPanel({
   initialPhoto,
+  renderedAt,
 }: {
   initialPhoto: PhotoPanelPhoto | null;
+  /** When the server rendered this; see the sync effect below. */
+  renderedAt: number;
 }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -123,6 +126,8 @@ export function PhotoPanel({
   } | null>(null);
   const [photo, setPhoto] = useState(initialPhoto);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const draftRef = useRef<Draft | null>(null);
+  draftRef.current = draft;
   const [shape, setShape] = useState<PhotoShape>(
     initialPhoto?.shape ?? "circle"
   );
@@ -132,6 +137,30 @@ export function PhotoPanel({
     tone: "info" | "error";
     text: string;
   } | null>(null);
+
+  // Follow the server after every refresh of the page: the data-rights
+  // erasure (or another tab) can remove or replace the photo without
+  // remounting this card. `renderedAt` changes on every server render, so
+  // this runs even when the photo goes from "just saved here" to none — a
+  // case where comparing the photo itself would see no change, because the
+  // refresh that briefly carried the saved photo may never be committed.
+  // A crop in progress is left alone.
+  const serverSrc = initialPhoto?.src ?? null;
+  const serverShape = initialPhoto?.shape ?? null;
+  const serverDefault = initialPhoto?.includeByDefault ?? null;
+  useEffect(() => {
+    if (draftRef.current) return;
+    setPhoto(
+      serverSrc && serverShape && serverDefault !== null
+        ? {
+            src: serverSrc,
+            shape: serverShape,
+            includeByDefault: serverDefault,
+          }
+        : null
+    );
+    if (serverShape) setShape(serverShape);
+  }, [renderedAt, serverSrc, serverShape, serverDefault]);
 
   // Release the decoded image and its object URL when a new one is picked,
   // the crop is cancelled or saved, or the panel unmounts. Keyed on the

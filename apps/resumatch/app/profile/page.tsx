@@ -107,7 +107,7 @@ export default async function ProfilePage() {
         }))}
       />
 
-      <PhotoPanel initialPhoto={photo ? describePhoto(photo) : null} />
+      <PhotoPanel initialPhoto={photo ? describePhoto(photo) : null} renderedAt={Date.now()} />
 
       <section>
         {/* Keyed by version id so a newly extracted profile REPLACES the

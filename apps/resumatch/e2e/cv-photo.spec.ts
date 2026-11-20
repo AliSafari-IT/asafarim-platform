@@ -142,3 +142,18 @@ test("the server refuses a file that is not a square JPEG", async ({
   expect(png.status()).toBe(422);
   expect(await png.json()).toEqual({ error: "NOT_JPEG" });
 });
+
+test("deleting all data removes the photo and empties the card without a reload", async ({
+  page,
+}) => {
+  await addPhoto(page);
+  await page.getByRole("button", { name: "Delete my CV and profile" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete everything" })
+    .click();
+  const card = page.locator("#cv-photo");
+  await expect(card.getByText("No photo yet.")).toBeVisible();
+  await expect(card.getByTestId("profile-photo")).toHaveCount(0);
+  expect((await page.request.get("/api/profile/photo")).status()).toBe(404);
+});
