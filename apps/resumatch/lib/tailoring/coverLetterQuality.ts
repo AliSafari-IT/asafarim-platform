@@ -44,7 +44,7 @@ export interface CoverLetterQualityReport {
 const WORD_COUNT_TARGETS: Record<CoverLetterLength, { min: number; max: number }> = {
   short: { min: 60, max: 200 },
   standard: { min: 120, max: 350 },
-  detailed: { min: 220, max: 550 },
+  detailed: { min: 220, max: 420 },
 };
 
 // A small, deliberately non-exhaustive denylist of the clichés every

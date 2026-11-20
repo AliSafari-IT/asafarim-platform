@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../../lib/db/client";
 import { parseCoverLetterContent } from "../../../../../lib/tailoring/ai/coverLetter/schema";
 import { renderCoverLetterDocx } from "../../../../../lib/tailoring/coverLetterDocx";
+import { buildLetterLayout } from "../../../../../lib/tailoring/coverLetterLayout";
+import { parseProfileContent } from "../../../../../lib/profile/contract";
 import { getCurrentWorkspace } from "../../../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +23,27 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // candidate's cover letter.
   const row = await db.coverLetter.findFirst({
     where: { id, workspaceId: workspace.id },
-    select: { content: true, outputLanguage: true },
+    select: {
+      content: true,
+      outputLanguage: true,
+      createdAt: true,
+      profileVersion: { select: { content: true } },
+      targetJob: { select: { title: true, employer: true, structuredFields: true } },
+    },
   });
   if (!row) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   const content = parseCoverLetterContent(row.content);
-  const buffer = await renderCoverLetterDocx(content, row.outputLanguage);
+  const profile = parseProfileContent(row.profileVersion.content);
+  // Same frame as the print view (coverLetterLayout.ts): sender, recipient,
+  // place and date, subject — all copied from confirmed data in code.
+  const layout = buildLetterLayout(
+    { fullName: content.fullName, email: profile.email, phone: profile.phone, baseLocation: profile.baseLocation },
+    row.targetJob,
+    row.createdAt,
+    row.outputLanguage,
+  );
+  const buffer = await renderCoverLetterDocx(content, row.outputLanguage, layout);
   const filename =
     (content.fullName ? `${content.fullName}-cover-letter` : "cover-letter")
       .trim()

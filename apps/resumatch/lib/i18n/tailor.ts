@@ -133,6 +133,8 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.cl.degraded": "A cover letter couldn't be drafted right now (budget or provider issue).",
     "resumatch.review.cl.degradedLanguage": "It wasn't written in {language}.",
     "resumatch.review.cl.cvStillSaves": "The CV above will still save.",
+    "resumatch.review.cl.removedClaims":
+      "We left out {count} sentence(s) that claimed something your profile doesn't state (for example mentoring or leading a team). If it is true, add it to your profile, or type it back in here.",
     "resumatch.review.cl.langNote":
       "Written in {language}. Names, numbers and dates are kept exactly as in your profile and the job.",
     "resumatch.review.cl.greeting": "Greeting",
@@ -307,6 +309,8 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.cl.degraded": "Er kon nu geen motivatiebrief worden opgesteld (budget- of providerprobleem).",
     "resumatch.review.cl.degradedLanguage": "Hij werd niet in het {language} geschreven.",
     "resumatch.review.cl.cvStillSaves": "Het cv hierboven wordt wel opgeslagen.",
+    "resumatch.review.cl.removedClaims":
+      "We hebben {count} zin(nen) weggelaten die iets beweerden wat niet in je profiel staat (bijvoorbeeld mentoring of een team leiden). Klopt het wel, voeg het dan toe aan je profiel of typ het hier opnieuw in.",
     "resumatch.review.cl.langNote":
       "Geschreven in het {language}. Namen, cijfers en datums blijven exact zoals in je profiel en de vacature.",
     "resumatch.review.cl.greeting": "Aanhef",
@@ -482,6 +486,8 @@ export const tailorDictionaries: Dictionaries = {
       "Aucune lettre de motivation n’a pu être rédigée pour le moment (problème de budget ou de fournisseur).",
     "resumatch.review.cl.degradedLanguage": "Elle n’a pas été rédigée en {language}.",
     "resumatch.review.cl.cvStillSaves": "Le CV ci-dessus sera tout de même enregistré.",
+    "resumatch.review.cl.removedClaims":
+      "Nous avons retiré {count} phrase(s) qui affirmaient quelque chose que votre profil ne mentionne pas (par exemple du mentorat ou la direction d'une équipe). Si c'est exact, ajoutez-le à votre profil ou retapez-le ici.",
     "resumatch.review.cl.langNote":
       "Rédigée en {language}. Les noms, chiffres et dates restent exactement comme dans votre profil et l’offre.",
     "resumatch.review.cl.greeting": "Formule d’appel",
@@ -658,6 +664,8 @@ export const tailorDictionaries: Dictionaries = {
       "Ein Anschreiben konnte gerade nicht entworfen werden (Budget- oder Anbieterproblem).",
     "resumatch.review.cl.degradedLanguage": "Es wurde nicht auf {language} geschrieben.",
     "resumatch.review.cl.cvStillSaves": "Der Lebenslauf oben wird trotzdem gespeichert.",
+    "resumatch.review.cl.removedClaims":
+      "Wir haben {count} Satz/Sätze weggelassen, die etwas behaupteten, das nicht in deinem Profil steht (zum Beispiel Mentoring oder Teamleitung). Wenn es stimmt, ergänze es im Profil oder tippe es hier wieder ein.",
     "resumatch.review.cl.langNote":
       "Auf {language} verfasst. Namen, Zahlen und Daten bleiben genau wie in deinem Profil und der Stelle.",
     "resumatch.review.cl.greeting": "Anrede",

@@ -318,6 +318,33 @@
   margin-top: 1.6rem;
 }
 
+/* Business-letter frame (sender, recipient, place + date, subject) — built
+   in code by lib/tailoring/coverLetterLayout.ts, same as the DOCX. */
+.rm-letter .rm-letter__head p {
+  margin: 0;
+}
+.rm-letter__sender {
+  margin-bottom: 1.4rem;
+  color: var(--rm-muted);
+  font-size: 0.92em;
+}
+.rm-letter .rm-letter__sender-name {
+  color: var(--rm-ink);
+  font-weight: 700;
+  font-size: 1.12em;
+}
+.rm-letter__recipient {
+  margin-bottom: 1.2rem;
+}
+.rm-letter .rm-letter__head .rm-letter__date {
+  text-align: right;
+  margin-bottom: 1.2rem;
+}
+.rm-letter .rm-letter__head .rm-letter__subject {
+  font-weight: 700;
+  margin-bottom: 1.2rem;
+}
+
 .rm-resume__header {
   text-align: center;
   padding-bottom: 1.1rem;
@@ -1850,6 +1877,71 @@
   @page {
     margin: 1.5cm;
   }
+
+  /* Cover letter → PDF: the letter alone, on one page.
+     - Everything else on the page is .rm-screen-only and the shell chrome
+       is already hidden above.
+     - A named page with no margin leaves the browser no room to print its
+       own header and footer (date, page title, URL, page number); the
+       letter's own padding is the page margin instead, repeated on any
+       overflow page by box-decoration-break.
+     - Type size steps down with the word count (rm-letter--compact /
+       --tight, chosen by letterDensity() in lib/tailoring/coverLetterLayout.ts)
+       so a normal letter stays on one Letter- or A4-sized page. */
+  .rm-screen-only {
+    display: none !important;
+  }
+  [data-app="resumatch"] .ui-shell__main:has(.rm-letter) {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  .rm-resume.rm-letter {
+    page: rm-letter;
+    max-width: none;
+    margin: 0;
+    padding: 15mm 20mm 12mm;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    background: #fff;
+    color: #111;
+    font-size: 11pt;
+    line-height: 1.42;
+  }
+  .rm-letter p {
+    margin: 0 0 0.75em;
+  }
+  .rm-letter .rm-letter__head p {
+    margin: 0;
+  }
+  .rm-letter__sender,
+  .rm-letter__recipient,
+  .rm-letter .rm-letter__head .rm-letter__date,
+  .rm-letter .rm-letter__head .rm-letter__subject {
+    margin-bottom: 1em;
+  }
+  .rm-letter__signoff {
+    margin-top: 1em;
+    break-inside: avoid;
+  }
+  .rm-resume.rm-letter--compact {
+    font-size: 10.5pt;
+    line-height: 1.36;
+    padding: 13mm 18mm 10mm;
+  }
+  .rm-resume.rm-letter--tight {
+    font-size: 10pt;
+    line-height: 1.3;
+    padding: 11mm 16mm 8mm;
+  }
+  .rm-letter--compact p,
+  .rm-letter--tight p {
+    margin-bottom: 0.6em;
+  }
+}
+
+@page rm-letter {
+  margin: 0;
 }
 
 /* ─── Profile workbench layout (/profile) ─────────────────────────────────

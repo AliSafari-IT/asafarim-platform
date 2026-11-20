@@ -2,6 +2,7 @@ import { ungroundedProseTokenCount, type ProseGroundingMode } from "../../../ext
 import { log } from "../../../observability/logger";
 import { COVER_LETTER_CONVENTIONS, type OutputLanguage } from "../../language";
 import type { CoverLetterSuggestion } from "./schema";
+import { claimEvidence, stripUnbackedClaims } from "./claims";
 
 /**
  * The structural half of the cover letter's no-fabrication guarantee
@@ -48,6 +49,15 @@ import type { CoverLetterSuggestion } from "./schema";
  * code): any language's conventional closing is accepted as is; anything
  * else is checked the same way as a greeting, so an invented signature
  * ("Regards, John Smith") is replaced.
+ *
+ * **Claims, not just tokens.** Before the token check, `claims.ts` removes
+ * any *sentence* that claims a high-risk responsibility or credential
+ * (mentoring, training people, leading a team, hiring, a spoken language, a
+ * certification, an award, a publication…) with no evidence in the
+ * **profile** text. That catches invented duties written in ordinary
+ * lower-case words ("I also mentor developers"), which the token check
+ * cannot see. The job text is not evidence for a claim: what the posting
+ * asks for is exactly what a model is tempted to claim.
  *
  * Known gap, accepted (the shared #522 bar): a capitalized word at a
  * sentence start is not checked, so "Initech hired me." is not caught on
@@ -121,6 +131,11 @@ export interface CoverLetterGroundingResult {
   /** null when nothing grounded is left to review — treat as degraded. */
   suggestion: CoverLetterSuggestion | null;
   droppedParagraphs: number;
+  /** Sentences removed by the claim check (claims.ts). */
+  removedClaimSentences: number;
+  /** Paragraphs dropped by the name/number check only — never overlaps
+   *  removedClaimSentences, so the two can be added up for the candidate. */
+  tokenDroppedParagraphs: number;
   greetingReplaced: boolean;
   signOffReplaced: boolean;
 }
@@ -135,18 +150,32 @@ export function groundCoverLetterSuggestion(
   const paragraphMode: ProseGroundingMode = outputLanguage === "de" ? "headline" : "prose";
   const conventions = COVER_LETTER_CONVENTIONS[outputLanguage ?? "en"];
 
-  const paragraphs = suggestion.paragraphs.filter((paragraph) => !ungrounded(paragraph, sourceLower, paragraphMode));
+  const evidence = claimEvidence(profileText);
+  let removedClaimSentences = 0;
+  const claimRules = new Set<string>();
+  const claimChecked: string[] = [];
+  for (const paragraph of suggestion.paragraphs) {
+    const stripped = stripUnbackedClaims(paragraph, evidence);
+    removedClaimSentences += stripped.removedSentences;
+    for (const rule of stripped.rules) claimRules.add(rule);
+    if (stripped.paragraph) claimChecked.push(stripped.paragraph);
+  }
+
+  const paragraphs = claimChecked.filter((paragraph) => !ungrounded(paragraph, sourceLower, paragraphMode));
   const droppedParagraphs = suggestion.paragraphs.length - paragraphs.length;
+  const tokenDroppedParagraphs = claimChecked.length - paragraphs.length;
 
   const greetingSource = `${sourceLower}\n${SALUTATION_WORDS.join(" ")}`;
   const greetingReplaced = ungrounded(suggestion.greeting, greetingSource, "prose");
   const signOffReplaced =
     !CONVENTIONAL_SIGN_OFFS.has(normalizeClosing(suggestion.signOff)) && ungrounded(suggestion.signOff, greetingSource, "prose");
 
-  if (droppedParagraphs > 0 || greetingReplaced || signOffReplaced) {
+  if (droppedParagraphs > 0 || removedClaimSentences > 0 || greetingReplaced || signOffReplaced) {
     log.warn("coverLetter.ai.ungrounded", {
-      // Counts and flags only — the letter text is profile-derived content.
+      // Counts, flags and rule ids only — the letter text is profile-derived content.
       droppedParagraphs,
+      removedClaimSentences,
+      claimRules: [...claimRules],
       keptParagraphs: paragraphs.length,
       greetingReplaced,
       signOffReplaced,
@@ -154,7 +183,7 @@ export function groundCoverLetterSuggestion(
   }
 
   if (paragraphs.length === 0) {
-    return { suggestion: null, droppedParagraphs, greetingReplaced, signOffReplaced };
+    return { suggestion: null, droppedParagraphs, removedClaimSentences, tokenDroppedParagraphs, greetingReplaced, signOffReplaced };
   }
 
   return {
@@ -164,6 +193,8 @@ export function groundCoverLetterSuggestion(
       signOff: signOffReplaced ? conventions.signOff : suggestion.signOff,
     },
     droppedParagraphs,
+    removedClaimSentences,
+    tokenDroppedParagraphs,
     greetingReplaced,
     signOffReplaced,
   };

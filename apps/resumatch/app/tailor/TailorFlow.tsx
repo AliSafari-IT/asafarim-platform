@@ -71,6 +71,10 @@ interface ReviewCoverLetter {
   modelVersion: string;
   /** #642: the language the letter was asked for, or null for none. */
   outputLanguage: OutputLanguage | null;
+  /** Sentences/paragraphs the grounding check removed because the profile
+   *  doesn't back them — told to the candidate, never shown. */
+  removedSentences: number;
+  droppedParagraphs: number;
   /** Whether to persist this letter on confirm — declining it is a valid
    *  outcome independent of the CV (issue #454). */
   include: boolean;
@@ -394,6 +398,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               promptVersion: string;
               modelVersion: string;
               outputLanguage: string | null;
+              removedSentences?: number;
+              droppedParagraphs?: number;
             }
           | null;
         const profile = body.profile as {
@@ -449,6 +455,8 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 promptVersion: coverLetterResult.promptVersion,
                 modelVersion: coverLetterResult.modelVersion,
                 outputLanguage: isOutputLanguage(coverLetterResult.outputLanguage) ? coverLetterResult.outputLanguage : null,
+                removedSentences: coverLetterResult.removedSentences ?? 0,
+                droppedParagraphs: coverLetterResult.droppedParagraphs ?? 0,
                 include: Boolean(coverLetterResult.suggestion) && !coverLetterResult.degraded,
               }
             : null,
@@ -947,6 +955,15 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                   </Alert>
                 ) : state.review.coverLetter.include ? (
                   <div style={{ marginTop: "0.5rem" }} lang={state.review.coverLetter.outputLanguage ?? undefined}>
+                    {state.review.coverLetter.removedSentences + state.review.coverLetter.droppedParagraphs > 0 ? (
+                      <Alert tone="info">
+                        <span lang={pageLocale}>
+                          {t("resumatch.review.cl.removedClaims", {
+                            count: String(state.review.coverLetter.removedSentences + state.review.coverLetter.droppedParagraphs),
+                          })}
+                        </span>
+                      </Alert>
+                    ) : null}
                     {state.review.coverLetter.outputLanguage ? (
                       <p className="rx-lang-note" lang={pageLocale}>
                         <span className="rx-pill rx-pill--lang">

@@ -206,6 +206,8 @@ export async function POST(request: Request) {
           outputLanguage: letterLanguage,
           promptVersion: coverLetterResult.promptVersion,
           modelVersion: coverLetterResult.modelVersion,
+          removedSentences: coverLetterResult.removedSentences,
+          droppedParagraphs: coverLetterResult.droppedParagraphs,
         }
       : null,
     // The candidate's real, unedited values — the review screen falls back

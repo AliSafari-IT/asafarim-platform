@@ -7,14 +7,28 @@ import { getTranslator } from "../../../../lib/i18n-server";
 import { parseCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { computeCoverLetterQuality } from "../../../../lib/tailoring/coverLetterQuality";
 import { LANGUAGE_LABELS, isOutputLanguage } from "../../../../lib/tailoring/language";
+import { buildLetterLayout, letterDensity, letterWordCount } from "../../../../lib/tailoring/coverLetterLayout";
+import { parseProfileContent } from "../../../../lib/profile/contract";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { PrintButton } from "../../../../components/tailoring/PrintButton";
 import { CoverLetterDocxButton } from "./CoverLetterDocxButton";
 import { CoverLetterQualityChecklist } from "../../../../components/tailoring/CoverLetterQualityChecklist";
 
-export async function generateMetadata(): Promise<Metadata> {
+/** The tab title doubles as the browser's default PDF file name, so it
+ *  names the candidate and the employer rather than the site. */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { t } = await getTranslator();
-  return { title: t("resumatch.coverLetter") };
+  const { id } = await params;
+  const workspace = await getCurrentWorkspace();
+  const row = workspace
+    ? await getJobmatchDb().coverLetter.findFirst({
+        where: { id, workspaceId: workspace.id },
+        select: { content: true, targetJob: { select: { employer: true } } },
+      })
+    : null;
+  const fullName = row ? parseCoverLetterContent(row.content).fullName : null;
+  const parts = [fullName, t("resumatch.coverLetter"), row?.targetJob.employer].filter(Boolean);
+  return { title: { absolute: parts.join(" – ") } };
 }
 export const dynamic = "force-dynamic";
 
@@ -43,7 +57,9 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
       degraded: true,
       outputLanguage: true,
       tailoredResumeId: true,
-      targetJob: { select: { title: true, employer: true } },
+      createdAt: true,
+      profileVersion: { select: { content: true } },
+      targetJob: { select: { title: true, employer: true, structuredFields: true } },
     },
   });
   if (!row) notFound();
@@ -56,44 +72,75 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
   const language = isOutputLanguage(row.outputLanguage) ? row.outputLanguage : null;
   const quality = computeCoverLetterQuality(content, "standard", language);
   const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
+  const profile = parseProfileContent(row.profileVersion.content);
+  const layout = buildLetterLayout(
+    { fullName: content.fullName, email: profile.email, phone: profile.phone, baseLocation: profile.baseLocation },
+    row.targetJob,
+    row.createdAt,
+    row.outputLanguage,
+  );
+  const density = letterDensity(letterWordCount(content));
 
   return (
     <>
-      <PageHeader
-        kicker={t("resumatch.preview.kicker")}
-        title={t("resumatch.letter.title")}
-        description={jobLabel ? t("resumatch.letter.description", { job: jobLabel }) : undefined}
-      />
-      {row.tailoredResumeId ? (
-        <p style={{ margin: "-0.5rem 0 1rem" }}>
-          <Link href={`/tailor/${row.tailoredResumeId}/preview`}>{t("resumatch.letter.backToCv")}</Link>
-        </p>
-      ) : null}
+      {/* Everything outside the <article> is screen-only: the print/PDF
+          output is the letter alone (app/resumatch.css, @media print). */}
+      <div className="rm-screen-only">
+        <PageHeader
+          kicker={t("resumatch.preview.kicker")}
+          title={t("resumatch.letter.title")}
+          description={jobLabel ? t("resumatch.letter.description", { job: jobLabel }) : undefined}
+        />
+        {row.tailoredResumeId ? (
+          <p style={{ margin: "-0.5rem 0 1rem" }}>
+            <Link href={`/tailor/${row.tailoredResumeId}/preview`}>{t("resumatch.letter.backToCv")}</Link>
+          </p>
+        ) : null}
 
-      {language ? (
-        <p className="rx-lang-note">
-          <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[language]}</span>
-          {t("resumatch.letter.langNote", { language: t(`resumatch.lang.${language}`) })}
-        </p>
-      ) : null}
+        {language ? (
+          <p className="rx-lang-note">
+            <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[language]}</span>
+            {t("resumatch.letter.langNote", { language: t(`resumatch.lang.${language}`) })}
+          </p>
+        ) : null}
 
-      {row.degraded ? (
-        <Alert tone="warning">
-          {t("resumatch.letter.degraded")}
-        </Alert>
-      ) : (
-        <>
-          <div className="rm-preview-toolbar">
-            <PrintButton />
-            <CoverLetterDocxButton id={id} />
-          </div>
-          <CoverLetterQualityChecklist quality={quality} />
-        </>
-      )}
+        {row.degraded ? (
+          <Alert tone="warning">{t("resumatch.letter.degraded")}</Alert>
+        ) : (
+          <>
+            <div className="rm-preview-toolbar">
+              <PrintButton />
+              <CoverLetterDocxButton id={id} />
+            </div>
+            <CoverLetterQualityChecklist quality={quality} />
+          </>
+        )}
+      </div>
 
       {/* lang= tells screen readers and spell-checkers which language the
           letter is in (#642); none for older letters, as before. */}
-      <article className="rm-resume rm-resume--classic rm-letter" lang={language ?? undefined}>
+      <article
+        className={`rm-resume rm-resume--classic rm-letter rm-letter--${density}`}
+        lang={language ?? undefined}
+        data-testid="cover-letter"
+      >
+        <header className="rm-letter__head">
+          <div className="rm-letter__sender">
+            {layout.sender.name ? <p className="rm-letter__sender-name">{layout.sender.name}</p> : null}
+            {layout.sender.lines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+          {layout.recipient.length > 0 ? (
+            <div className="rm-letter__recipient">
+              {layout.recipient.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          ) : null}
+          <p className="rm-letter__date">{layout.dateLine}</p>
+          {layout.subject ? <p className="rm-letter__subject">{layout.subject}</p> : null}
+        </header>
         <p>{content.greeting}</p>
         {content.paragraphs.map((paragraph, index) => (
           <p key={index}>{paragraph}</p>
