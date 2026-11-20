@@ -6,6 +6,7 @@ import { buildCoverLetterContent } from "../../../../lib/tailoring/ai/coverLette
 import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { getCurrentWorkspace, recordAuditEvent } from "../../../../lib/workspace";
 import { appliedCoverLetterLanguage, appliedOutputLanguage } from "../../../../lib/tailoring/language";
+import { logError } from "../../../../lib/observability/logger";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TEMPLATE_KEY = "classic";
@@ -35,6 +36,24 @@ const DEFAULT_TEMPLATE_KEY = "classic";
  * confirm.
  */
 export async function POST(request: Request) {
+  try {
+    return await confirmTailoring(request);
+  } catch (error) {
+    // Anything unexpected still answers JSON with a sentence the candidate
+    // can act on, never Next's bare HTML 500 page (which the tailor flow
+    // can only show as "the server returned an error (HTTP 500)").
+    logError("tailoring.confirm.failed", error);
+    return NextResponse.json(
+      {
+        error:
+          "Something went wrong while saving this tailored CV. Try Save again; if it keeps failing, generate the suggestions again.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function confirmTailoring(request: Request): Promise<Response> {
   const workspace = await getCurrentWorkspace();
   if (!workspace) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
@@ -86,6 +105,49 @@ export async function POST(request: Request) {
   });
   if (!targetJob) return NextResponse.json({ error: "Job not found." }, { status: 404 });
 
+  // Everything that validates what the candidate sent happens before the
+  // preview is claimed below, so a review that cannot be saved as written
+  // leaves the preview usable for another try instead of burning it.
+  let suggestions;
+  try {
+    // `approved: null` is a legitimate choice — the candidate declined
+    // every suggestion — and merges to the profile carried over unchanged,
+    // same as a genuinely degraded call.
+    suggestions = approved === null ? null : parseTailorSuggestions(approved);
+  } catch {
+    return NextResponse.json(
+      { error: "That review could not be saved as written. Shorten any edited text and try again." },
+      { status: 422 },
+    );
+  }
+
+  let content;
+  try {
+    content = mergeTailoringSuggestions(version.content, suggestions);
+  } catch (error) {
+    logError("tailoring.confirm.merge_invalid", error, { profileVersionId });
+    return NextResponse.json(
+      {
+        error:
+          "Your confirmed profile has a field this CV cannot hold (for example a very long text). Check your profile, confirm it again, and retry.",
+      },
+      { status: 422 },
+    );
+  }
+
+  const wantsLetter = Boolean(coverLetter && coverLetter.approved !== null && coverLetter.approved !== undefined);
+  let letterSuggestion: ReturnType<typeof parseCoverLetterSuggestion> | null = null;
+  if (wantsLetter) {
+    try {
+      letterSuggestion = parseCoverLetterSuggestion(coverLetter!.approved);
+    } catch {
+      return NextResponse.json(
+        { error: "That cover-letter review could not be saved as written. Shorten any edited text and try again." },
+        { status: 422 },
+      );
+    }
+  }
+
   // The atomic claim: only a request whose update actually matches a row
   // (count === 1) gets to treat this preview's provenance as real, exactly
   // the same single-winner shape lib/documents/service.ts's rescanDocument
@@ -114,35 +176,36 @@ export async function POST(request: Request) {
   const promptVersion = preview.promptVersion;
   const modelVersion = preview.modelVersion;
 
-  let suggestions;
+  // If the write itself fails, hand the preview back so the candidate can
+  // press Save again instead of having to generate (and pay for) a new one.
+  const releaseClaim = () =>
+    db.tailorPreview
+      .updateMany({ where: { id: previewId, workspaceId: workspace.id }, data: { consumedAt: null } })
+      .catch((error: unknown) => logError("tailoring.confirm.release_failed", error));
+
+  let row: { id: string; outputLanguage: string | null };
   try {
-    // `approved: null` is a legitimate choice — the candidate declined
-    // every suggestion — and merges to the profile carried over unchanged,
-    // same as a genuinely degraded call.
-    suggestions = approved === null ? null : parseTailorSuggestions(approved);
-  } catch {
-    return NextResponse.json({ error: "That review could not be saved as written." }, { status: 422 });
+    row = await db.tailoredResume.create({
+      data: {
+        workspaceId: workspace.id,
+        profileVersionId,
+        targetJobId,
+        content,
+        templateKey: typeof templateKey === "string" ? templateKey : DEFAULT_TEMPLATE_KEY,
+        promptVersion,
+        modelVersion,
+        degraded,
+        instructions: typeof instructions === "string" ? instructions.trim() || null : null,
+        // #641: from the server's preview record, never the client — and only
+        // if some AI-written prose was kept (see appliedOutputLanguage).
+        outputLanguage: appliedOutputLanguage(preview.outputLanguage, degraded, suggestions),
+      },
+      select: { id: true, outputLanguage: true },
+    });
+  } catch (error) {
+    await releaseClaim();
+    throw error;
   }
-
-  const content = mergeTailoringSuggestions(version.content, suggestions);
-
-  const row = await db.tailoredResume.create({
-    data: {
-      workspaceId: workspace.id,
-      profileVersionId,
-      targetJobId,
-      content,
-      templateKey: typeof templateKey === "string" ? templateKey : DEFAULT_TEMPLATE_KEY,
-      promptVersion,
-      modelVersion,
-      degraded,
-      instructions: typeof instructions === "string" ? instructions.trim() || null : null,
-      // #641: from the server's preview record, never the client — and only
-      // if some AI-written prose was kept (see appliedOutputLanguage).
-      outputLanguage: appliedOutputLanguage(preview.outputLanguage, degraded, suggestions),
-    },
-    select: { id: true, outputLanguage: true },
-  });
   await recordAuditEvent(workspace.id, "tailoring.created", {
     tailoringId: row.id,
     targetJobId,
@@ -154,52 +217,54 @@ export async function POST(request: Request) {
   // `coverLetter.approved: null` — a legitimate outcome the same way
   // `approved: null` is for the CV above. Nothing about the tailored
   // resume above depends on this; a rejected letter never blocks the CV.
+  // From here on the CV is saved, so nothing below may answer as if the
+  // whole save failed: a letter problem comes back next to the CV's id.
   let coverLetterId: string | null = null;
-  if (coverLetter && coverLetter.approved !== null && coverLetter.approved !== undefined) {
+  let coverLetterError: string | null = null;
+  if (letterSuggestion) {
     if (preview.coverLetterPromptVersion === null || preview.coverLetterModelVersion === null) {
-      return NextResponse.json(
-        { error: "That preview did not include a cover letter." },
-        { status: 400 },
-      );
+      coverLetterError = "Your CV was saved, but that preview did not include a cover letter.";
+    } else {
+      const coverLetterPromptVersion = preview.coverLetterPromptVersion;
+      const coverLetterModelVersion = preview.coverLetterModelVersion;
+      try {
+        const letterContent = buildCoverLetterContent(letterSuggestion, version.content.fullName);
+        const letterRow = await db.coverLetter.create({
+          data: {
+            workspaceId: workspace.id,
+            profileVersionId,
+            targetJobId,
+            // Pairs this letter with the specific CV it was reviewed alongside
+            // — targetJobId alone can't do that once a candidate re-tailors
+            // toward the same job more than once. See the schema's own comment
+            // on CoverLetter.tailoredResumeId.
+            tailoredResumeId: row.id,
+            content: letterContent,
+            promptVersion: coverLetterPromptVersion,
+            modelVersion: coverLetterModelVersion,
+            degraded: preview.coverLetterDegraded === true,
+            // #642: from the server's preview record, and null if degraded.
+            outputLanguage: appliedCoverLetterLanguage(
+              preview.coverLetterOutputLanguage,
+              preview.coverLetterDegraded === true,
+            ),
+          },
+          select: { id: true, degraded: true, outputLanguage: true },
+        });
+        coverLetterId = letterRow.id;
+        await recordAuditEvent(workspace.id, "cover_letter.created", {
+          coverLetterId: letterRow.id,
+          tailoringId: row.id,
+          targetJobId,
+          degraded: letterRow.degraded,
+          outputLanguage: letterRow.outputLanguage ?? "",
+        });
+      } catch (error) {
+        logError("tailoring.confirm.cover_letter_failed", error, { tailoringId: row.id });
+        coverLetterError = "Your CV was saved, but the cover letter could not be saved.";
+      }
     }
-    let letterSuggestion;
-    try {
-      letterSuggestion = parseCoverLetterSuggestion(coverLetter.approved);
-    } catch {
-      return NextResponse.json({ error: "That cover-letter review could not be saved as written." }, { status: 422 });
-    }
-    const letterContent = buildCoverLetterContent(letterSuggestion, version.content.fullName);
-    const letterRow = await db.coverLetter.create({
-      data: {
-        workspaceId: workspace.id,
-        profileVersionId,
-        targetJobId,
-        // Pairs this letter with the specific CV it was reviewed alongside
-        // — targetJobId alone can't do that once a candidate re-tailors
-        // toward the same job more than once. See the schema's own comment
-        // on CoverLetter.tailoredResumeId.
-        tailoredResumeId: row.id,
-        content: letterContent,
-        promptVersion: preview.coverLetterPromptVersion,
-        modelVersion: preview.coverLetterModelVersion,
-        degraded: preview.coverLetterDegraded === true,
-        // #642: from the server's preview record, and null if degraded.
-        outputLanguage: appliedCoverLetterLanguage(
-          preview.coverLetterOutputLanguage,
-          preview.coverLetterDegraded === true,
-        ),
-      },
-      select: { id: true, degraded: true, outputLanguage: true },
-    });
-    coverLetterId = letterRow.id;
-    await recordAuditEvent(workspace.id, "cover_letter.created", {
-      coverLetterId: letterRow.id,
-      tailoringId: row.id,
-      targetJobId,
-      degraded: letterRow.degraded,
-      outputLanguage: letterRow.outputLanguage ?? "",
-    });
   }
 
-  return NextResponse.json({ id: row.id, coverLetterId });
+  return NextResponse.json({ id: row.id, coverLetterId, coverLetterError });
 }

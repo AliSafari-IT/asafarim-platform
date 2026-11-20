@@ -28,10 +28,10 @@ export default async function TailoredResumePreviewPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ coverLetterId?: string }>;
+  searchParams: Promise<{ coverLetterId?: string; coverLetterFailed?: string }>;
 }) {
   const { id } = await params;
-  const { coverLetterId: coverLetterIdFromQuery } = await searchParams;
+  const { coverLetterId: coverLetterIdFromQuery, coverLetterFailed } = await searchParams;
   const workspace = await getCurrentWorkspace();
   if (!workspace) notFound();
 
@@ -95,6 +95,10 @@ export default async function TailoredResumePreviewPage({
         <Alert tone="warning">
           {t("resumatch.preview.degraded")}
         </Alert>
+      ) : null}
+
+      {coverLetterFailed === "1" && !coverLetterId ? (
+        <Alert tone="warning">{t("resumatch.preview.coverLetterFailed")}</Alert>
       ) : null}
 
       <div className="rm-preview-toolbar">
