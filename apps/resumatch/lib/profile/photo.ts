@@ -75,10 +75,11 @@ function isDroppedMetadata(marker: number): boolean {
 /**
  * Validate a JPEG and return a copy without its metadata segments.
  *
- * Walks the marker segments up to Start-of-Scan, keeping only the ones a
- * decoder needs; the entropy-coded data after SOS (which, for a
- * progressive file, contains further tables and scans) is copied through
- * unchanged. Nothing here decodes pixels.
+ * Walks the whole file: every marker segment (before the first scan and
+ * between the scans of a progressive file) is kept only if a decoder needs
+ * it, and each scan's entropy-coded data is copied through to the next
+ * real marker. The file must contain at least one scan and end with EOI;
+ * anything after EOI is dropped. Nothing here decodes pixels.
  */
 export function sanitizePhotoJpeg(input: Uint8Array): SanitizedPhoto {
   if (input.length === 0) return { ok: false, reason: "EMPTY" };
@@ -96,6 +97,8 @@ export function sanitizePhotoJpeg(input: Uint8Array): SanitizedPhoto {
   let offset = 2;
   let width = 0;
   let height = 0;
+  let scans = 0;
+  let ended = false;
 
   while (offset < input.length) {
     if (input[offset] !== 0xff) return { ok: false, reason: "CORRUPT" };
@@ -106,7 +109,11 @@ export function sanitizePhotoJpeg(input: Uint8Array): SanitizedPhoto {
     const marker = input[markerAt]!;
     const segmentStart = markerAt + 1;
 
-    if (marker === EOI) return { ok: false, reason: "CORRUPT" }; // no image data
+    if (marker === EOI) {
+      ended = true;
+      kept.push(Uint8Array.of(0xff, EOI));
+      break;
+    }
     if (segmentStart + 2 > input.length)
       return { ok: false, reason: "CORRUPT" };
     const length = (input[segmentStart]! << 8) | input[segmentStart + 1]!;
@@ -123,14 +130,25 @@ export function sanitizePhotoJpeg(input: Uint8Array): SanitizedPhoto {
 
     if (marker === SOS) {
       if (width === 0 || height === 0) return { ok: false, reason: "CORRUPT" };
-      // The rest of the file: this scan header, entropy data, any later
-      // tables/scans, and EOI. Must end with EOI or it was truncated.
-      const rest = input.subarray(offset);
-      const last = input.length;
-      if (input[last - 2] !== 0xff || input[last - 1] !== EOI)
-        return { ok: false, reason: "CORRUPT" };
-      kept.push(rest);
-      break;
+      // The scan header, then its entropy-coded data up to the next marker.
+      // Inside the data, 0xFF is followed by 0x00 (a stuffed byte) or by a
+      // restart marker (0xD0–0xD7); anything else starts the next segment.
+      let at = segmentEnd;
+      while (at < input.length) {
+        if (input[at] === 0xff) {
+          const next = input[at + 1];
+          if (next === undefined) return { ok: false, reason: "CORRUPT" };
+          if (next !== 0x00 && !(next >= 0xd0 && next <= 0xd7) && next !== 0xff)
+            break;
+        }
+        at += 1;
+      }
+      if (at >= input.length) return { ok: false, reason: "CORRUPT" }; // no EOI
+      if (at === segmentEnd) return { ok: false, reason: "CORRUPT" }; // empty scan
+      kept.push(input.subarray(offset, at));
+      scans += 1;
+      offset = at;
+      continue;
     }
 
     if (!isDroppedMetadata(marker))
@@ -138,7 +156,8 @@ export function sanitizePhotoJpeg(input: Uint8Array): SanitizedPhoto {
     offset = segmentEnd;
   }
 
-  if (width === 0 || height === 0) return { ok: false, reason: "CORRUPT" };
+  if (!ended || scans === 0 || width === 0 || height === 0)
+    return { ok: false, reason: "CORRUPT" };
   if (width !== height) return { ok: false, reason: "NOT_SQUARE" };
   if (width < MIN_PHOTO_PIXELS || width > MAX_PHOTO_PIXELS)
     return { ok: false, reason: "BAD_DIMENSIONS" };

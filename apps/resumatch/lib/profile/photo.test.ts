@@ -39,6 +39,47 @@ describe("sanitizePhotoJpeg", () => {
     ).toBe(true);
   });
 
+  it("refuses a file cut off before its first scan", () => {
+    const good = fixture("square-300-progressive.jpg");
+    const firstScan = Buffer.from(good).indexOf(Buffer.from([0xff, 0xda]));
+    expect(firstScan).toBeGreaterThan(0);
+    expect(sanitizePhotoJpeg(good.subarray(0, firstScan))).toEqual({
+      ok: false,
+      reason: "CORRUPT",
+    });
+  });
+
+  it("strips metadata hidden between the scans of a progressive file, and anything after EOI", () => {
+    const good = Buffer.from(fixture("square-300-progressive.jpg"));
+    const secondScan = good.indexOf(
+      Buffer.from([0xff, 0xda]),
+      good.indexOf(Buffer.from([0xff, 0xda])) + 2
+    );
+    expect(secondScan).toBeGreaterThan(0);
+    const payload = Buffer.from("Exif\0\0GPS-SECRET");
+    const app1 = Buffer.concat([
+      Buffer.from([0xff, 0xe1, 0, payload.length + 2]),
+      payload,
+    ]);
+    const tampered = Buffer.concat([
+      good.subarray(0, secondScan),
+      app1,
+      good.subarray(secondScan),
+      Buffer.from("TRAILING-SECRET"),
+    ]);
+
+    const result = sanitizePhotoJpeg(new Uint8Array(tampered));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(ascii(result.bytes)).not.toContain("GPS-SECRET");
+    expect(ascii(result.bytes)).not.toContain("TRAILING-SECRET");
+    // Same image data as the untouched file.
+    const clean = sanitizePhotoJpeg(new Uint8Array(good));
+    expect(
+      clean.ok && Buffer.from(clean.bytes).equals(Buffer.from(result.bytes))
+    ).toBe(true);
+  });
+
   it("accepts a progressive JPEG", () => {
     expect(
       sanitizePhotoJpeg(fixture("square-300-progressive.jpg"))
