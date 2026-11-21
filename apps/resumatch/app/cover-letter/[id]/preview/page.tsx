@@ -13,6 +13,9 @@ import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { PrintButton } from "../../../../components/tailoring/PrintButton";
 import { CoverLetterDocxButton } from "./CoverLetterDocxButton";
 import { CoverLetterQualityChecklist } from "../../../../components/tailoring/CoverLetterQualityChecklist";
+import { SendApplicationEntry } from "../../../../components/applicationEmail/SendApplicationEntry";
+import { describePdfStatus } from "../../../../lib/documentPdfs/describe";
+import { getPdfStatus } from "../../../../lib/documentPdfs/service";
 
 /** The tab title doubles as the browser's default PDF file name, so it
  *  names the candidate and the employer rather than the site. */
@@ -86,6 +89,16 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
     row.outputLanguage,
   );
   const density = letterDensity(letterWordCount(content));
+  const [pdfStatus, application] = row.tailoredResumeId
+    ? await Promise.all([
+        getPdfStatus(workspace.id, row.tailoredResumeId),
+        db.application.findFirst({
+          where: { workspaceId: workspace.id, tailoredResumeId: row.tailoredResumeId },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: { id: true },
+        }),
+      ])
+    : [null, null];
 
   return (
     <>
@@ -126,6 +139,15 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
             <div className="rm-preview-toolbar">
               <PrintButton />
               <CoverLetterDocxButton id={id} />
+              {row.tailoredResumeId ? (
+                <SendApplicationEntry
+                  tailoredResumeId={row.tailoredResumeId}
+                  applicationId={application?.id ?? null}
+                  hasCoverLetter
+                  pdfs={pdfStatus ? describePdfStatus(pdfStatus) : null}
+                  layout="toolbar"
+                />
+              ) : null}
             </div>
             <CoverLetterQualityChecklist quality={quality} />
           </>

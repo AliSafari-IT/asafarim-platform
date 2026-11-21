@@ -16,10 +16,15 @@ import {
   type SaveOutcome,
 } from "../../lib/applications/fieldSaver";
 import { followUpDateToDay } from "../../lib/applications/followUp";
+import { SendApplicationEntry } from "../../components/applicationEmail/SendApplicationEntry";
 import { ApplicationStatusStepper } from "./ApplicationStatusStepper";
 import { FollowUpDateField } from "./FollowUpDateField";
+import { LocalTime } from "../ai-usage/LocalTime";
 
 type ApplicationWithRelations = ApplicationListRow;
+
+/** The card only needs to know a PDF exists; the composer checks the rest. */
+const PLACEHOLDER_PDF = { id: "", filename: "", byteSize: 0, createdAt: "", current: true };
 
 /** Builds a field saver once per row and mirrors its state into React. */
 function useFieldSaver<T>(initial: T, send: (value: T) => Promise<SaveOutcome>, onSaved: () => void) {
@@ -39,7 +44,14 @@ function useFieldSaver<T>(initial: T, send: (value: T) => Promise<SaveOutcome>, 
  *  disabled or overwritten while it holds unsaved text, so a failed save, a
  *  slow response or a refresh of the list can't throw away what was typed
  *  (issue #895). */
-export function ApplicationRow({ application }: { application: ApplicationWithRelations }) {
+export function ApplicationRow({
+  application,
+  pdfs,
+}: {
+  application: ApplicationWithRelations;
+  /** Whether this application's CV and letter have PDFs; null without a CV. */
+  pdfs: { cv: boolean; letter: boolean } | null;
+}) {
   const router = useRouter();
   const { t } = useTranslation();
   const notesHintId = useId();
@@ -88,6 +100,7 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
   }, [serverFollowUp, followUpSaver]);
 
   const notesDirty = draft !== notesState.persisted;
+  const lastSent = application.sentEmails[0] ?? null;
 
   // Warn before leaving the page with notes or a date that never reached
   // the server.
@@ -118,6 +131,11 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
           disabled={statusState.phase === "saving"}
           onChange={(status) => statusSaver.save(status)}
         />
+        {application.appliedAt ? (
+          <p className="rm-app-applied-at" data-testid="applied-at">
+            {t("resumatch.app.appliedAt")} <LocalTime iso={new Date(application.appliedAt).toISOString()} />
+          </p>
+        ) : null}
         <p className="rm-save-status" role="status" aria-live="polite">
           {statusState.phase === "saving"
             ? t("resumatch.app.save.saving")
@@ -151,6 +169,42 @@ export function ApplicationRow({ application }: { application: ApplicationWithRe
         draft={followUpDraft}
         setDraft={setFollowUpDraft}
       />
+
+      <div className="rm-app-send">
+        <SendApplicationEntry
+          tailoredResumeId={application.tailoredResume?.id ?? null}
+          applicationId={application.id}
+          hasCoverLetter={Boolean(application.tailoredResume?.coverLetter)}
+          pdfs={
+            pdfs
+              ? {
+                  cv: pdfs.cv ? PLACEHOLDER_PDF : null,
+                  letter: pdfs.letter ? PLACEHOLDER_PDF : null,
+                  hasCoverLetter: Boolean(application.tailoredResume?.coverLetter),
+                  ready: pdfs.cv && pdfs.letter,
+                }
+              : null
+          }
+        />
+        {lastSent ? (
+          <p className="rm-app-send__last" data-testid="last-sent">
+            {t(`resumatch.app.sent.${lastSent.status}`, { to: lastSent.contactEmail })}{" "}
+            <LocalTime iso={new Date(lastSent.sentAt ?? lastSent.attemptedAt).toISOString()} />
+            {" · "}
+            <a href={`/applications/sent/${encodeURIComponent(lastSent.id)}`} data-testid="view-last-sent">
+              {t("resumatch.send.result.view")}
+            </a>
+            {application._count.sentEmails > 1 ? (
+              <>
+                {" · "}
+                <a href={`/applications/sent?application=${encodeURIComponent(application.id)}`}>
+                  {t("resumatch.app.sent.all", { count: application._count.sentEmails })}
+                </a>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+      </div>
 
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         {application.tailoredResume ? (

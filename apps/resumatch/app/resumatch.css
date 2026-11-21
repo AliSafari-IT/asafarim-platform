@@ -5643,3 +5643,380 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* ─── Send application by email (send-application.md) ─────────────────── */
+
+.rm-send-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+.rm-send-entry--toolbar {
+  justify-content: flex-end;
+}
+.rm-send-entry__hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.rm-send-entry__error,
+.rm-field-error {
+  font-size: 0.85rem;
+  color: var(--color-danger-text, #b42318);
+}
+.rm-field-error {
+  margin: 0.3rem 0 0;
+}
+.rm-app-send {
+  margin: 0.4rem 0 0.6rem;
+}
+.rm-app-send__last,
+.rm-app-applied-at {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.rm-sent-nav {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+.rm-composer {
+  max-width: 48rem;
+}
+.rm-composer__heading {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin: 1.25rem 0 0.6rem;
+  padding: 0;
+}
+.rm-composer__subheading {
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin: 0 0 0.5rem;
+}
+.rm-composer__sender {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2, var(--surface));
+  padding: 0.25rem 1rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.rm-composer__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+}
+.rm-composer__meta dt,
+.rm-sent-detail dt {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.rm-composer__meta dd,
+.rm-sent-detail dd {
+  margin: 0.1rem 0 0;
+  overflow-wrap: anywhere;
+}
+.rm-composer__note {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+.rm-composer__fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.rm-composer__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.rm-composer__label-row label > span {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+[data-app="resumatch"] .jm-field > label > span {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+[data-app="resumatch"] .jm-field .rm-composer__label-row label > span {
+  margin-bottom: 0;
+}
+[data-app="resumatch"] .jm-field input[aria-invalid="true"],
+[data-app="resumatch"] .jm-field textarea[aria-invalid="true"] {
+  border-color: var(--color-danger-text, #b42318);
+}
+.rm-composer__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+}
+.rm-composer__note-block {
+  margin: 0.25rem 0 0.75rem;
+}
+.rm-composer__attachments {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+}
+.rm-composer__pdfs-missing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.rm-composer__pdfs-missing p {
+  margin: 0;
+}
+.rm-composer__checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+}
+.rm-composer__checkbox input {
+  margin-top: 0.2rem;
+}
+.rm-composer__result:focus {
+  outline: none;
+}
+.rm-composer__result:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.rm-composer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+@media (max-width: 40rem) {
+  .rm-composer__actions > .ui-btn {
+    flex: 1 1 10rem;
+  }
+}
+
+.rm-attachment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.rm-attachment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+}
+.rm-attachment__icon {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.4rem;
+  border-radius: 4px;
+  background: var(--accent-soft, var(--surface-2));
+  color: var(--ink);
+}
+.rm-attachment__main {
+  flex: 1 1 14rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.rm-attachment__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.rm-attachment__meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.rm-attachment__stale {
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+.rm-attachment__actions {
+  display: flex;
+  gap: 0.35rem;
+}
+.rm-linklike {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.rm-linklike:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.rm-sent-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.rm-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.rm-filter-chips__label {
+  color: var(--muted);
+}
+.rm-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.rm-filter-chip:hover,
+.rm-filter-chip:focus-visible {
+  border-color: var(--accent);
+}
+.rm-filter-chip__key {
+  color: var(--muted);
+}
+.rm-sent-sort {
+  font-size: 0.85rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+.rm-sent-table-wrap {
+  overflow-x: auto;
+}
+.rm-sent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.rm-sent-table th,
+.rm-sent-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+.rm-sent-table th {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.rm-sent-table__email,
+.rm-sent-table__id {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.rm-sent-status {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.rm-sent-status__delivery {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+/* On a phone each sent email is a small card, labels from data-label. */
+@media (max-width: 48rem) {
+  .rm-sent-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .rm-sent-table,
+  .rm-sent-table tbody,
+  .rm-sent-table tr,
+  .rm-sent-table td {
+    display: block;
+  }
+  .rm-sent-table tr {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.4rem 0.2rem;
+    margin-bottom: 0.6rem;
+  }
+  .rm-sent-table td {
+    border: 0;
+    padding: 0.25rem 0.6rem;
+  }
+  .rm-sent-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 650;
+    color: var(--muted);
+  }
+}
+.rm-sent-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.6rem 1.25rem;
+  margin: 0 0 1rem;
+}
+.rm-sent-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0.9rem 1rem;
+  margin: 0 0 1rem;
+}
+.rm-sent-tech {
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+.rm-sent-tech summary {
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+
+/* Links inside running text are underlined, so they don't rely on colour
+   alone (WCAG 1.4.1). */
+[data-app="resumatch"] .rm-composer__note a,
+[data-app="resumatch"] .rm-app-send__last a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

@@ -106,7 +106,9 @@ const SALUTATION_WORDS = [
  */
 const HONORIFIC_DOT = /\b(Ms|Mr|Mrs|Dr|Prof|Mme|Mlle|Hr|Fr|Dhr|Mevr)\./g;
 
-function ungrounded(text: string, sourceLower: string, mode: ProseGroundingMode): boolean {
+/** True when `text` has a number or name found in neither source. Shared
+ *  with the application email (lib/applicationEmail/ai/generate.ts). */
+export function ungrounded(text: string, sourceLower: string, mode: ProseGroundingMode): boolean {
   return ungroundedProseTokenCount(text.replace(HONORIFIC_DOT, "$1"), sourceLower, mode) > 0;
 }
 

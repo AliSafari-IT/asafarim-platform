@@ -21,6 +21,7 @@ export const RESUMATCH_OPERATIONS: readonly ResumatchCostOperation[] = [
   "rewrite",
   "categorize_skills",
   "skills_paragraph",
+  "application_email",
 ];
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;

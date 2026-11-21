@@ -69,9 +69,9 @@ export async function storedFollowUp(id: string): Promise<string | null> {
   return row.followUpDate ? row.followUpDate.toISOString() : null;
 }
 
-async function sessionCookie(picture?: string): Promise<string> {
+async function sessionCookie(picture?: string, claims: { email?: string; name?: string } = {}): Promise<string> {
   return encode({
-    token: { sub: E2E_PLATFORM_USER_ID, isActive: true, roles: [], ...(picture ? { picture } : {}) },
+    token: { sub: E2E_PLATFORM_USER_ID, isActive: true, roles: [], ...(picture ? { picture } : {}), ...claims },
     secret: requireEnv("AUTH_SECRET"),
     salt: COOKIE_NAME,
   });
@@ -101,6 +101,13 @@ export { expect };
 export async function signInWithPicture(context: BrowserContext, baseURL: string | undefined, picture: string) {
   const url = new URL(baseURL ?? "http://localhost:3012");
   await context.addCookies([{ name: COOKIE_NAME, value: await sessionCookie(picture), domain: url.hostname, path: "/" }]);
+}
+
+/** Re-sign the browser in with an account email and name, the way Hub's
+ *  JWT carries them (used as Reply-To by "Send application"). */
+export async function signInWithEmail(context: BrowserContext, baseURL: string | undefined, email: string, name: string) {
+  const url = new URL(baseURL ?? "http://localhost:3012");
+  await context.addCookies([{ name: COOKIE_NAME, value: await sessionCookie(undefined, { email, name }), domain: url.hostname, path: "/" }]);
 }
 
 export interface BulkApplication {

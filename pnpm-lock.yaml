@@ -678,6 +678,12 @@ importers:
       next:
         specifier: ^16.4.3
         version: 16.4.3(@babel/core@7.29.7(supports-color@7.2.0))(@playwright/test@1.61.1)(@types/node@24.13.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      nodemailer:
+        specifier: ^10.0.13
+        version: 10.0.13
+      playwright-core:
+        specifier: 1.61.1
+        version: 1.61.1
       react:
         specifier: ^19.3.0
         version: 19.3.0
