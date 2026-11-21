@@ -2292,6 +2292,32 @@
   margin: 0;
 }
 
+/* No blank trailing page (CV and cover letter). A change of page name
+   forces a page break, so with only the letter or CV on the named page,
+   any in-flow box after it on the default page (a 0px element the browser,
+   an extension or the framework appends to <body>) opened one more, empty
+   page. The whole document takes the named page instead, so nothing
+   anywhere can switch back. And the shell's screen min-height of 100vh is
+   a full page in print, so the smallest box after it overflowed onto a
+   second page; in print the document is only as tall as its content.
+   Pinned by e2e/print-page-count.spec.ts. */
+@media print {
+  html:has(.rm-resume.rm-letter) body,
+  html:has(.rm-resume.rm-letter) .ui-shell,
+  html:has(.rm-resume.rm-cv) body,
+  html:has(.rm-resume.rm-cv) .ui-shell {
+    min-height: 0 !important;
+  }
+  html:has(.rm-resume.rm-letter),
+  html:has(.rm-resume.rm-letter) body {
+    page: rm-letter;
+  }
+  html:has(.rm-resume.rm-cv),
+  html:has(.rm-resume.rm-cv) body {
+    page: rm-cv;
+  }
+}
+
 /* Tailored CV → PDF: the CV alone, tidy across pages.
    Same approach as the cover letter above: the page header, language note,
    toolbar, coverage and quality cards are .rm-screen-only, and a named
