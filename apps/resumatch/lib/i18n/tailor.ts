@@ -100,6 +100,11 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.flow.language": "Language",
     "resumatch.flow.sameAsCv": "Same as CV ({language})",
     "resumatch.flow.startReview": "Tailor my CV to this job",
+    "resumatch.flow.backToOptions": "← Back to options",
+    "resumatch.flow.regen.note": "You're regenerating for this job, with the choices of your saved CV filled in. Change what you need (language, steering note, cover letter) and run it again. Your saved CV and letter stay in history; the new ones are saved separately.",
+    "resumatch.flow.regen.backToSaved": "← Back to the saved CV",
+    "resumatch.flow.regen.editProfile": "Change facts in your profile first",
+    "resumatch.flow.regen.run": "Regenerate for this job",
 
     "resumatch.review.title": "Review before saving",
     "resumatch.review.degraded":
@@ -276,6 +281,11 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.flow.language": "Taal",
     "resumatch.flow.sameAsCv": "Zelfde als cv ({language})",
     "resumatch.flow.startReview": "Stem mijn cv af op deze vacature",
+    "resumatch.flow.backToOptions": "← Terug naar de opties",
+    "resumatch.flow.regen.note": "Je maakt opnieuw een versie voor deze vacature, met de keuzes van je opgeslagen cv al ingevuld. Pas aan wat je wilt (taal, extra instructie, motivatiebrief) en start opnieuw. Je opgeslagen cv en brief blijven in de geschiedenis; de nieuwe worden apart opgeslagen.",
+    "resumatch.flow.regen.backToSaved": "← Terug naar het opgeslagen cv",
+    "resumatch.flow.regen.editProfile": "Eerst feiten in je profiel aanpassen",
+    "resumatch.flow.regen.run": "Opnieuw maken voor deze vacature",
 
     "resumatch.review.title": "Nakijken vóór opslaan",
     "resumatch.review.degraded":
@@ -452,6 +462,11 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.flow.language": "Langue",
     "resumatch.flow.sameAsCv": "Comme le CV ({language})",
     "resumatch.flow.startReview": "Adapter mon CV à cette offre",
+    "resumatch.flow.backToOptions": "← Retour aux options",
+    "resumatch.flow.regen.note": "Vous régénérez pour cette offre, avec les choix de votre CV enregistré déjà remplis. Modifiez ce qu’il faut (langue, consigne, lettre de motivation) et relancez. Votre CV et votre lettre enregistrés restent dans l’historique ; les nouveaux sont enregistrés à part.",
+    "resumatch.flow.regen.backToSaved": "← Retour au CV enregistré",
+    "resumatch.flow.regen.editProfile": "Corriger d’abord les faits dans votre profil",
+    "resumatch.flow.regen.run": "Régénérer pour cette offre",
 
     "resumatch.review.title": "Vérifier avant d’enregistrer",
     "resumatch.review.degraded":
@@ -630,6 +645,11 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.flow.language": "Sprache",
     "resumatch.flow.sameAsCv": "Wie der Lebenslauf ({language})",
     "resumatch.flow.startReview": "Meinen Lebenslauf an diese Stelle anpassen",
+    "resumatch.flow.backToOptions": "← Zurück zu den Optionen",
+    "resumatch.flow.regen.note": "Du erstellst für diese Stelle neu, mit den Einstellungen deines gespeicherten Lebenslaufs bereits ausgefüllt. Ändere, was nötig ist (Sprache, Hinweis, Anschreiben), und starte erneut. Dein gespeicherter Lebenslauf und dein Anschreiben bleiben im Verlauf; die neuen werden separat gespeichert.",
+    "resumatch.flow.regen.backToSaved": "← Zurück zum gespeicherten Lebenslauf",
+    "resumatch.flow.regen.editProfile": "Zuerst Fakten im Profil ändern",
+    "resumatch.flow.regen.run": "Für diese Stelle neu erstellen",
 
     "resumatch.review.title": "Vor dem Speichern prüfen",
     "resumatch.review.degraded":

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { Alert, Button, Card, Input } from "@asafarim/ui";
@@ -9,6 +10,7 @@ import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQualit
 import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
 import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
 import { JobFitPanel } from "../../components/tailoring/JobFitPanel";
+import type { RegenerateSeed } from "../../lib/tailoring/regenerate";
 import type { JobFit } from "../../lib/tailoring/jobFit";
 import {
   LANGUAGE_LABELS,
@@ -49,6 +51,10 @@ export interface TailorFlowProps {
    *  always reads from it, there is nothing else to pick between (only one
    *  version can be confirmed at a time). */
   confirmedVersionId: string;
+  /** Set when the flow was reopened from a saved CV or letter ("Edit and
+   *  regenerate", lib/tailoring/regenerate.ts): the flow starts on that
+   *  job's options card with the saved choices filled in. */
+  seed?: RegenerateSeed | null;
 }
 
 interface ReviewExperienceItem {
@@ -129,7 +135,7 @@ type FetchState =
   | { kind: "loading_review"; targetJobId: string }
   | { kind: "reviewing"; review: ReviewState }
   | { kind: "confirming"; review: ReviewState }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string; canGoBack?: boolean };
 
 /** fetch-job reason codes with their own message
  *  (resumatch.flow.fetchFailed.<code>); anything else gets the generic one. */
@@ -164,7 +170,7 @@ async function readJsonBody(res: Response): Promise<Record<string, any> | null> 
   }
 }
 
-export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
+export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps) {
   const router = useRouter();
   const { t, locale: pageLocale } = useTranslation();
   const [url, setUrl] = useState("");
@@ -173,23 +179,25 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
   const [emailSubject, setEmailSubject] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [mode, setMode] = useState<Mode>("url");
-  const [instructions, setInstructions] = useState("");
+  const [instructions, setInstructions] = useState(seed?.instructions ?? "");
   // #641: defaults to the page language from the language bar (#640);
   // the candidate can pick another for this run.
-  const [cvLanguage, setCvLanguage] = useState<OutputLanguage>(() => outputLanguageFromLocale(pageLocale));
-  const [includeCoverLetter, setIncludeCoverLetter] = useState(false);
+  const [cvLanguage, setCvLanguage] = useState<OutputLanguage>(
+    () => seed?.cvLanguage ?? outputLanguageFromLocale(pageLocale),
+  );
+  const [includeCoverLetter, setIncludeCoverLetter] = useState(seed?.includeCoverLetter ?? false);
   const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">("formal");
   const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">("standard");
   // #642: null means "same as the CV", so the letter keeps following the CV
   // language until the candidate picks a different one on purpose.
-  const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(null);
-  const [state, setState] = useState<FetchState>({ kind: "idle" });
+  const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(seed?.coverLetterLanguage ?? null);
+  const [state, setState] = useState<FetchState>(() => (seed ? { kind: "fetched", ...seed.job } : { kind: "idle" }));
   // The fit check for the job on the card (lib/tailoring/jobFit.ts): null
   // while loading or when it couldn't run, which never blocks tailoring.
   const [fit, setFit] = useState<{ targetJobId: string; fit: JobFit } | null>(null);
   // The candidate's explicit "yes, tailor anyway" for a low-fit job.
   const [lowFitConfirmedFor, setLowFitConfirmedFor] = useState<string | null>(null);
-  const [lastFetched, setLastFetched] = useState<FetchedJob | null>(null);
+  const [lastFetched, setLastFetched] = useState<FetchedJob | null>(seed?.job ?? null);
 
   const showFetched = useCallback((body: Record<string, any>) => {
     const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet };
@@ -198,6 +206,13 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
     setLastFetched(job);
     setState({ kind: "fetched", ...job });
   }, []);
+
+  /** Back from the review (or a failed tailoring run) to the options card
+   *  of the same job, with every choice kept, so the candidate can change
+   *  the language, steering note or letter options and run it again. */
+  const backToOptions = useCallback(() => {
+    if (lastFetched) setState({ kind: "fetched", ...lastFetched });
+  }, [lastFetched]);
 
   const fetchedJobId = state.kind === "fetched" ? state.targetJobId : null;
   useEffect(() => {
@@ -384,6 +399,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           setState({
             kind: "error",
             message: body?.error ?? `${t("resumatch.flow.error.tailor")} ${t("resumatch.flow.error.server", { status: res.status })}`,
+            canGoBack: true,
           });
           return;
         }
@@ -465,7 +481,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
         setState({ kind: "reviewing", review });
       } catch {
-        setState({ kind: "error", message: t("resumatch.flow.error.network") });
+        setState({ kind: "error", message: t("resumatch.flow.error.network"), canGoBack: true });
       }
     },
     [
@@ -561,6 +577,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
           setState({
             kind: "error",
             message: body?.error ?? `${t("resumatch.flow.error.save")} ${t("resumatch.flow.error.server", { status: res.status })}`,
+            canGoBack: true,
           });
           return;
         }
@@ -574,7 +591,7 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
               : `/tailor/${body.id}/preview`,
         );
       } catch {
-        setState({ kind: "error", message: t("resumatch.flow.error.network") });
+        setState({ kind: "error", message: t("resumatch.flow.error.network"), canGoBack: true });
       }
     },
     [confirmedVersionId, router, t],
@@ -582,6 +599,15 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
 
   /** A language's name for use inside a sentence, in the UI language. */
   const languageName = (code: OutputLanguage) => t(`resumatch.lang.${code}`);
+
+  const activeJobId =
+    state.kind === "fetched" || state.kind === "loading_review"
+      ? state.targetJobId
+      : state.kind === "reviewing" || state.kind === "confirming"
+        ? state.review.targetJobId
+        : state.kind === "error" && state.canGoBack
+          ? (lastFetched?.targetJobId ?? null)
+          : null;
 
   const busy = state.kind === "fetching" || state.kind === "loading_review" || state.kind === "confirming";
 
@@ -707,6 +733,23 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
       {state.kind === "error" ? (
         <div style={{ marginTop: "1rem" }}>
           <Alert tone="error">{state.message}</Alert>
+          {state.canGoBack && lastFetched ? (
+            <div style={{ marginTop: "0.5rem" }}>
+              <Button variant="ghost" size="sm" onClick={backToOptions}>
+                {t("resumatch.flow.backToOptions")}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {seed && activeJobId === seed.job.targetJobId ? (
+        <div className="rm-regen-note" role="status" data-testid="regenerate-note">
+          <p>{t("resumatch.flow.regen.note")}</p>
+          <p className="rm-regen-note__links">
+            <Link href={`/tailor/${seed.fromResumeId}/preview`}>{t("resumatch.flow.regen.backToSaved")}</Link>
+            <Link href="/profile">{t("resumatch.flow.regen.editProfile")}</Link>
+          </p>
         </div>
       ) : null}
 
@@ -807,7 +850,11 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
                 </label>
               </div>
             ) : null}
-            <Button onClick={() => startReview(state.targetJobId)}>{t("resumatch.flow.startReview")}</Button>
+            <Button onClick={() => startReview(state.targetJobId)}>
+              {seed && seed.job.targetJobId === state.targetJobId
+                ? t("resumatch.flow.regen.run")
+                : t("resumatch.flow.startReview")}
+            </Button>
             </>
             )}
           </Card>
@@ -1031,6 +1078,9 @@ export function TailorFlow({ confirmedVersionId }: TailorFlowProps) {
             <div className="rm-review__actions">
               <Button onClick={() => confirm(state.review)} disabled={state.kind === "confirming"}>
                 {state.kind === "confirming" ? t("resumatch.saving") : t("resumatch.review.confirm")}
+              </Button>
+              <Button variant="ghost" onClick={backToOptions} disabled={state.kind === "confirming" || !lastFetched}>
+                {t("resumatch.flow.backToOptions")}
               </Button>
               <Button variant="ghost" onClick={() => setState({ kind: "idle" })} disabled={state.kind === "confirming"}>
                 {t("resumatch.review.discard")}

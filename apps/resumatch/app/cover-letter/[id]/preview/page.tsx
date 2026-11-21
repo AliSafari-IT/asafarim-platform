@@ -98,8 +98,17 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
           description={jobLabel ? t("resumatch.letter.description", { job: jobLabel }) : undefined}
         />
         {row.tailoredResumeId ? (
-          <p style={{ margin: "-0.5rem 0 1rem" }}>
+          <p className="rm-letter-nav">
             <Link href={`/tailor/${row.tailoredResumeId}/preview`}>{t("resumatch.letter.backToCv")}</Link>
+            {/* Reopens tailoring on the same job with the letter ticked and
+                this run's choices filled in; saved as a new CV + letter. */}
+            <Link
+              href={`/tailor?from=${row.tailoredResumeId}&letter=1#tailor-flow`}
+              className="ui-btn ui-btn--ghost ui-btn--sm"
+              data-testid="edit-regenerate-letter"
+            >
+              {t("resumatch.letter.editRegenerate")}
+            </Link>
           </p>
         ) : null}
 

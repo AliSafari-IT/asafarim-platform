@@ -139,8 +139,18 @@ export default async function TailoredResumePreviewPage({
             <LanguageBadge language={row.coverLetter?.outputLanguage} coverLetter />
           </>
         ) : (
-          <span className="rm-preview-toolbar__hint">{t("resumatch.preview.noCoverLetter")}</span>
+          <>
+            <span className="rm-preview-toolbar__hint">{t("resumatch.preview.noCoverLetter")}</span>
+            <Link href={`/tailor?from=${id}&letter=1#tailor-flow`} className="ui-btn ui-btn--ghost ui-btn--sm">
+              {t("resumatch.preview.addCoverLetter")}
+            </Link>
+          </>
         )}
+        {/* Back to the tailoring step on the same job, with this CV's
+            choices filled in; the regenerated CV is saved as a new one. */}
+        <Link href={`/tailor?from=${id}#tailor-flow`} className="ui-btn ui-btn--ghost ui-btn--sm" data-testid="edit-regenerate">
+          {t("resumatch.preview.editRegenerate")}
+        </Link>
       </div>
 
       <PhotoToggle id={id} hasPhoto={profilePhoto !== null} initialShown={showPhoto} />
