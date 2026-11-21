@@ -291,10 +291,10 @@
       "kind": "package",
       "folder": "packages/ui",
       "description": "ASafariM Platform design system: tokens, brand, and creative building blocks",
-      "sha": "47457f39",
+      "sha": "3b405b5e",
       "date": "2026-11-21",
       "since": "2026-07-04",
-      "commits": 74,
+      "commits": 75,
       "dependents": 13
     },
     {
@@ -357,10 +357,10 @@
       "kind": "app",
       "folder": "apps/vionto",
       "description": "",
-      "sha": "1aaa5fee",
-      "date": "2026-10-26",
+      "sha": "3b405b5e",
+      "date": "2026-11-21",
       "since": "2026-07-15",
-      "commits": 144,
+      "commits": 145,
       "dependents": 0
     }
   ],
