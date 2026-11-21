@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-21",
+    "title": "Resumatch: edit and regenerate a saved CV or cover letter",
+    "sha": "14d849d6",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/14d849d6"
+  },
+  {
+    "date": "2026-11-21",
     "title": "Resumatch: use the account photo as the CV photo",
     "sha": "7673f42c",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/7673f42c"
@@ -112,11 +118,5 @@
     "title": "Resumatch: short-TTL dedup cache for extraction and job-fetch",
     "sha": "271e1ce1",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/271e1ce1"
-  },
-  {
-    "date": "2026-10-17",
-    "title": "Resumatch: ground cover-letter prose against the profile and job text",
-    "sha": "9071f15a",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9071f15a"
   }
 ]
