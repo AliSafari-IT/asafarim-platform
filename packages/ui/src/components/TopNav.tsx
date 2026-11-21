@@ -77,6 +77,10 @@ export function TopNav({ items, mobileOnly = false, labels }: TopNavProps) {
       )}
       <details
         className={`ui-menu ui-topnav-mobile${mobileOnly ? " ui-topnav-mobile--side" : ""}`}
+        // Same exclusive group as AppSwitcher/UserMenu: opening one closes
+        // the others. Outside clicks, Escape and choosing an item are
+        // handled by <MenuOutsideClick />.
+        name="ui-header-menu"
       >
         <summary>
           {l.menu} <span className="ui-menu__caret">▾</span>
