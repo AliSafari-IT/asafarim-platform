@@ -15,7 +15,7 @@ import { formatMicros, type CostBasis, type CostGroupDTO } from "@asafarim/ai-co
 export type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
 /** Steps with their own label (resumatch.cost.op.<operation>). */
-const KNOWN_OPERATIONS = new Set(["extract", "fetch_job", "job_meta", "tailor", "cover_letter", "rewrite", "categorize_skills"]);
+const KNOWN_OPERATIONS = new Set(["extract", "fetch_job", "job_meta", "tailor", "cover_letter", "rewrite", "categorize_skills", "skills_paragraph"]);
 
 export function operationLabel(operation: string, t: Translate): string {
   return KNOWN_OPERATIONS.has(operation) ? t(`resumatch.cost.op.${operation}`) : operation.replace(/_/g, " ");

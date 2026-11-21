@@ -16,6 +16,9 @@ export interface AppShellProps {
   /** The identity line's text after "ASafariM Digital —", for localization.
    *  Defaults to "practical apps, built with care." */
   tagline?: string;
+  /** Replaces the footer's last line ("asafarim-platform · <year>"), e.g.
+   *  to name the app and a date. */
+  footerMeta?: ReactNode;
   children: ReactNode;
 }
 
@@ -26,6 +29,7 @@ export function AppShell({
   sideNav,
   footer,
   tagline = "practical apps, built with care.",
+  footerMeta,
   children,
 }: AppShellProps) {
   return (
@@ -49,7 +53,7 @@ export function AppShell({
         </span>
         {footer}
         <span className="ui-shell__footer-meta">
-          asafarim-platform · {new Date().getFullYear()}
+          {footerMeta ?? <>asafarim-platform · {new Date().getFullYear()}</>}
         </span>
       </footer>
     </div>

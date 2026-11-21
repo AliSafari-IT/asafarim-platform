@@ -1,6 +1,13 @@
 import type { TailoredResumeContent } from "../../../lib/tailoring/ai/schema";
-import { groupSkillsByCategory, type SkillCategory } from "../../../lib/profile/skillCategories";
-import { formatProfileDate, formatSpan, formatSpokenLanguages, templateLabels } from "../../../lib/tailoring/language";
+import type { SkillCategory } from "../../../lib/profile/skillCategories";
+import {
+  formatProfileDate,
+  formatSpan,
+  formatSpokenLanguages,
+  templateLabels,
+  type TemplateLabels,
+} from "../../../lib/tailoring/language";
+import { resolveSkillsDisplay, type SkillsDisplay } from "../../../lib/tailoring/skillsLayout";
 import { displayUrl, headerLinks, linkText, productLinks } from "../../../lib/profile/links";
 import { photoAltText, type CvPhoto } from "../../../lib/profile/photo";
 
@@ -23,17 +30,25 @@ export const CLASSIC_TEMPLATE_KEY = "classic";
  * `photo` is the candidate's optional CV photo, already resolved against
  * this CV's own show/hide choice by the page. It is never part of
  * `content`: tailoring and the AI never see it.
+ *
+ * `skills` is how the skills section is laid out, resolved by the page from
+ * the CV's stored choice (lib/tailoring/skillsLayout.ts) — the DOCX export
+ * resolves the same way. Omitted, the automatic layout is used.
  */
 export function ClassicTemplate({
   content,
   language = null,
   photo = null,
+  skills,
 }: {
   content: TailoredResumeContent;
   language?: string | null;
   photo?: CvPhoto | null;
+  skills?: SkillsDisplay | null;
 }) {
   const labels = templateLabels(language);
+  const skillsDisplay =
+    skills === undefined ? resolveSkillsDisplay({ skills: content.skills, layout: null, paragraph: null }) : skills;
   return (
     // lang marks the CV's own language (#641) so assistive tech reads a
     // Dutch CV as Dutch even when the page around it is in English.
@@ -82,23 +97,10 @@ export function ClassicTemplate({
         </section>
       ) : null}
 
-      {content.skills.length > 0 ? (
+      {skillsDisplay ? (
         <section className="rm-resume__section">
           <h2>{labels.skills}</h2>
-          <div className="rm-resume__skill-groups">
-            {groupSkillsByCategory(content.skills, undefined, { collapseUnrecognized: true }).map(
-              ({ category, skills }) => (
-                <p className="rm-resume__skill-group" key={category || "flat"}>
-                  {category ? (
-                    <span className="rm-resume__skill-category">
-                      {labels.skillCategories[category as SkillCategory]}:{" "}
-                    </span>
-                  ) : null}
-                  <span className="rm-resume__skill-list">{skills.join(", ")}</span>
-                </p>
-              ),
-            )}
-          </div>
+          <SkillsBlock display={skillsDisplay} labels={labels} />
         </section>
       ) : null}
 
@@ -188,6 +190,38 @@ export function ClassicTemplate({
         </section>
       ) : null}
     </article>
+  );
+}
+
+/** The skills section body in the chosen layout (see skillsLayout.ts). */
+function SkillsBlock({ display, labels }: { display: SkillsDisplay; labels: TemplateLabels }) {
+  if (display.layout === "paragraph") {
+    return (
+      <p className="rm-resume__skills-paragraph" data-skills-layout="paragraph">
+        {display.paragraph}
+      </p>
+    );
+  }
+  if (display.layout === "columns") {
+    return (
+      <ul className="rm-resume__skill-columns" data-skills-layout="columns">
+        {display.skills.map((skill) => (
+          <li key={skill}>{skill}</li>
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <dl className="rm-resume__skill-groups" data-skills-layout="grouped">
+      {display.groups.map(({ category, skills }) => (
+        <div className="rm-resume__skill-group" key={category || "flat"}>
+          {category ? (
+            <dt className="rm-resume__skill-category">{labels.skillCategories[category as SkillCategory]}</dt>
+          ) : null}
+          <dd className="rm-resume__skill-list">{skills.join(", ")}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

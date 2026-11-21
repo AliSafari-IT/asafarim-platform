@@ -7,6 +7,7 @@ import {
   ImageRun,
   Packer,
   Paragraph,
+  SectionType,
   TextRun,
   TextWrappingSide,
   TextWrappingType,
@@ -15,7 +16,8 @@ import {
 import { photoAltText, type PhotoShape } from "../profile/photo";
 import { displayUrl, headerLinks, linkText, productLinks } from "../profile/links";
 import type { TailoredResumeContent } from "./ai/schema";
-import { groupSkillsByCategory, type SkillCategory } from "../profile/skillCategories";
+import type { SkillCategory } from "../profile/skillCategories";
+import { resolveSkillsDisplay, type SkillsDisplay } from "./skillsLayout";
 import { formatProfileDate, formatSpan, formatSpokenLanguages, templateLabels } from "./language";
 
 /**
@@ -105,14 +107,25 @@ function photoRun(photo: DocxPhoto, alt: string): ImageRun {
 /** `language`: the CV's stored outputLanguage (#641); null keeps the
  *  English labels and raw dates older CVs have always exported with.
  *  `photo`: the candidate's CV photo when this CV shows it — never part of
- *  `content`. */
+ *  `content`.
+ *  `skills`: the skills layout, resolved from the CV's stored choice the
+ *  same way the preview resolves it (lib/tailoring/skillsLayout.ts).
+ *  Omitted, the automatic layout is used. */
 export function buildTailoredResumeDocx(
   content: TailoredResumeContent,
   language: string | null = null,
   photo: DocxPhoto | null = null,
+  skills?: SkillsDisplay | null,
 ): Document {
   const labels = templateLabels(language);
-  const children: Paragraph[] = [];
+  // Paragraphs go into the current section. The compact skills layout is
+  // its own continuous three-column section (Word and LibreOffice balance
+  // the columns at its end), so the rest of the CV stays one column and the
+  // text stays a plain, ATS-readable flow — no table.
+  const sections: { children: Paragraph[]; columns?: number }[] = [{ children: [] }];
+  let children = sections[0]!.children;
+  const skillsDisplay =
+    skills === undefined ? resolveSkillsDisplay({ skills: content.skills, layout: null, paragraph: null }) : skills;
 
   const photoImage = photo ? photoRun(photo, photoAltText(content.fullName, labels)) : null;
   if (content.fullName || photoImage) {
@@ -154,18 +167,27 @@ export function buildTailoredResumeDocx(
     children.push(new Paragraph({ children: [new TextRun({ text: content.summary })] }));
   }
 
-  if (content.skills.length > 0) {
+  if (skillsDisplay) {
     children.push(heading(labels.skills));
-    for (const { category, skills } of groupSkillsByCategory(content.skills, undefined, {
-      collapseUnrecognized: true,
-    })) {
-      const runs = category
-        ? [
-            new TextRun({ text: `${labels.skillCategories[category as SkillCategory]}: `, bold: true }),
-            new TextRun({ text: skills.join(", ") }),
-          ]
-        : [new TextRun({ text: skills.join(", ") })];
-      children.push(new Paragraph({ spacing: { after: 60 }, children: runs }));
+    if (skillsDisplay.layout === "paragraph") {
+      children.push(new Paragraph({ children: [new TextRun({ text: skillsDisplay.paragraph })] }));
+    } else if (skillsDisplay.layout === "columns") {
+      const columnSection = { children: [] as Paragraph[], columns: 3 };
+      for (const skill of skillsDisplay.skills) {
+        columnSection.children.push(new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: `▪  ${skill}` })] }));
+      }
+      sections.push(columnSection, { children: [] });
+      children = sections.at(-1)!.children;
+    } else {
+      for (const { category, skills: names } of skillsDisplay.groups) {
+        const runs = category
+          ? [
+              new TextRun({ text: `${labels.skillCategories[category as SkillCategory]}: `, bold: true }),
+              new TextRun({ text: names.join(", ") }),
+            ]
+          : [new TextRun({ text: names.join(", ") })];
+        children.push(new Paragraph({ spacing: { after: 60 }, children: runs }));
+      }
     }
   }
 
@@ -210,13 +232,26 @@ export function buildTailoredResumeDocx(
     children.push(new Paragraph({ children: [new TextRun({ text: formatSpokenLanguages(content.languages, language, "  ·  ") })] }));
   }
 
-  return new Document({ sections: [{ children }] });
+  return new Document({
+    sections: sections
+      .filter((section, index) => index === 0 || section.children.length > 0)
+      .map((section, index) => ({
+        // The first section starts the document; every later one continues
+        // on the same page.
+        properties: {
+          ...(index > 0 ? { type: SectionType.CONTINUOUS } : {}),
+          ...(section.columns ? { column: { count: section.columns, space: 340, equalWidth: true } } : {}),
+        },
+        children: section.children,
+      })),
+  });
 }
 
 export function renderTailoredResumeDocx(
   content: TailoredResumeContent,
   language: string | null = null,
   photo: DocxPhoto | null = null,
+  skills?: SkillsDisplay | null,
 ): Promise<Buffer> {
-  return Packer.toBuffer(buildTailoredResumeDocx(content, language, photo));
+  return Packer.toBuffer(buildTailoredResumeDocx(content, language, photo, skills));
 }

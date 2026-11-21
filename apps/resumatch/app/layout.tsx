@@ -25,6 +25,8 @@ import "@asafarim/country-language-selector/styles.css";
 import "./resumatch.css";
 import resumatchDictionaries from "../lib/i18n-dictionaries";
 import { getTranslator } from "../lib/i18n-server";
+import { FooterMeta, FooterMetaProvider } from "./components/app/FooterMeta";
+import packageJson from "../package.json";
 
 const appUrl = process.env.NEXT_PUBLIC_RESUMATCH_URL ?? "https://resumatch.asafarim.com";
 const appName = "ResuMatch";
@@ -99,9 +101,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body className="antialiased">
         <I18nProvider initialLocale={initialLocale} dictionaries={resumatchDictionaries}>
           <ThemeProvider defaultTheme="light">
+            <FooterMetaProvider>
             <AppShell
               product="ResuMatch"
               tagline={t("shell.tagline")}
+              footerMeta={<FooterMeta version={packageJson.version} />}
               nav={<TopNav items={navItems} labels={{ navigation: t("shell.navigation"), menu: t("shell.menu") }} />}
               user={
                 <>
@@ -157,6 +161,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             >
               {children}
             </AppShell>
+            </FooterMetaProvider>
           </ThemeProvider>
         </I18nProvider>
       </body>

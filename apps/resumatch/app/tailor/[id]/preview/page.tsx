@@ -14,6 +14,9 @@ import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { cvShowsPhoto, photoSrc } from "../../../../lib/profile/photo";
 import { getProfilePhoto } from "../../../../lib/profile/photoStore";
 import { PhotoToggle } from "./PhotoToggle";
+import { SkillsLayoutPicker } from "./SkillsLayoutPicker";
+import { effectiveSkillsLayout, profileSkillCategories, resolveSkillsDisplay } from "../../../../lib/tailoring/skillsLayout";
+import { FooterDate } from "../../../components/app/FooterMeta";
 import { CoverageReport } from "./CoverageReport";
 import { DocxButton } from "./DocxButton";
 import { PrintButton } from "../../../../components/tailoring/PrintButton";
@@ -63,6 +66,10 @@ export default async function TailoredResumePreviewPage({
       degraded: true,
       outputLanguage: true,
       showPhoto: true,
+      skillsLayout: true,
+      skillsParagraph: true,
+      createdAt: true,
+      profileVersion: { select: { content: true } },
       targetJobId: true,
       targetJob: { select: { rawText: true, title: true, employer: true } },
       // The persisted pairing (see schema's CoverLetter.tailoredResumeId
@@ -96,6 +103,16 @@ export default async function TailoredResumePreviewPage({
     .join(" ");
   const coverage = row.targetJob.rawText ? computeCoverage(content.skills, row.targetJob.rawText, resumeText) : null;
   const quality = computeQuality(content, row.outputLanguage);
+
+  // One resolution for the preview and the printed PDF; the DOCX route
+  // resolves the same way (lib/tailoring/skillsLayout.ts).
+  const skillsInput = {
+    skills: content.skills,
+    layout: row.skillsLayout,
+    paragraph: row.skillsParagraph,
+    categoryOf: profileSkillCategories(row.profileVersion.content),
+  };
+  const skillsDisplay = resolveSkillsDisplay(skillsInput);
 
   const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
 
@@ -145,6 +162,14 @@ export default async function TailoredResumePreviewPage({
 
       <PhotoToggle id={id} hasPhoto={profilePhoto !== null} initialShown={showPhoto} />
 
+      {skillsDisplay ? (
+        <SkillsLayoutPicker
+          id={id}
+          layout={effectiveSkillsLayout(skillsInput)}
+          hasParagraph={Boolean(row.skillsParagraph?.trim())}
+        />
+      ) : null}
+
       {coverage ? <CoverageReport coverage={coverage} /> : null}
       <QualityChecklist quality={quality} />
       </div>
@@ -153,7 +178,10 @@ export default async function TailoredResumePreviewPage({
         content={content}
         language={row.outputLanguage}
         photo={profilePhoto && showPhoto ? { src: photoSrc(profilePhoto.contentHash), shape: profilePhoto.shape } : null}
+        skills={skillsDisplay}
       />
+      {/* The site footer's last line names this CV's date. */}
+      <FooterDate date={row.createdAt.toISOString()} />
     </>
   );
 }

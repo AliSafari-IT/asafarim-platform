@@ -418,6 +418,17 @@ model TailoredResume {
   /// `content`, never seen by a model.
   showPhoto Boolean?
 
+  /// How this CV lays out its skills: "grouped" | "columns" | "paragraph"
+  /// (lib/tailoring/skillsLayout.ts). Null is the automatic choice (grouped
+  /// when the skills fit the categories, else columns). Rendering only.
+  skillsLayout String?
+
+  /// The fact-based skills paragraph for the "paragraph" layout, written on
+  /// request by lib/tailoring/ai/skillsParagraph and checked before it is
+  /// stored: only skills on this CV, no invented numbers or claims. Null
+  /// until the candidate asks for one.
+  skillsParagraph String?
+
   createdAt DateTime @default(now())
 
   applications Application[]
@@ -637,7 +648,7 @@ model AiUsageLedger {
   id          String   @id @default(cuid())
   workspaceId String
   /// One row per provider call — `tailor | extract | rewrite | fetch_job |
-  /// cover_letter | categorize_skills | job_meta`. See lib/tailoring/ai/quota.ts.
+  /// cover_letter | categorize_skills | skills_paragraph | job_meta`. See lib/tailoring/ai/quota.ts.
   kind        String
   provider    String
   model       String
@@ -706,7 +717,7 @@ model AiCostEvent {
   /// Opaque platform user id of the candidate who triggered the call.
   actorId     String?
 
-  /// tailor | extract | rewrite | fetch_job | cover_letter | categorize_skills | job_meta
+  /// tailor | extract | rewrite | fetch_job | cover_letter | categorize_skills | skills_paragraph | job_meta
   operation String
   /// succeeded | degraded | failed | cancelled
   outcome   String @default("succeeded")

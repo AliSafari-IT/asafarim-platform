@@ -126,3 +126,41 @@ describe("renderTailoredResumeDocx", () => {
     });
   });
 });
+
+describe("renderTailoredResumeDocx skills layouts", () => {
+  const skills = ["Node.js", "PostgreSQL", "Docker"];
+
+  it("grouped: one bold category line per group, one column", async () => {
+    const buffer = await renderTailoredResumeDocx(content({ skills }), "en", null, {
+      layout: "grouped",
+      groups: [
+        { category: "Backend & APIs", skills: ["Node.js"] },
+        { category: "Databases", skills: ["PostgreSQL"] },
+      ],
+    });
+    const xml = zipEntry(buffer, "word/document.xml") ?? "";
+    expect(xml).toContain("Backend &amp; APIs: ");
+    expect(xml).toContain("Databases: ");
+    expect(xml).not.toContain('w:num="3"');
+  });
+
+  it("columns: the skills sit in their own continuous three-column section", async () => {
+    const buffer = await renderTailoredResumeDocx(content({ skills }), "en", null, { layout: "columns", skills });
+    const xml = zipEntry(buffer, "word/document.xml") ?? "";
+    expect(xml).toMatch(/<w:cols[^>]*w:num="3"/);
+    expect(xml).toContain('w:val="continuous"');
+    // Experience still comes after the skills, back in one column.
+    expect(xml.indexOf("PostgreSQL")).toBeLessThan(xml.indexOf("Senior Engineer"));
+    expect((xml.match(/<w:sectPr/g) ?? []).length).toBe(3);
+  });
+
+  it("paragraph: the checked paragraph, no list", async () => {
+    const buffer = await renderTailoredResumeDocx(content({ skills }), "en", null, {
+      layout: "paragraph",
+      paragraph: "Back-end services with Node.js and PostgreSQL.",
+    });
+    const xml = zipEntry(buffer, "word/document.xml") ?? "";
+    expect(xml).toContain("Back-end services with Node.js and PostgreSQL.");
+    expect(xml).not.toContain("Docker");
+  });
+});

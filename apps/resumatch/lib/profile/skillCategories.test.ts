@@ -128,8 +128,25 @@ describe("groupSkillsByCategory", () => {
       "Excel",
       "C#",
       "Project management",
+      "LLM API integration",
     ];
     for (const skill of sample) reachable.delete(categorizeSkill(skill));
     expect([...reachable]).toEqual([]);
+  });
+
+  it("places common IT CV skills that used to fall back to Other", () => {
+    expect(categorizeSkill("LLM API integration")).toBe("AI & Machine Learning");
+    expect(categorizeSkill("RAG-based workflows")).toBe("AI & Machine Learning");
+    expect(categorizeSkill("AI-powered automation")).toBe("AI & Machine Learning");
+    expect(categorizeSkill("HTML")).toBe("Frontend Development");
+    expect(categorizeSkill("Storage tiering")).toBe("Other"); // no "rag" inside a word
+    expect(categorizeSkill("GitHub Actions")).toBe("Cloud & DevOps");
+    expect(categorizeSkill("CI")).toBe("Cloud & DevOps");
+    expect(categorizeSkill("accessibility (WCAG)")).toBe("Frontend Development");
+    expect(categorizeSkill("integration testing")).toBe("Testing & QA");
+    expect(categorizeSkill("domain-driven design principles")).toBe("Backend & APIs");
+    expect(categorizeSkill("statistical analysis")).toBe("Data & Analytics");
+    expect(categorizeSkill("code reviews")).toBe("Project & Process");
+    expect(categorizeSkill("npm package publishing")).toBe("Tools & IDEs");
   });
 });
