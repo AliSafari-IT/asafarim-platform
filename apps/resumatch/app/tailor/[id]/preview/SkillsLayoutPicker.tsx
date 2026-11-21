@@ -93,7 +93,7 @@ export function SkillsLayoutPicker({
       {value === "paragraph" && hasParagraph ? (
         <button
           type="button"
-          className="ui-btn ui-btn--ghost ui-btn--sm"
+          className="ui-btn ui-btn--ghost"
           disabled={busy}
           onClick={() => void rewrite()}
           data-testid="cv-skills-rewrite"
