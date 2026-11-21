@@ -15,6 +15,7 @@ import { cvShowsPhoto, photoSrc } from "../../../../lib/profile/photo";
 import { getProfilePhoto } from "../../../../lib/profile/photoStore";
 import { PhotoToggle } from "./PhotoToggle";
 import { SkillsLayoutPicker } from "./SkillsLayoutPicker";
+import { SkillsPendingProvider } from "../../../../components/tailoring/SkillsPending";
 import { effectiveSkillsLayout, profileSkillCategories, resolveSkillsDisplay } from "../../../../lib/tailoring/skillsLayout";
 import { FooterDate } from "../../../components/app/FooterMeta";
 import { CoverageReport } from "./CoverageReport";
@@ -117,7 +118,9 @@ export default async function TailoredResumePreviewPage({
   const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
 
   return (
-    <>
+    // The provider links the skills picker, the CV's Skills section and the
+    // download buttons while a skills paragraph is being written.
+    <SkillsPendingProvider>
       {/* Everything outside the CV <article> is screen-only: the print/PDF
           output is the CV alone (app/resumatch.css, @media print). */}
       <div className="rm-screen-only">
@@ -199,6 +202,6 @@ export default async function TailoredResumePreviewPage({
       />
       {/* The site footer's last line names this CV's date. */}
       <FooterDate date={row.createdAt.toISOString()} />
-    </>
+    </SkillsPendingProvider>
   );
 }
