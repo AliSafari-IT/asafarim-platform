@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-21",
+    "title": "Resumatch: show clearly that the skills paragraph is being written",
+    "sha": "06bf86ae",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/06bf86ae"
+  },
+  {
+    "date": "2026-11-21",
     "title": "Resumatch: choose the CV skills layout, and name the app and CV date in the footer",
     "sha": "47457f39",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/47457f39"
@@ -112,11 +118,5 @@
     "title": "Resumatch: report profile versions extracted by stale extractor code",
     "sha": "583f399a",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/583f399a"
-  },
-  {
-    "date": "2026-10-17",
-    "title": "Resumatch: tiered job fetch, deterministic first, AI only when it fails",
-    "sha": "5bd3e02b",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5bd3e02b"
   }
 ]
