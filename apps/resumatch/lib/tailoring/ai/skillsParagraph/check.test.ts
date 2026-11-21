@@ -64,4 +64,13 @@ describe("checkSkillsParagraph", () => {
     expect(checkSkillsParagraph("Other: Expert Systems.", expert).paragraph).toBe("Other: Expert Systems.");
     expect(checkSkillsParagraph("Expert in Expert Systems.", expert).paragraph).toBeNull();
   });
+
+  it("accepts numbers only inside a listed name, and rejects selling words", () => {
+    const win = { ...base, skills: ["Windows 11", "Advanced Excel", "testing"], categoryLabels: [] };
+    expect(checkSkillsParagraph("Desktop work on Windows 11.", win).paragraph).toBe("Desktop work on Windows 11.");
+    expect(checkSkillsParagraph("Delivered 11 projects.", win).paragraph).toBeNull();
+    expect(checkSkillsParagraph("Advanced Excel.", win).paragraph).toBe("Advanced Excel.");
+    expect(checkSkillsParagraph("Skills include excellent testing.", win).paragraph).toBeNull();
+    expect(checkSkillsParagraph("Skills include testing.", win).paragraph).toBe("Skills include testing.");
+  });
 });

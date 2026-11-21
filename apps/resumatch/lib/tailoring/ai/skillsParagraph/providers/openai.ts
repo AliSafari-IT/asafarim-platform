@@ -32,7 +32,9 @@ export class OpenAiSkillsParagraphProvider implements SkillsParagraphProvider {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new SkillsParagraphProviderError("OPENAI_API_KEY is not set", false);
 
-    const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+    let response: Response;
+    try {
+      response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -46,7 +48,13 @@ export class OpenAiSkillsParagraphProvider implements SkillsParagraphProvider {
         ],
       }),
       signal: call.signal,
-    });
+      });
+    } catch (err) {
+      // A cancelled call stays cancelled; a network failure is worth a
+      // retry and the fallback provider.
+      if (err instanceof Error && err.name === "AbortError") throw err;
+      throw new SkillsParagraphProviderError(`OpenAI skills paragraph call failed: ${String(err)}`, true);
+    }
 
     if (!response.ok) {
       const retryable = response.status === 429 || response.status >= 500;

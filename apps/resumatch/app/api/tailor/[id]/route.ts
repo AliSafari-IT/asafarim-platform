@@ -23,15 +23,23 @@ export async function PATCH(
   if (!workspace)
     return NextResponse.json({ error: "Not authorized" }, { status: 401 });
 
-  let body: { showPhoto?: unknown; skillsLayout?: unknown };
+  let parsed: unknown;
   try {
-    body = ((await request.json()) ?? {}) as typeof body;
+    parsed = await request.json();
   } catch {
     return NextResponse.json(
       { error: "Invalid request body." },
       { status: 400 }
     );
   }
+  // A JSON primitive or array parses fine but has no fields to read.
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return NextResponse.json(
+      { error: "Invalid request body." },
+      { status: 400 }
+    );
+  }
+  const body = parsed as { showPhoto?: unknown; skillsLayout?: unknown };
   const data: { showPhoto?: boolean | null; skillsLayout?: SkillsLayout | null } = {};
   if ("showPhoto" in body) {
     const { showPhoto } = body;

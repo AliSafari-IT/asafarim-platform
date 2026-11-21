@@ -42,8 +42,9 @@ export function SkillsLayoutPicker({
       setStatus({ kind: "error", code: body?.code ?? "failed" });
       return false;
     }
-    const body = (await response.json()) as { removedSentences?: number };
-    setStatus(body.removedSentences ? { kind: "removed", count: body.removedSentences } : { kind: "idle" });
+    // The body only carries feedback; a failed read still means it saved.
+    const body = (await response.json().catch(() => null)) as { removedSentences?: number } | null;
+    setStatus(body?.removedSentences ? { kind: "removed", count: body.removedSentences } : { kind: "idle" });
     return true;
   }
 

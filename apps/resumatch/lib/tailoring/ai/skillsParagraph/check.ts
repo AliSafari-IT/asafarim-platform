@@ -34,8 +34,20 @@ import { MAX_SKILLS_PARAGRAPH_LENGTH } from "./prompts";
  * caught anywhere.
  */
 
-const RATING =
-  /\b(?:expert\w*|senior|seniority|advanced|years?|decades?|jaren|jaar|ervaren|ans|années|expérimenté\w*|jahre\w*|jahrzehnt\w*|erfahren\w*|langjährig\w*)\b/i;
+/** Ratings and selling words the prompt forbids, in EN/NL/FR/DE. Checked
+ *  outside listed skill names only. */
+const RATING = new RegExp(
+  "(?<![\\p{L}\\p{N}])(?:" +
+    [
+      "expert\\p{L}*", "senior", "seniority", "advanced", "years?", "decades?", "excellent", "outstanding",
+      "exceptional", "passionate", "world-class", "highly skilled", "proficient", "mastery",
+      "jaren", "jaar", "ervaren", "uitstekend\\p{L}*", "gepassioneerd\\p{L}*", "deskundig\\p{L}*",
+      "ans", "années", "expérimenté\\p{L}*", "excellente?s?", "passionnée?s?", "chevronnée?s?",
+      "jahre\\p{L}*", "jahrzehnt\\p{L}*", "erfahren\\p{L}*", "langjährig\\p{L}*", "hervorragend\\p{L}*", "leidenschaftlich\\p{L}*",
+    ].join("|") +
+    ")(?![\\p{L}\\p{N}])",
+  "iu",
+);
 
 export interface SkillsParagraphCheckResult {
   /** null when nothing is left to show. */
@@ -73,13 +85,13 @@ function evidenceWords(sources: string[]): Set<string> {
 function hasUnlistedName(sentence: string, evidence: Set<string>, language: OutputLanguage): boolean {
   for (const { word, index } of words(sentence)) {
     if (!word) continue;
-    const isNumber = /^\p{N}/u.test(word) || /\d/.test(word);
+    // Listed skill names were taken out of `sentence` already, so any
+    // number still here is outside a skill name: never backed ("Windows 11"
+    // doesn't back "11 projects").
+    if (/\p{N}/u.test(word)) return true;
     const shaped = DISTINCTIVE_SHAPE.test(word);
     const capitalized = /^\p{Lu}/u.test(word);
-    const notable =
-      isNumber ||
-      shaped ||
-      (language !== "de" && capitalized && !SENTENCE_START.test(sentence.slice(0, index)));
+    const notable = shaped || (language !== "de" && capitalized && !SENTENCE_START.test(sentence.slice(0, index)));
     if (notable && !evidence.has(word.toLowerCase())) return true;
   }
   return false;
@@ -120,8 +132,10 @@ export function checkSkillsParagraph(
   let removedSentences = 0;
   for (const sentence of splitSentences(cleaned)) {
     const why: string[] = [];
-    if (hasUnlistedName(sentence, evidence, language)) why.push("unlisted_name");
-    const withoutSkills = skillSpans.reduce((rest, span) => rest.replace(span, " "), sentence);
+    // Listed names are checked as whole spans: what's left is what the
+    // model added around them.
+    const withoutSkills = skillSpans.reduce((rest, span) => rest.replace(span, "skill"), sentence);
+    if (hasUnlistedName(withoutSkills, evidence, language)) why.push("unlisted_name");
     if (RATING.test(withoutSkills)) why.push("rating");
     why.push(...unbackedClaims(sentence, claims));
     if (why.length > 0) {
