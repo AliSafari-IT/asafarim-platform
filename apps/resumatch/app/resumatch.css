@@ -702,12 +702,40 @@
 
 .rm-preview-toolbar {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  max-width: 48rem;
+  margin: 0 auto 1rem;
+}
+.rm-preview-toolbar__group {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
-  max-width: 48rem;
-  margin: 0 auto 1rem;
+}
+/* A button and the pill that belongs to it stay together. */
+.rm-preview-toolbar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+/* On a phone every button takes a full, even share of its row. */
+@media (max-width: 40rem) {
+  .rm-preview-toolbar {
+    align-items: stretch;
+  }
+  .rm-preview-toolbar__group {
+    justify-content: stretch;
+  }
+  .rm-preview-toolbar__group > .ui-btn,
+  .rm-preview-toolbar__item {
+    flex: 1 1 12rem;
+  }
+  .rm-preview-toolbar__item > .ui-btn {
+    flex: 1 1 auto;
+  }
 }
 /* "Show photo on this CV" switch in the preview toolbar. */
 .rm-photo-toggle {
@@ -744,7 +772,8 @@
 }
 .rm-skills-layout__select {
   min-width: 15rem;
-  padding: 0.4rem 2rem 0.4rem 0.65rem;
+  /* Same height as the regular-size "Rewrite paragraph" button beside it. */
+  padding: 0.5rem 2rem 0.5rem 0.65rem;
   border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
   border-radius: 0.5rem;
   background-color: var(--surface, #fff);
@@ -752,6 +781,21 @@
   font: inherit;
   font-size: 0.85rem;
   font-weight: 400;
+}
+/* On a phone the label sits above a full-width select, and "Rewrite
+   paragraph" gets the same full-width row as the toolbar buttons. */
+@media (max-width: 40rem) {
+  .rm-skills-layout__label {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+  .rm-skills-layout__select {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .rm-skills-layout > .ui-btn {
+    flex: 1 1 100%;
+  }
 }
 
 .rm-preview-toolbar__hint {

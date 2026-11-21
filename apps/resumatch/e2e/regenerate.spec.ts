@@ -80,7 +80,15 @@ async function seed() {
   await prisma.tailoredResume.create({
     data: { ...common, id: CV_ID, outputLanguage: "nl", instructions: "Lead with my testing work" },
   });
-  await prisma.tailoredResume.create({ data: { ...common, id: CV_WITH_LETTER_ID, outputLanguage: "en" } });
+  await prisma.tailoredResume.create({
+    data: {
+      ...common,
+      id: CV_WITH_LETTER_ID,
+      outputLanguage: "en",
+      skillsLayout: "paragraph",
+      skillsParagraph: "Builds React and TypeScript applications.",
+    },
+  });
   await prisma.coverLetter.create({
     data: {
       id: LETTER_ID,
@@ -159,6 +167,19 @@ test("a cover letter reopens its job with the letter ticked and its own language
   // CV language, then the letter's tone, length and language.
   await expect(flow.locator("select").first()).toHaveValue("en");
   await expect(flow.locator("select").last()).toHaveValue("fr");
+});
+
+test("the CV's next-step links are the same size as its download buttons", async ({ page }) => {
+  await page.goto(`/tailor/${CV_WITH_LETTER_ID}/preview`);
+  const toolbar = page.locator(".rm-preview-toolbar");
+  const height = async (name: string) => (await toolbar.getByRole(name === "Download PDF" ? "button" : "link", { name }).boundingBox())?.height;
+  const pdf = await height("Download PDF");
+  expect(pdf).toBeGreaterThan(0);
+  expect(await height("View cover letter")).toBe(pdf);
+  expect(await height("Edit and regenerate")).toBe(pdf);
+  // The skills "Rewrite paragraph" button uses the same size too.
+  const rewrite = await page.getByTestId("cv-skills-rewrite").boundingBox();
+  expect(rewrite?.height).toBe(pdf);
 });
 
 test("an unknown id opens the normal empty flow", async ({ page }) => {
