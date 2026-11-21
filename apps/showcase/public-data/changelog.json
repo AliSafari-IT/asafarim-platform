@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-11-21",
+    "title": "Resumatch: use the account photo as the CV photo",
+    "sha": "7673f42c",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/7673f42c"
+  },
+  {
     "date": "2026-11-20",
     "title": "Resumatch: optional, professional CV photo",
     "sha": "bc41203b",
@@ -112,11 +118,5 @@
     "title": "Resumatch: ground cover-letter prose against the profile and job text",
     "sha": "9071f15a",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9071f15a"
-  },
-  {
-    "date": "2026-10-13",
-    "title": "Edge: read-only edge cutover check script (#839)",
-    "sha": "082908a4",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/082908a4"
   }
 ]
