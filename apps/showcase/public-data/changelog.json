@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-21",
+    "title": "Resumatch: send an application by email, with an immutable sent history (0.3.0)",
+    "sha": "909ce9d3",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/909ce9d3"
+  },
+  {
+    "date": "2026-11-21",
     "title": "Resumatch: show clearly that the skills paragraph is being written",
     "sha": "06bf86ae",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/06bf86ae"
@@ -112,11 +118,5 @@
     "title": "Resumatch: read JobPosting JSON-LD before the page text strip",
     "sha": "55e4b44a",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/55e4b44a"
-  },
-  {
-    "date": "2026-10-17",
-    "title": "Resumatch: report profile versions extracted by stale extractor code",
-    "sha": "583f399a",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/583f399a"
   }
 ]
