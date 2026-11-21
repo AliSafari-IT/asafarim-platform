@@ -862,10 +862,14 @@
 .rm-resume__section--skills {
   position: relative;
 }
-.rm-resume__section--skills[aria-busy="true"] > :not(.rm-skills-pending, h2) {
-  opacity: 0.35;
-  filter: blur(0.6px);
-  transition: opacity 0.2s ease;
+/* Screen only: a browser print (Ctrl+P) during the wait prints the
+   current skills at full strength. */
+@media screen {
+  .rm-resume__section--skills[aria-busy="true"] > :not(.rm-skills-pending, h2) {
+    opacity: 0.35;
+    filter: blur(0.6px);
+    transition: opacity 0.2s ease;
+  }
 }
 .rm-skills-pending {
   position: absolute;

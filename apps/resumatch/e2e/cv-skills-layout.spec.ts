@@ -83,7 +83,10 @@ test("while the paragraph is written, the wait is shown and downloads are paused
   // The overlay is never printed.
   await page.emulateMedia({ media: "print" });
   await expect(cv.getByTestId("cv-skills-pending")).toBeHidden();
+  await expect(cv.locator('[data-skills-layout="grouped"]')).toHaveCSS("opacity", "1");
+  await expect(cv.locator('[data-skills-layout="grouped"]')).toHaveCSS("filter", "none");
   await page.emulateMedia({ media: "screen" });
+  await expect(cv.locator('[data-skills-layout="grouped"]')).toHaveCSS("opacity", "0.35");
 
   release();
   await expect(cv.locator('[data-skills-layout="paragraph"]')).toBeVisible();
