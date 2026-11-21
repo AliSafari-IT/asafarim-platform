@@ -1,5 +1,13 @@
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, seedTailoredResume, test } from "./fixtures";
+import {
+  E2E_PLATFORM_USER_ID,
+  expect,
+  seedTailoredResume,
+  signInWithPicture,
+  test,
+} from "./fixtures";
 
 /**
  * Optional CV photo: add it on the profile (cropped in the browser), see it
@@ -156,4 +164,78 @@ test("deleting all data removes the photo and empties the card without a reload"
   await expect(card.getByText("No photo yet.")).toBeVisible();
   await expect(card.getByTestId("profile-photo")).toHaveCount(0);
   expect((await page.request.get("/api/profile/photo")).status()).toBe(404);
+});
+
+test("use the account photo as the CV photo, cropped like an upload", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  // No account photo on the session: no button.
+  await page.goto("/profile");
+  const card = page.locator("#cv-photo");
+  await expect(card.getByText("No photo yet.")).toBeVisible();
+  await expect(card.getByTestId("photo-use-avatar")).toHaveCount(0);
+
+  // An avatar uploaded in Hub, as Hub's local storage would hold it
+  // (the app runs `next dev` from this folder, in local storage mode).
+  const key = `hub/avatars/${E2E_PLATFORM_USER_ID.slice(0, 8)}/4f9c1d2e-8a7b-4c3d-9e0f-112233445566.jpg`;
+  const dir =
+    process.env.STORAGE_LOCAL_DIR ?? join(process.cwd(), ".local-storage", "objects");
+  const file = join(dir, key.replace(/[^a-zA-Z0-9._-]/g, "_"));
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(file, readFileSync(SOURCE));
+  writeFileSync(`${file}.json`, JSON.stringify({ contentType: "image/jpeg" }));
+  try {
+    // Someone else's avatar is never offered.
+    await signInWithPicture(
+      context,
+      baseURL,
+      `/api/storage/local?key=${encodeURIComponent("hub/avatars/someone1/x.jpg")}`
+    );
+    await page.reload();
+    await expect(card.getByTestId("photo-use-avatar")).toHaveCount(0);
+    expect(
+      (await page.request.get("/api/profile/photo/account-avatar")).status()
+    ).toBe(404);
+
+    await signInWithPicture(
+      context,
+      baseURL,
+      `/api/storage/local?key=${encodeURIComponent(key)}`
+    );
+    await page.reload();
+    const raw = await page.request.get("/api/profile/photo/account-avatar");
+    expect(raw.status()).toBe(200);
+    expect(raw.headers()["content-type"]).toBe("image/jpeg");
+    expect(raw.headers()["cache-control"]).toContain("no-store");
+
+    await card.getByRole("button", { name: "Use my account photo" }).click();
+    await expect(card.getByTestId("photo-crop-stage")).toBeVisible();
+    await card.getByRole("button", { name: "Save photo" }).click();
+    await expect(card.getByText("Photo saved.")).toBeVisible();
+    await expect(card.getByTestId("profile-photo")).toBeVisible();
+
+    // Stored exactly like an upload: a 600 × 600 JPEG without the EXIF.
+    const stored = await page.request.get("/api/profile/photo");
+    expect(stored.status()).toBe(200);
+    const bytes = await stored.body();
+    expect(bytes.toString("latin1")).not.toContain("TestCam");
+
+    await page.goto(`/tailor/${CV_ID}/preview`);
+    const photo = page
+      .getByTestId("cv")
+      .filter({ visible: true })
+      .getByRole("img", { name: "Photo of Jordan Example" });
+    await expect
+      .poll(() =>
+        photo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)
+      )
+      .toBe(600);
+    const docx = await page.request.get(`/api/tailor/${CV_ID}/docx`);
+    expect((await docx.body()).toString("latin1")).toContain("word/media/");
+  } finally {
+    rmSync(file, { force: true });
+    rmSync(`${file}.json`, { force: true });
+  }
 });

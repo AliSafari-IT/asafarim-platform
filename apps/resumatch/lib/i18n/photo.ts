@@ -30,6 +30,19 @@ export const photoDictionaries: Dictionaries = {
     "resumatch.photo.add": "Add a photo",
     "resumatch.photo.replace": "Replace photo",
     "resumatch.photo.remove": "Remove photo",
+    "resumatch.photo.avatar.use": "Use my account photo",
+    "resumatch.photo.avatar.error.NO_AVATAR":
+      "Your account has no photo this app can use. Add one in your account settings, or upload a photo here.",
+    "resumatch.photo.avatar.error.NOT_FOUND":
+      "Your account photo could not be found. Upload a photo here instead.",
+    "resumatch.photo.avatar.error.UNSUPPORTED":
+      "Your account photo is not a JPEG, PNG or WebP image. Upload a photo here instead.",
+    "resumatch.photo.avatar.error.TOO_LARGE":
+      "Your account photo is too large to open. Upload a photo here instead.",
+    "resumatch.photo.avatar.error.tooSmall":
+      "Your account photo is too small for a sharp CV photo (under 200 pixels). Upload a larger photo here instead.",
+    "resumatch.photo.avatar.error.generic":
+      "Your account photo could not be loaded. Please try again, or upload a photo here.",
     "resumatch.photo.saved": "Photo saved.",
     "resumatch.photo.removed": "Photo removed. Your CVs no longer show it.",
     "resumatch.photo.dialog.title": "Remove your CV photo?",
@@ -77,6 +90,19 @@ export const photoDictionaries: Dictionaries = {
     "resumatch.photo.add": "Foto toevoegen",
     "resumatch.photo.replace": "Foto vervangen",
     "resumatch.photo.remove": "Foto verwijderen",
+    "resumatch.photo.avatar.use": "Mijn accountfoto gebruiken",
+    "resumatch.photo.avatar.error.NO_AVATAR":
+      "Je account heeft geen foto die deze app kan gebruiken. Voeg er een toe in je accountinstellingen, of upload hier een foto.",
+    "resumatch.photo.avatar.error.NOT_FOUND":
+      "Je accountfoto is niet gevonden. Upload hier een foto.",
+    "resumatch.photo.avatar.error.UNSUPPORTED":
+      "Je accountfoto is geen JPEG-, PNG- of WebP-afbeelding. Upload hier een foto.",
+    "resumatch.photo.avatar.error.TOO_LARGE":
+      "Je accountfoto is te groot om te openen. Upload hier een foto.",
+    "resumatch.photo.avatar.error.tooSmall":
+      "Je accountfoto is te klein voor een scherpe cv-foto (minder dan 200 pixels). Upload hier een grotere foto.",
+    "resumatch.photo.avatar.error.generic":
+      "Je accountfoto kon niet worden geladen. Probeer het opnieuw, of upload hier een foto.",
     "resumatch.photo.saved": "Foto bewaard.",
     "resumatch.photo.removed": "Foto verwijderd. Je cv's tonen hem niet meer.",
     "resumatch.photo.dialog.title": "Je cv-foto verwijderen?",
@@ -124,6 +150,19 @@ export const photoDictionaries: Dictionaries = {
     "resumatch.photo.add": "Ajouter une photo",
     "resumatch.photo.replace": "Remplacer la photo",
     "resumatch.photo.remove": "Supprimer la photo",
+    "resumatch.photo.avatar.use": "Utiliser la photo de mon compte",
+    "resumatch.photo.avatar.error.NO_AVATAR":
+      "Votre compte n’a pas de photo utilisable ici. Ajoutez-en une dans les paramètres de votre compte, ou importez une photo ici.",
+    "resumatch.photo.avatar.error.NOT_FOUND":
+      "La photo de votre compte est introuvable. Importez plutôt une photo ici.",
+    "resumatch.photo.avatar.error.UNSUPPORTED":
+      "La photo de votre compte n’est pas une image JPEG, PNG ou WebP. Importez plutôt une photo ici.",
+    "resumatch.photo.avatar.error.TOO_LARGE":
+      "La photo de votre compte est trop lourde pour être ouverte. Importez plutôt une photo ici.",
+    "resumatch.photo.avatar.error.tooSmall":
+      "La photo de votre compte est trop petite pour une photo de CV nette (moins de 200 pixels). Importez une photo plus grande ici.",
+    "resumatch.photo.avatar.error.generic":
+      "La photo de votre compte n’a pas pu être chargée. Réessayez, ou importez une photo ici.",
     "resumatch.photo.saved": "Photo enregistrée.",
     "resumatch.photo.removed": "Photo supprimée. Vos CV ne l’affichent plus.",
     "resumatch.photo.dialog.title": "Supprimer votre photo de CV ?",
@@ -171,6 +210,19 @@ export const photoDictionaries: Dictionaries = {
     "resumatch.photo.add": "Foto hinzufügen",
     "resumatch.photo.replace": "Foto ersetzen",
     "resumatch.photo.remove": "Foto entfernen",
+    "resumatch.photo.avatar.use": "Mein Kontofoto verwenden",
+    "resumatch.photo.avatar.error.NO_AVATAR":
+      "Ihr Konto hat kein Foto, das diese App verwenden kann. Fügen Sie eines in Ihren Kontoeinstellungen hinzu oder laden Sie hier ein Foto hoch.",
+    "resumatch.photo.avatar.error.NOT_FOUND":
+      "Ihr Kontofoto wurde nicht gefunden. Laden Sie stattdessen hier ein Foto hoch.",
+    "resumatch.photo.avatar.error.UNSUPPORTED":
+      "Ihr Kontofoto ist kein JPEG-, PNG- oder WebP-Bild. Laden Sie stattdessen hier ein Foto hoch.",
+    "resumatch.photo.avatar.error.TOO_LARGE":
+      "Ihr Kontofoto ist zu groß zum Öffnen. Laden Sie stattdessen hier ein Foto hoch.",
+    "resumatch.photo.avatar.error.tooSmall":
+      "Ihr Kontofoto ist zu klein für ein scharfes Bewerbungsfoto (unter 200 Pixel). Laden Sie hier ein größeres Foto hoch.",
+    "resumatch.photo.avatar.error.generic":
+      "Ihr Kontofoto konnte nicht geladen werden. Versuchen Sie es erneut oder laden Sie hier ein Foto hoch.",
     "resumatch.photo.saved": "Foto gespeichert.",
     "resumatch.photo.removed": "Foto entfernt. Ihre Lebensläufe zeigen es nicht mehr.",
     "resumatch.photo.dialog.title": "Lebenslauf-Foto entfernen?",
