@@ -75,6 +75,9 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
         promptVersion: "tailor_resume@2",
         modelVersion: "fixture-tailor-1",
         degraded: false,
+        // A saved paragraph that is not the active layout is still exported.
+        skillsLayout: "grouped",
+        skillsParagraph: "Front-end work with TypeScript.",
       },
     });
 
@@ -83,7 +86,12 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
     expect(exported!.targetJobs).toHaveLength(1);
     expect(exported!.targetJobs[0]).toMatchObject({ sourceUrl: "https://example.test/jobs/1", title: "Backend Engineer" });
     expect(exported!.tailoredResumes).toHaveLength(1);
-    expect(exported!.tailoredResumes[0]).toMatchObject({ targetJobId: targetJob.id, templateKey: "classic" });
+    expect(exported!.tailoredResumes[0]).toMatchObject({
+      targetJobId: targetJob.id,
+      templateKey: "classic",
+      skillsLayout: "grouped",
+      skillsParagraph: "Front-end work with TypeScript.",
+    });
 
     const erasure = await eraseWorkspaceData(workspaceId);
     expect(erasure.targetJobsDeleted).toBe(1);

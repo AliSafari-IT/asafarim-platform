@@ -76,6 +76,10 @@ export interface DataExport {
     templateKey: string;
     degraded: boolean;
     showPhoto: boolean | null;
+    /** The chosen skills layout (null = automatic). */
+    skillsLayout: string | null;
+    /** The written skills paragraph, kept even when another layout is active. */
+    skillsParagraph: string | null;
     createdAt: string;
     content: unknown;
   }[];
@@ -184,6 +188,8 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       templateKey: resume.templateKey,
       degraded: resume.degraded,
       showPhoto: resume.showPhoto,
+      skillsLayout: resume.skillsLayout,
+      skillsParagraph: resume.skillsParagraph,
       createdAt: resume.createdAt.toISOString(),
       // Re-parsed for the same reason profile version content is: the
       // export is a statement about what is held, not a shape a stale

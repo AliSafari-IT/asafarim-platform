@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../../lib/db/client";
 import { parseTailoredResumeContent } from "../../../../../lib/tailoring/ai/schema";
 import { renderTailoredResumeDocx } from "../../../../../lib/tailoring/docx";
+import { profileSkillCategories, resolveSkillsDisplay } from "../../../../../lib/tailoring/skillsLayout";
 import { getCurrentWorkspace } from "../../../../../lib/workspace";
 import { cvShowsPhoto } from "../../../../../lib/profile/photo";
 import { getProfilePhoto, readProfilePhotoBytes } from "../../../../../lib/profile/photoStore";
@@ -23,7 +24,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // candidate's tailored resume.
   const row = await db.tailoredResume.findFirst({
     where: { id, workspaceId: workspace.id },
-    select: { content: true, outputLanguage: true, showPhoto: true },
+    select: {
+      content: true,
+      outputLanguage: true,
+      showPhoto: true,
+      skillsLayout: true,
+      skillsParagraph: true,
+      profileVersion: { select: { content: true } },
+    },
   });
   if (!row) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
@@ -33,10 +41,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // than failing the download.
   const profilePhoto = await getProfilePhoto(workspace.id);
   const photoBytes = cvShowsPhoto(profilePhoto, row.showPhoto) ? await readProfilePhotoBytes(workspace.id) : null;
+  // The same skills layout the preview shows (lib/tailoring/skillsLayout.ts).
+  const skills = resolveSkillsDisplay({
+    skills: content.skills,
+    layout: row.skillsLayout,
+    paragraph: row.skillsParagraph,
+    categoryOf: profileSkillCategories(row.profileVersion.content),
+  });
   const buffer = await renderTailoredResumeDocx(
     content,
     row.outputLanguage,
     profilePhoto && photoBytes ? { data: photoBytes, shape: profilePhoto.shape } : null,
+    skills,
   );
   const filename = (content.fullName ?? "resume").trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "resume";
 

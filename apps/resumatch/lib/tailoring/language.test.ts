@@ -184,6 +184,57 @@ describe("ClassicTemplate in another language", () => {
   });
 });
 
+describe("ClassicTemplate skills layouts", () => {
+  const base = {
+    fullName: "Ada Lovelace",
+    headline: null,
+    summary: null,
+    email: null,
+    phone: null,
+    skills: ["TypeScript", "PostgreSQL", "Wound care"],
+    experience: [],
+    education: [],
+    certifications: [],
+    location: null,
+    links: [],
+    languages: [],
+  } as unknown as TailoredResumeContent;
+
+  it("grouped renders category rows", () => {
+    const html = renderToStaticMarkup(
+      createElement(ClassicTemplate, {
+        content: base,
+        skills: { layout: "grouped", groups: [{ category: "Databases", skills: ["PostgreSQL"] }] },
+      }),
+    );
+    expect(html).toContain('data-skills-layout="grouped"');
+    expect(html).toContain('<dt class="rm-resume__skill-category">Databases</dt>');
+  });
+
+  it("columns renders a list item per skill", () => {
+    const html = renderToStaticMarkup(
+      createElement(ClassicTemplate, { content: base, skills: { layout: "columns", skills: base.skills } }),
+    );
+    expect(html).toContain('data-skills-layout="columns"');
+    expect(html.match(/<li>/g)?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("paragraph renders the paragraph text", () => {
+    const html = renderToStaticMarkup(
+      createElement(ClassicTemplate, {
+        content: base,
+        skills: { layout: "paragraph", paragraph: "Data work with PostgreSQL." },
+      }),
+    );
+    expect(html).toContain('<p class="rm-resume__skills-paragraph" data-skills-layout="paragraph">Data work with PostgreSQL.</p>');
+  });
+
+  it("no skills section when the display is null", () => {
+    const html = renderToStaticMarkup(createElement(ClassicTemplate, { content: base, skills: null }));
+    expect(html).not.toContain("rm-resume__skill");
+  });
+});
+
 describe("telHref", () => {
   it("links a plain number and leaves extensions or notes as text", () => {
     expect(telHref("+32 470 00 00 00")).toBe("tel:+32470000000");
