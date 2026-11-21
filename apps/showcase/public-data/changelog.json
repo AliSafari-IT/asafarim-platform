@@ -1,0 +1,122 @@
+[
+  {
+    "date": "2026-11-20",
+    "title": "Resumatch: optional, professional CV photo",
+    "sha": "bc41203b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/bc41203b"
+  },
+  {
+    "date": "2026-11-20",
+    "title": "Resumatch: CV PDF without page chrome; contact & links on the profile",
+    "sha": "1b4a0d25",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1b4a0d25"
+  },
+  {
+    "date": "2026-11-20",
+    "title": "Resumatch: warn before tailoring a CV to an off-scope job",
+    "sha": "0183ac30",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/0183ac30"
+  },
+  {
+    "date": "2026-11-19",
+    "title": "Resumatch: search, filter and page the application tracker (#897)",
+    "sha": "f1a06f5f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/f1a06f5f"
+  },
+  {
+    "date": "2026-11-19",
+    "title": "Resumatch: edit follow-up dates and show overdue/today/upcoming (#896)",
+    "sha": "5d271bf1",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5d271bf1"
+  },
+  {
+    "date": "2026-10-31",
+    "title": "Igs: send health check alerts to Telegram as well as Discord",
+    "sha": "6862ab5f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/6862ab5f"
+  },
+  {
+    "date": "2026-10-26",
+    "title": "UI: group the app switcher and add ASafariM OS and Android apps",
+    "sha": "1aaa5fee",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1aaa5fee"
+  },
+  {
+    "date": "2026-10-18",
+    "title": "EduMatch: AI kill switch, monthly budget and per-student quota (#539)",
+    "sha": "52014deb",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/52014deb"
+  },
+  {
+    "date": "2026-10-18",
+    "title": "EduMatch: AI cost ledger for every paid provider call (#540)",
+    "sha": "cbdf1fe0",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/cbdf1fe0"
+  },
+  {
+    "date": "2026-10-18",
+    "title": "EduMatch: redact PII and secrets before student text reaches AI providers",
+    "sha": "35883200",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/35883200"
+  },
+  {
+    "date": "2026-10-18",
+    "title": "Resumatch: per-workspace AI monthly budget override",
+    "sha": "082c292f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/082c292f"
+  },
+  {
+    "date": "2026-10-18",
+    "title": "Resumatch: cross-provider AI fallback (OpenAI ↔ Anthropic)",
+    "sha": "d4ae33d8",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d4ae33d8"
+  },
+  {
+    "date": "2026-10-17",
+    "title": "Resumatch: record one outcome row per AI provider call (#512)",
+    "sha": "1d845c68",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1d845c68"
+  },
+  {
+    "date": "2026-10-17",
+    "title": "Resumatch: flag thin job-posting fetches with a quality signal",
+    "sha": "88bda18c",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/88bda18c"
+  },
+  {
+    "date": "2026-10-17",
+    "title": "Resumatch: read JobPosting JSON-LD before the page text strip",
+    "sha": "55e4b44a",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/55e4b44a"
+  },
+  {
+    "date": "2026-10-17",
+    "title": "Resumatch: report profile versions extracted by stale extractor code",
+    "sha": "583f399a",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/583f399a"
+  },
+  {
+    "date": "2026-10-17",
+    "title": "Resumatch: tiered job fetch, deterministic first, AI only when it fails",
+    "sha": "5bd3e02b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5bd3e02b"
+  },
+  {
+    "date": "2026-10-17",
+    "title": "Resumatch: short-TTL dedup cache for extraction and job-fetch",
+    "sha": "271e1ce1",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/271e1ce1"
+  },
+  {
+    "date": "2026-10-17",
+    "title": "Resumatch: ground cover-letter prose against the profile and job text",
+    "sha": "9071f15a",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9071f15a"
+  },
+  {
+    "date": "2026-10-13",
+    "title": "Edge: read-only edge cutover check script (#839)",
+    "sha": "082908a4",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/082908a4"
+  }
+]
