@@ -687,6 +687,34 @@
   opacity: 0.6;
 }
 
+/* "Edit and regenerate": the back link on the cover-letter preview, and
+   the note on the tailoring flow when it was reopened from a saved CV. */
+.rm-letter-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: -0.5rem 0 1rem;
+}
+.rm-regen-note {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  border-radius: 0.5rem;
+  font-size: 0.88rem;
+}
+.rm-regen-note p {
+  margin: 0;
+}
+.rm-regen-note__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-top: 0.4rem !important;
+}
+
 /* ─── Tailor flow: modern intake tabs, review, bullet checklist ────────── */
 
 /* A single, reset, app-wide checkbox look — the unstyled native box

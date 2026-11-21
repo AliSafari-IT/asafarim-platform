@@ -13,6 +13,7 @@ import { StatRow, StatTile } from "../components/app/Stats";
 import { BriefcaseIcon, MailIcon, SparkIcon, WarningIcon } from "../profile/icons";
 import { TailorFlow } from "./TailorFlow";
 import { LanguageBadge } from "../components/app/LanguageBadge";
+import { buildRegenerateSeed, type RegenerateSeed } from "../../lib/tailoring/regenerate";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getTranslator();
@@ -22,7 +23,12 @@ export const dynamic = "force-dynamic";
 
 const ACTIVITY_DAYS = 14;
 
-export default async function TailorPage() {
+export default async function TailorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; letter?: string }>;
+}) {
+  const { from, letter } = await searchParams;
   const { t } = await getTranslator();
   const workspace = await getCurrentWorkspace();
   if (!workspace) {
@@ -63,6 +69,24 @@ export default async function TailorPage() {
   }
 
   const db = getJobmatchDb();
+  // "Edit and regenerate" from a saved CV or letter: reopen the flow on the
+  // same job with the same choices. Workspace-scoped, so an id in the URL
+  // cannot reach another candidate's CV; an unknown id just opens the
+  // normal empty flow.
+  let seed: RegenerateSeed | null = null;
+  if (typeof from === "string" && from) {
+    const source = await db.tailoredResume.findFirst({
+      where: { id: from, workspaceId: workspace.id },
+      select: {
+        id: true,
+        instructions: true,
+        outputLanguage: true,
+        targetJob: { select: { id: true, title: true, employer: true, rawText: true } },
+        coverLetter: { select: { outputLanguage: true } },
+      },
+    });
+    if (source) seed = buildRegenerateSeed(source, letter === "1");
+  }
   const since = new Date(Date.now() - ACTIVITY_DAYS * 86_400_000);
   const [history, coverLetters, degraded, jobs, recent] = await Promise.all([
     db.tailoredResume.findMany({
@@ -114,8 +138,8 @@ export default async function TailorPage() {
         aside={<JourneyTracker counts={journey} current="tailor" />}
       />
 
-      <section className="rx-flow" aria-label={t("resumatch.tailor.flowAria")}>
-        <TailorFlow confirmedVersionId={confirmed.id} />
+      <section id="tailor-flow" className="rx-flow" aria-label={t("resumatch.tailor.flowAria")}>
+        <TailorFlow confirmedVersionId={confirmed.id} seed={seed} />
       </section>
 
       {journey.tailoredCount > 0 ? (

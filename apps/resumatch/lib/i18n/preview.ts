@@ -18,6 +18,9 @@ export const previewDictionaries: Dictionaries = {
       "This version could not be AI-tailored right now (budget or provider issue), so it shows your confirmed profile carried over unchanged. Try generating it again later.",
     "resumatch.preview.viewCoverLetter": "View cover letter",
     "resumatch.preview.noCoverLetter": "No cover letter for this CV.",
+    "resumatch.preview.editRegenerate": "Edit and regenerate",
+    "resumatch.preview.addCoverLetter": "Add a cover letter",
+    "resumatch.letter.editRegenerate": "Edit and regenerate the letter",
     "resumatch.preview.coverLetterFailed":
       "Your CV was saved, but the cover letter could not be saved. Tailor this job again with a cover letter to get one.",
     "resumatch.preview.downloadPdf": "Download PDF",
@@ -91,6 +94,9 @@ export const previewDictionaries: Dictionaries = {
       "Deze versie kon nu niet door AI worden afgestemd (budget- of providerprobleem), dus ze toont je bevestigde profiel ongewijzigd. Probeer later opnieuw te genereren.",
     "resumatch.preview.viewCoverLetter": "Motivatiebrief bekijken",
     "resumatch.preview.noCoverLetter": "Geen motivatiebrief bij dit cv.",
+    "resumatch.preview.editRegenerate": "Aanpassen en opnieuw maken",
+    "resumatch.preview.addCoverLetter": "Motivatiebrief toevoegen",
+    "resumatch.letter.editRegenerate": "Brief aanpassen en opnieuw maken",
     "resumatch.preview.coverLetterFailed":
       "Je cv is opgeslagen, maar de motivatiebrief kon niet worden opgeslagen. Stem je cv opnieuw af op deze vacature met een motivatiebrief om er een te krijgen.",
     "resumatch.preview.downloadPdf": "Pdf downloaden",
@@ -164,6 +170,9 @@ export const previewDictionaries: Dictionaries = {
       "Cette version n’a pas pu être adaptée par l’IA pour le moment (problème de budget ou de fournisseur) ; elle reprend donc votre profil confirmé tel quel. Réessayez de la générer plus tard.",
     "resumatch.preview.viewCoverLetter": "Voir la lettre de motivation",
     "resumatch.preview.noCoverLetter": "Pas de lettre de motivation pour ce CV.",
+    "resumatch.preview.editRegenerate": "Modifier et régénérer",
+    "resumatch.preview.addCoverLetter": "Ajouter une lettre de motivation",
+    "resumatch.letter.editRegenerate": "Modifier et régénérer la lettre",
     "resumatch.preview.coverLetterFailed":
       "Votre CV a été enregistré, mais la lettre de motivation n’a pas pu l’être. Adaptez à nouveau votre CV à cette offre avec une lettre pour en obtenir une.",
     "resumatch.preview.downloadPdf": "Télécharger le PDF",
@@ -238,6 +247,9 @@ export const previewDictionaries: Dictionaries = {
       "Diese Version konnte gerade nicht per KI angepasst werden (Budget- oder Anbieterproblem), daher zeigt sie dein bestätigtes Profil unverändert. Versuche es später erneut.",
     "resumatch.preview.viewCoverLetter": "Anschreiben ansehen",
     "resumatch.preview.noCoverLetter": "Kein Anschreiben zu diesem Lebenslauf.",
+    "resumatch.preview.editRegenerate": "Bearbeiten und neu erstellen",
+    "resumatch.preview.addCoverLetter": "Anschreiben hinzufügen",
+    "resumatch.letter.editRegenerate": "Anschreiben bearbeiten und neu erstellen",
     "resumatch.preview.coverLetterFailed":
       "Ihr Lebenslauf wurde gespeichert, aber das Anschreiben konnte nicht gespeichert werden. Passen Sie ihn erneut mit Anschreiben an diese Stelle an, um eines zu erhalten.",
     "resumatch.preview.downloadPdf": "PDF herunterladen",
