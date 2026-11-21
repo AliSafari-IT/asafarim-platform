@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-21",
+    "title": "Resumatch: choose the CV skills layout, and name the app and CV date in the footer",
+    "sha": "47457f39",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/47457f39"
+  },
+  {
+    "date": "2026-11-21",
     "title": "Resumatch: edit and regenerate a saved CV or cover letter",
     "sha": "14d849d6",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/14d849d6"
@@ -112,11 +118,5 @@
     "title": "Resumatch: tiered job fetch, deterministic first, AI only when it fails",
     "sha": "5bd3e02b",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5bd3e02b"
-  },
-  {
-    "date": "2026-10-17",
-    "title": "Resumatch: short-TTL dedup cache for extraction and job-fetch",
-    "sha": "271e1ce1",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/271e1ce1"
   }
 ]
