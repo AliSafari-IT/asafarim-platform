@@ -18,6 +18,7 @@ import { ProfileWorkbench } from "./ProfileWorkbench";
 import { UploadPanel } from "./UploadPanel";
 import { PhotoPanel } from "./PhotoPanel";
 import { describePhoto, getProfilePhoto } from "../../lib/profile/photoStore";
+import { getAccountAvatarSource } from "../../lib/profile/accountAvatarSource";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getTranslator();
@@ -39,13 +40,14 @@ export default async function ProfilePage() {
     );
   }
 
-  const [documents, latest, versions, journey, jobsCount, photo] = await Promise.all([
+  const [documents, latest, versions, journey, jobsCount, photo, accountAvatar] = await Promise.all([
     listDocuments(workspace.id),
     getLatestVersion(workspace.id),
     listVersions(workspace.id),
     getJourneyCounts(workspace.id),
     getJobmatchDb().targetJob.count({ where: { workspaceId: workspace.id } }),
     getProfilePhoto(workspace.id),
+    getAccountAvatarSource(),
   ]);
 
   const confirmed = versions.find((version) => version.isConfirmed) ?? null;
@@ -107,7 +109,11 @@ export default async function ProfilePage() {
         }))}
       />
 
-      <PhotoPanel initialPhoto={photo ? describePhoto(photo) : null} renderedAt={Date.now()} />
+      <PhotoPanel
+        initialPhoto={photo ? describePhoto(photo) : null}
+        hasAccountAvatar={accountAvatar !== null}
+        renderedAt={Date.now()}
+      />
 
       <section>
         {/* Keyed by version id so a newly extracted profile REPLACES the

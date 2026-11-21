@@ -104,12 +104,18 @@ async function renderCrop(draft: Draft): Promise<Blob> {
  * slider), choose round or square, choose whether new CVs show it, replace
  * and remove. Everything before the upload happens in the browser; the
  * original file never leaves the device, only the cropped 600 × 600 JPEG.
+ * The platform account photo can be the starting image instead of a file:
+ * it opens in the same crop editor and is saved the same way.
  */
 export function PhotoPanel({
   initialPhoto,
+  hasAccountAvatar = false,
   renderedAt,
 }: {
   initialPhoto: PhotoPanelPhoto | null;
+  /** The platform account has a photo this app can read (Hub upload or
+   *  Google picture): offer it as a starting point for the crop. */
+  hasAccountAvatar?: boolean;
   /** When the server rendered this; see the sync effect below. */
   renderedAt: number;
 }) {
@@ -207,20 +213,63 @@ export function PhotoPanel({
       return;
     }
     try {
-      const bitmap = await createImageBitmap(file);
-      if (Math.min(bitmap.width, bitmap.height) < 200) {
-        bitmap.close();
-        setMessage({
-          tone: "error",
-          text: t("resumatch.photo.error.tooSmall"),
-        });
-        return;
-      }
-      setDraft(centred(URL.createObjectURL(file), bitmap));
+      await openInEditor(file, "resumatch.photo.error.tooSmall");
     } catch {
       setMessage({ tone: "error", text: t("resumatch.photo.error.type") });
     } finally {
       if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  /** Decode an image and open it in the crop editor. Throws if the browser
+   *  cannot decode it. */
+  async function openInEditor(image: Blob, tooSmallKey: string) {
+    const bitmap = await createImageBitmap(image);
+    if (Math.min(bitmap.width, bitmap.height) < 200) {
+      bitmap.close();
+      setMessage({ tone: "error", text: t(tooSmallKey) });
+      return;
+    }
+    setDraft(centred(URL.createObjectURL(image), bitmap));
+  }
+
+  /** Start from the platform account photo instead of a file. */
+  async function startFromAccountAvatar() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/profile/photo/account-avatar", {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        const known = ["NO_AVATAR", "NOT_FOUND", "UNSUPPORTED", "TOO_LARGE"];
+        setMessage({
+          tone: "error",
+          text: t(
+            `resumatch.photo.avatar.error.${body.error && known.includes(body.error) ? body.error : "generic"}`
+          ),
+        });
+        return;
+      }
+      const image = await response.blob();
+      try {
+        await openInEditor(image, "resumatch.photo.avatar.error.tooSmall");
+      } catch {
+        setMessage({
+          tone: "error",
+          text: t("resumatch.photo.avatar.error.UNSUPPORTED"),
+        });
+      }
+    } catch {
+      setMessage({
+        tone: "error",
+        text: t("resumatch.photo.avatar.error.generic"),
+      });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -529,6 +578,16 @@ export function PhotoPanel({
                   ? t("resumatch.photo.replace")
                   : t("resumatch.photo.add")}
               </label>
+              {hasAccountAvatar ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => void startFromAccountAvatar()}
+                  disabled={busy}
+                  data-testid="photo-use-avatar"
+                >
+                  {t("resumatch.photo.avatar.use")}
+                </Button>
+              ) : null}
               {photo ? (
                 <Button
                   variant="danger"

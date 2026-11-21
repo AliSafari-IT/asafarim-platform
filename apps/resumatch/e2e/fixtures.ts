@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type BrowserContext, type Page } from "@playwright/test";
 import { encode } from "next-auth/jwt";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/db/generated/index.js";
@@ -69,9 +69,9 @@ export async function storedFollowUp(id: string): Promise<string | null> {
   return row.followUpDate ? row.followUpDate.toISOString() : null;
 }
 
-async function sessionCookie(): Promise<string> {
+async function sessionCookie(picture?: string): Promise<string> {
   return encode({
-    token: { sub: E2E_PLATFORM_USER_ID, isActive: true, roles: [] },
+    token: { sub: E2E_PLATFORM_USER_ID, isActive: true, roles: [], ...(picture ? { picture } : {}) },
     secret: requireEnv("AUTH_SECRET"),
     salt: COOKIE_NAME,
   });
@@ -95,6 +95,13 @@ export const test = base.extend<{ signedIn: void }>({
 });
 
 export { expect };
+
+/** Re-sign the browser in with an account photo (`picture` in Hub's JWT,
+ *  `session.user.image` in the app). */
+export async function signInWithPicture(context: BrowserContext, baseURL: string | undefined, picture: string) {
+  const url = new URL(baseURL ?? "http://localhost:3012");
+  await context.addCookies([{ name: COOKIE_NAME, value: await sessionCookie(picture), domain: url.hostname, path: "/" }]);
+}
 
 export interface BulkApplication {
   title: string;
