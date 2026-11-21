@@ -170,10 +170,10 @@
       "kind": "app",
       "folder": "apps/resumatch",
       "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
-      "sha": "06bf86ae",
+      "sha": "3b2a3260",
       "date": "2026-11-21",
       "since": "2026-09-18",
-      "commits": 140,
+      "commits": 141,
       "dependents": 0
     },
     {
