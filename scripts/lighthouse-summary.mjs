@@ -2,7 +2,8 @@
 /**
  * Turns treosh/lighthouse-ci-action's output (.lighthouseci/manifest.json +
  * per-run Lighthouse JSON reports) into the small public summary this repo
- * commits at apps/showcase/public-data/lighthouse-status.json.
+ * publishes as apps/showcase/public-data/lighthouse-status.json on the
+ * proof-data branch (scripts/publish-proof-data.sh).
  *
  * Only allow-listed fields make it into the committed file: URL, category
  * scores (accessibility/performance), and a timestamp. No raw Lighthouse

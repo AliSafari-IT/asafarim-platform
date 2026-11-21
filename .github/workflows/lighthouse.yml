@@ -4,7 +4,9 @@
 # Runs Lighthouse against the *deployed* showcase — not a local build — since
 # a fresh build needs decrypted secrets that this workflow deliberately
 # doesn't have (see ci-status.yml's build exclusion for the same reasoning).
-# Only category scores + a timestamp are committed; no raw report content.
+# Only category scores + a timestamp are published; no raw report content.
+# The snapshot goes to the proof-data branch (main only takes PRs); see
+# scripts/publish-proof-data.sh.
 
 name: Lighthouse snapshots
 
@@ -15,6 +17,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: proof-data-${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   lighthouse:
@@ -31,7 +37,7 @@ jobs:
           urls: |
             https://showcase.asafarim.com/
             https://showcase.asafarim.com/proof
-          numberOfRuns: 1
+          runs: 1
           uploadArtifacts: true
           temporaryPublicStorage: false
 
@@ -42,13 +48,11 @@ jobs:
           # job never installs pnpm or dependencies — the cache step would fail.
           package-manager-cache: false
 
-      - name: Summarize into the committed public snapshot
+      - name: Summarize into the public snapshot
         run: node scripts/lighthouse-summary.mjs
 
-      - name: Commit snapshot if it changed
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/showcase/public-data/lighthouse-status.json
-          git diff --cached --quiet || git commit -m "chore: update Lighthouse a11y/perf snapshot [skip ci]"
-          git push
+      - name: Publish snapshot to the proof-data branch
+        run: >-
+          scripts/publish-proof-data.sh
+          "chore: update Lighthouse a11y/perf snapshot"
+          apps/showcase/public-data/lighthouse-status.json

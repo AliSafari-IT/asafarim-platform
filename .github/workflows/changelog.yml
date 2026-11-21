@@ -2,6 +2,8 @@
 # apps/showcase/app/proof/data.ts) generated from real git history instead
 # of hand-edited — see scripts/generate-changelog.mjs. Also refreshes the
 # "Shipped packages and apps" workspace manifest (scripts/generate-workspace-manifest.mjs).
+# Both go to the proof-data branch (main only takes PRs); see
+# scripts/publish-proof-data.sh.
 
 name: Changelog
 
@@ -11,6 +13,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: proof-data-${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   changelog:
@@ -32,10 +38,9 @@ jobs:
       - name: Regenerate workspace.json
         run: node scripts/generate-workspace-manifest.mjs
 
-      - name: Commit if it changed
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/showcase/public-data/changelog.json apps/showcase/public-data/workspace.json
-          git diff --cached --quiet || git commit -m "chore: regenerate changelog and workspace manifest [skip ci]"
-          git push
+      - name: Publish to the proof-data branch
+        run: >-
+          scripts/publish-proof-data.sh
+          "chore: regenerate changelog and workspace manifest"
+          apps/showcase/public-data/changelog.json
+          apps/showcase/public-data/workspace.json
