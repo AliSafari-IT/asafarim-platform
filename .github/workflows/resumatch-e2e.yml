@@ -43,6 +43,9 @@ jobs:
       AUTH_SECRET: ci-only-throwaway-secret-do-not-reuse
       AUTH_TRUST_HOST: "true"
       NEXT_TELEMETRY_DISABLED: "1"
+      # "Send application" (e2e/send-application.spec.ts): the fixture mailer
+      # sends nothing; PDFs are rendered with the Chromium installed below.
+      RESUMATCH_EMAIL_TRANSPORT: fixture
     steps:
       - uses: actions/checkout@v5
 
@@ -63,6 +66,10 @@ jobs:
       - name: Install Playwright Chromium
         working-directory: apps/resumatch
         run: pnpm exec playwright install --with-deps chromium
+
+      - name: Point the PDF renderer at that Chromium
+        working-directory: apps/resumatch
+        run: echo "RESUMATCH_PDF_CHROMIUM_PATH=$(node -e 'console.log(require("playwright-core").chromium.executablePath())')" >> "$GITHUB_ENV"
 
       - name: Run ResuMatch E2E suite
         working-directory: apps/resumatch

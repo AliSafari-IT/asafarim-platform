@@ -23,6 +23,9 @@ import { DocxButton } from "./DocxButton";
 import { PrintButton } from "../../../../components/tailoring/PrintButton";
 import { QualityChecklist } from "./QualityChecklist";
 import { SaveApplicationButton } from "./SaveApplicationButton";
+import { SendApplicationEntry } from "../../../../components/applicationEmail/SendApplicationEntry";
+import { describePdfStatus } from "../../../../lib/documentPdfs/describe";
+import { getPdfStatus } from "../../../../lib/documentPdfs/service";
 
 /** The tab title doubles as the browser's default PDF file name, so it
  *  names the candidate and the employer rather than the site (as the
@@ -117,6 +120,17 @@ export default async function TailoredResumePreviewPage({
 
   const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
 
+  // "Send application" once the CV and its letter both have PDFs; otherwise
+  // what is missing, with the action that fixes it.
+  const [pdfStatus, application] = await Promise.all([
+    row.coverLetter ? getPdfStatus(workspace.id, id) : Promise.resolve(null),
+    db.application.findFirst({
+      where: { workspaceId: workspace.id, tailoredResumeId: id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true },
+    }),
+  ]);
+
   return (
     // The provider links the skills picker, the CV's Skills section and the
     // download buttons while a skills paragraph is being written.
@@ -156,6 +170,17 @@ export default async function TailoredResumePreviewPage({
           <DocxButton id={id} />
           <SaveApplicationButton targetJobId={row.targetJobId} tailoredResumeId={id} />
         </div>
+        {row.coverLetter ? (
+          <div className="rm-preview-toolbar__group">
+            <SendApplicationEntry
+              tailoredResumeId={id}
+              applicationId={application?.id ?? null}
+              hasCoverLetter
+              pdfs={pdfStatus ? describePdfStatus(pdfStatus) : null}
+              layout="toolbar"
+            />
+          </div>
+        ) : null}
         <div className="rm-preview-toolbar__group">
           {coverLetterId ? (
             <span className="rm-preview-toolbar__item">

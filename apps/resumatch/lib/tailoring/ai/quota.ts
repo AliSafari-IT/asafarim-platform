@@ -69,7 +69,8 @@ export type ProviderCallKind =
   | "cover_letter"
   | "categorize_skills"
   | "skills_paragraph"
-  | "job_meta";
+  | "job_meta"
+  | "application_email";
 
 function monthStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));

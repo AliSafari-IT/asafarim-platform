@@ -6,6 +6,7 @@ import { navDictionaries } from "./i18n/nav";
 import { photoDictionaries } from "./i18n/photo";
 import { previewDictionaries } from "./i18n/preview";
 import { profileDictionaries } from "./i18n/profile";
+import { sendDictionaries } from "./i18n/send";
 import { shellDictionaries } from "./i18n/shell";
 import { tailorDictionaries } from "./i18n/tailor";
 import { trackingDictionaries } from "./i18n/tracking";
@@ -30,6 +31,7 @@ export const resumatchDictionaryAreas: Record<string, Dictionaries> = {
   profile: profileDictionaries,
   photo: photoDictionaries,
   tracking: trackingDictionaries,
+  send: sendDictionaries,
   landing: landingDictionaries,
 };
 

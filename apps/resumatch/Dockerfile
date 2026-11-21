@@ -72,6 +72,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+# Headless Chromium for the CV and cover-letter PDFs that the "Send
+# application" email attaches (lib/documentPdfs/render.ts). It loads only
+# this app's own preview pages, so the PDF matches what the candidate sees
+# and prints. Fonts: the CV uses the system sans-serif stack; Noto covers
+# accented names and non-Latin scripts, DejaVu the remaining fallbacks.
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates font-noto font-dejavu
+ENV RESUMATCH_PDF_CHROMIUM_PATH=/usr/bin/chromium-browser
 COPY --from=builder --chown=node:node /app/apps/resumatch/.next/standalone ./
 COPY --from=builder --chown=node:node /app/apps/resumatch/.next/static ./apps/resumatch/.next/static
 COPY --from=builder --chown=node:node /app/apps/resumatch/public ./apps/resumatch/public

@@ -6,6 +6,7 @@ import { applicationAuditEvents } from "./audit";
 import type { ApplicationStatusName } from "./constants";
 import { FOLLOW_UP_CLOSED_STATUSES, followUpDayToDate } from "./followUp";
 import { pageCount, type ApplicationListQuery, type ApplicationSort } from "./listQuery";
+import { appliedAtForStatusChange } from "./status";
 
 /**
  * Per-application tracking (issue #432). Every row is either user-supplied
@@ -54,6 +55,7 @@ export async function createApplication(workspaceId: string, input: CreateApplic
       status: input.status ?? "SAVED",
       notes: input.notes ?? null,
       followUpDate: input.followUpDate ?? null,
+      appliedAt: input.status === "APPLIED" ? new Date() : null,
     },
   });
 
@@ -89,7 +91,7 @@ export async function updateApplication(workspaceId: string, id: string, input: 
   // actually changed (applicationAuditEvents), not just that a PATCH ran.
   const existing = await db.application.findFirst({
     where: { id, workspaceId },
-    select: { id: true, targetJobId: true, status: true, notes: true, followUpDate: true, tailoredResumeId: true },
+    select: { id: true, targetJobId: true, status: true, notes: true, followUpDate: true, tailoredResumeId: true, appliedAt: true },
   });
   if (!existing) throw new ApplicationNotFoundError();
 
@@ -113,10 +115,16 @@ export async function updateApplication(workspaceId: string, id: string, input: 
     return db.application.findFirstOrThrow({ where: { id, workspaceId } });
   }
 
+  const appliedAt =
+    input.status !== undefined
+      ? appliedAtForStatusChange(existing.status as ApplicationStatusName, input.status, existing.appliedAt, new Date())
+      : undefined;
+
   const application = await db.application.update({
     where: { id },
     data: {
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(appliedAt !== undefined ? { appliedAt } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
       ...(input.followUpDate !== undefined ? { followUpDate: input.followUpDate } : {}),
       ...(input.tailoredResumeId !== undefined ? { tailoredResumeId: input.tailoredResumeId } : {}),
@@ -133,7 +141,15 @@ export async function updateApplication(workspaceId: string, id: string, input: 
  *  are included because the row edits them; they are never searched. */
 const LIST_INCLUDE = {
   targetJob: { select: { title: true, employer: true, sourceUrl: true } },
-  tailoredResume: { select: { id: true, createdAt: true } },
+  tailoredResume: { select: { id: true, createdAt: true, coverLetter: { select: { id: true } } } },
+  // The newest accepted (or unresolved) email, for the card's "Sent" line
+  // and its link to that exact message.
+  sentEmails: {
+    orderBy: [{ attemptedAt: "desc" }, { id: "desc" }],
+    take: 1,
+    select: { id: true, status: true, attemptedAt: true, sentAt: true, contactEmail: true },
+  },
+  _count: { select: { sentEmails: true } },
 } satisfies Prisma.ApplicationInclude;
 
 /** The `where` for a list query, always inside `workspaceId`. Due filters

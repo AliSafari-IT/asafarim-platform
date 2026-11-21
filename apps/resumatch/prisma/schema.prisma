@@ -61,6 +61,9 @@ model Workspace {
   tailorPreviews  TailorPreview[]
   aiCostEvents    AiCostEvent[]
   profilePhoto    ProfilePhoto?
+  documentPdfs    DocumentPdf[]
+  emailDrafts     ApplicationEmailDraft[]
+  sentEmails      SentApplicationEmail[]
 
   @@map("workspaces")
 }
@@ -432,6 +435,7 @@ model TailoredResume {
   createdAt DateTime @default(now())
 
   applications Application[]
+  pdfs         DocumentPdf[]
   /// The cover letter generated alongside this CV in the same
   /// generate-confirm request, if the candidate opted in and approved one
   /// (issue #454). Null is a normal, common state — most tailored CVs
@@ -522,6 +526,8 @@ model CoverLetter {
   outputLanguage String?
 
   createdAt DateTime @default(now())
+
+  pdfs DocumentPdf[]
 
   @@index([workspaceId, createdAt])
   @@index([targetJobId])
@@ -629,12 +635,226 @@ model Application {
   /// notification from this field yet.
   followUpDate DateTime?
 
+  /// When the candidate applied: set the first time the status becomes
+  /// APPLIED, by hand or by a sent application email (lib/applications/
+  /// status.ts). `status` stays the one source of truth for "Applied"; this
+  /// only records when it happened. Null for rows from before it existed.
+  appliedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  emailDraft ApplicationEmailDraft?
+  sentEmails SentApplicationEmail[]
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, status])
   @@map("applications")
+}
+
+// ─── Send application by email ────────────────────────────────────────────
+//
+// See lib/applicationEmail/ and internal docs
+// ventures/resumatch/engineering/send-application.md. Three rules:
+// a sent email is a snapshot that never changes; it points at the exact
+// PDFs that went out, which never change either; and only the provider's
+// acceptance moves an application from Saved to Applied.
+
+enum DocumentPdfKind {
+  CV
+  COVER_LETTER
+}
+
+/// A PDF of a CV or cover letter, rendered on the server from the same page
+/// the candidate prints (lib/documentPdfs/). Immutable: a later change to
+/// the CV makes a new row, never a new version of this one. UPDATE is
+/// rejected by a trigger except for the two SetNull links.
+model DocumentPdf {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  kind DocumentPdfKind
+
+  /// The CV (kind CV) or letter (kind COVER_LETTER) this was rendered from.
+  /// SetNull so a PDF that was sent outlives its source document.
+  tailoredResumeId String?
+  tailoredResume   TailoredResume? @relation(fields: [tailoredResumeId], references: [id], onDelete: SetNull)
+  coverLetterId    String?
+  coverLetter      CoverLetter?    @relation(fields: [coverLetterId], references: [id], onDelete: SetNull)
+
+  /// Plain column, not a FK, like AiCostEvent.targetJobId.
+  targetJobId String
+
+  /// sha256 of the stored inputs that shape the rendered document
+  /// (lib/documentPdfs/fingerprint.ts). A different fingerprint on the
+  /// source now means the document changed after this PDF was made.
+  sourceFingerprint String
+
+  /// Derived from the workspace id and a random UUID; never exposed.
+  storageKey  String @unique
+  filename    String
+  byteSize    Int
+  contentHash String
+
+  createdAt DateTime @default(now())
+
+  draftsAsCv          ApplicationEmailDraft[]      @relation("DraftCvPdf")
+  draftsAsCoverLetter ApplicationEmailDraft[]      @relation("DraftCoverLetterPdf")
+  sentAttachments     SentApplicationAttachment[]
+
+  @@index([workspaceId, tailoredResumeId, createdAt])
+  @@index([workspaceId, coverLetterId, createdAt])
+  @@map("document_pdfs")
+}
+
+/// The candidate's unsent email for one application. Editable and saved
+/// on request; sending copies it into a SentApplicationEmail and leaves it
+/// here, so a failed send never loses a word.
+model ApplicationEmailDraft {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  applicationId String      @unique
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  toEmail     String?
+  contactName String?
+  subject     String?
+  body        String? @db.Text
+
+  /// True once the candidate changed the AI's text by hand, so a
+  /// regenerate asks before replacing it.
+  subjectEdited Boolean @default(false)
+  bodyEdited    Boolean @default(false)
+
+  /// Bcc the candidate's own account address.
+  sendCopyToSelf Boolean @default(true)
+
+  /// The exact PDFs this draft attaches. Pinned, never swapped for newer
+  /// ones without the candidate choosing to.
+  cvPdfId          String?
+  cvPdf            DocumentPdf? @relation("DraftCvPdf", fields: [cvPdfId], references: [id], onDelete: SetNull)
+  coverLetterPdfId String?
+  coverLetterPdf   DocumentPdf? @relation("DraftCoverLetterPdf", fields: [coverLetterPdfId], references: [id], onDelete: SetNull)
+
+  /// Optimistic concurrency: a save names the version it edited.
+  version Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@map("application_email_drafts")
+}
+
+enum SentEmailStatus {
+  /// Written before the provider call. Still SENDING after a few minutes
+  /// means the outcome was never recorded: shown as unconfirmed.
+  SENDING
+  /// The provider accepted the message. Not proof of inbox delivery.
+  ACCEPTED
+  /// The provider refused it, or it never left: nothing was sent.
+  FAILED
+  /// The connection broke after the message may have been handed over.
+  /// Never resent automatically.
+  UNCERTAIN
+}
+
+/// One email sent (or attempted) for an application. The content columns
+/// are a snapshot taken before the send and never change: a trigger
+/// rejects any UPDATE to them (see the migration). Only the outcome and
+/// delivery columns move.
+model SentApplicationEmail {
+  /// The sentId shown to the candidate.
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  /// `<workspaceId>:<client key>`: the same send intent, retried, finds
+  /// this row instead of sending twice.
+  idempotencyKey String @unique
+
+  targetJobId String
+  /// Normalized company name (lib/applicationEmail/normalize.ts), the
+  /// filter key for "everything sent to this company".
+  companyKey  String
+  companyName String
+  jobTitle    String?
+
+  contactName            String?
+  contactEmail           String
+  /// Lower-cased, trimmed: the filter key for "everything sent to them".
+  contactEmailNormalized String
+
+  /// Exactly as used: the verified sender, the Reply-To and the Bcc copy.
+  fromAddress String
+  replyTo     String?
+  bccSelf     String?
+
+  subject String
+  body    String @db.Text
+  /// RFC 5322 Message-ID header, built from this row's id.
+  messageId String @unique
+
+  status SentEmailStatus @default(SENDING)
+  /// Provider response line, without message content, at most 300 chars.
+  providerResponse  String?
+  providerMessageId String?
+  /// A stable code (lib/applicationEmail/mailer.ts), never a message.
+  errorCode String?
+
+  /// not_tracked | delivered | bounced | complained. SMTP reports nothing
+  /// after acceptance, so this stays not_tracked unless a provider webhook
+  /// is added; it is updated separately from the snapshot.
+  deliveryStatus    String    @default("not_tracked")
+  deliveryUpdatedAt DateTime?
+
+  /// The application's submission time once this email was accepted (its
+  /// appliedAt, which this email may have set), and the status change it
+  /// made, e.g. "SAVED->APPLIED" or "INTERVIEWING (unchanged)".
+  appliedAt        DateTime?
+  statusTransition String?
+
+  attemptedAt DateTime  @default(now())
+  /// When the provider accepted it.
+  sentAt      DateTime?
+
+  attachments SentApplicationAttachment[]
+
+  @@index([workspaceId, attemptedAt])
+  @@index([workspaceId, companyKey])
+  @@index([workspaceId, contactEmailNormalized])
+  @@index([applicationId, attemptedAt])
+  @@map("sent_application_emails")
+}
+
+/// The PDFs one sent email carried, with the hash of the exact bytes.
+/// Insert-only.
+model SentApplicationAttachment {
+  id String @id @default(cuid())
+
+  sentEmailId String
+  sentEmail   SentApplicationEmail @relation(fields: [sentEmailId], references: [id], onDelete: Cascade)
+
+  documentPdfId String
+  documentPdf   DocumentPdf @relation(fields: [documentPdfId], references: [id], onDelete: NoAction)
+
+  kind        DocumentPdfKind
+  filename    String
+  contentHash String
+  byteSize    Int
+
+  @@unique([sentEmailId, kind])
+  @@index([documentPdfId])
+  @@map("sent_application_attachments")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

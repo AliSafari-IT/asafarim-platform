@@ -8,6 +8,8 @@ import {
   parseApplicationListQuery,
   type ApplicationListQuery,
 } from "../../lib/applications/listQuery";
+import { reconcileSentEmails } from "../../lib/applicationEmail/service";
+import { pdfReadiness } from "../../lib/documentPdfs/service";
 import { getTranslator } from "../../lib/i18n-server";
 import { getCurrentWorkspace } from "../../lib/workspace";
 import { ApplicationRow } from "./ApplicationRow";
@@ -53,6 +55,11 @@ export default async function ApplicationsPage({
       description={t("resumatch.app.description")}
     />
   );
+  const sentLink = (
+    <p className="rm-sent-nav">
+      <a href="/applications/sent" data-testid="sent-applications-link">{t("resumatch.sent.link")}</a>
+    </p>
+  );
 
   // A due filter without the browser's day: the controls add it to the URL
   // on mount. The server never guesses "today".
@@ -68,7 +75,16 @@ export default async function ApplicationsPage({
     );
   }
 
+  // Finish any send whose status change a crash left unrecorded, so the
+  // list shows the true status.
+  await reconcileSentEmails(workspace.id);
   const result = await listApplicationPage(workspace.id, query, { clampPage: true });
+  const readiness = await pdfReadiness(
+    workspace.id,
+    result.applications.flatMap((a) =>
+      a.tailoredResume ? [{ tailoredResumeId: a.tailoredResume.id, coverLetterId: a.tailoredResume.coverLetter?.id ?? null }] : [],
+    ),
+  );
   const shown = { ...query, page: result.page };
 
   if (result.workspaceTotal === 0) {
@@ -86,6 +102,7 @@ export default async function ApplicationsPage({
   return (
     <>
       {header}
+      {sentLink}
       <ApplicationListControls query={shown} />
 
       <p className="rm-app-summary" role="status" aria-live="polite">
@@ -108,7 +125,11 @@ export default async function ApplicationsPage({
         <>
           <div className="rm-application-list">
             {result.applications.map((application) => (
-              <ApplicationRow key={application.id} application={application} />
+              <ApplicationRow
+                key={application.id}
+                application={application}
+                pdfs={application.tailoredResume ? (readiness.get(application.tailoredResume.id) ?? { cv: false, letter: false }) : null}
+              />
             ))}
           </div>
           <ApplicationPagination query={shown} page={result.page} pageCount={result.pageCount} />

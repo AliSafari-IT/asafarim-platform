@@ -95,6 +95,24 @@ export interface DataExport {
     createdAt: string;
     updatedAt: string;
   } | null;
+  /** Application emails sent from ResuMatch, as they were sent. The PDF
+   *  attachments are listed by filename and hash, not embedded. */
+  sentApplicationEmails: {
+    id: string;
+    companyName: string;
+    jobTitle: string | null;
+    contactName: string | null;
+    contactEmail: string;
+    fromAddress: string;
+    replyTo: string | null;
+    subject: string;
+    body: string;
+    status: string;
+    deliveryStatus: string;
+    attemptedAt: string;
+    sentAt: string | null;
+    attachments: { kind: string; filename: string; contentHash: string }[];
+  }[];
   auditEvents: { action: string; createdAt: string }[];
   /** Stated in the export itself so the recipient is not left inferring it. */
   notes: string[];
@@ -109,7 +127,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -135,6 +153,11 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       select: { action: true, createdAt: true },
     }),
     db.profilePhoto.findUnique({ where: { workspaceId } }),
+    db.sentApplicationEmail.findMany({
+      where: { workspaceId },
+      orderBy: { attemptedAt: "asc" },
+      include: { attachments: { select: { kind: true, filename: true, contentHash: true } } },
+    }),
   ]);
 
   await recordAuditEvent(workspaceId, "datarights.export", { count: documents.length });
@@ -208,6 +231,22 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
           updatedAt: profilePhoto.updatedAt.toISOString(),
         }
       : null,
+    sentApplicationEmails: sentEmails.map((email) => ({
+      id: email.id,
+      companyName: email.companyName,
+      jobTitle: email.jobTitle,
+      contactName: email.contactName,
+      contactEmail: email.contactEmail,
+      fromAddress: email.fromAddress,
+      replyTo: email.replyTo,
+      subject: email.subject,
+      body: email.body,
+      status: email.status,
+      deliveryStatus: email.deliveryStatus,
+      attemptedAt: email.attemptedAt.toISOString(),
+      sentAt: email.sentAt?.toISOString() ?? null,
+      attachments: email.attachments,
+    })),
     auditEvents: auditEvents.map((event) => ({
       action: event.action,
       createdAt: event.createdAt.toISOString(),
@@ -292,6 +331,25 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     }
   }
 
+  // Rendered CV / letter PDFs (send application): same rule as documents —
+  // a row goes only with its verified-deleted bytes.
+  const pdfs = await db.documentPdf.findMany({ where: { workspaceId }, select: { id: true, storageKey: true } });
+  const removedPdfIds: string[] = [];
+  for (const pdf of pdfs) {
+    try {
+      if (await deleteDocumentBytes(pdf.storageKey)) {
+        objectsDeleted += 1;
+        removedPdfIds.push(pdf.id);
+      } else {
+        objectsFailed += 1;
+        logError("datarights.erase.pdf_failed", new Error("ObjectStillPresent"), { jobId: pdf.id });
+      }
+    } catch (error) {
+      objectsFailed += 1;
+      logError("datarights.erase.pdf_failed", error, { jobId: pdf.id });
+    }
+  }
+
   const profile = await db.candidateProfile.findUnique({
     where: { workspaceId },
     select: { id: true, _count: { select: { versions: true } } },
@@ -303,6 +361,12 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // transaction would fail with an FK violation. TargetJob has no such
     // dependency but is deleted here anyway, in the same all-or-nothing
     // transaction as the rest of this workspace's derived data.
+    // Sent application emails are a record of what the candidate sent, and
+    // erasure removes them too (their attachment rows cascade). They go
+    // first: an attachment row holds its PDF row in place.
+    await tx.sentApplicationEmail.deleteMany({ where: { workspaceId } });
+    await tx.applicationEmailDraft.deleteMany({ where: { workspaceId } });
+    if (removedPdfIds.length > 0) await tx.documentPdf.deleteMany({ where: { workspaceId, id: { in: removedPdfIds } } });
     const tailoredResumes = await tx.tailoredResume.deleteMany({ where: { workspaceId } });
     const targetJobs = await tx.targetJob.deleteMany({ where: { workspaceId } });
 
