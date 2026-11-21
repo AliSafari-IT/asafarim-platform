@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { getApplicationEmailConfig, senderDisplayName } from "./config";
 import { classifySmtpError, createFixtureMailer, safeResponse, type OutgoingEmail } from "./mailer";
@@ -48,7 +49,7 @@ describe("recipient and field validation", () => {
     expect(draftSaveSchema.safeParse({ ...draft, subject: "Hi\nBcc: x@y" }).success).toBe(false);
     expect(draftSaveSchema.safeParse({ ...draft, from: "x@y.example" }).success).toBe(false);
     expect(sendRequestSchema.safeParse({ draft, idempotencyKey: "not-a-uuid" }).success).toBe(false);
-    expect(sendRequestSchema.safeParse({ draft, idempotencyKey: "4f9e4d0e-8a51-4b8e-9b0e-0d7f3c2a1b6c" }).success).toBe(true);
+    expect(sendRequestSchema.safeParse({ draft, idempotencyKey: randomUUID() }).success).toBe(true);
   });
 });
 

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const sendApplicationEmail = vi.fn();
@@ -26,7 +27,7 @@ const DRAFT = {
   coverLetterPdfId: "pdf-letter",
   version: 1,
 };
-const KEY = "4f9e4d0e-8a51-4b8e-9b0e-0d7f3c2a1b6c";
+const KEY = randomUUID();
 
 const post = (body: unknown, id = "app-1") =>
   POST(

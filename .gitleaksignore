@@ -29,3 +29,7 @@ c52a9545a3ddacb074247e7675114fcfabb2a6fc:.env.production.example:generic-api-key
 # apps/vionto/lib/server/__tests__/ai-credentials.test.ts — fake test API keys
 1132dbf52d9340c8d5d3acb5aae33c79f1563c5b:apps/vionto/lib/server/__tests__/ai-credentials.test.ts:generic-api-key:81
 1132dbf52d9340c8d5d3acb5aae33c79f1563c5b:apps/vionto/lib/server/__tests__/ai-credentials.test.ts:generic-api-key:92
+
+# apps/resumatch send-application tests (#920): a literal UUID idempotency key, not a secret (replaced with randomUUID() in the next commit)
+5a75442e28090528f371d3fcbda7fca8b1a7d073:apps/resumatch/lib/applicationEmail/applicationEmail.test.ts:generic-api-key:51
+5a75442e28090528f371d3fcbda7fca8b1a7d073:apps/resumatch/app/api/applications/[id]/send/route.test.ts:generic-api-key:29
