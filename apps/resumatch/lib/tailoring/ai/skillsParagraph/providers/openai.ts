@@ -37,8 +37,9 @@ export class OpenAiSkillsParagraphProvider implements SkillsParagraphProvider {
       headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: call.model,
-        // Low: this is a factual rearrangement of a list, not creative prose.
-        temperature: 0.2,
+        // No `temperature` override, like the tailoring adapter: reasoning
+        // models selectable via OPENAI_MODEL (gpt-5-mini) reject any value
+        // but their default with a 400, which would never fall back.
         messages: [
           { role: "system", content: call.system },
           { role: "user", content: call.user },

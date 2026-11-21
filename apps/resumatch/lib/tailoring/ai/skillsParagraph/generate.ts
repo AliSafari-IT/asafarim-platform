@@ -4,7 +4,7 @@ import { log, logError } from "../../../observability/logger";
 import { runProviderCallWithBudget } from "../../../ai/runProviderCall";
 import { resolveFallbackProvider } from "../../../ai/fallbackProvider";
 import type { CostAttribution } from "../../../costs/ledger";
-import { SKILL_CATEGORIES, type SkillCategory } from "../../../profile/skillCategories";
+import type { SkillCategory } from "../../../profile/skillCategories";
 import { getVersion } from "../../../profile/versions";
 import { buildProfileText } from "../../buildProfileText";
 import { isOutputLanguage, templateLabels, type OutputLanguage } from "../../language";
@@ -53,7 +53,8 @@ export async function writeSkillsParagraph(
     label: category ? labels.skillCategories[category as SkillCategory] : "",
     skills,
   }));
-  const categoryLabels = SKILL_CATEGORIES.map((category) => labels.skillCategories[category]);
+  // Only the headings the prompt actually showed back a word in the reply.
+  const categoryLabels = groups.map((group) => group.label).filter(Boolean);
   // Evidence for the claim rules only; it never reaches the prompt.
   const profileText = version ? buildProfileText(version.content).text : "";
 

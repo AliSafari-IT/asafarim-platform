@@ -1,4 +1,3 @@
-import { ungroundedProseTokenCount } from "../../../extraction/ai/grounding";
 import { claimEvidence, splitSentences, unbackedClaims } from "../coverLetter/claims";
 import type { OutputLanguage } from "../../language";
 import { MAX_SKILLS_PARAGRAPH_LENGTH } from "./prompts";
@@ -9,17 +8,21 @@ import { MAX_SKILLS_PARAGRAPH_LENGTH } from "./prompts";
  * by sentence, and removes any sentence that:
  *
  * - names something that isn't on this CV: a number, or a capitalized or
- *   technology-shaped word ("Kubernetes", "AWS", "C#", "Node.js") found in
- *   neither the CV's skill names nor its category labels. Both the
- *   mid-sentence check (`prose`) and the shape check (`headline`, which also
- *   sees a sentence's first word) run, so "Kubernetes and Docker are…" is
- *   caught too. German capitalizes every noun, so a German paragraph runs
- *   the shape check only — the same trade-off the cover letter accepts;
+ *   technology-shaped word ("Kubernetes", "AWS", "C#", "Node.js") that is
+ *   not a whole word of a listed skill name, or of the heading of a group
+ *   the prompt actually contained. Whole words, not substrings: "Java" is
+ *   not backed by "JavaScript", nor "AI" by an "AI & Machine Learning"
+ *   heading the CV has no skills under. Tech-shaped words are checked
+ *   anywhere, a sentence's first word included; plain capitalized words
+ *   only mid-sentence. German capitalizes every noun, so a German paragraph
+ *   checks numbers and tech-shaped words only (the cover letter's
+ *   trade-off);
  * - makes a high-risk claim (mentoring, leading people, a certification…)
  *   the profile text doesn't back — the cover letter's claim rules
  *   (coverLetter/claims.ts);
  * - rates the candidate ("expert", "senior", "years of experience") —
- *   never a fact a skill list can back.
+ *   never a fact a skill list can back. Listed skill names are taken out of
+ *   the sentence first, so a skill called "Expert Systems" is not a rating.
  *
  * Nothing is rewritten or added. A reply with no sentence left fails, and
  * the CV keeps its current skills layout.
@@ -42,6 +45,50 @@ export interface SkillsParagraphCheckResult {
   reasons: string[];
 }
 
+/** A word as the check sees it: letters/digits plus the characters tech
+ *  names carry inside them ("C#", "C++", "Node.js", "ASP.NET"). */
+const WORD = /[\p{L}\p{N}][\p{L}\p{N}+#.]*/gu;
+/** Same shape test as lib/extraction/ai/grounding.ts's DISTINCTIVE_SHAPE. */
+const DISTINCTIVE_SHAPE = /\d|[+#]|.\.[A-Za-z]|[a-z][A-Z]|^[A-Z]{2,}$/;
+const SENTENCE_START = /(?:^|[.!?:;]\s*|\s[-–—]\s)$/;
+
+function words(text: string): { word: string; index: number }[] {
+  return [...text.matchAll(WORD)].map((m) => ({ word: m[0].replace(/\.+$/, ""), index: m.index ?? 0 }));
+}
+
+/** Every whole word of the evidence, lower-cased, plus the dotted parts of
+ *  compound names ("asp.net" also backs "NET" in ".NET"). */
+function evidenceWords(sources: string[]): Set<string> {
+  const set = new Set<string>();
+  for (const source of sources) {
+    for (const { word } of words(source)) {
+      const lower = word.toLowerCase();
+      set.add(lower);
+      for (const part of lower.split(".")) if (part) set.add(part);
+    }
+  }
+  return set;
+}
+
+function hasUnlistedName(sentence: string, evidence: Set<string>, language: OutputLanguage): boolean {
+  for (const { word, index } of words(sentence)) {
+    if (!word) continue;
+    const isNumber = /^\p{N}/u.test(word) || /\d/.test(word);
+    const shaped = DISTINCTIVE_SHAPE.test(word);
+    const capitalized = /^\p{Lu}/u.test(word);
+    const notable =
+      isNumber ||
+      shaped ||
+      (language !== "de" && capitalized && !SENTENCE_START.test(sentence.slice(0, index)));
+    if (notable && !evidence.has(word.toLowerCase())) return true;
+  }
+  return false;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function checkSkillsParagraph(
   text: string,
   {
@@ -49,24 +96,34 @@ export function checkSkillsParagraph(
     categoryLabels,
     profileText,
     language,
-  }: { skills: string[]; categoryLabels: string[]; profileText: string; language: OutputLanguage },
+  }: {
+    skills: string[];
+    /** Headings of the groups the prompt contained — never the whole taxonomy. */
+    categoryLabels: string[];
+    profileText: string;
+    language: OutputLanguage;
+  },
 ): SkillsParagraphCheckResult {
   const cleaned = text
     .replace(/^\s*["“”']+|["“”']+\s*$/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  const sourceLower = [...skills, ...categoryLabels].join("\n").toLowerCase();
-  const evidence = claimEvidence(profileText);
+  const evidence = evidenceWords([...skills, ...categoryLabels]);
+  const claims = claimEvidence(profileText);
+  // Longest first, so "Expert Systems design" is taken out before "Expert Systems".
+  const skillSpans = [...skills]
+    .sort((a, b) => b.length - a.length)
+    .map((name) => new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(name)}(?![\\p{L}\\p{N}])`, "giu"));
 
   const kept: string[] = [];
   const reasons: string[] = [];
   let removedSentences = 0;
   for (const sentence of splitSentences(cleaned)) {
     const why: string[] = [];
-    if (language !== "de" && ungroundedProseTokenCount(sentence, sourceLower, "prose") > 0) why.push("unlisted_name");
-    else if (ungroundedProseTokenCount(sentence, sourceLower, "headline") > 0) why.push("unlisted_name");
-    if (RATING.test(sentence)) why.push("rating");
-    why.push(...unbackedClaims(sentence, evidence));
+    if (hasUnlistedName(sentence, evidence, language)) why.push("unlisted_name");
+    const withoutSkills = skillSpans.reduce((rest, span) => rest.replace(span, " "), sentence);
+    if (RATING.test(withoutSkills)) why.push("rating");
+    why.push(...unbackedClaims(sentence, claims));
     if (why.length > 0) {
       removedSentences += 1;
       reasons.push(...why);
