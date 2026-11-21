@@ -56,6 +56,73 @@ test("switch the skills layout, keep it after a reload, print and export it", as
   await expect(paragraph).toBeVisible();
 });
 
+test("while the paragraph is written, the wait is shown and downloads are paused", async ({ page }) => {
+  await page.goto(`/tailor/${CV_ID}/preview`);
+  const cv = page.getByTestId("cv").filter({ visible: true });
+  const status = page.getByTestId("cv-skills-status");
+  const pdf = page.getByRole("button", { name: "Download PDF" });
+  const docx = page.getByRole("button", { name: "Download DOCX" });
+
+  // Hold the AI call until the waiting state has been checked.
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(`**/api/tailor/${CV_ID}/skills-paragraph`, async (route) => {
+    await held;
+    await route.continue();
+  });
+
+  await page.getByTestId("cv-skills-layout").selectOption("paragraph");
+  await expect(status).toHaveAttribute("role", "status");
+  await expect(status).toContainText("Writing your skills paragraph");
+  await expect(status).toContainText("downloads are paused");
+  await expect(page.getByTestId("cv-skills-layout")).toBeDisabled();
+  await expect(pdf).toBeDisabled();
+  await expect(docx).toBeDisabled();
+  await expect(cv.getByTestId("cv-skills-section")).toHaveAttribute("aria-busy", "true");
+  await expect(cv.getByTestId("cv-skills-pending")).toBeVisible();
+  // The overlay is never printed.
+  await page.emulateMedia({ media: "print" });
+  await expect(cv.getByTestId("cv-skills-pending")).toBeHidden();
+  await page.emulateMedia({ media: "screen" });
+
+  release();
+  await expect(cv.locator('[data-skills-layout="paragraph"]')).toBeVisible();
+  await expect(cv.getByTestId("cv-skills-pending")).toHaveCount(0);
+  await expect(cv.getByTestId("cv-skills-section")).not.toHaveAttribute("aria-busy", "true");
+  await expect(status).toContainText("Skills section now shows the written paragraph");
+  await expect(pdf).toBeEnabled();
+  await expect(docx).toBeEnabled();
+  await expect(page.getByTestId("cv-skills-layout")).toBeEnabled();
+});
+
+test("a failed paragraph keeps the layout, says so, and can be tried again", async ({ page }) => {
+  await page.goto(`/tailor/${CV_ID}/preview`);
+  const cv = page.getByTestId("cv").filter({ visible: true });
+  let calls = 0;
+  await page.route(`**/api/tailor/${CV_ID}/skills-paragraph`, async (route) => {
+    calls += 1;
+    if (calls === 1) {
+      await route.fulfill({ status: 502, json: { error: "The paragraph could not be written.", code: "failed" } });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.getByTestId("cv-skills-layout").selectOption("paragraph");
+  const error = page.getByTestId("cv-skills-error");
+  await expect(error).toHaveAttribute("role", "alert");
+  await expect(error).toContainText("so the layout was not changed");
+  await expect(page.getByTestId("cv-skills-layout")).toHaveValue("grouped");
+  await expect(cv.locator('[data-skills-layout="grouped"]')).toBeVisible();
+  await expect(cv.getByTestId("cv-skills-pending")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+
+  await page.getByTestId("cv-skills-retry").click();
+  await expect(cv.locator('[data-skills-layout="paragraph"]')).toBeVisible();
+  await expect(error).toHaveCount(0);
+  await expect(page.getByTestId("cv-skills-layout")).toHaveValue("paragraph");
+});
+
 test("the paragraph layout can't be chosen through the API before one is written", async ({ page }) => {
   await page.goto(`/tailor/${CV_ID}/preview`);
   const response = await page.request.patch(`/api/tailor/${CV_ID}`, { data: { skillsLayout: "paragraph" } });

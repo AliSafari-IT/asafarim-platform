@@ -10,6 +10,7 @@ import {
 import { resolveSkillsDisplay, type SkillsDisplay } from "../../../lib/tailoring/skillsLayout";
 import { displayUrl, headerLinks, linkText, productLinks } from "../../../lib/profile/links";
 import { photoAltText, type CvPhoto } from "../../../lib/profile/photo";
+import { SkillsSection } from "../SkillsPending";
 
 /**
  * The one layout this pass ships. Plain, print-first HTML/CSS: no canvas,
@@ -98,10 +99,10 @@ export function ClassicTemplate({
       ) : null}
 
       {skillsDisplay ? (
-        <section className="rm-resume__section">
+        <SkillsSection>
           <h2>{labels.skills}</h2>
           <SkillsBlock display={skillsDisplay} labels={labels} />
-        </section>
+        </SkillsSection>
       ) : null}
 
       {content.experience.length > 0 ? (

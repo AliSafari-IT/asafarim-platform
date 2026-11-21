@@ -798,6 +798,125 @@
   }
 }
 
+/* Skills paragraph being written (SkillsLayoutPicker + SkillsPending.tsx):
+   a spinner and a live status by the picker, a "writing" overlay on the
+   CV's Skills section, and paused downloads. */
+.rm-spinner {
+  display: inline-block;
+  flex: none;
+  width: 0.9em;
+  height: 0.9em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: rm-spin 0.75s linear infinite;
+  vertical-align: -0.1em;
+}
+@keyframes rm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.rm-skills-layout__rewrite {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.rm-skills-layout__status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+.rm-skills-layout__status.is-writing {
+  align-items: flex-start;
+  color: var(--ui-text, inherit);
+  font-weight: 600;
+}
+.rm-skills-layout__status .rm-spinner {
+  margin-top: 0.2em;
+  color: var(--accent, #4338ca);
+}
+.rm-skills-layout[data-busy] .rm-skills-layout__select {
+  cursor: progress;
+  opacity: 0.65;
+}
+.rm-skills-layout__wait {
+  font-weight: 400;
+  color: var(--muted);
+}
+.rm-skills-layout__error {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--color-danger-text, #b00020) 35%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--color-danger-text, #b00020) 7%, transparent);
+  color: var(--color-danger-text, #b00020);
+  font-size: 0.85rem;
+  text-align: right;
+}
+.rm-resume__section--skills {
+  position: relative;
+}
+.rm-resume__section--skills[aria-busy="true"] > :not(.rm-skills-pending, h2) {
+  opacity: 0.35;
+  filter: blur(0.6px);
+  transition: opacity 0.2s ease;
+}
+.rm-skills-pending {
+  position: absolute;
+  inset: 1.6rem -0.5rem -0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--rm-accent, #4338ca) 12%, transparent) 50%,
+    transparent 80%
+  );
+  background-size: 250% 100%;
+  animation: rm-skills-shimmer 1.6s ease-in-out infinite;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.rm-skills-pending__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--rm-accent, #4338ca) 35%, transparent);
+  border-radius: 999px;
+  background: var(--ui-surface, #fff);
+  color: var(--rm-accent, #4338ca);
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+}
+@keyframes rm-skills-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rm-spinner {
+    animation: none;
+    border-right-color: currentColor;
+    border-style: dotted;
+  }
+  .rm-skills-pending {
+    animation: none;
+    background: color-mix(in srgb, var(--rm-accent, #4338ca) 6%, transparent);
+  }
+}
+
 .rm-preview-toolbar__hint {
   font-size: 0.82rem;
   opacity: 0.6;
