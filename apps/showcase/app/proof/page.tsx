@@ -35,8 +35,8 @@ const freshnessLabel = {
  * plainly instead of being hidden or faked.
  */
 export default async function ProofPage() {
-  const workspaces = getWorkspaceCards();
-  const changelog = getChangelog();
+  const workspaces = await getWorkspaceCards();
+  const changelog = await getChangelog();
   const ciMetrics = await getCiMetrics();
   const liveHealth = await getLiveHealth();
   const npmPortfolio = await getNpmPortfolio();
