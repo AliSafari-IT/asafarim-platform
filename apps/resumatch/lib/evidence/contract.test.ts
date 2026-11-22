@@ -42,6 +42,16 @@ describe("parseEvidenceInput (#929)", () => {
   });
 });
 
+describe("contact details across fields", () => {
+  it("doesn't join the title and detail into one phone number", () => {
+    const parsed = parseEvidenceInput({ kind: "ACHIEVEMENT", title: "Tickets per day: 250-300", detail: "2024 average, up from 200 per day in 2023." });
+    expect(parsed.ok).toBe(true);
+  });
+  it("still refuses a number inside one field", () => {
+    expect(parseEvidenceInput({ ...valid, detail: "Call 415-555-2671." })).toEqual({ ok: false, error: "contact_details" });
+  });
+});
+
 describe("containsContactDetails", () => {
   it.each(["sam@example.test", "+32 470 12 34 56", "0470 12 34 56", "call 0470-123456", "Contact me at 415-555-2671.", "(415) 555 2671", "415.555.2671"])("finds %s", (text) => {
     expect(containsContactDetails(text)).toBe(true);

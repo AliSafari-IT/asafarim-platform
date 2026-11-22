@@ -104,7 +104,8 @@ export function parseEvidenceInput(body: unknown): { ok: true; value: EvidenceIn
   const experienceRef = parseExperienceRef(raw.experienceRef);
   if (experienceRef === "invalid") return { ok: false, error: "experience_ref" };
   if (kind === "MOTIVATION" && experienceRef) return { ok: false, error: "motivation_with_role" };
-  if (containsContactDetails(`${title}\n${detail}`)) return { ok: false, error: "contact_details" };
+  // Each field on its own: a number split across the two is not a number.
+  if (containsContactDetails(title) || containsContactDetails(detail)) return { ok: false, error: "contact_details" };
   return { ok: true, value: { kind, title, detail, experienceRef } };
 }
 
