@@ -86,12 +86,25 @@ export async function renderPagePdf(request: RenderRequest): Promise<Uint8Array>
   const origin = new URL(base).origin;
 
   return serialize(async () => {
-    const { chromium } = await import("playwright-core");
-    const browser = await chromium.launch({
-      executablePath,
-      headless: true,
-      args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-    });
+    // Each stage fails with its own code, so a log line says which part of
+    // the setup is broken (a missing package file, a browser that will not
+    // start, a page that would not load) instead of one "browser_error".
+    let chromium: typeof import("playwright-core").chromium;
+    try {
+      ({ chromium } = await import("playwright-core"));
+    } catch {
+      throw new PdfRenderError("module_missing");
+    }
+    let browser: import("playwright-core").Browser;
+    try {
+      browser = await chromium.launch({
+        executablePath,
+        headless: true,
+        args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+      });
+    } catch {
+      throw new PdfRenderError("launch_failed");
+    }
     try {
       const context = await browser.newContext({
         extraHTTPHeaders: { cookie },

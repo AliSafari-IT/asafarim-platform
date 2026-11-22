@@ -82,6 +82,11 @@ ENV RESUMATCH_PDF_CHROMIUM_PATH=/usr/bin/chromium-browser
 COPY --from=builder --chown=node:node /app/apps/resumatch/.next/standalone ./
 COPY --from=builder --chown=node:node /app/apps/resumatch/.next/static ./apps/resumatch/.next/static
 COPY --from=builder --chown=node:node /app/apps/resumatch/public ./apps/resumatch/public
+COPY --from=builder --chown=node:node /app/apps/resumatch/scripts/pdf-smoke.mjs ./apps/resumatch/scripts/pdf-smoke.mjs
 EXPOSE 3000
 USER node
+# Fail the build, not the candidate's "Create PDFs" click, when this image
+# cannot print a PDF (0.3.0/0.3.1 shipped with playwright-core missing
+# browsers.json, so every server-side PDF failed in production).
+RUN node apps/resumatch/scripts/pdf-smoke.mjs
 CMD ["node", "apps/resumatch/server.js"]

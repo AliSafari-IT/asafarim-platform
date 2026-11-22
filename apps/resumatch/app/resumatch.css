@@ -5780,6 +5780,58 @@
 .rm-composer__pdfs-missing p {
   margin: 0;
 }
+/* Something is being made for the composer: the AI draft, or the PDFs.
+   A visible panel with a spinner, announced as a status, so a few seconds
+   of waiting never look like nothing happening. */
+.rm-composer__busy {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--accent, #4338ca) 35%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--accent, #4338ca) 7%, var(--ui-surface, #fff));
+  color: var(--ui-text, inherit);
+  font-size: 0.9rem;
+}
+.rm-composer__busy .rm-spinner {
+  margin-top: 0.2em;
+  color: var(--accent, #4338ca);
+}
+.rm-composer__busy strong {
+  color: var(--accent, #4338ca);
+}
+.rm-composer__busy-hint {
+  color: var(--muted);
+}
+.rm-composer__btn-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.rm-composer [data-writing] {
+  cursor: progress;
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, var(--accent, #4338ca) 12%, transparent) 50%,
+    transparent 80%
+  );
+  background-size: 250% 100%;
+  animation: rm-skills-shimmer 1.6s ease-in-out infinite;
+}
+.rm-composer__error-code {
+  margin-top: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rm-composer [data-writing] {
+    animation: none;
+  }
+}
 .rm-composer__checkbox {
   display: flex;
   align-items: flex-start;

@@ -139,12 +139,14 @@ export function Composer(props: ComposerProps) {
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmResend, setConfirmResend] = useState(false);
   const [pdfPhase, setPdfPhase] = useState<"idle" | "creating" | "error">("idle");
-  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<{ text: string; code: string | null } | null>(null);
   const keyRef = useRef<string | null>(null);
 
   const blocked = props.problems.includes("no_cv") || props.problems.includes("no_cover_letter");
   const sending = send.kind === "sending";
   const busy = sending || generating !== null || saveState.kind === "saving";
+  const subjectWriting = generating === "both" || generating === "subject";
+  const bodyWriting = generating === "both" || generating === "body";
   const dirty =
     !saved ||
     saved.toEmail !== fields.toEmail ||
@@ -356,10 +358,10 @@ export function Composer(props: ComposerProps) {
     setPdfError(null);
     try {
       const res = await fetch(`/api/tailor/${encodeURIComponent(props.application.tailoredResumeId)}/pdfs`, { method: "POST" });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; pdfs?: PdfStatusView };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; pdfs?: PdfStatusView };
       if (!res.ok || !data.pdfs) {
         setPdfPhase("error");
-        setPdfError(data.error ?? t("resumatch.send.entry.pdfFailed"));
+        setPdfError({ text: data.error ?? t("resumatch.send.entry.pdfFailed"), code: data.code ?? (res.ok ? null : `http_${res.status}`) });
         return;
       }
       // The candidate asked for new PDFs, so they become the attachments;
@@ -370,7 +372,7 @@ export function Composer(props: ComposerProps) {
       setPdfPhase("idle");
     } catch {
       setPdfPhase("error");
-      setPdfError(t("resumatch.send.entry.pdfFailed"));
+      setPdfError({ text: t("resumatch.send.entry.pdfFailed"), code: "network" });
     }
   }
 
@@ -403,7 +405,7 @@ export function Composer(props: ComposerProps) {
     return problem ? t(`resumatch.send.field.${field}.${problem}`) : null;
   };
 
-  const sendLocked = !props.sender.available || blocked || !pins.cv || !pins.letter || busy || send.kind === "accepted";
+  const sendLocked = !props.sender.available || blocked || !pins.cv || !pins.letter || busy || pdfPhase === "creating" || send.kind === "accepted";
 
   if (blocked) {
     return (
@@ -422,7 +424,7 @@ export function Composer(props: ComposerProps) {
   }
 
   return (
-    <div className="rm-composer" aria-busy={busy || undefined}>
+    <div className="rm-composer" aria-busy={busy || pdfPhase === "creating" || undefined}>
       {send.kind === "accepted" ? (
         <div className="rm-composer__result" ref={successRef} tabIndex={-1} data-testid="send-success">
           <Alert tone="info">
@@ -494,6 +496,22 @@ export function Composer(props: ComposerProps) {
         <fieldset disabled={sending || send.kind === "accepted"} className="rm-composer__fieldset">
           <legend className="rm-composer__heading">{t("resumatch.send.message.heading")}</legend>
 
+          {generating ? (
+            <div className="rm-composer__busy" role="status" aria-live="polite" data-testid="draft-writing">
+              <span className="rm-spinner" aria-hidden="true" />
+              <span>
+                <strong>
+                  {generating === "subject"
+                    ? t("resumatch.send.generate.busySubject")
+                    : generating === "body"
+                      ? t("resumatch.send.generate.busyBody")
+                      : t("resumatch.send.generate.busyBoth")}
+                </strong>{" "}
+                <span className="rm-composer__busy-hint">{t("resumatch.send.generate.busyHint")}</span>
+              </span>
+            </div>
+          ) : null}
+
           <div className="jm-field">
             <label htmlFor={ids.to}>
               <span>{t("resumatch.send.field.toEmail.label")}</span>
@@ -561,7 +579,14 @@ export function Composer(props: ComposerProps) {
                 <span>{t("resumatch.send.field.subject.label")}</span>
               </label>
               <Button type="button" variant="ghost" size="sm" onClick={() => void generate("subject")} disabled={busy} data-testid="regenerate-subject">
-                {generating === "subject" ? t("resumatch.send.generate.writing") : t("resumatch.send.generate.subject")}
+                {subjectWriting ? (
+                  <span className="rm-composer__btn-busy">
+                    <span className="rm-spinner" aria-hidden="true" />
+                    {t("resumatch.send.generate.writing")}
+                  </span>
+                ) : (
+                  t("resumatch.send.generate.subject")
+                )}
               </Button>
             </div>
             <input
@@ -570,6 +595,10 @@ export function Composer(props: ComposerProps) {
               required
               maxLength={SUBJECT_MAX_LENGTH}
               value={fields.subject}
+              readOnly={subjectWriting}
+              aria-busy={subjectWriting || undefined}
+              data-writing={subjectWriting || undefined}
+              placeholder={subjectWriting ? t("resumatch.send.generate.placeholder") : undefined}
               aria-invalid={problems.subject ? true : undefined}
               aria-describedby={problems.subject ? `${ids.subject}-error` : undefined}
               onChange={(e) => update({ subject: e.target.value, subjectEdited: true })}
@@ -587,7 +616,14 @@ export function Composer(props: ComposerProps) {
                 <span>{t("resumatch.send.field.body.label")}</span>
               </label>
               <Button type="button" variant="ghost" size="sm" onClick={() => void generate("body")} disabled={busy} data-testid="regenerate-body">
-                {generating === "body" ? t("resumatch.send.generate.writing") : t("resumatch.send.generate.body")}
+                {bodyWriting ? (
+                  <span className="rm-composer__btn-busy">
+                    <span className="rm-spinner" aria-hidden="true" />
+                    {t("resumatch.send.generate.writing")}
+                  </span>
+                ) : (
+                  t("resumatch.send.generate.body")
+                )}
               </Button>
             </div>
             <textarea
@@ -596,6 +632,10 @@ export function Composer(props: ComposerProps) {
               required
               maxLength={BODY_MAX_LENGTH}
               value={fields.body}
+              readOnly={bodyWriting}
+              aria-busy={bodyWriting || undefined}
+              data-writing={bodyWriting || undefined}
+              placeholder={bodyWriting ? t("resumatch.send.generate.placeholder") : undefined}
               aria-invalid={problems.body ? true : undefined}
               aria-describedby={`${ids.body}-hint${problems.body ? ` ${ids.body}-error` : ""}`}
               onChange={(e) => update({ body: e.target.value, bodyEdited: true })}
@@ -608,9 +648,6 @@ export function Composer(props: ComposerProps) {
             ) : null}
           </div>
 
-          <p className="rm-save-status" role="status" aria-live="polite">
-            {generating ? t("resumatch.send.generate.writingLong") : ""}
-          </p>
           {generateNote ? (
             <div className="rm-composer__note-block">
               <Alert tone={generateNote.tone}>{generateNote.text}</Alert>
@@ -624,14 +661,11 @@ export function Composer(props: ComposerProps) {
               <div className="rm-composer__pdfs-missing">
                 <p>{t("resumatch.send.attachments.missing")}</p>
                 {props.pdfRenderer ? (
-                  <>
-                    <Button type="button" variant="secondary" onClick={createPdfs} disabled={pdfPhase === "creating" || busy}>
-                      {pdfPhase === "creating" ? t("resumatch.send.entry.creatingPdfs") : t("resumatch.send.entry.createPdfs")}
+                  pdfPhase === "creating" ? null : (
+                    <Button type="button" variant="secondary" onClick={createPdfs} disabled={busy}>
+                      {t("resumatch.send.entry.createPdfs")}
                     </Button>
-                    <span className="rm-save-status" role="status" aria-live="polite" data-testid="pdfs-creating">
-                      {pdfPhase === "creating" ? t("resumatch.send.entry.creatingPdfsLong") : ""}
-                    </span>
-                  </>
+                  )
                 ) : (
                   <p className="rm-composer__note">{t("resumatch.send.attachments.noRenderer")}</p>
                 )}
@@ -681,11 +715,24 @@ export function Composer(props: ComposerProps) {
                 })}
               </ul>
             )}
-            <p className="rm-save-status" role="status" aria-live="polite">
-              {pdfPhase === "creating" ? t("resumatch.send.entry.creatingPdfsLong") : ""}
-            </p>
-            {pdfError ? <Alert tone="error">{pdfError}</Alert> : null}
-            <p className="rm-composer__note">{t("resumatch.send.attachments.note")}</p>
+            <div role="status" aria-live="polite" data-testid="pdfs-creating">
+              {pdfPhase === "creating" ? (
+                <div className="rm-composer__busy">
+                  <span className="rm-spinner" aria-hidden="true" />
+                  <span>
+                    <strong>{t("resumatch.send.entry.creatingPdfs")}</strong>{" "}
+                    <span className="rm-composer__busy-hint">{t("resumatch.send.attachments.creatingHint")}</span>
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            {pdfError ? (
+              <Alert tone="error">
+                <p>{pdfError.text}</p>
+                {pdfError.code ? <p className="rm-composer__error-code">{t("resumatch.send.entry.pdfFailedCode", { code: pdfError.code })}</p> : null}
+              </Alert>
+            ) : null}
+            {pins.cv && pins.letter ? <p className="rm-composer__note">{t("resumatch.send.attachments.note")}</p> : null}
           </section>
 
           <label className="rm-composer__checkbox" htmlFor={ids.copy}>

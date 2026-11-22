@@ -227,11 +227,15 @@ export async function createPdfs(
       bytes = await render(job.request);
     } catch (error) {
       if (error instanceof PdfRendererUnavailableError) return { ok: false, reason: "renderer_unavailable" };
-      logError("documentPdf.render.failed", error, { kind: job.kind, code: error instanceof PdfRenderError ? error.code : "unknown" });
+      // `reasonCode` is on the log allow-list; `kind`/`code` were redacted,
+      // which left production logs unable to say why a render failed.
+      logError("documentPdf.render.failed", error, {
+        reasonCode: `${job.kind}:${error instanceof PdfRenderError ? error.code : "unknown"}`,
+      });
       return { ok: false, reason: "render_failed" };
     }
     if (bytes.byteLength === 0 || bytes.byteLength > MAX_PDF_BYTES || !isPdf(bytes)) {
-      logError("documentPdf.render.invalid", new Error("InvalidPdf"), { kind: job.kind, byteSize: bytes.byteLength });
+      logError("documentPdf.render.invalid", new Error("InvalidPdf"), { reasonCode: `${job.kind}:invalid_pdf`, count: bytes.byteLength });
       return { ok: false, reason: "render_failed" };
     }
 
@@ -239,7 +243,7 @@ export async function createPdfs(
     try {
       await putDocumentBytes(key, bytes, "application/pdf");
     } catch (error) {
-      logError("documentPdf.store.failed", error, { kind: job.kind });
+      logError("documentPdf.store.failed", error, { reasonCode: `${job.kind}:store_failed` });
       return { ok: false, reason: "storage_failed" };
     }
     try {
@@ -263,7 +267,7 @@ export async function createPdfs(
     } catch (error) {
       // No row, so the object must not linger.
       await deleteDocumentBytes(key).catch(() => false);
-      logError("documentPdf.row.failed", error, { kind: job.kind });
+      logError("documentPdf.row.failed", error, { reasonCode: `${job.kind}:row_failed` });
       return { ok: false, reason: "storage_failed" };
     }
   }

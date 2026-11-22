@@ -42,3 +42,12 @@ describe("renderer settings", () => {
     expect(pdfRendererConfigured({} as NodeJS.ProcessEnv)).toBe(false);
   });
 });
+
+describe("standalone build tracing", () => {
+  it("ships the whole playwright-core package with the PDF route", async () => {
+    // 0.3.0/0.3.1: the tracer missed browsers.json, so every server-side
+    // PDF failed in production with MODULE_NOT_FOUND.
+    const { default: config } = await import("../../next.config");
+    expect(config.outputFileTracingIncludes?.["/api/tailor/\\[id\\]/pdfs"]).toContain("./node_modules/playwright-core/**/*");
+  });
+});
