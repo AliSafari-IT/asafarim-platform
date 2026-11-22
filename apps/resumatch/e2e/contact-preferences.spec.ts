@@ -89,6 +89,29 @@ test("a hand-edited message is never changed by the contact choice", async ({ pa
   await expect(body).toHaveValue("My own words.");
 });
 
+test("in an edited message, a new choice asks first and changes only the paragraph", async ({ page }) => {
+  test.setTimeout(120_000);
+  await saveDefaults();
+  const body = await openComposer(page);
+  await expect(body).toHaveValue(/reach me by phone/);
+  const edited = (await body.inputValue()).replace(/^([^\n]+)/, "$1 (my own greeting)");
+  await body.fill(edited);
+
+  const contact = page.getByTestId("composer-contact");
+  await contact.getByLabel("Leave them out").check();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("Only the contact paragraph changes");
+  await dialog.getByRole("button", { name: "Keep my message" }).click();
+  await expect(body).toHaveValue(edited);
+  await expect(contact).toContainText("Your message was kept as it is.");
+
+  await contact.getByLabel("Use my saved preferences").check();
+  await contact.getByLabel("Leave them out").check();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Change the paragraph" }).click();
+  await expect(body).not.toHaveValue(/reach me/);
+  await expect(body).toHaveValue(/\(my own greeting\)/);
+});
+
 test("a reopened draft can still leave out its paragraph after the defaults change", async ({ page }) => {
   test.setTimeout(120_000);
   await saveDefaults();

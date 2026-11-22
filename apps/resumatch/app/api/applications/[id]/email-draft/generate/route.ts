@@ -30,6 +30,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const body = (await request.json()) as { contactName?: unknown; contactMode?: unknown; contactOverride?: unknown } | null;
     if (typeof body?.contactName === "string") contactName = body.contactName.slice(0, CONTACT_NAME_MAX_LENGTH);
+    if (body?.contactMode !== undefined && !isContactMode(body.contactMode)) {
+      return NextResponse.json({ error: "Invalid contact preferences", code: "contact_preferences" }, { status: 422 });
+    }
     if (isContactMode(body?.contactMode)) {
       let override: ContactPreferences | null = null;
       if (body.contactMode === "OVERRIDE") {

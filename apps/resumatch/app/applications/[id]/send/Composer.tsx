@@ -150,7 +150,14 @@ export function Composer(props: ComposerProps) {
   const [problems, setProblems] = useState<Partial<Record<DraftField, FieldProblem>>>({});
   const [generating, setGenerating] = useState<null | "both" | "subject" | "body">(null);
   const [generateNote, setGenerateNote] = useState<{ tone: "info" | "error" | "warning"; text: string } | null>(null);
-  const [confirmReplace, setConfirmReplace] = useState<null | { part: "subject" | "body"; subject: string; body: string; contactParagraph: string | null }>(
+  const [confirmReplace, setConfirmReplace] = useState<null | {
+    part: "subject" | "body";
+    subject: string;
+    body: string;
+    contactParagraph: string | null;
+    /** A change of contact choice in an edited body: only that paragraph changes, the edits stay. */
+    contactOnly?: boolean;
+  }>(
     null,
   );
   const [saveState, setSaveState] = useState<{ kind: "idle" | "saving" | "saved" | "error" | "conflict"; text?: string }>({ kind: "idle" });
@@ -195,7 +202,8 @@ export function Composer(props: ComposerProps) {
     savedPins.cv !== (pins.cv?.id ?? null) ||
     savedPins.letter !== (pins.letter?.id ?? null) ||
     savedContact.mode !== contact.mode ||
-    JSON.stringify(savedContact.override) !== JSON.stringify(contact.override);
+    // The override only counts while it is the choice: OMIT saves none.
+    (contact.mode === "OVERRIDE" && JSON.stringify(savedContact.override) !== JSON.stringify(contact.override));
   const hasText = Boolean(fields.subject.trim() || fields.body.trim() || fields.toEmail.trim());
   const warnOnLeave = dirty && hasText && send.kind !== "accepted";
 
@@ -312,9 +320,14 @@ export function Composer(props: ComposerProps) {
     if (mode === "OVERRIDE" && (!override || contactPreferencesProblem(override))) return;
     const next = paragraphFor(mode, override);
     if (next === contactParagraph || !fields.body.trim()) return;
-    const swapped = fields.bodyEdited ? null : swapContactParagraph(fields.body, contactParagraph, next);
+    const swapped = swapContactParagraph(fields.body, contactParagraph, next);
     if (swapped === null) {
       setContactNote(t("resumatch.contact.composer.edited"));
+      return;
+    }
+    if (fields.bodyEdited) {
+      // Hand edits: ask first, through the same step a regenerate uses.
+      setConfirmReplace({ part: "body", subject: fields.subject, body: swapped, contactParagraph: next, contactOnly: true });
       return;
     }
     setContactNote(null);
@@ -955,12 +968,24 @@ export function Composer(props: ComposerProps) {
 
       <ConfirmDialog
         open={confirmReplace !== null}
-        title={confirmReplace?.part === "subject" ? t("resumatch.send.replace.subjectTitle") : t("resumatch.send.replace.bodyTitle")}
-        message={t("resumatch.send.replace.message")}
-        confirmLabel={t("resumatch.send.replace.confirm")}
-        cancelLabel={t("resumatch.send.replace.cancel")}
+        title={
+          confirmReplace?.contactOnly
+            ? t("resumatch.contact.composer.replaceTitle")
+            : confirmReplace?.part === "subject"
+              ? t("resumatch.send.replace.subjectTitle")
+              : t("resumatch.send.replace.bodyTitle")
+        }
+        message={confirmReplace?.contactOnly ? t("resumatch.contact.composer.replaceMessage") : t("resumatch.send.replace.message")}
+        confirmLabel={confirmReplace?.contactOnly ? t("resumatch.contact.composer.replaceConfirm") : t("resumatch.send.replace.confirm")}
+        cancelLabel={confirmReplace?.contactOnly ? t("resumatch.contact.composer.replaceCancel") : t("resumatch.send.replace.cancel")}
         onConfirm={() => {
-          if (confirmReplace) {
+          if (confirmReplace?.contactOnly) {
+            // The candidate's other edits stay, so the body stays "edited".
+            const { body, contactParagraph: next } = confirmReplace;
+            setContactParagraph(next);
+            setContactNote(null);
+            setFields((current) => ({ ...current, body }));
+          } else if (confirmReplace) {
             const { part, subject, body } = confirmReplace;
             if (part === "body") {
               setContactParagraph(confirmReplace.contactParagraph);
@@ -975,8 +1000,9 @@ export function Composer(props: ComposerProps) {
           setConfirmReplace(null);
         }}
         onCancel={() => {
+          if (confirmReplace?.contactOnly) setContactNote(t("resumatch.contact.composer.kept"));
+          else setGenerateNote({ tone: "info", text: t("resumatch.send.replace.kept") });
           setConfirmReplace(null);
-          setGenerateNote({ tone: "info", text: t("resumatch.send.replace.kept") });
         }}
       />
       <ConfirmDialog

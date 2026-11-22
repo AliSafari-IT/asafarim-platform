@@ -33,6 +33,12 @@ const TIME_ZONES = [
   "UTC",
 ];
 
+/** Every IANA zone the runtime knows, after the common ones above. */
+function allTimeZones(): string[] {
+  const supported = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+  return [...TIME_ZONES, ...supported.filter((zone) => !TIME_ZONES.includes(zone))];
+}
+
 const NEW_WINDOW: TimeWindow = { days: [1, 2, 3, 4, 5], start: "09:00", end: "17:00" };
 
 export function contactPreferencesProblem(value: ContactPreferences): string | null {
@@ -119,7 +125,8 @@ export function ContactPreferencesFields({
   const language = previewLanguage ?? outputLanguageFromLocale(locale);
   const problem = contactPreferencesProblem(value);
   const paragraph = problem ? null : renderContactParagraph(value, language);
-  const zones = TIME_ZONES.includes(value.timeZone) ? TIME_ZONES : [value.timeZone, ...TIME_ZONES];
+  const known = allTimeZones();
+  const zones = known.includes(value.timeZone) ? known : [value.timeZone, ...known];
   const setOutside = (outsideHours: OutsideHours) =>
     onChange({
       ...value,
