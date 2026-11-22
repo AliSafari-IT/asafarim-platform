@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-22",
+    "title": "Resumatch: Edit a saved tailored CV, rename Edit and regenerate to Regenerate, keep own summary (0.5.0)",
+    "sha": "9196e787",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9196e787"
+  },
+  {
+    "date": "2026-11-22",
     "title": "Resumatch: add/remove skills and edit/add bullets on the Tailor review (0.4.0)",
     "sha": "73f1daf3",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/73f1daf3"
@@ -112,11 +118,5 @@
     "title": "Resumatch: cross-provider AI fallback (OpenAI ↔ Anthropic)",
     "sha": "d4ae33d8",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d4ae33d8"
-  },
-  {
-    "date": "2026-10-17",
-    "title": "Resumatch: record one outcome row per AI provider call (#512)",
-    "sha": "1d845c68",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1d845c68"
   }
 ]
