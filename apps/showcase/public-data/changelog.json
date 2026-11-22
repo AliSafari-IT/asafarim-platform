@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-22",
+    "title": "Resumatch: share one versioned request context across CV and cover-letter generation (0.6.0)",
+    "sha": "7a562a02",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/7a562a02"
+  },
+  {
+    "date": "2026-11-22",
     "title": "Resumatch: Edit a saved tailored CV, rename Edit and regenerate to Regenerate, keep own summary (0.5.0)",
     "sha": "9196e787",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9196e787"
@@ -112,11 +118,5 @@
     "title": "Resumatch: per-workspace AI monthly budget override",
     "sha": "082c292f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/082c292f"
-  },
-  {
-    "date": "2026-10-18",
-    "title": "Resumatch: cross-provider AI fallback (OpenAI ↔ Anthropic)",
-    "sha": "d4ae33d8",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d4ae33d8"
   }
 ]
