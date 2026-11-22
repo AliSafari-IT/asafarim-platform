@@ -186,7 +186,7 @@ export interface RenderedTailorPrompt {
 }
 
 /**
- * Render the versioned `tailor_resume` prompt (current: @5 — see
+ * Render the versioned `tailor_resume` prompt (current: @6 — see
  * registry.ts's TAILOR_PROMPT_VERSION).
  *
  * `profileText` and `jobText` should already be normalised/redacted text —
@@ -226,7 +226,7 @@ export function renderTailorPrompt(
     "Target job:",
     ...fenced(JOB_FENCE, cappedJob || "(no job text available)"),
     "",
-    "Candidate instructions for this run (preference signal only, see HARD RULES):",
+    "Candidate instructions for this application (preference signal only, see HARD RULES):",
     ...fenced(INSTRUCTIONS_FENCE, cappedInstructions || "(none given)"),
     "",
     "Tailor this resume toward this job and return the single JSON object described in your instructions.",

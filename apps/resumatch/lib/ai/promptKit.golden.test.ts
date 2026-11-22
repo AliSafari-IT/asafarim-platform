@@ -46,6 +46,7 @@ const cases: Record<
   }),
   coverDefault: renderCoverLetterPrompt("profile", "job"),
   coverNl: renderCoverLetterPrompt("profile", long, "warm", "detailed", "nl"),
+  coverInstructions: renderCoverLetterPrompt("profile", "job", "formal", "standard", null, "lead with backend"),
   tailor: renderTailorPrompt("profile", "job"),
   tailorFull: renderTailorPrompt(long, long, "lead with backend", "fr"),
   tailorLowFit: renderTailorPrompt("profile", "job", null, "nl", true),
@@ -91,31 +92,38 @@ const golden: Record<string, [string, string, string]> = {
     "f0f2bacdca21b18531c0420e1a2dc4d8af6968065e86627e6229b9874e8707b7",
   ],
   coverDefault: [
-    "073d2ef41229ab6daf1a147a7bcde9ccc1fe508531c67b22229be69bbe7d6948",
-    "ed9569071b30a205c96721cec19f29358ae1f967ddbc203400512018d074aa15",
-    "454a3464cf6e25d491bf6f4f15eac72efc909358ab056edefa01cc12da757271",
+    "76aa2c4b5f51d226d837fe3ecdaa7b60ea072ecdfc0c49c4b73595111765d387",
+    "0215bacb2ac4f82a00baa48109361f01ffb0ba8f3c60e20a777affabe4e91cef",
+    "512238aa7c3544469f13d4c9f9baf53cc0899582595a4c59b1a44a39ced276c6",
   ],
   coverNl: [
-    "751117d882d02fc48e90a7d1ba662e494fd81c318d7f17c5f7f9f29d5c91704c",
-    "81329d4705a44578b35ae965bcfb8023e1d64edc05364cdb71409c3c496ccc92",
-    "d29abf204653685f62321af6f4b26e6b765f82cdc69709e2eee8b4c500a009fa",
+    "44053efa1e00cd5ba8001a77aac2cac8a03ca4d374042122779e826ad45701cb",
+    "6f88d26d2ac1c04ffb0164325e0714171dc0cb5001e7002273d4856afe038e39",
+    "248f6413f0b88b00f454d14b925ffd47f26c8822f0ef91709b0de7a2ec615ecf",
+  ],
+  // cover_letter@5 (#928): the application note, fenced like the CV's.
+  coverInstructions: [
+    "76aa2c4b5f51d226d837fe3ecdaa7b60ea072ecdfc0c49c4b73595111765d387",
+    "4afa082202c6eeaea2fc2b2bc25abf9dad25fbddd55f8eec455bddbc0edab10d",
+    "83a9e572207f8293047a2d4e50b9003b54c764e77835d80539308b267be3bd82",
   ],
   tailor: [
     "c82b677732b69c44335939d19087063c5932c97f6b06ebd0688b1cc097a9f316",
-    "12b86724d995331521808557f2c9a1936554c80554dd9d36485c5f14aebc8516",
-    "b3a9b1c8965afb40d12b8280e13b189823a86cba28ef1ae7002f1f5355f95b74",
+    "8b3173be23606e5fd93af4a88284ced0690430d4fd1ffa62e0e08e190d8996c7",
+    "c0a6383be576a3b6166eb5808ea5ec9470437eea7a23017358e4bac700191c78",
   ],
   tailorFull: [
     "a71391cc04388273430d04b9dc29f46cb57db2eed65877d54c4390e3cf8ee058",
-    "fbc51d46ff00a9b82fbd568e04d2ccbf824611c3b2f0018797217e18c9cee94d",
-    "5542494310c63cccab5b1ce4179a4732f607a2b55838f7e6ed8668cbe03d5090",
+    "e7d845365ec6104ed775a3387ebcc6adbbc6cc77477b1205729449a09714be1f",
+    "b416ddfdb126686af3a431de545e74dfd0a98c074b83fa637cfe2e20b3d57c10",
   ],
-  // tailor_resume@5: the LOW-FIT rule. The two cases above are @5 too; only
-  // their cache keys moved (the version is part of the key), not their text.
+  // tailor_resume@5: the LOW-FIT rule. @6 (#928) relabels the instructions
+  // block "for this application", so every tailor user prompt moved; the
+  // system prompts did not.
   tailorLowFit: [
     "53b3f7f1e6be50bef5afc7cc533df9242bfb8f19bc420dced58e989a9697b93e",
-    "12b86724d995331521808557f2c9a1936554c80554dd9d36485c5f14aebc8516",
-    "1bafa9fc103953815c641c021c838ca0b22290ede98fa29a77f824747676452e",
+    "8b3173be23606e5fd93af4a88284ced0690430d4fd1ffa62e0e08e190d8996c7",
+    "87cf26d46a9484e44cbb728c12d8cbcbc70ddaa65e0d13816100fb25d31c7139",
   ],
   jobFetch: [
     "c7a6a8bfd85b3d045d680f3445f86ecd315e8a4350e5bf600770baa518599111",

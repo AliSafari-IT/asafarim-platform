@@ -439,6 +439,11 @@ model TailoredResume {
   /// CVs saved before 0.4.0 or without hand edits.
   candidateEdits Json?
 
+  /// The request context this CV was generated from (#928), copied from
+  /// its TailorPreview without the job-text copy. Regenerate reads the
+  /// letter tone/length from it. Null on CVs saved before 0.6.0.
+  tailoringContext Json?
+
   createdAt DateTime @default(now())
 
   applications Application[]
@@ -586,6 +591,17 @@ model TailorPreview {
   /// Null when no letter was requested. Copied onto the CoverLetter by
   /// generate-confirm, only when the letter was actually drafted.
   coverLetterOutputLanguage String?
+
+  /// The server-resolved request context of this run (#928,
+  /// lib/tailoring/context.ts): profile version, job, job-text fingerprint
+  /// and capped copy, the candidate's note, languages, letter tone/length.
+  /// Immutable once written. Null on previews made before 0.6.0, which
+  /// confirm exactly as before.
+  contextVersion     String?
+  context            Json?
+  /// sha256 over every output-affecting field of `context`, workspace
+  /// included (tailoringContextFingerprint).
+  contextFingerprint String?
 
   createdAt  DateTime  @default(now())
   /// Set by generate-confirm on first (and only) use. A second confirm

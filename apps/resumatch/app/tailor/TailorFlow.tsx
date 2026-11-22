@@ -272,8 +272,8 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
     () => seed?.cvLanguage ?? outputLanguageFromLocale(pageLocale),
   );
   const [includeCoverLetter, setIncludeCoverLetter] = useState(seed?.includeCoverLetter ?? false);
-  const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">("formal");
-  const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">("standard");
+  const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">(seed?.coverLetterTone ?? "formal");
+  const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">(seed?.coverLetterLength ?? "standard");
   // #642: null means "same as the CV", so the letter keeps following the CV
   // language until the candidate picks a different one on purpose.
   const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(seed?.coverLetterLanguage ?? null);

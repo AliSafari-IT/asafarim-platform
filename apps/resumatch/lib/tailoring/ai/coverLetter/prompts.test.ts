@@ -73,7 +73,7 @@ describe("renderCoverLetterPrompt — output language (#642)", () => {
   });
 
   it("is on a bumped prompt version", () => {
-    expect(COVER_LETTER_PROMPT_VERSION).toBe("cover_letter@4");
+    expect(COVER_LETTER_PROMPT_VERSION).toBe("cover_letter@5");
   });
 
   it.each([

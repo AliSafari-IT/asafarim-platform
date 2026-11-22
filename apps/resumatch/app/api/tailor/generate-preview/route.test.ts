@@ -56,7 +56,7 @@ describe("generate-preview low-fit guard", () => {
     runTailorProviderCall.mockReset().mockResolvedValue({
       suggestions: null,
       degraded: true,
-      promptVersion: "tailor_resume@5",
+      promptVersion: "tailor_resume@6",
       modelVersion: "fixture-tailor-1",
       providerName: "fixture",
     });
