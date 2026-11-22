@@ -10,6 +10,7 @@ import {
   MAX_EVIDENCE_TITLE_CHARS,
   type EvidenceKind,
   type EvidenceScope,
+  sameExperience,
   type ExperienceRef,
 } from "../../lib/evidence/contract";
 import type { EvidenceView } from "../../lib/evidence/store";
@@ -28,18 +29,39 @@ interface Draft {
   kind: EvidenceKind;
   title: string;
   detail: string;
-  /** Index into `roles`, or "" for no single role. */
+  /** Index into `roles`, "" for no single role, or KEPT_ROLE for the
+   *  edited item's own link when the profile no longer lists that role. */
   role: string;
+  /** The edited item's role link, kept as it is unless the candidate picks another. */
+  keptRef: ExperienceRef | null;
   scope: EvidenceScope;
   /** The job an edited application item already belongs to; it stays there
    *  unless the candidate moves it to background. Null: this job. */
   jobId: string | null;
 }
 
-const EMPTY: Draft = { id: null, baseRevisionId: null, kind: "ACHIEVEMENT", title: "", detail: "", role: "", scope: "APPLICATION", jobId: null };
+const EMPTY: Draft = { id: null, baseRevisionId: null, kind: "ACHIEVEMENT", title: "", detail: "", role: "", keptRef: null, scope: "APPLICATION", jobId: null };
+
+const KEPT_ROLE = "kept";
 
 function roleKey(ref: ExperienceRef): string {
   return JSON.stringify([ref.title, ref.employer, ref.startedOn]);
+}
+
+/** The picker label. The start date tells repeat roles (same title and employer) apart. */
+function roleLabel(ref: ExperienceRef): string {
+  const name = ref.employer ? `${ref.title} · ${ref.employer}` : ref.title;
+  return ref.startedOn ? `${name} · ${ref.startedOn}` : name;
+}
+
+/** The picker entry for an item's link: an exact match first, then the
+ *  same role written differently (case, spacing, a date added later). */
+function roleIndexFor(roles: ExperienceRef[], ref: ExperienceRef): number {
+  const exact = roles.findIndex((r) => roleKey(r) === roleKey(ref));
+  if (exact >= 0) return exact;
+  const matches = roles.flatMap((r, index) => (sameExperience(r, ref) ? [index] : []));
+  // Two stints match a date-less link: don't guess between them.
+  return matches.length === 1 ? matches[0]! : -1;
 }
 
 export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId: string; onUsedCountChange?: (count: number) => void }) {
@@ -87,7 +109,12 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
     setBusy(true);
     setError(null);
     setNotice(null);
-    const role = draft.kind !== "MOTIVATION" && draft.role !== "" ? roles[Number(draft.role)] ?? null : null;
+    const role =
+      draft.kind === "MOTIVATION" || draft.role === ""
+        ? null
+        : draft.role === KEPT_ROLE
+          ? draft.keptRef
+          : (roles[Number(draft.role)] ?? null);
     const payload = {
       kind: draft.kind,
       title: draft.title,
@@ -183,7 +210,7 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
   }
 
   function edit(item: EvidenceView) {
-    const index = item.experienceRef ? roles.findIndex((r) => roleKey(r) === roleKey(item.experienceRef!)) : -1;
+    const index = item.experienceRef ? roleIndexFor(roles, item.experienceRef) : -1;
     setNotice(null);
     setError(null);
     setDraft({
@@ -192,7 +219,8 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
       kind: item.kind,
       title: item.title,
       detail: item.detail,
-      role: index >= 0 ? String(index) : "",
+      role: index >= 0 ? String(index) : item.experienceRef ? KEPT_ROLE : "",
+      keptRef: item.experienceRef,
       scope: item.scope,
       jobId: item.scope === "APPLICATION" ? item.targetJobId : null,
     });
@@ -221,7 +249,7 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
         ) : null}
         {item.experienceRef ? (
           <p className="rm-evidence__role">
-            {t("resumatch.evidence.role.label")}: {item.experienceRef.employer ? `${item.experienceRef.title} · ${item.experienceRef.employer}` : item.experienceRef.title}
+            {t("resumatch.evidence.role.label")}: {roleLabel(item.experienceRef)}
           </p>
         ) : null}
         <div className="rm-evidence__actions">
@@ -335,9 +363,12 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
                 <option value="">{t("resumatch.evidence.form.noRole")}</option>
                 {roles.map((role, index) => (
                   <option key={roleKey(role)} value={String(index)}>
-                    {role.employer ? `${role.title} · ${role.employer}` : role.title}
+                    {roleLabel(role)}
                   </option>
                 ))}
+                {draft.keptRef && roleIndexFor(roles, draft.keptRef) < 0 ? (
+                  <option value={KEPT_ROLE}>{t("resumatch.evidence.form.keptRole", { role: roleLabel(draft.keptRef) })}</option>
+                ) : null}
               </select>
               <small>{t("resumatch.evidence.form.roleHelp")}</small>
             </label>

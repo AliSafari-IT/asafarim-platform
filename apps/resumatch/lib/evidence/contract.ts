@@ -139,6 +139,16 @@ export function experienceRefOf(entry: ExperienceEntry): ExperienceRef {
   return { title: entry.title, employer: entry.employer ?? null, startedOn: entry.startedOn ?? null };
 }
 
+/** Whether two references name the same role: compared the way
+ *  `findExperience` compares, so a case or spacing fix in the profile keeps
+ *  the link. A missing start date matches any date. */
+export function sameExperience(a: ExperienceRef, b: ExperienceRef): boolean {
+  return same(a.title, b.title) && same(a.employer, b.employer) && (a.startedOn === null || b.startedOn === null || same(a.startedOn, b.startedOn));
+}
+
+/** The role as the prompt names it. The start date is included when known,
+ *  so two stints with the same title and employer stay apart. */
 export function describeExperienceRef(ref: ExperienceRef): string {
-  return ref.employer ? `${ref.title} at ${ref.employer}` : ref.title;
+  const name = ref.employer ? `${ref.title} at ${ref.employer}` : ref.title;
+  return ref.startedOn ? `${name}, from ${ref.startedOn}` : name;
 }

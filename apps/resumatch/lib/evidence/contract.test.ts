@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { parseProfileContent } from "../profile/contract";
 import {
   containsContactDetails,
+  describeExperienceRef,
   findExperience,
   MAX_EVIDENCE_DETAIL_CHARS,
   MAX_EVIDENCE_TITLE_CHARS,
   parseEvidenceInput,
+  sameExperience,
 } from "./contract";
 
 const valid = { kind: "ACHIEVEMENT", title: "Faster checkout", detail: "Cut checkout time by 30% in 2024." };
@@ -60,5 +62,22 @@ describe("findExperience", () => {
   it("finds nothing for a role the profile does not have", () => {
     expect(findExperience(profile, { title: "Backend developer", employer: "Other", startedOn: null })).toBeNull();
     expect(findExperience(profile, { title: "Backend developer", employer: "Acme", startedOn: "2020-01" })).toBeNull();
+  });
+});
+
+describe("repeat roles", () => {
+  const first = { title: "Developer", employer: "Acme", startedOn: "2018-01" };
+  const second = { title: "Developer", employer: "Acme", startedOn: "2022-06" };
+
+  it("names the start date, so two stints at one employer read apart in the prompt", () => {
+    expect(describeExperienceRef(first)).toBe("Developer at Acme, from 2018-01");
+    expect(describeExperienceRef(second)).not.toBe(describeExperienceRef(first));
+    expect(describeExperienceRef({ title: "Developer", employer: null, startedOn: null })).toBe("Developer");
+  });
+
+  it("matches a role written with different case or spacing, but not another stint", () => {
+    expect(sameExperience(first, { title: " developer ", employer: "ACME", startedOn: "2018-01" })).toBe(true);
+    expect(sameExperience(first, second)).toBe(false);
+    expect(sameExperience(first, { title: "Developer", employer: "Acme", startedOn: null })).toBe(true);
   });
 });
