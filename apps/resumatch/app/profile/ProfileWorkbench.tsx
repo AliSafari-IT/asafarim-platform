@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
 import {
@@ -16,6 +16,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSo
 import { Alert, Badge, Button, Card, useEdgeAutoScroll } from "@asafarim/ui";
 import { LINK_KINDS, LOW_CONFIDENCE_THRESHOLD, linkSchema } from "../../lib/profile/contract";
 import { normalizeLinkUrl } from "../../lib/profile/links";
+import { profileHasChanges } from "../../lib/profile/changes";
 import type {
   CandidateProfileContent,
   CertificationEntry,
@@ -66,7 +67,11 @@ export interface ProfileWorkbenchProps {
   hasDocument: boolean;
 }
 
-type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "error"; message: string } | { kind: "saved"; confirmed: boolean };
+type SaveState =
+  | { kind: "idle" }
+  | { kind: "saving" }
+  | { kind: "error"; message: string }
+  | { kind: "saved"; confirmed: boolean; unchanged: boolean };
 
 /** A safe-enough ISO-639-ish code for a manually-added language: the
  *  schema only requires 2-16 characters, and this field is never read for
@@ -151,7 +156,19 @@ export function ProfileWorkbench({
   const [content, setContent] = useState<CandidateProfileContent>(initialContent);
   const [state, setState] = useState<SaveState>({ kind: "idle" });
   const navScroller = useEdgeAutoScroll<HTMLElement>();
-  const [dirty, setDirty] = useState(false);
+  // What the last saved version holds. "Unsaved changes" and both save
+  // buttons follow a comparison with it (lib/profile/changes.ts), not a
+  // "touched" flag: typing and then undoing an edit, adding an empty row,
+  // or changing only spacing leaves the form clean, and a clean form has
+  // nothing to save. Without this, every press of a save button wrote a
+  // new version, even one identical to the last.
+  const [baseline, setBaseline] = useState<CandidateProfileContent>(initialContent);
+  // A profile with no saved version yet always has something to save.
+  const dirty = useMemo(
+    () => versionId === null || profileHasChanges(baseline, content),
+    [versionId, baseline, content],
+  );
+  const [confirmedNow, setConfirmedNow] = useState(isConfirmed);
   // Skills and excluded-employers are free-typed lists, parsed into
   // structured data on every keystroke. The textarea's own text must be its
   // own state, not re-derived by rejoining the parsed array: typing a
@@ -185,7 +202,6 @@ export function ProfileWorkbench({
 
   const update = useCallback(<K extends keyof CandidateProfileContent>(key: K, value: CandidateProfileContent[K]) => {
     setContent((previous) => ({ ...previous, [key]: value }));
-    setDirty(true);
   }, []);
 
   // Reorderable cards (experience, education): each entry has no natural
@@ -336,12 +352,15 @@ export function ProfileWorkbench({
         byName.has(skill.name) ? { ...skill, category: byName.get(skill.name)! } : skill,
       ),
     }));
-    setDirty(true);
     setCategorizeState({ kind: "idle" });
   }, []);
 
   const save = useCallback(
     async (confirm: boolean) => {
+      // Nothing to write: an unchanged draft save, or confirming a version
+      // that is already confirmed. (Enter in a text field submits the form,
+      // so the disabled buttons alone don't cover this.)
+      if (!dirty && (!confirm || confirmedNow)) return;
       setState({ kind: "saving" });
       try {
         const submitted = submittableContent(content);
@@ -350,13 +369,15 @@ export function ProfileWorkbench({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ content: submitted, parentVersionId: versionId, confirm }),
         });
-        const body = (await response.json()) as { error?: string };
+        const body = (await response.json()) as { error?: string; unchanged?: boolean };
         if (!response.ok) {
           setState({ kind: "error", message: body.error ?? t("resumatch.wb.error.save") });
           return;
         }
-        setDirty(false);
-        setState({ kind: "saved", confirmed: confirm });
+        setBaseline(content);
+        if (confirm) setConfirmedNow(true);
+        else if (!body.unchanged) setConfirmedNow(false);
+        setState({ kind: "saved", confirmed: confirm, unchanged: body.unchanged === true });
         // Pull the new version down so the next edit records the version
         // just written as its parent. Without this, a second save in the
         // same session posts the already-superseded parentVersionId and the
@@ -367,7 +388,7 @@ export function ProfileWorkbench({
         setState({ kind: "error", message: t("resumatch.wb.error.saveNetwork") });
       }
     },
-    [content, versionId, router, t],
+    [content, versionId, router, t, dirty, confirmedNow],
   );
 
   const sectionLinks: { id: string; label: string; count?: number }[] = [
@@ -395,7 +416,7 @@ export function ProfileWorkbench({
                 tone: "ok",
                 text: state.confirmed ? t("resumatch.wb.status.savedConfirmed") : t("resumatch.wb.status.draftSaved"),
               }
-            : isConfirmed
+            : confirmedNow
               ? { tone: "ok", text: t("resumatch.journey.profile.confirmed") }
               : { tone: "muted", text: t("resumatch.journey.profile.pending") };
 
@@ -434,18 +455,26 @@ export function ProfileWorkbench({
             type="button"
             size="sm"
             variant="secondary"
-            disabled={state.kind === "saving"}
+            disabled={state.kind === "saving" || !dirty}
+            title={!dirty ? t("resumatch.wb.noChanges") : undefined}
             onClick={() => void save(false)}
           >
             {t("resumatch.wb.saveDraft")}
           </Button>
-          <Button type="submit" size="sm" disabled={state.kind === "saving"}>
+          {/* Stays enabled on an unchanged but unconfirmed profile: pressing
+              it then confirms the version as it is, without a copy. */}
+          <Button
+            type="submit"
+            size="sm"
+            disabled={state.kind === "saving" || (!dirty && confirmedNow)}
+            title={!dirty && confirmedNow ? t("resumatch.wb.noChanges") : undefined}
+          >
             {state.kind === "saving" ? t("resumatch.saving") : t("resumatch.wb.saveConfirm")}
           </Button>
         </div>
       </div>
 
-      {isConfirmed && !dirty ? (
+      {confirmedNow && !dirty ? (
         <Alert tone="info">
           <strong>{t("resumatch.wb.confirmed.strong")}</strong> {t("resumatch.wb.confirmed.body")}
         </Alert>
@@ -459,7 +488,11 @@ export function ProfileWorkbench({
       {state.kind === "error" ? <Alert tone="error">{state.message}</Alert> : null}
       {state.kind === "saved" ? (
         <Alert tone="info">
-          {state.confirmed ? t("resumatch.wb.saved.confirmed") : t("resumatch.wb.saved.draft")}
+          {state.unchanged
+            ? t("resumatch.wb.saved.confirmedUnchanged")
+            : state.confirmed
+              ? t("resumatch.wb.saved.confirmed")
+              : t("resumatch.wb.saved.draft")}
         </Alert>
       ) : null}
 

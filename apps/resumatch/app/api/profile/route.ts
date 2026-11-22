@@ -12,6 +12,7 @@ import {
   getLatestVersion,
   listVersions,
 } from "../../../lib/profile/versions";
+import { profileHasChanges } from "../../../lib/profile/changes";
 import { getCurrentWorkspace } from "../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +31,15 @@ export async function GET() {
 /**
  * Save a correction, or create a profile by hand.
  *
- * Always a new version — this route never updates one in place. A
- * correction records what it corrected, so the profile that produced a past
- * match is still there to explain it.
+ * A new version whenever something changed — this route never updates one
+ * in place. A correction records what it corrected, so the profile that
+ * produced a past match is still there to explain it.
+ *
+ * Nothing changed (compared with the latest version, see
+ * lib/profile/changes.ts): no version is written. With `confirm`, the
+ * latest version is confirmed as it is, so "Save and confirm" on an
+ * unconfirmed but untouched profile still confirms it. The answer says
+ * `unchanged: true` and names the existing version.
  */
 export async function POST(request: Request) {
   const workspace = await getCurrentWorkspace();
@@ -83,6 +90,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    const latest = await getLatestVersion(workspace.id);
+    if (latest && !profileHasChanges(latest.content, parsed)) {
+      if (confirm && !latest.isConfirmed) await confirmVersion(workspace.id, latest.id);
+      return NextResponse.json({
+        versionId: latest.id,
+        versionNumber: latest.versionNumber,
+        unchanged: true,
+        confirmed: confirm ? true : latest.isConfirmed,
+      });
+    }
+
     const version = await createVersion({
       workspaceId: workspace.id,
       content: parsed,
@@ -97,7 +115,12 @@ export async function POST(request: Request) {
 
     if (confirm) await confirmVersion(workspace.id, version.id);
 
-    return NextResponse.json({ versionId: version.id, versionNumber: version.versionNumber });
+    return NextResponse.json({
+      versionId: version.id,
+      versionNumber: version.versionNumber,
+      unchanged: false,
+      confirmed: Boolean(confirm),
+    });
   } catch (error) {
     logError("profile.version.create_failed", error);
     return NextResponse.json({ error: "This profile could not be saved." }, { status: 500 });
