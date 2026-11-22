@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getVersion } from "../../../../lib/profile/versions";
-import { mergeTailoringSuggestions, parseTailorSuggestions } from "../../../../lib/tailoring/ai/schema";
+import { mergeTailoringSuggestions, parseApprovedTailorSuggestions } from "../../../../lib/tailoring/ai/schema";
 import { buildCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/generate";
 import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { getCurrentWorkspace, recordAuditEvent } from "../../../../lib/workspace";
@@ -36,6 +36,15 @@ const DEFAULT_TEMPLATE_KEY = "classic";
  * provenance from that row and consumes it, so it cannot back a second
  * confirm.
  */
+function withoutNonAiBullets<T extends { experienceBullets: string[][] }>(suggestions: T | null, texts: string[]): T | null {
+  if (!suggestions) return suggestions;
+  const nonAi = new Set(texts.map((text) => text.trim()).filter(Boolean));
+  return {
+    ...suggestions,
+    experienceBullets: suggestions.experienceBullets.map((bullets) => bullets.filter((b) => !nonAi.has(b.trim()))),
+  };
+}
+
 export async function POST(request: Request) {
   try {
     return await confirmTailoring(request);
@@ -119,7 +128,7 @@ async function confirmTailoring(request: Request): Promise<Response> {
     // `approved: null` is a legitimate choice — the candidate declined
     // every suggestion — and merges to the profile carried over unchanged,
     // same as a genuinely degraded call.
-    suggestions = approved === null ? null : parseTailorSuggestions(approved);
+    suggestions = approved === null ? null : parseApprovedTailorSuggestions(approved);
   } catch {
     return NextResponse.json(
       { error: "That review could not be saved as written. Shorten any edited text and try again." },
@@ -215,7 +224,16 @@ async function confirmTailoring(request: Request): Promise<Response> {
         candidateEdits: hasCandidateEdits(candidateEdits) ? candidateEdits : undefined,
         // #641: from the server's preview record, never the client — and only
         // if some AI-written prose was kept (see appliedOutputLanguage).
-        outputLanguage: appliedOutputLanguage(preview.outputLanguage, degraded, suggestions),
+        // Bullets the candidate wrote, and a role summary kept as written,
+        // are not AI prose, so they don't make the CV "in" that language.
+        outputLanguage: appliedOutputLanguage(
+          preview.outputLanguage,
+          degraded,
+          withoutNonAiBullets(suggestions, [
+            ...candidateEdits.ownBullets.flatMap((row) => row.bullets),
+            ...version.content.experience.map((entry) => entry.summary ?? ""),
+          ]),
+        ),
       },
       select: { id: true, outputLanguage: true },
     });

@@ -2,7 +2,15 @@
 
 import { useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
-import { canonicalSkill, MAX_ADDED_SKILLS, MAX_BULLET_CHARS, MAX_BULLETS_PER_ROLE, MAX_SKILL_CHARS } from "../../lib/tailoring/candidateEdits";
+import {
+  canonicalSkill,
+  MAX_ADDED_SKILLS,
+  MAX_BULLET_CHARS,
+  MAX_BULLETS_PER_ROLE,
+  MAX_CV_BULLET_CHARS,
+  MAX_CV_SKILLS,
+  MAX_SKILL_CHARS,
+} from "../../lib/tailoring/candidateEdits";
 import { acceptedBulletCount, cleanSkillInput, isOwnBullet, type ReviewBullet } from "../../lib/tailoring/reviewEdits";
 
 /**
@@ -60,6 +68,10 @@ export function ReviewSkillsEditor({
     }
     if (addedSkills.length >= MAX_ADDED_SKILLS) {
       setMessage(t("resumatch.review.skills.limit", { max: MAX_ADDED_SKILLS }));
+      return;
+    }
+    if (onCv.length >= MAX_CV_SKILLS) {
+      setMessage(t("resumatch.review.skills.full", { max: MAX_CV_SKILLS }));
       return;
     }
     onAddedChange([...addedSkills, name]);
@@ -207,6 +219,7 @@ export function ReviewBulletsEditor({
 }) {
   const { t } = useTranslation();
   const full = acceptedBulletCount(bullets) >= MAX_BULLETS_PER_ROLE;
+  const noneTicked = bullets.length > 0 && acceptedBulletCount(bullets) === 0;
 
   return (
     <>
@@ -232,17 +245,23 @@ export function ReviewBulletsEditor({
                   <GrowingTextarea
                     className="rm-bullet-item__text"
                     value={bullet.text}
-                    maxLength={MAX_BULLET_CHARS}
+                    maxLength={
+                      own ? MAX_BULLET_CHARS : Math.min(MAX_CV_BULLET_CHARS, Math.max(MAX_BULLET_CHARS, bullet.aiText?.length ?? 0))
+                    }
                     onChange={(e) => onChange(bullet.key, { text: e.target.value })}
                     disabled={disabled}
                     aria-label={t("resumatch.review.bullet.text", { n: index + 1, role })}
                     placeholder={own ? t("resumatch.review.bullet.placeholder") : undefined}
                     data-own={own || edited ? "true" : undefined}
                   />
-                  {own || edited ? (
+                  {own || edited || bullet.fromProfile ? (
                     <div className="rm-bullet-item__meta">
                       <span className="rm-skill-chip__tag">
-                        {own ? t("resumatch.review.yours") : t("resumatch.review.bullet.edited")}
+                        {own
+                          ? t("resumatch.review.yours")
+                          : edited
+                            ? t("resumatch.review.bullet.edited")
+                            : t("resumatch.review.bullet.fromProfile")}
                       </span>
                       {edited ? (
                         <button
@@ -253,7 +272,7 @@ export function ReviewBulletsEditor({
                         >
                           {t("resumatch.review.bullet.undo")}
                         </button>
-                      ) : (
+                      ) : own ? (
                         <button
                           type="button"
                           className="rm-link-button"
@@ -262,7 +281,7 @@ export function ReviewBulletsEditor({
                         >
                           {t("resumatch.review.bullet.delete")}
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -271,6 +290,7 @@ export function ReviewBulletsEditor({
           })}
         </ul>
       ) : null}
+      {noneTicked ? <p className="rm-bullet-add__hint">{t("resumatch.review.bullet.fallback")}</p> : null}
       <div className="rm-bullet-add">
         <button type="button" className="rm-small-button" onClick={onAdd} disabled={disabled || full}>
           {t("resumatch.review.bullet.add")}

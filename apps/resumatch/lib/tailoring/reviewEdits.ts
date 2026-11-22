@@ -11,8 +11,12 @@ export interface ReviewBullet {
   key: string;
   text: string;
   accepted: boolean;
-  /** The AI's own wording, or null for a bullet the candidate wrote. */
+  /** The wording it started with (the AI's, or the profile's role
+   *  summary), or null for a bullet the candidate wrote. */
   aiText: string | null;
+  /** The profile's own role summary, shown because the AI wrote no
+   *  bullets for this role. */
+  fromProfile?: boolean;
 }
 
 /**
@@ -54,13 +58,27 @@ export function seedSkillEdits(
 /**
  * One role's bullets for review: the candidate's own (from a regenerated
  * CV) first and ticked, then the AI's, ticked while there is room under
- * the per-role cap.
+ * the per-role cap. A role the AI wrote no bullets for shows the profile's
+ * own role summary as its first bullet instead, so adding a bullet keeps
+ * it rather than silently replacing it.
  */
-export function buildReviewBullets(aiBullets: string[], ownBullets: string[], nextKey: () => string): ReviewBullet[] {
-  const bullets: ReviewBullet[] = ownBullets.map((text) => ({ key: nextKey(), text, accepted: true, aiText: null }));
+export function buildReviewBullets(
+  aiBullets: string[],
+  ownBullets: string[],
+  profileSummary: string | null,
+  nextKey: () => string,
+): ReviewBullet[] {
+  const bullets: ReviewBullet[] = [];
+  const summary = profileSummary?.trim();
+  const own = new Set(ownBullets.map((text) => text.trim()));
+  if (aiBullets.length === 0 && summary && !own.has(summary)) {
+    bullets.push({ key: nextKey(), text: summary, accepted: true, aiText: summary, fromProfile: true });
+  }
+  for (const text of ownBullets) {
+    bullets.push({ key: nextKey(), text, accepted: acceptedBulletCount(bullets) < MAX_BULLETS_PER_ROLE, aiText: null });
+  }
   for (const text of aiBullets) {
-    const accepted = bullets.filter((b) => b.accepted).length < MAX_BULLETS_PER_ROLE;
-    bullets.push({ key: nextKey(), text, accepted, aiText: text });
+    bullets.push({ key: nextKey(), text, accepted: acceptedBulletCount(bullets) < MAX_BULLETS_PER_ROLE, aiText: text });
   }
   return bullets;
 }

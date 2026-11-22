@@ -24,8 +24,14 @@ import { tailoredResumeContentSchema, type TailoredResumeContent } from "./ai/sc
 export const MAX_ADDED_SKILLS = 30;
 /** Same cap as a CV entry's bullets (`tailoredResumeContentSchema`). */
 export const MAX_BULLETS_PER_ROLE = 8;
-/** Same cap as a provider bullet (`tailorSuggestionsSchema`). */
+/** Same cap as a provider bullet, for a bullet typed from scratch. */
 export const MAX_BULLET_CHARS = 400;
+/** A CV bullet's own cap: a reworded role summary may be this long. */
+export const MAX_CV_BULLET_CHARS = 2000;
+/** Same cap as a CV's skill list (`tailoredResumeContentSchema`). */
+export const MAX_CV_SKILLS = 200;
+/** Same cap as a proposed skill order (`tailorSuggestionsSchema`). */
+export const MAX_PROPOSED_SKILLS = 60;
 export const MAX_SKILL_CHARS = 80;
 
 const skillName = z.string().trim().min(1).max(MAX_SKILL_CHARS);
@@ -33,7 +39,9 @@ const skillName = z.string().trim().min(1).max(MAX_SKILL_CHARS);
 const ownBulletsSchema = z.object({
   title: z.string().trim().max(120),
   employer: z.string().trim().max(120).nullable().default(null),
-  bullets: z.array(z.string().trim().min(1).max(MAX_BULLET_CHARS)).max(MAX_BULLETS_PER_ROLE),
+  /** Tells two stints with the same title and employer apart. */
+  startedOn: z.string().trim().max(40).nullable().default(null),
+  bullets: z.array(z.string().trim().min(1).max(MAX_CV_BULLET_CHARS)).max(MAX_BULLETS_PER_ROLE),
 });
 
 export const candidateEditsSchema = z
@@ -41,8 +49,8 @@ export const candidateEditsSchema = z
     addedSkills: z.array(skillName).max(MAX_ADDED_SKILLS).default([]),
     removedSkills: z.array(skillName).max(200).default([]),
     /** Bullets the candidate wrote or rewrote, per role. Matched to a role
-     *  by title + employer, not by position, so they still find their role
-     *  when a regenerate runs on a newer profile version. */
+     *  by title + employer + start date, not by position, so they still find
+     *  their role when a regenerate runs on a newer profile version. */
     ownBullets: z.array(ownBulletsSchema).max(60).default([]),
   })
   .strict();
@@ -104,12 +112,25 @@ export function applyCandidateEdits(content: TailoredResumeContent, edits: Candi
   return tailoredResumeContentSchema.parse({ ...content, skills: applySkillEdits(content.skills, edits) });
 }
 
-function roleKey(title: string, employer: string | null): string {
-  return `${title.trim().toLowerCase()}\u0000${(employer ?? "").trim().toLowerCase()}`;
+function roleKey(role: { title: string; employer: string | null; startedOn: string | null }): string {
+  return [role.title, role.employer ?? "", role.startedOn ?? ""].map((part) => part.trim().toLowerCase()).join("\u0000");
 }
 
-/** The candidate's own bullets for one role, or none. */
-export function ownBulletsFor(edits: CandidateEdits, title: string, employer: string | null): string[] {
-  const key = roleKey(title, employer);
-  return edits.ownBullets.filter((row) => roleKey(row.title, row.employer) === key).flatMap((row) => row.bullets);
+/**
+ * The candidate's own bullets for each role of a profile, positionally.
+ * A saved entry goes to the one role with the same title, employer and
+ * start date; when the profile has more than one such role, it goes to
+ * none, rather than copying bullets under the wrong dates.
+ */
+export function ownBulletsByRole(
+  edits: CandidateEdits,
+  roles: { title: string; employer: string | null; startedOn: string | null }[],
+): string[][] {
+  const counts = new Map<string, number>();
+  for (const role of roles) counts.set(roleKey(role), (counts.get(roleKey(role)) ?? 0) + 1);
+  return roles.map((role) => {
+    const key = roleKey(role);
+    if (counts.get(key) !== 1) return [];
+    return edits.ownBullets.filter((row) => roleKey(row) === key).flatMap((row) => row.bullets);
+  });
 }

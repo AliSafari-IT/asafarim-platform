@@ -11,7 +11,7 @@ import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLet
 import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
 import { JobFitPanel } from "../../components/tailoring/JobFitPanel";
 import { ReviewBulletsEditor, ReviewSkillsEditor } from "../../components/tailoring/ReviewEditors";
-import { NO_CANDIDATE_EDITS, ownBulletsFor } from "../../lib/tailoring/candidateEdits";
+import { MAX_PROPOSED_SKILLS, NO_CANDIDATE_EDITS, ownBulletsByRole } from "../../lib/tailoring/candidateEdits";
 import {
   approvedBullets,
   approvedOwnBullets,
@@ -149,7 +149,9 @@ type FetchState =
   | ({ kind: "fetched" } & FetchedJob)
   | { kind: "fetch_failed"; reasonCode: string }
   | { kind: "loading_review"; targetJobId: string }
-  | { kind: "reviewing"; review: ReviewState }
+  /** `saveError`: a save the server refused as written (422). The review
+   *  stays open so the candidate can fix it without losing their edits. */
+  | { kind: "reviewing"; review: ReviewState; saveError?: string }
   | { kind: "confirming"; review: ReviewState }
   | { kind: "error"; message: string; canGoBack?: boolean };
 
@@ -454,6 +456,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
         // "Edit and regenerate": the saved CV's own hand edits come back.
         const seedEdits = seed && seed.job.targetJobId === targetJobId ? seed.candidateEdits : NO_CANDIDATE_EDITS;
         const suggestedOrder = orderProfileSkills(suggestions?.skillsOrder ?? [], profile.skills);
+        const ownByRole = ownBulletsByRole(seedEdits, profile.experience);
         const review: ReviewState = {
           targetJobId,
           previewId: body.previewId,
@@ -471,7 +474,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
           ...seedSkillEdits(seedEdits, profile.skills),
           experience: profile.experience.map((entry, index) => {
             const suggestedBullets = suggestions?.experienceBullets?.[index] ?? [];
-            const ownBullets = ownBulletsFor(seedEdits, entry.title, entry.employer);
+            const ownBullets = ownByRole[index] ?? [];
             return {
               title: entry.title,
               employer: entry.employer,
@@ -479,7 +482,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
               endedOn: entry.endedOn,
               isCurrent: entry.isCurrent,
               originalSummary: entry.summary,
-              bullets: buildReviewBullets(suggestedBullets, ownBullets, nextBulletKey),
+              bullets: buildReviewBullets(suggestedBullets, ownBullets, entry.summary, nextBulletKey),
             };
           }),
           // A degraded letter has no suggestion; it still gets an entry (with
@@ -606,7 +609,12 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
               : {
                   headline: review.headline.trim() || null,
                   summary: review.summary.trim() || null,
-                  skillsOrder: review.keepOriginalSkillOrder ? [] : review.suggestedSkillsOrder,
+                  // The merge appends profile skills left out of the order in
+                  // profile order, exactly as orderProfileSkills shows them, so
+                  // the first 60 (the proposal's own cap) say the same thing.
+                  skillsOrder: review.keepOriginalSkillOrder
+                    ? []
+                    : review.suggestedSkillsOrder.slice(0, MAX_PROPOSED_SKILLS),
                   experienceBullets: review.experience.map((entry) => approvedBullets(entry.bullets)),
                 },
             // The candidate's own changes: applied to this CV only, and
@@ -617,7 +625,12 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                   addedSkills: review.addedSkills,
                   removedSkills: review.removedSkills,
                   ownBullets: review.experience
-                    .map((entry) => ({ title: entry.title, employer: entry.employer, bullets: approvedOwnBullets(entry.bullets) }))
+                    .map((entry) => ({
+                      title: entry.title,
+                      employer: entry.employer,
+                      startedOn: entry.startedOn,
+                      bullets: approvedOwnBullets(entry.bullets),
+                    }))
                     .filter((row) => row.bullets.length > 0),
                 },
             coverLetter:
@@ -634,11 +647,15 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
         });
         const body = await readJsonBody(res);
         if (!res.ok || !body) {
-          setState({
-            kind: "error",
-            message: body?.error ?? `${t("resumatch.flow.error.save")} ${t("resumatch.flow.error.server", { status: res.status })}`,
-            canGoBack: true,
-          });
+          const message =
+            body?.error ?? `${t("resumatch.flow.error.save")} ${t("resumatch.flow.error.server", { status: res.status })}`;
+          // Refused as written: keep the review (and every hand edit) open
+          // so the candidate can shorten or fix it and save again.
+          if (res.status === 422) {
+            setState({ kind: "reviewing", review, saveError: message });
+            return;
+          }
+          setState({ kind: "error", message, canGoBack: true });
           return;
         }
         // The CV is saved even when its letter is not (coverLetterError);
@@ -1118,6 +1135,12 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                     {t("resumatch.review.cl.declined")}
                   </p>
                 )}
+              </div>
+            ) : null}
+
+            {state.kind === "reviewing" && state.saveError ? (
+              <div style={{ marginTop: "1rem" }}>
+                <Alert tone="error">{state.saveError}</Alert>
               </div>
             ) : null}
 

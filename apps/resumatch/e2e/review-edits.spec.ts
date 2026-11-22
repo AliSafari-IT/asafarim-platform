@@ -141,6 +141,7 @@ test("skills and bullets edited on the review reach the saved CV, its preview an
       {
         title: "Full-stack developer",
         employer: "Example Software",
+        startedOn: null,
         bullets: ["Reworded by me: tested web platforms end to end.", OWN_BULLET],
       },
     ],
@@ -170,4 +171,16 @@ test("Edit and regenerate brings back the saved CV's own skills and bullets", as
   const role = "Full-stack developer · Example Software";
   await expect(flow.getByRole("textbox", { name: `Bullet 1 for ${role}` })).toHaveValue(OWN_BULLET);
   await expect(flow.getByRole("checkbox", { name: `Keep bullet 1 for ${role}` })).toBeChecked();
+});
+
+test("a save refused as written keeps the review and its edits open", async ({ page }) => {
+  const flow = await openReview(page, CV_ID);
+  await flow.getByRole("button", { name: "+ Add a bullet" }).click();
+  await flow.locator("textarea.rm-bullet-item__text").last().fill(OWN_BULLET);
+  await page.route("**/api/tailor/generate-confirm", (route) =>
+    route.fulfill({ status: 422, contentType: "application/json", body: JSON.stringify({ error: "Shorten it." }) }),
+  );
+  await flow.getByRole("button", { name: "Confirm & save" }).click();
+  await expect(flow.getByRole("alert").filter({ hasText: "Shorten it." })).toBeVisible();
+  await expect(flow.locator("textarea.rm-bullet-item__text").last()).toHaveValue(OWN_BULLET);
 });

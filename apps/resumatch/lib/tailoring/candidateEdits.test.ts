@@ -4,7 +4,7 @@ import {
   applySkillEdits,
   hasCandidateEdits,
   NO_CANDIDATE_EDITS,
-  ownBulletsFor,
+  ownBulletsByRole,
   parseCandidateEdits,
   readStoredCandidateEdits,
 } from "./candidateEdits";
@@ -36,7 +36,7 @@ describe("parseCandidateEdits", () => {
     expect(() => parseCandidateEdits({ addedSkills: ["x".repeat(81)] })).toThrow();
     expect(() => parseCandidateEdits({ addedSkills: Array.from({ length: 31 }, (_, i) => `s${i}`) })).toThrow();
     expect(() =>
-      parseCandidateEdits({ ownBullets: [{ title: "Dev", employer: null, bullets: ["x".repeat(401)] }] }),
+      parseCandidateEdits({ ownBullets: [{ title: "Dev", employer: null, bullets: ["x".repeat(2001)] }] }),
     ).toThrow();
     expect(() => parseCandidateEdits({ profile: { skills: [] } })).toThrow();
   });
@@ -82,16 +82,37 @@ describe("applyCandidateEdits", () => {
   });
 });
 
-describe("ownBulletsFor / hasCandidateEdits", () => {
+describe("ownBulletsByRole / hasCandidateEdits", () => {
   const edits = parseCandidateEdits({
-    ownBullets: [{ title: "Dev ", employer: "ACME", bullets: ["Mine."] }],
+    ownBullets: [{ title: "Dev ", employer: "ACME", startedOn: "2024-01", bullets: ["Mine."] }],
   });
-  it("matches a role by title and employer, not position", () => {
-    expect(ownBulletsFor(edits, "dev", "Acme")).toEqual(["Mine."]);
-    expect(ownBulletsFor(edits, "Dev", "Other")).toEqual([]);
+  it("matches a role by title, employer and start date, not position", () => {
+    expect(
+      ownBulletsByRole(edits, [
+        { title: "Lead", employer: "Acme", startedOn: "2025-01" },
+        { title: "dev", employer: "Acme", startedOn: "2024-01" },
+        { title: "Dev", employer: "Acme", startedOn: "2018-01" },
+      ]),
+    ).toEqual([[], ["Mine."], []]);
+  });
+  it("gives an ambiguous match to no role rather than to several", () => {
+    const roles = [
+      { title: "Dev", employer: "Acme", startedOn: "2024-01" },
+      { title: "Dev", employer: "Acme", startedOn: "2024-01" },
+    ];
+    expect(ownBulletsByRole(edits, roles)).toEqual([[], []]);
   });
   it("knows when there is nothing to store", () => {
     expect(hasCandidateEdits(NO_CANDIDATE_EDITS)).toBe(false);
     expect(hasCandidateEdits(edits)).toBe(true);
+  });
+});
+
+describe("approved review limits", () => {
+  it("accepts a kept role summary longer than a provider bullet", async () => {
+    const { parseApprovedTailorSuggestions, parseTailorSuggestions } = await import("./ai/schema");
+    const long = { experienceBullets: [["x".repeat(1500)]] };
+    expect(() => parseTailorSuggestions(long)).toThrow();
+    expect(parseApprovedTailorSuggestions(long).experienceBullets[0][0]).toHaveLength(1500);
   });
 });
