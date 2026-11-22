@@ -120,7 +120,13 @@ function normalize(p: z.infer<typeof contactPreferencesSchema>): ContactPreferen
 
 /** Validates input from the API. Refused, never silently fixed. */
 export function parseContactPreferences(value: unknown): { ok: true; value: ContactPreferences } | { ok: false; error: ContactPreferencesError } {
-  const parsed = contactPreferencesSchema.safeParse(value);
+  // Unavailable times only count while chosen: the editor hides them
+  // otherwise, so a hidden, half-edited window must not block a save.
+  const input =
+    value && typeof value === "object" && !Array.isArray(value) && (value as { outsideHours?: unknown }).outsideHours !== "unavailable"
+      ? { ...(value as object), unavailable: [] }
+      : value;
+  const parsed = contactPreferencesSchema.safeParse(input);
   if (parsed.success) return { ok: true, value: normalize(parsed.data) };
   const message = parsed.error.issues[0]?.message ?? "";
   return { ok: false, error: KNOWN_ERRORS.has(message) ? (message as ContactPreferencesError) : "invalid" };

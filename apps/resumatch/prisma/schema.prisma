@@ -764,6 +764,10 @@ model ApplicationEmailDraft {
   /// just for this email (contactOverride), or none.
   contactMode     ContactMode @default(DEFAULT)
   contactOverride Json?
+  /// The contact paragraph this body holds, exactly as it was placed, so
+  /// a reopened draft can still swap or remove it after the saved
+  /// defaults change. Null: the body holds none.
+  contactParagraph String?
 
   /// The exact PDFs this draft attaches. Pinned, never swapped for newer
   /// ones without the candidate choosing to.

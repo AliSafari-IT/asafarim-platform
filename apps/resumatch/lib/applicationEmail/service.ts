@@ -68,6 +68,7 @@ export interface DraftView {
   /** Contact preferences for this email (#940). */
   contactMode: ContactMode;
   contactOverride: ContactPreferences | null;
+  contactParagraph: string | null;
   updatedAt: string;
 }
 
@@ -125,6 +126,7 @@ function toDraftView(row: {
   coverLetterPdfId: string | null;
   contactMode: ContactMode;
   contactOverride: unknown;
+  contactParagraph: string | null;
   updatedAt: Date;
 }): DraftView {
   return {
@@ -140,6 +142,7 @@ function toDraftView(row: {
     coverLetterPdfId: row.coverLetterPdfId,
     contactMode: row.contactMode,
     contactOverride: readContactPreferences(row.contactOverride),
+    contactParagraph: row.contactParagraph,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -157,6 +160,7 @@ const DRAFT_SELECT = {
   coverLetterPdfId: true,
   contactMode: true,
   contactOverride: true,
+  contactParagraph: true,
   updatedAt: true,
 } as const;
 
@@ -350,11 +354,12 @@ export async function saveDraft(workspaceId: string, applicationId: string, inpu
     return { ok: false, reason: "attachment_mismatch" };
   }
 
+  const body = cleanBody(input.body) || null;
   const data = {
     toEmail: input.toEmail.trim() || null,
     contactName: cleanHeaderText(input.contactName) || null,
     subject: input.subject.replace(/\s+/g, " ").trim() || null,
-    body: cleanBody(input.body) || null,
+    body,
     subjectEdited: input.subjectEdited,
     bodyEdited: input.bodyEdited,
     sendCopyToSelf: input.sendCopyToSelf,
@@ -363,6 +368,10 @@ export async function saveDraft(workspaceId: string, applicationId: string, inpu
     // Left out by an older client: the stored choice stays as it is.
     ...(input.contactMode ? { contactMode: input.contactMode } : {}),
     ...(input.contactMode ? { contactOverride: input.contactMode === "OVERRIDE" ? ((readContactPreferences(input.contactOverride) as object | null) ?? Prisma.DbNull) : Prisma.DbNull } : {}),
+    // Kept only while the body still holds it as its own block.
+    ...(input.contactParagraph !== undefined
+      ? { contactParagraph: input.contactParagraph && body?.split("\n\n").includes(input.contactParagraph) ? input.contactParagraph : null }
+      : {}),
   };
 
   if (input.version === null) {

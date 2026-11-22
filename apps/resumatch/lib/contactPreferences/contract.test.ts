@@ -105,6 +105,12 @@ describe("parseContactPreferences", () => {
     expect(parseContactPreferences({ ...ali, ...patch })).toEqual({ ok: false, error });
   });
 
+  it("ignores hidden unavailable times, even half-edited ones, unless they're chosen", () => {
+    const broken = { days: [3], start: "18:00", end: "17:00" };
+    expect(parseContactPreferences({ ...ali, outsideHours: "none", unavailable: [broken] })).toMatchObject({ ok: true, value: { unavailable: [] } });
+    expect(parseContactPreferences({ ...ali, outsideHours: "unavailable", unavailable: [broken] })).toEqual({ ok: false, error: "time_order" });
+  });
+
   it("drops unavailable times unless they're chosen, and reads bad stored JSON as none", () => {
     const parsed = parseContactPreferences({ ...ali, outsideHours: "arrange", unavailable: [weekdays] });
     expect(parsed.ok && parsed.value.unavailable).toEqual([]);

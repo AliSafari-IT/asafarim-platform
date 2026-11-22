@@ -149,6 +149,8 @@ export const draftSaveSchema = z
      *  client's save leaves the stored choice alone. */
     contactMode: z.enum(CONTACT_MODES).optional(),
     contactOverride: z.unknown().optional(),
+    /** The contact paragraph the body holds, as the composer placed it. */
+    contactParagraph: z.string().max(2000).nullable().optional(),
     /** The draft version this edit started from; null for a new draft. */
     version: z.number().int().positive().nullable(),
   })

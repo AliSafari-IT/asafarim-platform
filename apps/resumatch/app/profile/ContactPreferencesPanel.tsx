@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { Alert, Button, Card } from "@asafarim/ui";
 import { ContactPreferencesFields, contactPreferencesProblem } from "../../components/contactPreferences/ContactPreferencesFields";
@@ -12,10 +13,21 @@ import { EMPTY_PREFERENCES, type ContactPreferences } from "../../lib/contactPre
  */
 export function ContactPreferencesPanel({ initial }: { initial: ContactPreferences | null }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const [value, setValue] = useState<ContactPreferences>(initial ?? EMPTY_PREFERENCES);
   const [saved, setSaved] = useState<ContactPreferences | null>(initial);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ tone: "info" | "error"; text: string } | null>(null);
+  // The stored value changed under the form (erased, or saved elsewhere,
+  // then refreshed): start again from it, so a later save can't write
+  // back values that are gone.
+  const storedKey = JSON.stringify(initial);
+  const [seen, setSeen] = useState(storedKey);
+  if (seen !== storedKey) {
+    setSeen(storedKey);
+    setSaved(initial);
+    setValue(initial ?? EMPTY_PREFERENCES);
+  }
   const problem = contactPreferencesProblem(value);
   const unchanged = saved !== null && JSON.stringify(saved) === JSON.stringify(value);
 
@@ -37,6 +49,8 @@ export function ContactPreferencesPanel({ initial }: { initial: ContactPreferenc
       setSaved(stored);
       setValue(stored ?? EMPTY_PREFERENCES);
       setNote({ tone: "info", text: t(stored ? "resumatch.contact.saved" : "resumatch.contact.removed") });
+      // Keeps the page's own copy (and the erase button's "has data") current.
+      router.refresh();
     } catch {
       setNote({ tone: "error", text: t("resumatch.contact.error.save") });
     } finally {

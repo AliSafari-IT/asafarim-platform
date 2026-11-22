@@ -50,6 +50,7 @@ interface DraftView {
   coverLetterPdfId: string | null;
   contactMode: ContactMode;
   contactOverride: ContactPreferences | null;
+  contactParagraph: string | null;
 }
 
 export interface ComposerProps {
@@ -169,9 +170,14 @@ export function Composer(props: ComposerProps) {
   const [contactNote, setContactNote] = useState<string | null>(null);
   const paragraphFor = (mode: ContactMode, override: ContactPreferences | null) =>
     renderContactParagraph(resolveContactPreferences(mode, props.contactDefaults, override), props.emailLanguage);
+  // A saved draft remembers the exact paragraph it holds, so it can still
+  // be swapped or removed after the saved defaults change.
   const [contactParagraph, setContactParagraph] = useState<string | null>(() => {
+    const blocks = initial.body.split("\n\n");
+    const stored = props.draft?.contactParagraph ?? null;
+    if (stored && blocks.includes(stored)) return stored;
     const paragraph = paragraphFor(initialContact.mode, initialContact.override);
-    return paragraph && initial.body.split("\n\n").includes(paragraph) ? paragraph : null;
+    return paragraph && blocks.includes(paragraph) ? paragraph : null;
   });
 
   const blocked = props.problems.includes("no_cv") || props.problems.includes("no_cover_letter");
@@ -286,6 +292,7 @@ export function Composer(props: ComposerProps) {
       coverLetterPdfId: pins.letter?.id ?? null,
       contactMode: contact.mode,
       ...(contact.mode === "OVERRIDE" ? { contactOverride: contact.override } : {}),
+      contactParagraph,
       version: overrideVersion !== undefined ? overrideVersion : version,
     };
   }

@@ -4,7 +4,8 @@ CREATE TYPE "ContactMode" AS ENUM ('DEFAULT', 'OVERRIDE', 'OMIT');
 
 -- AlterTable
 ALTER TABLE "application_email_drafts" ADD COLUMN     "contactMode" "ContactMode" NOT NULL DEFAULT 'DEFAULT',
-ADD COLUMN     "contactOverride" JSONB;
+ADD COLUMN     "contactOverride" JSONB,
+ADD COLUMN     "contactParagraph" TEXT;
 
 -- CreateTable
 CREATE TABLE "contact_preferences" (

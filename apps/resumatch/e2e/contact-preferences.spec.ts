@@ -1,4 +1,4 @@
-import { e2eDb, expect, seedTailoredResume, signInWithEmail, test } from "./fixtures";
+import { E2E_PLATFORM_USER_ID, e2eDb, expect, seedApplications, seedTailoredResume, signInWithEmail, test } from "./fixtures";
 
 /**
  * Contact preferences in the application email (#940): saved on the
@@ -87,4 +87,48 @@ test("a hand-edited message is never changed by the contact choice", async ({ pa
   await page.getByTestId("composer-contact").getByLabel("Leave them out").check();
   await expect(page.getByTestId("composer-contact")).toContainText("You've edited the message");
   await expect(body).toHaveValue("My own words.");
+});
+
+test("a reopened draft can still leave out its paragraph after the defaults change", async ({ page }) => {
+  test.setTimeout(120_000);
+  await saveDefaults();
+  const body = await openComposer(page);
+  await expect(body).toHaveValue(/reach me by phone/);
+  await page.getByTestId("save-draft").click();
+  await expect.poll(async () => (await e2eDb().applicationEmailDraft.findUnique({ where: { applicationId: APP_ID } }))?.contactParagraph ?? null).toContain("reach me by phone");
+
+  // The saved defaults change, so they no longer render the paragraph in the draft.
+  await e2eDb().contactPreferences.updateMany({ data: { content: { callWindows: [], timeZone: "Europe/Brussels", outsideHours: "none", unavailable: [], email: false, whatsapp: true } } });
+  await page.reload();
+  const reopened = page.getByLabel("Message");
+  await expect(reopened).toHaveValue(/reach me by phone/);
+  await page.getByTestId("composer-contact").getByLabel("Leave them out").check();
+  await expect(reopened).not.toHaveValue(/reach me/);
+  await expect(reopened).toHaveValue(/Kind regards,/);
+});
+
+test("preferences alone can be erased, and erased values never come back on a later save", async ({ page }) => {
+  test.setTimeout(120_000);
+  // A workspace holding nothing but contact preferences.
+  await seedApplications([]);
+  await page.goto("/profile#contact-preferences");
+  const panel = page.getByTestId("contact-preferences-panel");
+  await panel.getByRole("button", { name: "Add call times" }).click();
+  await panel.getByRole("button", { name: "Save preferences" }).click();
+  await expect(panel).toContainText("Saved.");
+
+  const erase = page.getByRole("button", { name: "Delete my CV and profile" });
+  await expect(erase).toBeEnabled();
+  await erase.click();
+  await page.getByRole("button", { name: "Delete everything" }).click();
+  await expect(page.getByText("Everything ResuMatch held for you has been deleted.")).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => e2eDb().contactPreferences.count({ where: { workspace: { platformUserId: E2E_PLATFORM_USER_ID } } })).toBe(0);
+
+  // The form starts again from nothing: no call times survive.
+  await expect(panel.getByTestId("contact-call-windows").locator("fieldset")).toHaveCount(0);
+  await panel.getByLabel("WhatsApp").check();
+  await panel.getByRole("button", { name: "Save preferences" }).click();
+  await expect(panel).toContainText("Saved.");
+  const stored = await e2eDb().contactPreferences.findFirstOrThrow({ where: { workspace: { platformUserId: E2E_PLATFORM_USER_ID } } });
+  expect(stored.content).toMatchObject({ callWindows: [], whatsapp: true });
 });

@@ -81,11 +81,11 @@ function WindowList({
           <div className="rm-contact__times">
             <label className="jm-field" htmlFor={`${base}-${index}-from`}>
               <span>{t("resumatch.contact.window.from")}</span>
-              <input id={`${base}-${index}-from`} className="ui-input" type="time" step={300} value={window.start} onChange={(e) => set(index, { start: e.target.value })} />
+              <input id={`${base}-${index}-from`} className="ui-input" type="time" step={60} value={window.start} onChange={(e) => set(index, { start: e.target.value })} />
             </label>
             <label className="jm-field" htmlFor={`${base}-${index}-to`}>
               <span>{t("resumatch.contact.window.to")}</span>
-              <input id={`${base}-${index}-to`} className="ui-input" type="time" step={300} value={window.end} onChange={(e) => set(index, { end: e.target.value })} />
+              <input id={`${base}-${index}-to`} className="ui-input" type="time" step={60} value={window.end} onChange={(e) => set(index, { end: e.target.value })} />
             </label>
             <Button type="button" variant="ghost" size="sm" onClick={() => onChange(windows.filter((_, i) => i !== index))}>
               {t("resumatch.contact.window.remove")}

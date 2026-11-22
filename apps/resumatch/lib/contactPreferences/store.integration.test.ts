@@ -80,6 +80,7 @@ describe.skipIf(!TEST_DB)("contact preferences store", () => {
 
     const exported = await rights.exportWorkspaceData(id);
     expect(exported?.contactPreferences?.content).toEqual(PREFS);
+    expect(exported?.emailDraftContacts).toEqual([]);
 
     await rights.eraseWorkspaceData(id);
     expect(await db.contactPreferences.count({ where: { workspaceId: id } })).toBe(0);

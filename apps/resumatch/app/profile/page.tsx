@@ -42,7 +42,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const [documents, latest, versions, journey, jobsCount, photo, accountAvatar] = await Promise.all([
+  const [documents, latest, versions, journey, jobsCount, photo, accountAvatar, contactPreferences] = await Promise.all([
     listDocuments(workspace.id),
     getLatestVersion(workspace.id),
     listVersions(workspace.id),
@@ -50,6 +50,7 @@ export default async function ProfilePage() {
     getJobmatchDb().targetJob.count({ where: { workspaceId: workspace.id } }),
     getProfilePhoto(workspace.id),
     getAccountAvatarSource(),
+    getContactPreferences(workspace.id),
   ]);
 
   const confirmed = versions.find((version) => version.isConfirmed) ?? null;
@@ -136,11 +137,11 @@ export default async function ProfilePage() {
 
       {versions.length > 0 ? <VersionTimeline versions={versions} /> : null}
 
-      <ContactPreferencesPanel initial={await getContactPreferences(workspace.id)} />
+      <ContactPreferencesPanel initial={contactPreferences} />
 
       <DataRightsPanel
         erasureSlaDays={ERASURE_SLA_DAYS}
-        hasData={photo !== null || documents.length > 0 || versions.length > 0 || jobsCount > 0 || journey.tailoredCount > 0}
+        hasData={contactPreferences !== null || photo !== null || documents.length > 0 || versions.length > 0 || jobsCount > 0 || journey.tailoredCount > 0}
         holdings={{
           documents: documents.length,
           versions: versions.length,
