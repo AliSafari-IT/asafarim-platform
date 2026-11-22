@@ -1,4 +1,5 @@
 import "server-only";
+import { sourceCasing } from "../../tailoring/ai/sourceCasing";
 import { getJobmatchDb } from "../../db/client";
 import { getEnv, type ResuMatchAiProvider } from "../../env";
 import { log, logError } from "../../observability/logger";
@@ -200,7 +201,9 @@ export async function generateApplicationEmail(
   const sourceLower = `${evidenceText}\n${jobText}`.toLowerCase();
   const rawSubject = cleanHeaderText(result.value.subject);
   const subjectReplaced = !rawSubject || ungrounded(rawSubject, sourceLower, language === "de" ? "headline" : "prose");
-  const subject = subjectReplaced ? fallbackSubject(language, jobTitle, employer, fullName) : rawSubject.slice(0, SUBJECT_MAX_LENGTH);
+  const subject = subjectReplaced
+    ? fallbackSubject(language, jobTitle, employer, fullName)
+    : sourceCasing(`${evidenceText}\n${jobText}`).apply(rawSubject).slice(0, SUBJECT_MAX_LENGTH);
 
   const removed = grounded.removedClaimSentences + grounded.tokenDroppedParagraphs;
   if (removed > 0 || subjectReplaced) {

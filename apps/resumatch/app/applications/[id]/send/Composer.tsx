@@ -99,7 +99,7 @@ function formatBytes(bytes: number): string {
 export function Composer(props: ComposerProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const ids = { to: useId(), name: useId(), subject: useId(), body: useId(), copy: useId(), sender: useId() };
+  const ids = { to: useId(), name: useId(), subject: useId(), body: useId(), copy: useId(), sender: useId(), lock: useId() };
   const successRef = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -406,6 +406,22 @@ export function Composer(props: ComposerProps) {
   };
 
   const sendLocked = !props.sender.available || blocked || !pins.cv || !pins.letter || busy || pdfPhase === "creating" || send.kind === "accepted";
+  // Why Send is off, said next to the button: a greyed-out button with the
+  // reason only in a banner at the top of the page reads as broken.
+  const lockReason: string | null =
+    send.kind === "accepted" || sending
+      ? null
+      : !props.sender.available
+        ? t("resumatch.send.locked.notConfigured")
+        : pdfPhase === "creating"
+          ? t("resumatch.send.locked.pdfsCreating")
+          : !pins.cv || !pins.letter
+            ? t("resumatch.send.locked.pdfsMissing")
+            : generating
+              ? t("resumatch.send.locked.writing")
+              : saveState.kind === "saving"
+                ? t("resumatch.send.locked.saving")
+                : null;
 
   if (blocked) {
     return (
@@ -802,7 +818,7 @@ export function Composer(props: ComposerProps) {
         ) : null}
 
         <div className="rm-composer__actions">
-          <Button type="submit" disabled={sendLocked} data-testid="send-submit">
+          <Button type="submit" disabled={sendLocked} data-testid="send-submit" aria-describedby={lockReason ? ids.lock : undefined}>
             {sending ? t("resumatch.send.sending") : t("resumatch.send.submit")}
           </Button>
           <Button type="button" variant="secondary" onClick={() => void saveDraft()} disabled={busy || send.kind === "accepted"} data-testid="save-draft">
@@ -812,6 +828,11 @@ export function Composer(props: ComposerProps) {
             {send.kind === "accepted" ? t("resumatch.send.close") : t("resumatch.send.cancel")}
           </Button>
         </div>
+        {lockReason ? (
+          <p id={ids.lock} className="rm-composer__lock" data-testid="send-locked-reason">
+            {lockReason}
+          </p>
+        ) : null}
         {props.sendCount > 0 && props.lastSent ? (
           <p className="rm-composer__note">
             {t("resumatch.send.history", { count: props.sendCount })}{" "}
