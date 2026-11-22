@@ -432,6 +432,13 @@ model TailoredResume {
   /// until the candidate asks for one.
   skillsParagraph String?
 
+  /// What the candidate changed by hand on the review screen
+  /// (lib/tailoring/candidateEdits.ts): skills added or removed for this
+  /// CV only, and bullets they wrote or rewrote. Already applied to
+  /// `content`; kept so "Edit and regenerate" can carry them over. Null on
+  /// CVs saved before 0.4.0 or without hand edits.
+  candidateEdits Json?
+
   createdAt DateTime @default(now())
 
   applications Application[]

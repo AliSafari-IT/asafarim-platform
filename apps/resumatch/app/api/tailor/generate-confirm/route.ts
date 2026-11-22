@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getVersion } from "../../../../lib/profile/versions";
-import { mergeTailoringSuggestions, parseTailorSuggestions } from "../../../../lib/tailoring/ai/schema";
+import { mergeTailoringSuggestions, parseApprovedTailorSuggestions } from "../../../../lib/tailoring/ai/schema";
 import { buildCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/generate";
 import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLetter/schema";
 import { getCurrentWorkspace, recordAuditEvent } from "../../../../lib/workspace";
 import { appliedCoverLetterLanguage, appliedOutputLanguage } from "../../../../lib/tailoring/language";
 import { logError } from "../../../../lib/observability/logger";
+import {
+  applyCandidateEdits,
+  hasCandidateEdits,
+  MAX_CV_SKILLS,
+  parseCandidateEdits,
+  TooManySkillsError,
+} from "../../../../lib/tailoring/candidateEdits";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TEMPLATE_KEY = "classic";
@@ -35,6 +42,15 @@ const DEFAULT_TEMPLATE_KEY = "classic";
  * provenance from that row and consumes it, so it cannot back a second
  * confirm.
  */
+function withoutNonAiBullets<T extends { experienceBullets: string[][] }>(suggestions: T | null, texts: string[]): T | null {
+  if (!suggestions) return suggestions;
+  const nonAi = new Set(texts.map((text) => text.trim()).filter(Boolean));
+  return {
+    ...suggestions,
+    experienceBullets: suggestions.experienceBullets.map((bullets) => bullets.filter((b) => !nonAi.has(b.trim()))),
+  };
+}
+
 export async function POST(request: Request) {
   try {
     return await confirmTailoring(request);
@@ -72,6 +88,7 @@ async function confirmTailoring(request: Request): Promise<Response> {
     templateKey,
     instructions,
     coverLetter,
+    candidateEdits: rawCandidateEdits,
   } = (body ?? {}) as {
     profileVersionId?: unknown;
     targetJobId?: unknown;
@@ -86,6 +103,10 @@ async function confirmTailoring(request: Request): Promise<Response> {
     coverLetter?: {
       approved: unknown;
     } | null;
+    /** Optional (0.4.0): skills the candidate added or removed for this
+     *  CV and the bullets they wrote — their own claims, see
+     *  lib/tailoring/candidateEdits.ts. Never written to the profile. */
+    candidateEdits?: unknown;
   };
 
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
@@ -113,7 +134,7 @@ async function confirmTailoring(request: Request): Promise<Response> {
     // `approved: null` is a legitimate choice — the candidate declined
     // every suggestion — and merges to the profile carried over unchanged,
     // same as a genuinely degraded call.
-    suggestions = approved === null ? null : parseTailorSuggestions(approved);
+    suggestions = approved === null ? null : parseApprovedTailorSuggestions(approved);
   } catch {
     return NextResponse.json(
       { error: "That review could not be saved as written. Shorten any edited text and try again." },
@@ -121,10 +142,26 @@ async function confirmTailoring(request: Request): Promise<Response> {
     );
   }
 
+  let candidateEdits;
+  try {
+    candidateEdits = parseCandidateEdits(rawCandidateEdits);
+  } catch {
+    return NextResponse.json(
+      { error: "Your added skills or bullets could not be saved as written. Shorten any long text and try again." },
+      { status: 422 },
+    );
+  }
+
   let content;
   try {
-    content = mergeTailoringSuggestions(version.content, suggestions);
+    content = applyCandidateEdits(mergeTailoringSuggestions(version.content, suggestions), candidateEdits);
   } catch (error) {
+    if (error instanceof TooManySkillsError) {
+      return NextResponse.json(
+        { error: `A CV can hold at most ${MAX_CV_SKILLS} skills. Remove some, then save again.` },
+        { status: 422 },
+      );
+    }
     logError("tailoring.confirm.merge_invalid", error, { profileVersionId });
     return NextResponse.json(
       {
@@ -196,9 +233,19 @@ async function confirmTailoring(request: Request): Promise<Response> {
         modelVersion,
         degraded,
         instructions: typeof instructions === "string" ? instructions.trim() || null : null,
+        candidateEdits: hasCandidateEdits(candidateEdits) ? candidateEdits : undefined,
         // #641: from the server's preview record, never the client — and only
         // if some AI-written prose was kept (see appliedOutputLanguage).
-        outputLanguage: appliedOutputLanguage(preview.outputLanguage, degraded, suggestions),
+        // Bullets the candidate wrote, and a role summary kept as written,
+        // are not AI prose, so they don't make the CV "in" that language.
+        outputLanguage: appliedOutputLanguage(
+          preview.outputLanguage,
+          degraded,
+          withoutNonAiBullets(suggestions, [
+            ...candidateEdits.ownBullets.flatMap((row) => row.bullets),
+            ...version.content.experience.map((entry) => entry.summary ?? ""),
+          ]),
+        ),
       },
       select: { id: true, outputLanguage: true },
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
@@ -10,6 +10,16 @@ import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQualit
 import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
 import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
 import { JobFitPanel } from "../../components/tailoring/JobFitPanel";
+import { ReviewBulletsEditor, ReviewSkillsEditor } from "../../components/tailoring/ReviewEditors";
+import { MAX_PROPOSED_SKILLS, NO_CANDIDATE_EDITS, ownBulletsByRole } from "../../lib/tailoring/candidateEdits";
+import {
+  approvedBullets,
+  approvedOwnBullets,
+  buildReviewBullets,
+  orderProfileSkills,
+  seedSkillEdits,
+  type ReviewBullet,
+} from "../../lib/tailoring/reviewEdits";
 import type { RegenerateSeed } from "../../lib/tailoring/regenerate";
 import type { JobFit } from "../../lib/tailoring/jobFit";
 import {
@@ -64,8 +74,8 @@ interface ReviewExperienceItem {
   endedOn: string | null;
   isCurrent: boolean;
   originalSummary: string | null;
-  suggestedBullets: string[];
-  accepted: boolean[];
+  /** The AI's bullets and the candidate's own, in CV order. */
+  bullets: ReviewBullet[];
 }
 
 interface ReviewCoverLetter {
@@ -108,8 +118,14 @@ interface ReviewState {
   headline: string;
   summary: string;
   originalSkillsOrder: string[];
+  /** The profile's skills in the AI's order (names the profile doesn't
+   *  hold already dropped), the same list the server will save. */
   suggestedSkillsOrder: string[];
   keepOriginalSkillOrder: boolean;
+  /** Hand edits (lib/tailoring/candidateEdits.ts): profile skills left off
+   *  this CV, and skills the candidate typed in for this CV only. */
+  removedSkills: string[];
+  addedSkills: string[];
   experience: ReviewExperienceItem[];
   /** null when the candidate didn't opt into a cover letter on the fetched
    *  card, or the call degraded with nothing to review. */
@@ -133,7 +149,9 @@ type FetchState =
   | ({ kind: "fetched" } & FetchedJob)
   | { kind: "fetch_failed"; reasonCode: string }
   | { kind: "loading_review"; targetJobId: string }
-  | { kind: "reviewing"; review: ReviewState }
+  /** `saveError`: a save the server refused as written (422). The review
+   *  stays open so the candidate can fix it without losing their edits. */
+  | { kind: "reviewing"; review: ReviewState; saveError?: string }
   | { kind: "confirming"; review: ReviewState }
   | { kind: "error"; message: string; canGoBack?: boolean };
 
@@ -198,6 +216,8 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
   // The candidate's explicit "yes, tailor anyway" for a low-fit job.
   const [lowFitConfirmedFor, setLowFitConfirmedFor] = useState<string | null>(null);
   const [lastFetched, setLastFetched] = useState<FetchedJob | null>(seed?.job ?? null);
+  const bulletKeyRef = useRef(0);
+  const nextBulletKey = useCallback(() => `b${++bulletKeyRef.current}`, []);
 
   const showFetched = useCallback((body: Record<string, any>) => {
     const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet };
@@ -433,6 +453,10 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
           }[];
         };
 
+        // "Edit and regenerate": the saved CV's own hand edits come back.
+        const seedEdits = seed && seed.job.targetJobId === targetJobId ? seed.candidateEdits : NO_CANDIDATE_EDITS;
+        const suggestedOrder = orderProfileSkills(suggestions?.skillsOrder ?? [], profile.skills);
+        const ownByRole = ownBulletsByRole(seedEdits, profile.experience);
         const review: ReviewState = {
           targetJobId,
           previewId: body.previewId,
@@ -445,10 +469,12 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
           headline: suggestions?.headline ?? profile.headline ?? "",
           summary: suggestions?.summary ?? profile.summary ?? "",
           originalSkillsOrder: profile.skills,
-          suggestedSkillsOrder: suggestions?.skillsOrder?.length ? suggestions.skillsOrder : profile.skills,
+          suggestedSkillsOrder: suggestedOrder,
           keepOriginalSkillOrder: !suggestions?.skillsOrder?.length,
+          ...seedSkillEdits(seedEdits, profile.skills),
           experience: profile.experience.map((entry, index) => {
             const suggestedBullets = suggestions?.experienceBullets?.[index] ?? [];
+            const ownBullets = ownByRole[index] ?? [];
             return {
               title: entry.title,
               employer: entry.employer,
@@ -456,8 +482,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
               endedOn: entry.endedOn,
               isCurrent: entry.isCurrent,
               originalSummary: entry.summary,
-              suggestedBullets,
-              accepted: suggestedBullets.map(() => true),
+              bullets: buildReviewBullets(suggestedBullets, ownBullets, entry.summary, nextBulletKey),
             };
           }),
           // A degraded letter has no suggestion; it still gets an entry (with
@@ -494,21 +519,50 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
       cvLanguage,
       lowFitConfirmedFor,
       lastFetched,
+      seed,
+      nextBulletKey,
       t,
     ],
   );
 
-  const toggleBullet = useCallback((experienceIndex: number, bulletIndex: number) => {
-    setState((previous) => {
-      if (previous.kind !== "reviewing") return previous;
-      const experience = previous.review.experience.map((entry, i) => {
-        if (i !== experienceIndex) return entry;
-        const accepted = entry.accepted.map((value, j) => (j === bulletIndex ? !value : value));
-        return { ...entry, accepted };
+  /** Change one bullet (`patch`), or delete it (`null`). */
+  const updateBullet = useCallback(
+    (experienceIndex: number, key: string, patch: Partial<ReviewBullet> | null) => {
+      setState((previous) => {
+        if (previous.kind !== "reviewing") return previous;
+        const experience = previous.review.experience.map((entry, i) => {
+          if (i !== experienceIndex) return entry;
+          const bullets =
+            patch === null
+              ? entry.bullets.filter((b) => b.key !== key)
+              : entry.bullets.map((b) => (b.key === key ? { ...b, ...patch } : b));
+          return { ...entry, bullets };
+        });
+        return { kind: "reviewing", review: { ...previous.review, experience } };
       });
-      return { kind: "reviewing", review: { ...previous.review, experience } };
-    });
-  }, []);
+    },
+    [],
+  );
+
+  const addBullet = useCallback(
+    (experienceIndex: number) => {
+      const key = nextBulletKey();
+      setState((previous) => {
+        if (previous.kind !== "reviewing") return previous;
+        const experience = previous.review.experience.map((entry, i) =>
+          i === experienceIndex
+            ? { ...entry, bullets: [...entry.bullets, { key, text: "", accepted: true, aiText: null }] }
+            : entry,
+        );
+        return { kind: "reviewing", review: { ...previous.review, experience } };
+      });
+      // Focus the new, empty bullet once it has rendered.
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLTextAreaElement>(`[data-bullet-key="${key}"] textarea`)?.focus();
+      });
+    },
+    [nextBulletKey],
+  );
 
   const updateReview = useCallback(<K extends keyof ReviewState>(key: K, value: ReviewState[K]) => {
     setState((previous) => {
@@ -555,10 +609,29 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
               : {
                   headline: review.headline.trim() || null,
                   summary: review.summary.trim() || null,
-                  skillsOrder: review.keepOriginalSkillOrder ? [] : review.suggestedSkillsOrder,
-                  experienceBullets: review.experience.map((entry) =>
-                    entry.suggestedBullets.filter((_, i) => entry.accepted[i]),
-                  ),
+                  // The merge appends profile skills left out of the order in
+                  // profile order, exactly as orderProfileSkills shows them, so
+                  // the first 60 (the proposal's own cap) say the same thing.
+                  skillsOrder: review.keepOriginalSkillOrder
+                    ? []
+                    : review.suggestedSkillsOrder.slice(0, MAX_PROPOSED_SKILLS),
+                  experienceBullets: review.experience.map((entry) => approvedBullets(entry.bullets)),
+                },
+            // The candidate's own changes: applied to this CV only, and
+            // kept so "Edit and regenerate" can bring them back.
+            candidateEdits: review.degraded
+              ? null
+              : {
+                  addedSkills: review.addedSkills,
+                  removedSkills: review.removedSkills,
+                  ownBullets: review.experience
+                    .map((entry) => ({
+                      title: entry.title,
+                      employer: entry.employer,
+                      startedOn: entry.startedOn,
+                      bullets: approvedOwnBullets(entry.bullets),
+                    }))
+                    .filter((row) => row.bullets.length > 0),
                 },
             coverLetter:
               review.coverLetter && review.coverLetter.include && !review.coverLetter.degraded
@@ -574,11 +647,16 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
         });
         const body = await readJsonBody(res);
         if (!res.ok || !body) {
-          setState({
-            kind: "error",
-            message: body?.error ?? `${t("resumatch.flow.error.save")} ${t("resumatch.flow.error.server", { status: res.status })}`,
-            canGoBack: true,
-          });
+          const message =
+            body?.error ?? `${t("resumatch.flow.error.save")} ${t("resumatch.flow.error.server", { status: res.status })}`;
+          // Keep the review (and every hand edit) open so the candidate can
+          // fix it or just press Save again: a refused or failed write hands
+          // the preview back. Only a used-up preview (409) can't be retried.
+          if (res.status !== 409) {
+            setState({ kind: "reviewing", review, saveError: message });
+            return;
+          }
+          setState({ kind: "error", message, canGoBack: true });
           return;
         }
         // The CV is saved even when its letter is not (coverLetterError);
@@ -591,7 +669,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
               : `/tailor/${body.id}/preview`,
         );
       } catch {
-        setState({ kind: "error", message: t("resumatch.flow.error.network"), canGoBack: true });
+        setState({ kind: "reviewing", review, saveError: t("resumatch.flow.error.network") });
       }
     },
     [confirmedVersionId, router, t],
@@ -900,8 +978,9 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                 ) : null}
 
                 <div className="rm-review__section">
-                  <span className="rm-review__section-label">{t("resumatch.review.headline")}</span>
+                  <label htmlFor="rm-review-headline" className="rm-review__section-label">{t("resumatch.review.headline")}</label>
                   <input
+                    id="rm-review-headline"
                     type="text"
                     value={state.review.headline}
                     onChange={(e) => updateReview("headline", e.target.value)}
@@ -910,8 +989,9 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                 </div>
 
                 <div className="rm-review__section">
-                  <span className="rm-review__section-label">{t("resumatch.review.summary")}</span>
+                  <label htmlFor="rm-review-summary" className="rm-review__section-label">{t("resumatch.review.summary")}</label>
                   <textarea className="ui-input"
+                    id="rm-review-summary"
                     rows={4}
                     value={state.review.summary}
                     onChange={(e) => updateReview("summary", e.target.value)}
@@ -919,26 +999,20 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                   />
                 </div>
 
-                {state.review.suggestedSkillsOrder.join() !== state.review.originalSkillsOrder.join() ? (
-                  <div className="rm-review__section">
-                    <label className="rm-skill-toggle">
-                      <input
-                        type="checkbox"
-                        checked={!state.review.keepOriginalSkillOrder}
-                        onChange={(e) => updateReview("keepOriginalSkillOrder", !e.target.checked)}
-                        disabled={state.kind === "confirming"}
-                      />
-                      <span>
-                        {t("resumatch.review.reorderSkills")}
-                        <span className="rm-skill-pills jm-mono">
-                          {state.review.suggestedSkillsOrder.map((skill) => (
-                            <span key={skill}>{skill}</span>
-                          ))}
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-                ) : null}
+                <ReviewSkillsEditor
+                  baseSkills={
+                    state.review.keepOriginalSkillOrder ? state.review.originalSkillsOrder : state.review.suggestedSkillsOrder
+                  }
+                  canReorder={state.review.suggestedSkillsOrder.join() !== state.review.originalSkillsOrder.join()}
+                  reorder={!state.review.keepOriginalSkillOrder}
+                  onReorderChange={(value) => updateReview("keepOriginalSkillOrder", !value)}
+                  removedSkills={state.review.removedSkills}
+                  addedSkills={state.review.addedSkills}
+                  onRemovedChange={(next) => updateReview("removedSkills", next)}
+                  onAddedChange={(next) => updateReview("addedSkills", next)}
+                  disabled={state.kind === "confirming"}
+                />
+                <p className="rm-review__own-note">{t("resumatch.review.ownNote")}</p>
 
                 {state.review.experience.length > 0 ? (
                   <div className="rm-review__section">
@@ -949,28 +1023,18 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                           <strong>{entry.title}</strong>
                           {entry.employer ? <span className="rm-entry__sub"> · {entry.employer}</span> : null}
                         </div>
-                        {entry.suggestedBullets.length > 0 ? (
-                          <ul className="rm-bullet-list">
-                            {entry.suggestedBullets.map((bullet, bulletIndex) => (
-                              <li
-                                key={bulletIndex}
-                                className={`rm-bullet-item${entry.accepted[bulletIndex] ? "" : " rm-bullet-item--unaccepted"}`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={entry.accepted[bulletIndex]}
-                                  onChange={() => toggleBullet(entryIndex, bulletIndex)}
-                                  disabled={state.kind === "confirming"}
-                                />
-                                <span>{bullet}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
+                        {entry.bullets.length === 0 ? (
                           <p style={{ color: "var(--muted)", fontSize: "0.85rem", fontStyle: "italic", margin: "0.4rem 0 0" }}>
                             {t("resumatch.review.noSuggestion")}
                           </p>
-                        )}
+                        ) : null}
+                        <ReviewBulletsEditor
+                          role={entry.employer ? `${entry.title} · ${entry.employer}` : entry.title}
+                          bullets={entry.bullets}
+                          onChange={(key, patch) => updateBullet(entryIndex, key, patch)}
+                          onAdd={() => addBullet(entryIndex)}
+                          disabled={state.kind === "confirming"}
+                        />
                       </div>
                     ))}
                   </div>
@@ -1072,6 +1136,12 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                     {t("resumatch.review.cl.declined")}
                   </p>
                 )}
+              </div>
+            ) : null}
+
+            {state.kind === "reviewing" && state.saveError ? (
+              <div style={{ marginTop: "1rem" }}>
+                <Alert tone="error">{state.saveError}</Alert>
               </div>
             ) : null}
 

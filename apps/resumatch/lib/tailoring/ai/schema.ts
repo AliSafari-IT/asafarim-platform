@@ -54,6 +54,21 @@ export function parseTailorSuggestions(input: unknown): TailorSuggestions {
   return tailorSuggestionsSchema.parse(input);
 }
 
+/**
+ * What generate-confirm accepts as the candidate's approved review: the
+ * provider shape, except that a bullet may be as long as a CV bullet
+ * (2000). On the review a role without AI bullets shows the profile's own
+ * role summary as an editable bullet, and that summary may be longer than
+ * a provider bullet. The merge still copies every fact from the profile.
+ */
+export const approvedTailorSuggestionsSchema = tailorSuggestionsSchema.extend({
+  experienceBullets: z.array(z.array(z.string().trim().max(2000)).max(8)).max(60).default([]),
+});
+
+export function parseApprovedTailorSuggestions(input: unknown): TailorSuggestions {
+  return approvedTailorSuggestionsSchema.parse(input);
+}
+
 const tailoredExperienceSchema = z.object({
   title: trimmed(120),
   employer: trimmed(120).nullable().default(null),
