@@ -18,6 +18,8 @@ import { ApplicationEmailProviderError } from "./provider";
 import { renderApplicationEmailPrompt } from "./prompts";
 import { APPLICATION_EMAIL_MODEL_VERSIONS, getApplicationEmailProvider } from "./registry";
 import type { ApplicationEmailSuggestion } from "./schema";
+import { renderContactParagraph, resolveContactPreferences, type ContactMode, type ContactPreferences } from "../../contactPreferences/contract";
+import { getContactPreferences } from "../../contactPreferences/store";
 
 /**
  * Write a subject and message for an application email, from the real job,
@@ -42,6 +44,8 @@ export type GenerateEmailOutcome =
       language: OutputLanguage;
       /** Sentences or paragraphs taken out by the checks; shown as a note. */
       removed: number;
+      /** The contact paragraph placed in the body (#940), built in code; null: none. */
+      contactParagraph: string | null;
     }
   | { ok: false; reason: "not_found" | "no_documents" | "budget" | "failed" | "nothing_left" };
 
@@ -58,16 +62,26 @@ export function fallbackSubject(language: OutputLanguage, jobTitle: string | nul
   return subject.slice(0, SUBJECT_MAX_LENGTH);
 }
 
-/** Greeting, paragraphs, sign-off and the candidate's name (from code). */
-export function assembleBody(suggestion: Pick<ApplicationEmailSuggestion, "greeting" | "paragraphs" | "signOff">, fullName: string | null): string {
+/** Greeting, paragraphs, the contact paragraph (#940, from code) when
+ *  there is one, sign-off and the candidate's name (from code). */
+export function assembleBody(
+  suggestion: Pick<ApplicationEmailSuggestion, "greeting" | "paragraphs" | "signOff">,
+  fullName: string | null,
+  contactParagraph: string | null = null,
+): string {
   const closing = fullName ? `${suggestion.signOff}\n${fullName}` : suggestion.signOff;
-  return [suggestion.greeting, ...suggestion.paragraphs, closing].join("\n\n");
+  return [suggestion.greeting, ...suggestion.paragraphs, ...(contactParagraph ? [contactParagraph] : []), closing].join("\n\n");
 }
 
 export async function generateApplicationEmail(
   workspaceId: string,
   applicationId: string,
-  opts: { contactName?: string | null; provider?: ResuMatchAiProvider } = {},
+  opts: {
+    contactName?: string | null;
+    provider?: ResuMatchAiProvider;
+    /** Which contact preferences this email uses (#940); the saved defaults when left out. */
+    contact?: { mode: ContactMode; override: ContactPreferences | null };
+  } = {},
 ): Promise<GenerateEmailOutcome> {
   const db = getJobmatchDb();
   const application = await db.application.findFirst({
@@ -209,5 +223,9 @@ export async function generateApplicationEmail(
   if (removed > 0 || subjectReplaced) {
     log.warn("applicationEmail.ai.checked", { removed, subjectReplaced, greetingReplaced: grounded.greetingReplaced });
   }
-  return { ok: true, subject, body: assembleBody(grounded.suggestion, fullName), language, removed };
+  // Added after the checks, in code: the AI never sees or writes it.
+  const contact = opts.contact ?? { mode: "DEFAULT" as const, override: null };
+  const defaults = contact.mode === "DEFAULT" ? await getContactPreferences(workspaceId) : null;
+  const contactParagraph = renderContactParagraph(resolveContactPreferences(contact.mode, defaults, contact.override), language);
+  return { ok: true, subject, body: assembleBody(grounded.suggestion, fullName, contactParagraph), language, removed, contactParagraph };
 }

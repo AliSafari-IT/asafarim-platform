@@ -504,6 +504,42 @@ describe.skipIf(!TEST_DB)("application email: send, history, filters", () => {
     expect(again).toMatchObject({ ok: false, reason: "conflict" });
   });
 
+  it("keeps the per-email contact choice (#940) with the draft", async () => {
+    const s = await seed();
+    const fresh = await service.loadComposer(s.workspaceId, s.applicationId);
+    expect(fresh?.contactDefaults).toBeNull();
+    expect(fresh?.emailLanguage).toBe("en");
+
+    const override = { callWindows: [], timeZone: "Europe/Paris", outsideHours: "arrange" as const, unavailable: [], email: true, whatsapp: false };
+    const saved = await service.saveDraft(s.workspaceId, s.applicationId, draftFor(s, { contactMode: "OVERRIDE", contactOverride: override }));
+    expect(saved).toMatchObject({ ok: true, draft: { contactMode: "OVERRIDE", contactOverride: override } });
+
+    const version = saved.ok ? saved.draft.version : 0;
+    const omitted = await service.saveDraft(s.workspaceId, s.applicationId, draftFor(s, { contactMode: "OMIT", version }));
+    expect(omitted).toMatchObject({ ok: true, draft: { contactMode: "OMIT", contactOverride: null } });
+
+    const { saveContactPreferences } = await import("../contactPreferences/store");
+    await saveContactPreferences(s.workspaceId, override);
+    const composer = await service.loadComposer(s.workspaceId, s.applicationId);
+    expect(composer?.contactDefaults).toEqual(override);
+    expect(composer?.draft?.contactMode).toBe("OMIT");
+
+    // Each draft's own choice is in the data export.
+    const { exportWorkspaceData } = await import("../profile/dataRights");
+    const exported = await exportWorkspaceData(s.workspaceId);
+    expect(exported?.emailDraftContacts).toEqual([expect.objectContaining({ applicationId: s.applicationId, contactMode: "OMIT", contactOverride: null })]);
+  });
+
+  it("remembers the contact paragraph only while the body holds it", async () => {
+    const s = await seed();
+    const body = "Dear Sam,\n\nI am applying.\n\nCall me Monday.\n\nKind regards,\nRobin Example";
+    const kept = await service.saveDraft(s.workspaceId, s.applicationId, draftFor(s, { body, bodyEdited: false, contactParagraph: "Call me Monday." }));
+    expect(kept).toMatchObject({ ok: true, draft: { contactParagraph: "Call me Monday." } });
+    const version = kept.ok ? kept.draft.version : 0;
+    const gone = await service.saveDraft(s.workspaceId, s.applicationId, draftFor(s, { body: "Dear Sam,\n\nKind regards,", contactParagraph: "Call me Monday.", version }));
+    expect(gone).toMatchObject({ ok: true, draft: { contactParagraph: null } });
+  });
+
   it("recovers when the status change was never recorded after an acceptance", async () => {
     const s = await seed();
     const { mailer } = recordingMailer();

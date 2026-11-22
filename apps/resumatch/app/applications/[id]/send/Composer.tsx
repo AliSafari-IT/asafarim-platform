@@ -17,6 +17,16 @@ import {
 import type { Prefill } from "../../../../lib/applicationEmail/prefill";
 import type { PdfStatusView } from "../../../../lib/documentPdfs/describe";
 import { LocalTime } from "../../../ai-usage/LocalTime";
+import { ContactPreferencesFields, contactPreferencesProblem } from "../../../../components/contactPreferences/ContactPreferencesFields";
+import {
+  EMPTY_PREFERENCES,
+  renderContactParagraph,
+  resolveContactPreferences,
+  swapContactParagraph,
+  type ContactMode,
+  type ContactPreferences,
+} from "../../../../lib/contactPreferences/contract";
+import type { OutputLanguage } from "../../../../lib/tailoring/language";
 
 interface PinnedPdf {
   id: string;
@@ -38,6 +48,9 @@ interface DraftView {
   sendCopyToSelf: boolean;
   cvPdfId: string | null;
   coverLetterPdfId: string | null;
+  contactMode: ContactMode;
+  contactOverride: ContactPreferences | null;
+  contactParagraph: string | null;
 }
 
 export interface ComposerProps {
@@ -60,6 +73,10 @@ export interface ComposerProps {
   sendCount: number;
   sender: { available: boolean; from: string | null; replyTo: string | null };
   pdfRenderer: boolean;
+  /** The email's language (#940): the contact paragraph is written in it. */
+  emailLanguage: OutputLanguage;
+  /** The saved contact preferences; null when none. */
+  contactDefaults: ContactPreferences | null;
 }
 
 interface Fields {
@@ -133,7 +150,16 @@ export function Composer(props: ComposerProps) {
   const [problems, setProblems] = useState<Partial<Record<DraftField, FieldProblem>>>({});
   const [generating, setGenerating] = useState<null | "both" | "subject" | "body">(null);
   const [generateNote, setGenerateNote] = useState<{ tone: "info" | "error" | "warning"; text: string } | null>(null);
-  const [confirmReplace, setConfirmReplace] = useState<null | { part: "subject" | "body"; subject: string; body: string }>(null);
+  const [confirmReplace, setConfirmReplace] = useState<null | {
+    part: "subject" | "body";
+    subject: string;
+    body: string;
+    contactParagraph: string | null;
+    /** A change of contact choice in an edited body: only that paragraph changes, the edits stay. */
+    contactOnly?: boolean;
+  }>(
+    null,
+  );
   const [saveState, setSaveState] = useState<{ kind: "idle" | "saving" | "saved" | "error" | "conflict"; text?: string }>({ kind: "idle" });
   const [send, setSend] = useState<SendState>({ kind: "idle" });
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -141,6 +167,25 @@ export function Composer(props: ComposerProps) {
   const [pdfPhase, setPdfPhase] = useState<"idle" | "creating" | "error">("idle");
   const [pdfError, setPdfError] = useState<{ text: string; code: string | null } | null>(null);
   const keyRef = useRef<string | null>(null);
+
+  // Contact preferences (#940). The paragraph is built in code from the
+  // chosen preferences; `contactParagraph` is the one this body holds, so a
+  // change of choice can swap exactly that block while the body is the AI's.
+  const initialContact = { mode: props.draft?.contactMode ?? ("DEFAULT" as ContactMode), override: props.draft?.contactOverride ?? null };
+  const [contact, setContact] = useState(initialContact);
+  const [savedContact, setSavedContact] = useState(initialContact);
+  const [contactNote, setContactNote] = useState<string | null>(null);
+  const paragraphFor = (mode: ContactMode, override: ContactPreferences | null) =>
+    renderContactParagraph(resolveContactPreferences(mode, props.contactDefaults, override), props.emailLanguage);
+  // A saved draft remembers the exact paragraph it holds, so it can still
+  // be swapped or removed after the saved defaults change.
+  const [contactParagraph, setContactParagraph] = useState<string | null>(() => {
+    const blocks = initial.body.split("\n\n");
+    const stored = props.draft?.contactParagraph ?? null;
+    if (stored && blocks.includes(stored)) return stored;
+    const paragraph = paragraphFor(initialContact.mode, initialContact.override);
+    return paragraph && blocks.includes(paragraph) ? paragraph : null;
+  });
 
   const blocked = props.problems.includes("no_cv") || props.problems.includes("no_cover_letter");
   const sending = send.kind === "sending";
@@ -155,7 +200,10 @@ export function Composer(props: ComposerProps) {
     saved.body !== fields.body ||
     saved.sendCopyToSelf !== fields.sendCopyToSelf ||
     savedPins.cv !== (pins.cv?.id ?? null) ||
-    savedPins.letter !== (pins.letter?.id ?? null);
+    savedPins.letter !== (pins.letter?.id ?? null) ||
+    savedContact.mode !== contact.mode ||
+    // The override only counts while it is the choice: OMIT saves none.
+    (contact.mode === "OVERRIDE" && JSON.stringify(savedContact.override) !== JSON.stringify(contact.override));
   const hasText = Boolean(fields.subject.trim() || fields.body.trim() || fields.toEmail.trim());
   const warnOnLeave = dirty && hasText && send.kind !== "accepted";
 
@@ -179,9 +227,21 @@ export function Composer(props: ComposerProps) {
         const res = await fetch(`/api/applications/${encodeURIComponent(props.application.id)}/email-draft/generate`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ contactName: fields.contactName }),
+          body: JSON.stringify({
+            contactName: fields.contactName,
+            contactMode: contact.mode,
+            ...(contact.mode === "OVERRIDE" && contact.override && !contactPreferencesProblem(contact.override) ? { contactOverride: contact.override } : {}),
+            // An override still being typed: write without it for now.
+            ...(contact.mode === "OVERRIDE" && (!contact.override || contactPreferencesProblem(contact.override)) ? { contactMode: "OMIT" } : {}),
+          }),
         });
-        const data = (await res.json().catch(() => ({}))) as { subject?: string; body?: string; removed?: number; error?: string };
+        const data = (await res.json().catch(() => ({}))) as {
+          subject?: string;
+          body?: string;
+          removed?: number;
+          error?: string;
+          contactParagraph?: string | null;
+        };
         if (!res.ok || typeof data.subject !== "string" || typeof data.body !== "string") {
           setGenerateNote({ tone: "error", text: data.error ?? t("resumatch.send.generate.failed") });
           return;
@@ -193,8 +253,12 @@ export function Composer(props: ComposerProps) {
           !opts.force &&
           ((replaceSubject && fields.subjectEdited && fields.subject.trim()) || (replaceBody && fields.bodyEdited && fields.body.trim()));
         if (needsConfirm && part !== "both") {
-          setConfirmReplace({ part, subject: data.subject, body: data.body });
+          setConfirmReplace({ part, subject: data.subject, body: data.body, contactParagraph: data.contactParagraph ?? null });
           return;
+        }
+        if (replaceBody && !(part === "both" && fields.bodyEdited && fields.body.trim())) {
+          setContactParagraph(data.contactParagraph ?? null);
+          setContactNote(null);
         }
         setFields((current) => ({
           ...current,
@@ -212,7 +276,7 @@ export function Composer(props: ComposerProps) {
         setGenerating(null);
       }
     },
-    [fields.contactName, fields.subject, fields.body, fields.subjectEdited, fields.bodyEdited, props.application.id, t],
+    [fields.contactName, fields.subject, fields.body, fields.subjectEdited, fields.bodyEdited, props.application.id, t, contact],
   );
 
   // First open with no draft: write a subject and message straight away.
@@ -234,6 +298,9 @@ export function Composer(props: ComposerProps) {
       sendCopyToSelf: fields.sendCopyToSelf,
       cvPdfId: pins.cv?.id ?? null,
       coverLetterPdfId: pins.letter?.id ?? null,
+      contactMode: contact.mode,
+      ...(contact.mode === "OVERRIDE" ? { contactOverride: contact.override } : {}),
+      contactParagraph,
       version: overrideVersion !== undefined ? overrideVersion : version,
     };
   }
@@ -242,6 +309,30 @@ export function Composer(props: ComposerProps) {
     setVersion(draft.version);
     setSaved({ ...fields });
     setSavedPins({ cv: draft.cvPdfId, letter: draft.coverLetterPdfId });
+    setSavedContact({ mode: draft.contactMode, override: draft.contactOverride });
+  }
+
+  /** A new choice of contact preferences: swaps the paragraph in a body the
+   *  candidate hasn't edited; an edited body is left alone, with a note. */
+  function changeContact(mode: ContactMode, override: ContactPreferences | null) {
+    setContact({ mode, override });
+    if (saveState.kind === "saved") setSaveState({ kind: "idle" });
+    if (mode === "OVERRIDE" && (!override || contactPreferencesProblem(override))) return;
+    const next = paragraphFor(mode, override);
+    if (next === contactParagraph || !fields.body.trim()) return;
+    const swapped = swapContactParagraph(fields.body, contactParagraph, next);
+    if (swapped === null) {
+      setContactNote(t("resumatch.contact.composer.edited"));
+      return;
+    }
+    if (fields.bodyEdited) {
+      // Hand edits: ask first, through the same step a regenerate uses.
+      setConfirmReplace({ part: "body", subject: fields.subject, body: swapped, contactParagraph: next, contactOnly: true });
+      return;
+    }
+    setContactNote(null);
+    setContactParagraph(next);
+    setFields((current) => ({ ...current, body: swapped }));
   }
 
   async function saveDraft(overrideVersion?: number | null) {
@@ -664,6 +755,40 @@ export function Composer(props: ComposerProps) {
             ) : null}
           </div>
 
+          <fieldset className="rm-composer__contact" data-testid="composer-contact">
+            <legend className="rm-composer__subheading">{t("resumatch.contact.composer.title")}</legend>
+            {(["DEFAULT", "OVERRIDE", "OMIT"] as const).map((mode) => (
+              <label key={mode} className="rm-contact__radio">
+                <input
+                  type="radio"
+                  name={`${ids.body}-contact`}
+                  checked={contact.mode === mode}
+                  disabled={busy}
+                  onChange={() => changeContact(mode, mode === "OVERRIDE" ? (contact.override ?? props.contactDefaults ?? EMPTY_PREFERENCES) : contact.override)}
+                />
+                <span>
+                  {mode === "DEFAULT"
+                    ? t(props.contactDefaults ? "resumatch.contact.composer.default" : "resumatch.contact.composer.defaultNone")
+                    : mode === "OVERRIDE"
+                      ? t("resumatch.contact.composer.override")
+                      : t("resumatch.contact.composer.omit")}
+                </span>
+              </label>
+            ))}
+            {contact.mode === "OVERRIDE" && contact.override ? (
+              <ContactPreferencesFields
+                value={contact.override}
+                onChange={(next) => changeContact("OVERRIDE", next)}
+                previewLanguage={props.emailLanguage}
+                disabled={busy}
+              />
+            ) : null}
+            <a className="rm-composer__contact-manage" href="/profile#contact-preferences">
+              {t("resumatch.contact.composer.manage")}
+            </a>
+            {contactNote ? <Alert tone="info">{contactNote}</Alert> : null}
+          </fieldset>
+
           {generateNote ? (
             <div className="rm-composer__note-block">
               <Alert tone={generateNote.tone}>{generateNote.text}</Alert>
@@ -843,13 +968,29 @@ export function Composer(props: ComposerProps) {
 
       <ConfirmDialog
         open={confirmReplace !== null}
-        title={confirmReplace?.part === "subject" ? t("resumatch.send.replace.subjectTitle") : t("resumatch.send.replace.bodyTitle")}
-        message={t("resumatch.send.replace.message")}
-        confirmLabel={t("resumatch.send.replace.confirm")}
-        cancelLabel={t("resumatch.send.replace.cancel")}
+        title={
+          confirmReplace?.contactOnly
+            ? t("resumatch.contact.composer.replaceTitle")
+            : confirmReplace?.part === "subject"
+              ? t("resumatch.send.replace.subjectTitle")
+              : t("resumatch.send.replace.bodyTitle")
+        }
+        message={confirmReplace?.contactOnly ? t("resumatch.contact.composer.replaceMessage") : t("resumatch.send.replace.message")}
+        confirmLabel={confirmReplace?.contactOnly ? t("resumatch.contact.composer.replaceConfirm") : t("resumatch.send.replace.confirm")}
+        cancelLabel={confirmReplace?.contactOnly ? t("resumatch.contact.composer.replaceCancel") : t("resumatch.send.replace.cancel")}
         onConfirm={() => {
-          if (confirmReplace) {
+          if (confirmReplace?.contactOnly) {
+            // The candidate's other edits stay, so the body stays "edited".
+            const { body, contactParagraph: next } = confirmReplace;
+            setContactParagraph(next);
+            setContactNote(null);
+            setFields((current) => ({ ...current, body }));
+          } else if (confirmReplace) {
             const { part, subject, body } = confirmReplace;
+            if (part === "body") {
+              setContactParagraph(confirmReplace.contactParagraph);
+              setContactNote(null);
+            }
             setFields((current) => ({
               ...current,
               ...(part === "subject" ? { subject, subjectEdited: false } : { body, bodyEdited: false }),
@@ -859,8 +1000,9 @@ export function Composer(props: ComposerProps) {
           setConfirmReplace(null);
         }}
         onCancel={() => {
+          if (confirmReplace?.contactOnly) setContactNote(t("resumatch.contact.composer.kept"));
+          else setGenerateNote({ tone: "info", text: t("resumatch.send.replace.kept") });
           setConfirmReplace(null);
-          setGenerateNote({ tone: "info", text: t("resumatch.send.replace.kept") });
         }}
       />
       <ConfirmDialog

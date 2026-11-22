@@ -131,6 +131,11 @@ export interface DataExport {
       createdAt: string;
     }[];
   }[];
+  /** Contact preferences for application emails (#940); null when none. */
+  contactPreferences: { content: unknown; updatedAt: string } | null;
+  /** Each draft's own contact choice (#940): the mode, values just for that
+   *  email, and the paragraph its body holds. */
+  emailDraftContacts: { applicationId: string; contactMode: string; contactOverride: unknown; contactParagraph: string | null; updatedAt: string }[];
   auditEvents: { action: string; createdAt: string }[];
   /** Stated in the export itself so the recipient is not left inferring it. */
   notes: string[];
@@ -145,7 +150,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -180,6 +185,12 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
       include: { revisions: { orderBy: { revisionNumber: "asc" } } },
+    }),
+    db.contactPreferences.findUnique({ where: { workspaceId }, select: { content: true, updatedAt: true } }),
+    db.applicationEmailDraft.findMany({
+      where: { workspaceId },
+      orderBy: { updatedAt: "asc" },
+      select: { applicationId: true, contactMode: true, contactOverride: true, contactParagraph: true, updatedAt: true },
     }),
   ]);
 
@@ -286,6 +297,16 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
         confirmedAt: revision.confirmedAt?.toISOString() ?? null,
         createdAt: revision.createdAt.toISOString(),
       })),
+    })),
+    contactPreferences: contactPreferences
+      ? { content: contactPreferences.content, updatedAt: contactPreferences.updatedAt.toISOString() }
+      : null,
+    emailDraftContacts: emailDraftContacts.map((d) => ({
+      applicationId: d.applicationId,
+      contactMode: d.contactMode,
+      contactOverride: d.contactOverride,
+      contactParagraph: d.contactParagraph,
+      updatedAt: d.updatedAt.toISOString(),
     })),
     auditEvents: auditEvents.map((event) => ({
       action: event.action,
@@ -415,6 +436,9 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // Background evidence (#929) is the candidate's own text; its
     // revisions cascade with each item.
     await tx.candidateEvidence.deleteMany({ where: { workspaceId } });
+    // Contact preferences (#940): when the candidate takes calls. The
+    // workspace row stays, so they would not cascade.
+    await tx.contactPreferences.deleteMany({ where: { workspaceId } });
     const targetJobs = await tx.targetJob.deleteMany({ where: { workspaceId } });
 
     if (profile) {

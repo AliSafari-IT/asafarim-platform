@@ -59,6 +59,8 @@ export default async function SendApplicationPage({ params }: { params: Promise<
       replyTo: account.email,
     },
     pdfRenderer: pdfRendererConfigured(),
+    emailLanguage: data.emailLanguage,
+    contactDefaults: data.contactDefaults,
   };
 
   const job = [data.application.jobTitle, data.application.employer].filter(Boolean).join(" · ");

@@ -65,6 +65,7 @@ model Workspace {
   emailDrafts     ApplicationEmailDraft[]
   sentEmails      SentApplicationEmail[]
   evidence        CandidateEvidence[]
+  contactPreferences ContactPreferences?
 
   @@map("workspaces")
 }
@@ -759,6 +760,15 @@ model ApplicationEmailDraft {
   /// Bcc the candidate's own account address.
   sendCopyToSelf Boolean @default(true)
 
+  /// Contact preferences for this email (#940): the saved defaults, values
+  /// just for this email (contactOverride), or none.
+  contactMode     ContactMode @default(DEFAULT)
+  contactOverride Json?
+  /// The contact paragraph this body holds, exactly as it was placed, so
+  /// a reopened draft can still swap or remove it after the saved
+  /// defaults change. Null: the body holds none.
+  contactParagraph String?
+
   /// The exact PDFs this draft attaches. Pinned, never swapped for newer
   /// ones without the candidate choosing to.
   cvPdfId          String?
@@ -1106,4 +1116,28 @@ model CandidateEvidenceRevision {
   @@unique([evidenceId, revisionNumber])
   @@index([workspaceId])
   @@map("candidate_evidence_revisions")
+}
+
+enum ContactMode {
+  DEFAULT
+  OVERRIDE
+  OMIT
+}
+
+/// When and how the candidate likes to be contacted (#940). One row per
+/// workspace; `content` is the ContactPreferences shape in
+/// lib/contactPreferences/contract.ts, read leniently. The email composer
+/// turns it into one paragraph in code; it is never sent to an AI provider.
+model ContactPreferences {
+  id String @id @default(cuid())
+
+  workspaceId String    @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  content Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contact_preferences")
 }
