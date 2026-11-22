@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-11-23",
+    "title": "Resumatch: contact preferences in application emails (0.6.3)",
+    "sha": "792667e2",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/792667e2"
+  },
+  {
     "date": "2026-11-22",
     "title": "Resumatch: confirmed background evidence with explicit application scope (0.6.1)",
     "sha": "7a26831f",
@@ -112,11 +118,5 @@
     "title": "EduMatch: AI cost ledger for every paid provider call (#540)",
     "sha": "cbdf1fe0",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/cbdf1fe0"
-  },
-  {
-    "date": "2026-10-18",
-    "title": "EduMatch: redact PII and secrets before student text reaches AI providers",
-    "sha": "35883200",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/35883200"
   }
 ]
