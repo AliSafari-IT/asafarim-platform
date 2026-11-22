@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-22",
+    "title": "Resumatch: confirmed background evidence with explicit application scope (0.6.1)",
+    "sha": "7a26831f",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/7a26831f"
+  },
+  {
+    "date": "2026-11-22",
     "title": "Resumatch: share one versioned request context across CV and cover-letter generation (0.6.0)",
     "sha": "7a562a02",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/7a562a02"
@@ -112,11 +118,5 @@
     "title": "EduMatch: redact PII and secrets before student text reaches AI providers",
     "sha": "35883200",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/35883200"
-  },
-  {
-    "date": "2026-10-18",
-    "title": "Resumatch: per-workspace AI monthly budget override",
-    "sha": "082c292f",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/082c292f"
   }
 ]
