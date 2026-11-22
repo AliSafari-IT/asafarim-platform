@@ -92,6 +92,7 @@ function expectFencedNote(system: string, user: string) {
   const open = user.indexOf(FENCE_OPEN);
   const close = user.indexOf(FENCE_CLOSE);
   expect(open).toBeGreaterThanOrEqual(0);
+  expect(close).toBeGreaterThan(open);
   const inside = user.slice(open, close);
   expect(inside).toContain(NOTE);
   expect(user.split(NOTE)).toHaveLength(2);

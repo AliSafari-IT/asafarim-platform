@@ -30,6 +30,7 @@ const context = resolveTailoringContext({
   coverLetter: { tone: "warm", length: "short" },
 });
 
+let isConfirmed = true;
 const targetJobFindFirst = vi.fn();
 const previewFindFirst = vi.fn();
 const previewUpdateMany = vi.fn();
@@ -40,7 +41,7 @@ vi.mock("../../../../lib/workspace", () => ({
   getCurrentWorkspace: async () => ({ id: "ws_1" }),
   recordAuditEvent: async () => undefined,
 }));
-vi.mock("../../../../lib/profile/versions", () => ({ getVersion: async () => ({ content: profile }) }));
+vi.mock("../../../../lib/profile/versions", () => ({ getVersion: async () => ({ content: profile, isConfirmed }) }));
 vi.mock("../../../../lib/db/client", () => ({
   getJobmatchDb: () => ({
     targetJob: { findFirst: targetJobFindFirst },
@@ -74,6 +75,7 @@ const previewRow = (stored: unknown) => ({
 
 describe("generate-confirm request context (#928)", () => {
   beforeEach(() => {
+    isConfirmed = true;
     targetJobFindFirst.mockReset().mockResolvedValue({ id: "job_1", rawText: jobText });
     previewFindFirst.mockReset().mockResolvedValue({ context: JSON.parse(JSON.stringify(context)) });
     previewUpdateMany.mockReset().mockResolvedValue({ count: 1 });
@@ -117,6 +119,14 @@ describe("generate-confirm request context (#928)", () => {
     const res = await confirm();
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ reason: "profile_version" });
+  });
+
+  it("refuses a preview made before the candidate confirmed a newer profile, even when the client echoes the old version", async () => {
+    isConfirmed = false;
+    const res = await confirm();
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "PREVIEW_CONTEXT_STALE", reason: "profile_version" });
+    expect(previewUpdateMany).not.toHaveBeenCalled();
   });
 
   it("looks the preview up in the caller's workspace only; another workspace's id cannot be claimed", async () => {

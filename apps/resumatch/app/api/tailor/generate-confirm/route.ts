@@ -151,6 +151,7 @@ async function confirmTailoring(request: Request): Promise<Response> {
       targetJobId,
       jobRawText: targetJob.rawText,
       instructions: typeof instructions === "string" ? instructions : undefined,
+      profileVersionConfirmed: version.isConfirmed,
     });
     if (stale) {
       return NextResponse.json(
@@ -160,6 +161,8 @@ async function confirmTailoring(request: Request): Promise<Response> {
               ? "The job text changed after these suggestions were made. Generate them again."
               : stale === "instructions"
                 ? "Your note changed after these suggestions were made. Generate them again."
+                : stale === "profile_version"
+                  ? "Your confirmed profile changed after these suggestions were made. Generate them again."
                 : "That preview is missing, expired, or already used. Generate a new one.",
           code: "PREVIEW_CONTEXT_STALE",
           reason: stale,

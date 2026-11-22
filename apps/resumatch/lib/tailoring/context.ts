@@ -186,7 +186,8 @@ export type StaleContextReason = "workspace" | "profile_version" | "job" | "job_
 
 /**
  * Why a stored preview context can no longer back a save, or null when it
- * still matches. `instructions` is only compared when the client sent one:
+ * still matches. The profile version must be the one the preview used and
+ * still the confirmed one (the server's record, not the client's echo). `instructions` is only compared when the client sent one:
  * the review echoes the preview's note back, so a different note means the
  * candidate changed the request after generating.
  */
@@ -198,10 +199,14 @@ export function staleContextReason(
     targetJobId: string;
     jobRawText: string | null;
     instructions?: string | null;
+    /** Whether `profileVersionId` is still the profile's confirmed version.
+     *  The tailor flow always generates from the confirmed version, so a
+     *  preview made before the candidate confirmed a newer one is stale. */
+    profileVersionConfirmed: boolean;
   },
 ): StaleContextReason | null {
   if (context.workspaceId !== current.workspaceId) return "workspace";
-  if (context.profileVersionId !== current.profileVersionId) return "profile_version";
+  if (context.profileVersionId !== current.profileVersionId || !current.profileVersionConfirmed) return "profile_version";
   if (context.targetJobId !== current.targetJobId) return "job";
   if (current.jobRawText === null || fingerprintJobText(current.jobRawText) !== context.jobTextFingerprint) {
     return "job_text";

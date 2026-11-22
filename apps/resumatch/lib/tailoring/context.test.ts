@@ -153,6 +153,7 @@ describe("staleContextReason", () => {
     profileVersionId: "pv_1",
     targetJobId: "job_1",
     jobRawText: base.jobRawText,
+    profileVersionConfirmed: true,
   };
 
   it("accepts the same request, including the note echoed back as sent", () => {
@@ -164,6 +165,10 @@ describe("staleContextReason", () => {
     expect(staleContextReason(context, { ...current, workspaceId: "ws_2" })).toBe("workspace");
     expect(staleContextReason(context, { ...current, profileVersionId: "pv_2" })).toBe("profile_version");
     expect(staleContextReason(context, { ...current, targetJobId: "job_2" })).toBe("job");
+  });
+
+  it("refuses when the candidate confirmed a newer profile version since", () => {
+    expect(staleContextReason(context, { ...current, profileVersionConfirmed: false })).toBe("profile_version");
   });
 
   it("refuses when the job text changed or is gone", () => {
