@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-22",
+    "title": "Resumatch: add/remove skills and edit/add bullets on the Tailor review (0.4.0)",
+    "sha": "73f1daf3",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/73f1daf3"
+  },
+  {
+    "date": "2026-11-22",
     "title": "Resumatch: fluent skills paragraph; saved applications ready to send (0.3.1)",
     "sha": "d10c4cc1",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d10c4cc1"
@@ -112,11 +118,5 @@
     "title": "Resumatch: record one outcome row per AI provider call (#512)",
     "sha": "1d845c68",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1d845c68"
-  },
-  {
-    "date": "2026-10-17",
-    "title": "Resumatch: flag thin job-posting fetches with a quality signal",
-    "sha": "88bda18c",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/88bda18c"
   }
 ]
