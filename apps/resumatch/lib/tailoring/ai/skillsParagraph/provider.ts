@@ -9,8 +9,9 @@ import type { OutputLanguage } from "../../language";
  * output to those names. check.ts verifies the reply before it is stored.
  */
 export interface SkillsParagraphProviderCall {
-  /** This CV's skill groups, as rendered (category label, or "" for none). */
-  groups: { label: string; skills: string[] }[];
+  /** This CV's skill groups, as rendered (category label, or "" for none),
+   *  with the untranslated taxonomy key when there is one. */
+  groups: { label: string; skills: string[]; category?: string | null }[];
   language: OutputLanguage;
   system: string;
   user: string;

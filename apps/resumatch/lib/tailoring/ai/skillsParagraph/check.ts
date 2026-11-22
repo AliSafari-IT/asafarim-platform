@@ -16,7 +16,8 @@ import { MAX_SKILLS_PARAGRAPH_LENGTH } from "./prompts";
  *   anywhere, a sentence's first word included; plain capitalized words
  *   only mid-sentence. German capitalizes every noun, so a German paragraph
  *   checks numbers and tech-shaped words only (the cover letter's
- *   trade-off);
+ *   trade-off). A handful of generic words ("APIs", "UI") name no
+ *   technology and are always accepted;
  * - makes a high-risk claim (mentoring, leading people, a certification…)
  *   the profile text doesn't back — the cover letter's claim rules
  *   (coverLetter/claims.ts);
@@ -63,6 +64,11 @@ const WORD = /[\p{L}\p{N}][\p{L}\p{N}+#.]*/gu;
 /** Same shape test as lib/extraction/ai/grounding.ts's DISTINCTIVE_SHAPE. */
 const DISTINCTIVE_SHAPE = /\d|[+#]|.\.[A-Za-z]|[a-z][A-Z]|^[A-Z]{2,}$/;
 const SENTENCE_START = /(?:^|[.!?:;]\s*|\s[-–—]\s)$/;
+/** Generic words fluent prose needs that name no technology of their own
+ *  ("designs APIs", "a clean UI"): accepted without a listed skill. Kept
+ *  tiny on purpose: anything that could be a skill (REST, CI/CD, SQL) is
+ *  still only backed by the list. */
+const GENERIC_WORDS = new Set(["api", "apis", "ui", "uis", "ux"]);
 
 function words(text: string): { word: string; index: number }[] {
   return [...text.matchAll(WORD)].map((m) => ({ word: m[0].replace(/\.+$/, ""), index: m.index ?? 0 }));
@@ -92,7 +98,7 @@ function hasUnlistedName(sentence: string, evidence: Set<string>, language: Outp
     const shaped = DISTINCTIVE_SHAPE.test(word);
     const capitalized = /^\p{Lu}/u.test(word);
     const notable = shaped || (language !== "de" && capitalized && !SENTENCE_START.test(sentence.slice(0, index)));
-    if (notable && !evidence.has(word.toLowerCase())) return true;
+    if (notable && !evidence.has(word.toLowerCase()) && !GENERIC_WORDS.has(word.toLowerCase())) return true;
   }
   return false;
 }

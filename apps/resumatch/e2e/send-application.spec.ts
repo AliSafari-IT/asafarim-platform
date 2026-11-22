@@ -1,9 +1,11 @@
 import { e2eDb, expect, seedTailoredResume, signInWithEmail, test } from "./fixtures";
 
 /**
- * "Send application" end to end (send-application.md): create the PDFs,
- * open the composer (status unchanged), send through the fixture mailer,
- * see Saved become Applied, then read and filter the sent history.
+ * "Send application" end to end (send-application.md): "Save to
+ * applications" makes the PDFs so the card is ready to send; a card saved
+ * without PDFs can still be sent (the composer makes them); open the
+ * composer (status unchanged), send through the fixture mailer, see Saved
+ * become Applied, then read and filter the sent history.
  *
  * Needs the server started with RESUMATCH_EMAIL_TRANSPORT=fixture and
  * RESUMATCH_PDF_CHROMIUM_PATH (the CI job sets both); skipped otherwise.
@@ -35,20 +37,52 @@ test.beforeEach(async ({ context, baseURL }) => {
   await signInWithEmail(context, baseURL, "jordan@example.test", "Jordan Example");
 });
 
-test("create PDFs, send the application, and find it in the sent history", async ({ page }, testInfo) => {
+test("Save to applications links the CV and letter, ready to send without Create PDFs", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  // Start from a CV that is not in the tracker yet.
+  await e2eDb().application.delete({ where: { id: APP_ID } });
+
+  await page.goto(`/tailor/${CV_ID}/preview`);
+  await page.getByTestId("save-application").click();
+  const status = page.getByTestId("save-application-status");
+  await expect(status).toContainText("ready to send", { timeout: 60_000 });
+  if (shots) await page.screenshot({ path: `${shots}/${testInfo.project.name.replace(/\s+/g, "-")}-0-saved-ready.png` });
+
+  const pdfs = await e2eDb().documentPdf.findMany({ where: { OR: [{ tailoredResumeId: CV_ID }, { coverLetterId: LETTER_ID }] } });
+  expect(pdfs.map((p) => p.kind).sort()).toEqual(["COVER_LETTER", "CV"]);
+
+  await status.getByRole("link", { name: "View applications" }).click();
+  await page.waitForURL("**/applications");
+  const entry = page.getByTestId("send-entry").filter({ visible: true }).first();
+  await expect(entry).toContainText("The PDFs of the CV and cover letter are ready.");
+  await entry.getByTestId("send-application").click();
+  await page.waitForURL(/\/applications\/[^/]+\/send$/);
+  await expect(page.getByTestId("attachment-cv")).toContainText("Jordan Example – CV – Example Audio.pdf");
+  await expect(page.getByTestId("attachment-letter")).toContainText("Cover letter");
+  // The PDFs from the save were attached; none were made again.
+  expect(await e2eDb().documentPdf.count({ where: { OR: [{ tailoredResumeId: CV_ID }, { coverLetterId: LETTER_ID }] } })).toBe(2);
+
+  // "Create PDFs" stays available as an optional refresh.
+  await page.goto("/applications");
+  const again = page.getByTestId("send-entry").filter({ visible: true }).first();
+  await again.getByTestId("create-pdfs").click();
+  await expect(again).toContainText("The PDFs already match the CV and cover letter.", { timeout: 60_000 });
+});
+
+test("send the application, and find it in the sent history", async ({ page }, testInfo) => {
   const shot = async (name: string) => {
     if (shots) await page.screenshot({ path: `${shots}/${testInfo.project.name.replace(/\s+/g, "-")}-${name}.png`, fullPage: true });
   };
   test.setTimeout(120_000);
 
+  // Saved before it had PDFs: Send application is offered anyway, and the
+  // composer makes the PDFs as it opens.
   await page.goto("/applications");
   const entry = page.getByTestId("send-entry").filter({ visible: true }).first();
-  await expect(entry).toContainText("create PDFs of the CV and cover letter");
-  await shot("1-card-needs-pdfs");
-  await entry.getByRole("button", { name: "Create PDFs" }).click();
+  await expect(entry).toContainText("made when you open it");
+  await shot("1-card-no-pdfs-yet");
   const send = entry.getByTestId("send-application");
-  await expect(send).toBeVisible({ timeout: 60_000 });
-  await shot("2-card-ready");
+  await expect(send).toBeVisible();
 
   await send.click();
   await page.waitForURL(`**/applications/${APP_ID}/send`);
@@ -56,7 +90,7 @@ test("create PDFs, send the application, and find it in the sent history", async
   await expect(to).toHaveValue(RECRUITER);
   await expect(page.getByTestId("sender-reply-to")).toContainText("jordan@example.test");
   await expect(page.getByTestId("sender-from")).toContainText("Jordan Example");
-  await expect(page.getByTestId("attachment-cv")).toContainText("Jordan Example – CV – Example Audio.pdf");
+  await expect(page.getByTestId("attachment-cv")).toContainText("Jordan Example – CV – Example Audio.pdf", { timeout: 60_000 });
   await expect(page.getByTestId("attachment-letter")).toContainText("Cover letter");
   const subject = page.getByLabel("Subject");
   await expect(subject).not.toHaveValue("", { timeout: 30_000 });
@@ -107,9 +141,9 @@ test("a refused send keeps the draft and the status", async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto("/applications");
   const entry = page.getByTestId("send-entry").filter({ visible: true }).first();
-  await entry.getByRole("button", { name: "Create PDFs" }).click();
-  await entry.getByTestId("send-application").click({ timeout: 60_000 });
+  await entry.getByTestId("send-application").click();
   await page.waitForURL(`**/applications/${APP_ID}/send`);
+  await expect(page.getByTestId("attachment-cv")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByLabel("Subject")).not.toHaveValue("", { timeout: 30_000 });
 
   await page.getByLabel("To (recipient email)").fill("reject@example-audio.test");

@@ -1,15 +1,39 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { Button } from "@asafarim/ui";
 
-/** Ties a tailored resume to the application tracker (#432) — POSTs
- *  /api/applications with this resume's job and id, so the candidate can
- *  follow up on it later without retyping anything. */
-export function SaveApplicationButton({ targetJobId, tailoredResumeId }: { targetJobId: string; tailoredResumeId: string }) {
+/**
+ * Ties a tailored resume to the application tracker (#432) — POSTs
+ * /api/applications with this resume's job and id, so the candidate can
+ * follow up on it later without retyping anything.
+ *
+ * When the CV has a cover letter, saving also makes the PDFs of both
+ * (send-application.md, "Saved with its documents"), so the card in the
+ * tracker offers "Send application" straight away. The application is
+ * saved first and stays saved whatever happens to the PDFs: if they can't
+ * be made now, the composer makes them when the candidate opens it.
+ */
+export function SaveApplicationButton({
+  targetJobId,
+  tailoredResumeId,
+  hasCoverLetter,
+  savedApplicationId = null,
+}: {
+  targetJobId: string;
+  tailoredResumeId: string;
+  hasCoverLetter: boolean;
+  /** The application this CV is already saved as, if any. */
+  savedApplicationId?: string | null;
+}) {
   const { t } = useTranslation();
-  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const router = useRouter();
+  const [state, setState] = useState<"idle" | "saving" | "pdfs" | "saved" | "error">(savedApplicationId ? "saved" : "idle");
+  /** Both PDFs were just made: say it is ready to send. */
+  const [ready, setReady] = useState(false);
 
   async function save() {
     setState("saving");
@@ -19,17 +43,46 @@ export function SaveApplicationButton({ targetJobId, tailoredResumeId }: { targe
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ targetJobId, tailoredResumeId }),
       });
-      setState(res.ok ? "saved" : "error");
+      if (!res.ok) return setState("error");
     } catch {
-      setState("error");
+      return setState("error");
     }
+
+    if (hasCoverLetter) {
+      setState("pdfs");
+      try {
+        const res = await fetch(`/api/tailor/${encodeURIComponent(tailoredResumeId)}/pdfs`, { method: "POST" });
+        setReady(res.ok);
+      } catch {
+        // Saved anyway; the composer makes the PDFs when it opens.
+      }
+    }
+    setState("saved");
+    // The toolbar's "Send application" now has an application (and PDFs).
+    router.refresh();
   }
 
-  if (state === "saved")
-    return <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{t("resumatch.preview.savedApplication")}</span>;
+  if (state === "saved" || state === "pdfs") {
+    return (
+      <span className="rm-preview-toolbar__item rm-save-application" data-testid="save-application-status">
+        <span className="rm-save-status" role="status" aria-live="polite">
+          {state === "pdfs"
+            ? t("resumatch.preview.savedApplicationPreparing")
+            : ready
+              ? t("resumatch.preview.savedApplicationReady")
+              : t("resumatch.preview.savedApplication")}
+        </span>
+        {state === "saved" ? (
+          <Link href="/applications" className="ui-btn ui-btn--ghost">
+            {t("resumatch.preview.viewApplications")}
+          </Link>
+        ) : null}
+      </span>
+    );
+  }
 
   return (
-    <Button variant="ghost" onClick={save} disabled={state === "saving"}>
+    <Button variant="ghost" onClick={save} disabled={state === "saving"} data-testid="save-application">
       {state === "saving"
         ? t("resumatch.saving")
         : state === "error"

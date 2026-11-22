@@ -374,6 +374,18 @@ export function Composer(props: ComposerProps) {
     }
   }
 
+  // An application saved before its PDFs existed (or whose PDFs could not
+  // be made at save time) still opens ready to send: the missing PDFs are
+  // made once, as the composer opens, and become the attachments.
+  const autoCreated = useRef(false);
+  useEffect(() => {
+    if (autoCreated.current || blocked || !props.pdfRenderer) return;
+    if (pins.cv && pins.letter) return;
+    autoCreated.current = true;
+    void createPdfs();
+    // Only on open; later changes are the candidate's own clicks.
+  }, []);
+
   function pickNewer(kind: "cv" | "letter") {
     const pin = pins[kind];
     if (!pin?.newerAvailable) return;
@@ -612,9 +624,14 @@ export function Composer(props: ComposerProps) {
               <div className="rm-composer__pdfs-missing">
                 <p>{t("resumatch.send.attachments.missing")}</p>
                 {props.pdfRenderer ? (
-                  <Button type="button" variant="secondary" onClick={createPdfs} disabled={pdfPhase === "creating" || busy}>
-                    {pdfPhase === "creating" ? t("resumatch.send.entry.creatingPdfs") : t("resumatch.send.entry.createPdfs")}
-                  </Button>
+                  <>
+                    <Button type="button" variant="secondary" onClick={createPdfs} disabled={pdfPhase === "creating" || busy}>
+                      {pdfPhase === "creating" ? t("resumatch.send.entry.creatingPdfs") : t("resumatch.send.entry.createPdfs")}
+                    </Button>
+                    <span className="rm-save-status" role="status" aria-live="polite" data-testid="pdfs-creating">
+                      {pdfPhase === "creating" ? t("resumatch.send.entry.creatingPdfsLong") : ""}
+                    </span>
+                  </>
                 ) : (
                   <p className="rm-composer__note">{t("resumatch.send.attachments.noRenderer")}</p>
                 )}

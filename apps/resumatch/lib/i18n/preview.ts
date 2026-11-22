@@ -48,6 +48,9 @@ export const previewDictionaries: Dictionaries = {
     "resumatch.preview.downloadDocx": "Download DOCX",
     "resumatch.preview.saveApplication": "Save to applications",
     "resumatch.preview.savedApplication": "Saved to applications",
+    "resumatch.preview.savedApplicationPreparing": "Saved. Creating the PDFs of your CV and cover letter…",
+    "resumatch.preview.savedApplicationReady": "Saved to applications, ready to send",
+    "resumatch.preview.viewApplications": "View applications",
     "resumatch.preview.saveApplicationError": "Could not save — try again",
 
     "resumatch.letter.title": "Your cover letter",
@@ -145,6 +148,9 @@ export const previewDictionaries: Dictionaries = {
     "resumatch.preview.downloadDocx": "DOCX downloaden",
     "resumatch.preview.saveApplication": "Bewaren bij sollicitaties",
     "resumatch.preview.savedApplication": "Bewaard bij sollicitaties",
+    "resumatch.preview.savedApplicationPreparing": "Pdf's van je cv en motivatiebrief worden gemaakt…",
+    "resumatch.preview.savedApplicationReady": "Bewaard bij sollicitaties, klaar om te versturen",
+    "resumatch.preview.viewApplications": "Naar sollicitaties",
     "resumatch.preview.saveApplicationError": "Bewaren mislukt — probeer opnieuw",
 
     "resumatch.letter.title": "Je motivatiebrief",
@@ -242,6 +248,9 @@ export const previewDictionaries: Dictionaries = {
     "resumatch.preview.downloadDocx": "Télécharger le DOCX",
     "resumatch.preview.saveApplication": "Ajouter aux candidatures",
     "resumatch.preview.savedApplication": "Ajouté aux candidatures",
+    "resumatch.preview.savedApplicationPreparing": "Création des PDF de votre CV et de votre lettre…",
+    "resumatch.preview.savedApplicationReady": "Ajouté aux candidatures, prêt à envoyer",
+    "resumatch.preview.viewApplications": "Voir les candidatures",
     "resumatch.preview.saveApplicationError": "Échec de l’enregistrement — réessayez",
 
     "resumatch.letter.title": "Votre lettre de motivation",
@@ -340,6 +349,9 @@ export const previewDictionaries: Dictionaries = {
     "resumatch.preview.downloadDocx": "DOCX herunterladen",
     "resumatch.preview.saveApplication": "Zu Bewerbungen hinzufügen",
     "resumatch.preview.savedApplication": "Zu Bewerbungen hinzugefügt",
+    "resumatch.preview.savedApplicationPreparing": "PDFs von Lebenslauf und Anschreiben werden erstellt…",
+    "resumatch.preview.savedApplicationReady": "Zu Bewerbungen hinzugefügt, bereit zum Senden",
+    "resumatch.preview.viewApplications": "Zu den Bewerbungen",
     "resumatch.preview.saveApplicationError": "Speichern fehlgeschlagen — erneut versuchen",
 
     "resumatch.letter.title": "Dein Anschreiben",
