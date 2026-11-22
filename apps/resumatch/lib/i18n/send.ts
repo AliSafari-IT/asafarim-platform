@@ -9,6 +9,11 @@ import type { Dictionaries } from "@asafarim/shared-i18n";
  */
 export const sendDictionaries: Dictionaries = {
   en: {
+    "resumatch.send.locked.notConfigured": "Send is off because email sending isn't set up on this server yet. You can save your draft now; Send turns on once it is set up.",
+    "resumatch.send.locked.pdfsCreating": "Send turns on when the PDFs are ready.",
+    "resumatch.send.locked.pdfsMissing": "Send needs the CV and cover letter PDFs attached first.",
+    "resumatch.send.locked.writing": "Send turns on when the subject and message are written.",
+    "resumatch.send.locked.saving": "Saving your draft…",
     "resumatch.send.generate.busyBoth": "Writing your subject and message…",
     "resumatch.send.generate.busySubject": "Writing a new subject…",
     "resumatch.send.generate.busyBody": "Writing a new message…",
@@ -209,6 +214,11 @@ export const sendDictionaries: Dictionaries = {
     "resumatch.sent.detail.readOnly": "Sent emails can't be edited.",
   },
   nl: {
+    "resumatch.send.locked.notConfigured": "Versturen staat uit omdat e-mail versturen op deze server nog niet is ingesteld. Je kunt je concept nu bewaren; Versturen werkt zodra het is ingesteld.",
+    "resumatch.send.locked.pdfsCreating": "Versturen kan zodra de pdf's klaar zijn.",
+    "resumatch.send.locked.pdfsMissing": "Voeg eerst de pdf's van het cv en de motivatiebrief toe.",
+    "resumatch.send.locked.writing": "Versturen kan zodra onderwerp en bericht geschreven zijn.",
+    "resumatch.send.locked.saving": "Je concept wordt bewaard…",
     "resumatch.send.generate.busyBoth": "Je onderwerp en bericht worden geschreven…",
     "resumatch.send.generate.busySubject": "Een nieuw onderwerp wordt geschreven…",
     "resumatch.send.generate.busyBody": "Een nieuw bericht wordt geschreven…",
@@ -409,6 +419,11 @@ export const sendDictionaries: Dictionaries = {
     "resumatch.sent.detail.readOnly": "Verstuurde e-mails kun je niet bewerken.",
   },
   fr: {
+    "resumatch.send.locked.notConfigured": "L'envoi est désactivé car l'envoi d'e-mails n'est pas encore configuré sur ce serveur. Vous pouvez enregistrer votre brouillon dès maintenant ; l'envoi fonctionnera dès qu'il sera configuré.",
+    "resumatch.send.locked.pdfsCreating": "L'envoi sera possible dès que les PDF seront prêts.",
+    "resumatch.send.locked.pdfsMissing": "Joignez d'abord les PDF du CV et de la lettre.",
+    "resumatch.send.locked.writing": "L'envoi sera possible dès que l'objet et le message seront rédigés.",
+    "resumatch.send.locked.saving": "Enregistrement du brouillon…",
     "resumatch.send.generate.busyBoth": "Rédaction de l'objet et du message…",
     "resumatch.send.generate.busySubject": "Rédaction d'un nouvel objet…",
     "resumatch.send.generate.busyBody": "Rédaction d'un nouveau message…",
@@ -609,6 +624,11 @@ export const sendDictionaries: Dictionaries = {
     "resumatch.sent.detail.readOnly": "Les e-mails envoyés ne peuvent pas être modifiés.",
   },
   de: {
+    "resumatch.send.locked.notConfigured": "Senden ist aus, weil der E-Mail-Versand auf diesem Server noch nicht eingerichtet ist. Sie können Ihren Entwurf jetzt speichern; Senden funktioniert, sobald er eingerichtet ist.",
+    "resumatch.send.locked.pdfsCreating": "Senden ist möglich, sobald die PDFs fertig sind.",
+    "resumatch.send.locked.pdfsMissing": "Hängen Sie zuerst die PDFs von Lebenslauf und Anschreiben an.",
+    "resumatch.send.locked.writing": "Senden ist möglich, sobald Betreff und Nachricht geschrieben sind.",
+    "resumatch.send.locked.saving": "Ihr Entwurf wird gespeichert…",
     "resumatch.send.generate.busyBoth": "Betreff und Nachricht werden geschrieben…",
     "resumatch.send.generate.busySubject": "Ein neuer Betreff wird geschrieben…",
     "resumatch.send.generate.busyBody": "Eine neue Nachricht wird geschrieben…",

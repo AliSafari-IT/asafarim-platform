@@ -3,6 +3,7 @@ import { log } from "../../../observability/logger";
 import { COVER_LETTER_CONVENTIONS, type OutputLanguage } from "../../language";
 import type { CoverLetterSuggestion } from "./schema";
 import { claimEvidence, stripUnbackedClaims } from "./claims";
+import { sourceCasing } from "../sourceCasing";
 
 /**
  * The structural half of the cover letter's no-fabrication guarantee
@@ -188,10 +189,12 @@ export function groundCoverLetterSuggestion(
     return { suggestion: null, droppedParagraphs, removedClaimSentences, tokenDroppedParagraphs, greetingReplaced, signOffReplaced };
   }
 
+  // The checks above ignore case; names go out spelled as the source has them.
+  const casing = sourceCasing(`${profileText}\n${jobText}`);
   return {
     suggestion: {
-      greeting: greetingReplaced ? conventions.neutralGreeting : suggestion.greeting,
-      paragraphs,
+      greeting: casing.apply(greetingReplaced ? conventions.neutralGreeting : suggestion.greeting),
+      paragraphs: paragraphs.map((paragraph) => casing.apply(paragraph)),
       signOff: signOffReplaced ? conventions.signOff : suggestion.signOff,
     },
     droppedParagraphs,

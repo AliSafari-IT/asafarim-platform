@@ -5821,6 +5821,11 @@
   background-size: 250% 100%;
   animation: rm-skills-shimmer 1.6s ease-in-out infinite;
 }
+.rm-composer__lock {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
 .rm-composer__error-code {
   margin-top: 0.25rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
