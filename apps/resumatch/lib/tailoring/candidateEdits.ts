@@ -16,7 +16,7 @@ import { tailoredResumeContentSchema, type TailoredResumeContent } from "./ai/sc
  * check) unless the candidate adds it to their profile.
  *
  * The edits are stored beside the CV (`TailoredResume.candidateEdits`) so
- * "Edit and regenerate" can put them back on the next review: the AI writes
+ * "Regenerate" can put them back on the next review: the AI writes
  * fresh suggestions, but the candidate's own skills and bullets carry over.
  */
 
@@ -33,6 +33,8 @@ export const MAX_CV_SKILLS = 200;
 /** Same cap as a proposed skill order (`tailorSuggestionsSchema`). */
 export const MAX_PROPOSED_SKILLS = 60;
 export const MAX_SKILL_CHARS = 80;
+/** Same cap as an approved summary (`tailorSuggestionsSchema`). */
+export const MAX_SUMMARY_CHARS = 2000;
 
 const skillName = z.string().trim().min(1).max(MAX_SKILL_CHARS);
 
@@ -52,13 +54,17 @@ export const candidateEditsSchema = z
      *  by title + employer + start date, not by position, so they still find
      *  their role when a regenerate runs on a newer profile version. */
     ownBullets: z.array(ownBulletsSchema).max(60).default([]),
+    /** The summary the candidate wrote, rewrote or took from their profile
+     *  instead of the AI's (0.5.0). Null when the CV keeps the AI's. Kept so
+     *  "Regenerate" starts from it again instead of a fresh AI summary. */
+    ownSummary: z.string().trim().min(1).max(MAX_SUMMARY_CHARS).nullable().default(null),
   })
   .strict();
 
 export type CandidateEdits = z.infer<typeof candidateEditsSchema>;
 export type OwnBullets = z.infer<typeof ownBulletsSchema>;
 
-export const NO_CANDIDATE_EDITS: CandidateEdits = { addedSkills: [], removedSkills: [], ownBullets: [] };
+export const NO_CANDIDATE_EDITS: CandidateEdits = { addedSkills: [], removedSkills: [], ownBullets: [], ownSummary: null };
 
 export function canonicalSkill(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
@@ -77,7 +83,12 @@ export function readStoredCandidateEdits(input: unknown): CandidateEdits {
 }
 
 export function hasCandidateEdits(edits: CandidateEdits): boolean {
-  return edits.addedSkills.length > 0 || edits.removedSkills.length > 0 || edits.ownBullets.some((r) => r.bullets.length > 0);
+  return (
+    edits.addedSkills.length > 0 ||
+    edits.removedSkills.length > 0 ||
+    edits.ownBullets.some((r) => r.bullets.length > 0) ||
+    Boolean(edits.ownSummary)
+  );
 }
 
 /**

@@ -145,6 +145,7 @@ test("skills and bullets edited on the review reach the saved CV, its preview an
         bullets: ["Reworded by me: tested web platforms end to end.", OWN_BULLET],
       },
     ],
+    ownSummary: null,
   });
 
   // The profile itself is unchanged: the edits are this CV's only.
@@ -163,7 +164,7 @@ test("skills and bullets edited on the review reach the saved CV, its preview an
   expect(text).not.toContain("Docker");
 });
 
-test("Edit and regenerate brings back the saved CV's own skills and bullets", async ({ page }) => {
+test("Regenerate brings back the saved CV's own skills and bullets", async ({ page }) => {
   const flow = await openReview(page, CV_EDITED_ID);
   const skills = flow.getByTestId("review-skills");
   await expect(skills.locator(".rm-skill-chip--own")).toHaveText(/GraphQL/);

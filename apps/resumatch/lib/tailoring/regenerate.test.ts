@@ -47,7 +47,10 @@ describe("buildRegenerateSeed", () => {
 describe("buildRegenerateSeed candidate edits", () => {
   it("carries the saved CV's hand edits, and none when unreadable", () => {
     const edits = { addedSkills: ["Go"], removedSkills: ["SQL"], ownBullets: [{ title: "Dev", employer: "Acme", startedOn: "2024-01", bullets: ["Mine."] }] };
-    expect(buildRegenerateSeed({ ...base, candidateEdits: edits }, false).candidateEdits).toEqual(edits);
+    expect(buildRegenerateSeed({ ...base, candidateEdits: edits }, false).candidateEdits).toEqual({ ...edits, ownSummary: null });
+    expect(
+      buildRegenerateSeed({ ...base, candidateEdits: { ...edits, ownSummary: "My summary." } }, false).candidateEdits.ownSummary,
+    ).toBe("My summary.");
     expect(buildRegenerateSeed({ ...base, candidateEdits: { nope: 1 } }, false).candidateEdits.addedSkills).toEqual([]);
     expect(buildRegenerateSeed(base, false).candidateEdits.ownBullets).toEqual([]);
   });

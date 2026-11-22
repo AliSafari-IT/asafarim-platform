@@ -21,6 +21,7 @@ import {
   type ReviewBullet,
 } from "../../lib/tailoring/reviewEdits";
 import type { RegenerateSeed } from "../../lib/tailoring/regenerate";
+import { ownSummaryOf, type SavedReviewSeed } from "../../lib/tailoring/editSaved";
 import type { JobFit } from "../../lib/tailoring/jobFit";
 import {
   LANGUAGE_LABELS,
@@ -65,6 +66,10 @@ export interface TailorFlowProps {
    *  regenerate", lib/tailoring/regenerate.ts): the flow starts on that
    *  job's options card with the saved choices filled in. */
   seed?: RegenerateSeed | null;
+  /** Set when the flow was opened with "Edit" on a saved CV
+   *  (lib/tailoring/editSaved.ts): it starts on that CV's review, filled in
+   *  exactly as it was saved, and saving updates that CV in place. */
+  editSeed?: SavedReviewSeed | null;
 }
 
 interface ReviewExperienceItem {
@@ -117,6 +122,15 @@ interface ReviewState {
   lowFit: boolean;
   headline: string;
   summary: string;
+  /** The summary the review started with before any typing (the AI's,
+   *  or the profile's when the AI wrote none), or null when the saved one
+   *  is the candidate's own: a summary that differs from it is theirs. */
+  aiSummary: string | null;
+  /** The profile's own summary, offered with "Use my profile summary". */
+  profileSummary: string | null;
+  /** Set when editing a saved CV: the save goes to that CV (and its
+   *  letter) instead of generate-confirm. */
+  editOf: { resumeId: string; coverLetterId: string | null } | null;
   originalSkillsOrder: string[];
   /** The profile's skills in the AI's order (names the profile doesn't
    *  hold already dropped), the same list the server will save. */
@@ -188,7 +202,61 @@ async function readJsonBody(res: Response): Promise<Record<string, any> | null> 
   }
 }
 
-export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps) {
+/** The review of a saved CV, filled in as it was saved (no AI call). */
+function reviewFromSaved(saved: SavedReviewSeed, nextKey: () => string): ReviewState {
+  return {
+    targetJobId: saved.job.targetJobId,
+    previewId: "",
+    promptVersion: "",
+    modelVersion: "",
+    degraded: false,
+    instructions: saved.instructions,
+    outputLanguage: saved.outputLanguage,
+    lowFit: false,
+    headline: saved.headline,
+    summary: saved.summary,
+    aiSummary: saved.aiSummary,
+    profileSummary: saved.profileSummary,
+    editOf: { resumeId: saved.resumeId, coverLetterId: saved.coverLetterId },
+    originalSkillsOrder: saved.originalSkillsOrder,
+    suggestedSkillsOrder: saved.suggestedSkillsOrder,
+    keepOriginalSkillOrder: saved.keepOriginalSkillOrder,
+    addedSkills: saved.addedSkills,
+    removedSkills: saved.removedSkills,
+    experience: saved.experience.map((entry) => ({
+      title: entry.title,
+      employer: entry.employer,
+      startedOn: entry.startedOn,
+      endedOn: entry.endedOn,
+      isCurrent: entry.isCurrent,
+      originalSummary: entry.originalSummary,
+      bullets: entry.bullets.map((bullet) => ({
+        key: nextKey(),
+        text: bullet.text,
+        accepted: true,
+        aiText: bullet.aiText,
+        ...(bullet.fromProfile ? { fromProfile: true } : {}),
+      })),
+    })),
+    coverLetter: saved.coverLetter
+      ? {
+          greeting: saved.coverLetter.greeting,
+          paragraphs: saved.coverLetter.paragraphs,
+          signOff: saved.coverLetter.signOff,
+          degraded: false,
+          promptVersion: "",
+          modelVersion: "",
+          outputLanguage: saved.coverLetter.outputLanguage,
+          removedSentences: 0,
+          droppedParagraphs: 0,
+          include: true,
+        }
+      : null,
+    profileFullName: saved.profileFullName,
+  };
+}
+
+export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }: TailorFlowProps) {
   const router = useRouter();
   const { t, locale: pageLocale } = useTranslation();
   const [url, setUrl] = useState("");
@@ -209,15 +277,21 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
   // #642: null means "same as the CV", so the letter keeps following the CV
   // language until the candidate picks a different one on purpose.
   const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(seed?.coverLetterLanguage ?? null);
-  const [state, setState] = useState<FetchState>(() => (seed ? { kind: "fetched", ...seed.job } : { kind: "idle" }));
+  const bulletKeyRef = useRef(0);
+  const nextBulletKey = useCallback(() => `b${++bulletKeyRef.current}`, []);
+  const [state, setState] = useState<FetchState>(() =>
+    editSeed
+      ? { kind: "reviewing", review: reviewFromSaved(editSeed, nextBulletKey) }
+      : seed
+        ? { kind: "fetched", ...seed.job }
+        : { kind: "idle" },
+  );
   // The fit check for the job on the card (lib/tailoring/jobFit.ts): null
   // while loading or when it couldn't run, which never blocks tailoring.
   const [fit, setFit] = useState<{ targetJobId: string; fit: JobFit } | null>(null);
   // The candidate's explicit "yes, tailor anyway" for a low-fit job.
   const [lowFitConfirmedFor, setLowFitConfirmedFor] = useState<string | null>(null);
-  const [lastFetched, setLastFetched] = useState<FetchedJob | null>(seed?.job ?? null);
-  const bulletKeyRef = useRef(0);
-  const nextBulletKey = useCallback(() => `b${++bulletKeyRef.current}`, []);
+  const [lastFetched, setLastFetched] = useState<FetchedJob | null>(editSeed?.job ?? seed?.job ?? null);
 
   const showFetched = useCallback((body: Record<string, any>) => {
     const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet };
@@ -453,7 +527,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
           }[];
         };
 
-        // "Edit and regenerate": the saved CV's own hand edits come back.
+        // "Regenerate": the saved CV's own hand edits come back.
         const seedEdits = seed && seed.job.targetJobId === targetJobId ? seed.candidateEdits : NO_CANDIDATE_EDITS;
         const suggestedOrder = orderProfileSkills(suggestions?.skillsOrder ?? [], profile.skills);
         const ownByRole = ownBulletsByRole(seedEdits, profile.experience);
@@ -467,7 +541,14 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
           outputLanguage: isOutputLanguage(body.outputLanguage) ? body.outputLanguage : null,
           lowFit: body.lowFit === true,
           headline: suggestions?.headline ?? profile.headline ?? "",
-          summary: suggestions?.summary ?? profile.summary ?? "",
+          // "Regenerate" keeps the candidate's own summary; otherwise the
+          // AI's, or the profile's when the AI wrote none.
+          summary: seedEdits.ownSummary ?? suggestions?.summary ?? profile.summary ?? "",
+          // What the review starts with when the candidate types nothing:
+          // only a summary that differs from it is kept as their own.
+          aiSummary: suggestions?.summary ?? profile.summary ?? null,
+          profileSummary: profile.summary,
+          editOf: null,
           originalSkillsOrder: profile.skills,
           suggestedSkillsOrder: suggestedOrder,
           keepOriginalSkillOrder: !suggestions?.skillsOrder?.length,
@@ -595,15 +676,20 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
   const confirm = useCallback(
     async (review: ReviewState) => {
       setState({ kind: "confirming", review });
+      const editOf = review.editOf;
       try {
-        const res = await fetch("/api/tailor/generate-confirm", {
+        const res = await fetch(editOf ? `/api/tailor/${encodeURIComponent(editOf.resumeId)}/edit` : "/api/tailor/generate-confirm", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            profileVersionId: confirmedVersionId,
-            targetJobId: review.targetJobId,
-            previewId: review.previewId,
-            instructions: review.instructions,
+            ...(editOf
+              ? {}
+              : {
+                  profileVersionId: confirmedVersionId,
+                  targetJobId: review.targetJobId,
+                  previewId: review.previewId,
+                  instructions: review.instructions,
+                }),
             approved: review.degraded
               ? null
               : {
@@ -618,7 +704,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                   experienceBullets: review.experience.map((entry) => approvedBullets(entry.bullets)),
                 },
             // The candidate's own changes: applied to this CV only, and
-            // kept so "Edit and regenerate" can bring them back.
+            // kept so "Regenerate" can bring them back.
             candidateEdits: review.degraded
               ? null
               : {
@@ -632,6 +718,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                       bullets: approvedOwnBullets(entry.bullets),
                     }))
                     .filter((row) => row.bullets.length > 0),
+                  ownSummary: ownSummaryOf(review.summary, review.aiSummary),
                 },
             coverLetter:
               review.coverLetter && review.coverLetter.include && !review.coverLetter.degraded
@@ -652,11 +739,19 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
           // Keep the review (and every hand edit) open so the candidate can
           // fix it or just press Save again: a refused or failed write hands
           // the preview back. Only a used-up preview (409) can't be retried.
-          if (res.status !== 409) {
+          if (res.status !== 409 || editOf) {
             setState({ kind: "reviewing", review, saveError: message });
             return;
           }
           setState({ kind: "error", message, canGoBack: true });
+          return;
+        }
+        if (editOf) {
+          router.push(
+            editOf.coverLetterId
+              ? `/tailor/${editOf.resumeId}/preview?coverLetterId=${editOf.coverLetterId}`
+              : `/tailor/${editOf.resumeId}/preview`,
+          );
           return;
         }
         // The CV is saved even when its letter is not (coverLetterError);
@@ -949,7 +1044,12 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
 
       {state.kind === "reviewing" || state.kind === "confirming" ? (
         <div className="rm-review">
-          <Card title={t("resumatch.review.title")}>
+          <Card title={t(state.review.editOf ? "resumatch.review.editTitle" : "resumatch.review.title")}>
+            {state.review.editOf ? (
+              <p className="rm-regen-note" role="status" data-testid="edit-note">
+                {t("resumatch.review.editNote")}
+              </p>
+            ) : null}
             {state.review.degraded ? (
               <Alert tone="warning">
                 {t("resumatch.review.degraded")}
@@ -957,9 +1057,11 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
               </Alert>
             ) : (
               <>
-                <p className="rm-review__intro">
-                  {t("resumatch.review.intro")}
-                </p>
+                {state.review.editOf ? null : (
+                  <p className="rm-review__intro">
+                    {t("resumatch.review.intro")}
+                  </p>
+                )}
                 {state.review.outputLanguage ? (
                   <p className="rx-lang-note">
                     <span className="rx-pill rx-pill--lang">{LANGUAGE_LABELS[state.review.outputLanguage]}</span>
@@ -996,7 +1098,35 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                     value={state.review.summary}
                     onChange={(e) => updateReview("summary", e.target.value)}
                     disabled={state.kind === "confirming"}
+                    aria-describedby="rm-review-summary-help"
+                    maxLength={2000}
                   />
+                  <div className="rm-review__summary-tools">
+                    <small id="rm-review-summary-help">{t("resumatch.review.summaryHelp")}</small>
+                    {state.review.profileSummary?.trim() &&
+                    state.review.summary.trim() !== state.review.profileSummary.trim() ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => updateReview("summary", state.review.profileSummary ?? "")}
+                        disabled={state.kind === "confirming"}
+                      >
+                        {t("resumatch.review.useProfileSummary")}
+                      </Button>
+                    ) : null}
+                    {state.review.aiSummary?.trim() &&
+                    state.review.aiSummary.trim() !== state.review.profileSummary?.trim() &&
+                    state.review.summary.trim() !== state.review.aiSummary.trim() ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => updateReview("summary", state.review.aiSummary ?? "")}
+                        disabled={state.kind === "confirming"}
+                      >
+                        {t("resumatch.review.useAiSummary")}
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
 
                 <ReviewSkillsEditor
@@ -1044,15 +1174,19 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
 
             {state.review.coverLetter ? (
               <div className="rm-review__section">
-                <label className="rm-skill-toggle">
-                  <input
-                    type="checkbox"
-                    checked={state.review.coverLetter.include}
-                    onChange={(e) => updateCoverLetter("include", e.target.checked)}
-                    disabled={state.kind === "confirming" || state.review.coverLetter.degraded}
-                  />
-                  <span>{t("resumatch.coverLetter")}</span>
-                </label>
+                {state.review.editOf ? (
+                  <span className="rm-review__section-label">{t("resumatch.coverLetter")}</span>
+                ) : (
+                  <label className="rm-skill-toggle">
+                    <input
+                      type="checkbox"
+                      checked={state.review.coverLetter.include}
+                      onChange={(e) => updateCoverLetter("include", e.target.checked)}
+                      disabled={state.kind === "confirming" || state.review.coverLetter.degraded}
+                    />
+                    <span>{t("resumatch.coverLetter")}</span>
+                  </label>
+                )}
 
                 {state.review.coverLetter.degraded ? (
                   <Alert tone="warning">
@@ -1145,6 +1279,24 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
               </div>
             ) : null}
 
+            {state.review.editOf ? (
+              <div className="rm-review__actions">
+                <Button onClick={() => confirm(state.review)} disabled={state.kind === "confirming"}>
+                  {state.kind === "confirming" ? t("resumatch.saving") : t("resumatch.review.saveChanges")}
+                </Button>
+                <Link
+                  href={
+                    state.review.editOf.coverLetterId
+                      ? `/tailor/${state.review.editOf.resumeId}/preview?coverLetterId=${state.review.editOf.coverLetterId}`
+                      : `/tailor/${state.review.editOf.resumeId}/preview`
+                  }
+                  className="ui-btn ui-btn--ghost"
+                  aria-disabled={state.kind === "confirming" || undefined}
+                >
+                  {t("resumatch.review.cancelEdit")}
+                </Link>
+              </div>
+            ) : (
             <div className="rm-review__actions">
               <Button onClick={() => confirm(state.review)} disabled={state.kind === "confirming"}>
                 {state.kind === "confirming" ? t("resumatch.saving") : t("resumatch.review.confirm")}
@@ -1156,6 +1308,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
                 {t("resumatch.review.discard")}
               </Button>
             </div>
+            )}
           </Card>
         </div>
       ) : null}

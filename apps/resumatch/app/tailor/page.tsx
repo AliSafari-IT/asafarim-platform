@@ -14,6 +14,10 @@ import { BriefcaseIcon, MailIcon, SparkIcon, WarningIcon } from "../profile/icon
 import { TailorFlow } from "./TailorFlow";
 import { LanguageBadge } from "../components/app/LanguageBadge";
 import { buildRegenerateSeed, type RegenerateSeed } from "../../lib/tailoring/regenerate";
+import { buildSavedReviewSeed, type SavedReviewSeed } from "../../lib/tailoring/editSaved";
+import { parseTailoredResumeContent } from "../../lib/tailoring/ai/schema";
+import { parseCoverLetterContent } from "../../lib/tailoring/ai/coverLetter/schema";
+import { logError } from "../../lib/observability/logger";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getTranslator();
@@ -26,9 +30,9 @@ const ACTIVITY_DAYS = 14;
 export default async function TailorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; letter?: string }>;
+  searchParams: Promise<{ from?: string; letter?: string; edit?: string }>;
 }) {
-  const { from, letter } = await searchParams;
+  const { from, letter, edit } = await searchParams;
   const { t } = await getTranslator();
   const workspace = await getCurrentWorkspace();
   if (!workspace) {
@@ -69,7 +73,7 @@ export default async function TailorPage({
   }
 
   const db = getJobmatchDb();
-  // "Edit and regenerate" from a saved CV or letter: reopen the flow on the
+  // "Regenerate" from a saved CV or letter: reopen the flow on the
   // same job with the same choices. Workspace-scoped, so an id in the URL
   // cannot reach another candidate's CV; an unknown id just opens the
   // normal empty flow.
@@ -87,6 +91,39 @@ export default async function TailorPage({
       },
     });
     if (source) seed = buildRegenerateSeed(source, letter === "1");
+  }
+  // "Edit" on a saved CV: reopen its review exactly as it was saved, with
+  // no AI call (lib/tailoring/editSaved.ts). Workspace-scoped like `from`;
+  // an unknown or unreadable id opens the normal empty flow.
+  let editSeed: SavedReviewSeed | null = null;
+  if (typeof edit === "string" && edit) {
+    const source = await db.tailoredResume.findFirst({
+      where: { id: edit, workspaceId: workspace.id },
+      select: {
+        id: true,
+        instructions: true,
+        outputLanguage: true,
+        content: true,
+        candidateEdits: true,
+        profileVersion: { select: { content: true } },
+        targetJob: { select: { id: true, title: true, employer: true, rawText: true } },
+        coverLetter: { select: { id: true, outputLanguage: true, content: true } },
+      },
+    });
+    if (source) {
+      try {
+        editSeed = buildSavedReviewSeed({
+          ...source,
+          content: parseTailoredResumeContent(source.content),
+          profileContent: (source.profileVersion.content ?? {}) as Parameters<typeof buildSavedReviewSeed>[0]["profileContent"],
+          coverLetter: source.coverLetter
+            ? { ...source.coverLetter, content: parseCoverLetterContent(source.coverLetter.content) }
+            : null,
+        });
+      } catch (error) {
+        logError("tailoring.edit.seed_failed", error, { tailoringId: source.id });
+      }
+    }
   }
   const since = new Date(Date.now() - ACTIVITY_DAYS * 86_400_000);
   const [history, coverLetters, degraded, jobs, recent] = await Promise.all([
@@ -140,7 +177,7 @@ export default async function TailorPage({
       />
 
       <section id="tailor-flow" className="rx-flow" aria-label={t("resumatch.tailor.flowAria")}>
-        <TailorFlow confirmedVersionId={confirmed.id} seed={seed} />
+        <TailorFlow confirmedVersionId={confirmed.id} seed={editSeed ? null : seed} editSeed={editSeed} />
       </section>
 
       {journey.tailoredCount > 0 ? (
