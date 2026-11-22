@@ -1413,8 +1413,24 @@
   color: var(--muted);
 }
 
+.rm-review__summary-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.8rem;
+  margin-top: 0.35rem;
+}
+
+.rm-review__summary-tools small {
+  flex: 1 1 16rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .rm-review__actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.6rem;
   margin-top: 1.4rem;
   padding-top: 1.1rem;

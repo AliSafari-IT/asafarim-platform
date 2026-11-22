@@ -202,10 +202,15 @@ export default async function TailoredResumePreviewPage({
               </Link>
             </>
           )}
+          {/* Back to this CV's review, filled in as it was saved, with no
+              AI call; saving updates this CV (lib/tailoring/editSaved.ts). */}
+          <Link href={`/tailor?edit=${id}#tailor-flow`} className="ui-btn ui-btn--ghost" data-testid="edit-saved">
+            {t("resumatch.preview.edit")}
+          </Link>
           {/* Back to the tailoring step on the same job, with this CV's
               choices filled in; the regenerated CV is saved as a new one. */}
           <Link href={`/tailor?from=${id}#tailor-flow`} className="ui-btn ui-btn--ghost" data-testid="edit-regenerate">
-            {t("resumatch.preview.editRegenerate")}
+            {t("resumatch.preview.regenerate")}
           </Link>
         </div>
       </div>

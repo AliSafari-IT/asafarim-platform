@@ -1,7 +1,7 @@
 import { E2E_PLATFORM_USER_ID, e2eDb, expect, test } from "./fixtures";
 
 /**
- * "Edit and regenerate" (2026-11-21): from a saved CV or its cover letter,
+ * "Regenerate" (2026-11-21): from a saved CV or its cover letter,
  * the candidate gets back to the tailoring options of the same job with the
  * saved choices filled in, can step back from the review to change them,
  * and regenerating saves a new CV without touching the old one. Uses the
@@ -176,7 +176,7 @@ test("the CV's next-step links are the same size as its download buttons", async
   const pdf = await height("Download PDF");
   expect(pdf).toBeGreaterThan(0);
   expect(await height("View cover letter")).toBe(pdf);
-  expect(await height("Edit and regenerate")).toBe(pdf);
+  expect(await height("Regenerate")).toBe(pdf);
   // The skills "Rewrite paragraph" button uses the same size too.
   const rewrite = await page.getByTestId("cv-skills-rewrite").boundingBox();
   expect(rewrite?.height).toBe(pdf);

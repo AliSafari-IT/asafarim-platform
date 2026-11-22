@@ -113,6 +113,15 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
         {row.tailoredResumeId ? (
           <p className="rm-letter-nav">
             <Link href={`/tailor/${row.tailoredResumeId}/preview`}>{t("resumatch.letter.backToCv")}</Link>
+            {/* Reopens the review of this CV and letter as saved (no AI
+                call); saving updates both in place. */}
+            <Link
+              href={`/tailor?edit=${row.tailoredResumeId}#tailor-flow`}
+              className="ui-btn ui-btn--ghost ui-btn--sm"
+              data-testid="edit-saved-letter"
+            >
+              {t("resumatch.letter.edit")}
+            </Link>
             {/* Reopens tailoring on the same job with the letter ticked and
                 this run's choices filled in; saved as a new CV + letter. */}
             <Link
@@ -120,7 +129,7 @@ export default async function CoverLetterPreviewPage({ params }: { params: Promi
               className="ui-btn ui-btn--ghost ui-btn--sm"
               data-testid="edit-regenerate-letter"
             >
-              {t("resumatch.letter.editRegenerate")}
+              {t("resumatch.letter.regenerate")}
             </Link>
           </p>
         ) : null}

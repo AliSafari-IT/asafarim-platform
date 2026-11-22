@@ -51,6 +51,13 @@ function withoutNonAiBullets<T extends { experienceBullets: string[][] }>(sugges
   };
 }
 
+/** A summary the candidate wrote (or took from their profile) is theirs,
+ *  not AI prose, so it doesn't make the CV "in" the requested language. */
+function withoutOwnSummary<T extends { summary: string | null }>(suggestions: T | null, ownSummary: string | null): T | null {
+  if (!suggestions || !ownSummary || suggestions.summary?.trim() !== ownSummary.trim()) return suggestions;
+  return { ...suggestions, summary: null };
+}
+
 export async function POST(request: Request) {
   try {
     return await confirmTailoring(request);
@@ -236,12 +243,12 @@ async function confirmTailoring(request: Request): Promise<Response> {
         candidateEdits: hasCandidateEdits(candidateEdits) ? candidateEdits : undefined,
         // #641: from the server's preview record, never the client — and only
         // if some AI-written prose was kept (see appliedOutputLanguage).
-        // Bullets the candidate wrote, and a role summary kept as written,
-        // are not AI prose, so they don't make the CV "in" that language.
+        // Bullets and a summary the candidate wrote, and a role summary kept
+        // as written, are not AI prose, so they don't make the CV "in" that language.
         outputLanguage: appliedOutputLanguage(
           preview.outputLanguage,
           degraded,
-          withoutNonAiBullets(suggestions, [
+          withoutNonAiBullets(withoutOwnSummary(suggestions, candidateEdits.ownSummary), [
             ...candidateEdits.ownBullets.flatMap((row) => row.bullets),
             ...version.content.experience.map((entry) => entry.summary ?? ""),
           ]),
