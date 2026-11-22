@@ -1,7 +1,7 @@
 import { getEnv, type ResuMatchAiProvider } from "../../../env";
 import { logError } from "../../../observability/logger";
 import { buildCoverLetterContent, type CoverLetterContent, type CoverLetterSuggestion } from "./schema";
-import { renderCoverLetterPrompt, type CoverLetterLength, type CoverLetterTone } from "./prompts";
+import { renderCoverLetterPrompt, type CoverLetterEvidenceInput, type CoverLetterLength, type CoverLetterTone } from "./prompts";
 import type { OutputLanguage } from "../../language";
 import { recordBilledFailure, recordUsage } from "../quota";
 import { runProviderCallWithBudget } from "../../../ai/runProviderCall";
@@ -56,13 +56,16 @@ export async function runCoverLetterProviderCall(
   outputLanguage: OutputLanguage | null = null,
   /** #928 — the application note the CV prompt also gets. */
   instructions: string | null = null,
+  /** #929 — the confirmed evidence the CV prompt also gets, plus the
+   *  candidate's motivation (letter only). */
+  evidence: CoverLetterEvidenceInput | null = null,
 ): Promise<CoverLetterProviderCallResult> {
   const primaryName = providerOverride ?? getEnv().aiProvider;
   // Issue #511: RESUMATCH_AI_FALLBACK_PROVIDER, if set.
   const fallbackName = resolveFallbackProvider(primaryName);
   let providerName: ResuMatchAiProvider = primaryName;
   let modelVersion = COVER_LETTER_MODEL_VERSIONS[primaryName];
-  const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length, outputLanguage, instructions);
+  const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length, outputLanguage, instructions, evidence);
 
   let suggestion: CoverLetterSuggestion | null = null;
   let degraded = false;
@@ -141,7 +144,10 @@ export async function runCoverLetterProviderCall(
   let removedSentences = 0;
   let droppedParagraphs = 0;
   if (suggestion) {
-    const grounded = groundCoverLetterSuggestion(suggestion, profileText, jobText, outputLanguage);
+    // #929: confirmed evidence and the candidate's motivation are their own
+    // words, so a sentence built on them is grounded too.
+    const groundingText = [profileText, prompt.evidenceUsed, prompt.motivationUsed].filter(Boolean).join("\n");
+    const grounded = groundCoverLetterSuggestion(suggestion, groundingText, jobText, outputLanguage);
     suggestion = grounded.suggestion;
     removedSentences = grounded.removedClaimSentences;
     droppedParagraphs = grounded.tokenDroppedParagraphs;

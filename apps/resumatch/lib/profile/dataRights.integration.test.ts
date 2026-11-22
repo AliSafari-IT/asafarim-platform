@@ -97,6 +97,20 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
       },
     });
 
+    // Background evidence (#929): exported with every revision, then erased.
+    await db.candidateEvidence.create({
+      data: {
+        workspaceId,
+        scope: "BACKGROUND",
+        revisions: {
+          create: [
+            { workspaceId, revisionNumber: 1, kind: "PROJECT", title: "Billing rewrite", detail: "Moved billing to TypeScript.", status: "CONFIRMED", confirmedAt: new Date() },
+            { workspaceId, revisionNumber: 2, kind: "PROJECT", title: "Billing rewrite", detail: "Moved billing to TypeScript in 2024." },
+          ],
+        },
+      },
+    });
+
     const exported = await exportWorkspaceData(workspaceId);
     expect(exported).not.toBeNull();
     expect(exported!.targetJobs).toHaveLength(1);
@@ -109,6 +123,12 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
       skillsParagraph: "Front-end work with TypeScript.",
     });
 
+    expect(exported!.evidence).toHaveLength(1);
+    expect(exported!.evidence[0]!.revisions.map((r) => [r.revisionNumber, r.status, r.detail])).toEqual([
+      [1, "CONFIRMED", "Moved billing to TypeScript."],
+      [2, "DRAFT", "Moved billing to TypeScript in 2024."],
+    ]);
+
     const erasure = await eraseWorkspaceData(workspaceId);
     expect(erasure.targetJobsDeleted).toBe(1);
     expect(erasure.tailoredResumesDeleted).toBe(1);
@@ -118,6 +138,8 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
     expect(remainingJobs).toBe(0);
     expect(remainingResumes).toBe(0);
     expect(await db.tailorPreview.count({ where: { workspaceId } })).toBe(0);
+    expect(await db.candidateEvidence.count({ where: { workspaceId } })).toBe(0);
+    expect(await db.candidateEvidenceRevision.count({ where: { workspaceId } })).toBe(0);
     expect(await db.workspace.count({ where: { id: workspaceId } })).toBe(1);
   });
 });

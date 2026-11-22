@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../lib/db/client";
+import { loadGenerationEvidence } from "../../../../lib/evidence/store";
 import { getVersion } from "../../../../lib/profile/versions";
 import { mergeTailoringSuggestions, parseApprovedTailorSuggestions } from "../../../../lib/tailoring/ai/schema";
 import { buildCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/generate";
@@ -152,6 +153,8 @@ async function confirmTailoring(request: Request): Promise<Response> {
       jobRawText: targetJob.rawText,
       instructions: typeof instructions === "string" ? instructions : undefined,
       profileVersionConfirmed: version.isConfirmed,
+      // #929: the evidence a run would use now must be the evidence this one used.
+      evidenceRevisionIds: (await loadGenerationEvidence(workspace.id, targetJobId, version.content)).revisionIds,
     });
     if (stale) {
       return NextResponse.json(
@@ -163,6 +166,8 @@ async function confirmTailoring(request: Request): Promise<Response> {
                 ? "Your note changed after these suggestions were made. Generate them again."
                 : stale === "profile_version"
                   ? "Your confirmed profile changed after these suggestions were made. Generate them again."
+                : stale === "evidence"
+                  ? "Your evidence changed after these suggestions were made. Generate them again."
                 : "That preview is missing, expired, or already used. Generate a new one.",
           code: "PREVIEW_CONTEXT_STALE",
           reason: stale,

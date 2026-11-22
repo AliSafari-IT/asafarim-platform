@@ -10,6 +10,7 @@ import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQualit
 import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
 import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
 import { JobFitPanel } from "../../components/tailoring/JobFitPanel";
+import { EvidencePanel } from "../../components/tailoring/EvidencePanel";
 import { ReviewBulletsEditor, ReviewSkillsEditor } from "../../components/tailoring/ReviewEditors";
 import { MAX_PROPOSED_SKILLS, NO_CANDIDATE_EDITS, ownBulletsByRole } from "../../lib/tailoring/candidateEdits";
 import {
@@ -120,6 +121,8 @@ interface ReviewState {
   /** The candidate confirmed this job despite a low fit; the suggestions
    *  lead with transferable strengths. */
   lowFit: boolean;
+  /** How many confirmed evidence items the run used (#929). */
+  evidenceUsed?: number;
   headline: string;
   summary: string;
   /** The summary the review started with before any typing (the AI's,
@@ -540,6 +543,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
           instructions: typeof body.instructions === "string" ? body.instructions : null,
           outputLanguage: isOutputLanguage(body.outputLanguage) ? body.outputLanguage : null,
           lowFit: body.lowFit === true,
+          evidenceUsed: typeof body.evidenceUsed === "number" ? body.evidenceUsed : 0,
           headline: suggestions?.headline ?? profile.headline ?? "",
           // "Regenerate" keeps the candidate's own summary; otherwise the
           // AI's, or the profile's when the AI wrote none.
@@ -981,6 +985,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
                 {t("resumatch.flow.instructions.counter", { count: instructions.length, max: INSTRUCTIONS_MAX_CHARS })}
               </span>
             </label>
+            <EvidencePanel key={state.targetJobId} targetJobId={state.targetJobId} />
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", margin: "0.5rem 0" }}>
               <input
                 type="checkbox"
@@ -1074,6 +1079,12 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
 
                 {state.review.lowFit ? (
                   <p className="rm-fit__review-note">{t("resumatch.review.lowFitNote")}</p>
+                ) : null}
+
+                {state.review.evidenceUsed ? (
+                  <p className="rm-evidence__review-note" data-testid="evidence-review-note">
+                    {t("resumatch.evidence.review.used", { count: state.review.evidenceUsed })}
+                  </p>
                 ) : null}
 
                 {state.review.instructions ? (

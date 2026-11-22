@@ -132,14 +132,14 @@ test("Regenerate brings back the letter's tone and length, and the new CV keeps 
     include: { coverLetter: true },
   });
   expect(saved.instructions).toBe(NOTE);
-  expect(saved.promptVersion).toBe("tailor_resume@6");
+  expect(saved.promptVersion).toBe("tailor_resume@7");
   expect(saved.tailoringContext).toMatchObject({
     version: "tailoring_context@1",
     instructions: NOTE,
     jobTextUsed: null,
     coverLetter: { tone: "confident", length: "short" },
   });
-  expect(saved.coverLetter?.promptVersion).toBe("cover_letter@5");
+  expect(saved.coverLetter?.promptVersion).toBe("cover_letter@6");
 
   // The preview it was saved from holds the full snapshot, job text included.
   const preview = await db.tailorPreview.findFirstOrThrow({ where: { targetJobId: jobId, consumedAt: { not: null } } });

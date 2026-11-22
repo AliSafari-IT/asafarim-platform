@@ -19,9 +19,10 @@ import { isOutputLanguage, type OutputLanguage } from "./language";
  *   treats that as "use the old behaviour", and optional fields missing from
  *   an older snapshot fall back to the defaults they always had.
  *
- * `preferenceRevisionId` (#931) and `evidenceRevisionIds` (#929) are empty
- * until those issues land; they are part of the contract now so the
- * fingerprint already covers them.
+ * `evidenceRevisionIds` (#929) names the confirmed evidence revisions both
+ * prompts got, in prompt order. `preferenceRevisionId` (#931) stays null
+ * until that issue lands; it is part of the contract so the fingerprint
+ * already covers it.
  */
 
 export const TAILORING_CONTEXT_VERSION = "tailoring_context@1";
@@ -52,6 +53,8 @@ export interface TailoringContext {
   /** Null when no letter was requested. */
   coverLetter: TailoringCoverLetterContext | null;
   preferenceRevisionId: string | null;
+  /** The confirmed evidence revisions both prompts got (#929). Revisions
+   *  are immutable, so these ids explain a saved CV for good. */
   evidenceRevisionIds: string[];
 }
 
@@ -70,6 +73,8 @@ export interface ResolveTailoringContextInput {
     /** Omitted: the letter follows the CV's language (#642). */
     outputLanguage?: OutputLanguage | null;
   } | null;
+  /** #929: from lib/evidence/store.ts's loadGenerationEvidence. */
+  evidenceRevisionIds?: string[];
 }
 
 export function fingerprintJobText(rawText: string): string {
@@ -101,7 +106,7 @@ export function resolveTailoringContext(input: ResolveTailoringContextInput): Ta
         }
       : null,
     preferenceRevisionId: null,
-    evidenceRevisionIds: [],
+    evidenceRevisionIds: [...(input.evidenceRevisionIds ?? [])],
   };
 }
 
@@ -182,14 +187,22 @@ export function parseStoredTailoringContext(value: unknown): TailoringContext | 
   };
 }
 
-export type StaleContextReason = "workspace" | "profile_version" | "job" | "job_text" | "instructions";
+export type StaleContextReason = "workspace" | "profile_version" | "job" | "job_text" | "instructions" | "evidence";
+
+function sameIds(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sorted = [...b].sort();
+  return [...a].sort().every((id, index) => id === sorted[index]);
+}
 
 /**
  * Why a stored preview context can no longer back a save, or null when it
  * still matches. The profile version must be the one the preview used and
  * still the confirmed one (the server's record, not the client's echo). `instructions` is only compared when the client sent one:
  * the review echoes the preview's note back, so a different note means the
- * candidate changed the request after generating.
+ * candidate changed the request after generating. `evidenceRevisionIds`
+ * (#929) is the confirmed evidence a run would use now; a different set
+ * means evidence was added, edited, confirmed or deleted since.
  */
 export function staleContextReason(
   context: TailoringContext,
@@ -203,6 +216,7 @@ export function staleContextReason(
      *  The tailor flow always generates from the confirmed version, so a
      *  preview made before the candidate confirmed a newer one is stale. */
     profileVersionConfirmed: boolean;
+    evidenceRevisionIds?: string[];
   },
 ): StaleContextReason | null {
   if (context.workspaceId !== current.workspaceId) return "workspace";
@@ -213,6 +227,9 @@ export function staleContextReason(
   }
   if (current.instructions !== undefined && normalizeInstructions(current.instructions) !== context.instructions) {
     return "instructions";
+  }
+  if (current.evidenceRevisionIds !== undefined && !sameIds(context.evidenceRevisionIds, current.evidenceRevisionIds)) {
+    return "evidence";
   }
   return null;
 }

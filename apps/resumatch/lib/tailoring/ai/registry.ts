@@ -15,8 +15,9 @@ import { createProviderRegistry } from "../../ai/providerRegistry";
  *  that should be visible in a TailoredResume's provenance. */
 // @4: optional OUTPUT LANGUAGE rule (#641); @5: optional LOW-FIT rule;
 // @6: the instructions block is the application's note, shared with the
-// cover letter (#928).
-export const TAILOR_PROMPT_VERSION = "tailor_resume@6";
+// cover letter (#928); @7: optional confirmed-evidence block and its
+// rule (#929).
+export const TAILOR_PROMPT_VERSION = "tailor_resume@7";
 
 /** Per-provider model version, named the same way the old registry's
  *  `EVALUATION_MODEL_VERSIONS` was: a stable string a TailoredResume can

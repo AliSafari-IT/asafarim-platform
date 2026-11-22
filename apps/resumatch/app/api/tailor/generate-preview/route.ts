@@ -13,6 +13,8 @@ import {
 } from "../../../../lib/tailoring/context";
 import { isOutputLanguage } from "../../../../lib/tailoring/language";
 import { getJobmatchDb } from "../../../../lib/db/client";
+import { loadGenerationEvidence } from "../../../../lib/evidence/store";
+import { renderMotivationEvidence, renderProfessionalEvidence } from "../../../../lib/evidence/prompt";
 import { getVersion } from "../../../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 
@@ -127,6 +129,11 @@ export async function POST(request: Request) {
     );
   }
   const cvLanguage = isOutputLanguage(outputLanguage) ? outputLanguage : null;
+  // #929: only confirmed evidence for this workspace, this job or
+  // background, and roles the selected profile still has.
+  const evidence = await loadGenerationEvidence(workspace.id, targetJobId, profile);
+  const evidenceText = renderProfessionalEvidence(evidence);
+  const motivationText = renderMotivationEvidence(evidence);
   // #928: one server-resolved context for the whole run. The CV and the
   // letter get the same note, job text and profile version from it, and
   // the preview keeps it as an immutable snapshot for generate-confirm.
@@ -147,6 +154,7 @@ export async function POST(request: Request) {
             outputLanguage: isOutputLanguage(coverLetterOutputLanguage) ? coverLetterOutputLanguage : undefined,
           }
         : null,
+    evidenceRevisionIds: evidence.revisionIds,
   });
   const letterLanguage = context.coverLetter ? context.coverLetter.outputLanguage : null;
   // Minted up front so both provider calls' cost events can name this
@@ -172,6 +180,7 @@ export async function POST(request: Request) {
     cost,
     context.cv.outputLanguage,
     context.lowFit,
+    evidenceText,
   );
   const coverLetterResult = context.coverLetter
     ? await runCoverLetterProviderCall(
@@ -185,6 +194,7 @@ export async function POST(request: Request) {
         cost,
         context.coverLetter.outputLanguage,
         context.instructions,
+        { evidence: evidenceText, motivation: motivationText },
       )
     : null;
   const { suggestions, degraded, promptVersion, modelVersion } = tailorResult;
@@ -222,6 +232,8 @@ export async function POST(request: Request) {
     instructions: context.instructions,
     outputLanguage: cvLanguage,
     lowFit,
+    /** #929: how many confirmed evidence items both prompts got. */
+    evidenceUsed: evidence.revisionIds.length,
     coverLetter: coverLetterResult
       ? {
           suggestion: coverLetterResult.suggestion,

@@ -95,6 +95,11 @@ describe("tailoringContextFingerprint", () => {
     expect(tailoringContextFingerprint(resolveTailoringContext({ ...base, ...change }))).not.toBe(fingerprint);
   });
 
+  it("keeps the evidence revisions it was given (#929)", () => {
+    expect(resolveTailoringContext({ ...base, evidenceRevisionIds: ["rev_1"] }).evidenceRevisionIds).toEqual(["rev_1"]);
+    expect(tailoringContextFingerprint(resolveTailoringContext({ ...base, evidenceRevisionIds: ["rev_1"] }))).not.toBe(fingerprint);
+  });
+
   it("changes with a preference or evidence revision", () => {
     const context = resolveTailoringContext(base);
     expect(tailoringContextFingerprint({ ...context, preferenceRevisionId: "pref_1" })).not.toBe(fingerprint);
@@ -174,6 +179,16 @@ describe("staleContextReason", () => {
   it("refuses when the job text changed or is gone", () => {
     expect(staleContextReason(context, { ...current, jobRawText: `${base.jobRawText} Updated.` })).toBe("job_text");
     expect(staleContextReason(context, { ...current, jobRawText: null })).toBe("job_text");
+  });
+
+  it("refuses when the confirmed evidence a run would use differs (#929)", () => {
+    const withEvidence = resolveTailoringContext({ ...base, evidenceRevisionIds: ["rev_b", "rev_a"] });
+    expect(staleContextReason(withEvidence, { ...current, evidenceRevisionIds: ["rev_a", "rev_b"] })).toBeNull();
+    expect(staleContextReason(withEvidence, { ...current, evidenceRevisionIds: ["rev_a"] })).toBe("evidence");
+    expect(staleContextReason(withEvidence, { ...current, evidenceRevisionIds: ["rev_a", "rev_c"] })).toBe("evidence");
+    expect(staleContextReason(context, { ...current, evidenceRevisionIds: ["rev_new"] })).toBe("evidence");
+    // Not compared when the caller does not say (legacy callers).
+    expect(staleContextReason(withEvidence, current)).toBeNull();
   });
 
   it("refuses a different note", () => {

@@ -11,6 +11,7 @@ const runTailorProviderCall = vi.fn();
 const runCoverLetterProviderCall = vi.fn();
 const findFirst = vi.fn();
 const previewCreate = vi.fn();
+const evidenceFindMany = vi.fn();
 
 const profile = parseProfileContent({
   headline: "Backend developer · Node.js · PostgreSQL",
@@ -23,7 +24,7 @@ const jobText = "Backend engineer (Node.js, PostgreSQL). You build Node.js servi
 vi.mock("../../../../lib/workspace", () => ({ getCurrentWorkspace: async () => ({ id: "ws_1" }) }));
 vi.mock("../../../../lib/profile/versions", () => ({ getVersion: async () => ({ content: profile }) }));
 vi.mock("../../../../lib/db/client", () => ({
-  getJobmatchDb: () => ({ targetJob: { findFirst }, tailorPreview: { create: previewCreate } }),
+  getJobmatchDb: () => ({ targetJob: { findFirst }, tailorPreview: { create: previewCreate }, candidateEvidence: { findMany: evidenceFindMany } }),
 }));
 vi.mock("../../../../lib/tailoring/ai/generate", () => ({
   runTailorProviderCall: (...args: unknown[]) => runTailorProviderCall(...args),
@@ -39,6 +40,7 @@ const post = (body: unknown) =>
 describe("generate-preview request context (#928)", () => {
   beforeEach(() => {
     findFirst.mockReset().mockResolvedValue({ rawText: jobText, status: "FETCHED" });
+    evidenceFindMany.mockReset().mockResolvedValue([]);
     previewCreate.mockReset().mockImplementation(async ({ data }: { data: { id: string } }) => ({ id: data.id }));
     runTailorProviderCall.mockReset().mockResolvedValue({
       suggestions: null,
@@ -96,6 +98,46 @@ describe("generate-preview request context (#928)", () => {
     expect(data.outputLanguage).toBe("en");
     expect(data.coverLetterOutputLanguage).toBe("nl");
     expect((await res.json()).instructions).toBe(note);
+  });
+
+  it("gives both calls the same confirmed evidence and records its revisions in the context (#929)", async () => {
+    const row = (id: string, scope: "APPLICATION" | "BACKGROUND", kind: string, status: string, extra: Record<string, unknown> = {}) => ({
+      id,
+      workspaceId: "ws_1",
+      scope,
+      targetJobId: scope === "APPLICATION" ? "job_1" : null,
+      createdAt: new Date("2026-11-01T00:00:00Z"),
+      updatedAt: new Date("2026-11-01T00:00:00Z"),
+      revisions: [{ id: `${id}_r1`, revisionNumber: 1, kind, title: `${id} title`, detail: `${id} detail`, experienceRef: null, status, ...extra }],
+    });
+    evidenceFindMany.mockResolvedValue([
+      row("bg", "BACKGROUND", "ACHIEVEMENT", "CONFIRMED"),
+      row("app", "APPLICATION", "PROJECT", "CONFIRMED", { experienceRef: { title: "Backend developer", employer: "Acme", startedOn: null } }),
+      row("draft", "BACKGROUND", "PROJECT", "DRAFT"),
+      row("why", "APPLICATION", "MOTIVATION", "CONFIRMED"),
+      row("gone", "BACKGROUND", "PROJECT", "CONFIRMED", { experienceRef: { title: "Chef", employer: "Bakery", startedOn: null } }),
+    ]);
+    const res = await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1", includeCoverLetter: true }));
+    expect(res.status).toBe(200);
+    // The query itself is workspace-scoped and limited to this job or background.
+    expect(evidenceFindMany.mock.calls[0]![0].where).toEqual({
+      workspaceId: "ws_1",
+      OR: [{ scope: "BACKGROUND" }, { scope: "APPLICATION", targetJobId: "job_1" }],
+    });
+    const cvEvidence = runTailorProviderCall.mock.calls[0]![9] as string;
+    const letterEvidence = runCoverLetterProviderCall.mock.calls[0]![10] as { evidence: string; motivation: string };
+    expect(letterEvidence.evidence).toBe(cvEvidence);
+    // This job's item first, then background; no draft, no role the profile lacks.
+    expect(cvEvidence.split("\n")).toEqual([
+      "- Project: app title. app detail [role: Backend developer at Acme]",
+      "- Achievement: bg title. bg detail [no single role]",
+    ]);
+    // Motivation goes to the letter only.
+    expect(cvEvidence).not.toContain("why");
+    expect(letterEvidence.motivation).toBe("- Motivation: why title. why detail");
+    const data = previewCreate.mock.calls[0]![0].data;
+    expect(data.context.evidenceRevisionIds).toEqual(["app_r1", "bg_r1", "why_r1"]);
+    expect((await res.json()).evidenceUsed).toBe(3);
   });
 
   it("without a letter: no letter call, no letter block, the letter defaults untouched", async () => {

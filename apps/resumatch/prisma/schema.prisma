@@ -64,6 +64,7 @@ model Workspace {
   documentPdfs    DocumentPdf[]
   emailDrafts     ApplicationEmailDraft[]
   sentEmails      SentApplicationEmail[]
+  evidence        CandidateEvidence[]
 
   @@map("workspaces")
 }
@@ -356,6 +357,7 @@ model TargetJob {
   tailoredResumes TailoredResume[]
   applications    Application[]
   coverLetters    CoverLetter[]
+  evidence        CandidateEvidence[]
 
   @@index([workspaceId, createdAt])
   @@map("target_jobs")
@@ -1019,4 +1021,89 @@ model AiCostEvent {
   @@index([workspaceId, targetJobId])
   @@index([workspaceId, workflowId])
   @@map("ai_cost_events")
+}
+
+// ─── #929: confirmed background evidence ────────────────────────────────
+//
+// Projects, achievements and responsibilities the candidate types in, plus
+// their motivation for a job, kept apart from the profile. Only a
+// CONFIRMED latest revision can reach a prompt (lib/evidence/store.ts).
+// See internal docs ventures/resumatch/engineering/background-evidence.md.
+
+enum EvidenceKind {
+  /// Professional facts: may support CV and letter wording.
+  PROJECT
+  ACHIEVEMENT
+  RESPONSIBILITY
+  /// Why the candidate wants a job. Letter only, never a fact.
+  MOTIVATION
+}
+
+enum EvidenceScope {
+  /// Used only for `targetJobId`. The default.
+  APPLICATION
+  /// Confirmed background, used for every application.
+  BACKGROUND
+}
+
+enum EvidenceStatus {
+  /// Saved but not confirmed: never used in generation.
+  DRAFT
+  CONFIRMED
+}
+
+/// One evidence item, stable across edits. The content lives in immutable
+/// revisions; this row holds only where the item applies.
+model CandidateEvidence {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  scope       EvidenceScope
+  /// Set for APPLICATION scope, null for BACKGROUND.
+  targetJobId String?
+  targetJob   TargetJob?    @relation(fields: [targetJobId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  revisions CandidateEvidenceRevision[]
+
+  @@index([workspaceId, scope])
+  @@index([workspaceId, targetJobId])
+  @@map("candidate_evidence")
+}
+
+/// An immutable revision of an evidence item. Editing creates a new one;
+/// a saved CV names the revision ids it used (TailoringContext), so its
+/// lineage never shifts. The only change a row ever sees is DRAFT →
+/// CONFIRMED on the item's latest revision.
+model CandidateEvidenceRevision {
+  id String @id @default(cuid())
+
+  evidenceId String
+  evidence   CandidateEvidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  /// Copied from the item, so every lookup can be workspace-scoped.
+  workspaceId String
+
+  /// 1, 2, 3… per item. The highest is the item's current content.
+  revisionNumber Int
+
+  kind   EvidenceKind
+  title  String
+  detail String       @db.Text
+  /// Optional source reference to a role in the profile:
+  /// { title, employer, startedOn } (lib/evidence/contract.ts). Null: the
+  /// item belongs to no single role.
+  experienceRef Json?
+
+  status      EvidenceStatus @default(DRAFT)
+  confirmedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([evidenceId, revisionNumber])
+  @@index([workspaceId])
+  @@map("candidate_evidence_revisions")
 }
