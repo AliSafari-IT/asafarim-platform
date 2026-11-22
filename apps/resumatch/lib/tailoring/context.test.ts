@@ -66,6 +66,12 @@ describe("resolveTailoringContext", () => {
   });
 });
 
+it("never stores half an emoji in the job-text copy", () => {
+  const context = resolveTailoringContext({ ...base, jobRawText: `${"j".repeat(MAX_JOB_CHARS - 1)}\u{1F680} more` });
+  expect(context.jobTextUsed!.startsWith(`${"j".repeat(MAX_JOB_CHARS - 1)}\n`)).toBe(true);
+  expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(context.jobTextUsed!)).toBe(false);
+});
+
 describe("tailoringContextFingerprint", () => {
   const fingerprint = tailoringContextFingerprint(resolveTailoringContext(base));
 

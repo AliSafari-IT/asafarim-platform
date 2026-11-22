@@ -114,3 +114,26 @@ describe("promptCacheKey", () => {
     );
   });
 });
+
+describe("cap / capWithMarker never split a surrogate pair (#928)", () => {
+  const rocket = "\u{1F680}"; // two UTF-16 units
+  const text = `${"a".repeat(5)}${rocket}tail`;
+
+  it("drops the half emoji at the cut instead of keeping a lone surrogate", () => {
+    expect(cap(text, 6)).toBe("aaaaa");
+    expect(capWithMarker(text, 6)).toBe("aaaaa\n[...truncated at 6 chars...]");
+    // A cut after the whole pair keeps it.
+    expect(cap(text, 7)).toBe(`aaaaa${rocket}`);
+  });
+
+  it("leaves no lone surrogate, so the text round-trips as JSON", () => {
+    const capped = capWithMarker(text, 6);
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(capped)).toBe(false);
+    expect(JSON.parse(JSON.stringify({ capped })).capped).toBe(capped);
+  });
+
+  it("is unchanged for text without surrogates", () => {
+    expect(cap("abcdef", 3)).toBe("abc");
+    expect(capWithMarker("abcdef", 3)).toBe("abc\n[...truncated at 3 chars...]");
+  });
+});

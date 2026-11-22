@@ -739,7 +739,10 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
           // Keep the review (and every hand edit) open so the candidate can
           // fix it or just press Save again: a refused or failed write hands
           // the preview back. Only a used-up preview (409) can't be retried.
-          if (res.status !== 409 || editOf) {
+          // A stale one (#928: the job text or note changed) can't be saved
+          // either, but the review stays so its edits can still be copied
+          // before "Back to options" runs it again.
+          if (res.status !== 409 || editOf || body?.code === "PREVIEW_CONTEXT_STALE") {
             setState({ kind: "reviewing", review, saveError: message });
             return;
           }

@@ -30,6 +30,7 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
 
   afterAll(async () => {
     if (!db || !workspaceId) return;
+    await db.tailorPreview.deleteMany({ where: { workspaceId } });
     await db.tailoredResume.deleteMany({ where: { workspaceId } });
     await db.targetJob.deleteMany({ where: { workspaceId } });
     await db.candidateProfileVersion.deleteMany({ where: { profile: { workspaceId } } });
@@ -81,6 +82,21 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
       },
     });
 
+    // An unconfirmed preview with a request context (#928): its note and job
+    // text copy must not survive erasure.
+    await db.tailorPreview.create({
+      data: {
+        workspaceId,
+        profileVersionId: version.id,
+        targetJobId: targetJob.id,
+        promptVersion: "tailor_resume@6",
+        modelVersion: "fixture-tailor-1",
+        degraded: false,
+        contextVersion: "tailoring_context@1",
+        context: { instructions: "Please leave out my former employer.", jobTextUsed: "We need a TypeScript engineer." },
+      },
+    });
+
     const exported = await exportWorkspaceData(workspaceId);
     expect(exported).not.toBeNull();
     expect(exported!.targetJobs).toHaveLength(1);
@@ -101,5 +117,7 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
     const remainingResumes = await db.tailoredResume.count({ where: { workspaceId } });
     expect(remainingJobs).toBe(0);
     expect(remainingResumes).toBe(0);
+    expect(await db.tailorPreview.count({ where: { workspaceId } })).toBe(0);
+    expect(await db.workspace.count({ where: { id: workspaceId } })).toBe(1);
   });
 });

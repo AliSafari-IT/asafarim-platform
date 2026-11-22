@@ -157,6 +157,8 @@ test("a review can't be saved after its job text changed", async ({ page }) => {
   await e2eDb().targetJob.update({ where: { id: jobId }, data: { rawText: `${JOB_TEXT}\nAlso: Kubernetes.` } });
   await flow.getByRole("button", { name: "Confirm & save" }).click();
   await expect(page.getByText("The job text changed after these suggestions were made. Generate them again.")).toBeVisible();
+  // The review stays open, so hand edits can still be copied.
+  await expect(flow.locator(".rm-review")).toBeVisible();
   expect(await e2eDb().tailoredResume.count({ where: { targetJobId: jobId } })).toBe(1);
   // The preview was not used up by the refused save.
   expect(await e2eDb().tailorPreview.count({ where: { targetJobId: jobId, consumedAt: null } })).toBe(1);

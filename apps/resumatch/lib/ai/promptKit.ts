@@ -66,16 +66,24 @@ export const NO_TOOLS_RULE =
 export const OUTPUT_FORMAT_JSON_ONLY = `OUTPUT FORMAT — your entire reply is one JSON object, no prose before or
 after, no markdown fences:`;
 
-/** Cap `text` at `max` chars, with no marker. */
+/** The first `max` UTF-16 units of `text`, one shorter when the cut would
+ *  split a surrogate pair (an emoji, say). A lone surrogate is not valid
+ *  Unicode: PostgreSQL rejects it in JSONB and text columns. */
+function sliceWhole(text: string, max: number): string {
+  const end = max > 0 && /[\uD800-\uDBFF]/.test(text[max - 1] ?? "") ? max - 1 : max;
+  return text.slice(0, end);
+}
+
+/** Cap `text` at `max` chars, with no marker. Never splits a surrogate pair. */
 export function cap(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max) : text;
+  return text.length > max ? sliceWhole(text, max) : text;
 }
 
 /** Cap `text` at `max` chars and mark the cut, so the model knows the
- *  input was cut rather than complete. */
+ *  input was cut rather than complete. Never splits a surrogate pair. */
 export function capWithMarker(text: string, max: number): string {
   return text.length > max
-    ? `${text.slice(0, max)}\n[...truncated at ${max} chars...]`
+    ? `${sliceWhole(text, max)}\n[...truncated at ${max} chars...]`
     : text;
 }
 
