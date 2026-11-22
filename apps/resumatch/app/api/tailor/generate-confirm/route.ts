@@ -7,7 +7,13 @@ import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLe
 import { getCurrentWorkspace, recordAuditEvent } from "../../../../lib/workspace";
 import { appliedCoverLetterLanguage, appliedOutputLanguage } from "../../../../lib/tailoring/language";
 import { logError } from "../../../../lib/observability/logger";
-import { applyCandidateEdits, hasCandidateEdits, parseCandidateEdits } from "../../../../lib/tailoring/candidateEdits";
+import {
+  applyCandidateEdits,
+  hasCandidateEdits,
+  MAX_CV_SKILLS,
+  parseCandidateEdits,
+  TooManySkillsError,
+} from "../../../../lib/tailoring/candidateEdits";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TEMPLATE_KEY = "classic";
@@ -150,6 +156,12 @@ async function confirmTailoring(request: Request): Promise<Response> {
   try {
     content = applyCandidateEdits(mergeTailoringSuggestions(version.content, suggestions), candidateEdits);
   } catch (error) {
+    if (error instanceof TooManySkillsError) {
+      return NextResponse.json(
+        { error: `A CV can hold at most ${MAX_CV_SKILLS} skills. Remove some, then save again.` },
+        { status: 422 },
+      );
+    }
     logError("tailoring.confirm.merge_invalid", error, { profileVersionId });
     return NextResponse.json(
       {

@@ -105,11 +105,20 @@ export function applySkillEdits(ordered: string[], edits: Pick<CandidateEdits, "
   return out;
 }
 
+export class TooManySkillsError extends Error {
+  constructor() {
+    super(`A CV can hold at most ${MAX_CV_SKILLS} skills.`);
+  }
+}
+
 /** Applies the skill edits to merged CV content and re-validates it. The
- *  bullets already arrive as the candidate approved them. */
+ *  bullets already arrive as the candidate approved them. Throws
+ *  `TooManySkillsError` when the result would exceed the CV's limit. */
 export function applyCandidateEdits(content: TailoredResumeContent, edits: CandidateEdits): TailoredResumeContent {
   if (edits.addedSkills.length === 0 && edits.removedSkills.length === 0) return content;
-  return tailoredResumeContentSchema.parse({ ...content, skills: applySkillEdits(content.skills, edits) });
+  const skills = applySkillEdits(content.skills, edits);
+  if (skills.length > MAX_CV_SKILLS) throw new TooManySkillsError();
+  return tailoredResumeContentSchema.parse({ ...content, skills });
 }
 
 function roleKey(role: { title: string; employer: string | null; startedOn: string | null }): string {

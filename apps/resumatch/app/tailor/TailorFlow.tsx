@@ -649,9 +649,10 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
         if (!res.ok || !body) {
           const message =
             body?.error ?? `${t("resumatch.flow.error.save")} ${t("resumatch.flow.error.server", { status: res.status })}`;
-          // Refused as written: keep the review (and every hand edit) open
-          // so the candidate can shorten or fix it and save again.
-          if (res.status === 422) {
+          // Keep the review (and every hand edit) open so the candidate can
+          // fix it or just press Save again: a refused or failed write hands
+          // the preview back. Only a used-up preview (409) can't be retried.
+          if (res.status !== 409) {
             setState({ kind: "reviewing", review, saveError: message });
             return;
           }
@@ -668,7 +669,7 @@ export function TailorFlow({ confirmedVersionId, seed = null }: TailorFlowProps)
               : `/tailor/${body.id}/preview`,
         );
       } catch {
-        setState({ kind: "error", message: t("resumatch.flow.error.network"), canGoBack: true });
+        setState({ kind: "reviewing", review, saveError: t("resumatch.flow.error.network") });
       }
     },
     [confirmedVersionId, router, t],

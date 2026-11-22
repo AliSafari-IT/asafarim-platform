@@ -116,3 +116,13 @@ describe("approved review limits", () => {
     expect(parseApprovedTailorSuggestions(long).experienceBullets[0][0]).toHaveLength(1500);
   });
 });
+
+describe("the CV's skill limit", () => {
+  it("refuses edits that would put more than 200 skills on the CV, and allows them when a removal makes room", async () => {
+    const { TooManySkillsError } = await import("./candidateEdits");
+    const { tailoredResumeContentSchema } = await import("./ai/schema");
+    const content = tailoredResumeContentSchema.parse({ skills: Array.from({ length: 200 }, (_, i) => `S${i}`) });
+    expect(() => applyCandidateEdits(content, { addedSkills: ["New"], removedSkills: [], ownBullets: [] })).toThrow(TooManySkillsError);
+    expect(applyCandidateEdits(content, { addedSkills: ["New"], removedSkills: ["S0"], ownBullets: [] }).skills).toHaveLength(200);
+  });
+});
