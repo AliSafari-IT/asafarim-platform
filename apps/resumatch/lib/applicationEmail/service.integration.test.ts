@@ -504,6 +504,27 @@ describe.skipIf(!TEST_DB)("application email: send, history, filters", () => {
     expect(again).toMatchObject({ ok: false, reason: "conflict" });
   });
 
+  it("keeps the per-email contact choice (#940) with the draft", async () => {
+    const s = await seed();
+    const fresh = await service.loadComposer(s.workspaceId, s.applicationId);
+    expect(fresh?.contactDefaults).toBeNull();
+    expect(fresh?.emailLanguage).toBe("en");
+
+    const override = { callWindows: [], timeZone: "Europe/Paris", outsideHours: "arrange" as const, unavailable: [], email: true, whatsapp: false };
+    const saved = await service.saveDraft(s.workspaceId, s.applicationId, draftFor(s, { contactMode: "OVERRIDE", contactOverride: override }));
+    expect(saved).toMatchObject({ ok: true, draft: { contactMode: "OVERRIDE", contactOverride: override } });
+
+    const version = saved.ok ? saved.draft.version : 0;
+    const omitted = await service.saveDraft(s.workspaceId, s.applicationId, draftFor(s, { contactMode: "OMIT", version }));
+    expect(omitted).toMatchObject({ ok: true, draft: { contactMode: "OMIT", contactOverride: null } });
+
+    const { saveContactPreferences } = await import("../contactPreferences/store");
+    await saveContactPreferences(s.workspaceId, override);
+    const composer = await service.loadComposer(s.workspaceId, s.applicationId);
+    expect(composer?.contactDefaults).toEqual(override);
+    expect(composer?.draft?.contactMode).toBe("OMIT");
+  });
+
   it("recovers when the status change was never recorded after an acceptance", async () => {
     const s = await seed();
     const { mailer } = recordingMailer();

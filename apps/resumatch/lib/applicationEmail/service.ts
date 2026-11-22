@@ -1,4 +1,8 @@
 import "server-only";
+import { Prisma } from "../db/generated";
+import { readContactPreferences, type ContactMode, type ContactPreferences } from "../contactPreferences/contract";
+import { getContactPreferences } from "../contactPreferences/store";
+import { isOutputLanguage, type OutputLanguage } from "../tailoring/language";
 import { randomUUID } from "node:crypto";
 import { getJobmatchDb } from "../db/client";
 import type { ApplicationStatus, DocumentPdfKind, SentEmailStatus } from "../db/generated";
@@ -61,6 +65,9 @@ export interface DraftView {
   sendCopyToSelf: boolean;
   cvPdfId: string | null;
   coverLetterPdfId: string | null;
+  /** Contact preferences for this email (#940). */
+  contactMode: ContactMode;
+  contactOverride: ContactPreferences | null;
   updatedAt: string;
 }
 
@@ -99,6 +106,10 @@ export interface ComposerData {
   /** An unresolved earlier send for this application. */
   unresolved: { id: string; status: "SENDING" | "UNCERTAIN"; attemptedAt: string; stale: boolean } | null;
   sendCount: number;
+  /** The email's language: the letter's, else the CV's, else English. */
+  emailLanguage: OutputLanguage;
+  /** The saved contact preferences (#940); null when none. */
+  contactDefaults: ContactPreferences | null;
 }
 
 function toDraftView(row: {
@@ -112,6 +123,8 @@ function toDraftView(row: {
   sendCopyToSelf: boolean;
   cvPdfId: string | null;
   coverLetterPdfId: string | null;
+  contactMode: ContactMode;
+  contactOverride: unknown;
   updatedAt: Date;
 }): DraftView {
   return {
@@ -125,6 +138,8 @@ function toDraftView(row: {
     sendCopyToSelf: row.sendCopyToSelf,
     cvPdfId: row.cvPdfId,
     coverLetterPdfId: row.coverLetterPdfId,
+    contactMode: row.contactMode,
+    contactOverride: readContactPreferences(row.contactOverride),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -140,6 +155,8 @@ const DRAFT_SELECT = {
   sendCopyToSelf: true,
   cvPdfId: true,
   coverLetterPdfId: true,
+  contactMode: true,
+  contactOverride: true,
   updatedAt: true,
 } as const;
 
@@ -153,7 +170,9 @@ async function loadApplication(workspaceId: string, applicationId: string) {
       targetJobId: true,
       tailoredResumeId: true,
       targetJob: { select: { title: true, employer: true, rawText: true, structuredFields: true } },
-      tailoredResume: { select: { id: true, content: true, coverLetter: { select: { id: true, content: true } } } },
+      tailoredResume: {
+        select: { id: true, content: true, outputLanguage: true, coverLetter: { select: { id: true, content: true, outputLanguage: true } } },
+      },
     },
   });
 }
@@ -300,6 +319,12 @@ export async function loadComposer(
         }
       : null,
     sendCount,
+    emailLanguage: isOutputLanguage(application.tailoredResume?.coverLetter?.outputLanguage)
+      ? application.tailoredResume.coverLetter.outputLanguage
+      : isOutputLanguage(application.tailoredResume?.outputLanguage)
+        ? application.tailoredResume.outputLanguage
+        : "en",
+    contactDefaults: await getContactPreferences(workspaceId),
   };
 }
 
@@ -335,6 +360,9 @@ export async function saveDraft(workspaceId: string, applicationId: string, inpu
     sendCopyToSelf: input.sendCopyToSelf,
     cvPdfId: input.cvPdfId,
     coverLetterPdfId: input.coverLetterPdfId,
+    // Left out by an older client: the stored choice stays as it is.
+    ...(input.contactMode ? { contactMode: input.contactMode } : {}),
+    ...(input.contactMode ? { contactOverride: input.contactMode === "OVERRIDE" ? ((readContactPreferences(input.contactOverride) as object | null) ?? Prisma.DbNull) : Prisma.DbNull } : {}),
   };
 
   if (input.version === null) {

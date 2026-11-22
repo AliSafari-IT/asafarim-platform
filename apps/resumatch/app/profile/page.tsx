@@ -13,6 +13,8 @@ import { JourneyTracker } from "../components/app/JourneyTracker";
 import { PageHero } from "../components/app/PageHero";
 import { ShowcaseNotice } from "../components/ShowcaseNotice";
 import { DataRightsPanel } from "./DataRightsPanel";
+import { ContactPreferencesPanel } from "./ContactPreferencesPanel";
+import { getContactPreferences } from "../../lib/contactPreferences/store";
 import { NextStepTrack, ProfileCompleteness, VersionTimeline } from "./ProfileInsights";
 import { ProfileWorkbench } from "./ProfileWorkbench";
 import { UploadPanel } from "./UploadPanel";
@@ -133,6 +135,8 @@ export default async function ProfilePage() {
       </section>
 
       {versions.length > 0 ? <VersionTimeline versions={versions} /> : null}
+
+      <ContactPreferencesPanel initial={await getContactPreferences(workspace.id)} />
 
       <DataRightsPanel
         erasureSlaDays={ERASURE_SLA_DAYS}

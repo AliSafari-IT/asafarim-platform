@@ -1,3 +1,4 @@
+import { CONTACT_MODES, parseContactPreferences } from "../contactPreferences/contract";
 import { z } from "zod";
 
 /**
@@ -144,12 +145,19 @@ export const draftSaveSchema = z
     sendCopyToSelf: z.boolean(),
     cvPdfId: z.string().min(1).max(64).nullable(),
     coverLetterPdfId: z.string().min(1).max(64).nullable(),
+    /** Contact preferences for this email (#940). Optional, so an older
+     *  client's save leaves the stored choice alone. */
+    contactMode: z.enum(CONTACT_MODES).optional(),
+    contactOverride: z.unknown().optional(),
     /** The draft version this edit started from; null for a new draft. */
     version: z.number().int().positive().nullable(),
   })
   .strict()
   .refine((d) => !hasControlChars(d.subject) && !hasControlChars(d.contactName) && !hasControlChars(d.toEmail), {
     message: "header fields must be a single line",
+  })
+  .refine((d) => d.contactMode !== "OVERRIDE" || parseContactPreferences(d.contactOverride).ok, {
+    message: "contact preferences are invalid",
   });
 
 export type DraftSaveInput = z.infer<typeof draftSaveSchema>;

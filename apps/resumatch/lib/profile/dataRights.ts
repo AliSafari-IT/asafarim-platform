@@ -131,6 +131,8 @@ export interface DataExport {
       createdAt: string;
     }[];
   }[];
+  /** Contact preferences for application emails (#940); null when none. */
+  contactPreferences: { content: unknown; updatedAt: string } | null;
   auditEvents: { action: string; createdAt: string }[];
   /** Stated in the export itself so the recipient is not left inferring it. */
   notes: string[];
@@ -145,7 +147,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -181,6 +183,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       orderBy: { createdAt: "asc" },
       include: { revisions: { orderBy: { revisionNumber: "asc" } } },
     }),
+    db.contactPreferences.findUnique({ where: { workspaceId }, select: { content: true, updatedAt: true } }),
   ]);
 
   await recordAuditEvent(workspaceId, "datarights.export", { count: documents.length });
@@ -287,6 +290,9 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
         createdAt: revision.createdAt.toISOString(),
       })),
     })),
+    contactPreferences: contactPreferences
+      ? { content: contactPreferences.content, updatedAt: contactPreferences.updatedAt.toISOString() }
+      : null,
     auditEvents: auditEvents.map((event) => ({
       action: event.action,
       createdAt: event.createdAt.toISOString(),
@@ -415,6 +421,9 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // Background evidence (#929) is the candidate's own text; its
     // revisions cascade with each item.
     await tx.candidateEvidence.deleteMany({ where: { workspaceId } });
+    // Contact preferences (#940): when the candidate takes calls. The
+    // workspace row stays, so they would not cascade.
+    await tx.contactPreferences.deleteMany({ where: { workspaceId } });
     const targetJobs = await tx.targetJob.deleteMany({ where: { workspaceId } });
 
     if (profile) {
