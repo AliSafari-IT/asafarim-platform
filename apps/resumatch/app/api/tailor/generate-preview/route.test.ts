@@ -36,7 +36,7 @@ vi.mock("../../../../lib/profile/versions", () => ({
   getVersion: async () => ({ content: profile }),
 }));
 vi.mock("../../../../lib/db/client", () => ({
-  getJobmatchDb: () => ({ targetJob: { findFirst }, tailorPreview: { create: previewCreate } }),
+  getJobmatchDb: () => ({ targetJob: { findFirst }, tailorPreview: { create: previewCreate }, candidateEvidence: { findMany: async () => [] } }),
 }));
 vi.mock("../../../../lib/tailoring/ai/generate", () => ({
   runTailorProviderCall: (...args: unknown[]) => runTailorProviderCall(...args),

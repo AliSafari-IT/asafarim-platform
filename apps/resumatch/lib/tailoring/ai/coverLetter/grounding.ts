@@ -148,8 +148,12 @@ export function groundCoverLetterSuggestion(
   profileText: string,
   jobText: string,
   outputLanguage: OutputLanguage | null,
+  /** #929: the candidate's motivation. Its names and numbers may appear
+   *  (it is their own text), but it never backs a claim about experience,
+   *  so it is kept out of the claim check. */
+  tokenOnlyText: string | null = null,
 ): CoverLetterGroundingResult {
-  const sourceLower = `${profileText}\n${jobText}`.toLowerCase();
+  const sourceLower = `${profileText}\n${jobText}${tokenOnlyText ? `\n${tokenOnlyText}` : ""}`.toLowerCase();
   const paragraphMode: ProseGroundingMode = outputLanguage === "de" ? "headline" : "prose";
   const conventions = COVER_LETTER_CONVENTIONS[outputLanguage ?? "en"];
 

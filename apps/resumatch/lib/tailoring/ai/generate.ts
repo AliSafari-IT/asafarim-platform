@@ -53,6 +53,9 @@ export async function runTailorProviderCall(
   /** The candidate confirmed a job the fit check rated low
    *  (lib/tailoring/jobFit.ts): lead with transferable strengths. */
   lowFit = false,
+  /** #929: the rendered confirmed-evidence block (lib/evidence/prompt.ts),
+   *  shared with the cover letter. Null: none, and the @6 prompt text. */
+  evidence: string | null = null,
 ): Promise<TailorProviderCallResult> {
   const primaryName = providerOverride ?? getEnv().aiProvider;
   const primaryModelVersion = await resolveTailorModelVersion(primaryName);
@@ -61,7 +64,7 @@ export async function runTailorProviderCall(
   let providerName: ResuMatchAiProvider = primaryName;
   let modelVersion = primaryModelVersion;
   const { text: profileText } = buildProfileText(profile);
-  const prompt = renderTailorPrompt(profileText, jobText, instructions, outputLanguage, lowFit);
+  const prompt = renderTailorPrompt(profileText, jobText, instructions, outputLanguage, lowFit, evidence);
 
   let suggestions: TailorSuggestions | null = null;
   let degraded = false;

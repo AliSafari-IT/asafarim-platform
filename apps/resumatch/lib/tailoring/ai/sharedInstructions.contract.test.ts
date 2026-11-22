@@ -126,8 +126,8 @@ describe("the application note reaches both prompts (#928)", () => {
       expect(letterCall.system).toContain("warm, personable register");
       expect(letterCall.system).toContain("150 to 200 words");
       expect(letterCall.system).toContain("OUTPUT LANGUAGE");
-      expect(cvCall.promptVersion).toBe("tailor_resume@6");
-      expect(letterCall.promptVersion).toBe("cover_letter@5");
+      expect(cvCall.promptVersion).toBe("tailor_resume@7");
+      expect(letterCall.promptVersion).toBe("cover_letter@6");
     });
 
     it("no note renders the same empty block in both", async () => {
@@ -183,4 +183,87 @@ describe("the application note reaches both prompts (#928)", () => {
       }
     });
   });
+
+  describe("confirmed evidence (#929)", () => {
+    const EVIDENCE = "- Achievement: Faster checkout. Cut checkout time by 30% with Stripe. [no single role]";
+    const MOTIVATION = "- Motivation: Payments. I want to work on payments.";
+    const EVIDENCE_OPEN = "<<<RESUMATCH_CANDIDATE_EVIDENCE";
+    const EVIDENCE_CLOSE = "RESUMATCH_CANDIDATE_EVIDENCE>>>";
+
+    it("reaches both real request bodies fenced, with its rule; motivation only the letter", async () => {
+      providerName = "openai";
+      process.env.OPENAI_API_KEY = "test-key";
+      const fetchMock = vi.fn();
+      const cv = JSON.stringify({ headline: "Backend Engineer", summary: null, skillsOrder: ["PostgreSQL", "Node.js"], experienceBullets: [["Built Node.js APIs on PostgreSQL."]] });
+      const letter = JSON.stringify({ greeting: "Dear Hiring Manager,", paragraphs: ["I built Node.js APIs on PostgreSQL."], signOff: "Kind regards," });
+      for (const content of [cv, letter]) {
+        fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }), text: async () => "" });
+      }
+      vi.stubGlobal("fetch", fetchMock);
+      await runTailorProviderCall("ws_1", "job_1", profile, jobText, null, undefined, {}, null, false, EVIDENCE);
+      await runCoverLetterProviderCall("ws_1", "job_1", buildProfileText(profile).text, jobText, "formal", "standard", undefined, {}, null, null, {
+        evidence: EVIDENCE,
+        motivation: MOTIVATION,
+      });
+      const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+      for (const body of bodies) {
+        const user = body.messages[1].content as string;
+        const inside = user.slice(user.indexOf(EVIDENCE_OPEN), user.indexOf(EVIDENCE_CLOSE));
+        expect(inside).toContain(EVIDENCE);
+        expect(body.messages[0].content).toContain("CONFIRMED EVIDENCE");
+        expect(body.messages[0].content).toContain("never adds a skill");
+      }
+      expect(bodies[0].messages[1].content).not.toContain("I want to work on payments");
+      expect(bodies[1].messages[1].content).toContain("<<<RESUMATCH_CANDIDATE_MOTIVATION");
+      expect(bodies[1].messages[0].content).toContain("NOT a fact about their experience");
+    });
+
+    it("no evidence: no evidence block and no evidence rule", async () => {
+      const cvSpy = vi.spyOn(TailorFixtureProvider.prototype, "generate");
+      const letterSpy = vi.spyOn(CoverLetterFixtureProvider.prototype, "generate");
+      providerName = "fixture";
+      await runTailorProviderCall("ws_1", "job_1", profile, jobText, null);
+      await runCoverLetterProviderCall("ws_1", "job_1", buildProfileText(profile).text, jobText);
+      for (const call of [cvSpy.mock.calls[0]![0], letterSpy.mock.calls[0]![0]]) {
+        expect(call.user).not.toContain(EVIDENCE_OPEN);
+        expect(call.system).not.toContain("CONFIRMED EVIDENCE");
+      }
+    });
+
+    it("a letter sentence built on confirmed evidence passes the grounding check; without the evidence it is dropped", async () => {
+      providerName = "openai";
+      process.env.OPENAI_API_KEY = "test-key";
+      const paragraph = "At Acme I cut checkout time by 30% with Stripe.";
+      const letter = JSON.stringify({ greeting: "Dear Hiring Manager,", paragraphs: ["I built Node.js APIs on PostgreSQL.", paragraph], signOff: "Kind regards," });
+      const respond = () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: letter } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }), text: async () => "" });
+      vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => respond()));
+      const withEvidence = await runCoverLetterProviderCall("ws_1", "job_1", buildProfileText(profile).text, jobText, "formal", "standard", undefined, {}, null, null, {
+        evidence: EVIDENCE,
+        motivation: null,
+      });
+      expect(withEvidence.suggestion?.paragraphs).toContain(paragraph);
+      const without = await runCoverLetterProviderCall("ws_1", "job_1", buildProfileText(profile).text, jobText);
+      expect(without.suggestion?.paragraphs).not.toContain(paragraph);
+    });
+
+    it("motivation never backs a claim about experience", async () => {
+      providerName = "openai";
+      process.env.OPENAI_API_KEY = "test-key";
+      const wish = "I would love to grow into mentoring junior developers.";
+      const claim = "I have mentored junior developers for years.";
+      const letter = JSON.stringify({ greeting: "Dear Hiring Manager,", paragraphs: ["I built Node.js APIs on PostgreSQL.", `${claim} ${wish}`], signOff: "Kind regards," });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: letter } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }), text: async () => "" }),
+      );
+      const result = await runCoverLetterProviderCall("ws_1", "job_1", buildProfileText(profile).text, jobText, "formal", "standard", undefined, {}, null, null, {
+        evidence: null,
+        motivation: "- Motivation: Growth. I want to mentor junior developers.",
+      });
+      const text = result.suggestion?.paragraphs.join(" ") ?? "";
+      expect(text).not.toContain(claim);
+      expect(result.removedSentences).toBeGreaterThan(0);
+    });
+  });
 });
+

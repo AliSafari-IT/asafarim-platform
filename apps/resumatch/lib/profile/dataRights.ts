@@ -113,6 +113,24 @@ export interface DataExport {
     sentAt: string | null;
     attachments: { kind: string; filename: string; contentHash: string }[];
   }[];
+  /** Background evidence (#929), every revision included. */
+  evidence: {
+    id: string;
+    scope: string;
+    targetJobId: string | null;
+    createdAt: string;
+    revisions: {
+      id: string;
+      revisionNumber: number;
+      kind: string;
+      title: string;
+      detail: string;
+      experienceRef: unknown;
+      status: string;
+      confirmedAt: string | null;
+      createdAt: string;
+    }[];
+  }[];
   auditEvents: { action: string; createdAt: string }[];
   /** Stated in the export itself so the recipient is not left inferring it. */
   notes: string[];
@@ -127,7 +145,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -157,6 +175,11 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       where: { workspaceId },
       orderBy: { attemptedAt: "asc" },
       include: { attachments: { select: { kind: true, filename: true, contentHash: true } } },
+    }),
+    db.candidateEvidence.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "asc" },
+      include: { revisions: { orderBy: { revisionNumber: "asc" } } },
     }),
   ]);
 
@@ -246,6 +269,23 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       attemptedAt: email.attemptedAt.toISOString(),
       sentAt: email.sentAt?.toISOString() ?? null,
       attachments: email.attachments,
+    })),
+    evidence: evidence.map((item) => ({
+      id: item.id,
+      scope: item.scope,
+      targetJobId: item.targetJobId,
+      createdAt: item.createdAt.toISOString(),
+      revisions: item.revisions.map((revision) => ({
+        id: revision.id,
+        revisionNumber: revision.revisionNumber,
+        kind: revision.kind,
+        title: revision.title,
+        detail: revision.detail,
+        experienceRef: revision.experienceRef,
+        status: revision.status,
+        confirmedAt: revision.confirmedAt?.toISOString() ?? null,
+        createdAt: revision.createdAt.toISOString(),
+      })),
     })),
     auditEvents: auditEvents.map((event) => ({
       action: event.action,
@@ -372,6 +412,9 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // copy of the job text, even when nothing was saved. The workspace row
     // stays, so they would not cascade; they go with the rest.
     await tx.tailorPreview.deleteMany({ where: { workspaceId } });
+    // Background evidence (#929) is the candidate's own text; its
+    // revisions cascade with each item.
+    await tx.candidateEvidence.deleteMany({ where: { workspaceId } });
     const targetJobs = await tx.targetJob.deleteMany({ where: { workspaceId } });
 
     if (profile) {

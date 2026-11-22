@@ -36,6 +36,7 @@ const previewFindFirst = vi.fn();
 const previewUpdateMany = vi.fn();
 const previewFindFirstOrThrow = vi.fn();
 const resumeCreate = vi.fn();
+const evidenceFindMany = vi.fn();
 
 vi.mock("../../../../lib/workspace", () => ({
   getCurrentWorkspace: async () => ({ id: "ws_1" }),
@@ -47,6 +48,7 @@ vi.mock("../../../../lib/db/client", () => ({
     targetJob: { findFirst: targetJobFindFirst },
     tailorPreview: { findFirst: previewFindFirst, updateMany: previewUpdateMany, findFirstOrThrow: previewFindFirstOrThrow },
     tailoredResume: { create: resumeCreate },
+    candidateEvidence: { findMany: evidenceFindMany },
     coverLetter: { create: vi.fn() },
   }),
 }));
@@ -81,6 +83,7 @@ describe("generate-confirm request context (#928)", () => {
     previewUpdateMany.mockReset().mockResolvedValue({ count: 1 });
     previewFindFirstOrThrow.mockReset().mockResolvedValue(previewRow(context));
     resumeCreate.mockReset().mockResolvedValue({ id: "cv_1", outputLanguage: null });
+    evidenceFindMany.mockReset().mockResolvedValue([]);
   });
 
   it("saves with the snapshot's note, not the client's echo, and keeps the context without the job text", async () => {
@@ -137,6 +140,44 @@ describe("generate-confirm request context (#928)", () => {
     expect(previewUpdateMany.mock.calls[0]![0].where).toMatchObject({ id: "prev_1", workspaceId: "ws_1" });
     expect(res.status).toBe(409);
     expect(resumeCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a preview when evidence was added, confirmed or edited since, without using it up (#929)", async () => {
+    evidenceFindMany.mockResolvedValue([
+      {
+        id: "ev_1",
+        workspaceId: "ws_1",
+        scope: "BACKGROUND",
+        targetJobId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        revisions: [{ id: "ev_1_r1", revisionNumber: 1, kind: "PROJECT", title: "t", detail: "d", experienceRef: null, status: "CONFIRMED" }],
+      },
+    ]);
+    const res = await confirm();
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "PREVIEW_CONTEXT_STALE", reason: "evidence" });
+    expect(previewUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("saves when the evidence is still the evidence the preview used, and keeps its revision ids on the CV (#929)", async () => {
+    const withEvidence = { ...context, evidenceRevisionIds: ["ev_1_r1"] };
+    previewFindFirst.mockResolvedValue({ context: JSON.parse(JSON.stringify(withEvidence)) });
+    previewFindFirstOrThrow.mockResolvedValue(previewRow(withEvidence));
+    evidenceFindMany.mockResolvedValue([
+      {
+        id: "ev_1",
+        workspaceId: "ws_1",
+        scope: "BACKGROUND",
+        targetJobId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        revisions: [{ id: "ev_1_r1", revisionNumber: 1, kind: "PROJECT", title: "t", detail: "d", experienceRef: null, status: "CONFIRMED" }],
+      },
+    ]);
+    const res = await confirm();
+    expect(res.status).toBe(200);
+    expect(resumeCreate.mock.calls[0]![0].data.tailoringContext).toMatchObject({ evidenceRevisionIds: ["ev_1_r1"] });
   });
 
   it("still confirms a legacy preview (no snapshot) the old way", async () => {

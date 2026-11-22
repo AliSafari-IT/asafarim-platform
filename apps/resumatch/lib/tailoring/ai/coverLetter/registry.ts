@@ -9,8 +9,9 @@ import { createProviderRegistry } from "../../../ai/providerRegistry";
  *  is now built per tone/length pair rather than a fixed string. @3: the
  *  optional OUTPUT LANGUAGE rule (#642). @4: explicit no-invented-duties
  *  rule (mentoring, leading, training…) and one-page word ranges. @5: the
- *  candidate's application note, fenced like the CV prompt's (#928). */
-export const COVER_LETTER_PROMPT_VERSION = "cover_letter@5";
+ *  candidate's application note, fenced like the CV prompt's (#928). @6:
+ *  optional confirmed-evidence and motivation blocks and their rules (#929). */
+export const COVER_LETTER_PROMPT_VERSION = "cover_letter@6";
 
 export const COVER_LETTER_MODEL_VERSIONS: Record<ResuMatchAiProvider, string> = {
   fixture: "fixture-cover-letter-1",
