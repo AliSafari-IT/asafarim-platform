@@ -81,6 +81,7 @@ export default async function TailorPage({
         id: true,
         instructions: true,
         outputLanguage: true,
+        candidateEdits: true,
         targetJob: { select: { id: true, title: true, employer: true, rawText: true } },
         coverLetter: { select: { outputLanguage: true } },
       },

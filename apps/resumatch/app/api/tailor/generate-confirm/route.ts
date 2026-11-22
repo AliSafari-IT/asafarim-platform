@@ -7,6 +7,7 @@ import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLe
 import { getCurrentWorkspace, recordAuditEvent } from "../../../../lib/workspace";
 import { appliedCoverLetterLanguage, appliedOutputLanguage } from "../../../../lib/tailoring/language";
 import { logError } from "../../../../lib/observability/logger";
+import { applyCandidateEdits, hasCandidateEdits, parseCandidateEdits } from "../../../../lib/tailoring/candidateEdits";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TEMPLATE_KEY = "classic";
@@ -72,6 +73,7 @@ async function confirmTailoring(request: Request): Promise<Response> {
     templateKey,
     instructions,
     coverLetter,
+    candidateEdits: rawCandidateEdits,
   } = (body ?? {}) as {
     profileVersionId?: unknown;
     targetJobId?: unknown;
@@ -86,6 +88,10 @@ async function confirmTailoring(request: Request): Promise<Response> {
     coverLetter?: {
       approved: unknown;
     } | null;
+    /** Optional (0.4.0): skills the candidate added or removed for this
+     *  CV and the bullets they wrote — their own claims, see
+     *  lib/tailoring/candidateEdits.ts. Never written to the profile. */
+    candidateEdits?: unknown;
   };
 
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
@@ -121,9 +127,19 @@ async function confirmTailoring(request: Request): Promise<Response> {
     );
   }
 
+  let candidateEdits;
+  try {
+    candidateEdits = parseCandidateEdits(rawCandidateEdits);
+  } catch {
+    return NextResponse.json(
+      { error: "Your added skills or bullets could not be saved as written. Shorten any long text and try again." },
+      { status: 422 },
+    );
+  }
+
   let content;
   try {
-    content = mergeTailoringSuggestions(version.content, suggestions);
+    content = applyCandidateEdits(mergeTailoringSuggestions(version.content, suggestions), candidateEdits);
   } catch (error) {
     logError("tailoring.confirm.merge_invalid", error, { profileVersionId });
     return NextResponse.json(
@@ -196,6 +212,7 @@ async function confirmTailoring(request: Request): Promise<Response> {
         modelVersion,
         degraded,
         instructions: typeof instructions === "string" ? instructions.trim() || null : null,
+        candidateEdits: hasCandidateEdits(candidateEdits) ? candidateEdits : undefined,
         // #641: from the server's preview record, never the client — and only
         // if some AI-written prose was kept (see appliedOutputLanguage).
         outputLanguage: appliedOutputLanguage(preview.outputLanguage, degraded, suggestions),

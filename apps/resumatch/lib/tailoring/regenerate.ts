@@ -1,4 +1,5 @@
 import { isOutputLanguage, type OutputLanguage } from "./language";
+import { readStoredCandidateEdits, type CandidateEdits } from "./candidateEdits";
 
 /**
  * "Edit and regenerate" (2026-11-21): reopening the tailoring flow from a
@@ -11,6 +12,11 @@ import { isOutputLanguage, type OutputLanguage } from "./language";
  * one stays in history. Tone and length of a letter are not stored on the
  * row (see the cover-letter preview page), so they fall back to the flow's
  * defaults.
+ *
+ * The candidate's own hand edits on that CV (skills added or removed,
+ * bullets they wrote; lib/tailoring/candidateEdits.ts) carry over: the AI
+ * writes fresh suggestions, and the next review starts with those edits
+ * already applied.
  */
 export interface RegenerateSeed {
   /** The saved CV this run started from — only for the "back" link. */
@@ -27,6 +33,8 @@ export interface RegenerateSeed {
   includeCoverLetter: boolean;
   /** null = "same as the CV", the flow's own meaning. */
   coverLetterLanguage: OutputLanguage | null;
+  /** The saved CV's own hand edits, put back on the next review. */
+  candidateEdits: CandidateEdits;
 }
 
 export interface RegenerateSourceRow {
@@ -35,6 +43,7 @@ export interface RegenerateSourceRow {
   outputLanguage: string | null;
   targetJob: { id: string; title: string | null; employer: string | null; rawText: string | null };
   coverLetter: { outputLanguage: string | null } | null;
+  candidateEdits?: unknown;
 }
 
 /** Same length as every intake route's `snippet`. */
@@ -62,5 +71,6 @@ export function buildRegenerateSeed(row: RegenerateSourceRow, wantLetter: boolea
     // Only a letter that really differed from the CV keeps its own
     // language; otherwise it follows the CV, as it does on a fresh run.
     coverLetterLanguage: letterLanguage && letterLanguage !== cvLanguage ? letterLanguage : null,
+    candidateEdits: readStoredCandidateEdits(row.candidateEdits),
   };
 }

@@ -43,3 +43,12 @@ describe("buildRegenerateSeed", () => {
     expect(seed.job.snippet).toBe("");
   });
 });
+
+describe("buildRegenerateSeed candidate edits", () => {
+  it("carries the saved CV's hand edits, and none when unreadable", () => {
+    const edits = { addedSkills: ["Go"], removedSkills: ["SQL"], ownBullets: [{ title: "Dev", employer: "Acme", bullets: ["Mine."] }] };
+    expect(buildRegenerateSeed({ ...base, candidateEdits: edits }, false).candidateEdits).toEqual(edits);
+    expect(buildRegenerateSeed({ ...base, candidateEdits: { nope: 1 } }, false).candidateEdits.addedSkills).toEqual([]);
+    expect(buildRegenerateSeed(base, false).candidateEdits.ownBullets).toEqual([]);
+  });
+});
