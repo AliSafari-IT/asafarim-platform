@@ -3,6 +3,9 @@ import type { Dictionaries } from "@asafarim/shared-i18n";
 /** Background evidence (#929): the panel on /tailor and its review note. */
 export const evidenceDictionaries: Dictionaries = {
   en: {
+    "resumatch.evidence.group.otherJobs": "Other applications (not used here)",
+    "resumatch.evidence.otherJob.label": "For",
+    "resumatch.evidence.otherJob.untitled": "an untitled job",
     "resumatch.evidence.summary": "Evidence for this application",
     "resumatch.evidence.usedCount": "({count} used)",
     "resumatch.evidence.hint": "Add projects, achievements or responsibilities that are true but missing from your CV, or why you want this job. Only items you confirm are used, and AI never turns its own text into evidence.",
@@ -59,6 +62,9 @@ export const evidenceDictionaries: Dictionaries = {
     "resumatch.evidence.review.used": "Generated with {count} confirmed evidence item(s).",
   },
   nl: {
+    "resumatch.evidence.group.otherJobs": "Andere sollicitaties (hier niet gebruikt)",
+    "resumatch.evidence.otherJob.label": "Voor",
+    "resumatch.evidence.otherJob.untitled": "een baan zonder titel",
     "resumatch.evidence.summary": "Bewijs voor deze sollicitatie",
     "resumatch.evidence.usedCount": "({count} gebruikt)",
     "resumatch.evidence.hint": "Voeg projecten, resultaten of verantwoordelijkheden toe die kloppen maar niet in je cv staan, of waarom je deze baan wilt. Alleen items die je bevestigt worden gebruikt, en AI maakt nooit bewijs van zijn eigen tekst.",
@@ -115,6 +121,9 @@ export const evidenceDictionaries: Dictionaries = {
     "resumatch.evidence.review.used": "Gegenereerd met {count} bevestigd(e) bewijsitem(s).",
   },
   fr: {
+    "resumatch.evidence.group.otherJobs": "Autres candidatures (non utilisées ici)",
+    "resumatch.evidence.otherJob.label": "Pour",
+    "resumatch.evidence.otherJob.untitled": "un poste sans titre",
     "resumatch.evidence.summary": "Éléments pour cette candidature",
     "resumatch.evidence.usedCount": "({count} utilisés)",
     "resumatch.evidence.hint": "Ajoutez des projets, réalisations ou responsabilités vrais mais absents de votre CV, ou la raison pour laquelle ce poste vous attire. Seuls les éléments que vous confirmez sont utilisés, et l'IA ne transforme jamais son propre texte en élément.",
@@ -171,6 +180,9 @@ export const evidenceDictionaries: Dictionaries = {
     "resumatch.evidence.review.used": "Généré avec {count} élément(s) confirmé(s).",
   },
   de: {
+    "resumatch.evidence.group.otherJobs": "Andere Bewerbungen (hier nicht verwendet)",
+    "resumatch.evidence.otherJob.label": "Für",
+    "resumatch.evidence.otherJob.untitled": "eine Stelle ohne Titel",
     "resumatch.evidence.summary": "Nachweise für diese Bewerbung",
     "resumatch.evidence.usedCount": "({count} verwendet)",
     "resumatch.evidence.hint": "Fügen Sie Projekte, Erfolge oder Aufgaben hinzu, die stimmen, aber in Ihrem Lebenslauf fehlen, oder warum Sie diese Stelle wollen. Nur bestätigte Einträge werden verwendet, und die KI macht nie aus eigenem Text einen Nachweis.",

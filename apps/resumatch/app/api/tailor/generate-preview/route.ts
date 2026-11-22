@@ -14,7 +14,7 @@ import {
 import { isOutputLanguage } from "../../../../lib/tailoring/language";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { loadGenerationEvidence } from "../../../../lib/evidence/store";
-import { renderMotivationEvidence, renderProfessionalEvidence } from "../../../../lib/evidence/prompt";
+import { renderMotivationEvidence, renderProfessionalEvidence, usedRevisionIds } from "../../../../lib/evidence/prompt";
 import { getVersion } from "../../../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 
@@ -154,7 +154,8 @@ export async function POST(request: Request) {
             outputLanguage: isOutputLanguage(coverLetterOutputLanguage) ? coverLetterOutputLanguage : undefined,
           }
         : null,
-    evidenceRevisionIds: evidence.revisionIds,
+    // Only what the run sends: motivation needs a letter.
+    evidenceRevisionIds: usedRevisionIds(evidence, includeCoverLetter === true),
   });
   const letterLanguage = context.coverLetter ? context.coverLetter.outputLanguage : null;
   // Minted up front so both provider calls' cost events can name this
@@ -233,7 +234,7 @@ export async function POST(request: Request) {
     outputLanguage: cvLanguage,
     lowFit,
     /** #929: how many confirmed evidence items both prompts got. */
-    evidenceUsed: evidence.revisionIds.length,
+    evidenceUsed: context.evidenceRevisionIds.length,
     coverLetter: coverLetterResult
       ? {
           suggestion: coverLetterResult.suggestion,

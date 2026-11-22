@@ -23,6 +23,8 @@ export interface EvidenceView {
   experienceRef: ExperienceRef | null;
   status: "DRAFT" | "CONFIRMED";
   updatedAt: string;
+  /** The job an application-scoped item belongs to, as the candidate named it. */
+  jobTitle: string | null;
   /** Why the next run for this job would leave it out, or null if it is used. */
   excludedBecause: EvidenceExclusion | null;
 }
@@ -36,6 +38,7 @@ type Row = {
   targetJobId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  targetJob?: { title: string | null } | null;
   revisions: {
     id: string;
     revisionNumber: number;
@@ -89,16 +92,26 @@ function toView(row: Row, workspaceId: string, targetJobId: string | null, profi
     experienceRef: readExperienceRef(latest.experienceRef),
     status: latest.status,
     updatedAt: row.updatedAt.toISOString(),
+    jobTitle: row.targetJob?.title ?? null,
     excludedBecause,
   };
 }
 
+/**
+ * Every item in the workspace, so items saved for a job the candidate never
+ * finished are still there to confirm, edit or delete. Each says whether a
+ * run for `targetJobId` would use it; items for other jobs never are.
+ */
 export async function listEvidence(
   workspaceId: string,
   targetJobId: string | null,
   profile: CandidateProfileContent | null,
 ): Promise<EvidenceView[]> {
-  const rows = await loadForJob(workspaceId, targetJobId);
+  const rows = (await getJobmatchDb().candidateEvidence.findMany({
+    where: { workspaceId },
+    include: { revisions: latestRevision, targetJob: { select: { title: true } } },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  })) as Row[];
   return rows.map((row) => toView(row, workspaceId, targetJobId, profile)).filter((v): v is EvidenceView => v !== null);
 }
 
@@ -175,8 +188,13 @@ function isUniqueViolation(error: unknown): boolean {
 /**
  * Saves an edit made on top of `baseRevisionId`. Refused as `stale` when
  * the item changed since (another tab saved first), so nothing is
- * overwritten unseen. Changed content adds a revision; unchanged content
- * with `confirm` confirms the current one; a scope change moves the item.
+ * overwritten unseen.
+ *
+ * A new revision is added whenever the content or the scope changes, or a
+ * confirmed item is explicitly saved as a draft. So the revision id moves
+ * with every change a tab could have missed (a scope change included), and
+ * "Save as draft" always leaves the item unused until it is confirmed.
+ * Unchanged content and scope with `confirm` only confirms a draft.
  */
 export async function reviseEvidence(
   workspaceId: string,
@@ -202,7 +220,9 @@ export async function reviseEvidence(
   try {
     const revisionId = await db.$transaction(async (tx) => {
       let current = latest.id;
-      if (!sameContent(input, latest)) {
+      const scopeChanged = row.scope !== options.scope || row.targetJobId !== targetJobId;
+      const draftOverConfirmed = !options.confirm && latest.status === "CONFIRMED";
+      if (!sameContent(input, latest) || scopeChanged || draftOverConfirmed) {
         const created = await tx.candidateEvidenceRevision.create({
           data: { evidenceId: id, workspaceId, revisionNumber: latest.revisionNumber + 1, ...revisionData(input, options.confirm) },
           select: { id: true },
@@ -215,7 +235,6 @@ export async function reviseEvidence(
         });
         if (flipped.count === 0) throw new StaleEvidence();
       }
-      // Touch the item even for a scope-only change, so updatedAt moves.
       await tx.candidateEvidence.update({ where: { id }, data: { scope: options.scope, targetJobId } });
       return current;
     });

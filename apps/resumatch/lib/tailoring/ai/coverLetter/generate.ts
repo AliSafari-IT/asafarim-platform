@@ -144,10 +144,11 @@ export async function runCoverLetterProviderCall(
   let removedSentences = 0;
   let droppedParagraphs = 0;
   if (suggestion) {
-    // #929: confirmed evidence and the candidate's motivation are their own
-    // words, so a sentence built on them is grounded too.
-    const groundingText = [profileText, prompt.evidenceUsed, prompt.motivationUsed].filter(Boolean).join("\n");
-    const grounded = groundCoverLetterSuggestion(suggestion, groundingText, jobText, outputLanguage);
+    // #929: confirmed professional evidence backs claims like the profile
+    // does. Motivation only lets its own names and numbers through: wanting
+    // to mentor is not having mentored, so it never backs a claim.
+    const groundingText = [profileText, prompt.evidenceUsed].filter(Boolean).join("\n");
+    const grounded = groundCoverLetterSuggestion(suggestion, groundingText, jobText, outputLanguage, prompt.motivationUsed);
     suggestion = grounded.suggestion;
     removedSentences = grounded.removedClaimSentences;
     droppedParagraphs = grounded.tokenDroppedParagraphs;

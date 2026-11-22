@@ -122,13 +122,14 @@ test("an edit adds a revision and keeps the earlier one, and background is an ex
   await item.getByRole("button", { name: "Use for all applications" }).click();
   await expect(panel.getByText("Kept for all your applications.")).toBeVisible();
   const db = e2eDb();
-  const [stored] = await db.candidateEvidence.findMany({ where: { workspaceId }, include: { revisions: true } });
+  const [stored] = await db.candidateEvidence.findMany({ where: { workspaceId }, include: { revisions: { orderBy: { revisionNumber: "asc" } } } });
   expect(stored!.scope).toBe("BACKGROUND");
   expect(stored!.targetJobId).toBeNull();
-  expect(stored!.revisions).toHaveLength(1);
+  // Moving it adds a revision (same text), so an older tab can't undo it.
+  expect(stored!.revisions.map((r) => r.status)).toEqual(["CONFIRMED", "CONFIRMED"]);
   const firstRevision = stored!.revisions[0]!.id;
 
-  // Edit it: a second revision, confirmed again.
+  // Edit it: a third revision, confirmed again.
   await item.getByRole("button", { name: "Edit" }).click();
   const edit = panel.getByRole("form", { name: "Edit evidence" });
   await edit.getByLabel("What happened").fill("Ran the weekly on-call rota for a team of six.");
@@ -136,6 +137,7 @@ test("an edit adds a revision and keeps the earlier one, and background is an ex
   await expect(panel.getByText("Saved and confirmed. It will be used the next time you generate.")).toBeVisible();
   const revisions = await db.candidateEvidenceRevision.findMany({ where: { evidenceId: stored!.id }, orderBy: { revisionNumber: "asc" } });
   expect(revisions.map((r) => r.detail)).toEqual([
+    "Ran the weekly on-call rota for the web team.",
     "Ran the weekly on-call rota for the web team.",
     "Ran the weekly on-call rota for a team of six.",
   ]);
@@ -146,7 +148,7 @@ test("an edit adds a revision and keeps the earlier one, and background is an ex
   await panel.getByRole("form", { name: "Edit evidence" }).getByLabel("Title").fill("Changed my mind");
   await panel.getByRole("button", { name: "Cancel" }).click();
   await expect(panel.getByRole("form")).toHaveCount(0);
-  expect(await db.candidateEvidenceRevision.count({ where: { evidenceId: stored!.id } })).toBe(2);
+  expect(await db.candidateEvidenceRevision.count({ where: { evidenceId: stored!.id } })).toBe(3);
 
   // Delete, through the styled dialog.
   await item.getByRole("button", { name: "Delete" }).click();

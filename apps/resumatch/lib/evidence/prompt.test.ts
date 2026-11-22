@@ -6,6 +6,7 @@ import {
   renderMotivationEvidence,
   renderProfessionalEvidence,
   selectGenerationEvidence,
+  usedRevisionIds,
   type StoredEvidence,
 } from "./prompt";
 
@@ -51,6 +52,14 @@ describe("selectGenerationEvidence", () => {
     expect(renderProfessionalEvidence(selected)).toContain("[role: Backend developer at Acme]");
     expect(renderProfessionalEvidence(selected)).toContain("[no single role]");
     expect(renderMotivationEvidence(selected)).not.toContain("[");
+  });
+
+  it("a CV-only run does not depend on motivation", () => {
+    const fact = item();
+    const why = item({}, { kind: "MOTIVATION" });
+    const selected = selectGenerationEvidence([fact, why], "ws_1", "job_1", profile);
+    expect(usedRevisionIds(selected, false)).toEqual([fact.latest!.id]);
+    expect(usedRevisionIds(selected, true)).toEqual([fact.latest!.id, why.latest!.id]);
   });
 
   it("keeps whole items inside the budget and records only what it used", () => {

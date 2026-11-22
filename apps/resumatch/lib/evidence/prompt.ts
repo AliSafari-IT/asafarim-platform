@@ -43,8 +43,15 @@ export interface PromptEvidence {
 export interface GenerationEvidence {
   professional: PromptEvidence[];
   motivation: PromptEvidence[];
-  /** Every revision used, in prompt order. Goes into the request context. */
+  /** Every revision selected, in prompt order. Motivation is included;
+   *  use `usedRevisionIds` for what a run actually sent. */
   revisionIds: string[];
+}
+
+/** The revisions a run actually sent: motivation only reaches the letter,
+ *  so a CV-only run does not depend on it. */
+export function usedRevisionIds(evidence: GenerationEvidence, withLetter: boolean): string[] {
+  return (withLetter ? [...evidence.professional, ...evidence.motivation] : evidence.professional).map((item) => item.revisionId);
 }
 
 export const NO_EVIDENCE: GenerationEvidence = { professional: [], motivation: [], revisionIds: [] };

@@ -31,9 +31,12 @@ interface Draft {
   /** Index into `roles`, or "" for no single role. */
   role: string;
   scope: EvidenceScope;
+  /** The job an edited application item already belongs to; it stays there
+   *  unless the candidate moves it to background. Null: this job. */
+  jobId: string | null;
 }
 
-const EMPTY: Draft = { id: null, baseRevisionId: null, kind: "ACHIEVEMENT", title: "", detail: "", role: "", scope: "APPLICATION" };
+const EMPTY: Draft = { id: null, baseRevisionId: null, kind: "ACHIEVEMENT", title: "", detail: "", role: "", scope: "APPLICATION", jobId: null };
 
 function roleKey(ref: ExperienceRef): string {
   return JSON.stringify([ref.title, ref.employer, ref.startedOn]);
@@ -91,7 +94,7 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
       detail: draft.detail,
       experienceRef: role,
       scope: draft.scope,
-      targetJobId,
+      targetJobId: draft.jobId ?? targetJobId,
       confirm,
       ...(draft.id ? { baseRevisionId: draft.baseRevisionId } : {}),
     };
@@ -191,10 +194,13 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
       detail: item.detail,
       role: index >= 0 ? String(index) : "",
       scope: item.scope,
+      jobId: item.scope === "APPLICATION" ? item.targetJobId : null,
     });
   }
 
-  const forJob = items?.filter((item) => item.scope === "APPLICATION") ?? [];
+  const forJob = items?.filter((item) => item.scope === "APPLICATION" && item.targetJobId === targetJobId) ?? [];
+  // Saved for jobs never finished, or other applications: still managed here.
+  const otherJobs = items?.filter((item) => item.scope === "APPLICATION" && item.targetJobId !== targetJobId) ?? [];
   const background = items?.filter((item) => item.scope === "BACKGROUND") ?? [];
 
   function renderItem(item: EvidenceView) {
@@ -208,6 +214,11 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
           </span>
         </div>
         <p className="rm-evidence__detail">{item.detail}</p>
+        {item.excludedBecause === "other_job" ? (
+          <p className="rm-evidence__role">
+            {t("resumatch.evidence.otherJob.label")}: {item.jobTitle ?? t("resumatch.evidence.otherJob.untitled")}
+          </p>
+        ) : null}
         {item.experienceRef ? (
           <p className="rm-evidence__role">
             {t("resumatch.evidence.role.label")}: {item.experienceRef.employer ? `${item.experienceRef.title} · ${item.experienceRef.employer}` : item.experienceRef.title}
@@ -259,6 +270,12 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
           {forJob.length > 0 ? <ul className="rm-evidence__list">{forJob.map(renderItem)}</ul> : <p className="rm-evidence__hint">{t("resumatch.evidence.group.empty")}</p>}
           <h4 className="rm-evidence__group">{t("resumatch.evidence.group.background")}</h4>
           {background.length > 0 ? <ul className="rm-evidence__list">{background.map(renderItem)}</ul> : <p className="rm-evidence__hint">{t("resumatch.evidence.group.empty")}</p>}
+          {otherJobs.length > 0 ? (
+            <>
+              <h4 className="rm-evidence__group">{t("resumatch.evidence.group.otherJobs")}</h4>
+              <ul className="rm-evidence__list">{otherJobs.map(renderItem)}</ul>
+            </>
+          ) : null}
         </>
       ) : null}
 

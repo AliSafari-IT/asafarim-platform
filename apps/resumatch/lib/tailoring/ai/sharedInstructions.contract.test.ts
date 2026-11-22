@@ -245,6 +245,25 @@ describe("the application note reaches both prompts (#928)", () => {
       const without = await runCoverLetterProviderCall("ws_1", "job_1", buildProfileText(profile).text, jobText);
       expect(without.suggestion?.paragraphs).not.toContain(paragraph);
     });
+
+    it("motivation never backs a claim about experience", async () => {
+      providerName = "openai";
+      process.env.OPENAI_API_KEY = "test-key";
+      const wish = "I would love to grow into mentoring junior developers.";
+      const claim = "I have mentored junior developers for years.";
+      const letter = JSON.stringify({ greeting: "Dear Hiring Manager,", paragraphs: ["I built Node.js APIs on PostgreSQL.", `${claim} ${wish}`], signOff: "Kind regards," });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: letter } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }), text: async () => "" }),
+      );
+      const result = await runCoverLetterProviderCall("ws_1", "job_1", buildProfileText(profile).text, jobText, "formal", "standard", undefined, {}, null, null, {
+        evidence: null,
+        motivation: "- Motivation: Growth. I want to mentor junior developers.",
+      });
+      const text = result.suggestion?.paragraphs.join(" ") ?? "";
+      expect(text).not.toContain(claim);
+      expect(result.removedSentences).toBeGreaterThan(0);
+    });
   });
 });
 

@@ -140,6 +140,22 @@ describe("generate-preview request context (#928)", () => {
     expect((await res.json()).evidenceUsed).toBe(3);
   });
 
+  it("a CV-only run leaves motivation out of the context, since no prompt got it (#929)", async () => {
+    const at = new Date("2026-11-01T00:00:00Z");
+    const mk = (id: string, kind: string) => ({
+      id,
+      workspaceId: "ws_1",
+      scope: "BACKGROUND",
+      targetJobId: null,
+      createdAt: at,
+      updatedAt: at,
+      revisions: [{ id: `${id}_r1`, revisionNumber: 1, kind, title: id, detail: id, experienceRef: null, status: "CONFIRMED" }],
+    });
+    evidenceFindMany.mockResolvedValue([mk("fact", "PROJECT"), mk("why", "MOTIVATION")]);
+    await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1" }));
+    expect(previewCreate.mock.calls[0]![0].data.context.evidenceRevisionIds).toEqual(["fact_r1"]);
+  });
+
   it("without a letter: no letter call, no letter block, the letter defaults untouched", async () => {
     const res = await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1" }));
     expect(res.status).toBe(200);

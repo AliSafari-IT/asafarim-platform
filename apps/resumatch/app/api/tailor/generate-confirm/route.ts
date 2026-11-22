@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { loadGenerationEvidence } from "../../../../lib/evidence/store";
+import { usedRevisionIds } from "../../../../lib/evidence/prompt";
 import { getVersion } from "../../../../lib/profile/versions";
 import { mergeTailoringSuggestions, parseApprovedTailorSuggestions } from "../../../../lib/tailoring/ai/schema";
 import { buildCoverLetterContent } from "../../../../lib/tailoring/ai/coverLetter/generate";
@@ -154,7 +155,10 @@ async function confirmTailoring(request: Request): Promise<Response> {
       instructions: typeof instructions === "string" ? instructions : undefined,
       profileVersionConfirmed: version.isConfirmed,
       // #929: the evidence a run would use now must be the evidence this one used.
-      evidenceRevisionIds: (await loadGenerationEvidence(workspace.id, targetJobId, version.content)).revisionIds,
+      evidenceRevisionIds: usedRevisionIds(
+        await loadGenerationEvidence(workspace.id, targetJobId, version.content),
+        previewContext.coverLetter !== null,
+      ),
     });
     if (stale) {
       return NextResponse.json(

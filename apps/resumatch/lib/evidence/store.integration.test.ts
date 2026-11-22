@@ -77,7 +77,8 @@ describe.skipIf(!TEST_DB)("background evidence store (#929)", () => {
     expect((await store.loadGenerationEvidence(ws, job, profile)).revisionIds).toContain((draft as { revisionId: string }).revisionId);
 
     // Another workspace cannot see, confirm, edit or delete it.
-    expect(await store.listEvidence(other, job, profile)).toHaveLength(1);
+    expect((await store.listEvidence(other, job, profile)).map((v) => v.title)).toEqual(["Faster checkout"]);
+    expect((await store.listEvidence(other, job, profile))[0]!.detail).toBe("Someone else's.");
     expect((await store.confirmEvidence(other, (draft as { id: string }).id, (draft as { revisionId: string }).revisionId)).ok).toBe(false);
     expect(await store.deleteEvidence(other, (forJob as { id: string }).id)).toBe(false);
     // Nor attach it to its job.
@@ -126,14 +127,49 @@ describe.skipIf(!TEST_DB)("background evidence store (#929)", () => {
       input("Led the API migration.", { kind: "PROJECT", experienceRef: { title: "Backend developer", employer: "Acme", startedOn: "2021-03" } }),
       { scope: "BACKGROUND", targetJobId: null, confirm: true },
     );
-    // Same content: no new revision, just the new scope.
-    expect(promoted).toEqual({ ok: true, id: created.id, revisionId: created.revisionId });
-    expect((await store.loadGenerationEvidence(ws, job, profile)).revisionIds).toContain(created.revisionId);
+    // A scope change adds a revision (same text), so a tab still showing the
+    // old one is refused rather than silently moving it back.
+    if (!promoted.ok) throw new Error("promote failed");
+    expect(promoted.revisionId).not.toBe(created.revisionId);
+    expect((await store.loadGenerationEvidence(ws, job, profile)).revisionIds).toContain(promoted.revisionId);
+    const stale = await store.reviseEvidence(
+      ws,
+      created.id,
+      created.revisionId,
+      input("Led the API migration, edited in an old tab.", { kind: "PROJECT" }),
+      { scope: "APPLICATION", targetJobId: otherJob, confirm: true },
+    );
+    expect(stale).toEqual({ ok: false, error: "stale" });
 
     const otherProfile = parseProfileContent({ headline: "x", experience: [{ title: "Designer", employer: "Elsewhere" }] });
-    expect((await store.loadGenerationEvidence(ws, job, otherProfile)).revisionIds).not.toContain(created.revisionId);
+    expect((await store.loadGenerationEvidence(ws, job, otherProfile)).revisionIds).not.toContain(promoted.revisionId);
     const view = (await store.listEvidence(ws, job, otherProfile)).find((v) => v.id === created.id);
     expect(view?.excludedBecause).toBe("experience_missing");
+  });
+
+  it("saving as draft always leaves the item unused, even when only the scope changed", async () => {
+    const created = await store.createEvidence(ws, input("Only for the other job."), { scope: "APPLICATION", targetJobId: otherJob, confirm: true });
+    if (!created.ok) throw new Error("create failed");
+    const drafted = await store.reviseEvidence(ws, created.id, created.revisionId, input("Only for the other job."), {
+      scope: "BACKGROUND",
+      targetJobId: null,
+      confirm: false,
+    });
+    if (!drafted.ok) throw new Error("draft failed");
+    const used = (await store.loadGenerationEvidence(ws, job, profile)).revisionIds;
+    expect(used).not.toContain(drafted.revisionId);
+    expect(used).not.toContain(created.revisionId);
+    const latest = await db.candidateEvidenceRevision.findUniqueOrThrow({ where: { id: drafted.revisionId } });
+    expect(latest.status).toBe("DRAFT");
+  });
+
+  it("lists items saved for other jobs too, so unfinished applications stay manageable", async () => {
+    const created = await store.createEvidence(ws, input("Saved for a job never finished."), { scope: "APPLICATION", targetJobId: otherJob, confirm: false });
+    if (!created.ok) throw new Error("create failed");
+    const view = (await store.listEvidence(ws, job, profile)).find((v) => v.id === created.id);
+    expect(view).toMatchObject({ targetJobId: otherJob, excludedBecause: "other_job" });
+    // Never another workspace's.
+    expect((await store.listEvidence(other, job, profile)).some((v) => v.id === created.id)).toBe(false);
   });
 
   it("deleting an item removes every revision", async () => {
