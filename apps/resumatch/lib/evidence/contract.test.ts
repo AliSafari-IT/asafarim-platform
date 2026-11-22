@@ -43,10 +43,10 @@ describe("parseEvidenceInput (#929)", () => {
 });
 
 describe("containsContactDetails", () => {
-  it.each(["sam@example.test", "+32 470 12 34 56", "0470 12 34 56", "call 0470-123456"])("finds %s", (text) => {
+  it.each(["sam@example.test", "+32 470 12 34 56", "0470 12 34 56", "call 0470-123456", "Contact me at 415-555-2671.", "(415) 555 2671", "415.555.2671"])("finds %s", (text) => {
     expect(containsContactDetails(text)).toBe(true);
   });
-  it.each(["2019-2021", "from 2019 to 2021", "1,200,000 users", "cut costs 30%", "version 0.6.1"])("leaves %s alone", (text) => {
+  it.each(["2019-2021", "from 2019 to 2021", "1,200,000 users", "cut costs 30%", "version 0.6.1", "120 engineers in 3 teams", "2019-2021: 1,200 users"])("leaves %s alone", (text) => {
     expect(containsContactDetails(text)).toBe(false);
   });
 });

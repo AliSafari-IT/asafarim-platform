@@ -29,8 +29,10 @@ interface Draft {
   kind: EvidenceKind;
   title: string;
   detail: string;
-  /** Index into `roles`, "" for no single role, or KEPT_ROLE for the
-   *  edited item's own link when the profile no longer lists that role. */
+  /** The chosen role's roleKey, "" for no single role, or KEPT_ROLE for
+   *  the edited item's own link when the profile no longer lists that role.
+   *  A key, not a list index, so a profile change while the form is open
+   *  cannot move the link to another role. */
   role: string;
   /** The edited item's role link, kept as it is unless the candidate picks another. */
   keptRef: ExperienceRef | null;
@@ -114,7 +116,7 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
         ? null
         : draft.role === KEPT_ROLE
           ? draft.keptRef
-          : (roles[Number(draft.role)] ?? null);
+          : (roles.find((r) => roleKey(r) === draft.role) ?? null);
     const payload = {
       kind: draft.kind,
       title: draft.title,
@@ -136,9 +138,12 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
       } else if (result.data?.code === "EVIDENCE_STALE") {
         // Keep what the candidate typed; point it at the latest revision so
         // the next save is a deliberate one over what is there now.
-        const latest = (await load())?.find((item) => item.id === draft.id);
+        const refreshed = await load();
+        const latest = refreshed?.find((item) => item.id === draft.id);
         if (latest) setDraft({ ...draft, baseRevisionId: latest.revisionId });
-        else setDraft({ ...draft, id: null, baseRevisionId: null });
+        // Only a successful refresh can show the item is gone; a failed one
+        // keeps the id, so the next save can't create a duplicate.
+        else if (refreshed) setDraft({ ...draft, id: null, baseRevisionId: null });
         setError(t("resumatch.evidence.error.stale"));
       } else {
         setError(result.data?.error ?? t("resumatch.evidence.error.save"));
@@ -211,6 +216,7 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
 
   function edit(item: EvidenceView) {
     const index = item.experienceRef ? roleIndexFor(roles, item.experienceRef) : -1;
+    const matched = index >= 0 ? roles[index] : undefined;
     setNotice(null);
     setError(null);
     setDraft({
@@ -219,7 +225,7 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
       kind: item.kind,
       title: item.title,
       detail: item.detail,
-      role: index >= 0 ? String(index) : item.experienceRef ? KEPT_ROLE : "",
+      role: matched ? roleKey(matched) : item.experienceRef ? KEPT_ROLE : "",
       keptRef: item.experienceRef,
       scope: item.scope,
       jobId: item.scope === "APPLICATION" ? item.targetJobId : null,
@@ -316,6 +322,8 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
             void save(true);
           }}
         >
+          {/* Locked while a save is in flight, so nothing typed meanwhile is lost. */}
+          <fieldset className="rm-evidence__fields" disabled={busy}>
           <label className="jm-field">
             <span>{t("resumatch.evidence.form.kind")}</span>
             <select
@@ -361,8 +369,8 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
               <span>{t("resumatch.evidence.form.role")}</span>
               <select className="ui-input ui-select" value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })}>
                 <option value="">{t("resumatch.evidence.form.noRole")}</option>
-                {roles.map((role, index) => (
-                  <option key={roleKey(role)} value={String(index)}>
+                {roles.map((role) => (
+                  <option key={roleKey(role)} value={roleKey(role)}>
                     {roleLabel(role)}
                   </option>
                 ))}
@@ -404,6 +412,7 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
               {t("resumatch.evidence.form.cancel")}
             </Button>
           </div>
+          </fieldset>
         </form>
       ) : (
         <Button

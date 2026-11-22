@@ -172,6 +172,27 @@ describe.skipIf(!TEST_DB)("background evidence store (#929)", () => {
     expect((await store.listEvidence(other, job, profile)).some((v) => v.id === created.id)).toBe(false);
   });
 
+  it("two saves racing on one revision: exactly one wins, the other is stale", async () => {
+    const created = await store.createEvidence(ws, input("Racing."), { scope: "APPLICATION", targetJobId: job, confirm: false });
+    if (!created.ok) throw new Error("create failed");
+    // One tab moves it to background (a new revision); the other only
+    // confirms the same text. Neither may act on a revision the other replaced.
+    const [moved, confirmed] = await Promise.all([
+      store.reviseEvidence(ws, created.id, created.revisionId, input("Racing."), { scope: "BACKGROUND", targetJobId: null, confirm: false }),
+      store.confirmEvidence(ws, created.id, created.revisionId),
+    ]);
+    const outcomes = [moved, confirmed].map((r) => (r.ok ? "ok" : r.error)).sort();
+    expect(outcomes).toEqual(["ok", "stale"].sort());
+    const stored = await db.candidateEvidence.findUniqueOrThrow({ where: { id: created.id }, include: { revisions: { orderBy: { revisionNumber: "asc" } } } });
+    if (moved.ok) {
+      expect(stored.scope).toBe("BACKGROUND");
+      expect(stored.revisions.map((r) => r.status)).toEqual(["DRAFT", "DRAFT"]);
+    } else {
+      expect(stored.scope).toBe("APPLICATION");
+      expect(stored.revisions.map((r) => r.status)).toEqual(["CONFIRMED"]);
+    }
+  });
+
   it("deleting an item removes every revision", async () => {
     const created = await store.createEvidence(ws, input("To delete."), { scope: "BACKGROUND", targetJobId: null, confirm: true });
     if (!created.ok) throw new Error("create failed");

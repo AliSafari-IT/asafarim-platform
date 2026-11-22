@@ -129,9 +129,24 @@ export type EvidenceWriteError = "not_found" | "job_not_found" | "stale" | "too_
 
 export type EvidenceWriteResult = { ok: true; id: string; revisionId: string } | { ok: false; error: EvidenceWriteError };
 
-async function jobBelongs(workspaceId: string, targetJobId: string): Promise<boolean> {
-  const job = await getJobmatchDb().targetJob.findFirst({ where: { id: targetJobId, workspaceId }, select: { id: true } });
+type Tx = Parameters<Parameters<ReturnType<typeof getJobmatchDb>["$transaction"]>[0]>[0];
+type Client = ReturnType<typeof getJobmatchDb> | Tx;
+
+async function jobBelongs(db: Client, workspaceId: string, targetJobId: string): Promise<boolean> {
+  const job = await db.targetJob.findFirst({ where: { id: targetJobId, workspaceId }, select: { id: true } });
   return job !== null;
+}
+
+/**
+ * Locks the item's row for the rest of the transaction and reads its latest
+ * revision under that lock. Every write that checks "is this still the
+ * latest revision?" goes through here, so a concurrent save waits instead
+ * of acting on a revision that has since been replaced.
+ */
+async function lockForWrite(tx: Tx, workspaceId: string, id: string): Promise<Row | null> {
+  const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM candidate_evidence WHERE id = ${id} AND "workspaceId" = ${workspaceId} FOR UPDATE`;
+  if (locked.length === 0) return null;
+  return (await tx.candidateEvidence.findFirst({ where: { id, workspaceId }, include: { revisions: latestRevision } })) as Row | null;
 }
 
 function revisionData(input: EvidenceInput, confirm: boolean) {
@@ -152,7 +167,7 @@ export async function createEvidence(
 ): Promise<EvidenceWriteResult> {
   const db = getJobmatchDb();
   const targetJobId = options.scope === "APPLICATION" ? options.targetJobId : null;
-  if (options.scope === "APPLICATION" && (!targetJobId || !(await jobBelongs(workspaceId, targetJobId)))) {
+  if (options.scope === "APPLICATION" && (!targetJobId || !(await jobBelongs(db, workspaceId, targetJobId)))) {
     return { ok: false, error: "job_not_found" };
   }
   if ((await db.candidateEvidence.count({ where: { workspaceId } })) >= MAX_EVIDENCE_ITEMS) {
@@ -203,22 +218,18 @@ export async function reviseEvidence(
   input: EvidenceInput,
   options: { scope: EvidenceScope; targetJobId: string | null; confirm: boolean },
 ): Promise<EvidenceWriteResult> {
-  const db = getJobmatchDb();
-  const row = (await db.candidateEvidence.findFirst({
-    where: { id, workspaceId },
-    include: { revisions: latestRevision },
-  })) as Row | null;
-  const latest = row?.revisions[0];
-  if (!row || !latest) return { ok: false, error: "not_found" };
-  if (latest.id !== baseRevisionId) return { ok: false, error: "stale" };
-
-  const targetJobId = options.scope === "APPLICATION" ? (options.targetJobId ?? row.targetJobId) : null;
-  if (options.scope === "APPLICATION" && (!targetJobId || !(await jobBelongs(workspaceId, targetJobId)))) {
-    return { ok: false, error: "job_not_found" };
-  }
-
   try {
-    const revisionId = await db.$transaction(async (tx) => {
+    const result = await getJobmatchDb().$transaction(async (tx): Promise<EvidenceWriteResult> => {
+      const row = await lockForWrite(tx, workspaceId, id);
+      const latest = row?.revisions[0];
+      if (!row || !latest) return { ok: false, error: "not_found" };
+      if (latest.id !== baseRevisionId) return { ok: false, error: "stale" };
+
+      const targetJobId = options.scope === "APPLICATION" ? (options.targetJobId ?? row.targetJobId) : null;
+      if (options.scope === "APPLICATION" && (!targetJobId || !(await jobBelongs(tx, workspaceId, targetJobId)))) {
+        return { ok: false, error: "job_not_found" };
+      }
+
       let current = latest.id;
       const scopeChanged = row.scope !== options.scope || row.targetJobId !== targetJobId;
       const draftOverConfirmed = !options.confirm && latest.status === "CONFIRMED";
@@ -229,46 +240,35 @@ export async function reviseEvidence(
         });
         current = created.id;
       } else if (options.confirm && latest.status === "DRAFT") {
-        const flipped = await tx.candidateEvidenceRevision.updateMany({
-          where: { id: latest.id, workspaceId, status: "DRAFT" },
-          data: { status: "CONFIRMED", confirmedAt: new Date() },
-        });
-        if (flipped.count === 0) throw new StaleEvidence();
+        await tx.candidateEvidenceRevision.update({ where: { id: latest.id }, data: { status: "CONFIRMED", confirmedAt: new Date() } });
       }
       await tx.candidateEvidence.update({ where: { id }, data: { scope: options.scope, targetJobId } });
-      return current;
+      return { ok: true, id, revisionId: current };
     });
-    await recordAuditEvent(workspaceId, "evidence.revised", { kind: input.kind, scope: options.scope, confirmed: options.confirm });
-    return { ok: true, id, revisionId };
+    if (result.ok) await recordAuditEvent(workspaceId, "evidence.revised", { kind: input.kind, scope: options.scope, confirmed: options.confirm });
+    return result;
   } catch (error) {
-    // Two saves on the same base: the second one's revision number is taken.
-    if (error instanceof StaleEvidence || isUniqueViolation(error)) return { ok: false, error: "stale" };
+    // Belt and braces: two saves on the same base can't both add a revision.
+    if (isUniqueViolation(error)) return { ok: false, error: "stale" };
     throw error;
   }
 }
 
-class StaleEvidence extends Error {}
-
 /** Confirms the item's latest revision. Idempotent; `stale` when the
  *  revision shown is no longer the latest. */
 export async function confirmEvidence(workspaceId: string, id: string, revisionId: string): Promise<EvidenceWriteResult> {
-  const db = getJobmatchDb();
-  const row = (await db.candidateEvidence.findFirst({
-    where: { id, workspaceId },
-    include: { revisions: latestRevision },
-  })) as Row | null;
-  const latest = row?.revisions[0];
-  if (!row || !latest) return { ok: false, error: "not_found" };
-  if (latest.id !== revisionId) return { ok: false, error: "stale" };
-  if (latest.status === "DRAFT") {
-    await db.candidateEvidenceRevision.updateMany({
-      where: { id: revisionId, workspaceId, status: "DRAFT" },
-      data: { status: "CONFIRMED", confirmedAt: new Date() },
-    });
-    await db.candidateEvidence.update({ where: { id }, data: {} });
-    await recordAuditEvent(workspaceId, "evidence.confirmed", { kind: latest.kind });
-  }
-  return { ok: true, id, revisionId };
+  const outcome = await getJobmatchDb().$transaction(async (tx) => {
+    const row = await lockForWrite(tx, workspaceId, id);
+    const latest = row?.revisions[0];
+    if (!row || !latest) return { result: { ok: false, error: "not_found" } as EvidenceWriteResult, confirmed: null };
+    if (latest.id !== revisionId) return { result: { ok: false, error: "stale" } as EvidenceWriteResult, confirmed: null };
+    if (latest.status !== "DRAFT") return { result: { ok: true, id, revisionId } as EvidenceWriteResult, confirmed: null };
+    await tx.candidateEvidenceRevision.update({ where: { id: revisionId }, data: { status: "CONFIRMED", confirmedAt: new Date() } });
+    await tx.candidateEvidence.update({ where: { id }, data: {} });
+    return { result: { ok: true, id, revisionId } as EvidenceWriteResult, confirmed: latest.kind };
+  });
+  if (outcome.confirmed) await recordAuditEvent(workspaceId, "evidence.confirmed", { kind: outcome.confirmed });
+  return outcome.result;
 }
 
 /** Deletes the item and every revision. Saved CVs keep their own text and

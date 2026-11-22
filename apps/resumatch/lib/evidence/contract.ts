@@ -58,11 +58,14 @@ const EMAIL = /[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/i;
 /** A phone number: starts with + or 0 and has at least 9 digits. Date
  *  ranges ("2019-2021") and plain counts ("1,200 users") do not match. */
 const PHONE_CANDIDATE = /(?:\+|\b0)\d[\d\s().-]{6,}\d/g;
+/** A national number without a prefix, grouped 3-3-4: "415-555-2671",
+ *  "(415) 555 2671", "415.555.2671". */
+const PHONE_NATIONAL = /(?:\(\d{3}\)\s?|\b\d{3}[\s.-])\d{3}[\s.-]\d{4}\b/;
 
 /** Evidence goes to an AI provider, so it must not carry contact details
  *  (buildProfileText keeps email and phone out of prompts for the same reason). */
 export function containsContactDetails(text: string): boolean {
-  if (EMAIL.test(text)) return true;
+  if (EMAIL.test(text) || PHONE_NATIONAL.test(text)) return true;
   for (const match of text.matchAll(PHONE_CANDIDATE)) {
     if ((match[0].match(/\d/g) ?? []).length >= 9) return true;
   }
