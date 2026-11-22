@@ -35,7 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     return NextResponse.json({ pdfs: describePdfStatus(result.status), created: result.created });
   } catch (error) {
-    logError("documentPdf.create.failed", error, { tailoredResumeId: id });
+    logError("documentPdf.create.failed", error, { tailoringId: id });
     return NextResponse.json({ error: ERRORS.render_failed[1], code: "render_failed" }, { status: 500 });
   }
 }

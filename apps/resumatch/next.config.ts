@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
   turbopack: { root: path.resolve(appRoot, "../..") },
   transpilePackages: ["@asafarim/ui", "@asafarim/theme-toggle", "@asafarim/auth", "@asafarim/db", "@asafarim/ai-cost-ledger"],
   devIndicators: false,
+  // playwright-core reads files the tracer cannot see (browsers.json via a
+  // computed require), so the standalone build copied it half-complete and
+  // every server-side PDF failed with MODULE_NOT_FOUND in production. The
+  // route that launches Chromium gets the whole package.
+  outputFileTracingIncludes: {
+    "/api/tailor/\\[id\\]/pdfs": ["./node_modules/playwright-core/**/*"],
+  },
 };
 
 export default nextConfig;
