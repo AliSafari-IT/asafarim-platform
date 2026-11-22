@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-11-22",
+    "title": "Resumatch: fluent skills paragraph; saved applications ready to send (0.3.1)",
+    "sha": "d10c4cc1",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/d10c4cc1"
+  },
+  {
     "date": "2026-11-21",
     "title": "Resumatch: send an application by email, with an immutable sent history (0.3.0)",
     "sha": "909ce9d3",
@@ -112,11 +118,5 @@
     "title": "Resumatch: flag thin job-posting fetches with a quality signal",
     "sha": "88bda18c",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/88bda18c"
-  },
-  {
-    "date": "2026-10-17",
-    "title": "Resumatch: read JobPosting JSON-LD before the page text strip",
-    "sha": "55e4b44a",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/55e4b44a"
   }
 ]
