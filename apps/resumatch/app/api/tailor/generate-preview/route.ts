@@ -3,9 +3,14 @@ import { NextResponse } from "next/server";
 import { runTailorProviderCall } from "../../../../lib/tailoring/ai/generate";
 import { MAX_INSTRUCTIONS_CHARS } from "../../../../lib/tailoring/ai/prompts";
 import { runCoverLetterProviderCall } from "../../../../lib/tailoring/ai/coverLetter/generate";
-import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES } from "../../../../lib/tailoring/ai/coverLetter/prompts";
+import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES, type CoverLetterLength, type CoverLetterTone } from "../../../../lib/tailoring/ai/coverLetter/prompts";
 import { buildProfileText } from "../../../../lib/tailoring/buildProfileText";
 import { assessJobFit } from "../../../../lib/tailoring/jobFit";
+import {
+  resolveTailoringContext,
+  tailoringContextFingerprint,
+  TAILORING_CONTEXT_VERSION,
+} from "../../../../lib/tailoring/context";
 import { isOutputLanguage } from "../../../../lib/tailoring/language";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getVersion } from "../../../../lib/profile/versions";
@@ -122,13 +127,28 @@ export async function POST(request: Request) {
     );
   }
   const cvLanguage = isOutputLanguage(outputLanguage) ? outputLanguage : null;
-  // #642: the letter defaults to the language of the CV it's paired with.
-  const letterLanguage =
-    includeCoverLetter === true
-      ? isOutputLanguage(coverLetterOutputLanguage)
-        ? coverLetterOutputLanguage
-        : cvLanguage
-      : null;
+  // #928: one server-resolved context for the whole run. The CV and the
+  // letter get the same note, job text and profile version from it, and
+  // the preview keeps it as an immutable snapshot for generate-confirm.
+  const context = resolveTailoringContext({
+    workspaceId: workspace.id,
+    profileVersionId,
+    targetJobId,
+    jobRawText: targetJob.rawText,
+    instructions: typeof instructions === "string" ? instructions : null,
+    lowFit,
+    cvLanguage,
+    coverLetter:
+      includeCoverLetter === true
+        ? {
+            tone: coverLetterTone as CoverLetterTone | undefined,
+            length: coverLetterLength as CoverLetterLength | undefined,
+            // #642: the letter defaults to the language of the CV it's paired with.
+            outputLanguage: isOutputLanguage(coverLetterOutputLanguage) ? coverLetterOutputLanguage : undefined,
+          }
+        : null,
+  });
+  const letterLanguage = context.coverLetter ? context.coverLetter.outputLanguage : null;
   // Minted up front so both provider calls' cost events can name this
   // preview as their subject and share it as their workflow id (issue
   // #586) — two separate line items, one user action.
@@ -147,26 +167,26 @@ export async function POST(request: Request) {
     targetJobId,
     profile,
     targetJob.rawText,
-    typeof instructions === "string" ? instructions : null,
+    context.instructions,
     undefined,
     cost,
-    cvLanguage,
-    lowFit,
+    context.cv.outputLanguage,
+    context.lowFit,
   );
-  const coverLetterResult =
-    includeCoverLetter === true
-      ? await runCoverLetterProviderCall(
-          workspace.id,
-          targetJobId,
-          buildProfileText(profile).text,
-          targetJob.rawText,
-          coverLetterTone as never,
-          coverLetterLength as never,
-          undefined,
-          cost,
-          letterLanguage,
-        )
-      : null;
+  const coverLetterResult = context.coverLetter
+    ? await runCoverLetterProviderCall(
+        workspace.id,
+        targetJobId,
+        buildProfileText(profile).text,
+        targetJob.rawText,
+        context.coverLetter.tone,
+        context.coverLetter.length,
+        undefined,
+        cost,
+        context.coverLetter.outputLanguage,
+        context.instructions,
+      )
+    : null;
   const { suggestions, degraded, promptVersion, modelVersion } = tailorResult;
 
   // The server's own record of what this preview actually did (issue #525)
@@ -186,6 +206,9 @@ export async function POST(request: Request) {
       coverLetterDegraded: coverLetterResult ? coverLetterResult.degraded : null,
       outputLanguage: cvLanguage,
       coverLetterOutputLanguage: letterLanguage,
+      contextVersion: TAILORING_CONTEXT_VERSION,
+      context: context as never,
+      contextFingerprint: tailoringContextFingerprint(context),
     },
     select: { id: true },
   });
@@ -196,7 +219,7 @@ export async function POST(request: Request) {
     promptVersion,
     modelVersion,
     suggestions,
-    instructions: typeof instructions === "string" ? instructions : null,
+    instructions: context.instructions,
     outputLanguage: cvLanguage,
     lowFit,
     coverLetter: coverLetterResult

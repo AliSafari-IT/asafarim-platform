@@ -368,6 +368,10 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     await tx.applicationEmailDraft.deleteMany({ where: { workspaceId } });
     if (removedPdfIds.length > 0) await tx.documentPdf.deleteMany({ where: { workspaceId, id: { in: removedPdfIds } } });
     const tailoredResumes = await tx.tailoredResume.deleteMany({ where: { workspaceId } });
+    // Previews hold the request context (#928): the candidate's note and a
+    // copy of the job text, even when nothing was saved. The workspace row
+    // stays, so they would not cascade; they go with the rest.
+    await tx.tailorPreview.deleteMany({ where: { workspaceId } });
     const targetJobs = await tx.targetJob.deleteMany({ where: { workspaceId } });
 
     if (profile) {

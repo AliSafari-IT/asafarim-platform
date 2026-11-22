@@ -54,13 +54,15 @@ export async function runCoverLetterProviderCall(
   cost: Partial<Pick<CostAttribution, "subjectType" | "subjectId" | "workflowId">> = {},
   /** #642 — the language to write the letter in; null for no rule. */
   outputLanguage: OutputLanguage | null = null,
+  /** #928 — the application note the CV prompt also gets. */
+  instructions: string | null = null,
 ): Promise<CoverLetterProviderCallResult> {
   const primaryName = providerOverride ?? getEnv().aiProvider;
   // Issue #511: RESUMATCH_AI_FALLBACK_PROVIDER, if set.
   const fallbackName = resolveFallbackProvider(primaryName);
   let providerName: ResuMatchAiProvider = primaryName;
   let modelVersion = COVER_LETTER_MODEL_VERSIONS[primaryName];
-  const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length, outputLanguage);
+  const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length, outputLanguage, instructions);
 
   let suggestion: CoverLetterSuggestion | null = null;
   let degraded = false;
@@ -99,6 +101,7 @@ export async function runCoverLetterProviderCall(
         user: prompt.user,
         promptVersion: prompt.version,
         model: modelVersion,
+        instructions: prompt.instructionsUsed,
       });
       await recordUsage({
         workspaceId,

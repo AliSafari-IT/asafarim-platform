@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildRegenerateSeed, type RegenerateSourceRow } from "./regenerate";
+import { contextForSavedCv, resolveTailoringContext } from "./context";
 
 const base: RegenerateSourceRow = {
   id: "cv_1",
@@ -31,6 +32,30 @@ describe("buildRegenerateSeed", () => {
   it("keeps a letter language only when it differed from the CV", () => {
     expect(buildRegenerateSeed({ ...base, coverLetter: { outputLanguage: "nl" } }, false).coverLetterLanguage).toBeNull();
     expect(buildRegenerateSeed({ ...base, coverLetter: { outputLanguage: "fr" } }, false).coverLetterLanguage).toBe("fr");
+  });
+
+  it("restores the letter's tone and length from the CV's stored context (#928)", () => {
+    const tailoringContext = contextForSavedCv(
+      resolveTailoringContext({
+        workspaceId: "ws_1",
+        profileVersionId: "pv_1",
+        targetJobId: "job_1",
+        jobRawText: "job",
+        instructions: "Lead with backend work",
+        lowFit: false,
+        cvLanguage: "nl",
+        coverLetter: { tone: "confident", length: "short" },
+      }),
+    );
+    const seed = buildRegenerateSeed({ ...base, coverLetter: { outputLanguage: "nl" }, tailoringContext }, false);
+    expect(seed.coverLetterTone).toBe("confident");
+    expect(seed.coverLetterLength).toBe("short");
+  });
+
+  it("leaves tone and length to the flow's defaults for a CV saved before 0.6.0", () => {
+    const seed = buildRegenerateSeed({ ...base, tailoringContext: null }, false);
+    expect(seed.coverLetterTone).toBeNull();
+    expect(seed.coverLetterLength).toBeNull();
   });
 
   it("ignores unknown or missing stored values", () => {

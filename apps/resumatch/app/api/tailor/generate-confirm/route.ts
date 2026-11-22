@@ -7,6 +7,7 @@ import { parseCoverLetterSuggestion } from "../../../../lib/tailoring/ai/coverLe
 import { getCurrentWorkspace, recordAuditEvent } from "../../../../lib/workspace";
 import { appliedCoverLetterLanguage, appliedOutputLanguage } from "../../../../lib/tailoring/language";
 import { logError } from "../../../../lib/observability/logger";
+import { contextForSavedCv, parseStoredTailoringContext, staleContextReason } from "../../../../lib/tailoring/context";
 import {
   applyCandidateEdits,
   hasCandidateEdits,
@@ -129,9 +130,47 @@ async function confirmTailoring(request: Request): Promise<Response> {
   const db = getJobmatchDb();
   const targetJob = await db.targetJob.findFirst({
     where: { id: targetJobId, workspaceId: workspace.id },
-    select: { id: true },
+    select: { id: true, rawText: true },
   });
   if (!targetJob) return NextResponse.json({ error: "Job not found." }, { status: 404 });
+
+  // #928: a preview made with a request context can only back a save while
+  // that context still holds: same job text and the same note. Read before
+  // the claim, so a stale preview is refused without being used up. The
+  // lookup is workspace-scoped, so another workspace's preview id reads as
+  // missing. Legacy previews (no context) confirm exactly as before.
+  const storedPreview = await db.tailorPreview.findFirst({
+    where: { id: previewId, workspaceId: workspace.id },
+    select: { context: true },
+  });
+  const previewContext = parseStoredTailoringContext(storedPreview?.context ?? null);
+  if (previewContext) {
+    const stale = staleContextReason(previewContext, {
+      workspaceId: workspace.id,
+      profileVersionId,
+      targetJobId,
+      jobRawText: targetJob.rawText,
+      instructions: typeof instructions === "string" ? instructions : undefined,
+      profileVersionConfirmed: version.isConfirmed,
+    });
+    if (stale) {
+      return NextResponse.json(
+        {
+          error:
+            stale === "job_text"
+              ? "The job text changed after these suggestions were made. Generate them again."
+              : stale === "instructions"
+                ? "Your note changed after these suggestions were made. Generate them again."
+                : stale === "profile_version"
+                  ? "Your confirmed profile changed after these suggestions were made. Generate them again."
+                : "That preview is missing, expired, or already used. Generate a new one.",
+          code: "PREVIEW_CONTEXT_STALE",
+          reason: stale,
+        },
+        { status: 409 },
+      );
+    }
+  }
 
   // Everything that validates what the candidate sent happens before the
   // preview is claimed below, so a review that cannot be saved as written
@@ -239,7 +278,14 @@ async function confirmTailoring(request: Request): Promise<Response> {
         promptVersion,
         modelVersion,
         degraded,
-        instructions: typeof instructions === "string" ? instructions.trim() || null : null,
+        // #928: the note the provider calls actually got, from the server's
+        // snapshot. Only a legacy preview still takes the client's echo.
+        instructions: previewContext
+          ? previewContext.instructions
+          : typeof instructions === "string"
+            ? instructions.trim() || null
+            : null,
+        tailoringContext: previewContext ? (contextForSavedCv(previewContext) as never) : undefined,
         candidateEdits: hasCandidateEdits(candidateEdits) ? candidateEdits : undefined,
         // #641: from the server's preview record, never the client — and only
         // if some AI-written prose was kept (see appliedOutputLanguage).

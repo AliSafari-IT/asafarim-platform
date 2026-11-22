@@ -272,8 +272,8 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
     () => seed?.cvLanguage ?? outputLanguageFromLocale(pageLocale),
   );
   const [includeCoverLetter, setIncludeCoverLetter] = useState(seed?.includeCoverLetter ?? false);
-  const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">("formal");
-  const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">("standard");
+  const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">(seed?.coverLetterTone ?? "formal");
+  const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">(seed?.coverLetterLength ?? "standard");
   // #642: null means "same as the CV", so the letter keeps following the CV
   // language until the candidate picks a different one on purpose.
   const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(seed?.coverLetterLanguage ?? null);
@@ -739,7 +739,10 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
           // Keep the review (and every hand edit) open so the candidate can
           // fix it or just press Save again: a refused or failed write hands
           // the preview back. Only a used-up preview (409) can't be retried.
-          if (res.status !== 409 || editOf) {
+          // A stale one (#928: the job text or note changed) can't be saved
+          // either, but the review stays so its edits can still be copied
+          // before "Back to options" runs it again.
+          if (res.status !== 409 || editOf || body?.code === "PREVIEW_CONTEXT_STALE") {
             setState({ kind: "reviewing", review, saveError: message });
             return;
           }

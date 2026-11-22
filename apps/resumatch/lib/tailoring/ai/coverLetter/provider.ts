@@ -12,6 +12,9 @@ export interface CoverLetterProviderCall {
   user: string;
   promptVersion: string;
   model: string;
+  /** The candidate's application note (#928), already capped and fenced
+   *  into `user`; carried separately only so a provider can inspect it. */
+  instructions?: string | null;
   signal?: AbortSignal;
 }
 

@@ -96,7 +96,7 @@ async function seed() {
       profileVersionId: version.id,
       targetJobId: job.id,
       tailoredResumeId: CV_WITH_LETTER_ID,
-      promptVersion: "cover_letter@4",
+      promptVersion: "cover_letter@5",
       modelVersion: "e2e",
       outputLanguage: "fr",
       content: {
