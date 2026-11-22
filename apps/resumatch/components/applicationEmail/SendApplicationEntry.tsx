@@ -13,9 +13,11 @@ import type { PdfStatusView } from "../../lib/documentPdfs/describe";
  *
  * - no CV: tailor one first (card only);
  * - no cover letter: add one;
- * - no PDFs yet: create them here (server-side, the same layout as the
- *   printed PDF);
- * - both PDFs: Send application.
+ * - otherwise: Send application, always. "Save to applications" already
+ *   made the PDFs; any still missing are made when the composer opens.
+ *   "Create PDFs" beside it is an optional refresh (server-side, the same
+ *   layout as the printed PDF); it only adds PDFs for documents that
+ *   changed.
  */
 export function SendApplicationEntry({
   tailoredResumeId,
@@ -35,19 +37,23 @@ export function SendApplicationEntry({
   const router = useRouter();
   const [phase, setPhase] = useState<"idle" | "creating" | "opening">("idle");
   const [error, setError] = useState<string | null>(null);
+  /** What the last "Create PDFs" did: new files, or nothing to redo. */
+  const [refreshed, setRefreshed] = useState<"created" | "current" | null>(null);
 
   async function createPdfs() {
     if (!tailoredResumeId) return;
     setPhase("creating");
     setError(null);
+    setRefreshed(null);
     try {
       const res = await fetch(`/api/tailor/${encodeURIComponent(tailoredResumeId)}/pdfs`, { method: "POST" });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; created?: string[] };
       if (!res.ok) {
         setError(data.error ?? t("resumatch.send.entry.pdfFailed"));
         setPhase("idle");
         return;
       }
+      setRefreshed(data.created && data.created.length > 0 ? "created" : "current");
       setPhase("idle");
       router.refresh();
     } catch {
@@ -101,39 +107,40 @@ export function SendApplicationEntry({
     );
   }
 
-  if (!pdfs?.ready) {
-    const missing = !pdfs?.cv && !pdfs?.letter ? "both" : !pdfs?.cv ? "cv" : "letter";
-    return (
-      <div className={className} data-testid="send-entry">
-        <span className="rm-send-entry__hint" id={`send-entry-hint-${tailoredResumeId}`}>
-          {t(`resumatch.send.entry.needPdfs.${missing}`)}
-        </span>
-        <Button
-          variant="secondary"
-          size={layout === "card" ? "sm" : "md"}
-          onClick={createPdfs}
-          disabled={phase !== "idle"}
-          aria-describedby={`send-entry-hint-${tailoredResumeId}`}
-        >
-          {phase === "creating" ? t("resumatch.send.entry.creatingPdfs") : t("resumatch.send.entry.createPdfs")}
-        </Button>
-        <span className="rm-save-status" role="status" aria-live="polite">
-          {phase === "creating" ? t("resumatch.send.entry.creatingPdfsLong") : ""}
-        </span>
-        {error ? (
-          <span className="rm-send-entry__error" role="alert">
-            {error}
-          </span>
-        ) : null}
-      </div>
-    );
-  }
-
+  // A CV with a cover letter can always be sent: PDFs made when it was saved
+  // to applications are attached, and missing ones are made when the
+  // composer opens. "Create PDFs" stays as an optional refresh, e.g. after
+  // the CV was edited.
+  const hintId = `send-entry-hint-${tailoredResumeId}`;
+  const stale = Boolean(pdfs?.ready && (pdfs.cv?.current === false || pdfs.letter?.current === false));
   return (
     <div className={className} data-testid="send-entry">
-      <Button variant={layout === "card" ? "secondary" : "primary"} size={layout === "card" ? "sm" : "md"} onClick={open} disabled={phase !== "idle"} data-testid="send-application">
+      <Button
+        variant={layout === "card" ? "secondary" : "primary"}
+        size={layout === "card" ? "sm" : "md"}
+        onClick={open}
+        disabled={phase !== "idle"}
+        data-testid="send-application"
+        aria-describedby={pdfs?.ready ? undefined : hintId}
+      >
         {phase === "opening" ? t("resumatch.send.entry.opening") : t("resumatch.send.entry.send")}
       </Button>
+      <Button
+        variant="ghost"
+        size={layout === "card" ? "sm" : "md"}
+        onClick={createPdfs}
+        disabled={phase !== "idle"}
+        data-testid="create-pdfs"
+        aria-describedby={hintId}
+      >
+        {phase === "creating" ? t("resumatch.send.entry.creatingPdfs") : t("resumatch.send.entry.createPdfs")}
+      </Button>
+      <span className={layout === "card" ? "rm-send-entry__hint" : "sr-only"} id={hintId}>
+        {!pdfs?.ready ? t("resumatch.send.entry.pdfsOnOpen") : stale ? t("resumatch.send.entry.pdfsStale") : t("resumatch.send.entry.pdfsReady")}
+      </span>
+      <span className="rm-save-status" role="status" aria-live="polite">
+        {phase === "creating" ? t("resumatch.send.entry.creatingPdfsLong") : refreshed ? t(`resumatch.send.entry.refreshed.${refreshed}`) : ""}
+      </span>
       {error ? (
         <span className="rm-send-entry__error" role="alert">
           {error}

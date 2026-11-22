@@ -52,6 +52,7 @@ export async function writeSkillsParagraph(
   const groups = groupSkillsForCv(content.skills, categoryOf).map(({ category, skills }) => ({
     label: category ? labels.skillCategories[category as SkillCategory] : "",
     skills,
+    category: category ?? null,
   }));
   // Only the headings the prompt actually showed back a word in the reply.
   const categoryLabels = groups.map((group) => group.label).filter(Boolean);

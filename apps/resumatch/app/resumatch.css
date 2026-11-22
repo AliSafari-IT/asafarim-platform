@@ -6020,3 +6020,11 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* "Save to applications" once saved: the status, then a link to the tracker. */
+.rm-save-application {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}

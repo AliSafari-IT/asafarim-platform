@@ -12,6 +12,14 @@ describe("checkSkillsParagraph", () => {
     expect(checkSkillsParagraph(text, base)).toEqual({ paragraph: text, removedSentences: 0, reasons: [] });
   });
 
+  it("keeps fluent prose that uses generic words like APIs and UI", () => {
+    const text =
+      "Builds web interfaces in TypeScript with Next.js, using React.js component design for a consistent UI. On the back end, designs APIs with ASP.NET Core and stores data in PostgreSQL. Ships with Docker and tests with Playwright.";
+    expect(checkSkillsParagraph(text, { ...base, categoryLabels: [] })).toEqual({ paragraph: text, removedSentences: 0, reasons: [] });
+    // Anything that could be a skill of its own still needs the list.
+    expect(checkSkillsParagraph("Designs REST APIs with ASP.NET Core.", base).paragraph).toBeNull();
+  });
+
   it("removes a sentence naming an unlisted tool, mid-sentence or (tech-shaped) first", () => {
     const result = checkSkillsParagraph(
       "Web development with React.js and Next.js. AWS hosting with Docker. Orchestration with Kubernetes.",

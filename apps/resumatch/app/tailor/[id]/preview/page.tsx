@@ -168,7 +168,12 @@ export default async function TailoredResumePreviewPage({
         <div className="rm-preview-toolbar__group">
           <PrintButton />
           <DocxButton id={id} />
-          <SaveApplicationButton targetJobId={row.targetJobId} tailoredResumeId={id} />
+          <SaveApplicationButton
+            targetJobId={row.targetJobId}
+            tailoredResumeId={id}
+            hasCoverLetter={Boolean(row.coverLetter)}
+            savedApplicationId={application?.id ?? null}
+          />
         </div>
         {row.coverLetter ? (
           <div className="rm-preview-toolbar__group">
