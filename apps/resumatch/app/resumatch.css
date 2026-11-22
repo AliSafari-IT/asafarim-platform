@@ -1180,6 +1180,14 @@
   gap: 0.4rem;
   margin-top: 0.4rem;
 }
+.rm-evidence__fields {
+  display: contents;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
 .rm-evidence__form {
   display: grid;
   gap: 0.5rem;

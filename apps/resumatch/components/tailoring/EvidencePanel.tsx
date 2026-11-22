@@ -29,18 +29,18 @@ interface Draft {
   kind: EvidenceKind;
   title: string;
   detail: string;
-  /** Index into `roles`, "" for no single role, or KEPT_ROLE for the
-   *  edited item's own link when the profile no longer lists that role. */
-  role: string;
-  /** The edited item's role link, kept as it is unless the candidate picks another. */
-  keptRef: ExperienceRef | null;
+  /** The chosen role as the candidate picked it, or null for no single
+   *  role. Kept as the reference itself, not a list position or key, so a
+   *  roles refresh while the form is open (a profile fix, a language
+   *  switch) only changes how it is shown, never what is saved. */
+  role: ExperienceRef | null;
   scope: EvidenceScope;
   /** The job an edited application item already belongs to; it stays there
    *  unless the candidate moves it to background. Null: this job. */
   jobId: string | null;
 }
 
-const EMPTY: Draft = { id: null, baseRevisionId: null, kind: "ACHIEVEMENT", title: "", detail: "", role: "", keptRef: null, scope: "APPLICATION", jobId: null };
+const EMPTY: Draft = { id: null, baseRevisionId: null, kind: "ACHIEVEMENT", title: "", detail: "", role: null, scope: "APPLICATION", jobId: null };
 
 const KEPT_ROLE = "kept";
 
@@ -62,6 +62,14 @@ function roleIndexFor(roles: ExperienceRef[], ref: ExperienceRef): number {
   const matches = roles.flatMap((r, index) => (sameExperience(r, ref) ? [index] : []));
   // Two stints match a date-less link: don't guess between them.
   return matches.length === 1 ? matches[0]! : -1;
+}
+
+/** The picker value showing a chosen role: its entry in the current list,
+ *  or KEPT_ROLE when the list has no single match for it. */
+function roleValue(roles: ExperienceRef[], role: ExperienceRef | null): string {
+  if (!role) return "";
+  const index = roleIndexFor(roles, role);
+  return index >= 0 ? roleKey(roles[index]!) : KEPT_ROLE;
 }
 
 export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId: string; onUsedCountChange?: (count: number) => void }) {
@@ -110,11 +118,7 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
     setError(null);
     setNotice(null);
     const role =
-      draft.kind === "MOTIVATION" || draft.role === ""
-        ? null
-        : draft.role === KEPT_ROLE
-          ? draft.keptRef
-          : (roles[Number(draft.role)] ?? null);
+      draft.kind === "MOTIVATION" ? null : draft.role;
     const payload = {
       kind: draft.kind,
       title: draft.title,
@@ -136,9 +140,12 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
       } else if (result.data?.code === "EVIDENCE_STALE") {
         // Keep what the candidate typed; point it at the latest revision so
         // the next save is a deliberate one over what is there now.
-        const latest = (await load())?.find((item) => item.id === draft.id);
+        const refreshed = await load();
+        const latest = refreshed?.find((item) => item.id === draft.id);
         if (latest) setDraft({ ...draft, baseRevisionId: latest.revisionId });
-        else setDraft({ ...draft, id: null, baseRevisionId: null });
+        // Only a successful refresh can show the item is gone; a failed one
+        // keeps the id, so the next save can't create a duplicate.
+        else if (refreshed) setDraft({ ...draft, id: null, baseRevisionId: null });
         setError(t("resumatch.evidence.error.stale"));
       } else {
         setError(result.data?.error ?? t("resumatch.evidence.error.save"));
@@ -210,7 +217,6 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
   }
 
   function edit(item: EvidenceView) {
-    const index = item.experienceRef ? roleIndexFor(roles, item.experienceRef) : -1;
     setNotice(null);
     setError(null);
     setDraft({
@@ -219,8 +225,9 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
       kind: item.kind,
       title: item.title,
       detail: item.detail,
-      role: index >= 0 ? String(index) : item.experienceRef ? KEPT_ROLE : "",
-      keptRef: item.experienceRef,
+      // The item's own link, as saved: the picker shows it against the
+      // current roles, and an unrelated edit never changes or drops it.
+      role: item.experienceRef,
       scope: item.scope,
       jobId: item.scope === "APPLICATION" ? item.targetJobId : null,
     });
@@ -316,12 +323,14 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
             void save(true);
           }}
         >
+          {/* Locked while a save is in flight, so nothing typed meanwhile is lost. */}
+          <fieldset className="rm-evidence__fields" disabled={busy}>
           <label className="jm-field">
             <span>{t("resumatch.evidence.form.kind")}</span>
             <select
               className="ui-input ui-select"
               value={draft.kind}
-              onChange={(e) => setDraft({ ...draft, kind: e.target.value as EvidenceKind, role: e.target.value === "MOTIVATION" ? "" : draft.role })}
+              onChange={(e) => setDraft({ ...draft, kind: e.target.value as EvidenceKind, role: e.target.value === "MOTIVATION" ? null : draft.role })}
             >
               {EVIDENCE_KINDS.map((kind) => (
                 <option key={kind} value={kind}>
@@ -359,15 +368,24 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
           {draft.kind !== "MOTIVATION" ? (
             <label className="jm-field">
               <span>{t("resumatch.evidence.form.role")}</span>
-              <select className="ui-input ui-select" value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })}>
+              <select
+                className="ui-input ui-select"
+                value={roleValue(roles, draft.role)}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    role: e.target.value === "" ? null : e.target.value === KEPT_ROLE ? draft.role : (roles.find((r) => roleKey(r) === e.target.value) ?? null),
+                  })
+                }
+              >
                 <option value="">{t("resumatch.evidence.form.noRole")}</option>
-                {roles.map((role, index) => (
-                  <option key={roleKey(role)} value={String(index)}>
+                {roles.map((role) => (
+                  <option key={roleKey(role)} value={roleKey(role)}>
                     {roleLabel(role)}
                   </option>
                 ))}
-                {draft.keptRef && roleIndexFor(roles, draft.keptRef) < 0 ? (
-                  <option value={KEPT_ROLE}>{t("resumatch.evidence.form.keptRole", { role: roleLabel(draft.keptRef) })}</option>
+                {draft.role && roleIndexFor(roles, draft.role) < 0 ? (
+                  <option value={KEPT_ROLE}>{t("resumatch.evidence.form.keptRole", { role: roleLabel(draft.role) })}</option>
                 ) : null}
               </select>
               <small>{t("resumatch.evidence.form.roleHelp")}</small>
@@ -404,6 +422,7 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
               {t("resumatch.evidence.form.cancel")}
             </Button>
           </div>
+          </fieldset>
         </form>
       ) : (
         <Button
