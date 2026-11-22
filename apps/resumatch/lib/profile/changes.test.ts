@@ -64,6 +64,28 @@ describe("profileHasChanges", () => {
     expect(profileHasChanges(saved, edited)).toBe(false);
   });
 
+  it("ignores a language code rewritten from an unchanged label", () => {
+    const edited = copy();
+    edited.languages[0] = { ...edited.languages[0], label: "English ", code: "english" };
+    expect(profileHasChanges(saved, edited)).toBe(false);
+  });
+
+  it("ignores a currency left behind by a cleared salary", () => {
+    const edited = copy();
+    edited.preferences.salaryCurrency = "EUR";
+    expect(profileHasChanges(saved, edited)).toBe(false);
+    edited.preferences.salaryFloor = 0;
+    expect(profileHasChanges(saved, edited)).toBe(true);
+  });
+
+  it("treats a respaced skill category as a change", () => {
+    const before = copy();
+    before.skills[1].category = "Frontend  Development";
+    const after = structuredClone(before);
+    after.skills[1].category = "Frontend Development";
+    expect(profileHasChanges(before, after)).toBe(true);
+  });
+
   it("is clean again after an edit is undone", () => {
     const edited = copy();
     edited.headline = "Full-stack developer and tester";

@@ -20,8 +20,11 @@ import { normalizeLinkUrl } from "./links";
  * - the order of preferred locations and contract types does not matter,
  *   because they are sets; the order of roles, education, certifications,
  *   links, languages and skills does, because it is the order on the CV;
- * - a skill's `rawLabel` is ignored: the form never shows it, and retyping
- *   the skills box rewrites it without changing anything visible.
+ * - a skill's `rawLabel` and a language's `code` are ignored: the form never
+ *   shows them, and editing the skills box or a language name rewrites them
+ *   without changing anything visible;
+ * - a skill's category is only trimmed, since grouping matches it exactly;
+ * - the salary currency only counts when there is a salary floor.
  *
  * No server or Node-only imports: the profile editor (a Client Component)
  * and the API route both use this file.
@@ -64,7 +67,6 @@ export function canonicalProfile(content: CandidateProfileContent): unknown {
     languages: (content.languages ?? [])
       .filter((language) => filled(language.label))
       .map((language) => ({
-        code: text(language.code)?.toLowerCase() ?? null,
         label: text(language.label),
         proficiency: language.proficiency ?? null,
       })),
@@ -73,7 +75,10 @@ export function canonicalProfile(content: CandidateProfileContent): unknown {
       .map((skill) => ({
         name: text(skill.name),
         yearsExperience: skill.yearsExperience ?? null,
-        category: text(skill.category),
+        // Trimmed only: a category is matched by its exact spelling when
+        // skills are grouped, so "Frontend  Development" and "Frontend
+        // Development" land in different groups.
+        category: skill.category?.trim() || null,
       })),
     experience: (content.experience ?? [])
       .filter((role) => filled(role.title))
@@ -105,7 +110,9 @@ export function canonicalProfile(content: CandidateProfileContent): unknown {
       remote: preferences.remote ?? null,
       contractTypes: sortedSet(preferences.contractTypes ?? []),
       salaryFloor: preferences.salaryFloor ?? null,
-      salaryCurrency: text(preferences.salaryCurrency),
+      // The form fills in EUR as soon as an amount is typed and keeps it
+      // when the amount is cleared; with no amount it means nothing.
+      salaryCurrency: preferences.salaryFloor == null ? null : text(preferences.salaryCurrency),
     },
   };
 }
