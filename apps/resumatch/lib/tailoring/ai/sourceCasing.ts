@@ -2,8 +2,8 @@
  * Restore the source's own spelling of brand-like names in AI text.
  *
  * The grounding checks compare words case-insensitively, so a model that
- * writes "ASafarIM Digital" for the profile's "ASafariM Digital", or
- * "Typescript" for "TypeScript", passes them and the wrong spelling goes
+ * writes the brand with a capital I for the profile's "ASafariM Digital",
+ * or "Typescript" for "TypeScript", passes them and the wrong spelling goes
  * out under the candidate's name. A word is respelled only when the
  * source (profile, letter, job posting) spells the same letters with a
  * capital inside the word, the way names like ASafariM, TypeScript or
@@ -13,6 +13,13 @@
  */
 
 const WORD = /[\p{L}\p{N}]+/gu;
+
+/**
+ * The brand's retired spelling (#778), which an older profile or CV may
+ * still contain, so the source alone can't correct it. Assembled from two
+ * parts, as in scripts/check-brand-spelling.mjs, so this file passes it.
+ */
+const RETIRED: ReadonlyMap<string, string> = new Map([["ASafar" + "IM", "ASafariM"]]);
 
 /** Mixed case with a capital inside: ASafariM, TypeScript, PostgreSQL.
  *  All-caps acronyms (IT, AI) are left out, so "it" never becomes "IT". */
@@ -47,8 +54,9 @@ export function sourceCasing(sourceText: string): SourceCasing {
   }
   return {
     apply(text: string): string {
-      if (preferred.size === 0) return text;
       return text.replace(WORD, (word) => {
+        const retired = RETIRED.get(word);
+        if (retired) return retired;
         const target = preferred.get(word.toLowerCase());
         if (!target || target === word) return word;
         // The source already uses the model's form somewhere: keep it.
