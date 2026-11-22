@@ -125,6 +125,7 @@ Builds depend on `^build` (packages must build before apps). When you change a s
 Docker Compose + Caddy reverse proxy on Hostinger VPS (`82.25.116.73`). GitHub Actions (`push to main`) builds only the images the push affects (`scripts/plan-image-builds.mjs` + `docker-bake.hcl`; a new image must be added to both), re-tags the rest from the last deploy, pushes to GHCR, then SSHes into the VPS and runs `infra/scripts/vps-deploy.sh`, which: decrypts env, pulls the images, runs migrations, restarts the stack, notifies Discord. See `docs/deployment.md`.
 
 ## Key Docs
+- **Resuming ResuMatch or platform work in a new session:** read `ventures/resumatch/SESSION-START.md` in the private `asafarim-docs` repo first. It lists what shipped, what is merged but unverified, open items and working conventions.
 - `docs/architecture.md` — Cross-app communication, RBAC layers, protection model
 - `docs/edumatch-learning-brief.md` — EduMatch conversational intake, Learning Brief, matching guarantees, prepared proposals, learning journey
 - `docs/appbuilder-architecture.md` — AppBuilder M01–M12 roadmap, route contracts, security model
