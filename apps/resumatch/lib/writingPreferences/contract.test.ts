@@ -66,6 +66,8 @@ describe("writing preferences contract (#931)", () => {
     "worked at Google for two years",
     "Ik heb vijf jaar ervaring met React",
     "J'ai dirigé une équipe de dix personnes",
+    "J’ai dirigé une équipe de dix personnes",
+    "Mention that I’m AWS certified",
     "Ich habe 3 Jahre Erfahrung",
     "Reach me at jane@example.com",
     "See https://example.com/portfolio",

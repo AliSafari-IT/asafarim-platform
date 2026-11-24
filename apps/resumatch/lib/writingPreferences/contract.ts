@@ -92,7 +92,7 @@ const FACT_PATTERNS: RegExp[] = [
   /\b\d+\s*\+?\s*(years?|yrs?|jaar|jaren|ans?|années?|jahre?n?)\b/iu,
   // English first-person claims
   /\b(i|we)\s+(have|had|hold|held|am|was|were|worked|work|led|lead|managed|manage|built|build|founded|speak|studied|graduated|earned|won|know|did|own)\b/iu,
-  /\b(i've|i'm|i'd)\b/iu,
+  /\b(i['’]ve|i['’]m|i['’]d)\b/iu,
   /\bmy\s+(degree|diploma|employer|salary|certificat\w*|licen[cs]e|qualification\w*)\b/iu,
   // "say/claim/write that I…", "add … to my skills"
   /\b(say|claim|write|state|pretend)\s+(that\s+)?(i|my|me)\b/iu,
@@ -100,7 +100,8 @@ const FACT_PATTERNS: RegExp[] = [
   /\b(worked|working)\s+(at|for)\b/iu,
   // Dutch, French, German first person
   /\bik\s+(heb|had|ben|was|werkte|werk|leidde|beheerde|spreek|studeerde)\b/iu,
-  /\b(j'ai|je suis|j'étais|j'avais|je parle|j'ai travaillé)\b/iu,
+  // Straight or typographic apostrophe; "je suis" etc. need no \b after j'.
+  /(^|[^\p{L}])(j['’]ai|j['’]étais|j['’]avais)(?![\p{L}])|\b(je suis|je parle)\b/iu,
   /\bich\s+(habe|hatte|bin|war|arbeite|arbeitete|leitete|spreche|studierte)\b/iu,
   // Contact details and links never belong in a style note.
   /[^\s@]+@[^\s@]+\.[a-z]{2,}/iu,

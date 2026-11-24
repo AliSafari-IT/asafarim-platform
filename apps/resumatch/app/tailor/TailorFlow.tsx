@@ -311,7 +311,9 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
     seed ? seed.coverLetterLanguage : (writingPreferences?.preferences.coverLetter.outputLanguage ?? null),
   );
   const hasSavedNotes = Boolean(savedPrefs?.cv.styleNote || savedPrefs?.coverLetter.styleNote);
-  const [useSavedNotes, setUseSavedNotes] = useState(true);
+  // A per-run opt-out, kept only for the job it was made on: another job
+  // starts with the saved notes on again.
+  const [notesOffFor, setNotesOffFor] = useState<string | null>(null);
   const [writingNote, setWritingNote] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [rememberBusy, setRememberBusy] = useState(false);
   // What "Remember" would save: the card's choices, the saved notes kept.
@@ -557,7 +559,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
             // #931: null is an explicit "same as the CV", which beats a
             // saved letter language.
             coverLetterOutputLanguage: includeCoverLetter ? coverLetterLanguage : undefined,
-            useSavedWritingStyle: hasSavedNotes ? useSavedNotes : undefined,
+            useSavedWritingStyle: hasSavedNotes ? notesOffFor !== targetJobId : undefined,
             instructions: instructions.trim() || undefined,
             outputLanguage: cvLanguage,
             proceedDespiteLowFit: lowFitConfirmedFor === targetJobId ? true : undefined,
@@ -717,7 +719,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
       seed,
       nextBulletKey,
       hasSavedNotes,
-      useSavedNotes,
+      notesOffFor,
       t,
     ],
   );
@@ -1166,8 +1168,8 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
               canRemember={!cardMatchesSaved}
               remembering={rememberBusy}
               onRemember={() => void rememberChoices()}
-              useNotes={useSavedNotes}
-              onUseNotesChange={setUseSavedNotes}
+              useNotes={notesOffFor !== state.targetJobId}
+              onUseNotesChange={(use) => setNotesOffFor(use ? null : state.targetJobId)}
               includeLetter={includeCoverLetter}
               note={writingNote}
             />
