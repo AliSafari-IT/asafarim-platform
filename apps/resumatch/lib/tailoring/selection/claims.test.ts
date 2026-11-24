@@ -177,6 +177,19 @@ describe("checkClaims (#930)", () => {
     expect(check("Built Go services shipped with Docker", ["exp:0", "skills"])).toEqual([]);
   });
 
+  it("flags a requirement a bullet's own role never mentions, even when another role backs it (#948 review)", () => {
+    const evidence: GenerationEvidence = {
+      professional: [{ revisionId: "rev_k", kind: "PROJECT", title: "Cluster", detail: "Ran Kubernetes clusters.", role: "Backend Engineer at Contoso", roleIndex: 0 }],
+      motivation: [],
+      revisionIds: ["rev_k"],
+    };
+    const check = run(
+      { experienceBullets: [[], ["Answered tickets about Kubernetes clusters"]], sources: { experienceBullets: [[], [["exp:1"]]] } },
+      { evidence },
+    );
+    expect(bullet(check, 1).flags).toContain("unsupported_requirement");
+  });
+
   it("the fixture provider cites every bullet's own role, and its output passes", async () => {
     const output = await new TailorFixtureProvider().generate({
       profileText: "",

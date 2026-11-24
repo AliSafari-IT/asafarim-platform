@@ -212,7 +212,8 @@ interface SentenceFacts {
 }
 
 function sentenceFacts(text: string): SentenceFacts[] {
-  return splitSentences(text).map((sentence) => ({
+  // NFC, so a decomposed accent does not split a word (#948 review).
+  return splitSentences(text.normalize("NFC")).map((sentence) => ({
     text: sentence,
     stems: termStems(sentence),
     words: [...sentence.matchAll(/[\p{L}\p{N}][\p{L}\p{N}+#.]*/gu)].map((m) => ({ stems: termStems(m[0]), index: m.index ?? 0 })),
@@ -277,7 +278,9 @@ function assess(
   const isSupported = supported.size >= needed && requirement.keyTerms.every((t) => supported.has(t)) && yearsOk;
   const deniedKey = [...denied].filter((t) => keys.includes(t));
   const profileDenies = deniedKey.some((t) => !supported.has(t));
-  const profileContradicts = deniedKey.length > 0 && deniedKey.every((t) => supported.has(t));
+  // Any key term both claimed and denied is a contradiction, even when
+  // another term is only denied: that extra denial must not hide it.
+  const profileContradicts = deniedKey.some((t) => supported.has(t));
   let status: RequirementStatus;
   let unmetBy: RequirementCoverage["unmetBy"] = null;
   if (candidateSaysUnmet) {
@@ -333,7 +336,10 @@ export function selectTailoringInputs(input: SelectionInput): TailoringSelection
   const budget = input.profileBudget ?? MAX_SELECTED_PROFILE_CHARS;
   if (profileText.length > budget) profileText = capWithMarker(profileText, budget);
   if (plainProfileText.length > budget) plainProfileText = capWithMarker(plainProfileText, budget);
-  assertNoContactDetails(profile, profileText);
+  // The tags are ours, not the candidate's: "[exp:0] 123 …" must not read
+  // as the phone number "0123". Every "[" left in the tagged text is a tag,
+  // since the candidate's own brackets became parentheses.
+  assertNoContactDetails(profile, profileText.replace(/\[[^\]\n]*\]/g, " "));
   assertNoContactDetails(profile, plainProfileText);
 
   const sources: SelectedSource[] = [

@@ -311,6 +311,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
   const [unmetRequirements, setUnmetRequirements] = useState<{ targetJobId: string; ids: string[] } | null>(null);
   const [evidenceVersion, setEvidenceVersion] = useState(0);
   const [evidenceUsedCount, setEvidenceUsedCount] = useState<number | null>(null);
+  const [evidenceRevisionsKey, setEvidenceRevisionsKey] = useState("");
   const [lastFetched, setLastFetched] = useState<FetchedJob | null>(editSeed?.job ?? seed?.job ?? null);
 
   const showFetched = useCallback((body: Record<string, any>) => {
@@ -1039,13 +1040,14 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
               profileVersionId={confirmedVersionId}
               unmet={unmetRequirements?.targetJobId === state.targetJobId ? unmetRequirements.ids : NO_IDS}
               onUnmetChange={(ids) => setUnmetRequirements({ targetJobId: state.targetJobId, ids })}
-              refreshKey={`${evidenceVersion}:${evidenceUsedCount ?? "-"}`}
+              refreshKey={`${evidenceVersion}:${evidenceUsedCount ?? "-"}:${evidenceRevisionsKey}`}
               onEvidenceAdded={() => setEvidenceVersion((n) => n + 1)}
             />
             <EvidencePanel
               key={`${state.targetJobId}:${evidenceVersion}`}
               targetJobId={state.targetJobId}
               onUsedCountChange={setEvidenceUsedCount}
+              onUsedRevisionsChange={setEvidenceRevisionsKey}
             />
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", margin: "0.5rem 0" }}>
               <input

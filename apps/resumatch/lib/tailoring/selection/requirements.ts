@@ -100,10 +100,10 @@ function splitLine(line: string): string[] {
     .filter(Boolean);
 }
 
-/** Two-letter technology names the word split drops ("Go", "R", "UX",
- *  "AI", "QA", "BI"): written capitalised, they are a term; lower-case
- *  "go" is the verb and never counts. */
-const SHORT_TERM = /(?<![\p{L}\p{N}])(?:[A-Z][a-z]|[A-Z]{2})(?![\p{L}\p{N}])/gu;
+/** Short technology names the word split drops ("Go", "UX", "AI", "QA",
+ *  "BI", and the one-letter "R"): written capitalised, they are a term;
+ *  lower-case "go" is the verb and never counts. "R&D" is not R. */
+const SHORT_TERM = /(?<![\p{L}\p{N}])(?:[A-Z][a-z]|[A-Z]{2}|R(?![&'’]))(?![\p{L}\p{N}])/gu;
 const SHORT_STOP = new Set(["an", "as", "at", "be", "by", "do", "he", "if", "in", "is", "it", "me", "my", "no", "of", "on", "or", "so", "to", "up", "us", "we", "de", "en", "et", "la", "le", "un", "du", "je", "ik", "op", "te", "om", "er", "zu", "im", "am", "es", "ab", "co", "eu", "hr", "id", "ok", "pr", "vs", "nl", "fr"]);
 
 function shortTerms(text: string): string[] {
@@ -130,7 +130,7 @@ const YEARS = /(\d{1,2})\s*\+?\s*(?:years?|yrs|jaar|jaren|ans|annees|jahre|jahre
 /** Distinctive terms: words written as names (capitalised after the first
  *  word, or technology-shaped), as stems. */
 function keyTermsOf(text: string): string[] {
-  const words = text.match(/[\p{L}\p{N}][\p{L}\p{N}+#.]*/gu) ?? [];
+  const words = text.normalize("NFC").match(/[\p{L}\p{N}][\p{L}\p{N}+#.]*/gu) ?? [];
   const keys = new Set<string>();
   words.forEach((word, index) => {
     const bare = word.replace(/\.+$/, "");
@@ -161,6 +161,7 @@ export function extractRequirements(jobText: string): JobRequirement[] {
   const lines = jobText.split(/\n+/).map((l) => l.trim()).filter(Boolean);
   const candidates: { text: string; preferred: boolean }[] = [];
   let section: "requirements" | "preferred" | "other" | null = null;
+  let sawHeading = false;
 
   const consider = (raw: string, preferredSection: boolean) => {
     for (const part of splitLine(raw)) {
@@ -178,6 +179,9 @@ export function extractRequirements(jobText: string): JobRequirement[] {
       // A heading with content after the colon ("Profile: 5 years of Go")
       // still carries a requirement.
       const after = line.split(/[:：]/).slice(1).join(":").trim();
+      // A heading on its own line structures the posting; an inline one
+      // may open a pasted paragraph, which the fallback still reads.
+      if (!after) sawHeading = true;
       if (after && section !== "other" && section !== null) consider(after, section === "preferred");
       continue;
     }
@@ -188,8 +192,10 @@ export function extractRequirements(jobText: string): JobRequirement[] {
       if (REQUIREMENT_CUE.test(folded) && (BULLET.test(line) || line.length <= 200)) consider(line, false);
     }
   }
-  // A posting with almost no line breaks (one pasted paragraph): cue sentences.
-  if (candidates.length === 0 && lines.length <= 3) {
+  // A posting with almost no line breaks (one pasted paragraph): cue
+  // sentences. Never when it has headings on their own lines: those already
+  // said which lines are requirements, and a benefit under "We offer:" is not.
+  if (candidates.length === 0 && lines.length <= 3 && !sawHeading) {
     for (const sentence of sentences(jobText)) {
       if (REQUIREMENT_CUE.test(fold(sentence))) consider(sentence, false);
     }

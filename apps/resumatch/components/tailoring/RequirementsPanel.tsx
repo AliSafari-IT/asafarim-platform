@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { Alert, Button } from "@asafarim/ui";
 import { MAX_EVIDENCE_DETAIL_CHARS, MAX_EVIDENCE_TITLE_CHARS } from "../../lib/evidence/contract";
@@ -21,6 +21,17 @@ import type { ClarificationQuestion, RequirementCoverage } from "../../lib/tailo
  * Requirement text comes from the job posting. React escapes it; it is
  * never rendered as HTML.
  */
+
+/** The evidence title, from the candidate's own words only: their first
+ *  sentence, shortened. Never the posting's requirement text, which would
+ *  then read as something they confirmed (#948 review). */
+export function evidenceTitleFrom(detail: string): string {
+  const first = detail.trim().split(/(?<=[.!?])\s+/)[0] ?? "";
+  const words = first.replace(/[.!?]+$/, "").replace(/\s+/g, " ").trim();
+  if (words.length <= MAX_EVIDENCE_TITLE_CHARS) return words;
+  const cut = words.slice(0, MAX_EVIDENCE_TITLE_CHARS - 1);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 1)).trimEnd()}…`;
+}
 
 interface Answer {
   requirementId: string;
@@ -55,8 +66,16 @@ export function RequirementsPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Requirements answered "yes" here. Their saved words may not repeat the
+  // posting's terms, so coverage can still read them as unknown; they are
+  // not asked again.
+  const [answeredYes, setAnsweredYes] = useState<string[]>([]);
+  // Only the latest request may update the panel: an older one finishing
+  // last must not undo a "no" the candidate just gave.
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
+    const request = ++latest.current;
     try {
       const res = await fetch("/api/tailor/job-fit", {
         method: "POST",
@@ -65,9 +84,11 @@ export function RequirementsPanel({
       });
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as { requirements?: RequirementCoverage[]; questions?: ClarificationQuestion[] };
+      if (request !== latest.current) return;
       setRequirements(body.requirements ?? []);
       setQuestions(body.questions ?? []);
     } catch {
+      if (request !== latest.current) return;
       // The check is optional: without it the run still claims nothing the
       // profile lacks. Show nothing rather than an error.
       setRequirements((previous) => previous ?? []);
@@ -88,7 +109,7 @@ export function RequirementsPanel({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           kind: "RESPONSIBILITY",
-          title: question.text.slice(0, MAX_EVIDENCE_TITLE_CHARS),
+          title: evidenceTitleFrom(detail),
           detail,
           // No single role: the candidate did not say where. It can back the
           // headline and summary, never another role's bullet. They can link
@@ -105,6 +126,7 @@ export function RequirementsPanel({
         return;
       }
       setAnswer(null);
+      setAnsweredYes((ids) => [...ids, question.requirementId]);
       setNotice(t("resumatch.requirements.saved"));
       onEvidenceAdded();
     } catch {
@@ -117,6 +139,7 @@ export function RequirementsPanel({
   if (!requirements || requirements.length === 0) return null;
 
   const supported = requirements.filter((r) => r.status === "supported").length;
+  const openQuestions = questions.filter((q) => !answeredYes.includes(q.requirementId));
   const statusLabel = (r: RequirementCoverage) =>
     r.status === "supported"
       ? t("resumatch.requirements.status.supported")
@@ -127,7 +150,7 @@ export function RequirementsPanel({
           : t("resumatch.requirements.status.unknown");
 
   return (
-    <details className="rm-evidence rm-reqs" open={questions.length > 0 || undefined} data-testid="requirements-panel">
+    <details className="rm-evidence rm-reqs" open={openQuestions.length > 0 || undefined} data-testid="requirements-panel">
       <summary>
         {t("resumatch.requirements.summary")}{" "}
         <span className="rm-evidence__count">
@@ -162,14 +185,14 @@ export function RequirementsPanel({
         ))}
       </ul>
 
-      {questions.length > 0 ? (
+      {openQuestions.length > 0 ? (
         <section className="rm-reqs__questions" aria-labelledby={headingId}>
           <h3 id={headingId} className="rm-evidence__group">
-            {t("resumatch.requirements.questions.title", { count: questions.length })}
+            {t("resumatch.requirements.questions.title", { count: openQuestions.length })}
           </h3>
           <p className="rm-evidence__hint">{t("resumatch.requirements.questions.hint")}</p>
           <ol className="rm-reqs__question-list">
-            {questions.map((q) => {
+            {openQuestions.map((q) => {
               const open = answer?.requirementId === q.requirementId ? answer : null;
               const detailId = `${headingId}-${q.requirementId}`;
               return (

@@ -1,9 +1,11 @@
 import type { CandidateProfileContent } from "../profile/contract";
 import {
   describeExperienceRef,
+  experienceRefOf,
   findExperience,
   PROFESSIONAL_EVIDENCE_KINDS,
   readExperienceRef,
+  sameExperience,
   type EvidenceKind,
   type EvidenceScope,
   type ExperienceRef,
@@ -131,7 +133,11 @@ export function selectGenerationEvidence(
   for (const item of usable) {
     const latest = item.latest!;
     const ref: ExperienceRef | null = readExperienceRef(latest.experienceRef);
-    const roleEntry = ref ? findExperience(profile, ref) : null;
+    // A role-bound source only when the reference names exactly one role:
+    // a reference without a start date can match two stints with the same
+    // title and employer, and the first is not certainly the right one.
+    const matches = ref ? profile.experience.filter((entry) => sameExperience(experienceRefOf(entry), ref)) : [];
+    const roleEntry = matches.length === 1 ? matches[0]! : null;
     const entry: PromptEvidence = {
       revisionId: latest.id,
       kind: latest.kind,
@@ -140,12 +146,15 @@ export function selectGenerationEvidence(
       role: ref ? describeExperienceRef(ref) : null,
       roleIndex: roleEntry ? profile.experience.indexOf(roleEntry) : null,
     };
-    const size = line(entry).length + 1;
     if (PROFESSIONAL_EVIDENCE_KINDS.includes(latest.kind)) {
+      // Measured as the CV sends it, source tag included (#930), so the
+      // tagged block stays inside the budget too.
+      const size = line(entry, true).length + 1;
       if (professionalChars + size > MAX_PROFESSIONAL_EVIDENCE_CHARS) continue;
       professionalChars += size;
       professional.push(entry);
     } else {
+      const size = line(entry).length + 1;
       if (motivationChars + size > MAX_MOTIVATION_EVIDENCE_CHARS) continue;
       motivationChars += size;
       motivation.push(entry);

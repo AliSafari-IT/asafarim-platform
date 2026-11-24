@@ -241,6 +241,41 @@ describe("coverage edge cases (#948 review)", () => {
   });
 });
 
+describe("CodeRabbit review (#948)", () => {
+  const cov = (summary: string, jobText: string) =>
+    selectTailoringInputs({ profile: parseProfileContent({ experience: [{ title: "Dev", employer: "A", summary }] }), jobText, evidence: NO_EVIDENCE }).coverage;
+
+  it("matches an accented word typed precomposed or decomposed, both ways", () => {
+    const pre = "Électronique";
+    const dec = "Électronique";
+    expect(cov(`Worked in ${dec} design.`, `Requirements:\n- Knowledge of ${pre}`)[0]!.status).toBe("supported");
+    expect(cov(`Worked in ${pre} design.`, `Requirements:\n- Knowledge of ${dec}`)[0]!.status).toBe("supported");
+  });
+
+  it("keeps the one-letter language R, but not R&D", () => {
+    expect(extractRequirements("Requirements:\n- Experience with R")[0]!.terms).toContain("r");
+    expect(cov("Built models in R.", "Requirements:\n- Experience with R")[0]!.status).toBe("supported");
+    expect(cov("Led R&D projects.", "Requirements:\n- Experience with R")[0]!.status).toBe("unknown");
+  });
+
+  it("never reads a benefit as a requirement through the fallback", () => {
+    expect(extractRequirements("We offer:\n- Certification reimbursement.")).toEqual([]);
+  });
+
+  it("a key term both claimed and denied is a conflict, whatever else is denied", () => {
+    const [req] = cov(
+      "Ran Kubernetes and Terraform in production. Later: no Kubernetes, no Ansible.",
+      "Requirements:\n- Experience with Kubernetes, Terraform and Ansible",
+    );
+    expect(req).toMatchObject({ status: "conflict", unmetBy: "profile" });
+  });
+
+  it("source tags never trip the contact check", () => {
+    const profile = parseProfileContent({ phone: "0123", experience: [{ title: "123 Support Analyst", employer: "A" }] });
+    expect(() => selectTailoringInputs({ profile, jobText: JOB, evidence: NO_EVIDENCE })).not.toThrow();
+  });
+});
+
 describe("clarificationQuestions (#930)", () => {
   it("asks at most three, about unknown requirements only, required first", () => {
     const job = `Requirements:\n- Knowledge of Rust\n- Knowledge of Elixir\n- Knowledge of Haskell\n- Knowledge of Scala\nNice to have:\n- Knowledge of OCaml`;

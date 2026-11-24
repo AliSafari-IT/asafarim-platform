@@ -125,12 +125,16 @@ const MAX_LISTED_TERMS = 10;
  * words still need three.
  */
 function words(text: string): string[] {
-  const technical = text
+  // NFC first: a decomposed accent ("E\u0301") would otherwise split the
+  // word before fold() removes it, so "Électronique" typed two ways would
+  // give two different stems.
+  const nfc = text.normalize("NFC");
+  const technical = nfc
     .toLowerCase()
     .split(/[^\p{L}\p{N}+#./]+/u)
     .map((t) => t.replace(/^[./]+|[./]+$/g, ""))
     .filter((t) => /[+#/]/.test(t) && t.length >= 2 && /\p{L}/u.test(t) && !t.includes("//"));
-  return [...coverageWords(text), ...technical];
+  return [...coverageWords(nfc), ...technical];
 }
 
 /**

@@ -83,7 +83,10 @@ test("requirements, three optional questions, a confirmed 'yes', a 'no', and cit
   const evidence = await e2eDb().candidateEvidence.findMany({ where: { workspaceId }, include: { revisions: true } });
   expect(evidence).toHaveLength(1);
   expect(evidence[0]!.scope).toBe("APPLICATION");
-  expect(evidence[0]!.revisions[0]).toMatchObject({ status: "CONFIRMED", title: "Fluent in Dutch" });
+  // Only the candidate's own words are saved, never the posting's wording.
+  expect(evidence[0]!.revisions[0]).toMatchObject({ status: "CONFIRMED", title: "Dutch is my first language; I worked with Dutch-speaking customers daily" });
+  // Answered: not asked again.
+  await expect(panel.locator(".rm-reqs__question").filter({ hasText: "Fluent in Dutch" })).toHaveCount(0);
 
   // Generate: the run carries the "no", and the review cites each bullet's source.
   await page.getByRole("button", { name: "Tailor my CV to this job" }).click();

@@ -96,7 +96,9 @@ function requirementFlags(claim: string, sourceText: string, requirements: JobRe
     // Terraform experience") or the side of a conflict the candidate has
     // not settled.
     if (status === "unmet" || status === "conflict") flags.push("unmet_requirement");
-    else if (status !== "supported" && mentioned.some((t) => !sourceStems.has(t))) flags.push("unsupported_requirement");
+    // Supported somewhere is not supported here: a bullet that names a
+    // requirement its own cited text never mentions is flagged too.
+    else if (mentioned.some((t) => !sourceStems.has(t))) flags.push("unsupported_requirement");
   }
   return flags;
 }

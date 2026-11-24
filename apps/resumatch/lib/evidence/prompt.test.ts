@@ -101,4 +101,21 @@ describe("relevance order (#930)", () => {
     expect(renderProfessionalEvidence(selected, true)).toContain(`[ev:${linked.latest!.id}] Achievement:`);
     expect(renderProfessionalEvidence(selected)).not.toContain("[ev:");
   });
+
+  it("binds no role when a reference without a start date matches two stints (#948 review)", () => {
+    const twice = parseProfileContent({
+      experience: [
+        { title: "Backend developer", employer: "Acme", startedOn: "2020-01" },
+        { title: "Backend developer", employer: "Acme", startedOn: "2016-01" },
+      ],
+    });
+    const linked = item({}, { experienceRef: { title: "Backend developer", employer: "Acme", startedOn: null } });
+    expect(selectGenerationEvidence([linked], "ws_1", "job_1", twice).professional[0]!.roleIndex).toBeNull();
+  });
+
+  it("measures the budget with source tags, so the tagged CV block fits too (#948 review)", () => {
+    const items = Array.from({ length: 6 }, () => item({}, { detail: "x".repeat(700) }));
+    const selected = selectGenerationEvidence(items, "ws_1", "job_1", profile);
+    expect(renderProfessionalEvidence(selected, true)!.length).toBeLessThanOrEqual(MAX_PROFESSIONAL_EVIDENCE_CHARS);
+  });
 });
