@@ -15,6 +15,7 @@ import { ProfileImportPanel } from "./ProfileImportPanel";
 function looksLikeExportFile(file: File): boolean {
   return file.type === "application/json" || /\.json$/i.test(file.name);
 }
+<<<<<<< HEAD
 
 /** A renamed export larger than the CV limit would otherwise be refused as
  *  an oversized CV before the server could recognise it. The export writes
@@ -27,6 +28,8 @@ async function startsLikeExport(file: File): Promise<boolean> {
     return false;
   }
 }
+=======
+>>>>>>> origin/main
 
 export interface DocumentRow {
   id: string;
@@ -98,7 +101,11 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
 
   const upload = useCallback(
     async (file: File) => {
+<<<<<<< HEAD
       if (looksLikeExportFile(file) || (file.size > MAX_DOCUMENT_BYTES && (await startsLikeExport(file)))) {
+=======
+      if (looksLikeExportFile(file)) {
+>>>>>>> origin/main
         setMessage(null);
         setImportFile(file);
         if (inputRef.current) inputRef.current.value = "";
