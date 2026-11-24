@@ -1,8 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { getApplicationEmailConfig, senderDisplayName } from "./config";
-import { classifySmtpError, createFixtureMailer, safeResponse, type OutgoingEmail } from "./mailer";
-import { cleanBody, companyKey, draftSaveSchema, isValidRecipient, normalizeEmail, sendRequestSchema, validateForSend } from "./normalize";
+import { classifySmtpError, createFixtureMailer, recipientOutcome, safeResponse, type OutgoingEmail } from "./mailer";
+import {
+  additionalRecipientProblems,
+  cleanBody,
+  companyKey,
+  draftSaveSchema,
+  isValidRecipient,
+  normalizeEmail,
+  recipientList,
+  recipientSummary,
+  sendRequestSchema,
+  validateForSend,
+} from "./normalize";
 import { emailsInText, prefillRecipient } from "./prefill";
 import { DEFAULT_SENT_QUERY, hasSentFilters, parseSentQuery, sentListHref, withSentFilter } from "./sentQuery";
 
@@ -40,6 +51,21 @@ describe("recipient and field validation", () => {
     expect(validateForSend({ toEmail: "a@b.example", contactName: "Sam", subject: "s".repeat(201), body: "b".repeat(10_001) })).toEqual({ subject: "tooLong", body: "tooLong" });
     expect(validateForSend({ toEmail: "a@b.example", contactName: "", subject: "Hi", body: "Line\r\n\tTwo" })).toEqual({});
   });
+  it("takes up to 3 recipients, ignores blank extra fields and refuses duplicates (#944)", () => {
+    const base = { toEmail: "a@acme.example", contactName: "", subject: "Hi", body: "Text" };
+    expect(validateForSend({ ...base, additionalToEmails: [] })).toEqual({});
+    expect(validateForSend({ ...base, additionalToEmails: ["b@acme.example"] })).toEqual({});
+    expect(validateForSend({ ...base, additionalToEmails: ["b@acme.example", "c@acme.example"] })).toEqual({});
+    expect(validateForSend({ ...base, additionalToEmails: ["b@acme.example", "c@acme.example", "d@acme.example"] })).toEqual({ additionalToEmails: "tooMany" });
+    expect(validateForSend({ ...base, additionalToEmails: ["  ", ""] })).toEqual({});
+    expect(validateForSend({ ...base, additionalToEmails: ["A@Acme.Example"] })).toEqual({ additionalToEmails: "duplicate" });
+    expect(validateForSend({ ...base, additionalToEmails: ["b@acme.example", "B@acme.example "] })).toEqual({ additionalToEmails: "duplicate" });
+    expect(validateForSend({ ...base, additionalToEmails: ["x, y@acme.example"] })).toEqual({ additionalToEmails: "invalid" });
+    expect(additionalRecipientProblems({ toEmail: "a@acme.example", additionalToEmails: ["", "a@acme.example"] })).toEqual([null, "duplicate"]);
+    expect(recipientList({ toEmail: " a@acme.example ", additionalToEmails: ["", " b@acme.example"] })).toEqual(["a@acme.example", "b@acme.example"]);
+    expect(recipientSummary("a@acme.example", ["b@acme.example", "c@acme.example"])).toBe("a@acme.example +2");
+    expect(recipientSummary("a@acme.example", [])).toBe("a@acme.example");
+  });
   it("cleans a body without changing its words", () => {
     expect(cleanBody("Hello  \r\n\r\nWorld\t \n")).toBe("Hello\n\nWorld");
   });
@@ -50,6 +76,12 @@ describe("recipient and field validation", () => {
     expect(draftSaveSchema.safeParse({ ...draft, from: "x@y.example" }).success).toBe(false);
     expect(sendRequestSchema.safeParse({ draft, idempotencyKey: "not-a-uuid" }).success).toBe(false);
     expect(sendRequestSchema.safeParse({ draft, idempotencyKey: randomUUID() }).success).toBe(true);
+  });
+  it("accepts at most 2 extra recipients in a draft, each on one line (#944)", () => {
+    const draft = { toEmail: "a@acme.example", contactName: "", subject: "Hi", body: "", subjectEdited: false, bodyEdited: false, sendCopyToSelf: true, cvPdfId: null, coverLetterPdfId: null, version: null };
+    expect(draftSaveSchema.safeParse({ ...draft, additionalToEmails: ["b@acme.example", "c@acme.example"] }).success).toBe(true);
+    expect(draftSaveSchema.safeParse({ ...draft, additionalToEmails: ["b@acme.example", "c@acme.example", "d@acme.example"] }).success).toBe(false);
+    expect(draftSaveSchema.safeParse({ ...draft, additionalToEmails: ["b@acme.example\r\nBcc: x@y.example"] }).success).toBe(false);
   });
 });
 
@@ -79,7 +111,7 @@ describe("classifySmtpError", () => {
 describe("fixture mailer", () => {
   const email = (address: string): OutgoingEmail => ({
     from: { name: "R", address: "a@resumatch.test" },
-    to: { name: null, address },
+    to: [{ name: null, address }],
     replyTo: "r@example.test",
     bcc: null,
     subject: "s",
@@ -93,6 +125,21 @@ describe("fixture mailer", () => {
     expect(await mailer.send(email("reject@acme.test"))).toMatchObject({ kind: "rejected", code: "SMTP_550" });
     expect(await mailer.send(email("timeout@acme.test"))).toMatchObject({ kind: "uncertain" });
     expect(mailer.sent).toHaveLength(1);
+  });
+  it("sends one message to several recipients and names the ones refused (#944)", async () => {
+    const mailer = createFixtureMailer();
+    const many = (...addresses: string[]): OutgoingEmail => ({ ...email(addresses[0]!), to: addresses.map((address) => ({ name: null, address })) });
+    expect(await mailer.send(many("a@acme.test", "b@acme.test"))).toEqual(expect.objectContaining({ kind: "accepted", rejectedRecipients: [] }));
+    expect(await mailer.send(many("a@acme.test", "reject@acme.test"))).toEqual(expect.objectContaining({ kind: "accepted", rejectedRecipients: ["reject@acme.test"] }));
+    expect(await mailer.send(many("reject@acme.test", "reject@other.test"))).toMatchObject({ kind: "rejected" });
+    expect(await mailer.send(many("a@acme.test", "timeout@acme.test"))).toMatchObject({ kind: "uncertain" });
+    expect(mailer.sent).toHaveLength(2);
+  });
+  it("is a refusal only when every To address was refused", () => {
+    const to = [{ name: "Sam", address: "Sam@Acme.example" }, { name: null, address: "hr@acme.example" }];
+    expect(recipientOutcome({ to }, [], "id", "250")).toEqual({ kind: "accepted", providerMessageId: "id", response: "250", rejectedRecipients: [] });
+    expect(recipientOutcome({ to }, ["sam@acme.example"], "id", "250")).toMatchObject({ kind: "accepted", rejectedRecipients: ["Sam@Acme.example"] });
+    expect(recipientOutcome({ to }, ["sam@acme.example", "hr@acme.example"], null, "550")).toEqual({ kind: "rejected", code: "RECIPIENT_REJECTED", response: "550" });
   });
 });
 
@@ -133,7 +180,16 @@ describe("recipient prefill", () => {
   it("prefers the address this application was already sent to", () => {
     expect(
       prefillRecipient({ structuredFields: { contactName: "Sam" }, rawText: "hr@acme.example", previous: { contactEmail: "sam@acme.example", contactName: null } }),
-    ).toEqual({ toEmail: "sam@acme.example", contactName: "Sam", toEmailSource: "previous_email", suggestions: [] });
+    ).toEqual({ toEmail: "sam@acme.example", additionalToEmails: [], contactName: "Sam", toEmailSource: "previous_email", suggestions: [] });
+  });
+  it("prefills every recipient of the previous email (#944)", () => {
+    expect(
+      prefillRecipient({
+        structuredFields: null,
+        rawText: null,
+        previous: { contactEmail: "sam@acme.example", contactName: "Sam", additionalRecipients: ["hr@acme.example", "lead@acme.example"] },
+      }),
+    ).toMatchObject({ toEmail: "sam@acme.example", additionalToEmails: ["hr@acme.example", "lead@acme.example"], contactName: "Sam" });
   });
 });
 

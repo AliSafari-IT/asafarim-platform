@@ -747,7 +747,11 @@ model ApplicationEmailDraft {
   applicationId String      @unique
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
+  /// The first recipient; the contact name belongs to it.
   toEmail     String?
+  /// Up to two more "To" recipients (#944), in the order typed. Empty for
+  /// a one-recipient draft, so older drafts read unchanged.
+  additionalToEmails String[] @default([])
   contactName String?
   subject     String?
   body        String? @db.Text
@@ -828,6 +832,17 @@ model SentApplicationEmail {
   contactEmail           String
   /// Lower-cased, trimmed: the filter key for "everything sent to them".
   contactEmailNormalized String
+  /// The other "To" recipients of the same message (#944), in order. The
+  /// first stays in contactEmail, so a one-recipient email reads as before.
+  additionalRecipients String[] @default([])
+  /// Every recipient, lower-cased: the filter key for "everything sent to
+  /// them" whichever position they had. Derived by an insert trigger from
+  /// contactEmailNormalized and additionalRecipients; backfilled for older
+  /// rows.
+  recipientsNormalized String[] @default([])
+  /// Recipients the mail server refused while it accepted the message for
+  /// the others. Set once, with the outcome; never part of the snapshot.
+  rejectedRecipients String[] @default([])
 
   /// Exactly as used: the verified sender, the Reply-To and the Bcc copy.
   fromAddress String
@@ -867,6 +882,7 @@ model SentApplicationEmail {
   @@index([workspaceId, attemptedAt])
   @@index([workspaceId, companyKey])
   @@index([workspaceId, contactEmailNormalized])
+  @@index([recipientsNormalized], type: Gin)
   @@index([applicationId, attemptedAt])
   @@map("sent_application_emails")
 }

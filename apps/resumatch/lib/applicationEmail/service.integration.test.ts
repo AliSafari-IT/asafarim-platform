@@ -728,6 +728,89 @@ describe.skipIf(!TEST_DB)("application email: send, history, filters", () => {
     const pastEnd = await sentList.listSentEmails(ws, { ...q, page: 99 });
     expect(pastEnd.page).toBe(1);
   });
+  it("sends one email to up to 3 recipients, stores them all and finds it by any of them (#944)", async () => {
+    const s = await seed();
+    const { mailer, sent } = recordingMailer();
+    const result = await service.sendApplicationEmail(
+      s.workspaceId,
+      s.applicationId,
+      { draft: draftFor(s, { additionalToEmails: [" HR@Acme.Example.Test ", "", "lead@acme.example.test"] }), idempotencyKey: randomUUID() },
+      CONTEXT,
+      { config: CONFIG, mailer, scheduleRetry: noRetry },
+    );
+    expect(result).toMatchObject({ outcome: "accepted", rejectedRecipients: [] });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.to).toEqual([
+      { name: "Sam Recruiter", address: "Jobs@Acme.Example.Test" },
+      { name: null, address: "HR@Acme.Example.Test" },
+      { name: null, address: "lead@acme.example.test" },
+    ]);
+    expect(sent[0]!.bcc).toBe(CONTEXT.accountEmail);
+
+    const row = await db.sentApplicationEmail.findFirstOrThrow({ where: { applicationId: s.applicationId } });
+    expect(row).toMatchObject({
+      contactEmail: "Jobs@Acme.Example.Test",
+      additionalRecipients: ["HR@Acme.Example.Test", "lead@acme.example.test"],
+      recipientsNormalized: ["jobs@acme.example.test", "hr@acme.example.test", "lead@acme.example.test"],
+      rejectedRecipients: [],
+    });
+    // One send for the daily limit and the history.
+    expect(await db.sentApplicationEmail.count({ where: { workspaceId: s.workspaceId } })).toBe(1);
+
+    const byThird = await sentList.listSentEmails(s.workspaceId, { ...sentQuery.DEFAULT_SENT_QUERY, contact: "lead@acme.example.test" });
+    expect(byThird.rows.map((r) => r.id)).toEqual([row.id]);
+    expect(byThird.labels.contact).toBe("lead@acme.example.test");
+    const byFirst = await sentList.listSentEmails(s.workspaceId, { ...sentQuery.DEFAULT_SENT_QUERY, contact: "jobs@acme.example.test" });
+    expect(byFirst.labels.contact).toBe("Sam Recruiter <Jobs@Acme.Example.Test>");
+
+    // The draft keeps them, and the next draft's prefill offers them all.
+    const composer = await service.loadComposer(s.workspaceId, s.applicationId);
+    expect(composer?.draft?.additionalToEmails).toEqual(["HR@Acme.Example.Test", "lead@acme.example.test"]);
+    expect(composer?.prefill.additionalToEmails).toEqual(["HR@Acme.Example.Test", "lead@acme.example.test"]);
+
+    // The recipient list is part of the immutable snapshot.
+    await expect(db.sentApplicationEmail.update({ where: { id: row.id }, data: { additionalRecipients: ["x@evil.example.test"] } })).rejects.toThrow();
+    await expect(db.sentApplicationEmail.update({ where: { id: row.id }, data: { recipientsNormalized: ["x@evil.example.test"] } })).rejects.toThrow();
+    await expect(db.sentApplicationEmail.update({ where: { id: row.id }, data: { rejectedRecipients: ["jobs@acme.example.test"] } })).rejects.toThrow();
+  });
+
+  it("refuses duplicates and records the recipients a server refused (#944)", async () => {
+    const s = await seed();
+    const { mailer, sent } = recordingMailer();
+    const dup = await service.sendApplicationEmail(
+      s.workspaceId,
+      s.applicationId,
+      { draft: draftFor(s, { additionalToEmails: ["jobs@acme.example.test"] }), idempotencyKey: randomUUID() },
+      CONTEXT,
+      { config: CONFIG, mailer, scheduleRetry: noRetry },
+    );
+    expect(dup).toMatchObject({ outcome: "invalid", reason: "fields", fields: { additionalToEmails: "duplicate" } });
+    expect(sent).toHaveLength(0);
+
+    const partial = recordingMailer((e) => ({ kind: "accepted", providerMessageId: e.messageId, response: "250 ok", rejectedRecipients: ["gone@acme.example.test"] }));
+    const result = await service.sendApplicationEmail(
+      s.workspaceId,
+      s.applicationId,
+      { draft: draftFor(s, { additionalToEmails: ["gone@acme.example.test"], version: await currentVersion(s.applicationId) }), idempotencyKey: randomUUID() },
+      CONTEXT,
+      { config: CONFIG, mailer: partial.mailer, scheduleRetry: noRetry },
+    );
+    expect(result).toMatchObject({ outcome: "accepted", applicationStatus: "APPLIED", rejectedRecipients: ["gone@acme.example.test"] });
+    const row = await db.sentApplicationEmail.findFirstOrThrow({ where: { applicationId: s.applicationId } });
+    expect(row).toMatchObject({ status: "ACCEPTED", rejectedRecipients: ["gone@acme.example.test"] });
+    const detail = await sentList.getSentEmail(s.workspaceId, row.id);
+    expect(detail?.rejectedRecipients).toEqual(["gone@acme.example.test"]);
+  });
+
+  it("leaves a draft's extra recipients alone when a save leaves them out", async () => {
+    const s = await seed();
+    const first = await service.saveDraft(s.workspaceId, s.applicationId, draftFor(s, { additionalToEmails: ["hr@acme.example.test"] }));
+    expect(first.ok && first.draft.additionalToEmails).toEqual(["hr@acme.example.test"]);
+    const { additionalToEmails: _omit, ...older } = draftFor(s, { version: first.ok ? first.draft.version : null });
+    const second = await service.saveDraft(s.workspaceId, s.applicationId, older);
+    expect(second.ok && second.draft.additionalToEmails).toEqual(["hr@acme.example.test"]);
+  });
+
   it("exports sent emails and erases them with their PDFs", async () => {
     const s = await seed();
     const { mailer } = recordingMailer();

@@ -5,7 +5,8 @@ import { isValidRecipient, normalizeEmail } from "./normalize";
  * facts are used, and nothing is ever guessed or built from a pattern
  * (no "jobs@<company domain>"):
  *
- * 1. the recipient of this application's last accepted email;
+ * 1. the recipients of this application's last accepted email, all of
+ *    them (#944);
  * 2. an address written in the job posting itself, when it names exactly
  *    one usable address (several: they are offered as suggestions, none is
  *    chosen);
@@ -36,11 +37,13 @@ export function emailsInText(text: string | null | undefined): string[] {
 export interface PrefillInput {
   structuredFields: unknown;
   rawText: string | null;
-  previous: { contactEmail: string; contactName: string | null } | null;
+  previous: { contactEmail: string; contactName: string | null; additionalRecipients?: string[] } | null;
 }
 
 export interface Prefill {
   toEmail: string;
+  /** Recipients 2 and 3 of the previous email; empty otherwise. */
+  additionalToEmails: string[];
   contactName: string;
   /** Where the address came from, shown under the field. */
   toEmailSource: "previous_email" | "job_posting" | null;
@@ -59,6 +62,7 @@ export function prefillRecipient(input: PrefillInput): Prefill {
   if (input.previous) {
     return {
       toEmail: input.previous.contactEmail,
+      additionalToEmails: input.previous.additionalRecipients ?? [],
       contactName: input.previous.contactName ?? jobContact ?? "",
       toEmailSource: "previous_email",
       suggestions: [],
@@ -66,7 +70,7 @@ export function prefillRecipient(input: PrefillInput): Prefill {
   }
   const found = emailsInText(input.rawText);
   if (found.length === 1) {
-    return { toEmail: found[0]!, contactName: jobContact ?? "", toEmailSource: "job_posting", suggestions: [] };
+    return { toEmail: found[0]!, additionalToEmails: [], contactName: jobContact ?? "", toEmailSource: "job_posting", suggestions: [] };
   }
-  return { toEmail: "", contactName: jobContact ?? "", toEmailSource: null, suggestions: found.slice(0, 5) };
+  return { toEmail: "", additionalToEmails: [], contactName: jobContact ?? "", toEmailSource: null, suggestions: found.slice(0, 5) };
 }

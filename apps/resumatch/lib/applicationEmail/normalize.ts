@@ -18,6 +18,8 @@ export const SUBJECT_MAX_LENGTH = 200;
 export const BODY_MAX_LENGTH = 10_000;
 export const CONTACT_NAME_MAX_LENGTH = 120;
 export const EMAIL_MAX_LENGTH = 254;
+/** "To" recipients of one application email, the first included (#944). */
+export const MAX_RECIPIENTS = 3;
 
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001f\u007f\u2028\u2029]/;
@@ -89,6 +91,7 @@ export function companyKey(name: string | null | undefined): string {
 
 export const DRAFT_FIELDS = [
   "toEmail",
+  "additionalToEmails",
   "contactName",
   "subject",
   "body",
@@ -98,12 +101,52 @@ export type DraftField = (typeof DRAFT_FIELDS)[number];
 /** The editable fields, as the composer holds them. */
 export interface EmailFields {
   toEmail: string;
+  /** The 2nd and 3rd "To" recipients, as typed; blank entries are ignored.
+   *  Optional so a one-recipient caller needn't pass it. */
+  additionalToEmails?: string[];
   contactName: string;
   subject: string;
   body: string;
 }
 
-export type FieldProblem = "required" | "invalid" | "tooLong";
+export type FieldProblem = "required" | "invalid" | "tooLong" | "duplicate" | "tooMany";
+
+/** The extra recipients worth keeping: trimmed, blanks dropped. */
+export function cleanAdditionalRecipients(values: readonly string[] | undefined): string[] {
+  return (values ?? []).map((v) => v.trim()).filter(Boolean);
+}
+
+/** Every recipient of one email, in order: the first, then the others. */
+export function recipientList(fields: Pick<EmailFields, "toEmail" | "additionalToEmails">): string[] {
+  const first = fields.toEmail.trim();
+  return [...(first ? [first] : []), ...cleanAdditionalRecipients(fields.additionalToEmails)];
+}
+
+/**
+ * A problem per extra recipient field, in the order shown (null: fine or
+ * blank). The same address twice, in any case, is a duplicate of the
+ * earlier one.
+ */
+export function additionalRecipientProblems(fields: Pick<EmailFields, "toEmail" | "additionalToEmails">): (FieldProblem | null)[] {
+  const seen = new Set<string>();
+  if (fields.toEmail.trim()) seen.add(normalizeEmail(fields.toEmail));
+  return (fields.additionalToEmails ?? []).map((value) => {
+    const email = value.trim();
+    if (!email) return null;
+    if (!isValidRecipient(email)) return "invalid";
+    const key = normalizeEmail(email);
+    if (seen.has(key)) return "duplicate";
+    seen.add(key);
+    return null;
+  });
+}
+
+/** A short label for an email's recipients: the first address, then "+N"
+ *  for the others ("anneleen@cegeka.com +2"). */
+export function recipientSummary(first: string, others: readonly string[] | undefined): string {
+  const n = others?.length ?? 0;
+  return n > 0 ? `${first} +${n}` : first;
+}
 
 /**
  * Field problems for a send. A draft may be saved incomplete (an empty
@@ -115,6 +158,12 @@ export function validateForSend(fields: EmailFields): Partial<Record<DraftField,
   const to = fields.toEmail.trim();
   if (!to) problems.toEmail = "required";
   else if (!isValidRecipient(to)) problems.toEmail = "invalid";
+
+  if (cleanAdditionalRecipients(fields.additionalToEmails).length > MAX_RECIPIENTS - 1) problems.additionalToEmails = "tooMany";
+  else {
+    const extra = additionalRecipientProblems(fields).find((p) => p !== null);
+    if (extra) problems.additionalToEmails = extra;
+  }
 
   const name = fields.contactName.trim();
   if (name.length > CONTACT_NAME_MAX_LENGTH) problems.contactName = "tooLong";
@@ -137,6 +186,9 @@ export function validateForSend(fields: EmailFields): Partial<Record<DraftField,
 export const draftSaveSchema = z
   .object({
     toEmail: z.string().max(EMAIL_MAX_LENGTH),
+    /** Recipients 2 and 3 (#944). Optional, so an older client's save
+     *  leaves the stored ones alone. */
+    additionalToEmails: z.array(z.string().max(EMAIL_MAX_LENGTH)).max(MAX_RECIPIENTS - 1).optional(),
     contactName: z.string().max(CONTACT_NAME_MAX_LENGTH),
     subject: z.string().max(SUBJECT_MAX_LENGTH),
     body: z.string().max(BODY_MAX_LENGTH),
@@ -155,7 +207,7 @@ export const draftSaveSchema = z
     version: z.number().int().positive().nullable(),
   })
   .strict()
-  .refine((d) => !hasControlChars(d.subject) && !hasControlChars(d.contactName) && !hasControlChars(d.toEmail), {
+  .refine((d) => !hasControlChars(d.subject) && !hasControlChars(d.contactName) && !hasControlChars(d.toEmail) && !(d.additionalToEmails ?? []).some(hasControlChars), {
     message: "header fields must be a single line",
   })
   .refine((d) => d.contactMode !== "OVERRIDE" || parseContactPreferences(d.contactOverride).ok, {

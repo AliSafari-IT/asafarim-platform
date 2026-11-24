@@ -160,6 +160,19 @@ export default async function SentApplicationsPage({
                             row.contactEmail
                           )}
                         </a>
+                        {row.additionalRecipients.length > 0 ? (
+                          <>
+                            {" "}
+                            <span
+                              className="rm-sent-table__more"
+                              title={row.additionalRecipients.join(", ")}
+                              data-testid="more-recipients"
+                            >
+                              {t("resumatch.sent.moreRecipients", { count: String(row.additionalRecipients.length) })}
+                              <span className="sr-only">: {row.additionalRecipients.join(", ")}</span>
+                            </span>
+                          </>
+                        ) : null}
                       </td>
                       <td data-label={t("resumatch.sent.col.subject")}>
                         <Link href={`/applications/sent/${encodeURIComponent(row.id)}`} data-testid="open-sent">
