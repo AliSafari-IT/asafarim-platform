@@ -79,14 +79,22 @@ async function extractWithWorker(
   // Timeouts, memory bombs and parser errors all reach the candidate as the
   // same EXTRACTION_ERROR; the reason is not logged (see parseWorker.ts).
   if (!parsed.ok) return { ok: false, reasonCode: "EXTRACTION_ERROR" };
-  if (parsed.kind === "pdf") {
-    // The worker returns the runs with their positions rather than the
-    // library's flattened string. That string is in drawing order, which for
-    // a multi-column CV interleaves the columns. See pdfLayout.ts.
-    const pages: { items: PositionedItem[]; width: number }[] = parsed.pages;
-    return finish(reconstructReadingOrder(pages));
+  try {
+    if (parsed.kind === "pdf") {
+      // The worker returns the runs with their positions rather than the
+      // library's flattened string. That string is in drawing order, which
+      // for a multi-column CV interleaves the columns. See pdfLayout.ts.
+      const pages: { items: PositionedItem[]; width: number }[] = parsed.pages;
+      return finish(reconstructReadingOrder(pages));
+    }
+    return finish(parsed.text);
+  } catch {
+    // The layout pass runs on this thread and can still throw on odd input.
+    // It must end as a clean failure so extractDocument records it instead
+    // of leaving the document stuck as extracting. Not logged: the error
+    // can quote document text.
+    return { ok: false, reasonCode: "EXTRACTION_ERROR" };
   }
-  return finish(parsed.text);
 }
 
 function extractPlainText(bytes: Uint8Array): ExtractionOutcome {

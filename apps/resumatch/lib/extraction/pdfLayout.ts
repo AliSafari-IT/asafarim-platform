@@ -381,7 +381,9 @@ export function detectMarginLabels(
   const none = { labels: [], rest: items };
   if (items.length < 8) return none;
 
-  const leftEdge = Math.min(...items.map((item) => item.x));
+  // A running minimum, not Math.min(...xs): a dense page can hold more runs
+  // than V8 accepts as call arguments (RangeError).
+  const leftEdge = items.reduce((min, item) => (item.x < min ? item.x : min), Infinity);
   const marginWidth = pageWidth * 0.12;
   const textHeight = median(items.map((item) => item.height).filter((height) => height > 0)) || 8;
 

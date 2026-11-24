@@ -135,3 +135,18 @@ describe("runParser worker thread (#528 part 2)", () => {
     expect(result).toEqual({ ok: false, reason: "failed" });
   });
 });
+
+describe("extractText after the worker (#953 review)", () => {
+  it("lays out a page with more text runs than a call can take as arguments", async () => {
+    // 200k runs on one page: Math.min(...xs) threw RangeError here before.
+    const items = Array.from({ length: 200_000 }, (_, i) => ({
+      text: `w${i}`,
+      x: 50 + (i % 400),
+      y: 700 - Math.floor(i / 400),
+      width: 1,
+      height: 1,
+    }));
+    const { reconstructReadingOrder } = await import("./pdfLayout");
+    expect(() => reconstructReadingOrder([{ items, width: 612 }])).not.toThrow();
+  }, 30_000);
+});
