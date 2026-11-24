@@ -97,6 +97,9 @@ export async function ProfileCompleteness({ content }: { content: CandidateProfi
           </li>
         ))}
       </ol>
+      {/* #942: a full ring after an upload or import is easy to read as
+          "everything came through". It only measures completeness. */}
+      <p className="rx-panel__sub">{t("resumatch.insights.strengthNote")}</p>
     </section>
   );
 }

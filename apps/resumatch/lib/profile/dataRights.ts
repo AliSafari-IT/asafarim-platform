@@ -341,6 +341,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       "Original uploaded files are not included in this JSON. Download them individually from the profile page while they are still within their retention window.",
       "Your name, email address, and platform account details are held by the ASafariM platform, not by ResuMatch. ResuMatch stores only an opaque account identifier.",
       "Audit events record what happened and when. They never contain CV content.",
+      "To restore your confirmed profile in ResuMatch, upload this file on the profile page. Only the profile is imported; jobs, CVs, emails and history are not.",
     ],
   };
 }

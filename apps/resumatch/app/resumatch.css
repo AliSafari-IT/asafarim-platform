@@ -6759,3 +6759,55 @@
   color: var(--muted);
   font-size: 0.78rem;
 }
+
+/* ── Profile import from a ResuMatch export (#942) ── */
+[data-app="resumatch"] .rx-import {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.9rem;
+  background: var(--surface);
+}
+
+[data-app="resumatch"] .rx-import__title { margin: 0; font-size: 1.05rem; }
+[data-app="resumatch"] .rx-import__subtitle { margin: 0.25rem 0 0; font-size: 0.95rem; }
+[data-app="resumatch"] .rx-import__muted { margin: 0; color: var(--muted); font-size: 0.9rem; }
+[data-app="resumatch"] .rx-import p { margin: 0; }
+
+[data-app="resumatch"] .rx-import__counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+
+[data-app="resumatch"] .rx-import__count {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.6rem;
+}
+
+[data-app="resumatch"] .rx-import__count dt { color: var(--muted); font-size: 0.8rem; }
+[data-app="resumatch"] .rx-import__count dd { margin: 0; font-weight: 600; }
+[data-app="resumatch"] .rx-import__excluded { margin: 0; padding-left: 1.2rem; }
+
+[data-app="resumatch"] .rx-import__choose {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+[data-app="resumatch"] .rx-import__choose legend { font-weight: 600; padding: 0; }
+
+[data-app="resumatch"] .rx-import__option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+[data-app="resumatch"] .rx-import__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }

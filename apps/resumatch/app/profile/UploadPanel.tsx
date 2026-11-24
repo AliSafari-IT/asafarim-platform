@@ -7,6 +7,14 @@ import { Alert, Badge, Button, Card } from "@asafarim/ui";
 import { MAX_DOCUMENT_BYTES } from "../../lib/documents/fileType";
 import { ShowcaseNotice } from "../components/ShowcaseNotice";
 import { AlertCard } from "./AlertCard";
+import { ProfileImportPanel } from "./ProfileImportPanel";
+
+/** A ResuMatch export is sent to the profile import, never to CV
+ *  extraction (#942). The name or type is only a first guess: the server
+ *  also recognises a renamed export and answers NATIVE_EXPORT. */
+function looksLikeExportFile(file: File): boolean {
+  return file.type === "application/json" || /\.json$/i.test(file.name);
+}
 
 export interface DocumentRow {
   id: string;
@@ -73,10 +81,17 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
   const [message, setMessage] = useState<{ tone: "info" | "warning" | "error"; text: string } | null>(
     null,
   );
+  const [importFile, setImportFile] = useState<File | null>(null);
   const maxSizeLabel = `${Math.round(MAX_DOCUMENT_BYTES / (1024 * 1024))} MB`;
 
   const upload = useCallback(
     async (file: File) => {
+      if (looksLikeExportFile(file)) {
+        setMessage(null);
+        setImportFile(file);
+        if (inputRef.current) inputRef.current.value = "";
+        return;
+      }
       // Checked here for a fast, clear message; the server checks again on
       // the real byte length, because nothing from the browser is trusted.
       if (file.size > MAX_DOCUMENT_BYTES) {
@@ -97,6 +112,10 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
           status?: string;
         };
 
+        if (body.reasonCode === "NATIVE_EXPORT") {
+          setImportFile(file);
+          return;
+        }
         if (!response.ok) {
           setMessage({ tone: "error", text: body.error ?? t("resumatch.upload.msg.uploadFailed") });
           return;
@@ -195,6 +214,7 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
       <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
         {t("resumatch.upload.noCv")}
       </p>
+      <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{t("resumatch.upload.importHint")}</p>
 
       <div style={{ margin: "1rem 0" }}>
         <ShowcaseNotice variant="compact" />
@@ -252,7 +272,7 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+          accept=".pdf,.docx,.txt,.json,application/pdf,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
           disabled={busy}
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -264,6 +284,17 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
 
       {busy ? <p className="jm-mono">{t("resumatch.upload.working")}</p> : null}
       {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}
+      {importFile ? (
+        <ProfileImportPanel
+          file={importFile}
+          onCancel={() => setImportFile(null)}
+          onDone={(text) => {
+            setImportFile(null);
+            setMessage({ tone: "info", text });
+            router.refresh();
+          }}
+        />
+      ) : null}
 
       {documents.length > 0 ? (
         <ul className="jm-list" style={{ marginTop: "1rem" }}>

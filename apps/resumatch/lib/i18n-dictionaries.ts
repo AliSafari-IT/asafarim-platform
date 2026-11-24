@@ -9,6 +9,7 @@ import { navDictionaries } from "./i18n/nav";
 import { photoDictionaries } from "./i18n/photo";
 import { previewDictionaries } from "./i18n/preview";
 import { profileDictionaries } from "./i18n/profile";
+import { profileImportDictionaries } from "./i18n/profileImport";
 import { requirementsDictionaries } from "./i18n/requirements";
 import { sendDictionaries } from "./i18n/send";
 import { shellDictionaries } from "./i18n/shell";
@@ -37,6 +38,7 @@ export const resumatchDictionaryAreas: Record<string, Dictionaries> = {
   writingPreferences: writingPreferencesDictionaries,
   preview: previewDictionaries,
   profile: profileDictionaries,
+  profileImport: profileImportDictionaries,
   photo: photoDictionaries,
   tracking: trackingDictionaries,
   send: sendDictionaries,

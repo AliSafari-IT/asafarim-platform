@@ -150,6 +150,8 @@ export function explainReasonCode(code: string | null): string {
       return "This document is already being read. Refresh in a moment to see the result.";
     case "EXTRACTION_ERROR":
       return "This document could not be read. You can still build your profile by hand.";
+    case "NATIVE_EXPORT":
+      return "This is a ResuMatch export, not a CV. Use \"Import profile\" to restore the profile it contains.";
     case "BYTES_MISSING":
       return "This file could no longer be found in storage, so it could not be rescanned. Please upload it again.";
     default:

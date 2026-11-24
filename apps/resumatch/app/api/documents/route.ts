@@ -3,6 +3,7 @@ import { MAX_DOCUMENT_BYTES } from "../../../lib/documents/fileType";
 import { explainReasonCode } from "../../../lib/documents/pipeline";
 import { extractDocument, listDocuments, uploadDocument, shouldCallExtractionAgain } from "../../../lib/documents/service";
 import { logError } from "../../../lib/observability/logger";
+import { isNativeExport } from "../../../lib/profile/exportImport";
 import { getCurrentWorkspace } from "../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,18 @@ export async function POST(request: Request) {
   if (!file) return NextResponse.json({ error: "No file was provided." }, { status: 400 });
 
   const bytes = new Uint8Array(await file.arrayBuffer());
+
+  // A ResuMatch export is not a CV (#942). Read as text, the AI extractor
+  // would mix every historical profile and job advert in it into one form
+  // and call that a success. It is refused here, before it is stored, and
+  // the client offers the deterministic profile import instead.
+  if (isNativeExport(bytes)) {
+    return NextResponse.json(
+      { error: explainReasonCode("NATIVE_EXPORT"), reasonCode: "NATIVE_EXPORT" },
+      { status: 422 },
+    );
+  }
+
   const result = await uploadDocument(workspace.id, bytes, file.type || null, file.name);
 
   if (!result.ok) {
