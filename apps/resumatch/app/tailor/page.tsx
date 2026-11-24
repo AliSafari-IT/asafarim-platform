@@ -214,6 +214,7 @@ export default async function TailorPage({
     recentStatusChanges.filter((e) => e.createdAt.toISOString() >= windowStart),
   );
   const funnel = activityFunnelLine(t, totals, recentDegraded, answeredApplied);
+  const hasActivity = journey.tailoredCount > 0 || chart.series.some((s) => s.total > 0);
 
   return (
     <div className="rx">
@@ -230,71 +231,75 @@ export default async function TailorPage({
       </section>
 
       {journey.tailoredCount > 0 ? (
-        <>
-          <StatRow label={t("resumatch.tailor.stats.aria")}>
-            <StatTile value={journey.tailoredCount} label={t("resumatch.tailor.stats.tailored")} visual={<SparkIcon />} />
-            <StatTile value={distinctJobs} label={t("resumatch.stats.jobs")} visual={<BriefcaseIcon />} />
-            <StatTile
-              value={coverLetters}
-              label={t("resumatch.stats.withCoverLetter")}
-              visual={<MailIcon />}
-              tone="ok"
-            />
-            <StatTile
-              value={degraded}
-              label={t("resumatch.stats.degraded")}
-              hint={t("resumatch.stats.degradedHint")}
-              visual={<WarningIcon />}
-              tone={degraded > 0 ? "warm" : "muted"}
-            />
-          </StatRow>
+        <StatRow label={t("resumatch.tailor.stats.aria")}>
+          <StatTile value={journey.tailoredCount} label={t("resumatch.tailor.stats.tailored")} visual={<SparkIcon />} />
+          <StatTile value={distinctJobs} label={t("resumatch.stats.jobs")} visual={<BriefcaseIcon />} />
+          <StatTile
+            value={coverLetters}
+            label={t("resumatch.stats.withCoverLetter")}
+            visual={<MailIcon />}
+            tone="ok"
+          />
+          <StatTile
+            value={degraded}
+            label={t("resumatch.stats.degraded")}
+            hint={t("resumatch.stats.degradedHint")}
+            visual={<WarningIcon />}
+            tone={degraded > 0 ? "warm" : "muted"}
+          />
+        </StatRow>
+      ) : null}
 
-          <section className="rx-panel">
-            <div className="rx-panel__head">
-              <div>
-                <h2 className="rx-panel__title">{t("resumatch.tailor.activity.title", { days: ACTIVITY_DAYS })}</h2>
-                <p className="rx-panel__sub">{funnel}</p>
-              </div>
+      {/* Shown on activity alone too: applications made without a saved
+          tailored CV still have Applied and Responses days (#943). */}
+      {hasActivity ? (
+        <section className="rx-panel">
+          <div className="rx-panel__head">
+            <div>
+              <h2 className="rx-panel__title">{t("resumatch.tailor.activity.title", { days: ACTIVITY_DAYS })}</h2>
+              <p className="rx-panel__sub">{funnel}</p>
             </div>
-            <ActivitySeriesChart
-              days={chart.days}
-              series={chart.series}
-              summary={activitySummary}
-              legendLabel={t("resumatch.tailor.activity.legend")}
-            />
-          </section>
+          </div>
+          <ActivitySeriesChart
+            days={chart.days}
+            series={chart.series}
+            summary={activitySummary}
+            legendLabel={t("resumatch.tailor.activity.legend")}
+          />
+        </section>
+      ) : null}
 
-          <section className="rx-panel" aria-labelledby="rx-recent-title">
-            <div className="rx-panel__head">
-              <h2 id="rx-recent-title" className="rx-panel__title">
-                {t("resumatch.tailor.recent.title")}
-              </h2>
-              <Link href="/tailor/history" className="rx-link">
-                {t("resumatch.tailor.recent.all")}
-              </Link>
-            </div>
-            <ul className="rx-cards">
-              {history.map((resume) => (
-                <li key={resume.id}>
-                  <Link href={`/tailor/${resume.id}/preview`} className="rx-card">
-                    <span className="rx-card__title">{resume.targetJob.title ?? t("resumatch.tailor.recent.fallbackTitle")}</span>
-                    {resume.targetJob.employer ? (
-                      <span className="rx-card__sub">{resume.targetJob.employer}</span>
-                    ) : null}
-                    <span className="rx-card__meta">
-                      <span className="jm-mono">{resume.createdAt.toISOString().slice(0, 10)}</span>
-                      <span className="rx-pill">{resume.templateKey}</span>
-                      <LanguageBadge language={resume.outputLanguage} />
-                      {resume.coverLetter ? <span className="rx-pill rx-pill--ok">{t("resumatch.plusCoverLetter")}</span> : null}
-                      <LanguageBadge language={resume.coverLetter?.outputLanguage} coverLetter />
-                      {resume.degraded ? <span className="rx-pill rx-pill--warm">{t("resumatch.degraded")}</span> : null}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </>
+      {journey.tailoredCount > 0 ? (
+        <section className="rx-panel" aria-labelledby="rx-recent-title">
+          <div className="rx-panel__head">
+            <h2 id="rx-recent-title" className="rx-panel__title">
+              {t("resumatch.tailor.recent.title")}
+            </h2>
+            <Link href="/tailor/history" className="rx-link">
+              {t("resumatch.tailor.recent.all")}
+            </Link>
+          </div>
+          <ul className="rx-cards">
+            {history.map((resume) => (
+              <li key={resume.id}>
+                <Link href={`/tailor/${resume.id}/preview`} className="rx-card">
+                  <span className="rx-card__title">{resume.targetJob.title ?? t("resumatch.tailor.recent.fallbackTitle")}</span>
+                  {resume.targetJob.employer ? (
+                    <span className="rx-card__sub">{resume.targetJob.employer}</span>
+                  ) : null}
+                  <span className="rx-card__meta">
+                    <span className="jm-mono">{resume.createdAt.toISOString().slice(0, 10)}</span>
+                    <span className="rx-pill">{resume.templateKey}</span>
+                    <LanguageBadge language={resume.outputLanguage} />
+                    {resume.coverLetter ? <span className="rx-pill rx-pill--ok">{t("resumatch.plusCoverLetter")}</span> : null}
+                    <LanguageBadge language={resume.coverLetter?.outputLanguage} coverLetter />
+                    {resume.degraded ? <span className="rx-pill rx-pill--warm">{t("resumatch.degraded")}</span> : null}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
     </div>
   );
