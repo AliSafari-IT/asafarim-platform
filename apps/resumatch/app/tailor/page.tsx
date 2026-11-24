@@ -20,6 +20,7 @@ import { buildSavedReviewSeed, type SavedReviewSeed } from "../../lib/tailoring/
 import { parseTailoredResumeContent } from "../../lib/tailoring/ai/schema";
 import { parseCoverLetterContent } from "../../lib/tailoring/ai/coverLetter/schema";
 import { logError } from "../../lib/observability/logger";
+import { getWritingPreferences } from "../../lib/writingPreferences/store";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getTranslator();
@@ -48,9 +49,10 @@ export default async function TailorPage({
     );
   }
 
-  const [confirmed, journey] = await Promise.all([
+  const [confirmed, journey, writingPreferences] = await Promise.all([
     getConfirmedVersion(workspace.id),
     getJourneyCounts(workspace.id),
+    getWritingPreferences(workspace.id),
   ]);
 
   if (!confirmed) {
@@ -227,7 +229,12 @@ export default async function TailorPage({
       />
 
       <section id="tailor-flow" className="rx-flow" aria-label={t("resumatch.tailor.flowAria")}>
-        <TailorFlow confirmedVersionId={confirmed.id} seed={editSeed ? null : seed} editSeed={editSeed} />
+        <TailorFlow
+          confirmedVersionId={confirmed.id}
+          seed={editSeed ? null : seed}
+          editSeed={editSeed}
+          writingPreferences={writingPreferences}
+        />
       </section>
 
       {journey.tailoredCount > 0 ? (

@@ -99,3 +99,22 @@ describe("renderTailorPrompt", () => {
     expect(rendered.system.indexOf("LOW-FIT JOB")).toBeLessThan(rendered.system.indexOf("OUTPUT LANGUAGE"));
   });
 });
+
+describe("saved writing style (#931, tailor_resume@9)", () => {
+  it("adds the fenced block and its rule only when the run has a saved note", () => {
+    const without = renderTailorPrompt("profile", "job", "lead with backend");
+    expect(without.system).not.toContain("WRITING PREFERENCES");
+    expect(without.styleNoteUsed).toBeNull();
+    const withNote = renderTailorPrompt("profile", "job", "lead with backend", null, false, null, null, "  Short sentences. ");
+    expect(withNote.styleNoteUsed).toBe("Short sentences.");
+    expect(withNote.system).toContain("WRITING PREFERENCES");
+    expect(withNote.system).toContain("follow the instructions for this application");
+    expect(withNote.system).toContain("never a fact about the candidate");
+    expect(withNote.user).toContain("Short sentences.");
+    expect(withNote.cacheKey).not.toBe(without.cacheKey);
+  });
+
+  it("caps the note", () => {
+    expect(renderTailorPrompt("p", "j", null, null, false, null, null, "a".repeat(900)).styleNoteUsed).toHaveLength(300);
+  });
+});

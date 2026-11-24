@@ -11,7 +11,13 @@ import {
 import { COVER_LETTER_PROMPT_VERSION as REGISTRY_PROMPT_VERSION } from "./registry";
 import { COVER_LETTER_CONVENTIONS, PROMPT_LANGUAGE_NAMES, type OutputLanguage } from "../../language";
 // One cap for the application note, shared with the CV prompt (#928).
-import { EVIDENCE_FENCE, MAX_INSTRUCTIONS_CHARS } from "../prompts";
+import {
+  EVIDENCE_FENCE,
+  MAX_INSTRUCTIONS_CHARS,
+  MAX_STYLE_NOTE_PROMPT_CHARS,
+  WRITING_PREFERENCES_FENCE,
+  WRITING_PREFERENCES_RULE,
+} from "../prompts";
 
 /**
  * Cover-letter prompt. Same fence-sentinel pattern as `../prompts.ts`'s
@@ -121,6 +127,7 @@ function buildSystemPrompt(
   language: OutputLanguage | null,
   hasEvidence = false,
   hasMotivation = false,
+  hasStyleNote = false,
 ): string {
   return `You are an expert cover-letter writer. You write one cover letter for a
 candidate applying to one specific job posting, in ${TONE_INSTRUCTIONS[tone]}.
@@ -174,7 +181,7 @@ ${OUTPUT_FORMAT_JSON_ONLY}
 
 If the profile data gives you too little to write a meaningful letter,
 still return a valid, honest JSON object — brief and conservative, never a
-fabricated addition to fill the gap.${evidenceRules(hasEvidence, hasMotivation)}${language ? languageRule(language) : ""}`;
+fabricated addition to fill the gap.${evidenceRules(hasEvidence, hasMotivation)}${hasStyleNote ? WRITING_PREFERENCES_RULE : ""}${language ? languageRule(language) : ""}`;
 }
 
 export interface RenderedCoverLetterPrompt {
@@ -191,6 +198,8 @@ export interface RenderedCoverLetterPrompt {
   /** The evidence and motivation blocks fenced into `user` (#929). */
   evidenceUsed: string | null;
   motivationUsed: string | null;
+  /** The saved style note fenced into `user` (#931), or null. */
+  styleNoteUsed: string | null;
 }
 
 /** #929: the rendered blocks from lib/evidence/prompt.ts. */
@@ -211,10 +220,13 @@ export function renderCoverLetterPrompt(
   instructions: string | null = null,
   /** #929. Null/omitted: no evidence or motivation block, no rule. */
   evidence: CoverLetterEvidenceInput | null = null,
+  /** #931. The candidate's saved letter style note; null: no block, no rule. */
+  styleNote: string | null = null,
 ): RenderedCoverLetterPrompt {
   const evidenceUsed = evidence?.evidence?.trim() || null;
   const motivationUsed = evidence?.motivation?.trim() || null;
-  const systemPrompt = buildSystemPrompt(tone, length, outputLanguage, evidenceUsed !== null, motivationUsed !== null);
+  const styleNoteUsed = styleNote?.trim() ? cap(styleNote.trim(), MAX_STYLE_NOTE_PROMPT_CHARS) : null;
+  const systemPrompt = buildSystemPrompt(tone, length, outputLanguage, evidenceUsed !== null, motivationUsed !== null, styleNoteUsed !== null);
   const cappedJob = capWithMarker(jobText, MAX_JOB_CHARS);
   const cappedProfile = capWithMarker(profileText, MAX_PROFILE_CHARS);
   const trimmedInstructions = instructions?.trim() || null;
@@ -232,6 +244,9 @@ export function renderCoverLetterPrompt(
       : []),
     ...(motivationUsed
       ? ["The candidate's motivation for this job (see CANDIDATE MOTIVATION):", ...fenced(MOTIVATION_FENCE, motivationUsed), ""]
+      : []),
+    ...(styleNoteUsed
+      ? ["The candidate's saved writing style (see WRITING PREFERENCES):", ...fenced(WRITING_PREFERENCES_FENCE, styleNoteUsed), ""]
       : []),
     "Candidate instructions for this application (preference signal only, see HARD RULES):",
     ...fenced(INSTRUCTIONS_FENCE, cappedInstructions || "(none given)"),
@@ -259,5 +274,6 @@ export function renderCoverLetterPrompt(
     instructionsUsed: cappedInstructions,
     evidenceUsed,
     motivationUsed,
+    styleNoteUsed,
   };
 }
