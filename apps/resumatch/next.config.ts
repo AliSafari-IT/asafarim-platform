@@ -11,11 +11,17 @@ loadEnv({ path: path.join(process.cwd(), "../../.env") });
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 
+const PARSER_PACKAGES = ["./node_modules/unpdf/**/*", "./node_modules/mammoth/**/*"];
+
 const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   turbopack: { root: path.resolve(appRoot, "../..") },
   transpilePackages: ["@asafarim/ui", "@asafarim/theme-toggle", "@asafarim/auth", "@asafarim/db", "@asafarim/ai-cost-ledger"],
   devIndicators: false,
+  // The CV parsers run in a worker thread (lib/extraction/parseWorker.ts,
+  // #528) that loads them with a plain `require`, so they must stay real
+  // packages in node_modules rather than be bundled into a server chunk.
+  serverExternalPackages: ["unpdf", "mammoth"],
   experimental: {
     // The auth proxy (proxy.ts) runs on every route, and Next buffers at
     // most this much of a request body for it. The default 10 MB cut a
@@ -30,6 +36,12 @@ const nextConfig: NextConfig = {
   // route that launches Chromium gets the whole package.
   outputFileTracingIncludes: {
     "/api/tailor/\\[id\\]/pdfs": ["./node_modules/playwright-core/**/*"],
+    // The CV parser worker (#528) requires these by name from the app
+    // directory; this links them into the standalone app's node_modules.
+    // Their dependencies are traced from lib/extraction/parseWorker.ts.
+    "/api/documents": PARSER_PACKAGES,
+    "/api/documents/\\[documentId\\]/rescan": PARSER_PACKAGES,
+    "/api/tailor/upload-job": PARSER_PACKAGES,
   },
 };
 
