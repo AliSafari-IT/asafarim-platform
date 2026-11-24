@@ -217,7 +217,9 @@ export function Composer(props: ComposerProps) {
     savedContact.mode !== contact.mode ||
     // The override only counts while it is the choice: OMIT saves none.
     (contact.mode === "OVERRIDE" && JSON.stringify(savedContact.override) !== JSON.stringify(contact.override));
-  const hasText = Boolean(fields.subject.trim() || fields.body.trim() || fields.toEmail.trim());
+  const hasText = Boolean(
+    fields.subject.trim() || fields.body.trim() || fields.toEmail.trim() || fields.additionalToEmails.some((address) => address.trim()),
+  );
   const warnOnLeave = dirty && hasText && send.kind !== "accepted";
 
   useEffect(() => {

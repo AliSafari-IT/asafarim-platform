@@ -103,6 +103,9 @@ export interface DataExport {
     jobTitle: string | null;
     contactName: string | null;
     contactEmail: string;
+    /** The other "To" recipients (#944), and those the server refused. */
+    additionalRecipients: string[];
+    rejectedRecipients: string[];
     fromAddress: string;
     replyTo: string | null;
     subject: string;
@@ -271,6 +274,8 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       jobTitle: email.jobTitle,
       contactName: email.contactName,
       contactEmail: email.contactEmail,
+      additionalRecipients: email.additionalRecipients,
+      rejectedRecipients: email.rejectedRecipients,
       fromAddress: email.fromAddress,
       replyTo: email.replyTo,
       subject: email.subject,

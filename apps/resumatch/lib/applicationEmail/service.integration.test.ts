@@ -800,6 +800,15 @@ describe.skipIf(!TEST_DB)("application email: send, history, filters", () => {
     expect(row).toMatchObject({ status: "ACCEPTED", rejectedRecipients: ["gone@acme.example.test"] });
     const detail = await sentList.getSentEmail(s.workspaceId, row.id);
     expect(detail?.rejectedRecipients).toEqual(["gone@acme.example.test"]);
+
+    // The data export carries every recipient and the refusals.
+    const { exportWorkspaceData } = await import("../profile/dataRights");
+    const exported = await exportWorkspaceData(s.workspaceId);
+    expect(exported?.sentApplicationEmails[0]).toMatchObject({
+      contactEmail: "Jobs@Acme.Example.Test",
+      additionalRecipients: ["gone@acme.example.test"],
+      rejectedRecipients: ["gone@acme.example.test"],
+    });
   });
 
   it("leaves a draft's extra recipients alone when a save leaves them out", async () => {
