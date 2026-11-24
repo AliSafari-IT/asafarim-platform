@@ -298,6 +298,9 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
       {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}
       {importFile ? (
         <ProfileImportPanel
+          // A new file gets a fresh panel: no preview or version list from
+          // the previous file can stay on screen next to it.
+          key={`${importFile.name}:${importFile.size}:${importFile.lastModified}`}
           file={importFile}
           onCancel={() => setImportFile(null)}
           onDone={(text) => {
