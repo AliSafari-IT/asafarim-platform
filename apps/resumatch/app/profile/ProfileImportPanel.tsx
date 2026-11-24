@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { Alert, Button } from "@asafarim/ui";
-import type { ImportVersionChoice, ProfileImportPreview } from "../../lib/profile/exportImport";
+import { MAX_IMPORT_BYTES, type ImportVersionChoice, type ProfileImportPreview } from "../../lib/profile/exportImport";
 
 interface Destination {
   hasProfile: boolean;
@@ -75,6 +75,13 @@ export function ProfileImportPanel({
     async (versionId: string | null) => {
       setBusy(true);
       setError(null);
+      if (file.size > MAX_IMPORT_BYTES) {
+        // Checked here too: above the server's request limit the body would
+        // arrive cut short and only say "invalid request".
+        setError(t("resumatch.import.error.FILE_TOO_LARGE"));
+        setBusy(false);
+        return;
+      }
       try {
         const { ok, body } = await send("preview", versionId);
         if (ok && body.preview) {
@@ -94,7 +101,7 @@ export function ProfileImportPanel({
         setBusy(false);
       }
     },
-    [send, explain, t],
+    [send, explain, t, file],
   );
 
   useEffect(() => {
