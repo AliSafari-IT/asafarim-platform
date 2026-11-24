@@ -85,6 +85,22 @@ describe("deriveFeedback (#932)", () => {
     expect(rebuilt.letter!.original).toContain("Second.");
   });
 
+  it("reconstructs the full saved skill order, including profile skills the suggestion left out", () => {
+    const input = base({
+      original: { ...original, cv: { ...original.cv!, skillsOrder: ["PostgreSQL"] } },
+      approved: { ...base().approved!, skillsOrder: ["PostgreSQL"] },
+    });
+    const items = deriveFeedback(input);
+    expect(byKey(items).skills).toMatchObject({ decision: "accepted", final: "PostgreSQL, Node.js" });
+    const skills = reconstructFeedback(input.original, items).find((i) => i.key === "skills")!;
+    expect(skills).toMatchObject({ original: "PostgreSQL", saved: "PostgreSQL, Node.js" });
+  });
+
+  it("keeps line breaks in a saved edit and counts a whitespace-only change as an edit", () => {
+    const items = byKey(deriveFeedback(base({ approved: { ...base().approved!, summary: "Builds reliable\nNode.js services." } })));
+    expect(items.summary).toMatchObject({ decision: "edited", final: "Builds reliable\nNode.js services." });
+  });
+
   it("counts a field put back to the profile's own value as rejected, not edited", () => {
     const items = byKey(
       deriveFeedback(base({ approved: { ...base().approved!, headline: "Backend developer", summary: "Profile summary." } })),

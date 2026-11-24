@@ -193,6 +193,28 @@ export function promotionFailed(outcome: PromotionOutcome): boolean {
   );
 }
 
+/**
+ * What the review sends for "Remember as my writing preference": only the
+ * notes the candidate actually typed in, on top of the revision they now
+ * see. A note they never touched is left out, so after a stale-save
+ * conflict it cannot overwrite a newer saved note. Null: nothing to send.
+ */
+export function preferencePromotionPayload(
+  draft: { cvStyleNote: string; letterStyleNote: string; touched?: { cv?: boolean; letter?: boolean } } | null,
+  baseRevisionId: string | null,
+  includeLetter: boolean,
+): PreferencePromotion | null {
+  if (!draft) return null;
+  const cv = draft.touched?.cv === true;
+  const letter = draft.touched?.letter === true && includeLetter;
+  if (!cv && !letter) return null;
+  return {
+    baseRevisionId,
+    ...(cv ? { cvStyleNote: draft.cvStyleNote.trim() || null } : {}),
+    ...(letter ? { letterStyleNote: draft.letterStyleNote.trim() || null } : {}),
+  };
+}
+
 /** A short title for a bullet the candidate adds to their background: its
  *  first words, cut at a word boundary. The candidate sees and can change it. */
 export function suggestEvidenceTitle(text: string, max = 60): string {

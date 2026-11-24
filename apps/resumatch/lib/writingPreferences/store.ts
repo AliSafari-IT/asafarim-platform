@@ -21,6 +21,9 @@ import {
  */
 
 type Row = { id: string; revisionNumber: number; content: unknown; createdAt: Date };
+type Db = ReturnType<typeof getJobmatchDb>;
+type Tx = Parameters<Parameters<Db["$transaction"]>[0]>[0];
+type Client = Db | Tx;
 
 function toView(row: Row): WritingPreferencesView {
   return {
@@ -31,8 +34,8 @@ function toView(row: Row): WritingPreferencesView {
   };
 }
 
-async function latestRow(workspaceId: string): Promise<Row | null> {
-  return getJobmatchDb().writingPreferenceRevision.findFirst({
+async function latestRow(workspaceId: string, client: Client = getJobmatchDb()): Promise<Row | null> {
+  return client.writingPreferenceRevision.findFirst({
     where: { workspaceId },
     orderBy: { revisionNumber: "desc" },
     select: { id: true, revisionNumber: true, content: true, createdAt: true },
@@ -62,8 +65,10 @@ export async function saveWritingPreferences(
   workspaceId: string,
   prefs: WritingPreferences,
   baseRevisionId: string | null,
+  /** A transaction to write in (#932 promotions); defaults to the client. */
+  client: Client = getJobmatchDb(),
 ): Promise<SaveWritingPreferencesResult> {
-  const latest = await latestRow(workspaceId);
+  const latest = await latestRow(workspaceId, client);
   if ((latest?.id ?? null) !== baseRevisionId) {
     return { ok: false, reason: "stale", current: latest ? toView(latest) : null };
   }
@@ -76,12 +81,15 @@ export async function saveWritingPreferences(
   }
   let created: Row;
   try {
-    created = await getJobmatchDb().writingPreferenceRevision.create({
+    created = await client.writingPreferenceRevision.create({
       data: { workspaceId, revisionNumber: (latest?.revisionNumber ?? 0) + 1, content: prefs as unknown as object },
       select: { id: true, revisionNumber: true, content: true, createdAt: true },
     });
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
+    // Inside a transaction the failed insert aborted it: let the caller see
+    // the error rather than query an aborted transaction.
+    if (client !== getJobmatchDb()) throw error;
     const current = await latestRow(workspaceId);
     return { ok: false, reason: "stale", current: current ? toView(current) : null };
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_WRITING_PREFERENCES } from "../writingPreferences/contract";
-import { parsePromotionRequest, promotionFailed, resolvePromotions, suggestEvidenceTitle } from "./feedbackScope";
+import { parsePromotionRequest, preferencePromotionPayload, promotionFailed, resolvePromotions, suggestEvidenceTitle } from "./feedbackScope";
 
 /** #932: the explicit "remember" choices on the Tailor review. */
 
@@ -95,6 +95,19 @@ describe("promotions (#932)", () => {
     expect(parsePromotionRequest([])).toMatchObject({ ok: false });
     expect(parsePromotionRequest({ background: [{ experienceIndex: "0", bulletIndex: 0 }] })).toMatchObject({ ok: false });
     expect(parsePromotionRequest({ preference: { baseRevisionId: 5, cvStyleNote: "x" } })).toMatchObject({ ok: false });
+  });
+
+  it("sends only the style notes the candidate typed in, so a retry after a conflict keeps a newer untouched note", () => {
+    const draft = { cvStyleNote: " Lead with results. ", letterStyleNote: "Old letter note", touched: { cv: true } };
+    expect(preferencePromotionPayload(draft, "rev_2", true)).toEqual({ baseRevisionId: "rev_2", cvStyleNote: "Lead with results." });
+    expect(preferencePromotionPayload({ ...draft, touched: {} }, "rev_2", true)).toBeNull();
+    expect(preferencePromotionPayload({ ...draft, touched: { letter: true } }, null, false)).toBeNull();
+    expect(preferencePromotionPayload({ ...draft, cvStyleNote: "  ", touched: { cv: true, letter: true } }, null, true)).toEqual({
+      baseRevisionId: null,
+      cvStyleNote: null,
+      letterStyleNote: "Old letter note",
+    });
+    expect(preferencePromotionPayload(null, null, true)).toBeNull();
   });
 
   it("says when anything chosen failed", () => {

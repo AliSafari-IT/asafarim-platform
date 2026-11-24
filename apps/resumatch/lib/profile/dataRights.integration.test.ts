@@ -105,6 +105,9 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
         degraded: false,
         contextVersion: "tailoring_context@1",
         context: { instructions: "Please leave out my former employer.", jobTextUsed: "We need a TypeScript engineer." },
+        // #932: suggestions of a review that was never saved are exported too.
+        suggestions: { headline: "Unsaved TypeScript headline", summary: null, skillsOrder: [], experienceBullets: [] },
+        coverLetterSuggestion: { greeting: "Dear team,", paragraphs: ["Unsaved letter paragraph."], signOff: "Regards," },
       },
     });
 
@@ -132,6 +135,10 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
 
     const exported = await exportWorkspaceData(workspaceId);
     expect(exported).not.toBeNull();
+    expect(exported!.tailorPreviews).toHaveLength(1);
+    expect(exported!.tailorPreviews[0]).toMatchObject({ consumedAt: null });
+    expect(JSON.stringify(exported!.tailorPreviews[0])).toContain("Unsaved TypeScript headline");
+    expect(JSON.stringify(exported!.tailorPreviews[0])).toContain("Unsaved letter paragraph.");
     expect(exported!.tailoringFeedback).toHaveLength(1);
     expect(exported!.tailoringFeedback[0]).toMatchObject({ tailoredResumeId: savedCv.id, feedbackVersion: "tailoring_feedback@1" });
     expect(JSON.stringify(exported!.tailoringFeedback[0]!.decisions)).toContain("TypeScript engineer");

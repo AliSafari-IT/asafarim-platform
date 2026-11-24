@@ -41,6 +41,9 @@ const previewUpdateMany = vi.fn();
 const previewFindFirstOrThrow = vi.fn();
 const resumeCreate = vi.fn();
 const feedbackUpdate = vi.fn();
+const feedbackUpdateMany = vi.fn();
+const lockCv = vi.fn();
+const transaction = vi.fn();
 const evidenceCount = vi.fn();
 const createEvidence = vi.fn();
 const getWritingPreferences = vi.fn();
@@ -67,9 +70,10 @@ vi.mock("../../../../lib/db/client", () => ({
     targetJob: { findFirst: targetJobFindFirst },
     tailorPreview: { findFirst: previewFindFirst, updateMany: previewUpdateMany, findFirstOrThrow: previewFindFirstOrThrow },
     tailoredResume: { create: resumeCreate },
-    tailoringFeedback: { update: feedbackUpdate },
+    tailoringFeedback: { update: feedbackUpdate, updateMany: feedbackUpdateMany },
     candidateEvidence: { count: evidenceCount },
     coverLetter: { create: vi.fn() },
+    $transaction: (fn: (tx: unknown) => unknown) => transaction(fn),
   }),
 }));
 
@@ -121,6 +125,11 @@ describe("generate-confirm review feedback (#932)", () => {
     });
     resumeCreate.mockReset().mockResolvedValue({ id: "cv_1", outputLanguage: "en" });
     feedbackUpdate.mockReset().mockResolvedValue({});
+    feedbackUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+    lockCv.mockReset().mockResolvedValue([{ id: "cv_1" }]);
+    transaction.mockReset().mockImplementation(async (fn: (tx: unknown) => unknown) =>
+      fn({ $queryRaw: lockCv, tailoringFeedback: { update: feedbackUpdate } }),
+    );
     evidenceCount.mockReset().mockResolvedValue(0);
     createEvidence.mockReset().mockResolvedValue({ ok: true, id: "ev_1", revisionId: "ev_1_r1" });
     getWritingPreferences.mockReset().mockResolvedValue({ revisionId: "rev_1", revisionNumber: 1, savedAt: "", preferences: EMPTY_WRITING_PREFERENCES });
@@ -174,16 +183,28 @@ describe("generate-confirm review feedback (#932)", () => {
     const res = await confirm({ promotions: { background: [ownBullet] } });
     expect(res.status).toBe(200);
     expect(createEvidence).toHaveBeenCalledTimes(1);
-    expect(createEvidence.mock.calls[0]).toEqual([
+    expect(createEvidence.mock.calls[0]!.slice(0, 3)).toEqual([
       "ws_1",
       { kind: "RESPONSIBILITY", title: "On-call rota", detail: "Ran the on-call rota.", experienceRef: { title: "Backend developer", employer: "Acme", startedOn: "2021-01" } },
       { scope: "BACKGROUND", targetJobId: null, confirm: true },
     ]);
+    // Written in the transaction that locked the saved CV row.
+    expect(createEvidence.mock.calls[0]![3]).toHaveProperty("$queryRaw", lockCv);
+    expect(lockCv).toHaveBeenCalledTimes(1);
     expect(resumeCreate.mock.invocationCallOrder[0]!).toBeLessThan(createEvidence.mock.invocationCallOrder[0]!);
     expect(feedbackUpdate.mock.calls[0]![0]).toMatchObject({
       where: { tailoredResumeId: "cv_1" },
       data: { promotions: { preference: null, background: [{ status: "saved", evidenceId: "ev_1", feedbackKey: null }] } },
     });
+  });
+
+  it("writes nothing when the CV was erased between the save and the promotions", async () => {
+    lockCv.mockResolvedValue([]);
+    const res = await confirm({ promotions: { background: [ownBullet], preference: { baseRevisionId: "rev_1", cvStyleNote: "Short." } } });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ promotionFailed: true });
+    expect(createEvidence).not.toHaveBeenCalled();
+    expect(saveWritingPreferences).not.toHaveBeenCalled();
   });
 
   it("refuses to promote an AI bullet kept as written, before claiming the preview", async () => {

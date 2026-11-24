@@ -23,6 +23,9 @@ export interface BackgroundDraft {
 export interface PreferenceDraft {
   cvStyleNote: string;
   letterStyleNote: string;
+  /** Which notes the candidate actually typed in. Only those are sent, so
+   *  a note they never touched cannot overwrite a newer saved one. */
+  touched?: { cv?: boolean; letter?: boolean };
 }
 
 /** A bullet the candidate wrote or rewrote and kept on this CV. */
@@ -243,7 +246,13 @@ export function FeedbackPanel({
                     placeholder={t(
                       artifact === "cv" ? "resumatch.writing.styleNote.cvPlaceholder" : "resumatch.writing.styleNote.letterPlaceholder",
                     )}
-                    onChange={(e) => onPreferenceChange({ ...preference, [field]: e.target.value })}
+                    onChange={(e) =>
+                      onPreferenceChange({
+                        ...preference,
+                        [field]: e.target.value,
+                        touched: { ...preference.touched, [artifact]: true },
+                      })
+                    }
                     disabled={disabled}
                     aria-describedby={issue ? `${id}-now ${id}-issue` : `${id}-now`}
                   />

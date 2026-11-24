@@ -40,6 +40,7 @@ import { WritingSettingsSummary, WritingSource } from "../../components/tailorin
 import { putWritingPreferences } from "../../lib/writingPreferences/client";
 import type { WritingPreferences, WritingPreferencesView } from "../../lib/writingPreferences/contract";
 import { deriveFeedback, type FeedbackItem, type FeedbackReason, type OriginalSuggestions } from "../../lib/tailoring/feedback";
+import { preferencePromotionPayload } from "../../lib/tailoring/feedbackScope";
 import { FeedbackPanel, type BackgroundDraft, type OwnBulletChoice, type PreferenceDraft } from "../../components/tailoring/FeedbackPanel";
 
 const MIN_PASTE_CHARS = 120;
@@ -912,15 +913,13 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                   bulletOrigins: review.experience.map((entry) => approvedBulletOrigins(entry.bullets)),
                   feedbackReasons: review.feedbackReasons ?? {},
                   promotions: {
-                    preference: review.preferenceDraft
-                      ? {
-                          baseRevisionId: savedWriting?.revisionId ?? null,
-                          cvStyleNote: review.preferenceDraft.cvStyleNote.trim() || null,
-                          ...(review.coverLetter?.include && !review.coverLetter.degraded
-                            ? { letterStyleNote: review.preferenceDraft.letterStyleNote.trim() || null }
-                            : {}),
-                        }
-                      : null,
+                    // Only the notes the candidate typed in: an untouched one
+                    // must not overwrite a newer saved note after a conflict.
+                    preference: preferencePromotionPayload(
+                      review.preferenceDraft ?? null,
+                      savedWriting?.revisionId ?? null,
+                      Boolean(review.coverLetter?.include && !review.coverLetter.degraded),
+                    ),
                     background: ownBulletChoices(review)
                       .filter((choice) => review.background?.[choice.key])
                       .map((choice) => ({

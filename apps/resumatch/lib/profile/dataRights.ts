@@ -141,6 +141,16 @@ export interface DataExport {
   contactPreferences: { content: unknown; updatedAt: string } | null;
   /** Saved writing preferences (#931), every revision, oldest first. */
   writingPreferences: { revisionNumber: number; content: unknown; createdAt: string }[];
+  /** Previews still held (#932): the AI suggestions as generated, saved or
+   *  not, until erasure. The request context is not repeated here. */
+  tailorPreviews: {
+    id: string;
+    targetJobId: string;
+    createdAt: string;
+    consumedAt: string | null;
+    suggestions: unknown;
+    coverLetterSuggestion: unknown;
+  }[];
   /** Review feedback per saved CV (#932): the AI's original suggestions,
    *  what you did with each, and anything you chose to remember. */
   tailoringFeedback: {
@@ -168,7 +178,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences, tailoringFeedback] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences, tailoringFeedback, tailorPreviews] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -219,6 +229,11 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
       select: { tailoredResumeId: true, feedbackVersion: true, original: true, decisions: true, promotions: true, createdAt: true },
+    }),
+    db.tailorPreview.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, targetJobId: true, createdAt: true, consumedAt: true, suggestions: true, coverLetterSuggestion: true },
     }),
   ]);
 
@@ -346,6 +361,14 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       revisionNumber: r.revisionNumber,
       content: r.content,
       createdAt: r.createdAt.toISOString(),
+    })),
+    tailorPreviews: tailorPreviews.filter((p) => p.suggestions !== null || p.coverLetterSuggestion !== null).map((p) => ({
+      id: p.id,
+      targetJobId: p.targetJobId,
+      createdAt: p.createdAt.toISOString(),
+      consumedAt: p.consumedAt?.toISOString() ?? null,
+      suggestions: p.suggestions,
+      coverLetterSuggestion: p.coverLetterSuggestion,
     })),
     tailoringFeedback: tailoringFeedback.map((f) => ({
       tailoredResumeId: f.tailoredResumeId,

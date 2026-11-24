@@ -558,63 +558,79 @@ async function confirmTailoring(request: Request): Promise<Response> {
   }
 
   // #932: the explicit "remember" choices, once, now that the CV is saved.
-  // A failure here never undoes the save: the candidate is told and can
-  // add the item from the evidence panel or the profile instead.
+  // They run in one transaction that first locks the saved CV row and
+  // requires it to still exist. Erasure deletes CVs before evidence and
+  // preferences in its own transaction, so it either waits for this one
+  // (and then removes what it wrote) or has already removed the CV (and
+  // nothing is written). A failure here never undoes the save: the
+  // candidate is told and can add the item from the evidence panel or the
+  // profile instead.
   let failedPromotion = false;
   if (recordFeedback) {
-    const outcome: PromotionOutcome = { preference: null, background: [] };
-    if (promotions.preference) {
+    let outcome: PromotionOutcome = { preference: null, background: [] };
+    if (wantsPromotion) {
+      const failedAll = (): PromotionOutcome => ({
+        preference: promotions.preference ? { status: "failed", revisionNumber: null } : null,
+        background: promotions.background.map((item) => ({
+          experienceIndex: item.experienceIndex,
+          bulletIndex: item.bulletIndex,
+          feedbackKey: item.feedbackKey,
+          status: "failed" as const,
+          evidenceId: null,
+          revisionId: null,
+        })),
+      });
       try {
-        const saved = await saveWritingPreferences(workspace.id, promotions.preference.prefs, promotions.preference.baseRevisionId);
-        outcome.preference = saved.ok
-          ? { status: saved.changed ? "saved" : "unchanged", revisionNumber: saved.current?.revisionNumber ?? null }
-          : { status: "stale", revisionNumber: saved.current?.revisionNumber ?? null };
+        outcome = await db.$transaction(async (tx) => {
+          const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM tailored_resumes WHERE id = ${row.id} AND "workspaceId" = ${workspace.id} FOR UPDATE`;
+          if (locked.length === 0) return failedAll();
+          const result: PromotionOutcome = { preference: null, background: [] };
+          if (promotions.preference) {
+            const saved = await saveWritingPreferences(workspace.id, promotions.preference.prefs, promotions.preference.baseRevisionId, tx);
+            result.preference = saved.ok
+              ? { status: saved.changed ? "saved" : "unchanged", revisionNumber: saved.current?.revisionNumber ?? null }
+              : { status: "stale", revisionNumber: saved.current?.revisionNumber ?? null };
+          }
+          for (const item of promotions.background) {
+            const base = { experienceIndex: item.experienceIndex, bulletIndex: item.bulletIndex, feedbackKey: item.feedbackKey };
+            const created = await createEvidence(workspace.id, item.input, { scope: "BACKGROUND", targetJobId: null, confirm: true }, tx);
+            result.background.push(
+              created.ok
+                ? { ...base, status: "saved", evidenceId: created.id, revisionId: created.revisionId }
+                : { ...base, status: created.error === "too_many" ? "too_many" : "failed", evidenceId: null, revisionId: null },
+            );
+          }
+          const promotedKeys = new Set(
+            result.background.filter((b) => b.status === "saved" && b.feedbackKey).map((b) => b.feedbackKey as string),
+          );
+          await tx.tailoringFeedback.update({
+            where: { tailoredResumeId: row.id },
+            data: {
+              promotions: result as never,
+              decisions: (promotedKeys.size > 0 ? deriveFeedback({ ...feedbackInput, backgroundKeys: promotedKeys }) : decisions) as never,
+            },
+          });
+          return result;
+        });
       } catch (error) {
-        logError("tailoring.confirm.preference_failed", error, { tailoringId: row.id });
-        outcome.preference = { status: "failed", revisionNumber: null };
-      }
-    }
-    for (const item of promotions.background) {
-      const base = { experienceIndex: item.experienceIndex, bulletIndex: item.bulletIndex, feedbackKey: item.feedbackKey };
-      try {
-        const created = await createEvidence(workspace.id, item.input, { scope: "BACKGROUND", targetJobId: null, confirm: true });
-        outcome.background.push(
-          created.ok
-            ? { ...base, status: "saved", evidenceId: created.id, revisionId: created.revisionId }
-            : { ...base, status: created.error === "too_many" ? "too_many" : "failed", evidenceId: null, revisionId: null },
-        );
-      } catch (error) {
-        logError("tailoring.confirm.background_failed", error, { tailoringId: row.id });
-        outcome.background.push({ ...base, status: "failed", evidenceId: null, revisionId: null });
+        logError("tailoring.confirm.promotions_failed", error, { tailoringId: row.id });
+        outcome = failedAll();
+        await db.tailoringFeedback
+          .updateMany({ where: { tailoredResumeId: row.id }, data: { promotions: outcome as never } })
+          .catch((e: unknown) => logError("tailoring.confirm.feedback_update_failed", e, { tailoringId: row.id }));
       }
     }
     failedPromotion = promotionFailed(outcome);
-    const promotedKeys = new Set(
-      outcome.background.filter((b) => b.status === "saved" && b.feedbackKey).map((b) => b.feedbackKey as string),
-    );
-    try {
-      if (wantsPromotion) {
-        await db.tailoringFeedback.update({
-          where: { tailoredResumeId: row.id },
-          data: {
-            promotions: outcome as never,
-            decisions: (promotedKeys.size > 0 ? deriveFeedback({ ...feedbackInput, backgroundKeys: promotedKeys }) : decisions) as never,
-          },
-        });
-      }
-      // Counts only: never the text of a suggestion, edit or reason.
-      const counts = countFeedback(decisions);
-      await recordAuditEvent(workspace.id, "tailoring.feedback.recorded", {
-        tailoringId: row.id,
-        accepted: counts.accepted,
-        edited: counts.edited,
-        rejected: counts.rejected,
-        preference: outcome.preference?.status ?? "none",
-        background: outcome.background.filter((b) => b.status === "saved").length,
-      });
-    } catch (error) {
-      logError("tailoring.confirm.feedback_update_failed", error, { tailoringId: row.id });
-    }
+    // Counts only: never the text of a suggestion, edit or reason.
+    const counts = countFeedback(decisions);
+    await recordAuditEvent(workspace.id, "tailoring.feedback.recorded", {
+      tailoringId: row.id,
+      accepted: counts.accepted,
+      edited: counts.edited,
+      rejected: counts.rejected,
+      preference: outcome.preference?.status ?? "none",
+      background: outcome.background.filter((b) => b.status === "saved").length,
+    }).catch((error: unknown) => logError("tailoring.confirm.audit_failed", error, { tailoringId: row.id }));
   }
 
   return NextResponse.json({ id: row.id, coverLetterId, coverLetterError, feedbackRecorded: recordFeedback, promotionFailed: failedPromotion });

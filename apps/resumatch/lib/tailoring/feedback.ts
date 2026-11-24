@@ -40,7 +40,9 @@ export interface FeedbackItem {
    *  indexes the original suggestion, so the key names it exactly. */
   key: string;
   decision: FeedbackDecision;
-  /** Edited only: the text that was saved instead. */
+  /** Edited: the text that was saved instead. `skills` also carries it
+   *  when accepted: the full order saved (the suggestion plus the profile
+   *  skills it left out), which the raw suggestion alone does not show. */
   final?: string;
   reason?: FeedbackReason;
   scope: FeedbackScope;
@@ -95,10 +97,12 @@ export interface FeedbackInput {
 
 const norm = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim();
 
+/** Compared and stored as saved (trimmed only), so line breaks survive
+ *  and a whitespace-only change still counts as an edit. */
 function decide(original: string, final: string | null | undefined, fallback: string | null): Pick<FeedbackItem, "decision" | "final"> {
-  const saved = norm(final);
-  if (saved === norm(original)) return { decision: "accepted" };
-  if (!saved || (fallback !== null && saved === norm(fallback))) return { decision: "rejected" };
+  const saved = (final ?? "").trim();
+  if (saved === original.trim()) return { decision: "accepted" };
+  if (!saved || (fallback !== null && saved === fallback.trim())) return { decision: "rejected" };
   return { decision: "edited", final: saved };
 }
 
@@ -140,7 +144,7 @@ export function deriveFeedback(input: FeedbackInput): FeedbackItem[] {
         !kept || kept.join("\n") === input.profile.skills.join("\n")
           ? { key: "skills", decision: "rejected" }
           : kept.join("\n") === suggested.join("\n")
-            ? { key: "skills", decision: "accepted" }
+            ? { key: "skills", decision: "accepted", final: kept.join(", ") }
             : { key: "skills", decision: "edited", final: kept.join(", ") },
       );
     }
@@ -234,7 +238,7 @@ export function reconstructFeedback(original: OriginalSuggestions, items: Feedba
     return {
       ...item,
       original: text,
-      saved: item.decision === "accepted" ? text : item.decision === "edited" ? (item.final ?? null) : null,
+      saved: item.decision === "rejected" ? null : (item.final ?? text),
     };
   });
 }
