@@ -120,6 +120,12 @@ export async function runProviderCallWithBudget<TContext, T>(
           throw err;
         }
         await sleep(backoffMs(attempt));
+        // #756: a failed attempt can still be billed (and recorded by
+        // `onAttemptFailed`), so check the budget again before paying for
+        // another one. A refusal here ends the call as budget_refused.
+        phase = "budget";
+        await assertCanRunProviderCall(opts.workspaceId, opts.kind);
+        phase = "attempts";
       }
     }
 
@@ -131,6 +137,10 @@ export async function runProviderCallWithBudget<TContext, T>(
         attemptEnd = "exhausted";
         throw lastError;
       }
+      // #756: the primary's billed failures count before a second provider is paid.
+      phase = "budget";
+      await assertCanRunProviderCall(opts.workspaceId, opts.kind);
+      phase = "attempts";
       usedFallback = true;
       // A fallback that can't even load still ends the call as exhausted;
       // its error code says why.

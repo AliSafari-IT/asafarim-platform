@@ -364,6 +364,34 @@ describe("runProviderCallWithBudget cross-provider fallback (#511)", () => {
     expect(outcomes[0]).toMatchObject({ outcome: "budget_refused", usedFallback: false });
   });
 
+  it("checks the budget again before a retry, and stops when billed failures reached it (#756)", async () => {
+    const refusal = Object.assign(new Error("over budget"), { name: "QuotaExceededError", code: "budget_global" });
+    assertCanRunProviderCall.mockResolvedValueOnce(undefined).mockRejectedValueOnce(refusal);
+    const primary = vi.fn(async () => {
+      throw new FakeError(true);
+    });
+    const { run, outcomes, fallbackPrepare } = setupFallback({ primary });
+    await expect(run()).resolves.toEqual({ ok: false, error: refusal });
+    expect(primary).toHaveBeenCalledTimes(1);
+    expect(fallbackPrepare).not.toHaveBeenCalled();
+    expect(outcomes[0]).toMatchObject({ outcome: "budget_refused", attempts: 1, errorCode: "budget_global" });
+  });
+
+  it("checks the budget again before paying the fallback provider (#756)", async () => {
+    const refusal = Object.assign(new Error("over budget"), { name: "QuotaExceededError" });
+    // Initial check plus one per retry pass; the check before the fallback refuses.
+    for (let i = 0; i < MAX_ATTEMPTS; i++) assertCanRunProviderCall.mockResolvedValueOnce(undefined);
+    assertCanRunProviderCall.mockRejectedValueOnce(refusal);
+    const { run, outcomes, fallbackPrepare } = setupFallback({
+      primary: async () => {
+        throw new FakeError(true);
+      },
+    });
+    await expect(run()).resolves.toEqual({ ok: false, error: refusal });
+    expect(fallbackPrepare).not.toHaveBeenCalled();
+    expect(outcomes[0]).toMatchObject({ outcome: "budget_refused", attempts: MAX_ATTEMPTS, usedFallback: false });
+  });
+
   it("degrades with the fallback's error when the fallback fails too, after recording its failure", async () => {
     const fallbackError = new FakeError(true);
     const { run, failures, outcomes } = setupFallback({
