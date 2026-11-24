@@ -73,7 +73,7 @@ describe("renderCoverLetterPrompt — output language (#642)", () => {
   });
 
   it("is on a bumped prompt version", () => {
-    expect(COVER_LETTER_PROMPT_VERSION).toBe("cover_letter@6");
+    expect(COVER_LETTER_PROMPT_VERSION).toBe("cover_letter@7");
   });
 
   it.each([
@@ -125,5 +125,17 @@ describe("renderCoverLetterPrompt — output language (#642)", () => {
       expect(rendered.user).toContain("<<<RESUMATCH_JOB_DATA");
       expect(rendered.system).toMatch(/DATA ONLY/);
     }
+  });
+});
+
+describe("saved writing style (#931, cover_letter@7)", () => {
+  it("adds the fenced block and its rule only when the run has a saved note", () => {
+    const without = renderCoverLetterPrompt("profile", "job");
+    expect(without.system).not.toContain("WRITING PREFERENCES");
+    const withNote = renderCoverLetterPrompt("profile", "job", "warm", "short", null, null, null, "No clichés.");
+    expect(withNote.styleNoteUsed).toBe("No clichés.");
+    expect(withNote.system).toContain("WRITING PREFERENCES");
+    expect(withNote.user).toContain("No clichés.");
+    expect(withNote.cacheKey).not.toBe(renderCoverLetterPrompt("profile", "job", "warm", "short").cacheKey);
   });
 });

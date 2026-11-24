@@ -66,6 +66,7 @@ model Workspace {
   sentEmails      SentApplicationEmail[]
   evidence        CandidateEvidence[]
   contactPreferences ContactPreferences?
+  writingPreferenceRevisions WritingPreferenceRevision[]
 
   @@map("workspaces")
 }
@@ -1156,4 +1157,30 @@ model ContactPreferences {
   updatedAt DateTime @updatedAt
 
   @@map("contact_preferences")
+}
+
+/// Saved writing preferences (#931): the candidate's reusable defaults for
+/// tone, length, languages and a short style note, per artifact. One
+/// immutable row per save; the highest `revisionNumber` is the current
+/// preferences, and a reset is a save of empty content. A tailoring run
+/// names the revision it used (`TailoringContext.preferenceRevisionId`) and
+/// keeps the resolved values in its own snapshot, so a later save never
+/// changes an existing preview or CV. `content` is the WritingPreferences
+/// shape in lib/writingPreferences/contract.ts, read leniently.
+model WritingPreferenceRevision {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// 1, 2, 3… per workspace. Unique, so two saves from the same base
+  /// cannot both land: the second one is refused as stale.
+  revisionNumber Int
+
+  content Json
+
+  createdAt DateTime @default(now())
+
+  @@unique([workspaceId, revisionNumber])
+  @@map("writing_preference_revisions")
 }

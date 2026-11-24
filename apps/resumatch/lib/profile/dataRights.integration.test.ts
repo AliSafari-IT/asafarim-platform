@@ -111,8 +111,18 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
       },
     });
 
+    // Writing preferences (#931): every revision exported, then erased.
+    await db.writingPreferenceRevision.createMany({
+      data: [
+        { workspaceId, revisionNumber: 1, content: { cv: { outputLanguage: "nl", styleNote: "Short sentences." }, coverLetter: {} } },
+        { workspaceId, revisionNumber: 2, content: { cv: {}, coverLetter: {} } },
+      ],
+    });
+
     const exported = await exportWorkspaceData(workspaceId);
     expect(exported).not.toBeNull();
+    expect(exported!.writingPreferences.map((r) => r.revisionNumber)).toEqual([1, 2]);
+    expect(JSON.stringify(exported!.writingPreferences[0]!.content)).toContain("Short sentences.");
     expect(exported!.targetJobs).toHaveLength(1);
     expect(exported!.targetJobs[0]).toMatchObject({ sourceUrl: "https://example.test/jobs/1", title: "Backend Engineer" });
     expect(exported!.tailoredResumes).toHaveLength(1);
@@ -140,6 +150,7 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
     expect(await db.tailorPreview.count({ where: { workspaceId } })).toBe(0);
     expect(await db.candidateEvidence.count({ where: { workspaceId } })).toBe(0);
     expect(await db.candidateEvidenceRevision.count({ where: { workspaceId } })).toBe(0);
+    expect(await db.writingPreferenceRevision.count({ where: { workspaceId } })).toBe(0);
     expect(await db.workspace.count({ where: { id: workspaceId } })).toBe(1);
   });
 });

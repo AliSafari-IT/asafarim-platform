@@ -6673,3 +6673,89 @@
   margin: 0;
   padding: 0;
 }
+
+/* Writing preferences (#931): profile panel and the Tailor card's summary. */
+.rm-writing {
+  margin-block: 1.5rem;
+}
+.rm-writing__intro {
+  margin: 0 0 0.5rem;
+}
+.rm-writing__status,
+.rm-writing__hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.rm-writing__status {
+  margin: 0 0 0.75rem;
+}
+.rm-writing__groups {
+  display: grid;
+  gap: 0.75rem;
+}
+.rm-writing__group {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.rm-writing__group > legend {
+  font-weight: 600;
+  padding-inline: 0.25rem;
+}
+.rm-writing__group .jm-field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.rm-writing__group textarea {
+  width: 100%;
+}
+.rm-writing__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.rm-writing__row > .jm-field {
+  flex: 1 1 10rem;
+}
+.rm-writing__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.rm-writing__note {
+  margin-top: 0.75rem;
+}
+.rm-writing-flow {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0;
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.rm-writing-flow p {
+  margin: 0;
+}
+.rm-writing-flow__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+.rm-writing-flow__notes {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+}
+.rm-writing-source {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}

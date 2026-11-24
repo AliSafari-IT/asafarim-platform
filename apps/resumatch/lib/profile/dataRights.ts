@@ -136,6 +136,8 @@ export interface DataExport {
   }[];
   /** Contact preferences for application emails (#940); null when none. */
   contactPreferences: { content: unknown; updatedAt: string } | null;
+  /** Saved writing preferences (#931), every revision, oldest first. */
+  writingPreferences: { revisionNumber: number; content: unknown; createdAt: string }[];
   /** Each draft's own contact choice (#940): the mode, values just for that
    *  email, and the paragraph its body holds. */
   emailDraftContacts: { applicationId: string; contactMode: string; contactOverride: unknown; contactParagraph: string | null; updatedAt: string }[];
@@ -153,7 +155,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -194,6 +196,11 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       where: { workspaceId },
       orderBy: { updatedAt: "asc" },
       select: { applicationId: true, contactMode: true, contactOverride: true, contactParagraph: true, updatedAt: true },
+    }),
+    db.writingPreferenceRevision.findMany({
+      where: { workspaceId },
+      orderBy: { revisionNumber: "asc" },
+      select: { revisionNumber: true, content: true, createdAt: true },
     }),
   ]);
 
@@ -312,6 +319,11 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       contactOverride: d.contactOverride,
       contactParagraph: d.contactParagraph,
       updatedAt: d.updatedAt.toISOString(),
+    })),
+    writingPreferences: writingPreferences.map((r) => ({
+      revisionNumber: r.revisionNumber,
+      content: r.content,
+      createdAt: r.createdAt.toISOString(),
     })),
     auditEvents: auditEvents.map((event) => ({
       action: event.action,
@@ -444,6 +456,9 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // Contact preferences (#940): when the candidate takes calls. The
     // workspace row stays, so they would not cascade.
     await tx.contactPreferences.deleteMany({ where: { workspaceId } });
+    // Writing preferences (#931): the candidate's style notes, every
+    // revision. Same reason: the workspace row stays.
+    await tx.writingPreferenceRevision.deleteMany({ where: { workspaceId } });
     const targetJobs = await tx.targetJob.deleteMany({ where: { workspaceId } });
 
     if (profile) {

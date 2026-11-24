@@ -12,6 +12,7 @@ const runCoverLetterProviderCall = vi.fn();
 const findFirst = vi.fn();
 const previewCreate = vi.fn();
 const evidenceFindMany = vi.fn();
+const writingFindFirst = vi.fn();
 
 const profile = parseProfileContent({
   headline: "Backend developer · Node.js · PostgreSQL",
@@ -24,7 +25,7 @@ const jobText = "Backend engineer (Node.js, PostgreSQL). You build Node.js servi
 vi.mock("../../../../lib/workspace", () => ({ getCurrentWorkspace: async () => ({ id: "ws_1" }) }));
 vi.mock("../../../../lib/profile/versions", () => ({ getVersion: async () => ({ content: profile }) }));
 vi.mock("../../../../lib/db/client", () => ({
-  getJobmatchDb: () => ({ targetJob: { findFirst }, tailorPreview: { create: previewCreate }, candidateEvidence: { findMany: evidenceFindMany } }),
+  getJobmatchDb: () => ({ targetJob: { findFirst }, tailorPreview: { create: previewCreate }, candidateEvidence: { findMany: evidenceFindMany }, writingPreferenceRevision: { findFirst: writingFindFirst } }),
 }));
 vi.mock("../../../../lib/tailoring/ai/generate", () => ({
   runTailorProviderCall: (...args: unknown[]) => runTailorProviderCall(...args),
@@ -41,6 +42,7 @@ describe("generate-preview request context (#928)", () => {
   beforeEach(() => {
     findFirst.mockReset().mockResolvedValue({ rawText: jobText, status: "FETCHED" });
     evidenceFindMany.mockReset().mockResolvedValue([]);
+    writingFindFirst.mockReset().mockResolvedValue(null);
     previewCreate.mockReset().mockImplementation(async ({ data }: { data: { id: string } }) => ({ id: data.id }));
     runTailorProviderCall.mockReset().mockResolvedValue({
       suggestions: null,
@@ -179,5 +181,83 @@ describe("generate-preview request context (#928)", () => {
     expect(res.status).toBe(400);
     expect(findFirst.mock.calls[0]![0].where).toEqual({ id: "job_other", workspaceId: "ws_1" });
     expect(runTailorProviderCall).not.toHaveBeenCalled();
+  });
+  describe("writing preferences (#931)", () => {
+    const savedRow = (content: unknown) => ({ id: "pref_r2", revisionNumber: 2, content, createdAt: new Date("2026-11-20T00:00:00Z") });
+    const saved = {
+      cv: { outputLanguage: "nl", styleNote: "Short sentences." },
+      coverLetter: { tone: "warm", length: "short", outputLanguage: "fr", styleNote: "No clichés." },
+    };
+
+    it("uses saved preferences the request leaves out and records where each came from", async () => {
+      writingFindFirst.mockResolvedValue(savedRow(saved));
+      const res = await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1", includeCoverLetter: true }));
+      expect(res.status).toBe(200);
+      expect(writingFindFirst.mock.calls[0]![0].where).toEqual({ workspaceId: "ws_1" });
+      const cvArgs = runTailorProviderCall.mock.calls[0]!;
+      expect(cvArgs[7]).toBe("nl");
+      expect(cvArgs[11]).toBe("Short sentences.");
+      const letterArgs = runCoverLetterProviderCall.mock.calls[0]!;
+      expect(letterArgs.slice(4, 6)).toEqual(["warm", "short"]);
+      expect(letterArgs[8]).toBe("fr");
+      expect(letterArgs[11]).toBe("No clichés.");
+      const data = previewCreate.mock.calls[0]![0].data;
+      expect(data.context.preferenceRevisionId).toBe("pref_r2");
+      expect(data.context.writing.sources).toEqual({ cvLanguage: "saved", letterTone: "saved", letterLength: "saved", letterLanguage: "saved" });
+      expect(data.outputLanguage).toBe("nl");
+      expect(data.contextFingerprint).toBe(tailoringContextFingerprint(data.context));
+      const body = await res.json();
+      expect(body.preferenceRevisionNumber).toBe(2);
+      expect(body.writing.styleNotes).toBe("saved");
+    });
+
+    it("lets this request's choices win and can leave the saved notes out of this run", async () => {
+      writingFindFirst.mockResolvedValue(savedRow(saved));
+      await POST(
+        post({
+          profileVersionId: "pv_1",
+          targetJobId: "job_1",
+          outputLanguage: "en",
+          includeCoverLetter: true,
+          coverLetterTone: "confident",
+          coverLetterLength: "short",
+          coverLetterOutputLanguage: null,
+          useSavedWritingStyle: false,
+        }),
+      );
+      expect(runTailorProviderCall.mock.calls[0]![7]).toBe("en");
+      expect(runTailorProviderCall.mock.calls[0]![11]).toBeNull();
+      const letterArgs = runCoverLetterProviderCall.mock.calls[0]!;
+      expect(letterArgs.slice(4, 6)).toEqual(["confident", "short"]);
+      // "Same as the CV" for this run beats the saved French.
+      expect(letterArgs[8]).toBe("en");
+      expect(letterArgs[11]).toBeNull();
+      const context = previewCreate.mock.calls[0]![0].data.context;
+      expect(context.writing).toMatchObject({
+        sources: { cvLanguage: "request", letterTone: "request", letterLength: "saved", letterLanguage: "request" },
+        styleNotes: "off",
+        cvStyleNote: null,
+      });
+    });
+
+    it("never lets a saved note change a fact rule: it goes in its own fenced slot, not the note", async () => {
+      writingFindFirst.mockResolvedValue(savedRow(saved));
+      await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1", instructions: "Lead with PostgreSQL." }));
+      expect(runTailorProviderCall.mock.calls[0]![4]).toBe("Lead with PostgreSQL.");
+      expect(previewCreate.mock.calls[0]![0].data.context.instructions).toBe("Lead with PostgreSQL.");
+    });
+
+    it("with nothing saved, behaves as before", async () => {
+      await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1", outputLanguage: "de" }));
+      const context = previewCreate.mock.calls[0]![0].data.context;
+      expect(context.preferenceRevisionId).toBeNull();
+      expect(context.writing).toMatchObject({ sources: { cvLanguage: "request" }, styleNotes: "none" });
+      expect(runTailorProviderCall.mock.calls[0]![11]).toBeNull();
+    });
+
+    it("refuses a non-boolean useSavedWritingStyle and a bad letter language", async () => {
+      expect((await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1", useSavedWritingStyle: "no" }))).status).toBe(400);
+      expect((await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1", coverLetterOutputLanguage: "xx" }))).status).toBe(400);
+    });
   });
 });
