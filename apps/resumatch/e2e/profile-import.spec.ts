@@ -133,7 +133,6 @@ test("an export from account A restores its confirmed profile in account B", asy
   expect(await prisma.targetJob.count({ where: { workspaceId: destId } })).toBe(0);
   expect(await prisma.candidateDocument.count({ where: { workspaceId: destId } })).toBe(0);
 });
-<<<<<<< HEAD
 
 test("a large export, renamed to .txt, still opens the import (above the 10 MB CV limit)", async ({ page }) => {
   await seed();
@@ -163,5 +162,3 @@ test("a large export, renamed to .txt, still opens the import (above the 10 MB C
   await expect(panel.locator(".rx-import__count", { hasText: "Experience" })).toContainText("2 of 2");
   await expect(panel.getByText("Jobs (1)")).toBeVisible();
 });
-=======
->>>>>>> origin/main

@@ -62,10 +62,7 @@ export const profileImportDictionaries: Dictionaries = {
     "resumatch.import.error.INVALID_PROFILE_CONTENT": "The profile in this export does not pass ResuMatch's checks (field \"{field}\"), so nothing was imported.",
     "resumatch.import.error.DESTINATION_HAS_PROFILE": "Tick the box to replace your current profile first.",
     "resumatch.import.error.IMPORT_FAILED": "The profile could not be imported. Please try again.",
-<<<<<<< HEAD
     "resumatch.import.error.INVALID_REQUEST": "The file could not be sent. Please try again.",
-=======
->>>>>>> origin/main
     "resumatch.import.error.network": "The import failed. Check your connection and try again.",
   },
   nl: {
@@ -128,10 +125,7 @@ export const profileImportDictionaries: Dictionaries = {
     "resumatch.import.error.INVALID_PROFILE_CONTENT": "Het profiel in deze export doorstaat de controles van ResuMatch niet (veld \"{field}\"), dus er is niets geïmporteerd.",
     "resumatch.import.error.DESTINATION_HAS_PROFILE": "Vink eerst het vakje aan om je huidige profiel te vervangen.",
     "resumatch.import.error.IMPORT_FAILED": "Het profiel kon niet geïmporteerd worden. Probeer het opnieuw.",
-<<<<<<< HEAD
     "resumatch.import.error.INVALID_REQUEST": "Het bestand kon niet verstuurd worden. Probeer het opnieuw.",
-=======
->>>>>>> origin/main
     "resumatch.import.error.network": "Het importeren is mislukt. Controleer je verbinding en probeer opnieuw.",
   },
   fr: {
@@ -194,10 +188,7 @@ export const profileImportDictionaries: Dictionaries = {
     "resumatch.import.error.INVALID_PROFILE_CONTENT": "Le profil de cet export ne passe pas les contrôles de ResuMatch (champ « {field} »), rien n’a donc été importé.",
     "resumatch.import.error.DESTINATION_HAS_PROFILE": "Cochez d’abord la case pour remplacer votre profil actuel.",
     "resumatch.import.error.IMPORT_FAILED": "Le profil n’a pas pu être importé. Veuillez réessayer.",
-<<<<<<< HEAD
     "resumatch.import.error.INVALID_REQUEST": "Le fichier n’a pas pu être envoyé. Veuillez réessayer.",
-=======
->>>>>>> origin/main
     "resumatch.import.error.network": "L’import a échoué. Vérifiez votre connexion et réessayez.",
   },
   de: {
@@ -260,10 +251,7 @@ export const profileImportDictionaries: Dictionaries = {
     "resumatch.import.error.INVALID_PROFILE_CONTENT": "Das Profil in diesem Export besteht die Prüfungen von ResuMatch nicht (Feld „{field}“), daher wurde nichts importiert.",
     "resumatch.import.error.DESTINATION_HAS_PROFILE": "Setzen Sie zuerst das Häkchen, um Ihr aktuelles Profil zu ersetzen.",
     "resumatch.import.error.IMPORT_FAILED": "Das Profil konnte nicht importiert werden. Bitte versuchen Sie es erneut.",
-<<<<<<< HEAD
     "resumatch.import.error.INVALID_REQUEST": "Die Datei konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
-=======
->>>>>>> origin/main
     "resumatch.import.error.network": "Der Import ist fehlgeschlagen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   },
 };
