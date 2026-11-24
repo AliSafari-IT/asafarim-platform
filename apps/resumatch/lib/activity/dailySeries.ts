@@ -50,12 +50,30 @@ const RESPONSE_STATUSES = new Set(["INTERVIEWING", "OFFER", "REJECTED"]);
  * Interviewing and later to Offer counts on both days.
  */
 export function responseDates(events: { createdAt: Date; metadata: unknown }[]): Date[] {
-  return events
-    .filter((e) => {
-      const change = parseStatusChange(e.metadata);
-      return change !== null && RESPONSE_STATUSES.has(change.toStatus);
-    })
-    .map((e) => e.createdAt);
+  return responseEvents(events).map((e) => e.createdAt);
+}
+
+function responseEvents(events: { createdAt: Date; metadata: unknown }[]) {
+  return events.flatMap((e) => {
+    const change = parseStatusChange(e.metadata);
+    return change !== null && RESPONSE_STATUSES.has(change.toStatus)
+      ? [{ createdAt: e.createdAt, applicationId: change.applicationId }]
+      : [];
+  });
+}
+
+/**
+ * How many of the applications applied in the window got a response
+ * (Interviewing, Offer or Rejected) in the window. Each application counts
+ * once, however many responses it had, so the rate never passes 100%; a
+ * response to an application applied before the window doesn't count.
+ */
+export function answeredAppliedCount(
+  appliedIds: string[],
+  events: { createdAt: Date; metadata: unknown }[],
+): number {
+  const answered = new Set(responseEvents(events).map((e) => e.applicationId));
+  return new Set(appliedIds.filter((id) => answered.has(id))).size;
 }
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
@@ -64,13 +82,16 @@ const plural = (n: number) => (n === 1 ? "one" : "other");
 
 /**
  * The subtitle under the chart: "17 tailored CVs, 6 applied, 1 response
- * (17% of applied)." The rate is left out when nothing was applied, and a
- * degraded-run note is added only when there were any in the window.
+ * (17% of applied)." The counts are events, like the bars; the rate is
+ * `answeredApplied` (see `answeredAppliedCount`) over the applied count, so
+ * it is a share of applications, at most 100%. It is left out when nothing
+ * was applied, and a degraded-run note is added only when there were any.
  */
 export function activityFunnelLine(
   t: Translate,
   totals: { tailored: number; applied: number; responses: number },
   degraded: number,
+  answeredApplied: number,
 ): string {
   const parts = [
     t(`resumatch.tailor.activity.funnel.tailored.${plural(totals.tailored)}`, { count: totals.tailored }),
@@ -79,7 +100,7 @@ export function activityFunnelLine(
   ].join(", ");
   const rate =
     totals.applied > 0
-      ? ` ${t("resumatch.tailor.activity.funnel.rate", { percent: Math.round((totals.responses / totals.applied) * 100) })}`
+      ? ` ${t("resumatch.tailor.activity.funnel.rate", { percent: Math.round((Math.min(answeredApplied, totals.applied) / totals.applied) * 100) })}`
       : "";
   const sentence = t("resumatch.tailor.activity.funnel.sentence", { parts, rate });
   return degraded > 0

@@ -8,7 +8,7 @@ import { getConfirmedVersion } from "../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../lib/workspace";
 import { busiestDay, lastNDays } from "../components/app/Charts";
 import { ActivitySeriesChart } from "../components/app/ActivitySeriesChart";
-import { activityFunnelLine, buildActivitySeries, responseDates } from "../../lib/activity/dailySeries";
+import { activityFunnelLine, answeredAppliedCount, buildActivitySeries, responseDates } from "../../lib/activity/dailySeries";
 import { JourneyTracker } from "../components/app/JourneyTracker";
 import { PageHero } from "../components/app/PageHero";
 import { StatRow, StatTile } from "../components/app/Stats";
@@ -160,7 +160,7 @@ export default async function TailorPage({
     }),
     db.application.findMany({
       where: { workspaceId: workspace.id, appliedAt: { gte: since } },
-      select: { appliedAt: true },
+      select: { id: true, appliedAt: true },
     }),
     // Responses: the application row has no "answered on" date, so the
     // status-change audit log is the record of when it happened (#943).
@@ -208,7 +208,12 @@ export default async function TailorPage({
   ]
     .filter(Boolean)
     .join(" ");
-  const funnel = activityFunnelLine(t, totals, recentDegraded);
+  const appliedInWindow = recentApplied.filter((r) => r.appliedAt && r.appliedAt.toISOString() >= windowStart);
+  const answeredApplied = answeredAppliedCount(
+    appliedInWindow.map((r) => r.id),
+    recentStatusChanges.filter((e) => e.createdAt.toISOString() >= windowStart),
+  );
+  const funnel = activityFunnelLine(t, totals, recentDegraded, answeredApplied);
 
   return (
     <div className="rx">

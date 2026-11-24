@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityFunnelLine, buildActivitySeries, responseDates } from "./dailySeries";
+import { activityFunnelLine, answeredAppliedCount, buildActivitySeries, responseDates } from "./dailySeries";
 
 const labels = { tailored: "Tailored CVs", coverLetters: "Cover letters", applied: "Applied", responses: "Responses" };
 const now = new Date("2026-11-23T10:00:00Z");
@@ -73,20 +73,46 @@ describe("activityFunnelLine", () => {
   };
 
   it("gives the response rate when something was applied", () => {
-    expect(activityFunnelLine(t, { tailored: 17, applied: 6, responses: 1 }, 0)).toBe(
+    expect(activityFunnelLine(t, { tailored: 17, applied: 6, responses: 1 }, 0, 1)).toBe(
       "tailored.other=17, applied=6, responses.one=1 rate=17.",
     );
   });
 
   it("leaves the rate out when nothing was applied", () => {
-    expect(activityFunnelLine(t, { tailored: 1, applied: 0, responses: 0 }, 0)).toBe(
+    expect(activityFunnelLine(t, { tailored: 1, applied: 0, responses: 0 }, 0, 0)).toBe(
       "tailored.one=1, applied=0, responses.other=0.",
     );
   });
 
   it("adds the degraded-run note only when there were any", () => {
-    expect(activityFunnelLine(t, { tailored: 2, applied: 0, responses: 0 }, 2)).toBe(
+    expect(activityFunnelLine(t, { tailored: 2, applied: 0, responses: 0 }, 2, 0)).toBe(
       "tailored.other=2, applied=0, responses.other=0. degraded.other=2",
     );
+  });
+});
+
+describe("answeredAppliedCount", () => {
+  const event = (applicationId: string, toStatus: string) => ({
+    createdAt: new Date("2026-11-22T10:00:00Z"),
+    metadata: { applicationId, fromStatus: "APPLIED", toStatus },
+  });
+
+  it("counts an application once however many responses it had", () => {
+    expect(answeredAppliedCount(["a1"], [event("a1", "INTERVIEWING"), event("a1", "OFFER")])).toBe(1);
+  });
+
+  it("ignores responses to applications not applied in the window", () => {
+    expect(answeredAppliedCount(["a1", "a2"], [event("old", "REJECTED"), event("a2", "INTERVIEWING")])).toBe(1);
+  });
+
+  it("ignores moves that are not responses", () => {
+    expect(answeredAppliedCount(["a1"], [event("a1", "SAVED")])).toBe(0);
+  });
+
+  it("keeps the rate at or below 100% when one application has two responses", () => {
+    const t = (key: string, vars: Record<string, string | number> = {}) =>
+      key.endsWith("funnel.rate") ? `${vars.percent}%` : key.endsWith("funnel.sentence") ? `${vars.rate}` : "";
+    const answered = answeredAppliedCount(["a1"], [event("a1", "INTERVIEWING"), event("a1", "OFFER")]);
+    expect(activityFunnelLine(t, { tailored: 1, applied: 1, responses: 2 }, 0, answered)).toBe(" 100%");
   });
 });
