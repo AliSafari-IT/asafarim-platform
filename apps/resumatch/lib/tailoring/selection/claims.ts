@@ -55,8 +55,16 @@ export interface ClaimCheck {
   flagged: number;
 }
 
-/** Ids a role-free claim (headline, summary) may lean on whatever it cites. */
+/** Ids a bullet may cite besides its own role without being flagged
+ *  `other_role`. Citing them never backs a role fact, though: see
+ *  NAME_SOURCES. */
 const GENERAL_SOURCES = new Set(["headline", "summary", "skills", "languages", "certs", "work_auth"]);
+
+/** The lists whose names (a technology, a language, a certificate) a
+ *  bullet may mention without its role repeating them. The headline and
+ *  summary are not among them: "Led 12 engineers" in the summary says
+ *  nothing about which role it happened in. */
+const NAME_SOURCES = ["skills", "languages", "certs"];
 
 function uniq<T>(values: T[]): T[] {
   return [...new Set(values)];
@@ -66,15 +74,28 @@ function textOf(ids: string[], byId: Map<string, SelectedSource>): string {
   return ids.map((id) => byId.get(id)?.text ?? "").join("\n");
 }
 
+/** Whether a claim speaks to a requirement: one of its key terms (the
+ *  names that make it what it is), or, for a requirement without any, at
+ *  least half its terms. A generic word alone ("experience") never counts. */
+function mentionedTerms(claimStems: Set<string>, requirement: JobRequirement): string[] {
+  if (requirement.keyTerms.length > 0) return requirement.keyTerms.filter((t) => claimStems.has(t));
+  const hits = requirement.terms.filter((t) => claimStems.has(t));
+  return hits.length > 0 && hits.length * 2 >= requirement.terms.length ? hits : [];
+}
+
 function requirementFlags(claim: string, sourceText: string, requirements: JobRequirement[], coverage: RequirementCoverage[]): ClaimFlag[] {
   const claimStems = termStems(claim);
   const sourceStems = termStems(sourceText);
   const flags: ClaimFlag[] = [];
   for (const requirement of requirements) {
     const status = coverage.find((c) => c.id === requirement.id)?.status ?? "unknown";
-    const mentioned = requirement.terms.filter((t) => claimStems.has(t));
+    const mentioned = mentionedTerms(claimStems, requirement);
     if (mentioned.length === 0) continue;
-    if ((status === "unmet" || status === "conflict") && mentioned.some((t) => !sourceStems.has(t))) flags.push("unmet_requirement");
+    // Unmet or in conflict: claiming it is wrong even when the cited text
+    // names the term, because that text may be the denial itself ("No
+    // Terraform experience") or the side of a conflict the candidate has
+    // not settled.
+    if (status === "unmet" || status === "conflict") flags.push("unmet_requirement");
     else if (status !== "supported" && mentioned.some((t) => !sourceStems.has(t))) flags.push("unsupported_requirement");
   }
   return flags;
@@ -86,14 +107,28 @@ function contentFlags(
   mode: "prose" | "headline",
   requirements: JobRequirement[],
   coverage: RequirementCoverage[],
+  names = "",
 ): ClaimFlag[] {
   const flags: ClaimFlag[] = [];
-  const lower = sourceText.toLowerCase();
-  if (ungroundedProseTokenCount(claim, lower, mode) > 0) flags.push("not_in_sources");
+  if (ungroundedProseTokenCount(maskNames(claim, names.toLowerCase()), sourceText.toLowerCase(), mode) > 0) flags.push("not_in_sources");
   const evidence = claimEvidence(sourceText);
   if (splitSentences(claim).some((sentence) => unbackedClaims(sentence, evidence).length > 0)) flags.push("unbacked_claim");
-  flags.push(...requirementFlags(claim, sourceText, requirements, coverage));
+  flags.push(...requirementFlags(claim, `${sourceText}\n${names}`, requirements, coverage));
   return flags;
+}
+
+const NOTABLE_NAME = /[A-Z][A-Za-z0-9+.#]*/g;
+
+/** Hide the names a bullet may take from the skills, languages and
+ *  certificates lists, so only the role's own text has to back the rest.
+ *  Names only: a number, a team size or any other role fact still has to
+ *  come from the role. */
+function maskNames(claim: string, namesLower: string): string {
+  if (!namesLower) return claim;
+  return claim.replace(NOTABLE_NAME, (token) => {
+    const bare = token.replace(/\.+$/, "");
+    return bare && namesLower.includes(bare.toLowerCase()) ? "name" : token;
+  });
 }
 
 export interface ClaimCheckInput {
@@ -144,7 +179,9 @@ export function checkClaims({ suggestions, sources, requirements, coverage, outp
       if (roleSources.length === 0) {
         flags.push("no_source");
       } else {
-        flags.push(...contentFlags(bullet, textOf(valid, byId), proseMode, requirements, coverage));
+        // Only the role's own text backs the bullet's facts; the lists
+        // may back the names it mentions.
+        flags.push(...contentFlags(bullet, textOf(roleSources, byId), proseMode, requirements, coverage, textOf(NAME_SOURCES, byId)));
       }
       claims.push({ field: "bullet", experienceIndex, bulletIndex, sourceIds: valid, flags: uniq(flags) });
     });

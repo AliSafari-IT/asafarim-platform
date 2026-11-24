@@ -131,6 +131,52 @@ describe("checkClaims (#930)", () => {
     expect(bullet(de, 0).flags).toContain("not_in_sources");
   });
 
+  it("flags a claimed requirement the profile denies, even though the cited text names it (#948 review)", () => {
+    const denying = parseProfileContent({
+      experience: [{ title: "Dev", employer: "A", summary: "Built Go services. No Kubernetes experience." }],
+    });
+    const selection = selectTailoringInputs({ profile: denying, jobText: JOB, evidence: NO_EVIDENCE });
+    expect(selection.coverage.find((c) => c.text.includes("Kubernetes"))!.status).toBe("unmet");
+    const check = checkClaims({
+      suggestions: parseTailorSuggestions({ experienceBullets: [["Ran Kubernetes clusters"]], sources: { experienceBullets: [[["exp:0"]]] } }),
+      sources: selection.sources,
+      requirements: selection.requirements,
+      coverage: selection.coverage,
+      outputLanguage: null,
+    });
+    expect(bullet(check as ReturnType<typeof run>, 0).flags).toContain("unmet_requirement");
+  });
+
+  it("a generic word never ties a claim to a requirement: key terms do (#948 review)", () => {
+    const dutch = extractRequirements(JOB).find((r) => r.text.includes("Dutch"))!.id;
+    const check = run(
+      { experienceBullets: [["Built Go services with experience in payments"]], sources: { experienceBullets: [[["exp:0"]]] } },
+      { unmet: [dutch] },
+    );
+    expect(bullet(check, 0).flags).toEqual([]);
+  });
+
+  it("only the role's own text backs a bullet's facts; the lists back names only (#948 review)", () => {
+    const withSummary = parseProfileContent({
+      summary: "Led 12 engineers at a fintech.",
+      skills: [{ name: "PostgreSQL" }, { name: "Docker" }],
+      experience: [{ title: "Dev", employer: "A", summary: "Built Go services." }],
+    });
+    const selection = selectTailoringInputs({ profile: withSummary, jobText: JOB, evidence: NO_EVIDENCE });
+    const check = (text: string, refs: string[]) =>
+      checkClaims({
+        suggestions: parseTailorSuggestions({ experienceBullets: [[text]], sources: { experienceBullets: [[refs]] } }),
+        sources: selection.sources,
+        requirements: selection.requirements,
+        coverage: selection.coverage,
+        outputLanguage: null,
+      }).claims[0]!.flags;
+    // A team size from the summary is not a fact of this role.
+    expect(check("Led 12 engineers building Go services", ["exp:0", "summary"])).toContain("not_in_sources");
+    // A skill name the role does not repeat is fine.
+    expect(check("Built Go services shipped with Docker", ["exp:0", "skills"])).toEqual([]);
+  });
+
   it("the fixture provider cites every bullet's own role, and its output passes", async () => {
     const output = await new TailorFixtureProvider().generate({
       profileText: "",

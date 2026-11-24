@@ -18,8 +18,7 @@ import { getVersion } from "../../../../lib/profile/versions";
 import { extractRequirements } from "../../../../lib/tailoring/selection/requirements";
 import {
   parseUnmetRequirementIds,
-  relevanceScorer,
-  requirementWeights,
+  evidenceRelevanceForJob,
   selectTailoringInputs,
 } from "../../../../lib/tailoring/selection/select";
 import { checkClaims } from "../../../../lib/tailoring/selection/claims";
@@ -147,7 +146,7 @@ export async function POST(request: Request) {
   // #929: only confirmed evidence for this workspace, this job or
   // background, and roles the selected profile still has. #930: the most
   // job-relevant items first, so the budget keeps what this job asks about.
-  const relevance = relevanceScorer(requirementWeights(requirements, targetJob.rawText));
+  const relevance = evidenceRelevanceForJob(targetJob.rawText);
   const evidence = await loadGenerationEvidence(workspace.id, targetJobId, profile, relevance);
   const evidenceText = renderProfessionalEvidence(evidence);
   const motivationText = renderMotivationEvidence(evidence);

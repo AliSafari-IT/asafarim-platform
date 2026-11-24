@@ -23,6 +23,13 @@ export interface JobRequirement {
   priority: RequirementPriority;
   /** Non-generic stems the requirement is about (jobFit.ts's stemming). */
   terms: string[];
+  /** The distinctive terms among them: names written like a technology,
+   *  product or qualification ("React", "TypeScript", "C#", "SAP"). Every
+   *  one must be backed for the requirement to count as supported, so
+   *  "React and TypeScript" is not met by React alone. */
+  keyTerms: string[];
+  /** An explicit experience threshold ("5+ years"), or null. */
+  minYears: number | null;
 }
 
 /** The most requirements one posting yields. Bounds every later step. */
@@ -53,15 +60,23 @@ function fold(text: string): string {
   return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
+/** A heading's label: the part before its first colon, so an inline
+ *  heading ("Requirements: React and TypeScript") is recognised too. */
+function headingLabel(line: string): string {
+  return line.split(/[:：]/)[0]!;
+}
+
 function headingKey(line: string): string {
-  return fold(line.replace(BULLET, "").replace(/^#+\s*/, ""))
-    .replace(/[:：.!?]+\s*$/, "")
+  return fold(headingLabel(line).replace(BULLET, "").replace(/^#+\s*/, ""))
+    .replace(/[.!?]+\s*$/, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function isHeading(line: string): boolean {
-  return line.length <= 60 && (/[:：]\s*$/.test(line) || REQUIREMENT_HEADING.test(headingKey(line)) || OTHER_HEADING.test(headingKey(line)));
+  const key = headingKey(line);
+  if (REQUIREMENT_HEADING.test(key) || OTHER_HEADING.test(key)) return headingLabel(line).length <= 60;
+  return line.length <= 60 && /[:：]\s*$/.test(line);
 }
 
 /** Strip prompt fence sentinels and collapse whitespace: a requirement is
@@ -71,7 +86,8 @@ export function cleanRequirementText(text: string): string {
 }
 
 export function requirementId(text: string): string {
-  const normalised = fold(cleanRequirementText(text)).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  // "+" and "#" stay: "C++" and "C#" are different requirements.
+  const normalised = fold(cleanRequirementText(text)).replace(/[^\p{L}\p{N}+#]+/gu, " ").trim();
   return `req_${createHash("sha256").update(normalised).digest("hex").slice(0, 10)}`;
 }
 
@@ -106,6 +122,28 @@ export function termStems(text: string): Set<string> {
  *  names, first-seen order. */
 export function requirementTerms(text: string): string[] {
   return [...new Set([...contentStems(text), ...shortTerms(text)])];
+}
+
+const DISTINCTIVE = /\d|[+#]|.\.[A-Za-z]|[a-z][A-Z]|^[A-Z]{2,}$/;
+const YEARS = /(\d{1,2})\s*\+?\s*(?:years?|yrs|jaar|jaren|ans|annees|jahre|jahren)\b/gi;
+
+/** Distinctive terms: words written as names (capitalised after the first
+ *  word, or technology-shaped), as stems. */
+function keyTermsOf(text: string): string[] {
+  const words = text.match(/[\p{L}\p{N}][\p{L}\p{N}+#.]*/gu) ?? [];
+  const keys = new Set<string>();
+  words.forEach((word, index) => {
+    const bare = word.replace(/\.+$/, "");
+    if (/^\d+$/.test(bare)) return;
+    if (!(DISTINCTIVE.test(bare) || (index > 0 && /^\p{Lu}/u.test(bare)))) return;
+    for (const term of requirementTerms(bare)) keys.add(term);
+  });
+  return [...keys];
+}
+
+/** Every "N years" mention in a text, with its position. */
+export function yearMentions(text: string): { years: number; index: number }[] {
+  return [...fold(text).matchAll(YEARS)].map((m) => ({ years: Number(m[1]), index: m.index ?? 0 }));
 }
 
 function sentences(text: string): string[] {
@@ -166,7 +204,16 @@ export function extractRequirements(jobText: string): JobRequirement[] {
     const id = requirementId(candidate.text);
     if (seen.has(id)) continue;
     seen.add(id);
-    requirements.push({ id, text, priority: candidate.preferred ? "preferred" : "required", terms: terms.slice(0, 12) });
+    const kept = terms.slice(0, 12);
+    const minYears = yearMentions(candidate.text).reduce<number | null>((max, m) => (max === null || m.years > max ? m.years : max), null);
+    requirements.push({
+      id,
+      text,
+      priority: candidate.preferred ? "preferred" : "required",
+      terms: kept,
+      keyTerms: keyTermsOf(candidate.text).filter((t) => kept.includes(t)),
+      minYears,
+    });
     if (requirements.length >= MAX_REQUIREMENTS) break;
   }
   return requirements;

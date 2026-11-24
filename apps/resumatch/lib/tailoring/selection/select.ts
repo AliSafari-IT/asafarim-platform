@@ -4,7 +4,7 @@ import { evidenceSourceId, renderProfessionalEvidence, type GenerationEvidence }
 import { assertNoContactDetails, buildProfileUnits, unitText, type ProfileUnit } from "../buildProfileText";
 import { splitSentences } from "../ai/coverLetter/claims";
 import { contentStems } from "../jobFit";
-import { extractRequirements, termStems, type JobRequirement } from "./requirements";
+import { extractRequirements, termStems, yearMentions, type JobRequirement } from "./requirements";
 
 /**
  * Requirement-to-evidence selection (#930). Deterministic, no model call.
@@ -129,6 +129,16 @@ export function relevanceScorer(weights: Map<string, number>): (text: string) =>
   };
 }
 
+/**
+ * How confirmed evidence is ranked for one job (#930). Preview, job-fit and
+ * generate-confirm's staleness re-check must all use this one function, or
+ * an unchanged evidence list over budget could keep different items and a
+ * save would be refused as stale.
+ */
+export function evidenceRelevanceForJob(jobText: string): (text: string) => number {
+  return relevanceScorer(requirementWeights(extractRequirements(jobText), jobText));
+}
+
 /** Square brackets in the candidate's own text become parentheses, so a
  *  CV line can never look like a source tag such as "[exp:1]". */
 function untag(text: string): string {
@@ -189,13 +199,40 @@ function selectJobText(jobText: string, requirements: JobRequirement[], budget: 
   return capWithMarker(`${head}${tail}`, budget);
 }
 
-interface SentenceFacts {
+interface SentenceWord {
   stems: Set<string>;
-  negated: boolean;
+  index: number;
+}
+
+interface SentenceFacts {
+  text: string;
+  stems: Set<string>;
+  words: SentenceWord[];
+  years: { years: number; index: number }[];
 }
 
 function sentenceFacts(text: string): SentenceFacts[] {
-  return splitSentences(text).map((sentence) => ({ stems: termStems(sentence), negated: NEGATION.test(sentence) }));
+  return splitSentences(text).map((sentence) => ({
+    text: sentence,
+    stems: termStems(sentence),
+    words: [...sentence.matchAll(/[\p{L}\p{N}][\p{L}\p{N}+#.]*/gu)].map((m) => ({ stems: termStems(m[0]), index: m.index ?? 0 })),
+    years: yearMentions(sentence),
+  }));
+}
+
+/** How far before a term a negation still applies, in characters. */
+const NEGATION_REACH = 40;
+
+/**
+ * Whether one mention of a term is denied: a negation shortly *before* it,
+ * in the same clause. "No Terraform experience" and "geen ervaring met
+ * Excel" deny; "Deployed Kubernetes without downtime" does not, because
+ * the negation is about something after the term.
+ */
+function deniedAt(sentence: string, index: number): boolean {
+  const before = sentence.slice(Math.max(0, index - NEGATION_REACH), index);
+  const clause = before.split(/[,;:()]/).at(-1) ?? "";
+  return NEGATION.test(clause);
 }
 
 function assess(
@@ -206,37 +243,55 @@ function assess(
   const supported = new Set<string>();
   const denied = new Set<string>();
   const bySource: { id: string; hits: number }[] = [];
+  // Terms whose positive mention sits near an "N years" of at least the
+  // posting's threshold.
+  const yearsBacked = new Set<string>();
   for (const source of sources) {
     let hits = 0;
     for (const fact of source.facts) {
       for (const term of requirement.terms) {
         if (!fact.stems.has(term)) continue;
-        if (fact.negated) denied.add(term);
-        else {
+        for (const word of fact.words) {
+          if (!word.stems.has(term)) continue;
+          if (deniedAt(fact.text, word.index)) {
+            denied.add(term);
+            continue;
+          }
           supported.add(term);
           hits += 1;
+          if (requirement.minYears !== null && fact.years.some((y) => y.years >= requirement.minYears! && Math.abs(y.index - word.index) <= NEGATION_REACH)) {
+            yearsBacked.add(term);
+          }
         }
       }
     }
     if (hits > 0) bySource.push({ id: source.id, hits });
   }
+  // Supported needs most of the terms, every distinctive one ("React and
+  // TypeScript" is not met by React alone), and a stated number of years
+  // when the posting sets a threshold. Anything less stays unknown, so the
+  // candidate can be asked.
   const needed = Math.ceil(requirement.terms.length / 2);
-  const isSupported = supported.size >= needed;
-  const profileDenies = !isSupported && denied.size > 0 && [...denied].some((t) => !supported.has(t));
+  const keys = requirement.keyTerms.length > 0 ? requirement.keyTerms : requirement.terms;
+  const yearsOk = requirement.minYears === null || keys.some((t) => yearsBacked.has(t));
+  const isSupported = supported.size >= needed && requirement.keyTerms.every((t) => supported.has(t)) && yearsOk;
+  const deniedKey = [...denied].filter((t) => keys.includes(t));
+  const profileDenies = deniedKey.some((t) => !supported.has(t));
+  const profileContradicts = deniedKey.length > 0 && deniedKey.every((t) => supported.has(t));
   let status: RequirementStatus;
   let unmetBy: RequirementCoverage["unmetBy"] = null;
   if (candidateSaysUnmet) {
     status = isSupported ? "conflict" : "unmet";
     unmetBy = "candidate";
-  } else if (isSupported && denied.size > 0 && [...denied].every((t) => supported.has(t))) {
+  } else if (profileContradicts) {
     // The same term is both claimed and denied: the candidate decides.
     status = "conflict";
     unmetBy = "profile";
-  } else if (isSupported) {
-    status = "supported";
   } else if (profileDenies) {
     status = "unmet";
     unmetBy = "profile";
+  } else if (isSupported) {
+    status = "supported";
   } else {
     status = "unknown";
   }

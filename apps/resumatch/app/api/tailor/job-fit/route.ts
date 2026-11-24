@@ -7,8 +7,7 @@ import { extractRequirements } from "../../../../lib/tailoring/selection/require
 import {
   clarificationQuestions,
   parseUnmetRequirementIds,
-  relevanceScorer,
-  requirementWeights,
+  evidenceRelevanceForJob,
   selectTailoringInputs,
 } from "../../../../lib/tailoring/selection/select";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
@@ -61,7 +60,7 @@ export async function POST(request: Request) {
   const requirements = extractRequirements(targetJob.rawText);
   const unmet = parseUnmetRequirementIds(unmetRequirementIds, requirements);
   if (unmet === null) return NextResponse.json({ error: "Invalid unmetRequirementIds." }, { status: 400 });
-  const relevance = relevanceScorer(requirementWeights(requirements, targetJob.rawText));
+  const relevance = evidenceRelevanceForJob(targetJob.rawText);
   const evidence = await loadGenerationEvidence(workspace.id, targetJobId, version.content, relevance);
   const selection = selectTailoringInputs({
     profile: version.content,

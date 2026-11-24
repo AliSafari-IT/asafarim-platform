@@ -161,7 +161,7 @@ describe("selectTailoringInputs (#930)", () => {
 describe("requirement coverage (#930)", () => {
   const profile = parseProfileContent({
     skills: [{ name: "Go" }, { name: "PostgreSQL" }],
-    experience: [{ title: "Backend Engineer", employer: "Contoso", summary: "Built Go services. Tuned PostgreSQL queries. No Terraform experience." }],
+    experience: [{ title: "Backend Engineer", employer: "Contoso", summary: "Built Go services for 6 years. Tuned PostgreSQL queries. No Terraform experience." }],
   });
 
   it("absence is unknown, never unmet", () => {
@@ -210,6 +210,37 @@ describe("requirement coverage (#930)", () => {
   });
 });
 
+describe("coverage edge cases (#948 review)", () => {
+  const cov = (summary: string, jobText: string) =>
+    selectTailoringInputs({ profile: parseProfileContent({ experience: [{ title: "Dev", employer: "A", summary }] }), jobText, evidence: NO_EVIDENCE }).coverage;
+
+  it("a negation about something else never denies the term", () => {
+    const [k8s] = cov("Deployed Kubernetes clusters without downtime.", "Requirements:\n- Experience with Kubernetes");
+    expect(k8s!.status).toBe("supported");
+  });
+
+  it("half the terms is not enough when a key term is missing", () => {
+    const [both] = cov("Built React applications.", "Requirements:\n- Experience with React and TypeScript");
+    expect(both!.status).toBe("unknown");
+  });
+
+  it("a years threshold needs enough years near the term", () => {
+    expect(cov("Built Go services for 1 year.", "Requirements:\n- 5+ years of experience with Go")[0]!.status).toBe("unknown");
+    expect(cov("Built Go services for 6 years.", "Requirements:\n- 5+ years of experience with Go")[0]!.status).toBe("supported");
+  });
+
+  it("an inline 'Requirements:' heading opens the section, even after Responsibilities", () => {
+    const reqs = extractRequirements("Responsibilities:\n- Review code\nRequirements: Experience with Kubernetes");
+    expect(reqs.map((r) => r.text)).toEqual(["Experience with Kubernetes"]);
+  });
+
+  it("C++ and C# are different requirements", () => {
+    const reqs = extractRequirements("Requirements:\n- Knowledge of C++\n- Knowledge of C#");
+    expect(reqs).toHaveLength(2);
+    expect(reqs[0]!.id).not.toBe(reqs[1]!.id);
+  });
+});
+
 describe("clarificationQuestions (#930)", () => {
   it("asks at most three, about unknown requirements only, required first", () => {
     const job = `Requirements:\n- Knowledge of Rust\n- Knowledge of Elixir\n- Knowledge of Haskell\n- Knowledge of Scala\nNice to have:\n- Knowledge of OCaml`;
@@ -223,7 +254,7 @@ describe("clarificationQuestions (#930)", () => {
 
   it("never asks about what is supported, answered or denied", () => {
     const profile = parseProfileContent({
-      experience: [{ title: "Dev", employer: "A", summary: "Built Go services. Tuned PostgreSQL. No Terraform experience." }],
+      experience: [{ title: "Dev", employer: "A", summary: "Built Go services for 7 years. Tuned PostgreSQL. No Terraform experience." }],
     });
     const reqs = extractRequirements(JOB);
     const dutch = reqs.find((r) => r.text.includes("Dutch"))!.id;
