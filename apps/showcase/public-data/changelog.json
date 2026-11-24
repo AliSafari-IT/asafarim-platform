@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-24",
+    "title": "Resumatch: select job-relevant evidence and ask bounded clarification questions (0.6.6)",
+    "sha": "ab7b4929",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ab7b4929"
+  },
+  {
+    "date": "2026-11-24",
     "title": "Resumatch: applied, responses and cover letters in the Tailor activity chart (0.6.4)",
     "sha": "be432de0",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/be432de0"
@@ -112,11 +118,5 @@
     "title": "Igs: send health check alerts to Telegram as well as Discord",
     "sha": "6862ab5f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/6862ab5f"
-  },
-  {
-    "date": "2026-10-26",
-    "title": "UI: group the app switcher and add ASafariM OS and Android apps",
-    "sha": "1aaa5fee",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1aaa5fee"
   }
 ]
