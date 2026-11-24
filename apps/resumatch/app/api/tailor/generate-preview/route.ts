@@ -23,6 +23,8 @@ import {
 } from "../../../../lib/tailoring/selection/select";
 import { checkClaims } from "../../../../lib/tailoring/selection/claims";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
+import { getWritingPreferences } from "../../../../lib/writingPreferences/store";
+import { resolveWriting } from "../../../../lib/writingPreferences/resolve";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
     outputLanguage,
     proceedDespiteLowFit,
     unmetRequirementIds,
+    useSavedWritingStyle,
   } = (body ?? {}) as {
       profileVersionId?: unknown;
       targetJobId?: unknown;
@@ -95,6 +98,9 @@ export async function POST(request: Request) {
        *  answered "no, I don't have this" to. Validated against the job's
        *  own requirements below; the CV never claims them. */
       unmetRequirementIds?: unknown;
+      /** Optional — #931. false leaves the saved style notes out of this
+       *  run only; the saved preferences themselves are not changed. */
+      useSavedWritingStyle?: unknown;
     };
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
     return NextResponse.json({ error: "profileVersionId and targetJobId are required." }, { status: 400 });
@@ -111,8 +117,13 @@ export async function POST(request: Request) {
   if (outputLanguage !== undefined && !isOutputLanguage(outputLanguage)) {
     return NextResponse.json({ error: "Invalid outputLanguage." }, { status: 400 });
   }
-  if (coverLetterOutputLanguage !== undefined && !isOutputLanguage(coverLetterOutputLanguage)) {
+  // #931: null is an explicit "same as the CV" for this run, which wins
+  // over a saved letter language.
+  if (coverLetterOutputLanguage !== undefined && coverLetterOutputLanguage !== null && !isOutputLanguage(coverLetterOutputLanguage)) {
     return NextResponse.json({ error: "Invalid coverLetterOutputLanguage." }, { status: 400 });
+  }
+  if (useSavedWritingStyle !== undefined && typeof useSavedWritingStyle !== "boolean") {
+    return NextResponse.json({ error: "Invalid useSavedWritingStyle." }, { status: 400 });
   }
   if (typeof instructions === "string" && instructions.length > MAX_INSTRUCTIONS_CHARS) {
     return NextResponse.json({ error: `instructions must be ${MAX_INSTRUCTIONS_CHARS} characters or fewer.` }, { status: 400 });
@@ -139,7 +150,21 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   }
-  const cvLanguage = isOutputLanguage(outputLanguage) ? outputLanguage : null;
+  // #931: this request's choices, then the saved writing preferences, then
+  // the application defaults. Read for this workspace only; a later save
+  // changes future runs, never this preview's snapshot.
+  const savedWriting = await getWritingPreferences(workspace.id);
+  const writing = resolveWriting(
+    {
+      cvLanguage: isOutputLanguage(outputLanguage) ? outputLanguage : undefined,
+      letterTone: coverLetterTone as CoverLetterTone | undefined,
+      letterLength: coverLetterLength as CoverLetterLength | undefined,
+      letterLanguage: coverLetterOutputLanguage === null ? null : isOutputLanguage(coverLetterOutputLanguage) ? coverLetterOutputLanguage : undefined,
+      useSavedStyle: useSavedWritingStyle as boolean | undefined,
+    },
+    savedWriting?.preferences ?? null,
+  );
+  const cvLanguage = writing.cvLanguage.value;
   const requirements = extractRequirements(targetJob.rawText);
   const unmet = parseUnmetRequirementIds(unmetRequirementIds, requirements);
   if (unmet === null) return NextResponse.json({ error: "Invalid unmetRequirementIds." }, { status: 400 });
@@ -167,16 +192,18 @@ export async function POST(request: Request) {
     coverLetter:
       includeCoverLetter === true
         ? {
-            tone: coverLetterTone as CoverLetterTone | undefined,
-            length: coverLetterLength as CoverLetterLength | undefined,
+            tone: writing.letterTone.value,
+            length: writing.letterLength.value,
             // #642: the letter defaults to the language of the CV it's paired with.
-            outputLanguage: isOutputLanguage(coverLetterOutputLanguage) ? coverLetterOutputLanguage : undefined,
+            outputLanguage: writing.letterLanguage.value ?? undefined,
           }
         : null,
     // Only what the run sends: motivation needs a letter.
     evidenceRevisionIds: usedRevisionIds(evidence, includeCoverLetter === true),
     jobTextUsed: selection.jobTextUsed,
     selection: { version: selection.version, unmetRequirementIds: unmet, omittedSentences: selection.omittedSentences },
+    preferenceRevisionId: savedWriting?.revisionId ?? null,
+    writing,
   });
   const letterLanguage = context.coverLetter ? context.coverLetter.outputLanguage : null;
   // Minted up front so both provider calls' cost events can name this
@@ -204,6 +231,7 @@ export async function POST(request: Request) {
     context.lowFit,
     evidenceText,
     selection,
+    context.writing?.cvStyleNote ?? null,
   );
   const coverLetterResult = context.coverLetter
     ? await runCoverLetterProviderCall(
@@ -218,6 +246,7 @@ export async function POST(request: Request) {
         context.coverLetter.outputLanguage,
         context.instructions,
         { evidence: evidenceText, motivation: motivationText },
+        context.writing?.letterStyleNote ?? null,
       )
     : null;
   const { suggestions, degraded, promptVersion, modelVersion } = tailorResult;
@@ -262,6 +291,9 @@ export async function POST(request: Request) {
     lowFit,
     /** #929: how many confirmed evidence items both prompts got. */
     evidenceUsed: context.evidenceRevisionIds.length,
+    /** #931: where each style setting came from, and the saved revision. */
+    writing: context.writing,
+    preferenceRevisionNumber: savedWriting?.revisionNumber ?? null,
     /** #930: requirement coverage, the claim check, and a label for every
      *  source id a claim may cite (the candidate's own data, not model text). */
     requirements: selection.coverage,

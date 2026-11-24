@@ -59,13 +59,15 @@ export async function runCoverLetterProviderCall(
   /** #929 — the confirmed evidence the CV prompt also gets, plus the
    *  candidate's motivation (letter only). */
   evidence: CoverLetterEvidenceInput | null = null,
+  /** #931: the candidate's saved letter style note. Null: no block, no rule. */
+  styleNote: string | null = null,
 ): Promise<CoverLetterProviderCallResult> {
   const primaryName = providerOverride ?? getEnv().aiProvider;
   // Issue #511: RESUMATCH_AI_FALLBACK_PROVIDER, if set.
   const fallbackName = resolveFallbackProvider(primaryName);
   let providerName: ResuMatchAiProvider = primaryName;
   let modelVersion = COVER_LETTER_MODEL_VERSIONS[primaryName];
-  const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length, outputLanguage, instructions, evidence);
+  const prompt = renderCoverLetterPrompt(profileText, jobText, tone, length, outputLanguage, instructions, evidence, styleNote);
 
   let suggestion: CoverLetterSuggestion | null = null;
   let degraded = false;

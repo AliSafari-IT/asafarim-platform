@@ -56,6 +56,8 @@ const cases: Record<
     evidence: "- Project: Billing rewrite. Moved billing to Node.js. [no single role]",
     motivation: "- Motivation: Fintech. I want to work on payments.",
   }),
+  tailorStyle: renderTailorPrompt("profile", "job", null, null, false, null, null, "Short, plain sentences; lead with results."),
+  coverStyle: renderCoverLetterPrompt("profile", "job", "formal", "standard", null, null, null, "Warm but brief; no clichés."),
   jobFetch: renderJobFetchPrompt("https://example.com/job/1"),
   jobMeta: renderJobMetaPrompt("Backend Engineer at Acme"),
 };
@@ -100,28 +102,28 @@ const golden: Record<string, [string, string, string]> = {
   coverDefault: [
     "76aa2c4b5f51d226d837fe3ecdaa7b60ea072ecdfc0c49c4b73595111765d387",
     "0215bacb2ac4f82a00baa48109361f01ffb0ba8f3c60e20a777affabe4e91cef",
-    "d9cf9ae08390f4521d4c1c136fe3d042f878434b61be53067a1d0ed94b6ca8e5",
+    "7b19237e5c14b58a9e96a0a8d3599b820ce04aa1583de43f7a46e4654f1b7a7e",
   ],
   coverNl: [
     "44053efa1e00cd5ba8001a77aac2cac8a03ca4d374042122779e826ad45701cb",
     "6f88d26d2ac1c04ffb0164325e0714171dc0cb5001e7002273d4856afe038e39",
-    "500bacc206b00d5beaae6cad5f583cbb42a3c58d4d59bc89f97a56b7d6cc17af",
+    "d995edf211b95ae3dc8c0bef5dc4056db00bc648384ec936476ef2e85fd117aa",
   ],
   // cover_letter@5 (#928): the application note, fenced like the CV's.
   coverInstructions: [
     "76aa2c4b5f51d226d837fe3ecdaa7b60ea072ecdfc0c49c4b73595111765d387",
     "4afa082202c6eeaea2fc2b2bc25abf9dad25fbddd55f8eec455bddbc0edab10d",
-    "408a42b6295a4d98e71f0d7558f79d0e506074952f2bc7855cecfacffb8f6d48",
+    "20c4ef30ba6d87f466953425e6589ccbe83e61cb58f91c567ce57e7f4a7bfe3d",
   ],
   tailor: [
     "36cb1fec013d73980e1347a6a9781a82d852ccfd77a2fcb96d7c4f5cd35f3304",
     "8b3173be23606e5fd93af4a88284ced0690430d4fd1ffa62e0e08e190d8996c7",
-    "4f023d39df7a23842da0ee20b1c697e2e3f312b560e5a87a7e9c9aeb68451ef6",
+    "cf326ff4783717a4c94ba4c3bca1281be66b0a47197b2028d15345f37d0fc9eb",
   ],
   tailorFull: [
     "cd36d7dc027c1b1d3469385463dadcbd5ecffd2cd221c2945e3d861f9597a20e",
     "e7d845365ec6104ed775a3387ebcc6adbbc6cc77477b1205729449a09714be1f",
-    "71a79d2d7e1268987efa8f238399608989dc0e03a391b54f9c196de8ea242c2a",
+    "b8f0197a806a2990f11ebc2a6ca7cae8e91e61bd21a4aaa7d7887229f63248e9",
   ],
   // tailor_resume@5: the LOW-FIT rule. @6 (#928) relabels the instructions
   // block "for this application", so every tailor user prompt moved; the
@@ -129,7 +131,7 @@ const golden: Record<string, [string, string, string]> = {
   tailorLowFit: [
     "5815c46e8b465ffbb5ed3a9e11ac182a2c9a7c42c660ede34fd49b5df4ae473e",
     "8b3173be23606e5fd93af4a88284ced0690430d4fd1ffa62e0e08e190d8996c7",
-    "dda64e45fed2880073015c59b7215fab8b9059480fa7166a6e88eb458a7038a8",
+    "498ed9d1cfff9830d658227d17afe0665d5054b0761bf5fa808feceada6fc1f8",
   ],
   // tailor_resume@7 / cover_letter@6 (#929): the prompts above are byte for
   // byte the same without evidence (only the cache keys moved with the
@@ -137,7 +139,7 @@ const golden: Record<string, [string, string, string]> = {
   tailorEvidence: [
     "aa13828877d068939674995cba3299f98fdfe715911bcc183214b32044ecbaa6",
     "d39fbfc5111d6271785df74b75544ece57188ea2615ad91dbf71e462e4d78091",
-    "79937cb6643ffbb9a7ec041c2f3aacc438713e4fef84808117e510438cc3ab69",
+    "0a41dfb4a35a2936ff914dd37adfc4384d200784c0695c30237f0e83ab12f855",
   ],
   // tailor_resume@8 (#930): the SOURCES and "unknown is not unmet" rules
   // move every tailor system prompt; user prompts are unchanged without
@@ -145,12 +147,25 @@ const golden: Record<string, [string, string, string]> = {
   tailorGaps: [
     "5e5f2db9e16a21df0a3289a4e47ccb10d0344c6d52eab194d52b3be721824a8c",
     "ca862b8aa802d75864ca165f4db74bd6658f4c0c05fd8f72a70abc3b65f847d5",
-    "61561bed3fdee298c16fb829af6064d7d70baa53571005c7236d218a2b077f94",
+    "dd15067af8ed08ae735d6e1ca01fe6d1b3e81b4ac87fbf6b4626c50471f3b63e",
   ],
   coverEvidence: [
     "6719a049e67fd457a45b7679edf63d8fc12f446656f67187a7129ef6b9face98",
     "c337d9e28cf6d28b1ef6602e438cac13cb06ea0e43a6fd9979c2ef9157ae8d78",
-    "b23c1f3d932b45b9307825c3173b7c3001b1e3e834114afccf9dbaa92a1f2ce1",
+    "ab8237c197d8f5c761ea192f2bd668b03e85a34fbd2bfeb10b5777a41405ca37",
+  ],
+  // tailor_resume@9 / cover_letter@7 (#931): every prompt above is byte for
+  // byte the same without a saved style note (only the cache keys moved with
+  // the version); these two carry the WRITING_PREFERENCES block and rule.
+  tailorStyle: [
+    "4455fe557750e107eacc9f3e02f2830c88683af0686f8be0fa06b25a910421f3",
+    "587d1265a414c46b01b07f4c2d2401db6185b4ba718af29b158c51ca114904d5",
+    "39a97afcfd6b4b0314fa65c55ec09add7fe1b9facebdcae7d994577d8dd88386",
+  ],
+  coverStyle: [
+    "028668a128ee752b8eabe983bfb229437bddceca6b0105f5f7451a55edf4fecc",
+    "d08f02203d7048e893959a0a452535d724d1b6eae07c76573add2b3be8ea95d5",
+    "46b204d380837f5fe047179aedc513b8153309e77d2929475cf496fb68b114d1",
   ],
   jobFetch: [
     "c7a6a8bfd85b3d045d680f3445f86ecd315e8a4350e5bf600770baa518599111",

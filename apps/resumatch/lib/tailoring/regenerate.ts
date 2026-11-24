@@ -33,6 +33,10 @@ export interface RegenerateSeed {
   cvLanguage: OutputLanguage | null;
   instructions: string;
   includeCoverLetter: boolean;
+  /** Whether the saved CV had a letter. Without one ("Add a cover letter")
+   *  the letter's settings come from the saved writing preferences (#931),
+   *  not from the null that means "same as the CV". */
+  hadCoverLetter?: boolean;
   /** null = "same as the CV", the flow's own meaning. */
   coverLetterLanguage: OutputLanguage | null;
   /** The letter's tone and length from the saved context; null = the
@@ -76,6 +80,7 @@ export function buildRegenerateSeed(row: RegenerateSourceRow, wantLetter: boolea
     cvLanguage,
     instructions: row.instructions ?? "",
     includeCoverLetter: wantLetter || row.coverLetter !== null,
+    hadCoverLetter: row.coverLetter !== null,
     // Only a letter that really differed from the CV keeps its own
     // language; otherwise it follows the CV, as it does on a fresh run.
     coverLetterLanguage: letterLanguage && letterLanguage !== cvLanguage ? letterLanguage : null,
