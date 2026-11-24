@@ -6,7 +6,9 @@ import { getTranslator } from "../../lib/i18n-server";
 import { getJourneyCounts, jobKey } from "../../lib/journey";
 import { getConfirmedVersion } from "../../lib/profile/versions";
 import { getCurrentWorkspace } from "../../lib/workspace";
-import { ActivityBars, busiestDay, lastNDays } from "../components/app/Charts";
+import { busiestDay, lastNDays } from "../components/app/Charts";
+import { ActivitySeriesChart } from "../components/app/ActivitySeriesChart";
+import { activityFunnelLine, buildActivitySeries, responseDates } from "../../lib/activity/dailySeries";
 import { JourneyTracker } from "../components/app/JourneyTracker";
 import { PageHero } from "../components/app/PageHero";
 import { StatRow, StatTile } from "../components/app/Stats";
@@ -127,7 +129,7 @@ export default async function TailorPage({
     }
   }
   const since = new Date(Date.now() - ACTIVITY_DAYS * 86_400_000);
-  const [history, coverLetters, degraded, jobs, recent] = await Promise.all([
+  const [history, coverLetters, degraded, jobs, recent, recentLetters, recentApplied, recentStatusChanges] = await Promise.all([
     db.tailoredResume.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { createdAt: "desc" },
@@ -150,22 +152,63 @@ export default async function TailorPage({
     }),
     db.tailoredResume.findMany({
       where: { workspaceId: workspace.id, createdAt: { gte: since } },
+      select: { createdAt: true, degraded: true },
+    }),
+    db.coverLetter.findMany({
+      where: { workspaceId: workspace.id, createdAt: { gte: since } },
       select: { createdAt: true },
     }),
+    db.application.findMany({
+      where: { workspaceId: workspace.id, appliedAt: { gte: since } },
+      select: { appliedAt: true },
+    }),
+    // Responses: the application row has no "answered on" date, so the
+    // status-change audit log is the record of when it happened (#943).
+    db.auditEvent.findMany({
+      where: { workspaceId: workspace.id, action: "application.status_changed", createdAt: { gte: since } },
+      select: { createdAt: true, metadata: true },
+    }),
   ]);
+  const now = new Date();
   const activity = lastNDays(
     recent.map((r) => r.createdAt),
     ACTIVITY_DAYS,
+    now,
   );
-  const lastTwoWeeks = activity.reduce((sum, d) => sum + d.count, 0);
+  const windowStart = `${activity[0]?.day ?? ""}T00:00:00.000Z`;
+  const recentDegraded = recent.filter((r) => r.degraded && r.createdAt.toISOString() >= windowStart).length;
+  const chart = buildActivitySeries(
+    {
+      tailored: recent.map((r) => r.createdAt),
+      coverLetters: recentLetters.map((r) => r.createdAt),
+      applied: recentApplied.flatMap((r) => (r.appliedAt ? [r.appliedAt] : [])),
+      responses: responseDates(recentStatusChanges),
+    },
+    {
+      tailored: t("resumatch.tailor.activity.series.tailored"),
+      coverLetters: t("resumatch.tailor.activity.series.coverLetters"),
+      applied: t("resumatch.tailor.activity.series.applied"),
+      responses: t("resumatch.tailor.activity.series.responses"),
+    },
+    ACTIVITY_DAYS,
+    now,
+  );
+  const totals = Object.fromEntries(chart.series.map((s) => [s.key, s.total])) as Record<
+    (typeof chart.series)[number]["key"],
+    number
+  >;
   const distinctJobs = new Set(jobs.map((r) => jobKey(r.targetJob))).size;
   const busiest = busiestDay(activity);
   const activitySummary = [
-    t("resumatch.tailor.activity.aria", { total: lastTwoWeeks, days: ACTIVITY_DAYS }),
+    t("resumatch.tailor.activity.ariaSeries", {
+      days: ACTIVITY_DAYS,
+      list: chart.series.map((s) => `${s.label} ${s.total}`).join(", "),
+    }),
     busiest ? t("resumatch.tailor.activity.busiest", { day: busiest.day, count: busiest.count }) : null,
   ]
     .filter(Boolean)
     .join(" ");
+  const funnel = activityFunnelLine(t, totals, recentDegraded);
 
   return (
     <div className="rx">
@@ -205,12 +248,15 @@ export default async function TailorPage({
             <div className="rx-panel__head">
               <div>
                 <h2 className="rx-panel__title">{t("resumatch.tailor.activity.title", { days: ACTIVITY_DAYS })}</h2>
-                <p className="rx-panel__sub">
-                  {t(`resumatch.tailor.activity.sub.${lastTwoWeeks === 1 ? "one" : "other"}`, { count: lastTwoWeeks })}
-                </p>
+                <p className="rx-panel__sub">{funnel}</p>
               </div>
             </div>
-            <ActivityBars days={activity} summary={activitySummary} />
+            <ActivitySeriesChart
+              days={chart.days}
+              series={chart.series}
+              summary={activitySummary}
+              legendLabel={t("resumatch.tailor.activity.legend")}
+            />
           </section>
 
           <section className="rx-panel" aria-labelledby="rx-recent-title">
